@@ -1,3 +1,4 @@
+import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,7 +24,7 @@ export default function ImagePreviewScreen() {
           <View style={styles.content}>
             <AppCard style={styles.imageCard}>
               <View style={[styles.imagePlaceholder, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-                <Text style={[styles.placeholderIcon, { color: theme.textSecondary }]}>{'[ Photo ]'}</Text>
+                <Feather name="image" size={48} color={theme.textSecondary} />
               </View>
               <Text style={[styles.statusText, { color: theme.textSecondary }]}>
                 Image ready for symptom checking
@@ -80,9 +81,6 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  placeholderIcon: {
-    ...Typography.subheading,
   },
   statusText: {
     ...Typography.bodySmall,

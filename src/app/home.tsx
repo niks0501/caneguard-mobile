@@ -1,3 +1,4 @@
+import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,7 +16,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 type QuickAction = {
   title: string;
-  icon: string;
+  icon: keyof typeof Feather.glyphMap;
   primary?: boolean;
   badge?: string;
   onPress: () => void;
@@ -70,24 +71,24 @@ export default function HomeScreen() {
   const quickActions: QuickAction[] = [
     {
       title: 'Start Scan',
-      icon: '+',
+      icon: 'camera',
       primary: true,
       onPress: () => router.push('/scan'),
     },
     {
       title: 'My Records',
-      icon: 'R',
+      icon: 'folder',
       onPress: () => router.push('/records'),
     },
     {
       title: 'Sync Queue',
-      icon: 'Q',
+      icon: 'refresh-cw',
       badge: '2',
       onPress: () => showComingSoon('Sync Queue'),
     },
     {
       title: 'Help & FAQ',
-      icon: '?',
+      icon: 'help-circle',
       onPress: () => showComingSoon('Help & FAQ'),
     },
   ];
@@ -111,8 +112,8 @@ export default function HomeScreen() {
                   <View style={[styles.onlinePill, { backgroundColor: theme.surfaceElevated }]}> 
                     <Text style={[styles.onlineText, { color: theme.success }]}>Online</Text>
                   </View>
-                  <HeaderIconButton label="N" accessibilityLabel="Open profile" />
-                  <HeaderIconButton label="?" accessibilityLabel="Open help" />
+                  <HeaderIconButton icon="user" accessibilityLabel="Open profile" />
+                  <HeaderIconButton icon="help-circle" accessibilityLabel="Open help" />
                 </View>
               </View>
 
@@ -162,11 +163,11 @@ export default function HomeScreen() {
 
         <View style={[styles.bottomNavWrap, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
           <View style={styles.bottomNav}>
-            <BottomNavItem label="Home" icon="H" active />
-            <BottomNavItem label="Scan" icon="S" onPress={() => router.push('/scan')} />
-            <BottomNavItem label="Records" icon="R" onPress={() => router.push('/records')} />
-            <BottomNavItem label="Settings" icon="O" onPress={() => router.push('/settings')} />
-            <BottomNavItem label="Reports" icon="P" onPress={() => router.push('/reports')} />
+            <BottomNavItem label="Home" icon="home" active />
+            <BottomNavItem label="Scan" icon="camera" onPress={() => router.push('/scan')} />
+            <BottomNavItem label="Records" icon="folder" onPress={() => router.push('/records')} />
+            <BottomNavItem label="Settings" icon="settings" onPress={() => router.push('/settings')} />
+            <BottomNavItem label="Reports" icon="bar-chart-2" onPress={() => router.push('/reports')} />
           </View>
         </View>
       </View>
@@ -180,7 +181,7 @@ function SectionTitle({ title }: { title: string }) {
   return <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>{title}</Text>;
 }
 
-function HeaderIconButton({ label, accessibilityLabel }: { label: string; accessibilityLabel: string }) {
+function HeaderIconButton({ icon, accessibilityLabel }: { icon: keyof typeof Feather.glyphMap; accessibilityLabel: string }) {
   const theme = useTheme();
 
   return (
@@ -192,7 +193,7 @@ function HeaderIconButton({ label, accessibilityLabel }: { label: string; access
         { backgroundColor: theme.primaryLight },
         pressed && styles.pressed,
       ]}>
-      <Text style={[styles.headerIconText, { color: theme.surfaceElevated }]}>{label}</Text>
+      <Feather name={icon} size={20} color={theme.surfaceElevated} />
     </Pressable>
   );
 }
@@ -221,7 +222,7 @@ function QuickActionCard({ action }: { action: QuickAction }) {
             borderColor: isPrimary ? theme.primaryLight : theme.border,
           },
         ]}>
-        <Text style={[styles.quickIconText, { color: isPrimary ? theme.surfaceElevated : theme.primaryDark }]}>{action.icon}</Text>
+        <Feather name={action.icon} size={18} color={isPrimary ? theme.surfaceElevated : theme.primaryDark} />
       </View>
       <Text style={[styles.quickTitle, { color: isPrimary ? theme.surfaceElevated : theme.primaryDark }]}>{action.title}</Text>
       {action.badge ? (
@@ -259,7 +260,7 @@ function BottomNavItem({
   onPress,
 }: {
   label: string;
-  icon: string;
+  icon: keyof typeof Feather.glyphMap;
   active?: boolean;
   onPress?: () => void;
 }) {
@@ -272,9 +273,11 @@ function BottomNavItem({
       accessibilityState={{ selected: active }}
       onPress={onPress}
       style={({ pressed }) => [styles.navItem, pressed && styles.pressed]}>
-      <View style={[styles.navIcon, { borderColor: active ? theme.primary : theme.textSecondary }]}> 
-        <Text style={[styles.navIconText, { color: active ? theme.primary : theme.textSecondary }]}>{icon}</Text>
-      </View>
+      <Feather
+        name={icon}
+        size={ComponentTokens.bottomNav.iconSize}
+        color={active ? theme.primary : theme.textSecondary}
+      />
       <Text style={[styles.navLabel, { color: active ? theme.primary : theme.textSecondary }]}>{label}</Text>
     </Pressable>
   );
@@ -343,10 +346,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerIconText: {
-    ...Typography.bodySmall,
-    fontWeight: '800',
-  },
   locationPill: {
     minHeight: 34,
     borderRadius: Radius.md,
@@ -391,10 +390,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  quickIconText: {
-    ...Typography.caption,
-    fontWeight: '900',
   },
   quickTitle: {
     ...Typography.bodySmall,
@@ -524,19 +519,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
-  },
-  navIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: Radius.xs,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navIconText: {
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '900',
   },
   navLabel: {
     fontSize: 10,

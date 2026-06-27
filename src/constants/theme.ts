@@ -182,6 +182,14 @@ export const ComponentTokens = {
   bottomNav: { height: 64, iconSize: 22 },
 } as const;
 
+export const IconSize = {
+  sm: 16,
+  md: 20,
+  lg: 24,
+  xl: 32,
+  '2xl': 48,
+} as const;
+
 export const Layout = {
   maxContentWidth: 800,
   mobileMaxWidth: 430,

@@ -1,3 +1,4 @@
+import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -26,7 +27,7 @@ export function ScreenHeader({ title, showBack = true, onBackPress }: ScreenHead
               { borderColor: theme.border, backgroundColor: theme.surfaceElevated },
               pressed && { opacity: 0.7 },
             ]}>
-            <Text style={[styles.backIcon, { color: theme.text }]}>{'<'}</Text>
+            <Feather name="chevron-left" size={20} color={theme.text} />
           </Pressable>
         ) : null}
         <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
@@ -55,10 +56,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backIcon: {
-    ...Typography.bodySmall,
-    fontWeight: '800',
   },
   title: {
     ...Typography.heading,

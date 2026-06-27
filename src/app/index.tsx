@@ -1,98 +1,92 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { AppButton } from '@/components/ui/AppButton';
+import { ScreenContainer } from '@/components/ui/ScreenContainer';
+import { Radius, Spacing, Typography } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+export default function SplashScreen() {
+  const theme = useTheme();
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <ScreenContainer contentStyle={styles.container}>
+      <View style={styles.brandWrap}>
+        <View
+          accessibilityLabel="Minimal sugarcane leaf mark"
+          accessible
+          style={[styles.leafMark, { backgroundColor: theme.primary }]}>
+          <View style={[styles.leafBlade, styles.leafBladeLeft, { backgroundColor: theme.accent }]} />
+          <View style={[styles.leafBlade, styles.leafBladeRight, { backgroundColor: theme.accent }]} />
+          <View style={[styles.leafStem, { backgroundColor: theme.surfaceElevated }]} />
+        </View>
+        <Text style={[styles.appName, { color: theme.text }]}>CaneGuard</Text>
+        <Text style={[styles.subtitle, { color: theme.primaryDark }]}>AI-Based Disease Detection for Sugarcane</Text>
+      </View>
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      <View style={styles.actions}>
+        <AppButton onPress={() => router.push('/register')} accessibilityLabel="Get started with CaneGuard">
+          Get Started
+        </AppButton>
+        <AppButton
+          variant="text"
+          onPress={() => router.push('/login')}
+          accessibilityLabel="I already have an account">
+          I already have an account
+        </AppButton>
+      </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     justifyContent: 'center',
-    flexDirection: 'row',
+    gap: Spacing['3xl'],
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
+  brandWrap: {
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    gap: Spacing.md,
   },
-  heroSection: {
+  leafMark: {
+    width: 92,
+    height: 92,
+    borderRadius: Radius['2xl'],
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+    overflow: 'hidden',
   },
-  title: {
+  leafBlade: {
+    position: 'absolute',
+    width: 18,
+    height: 62,
+    borderRadius: Radius.full,
+  },
+  leafBladeLeft: {
+    transform: [{ rotate: '-32deg' }],
+    left: 28,
+    top: 13,
+  },
+  leafBladeRight: {
+    transform: [{ rotate: '32deg' }],
+    right: 28,
+    top: 13,
+  },
+  leafStem: {
+    width: 8,
+    height: 56,
+    borderRadius: Radius.full,
+    transform: [{ rotate: '2deg' }],
+  },
+  appName: {
+    ...Typography.display,
     textAlign: 'center',
   },
-  code: {
-    textTransform: 'uppercase',
+  subtitle: {
+    ...Typography.body,
+    textAlign: 'center',
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  actions: {
+    gap: Spacing.sm,
   },
 });

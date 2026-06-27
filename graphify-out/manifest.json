@@ -30,48 +30,13 @@
     "semantic_hash": ""
   },
   "src/app/_layout.tsx": {
-    "mtime": 1782473487.8554668,
-    "ast_hash": "3283bb4852fbf4fd8d378fe5f6858df1",
-    "semantic_hash": ""
-  },
-  "src/app/explore.tsx": {
-    "mtime": 1782473487.8569553,
-    "ast_hash": "42adf91e47cfe6b5d4ede54a35db24d0",
+    "mtime": 1782552897.9289823,
+    "ast_hash": "2c29ddc71588ab305faba14488705cf1",
     "semantic_hash": ""
   },
   "src/app/index.tsx": {
-    "mtime": 1782473487.8589745,
-    "ast_hash": "c6dba393a45b6d4e24d2f0bb62d6c0bf",
-    "semantic_hash": ""
-  },
-  "src/components/animated-icon.tsx": {
-    "mtime": 1782473487.8554668,
-    "ast_hash": "72e8849faa65fa5446521b02e54e5106",
-    "semantic_hash": ""
-  },
-  "src/components/animated-icon.web.tsx": {
-    "mtime": 1782473487.8565454,
-    "ast_hash": "2defa175163e104a6e2232436fa77e30",
-    "semantic_hash": ""
-  },
-  "src/components/app-tabs.tsx": {
-    "mtime": 1782473487.8567557,
-    "ast_hash": "7f9ddbb00991d090e67f4eeff23f89e8",
-    "semantic_hash": ""
-  },
-  "src/components/app-tabs.web.tsx": {
-    "mtime": 1782473487.8569553,
-    "ast_hash": "d197b6fde1ead811d986e454f2e27064",
-    "semantic_hash": ""
-  },
-  "src/components/external-link.tsx": {
-    "mtime": 1782473487.8582554,
-    "ast_hash": "a71bdc8e0bd55812a1e97662ade442d1",
-    "semantic_hash": ""
-  },
-  "src/components/hint-row.tsx": {
-    "mtime": 1782473487.8586607,
-    "ast_hash": "1ac80baf6b0a5c3d8c1ea371d5a0dbc5",
+    "mtime": 1782554402.799631,
+    "ast_hash": "0c7770c53b5e42f10f28a3b06ce90822",
     "semantic_hash": ""
   },
   "src/components/themed-text.tsx": {
@@ -84,19 +49,9 @@
     "ast_hash": "f935dbbcf5a5067a417ea7b329727653",
     "semantic_hash": ""
   },
-  "src/components/ui/collapsible.tsx": {
-    "mtime": 1782473487.8569553,
-    "ast_hash": "24105f00e6631a1cb1daeaef9d4aa808",
-    "semantic_hash": ""
-  },
-  "src/components/web-badge.tsx": {
-    "mtime": 1782473487.860957,
-    "ast_hash": "6d02b3c146c2ed6a3d3b7b8764e17602",
-    "semantic_hash": ""
-  },
   "src/constants/theme.ts": {
-    "mtime": 1782473487.8527403,
-    "ast_hash": "9507bd7aa3ee042af2ad8a99ebbaa8b6",
+    "mtime": 1782551424.3049676,
+    "ast_hash": "4446d7dce14620bfdd5929520aa1b7f5",
     "semantic_hash": ""
   },
   "src/hooks/use-color-scheme.ts": {
@@ -105,8 +60,8 @@
     "semantic_hash": ""
   },
   "src/hooks/use-color-scheme.web.ts": {
-    "mtime": 1782473487.8552384,
-    "ast_hash": "071fbb9a1a05ffb8af4b7d3b1ffa72d6",
+    "mtime": 1782553543.3565614,
+    "ast_hash": "abbbd8e6cbe2d4dc498915afc89547e7",
     "semantic_hash": ""
   },
   "src/hooks/use-theme.ts": {
@@ -242,6 +197,36 @@
   "assets/images/tutorial-web.png": {
     "mtime": 1782473487.8527403,
     "ast_hash": "c62d22797f3002396754d8cc55b0ae1a",
+    "semantic_hash": ""
+  },
+  "src/app/login.tsx": {
+    "mtime": 1782554093.1871634,
+    "ast_hash": "30c509097bd0699d3b9f7262a6ac31ea",
+    "semantic_hash": ""
+  },
+  "src/app/register.tsx": {
+    "mtime": 1782554255.6669717,
+    "ast_hash": "0a9752cc822ab8638903d02a1d347239",
+    "semantic_hash": ""
+  },
+  "src/components/ui/AppButton.tsx": {
+    "mtime": 1782552985.539946,
+    "ast_hash": "4c8e69cbe4310a45f95b8ebd5ef36037",
+    "semantic_hash": ""
+  },
+  "src/components/ui/AppCard.tsx": {
+    "mtime": 1782553283.098874,
+    "ast_hash": "1eaf5c76f04ecc03553433cfe88c2264",
+    "semantic_hash": ""
+  },
+  "src/components/ui/ScreenContainer.tsx": {
+    "mtime": 1782553005.9260232,
+    "ast_hash": "784eaea80486e620b8735d6a2ad9a3bf",
+    "semantic_hash": ""
+  },
+  "src/components/ui/TextField.tsx": {
+    "mtime": 1782553005.9260232,
+    "ast_hash": "2d6266bef6d1c20cc8bc23b9883f93c8",
     "semantic_hash": ""
   }
 }

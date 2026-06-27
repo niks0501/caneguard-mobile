@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
-import { ScreenContainer } from '@/components/ui/ScreenContainer';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SymptomChecklistItem } from '@/components/ui/SymptomChecklistItem';
-import { ComponentTokens, Spacing, Typography } from '@/constants/theme';
+import { ComponentTokens, Layout, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 const SYMPTOMS = [
@@ -44,64 +45,81 @@ export default function SymptomChecklistScreen() {
   };
 
   return (
-    <ScreenContainer contentStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>Confirm visible symptoms</Text>
-        <Text style={[styles.instruction, { color: theme.textSecondary }]}>
-          Select the symptoms that are visible in the sugarcane image or plant.
-        </Text>
-      </View>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
+      <View style={styles.root}>
+        <ScreenHeader title="Symptoms" />
 
-      <View style={styles.section}>
-        <Text style={[styles.sectionLabel, { color: theme.text }]}>Symptoms</Text>
-        <View style={styles.symptomList}>
-          {SYMPTOMS.map((symptom) => (
-            <SymptomChecklistItem
-              key={symptom}
-              label={symptom}
-              selected={selectedSymptoms.has(symptom)}
-              onToggle={() => toggleSymptom(symptom)}
-            />
-          ))}
-        </View>
-      </View>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          style={styles.scrollView}>
+          <View style={styles.content}>
+            <Text style={[styles.instruction, { color: theme.textSecondary }]}>
+              Select the symptoms that are visible in the sugarcane image or plant.
+            </Text>
 
-      <View style={styles.section}>
-        <Text style={[styles.sectionLabel, { color: theme.text }]}>Severity</Text>
-        <View style={styles.severityRow}>
-          {SEVERITIES.map((severity) => {
-            const isSelected = selectedSeverity === severity;
-            return (
-              <AppButton
-                key={severity}
-                variant={isSelected ? 'primary' : 'secondary'}
-                onPress={() => setSelectedSeverity(severity)}
-                accessibilityLabel={`Select severity: ${severity}`}
-                style={styles.severityButton}>
-                {severity}
-              </AppButton>
-            );
-          })}
-        </View>
-      </View>
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, { color: theme.text }]}>Symptoms</Text>
+              <View style={styles.symptomList}>
+                {SYMPTOMS.map((symptom) => (
+                  <SymptomChecklistItem
+                    key={symptom}
+                    label={symptom}
+                    selected={selectedSymptoms.has(symptom)}
+                    onToggle={() => toggleSymptom(symptom)}
+                  />
+                ))}
+              </View>
+            </View>
 
-      <AppButton onPress={handleContinue} disabled={!canContinue} accessibilityLabel="Continue to analysis result">
-        Continue
-      </AppButton>
-    </ScreenContainer>
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, { color: theme.text }]}>Severity</Text>
+              <View style={styles.severityRow}>
+                {SEVERITIES.map((severity) => {
+                  const isSelected = selectedSeverity === severity;
+                  return (
+                    <AppButton
+                      key={severity}
+                      variant={isSelected ? 'primary' : 'secondary'}
+                      onPress={() => setSelectedSeverity(severity)}
+                      accessibilityLabel={`Select severity: ${severity}`}
+                      style={styles.severityButton}>
+                      {severity}
+                    </AppButton>
+                  );
+                })}
+              </View>
+            </View>
+
+            <AppButton onPress={handleContinue} disabled={!canContinue} accessibilityLabel="Continue to analysis result">
+              Continue
+            </AppButton>
+          </View>
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    gap: ComponentTokens.screen.sectionGap,
+  safe: {
+    flex: 1,
   },
-  header: {
-    gap: Spacing.sm,
+  root: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    alignItems: 'center',
+  },
+  content: {
+    width: '100%',
+    maxWidth: Layout.mobileMaxWidth,
+    paddingHorizontal: ComponentTokens.screen.horizontalPadding,
     paddingTop: Spacing.lg,
-  },
-  title: {
-    ...Typography.heading,
+    gap: ComponentTokens.screen.sectionGap,
   },
   instruction: {
     ...Typography.body,

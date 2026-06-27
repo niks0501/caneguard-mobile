@@ -77,7 +77,7 @@ export default function HomeScreen() {
     {
       title: 'My Records',
       icon: 'R',
-      onPress: () => showComingSoon('My Records'),
+      onPress: () => router.push('/records'),
     },
     {
       title: 'Sync Queue',
@@ -164,9 +164,9 @@ export default function HomeScreen() {
           <View style={styles.bottomNav}>
             <BottomNavItem label="Home" icon="H" active />
             <BottomNavItem label="Scan" icon="S" onPress={() => router.push('/scan')} />
-            <BottomNavItem label="Records" icon="R" onPress={() => showComingSoon('Records')} />
-            <BottomNavItem label="Settings" icon="O" onPress={() => showComingSoon('Settings')} />
-            <BottomNavItem label="Reports" icon="P" onPress={() => showComingSoon('Reports')} />
+            <BottomNavItem label="Records" icon="R" onPress={() => router.push('/records')} />
+            <BottomNavItem label="Settings" icon="O" onPress={() => router.push('/settings')} />
+            <BottomNavItem label="Reports" icon="P" onPress={() => router.push('/reports')} />
           </View>
         </View>
       </View>

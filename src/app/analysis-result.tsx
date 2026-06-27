@@ -1,12 +1,13 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
 import { DiseaseBadge } from '@/components/ui/DiseaseBadge';
-import { ScreenContainer } from '@/components/ui/ScreenContainer';
-import { ComponentTokens, DiseaseTokens, Radius, Spacing, Typography } from '@/constants/theme';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { ComponentTokens, DiseaseTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 const MOCK_DISEASE = DiseaseTokens.downyMildew;
@@ -21,76 +22,93 @@ export default function AnalysisResultScreen() {
   const severity = params.severity ? decodeURIComponent(params.severity) : 'Moderate';
 
   return (
-    <ScreenContainer contentStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>Analysis Result</Text>
-      </View>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
+      <View style={styles.root}>
+        <ScreenHeader title="Analysis Result" />
 
-      <AppCard style={styles.resultCard}>
-        <DiseaseBadge label={MOCK_DISEASE.label} color={MOCK_DISEASE.color} background={MOCK_DISEASE.background} />
-        <Text style={[styles.diseaseName, { color: theme.text }]}>Possible disease: {MOCK_DISEASE.label}</Text>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          style={styles.scrollView}>
+          <View style={styles.content}>
+            <AppCard style={styles.resultCard}>
+              <DiseaseBadge label={MOCK_DISEASE.label} color={MOCK_DISEASE.color} background={MOCK_DISEASE.background} />
+              <Text style={[styles.diseaseName, { color: theme.text }]}>Possible disease: {MOCK_DISEASE.label}</Text>
 
-        <View style={styles.metrics}>
-          <View style={[styles.metricItem, { backgroundColor: theme.surfaceMuted }]}>
-            <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Confidence</Text>
-            <Text style={[styles.metricValue, { color: theme.primary }]}> {MOCK_CONFIDENCE}%</Text>
+              <View style={styles.metrics}>
+                <View style={[styles.metricItem, { backgroundColor: theme.surfaceMuted }]}>
+                  <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Confidence</Text>
+                  <Text style={[styles.metricValue, { color: theme.primary }]}> {MOCK_CONFIDENCE}%</Text>
+                </View>
+                <View style={[styles.metricItem, { backgroundColor: theme.surfaceMuted }]}>
+                  <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Severity</Text>
+                  <Text style={[styles.metricValue, { color: theme.text }]}>{severity}</Text>
+                </View>
+              </View>
+
+              <View style={styles.symptomSummary}>
+                <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Symptoms matched</Text>
+                <View style={styles.symptomTags}>
+                  {decodedSymptoms.length > 0
+                    ? decodedSymptoms.map((symptom) => (
+                        <View key={symptom} style={[styles.symptomTag, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+                          <Text style={[styles.symptomTagText, { color: theme.text }]}>{symptom}</Text>
+                        </View>
+                      ))
+                    : null}
+                </View>
+              </View>
+            </AppCard>
+
+            <View style={[styles.disclaimerBox, { backgroundColor: theme.infoBg, borderColor: theme.info }]}>
+              <Text style={[styles.disclaimerText, { color: theme.text }]}>
+                This result is for decision support only and should not replace expert validation.
+              </Text>
+            </View>
+
+            <View style={styles.actions}>
+              <AppButton
+                onPress={() => setMessage('Advisory information will be available in a future update.')}>
+                View Advisory
+              </AppButton>
+              <AppButton
+                variant="secondary"
+                onPress={() => setMessage('Report submission will be available in a future update.')}>
+                Submit Report
+              </AppButton>
+            </View>
+
+            {message ? (
+              <View style={[styles.messageBox, { backgroundColor: theme.surfaceMuted }]}>
+                <Text style={[styles.messageText, { color: theme.primaryDark }]}>{message}</Text>
+              </View>
+            ) : null}
           </View>
-          <View style={[styles.metricItem, { backgroundColor: theme.surfaceMuted }]}>
-            <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Severity</Text>
-            <Text style={[styles.metricValue, { color: theme.text }]}>{severity}</Text>
-          </View>
-        </View>
-
-        <View style={styles.symptomSummary}>
-          <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Symptoms matched</Text>
-          <View style={styles.symptomTags}>
-            {decodedSymptoms.length > 0
-              ? decodedSymptoms.map((symptom) => (
-                  <View key={symptom} style={[styles.symptomTag, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-                    <Text style={[styles.symptomTagText, { color: theme.text }]}>{symptom}</Text>
-                  </View>
-                ))
-              : null}
-          </View>
-        </View>
-      </AppCard>
-
-      <View style={[styles.disclaimerBox, { backgroundColor: theme.infoBg, borderColor: theme.info }]}>
-        <Text style={[styles.disclaimerText, { color: theme.text }]}>
-          This result is for decision support only and should not replace expert validation.
-        </Text>
+        </ScrollView>
       </View>
-
-      <View style={styles.actions}>
-        <AppButton
-          onPress={() => setMessage('Advisory information will be available in a future update.')}>
-          View Advisory
-        </AppButton>
-        <AppButton
-          variant="secondary"
-          onPress={() => setMessage('Report submission will be available in a future update.')}>
-          Submit Report
-        </AppButton>
-      </View>
-
-      {message ? (
-        <View style={[styles.messageBox, { backgroundColor: theme.surfaceMuted }]}>
-          <Text style={[styles.messageText, { color: theme.primaryDark }]}>{message}</Text>
-        </View>
-      ) : null}
-    </ScreenContainer>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    gap: ComponentTokens.screen.sectionGap,
+  safe: {
+    flex: 1,
   },
-  header: {
+  root: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    alignItems: 'center',
+  },
+  content: {
+    width: '100%',
+    maxWidth: Layout.mobileMaxWidth,
+    paddingHorizontal: ComponentTokens.screen.horizontalPadding,
     paddingTop: Spacing.lg,
-  },
-  title: {
-    ...Typography.heading,
+    gap: ComponentTokens.screen.sectionGap,
   },
   resultCard: {
     gap: Spacing.lg,

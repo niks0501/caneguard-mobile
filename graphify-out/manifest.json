@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "src/app/_layout.tsx": {
-    "mtime": 1782555982.622483,
-    "ast_hash": "13f8a8a0df3a67c11f7a8344b6129b87",
+    "mtime": 1782564325.236306,
+    "ast_hash": "de25b45f300f53bf724ddb3b2af1d569",
     "semantic_hash": ""
   },
   "src/app/index.tsx": {
@@ -230,28 +230,28 @@
     "semantic_hash": ""
   },
   "src/app/analysis-result.tsx": {
-    "mtime": 1782556002.389144,
-    "ast_hash": "609509662f157d3e0d99abe8426d8783",
+    "mtime": 1782564536.3477247,
+    "ast_hash": "73199ad123d14753cd4b9ff42552a9db",
     "semantic_hash": ""
   },
   "src/app/home.tsx": {
-    "mtime": 1782556882.0188286,
-    "ast_hash": "f0fac81306044759fd55a770cc83d026",
+    "mtime": 1782564324.3945518,
+    "ast_hash": "dbfac2285e4aec5a8a23d681ea3c0fef",
     "semantic_hash": ""
   },
   "src/app/image-preview.tsx": {
-    "mtime": 1782555967.1892512,
-    "ast_hash": "ced1c0fccedfb571f34be1df6831cd7d",
+    "mtime": 1782564497.9470022,
+    "ast_hash": "c9bc5c409ebd86eb8576665f4ba9862d",
     "semantic_hash": ""
   },
   "src/app/scan.tsx": {
-    "mtime": 1782555963.5797675,
-    "ast_hash": "3d421ff8add68d3c5e9d1b9017aac8c3",
+    "mtime": 1782564294.3583736,
+    "ast_hash": "b6c9a6b0d0062f36bfa5cd31384361e1",
     "semantic_hash": ""
   },
   "src/app/symptom-checklist.tsx": {
-    "mtime": 1782556003.096794,
-    "ast_hash": "a66adf53bee10ff5f5acd9f26293bbae",
+    "mtime": 1782564516.9459376,
+    "ast_hash": "de536c79ce416f9d1b38885f1fb70101",
     "semantic_hash": ""
   },
   "src/components/ui/DiseaseBadge.tsx": {
@@ -262,6 +262,56 @@
   "src/components/ui/SymptomChecklistItem.tsx": {
     "mtime": 1782555944.547045,
     "ast_hash": "ccbc88806c0ec10d8c7709a225e89a60",
+    "semantic_hash": ""
+  },
+  "src/app/records.tsx": {
+    "mtime": 1782563655.7453306,
+    "ast_hash": "53f7265fbb9fbc4d1d2a17b6fd6b8c35",
+    "semantic_hash": ""
+  },
+  "src/app/reports.tsx": {
+    "mtime": 1782563633.482545,
+    "ast_hash": "0223caf76a8a00434f31d12edfa144f8",
+    "semantic_hash": ""
+  },
+  "src/components/ui/BottomNav.tsx": {
+    "mtime": 1782564323.4963915,
+    "ast_hash": "93bd50ca20abac278d4f903f52a05e60",
+    "semantic_hash": ""
+  },
+  "src/components/ui/DiseasePill.tsx": {
+    "mtime": 1782563684.7490494,
+    "ast_hash": "b1c4e2c1cbaf96ebe816555b666041b0",
+    "semantic_hash": ""
+  },
+  "src/components/ui/ProgressBar.tsx": {
+    "mtime": 1782563591.6745942,
+    "ast_hash": "c5985c9e6f5db64e0c0ca524b80e2c8c",
+    "semantic_hash": ""
+  },
+  "src/components/ui/RecordCard.tsx": {
+    "mtime": 1782563596.4342544,
+    "ast_hash": "23fc2b6f114d009a9840e8e5c1f118ea",
+    "semantic_hash": ""
+  },
+  "src/components/ui/ScreenHeader.tsx": {
+    "mtime": 1782563658.1942174,
+    "ast_hash": "569e3ec151998516c7729281ff6da02f",
+    "semantic_hash": ""
+  },
+  "src/components/ui/StatusChip.tsx": {
+    "mtime": 1782563585.6166453,
+    "ast_hash": "e44b363db5acd8959c08a0587d93e91a",
+    "semantic_hash": ""
+  },
+  "src/components/ui/SummaryTile.tsx": {
+    "mtime": 1782563599.0742543,
+    "ast_hash": "73a61920eb06ea7cff277ae21eb24209",
+    "semantic_hash": ""
+  },
+  "src/app/settings.tsx": {
+    "mtime": 1782564338.3785558,
+    "ast_hash": "00f51abd2f65dfb66c6809be784cd2a4",
     "semantic_hash": ""
   }
 }

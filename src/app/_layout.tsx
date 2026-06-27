@@ -15,6 +15,9 @@ export default function RootLayout() {
         <Stack.Screen name="image-preview" />
         <Stack.Screen name="symptom-checklist" />
         <Stack.Screen name="analysis-result" />
+        <Stack.Screen name="records" />
+        <Stack.Screen name="reports" />
+        <Stack.Screen name="settings" />
       </Stack>
     </ThemeProvider>
   );

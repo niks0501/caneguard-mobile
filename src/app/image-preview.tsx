@@ -1,54 +1,72 @@
 import { router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
-import { ScreenContainer } from '@/components/ui/ScreenContainer';
-import { ComponentTokens, Radius, Spacing, Typography } from '@/constants/theme';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ImagePreviewScreen() {
   const theme = useTheme();
 
   return (
-    <ScreenContainer contentStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>Image Preview</Text>
-      </View>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
+      <View style={styles.root}>
+        <ScreenHeader title="Image Preview" />
 
-      <AppCard style={styles.imageCard}>
-        <View style={[styles.imagePlaceholder, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-          <Text style={[styles.placeholderIcon, { color: theme.textSecondary }]}>{'[ Photo ]'}</Text>
-        </View>
-        <Text style={[styles.statusText, { color: theme.textSecondary }]}>
-          Image ready for symptom checking
-        </Text>
-      </AppCard>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          style={styles.scrollView}>
+          <View style={styles.content}>
+            <AppCard style={styles.imageCard}>
+              <View style={[styles.imagePlaceholder, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+                <Text style={[styles.placeholderIcon, { color: theme.textSecondary }]}>{'[ Photo ]'}</Text>
+              </View>
+              <Text style={[styles.statusText, { color: theme.textSecondary }]}>
+                Image ready for symptom checking
+              </Text>
+            </AppCard>
 
-      <View style={styles.actions}>
-        <AppButton
-          variant="secondary"
-          onPress={() => router.back()}
-          accessibilityLabel="Retake or replace image">
-          Retake / Replace Image
-        </AppButton>
-        <AppButton onPress={() => router.push('/symptom-checklist')} accessibilityLabel="Continue to symptom checklist">
-          Continue
-        </AppButton>
+            <View style={styles.actions}>
+              <AppButton
+                variant="secondary"
+                onPress={() => router.back()}
+                accessibilityLabel="Retake or replace image">
+                Retake / Replace Image
+              </AppButton>
+              <AppButton onPress={() => router.push('/symptom-checklist')} accessibilityLabel="Continue to symptom checklist">
+                Continue
+              </AppButton>
+            </View>
+          </View>
+        </ScrollView>
       </View>
-    </ScreenContainer>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    gap: ComponentTokens.screen.sectionGap,
+  safe: {
+    flex: 1,
   },
-  header: {
+  root: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    alignItems: 'center',
+  },
+  content: {
+    width: '100%',
+    maxWidth: Layout.mobileMaxWidth,
+    paddingHorizontal: ComponentTokens.screen.horizontalPadding,
     paddingTop: Spacing.lg,
-  },
-  title: {
-    ...Typography.heading,
+    gap: ComponentTokens.screen.sectionGap,
   },
   imageCard: {
     gap: Spacing.lg,

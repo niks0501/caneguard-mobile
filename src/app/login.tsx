@@ -5,14 +5,13 @@ import { StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '@/components/ui/AppButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { TextField } from '@/components/ui/TextField';
-import { Radius, Spacing, Typography } from '@/constants/theme';
+import { Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function LoginScreen() {
   const theme = useTheme();
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [message, setMessage] = useState<string | null>(null);
 
   return (
     <ScreenContainer contentStyle={styles.container}>
@@ -45,18 +44,9 @@ export default function LoginScreen() {
           />
         </View>
         <AppButton
-          onPress={() => setMessage('Login is not connected yet. Authentication will be added next.')}>
+          onPress={() => router.replace('/home')}>
           Login
         </AppButton>
-        {message ? (
-          <Text
-            style={[
-              styles.statusMessage,
-              { color: theme.primaryDark, backgroundColor: theme.surfaceMuted },
-            ]}>
-            {message}
-          </Text>
-        ) : null}
       </View>
 
       <View style={styles.footer}>
@@ -84,11 +74,6 @@ const styles = StyleSheet.create({
   },
   formFields: {
     gap: Spacing.lg,
-  },
-  statusMessage: {
-    ...Typography.bodySmall,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
   },
   footer: {
     gap: Spacing.md,

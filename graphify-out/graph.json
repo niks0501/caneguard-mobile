@@ -24,13 +24,183 @@
       "norm_label": "rootlayout()"
     },
     {
+      "label": "analysis-result.tsx",
+      "file_type": "code",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "app_analysis_result",
+      "community": 5,
+      "norm_label": "analysis-result.tsx"
+    },
+    {
+      "label": "AnalysisResultScreen()",
+      "file_type": "code",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L15",
+      "_origin": "ast",
+      "id": "app_analysis_result_analysisresultscreen",
+      "community": 5,
+      "norm_label": "analysisresultscreen()"
+    },
+    {
+      "label": "styles",
+      "file_type": "code",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L85",
+      "_origin": "ast",
+      "id": "app_analysis_result_styles",
+      "community": 5,
+      "norm_label": "styles"
+    },
+    {
+      "label": "home.tsx",
+      "file_type": "code",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "app_home",
+      "community": 2,
+      "norm_label": "home.tsx"
+    },
+    {
+      "label": "QuickAction",
+      "file_type": "code",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L16",
+      "_origin": "ast",
+      "id": "app_home_quickaction",
+      "community": 2,
+      "norm_label": "quickaction"
+    },
+    {
+      "label": "DiseaseExample",
+      "file_type": "code",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L24",
+      "_origin": "ast",
+      "id": "app_home_diseaseexample",
+      "community": 2,
+      "norm_label": "diseaseexample"
+    },
+    {
+      "label": "diseaseExamples",
+      "file_type": "code",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L32",
+      "_origin": "ast",
+      "id": "app_home_diseaseexamples",
+      "community": 2,
+      "norm_label": "diseaseexamples"
+    },
+    {
+      "label": "HomeScreen()",
+      "file_type": "code",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L63",
+      "_origin": "ast",
+      "id": "app_home_homescreen",
+      "community": 2,
+      "norm_label": "homescreen()"
+    },
+    {
+      "label": "SectionTitle()",
+      "file_type": "code",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L177",
+      "_origin": "ast",
+      "id": "app_home_sectiontitle",
+      "community": 2,
+      "norm_label": "sectiontitle()"
+    },
+    {
+      "label": "HeaderIconButton()",
+      "file_type": "code",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L183",
+      "_origin": "ast",
+      "id": "app_home_headericonbutton",
+      "community": 2,
+      "norm_label": "headericonbutton()"
+    },
+    {
+      "label": "QuickActionCard()",
+      "file_type": "code",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L200",
+      "_origin": "ast",
+      "id": "app_home_quickactioncard",
+      "community": 2,
+      "norm_label": "quickactioncard()"
+    },
+    {
+      "label": "DiseasePhotoCard()",
+      "file_type": "code",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L236",
+      "_origin": "ast",
+      "id": "app_home_diseasephotocard",
+      "community": 2,
+      "norm_label": "diseasephotocard()"
+    },
+    {
+      "label": "BottomNavItem()",
+      "file_type": "code",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L255",
+      "_origin": "ast",
+      "id": "app_home_bottomnavitem",
+      "community": 2,
+      "norm_label": "bottomnavitem()"
+    },
+    {
+      "label": "styles",
+      "file_type": "code",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L283",
+      "_origin": "ast",
+      "id": "app_home_styles",
+      "community": 2,
+      "norm_label": "styles"
+    },
+    {
+      "label": "image-preview.tsx",
+      "file_type": "code",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "app_image_preview",
+      "community": 3,
+      "norm_label": "image-preview.tsx"
+    },
+    {
+      "label": "ImagePreviewScreen()",
+      "file_type": "code",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L10",
+      "_origin": "ast",
+      "id": "app_image_preview_imagepreviewscreen",
+      "community": 3,
+      "norm_label": "imagepreviewscreen()"
+    },
+    {
+      "label": "styles",
+      "file_type": "code",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L43",
+      "_origin": "ast",
+      "id": "app_image_preview_styles",
+      "community": 3,
+      "norm_label": "styles"
+    },
+    {
       "label": "index.tsx",
       "file_type": "code",
       "source_file": "src/app/index.tsx",
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_index",
-      "community": 0,
+      "community": 1,
       "norm_label": "index.tsx"
     },
     {
@@ -40,7 +210,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "app_index_splashscreen",
-      "community": 0,
+      "community": 1,
       "norm_label": "splashscreen()"
     },
     {
@@ -50,7 +220,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "app_index_styles",
-      "community": 0,
+      "community": 1,
       "norm_label": "styles"
     },
     {
@@ -60,7 +230,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_login",
-      "community": 3,
+      "community": 0,
       "norm_label": "login.tsx"
     },
     {
@@ -70,17 +240,17 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "app_login_loginscreen",
-      "community": 3,
+      "community": 0,
       "norm_label": "loginscreen()"
     },
     {
       "label": "styles",
       "file_type": "code",
       "source_file": "src/app/login.tsx",
-      "source_location": "L71",
+      "source_location": "L61",
       "_origin": "ast",
       "id": "app_login_styles",
-      "community": 3,
+      "community": 0,
       "norm_label": "styles"
     },
     {
@@ -90,7 +260,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_register",
-      "community": 2,
+      "community": 0,
       "norm_label": "register.tsx"
     },
     {
@@ -100,7 +270,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "app_register_registerscreen",
-      "community": 2,
+      "community": 0,
       "norm_label": "registerscreen()"
     },
     {
@@ -110,7 +280,97 @@
       "source_location": "L93",
       "_origin": "ast",
       "id": "app_register_styles",
-      "community": 2,
+      "community": 0,
+      "norm_label": "styles"
+    },
+    {
+      "label": "scan.tsx",
+      "file_type": "code",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "app_scan",
+      "community": 3,
+      "norm_label": "scan.tsx"
+    },
+    {
+      "label": "ScanScreen()",
+      "file_type": "code",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L10",
+      "_origin": "ast",
+      "id": "app_scan_scanscreen",
+      "community": 3,
+      "norm_label": "scanscreen()"
+    },
+    {
+      "label": "styles",
+      "file_type": "code",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L58",
+      "_origin": "ast",
+      "id": "app_scan_styles",
+      "community": 3,
+      "norm_label": "styles"
+    },
+    {
+      "label": "symptom-checklist.tsx",
+      "file_type": "code",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "app_symptom_checklist",
+      "community": 7,
+      "norm_label": "symptom-checklist.tsx"
+    },
+    {
+      "label": "SYMPTOMS",
+      "file_type": "code",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L11",
+      "_origin": "ast",
+      "id": "app_symptom_checklist_symptoms",
+      "community": 7,
+      "norm_label": "symptoms"
+    },
+    {
+      "label": "SEVERITIES",
+      "file_type": "code",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L19",
+      "_origin": "ast",
+      "id": "app_symptom_checklist_severities",
+      "community": 7,
+      "norm_label": "severities"
+    },
+    {
+      "label": "Severity",
+      "file_type": "code",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L21",
+      "_origin": "ast",
+      "id": "app_symptom_checklist_severity",
+      "community": 7,
+      "norm_label": "severity"
+    },
+    {
+      "label": "SymptomChecklistScreen()",
+      "file_type": "code",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L23",
+      "_origin": "ast",
+      "id": "app_symptom_checklist_symptomchecklistscreen",
+      "community": 7,
+      "norm_label": "symptomchecklistscreen()"
+    },
+    {
+      "label": "styles",
+      "file_type": "code",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L95",
+      "_origin": "ast",
+      "id": "app_symptom_checklist_styles",
+      "community": 7,
       "norm_label": "styles"
     },
     {
@@ -140,7 +400,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "components_themed_text_themedtext",
-      "community": 0,
+      "community": 1,
       "norm_label": "themedtext()"
     },
     {
@@ -160,7 +420,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "components_themed_view",
-      "community": 0,
+      "community": 1,
       "norm_label": "themed-view.tsx"
     },
     {
@@ -170,7 +430,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "components_themed_view_themedviewprops",
-      "community": 0,
+      "community": 1,
       "norm_label": "themedviewprops"
     },
     {
@@ -180,7 +440,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "components_themed_view_themedview",
-      "community": 0,
+      "community": 1,
       "norm_label": "themedview()"
     },
     {
@@ -217,7 +477,7 @@
       "label": "AppButton()",
       "file_type": "code",
       "source_file": "src/components/ui/AppButton.tsx",
-      "source_location": "L17",
+      "source_location": "L18",
       "_origin": "ast",
       "id": "ui_appbutton_appbutton",
       "community": 3,
@@ -227,7 +487,7 @@
       "label": "styles",
       "file_type": "code",
       "source_file": "src/components/ui/AppButton.tsx",
-      "source_location": "L57",
+      "source_location": "L63",
       "_origin": "ast",
       "id": "ui_appbutton_styles",
       "community": 3,
@@ -260,7 +520,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "ui_appcard_appcard",
-      "community": 6,
+      "community": 0,
       "norm_label": "appcard()"
     },
     {
@@ -274,13 +534,53 @@
       "norm_label": "styles"
     },
     {
+      "label": "DiseaseBadge.tsx",
+      "file_type": "code",
+      "source_file": "src/components/ui/DiseaseBadge.tsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "ui_diseasebadge",
+      "community": 5,
+      "norm_label": "diseasebadge.tsx"
+    },
+    {
+      "label": "DiseaseBadgeProps",
+      "file_type": "code",
+      "source_file": "src/components/ui/DiseaseBadge.tsx",
+      "source_location": "L6",
+      "_origin": "ast",
+      "id": "ui_diseasebadge_diseasebadgeprops",
+      "community": 5,
+      "norm_label": "diseasebadgeprops"
+    },
+    {
+      "label": "DiseaseBadge()",
+      "file_type": "code",
+      "source_file": "src/components/ui/DiseaseBadge.tsx",
+      "source_location": "L12",
+      "_origin": "ast",
+      "id": "ui_diseasebadge_diseasebadge",
+      "community": 5,
+      "norm_label": "diseasebadge()"
+    },
+    {
+      "label": "styles",
+      "file_type": "code",
+      "source_file": "src/components/ui/DiseaseBadge.tsx",
+      "source_location": "L23",
+      "_origin": "ast",
+      "id": "ui_diseasebadge_styles",
+      "community": 5,
+      "norm_label": "styles"
+    },
+    {
       "label": "ScreenContainer.tsx",
       "file_type": "code",
       "source_file": "src/components/ui/ScreenContainer.tsx",
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_screencontainer",
-      "community": 2,
+      "community": 0,
       "norm_label": "screencontainer.tsx"
     },
     {
@@ -290,7 +590,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "ui_screencontainer_screencontainerprops",
-      "community": 2,
+      "community": 0,
       "norm_label": "screencontainerprops"
     },
     {
@@ -300,7 +600,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "ui_screencontainer_screencontainer",
-      "community": 2,
+      "community": 0,
       "norm_label": "screencontainer()"
     },
     {
@@ -310,7 +610,47 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "ui_screencontainer_styles",
-      "community": 2,
+      "community": 0,
+      "norm_label": "styles"
+    },
+    {
+      "label": "SymptomChecklistItem.tsx",
+      "file_type": "code",
+      "source_file": "src/components/ui/SymptomChecklistItem.tsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "ui_symptomchecklistitem",
+      "community": 7,
+      "norm_label": "symptomchecklistitem.tsx"
+    },
+    {
+      "label": "SymptomChecklistItemProps",
+      "file_type": "code",
+      "source_file": "src/components/ui/SymptomChecklistItem.tsx",
+      "source_location": "L6",
+      "_origin": "ast",
+      "id": "ui_symptomchecklistitem_symptomchecklistitemprops",
+      "community": 7,
+      "norm_label": "symptomchecklistitemprops"
+    },
+    {
+      "label": "SymptomChecklistItem()",
+      "file_type": "code",
+      "source_file": "src/components/ui/SymptomChecklistItem.tsx",
+      "source_location": "L12",
+      "_origin": "ast",
+      "id": "ui_symptomchecklistitem_symptomchecklistitem",
+      "community": 7,
+      "norm_label": "symptomchecklistitem()"
+    },
+    {
+      "label": "styles",
+      "file_type": "code",
+      "source_file": "src/components/ui/SymptomChecklistItem.tsx",
+      "source_location": "L43",
+      "_origin": "ast",
+      "id": "ui_symptomchecklistitem_styles",
+      "community": 7,
       "norm_label": "styles"
     },
     {
@@ -320,7 +660,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_textfield",
-      "community": 5,
+      "community": 0,
       "norm_label": "textfield.tsx"
     },
     {
@@ -330,7 +670,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "ui_textfield_textfieldprops",
-      "community": 5,
+      "community": 0,
       "norm_label": "textfieldprops"
     },
     {
@@ -340,7 +680,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "ui_textfield_textfield",
-      "community": 5,
+      "community": 0,
       "norm_label": "textfield()"
     },
     {
@@ -350,7 +690,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "ui_textfield_styles",
-      "community": 5,
+      "community": 0,
       "norm_label": "styles"
     },
     {
@@ -410,7 +750,7 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "constants_theme_typography",
-      "community": 3,
+      "community": 7,
       "norm_label": "typography"
     },
     {
@@ -420,7 +760,7 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "constants_theme_spacing",
-      "community": 2,
+      "community": 0,
       "norm_label": "spacing"
     },
     {
@@ -450,7 +790,7 @@
       "source_location": "L167",
       "_origin": "ast",
       "id": "constants_theme_diseasetokens",
-      "community": 1,
+      "community": 5,
       "norm_label": "diseasetokens"
     },
     {
@@ -470,7 +810,7 @@
       "source_location": "L185",
       "_origin": "ast",
       "id": "constants_theme_layout",
-      "community": 2,
+      "community": 0,
       "norm_label": "layout"
     },
     {
@@ -520,7 +860,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "hooks_use_theme_usetheme",
-      "community": 0,
+      "community": 2,
       "norm_label": "usetheme()"
     }
   ],
@@ -545,6 +885,729 @@
       "weight": 1.0,
       "source": "app_layout_rootlayout",
       "target": "hooks_use_color_scheme_web_usecolorscheme"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L15",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "app_analysis_result_analysisresultscreen"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L85",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "app_analysis_result_styles"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "constants_theme"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "constants_theme_componenttokens"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "constants_theme_diseasetokens"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "constants_theme_radius"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "constants_theme_spacing"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "constants_theme_typography"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L10",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "hooks_use_theme"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L10",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "ui_appbutton"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "ui_appbutton_appbutton"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "ui_appcard"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "ui_appcard_appcard"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "ui_diseasebadge"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "ui_diseasebadge_diseasebadge"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "ui_screencontainer"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_analysis_result",
+      "target": "ui_screencontainer_screencontainer"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/app/analysis-result.tsx",
+      "source_location": "L16",
+      "weight": 1.0,
+      "source": "app_analysis_result_analysisresultscreen",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L255",
+      "weight": 1.0,
+      "source": "app_home",
+      "target": "app_home_bottomnavitem",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L24",
+      "weight": 1.0,
+      "source": "app_home",
+      "target": "app_home_diseaseexample",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L32",
+      "weight": 1.0,
+      "source": "app_home",
+      "target": "app_home_diseaseexamples",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L236",
+      "weight": 1.0,
+      "source": "app_home",
+      "target": "app_home_diseasephotocard",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L183",
+      "weight": 1.0,
+      "source": "app_home",
+      "target": "app_home_headericonbutton",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_home",
+      "target": "app_home_homescreen"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L16",
+      "weight": 1.0,
+      "source": "app_home",
+      "target": "app_home_quickaction",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L200",
+      "weight": 1.0,
+      "source": "app_home",
+      "target": "app_home_quickactioncard",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L177",
+      "weight": 1.0,
+      "source": "app_home",
+      "target": "app_home_sectiontitle",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L61",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_home",
+      "target": "app_home_styles"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_home",
+      "target": "constants_theme"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_home",
+      "target": "constants_theme_componenttokens"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "app_home",
+      "target": "constants_theme_diseasetokens",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "app_home",
+      "target": "constants_theme_layout",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_home",
+      "target": "constants_theme_radius"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "app_home",
+      "target": "constants_theme_shadows",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_home",
+      "target": "constants_theme_spacing"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_home",
+      "target": "constants_theme_typography"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_home",
+      "target": "hooks_use_theme"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_home",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_home",
+      "target": "ui_appbutton"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_home",
+      "target": "ui_appbutton_appbutton"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_home",
+      "target": "ui_appcard"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_home",
+      "target": "ui_appcard_appcard"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_home",
+      "target": "ui_screencontainer"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_home",
+      "target": "ui_screencontainer_screencontainer"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/app/home.tsx",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "app_home_homescreen",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/app/home.tsx",
+      "source_location": "L178",
+      "weight": 1.0,
+      "source": "app_home_sectiontitle",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/app/home.tsx",
+      "source_location": "L184",
+      "weight": 1.0,
+      "source": "app_home_headericonbutton",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/app/home.tsx",
+      "source_location": "L201",
+      "weight": 1.0,
+      "source": "app_home_quickactioncard",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/app/home.tsx",
+      "source_location": "L237",
+      "weight": 1.0,
+      "source": "app_home_diseasephotocard",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/app/home.tsx",
+      "source_location": "L266",
+      "weight": 1.0,
+      "source": "app_home_bottomnavitem",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L10",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_image_preview",
+      "target": "app_image_preview_imagepreviewscreen"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L43",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_image_preview",
+      "target": "app_image_preview_styles"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_image_preview",
+      "target": "constants_theme"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_image_preview",
+      "target": "constants_theme_componenttokens"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_image_preview",
+      "target": "constants_theme_radius"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_image_preview",
+      "target": "constants_theme_spacing"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_image_preview",
+      "target": "constants_theme_typography"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_image_preview",
+      "target": "hooks_use_theme"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_image_preview",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_image_preview",
+      "target": "ui_appbutton"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_image_preview",
+      "target": "ui_appbutton_appbutton"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_image_preview",
+      "target": "ui_appcard"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_image_preview",
+      "target": "ui_appcard_appcard"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_image_preview",
+      "target": "ui_screencontainer"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_image_preview",
+      "target": "ui_screencontainer_screencontainer"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/app/image-preview.tsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "app_image_preview_imagepreviewscreen",
+      "target": "hooks_use_theme_usetheme"
     },
     {
       "relation": "contains",
@@ -1137,6 +2200,373 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L10",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_scan",
+      "target": "app_scan_scanscreen"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L58",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_scan",
+      "target": "app_scan_styles"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_scan",
+      "target": "constants_theme"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_scan",
+      "target": "constants_theme_componenttokens"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_scan",
+      "target": "constants_theme_radius"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_scan",
+      "target": "constants_theme_spacing"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_scan",
+      "target": "constants_theme_typography"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_scan",
+      "target": "hooks_use_theme"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_scan",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_scan",
+      "target": "ui_appbutton"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_scan",
+      "target": "ui_appbutton_appbutton"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_scan",
+      "target": "ui_appcard"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_scan",
+      "target": "ui_appcard_appcard"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_scan",
+      "target": "ui_screencontainer"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_scan",
+      "target": "ui_screencontainer_screencontainer"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/app/scan.tsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "app_scan_scanscreen",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L19",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "app_symptom_checklist_severities"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L21",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "app_symptom_checklist_severity"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L95",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "app_symptom_checklist_styles"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L23",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "app_symptom_checklist_symptomchecklistscreen"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "app_symptom_checklist_symptoms"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "constants_theme"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "constants_theme_componenttokens"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "constants_theme_spacing"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "constants_theme_typography"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "hooks_use_theme"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "ui_appbutton"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "ui_appbutton_appbutton"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "ui_screencontainer"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "ui_screencontainer_screencontainer"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "ui_symptomchecklistitem"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_symptom_checklist",
+      "target": "ui_symptomchecklistitem_symptomchecklistitem"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/app/symptom-checklist.tsx",
+      "source_location": "L24",
+      "weight": 1.0,
+      "source": "app_symptom_checklist_symptomchecklistscreen",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "src/components/themed-text.tsx",
       "source_location": "L33",
       "weight": 1.0,
@@ -1511,6 +2941,102 @@
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/DiseaseBadge.tsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_diseasebadge",
+      "target": "constants_theme"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/DiseaseBadge.tsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_diseasebadge",
+      "target": "constants_theme_componenttokens"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/DiseaseBadge.tsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_diseasebadge",
+      "target": "constants_theme_typography"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/DiseaseBadge.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_diseasebadge",
+      "target": "hooks_use_theme"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/DiseaseBadge.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_diseasebadge",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/DiseaseBadge.tsx",
+      "source_location": "L12",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_diseasebadge",
+      "target": "ui_diseasebadge_diseasebadge"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/DiseaseBadge.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_diseasebadge",
+      "target": "ui_diseasebadge_diseasebadgeprops"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/DiseaseBadge.tsx",
+      "source_location": "L23",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_diseasebadge",
+      "target": "ui_diseasebadge_styles"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/components/ui/DiseaseBadge.tsx",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "ui_diseasebadge_diseasebadge",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "src/components/ui/ScreenContainer.tsx",
       "source_location": "L5",
       "weight": 1.0,
@@ -1612,6 +3138,113 @@
       "source_location": "L14",
       "weight": 1.0,
       "source": "ui_screencontainer_screencontainer",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/SymptomChecklistItem.tsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_symptomchecklistitem",
+      "target": "constants_theme"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/SymptomChecklistItem.tsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_symptomchecklistitem",
+      "target": "constants_theme_radius"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/SymptomChecklistItem.tsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_symptomchecklistitem",
+      "target": "constants_theme_spacing"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/SymptomChecklistItem.tsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_symptomchecklistitem",
+      "target": "constants_theme_typography"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/SymptomChecklistItem.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_symptomchecklistitem",
+      "target": "hooks_use_theme"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/SymptomChecklistItem.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_symptomchecklistitem",
+      "target": "hooks_use_theme_usetheme"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/SymptomChecklistItem.tsx",
+      "source_location": "L43",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_symptomchecklistitem",
+      "target": "ui_symptomchecklistitem_styles"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/SymptomChecklistItem.tsx",
+      "source_location": "L12",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_symptomchecklistitem",
+      "target": "ui_symptomchecklistitem_symptomchecklistitem"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/SymptomChecklistItem.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_symptomchecklistitem",
+      "target": "ui_symptomchecklistitem_symptomchecklistitemprops"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/components/ui/SymptomChecklistItem.tsx",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "ui_symptomchecklistitem_symptomchecklistitem",
       "target": "hooks_use_theme_usetheme"
     },
     {
@@ -1886,5 +3519,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "145afa824b12c56acfbce3cd90500c9fbec43961"
+  "built_at_commit": "8c9bf0f58fd2d09db75f0da13bce7f3250020ee6"
 }

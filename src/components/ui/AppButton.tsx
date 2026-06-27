@@ -10,6 +10,7 @@ type AppButtonProps = {
   children: ReactNode;
   onPress: () => void;
   variant?: AppButtonVariant;
+  disabled?: boolean;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
 };
@@ -18,6 +19,7 @@ export function AppButton({
   children,
   onPress,
   variant = 'primary',
+  disabled,
   accessibilityLabel,
   style,
 }: AppButtonProps) {
@@ -29,24 +31,28 @@ export function AppButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        isPrimary && { backgroundColor: theme.primary },
+        isPrimary && { backgroundColor: disabled ? theme.primaryLight : theme.primary },
         variant === 'secondary' && {
-          backgroundColor: theme.surfaceMuted,
-          borderColor: theme.border,
+          backgroundColor: disabled ? theme.surfaceMuted : theme.surfaceMuted,
+          borderColor: disabled ? theme.divider : theme.border,
           borderWidth: 1,
         },
         isText && styles.textButton,
-        pressed && styles.pressed,
+        pressed && !disabled && styles.pressed,
+        disabled && styles.disabled,
         style,
       ]}>
       <Text
         style={[
           styles.label,
           { color: isPrimary ? theme.background : theme.primaryDark },
-          isText && { color: theme.primary },
+          isText && { color: disabled ? theme.textSecondary : theme.primary },
+          disabled && { color: theme.textSecondary },
         ]}>
         {children}
       </Text>
@@ -74,5 +80,8 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.78,
+  },
+  disabled: {
+    opacity: 0.55,
   },
 });

@@ -41,3 +41,10 @@ example
 # generated native folders
 /ios
 /android
+
+# Workflow files
+.opencode
+opencode.jsonc
+PROJECT_CHECKS.md
+docs/
+.ai

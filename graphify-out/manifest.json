@@ -1,0 +1,247 @@
+{
+  ".vscode/extensions.json": {
+    "mtime": 1782473487.8268278,
+    "ast_hash": "b2354ba0225f5689d13651ec0fac0de0",
+    "semantic_hash": ""
+  },
+  ".vscode/settings.json": {
+    "mtime": 1782473487.8296444,
+    "ast_hash": "6b9302c1f72c315e90233c7539c48c9f",
+    "semantic_hash": ""
+  },
+  "app.json": {
+    "mtime": 1782473487.862993,
+    "ast_hash": "860c56b51212d823e1fb00df2a88955a",
+    "semantic_hash": ""
+  },
+  "assets/expo.icon/icon.json": {
+    "mtime": 1782473487.8268278,
+    "ast_hash": "35cb915a0bebbebbe69cf7815e174462",
+    "semantic_hash": ""
+  },
+  "package.json": {
+    "mtime": 1782473487.8704612,
+    "ast_hash": "a093410817edf8b649218e87732f7c0e",
+    "semantic_hash": ""
+  },
+  "scripts/reset-project.js": {
+    "mtime": 1782473487.8228095,
+    "ast_hash": "ca9d75cf60f51e7a2d67fd08ddfb8275",
+    "semantic_hash": ""
+  },
+  "src/app/_layout.tsx": {
+    "mtime": 1782473487.8554668,
+    "ast_hash": "3283bb4852fbf4fd8d378fe5f6858df1",
+    "semantic_hash": ""
+  },
+  "src/app/explore.tsx": {
+    "mtime": 1782473487.8569553,
+    "ast_hash": "42adf91e47cfe6b5d4ede54a35db24d0",
+    "semantic_hash": ""
+  },
+  "src/app/index.tsx": {
+    "mtime": 1782473487.8589745,
+    "ast_hash": "c6dba393a45b6d4e24d2f0bb62d6c0bf",
+    "semantic_hash": ""
+  },
+  "src/components/animated-icon.tsx": {
+    "mtime": 1782473487.8554668,
+    "ast_hash": "72e8849faa65fa5446521b02e54e5106",
+    "semantic_hash": ""
+  },
+  "src/components/animated-icon.web.tsx": {
+    "mtime": 1782473487.8565454,
+    "ast_hash": "2defa175163e104a6e2232436fa77e30",
+    "semantic_hash": ""
+  },
+  "src/components/app-tabs.tsx": {
+    "mtime": 1782473487.8567557,
+    "ast_hash": "7f9ddbb00991d090e67f4eeff23f89e8",
+    "semantic_hash": ""
+  },
+  "src/components/app-tabs.web.tsx": {
+    "mtime": 1782473487.8569553,
+    "ast_hash": "d197b6fde1ead811d986e454f2e27064",
+    "semantic_hash": ""
+  },
+  "src/components/external-link.tsx": {
+    "mtime": 1782473487.8582554,
+    "ast_hash": "a71bdc8e0bd55812a1e97662ade442d1",
+    "semantic_hash": ""
+  },
+  "src/components/hint-row.tsx": {
+    "mtime": 1782473487.8586607,
+    "ast_hash": "1ac80baf6b0a5c3d8c1ea371d5a0dbc5",
+    "semantic_hash": ""
+  },
+  "src/components/themed-text.tsx": {
+    "mtime": 1782473487.8589745,
+    "ast_hash": "41869b896e1e9f3472f5c2183af58918",
+    "semantic_hash": ""
+  },
+  "src/components/themed-view.tsx": {
+    "mtime": 1782473487.8605716,
+    "ast_hash": "f935dbbcf5a5067a417ea7b329727653",
+    "semantic_hash": ""
+  },
+  "src/components/ui/collapsible.tsx": {
+    "mtime": 1782473487.8569553,
+    "ast_hash": "24105f00e6631a1cb1daeaef9d4aa808",
+    "semantic_hash": ""
+  },
+  "src/components/web-badge.tsx": {
+    "mtime": 1782473487.860957,
+    "ast_hash": "6d02b3c146c2ed6a3d3b7b8764e17602",
+    "semantic_hash": ""
+  },
+  "src/constants/theme.ts": {
+    "mtime": 1782473487.8527403,
+    "ast_hash": "9507bd7aa3ee042af2ad8a99ebbaa8b6",
+    "semantic_hash": ""
+  },
+  "src/hooks/use-color-scheme.ts": {
+    "mtime": 1782473487.8527403,
+    "ast_hash": "6f3444fcb9c7013a839a7832be518831",
+    "semantic_hash": ""
+  },
+  "src/hooks/use-color-scheme.web.ts": {
+    "mtime": 1782473487.8552384,
+    "ast_hash": "071fbb9a1a05ffb8af4b7d3b1ffa72d6",
+    "semantic_hash": ""
+  },
+  "src/hooks/use-theme.ts": {
+    "mtime": 1782473487.8554668,
+    "ast_hash": "e058af4f5801bcaa97dad62f12085a27",
+    "semantic_hash": ""
+  },
+  "tsconfig.json": {
+    "mtime": 1782473487.8296444,
+    "ast_hash": "6794be22dd9dd00003515895d3b4ff06",
+    "semantic_hash": ""
+  },
+  "AGENTS.md": {
+    "mtime": 1782545524.4371731,
+    "ast_hash": "23606b8303a03733f0740eea15251bce",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1782473521.931285,
+    "ast_hash": "5c27369b226fcf2be8a6cfe52224e767",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1782473487.8296444,
+    "ast_hash": "db37e01139db6cec80a338779325d5ae",
+    "semantic_hash": ""
+  },
+  "assets/expo.icon/Assets/expo-symbol 2.svg": {
+    "mtime": 1782473487.8527403,
+    "ast_hash": "6979b664c1ce82c10426a051082412a7",
+    "semantic_hash": ""
+  },
+  "assets/expo.icon/Assets/grid.png": {
+    "mtime": 1782473487.8357816,
+    "ast_hash": "37cdeda9d1af5d7432716d9671b098da",
+    "semantic_hash": ""
+  },
+  "assets/images/android-icon-background.png": {
+    "mtime": 1782473487.830846,
+    "ast_hash": "2d65569cc0e2afdcea0af9f9902d4173",
+    "semantic_hash": ""
+  },
+  "assets/images/android-icon-foreground.png": {
+    "mtime": 1782473487.8323598,
+    "ast_hash": "72e71a9c846c6aa4ae32476641a00e18",
+    "semantic_hash": ""
+  },
+  "assets/images/android-icon-monochrome.png": {
+    "mtime": 1782473487.8332453,
+    "ast_hash": "1e097dab989759fc0b69440092ca22cd",
+    "semantic_hash": ""
+  },
+  "assets/images/expo-badge-white.png": {
+    "mtime": 1782473487.8348644,
+    "ast_hash": "02efb8472f161bcf8afc8c8489a28fca",
+    "semantic_hash": ""
+  },
+  "assets/images/expo-badge.png": {
+    "mtime": 1782473487.8348644,
+    "ast_hash": "6b0da8ec880685d1bd053c0f5ea9d09d",
+    "semantic_hash": ""
+  },
+  "assets/images/expo-logo.png": {
+    "mtime": 1782473487.8355446,
+    "ast_hash": "5ee5db91d59518c45ebcc99a2f5afc57",
+    "semantic_hash": ""
+  },
+  "assets/images/favicon.png": {
+    "mtime": 1782473487.8357816,
+    "ast_hash": "d9f444efbdfbe7931aa93beada07318a",
+    "semantic_hash": ""
+  },
+  "assets/images/icon.png": {
+    "mtime": 1782473487.8371797,
+    "ast_hash": "8d892ef03dbd43e8d899c1d605ad42df",
+    "semantic_hash": ""
+  },
+  "assets/images/logo-glow.png": {
+    "mtime": 1782473487.8469195,
+    "ast_hash": "dbca075a49dc45e550c5d2e3e9601039",
+    "semantic_hash": ""
+  },
+  "assets/images/react-logo.png": {
+    "mtime": 1782473487.8469195,
+    "ast_hash": "695d5a1c6f29a689130f3aaa573aec6e",
+    "semantic_hash": ""
+  },
+  "assets/images/react-logo@2x.png": {
+    "mtime": 1782473487.8505328,
+    "ast_hash": "b507e7f2c91ebc8fe24dee79ccb3b600",
+    "semantic_hash": ""
+  },
+  "assets/images/react-logo@3x.png": {
+    "mtime": 1782473487.8509378,
+    "ast_hash": "8a4d0e5b845044e56e3b2df627d01cfd",
+    "semantic_hash": ""
+  },
+  "assets/images/splash-icon.png": {
+    "mtime": 1782473487.8522115,
+    "ast_hash": "5ee5db91d59518c45ebcc99a2f5afc57",
+    "semantic_hash": ""
+  },
+  "assets/images/tabIcons/explore.png": {
+    "mtime": 1782473487.8332453,
+    "ast_hash": "8409922f7d5c981001e3c9b25e4bfae5",
+    "semantic_hash": ""
+  },
+  "assets/images/tabIcons/explore@2x.png": {
+    "mtime": 1782473487.8342361,
+    "ast_hash": "dd40200ba8e8d98061578292d6b73791",
+    "semantic_hash": ""
+  },
+  "assets/images/tabIcons/explore@3x.png": {
+    "mtime": 1782473487.8345914,
+    "ast_hash": "c4278d79298bb11a8b0e68ed3e40da9e",
+    "semantic_hash": ""
+  },
+  "assets/images/tabIcons/home.png": {
+    "mtime": 1782473487.8357816,
+    "ast_hash": "eeb5de2ac12ace75b31dfda235208956",
+    "semantic_hash": ""
+  },
+  "assets/images/tabIcons/home@2x.png": {
+    "mtime": 1782473487.836969,
+    "ast_hash": "456346cfb0b82cc0f39e921e05d082d9",
+    "semantic_hash": ""
+  },
+  "assets/images/tabIcons/home@3x.png": {
+    "mtime": 1782473487.8371797,
+    "ast_hash": "5d86e963002b3664ab81c128c838559d",
+    "semantic_hash": ""
+  },
+  "assets/images/tutorial-web.png": {
+    "mtime": 1782473487.8527403,
+    "ast_hash": "c62d22797f3002396754d8cc55b0ae1a",
+    "semantic_hash": ""
+  }
+}

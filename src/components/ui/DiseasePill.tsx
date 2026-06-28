@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { ComponentTokens, DiseaseTokens, Typography } from '@/constants/theme';
+import { ComponentTokens, Typography, type ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type DiseasePillVariant = 'smut' | 'rust' | 'mildew' | 'mosaic' | 'healthy' | 'unclear';
@@ -9,13 +9,13 @@ type DiseasePillProps = {
   variant: DiseasePillVariant;
 };
 
-const VARIANT_MAP: Record<DiseasePillVariant, { label: string; color: string; background: string }> = {
-  smut: { label: 'Possible Smut', color: DiseaseTokens.smut.color, background: DiseaseTokens.smut.background },
-  rust: { label: 'Possible Rust', color: DiseaseTokens.rust.color, background: DiseaseTokens.rust.background },
-  mildew: { label: 'Possible Mildew', color: DiseaseTokens.downyMildew.color, background: DiseaseTokens.downyMildew.background },
-  mosaic: { label: 'Possible Mosaic', color: DiseaseTokens.mosaic.color, background: DiseaseTokens.mosaic.background },
-  healthy: { label: 'Healthy', color: DiseaseTokens.healthy.color, background: DiseaseTokens.healthy.background },
-  unclear: { label: 'Unclear', color: DiseaseTokens.unclear.color, background: DiseaseTokens.unclear.background },
+const VARIANT_MAP: Record<DiseasePillVariant, { label: string; colorKey: ThemeColor; backgroundKey: ThemeColor }> = {
+  smut: { label: 'Possible Smut', colorKey: 'smut', backgroundKey: 'smutBg' },
+  rust: { label: 'Possible Rust', colorKey: 'rust', backgroundKey: 'rustBg' },
+  mildew: { label: 'Possible Mildew', colorKey: 'downyMildew', backgroundKey: 'downyMildewBg' },
+  mosaic: { label: 'Possible Mosaic', colorKey: 'mosaic', backgroundKey: 'mosaicBg' },
+  healthy: { label: 'Healthy', colorKey: 'healthy', backgroundKey: 'healthyBg' },
+  unclear: { label: 'Unclear', colorKey: 'unclear', backgroundKey: 'unclearBg' },
 };
 
 export function DiseasePill({ variant }: DiseasePillProps) {
@@ -23,7 +23,7 @@ export function DiseasePill({ variant }: DiseasePillProps) {
   const config = VARIANT_MAP[variant];
 
   return (
-    <View style={[styles.pill, { backgroundColor: config.background, borderColor: config.color }]}>
+    <View style={[styles.pill, { backgroundColor: theme[config.backgroundKey], borderColor: theme[config.colorKey] }]}>
       <Text style={[styles.label, { color: theme.text }]}>{config.label}</Text>
     </View>
   );

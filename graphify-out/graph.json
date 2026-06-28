@@ -40,7 +40,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "app_analysis_result_analysisresultscreen",
-      "community": 8,
+      "community": 2,
       "norm_label": "analysisresultscreen()"
     },
     {
@@ -67,7 +67,7 @@
       "label": "QuickAction",
       "file_type": "code",
       "source_file": "src/app/home.tsx",
-      "source_location": "L16",
+      "source_location": "L18",
       "_origin": "ast",
       "id": "app_home_quickaction",
       "community": 2,
@@ -77,7 +77,7 @@
       "label": "DiseaseExample",
       "file_type": "code",
       "source_file": "src/app/home.tsx",
-      "source_location": "L24",
+      "source_location": "L26",
       "_origin": "ast",
       "id": "app_home_diseaseexample",
       "community": 2,
@@ -87,7 +87,7 @@
       "label": "diseaseExamples",
       "file_type": "code",
       "source_file": "src/app/home.tsx",
-      "source_location": "L32",
+      "source_location": "L34",
       "_origin": "ast",
       "id": "app_home_diseaseexamples",
       "community": 2,
@@ -97,7 +97,7 @@
       "label": "HomeScreen()",
       "file_type": "code",
       "source_file": "src/app/home.tsx",
-      "source_location": "L63",
+      "source_location": "L65",
       "_origin": "ast",
       "id": "app_home_homescreen",
       "community": 2,
@@ -107,7 +107,7 @@
       "label": "SectionTitle()",
       "file_type": "code",
       "source_file": "src/app/home.tsx",
-      "source_location": "L177",
+      "source_location": "L187",
       "_origin": "ast",
       "id": "app_home_sectiontitle",
       "community": 2,
@@ -117,7 +117,7 @@
       "label": "HeaderIconButton()",
       "file_type": "code",
       "source_file": "src/app/home.tsx",
-      "source_location": "L183",
+      "source_location": "L193",
       "_origin": "ast",
       "id": "app_home_headericonbutton",
       "community": 2,
@@ -127,7 +127,7 @@
       "label": "QuickActionCard()",
       "file_type": "code",
       "source_file": "src/app/home.tsx",
-      "source_location": "L200",
+      "source_location": "L210",
       "_origin": "ast",
       "id": "app_home_quickactioncard",
       "community": 2,
@@ -137,7 +137,7 @@
       "label": "DiseasePhotoCard()",
       "file_type": "code",
       "source_file": "src/app/home.tsx",
-      "source_location": "L236",
+      "source_location": "L246",
       "_origin": "ast",
       "id": "app_home_diseasephotocard",
       "community": 2,
@@ -147,7 +147,7 @@
       "label": "BottomNavItem()",
       "file_type": "code",
       "source_file": "src/app/home.tsx",
-      "source_location": "L255",
+      "source_location": "L265",
       "_origin": "ast",
       "id": "app_home_bottomnavitem",
       "community": 2,
@@ -157,7 +157,7 @@
       "label": "styles",
       "file_type": "code",
       "source_file": "src/app/home.tsx",
-      "source_location": "L283",
+      "source_location": "L295",
       "_origin": "ast",
       "id": "app_home_styles",
       "community": 2,
@@ -177,17 +177,17 @@
       "label": "ImagePreviewScreen()",
       "file_type": "code",
       "source_file": "src/app/image-preview.tsx",
-      "source_location": "L11",
+      "source_location": "L12",
       "_origin": "ast",
       "id": "app_image_preview_imagepreviewscreen",
-      "community": 8,
+      "community": 2,
       "norm_label": "imagepreviewscreen()"
     },
     {
       "label": "styles",
       "file_type": "code",
       "source_file": "src/app/image-preview.tsx",
-      "source_location": "L51",
+      "source_location": "L52",
       "_origin": "ast",
       "id": "app_image_preview_styles",
       "community": 8,
@@ -230,7 +230,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_login",
-      "community": 0,
+      "community": 8,
       "norm_label": "login.tsx"
     },
     {
@@ -240,7 +240,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "app_login_loginscreen",
-      "community": 0,
+      "community": 2,
       "norm_label": "loginscreen()"
     },
     {
@@ -250,7 +250,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "app_login_styles",
-      "community": 0,
+      "community": 8,
       "norm_label": "styles"
     },
     {
@@ -260,7 +260,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_records",
-      "community": 6,
+      "community": 5,
       "norm_label": "records.tsx"
     },
     {
@@ -270,7 +270,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "app_records_filterkey",
-      "community": 6,
+      "community": 5,
       "norm_label": "filterkey"
     },
     {
@@ -280,7 +280,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "app_records_filters",
-      "community": 6,
+      "community": 5,
       "norm_label": "filters"
     },
     {
@@ -290,7 +290,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "app_records_mock_records",
-      "community": 6,
+      "community": 5,
       "norm_label": "mock_records"
     },
     {
@@ -300,7 +300,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "app_records_recordsscreen",
-      "community": 6,
+      "community": 5,
       "norm_label": "recordsscreen()"
     },
     {
@@ -310,7 +310,7 @@
       "source_location": "L149",
       "_origin": "ast",
       "id": "app_records_styles",
-      "community": 6,
+      "community": 5,
       "norm_label": "styles"
     },
     {
@@ -400,7 +400,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "app_scan_scanscreen",
-      "community": 8,
+      "community": 2,
       "norm_label": "scanscreen()"
     },
     {
@@ -620,7 +620,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_appbutton",
-      "community": 8,
+      "community": 0,
       "norm_label": "appbutton.tsx"
     },
     {
@@ -630,7 +630,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "ui_appbutton_appbuttonvariant",
-      "community": 8,
+      "community": 0,
       "norm_label": "appbuttonvariant"
     },
     {
@@ -640,7 +640,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "ui_appbutton_appbuttonprops",
-      "community": 8,
+      "community": 0,
       "norm_label": "appbuttonprops"
     },
     {
@@ -660,7 +660,7 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "ui_appbutton_styles",
-      "community": 8,
+      "community": 0,
       "norm_label": "styles"
     },
     {
@@ -670,7 +670,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_appcard",
-      "community": 2,
+      "community": 1,
       "norm_label": "appcard.tsx"
     },
     {
@@ -680,7 +680,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "ui_appcard_appcardprops",
-      "community": 2,
+      "community": 1,
       "norm_label": "appcardprops"
     },
     {
@@ -690,7 +690,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "ui_appcard_appcard",
-      "community": 2,
+      "community": 8,
       "norm_label": "appcard()"
     },
     {
@@ -700,7 +700,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "ui_appcard_styles",
-      "community": 2,
+      "community": 1,
       "norm_label": "styles"
     },
     {
@@ -717,7 +717,7 @@
       "label": "NavTab",
       "file_type": "code",
       "source_file": "src/components/ui/BottomNav.tsx",
-      "source_location": "L7",
+      "source_location": "L8",
       "_origin": "ast",
       "id": "ui_bottomnav_navtab",
       "community": 6,
@@ -727,7 +727,7 @@
       "label": "BottomNavProps",
       "file_type": "code",
       "source_file": "src/components/ui/BottomNav.tsx",
-      "source_location": "L9",
+      "source_location": "L10",
       "_origin": "ast",
       "id": "ui_bottomnav_bottomnavprops",
       "community": 6,
@@ -737,7 +737,7 @@
       "label": "NavItem",
       "file_type": "code",
       "source_file": "src/components/ui/BottomNav.tsx",
-      "source_location": "L13",
+      "source_location": "L14",
       "_origin": "ast",
       "id": "ui_bottomnav_navitem",
       "community": 6,
@@ -747,7 +747,7 @@
       "label": "NAV_ITEMS",
       "file_type": "code",
       "source_file": "src/components/ui/BottomNav.tsx",
-      "source_location": "L20",
+      "source_location": "L21",
       "_origin": "ast",
       "id": "ui_bottomnav_nav_items",
       "community": 6,
@@ -757,7 +757,7 @@
       "label": "BottomNav()",
       "file_type": "code",
       "source_file": "src/components/ui/BottomNav.tsx",
-      "source_location": "L28",
+      "source_location": "L29",
       "_origin": "ast",
       "id": "ui_bottomnav_bottomnav",
       "community": 6,
@@ -767,7 +767,7 @@
       "label": "styles",
       "file_type": "code",
       "source_file": "src/components/ui/BottomNav.tsx",
-      "source_location": "L72",
+      "source_location": "L69",
       "_origin": "ast",
       "id": "ui_bottomnav_styles",
       "community": 6,
@@ -780,7 +780,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_diseasebadge",
-      "community": 8,
+      "community": 2,
       "norm_label": "diseasebadge.tsx"
     },
     {
@@ -790,7 +790,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ui_diseasebadge_diseasebadgeprops",
-      "community": 8,
+      "community": 2,
       "norm_label": "diseasebadgeprops"
     },
     {
@@ -800,7 +800,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "ui_diseasebadge_diseasebadge",
-      "community": 8,
+      "community": 2,
       "norm_label": "diseasebadge()"
     },
     {
@@ -810,7 +810,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ui_diseasebadge_styles",
-      "community": 8,
+      "community": 2,
       "norm_label": "styles"
     },
     {
@@ -970,7 +970,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_screencontainer",
-      "community": 0,
+      "community": 8,
       "norm_label": "screencontainer.tsx"
     },
     {
@@ -980,7 +980,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "ui_screencontainer_screencontainerprops",
-      "community": 0,
+      "community": 8,
       "norm_label": "screencontainerprops"
     },
     {
@@ -990,7 +990,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "ui_screencontainer_screencontainer",
-      "community": 0,
+      "community": 8,
       "norm_label": "screencontainer()"
     },
     {
@@ -1000,7 +1000,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "ui_screencontainer_styles",
-      "community": 0,
+      "community": 8,
       "norm_label": "styles"
     },
     {
@@ -1017,7 +1017,7 @@
       "label": "ScreenHeaderProps",
       "file_type": "code",
       "source_file": "src/components/ui/ScreenHeader.tsx",
-      "source_location": "L7",
+      "source_location": "L8",
       "_origin": "ast",
       "id": "ui_screenheader_screenheaderprops",
       "community": 8,
@@ -1027,7 +1027,7 @@
       "label": "ScreenHeader()",
       "file_type": "code",
       "source_file": "src/components/ui/ScreenHeader.tsx",
-      "source_location": "L13",
+      "source_location": "L14",
       "_origin": "ast",
       "id": "ui_screenheader_screenheader",
       "community": 8,
@@ -1037,7 +1037,7 @@
       "label": "styles",
       "file_type": "code",
       "source_file": "src/components/ui/ScreenHeader.tsx",
-      "source_location": "L38",
+      "source_location": "L39",
       "_origin": "ast",
       "id": "ui_screenheader_styles",
       "community": 8,
@@ -1290,7 +1290,7 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "constants_theme_spacing",
-      "community": 0,
+      "community": 8,
       "norm_label": "spacing"
     },
     {
@@ -1310,7 +1310,7 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "constants_theme_shadows",
-      "community": 2,
+      "community": 1,
       "norm_label": "shadows"
     },
     {
@@ -1330,17 +1330,27 @@
       "source_location": "L176",
       "_origin": "ast",
       "id": "constants_theme_componenttokens",
-      "community": 8,
+      "community": 5,
       "norm_label": "componenttokens"
+    },
+    {
+      "label": "IconSize",
+      "file_type": "code",
+      "source_file": "src/constants/theme.ts",
+      "source_location": "L185",
+      "_origin": "ast",
+      "id": "constants_theme_iconsize",
+      "community": 1,
+      "norm_label": "iconsize"
     },
     {
       "label": "Layout",
       "file_type": "code",
       "source_file": "src/constants/theme.ts",
-      "source_location": "L185",
+      "source_location": "L193",
       "_origin": "ast",
       "id": "constants_theme_layout",
-      "community": 6,
+      "community": 8,
       "norm_label": "layout"
     },
     {
@@ -1476,9 +1486,9 @@
       "source_file": "src/app/analysis-result.tsx",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "app_analysis_result",
-      "target": "constants_theme_layout",
-      "confidence_score": 1.0
+      "target": "constants_theme_layout"
     },
     {
       "relation": "imports",
@@ -1630,9 +1640,9 @@
       "source_file": "src/app/analysis-result.tsx",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "app_analysis_result",
-      "target": "ui_screenheader",
-      "confidence_score": 1.0
+      "target": "ui_screenheader"
     },
     {
       "relation": "imports",
@@ -1641,9 +1651,9 @@
       "source_file": "src/app/analysis-result.tsx",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "app_analysis_result",
-      "target": "ui_screenheader_screenheader",
-      "confidence_score": 1.0
+      "target": "ui_screenheader_screenheader"
     },
     {
       "relation": "calls",
@@ -1766,6 +1776,17 @@
       "confidence_score": 1.0,
       "source": "app_home",
       "target": "constants_theme"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/home.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "app_home",
+      "target": "constants_theme_colors",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports",
@@ -2047,9 +2068,9 @@
       "source_file": "src/app/image-preview.tsx",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "app_image_preview",
-      "target": "constants_theme_layout",
-      "confidence_score": 1.0
+      "target": "constants_theme_layout"
     },
     {
       "relation": "imports",
@@ -2179,9 +2200,9 @@
       "source_file": "src/app/image-preview.tsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "app_image_preview",
-      "target": "ui_screenheader",
-      "confidence_score": 1.0
+      "target": "ui_screenheader"
     },
     {
       "relation": "imports",
@@ -2190,9 +2211,9 @@
       "source_file": "src/app/image-preview.tsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "app_image_preview",
-      "target": "ui_screenheader_screenheader",
-      "confidence_score": 1.0
+      "target": "ui_screenheader_screenheader"
     },
     {
       "relation": "calls",
@@ -3857,9 +3878,9 @@
       "source_file": "src/app/symptom-checklist.tsx",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "app_symptom_checklist",
-      "target": "constants_theme_layout",
-      "confidence_score": 1.0
+      "target": "constants_theme_layout"
     },
     {
       "relation": "imports",
@@ -3956,9 +3977,9 @@
       "source_file": "src/app/symptom-checklist.tsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "app_symptom_checklist",
-      "target": "ui_screenheader",
-      "confidence_score": 1.0
+      "target": "ui_screenheader"
     },
     {
       "relation": "imports",
@@ -3967,9 +3988,9 @@
       "source_file": "src/app/symptom-checklist.tsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "app_symptom_checklist",
-      "target": "ui_screenheader_screenheader",
-      "confidence_score": 1.0
+      "target": "ui_screenheader_screenheader"
     },
     {
       "relation": "imports_from",
@@ -4393,6 +4414,17 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/components/ui/BottomNav.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_bottomnav",
+      "target": "constants_theme_componenttokens"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/BottomNav.tsx",
       "source_location": "L4",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -4631,6 +4663,17 @@
       "confidence_score": 1.0,
       "source": "ui_diseasepill",
       "target": "constants_theme_diseasetokens"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/DiseasePill.tsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ui_diseasepill",
+      "target": "constants_theme_themecolor"
     },
     {
       "relation": "imports",
@@ -5703,6 +5746,16 @@
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "constants_theme",
+      "target": "constants_theme_iconsize"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/constants/theme.ts",
+      "source_location": "L185",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "constants_theme",
       "target": "constants_theme_layout"
     },
     {
@@ -5821,5 +5874,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "5b964437aa55f21a2a23fa7fffd26f4430df3606"
+  "built_at_commit": "d182087ec95773ac1db9811734bf37dc2d36fab6"
 }

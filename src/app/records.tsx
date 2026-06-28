@@ -107,8 +107,8 @@ export default function RecordsScreen() {
                       style={({ pressed }) => [
                         styles.filterPill,
                         {
-                          backgroundColor: selected ? theme.primary : theme.surfaceElevated,
-                          borderColor: selected ? theme.primary : theme.border,
+                          backgroundColor: selected ? theme.primary : theme.surfaceMuted,
+                          borderColor: selected ? theme.primaryDark : theme.border,
                         },
                         pressed && { opacity: 0.7 },
                       ]}>

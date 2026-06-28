@@ -50,8 +50,8 @@
     "semantic_hash": ""
   },
   "src/constants/theme.ts": {
-    "mtime": 1782551424.3049676,
-    "ast_hash": "4446d7dce14620bfdd5929520aa1b7f5",
+    "mtime": 1782570392.1538239,
+    "ast_hash": "d012c7b7a2ee2874151418177558a4d1",
     "semantic_hash": ""
   },
   "src/hooks/use-color-scheme.ts": {
@@ -235,13 +235,13 @@
     "semantic_hash": ""
   },
   "src/app/home.tsx": {
-    "mtime": 1782564324.3945518,
-    "ast_hash": "dbfac2285e4aec5a8a23d681ea3c0fef",
+    "mtime": 1782573062.060037,
+    "ast_hash": "fcb52cf802a1d173007c2a721a51464c",
     "semantic_hash": ""
   },
   "src/app/image-preview.tsx": {
-    "mtime": 1782564497.9470022,
-    "ast_hash": "c9bc5c409ebd86eb8576665f4ba9862d",
+    "mtime": 1782570474.4072914,
+    "ast_hash": "b41251a0da9027609f65851e0b357e90",
     "semantic_hash": ""
   },
   "src/app/scan.tsx": {
@@ -265,8 +265,8 @@
     "semantic_hash": ""
   },
   "src/app/records.tsx": {
-    "mtime": 1782563655.7453306,
-    "ast_hash": "53f7265fbb9fbc4d1d2a17b6fd6b8c35",
+    "mtime": 1782572735.4580812,
+    "ast_hash": "7622e529662dbba2db7bd36f060816e4",
     "semantic_hash": ""
   },
   "src/app/reports.tsx": {
@@ -275,13 +275,13 @@
     "semantic_hash": ""
   },
   "src/components/ui/BottomNav.tsx": {
-    "mtime": 1782564323.4963915,
-    "ast_hash": "93bd50ca20abac278d4f903f52a05e60",
+    "mtime": 1782570412.7005525,
+    "ast_hash": "d9252b1aa72c052205db84909ad8042c",
     "semantic_hash": ""
   },
   "src/components/ui/DiseasePill.tsx": {
-    "mtime": 1782563684.7490494,
-    "ast_hash": "b1c4e2c1cbaf96ebe816555b666041b0",
+    "mtime": 1782572758.316792,
+    "ast_hash": "16462ec60db638f024072bb762072306",
     "semantic_hash": ""
   },
   "src/components/ui/ProgressBar.tsx": {
@@ -295,8 +295,8 @@
     "semantic_hash": ""
   },
   "src/components/ui/ScreenHeader.tsx": {
-    "mtime": 1782563658.1942174,
-    "ast_hash": "569e3ec151998516c7729281ff6da02f",
+    "mtime": 1782570462.512258,
+    "ast_hash": "df5ba8f30834985c2b96f8501ea3fd86",
     "semantic_hash": ""
   },
   "src/components/ui/StatusChip.tsx": {

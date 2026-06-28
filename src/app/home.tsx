@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   ComponentTokens,
+  Colors,
   DiseaseTokens,
   Layout,
   Radius,
@@ -109,15 +110,23 @@ export default function HomeScreen() {
                 </View>
 
                 <View style={styles.headerActions}>
-                  <View style={[styles.onlinePill, { backgroundColor: theme.surfaceElevated }]}> 
-                    <Text style={[styles.onlineText, { color: theme.success }]}>Online</Text>
+                  <View
+                    style={[
+                      styles.onlinePill,
+                      { backgroundColor: 'rgba(255,255,255,0.14)', borderColor: 'rgba(255,255,255,0.28)' },
+                    ]}>
+                    <Text style={[styles.onlineText, { color: theme.surfaceElevated }]}>Online</Text>
                   </View>
                   <HeaderIconButton icon="user" accessibilityLabel="Open profile" />
                   <HeaderIconButton icon="help-circle" accessibilityLabel="Open help" />
                 </View>
               </View>
 
-              <View style={[styles.locationPill, { backgroundColor: theme.primaryLight }]}> 
+              <View
+                style={[
+                  styles.locationPill,
+                  { backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.24)' },
+                ]}>
                 <Text style={[styles.locationText, { color: theme.surfaceElevated }]}>
                   Location: Brgy. Cogunan, Nasugbu, Batangas
                 </Text>
@@ -145,10 +154,10 @@ export default function HomeScreen() {
                   pressed && styles.pressed,
                 ]}>
                 <View style={styles.unsentTextBlock}>
-                  <Text style={[styles.unsentTitle, { color: theme.warning }]}>2 unsent reports</Text>
-                  <Text style={[styles.unsentBody, { color: theme.warning }]}>Will sync automatically when online.</Text>
+                  <Text style={[styles.unsentTitle, { color: theme.text }]}>2 unsent reports</Text>
+                  <Text style={[styles.unsentBody, { color: theme.text }]}>Will sync automatically when online.</Text>
                 </View>
-                <Text style={[styles.queueLink, { color: theme.warning }]}>View queue</Text>
+                <Text style={[styles.queueLink, { color: theme.text }]}>View queue</Text>
               </Pressable>
 
               <SectionTitle title="COMMON DISEASES - PHOTO EXAMPLES" />
@@ -226,8 +235,8 @@ function QuickActionCard({ action }: { action: QuickAction }) {
       </View>
       <Text style={[styles.quickTitle, { color: isPrimary ? theme.surfaceElevated : theme.primaryDark }]}>{action.title}</Text>
       {action.badge ? (
-        <View style={[styles.countBadge, { backgroundColor: theme.infoBg }]}> 
-          <Text style={[styles.countBadgeText, { color: theme.info }]}>{action.badge}</Text>
+        <View style={[styles.countBadge, { backgroundColor: theme.accent, borderColor: theme.accentDark }]}>
+          <Text style={[styles.countBadgeText, { color: Colors.light.primaryDark }]}>{action.badge}</Text>
         </View>
       ) : null}
     </Pressable>
@@ -243,7 +252,7 @@ function DiseasePhotoCard({ disease }: { disease: DiseaseExample }) {
         <View style={[styles.caneBlade, styles.caneBladeOne, { backgroundColor: disease.color }]} />
         <View style={[styles.caneBlade, styles.caneBladeTwo, { backgroundColor: theme.primaryLight }]} />
         <View style={[styles.caneBlade, styles.caneBladeThree, { backgroundColor: disease.color }]} />
-        <Text style={[styles.photoLabel, { color: theme.text }]}>{disease.label}</Text>
+        <Text style={[styles.photoLabel, { color: Colors.light.primaryDark }]}>{disease.label}</Text>
       </View>
       <View style={styles.diseaseTextBlock}>
         <Text style={[styles.diseaseName, { color: theme.text }]}>{disease.name}</Text>
@@ -331,6 +340,7 @@ const styles = StyleSheet.create({
   onlinePill: {
     minHeight: 24,
     borderRadius: Radius.full,
+    borderWidth: 1,
     paddingHorizontal: Spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -349,6 +359,7 @@ const styles = StyleSheet.create({
   locationPill: {
     minHeight: 34,
     borderRadius: Radius.md,
+    borderWidth: 1,
     justifyContent: 'center',
     paddingHorizontal: Spacing.md,
   },
@@ -404,6 +415,7 @@ const styles = StyleSheet.create({
     minWidth: 24,
     height: 20,
     borderRadius: Radius.full,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.xs,

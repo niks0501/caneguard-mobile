@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "src/app/index.tsx": {
-    "mtime": 1782554402.799631,
-    "ast_hash": "0c7770c53b5e42f10f28a3b06ce90822",
+    "mtime": 1782648971.582262,
+    "ast_hash": "966569a5e33735396419aad1c760f0a2",
     "semantic_hash": ""
   },
   "src/components/themed-text.tsx": {
@@ -235,8 +235,8 @@
     "semantic_hash": ""
   },
   "src/app/home.tsx": {
-    "mtime": 1782573062.060037,
-    "ast_hash": "fcb52cf802a1d173007c2a721a51464c",
+    "mtime": 1782649277.8960512,
+    "ast_hash": "cd54735f1a2ee928fd410ffe8ea51bea",
     "semantic_hash": ""
   },
   "src/app/image-preview.tsx": {

@@ -1,9 +1,9 @@
 import { router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
-import { Radius, Spacing, Typography } from '@/constants/theme';
+import { Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function SplashScreen() {
@@ -12,14 +12,13 @@ export default function SplashScreen() {
   return (
     <ScreenContainer contentStyle={styles.container}>
       <View style={styles.brandWrap}>
-        <View
-          accessibilityLabel="Minimal sugarcane leaf mark"
+        <Image
           accessible
-          style={[styles.leafMark, { backgroundColor: theme.primary }]}>
-          <View style={[styles.leafBlade, styles.leafBladeLeft, { backgroundColor: theme.accent }]} />
-          <View style={[styles.leafBlade, styles.leafBladeRight, { backgroundColor: theme.accent }]} />
-          <View style={[styles.leafStem, { backgroundColor: theme.surfaceElevated }]} />
-        </View>
+          accessibilityLabel="CaneGuard Logo"
+          source={require('../../assets/cane_guard_logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={[styles.appName, { color: theme.text }]}>CaneGuard</Text>
         <Text style={[styles.subtitle, { color: theme.primaryDark }]}>AI-Based Disease Detection for Sugarcane</Text>
       </View>
@@ -42,44 +41,18 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     justifyContent: 'center',
-    gap: Spacing['3xl'],
+    gap: Spacing.xl,
   },
   brandWrap: {
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: Spacing.none,
   },
-  leafMark: {
-    width: 92,
-    height: 92,
-    borderRadius: Radius['2xl'],
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  leafBlade: {
-    position: 'absolute',
-    width: 18,
-    height: 62,
-    borderRadius: Radius.full,
-  },
-  leafBladeLeft: {
-    transform: [{ rotate: '-32deg' }],
-    left: 28,
-    top: 13,
-  },
-  leafBladeRight: {
-    transform: [{ rotate: '32deg' }],
-    right: 28,
-    top: 13,
-  },
-  leafStem: {
-    width: 8,
-    height: 56,
-    borderRadius: Radius.full,
-    transform: [{ rotate: '2deg' }],
+  logo: {
+    width: 500,
+    height: 500,
   },
   appName: {
-    ...Typography.display,
+    ...Typography.title,
     textAlign: 'center',
   },
   subtitle: {
@@ -87,6 +60,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   actions: {
-    gap: Spacing.sm,
+    gap: Spacing.none,
   },
 });

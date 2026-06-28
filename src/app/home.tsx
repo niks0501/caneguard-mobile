@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -27,6 +27,7 @@ type DiseaseExample = {
   name: string;
   symptoms: string;
   label: string;
+  image: number;
   color: string;
   background: string;
 };
@@ -36,6 +37,7 @@ const diseaseExamples: DiseaseExample[] = [
     name: 'Downy Mildew',
     symptoms: 'White fuzz, yellow stripes',
     label: 'Leaf stripes',
+    image: require('../../assets/images/sugarcane-diseases/sugarcane_downey_mildew.jpg'),
     color: DiseaseTokens.downyMildew.color,
     background: DiseaseTokens.downyMildew.background,
   },
@@ -43,6 +45,7 @@ const diseaseExamples: DiseaseExample[] = [
     name: 'Sugarcane Smut',
     symptoms: 'Black whip-like growth',
     label: 'Whip growth',
+    image: require('../../assets/images/sugarcane-diseases/sugarcane_smut.jpg'),
     color: DiseaseTokens.smut.color,
     background: DiseaseTokens.smut.background,
   },
@@ -50,6 +53,7 @@ const diseaseExamples: DiseaseExample[] = [
     name: 'Mosaic Disease',
     symptoms: 'Yellow-green mosaic pattern',
     label: 'Mosaic pattern',
+    image: require('../../assets/images/sugarcane-diseases/sugarcane_mosaic.jpg'),
     color: DiseaseTokens.mosaic.color,
     background: DiseaseTokens.mosaic.background,
   },
@@ -57,6 +61,7 @@ const diseaseExamples: DiseaseExample[] = [
     name: 'Sugarcane Rust',
     symptoms: 'Rust-colored spots',
     label: 'Rust spots',
+    image: require('../../assets/images/sugarcane-diseases/sugarcane_rust.jpg'),
     color: DiseaseTokens.rust.color,
     background: DiseaseTokens.rust.background,
   },
@@ -248,10 +253,12 @@ function DiseasePhotoCard({ disease }: { disease: DiseaseExample }) {
 
   return (
     <View style={[styles.diseaseCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}> 
-      <View style={[styles.photoPlaceholder, { backgroundColor: disease.background }]}> 
-        <View style={[styles.caneBlade, styles.caneBladeOne, { backgroundColor: disease.color }]} />
-        <View style={[styles.caneBlade, styles.caneBladeTwo, { backgroundColor: theme.primaryLight }]} />
-        <View style={[styles.caneBlade, styles.caneBladeThree, { backgroundColor: disease.color }]} />
+      <View style={[styles.photoPlaceholder, { backgroundColor: disease.background }]}>
+        <Image
+          source={disease.image}
+          style={styles.diseaseImage}
+          resizeMode="cover"
+        />
         <Text style={[styles.photoLabel, { color: Colors.light.primaryDark }]}>{disease.label}</Text>
       </View>
       <View style={styles.diseaseTextBlock}>
@@ -462,32 +469,17 @@ const styles = StyleSheet.create({
     ...Shadows.sm,
   },
   photoPlaceholder: {
-    minHeight: 116,
+    minHeight: 200,
     overflow: 'hidden',
     justifyContent: 'flex-end',
     padding: Spacing.sm,
   },
-  caneBlade: {
+  diseaseImage: {
     position: 'absolute',
-    width: 18,
-    height: 130,
-    borderRadius: Radius.full,
-    opacity: 0.78,
-  },
-  caneBladeOne: {
-    left: 22,
-    top: -12,
-    transform: [{ rotate: '-18deg' }],
-  },
-  caneBladeTwo: {
-    left: 64,
-    top: -20,
-    transform: [{ rotate: '10deg' }],
-  },
-  caneBladeThree: {
-    right: 24,
-    top: -8,
-    transform: [{ rotate: '22deg' }],
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
   photoLabel: {
     ...Typography.caption,

@@ -1,108 +1,102 @@
-# Graph Report - caneguard-mobile  (2026-06-28)
+# Graph Report - .  (2026-07-06)
 
 ## Corpus Check
-- 31 files · ~8,004 words
-- Verdict: corpus is large enough that graph structure adds value.
+- Corpus is ~8,004 words - fits in a single context window. You may not need a graph.
 
 ## Summary
-- 140 nodes · 416 edges · 9 communities (8 shown, 1 thin omitted)
-- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 2 edges (avg confidence: 0.8)
+- 140 nodes · 386 edges · 10 communities
+- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
 - Token cost: 0 input · 0 output
 
-## Graph Freshness
-- Built from commit: `3a3dd5d2`
-- Run `git rev-parse HEAD` and compare to check if the graph is stale.
-- Run `graphify update .` after code changes (no API cost).
-
 ## Community Hubs (Navigation)
-- [[_COMMUNITY_Community 0|Community 0]]
-- [[_COMMUNITY_Community 1|Community 1]]
-- [[_COMMUNITY_Community 2|Community 2]]
-- [[_COMMUNITY_Community 3|Community 3]]
-- [[_COMMUNITY_Community 4|Community 4]]
-- [[_COMMUNITY_Community 5|Community 5]]
-- [[_COMMUNITY_Community 6|Community 6]]
-- [[_COMMUNITY_Community 7|Community 7]]
-- [[_COMMUNITY_Community 8|Community 8]]
+- [[_COMMUNITY_Scan & Analysis Flow|Scan & Analysis Flow]]
+- [[_COMMUNITY_Records & Disease Library|Records & Disease Library]]
+- [[_COMMUNITY_Auth & Onboarding|Auth & Onboarding]]
+- [[_COMMUNITY_Reports & Progress|Reports & Progress]]
+- [[_COMMUNITY_Settings & Navigation|Settings & Navigation]]
+- [[_COMMUNITY_Home Screen|Home Screen]]
+- [[_COMMUNITY_Design System & Theme|Design System & Theme]]
+- [[_COMMUNITY_Symptom Checklist|Symptom Checklist]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `useTheme()` - 61 edges
+1. `useTheme()` - 60 edges
 2. `Typography` - 21 edges
-3. `ComponentTokens` - 19 edges
-4. `Spacing` - 18 edges
-5. `Radius` - 14 edges
-6. `AppButton()` - 12 edges
+3. `Spacing` - 18 edges
+4. `ComponentTokens` - 18 edges
+5. `Radius` - 12 edges
+6. `AppButton()` - 11 edges
 7. `Layout` - 11 edges
-8. `ScreenContainer()` - 10 edges
-9. `AppCard()` - 9 edges
-10. `ScreenHeader()` - 9 edges
+8. `ScreenHeader()` - 9 edges
+9. `Shadows` - 6 edges
+10. `AppCard()` - 5 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `AnalysisResultScreen()` --calls--> `useTheme()`  [EXTRACTED]
+  src/app/analysis-result.tsx → src/hooks/use-theme.ts
+- `ImagePreviewScreen()` --calls--> `useTheme()`  [EXTRACTED]
+  src/app/image-preview.tsx → src/hooks/use-theme.ts
 - `SplashScreen()` --calls--> `useTheme()`  [EXTRACTED]
   src/app/index.tsx → src/hooks/use-theme.ts
+- `LoginScreen()` --calls--> `useTheme()`  [EXTRACTED]
+  src/app/login.tsx → src/hooks/use-theme.ts
 - `RecordsScreen()` --calls--> `useTheme()`  [EXTRACTED]
   src/app/records.tsx → src/hooks/use-theme.ts
-- `RegisterScreen()` --calls--> `useTheme()`  [EXTRACTED]
-  src/app/register.tsx → src/hooks/use-theme.ts
-- `ReportsScreen()` --calls--> `useTheme()`  [EXTRACTED]
-  src/app/reports.tsx → src/hooks/use-theme.ts
-- `SelectRow()` --calls--> `useTheme()`  [EXTRACTED]
-  src/app/settings.tsx → src/hooks/use-theme.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (9 total, 1 thin omitted)
+## Communities (10 total, 0 thin omitted)
 
-### Community 0 - "Community 0"
-Cohesion: 0.21
-Nodes (9): RegisterScreen(), styles, Typography, AppButtonProps, AppButtonVariant, styles, styles, TextField() (+1 more)
+### Community 0 - "Scan & Analysis Flow"
+Cohesion: 0.15
+Nodes (19): AnalysisResultScreen(), styles, ImagePreviewScreen(), styles, styles, AppCard(), AppCardProps, styles (+11 more)
 
-### Community 1 - "Community 1"
-Cohesion: 0.16
-Nodes (14): SplashScreen(), styles, styles, ThemedText(), ThemedTextProps, ThemedView(), ThemedViewProps, base (+6 more)
-
-### Community 2 - "Community 2"
-Cohesion: 0.14
-Nodes (18): AnalysisResultScreen(), BottomNavItem(), DiseaseExample, diseaseExamples, DiseasePhotoCard(), HeaderIconButton(), HomeScreen(), QuickAction (+10 more)
-
-### Community 3 - "Community 3"
-Cohesion: 0.18
-Nodes (10): DISEASE_BARS, ReportsScreen(), styles, Colors, ProgressBar(), ProgressBarProps, styles, styles (+2 more)
-
-### Community 5 - "Community 5"
+### Community 1 - "Records & Disease Library"
 Cohesion: 0.11
-Nodes (21): FilterKey, FILTERS, MOCK_RECORDS, RecordsScreen(), styles, ComponentTokens, DiseaseTokens, DiseasePill() (+13 more)
+Nodes (20): FilterKey, FILTERS, MOCK_RECORDS, RecordsScreen(), styles, DiseasePill(), DiseasePillProps, DiseasePillVariant (+12 more)
 
-### Community 6 - "Community 6"
+### Community 2 - "Auth & Onboarding"
+Cohesion: 0.13
+Nodes (17): SplashScreen(), styles, LoginScreen(), styles, RegisterScreen(), styles, AppButton(), AppButtonProps (+9 more)
+
+### Community 3 - "Reports & Progress"
+Cohesion: 0.18
+Nodes (10): DISEASE_BARS, ReportsScreen(), styles, ProgressBar(), ProgressBarProps, styles, styles, SummaryTile() (+2 more)
+
+### Community 4 - "Settings & Navigation"
 Cohesion: 0.15
 Nodes (12): SelectRow(), SelectRowProps, SettingsScreen(), styles, ToggleRow(), ToggleRowProps, BottomNav(), BottomNavProps (+4 more)
 
-### Community 7 - "Community 7"
+### Community 5 - "Home Screen"
+Cohesion: 0.23
+Nodes (12): BottomNavItem(), DiseaseExample, diseaseExamples, DiseasePhotoCard(), HeaderIconButton(), HomeScreen(), QuickAction, QuickActionCard() (+4 more)
+
+### Community 6 - "Design System & Theme"
+Cohesion: 0.21
+Nodes (9): styles, ThemedText(), ThemedTextProps, ThemedView(), ThemedViewProps, base, Fonts, IconSize (+1 more)
+
+### Community 7 - "Symptom Checklist"
 Cohesion: 0.22
 Nodes (8): SEVERITIES, Severity, styles, SymptomChecklistScreen(), SYMPTOMS, styles, SymptomChecklistItem(), SymptomChecklistItemProps
-
-### Community 8 - "Community 8"
-Cohesion: 0.22
-Nodes (15): styles, styles, styles, styles, Layout, Radius, Spacing, AppButton() (+7 more)
 
 ## Knowledge Gaps
 - **60 isolated node(s):** `styles`, `QuickAction`, `DiseaseExample`, `diseaseExamples`, `styles` (+55 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **1 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `useTheme()` connect `Community 2` to `Community 0`, `Community 1`, `Community 3`, `Community 4`, `Community 5`, `Community 6`, `Community 7`, `Community 8`?**
-  _High betweenness centrality (0.416) - this node is a cross-community bridge._
-- **Why does `useColorScheme()` connect `Community 4` to `Community 2`?**
-  _High betweenness centrality (0.043) - this node is a cross-community bridge._
-- **Why does `Typography` connect `Community 0` to `Community 1`, `Community 2`, `Community 3`, `Community 5`, `Community 6`, `Community 7`, `Community 8`?**
-  _High betweenness centrality (0.030) - this node is a cross-community bridge._
+- **Why does `useTheme()` connect `Home Screen` to `Scan & Analysis Flow`, `Records & Disease Library`, `Auth & Onboarding`, `Reports & Progress`, `Settings & Navigation`, `Design System & Theme`, `Symptom Checklist`?**
+  _High betweenness centrality (0.382) - this node is a cross-community bridge._
+- **Why does `Typography` connect `Scan & Analysis Flow` to `Records & Disease Library`, `Auth & Onboarding`, `Reports & Progress`, `Settings & Navigation`, `Home Screen`, `Design System & Theme`, `Symptom Checklist`?**
+  _High betweenness centrality (0.032) - this node is a cross-community bridge._
+- **Why does `ComponentTokens` connect `Scan & Analysis Flow` to `Records & Disease Library`, `Auth & Onboarding`, `Reports & Progress`, `Settings & Navigation`, `Home Screen`, `Design System & Theme`, `Symptom Checklist`?**
+  _High betweenness centrality (0.029) - this node is a cross-community bridge._
 - **What connects `styles`, `QuickAction`, `DiseaseExample` to the rest of the system?**
   _60 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `Community 2` be split into smaller, more focused modules?**
-  _Cohesion score 0.1368421052631579 - nodes in this community are weakly interconnected._
-- **Should `Community 5` be split into smaller, more focused modules?**
-  _Cohesion score 0.11 - nodes in this community are weakly interconnected._
+- **Should `Scan & Analysis Flow` be split into smaller, more focused modules?**
+  _Cohesion score 0.14666666666666667 - nodes in this community are weakly interconnected._
+- **Should `Records & Disease Library` be split into smaller, more focused modules?**
+  _Cohesion score 0.10869565217391304 - nodes in this community are weakly interconnected._
+- **Should `Auth & Onboarding` be split into smaller, more focused modules?**
+  _Cohesion score 0.13043478260869565 - nodes in this community are weakly interconnected._

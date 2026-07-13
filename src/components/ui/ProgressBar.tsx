@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -19,7 +19,7 @@ export function ProgressBar({ progress, color }: ProgressBarProps) {
           styles.fill,
           {
             backgroundColor: color,
-            width: `${clamped * 100}%` as any,
+            width: `${clamped * 100}%` as ViewStyle['width'],
           },
         ]}
       />

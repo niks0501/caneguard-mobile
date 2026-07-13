@@ -1,3 +1,4 @@
+import { Feather } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Radius, Spacing, Typography } from '@/constants/theme';
@@ -36,6 +37,9 @@ export function SymptomChecklistItem({ label, selected, onToggle }: SymptomCheck
         {selected ? <Text style={styles.checkmark}>{'✓'}</Text> : null}
       </View>
       <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
+      <View style={[styles.trailingIcon, { backgroundColor: theme.warningBg }]}>
+        <Feather name="feather" size={17} color={theme.accentDark} />
+      </View>
     </Pressable>
   );
 }
@@ -45,8 +49,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    padding: Spacing.lg,
-    borderRadius: Radius.md,
+    minHeight: 62,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.lg,
     borderWidth: 1.5,
   },
   checkbox: {
@@ -65,5 +70,12 @@ const styles = StyleSheet.create({
   label: {
     ...Typography.body,
     flex: 1,
+  },
+  trailingIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

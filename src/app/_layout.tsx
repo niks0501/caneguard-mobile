@@ -1,11 +1,39 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import { useColorScheme } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
+
+import {
+  ThemePreferenceProvider,
+  useThemePreference,
+} from '@/providers/ThemePreferenceProvider';
+
+void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  return (
+    <ThemePreferenceProvider>
+      <AppNavigator />
+    </ThemePreferenceProvider>
+  );
+}
+
+function AppNavigator() {
+  const { colorScheme, isHydrated } = useThemePreference();
+
+  useEffect(() => {
+    if (isHydrated) {
+      void SplashScreen.hideAsync();
+    }
+  }, [isHydrated]);
+
+  if (!isHydrated) {
+    return null;
+  }
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />

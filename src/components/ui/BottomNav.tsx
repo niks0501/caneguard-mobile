@@ -1,8 +1,9 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ComponentTokens, Layout, Spacing } from '@/constants/theme';
+import { ComponentTokens, Layout, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type NavTab = 'home' | 'scan' | 'records' | 'settings' | 'reports';
@@ -28,10 +29,11 @@ const NAV_ITEMS: NavItem[] = [
 
 export function BottomNav({ activeTab }: BottomNavProps) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.wrap, { backgroundColor: theme.surfaceElevated, borderTopColor: theme.border }]}>
-      <View style={styles.row}>
+    <View style={styles.wrap}>
+      <View style={[styles.row, { backgroundColor: theme.surfaceElevated, paddingBottom: Math.max(Spacing.sm, insets.bottom) }]}>
         {NAV_ITEMS.map((item) => {
           const active = item.key === activeTab;
 
@@ -50,11 +52,10 @@ export function BottomNav({ activeTab }: BottomNavProps) {
                 styles.item,
                 pressed && { opacity: 0.7 },
               ]}>
-              <Feather
-                name={item.icon}
-                size={ComponentTokens.bottomNav.iconSize}
-                color={active ? theme.primary : theme.textSecondary}
-              />
+              <View style={styles.iconWrap}>
+                <Feather name={item.icon} size={ComponentTokens.bottomNav.iconSize} color={active ? theme.primary : theme.textSecondary} />
+                {active ? <View style={[styles.activeLine, { backgroundColor: theme.accentDark }]} /> : null}
+              </View>
               <Text style={[styles.label, { color: active ? theme.primary : theme.textSecondary }]}>
                 {item.label}
               </Text>
@@ -69,7 +70,9 @@ export function BottomNav({ activeTab }: BottomNavProps) {
 const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
-    borderTopWidth: 1,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
+    backgroundColor: 'transparent',
   },
   row: {
     width: '100%',
@@ -78,26 +81,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingHorizontal: Spacing.sm,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
     paddingTop: Spacing.xs,
+    borderRadius: Radius['2xl'],
+    ...Shadows.md,
   },
   item: {
-    minWidth: 54,
-    minHeight: 52,
+    flex: 1,
+    minWidth: 0,
+    minHeight: 60,
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
   },
-  navIcon: {
-    width: ComponentTokens.bottomNav.iconSize,
-    height: ComponentTokens.bottomNav.iconSize,
+  iconWrap: {
+    width: 30,
+    height: 28,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+  },
+  activeLine: {
+    width: 18,
+    height: 3,
+    borderRadius: Radius.full,
+    marginTop: Spacing.xs,
   },
   label: {
     fontSize: 10,
     lineHeight: 12,
     fontWeight: '700',
+    textAlign: 'center',
   },
 });

@@ -1,12 +1,14 @@
 import { Feather } from '@expo/vector-icons';
+import { Image as ExpoImage } from 'expo-image';
 import { router } from 'expo-router';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BottomNav } from '@/components/ui/BottomNav';
 import {
   ComponentTokens,
-  Colors,
   DiseaseTokens,
+  Fonts,
   Layout,
   Radius,
   Shadows,
@@ -14,9 +16,11 @@ import {
   Typography,
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useThemePreference } from '@/providers/ThemePreferenceProvider';
 
 type QuickAction = {
   title: string;
+  body: string;
   icon: keyof typeof Feather.glyphMap;
   primary?: boolean;
   badge?: string;
@@ -26,510 +30,494 @@ type QuickAction = {
 type DiseaseExample = {
   name: string;
   symptoms: string;
-  label: string;
   image: number;
   color: string;
-  background: string;
 };
 
-const diseaseExamples: DiseaseExample[] = [
+const DISEASES: DiseaseExample[] = [
   {
     name: 'Downy Mildew',
-    symptoms: 'White fuzz, yellow stripes',
-    label: 'Leaf stripes',
+    symptoms: 'White fuzz and yellow stripes',
     image: require('../../assets/images/sugarcane-diseases/sugarcane_downey_mildew.jpg'),
     color: DiseaseTokens.downyMildew.color,
-    background: DiseaseTokens.downyMildew.background,
   },
   {
     name: 'Sugarcane Smut',
     symptoms: 'Black whip-like growth',
-    label: 'Whip growth',
     image: require('../../assets/images/sugarcane-diseases/sugarcane_smut.jpg'),
     color: DiseaseTokens.smut.color,
-    background: DiseaseTokens.smut.background,
   },
   {
     name: 'Mosaic Disease',
     symptoms: 'Yellow-green mosaic pattern',
-    label: 'Mosaic pattern',
     image: require('../../assets/images/sugarcane-diseases/sugarcane_mosaic.jpg'),
     color: DiseaseTokens.mosaic.color,
-    background: DiseaseTokens.mosaic.background,
   },
   {
     name: 'Sugarcane Rust',
-    symptoms: 'Rust-colored spots',
-    label: 'Rust spots',
+    symptoms: 'Rust-colored leaf spots',
     image: require('../../assets/images/sugarcane-diseases/sugarcane_rust.jpg'),
     color: DiseaseTokens.rust.color,
-    background: DiseaseTokens.rust.background,
   },
 ];
 
 export default function HomeScreen() {
   const theme = useTheme();
+  const { isDarkMode } = useThemePreference();
 
   const showComingSoon = (label: string) => {
     Alert.alert(label, 'This dashboard shortcut will be available in a future update.');
   };
 
-  const quickActions: QuickAction[] = [
+  const actions: QuickAction[] = [
     {
       title: 'Start Scan',
+      body: 'Check a sugarcane photo',
       icon: 'camera',
       primary: true,
       onPress: () => router.push('/scan'),
     },
     {
       title: 'My Records',
+      body: 'View field observations',
       icon: 'folder',
       onPress: () => router.push('/records'),
     },
     {
       title: 'Sync Queue',
+      body: 'Reports saved offline',
       icon: 'refresh-cw',
       badge: '2',
       onPress: () => showComingSoon('Sync Queue'),
     },
     {
       title: 'Help & FAQ',
+      body: 'Learn how CaneGuard works',
       icon: 'help-circle',
       onPress: () => showComingSoon('Help & FAQ'),
     },
   ];
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.primary }]} edges={['top']}>
-      <View style={[styles.root, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
+      <View style={styles.root}>
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          style={styles.scrollView}>
+          contentContainerStyle={styles.scrollContent}>
           <View style={styles.dashboard}>
-            <View style={[styles.header, { backgroundColor: theme.primary }]}>
-              <View style={styles.headerTopRow}>
-                <View style={styles.greetingBlock}>
-                  <Text style={[styles.greetingLabel, { color: theme.surfaceElevated }]}>Magandang umaga,</Text>
-                  <Text style={[styles.greetingName, { color: theme.surfaceElevated }]}>Nikko Selwyn</Text>
-                </View>
-
-                <View style={styles.headerActions}>
-                  <View
-                    style={[
-                      styles.onlinePill,
-                      { backgroundColor: 'rgba(255,255,255,0.14)', borderColor: 'rgba(255,255,255,0.28)' },
-                    ]}>
-                    <Text style={[styles.onlineText, { color: theme.surfaceElevated }]}>Online</Text>
+            <View style={[styles.hero, { backgroundColor: theme.backgroundElement }]}>
+              <ExpoImage
+                accessible={false}
+                contentFit="contain"
+                contentPosition="right bottom"
+                pointerEvents="none"
+                source={require('../../assets/svg/sugarcane-hero.svg')}
+                style={[styles.heroArtwork, isDarkMode && styles.heroArtworkDark]}
+              />
+              <View style={[styles.wave, { backgroundColor: theme.surfaceMuted }]} />
+              <View style={styles.heroContent}>
+                <View style={styles.heroTop}>
+                  <View style={styles.greetingBlock}>
+                    <Text style={[styles.greeting, { color: theme.textSecondary }]}>Magandang umaga,</Text>
+                    <Text style={[styles.name, { color: theme.primaryDark }]}>Nikko Selwyn</Text>
                   </View>
-                  <HeaderIconButton icon="user" accessibilityLabel="Open profile" />
-                  <HeaderIconButton icon="help-circle" accessibilityLabel="Open help" />
+                  <View style={styles.heroActions}>
+                    <View style={[styles.online, { backgroundColor: theme.successBg }]}>
+                      <View style={[styles.onlineDot, { backgroundColor: theme.success }]} />
+                      <Text style={[styles.onlineText, { color: theme.success }]}>Online</Text>
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Open settings"
+                      hitSlop={8}
+                      onPress={() => router.push('/settings')}
+                      style={[styles.profile, { backgroundColor: theme.primary }]}>
+                      <Feather name="user" size={18} color={theme.surfaceElevated} />
+                    </Pressable>
+                  </View>
                 </View>
-              </View>
 
-              <View
-                style={[
-                  styles.locationPill,
-                  { backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.24)' },
-                ]}>
-                <Text style={[styles.locationText, { color: theme.surfaceElevated }]}>
-                  Location: Brgy. Cogunan, Nasugbu, Batangas
-                </Text>
+                <View
+                  style={[
+                    styles.location,
+                    { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+                  ]}>
+                  <Feather name="map-pin" size={16} color={theme.accentDark} />
+                  <Text style={[styles.locationText, { color: theme.primaryDark }]}>
+                    Brgy. Cogunan, Nasugbu, Batangas
+                  </Text>
+                </View>
+
               </View>
             </View>
 
             <View style={styles.content}>
-              <SectionTitle title="QUICK ACTIONS" />
-              <View style={styles.quickGrid}>
-                {quickActions.map((action) => (
+              <SectionTitle label="QUICK ACTIONS" />
+              <View style={styles.grid}>
+                {actions.map((action) => (
                   <QuickActionCard key={action.title} action={action} />
                 ))}
               </View>
 
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="View sync queue"
+                accessibilityLabel="View sync queue, 2 unsent reports"
                 onPress={() => showComingSoon('Sync Queue')}
                 style={({ pressed }) => [
-                  styles.unsentCard,
-                  {
-                    backgroundColor: theme.warningBg,
-                    borderColor: theme.warning,
-                  },
+                  styles.unsent,
+                  { backgroundColor: theme.warningBg, borderColor: theme.accent },
                   pressed && styles.pressed,
                 ]}>
-                <View style={styles.unsentTextBlock}>
-                  <Text style={[styles.unsentTitle, { color: theme.text }]}>2 unsent reports</Text>
-                  <Text style={[styles.unsentBody, { color: theme.text }]}>Will sync automatically when online.</Text>
+                <ExpoImage
+                  accessible={false}
+                  contentFit="contain"
+                  pointerEvents="none"
+                  source={require('../../assets/svg/offline-sync.svg')}
+                  style={styles.unsentArtwork}
+                />
+                <View style={styles.unsentCopy}>
+                  <Text style={[styles.unsentTitle, { color: theme.primaryDark }]}>2 unsent reports</Text>
+                  <Text style={[styles.unsentBody, { color: theme.textSecondary }]}>
+                    Saved locally. Sync when you are online.
+                  </Text>
                 </View>
-                <Text style={[styles.queueLink, { color: theme.text }]}>View queue</Text>
+                <Text style={[styles.viewQueue, { color: theme.primaryDark }]}>View queue</Text>
               </Pressable>
 
-              <SectionTitle title="COMMON DISEASES - PHOTO EXAMPLES" />
+              <SectionTitle label="COMMON DISEASES" />
               <View style={styles.diseaseGrid}>
-                {diseaseExamples.map((disease) => (
-                  <DiseasePhotoCard key={disease.name} disease={disease} />
+                {DISEASES.map((disease) => (
+                  <DiseaseCard key={disease.name} disease={disease} />
                 ))}
               </View>
             </View>
           </View>
         </ScrollView>
-
-        <View style={[styles.bottomNavWrap, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
-          <View style={styles.bottomNav}>
-            <BottomNavItem label="Home" icon="home" active />
-            <BottomNavItem label="Scan" icon="camera" onPress={() => router.push('/scan')} />
-            <BottomNavItem label="Records" icon="folder" onPress={() => router.push('/records')} />
-            <BottomNavItem label="Settings" icon="settings" onPress={() => router.push('/settings')} />
-            <BottomNavItem label="Reports" icon="bar-chart-2" onPress={() => router.push('/reports')} />
-          </View>
-        </View>
+        <BottomNav activeTab="home" />
       </View>
     </SafeAreaView>
   );
 }
 
-function SectionTitle({ title }: { title: string }) {
+function SectionTitle({ label }: { label: string }) {
   const theme = useTheme();
 
-  return <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>{title}</Text>;
-}
-
-function HeaderIconButton({ icon, accessibilityLabel }: { icon: keyof typeof Feather.glyphMap; accessibilityLabel: string }) {
-  const theme = useTheme();
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [
-        styles.headerIconButton,
-        { backgroundColor: theme.primaryLight },
-        pressed && styles.pressed,
-      ]}>
-      <Feather name={icon} size={20} color={theme.surfaceElevated} />
-    </Pressable>
-  );
+  return <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>{label}</Text>;
 }
 
 function QuickActionCard({ action }: { action: QuickAction }) {
   const theme = useTheme();
-  const isPrimary = action.primary === true;
+  const primary = action.primary === true;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={action.title}
+      accessibilityLabel={
+        action.badge ? `${action.title}, ${action.badge} pending reports` : action.title
+      }
       onPress={action.onPress}
       style={({ pressed }) => [
         styles.quickCard,
-        isPrimary
-          ? { backgroundColor: theme.primary, borderColor: theme.primary }
-          : { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+        {
+          backgroundColor: primary ? theme.primary : theme.surfaceElevated,
+          borderColor: primary ? theme.primary : theme.border,
+        },
         pressed && styles.pressed,
       ]}>
       <View
         style={[
           styles.quickIcon,
-          {
-            backgroundColor: isPrimary ? theme.primaryLight : theme.surfaceMuted,
-            borderColor: isPrimary ? theme.primaryLight : theme.border,
-          },
+          { backgroundColor: primary ? theme.primaryLight : theme.surfaceMuted },
         ]}>
-        <Feather name={action.icon} size={18} color={isPrimary ? theme.surfaceElevated : theme.primaryDark} />
+        <Feather
+          name={action.icon}
+          size={20}
+          color={primary ? theme.surfaceElevated : theme.primary}
+        />
       </View>
-      <Text style={[styles.quickTitle, { color: isPrimary ? theme.surfaceElevated : theme.primaryDark }]}>{action.title}</Text>
+      <View style={styles.quickCopy}>
+        <Text style={[styles.quickTitle, { color: primary ? theme.surfaceElevated : theme.primaryDark }]}>
+          {action.title}
+        </Text>
+        <Text style={[styles.quickBody, { color: primary ? theme.surfaceMuted : theme.textSecondary }]}>
+          {action.body}
+        </Text>
+      </View>
       {action.badge ? (
-        <View style={[styles.countBadge, { backgroundColor: theme.accent, borderColor: theme.accentDark }]}>
-          <Text style={[styles.countBadgeText, { color: Colors.light.primaryDark }]}>{action.badge}</Text>
+        <View style={[styles.badge, { backgroundColor: theme.accent }]}>
+          <Text style={[styles.badgeText, { color: theme.primaryDark }]}>{action.badge}</Text>
         </View>
-      ) : null}
+      ) : (
+        <Feather
+          name="chevron-right"
+          size={18}
+          color={primary ? theme.surfaceElevated : theme.textSecondary}
+        />
+      )}
     </Pressable>
   );
 }
 
-function DiseasePhotoCard({ disease }: { disease: DiseaseExample }) {
+function DiseaseCard({ disease }: { disease: DiseaseExample }) {
   const theme = useTheme();
 
   return (
-    <View style={[styles.diseaseCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}> 
-      <View style={[styles.photoPlaceholder, { backgroundColor: disease.background }]}>
-        <Image
-          source={disease.image}
-          style={styles.diseaseImage}
-          resizeMode="cover"
-        />
-        <Text style={[styles.photoLabel, { color: Colors.light.primaryDark }]}>{disease.label}</Text>
-      </View>
-      <View style={styles.diseaseTextBlock}>
-        <Text style={[styles.diseaseName, { color: theme.text }]}>{disease.name}</Text>
-        <Text style={[styles.diseaseSymptoms, { color: theme.textSecondary }]}>{disease.symptoms}</Text>
+    <View
+      style={[
+        styles.diseaseCard,
+        { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+      ]}>
+      <Image
+        source={disease.image}
+        accessibilityLabel={`${disease.name} example`}
+        resizeMode="cover"
+        style={styles.diseaseImage}
+      />
+      <View style={styles.diseaseCopy}>
+        <View style={[styles.diseaseDot, { backgroundColor: disease.color }]} />
+        <Text style={[styles.diseaseName, { color: theme.primaryDark }]}>{disease.name}</Text>
+        <Text style={[styles.diseaseSymptoms, { color: theme.textSecondary }]}>
+          {disease.symptoms}
+        </Text>
       </View>
     </View>
   );
 }
 
-function BottomNavItem({
-  label,
-  icon,
-  active,
-  onPress,
-}: {
-  label: string;
-  icon: keyof typeof Feather.glyphMap;
-  active?: boolean;
-  onPress?: () => void;
-}) {
-  const theme = useTheme();
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={({ pressed }) => [styles.navItem, pressed && styles.pressed]}>
-      <Feather
-        name={icon}
-        size={ComponentTokens.bottomNav.iconSize}
-        color={active ? theme.primary : theme.textSecondary}
-      />
-      <Text style={[styles.navLabel, { color: active ? theme.primary : theme.textSecondary }]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  safeArea: {
+  safe: {
     flex: 1,
   },
   root: {
     flex: 1,
   },
-  scrollView: {
-    flex: 1,
-  },
   scrollContent: {
     alignItems: 'center',
-    paddingBottom: Layout.bottomNavHeight + Spacing['2xl'],
+    paddingBottom: Spacing.xl,
   },
   dashboard: {
     width: '100%',
     maxWidth: Layout.mobileMaxWidth,
   },
-  header: {
+  hero: {
+    minHeight: 240,
+    overflow: 'hidden',
+  },
+  heroArtwork: {
+    position: 'absolute',
+    width: 280,
+    height: 238,
+    right: -58,
+    bottom: -8,
+    opacity: 0.88,
+  },
+  heroArtworkDark: {
+    opacity: 0.4,
+  },
+  wave: {
+    position: 'absolute',
+    width: '130%',
+    height: 135,
+    bottom: -95,
+    left: -80,
+    borderTopLeftRadius: 180,
+    borderTopRightRadius: 180,
+  },
+  heroContent: {
     paddingHorizontal: ComponentTokens.screen.horizontalPadding,
     paddingTop: Spacing.lg,
-    paddingBottom: Spacing.lg,
-    gap: Spacing.md,
   },
-  headerTopRow: {
+  heroTop: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: Spacing.md,
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
   },
   greetingBlock: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 150,
   },
-  greetingLabel: {
-    ...Typography.caption,
-    fontWeight: '600',
+  greeting: {
+    ...Typography.bodySmall,
   },
-  greetingName: {
-    ...Typography.heading,
+  name: {
+    ...Typography.title,
+    fontFamily: Fonts?.serif,
+    fontWeight: '700',
   },
-  headerActions: {
+  heroActions: {
     flexDirection: 'row',
+    flexShrink: 0,
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  onlinePill: {
-    minHeight: 24,
+  online: {
+    minHeight: 30,
     borderRadius: Radius.full,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.sm,
     alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: Spacing.xs,
+  },
+  onlineDot: {
+    width: 6,
+    height: 6,
+    borderRadius: Radius.full,
   },
   onlineText: {
     ...Typography.caption,
     fontWeight: '800',
   },
-  headerIconButton: {
-    width: 40,
-    height: 40,
+  profile: {
+    width: 42,
+    height: 42,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  locationPill: {
-    minHeight: 34,
-    borderRadius: Radius.md,
+  location: {
+    alignSelf: 'flex-start',
+    maxWidth: '70%',
+    marginTop: Spacing.lg,
     borderWidth: 1,
-    justifyContent: 'center',
+    borderRadius: Radius.full,
+    minHeight: 38,
     paddingHorizontal: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    ...Shadows.sm,
   },
   locationText: {
     ...Typography.caption,
+    flexShrink: 1,
     fontWeight: '700',
   },
   content: {
-    gap: Spacing.lg,
     paddingHorizontal: ComponentTokens.screen.horizontalPadding,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.xl,
+    gap: Spacing.lg,
   },
   sectionTitle: {
     ...Typography.label,
-    letterSpacing: 1,
+    letterSpacing: 1.1,
   },
-  quickGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  grid: {
     gap: Spacing.sm,
   },
   quickCard: {
-    width: '48.8%',
-    minHeight: 76,
-    borderRadius: Radius.lg,
+    minHeight: 83,
     borderWidth: 1,
+    borderRadius: Radius.xl,
     padding: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    position: 'relative',
+    gap: Spacing.md,
     ...Shadows.sm,
   },
   quickIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: Radius.sm,
-    borderWidth: 1,
+    width: 45,
+    height: 45,
+    borderRadius: Radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  quickCopy: {
+    flex: 1,
+    gap: Spacing.xs,
   },
   quickTitle: {
     ...Typography.bodySmall,
-    flexShrink: 1,
-    fontWeight: '900',
-    textAlign: 'center',
+    fontWeight: '800',
   },
-  countBadge: {
-    position: 'absolute',
-    right: Spacing.lg,
-    top: Spacing.sm,
-    minWidth: 24,
-    height: 20,
+  quickBody: {
+    ...Typography.caption,
+  },
+  badge: {
+    minWidth: 26,
+    height: 26,
+    paddingHorizontal: Spacing.xs,
     borderRadius: Radius.full,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Spacing.xs,
   },
-  countBadgeText: {
+  badgeText: {
     ...Typography.caption,
     fontWeight: '900',
   },
-  unsentCard: {
-    minHeight: 64,
-    borderRadius: Radius.md,
+  unsent: {
     borderWidth: 1,
+    borderRadius: Radius.xl,
     padding: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: Spacing.md,
   },
-  unsentTextBlock: {
+  unsentArtwork: {
+    width: 44,
+    height: 44,
+    flexShrink: 0,
+  },
+  unsentCopy: {
     flex: 1,
+    gap: Spacing.xs,
   },
   unsentTitle: {
     ...Typography.bodySmall,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   unsentBody: {
     ...Typography.caption,
   },
-  queueLink: {
+  viewQueue: {
     ...Typography.caption,
-    textDecorationLine: 'underline',
     fontWeight: '800',
+    textDecorationLine: 'underline',
   },
   diseaseGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    width: '100%',
     gap: Spacing.sm,
   },
   diseaseCard: {
-    width: '48.8%',
-    borderRadius: Radius.lg,
+    width: '100%',
+    minHeight: 112,
     borderWidth: 1,
-    overflow: 'hidden',
+    borderRadius: Radius.xl,
+    padding: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
     ...Shadows.sm,
   },
-  photoPlaceholder: {
-    minHeight: 200,
-    overflow: 'hidden',
-    justifyContent: 'flex-end',
-    padding: Spacing.sm,
-  },
   diseaseImage: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
+    width: 96,
+    height: 96,
+    flexShrink: 0,
+    borderRadius: Radius.lg,
   },
-  photoLabel: {
-    ...Typography.caption,
-    alignSelf: 'flex-start',
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.sm,
+  diseaseCopy: {
+    flex: 1,
+    minHeight: 96,
     paddingVertical: Spacing.xs,
-    backgroundColor: 'rgba(255,255,255,0.78)',
-    overflow: 'hidden',
-    fontWeight: '800',
-  },
-  diseaseTextBlock: {
-    padding: Spacing.md,
     gap: Spacing.xs,
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  diseaseDot: {
+    width: 7,
+    height: 7,
+    borderRadius: Radius.full,
   },
   diseaseName: {
     ...Typography.bodySmall,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   diseaseSymptoms: {
     ...Typography.caption,
   },
-  bottomNavWrap: {
-    alignItems: 'center',
-    borderTopWidth: 1,
-  },
-  bottomNav: {
-    width: '100%',
-    maxWidth: Layout.mobileMaxWidth,
-    minHeight: Layout.bottomNavHeight,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: Spacing.sm,
-    paddingBottom: Spacing.sm,
-    paddingTop: Spacing.xs,
-  },
-  navItem: {
-    minWidth: 54,
-    minHeight: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.xs,
-  },
-  navLabel: {
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '700',
-  },
   pressed: {
-    opacity: 0.78,
+    opacity: 0.74,
   },
 });

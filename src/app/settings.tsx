@@ -7,6 +7,7 @@ import { BottomNav } from '@/components/ui/BottomNav';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { ComponentTokens, Layout, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useThemePreference } from '@/providers/ThemePreferenceProvider';
 
 type SelectRowProps = {
   label: string;
@@ -37,22 +38,32 @@ function SelectRow({ label, value }: SelectRowProps) {
 
 type ToggleRowProps = {
   label: string;
+  description?: string;
   value: boolean;
   onToggle: (next: boolean) => void;
 };
 
-function ToggleRow({ label, value, onToggle }: ToggleRowProps) {
+function ToggleRow({ label, description, value, onToggle }: ToggleRowProps) {
   const theme = useTheme();
 
   return (
     <View style={[styles.menuRow, { borderBottomColor: theme.divider }]}>
-      <Text style={[styles.menuLabel, { color: theme.text }]}>{label}</Text>
+      <View style={styles.toggleCopy}>
+        <Text style={[styles.menuLabel, { color: theme.text }]}>{label}</Text>
+        {description ? (
+          <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>
+            {description}
+          </Text>
+        ) : null}
+      </View>
       <Switch
         value={value}
         onValueChange={onToggle}
-        trackColor={{ false: '#D8E0D9', true: theme.primary }}
-        thumbColor="#FFFFFF"
+        trackColor={{ false: theme.textSecondary, true: theme.primary }}
+        thumbColor={theme.surfaceElevated}
+        ios_backgroundColor={theme.textSecondary}
         accessibilityLabel={label}
+        accessibilityHint={description ?? `Turn ${label.toLowerCase()} on or off`}
         accessibilityRole="switch"
         accessibilityState={{ checked: value }}
       />
@@ -62,6 +73,7 @@ function ToggleRow({ label, value, onToggle }: ToggleRowProps) {
 
 export default function SettingsScreen() {
   const theme = useTheme();
+  const { isDarkMode, setDarkMode } = useThemePreference();
 
   const [highContrast, setHighContrast] = useState(false);
   const [syncAlerts, setSyncAlerts] = useState(true);
@@ -86,6 +98,12 @@ export default function SettingsScreen() {
               ]}>
               <SelectRow label="Language / Wika" value="English" />
               <SelectRow label="Text Size" value="Normal" />
+              <ToggleRow
+                label="Dark Mode"
+                description="Use a darker appearance throughout CaneGuard"
+                value={isDarkMode}
+                onToggle={setDarkMode}
+              />
               <ToggleRow label="High Contrast Mode" value={highContrast} onToggle={setHighContrast} />
             </View>
 
@@ -197,6 +215,14 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     fontWeight: '700',
     flex: 1,
+  },
+  toggleCopy: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+  },
+  toggleDescription: {
+    ...Typography.caption,
+    marginTop: Spacing.xs,
   },
   menuValueRow: {
     flexDirection: 'row',

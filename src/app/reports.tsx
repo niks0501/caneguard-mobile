@@ -1,268 +1,31 @@
+import { Feather } from '@expo/vector-icons';
+import { Image as ExpoImage } from 'expo-image';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BottomNav } from '@/components/ui/BottomNav';
-import { DiseasePill } from '@/components/ui/DiseasePill';
+import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ProgressBar } from '@/components/ui/ProgressBar';
-import { ScreenHeader } from '@/components/ui/ScreenHeader';
-import { StatusChip } from '@/components/ui/StatusChip';
 import { SummaryTile } from '@/components/ui/SummaryTile';
-import { ComponentTokens, Colors, Layout, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
+import { ComponentTokens, Layout, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-
-const DISEASE_BARS = [
-  { name: 'Sugarcane Smut', cases: 7, color: Colors.light.smut },
-  { name: 'Downy Mildew', cases: 3, color: Colors.light.downyMildew },
-  { name: 'Mosaic Disease', cases: 1, color: Colors.light.mosaic },
-];
 
 export default function ReportsScreen() {
   const theme = useTheme();
-
-  return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
-      <View style={styles.root}>
-        <ScreenHeader title="Reports" />
-
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          style={styles.scrollView}>
-          <View style={styles.content}>
-            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>DISEASE SUMMARY</Text>
-
-            <View
-              style={[
-                styles.summaryCard,
-                { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
-              ]}>
-              <View style={styles.tileRow}>
-                <SummaryTile value={18} label="Total Reports" tintColor="#7B2CBF" tintBackground={Colors.light.smutBg} />
-                <SummaryTile value={11} label="AI Predictions" tintColor={Colors.light.info} tintBackground={Colors.light.infoBg} />
-              </View>
-              <View style={styles.tileRow}>
-                <SummaryTile value={5} label="Healthy Scans" tintColor={Colors.light.success} tintBackground={Colors.light.successBg} />
-                <SummaryTile value={2} label="Pending Sync" tintColor={Colors.light.warning} tintBackground={Colors.light.warningBg} />
-              </View>
-            </View>
-
-            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>BY DISEASE TYPE</Text>
-
-            <View
-              style={[
-                styles.diseaseCard,
-                { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
-              ]}>
-              {DISEASE_BARS.map((item, index) => (
-                <View key={item.name}>
-                  {index > 0 ? (
-                    <View style={[styles.divider, { backgroundColor: theme.divider }]} />
-                  ) : null}
-                  <View style={styles.diseaseRow}>
-                    <Text style={[styles.diseaseName, { color: theme.text }]}>{item.name}</Text>
-                    <View
-                      style={[
-                        styles.casePill,
-                        { backgroundColor: theme.surfaceMuted },
-                      ]}>
-                      <Text style={[styles.caseCount, { color: theme.textSecondary }]}>
-                        {item.cases} cases
-                      </Text>
-                    </View>
-                  </View>
-                  <ProgressBar progress={item.cases / 7} color={item.color} />
-                </View>
-              ))}
-            </View>
-
-            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>SYNC STATUS</Text>
-
-            <View
-              style={[
-                styles.syncCard,
-                {
-                  backgroundColor: theme.warningBg,
-                  borderColor: theme.warning,
-                },
-              ]}>
-              <View style={styles.syncHeader}>
-                <View style={styles.syncTextBlock}>
-                  <Text style={[styles.syncTitle, { color: theme.text }]}>2 reports unsent</Text>
-                  <Text style={[styles.syncSubtitle, { color: theme.textSecondary }]}>
-                    Saved locally · Will sync when online
-                  </Text>
-                </View>
-                <StatusChip variant="queued" />
-              </View>
-              <AppButton
-                onPress={() => Alert.alert('Sync', 'Sync will be available in a future update.')}
-                accessibilityLabel="Sync unsent reports to MAO">
-                Sync to MAO Now
-              </AppButton>
-            </View>
-
-            <View
-              style={[
-                styles.syncCard,
-                { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
-              ]}>
-              <View style={styles.syncHeader}>
-                <View style={styles.syncTextBlock}>
-                  <Text style={[styles.syncTitle, { color: theme.text }]}>16 reports synced</Text>
-                  <Text style={[styles.syncSubtitle, { color: theme.textSecondary }]}>
-                    Last synced: Jul 12, 2025 · 11:04 AM
-                  </Text>
-                </View>
-                <StatusChip variant="sent" />
-              </View>
-            </View>
-
-            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>RECENT SUBMISSIONS</Text>
-
-            <View
-              style={[
-                styles.recentCard,
-                { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
-              ]}>
-              <View style={styles.recentHeader}>
-                <View style={styles.recentTextBlock}>
-                  <Text style={[styles.recentTitle, { color: theme.text }]}>Scan — Brgy. Wawa</Text>
-                  <Text style={[styles.recentDate, { color: theme.textSecondary }]}>
-                    Jul 12, 2025 · 10:23 AM
-                  </Text>
-                </View>
-                <DiseasePill variant="smut" />
-              </View>
-              <View style={styles.recentFooter}>
-                <StatusChip variant="queued" />
-              </View>
-            </View>
-
-            <View style={{ height: Layout.bottomNavHeight + Spacing.xl }} />
-          </View>
-        </ScrollView>
-
-        <BottomNav activeTab="reports" />
-      </View>
-    </SafeAreaView>
-  );
+  const diseaseBars = [{ name: 'Sugarcane Smut', cases: 7, color: theme.smut, icon: 'zap' as const }, { name: 'Downy Mildew', cases: 3, color: theme.downyMildew, icon: 'cloud-rain' as const }, { name: 'Mosaic Disease', cases: 1, color: theme.mosaic, icon: 'grid' as const }];
+  return <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}><View style={styles.root}><BrandedScreenHeader title="Reports" showBack={false} /><ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}><View style={styles.content}>
+    <SectionLabel icon="pie-chart" label="DISEASE SUMMARY" />
+    <View style={[styles.summary, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}><View style={styles.tileRow}><SummaryTile value={18} label="Total reports" tintColor={theme.smut} tintBackground={theme.smutBg} icon="file-text" /><SummaryTile value={11} label="AI predictions" tintColor={theme.info} tintBackground={theme.infoBg} icon="cpu" /></View><View style={styles.tileRow}><SummaryTile value={5} label="Healthy scans" tintColor={theme.success} tintBackground={theme.successBg} icon="check-circle" /><SummaryTile value={2} label="Pending sync" tintColor={theme.warning} tintBackground={theme.warningBg} icon="clock" /></View></View>
+    <SectionLabel icon="bar-chart-2" label="BY DISEASE TYPE" />
+    <View style={[styles.diseaseCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>{diseaseBars.map((item, index) => <View key={item.name} style={index ? [styles.diseaseItem, { borderTopColor: theme.divider, borderTopWidth: 1 }] : styles.diseaseItem}><View style={styles.diseaseHeader}><View style={styles.diseaseTitle}><View style={[styles.diseaseIcon, { backgroundColor: theme.surfaceMuted }]}><Feather name={item.icon} size={17} color={item.color} /></View><Text style={[styles.diseaseName, { color: theme.primaryDark }]}>{item.name}</Text></View><View style={[styles.casePill, { backgroundColor: theme.surfaceMuted }]}><Text style={[styles.caseText, { color: theme.textSecondary }]}>{item.cases} cases</Text></View></View><ProgressBar progress={item.cases / 7} color={item.color} /></View>)}</View>
+    <SectionLabel icon="cloud" label="SYNC STATUS" />
+    <View style={[styles.sync, { backgroundColor: theme.warningBg, borderColor: theme.accent }]}><View style={styles.syncHeader}><ExpoImage accessible={false} contentFit="contain" pointerEvents="none" source={require('../../assets/svg/offline-sync.svg')} style={styles.syncArtwork} /><View style={styles.syncCopy}><Text style={[styles.syncTitle, { color: theme.primaryDark }]}>2 reports unsent</Text><Text style={[styles.syncBody, { color: theme.textSecondary }]}>Saved locally. They will sync when you are online.</Text></View></View><AppButton onPress={() => Alert.alert('Sync', 'Sync will be available in a future update.')} leadingIcon="refresh-cw" trailingIcon="arrow-right">Sync to MAO Now</AppButton></View>
+    <SectionLabel icon="clock" label="RECENT SUBMISSIONS" />
+    <View accessibilityLabel="Scan at Brgy. Wawa, Sugarcane Smut, Jul 12, 2025 at 10:23 AM, awaiting sync" style={[styles.recent, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}><View style={[styles.recentIcon, { backgroundColor: theme.smutBg }]}><Feather name="zap" size={20} color={theme.smut} /></View><View style={styles.recentCopy}><Text style={[styles.recentTitle, { color: theme.primaryDark }]}>Scan · Brgy. Wawa</Text><Text style={[styles.recentDate, { color: theme.textSecondary }]}>Jul 12, 2025 · 10:23 AM</Text><Text style={[styles.pending, { color: theme.warning }]}>Awaiting sync</Text></View><View style={[styles.recentDisease, { backgroundColor: theme.smutBg }]}><Text style={[styles.recentDiseaseText, { color: theme.smut }]}>Smut</Text></View></View><View style={{ height: Layout.bottomNavHeight + Spacing['3xl'] }} />
+  </View></ScrollView><BottomNav activeTab="reports" /></View></SafeAreaView>;
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-  },
-  root: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    alignItems: 'center',
-  },
-  content: {
-    width: '100%',
-    maxWidth: Layout.mobileMaxWidth,
-    paddingHorizontal: ComponentTokens.screen.horizontalPadding,
-    paddingTop: Spacing.lg,
-    gap: Spacing.lg,
-  },
-  sectionLabel: {
-    ...Typography.label,
-    letterSpacing: 1,
-  },
-  summaryCard: {
-    borderRadius: ComponentTokens.card.borderRadius,
-    borderWidth: 1,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-    ...Shadows.sm,
-  },
-  tileRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  diseaseCard: {
-    borderRadius: ComponentTokens.card.borderRadius,
-    borderWidth: 1,
-    padding: Spacing.lg,
-    gap: Spacing.md,
-    ...Shadows.sm,
-  },
-  divider: {
-    height: 1,
-  },
-  diseaseRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.sm,
-  },
-  diseaseName: {
-    ...Typography.bodySmall,
-    fontWeight: '700',
-  },
-  casePill: {
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.half,
-  },
-  caseCount: {
-    ...Typography.caption,
-    fontWeight: '800',
-  },
-  syncCard: {
-    borderRadius: ComponentTokens.card.borderRadius,
-    borderWidth: 1,
-    padding: Spacing.lg,
-    gap: Spacing.md,
-    ...Shadows.sm,
-  },
-  syncHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: Spacing.md,
-  },
-  syncTextBlock: {
-    flex: 1,
-    gap: Spacing.xs,
-  },
-  syncTitle: {
-    ...Typography.bodySmall,
-    fontWeight: '800',
-  },
-  syncSubtitle: {
-    ...Typography.caption,
-  },
-  recentCard: {
-    borderRadius: ComponentTokens.card.borderRadius,
-    borderWidth: 1,
-    padding: ComponentTokens.card.padding,
-    gap: Spacing.md,
-    ...Shadows.sm,
-  },
-  recentHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: Spacing.sm,
-  },
-  recentTextBlock: {
-    flex: 1,
-    gap: Spacing.xs,
-  },
-  recentTitle: {
-    ...Typography.bodySmall,
-    fontWeight: '800',
-  },
-  recentDate: {
-    ...Typography.caption,
-  },
-  recentFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-});
+function SectionLabel({ icon, label }: { icon: keyof typeof Feather.glyphMap; label: string }) { const theme = useTheme(); return <View style={styles.sectionLabel}><Feather name={icon} size={16} color={theme.accentDark} /><Text style={[styles.sectionText, { color: theme.textSecondary }]}>{label}</Text></View>; }
+
+const styles = StyleSheet.create({ safe: { flex: 1 }, root: { flex: 1 }, scrollContent: { alignItems: 'center' }, content: { width: '100%', maxWidth: Layout.mobileMaxWidth, paddingHorizontal: ComponentTokens.screen.horizontalPadding, paddingVertical: Spacing.xl, gap: Spacing.lg }, sectionLabel: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }, sectionText: { ...Typography.label, letterSpacing: 1 }, summary: { borderWidth: 1, borderRadius: Radius.xl, padding: Spacing.md, gap: Spacing.sm, ...Shadows.sm }, tileRow: { flexDirection: 'row', gap: Spacing.sm }, diseaseCard: { borderWidth: 1, borderRadius: Radius.xl, paddingHorizontal: Spacing.lg, ...Shadows.sm }, diseaseItem: { paddingVertical: Spacing.lg, gap: Spacing.md, borderTopWidth: 0 }, diseaseHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm }, diseaseTitle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 }, diseaseIcon: { width: 34, height: 34, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' }, diseaseName: { ...Typography.bodySmall, fontWeight: '800', flex: 1 }, casePill: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs }, caseText: { ...Typography.caption, fontWeight: '700' }, sync: { borderWidth: 1, borderRadius: Radius.xl, padding: Spacing.lg, gap: Spacing.lg, ...Shadows.sm }, syncHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md }, syncArtwork: { width: 68, height: 68, flexShrink: 0 }, syncCopy: { flex: 1, gap: Spacing.xs }, syncTitle: { ...Typography.body, fontWeight: '800' }, syncBody: { ...Typography.caption }, recent: { borderWidth: 1, borderRadius: Radius.xl, padding: Spacing.lg, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, ...Shadows.sm }, recentIcon: { width: 48, height: 48, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center' }, recentCopy: { flex: 1, gap: Spacing.xs }, recentTitle: { ...Typography.bodySmall, fontWeight: '800' }, recentDate: { ...Typography.caption }, pending: { ...Typography.caption, fontWeight: '800' }, recentDisease: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs }, recentDiseaseText: { ...Typography.caption, fontWeight: '800' } });

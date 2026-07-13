@@ -48,3 +48,6 @@ opencode.jsonc
 PROJECT_CHECKS.md
 docs/
 .ai
+project-structure.txt
+.agents
+.codex

@@ -3,18 +3,10 @@
 
   // Project-specific OpenCode config.
   // Keep secrets in environment variables. Do not hardcode tokens here.
+  // Default context stays intentionally small; load harness/rules/* only when relevant.
 
   "default_agent": "Orchestrator",
-  "instructions": ["AGENTS.md",
-  ".ai/conventions/00-README.md",
-  ".ai/conventions/01-project-architecture.md",
-  ".ai/conventions/02-typescript-conventions.md",
-  ".ai/conventions/03-react-native-expo-conventions.md",
-  ".ai/conventions/04-sqlite-data-layer.md",
-  ".ai/conventions/09-llm-agent-instructions.md",
-  ".ai/design-system.md"
-
-],
+  "instructions": ["AGENTS.md"],
 
   "agent": {
     "Orchestrator": {
@@ -31,41 +23,13 @@
     }
   },
 
-  "command": {
-    "ship-feature": {
-      "description": "Use the orchestrator workflow to plan, implement, review, and verify a production-grade feature.",
-      "agent": "Orchestrator",
-      "template": "Implement the following request using the production-grade orchestrator workflow:\n\n$ARGUMENTS\n\nWorkflow requirements:\n\n1. Restate the feature goal and assumptions.\n2. Inspect the repository and existing conventions.\n3. Use Graphifyyy if the task affects architecture, multiple modules, frontend + backend, or hidden dependencies.\n4. Use Context7 for current framework/library documentation when implementation details may be version-sensitive.\n5. Use UI/UX Pro Max if the UI, layout, components, forms, dashboard, table, modal, mobile responsiveness, or interaction states are affected.\n6. Produce an ASCII architecture/data-flow diagram before editing when the change is substantial.\n7. Design frontend states and backend/API contracts before editing when relevant.\n8. Implement the smallest complete production-grade solution.\n9. Review the final diff with the reviewer subagent.\n10. Run fast safe verification commands: lint, typecheck/static analysis, tests, and build when configured.\n11. For UI work, provide a manual verification checklist instead of running browser automation.\n12. Do not run Playwright, browser automation, or long-running E2E tests unless I explicitly request them.\n13. Final response must include summary, files changed, verification result, manual test steps, rollback considerations, and risks/follow-ups.\n\nOne-shot rule:\n\nDo not stop for approval unless the task is destructive, security-sensitive, production-impacting, or dangerously ambiguous."
-    },
-    "plan-feature": {
-      "description": "Plan a feature with architecture, API contracts, and implementation checklist.",
-      "agent": "Orchestrator",
-      "template": "Plan (without implementing) the following feature using the production-grade orchestrator workflow:\n\n$ARGUMENTS\n\nProduce: feature understanding, assumptions, relevant code, ASCII architecture/data-flow, frontend plan, backend plan, API contract, database impact, security concerns, edge cases, test plan, implementation checklist, and files likely to change.\n\nDo not edit any files. Only produce the plan."
-    },
-    "review-feature": {
-      "description": "Review the current diff for production readiness.",
-      "agent": "Orchestrator",
-      "template": "Review the current working tree diff for production readiness.\n\n$ARGUMENTS\n\nFocus on: requirements coverage, bugs and edge cases, access control and validation, data integrity, frontend accessibility and UI states, responsive design, performance, maintainability, missing tests, fast verification gaps, and manual UI verification gaps.\n\nUse git diff, relevant files, Context7 if framework behavior is uncertain, and UI/UX Pro Max for UI changes.\n\nDo not run Playwright, browser automation, or long-running E2E tests unless I explicitly request them.\n\nDo not edit files unless I explicitly ask for fixes after the review."
-    },
-    "graph-map": {
-      "description": "Build or refresh repository graph context with Graphifyyy.",
-      "agent": "Orchestrator",
-      "template": "Use Graphifyyy to map this repository if available, then read the generated graph report and summarize:\n\n1. Main modules and boundaries.\n2. Important call flows.\n3. High-risk files.\n4. Hidden dependencies.\n5. Suggested questions before implementing new features.\n6. Recommended architecture cleanup.\n\nIf Graphifyyy is unavailable, explain the missing setup and fall back to repository inspection using safe read/list/grep commands."
-    },
-    "quick-fix": {
-      "description": "Make a small local fix with fast verification, skipping full architecture planning.",
-      "agent": "Orchestrator",
-      "template": "Make the following small local change:\n\n$ARGUMENTS\n\nUse the light path:\n\n1. Inspect only relevant files.\n2. Make the smallest safe edit.\n3. Run fast verification if configured.\n4. Provide manual test steps if UI is affected.\n5. Do not use full architecture planning unless the change turns out to be broader than expected."
-    }
-  },
-
   "mcp": {
     "context7": {
       "type": "local",
       "command": [
         "npx",
         "-y",
-        "@upstash/context7-mcp@latest"
+        "@upstash/context7-mcp@3.2.3"
       ],
       "enabled": true
     },
@@ -73,14 +37,25 @@
     "github": {
       "type": "local",
       "command": [
-        "npx",
-        "-y",
-        "@modelcontextprotocol/server-github"
+        "docker",
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "-e",
+        "GITHUB_TOOLSETS",
+        "-e",
+        "GITHUB_READ_ONLY",
+        "ghcr.io/github/github-mcp-server:v1.5.0"
       ],
-      "enabled": true,
       "environment": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_PERSONAL_ACCESS_TOKEN}"
-      }
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_PERSONAL_ACCESS_TOKEN}",
+        "GITHUB_TOOLSETS": "repos,pull_requests,actions",
+        "GITHUB_READ_ONLY": "1"
+      },
+      "enabled": true,
+      "timeout": 30000
     }
   }
 }

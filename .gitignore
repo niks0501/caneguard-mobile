@@ -51,3 +51,12 @@ docs/
 project-structure.txt
 .agents
 .codex
+.harness
+harness/
+tasks
+.gitleaks.toml
+.pre-commit-config.yaml
+GUIDE.md
+justfile
+scripts
+tests/

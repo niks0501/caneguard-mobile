@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "status": "blocked",
+  "blocker": "No held-out image or training-environment parity export is available in the repository. Null values must be populated from a verified held-out sample; they must not be inferred from mock UI images.",
+  "model": {
+    "filename": "caneguard_leaf_v0_1_baseline.tflite",
+    "version": "v0.1-baseline",
+    "sha256": "0a12d1f50d66355ca8e798b942efa26f0eadd304d6250dc0ba122e2f47af577c"
+  },
+  "source": {
+    "filename": null,
+    "sha256": null,
+    "heldOutFromTrainingVerified": false
+  },
+  "processedImage": {
+    "width": 224,
+    "height": 224,
+    "colorOrder": null,
+    "resizeMethod": null
+  },
+  "inputTensor": {
+    "dataType": "float32",
+    "elementCount": 150528,
+    "byteLength": 602112,
+    "embeddedNormalization": "x / 127.5 - 1",
+    "minimum": null,
+    "maximum": null,
+    "mean": null,
+    "first20Values": null
+  },
+  "referenceOutput": {
+    "raw": null,
+    "expectedTopClass": null,
+    "expectedTopScore": null
+  }
+}

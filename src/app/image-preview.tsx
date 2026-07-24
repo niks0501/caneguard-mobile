@@ -1,16 +1,63 @@
 import { Feather } from '@expo/vector-icons';
+import { Image as ExpoImage } from 'expo-image';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
+import { useScanSession } from '@/features/detection/context/useScanSession';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ImagePreviewScreen() {
   const theme = useTheme();
+  const { state, dispatch } = useScanSession();
+  const [isImageLoading, setIsImageLoading] = useState(Boolean(state.sourceUri));
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
+
+  const returnToScan = () => {
+    router.replace('/scan');
+  };
+
+  const startNewScan = () => {
+    dispatch({ type: 'RESET_SCAN' });
+    router.replace('/scan');
+  };
+
+  if (!state.sourceUri || !state.sourceType) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
+        <View style={styles.root}>
+          <ScreenHeader title="Image Preview" />
+          <View style={styles.recoveryContent}>
+            <AppCard style={styles.recoveryCard}>
+              <View style={[styles.recoveryIcon, { backgroundColor: theme.warningBg }]}>
+                <Feather name="image" size={36} color={theme.warning} />
+              </View>
+              <Text accessibilityRole="header" style={[styles.recoveryTitle, { color: theme.text }]}>
+                No image selected
+              </Text>
+              <Text style={[styles.recoveryText, { color: theme.textSecondary }]}>
+                Choose a gallery image or capture a photo before opening the preview.
+              </Text>
+              <AppButton onPress={startNewScan} accessibilityLabel="Return to scan image choices">
+                Choose an Image
+              </AppButton>
+            </AppCard>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const dimensions =
+    state.sourceWidth && state.sourceHeight
+      ? `${state.sourceWidth} × ${state.sourceHeight} pixels`
+      : 'Dimensions unavailable';
+  const sourceLabel = state.sourceType === 'camera' ? 'Camera' : 'Gallery';
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
@@ -23,29 +70,108 @@ export default function ImagePreviewScreen() {
           style={styles.scrollView}>
           <View style={styles.content}>
             <AppCard style={styles.imageCard}>
-              <View style={[styles.imagePlaceholder, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-                <Feather name="image" size={48} color={theme.textSecondary} />
+              <View
+                style={[
+                  styles.imageFrame,
+                  { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                ]}>
+                <ExpoImage
+                  source={{ uri: state.sourceUri }}
+                  contentFit="contain"
+                  transition={150}
+                  accessibilityLabel={`Selected sugarcane image from ${sourceLabel.toLowerCase()}`}
+                  onLoadStart={() => {
+                    setIsImageLoading(true);
+                    setImageLoadFailed(false);
+                  }}
+                  onLoad={() => setIsImageLoading(false)}
+                  onError={() => {
+                    setIsImageLoading(false);
+                    setImageLoadFailed(true);
+                    dispatch({
+                      type: 'SET_ERROR',
+                      payload: 'The selected image could not be displayed. Please replace it.',
+                    });
+                  }}
+                  style={styles.previewImage}
+                />
+
+                {isImageLoading ? (
+                  <View
+                    accessibilityLiveRegion="polite"
+                    style={[styles.imageOverlay, { backgroundColor: theme.surfaceMuted }]}>
+                    <ActivityIndicator
+                      accessibilityLabel="Loading selected image"
+                      color={theme.primary}
+                    />
+                    <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+                      Loading image…
+                    </Text>
+                  </View>
+                ) : null}
+
+                {imageLoadFailed ? (
+                  <View
+                    accessibilityLiveRegion="assertive"
+                    style={[styles.imageOverlay, { backgroundColor: theme.dangerBg }]}>
+                    <Feather name="alert-triangle" size={32} color={theme.danger} />
+                    <Text style={[styles.loadingText, { color: theme.danger }]}>
+                      Image preview unavailable
+                    </Text>
+                  </View>
+                ) : null}
               </View>
+
+              <View style={styles.metadata}>
+                <MetadataRow label="Source" value={sourceLabel} />
+                <MetadataRow label="Size" value={dimensions} />
+              </View>
+
               <Text style={[styles.statusText, { color: theme.textSecondary }]}>
-                Image ready for symptom checking
+                This is the exact image CaneGuard will analyze in the next phase.
               </Text>
             </AppCard>
 
             <View style={styles.actions}>
               <AppButton
                 variant="secondary"
-                onPress={() => router.back()}
-                accessibilityLabel="Retake or replace image">
+                onPress={returnToScan}
+                accessibilityLabel="Return to scan and replace the selected image">
                 Retake / Replace Image
               </AppButton>
-              <AppButton onPress={() => router.push('/symptom-checklist')} accessibilityLabel="Continue to symptom checklist">
-                Continue
+              <AppButton
+                disabled
+                onPress={() => undefined}
+                leadingIcon="search"
+                accessibilityLabel="Analyze image, unavailable until preprocessing is implemented">
+                Analyze
+              </AppButton>
+              <Text style={[styles.pipelineNotice, { color: theme.textSecondary }]}>
+                Analysis is unavailable until the preprocessing pipeline is implemented. No result
+                has been generated.
+              </Text>
+              <AppButton
+                variant="text"
+                onPress={startNewScan}
+                accessibilityLabel="Clear this image and start a new scan">
+                Start New Scan
               </AppButton>
             </View>
           </View>
         </ScrollView>
       </View>
     </SafeAreaView>
+  );
+}
+
+function MetadataRow({ label, value }: { label: string; value: string }) {
+  const theme = useTheme();
+
+  return (
+    <View style={styles.metadataRow}>
+      <Text style={[styles.metadataLabel, { color: theme.textSecondary }]}>{label}</Text>
+      <Text style={[styles.metadataValue, { color: theme.text }]}>{value}</Text>
+    </View>
   );
 }
 
@@ -67,20 +193,48 @@ const styles = StyleSheet.create({
     maxWidth: Layout.mobileMaxWidth,
     paddingHorizontal: ComponentTokens.screen.horizontalPadding,
     paddingTop: Spacing.lg,
+    paddingBottom: Spacing['3xl'],
     gap: ComponentTokens.screen.sectionGap,
   },
   imageCard: {
     gap: Spacing.lg,
     padding: Spacing.lg,
   },
-  imagePlaceholder: {
+  imageFrame: {
     width: '100%',
     aspectRatio: 4 / 3,
     borderRadius: Radius.md,
-    borderWidth: 2,
-    borderStyle: 'dashed',
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imageOverlay: {
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: Spacing.sm,
+  },
+  loadingText: {
+    ...Typography.bodySmall,
+    textAlign: 'center',
+  },
+  metadata: {
+    gap: Spacing.sm,
+  },
+  metadataRow: {
+    flexDirection: 'row',
+    gap: Spacing.lg,
+  },
+  metadataLabel: {
+    ...Typography.label,
+    width: 64,
+  },
+  metadataValue: {
+    ...Typography.bodySmall,
+    flex: 1,
   },
   statusText: {
     ...Typography.bodySmall,
@@ -88,5 +242,36 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: Spacing.md,
+  },
+  pipelineNotice: {
+    ...Typography.caption,
+    textAlign: 'center',
+  },
+  recoveryContent: {
+    flex: 1,
+    width: '100%',
+    maxWidth: Layout.mobileMaxWidth,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    padding: ComponentTokens.screen.horizontalPadding,
+  },
+  recoveryCard: {
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  recoveryIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recoveryTitle: {
+    ...Typography.heading,
+    textAlign: 'center',
+  },
+  recoveryText: {
+    ...Typography.body,
+    textAlign: 'center',
   },
 });

@@ -3,6 +3,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { ScanSessionProvider } from '@/features/detection/context/ScanSessionProvider';
+import { CaneGuardModelProvider } from '@/features/detection/model/useCaneGuardModel';
 import {
   ThemePreferenceProvider,
   useThemePreference,
@@ -13,7 +15,11 @@ void SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   return (
     <ThemePreferenceProvider>
-      <AppNavigator />
+      <ScanSessionProvider>
+        <CaneGuardModelProvider>
+          <AppNavigator />
+        </CaneGuardModelProvider>
+      </ScanSessionProvider>
     </ThemePreferenceProvider>
   );
 }
@@ -46,6 +52,7 @@ function AppNavigator() {
         <Stack.Screen name="records" />
         <Stack.Screen name="reports" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="model-smoke-test" />
       </Stack>
     </ThemeProvider>
   );

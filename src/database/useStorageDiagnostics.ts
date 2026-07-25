@@ -9,10 +9,12 @@ import {
   scanRecords,
   scanSymptoms,
 } from '@/database/schema';
+import { findOrphanedManagedImages } from '@/features/records/services/scanImageStorage';
 
 export interface StorageDiagnostics {
   databaseFilename: string;
   foreignKeysEnabled: boolean;
+  orphanImages: number;
   rowCounts: {
     classScores: number;
     qualityWarnings: number;
@@ -39,16 +41,31 @@ export function useStorageDiagnostics() {
       state.database.select({ value: count() }).from(scanClassScores),
       state.database.select({ value: count() }).from(scanSymptoms),
       state.database.select({ value: count() }).from(scanQualityWarnings),
+      state.database
+        .select({ managedImageUri: scanRecords.managedImageUri })
+        .from(scanRecords),
       state.database.$client.getFirstAsync<{ foreign_keys: number }>('PRAGMA foreign_keys'),
     ])
-      .then(([records, classScores, symptoms, qualityWarnings, foreignKeys]) => {
+      .then(
+        ([
+          records,
+          classScores,
+          symptoms,
+          qualityWarnings,
+          managedImages,
+          foreignKeys,
+        ]) => {
         if (!mounted) {
           return;
         }
 
+        const referencedImages = managedImages.map(
+          (image) => image.managedImageUri,
+        );
         setDiagnostics({
           databaseFilename: CANEGUARD_DATABASE_FILENAME,
           foreignKeysEnabled: foreignKeys?.foreign_keys === 1,
+          orphanImages: findOrphanedManagedImages(referencedImages).length,
           rowCounts: {
             records: records[0]?.value ?? 0,
             classScores: classScores[0]?.value ?? 0,
@@ -57,7 +74,8 @@ export function useStorageDiagnostics() {
           },
         });
         setError(null);
-      })
+        },
+      )
       .catch(() => {
         if (mounted) {
           setError('QUERY_FAILED');

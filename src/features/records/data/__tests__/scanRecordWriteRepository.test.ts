@@ -20,6 +20,7 @@ import {
 } from '@/features/records/data/scanRecordRepository';
 import { insertScanRecord } from '@/features/records/data/scanRecordWriteRepository';
 import type { SaveCompletedScanInput } from '@/features/records/domain/recordTypes';
+import { getLocalReportSummary } from '@/features/reports/data/reportRepository';
 
 const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
 
@@ -326,6 +327,97 @@ describe('scan record write repository', () => {
     }
     await expect(findScanRecordById(database, RECORD_ID)).rejects.toMatchObject({
       code: 'RECORD_NOT_FOUND',
+    });
+    native.close();
+  });
+
+  it('calculates report aggregates in SQL with date-range and recent limits', async () => {
+    const { database, native } = openTestDatabase();
+    const fixtures = [
+      ['healthy', 0.9, '2026-07-01T00:00:00.000Z'],
+      ['mosaic', 0.4, '2026-07-02T00:00:00.000Z'],
+      ['rust', 0.49, '2026-07-03T00:00:00.000Z'],
+      ['rust', 0.8, '2026-07-04T00:00:00.000Z'],
+      ['healthy', 0.3, '2026-06-30T00:00:00.000Z'],
+    ] as const;
+
+    for (let index = 0; index < fixtures.length; index += 1) {
+      const [predictedLabel, confidence, createdAt] = fixtures[index];
+      const id = `2b4666c0-ad10-4d0d-a233-${index.toString(16).padStart(12, '0')}`;
+      await insertScanRecord(
+        database,
+        validInput({
+          id,
+          managedImageUri: `file:///documents/caneguard/scan-images/${id}.jpg`,
+          predictedLabel,
+          confidence,
+          createdAt,
+          updatedAt: createdAt,
+        }),
+      );
+    }
+    native
+      .prepare("UPDATE scan_records SET sync_status = 'failed' WHERE created_at = ?")
+      .run('2026-07-04T00:00:00.000Z');
+
+    await expect(
+      getLocalReportSummary(database, { recentLimit: 3 }),
+    ).resolves.toMatchObject({
+      totalSavedScans: 5,
+      healthyPredictions: 2,
+      possibleDiseasePredictions: 3,
+      localOnlyRecords: 4,
+      lowScorePredictions: 3,
+      recordsByLabel: [
+        { label: 'healthy', count: 2 },
+        { label: 'rust', count: 2 },
+        { label: 'mosaic', count: 1 },
+      ],
+      recentRecords: [
+        expect.objectContaining({ createdAt: '2026-07-04T00:00:00.000Z' }),
+        expect.objectContaining({ createdAt: '2026-07-03T00:00:00.000Z' }),
+        expect.objectContaining({ createdAt: '2026-07-02T00:00:00.000Z' }),
+      ],
+    });
+
+    await expect(
+      getLocalReportSummary(database, {
+        dateRange: {
+          from: '2026-07-01T00:00:00.000Z',
+          to: '2026-07-31T23:59:59.999Z',
+        },
+      }),
+    ).resolves.toMatchObject({
+      totalSavedScans: 4,
+      healthyPredictions: 1,
+      possibleDiseasePredictions: 3,
+      localOnlyRecords: 3,
+      lowScorePredictions: 2,
+    });
+
+    await deleteScanRecordById(
+      database,
+      '2b4666c0-ad10-4d0d-a233-000000000003',
+    );
+    await expect(getLocalReportSummary(database)).resolves.toMatchObject({
+      totalSavedScans: 4,
+      possibleDiseasePredictions: 2,
+      localOnlyRecords: 4,
+    });
+    native.close();
+  });
+
+  it('returns zeroed report aggregates for an empty database', async () => {
+    const { database, native } = openTestDatabase();
+
+    await expect(getLocalReportSummary(database)).resolves.toEqual({
+      totalSavedScans: 0,
+      healthyPredictions: 0,
+      possibleDiseasePredictions: 0,
+      localOnlyRecords: 0,
+      lowScorePredictions: 0,
+      recordsByLabel: [],
+      recentRecords: [],
     });
     native.close();
   });

@@ -69,7 +69,7 @@ export async function listScanRecords(
       })
       .from(scanRecords)
       .where(conditions.length ? and(...conditions) : undefined)
-      .orderBy(desc(scanRecords.createdAt), desc(scanRecords.id))
+      .orderBy(desc(scanRecords.createdAt))
       .limit(limit)
       .offset(offset);
 

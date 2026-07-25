@@ -4,6 +4,9 @@ import { DatabaseSync } from 'node:sqlite';
 
 const migration0 = readMigration('0000_complex_johnny_blaze.sql');
 const migration1 = readMigration('0001_loving_amazoness.sql');
+const migrationJournal = JSON.parse(
+  readFileSync(join(process.cwd(), 'drizzle', 'meta', '_journal.json'), 'utf8'),
+) as { entries: { tag: string }[] };
 
 function readMigration(filename: string): string {
   return readFileSync(join(process.cwd(), 'drizzle', filename), 'utf8').replaceAll(
@@ -142,5 +145,23 @@ describe('CaneGuard database migrations', () => {
       database.prepare('SELECT count(*) AS count FROM scan_class_scores').get(),
     ).toEqual({ count: 0 });
     database.close();
+  });
+
+  it('keeps the bundled migration module aligned with the journal and SQL files', () => {
+    const bundleSource = readFileSync(
+      join(process.cwd(), 'drizzle', 'migrations.js'),
+      'utf8',
+    );
+    const tags = migrationJournal.entries.map((entry) => entry.tag);
+
+    expect(tags).toEqual([
+      '0000_complex_johnny_blaze',
+      '0001_loving_amazoness',
+    ]);
+    for (const [index, tag] of tags.entries()) {
+      expect(bundleSource).toContain(`import m000${index} from './${tag}.sql'`);
+      expect(bundleSource).toContain(`m000${index}`);
+      expect(readMigration(`${tag}.sql`).length).toBeGreaterThan(100);
+    }
   });
 });

@@ -52,7 +52,7 @@ function DevelopmentStorageDebugScreen() {
               label="Quality warnings"
               value={diagnostics.rowCounts.qualityWarnings}
             />
-            <DiagnosticRow label="Orphan images" value="Phase 2" />
+            <DiagnosticRow label="Orphan images" value={diagnostics.orphanImages} />
           </>
         ) : error ? (
           <View accessibilityRole="alert" style={styles.state}>

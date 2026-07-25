@@ -1,5 +1,6 @@
 import {
   getStorageErrorMessage,
+  STORAGE_ERROR_CODES,
   StorageError,
   toStorageError,
 } from '@/database/errors';
@@ -26,4 +27,15 @@ describe('storage errors', () => {
     expect(error.code).toBe('DATABASE_OPEN_FAILED');
     expect(error.cause).toBe(cause);
   });
+
+  it.each(STORAGE_ERROR_CODES)(
+    'keeps the %s user message actionable and free of internals',
+    (code) => {
+      const message = getStorageErrorMessage(new StorageError(code, 'internal'));
+
+      expect(message.length).toBeGreaterThan(20);
+      expect(message).not.toMatch(/(?:file|content):\/\//i);
+      expect(message).not.toMatch(/\b(?:SQL|SELECT|INSERT|DELETE|stack)\b/i);
+    },
+  );
 });

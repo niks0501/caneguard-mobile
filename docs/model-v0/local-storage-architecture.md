@@ -79,6 +79,21 @@ It is not read or written by production application code.
   full cleanup. The orphan remains detectable by comparing managed files with
   repository image references.
 
+## Local Reports
+
+- The initial Reports scope is all-time and is labeled as a summary of
+  observations saved on the device.
+- Totals, healthy predictions, non-healthy possible results, local-only counts,
+  and low top-score counts use one SQL conditional-aggregate query.
+- Counts by exact stored top label use SQL grouping. Recent records use the same
+  lightweight newest-first projection with a fixed limit.
+- The repository accepts optional UTC ISO date boundaries for aggregate, grouped,
+  and recent queries.
+- A top score below `0.5` is counted only as a prototype presentation rule. It is
+  not treated as a calibrated reliability threshold.
+- Reports contain no upload action, fake queue, backend dependency, or claim of
+  MAO submission, review, or disease confirmation.
+
 ## Managed Scan Images
 
 - The image used by inference is copied without re-encoding to
@@ -127,3 +142,37 @@ It is not read or written by production application code.
 Migrations are forward-only. A release rollback uses the prior application build
 without deleting the database; a corrective forward migration is required for a
 bad schema change.
+
+## Developer Verification
+
+Run from the repository root:
+
+```bash
+npm ci
+npm run db:check
+node scripts/measure_storage_performance.mjs
+npx expo-doctor
+npx --no-install expo export --platform android --output-dir /tmp/caneguard-export
+just verify-full
+```
+
+The performance fixture uses an in-memory Node SQLite database and creates 5,000
+records with 15,000 class-score rows plus mixed optional children. It validates
+fixture integrity and index use but is not a substitute for Android performance
+measurement.
+
+The developer-only `/storage-debug` route reports initialization, foreign-key
+state, row counts, and actual orphan-image count. It contains no reset action and
+is protected by `__DEV__`.
+
+## Release Boundaries
+
+- Native Android airplane-mode save, process restart, camera/gallery URI
+  behavior, update-install migration, TalkBack review, and device performance
+  require a named physical device and installed development or preview build.
+- A Metro Android export proves JavaScript and asset bundling, not native runtime
+  behavior or APK installation.
+- Dependency advisories in transitive Expo/Jest/config tooling require upstream
+  disposition. Do not force-downgrade Expo or Jest to satisfy `npm audit`.
+- Authentication, upload, synchronization, GPS collection, thumbnails, WAL, and
+  a controlled barangay source remain outside this release scope.

@@ -28,6 +28,7 @@ describe('scanSessionReducer', () => {
     expect(initialScanSessionState).toEqual({
       sourceUri: null,
       processedUri: null,
+      preprocessMs: null,
       sourceWidth: null,
       sourceHeight: null,
       sourceType: null,
@@ -43,6 +44,7 @@ describe('scanSessionReducer', () => {
     const previousState: ScanSessionState = {
       sourceUri: 'file:///old.jpg',
       processedUri: 'file:///old-processed.jpg',
+      preprocessMs: 12,
       sourceWidth: 100,
       sourceHeight: 100,
       sourceType: 'camera',
@@ -84,10 +86,22 @@ describe('scanSessionReducer', () => {
       },
     });
     const preprocessing = scanSessionReducer(
-      { ...selected, processedUri: 'file:///stale.jpg', result: completedResult },
+      {
+        ...selected,
+        processedUri: 'file:///stale.jpg',
+        preprocessMs: 5,
+        result: completedResult,
+      },
       { type: 'START_PREPROCESSING' },
     );
-    const running = scanSessionReducer(preprocessing, { type: 'START_INFERENCE' });
+    const preprocessed = scanSessionReducer(preprocessing, {
+      type: 'COMPLETE_PREPROCESSING',
+      payload: {
+        processedUri: 'file:///processed.jpg',
+        preprocessMs: 10,
+      },
+    });
+    const running = scanSessionReducer(preprocessed, { type: 'START_INFERENCE' });
     const completed = scanSessionReducer(running, {
       type: 'COMPLETE_INFERENCE',
       payload: completedResult,
@@ -95,8 +109,15 @@ describe('scanSessionReducer', () => {
 
     expect(preprocessing).toMatchObject({
       processedUri: null,
+      preprocessMs: null,
       result: null,
       status: 'preprocessing',
+      errorMessage: null,
+    });
+    expect(preprocessed).toMatchObject({
+      processedUri: 'file:///processed.jpg',
+      preprocessMs: 10,
+      status: 'image-selected',
       errorMessage: null,
     });
     expect(running).toMatchObject({ result: null, status: 'running', errorMessage: null });
@@ -152,6 +173,7 @@ describe('scanSessionReducer', () => {
       ...initialScanSessionState,
       sourceUri: 'file:///leaf.jpg',
       processedUri: 'file:///processed.jpg',
+      preprocessMs: 10,
       sourceType: 'camera',
       status: 'completed',
       result: completedResult,

@@ -1,7 +1,7 @@
 {
   "src/app/_layout.tsx": {
-    "mtime": 1784913598.2014844,
-    "ast_hash": "de38091a544ea16da52e7425f4cfeafb",
+    "mtime": 1784917100.6429935,
+    "ast_hash": "c3dc68cee8117aa93e1af7da383e31cc",
     "semantic_hash": ""
   },
   "src/app/analysis-result.tsx": {
@@ -15,9 +15,9 @@
     "semantic_hash": ""
   },
   "src/app/image-preview.tsx": {
-    "mtime": 1783937728.3014214,
-    "ast_hash": "b41251a0da9027609f65851e0b357e90",
-    "semantic_hash": "b41251a0da9027609f65851e0b357e90"
+    "mtime": 1784917132.651381,
+    "ast_hash": "669c5b4262078c6beb2c22604939154b",
+    "semantic_hash": ""
   },
   "src/app/index.tsx": {
     "mtime": 1783937728.3014214,
@@ -45,8 +45,8 @@
     "semantic_hash": ""
   },
   "src/app/scan.tsx": {
-    "mtime": 1783946711.8522847,
-    "ast_hash": "baf00cfe1d2f4a5a930a914629298d2d",
+    "mtime": 1784919696.814059,
+    "ast_hash": "99a09a829bafd2322a139ad189b91513",
     "semantic_hash": ""
   },
   "src/app/settings.tsx": {
@@ -175,8 +175,83 @@
     "semantic_hash": ""
   },
   "src/features/detection/model/useCaneGuardModel.tsx": {
-    "mtime": 1784913626.6533396,
-    "ast_hash": "3f7769d9283c2d39e670db92920c1872",
+    "mtime": 1784919696.606477,
+    "ast_hash": "6b56318e994198f01ab627f89ff0487c",
+    "semantic_hash": ""
+  },
+  "src/app/__tests__/image-preview.test.tsx": {
+    "mtime": 1784919870.9408786,
+    "ast_hash": "af18b2c7e58677fe377a1a7f2cbcc094",
+    "semantic_hash": ""
+  },
+  "src/app/__tests__/model-smoke-test.test.tsx": {
+    "mtime": 1784919794.0810661,
+    "ast_hash": "f407ccaaaf23ac93477b9e6cf8b450c5",
+    "semantic_hash": ""
+  },
+  "src/app/__tests__/scan.test.tsx": {
+    "mtime": 1784919996.055868,
+    "ast_hash": "2e530316f30edbc34d1a929314b4d7b6",
+    "semantic_hash": ""
+  },
+  "src/features/detection/constants/__tests__/modelContract.test.ts": {
+    "mtime": 1784919967.5316145,
+    "ast_hash": "41eb7a9c413294bccb04fafe27c2515d",
+    "semantic_hash": ""
+  },
+  "src/features/detection/context/ScanSessionProvider.tsx": {
+    "mtime": 1784917274.165262,
+    "ast_hash": "4404cfbef74a2cbb767ccc83bef64caa",
+    "semantic_hash": ""
+  },
+  "src/features/detection/context/__tests__/ScanSessionProvider.test.tsx": {
+    "mtime": 1784920024.7397444,
+    "ast_hash": "36f72ff31bf3523db3e52284a64a8a55",
+    "semantic_hash": ""
+  },
+  "src/features/detection/context/__tests__/scanSessionReducer.test.ts": {
+    "mtime": 1784919793.6263714,
+    "ast_hash": "6b4b8de5c2bea77cc1b80c3e7a0ad984",
+    "semantic_hash": ""
+  },
+  "src/features/detection/context/scanSessionReducer.ts": {
+    "mtime": 1784917274.0894985,
+    "ast_hash": "246d11d1b432c7a666d5ec4c78de3287",
+    "semantic_hash": ""
+  },
+  "src/features/detection/context/useScanSession.ts": {
+    "mtime": 1784917100.5545764,
+    "ast_hash": "80e58ed53d82b4ce21908c8af842bc87",
+    "semantic_hash": ""
+  },
+  "src/features/detection/imagePicker/__tests__/readPickerOutcome.test.ts": {
+    "mtime": 1784919793.8776534,
+    "ast_hash": "3d59b0d2a9dc7be8f41bf783429494bc",
+    "semantic_hash": ""
+  },
+  "src/features/detection/imagePicker/readPickerOutcome.ts": {
+    "mtime": 1784919696.7342198,
+    "ast_hash": "a7c61814a15268399c3b4b5aaf205e39",
+    "semantic_hash": ""
+  },
+  "src/features/detection/model/__tests__/useCaneGuardModel.test.tsx": {
+    "mtime": 1784919793.9534369,
+    "ast_hash": "dcc36fc487e4a2916866e5d9677e410f",
+    "semantic_hash": ""
+  },
+  "src/features/detection/model/__tests__/validateModelContract.test.ts": {
+    "mtime": 1784919793.7540066,
+    "ast_hash": "65ce94cd46ad3a969f106e2947308da3",
+    "semantic_hash": ""
+  },
+  "src/features/detection/model/validateModelContract.ts": {
+    "mtime": 1784919696.5266378,
+    "ast_hash": "bf417ecb1d81a643932501efefa0730a",
+    "semantic_hash": ""
+  },
+  "src/features/detection/types.ts": {
+    "mtime": 1784917100.333534,
+    "ast_hash": "b84b2cebdb5d6343da8a30fd6e9044e1",
     "semantic_hash": ""
   }
 }

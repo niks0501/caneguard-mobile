@@ -34,6 +34,7 @@ export interface DetectionResult {
 export interface ScanSessionState {
   sourceUri: string | null;
   processedUri: string | null;
+  preprocessMs: number | null;
   sourceWidth: number | null;
   sourceHeight: number | null;
   sourceType: ScanSourceType | null;
@@ -56,6 +57,13 @@ export type ScanSessionAction =
     }
   | { type: 'RESET_SCAN' }
   | { type: 'START_PREPROCESSING' }
+  | {
+      type: 'COMPLETE_PREPROCESSING';
+      payload: {
+        processedUri: string;
+        preprocessMs: number;
+      };
+    }
   | { type: 'START_INFERENCE' }
   | { type: 'COMPLETE_INFERENCE'; payload: DetectionResult }
   | { type: 'SET_SYMPTOMS'; payload: string[] }

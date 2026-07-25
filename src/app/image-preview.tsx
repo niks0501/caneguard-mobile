@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,6 +10,11 @@ import { AppCard } from '@/components/ui/AppCard';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { useScanSession } from '@/features/detection/context/useScanSession';
+import { MODEL_INPUT } from '@/features/detection/constants/modelContract';
+import {
+  getPreprocessingErrorMessage,
+} from '@/features/detection/preprocessing/preprocessingErrors';
+import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ImagePreviewScreen() {
@@ -17,6 +22,9 @@ export default function ImagePreviewScreen() {
   const { state, dispatch } = useScanSession();
   const [isImageLoading, setIsImageLoading] = useState(Boolean(state.sourceUri));
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
+  const preprocessingInFlight = useRef(false);
+  const isPreprocessing = state.status === 'preprocessing';
+  const preprocessingComplete = Boolean(state.processedUri);
 
   const returnToScan = () => {
     router.replace('/scan');
@@ -25,6 +33,38 @@ export default function ImagePreviewScreen() {
   const startNewScan = () => {
     dispatch({ type: 'RESET_SCAN' });
     router.replace('/scan');
+  };
+
+  const analyzeImage = async () => {
+    if (
+      !state.sourceUri ||
+      isPreprocessing ||
+      preprocessingComplete ||
+      preprocessingInFlight.current
+    ) {
+      return;
+    }
+
+    preprocessingInFlight.current = true;
+    dispatch({ type: 'START_PREPROCESSING' });
+
+    try {
+      const result = await preprocessImage(state.sourceUri);
+      dispatch({
+        type: 'COMPLETE_PREPROCESSING',
+        payload: {
+          processedUri: result.processedUri,
+          preprocessMs: result.preprocessMs,
+        },
+      });
+    } catch (error) {
+      dispatch({
+        type: 'SET_ERROR',
+        payload: getPreprocessingErrorMessage(error),
+      });
+    } finally {
+      preprocessingInFlight.current = false;
+    }
   };
 
   if (!state.sourceUri || !state.sourceType) {
@@ -128,8 +168,27 @@ export default function ImagePreviewScreen() {
               </View>
 
               <Text style={[styles.statusText, { color: theme.textSecondary }]}>
-                This is the exact image CaneGuard will analyze in the next phase.
+                CaneGuard will stretch this image to the model&apos;s exact 224 × 224 RGB input.
               </Text>
+
+              {preprocessingComplete ? (
+                <View
+                  accessibilityLiveRegion="polite"
+                  style={[styles.preprocessingStatus, { backgroundColor: theme.successBg }]}>
+                  <Feather name="check-circle" size={20} color={theme.success} />
+                  <View style={styles.preprocessingStatusCopy}>
+                    <Text style={[styles.preprocessingStatusTitle, { color: theme.success }]}>
+                      Model input ready
+                    </Text>
+                    <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+                      {MODEL_INPUT.shape[2]} × {MODEL_INPUT.shape[1]} RGB float32
+                      {state.preprocessMs === null
+                        ? ''
+                        : ` · ${Math.round(state.preprocessMs)} ms`}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
             </AppCard>
 
             <View style={styles.actions}>
@@ -140,16 +199,50 @@ export default function ImagePreviewScreen() {
                 Retake / Replace Image
               </AppButton>
               <AppButton
-                disabled
-                onPress={() => undefined}
+                disabled={
+                  isImageLoading || imageLoadFailed || isPreprocessing || preprocessingComplete
+                }
+                onPress={() => {
+                  void analyzeImage();
+                }}
                 leadingIcon="search"
-                accessibilityLabel="Analyze image, unavailable until preprocessing is implemented">
-                Analyze
+                accessibilityLabel={
+                  preprocessingComplete
+                    ? 'Image preprocessing complete'
+                    : isPreprocessing
+                      ? 'Preprocessing image'
+                      : 'Analyze selected image'
+                }>
+                {isPreprocessing
+                  ? 'Preparing Image…'
+                  : preprocessingComplete
+                    ? 'Image Ready'
+                    : 'Analyze'}
               </AppButton>
-              <Text style={[styles.pipelineNotice, { color: theme.textSecondary }]}>
-                Analysis is unavailable until the preprocessing pipeline is implemented. No result
-                has been generated.
-              </Text>
+              {isPreprocessing ? (
+                <View accessibilityLiveRegion="polite" style={styles.progressRow}>
+                  <ActivityIndicator
+                    accessibilityLabel="Preparing image for model"
+                    color={theme.primary}
+                  />
+                  <Text style={[styles.pipelineNotice, { color: theme.textSecondary }]}>
+                    Resizing and creating the model input…
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[styles.pipelineNotice, { color: theme.textSecondary }]}>
+                  {preprocessingComplete
+                    ? 'Preprocessing passed. Model inference will be connected in the next phase.'
+                    : 'Analysis stays on this screen until preprocessing succeeds.'}
+                </Text>
+              )}
+              {state.errorMessage && !imageLoadFailed ? (
+                <Text
+                  accessibilityLiveRegion="assertive"
+                  style={[styles.errorText, { color: theme.danger }]}>
+                  {state.errorMessage}
+                </Text>
+              ) : null}
               <AppButton
                 variant="text"
                 onPress={startNewScan}
@@ -246,6 +339,31 @@ const styles = StyleSheet.create({
   pipelineNotice: {
     ...Typography.caption,
     textAlign: 'center',
+  },
+  progressRow: {
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+  },
+  errorText: {
+    ...Typography.bodySmall,
+    textAlign: 'center',
+  },
+  preprocessingStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderRadius: Radius.sm,
+    padding: Spacing.md,
+  },
+  preprocessingStatusCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  preprocessingStatusTitle: {
+    ...Typography.label,
   },
   recoveryContent: {
     flex: 1,

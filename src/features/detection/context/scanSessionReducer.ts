@@ -3,6 +3,7 @@ import type { ScanSessionAction, ScanSessionState } from '@/features/detection/t
 export const initialScanSessionState: ScanSessionState = {
   sourceUri: null,
   processedUri: null,
+  preprocessMs: null,
   sourceWidth: null,
   sourceHeight: null,
   sourceType: null,
@@ -30,8 +31,16 @@ export function scanSessionReducer(
       return {
         ...state,
         processedUri: null,
+        preprocessMs: null,
         result: null,
         status: 'preprocessing',
+        errorMessage: null,
+      };
+    case 'COMPLETE_PREPROCESSING':
+      return {
+        ...state,
+        ...action.payload,
+        status: 'image-selected',
         errorMessage: null,
       };
     case 'START_INFERENCE':

@@ -1,36 +1,93 @@
 {
-  "schemaVersion": 1,
-  "status": "blocked",
-  "blocker": "No held-out image or training-environment parity export is available in the repository. Null values must be populated from a verified held-out sample; they must not be inferred from mock UI images.",
+  "fixture": {
+    "repository_path": "assets/model-fixtures/parity-reference.jpg",
+    "original_filename": "CG-RST-ONL-S001-P024-I001.jpeg",
+    "source_split": "test",
+    "expected_label": "rust",
+    "source_sha256": "2995161afbb85b968fc2b0f40c18720d5c8c3fb1f693b8d54f97f68c7c222a7a"
+  },
   "model": {
-    "filename": "caneguard_leaf_v0_1_baseline.tflite",
+    "repository_path": "assets/models/caneguard_leaf_v0_1_baseline.tflite",
     "version": "v0.1-baseline",
-    "sha256": "0a12d1f50d66355ca8e798b942efa26f0eadd304d6250dc0ba122e2f47af577c"
+    "sha256": "64338596b5cb41ec8672275c80cdc4c607a18b6c378301cac856b64daace2a0e"
   },
-  "source": {
-    "filename": null,
-    "sha256": null,
-    "heldOutFromTrainingVerified": false
+  "preprocessing_contract": {
+    "color_order": "RGB",
+    "tensor_layout": "NHWC",
+    "resize_policy": "stretch",
+    "target_size": [
+      224,
+      224
+    ],
+    "interpolation": "bilinear",
+    "crop_to_aspect_ratio": false,
+    "pad_to_aspect_ratio": false,
+    "mobile_input_dtype": "float32",
+    "mobile_input_range": "0..255",
+    "mobile_side_normalization": "none",
+    "embedded_model_preprocessing": "MobileNetV2 preprocess_input: x / 127.5 - 1"
   },
-  "processedImage": {
-    "width": 224,
-    "height": 224,
-    "colorOrder": null,
-    "resizeMethod": null
+  "input": {
+    "shape": [
+      1,
+      224,
+      224,
+      3
+    ],
+    "dtype": "float32",
+    "flatten_order": "NHWC, RGB interleaved",
+    "element_count": 150528,
+    "byte_length": 602112,
+    "min": 0.00860794261097908,
+    "max": 255.0,
+    "mean": 116.10227966308594,
+    "standard_deviation": 50.437416076660156,
+    "first_20_values": [
+      185.07142639160156,
+      178.07142639160156,
+      159.07142639160156,
+      182.12628173828125,
+      175.12628173828125,
+      157.12628173828125,
+      164.95823669433594,
+      157.85108947753906,
+      142.17251586914062,
+      143.0736541748047,
+      134.93527221679688,
+      118.00446319580078,
+      115.2764663696289,
+      104.75860595703125,
+      86.99967956542969,
+      117.99329376220703,
+      105.22575378417969,
+      88.46682739257812,
+      181.90402221679688,
+      166.6272430419922
+    ]
   },
-  "inputTensor": {
-    "dataType": "float32",
-    "elementCount": 150528,
-    "byteLength": 602112,
-    "embeddedNormalization": "x / 127.5 - 1",
-    "minimum": null,
-    "maximum": null,
-    "mean": null,
-    "first20Values": null
+  "output": {
+    "shape": [
+      3
+    ],
+    "dtype": "float32",
+    "interpretation": "softmax probabilities; do not apply softmax again",
+    "label_order": [
+      "healthy",
+      "mosaic",
+      "rust"
+    ],
+    "raw_probabilities": [
+      2.1825112526130397e-06,
+      3.6576095681084553e-06,
+      0.999994158744812
+    ],
+    "probability_sum": 1.0,
+    "top_index": 2,
+    "top_label": "rust",
+    "top_score": 0.999994158744812
   },
-  "referenceOutput": {
-    "raw": null,
-    "expectedTopClass": null,
-    "expectedTopScore": null
+  "processed_preview": {
+    "repository_path": "docs/model-v0/parity-reference-processed.png",
+    "note": "Visual reference only. The original parity-reference.jpg remains the inference source."
   }
 }

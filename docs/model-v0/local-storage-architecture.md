@@ -61,6 +61,22 @@ It is not read or written by production application code.
 - Records use hard deletion. There is no recovery bin or soft-delete behavior.
 - Reports must use SQL aggregate queries and optional date-range filters.
 
+## Managed Scan Images
+
+- The image used by inference is copied without re-encoding to
+  `documents/caneguard/scan-images/<record-uuid>.<extension>`.
+- Only the full source image is retained. Thumbnails are deferred until list
+  profiling shows a measured need.
+- Trusted MIME metadata is preferred, followed by a supported filename or URI
+  extension. Unknown formats use `.img` and a null MIME type.
+- File deletion rejects paths outside the managed directory and treats an
+  already-missing managed file as successfully absent.
+- Database writes remain outside the file service. A failed database transaction
+  calls compensation cleanup, and failed cleanup makes the file detectable as an
+  orphan.
+- Orphan detection is explicit maintenance behavior. There is no background
+  deletion scheduler.
+
 ## Migration Workflow
 
 1. Change `src/database/schema.ts`.

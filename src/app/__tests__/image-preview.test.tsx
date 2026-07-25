@@ -8,6 +8,9 @@ import {
   initialScanSessionState,
   scanSessionReducer,
 } from '@/features/detection/context/scanSessionReducer';
+import { InferenceError } from '@/features/detection/model/inferenceErrors';
+import { runInference } from '@/features/detection/model/runInference';
+import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
 import { PreprocessingError } from '@/features/detection/preprocessing/preprocessingErrors';
 import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
 import type {
@@ -19,9 +22,21 @@ jest.mock('@/features/detection/preprocessing/preprocessImage', () => ({
   preprocessImage: jest.fn(),
 }));
 
+jest.mock('@/features/detection/model/runInference', () => ({
+  runInference: jest.fn(),
+}));
+
+jest.mock('@/features/detection/model/useCaneGuardModel', () => ({
+  useCaneGuardModel: jest.fn(),
+}));
+
 const mockDispatch = jest.fn<void, [ScanSessionAction]>();
 const mockRouterReplace = router.replace as jest.Mock;
+const mockRouterPush = router.push as jest.Mock;
 const mockPreprocessImage = preprocessImage as jest.MockedFunction<typeof preprocessImage>;
+const mockRunInference = runInference as jest.MockedFunction<typeof runInference>;
+const mockUseCaneGuardModel = jest.mocked(useCaneGuardModel);
+const mockModelRun = jest.fn<Promise<ArrayBuffer[]>, [ArrayBuffer[]]>();
 const successfulPreprocessingResult = {
   processedUri: 'file:///processed.jpg',
   inputBuffer: new ArrayBuffer(602_112),
@@ -33,6 +48,21 @@ const successfulPreprocessingResult = {
   maxValue: 255,
   meanValue: 116,
   preprocessMs: 42,
+};
+const successfulInferenceResult = {
+  predictedLabel: 'rust' as const,
+  confidence: 0.8,
+  scores: [
+    { label: 'rust' as const, score: 0.8 },
+    { label: 'mosaic' as const, score: 0.15 },
+    { label: 'healthy' as const, score: 0.05 },
+  ],
+  timings: {
+    preprocessMs: 42,
+    inferenceMs: 18,
+    totalMs: 60,
+  },
+  modelVersion: 'v0.1-baseline',
 };
 
 const selectedState: ScanSessionState = {
@@ -67,6 +97,13 @@ async function renderPreview(initialState: ScanSessionState) {
 describe('ImagePreviewScreen', () => {
   beforeEach(() => {
     mockPreprocessImage.mockResolvedValue(successfulPreprocessingResult);
+    mockRunInference.mockResolvedValue(successfulInferenceResult);
+    mockUseCaneGuardModel.mockReturnValue({
+      state: 'loaded',
+      model: {} as never,
+      run: mockModelRun,
+      error: null,
+    });
   });
 
   it('shows a clear recovery state when no image exists', async () => {
@@ -96,12 +133,12 @@ describe('ImagePreviewScreen', () => {
     expect(screen.getByLabelText('Analyze selected image')).toBeDisabled();
     expect(
       screen.getByText(
-        'Analysis stays on this screen until preprocessing succeeds.',
+        'Analysis stays on this screen until preprocessing and inference succeed.',
       ),
     ).toBeOnTheScreen();
   });
 
-  it('preprocesses once, stores the result, and stays on the preview screen', async () => {
+  it('preprocesses, runs inference once, stores the result, and continues', async () => {
     let completePreprocessing:
       | ((result: typeof successfulPreprocessingResult) => void)
       | undefined;
@@ -125,17 +162,43 @@ describe('ImagePreviewScreen', () => {
     await waitFor(() => {
       expect(mockPreprocessImage).toHaveBeenCalledTimes(1);
       expect(mockPreprocessImage).toHaveBeenCalledWith('content://sugarcane/selected-leaf');
+      expect(mockRunInference).toHaveBeenCalledWith(
+        expect.objectContaining({ state: 'loaded' }),
+        successfulPreprocessingResult.inputBuffer,
+        42,
+      );
       expect(screen.getByText('Model input ready')).toBeOnTheScreen();
     });
 
     expect(screen.getByText('224 × 224 RGB float32 · 42 ms')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Image preprocessing complete')).toBeDisabled();
+    expect(screen.getByLabelText('Image analysis complete')).toBeDisabled();
     expect(
       screen.getByText(
-        'Preprocessing passed. Model inference will be connected in the next phase.',
+        'Analysis complete. Continuing to the symptom checklist…',
       ),
     ).toBeOnTheScreen();
-    expect(mockRouterReplace).not.toHaveBeenCalledWith('/analysis-result');
+    expect(mockRouterPush).toHaveBeenCalledWith('/symptom-checklist');
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'START_INFERENCE' });
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'COMPLETE_INFERENCE',
+      payload: successfulInferenceResult,
+    });
+  });
+
+  it('keeps Analyze disabled until the model is loaded', async () => {
+    mockUseCaneGuardModel.mockReturnValue({
+      state: 'loading',
+      model: undefined,
+      run: mockModelRun,
+      error: null,
+    });
+    await renderPreview(selectedState);
+
+    await fireEvent(screen.getByLabelText('Selected sugarcane image from gallery'), 'load');
+
+    expect(screen.getByLabelText('Model loading')).toBeDisabled();
+    expect(screen.getByText('Loading the on-device model before analysis…')).toBeOnTheScreen();
+    expect(mockPreprocessImage).not.toHaveBeenCalled();
   });
 
   it('shows a recoverable preprocessing failure and allows another attempt', async () => {
@@ -157,6 +220,25 @@ describe('ImagePreviewScreen', () => {
 
     expect(screen.getByLabelText('Analyze selected image')).toBeEnabled();
     expect(screen.queryByText('Model input ready')).not.toBeOnTheScreen();
+  });
+
+  it('shows a recoverable inference failure and allows another attempt', async () => {
+    mockRunInference.mockRejectedValueOnce(
+      new InferenceError('MODEL_RUN_FAILED', 'native failure'),
+    );
+    await renderPreview(selectedState);
+
+    await fireEvent(screen.getByLabelText('Selected sugarcane image from gallery'), 'load');
+    await fireEvent.press(screen.getByLabelText('Analyze selected image'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('The on-device analysis could not finish. Please try again.'),
+      ).toBeOnTheScreen();
+    });
+
+    expect(screen.getByLabelText('Analyze selected image')).toBeEnabled();
+    expect(mockRouterPush).not.toHaveBeenCalledWith('/symptom-checklist');
   });
 
   it('returns to scan without clearing the selected image for replacement', async () => {

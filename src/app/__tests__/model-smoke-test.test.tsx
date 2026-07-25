@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react-native';
-import type { TensorflowPlugin } from 'react-native-fast-tflite';
 
 import ModelSmokeTestScreen from '@/app/model-smoke-test';
 import {
@@ -13,12 +12,15 @@ jest.mock('@/features/detection/model/useCaneGuardModel', () => ({
 }));
 
 const mockUseCaneGuardModel = jest.mocked(useCaneGuardModel);
+const mockRun = jest.fn<Promise<ArrayBuffer[]>, [ArrayBuffer[]]>();
 
 describe('ModelSmokeTestScreen', () => {
   it('shows model loading status and static metadata', async () => {
     mockUseCaneGuardModel.mockReturnValue({
       model: undefined,
       state: 'loading',
+      run: mockRun,
+      error: null,
     });
 
     await render(<ModelSmokeTestScreen />);
@@ -33,6 +35,8 @@ describe('ModelSmokeTestScreen', () => {
   it('shows validated input and output metadata after loading', async () => {
     mockUseCaneGuardModel.mockReturnValue({
       state: 'loaded',
+      run: mockRun,
+      error: null,
       model: {
         inputs: [
           {
@@ -49,7 +53,7 @@ describe('ModelSmokeTestScreen', () => {
           },
         ],
       },
-    } as TensorflowPlugin);
+    } as unknown as ReturnType<typeof useCaneGuardModel>);
 
     await render(<ModelSmokeTestScreen />);
 
@@ -62,6 +66,7 @@ describe('ModelSmokeTestScreen', () => {
     mockUseCaneGuardModel.mockReturnValue({
       model: undefined,
       state: 'error',
+      run: mockRun,
       error: new Error('TFLite asset could not load'),
     });
 

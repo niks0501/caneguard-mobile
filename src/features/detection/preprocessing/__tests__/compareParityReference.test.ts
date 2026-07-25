@@ -26,7 +26,7 @@ describe('parity-reference comparison', () => {
     const comparison = comparePreprocessingToParity(result);
 
     expect(comparison).toMatchObject({
-      modelShaMatches: false,
+      modelShaMatches: true,
       shapeMatches: true,
       dataTypeMatches: true,
       elementCountMatches: true,
@@ -45,7 +45,7 @@ describe('parity-reference comparison', () => {
     );
 
     expect(comparison).toMatchObject({
-      modelShaMatches: false,
+      modelShaMatches: true,
       classOrderMatches: true,
       outputLengthMatches: true,
       maxAbsoluteDelta: 0,

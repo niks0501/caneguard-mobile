@@ -1,6 +1,12 @@
-import { render, screen } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
+import { Pressable, Text } from 'react-native';
 import type { TensorflowPlugin } from 'react-native-fast-tflite';
+import { useState } from 'react';
 
 import {
   MODEL_INPUT,
@@ -12,6 +18,7 @@ import {
 } from '@/features/detection/model/useCaneGuardModel';
 
 const mockUseTensorflowModel = jest.fn();
+const mockModelRun = jest.fn<Promise<ArrayBuffer[]>, [ArrayBuffer[]]>();
 
 jest.mock('react-native-fast-tflite', () => ({
   useTensorflowModel: (...args: unknown[]) => mockUseTensorflowModel(...args),
@@ -23,6 +30,7 @@ function createLoadedPlugin(
   return {
     state: 'loaded',
     model: {
+      run: mockModelRun,
       inputs: [
         {
           name: MODEL_INPUT.name,
@@ -38,22 +46,41 @@ function createLoadedPlugin(
         },
       ],
     },
-  } as TensorflowPlugin;
+  } as unknown as TensorflowPlugin;
 }
 
 function ModelStateProbe() {
   const modelState = useCaneGuardModel();
+  const [runState, setRunState] = useState('not-run');
 
   return (
-    <Text>
-      {modelState.state}
-      {modelState.state === 'error' ? `: ${modelState.error.message}` : ''}
-    </Text>
+    <>
+      <Text>
+        {modelState.state}
+        {modelState.state === 'error' ? `: ${modelState.error.message}` : ''}
+      </Text>
+      <Pressable
+        accessibilityLabel="Run model"
+        onPress={() => {
+          void modelState.run([]).then(
+            () => setRunState('run-complete'),
+            (error: unknown) =>
+              setRunState(
+                error && typeof error === 'object' && 'code' in error
+                  ? String(error.code)
+                  : 'run-failed',
+              ),
+          );
+        }}
+      />
+      <Text>{runState}</Text>
+    </>
   );
 }
 
 describe('CaneGuardModelProvider', () => {
   beforeEach(() => {
+    mockModelRun.mockResolvedValue([]);
     mockUseTensorflowModel.mockReturnValue({
       model: undefined,
       state: 'loading',
@@ -82,6 +109,36 @@ describe('CaneGuardModelProvider', () => {
     );
 
     expect(screen.getByText('loaded')).toBeOnTheScreen();
+  });
+
+  it('runs inference through the reusable loaded model', async () => {
+    mockUseTensorflowModel.mockReturnValue(createLoadedPlugin());
+
+    await render(
+      <CaneGuardModelProvider>
+        <ModelStateProbe />
+      </CaneGuardModelProvider>,
+    );
+
+    await fireEvent.press(screen.getByLabelText('Run model'));
+
+    await waitFor(() => {
+      expect(mockModelRun).toHaveBeenCalledWith([]);
+      expect(screen.getByText('run-complete')).toBeOnTheScreen();
+    });
+  });
+
+  it('blocks inference while the model is still loading', async () => {
+    await render(
+      <CaneGuardModelProvider>
+        <ModelStateProbe />
+      </CaneGuardModelProvider>,
+    );
+
+    await fireEvent.press(screen.getByLabelText('Run model'));
+
+    expect(await screen.findByText('MODEL_NOT_READY')).toBeOnTheScreen();
+    expect(mockModelRun).not.toHaveBeenCalled();
   });
 
   it('converts a loaded model with mismatched tensors into an error state', async () => {

@@ -1,10 +1,17 @@
 import {
   useTensorflowModel,
+  type TfliteModel,
   type TensorflowModelDelegate,
-  type TensorflowPlugin,
 } from 'react-native-fast-tflite';
-import { createContext, useContext, type PropsWithChildren } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  type PropsWithChildren,
+} from 'react';
 
+import { InferenceError } from '@/features/detection/model/inferenceErrors';
 import { validateModelContract } from '@/features/detection/model/validateModelContract';
 
 // Metro resolves bundled non-code assets through a static require.
@@ -12,23 +19,88 @@ import { validateModelContract } from '@/features/detection/model/validateModelC
 const MODEL_ASSET = require('../../../../assets/models/caneguard_leaf_v0_1_baseline.tflite') as number;
 const CPU_DELEGATES: TensorflowModelDelegate[] = [];
 
-const CaneGuardModelContext = createContext<TensorflowPlugin | null>(null);
+type ModelRun = (input: ArrayBuffer[]) => Promise<ArrayBuffer[]>;
+
+export type CaneGuardModelController =
+  | {
+      state: 'loading';
+      model: undefined;
+      run: ModelRun;
+      error: null;
+    }
+  | {
+      state: 'loaded';
+      model: TfliteModel;
+      run: ModelRun;
+      error: null;
+    }
+  | {
+      state: 'error';
+      model: undefined;
+      run: ModelRun;
+      error: Error;
+    };
+
+const CaneGuardModelContext = createContext<CaneGuardModelController | null>(null);
 
 export function CaneGuardModelProvider({ children }: PropsWithChildren) {
   const nativeModel = useTensorflowModel(MODEL_ASSET, CPU_DELEGATES);
-  let modelState = nativeModel;
+  const contractError =
+    nativeModel.state === 'loaded'
+      ? validateModelContract(nativeModel.model)
+      : null;
+  const loadedModel =
+    nativeModel.state === 'loaded' && !contractError
+      ? nativeModel.model
+      : undefined;
+  const run = useCallback<ModelRun>(
+    async (input) => {
+      if (!loadedModel) {
+        throw new InferenceError(
+          'MODEL_NOT_READY',
+          'The Model v0 TensorFlow Lite runtime is not loaded.',
+        );
+      }
 
-  if (nativeModel.state === 'loaded') {
-    const contractError = validateModelContract(nativeModel.model);
-
+      return loadedModel.run(input);
+    },
+    [loadedModel],
+  );
+  const modelState = useMemo<CaneGuardModelController>(() => {
     if (contractError) {
-      modelState = {
+      return {
         model: undefined,
         state: 'error',
+        run,
         error: contractError,
       };
     }
-  }
+
+    if (nativeModel.state === 'error') {
+      return {
+        model: undefined,
+        state: 'error',
+        run,
+        error: nativeModel.error,
+      };
+    }
+
+    if (nativeModel.state === 'loaded') {
+      return {
+        model: nativeModel.model,
+        state: 'loaded',
+        run,
+        error: null,
+      };
+    }
+
+    return {
+      model: undefined,
+      state: 'loading',
+      run,
+      error: null,
+    };
+  }, [contractError, nativeModel, run]);
 
   return (
     <CaneGuardModelContext.Provider value={modelState}>

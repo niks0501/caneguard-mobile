@@ -1,0 +1,38 @@
+{
+  "generated_at": "2026-07-25T05:02:42.296110+00:00",
+  "nodes": {
+    "src_features_detection_constants_modelcontract_model_input": {
+      "code_fingerprint": "46ac9bc4d68ba95f37c41cd118cc8054f5cb02751aeaa10481a4ec78eaffe3eb",
+      "label": "MODEL_INPUT",
+      "last": "2026-07-25T04:51:51.232434+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-25T04:51:51.232434+00:00",
+          "outcome": "useful",
+          "q": "How should Phase 5 TFLite inference connect the existing preprocessing contract, model constants and detection UI, and what comparable tests and runtime APIs already exist?"
+        }
+      ],
+      "score": 0.999825909,
+      "source_file": "src/features/detection/constants/modelContract.ts",
+      "status": "tentative",
+      "uses": 1
+    },
+    "src_features_detection_constants_modelcontract_model_output": {
+      "code_fingerprint": "46ac9bc4d68ba95f37c41cd118cc8054f5cb02751aeaa10481a4ec78eaffe3eb",
+      "label": "MODEL_OUTPUT",
+      "last": "2026-07-25T04:51:51.232434+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-25T04:51:51.232434+00:00",
+          "outcome": "useful",
+          "q": "How should Phase 5 TFLite inference connect the existing preprocessing contract, model constants and detection UI, and what comparable tests and runtime APIs already exist?"
+        }
+      ],
+      "score": 0.999825909,
+      "source_file": "src/features/detection/constants/modelContract.ts",
+      "status": "tentative",
+      "uses": 1
+    }
+  },
+  "version": 1
+}

@@ -15,15 +15,21 @@ import {
   getPreprocessingErrorMessage,
 } from '@/features/detection/preprocessing/preprocessingErrors';
 import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
+import { getInferenceErrorMessage } from '@/features/detection/model/inferenceErrors';
+import { runInference } from '@/features/detection/model/runInference';
+import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ImagePreviewScreen() {
   const theme = useTheme();
   const { state, dispatch } = useScanSession();
+  const modelState = useCaneGuardModel();
   const [isImageLoading, setIsImageLoading] = useState(Boolean(state.sourceUri));
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
-  const preprocessingInFlight = useRef(false);
+  const analysisInFlight = useRef(false);
   const isPreprocessing = state.status === 'preprocessing';
+  const isRunning = state.status === 'running';
+  const analysisComplete = state.status === 'completed';
   const preprocessingComplete = Boolean(state.processedUri);
 
   const returnToScan = () => {
@@ -39,31 +45,50 @@ export default function ImagePreviewScreen() {
     if (
       !state.sourceUri ||
       isPreprocessing ||
-      preprocessingComplete ||
-      preprocessingInFlight.current
+      isRunning ||
+      analysisComplete ||
+      modelState.state !== 'loaded' ||
+      analysisInFlight.current
     ) {
       return;
     }
 
-    preprocessingInFlight.current = true;
+    analysisInFlight.current = true;
     dispatch({ type: 'START_PREPROCESSING' });
+    let inferenceStarted = false;
 
     try {
-      const result = await preprocessImage(state.sourceUri);
+      const preprocessingResult = await preprocessImage(state.sourceUri);
       dispatch({
         type: 'COMPLETE_PREPROCESSING',
         payload: {
-          processedUri: result.processedUri,
-          preprocessMs: result.preprocessMs,
+          processedUri: preprocessingResult.processedUri,
+          preprocessMs: preprocessingResult.preprocessMs,
         },
       });
+      dispatch({ type: 'START_INFERENCE' });
+      inferenceStarted = true;
+
+      const inferenceResult = await runInference(
+        modelState,
+        preprocessingResult.inputBuffer,
+        preprocessingResult.preprocessMs,
+      );
+
+      dispatch({
+        type: 'COMPLETE_INFERENCE',
+        payload: inferenceResult,
+      });
+      router.push('/symptom-checklist');
     } catch (error) {
       dispatch({
         type: 'SET_ERROR',
-        payload: getPreprocessingErrorMessage(error),
+        payload: inferenceStarted
+          ? getInferenceErrorMessage(error)
+          : getPreprocessingErrorMessage(error),
       });
     } finally {
-      preprocessingInFlight.current = false;
+      analysisInFlight.current = false;
     }
   };
 
@@ -200,40 +225,63 @@ export default function ImagePreviewScreen() {
               </AppButton>
               <AppButton
                 disabled={
-                  isImageLoading || imageLoadFailed || isPreprocessing || preprocessingComplete
+                  isImageLoading ||
+                  imageLoadFailed ||
+                  isPreprocessing ||
+                  isRunning ||
+                  analysisComplete ||
+                  modelState.state !== 'loaded'
                 }
                 onPress={() => {
                   void analyzeImage();
                 }}
                 leadingIcon="search"
                 accessibilityLabel={
-                  preprocessingComplete
-                    ? 'Image preprocessing complete'
+                  analysisComplete
+                    ? 'Image analysis complete'
+                    : isRunning
+                      ? 'Analyzing image'
                     : isPreprocessing
                       ? 'Preprocessing image'
+                      : modelState.state === 'loading'
+                        ? 'Model loading'
+                        : modelState.state === 'error'
+                          ? 'Model unavailable'
                       : 'Analyze selected image'
                 }>
-                {isPreprocessing
-                  ? 'Preparing Image…'
-                  : preprocessingComplete
-                    ? 'Image Ready'
-                    : 'Analyze'}
+                {isRunning
+                  ? 'Analyzing…'
+                  : isPreprocessing
+                    ? 'Preparing Image…'
+                    : analysisComplete
+                      ? 'Analysis Complete'
+                      : 'Analyze'}
               </AppButton>
-              {isPreprocessing ? (
+              {isPreprocessing || isRunning ? (
                 <View accessibilityLiveRegion="polite" style={styles.progressRow}>
                   <ActivityIndicator
-                    accessibilityLabel="Preparing image for model"
+                    accessibilityLabel={
+                      isRunning ? 'Running on-device model' : 'Preparing image for model'
+                    }
                     color={theme.primary}
                   />
                   <Text style={[styles.pipelineNotice, { color: theme.textSecondary }]}>
-                    Resizing and creating the model input…
+                    {isRunning
+                      ? 'Running the on-device model…'
+                      : 'Resizing and creating the model input…'}
                   </Text>
                 </View>
               ) : (
                 <Text style={[styles.pipelineNotice, { color: theme.textSecondary }]}>
-                  {preprocessingComplete
-                    ? 'Preprocessing passed. Model inference will be connected in the next phase.'
-                    : 'Analysis stays on this screen until preprocessing succeeds.'}
+                  {modelState.state === 'loading'
+                    ? 'Loading the on-device model before analysis…'
+                    : modelState.state === 'error'
+                      ? 'The on-device model is unavailable. Restart the app and try again.'
+                      : analysisComplete
+                        ? 'Analysis complete. Continuing to the symptom checklist…'
+                        : preprocessingComplete
+                          ? 'The model input is ready. Retry analysis to continue.'
+                          : 'Analysis stays on this screen until preprocessing and inference succeed.'}
                 </Text>
               )}
               {state.errorMessage && !imageLoadFailed ? (

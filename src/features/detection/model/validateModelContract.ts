@@ -2,6 +2,7 @@ import {
   MODEL_INPUT,
   MODEL_OUTPUT,
 } from '@/features/detection/constants/modelContract';
+import { InferenceError } from '@/features/detection/model/inferenceErrors';
 
 type TensorMetadata = {
   name: string;
@@ -26,15 +27,17 @@ function tensorMatches(
   );
 }
 
-export function validateModelContract(model: ModelMetadata): Error | null {
+export function validateModelContract(model: ModelMetadata): InferenceError | null {
   if (model.inputs.length !== 1 || !tensorMatches(model.inputs[0], MODEL_INPUT)) {
-    return new Error(
+    return new InferenceError(
+      'MODEL_CONTRACT_MISMATCH',
       `Model input does not match the Model v0 contract. Received: ${JSON.stringify(model.inputs)}`,
     );
   }
 
   if (model.outputs.length !== 1 || !tensorMatches(model.outputs[0], MODEL_OUTPUT)) {
-    return new Error(
+    return new InferenceError(
+      'MODEL_CONTRACT_MISMATCH',
       `Model output does not match the Model v0 contract. Received: ${JSON.stringify(model.outputs)}`,
     );
   }

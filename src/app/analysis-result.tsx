@@ -26,6 +26,11 @@ import {
   type ModelLabel,
 } from '@/features/detection/constants/modelContract';
 import { useScanSession } from '@/features/detection/context/useScanSession';
+import {
+  getSessionStateErrorMessage,
+  SessionStateError,
+} from '@/features/detection/context/sessionErrors';
+import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import { useTheme } from '@/hooks/use-theme';
 
 const PROTOTYPE_LOW_SCORE_THRESHOLD = 0.5;
@@ -104,7 +109,12 @@ export default function AnalysisResultScreen() {
                 No completed scan result
               </Text>
               <Text style={[styles.recoveryText, { color: theme.textSecondary }]}>
-                Analyze a sugarcane image before opening the result screen.
+                {getSessionStateErrorMessage(
+                  new SessionStateError(
+                    'RESULT_MISSING',
+                    'Analysis result requires completed inference state.',
+                  ),
+                )}
               </Text>
               <AppButton
                 onPress={startNewScan}
@@ -173,6 +183,45 @@ export default function AnalysisResultScreen() {
                 </Text>
               </View>
             </View>
+
+            {state.qualityAssessment?.warnings.length ? (
+              <View
+                accessibilityRole="alert"
+                style={[
+                  styles.qualityCard,
+                  {
+                    backgroundColor: theme.warningBg,
+                    borderColor: theme.warning,
+                  },
+                ]}>
+                <Feather name="camera" size={22} color={theme.warning} />
+                <View style={styles.qualityCopy}>
+                  <Text style={[styles.qualityTitle, { color: theme.warning }]}>
+                    Image quality notice
+                  </Text>
+                  <Text style={[styles.qualityIndependence, { color: theme.text }]}>
+                    These input warnings did not change the model scores.
+                  </Text>
+                  {state.qualityAssessment.warnings.map((warning) => (
+                    <View key={warning} style={styles.qualityWarning}>
+                      <View
+                        style={[
+                          styles.qualityBullet,
+                          { backgroundColor: theme.warning },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.qualityWarningText,
+                          { color: theme.textSecondary },
+                        ]}>
+                        {getQualityWarningMessage(warning)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
 
             <SectionCard title="All Model v0 class scores">
               {MODEL_LABELS.map((label) => (
@@ -352,6 +401,13 @@ const styles = StyleSheet.create({
   scoreLabel: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   scoreName: { ...Typography.bodySmall, flex: 1 },
   scoreValue: { ...Typography.body, fontWeight: '800' },
+  qualityCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
+  qualityCopy: { flex: 1, gap: Spacing.sm },
+  qualityTitle: { ...Typography.subheading },
+  qualityIndependence: { ...Typography.bodySmall, fontWeight: '700' },
+  qualityWarning: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  qualityBullet: { width: 6, height: 6, marginTop: 7, borderRadius: Radius.full },
+  qualityWarningText: { ...Typography.caption, flex: 1 },
   consistencyCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
   consistencyCopy: { flex: 1, gap: Spacing.xs },
   consistencyTitle: { ...Typography.subheading },

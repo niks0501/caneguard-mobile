@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-25T05:38:29.375191+00:00",
+  "generated_at": "2026-07-25T06:55:20.565481+00:00",
   "nodes": {
     "src_app_analysis_result": {
-      "code_fingerprint": "8d94f3b697d632b017d6932478d0fa59dae7ba380ee89cff0d1c05d5ab1637a4",
+      "code_fingerprint": "d03e11c890595cab297378d0c67efa57123eaeefb0086db0599f3a188120cbc5",
       "label": "analysis-result.tsx",
       "last": "2026-07-25T05:11:12.850521+00:00",
       "provenance": [
@@ -12,7 +12,7 @@
           "q": "Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md"
         }
       ],
-      "score": 0.99956246,
+      "score": 0.998330644,
       "source_file": "src/app/analysis-result.tsx",
       "status": "tentative",
       "uses": 1
@@ -28,7 +28,7 @@
           "q": "Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md"
         }
       ],
-      "score": 0.99956246,
+      "score": 0.998330644,
       "source_file": "src/app/symptom-checklist.tsx",
       "status": "tentative",
       "uses": 1
@@ -44,7 +44,7 @@
           "q": "How should Phase 5 TFLite inference connect the existing preprocessing contract, model constants and detection UI, and what comparable tests and runtime APIs already exist?"
         }
       ],
-      "score": 0.999252006,
+      "score": 0.998020573,
       "source_file": "src/features/detection/constants/modelContract.ts",
       "status": "tentative",
       "uses": 1
@@ -60,13 +60,13 @@
           "q": "How should Phase 5 TFLite inference connect the existing preprocessing contract, model constants and detection UI, and what comparable tests and runtime APIs already exist?"
         }
       ],
-      "score": 0.999252006,
+      "score": 0.998020573,
       "source_file": "src/features/detection/constants/modelContract.ts",
       "status": "tentative",
       "uses": 1
     },
     "src_features_detection_types_detectionresult": {
-      "code_fingerprint": "9023d1c42fc66e6d005973765eeda867482c9802ecc0baaa0f8b8eee1ed6a1d4",
+      "code_fingerprint": "3a80b763c89fdfde457e402b21803463b45d4866ad01863a39f4b6c9b0420dad",
       "label": "DetectionResult",
       "last": "2026-07-25T05:11:12.850521+00:00",
       "provenance": [
@@ -76,13 +76,13 @@
           "q": "Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md"
         }
       ],
-      "score": 0.99956246,
+      "score": 0.998330644,
       "source_file": "src/features/detection/types.ts",
       "status": "tentative",
       "uses": 1
     },
     "src_features_detection_types_scansessionstate": {
-      "code_fingerprint": "9023d1c42fc66e6d005973765eeda867482c9802ecc0baaa0f8b8eee1ed6a1d4",
+      "code_fingerprint": "3a80b763c89fdfde457e402b21803463b45d4866ad01863a39f4b6c9b0420dad",
       "label": "ScanSessionState",
       "last": "2026-07-25T05:11:12.850521+00:00",
       "provenance": [
@@ -92,7 +92,7 @@
           "q": "Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md"
         }
       ],
-      "score": 0.99956246,
+      "score": 0.998330644,
       "source_file": "src/features/detection/types.ts",
       "status": "tentative",
       "uses": 1

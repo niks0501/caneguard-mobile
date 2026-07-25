@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,6 +10,10 @@ import { AppCard } from '@/components/ui/AppCard';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { useScanSession } from '@/features/detection/context/useScanSession';
+import {
+  getSessionStateErrorMessage,
+  SessionStateError,
+} from '@/features/detection/context/sessionErrors';
 import { MODEL_INPUT } from '@/features/detection/constants/modelContract';
 import {
   getPreprocessingErrorMessage,
@@ -20,6 +24,8 @@ import { runInference } from '@/features/detection/model/runInference';
 import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
 import { useTheme } from '@/hooks/use-theme';
 
+const RESULT_PREPARATION_FEEDBACK_MS = 120;
+
 export default function ImagePreviewScreen() {
   const theme = useTheme();
   const { state, dispatch } = useScanSession();
@@ -27,10 +33,21 @@ export default function ImagePreviewScreen() {
   const [isImageLoading, setIsImageLoading] = useState(Boolean(state.sourceUri));
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const analysisInFlight = useRef(false);
+  const isMounted = useRef(true);
   const isPreprocessing = state.status === 'preprocessing';
   const isRunning = state.status === 'running';
+  const isFinalizing = state.status === 'finalizing';
   const analysisComplete = state.status === 'completed';
   const preprocessingComplete = Boolean(state.processedUri);
+  const isAnalysisActive = isPreprocessing || isRunning || isFinalizing;
+
+  useEffect(() => {
+    isMounted.current = true;
+
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const returnToScan = () => {
     router.replace('/scan');
@@ -46,6 +63,7 @@ export default function ImagePreviewScreen() {
       !state.sourceUri ||
       isPreprocessing ||
       isRunning ||
+      isFinalizing ||
       analysisComplete ||
       modelState.state !== 'loaded' ||
       analysisInFlight.current
@@ -58,12 +76,21 @@ export default function ImagePreviewScreen() {
     let inferenceStarted = false;
 
     try {
-      const preprocessingResult = await preprocessImage(state.sourceUri);
+      const preprocessingResult = await preprocessImage(state.sourceUri, {
+        width: state.sourceWidth,
+        height: state.sourceHeight,
+      });
+
+      if (!isMounted.current) {
+        return;
+      }
+
       dispatch({
         type: 'COMPLETE_PREPROCESSING',
         payload: {
           processedUri: preprocessingResult.processedUri,
           preprocessMs: preprocessingResult.preprocessMs,
+          qualityAssessment: preprocessingResult.qualityAssessment,
         },
       });
       dispatch({ type: 'START_INFERENCE' });
@@ -75,12 +102,29 @@ export default function ImagePreviewScreen() {
         preprocessingResult.preprocessMs,
       );
 
+      if (!isMounted.current) {
+        return;
+      }
+
+      dispatch({ type: 'START_RESULT_PREPARATION' });
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, RESULT_PREPARATION_FEEDBACK_MS);
+      });
+
+      if (!isMounted.current) {
+        return;
+      }
+
       dispatch({
         type: 'COMPLETE_INFERENCE',
         payload: inferenceResult,
       });
       router.push('/symptom-checklist');
     } catch (error) {
+      if (!isMounted.current) {
+        return;
+      }
+
       dispatch({
         type: 'SET_ERROR',
         payload: inferenceStarted
@@ -106,7 +150,12 @@ export default function ImagePreviewScreen() {
                 No image selected
               </Text>
               <Text style={[styles.recoveryText, { color: theme.textSecondary }]}>
-                Choose a gallery image or capture a photo before opening the preview.
+                {getSessionStateErrorMessage(
+                  new SessionStateError(
+                    'SOURCE_IMAGE_MISSING',
+                    'Image preview requires a selected source image.',
+                  ),
+                )}
               </Text>
               <AppButton onPress={startNewScan} accessibilityLabel="Return to scan image choices">
                 Choose an Image
@@ -229,6 +278,7 @@ export default function ImagePreviewScreen() {
                   imageLoadFailed ||
                   isPreprocessing ||
                   isRunning ||
+                  isFinalizing ||
                   analysisComplete ||
                   modelState.state !== 'loaded'
                 }
@@ -239,6 +289,8 @@ export default function ImagePreviewScreen() {
                 accessibilityLabel={
                   analysisComplete
                     ? 'Image analysis complete'
+                    : isFinalizing
+                      ? 'Preparing analysis result'
                     : isRunning
                       ? 'Analyzing image'
                     : isPreprocessing
@@ -249,7 +301,9 @@ export default function ImagePreviewScreen() {
                           ? 'Model unavailable'
                       : 'Analyze selected image'
                 }>
-                {isRunning
+                {isFinalizing
+                  ? 'Preparing Result…'
+                  : isRunning
                   ? 'Analyzing…'
                   : isPreprocessing
                     ? 'Preparing Image…'
@@ -257,18 +311,24 @@ export default function ImagePreviewScreen() {
                       ? 'Analysis Complete'
                       : 'Analyze'}
               </AppButton>
-              {isPreprocessing || isRunning ? (
+              {isAnalysisActive ? (
                 <View accessibilityLiveRegion="polite" style={styles.progressRow}>
                   <ActivityIndicator
                     accessibilityLabel={
-                      isRunning ? 'Running on-device model' : 'Preparing image for model'
+                      isFinalizing
+                        ? 'Preparing analysis result'
+                        : isRunning
+                          ? 'Running on-device model'
+                          : 'Preparing image for model'
                     }
                     color={theme.primary}
                   />
                   <Text style={[styles.pipelineNotice, { color: theme.textSecondary }]}>
-                    {isRunning
-                      ? 'Running the on-device model…'
-                      : 'Resizing and creating the model input…'}
+                    {isFinalizing
+                      ? 'Preparing result…'
+                      : isRunning
+                        ? 'Running on-device model…'
+                        : 'Preparing image…'}
                   </Text>
                 </View>
               ) : (
@@ -276,7 +336,7 @@ export default function ImagePreviewScreen() {
                   {modelState.state === 'loading'
                     ? 'Loading the on-device model before analysis…'
                     : modelState.state === 'error'
-                      ? 'The on-device model is unavailable. Restart the app and try again.'
+                      ? getInferenceErrorMessage(modelState.error)
                       : analysisComplete
                         ? 'Analysis complete. Continuing to the symptom checklist…'
                         : preprocessingComplete

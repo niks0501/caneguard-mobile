@@ -30,6 +30,7 @@ export async function runInference(
   inputBuffer: ArrayBuffer,
   preprocessMs: number,
   clock: () => number = now,
+  onRawOutput?: (rawOutput: readonly number[]) => void,
 ): Promise<DetectionResult> {
   if (inputBuffer.byteLength !== EXPECTED_INPUT_BYTE_LENGTH) {
     throw new InferenceError(
@@ -64,6 +65,7 @@ export async function runInference(
   }
 
   const mappedOutput = postprocessOutput(outputBuffers[0]);
+  onRawOutput?.(Array.from(new Float32Array(outputBuffers[0])));
 
   return {
     ...mappedOutput,

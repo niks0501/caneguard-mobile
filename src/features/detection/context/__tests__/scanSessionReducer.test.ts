@@ -34,6 +34,7 @@ describe('scanSessionReducer', () => {
       sourceType: null,
       status: 'idle',
       result: null,
+      qualityAssessment: null,
       selectedSymptoms: [],
       reportedSeverity: null,
       errorMessage: null,
@@ -50,6 +51,11 @@ describe('scanSessionReducer', () => {
       sourceType: 'camera',
       status: 'completed',
       result: completedResult,
+      qualityAssessment: {
+        warnings: ['too-dark'],
+        meanLuminance: 20,
+        luminanceStandardDeviation: 10,
+      },
       selectedSymptoms: ['rust'],
       reportedSeverity: 'Severe',
       errorMessage: 'old error',
@@ -99,10 +105,18 @@ describe('scanSessionReducer', () => {
       payload: {
         processedUri: 'file:///processed.jpg',
         preprocessMs: 10,
+        qualityAssessment: {
+          warnings: ['low-resolution'],
+          meanLuminance: 100,
+          luminanceStandardDeviation: 30,
+        },
       },
     });
     const running = scanSessionReducer(preprocessed, { type: 'START_INFERENCE' });
-    const completed = scanSessionReducer(running, {
+    const finalizing = scanSessionReducer(running, {
+      type: 'START_RESULT_PREPARATION',
+    });
+    const completed = scanSessionReducer(finalizing, {
       type: 'COMPLETE_INFERENCE',
       payload: completedResult,
     });
@@ -117,10 +131,20 @@ describe('scanSessionReducer', () => {
     expect(preprocessed).toMatchObject({
       processedUri: 'file:///processed.jpg',
       preprocessMs: 10,
+      qualityAssessment: {
+        warnings: ['low-resolution'],
+        meanLuminance: 100,
+        luminanceStandardDeviation: 30,
+      },
       status: 'image-selected',
       errorMessage: null,
     });
     expect(running).toMatchObject({ result: null, status: 'running', errorMessage: null });
+    expect(finalizing).toMatchObject({
+      result: null,
+      status: 'finalizing',
+      errorMessage: null,
+    });
     expect(completed).toMatchObject({
       result: completedResult,
       status: 'completed',

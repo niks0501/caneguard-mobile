@@ -10,6 +10,14 @@ import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel'
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ModelSmokeTestScreen() {
+  if (!__DEV__) {
+    return null;
+  }
+
+  return <DevelopmentModelSmokeTestScreen />;
+}
+
+function DevelopmentModelSmokeTestScreen() {
   const theme = useTheme();
   const modelState = useCaneGuardModel();
 

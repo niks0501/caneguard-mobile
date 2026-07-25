@@ -47,6 +47,11 @@ const successfulPreprocessingResult = {
   minValue: 0,
   maxValue: 255,
   meanValue: 116,
+  qualityAssessment: {
+    warnings: [],
+    meanLuminance: 118,
+    luminanceStandardDeviation: 42,
+  },
   preprocessMs: 42,
 };
 const successfulInferenceResult = {
@@ -154,14 +159,17 @@ describe('ImagePreviewScreen', () => {
     await fireEvent.press(screen.getByLabelText('Analyze selected image'));
 
     expect(screen.getByLabelText('Preprocessing image')).toBeDisabled();
-    expect(screen.getByText('Resizing and creating the model input…')).toBeOnTheScreen();
+    expect(screen.getByText('Preparing image…')).toBeOnTheScreen();
     await fireEvent.press(screen.getByLabelText('Preprocessing image'));
     expect(mockPreprocessImage).toHaveBeenCalledTimes(1);
     completePreprocessing?.(successfulPreprocessingResult);
 
     await waitFor(() => {
       expect(mockPreprocessImage).toHaveBeenCalledTimes(1);
-      expect(mockPreprocessImage).toHaveBeenCalledWith('content://sugarcane/selected-leaf');
+      expect(mockPreprocessImage).toHaveBeenCalledWith(
+        'content://sugarcane/selected-leaf',
+        { width: 1920, height: 1080 },
+      );
       expect(mockRunInference).toHaveBeenCalledWith(
         expect.objectContaining({ state: 'loaded' }),
         successfulPreprocessingResult.inputBuffer,
@@ -171,14 +179,27 @@ describe('ImagePreviewScreen', () => {
     });
 
     expect(screen.getByText('224 × 224 RGB float32 · 42 ms')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Image analysis complete')).toBeDisabled();
     expect(
-      screen.getByText(
-        'Analysis complete. Continuing to the symptom checklist…',
-      ),
-    ).toBeOnTheScreen();
+      screen
+        .getAllByLabelText('Preparing analysis result')
+        .some((element) => element.props.accessibilityState?.disabled),
+    ).toBe(true);
+    expect(screen.getByText('Preparing result…')).toBeOnTheScreen();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Image analysis complete')).toBeDisabled();
+      expect(
+        screen.getByText(
+          'Analysis complete. Continuing to the symptom checklist…',
+        ),
+      ).toBeOnTheScreen();
+    });
+
     expect(mockRouterPush).toHaveBeenCalledWith('/symptom-checklist');
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'START_INFERENCE' });
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'START_RESULT_PREPARATION',
+    });
     expect(mockDispatch).toHaveBeenCalledWith({
       type: 'COMPLETE_INFERENCE',
       payload: successfulInferenceResult,
@@ -239,6 +260,32 @@ describe('ImagePreviewScreen', () => {
 
     expect(screen.getByLabelText('Analyze selected image')).toBeEnabled();
     expect(mockRouterPush).not.toHaveBeenCalledWith('/symptom-checklist');
+  });
+
+  it('does not write a stale error after leaving during preprocessing', async () => {
+    let failPreprocessing: ((error: Error) => void) | undefined;
+    mockPreprocessImage.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          failPreprocessing = reject;
+        }),
+    );
+    const rendered = await renderPreview(selectedState);
+
+    await fireEvent(
+      screen.getByLabelText('Selected sugarcane image from gallery'),
+      'load',
+    );
+    await fireEvent.press(screen.getByLabelText('Analyze selected image'));
+    rendered.unmount();
+
+    failPreprocessing?.(new Error('late native failure'));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockDispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SET_ERROR' }),
+    );
   });
 
   it('returns to scan without clearing the selected image for replacement', async () => {

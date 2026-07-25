@@ -81,7 +81,11 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
         model: undefined,
         state: 'error',
         run,
-        error: nativeModel.error,
+        error: new InferenceError(
+          'MODEL_LOAD_FAILED',
+          'The native runtime could not load the bundled Model v0 asset.',
+          nativeModel.error,
+        ),
       };
     }
 

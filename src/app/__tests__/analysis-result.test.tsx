@@ -150,6 +150,33 @@ describe('AnalysisResultScreen', () => {
     ).toBeOnTheScreen();
   });
 
+  it('shows image quality warnings without changing model confidence', async () => {
+    const result = createResult('rust', 0.78);
+
+    await renderResult(
+      createCompletedState('rust', ['rust'], {
+        result,
+        qualityAssessment: {
+          warnings: ['low-resolution', 'too-dark'],
+          meanLuminance: 30,
+          luminanceStandardDeviation: 28,
+        },
+      }),
+    );
+
+    expect(screen.getByText('Image quality notice')).toBeOnTheScreen();
+    expect(
+      screen.getByText('These input warnings did not change the model scores.'),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'The image resolution is low. Move closer and keep the affected area in focus.',
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.getByLabelText('AI confidence 78%')).toBeOnTheScreen();
+    expect(result.confidence).toBe(0.78);
+  });
+
   it.each([
     ['missing result', { result: null }],
     ['missing image', { sourceUri: null }],

@@ -52,7 +52,10 @@ function AppNavigator() {
         <Stack.Screen name="records" />
         <Stack.Screen name="reports" />
         <Stack.Screen name="settings" />
-        <Stack.Screen name="model-smoke-test" />
+        <Stack.Protected guard={__DEV__}>
+          <Stack.Screen name="model-smoke-test" />
+          <Stack.Screen name="model-debug" />
+        </Stack.Protected>
       </Stack>
     </ThemeProvider>
   );

@@ -8,6 +8,10 @@ import {
   PreprocessingError,
 } from '@/features/detection/preprocessing/preprocessingErrors';
 import { rgbaToRgb } from '@/features/detection/preprocessing/rgbaToRgb';
+import {
+  assessImageQuality,
+  type ImageQualityAssessment,
+} from '@/features/detection/validation/assessImageQuality';
 
 const [, EXPECTED_HEIGHT, EXPECTED_WIDTH, EXPECTED_CHANNELS] = MODEL_INPUT.shape;
 
@@ -21,6 +25,7 @@ export interface PreprocessingResult {
   minValue: number;
   maxValue: number;
   meanValue: number;
+  qualityAssessment: ImageQualityAssessment;
   preprocessMs: number;
 }
 
@@ -28,7 +33,13 @@ function now(): number {
   return globalThis.performance?.now() ?? Date.now();
 }
 
-export async function preprocessImage(sourceUri: string): Promise<PreprocessingResult> {
+export async function preprocessImage(
+  sourceUri: string,
+  sourceDimensions: {
+    width: number | null;
+    height: number | null;
+  } = { width: null, height: null },
+): Promise<PreprocessingResult> {
   if (!sourceUri.trim()) {
     throw new PreprocessingError('invalid-source-uri', 'A source image URI is required.');
   }
@@ -70,6 +81,7 @@ export async function preprocessImage(sourceUri: string): Promise<PreprocessingR
     }
 
     const rgbPixels = rgbaToRgb(decodedImage.data, decodedImage.width, decodedImage.height);
+    const qualityAssessment = assessImageQuality(rgbPixels, sourceDimensions);
     const tensor = createInputTensor(rgbPixels, decodedImage.width, decodedImage.height);
 
     return {
@@ -82,6 +94,7 @@ export async function preprocessImage(sourceUri: string): Promise<PreprocessingR
       minValue: tensor.minValue,
       maxValue: tensor.maxValue,
       meanValue: tensor.meanValue,
+      qualityAssessment,
       preprocessMs: now() - startedAt,
     };
   } catch (error) {

@@ -20,6 +20,8 @@ describe('readPickerOutcome', () => {
 
     expect(readPickerOutcome(result, 'camera')).toEqual({
       kind: 'error',
+      stage: 'image-acquisition',
+      code: 'PICKER_FAILED',
       message: 'The image picker could not finish. Please try choosing the image again.',
     });
   });
@@ -96,6 +98,8 @@ describe('readPickerOutcome', () => {
 
     expect(readPickerOutcome(result, 'gallery')).toEqual({
       kind: 'error',
+      stage: 'image-acquisition',
+      code: 'INVALID_IMAGE_URI',
       message: 'That selection did not contain a usable local image. Please choose another photo.',
     });
   });

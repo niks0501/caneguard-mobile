@@ -1,5 +1,6 @@
 import type { ModelLabel } from '@/features/detection/constants/modelContract';
 import type { ChecklistObservationId } from '@/features/detection/checklist/checklistConsistency';
+import type { ImageQualityAssessment } from '@/features/detection/validation/assessImageQuality';
 
 export type ScanSourceType = 'camera' | 'gallery';
 
@@ -8,6 +9,7 @@ export type ScanSessionStatus =
   | 'image-selected'
   | 'preprocessing'
   | 'running'
+  | 'finalizing'
   | 'completed'
   | 'error';
 
@@ -41,6 +43,7 @@ export interface ScanSessionState {
   sourceType: ScanSourceType | null;
   status: ScanSessionStatus;
   result: DetectionResult | null;
+  qualityAssessment: ImageQualityAssessment | null;
   selectedSymptoms: ChecklistObservationId[];
   reportedSeverity: ReportedSeverity | null;
   errorMessage: string | null;
@@ -63,9 +66,11 @@ export type ScanSessionAction =
       payload: {
         processedUri: string;
         preprocessMs: number;
+        qualityAssessment: ImageQualityAssessment;
       };
     }
   | { type: 'START_INFERENCE' }
+  | { type: 'START_RESULT_PREPARATION' }
   | { type: 'COMPLETE_INFERENCE'; payload: DetectionResult }
   | { type: 'SET_SYMPTOMS'; payload: ChecklistObservationId[] }
   | { type: 'SET_REPORTED_SEVERITY'; payload: ReportedSeverity | null }

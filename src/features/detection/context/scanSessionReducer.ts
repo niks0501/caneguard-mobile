@@ -9,6 +9,7 @@ export const initialScanSessionState: ScanSessionState = {
   sourceType: null,
   status: 'idle',
   result: null,
+  qualityAssessment: null,
   selectedSymptoms: [],
   reportedSeverity: null,
   errorMessage: null,
@@ -33,6 +34,7 @@ export function scanSessionReducer(
         processedUri: null,
         preprocessMs: null,
         result: null,
+        qualityAssessment: null,
         status: 'preprocessing',
         errorMessage: null,
       };
@@ -48,6 +50,12 @@ export function scanSessionReducer(
         ...state,
         result: null,
         status: 'running',
+        errorMessage: null,
+      };
+    case 'START_RESULT_PREPARATION':
+      return {
+        ...state,
+        status: 'finalizing',
         errorMessage: null,
       };
     case 'COMPLETE_INFERENCE':

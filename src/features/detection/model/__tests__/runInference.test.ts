@@ -28,8 +28,11 @@ describe('runInference', () => {
     const runner = createRunner();
     const input = new ArrayBuffer(INPUT_BYTE_LENGTH);
     const clock = jest.fn().mockReturnValueOnce(10).mockReturnValueOnce(35);
+    const observeRawOutput = jest.fn();
 
-    await expect(runInference(runner, input, 40, clock)).resolves.toEqual({
+    await expect(
+      runInference(runner, input, 40, clock, observeRawOutput),
+    ).resolves.toEqual({
       predictedLabel: 'rust',
       confidence: expect.closeTo(0.7),
       scores: [
@@ -45,6 +48,11 @@ describe('runInference', () => {
       modelVersion: 'v0.1-baseline',
     });
     expect(runner.run).toHaveBeenCalledWith([input]);
+    expect(observeRawOutput).toHaveBeenCalledWith([
+      expect.closeTo(0.1),
+      expect.closeTo(0.2),
+      expect.closeTo(0.7),
+    ]);
   });
 
   it('blocks a mismatched input before calling the native model', async () => {

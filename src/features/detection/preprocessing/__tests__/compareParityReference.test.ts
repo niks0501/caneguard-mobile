@@ -20,6 +20,11 @@ describe('parity-reference comparison', () => {
       minValue: parityReference.input.min,
       maxValue: parityReference.input.max,
       meanValue: parityReference.input.mean,
+      qualityAssessment: {
+        warnings: [],
+        meanLuminance: 120,
+        luminanceStandardDeviation: 40,
+      },
       preprocessMs: 1,
     };
 

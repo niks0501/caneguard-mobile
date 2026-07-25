@@ -1,3 +1,8 @@
+import {
+  DetectionError,
+  type DetectionErrorStage,
+} from '@/features/detection/errors/detectionError';
+
 export type PreprocessingErrorCode =
   | 'invalid-source-uri'
   | 'image-manipulation-failed'
@@ -9,15 +14,30 @@ export type PreprocessingErrorCode =
   | 'byte-length-mismatch'
   | 'invalid-tensor-value';
 
-export class PreprocessingError extends Error {
-  readonly code: PreprocessingErrorCode;
-  readonly cause?: unknown;
+function getPreprocessingStage(
+  code: PreprocessingErrorCode,
+): DetectionErrorStage {
+  switch (code) {
+    case 'invalid-source-uri':
+      return 'image-acquisition';
+    case 'image-manipulation-failed':
+      return 'image-manipulation';
+    case 'missing-encoded-image':
+    case 'jpeg-decode-failed':
+    case 'dimension-mismatch':
+    case 'channel-mismatch':
+      return 'image-decoding';
+    case 'element-count-mismatch':
+    case 'byte-length-mismatch':
+    case 'invalid-tensor-value':
+      return 'tensor-creation';
+  }
+}
 
+export class PreprocessingError extends DetectionError<PreprocessingErrorCode> {
   constructor(code: PreprocessingErrorCode, message: string, cause?: unknown) {
-    super(message);
+    super(getPreprocessingStage(code), code, message, cause);
     this.name = 'PreprocessingError';
-    this.code = code;
-    this.cause = cause;
   }
 }
 

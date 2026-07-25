@@ -166,6 +166,10 @@ describe('CaneGuardModelProvider', () => {
       </CaneGuardModelProvider>,
     );
 
-    expect(screen.getByText('error: Native model failed')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'error: The native runtime could not load the bundled Model v0 asset.',
+      ),
+    ).toBeOnTheScreen();
   });
 });

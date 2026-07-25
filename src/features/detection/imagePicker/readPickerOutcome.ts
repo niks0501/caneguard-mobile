@@ -7,7 +7,12 @@ import type { ScanSourceType } from '@/features/detection/types';
 
 export type PickerOutcome =
   | { kind: 'canceled' }
-  | { kind: 'error'; message: string }
+  | {
+      kind: 'error';
+      stage: 'image-acquisition';
+      code: 'PICKER_FAILED' | 'INVALID_IMAGE_URI';
+      message: string;
+    }
   | {
       kind: 'selected';
       image: {
@@ -25,6 +30,8 @@ export function readPickerOutcome(
   if ('code' in result) {
     return {
       kind: 'error',
+      stage: 'image-acquisition',
+      code: 'PICKER_FAILED',
       message: 'The image picker could not finish. Please try choosing the image again.',
     };
   }
@@ -42,6 +49,8 @@ export function readPickerOutcome(
   if (!asset || !uri || !hasLocalUri || !isKnownImage || !hasImageMimeType) {
     return {
       kind: 'error',
+      stage: 'image-acquisition',
+      code: 'INVALID_IMAGE_URI',
       message: 'That selection did not contain a usable local image. Please choose another photo.',
     };
   }

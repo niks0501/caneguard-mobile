@@ -58,6 +58,8 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
@@ -73,7 +75,8 @@
       "<rootDir>/jest.setup.js"
     ],
     "moduleNameMapper": {
-      "\\.(css|tflite)$": "<rootDir>/test/__mocks__/fileMock.js"
+      "\\.css$": "<rootDir>/test/__mocks__/fileMock.js",
+      "\\.tflite$": "<rootDir>/test/__mocks__/fileMock.js"
     },
     "collectCoverageFrom": [
       "src/features/detection/**/*.{ts,tsx}",

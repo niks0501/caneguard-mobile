@@ -50,7 +50,7 @@ describe('scanSessionReducer', () => {
       sourceType: 'camera',
       status: 'completed',
       result: completedResult,
-      selectedSymptoms: ['orange pustules'],
+      selectedSymptoms: ['rust'],
       reportedSeverity: 'Severe',
       errorMessage: 'old error',
     };
@@ -129,17 +129,17 @@ describe('scanSessionReducer', () => {
   });
 
   it('updates questionnaire data without mutating the supplied symptoms', () => {
-    const symptoms = ['yellow streaks'];
+    const symptoms = ['mosaic'] as const;
     const withSymptoms = scanSessionReducer(initialScanSessionState, {
       type: 'SET_SYMPTOMS',
-      payload: symptoms,
+      payload: [...symptoms],
     });
     const withSeverity = scanSessionReducer(withSymptoms, {
       type: 'SET_REPORTED_SEVERITY',
       payload: 'Moderate',
     });
 
-    expect(withSymptoms.selectedSymptoms).toEqual(symptoms);
+    expect(withSymptoms.selectedSymptoms).toEqual([...symptoms]);
     expect(withSymptoms.selectedSymptoms).not.toBe(symptoms);
     expect(withSeverity.reportedSeverity).toBe('Moderate');
   });
@@ -177,7 +177,7 @@ describe('scanSessionReducer', () => {
       sourceType: 'camera',
       status: 'completed',
       result: completedResult,
-      selectedSymptoms: ['spots'],
+      selectedSymptoms: ['rust'],
       reportedSeverity: 'Mild',
       errorMessage: 'ignored',
     };

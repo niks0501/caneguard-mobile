@@ -1,4 +1,5 @@
 import type { ModelLabel } from '@/features/detection/constants/modelContract';
+import type { ChecklistObservationId } from '@/features/detection/checklist/checklistConsistency';
 
 export type ScanSourceType = 'camera' | 'gallery';
 
@@ -40,7 +41,7 @@ export interface ScanSessionState {
   sourceType: ScanSourceType | null;
   status: ScanSessionStatus;
   result: DetectionResult | null;
-  selectedSymptoms: string[];
+  selectedSymptoms: ChecklistObservationId[];
   reportedSeverity: ReportedSeverity | null;
   errorMessage: string | null;
 }
@@ -66,7 +67,7 @@ export type ScanSessionAction =
     }
   | { type: 'START_INFERENCE' }
   | { type: 'COMPLETE_INFERENCE'; payload: DetectionResult }
-  | { type: 'SET_SYMPTOMS'; payload: string[] }
+  | { type: 'SET_SYMPTOMS'; payload: ChecklistObservationId[] }
   | { type: 'SET_REPORTED_SEVERITY'; payload: ReportedSeverity | null }
   | { type: 'SET_ERROR'; payload: string }
   | { type: 'CLEAR_ERROR' };

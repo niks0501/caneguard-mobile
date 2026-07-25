@@ -1,6 +1,6 @@
 {
   "src/app/_layout.tsx": {
-    "mtime": 1784917100.6429935,
+    "mtime": 1784920496.8098269,
     "ast_hash": "c3dc68cee8117aa93e1af7da383e31cc",
     "semantic_hash": ""
   },
@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "src/app/image-preview.tsx": {
-    "mtime": 1784917132.651381,
-    "ast_hash": "669c5b4262078c6beb2c22604939154b",
+    "mtime": 1784952794.801735,
+    "ast_hash": "28504a3f045d6848401a9d1e3aeb4256",
     "semantic_hash": ""
   },
   "src/app/index.tsx": {
@@ -45,7 +45,7 @@
     "semantic_hash": ""
   },
   "src/app/scan.tsx": {
-    "mtime": 1784919696.814059,
+    "mtime": 1784920496.8098269,
     "ast_hash": "99a09a829bafd2322a139ad189b91513",
     "semantic_hash": ""
   },
@@ -170,88 +170,138 @@
     "semantic_hash": ""
   },
   "src/features/detection/constants/modelContract.ts": {
-    "mtime": 1784913597.8978868,
-    "ast_hash": "feda994644c1045fc6a707c31abcbdf0",
+    "mtime": 1784953736.2036226,
+    "ast_hash": "303b6d8eea93178e26f77c842a1e8cee",
     "semantic_hash": ""
   },
   "src/features/detection/model/useCaneGuardModel.tsx": {
-    "mtime": 1784919696.606477,
+    "mtime": 1784920496.812919,
     "ast_hash": "6b56318e994198f01ab627f89ff0487c",
     "semantic_hash": ""
   },
   "src/app/__tests__/image-preview.test.tsx": {
-    "mtime": 1784919870.9408786,
-    "ast_hash": "af18b2c7e58677fe377a1a7f2cbcc094",
+    "mtime": 1784952794.8782272,
+    "ast_hash": "5aacc078c70ee28186d8b9c22bc8b118",
     "semantic_hash": ""
   },
   "src/app/__tests__/model-smoke-test.test.tsx": {
-    "mtime": 1784919794.0810661,
+    "mtime": 1784920496.8098269,
     "ast_hash": "f407ccaaaf23ac93477b9e6cf8b450c5",
     "semantic_hash": ""
   },
   "src/app/__tests__/scan.test.tsx": {
-    "mtime": 1784919996.055868,
+    "mtime": 1784920496.8098269,
     "ast_hash": "2e530316f30edbc34d1a929314b4d7b6",
     "semantic_hash": ""
   },
   "src/features/detection/constants/__tests__/modelContract.test.ts": {
-    "mtime": 1784919967.5316145,
-    "ast_hash": "41eb7a9c413294bccb04fafe27c2515d",
+    "mtime": 1784952581.1217022,
+    "ast_hash": "b9b2e1f949129231a436edad02a445d7",
     "semantic_hash": ""
   },
   "src/features/detection/context/ScanSessionProvider.tsx": {
-    "mtime": 1784917274.165262,
+    "mtime": 1784920496.8098269,
     "ast_hash": "4404cfbef74a2cbb767ccc83bef64caa",
     "semantic_hash": ""
   },
   "src/features/detection/context/__tests__/ScanSessionProvider.test.tsx": {
-    "mtime": 1784920024.7397444,
+    "mtime": 1784920496.8121738,
     "ast_hash": "36f72ff31bf3523db3e52284a64a8a55",
     "semantic_hash": ""
   },
   "src/features/detection/context/__tests__/scanSessionReducer.test.ts": {
-    "mtime": 1784919793.6263714,
-    "ast_hash": "6b4b8de5c2bea77cc1b80c3e7a0ad984",
+    "mtime": 1784952581.2061036,
+    "ast_hash": "519c4fbf39c88b1b14dd70c4d0b87b05",
     "semantic_hash": ""
   },
   "src/features/detection/context/scanSessionReducer.ts": {
-    "mtime": 1784917274.0894985,
-    "ast_hash": "246d11d1b432c7a666d5ec4c78de3287",
+    "mtime": 1784952509.4223008,
+    "ast_hash": "15f7a174b22887a32b07a385d223ee18",
     "semantic_hash": ""
   },
   "src/features/detection/context/useScanSession.ts": {
-    "mtime": 1784917100.5545764,
+    "mtime": 1784920496.8122618,
     "ast_hash": "80e58ed53d82b4ce21908c8af842bc87",
     "semantic_hash": ""
   },
   "src/features/detection/imagePicker/__tests__/readPickerOutcome.test.ts": {
-    "mtime": 1784919793.8776534,
+    "mtime": 1784920496.8126135,
     "ast_hash": "3d59b0d2a9dc7be8f41bf783429494bc",
     "semantic_hash": ""
   },
   "src/features/detection/imagePicker/readPickerOutcome.ts": {
-    "mtime": 1784919696.7342198,
+    "mtime": 1784920496.8126135,
     "ast_hash": "a7c61814a15268399c3b4b5aaf205e39",
     "semantic_hash": ""
   },
   "src/features/detection/model/__tests__/useCaneGuardModel.test.tsx": {
-    "mtime": 1784919793.9534369,
+    "mtime": 1784920496.8126135,
     "ast_hash": "dcc36fc487e4a2916866e5d9677e410f",
     "semantic_hash": ""
   },
   "src/features/detection/model/__tests__/validateModelContract.test.ts": {
-    "mtime": 1784919793.7540066,
+    "mtime": 1784920496.812919,
     "ast_hash": "65ce94cd46ad3a969f106e2947308da3",
     "semantic_hash": ""
   },
   "src/features/detection/model/validateModelContract.ts": {
-    "mtime": 1784919696.5266378,
+    "mtime": 1784920496.812919,
     "ast_hash": "bf417ecb1d81a643932501efefa0730a",
     "semantic_hash": ""
   },
   "src/features/detection/types.ts": {
-    "mtime": 1784917100.333534,
-    "ast_hash": "b84b2cebdb5d6343da8a30fd6e9044e1",
+    "mtime": 1784952509.467295,
+    "ast_hash": "67302ce6318e2866987e63945b8fae65",
+    "semantic_hash": ""
+  },
+  "src/features/detection/preprocessing/__tests__/compareParityReference.test.ts": {
+    "mtime": 1784952795.031219,
+    "ast_hash": "b6322be2b7cda7c6085f9ee00328af93",
+    "semantic_hash": ""
+  },
+  "src/features/detection/preprocessing/__tests__/createInputTensor.test.ts": {
+    "mtime": 1784952581.3266768,
+    "ast_hash": "70b8fef49bfdeef81d416784014955a6",
+    "semantic_hash": ""
+  },
+  "src/features/detection/preprocessing/__tests__/decodeAndColor.test.ts": {
+    "mtime": 1784952581.4030402,
+    "ast_hash": "6be3cf8db9a34e64bedc2144f258a856",
+    "semantic_hash": ""
+  },
+  "src/features/detection/preprocessing/__tests__/preprocessImage.test.ts": {
+    "mtime": 1784952581.4794033,
+    "ast_hash": "7796c5d7c31ac53a722da9f0d821d281",
+    "semantic_hash": ""
+  },
+  "src/features/detection/preprocessing/compareParityReference.ts": {
+    "mtime": 1784952794.9547198,
+    "ast_hash": "fd28346d14704c500da19cd891490c7e",
+    "semantic_hash": ""
+  },
+  "src/features/detection/preprocessing/createInputTensor.ts": {
+    "mtime": 1784952623.1508148,
+    "ast_hash": "403ed0d5acd5373d658c332d29cf0e06",
+    "semantic_hash": ""
+  },
+  "src/features/detection/preprocessing/decodeJpeg.ts": {
+    "mtime": 1784952450.2517607,
+    "ast_hash": "16392ab258b897a05bd1748324dfcc2e",
+    "semantic_hash": ""
+  },
+  "src/features/detection/preprocessing/preprocessImage.ts": {
+    "mtime": 1784952450.4770706,
+    "ast_hash": "3615617ea148127b3e382fca241ab015",
+    "semantic_hash": ""
+  },
+  "src/features/detection/preprocessing/preprocessingErrors.ts": {
+    "mtime": 1784952450.1766574,
+    "ast_hash": "bb134268ee14f7b2dfa09c51beaa408d",
+    "semantic_hash": ""
+  },
+  "src/features/detection/preprocessing/rgbaToRgb.ts": {
+    "mtime": 1784952450.3229113,
+    "ast_hash": "72153d62054e6c8069e6b950491d2368",
     "semantic_hash": ""
   }
 }

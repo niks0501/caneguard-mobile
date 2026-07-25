@@ -1,6 +1,38 @@
 {
-  "generated_at": "2026-07-25T05:02:42.296110+00:00",
+  "generated_at": "2026-07-25T05:38:29.375191+00:00",
   "nodes": {
+    "src_app_analysis_result": {
+      "code_fingerprint": "8d94f3b697d632b017d6932478d0fa59dae7ba380ee89cff0d1c05d5ab1637a4",
+      "label": "analysis-result.tsx",
+      "last": "2026-07-25T05:11:12.850521+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-25T05:11:12.850521+00:00",
+          "outcome": "useful",
+          "q": "Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md"
+        }
+      ],
+      "score": 0.99956246,
+      "source_file": "src/app/analysis-result.tsx",
+      "status": "tentative",
+      "uses": 1
+    },
+    "src_app_symptom_checklist": {
+      "code_fingerprint": "b7e821df7a33145472a8f1803c82c0de64555c4ba186a0f35d15346db43098fb",
+      "label": "symptom-checklist.tsx",
+      "last": "2026-07-25T05:11:12.850521+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-25T05:11:12.850521+00:00",
+          "outcome": "useful",
+          "q": "Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md"
+        }
+      ],
+      "score": 0.99956246,
+      "source_file": "src/app/symptom-checklist.tsx",
+      "status": "tentative",
+      "uses": 1
+    },
     "src_features_detection_constants_modelcontract_model_input": {
       "code_fingerprint": "46ac9bc4d68ba95f37c41cd118cc8054f5cb02751aeaa10481a4ec78eaffe3eb",
       "label": "MODEL_INPUT",
@@ -12,7 +44,7 @@
           "q": "How should Phase 5 TFLite inference connect the existing preprocessing contract, model constants and detection UI, and what comparable tests and runtime APIs already exist?"
         }
       ],
-      "score": 0.999825909,
+      "score": 0.999252006,
       "source_file": "src/features/detection/constants/modelContract.ts",
       "status": "tentative",
       "uses": 1
@@ -28,8 +60,40 @@
           "q": "How should Phase 5 TFLite inference connect the existing preprocessing contract, model constants and detection UI, and what comparable tests and runtime APIs already exist?"
         }
       ],
-      "score": 0.999825909,
+      "score": 0.999252006,
       "source_file": "src/features/detection/constants/modelContract.ts",
+      "status": "tentative",
+      "uses": 1
+    },
+    "src_features_detection_types_detectionresult": {
+      "code_fingerprint": "9023d1c42fc66e6d005973765eeda867482c9802ecc0baaa0f8b8eee1ed6a1d4",
+      "label": "DetectionResult",
+      "last": "2026-07-25T05:11:12.850521+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-25T05:11:12.850521+00:00",
+          "outcome": "useful",
+          "q": "Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md"
+        }
+      ],
+      "score": 0.99956246,
+      "source_file": "src/features/detection/types.ts",
+      "status": "tentative",
+      "uses": 1
+    },
+    "src_features_detection_types_scansessionstate": {
+      "code_fingerprint": "9023d1c42fc66e6d005973765eeda867482c9802ecc0baaa0f8b8eee1ed6a1d4",
+      "label": "ScanSessionState",
+      "last": "2026-07-25T05:11:12.850521+00:00",
+      "provenance": [
+        {
+          "date": "2026-07-25T05:11:12.850521+00:00",
+          "outcome": "useful",
+          "q": "Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md"
+        }
+      ],
+      "score": 0.99956246,
+      "source_file": "src/features/detection/types.ts",
       "status": "tentative",
       "uses": 1
     }

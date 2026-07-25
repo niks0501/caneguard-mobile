@@ -5,8 +5,8 @@
     "semantic_hash": ""
   },
   "src/app/analysis-result.tsx": {
-    "mtime": 1783946711.850721,
-    "ast_hash": "6049c3b29067226233a023f4250835e3",
+    "mtime": 1784956244.1509216,
+    "ast_hash": "61a6928c00de2ff6a78d5f6ba427c8cb",
     "semantic_hash": ""
   },
   "src/app/home.tsx": {
@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "src/app/image-preview.tsx": {
-    "mtime": 1784952794.801735,
-    "ast_hash": "28504a3f045d6848401a9d1e3aeb4256",
+    "mtime": 1784954899.7547312,
+    "ast_hash": "ea6715b2684008136a8a184a386c5b5b",
     "semantic_hash": ""
   },
   "src/app/index.tsx": {
@@ -55,8 +55,8 @@
     "semantic_hash": ""
   },
   "src/app/symptom-checklist.tsx": {
-    "mtime": 1783946711.852641,
-    "ast_hash": "9b2856058b06f34bd64625e907902660",
+    "mtime": 1784955946.65621,
+    "ast_hash": "ff28098edc479e55c547f2dda733e0f0",
     "semantic_hash": ""
   },
   "src/components/themed-text.tsx": {
@@ -175,18 +175,18 @@
     "semantic_hash": ""
   },
   "src/features/detection/model/useCaneGuardModel.tsx": {
-    "mtime": 1784920496.812919,
-    "ast_hash": "6b56318e994198f01ab627f89ff0487c",
+    "mtime": 1784954853.7064984,
+    "ast_hash": "7ea80e5c69462ae0e698ca1063906e4d",
     "semantic_hash": ""
   },
   "src/app/__tests__/image-preview.test.tsx": {
-    "mtime": 1784952794.8782272,
-    "ast_hash": "5aacc078c70ee28186d8b9c22bc8b118",
+    "mtime": 1784955021.1952615,
+    "ast_hash": "74458ac45a4a17ecfc75cd2d305833d1",
     "semantic_hash": ""
   },
   "src/app/__tests__/model-smoke-test.test.tsx": {
-    "mtime": 1784920496.8098269,
-    "ast_hash": "f407ccaaaf23ac93477b9e6cf8b450c5",
+    "mtime": 1784954987.688631,
+    "ast_hash": "60062997f658a1ae2e46d346b967dd4b",
     "semantic_hash": ""
   },
   "src/app/__tests__/scan.test.tsx": {
@@ -210,8 +210,8 @@
     "semantic_hash": ""
   },
   "src/features/detection/context/__tests__/scanSessionReducer.test.ts": {
-    "mtime": 1784952581.2061036,
-    "ast_hash": "519c4fbf39c88b1b14dd70c4d0b87b05",
+    "mtime": 1784956141.8173914,
+    "ast_hash": "ce543edb543760a869bc0043fb64e7a9",
     "semantic_hash": ""
   },
   "src/features/detection/context/scanSessionReducer.ts": {
@@ -235,8 +235,8 @@
     "semantic_hash": ""
   },
   "src/features/detection/model/__tests__/useCaneGuardModel.test.tsx": {
-    "mtime": 1784920496.8126135,
-    "ast_hash": "dcc36fc487e4a2916866e5d9677e410f",
+    "mtime": 1784955071.411437,
+    "ast_hash": "f93ea75283eb21d5ac241ffd8929cc4c",
     "semantic_hash": ""
   },
   "src/features/detection/model/__tests__/validateModelContract.test.ts": {
@@ -250,13 +250,13 @@
     "semantic_hash": ""
   },
   "src/features/detection/types.ts": {
-    "mtime": 1784952509.467295,
-    "ast_hash": "67302ce6318e2866987e63945b8fae65",
+    "mtime": 1784955946.5721195,
+    "ast_hash": "ab3a5f32500c2e4a396f4c78e9447e03",
     "semantic_hash": ""
   },
   "src/features/detection/preprocessing/__tests__/compareParityReference.test.ts": {
-    "mtime": 1784952795.031219,
-    "ast_hash": "b6322be2b7cda7c6085f9ee00328af93",
+    "mtime": 1784954216.7088594,
+    "ast_hash": "96e5b91dd6a9a6979d1dfd6573d1b03f",
     "semantic_hash": ""
   },
   "src/features/detection/preprocessing/__tests__/createInputTensor.test.ts": {
@@ -302,6 +302,81 @@
   "src/features/detection/preprocessing/rgbaToRgb.ts": {
     "mtime": 1784952450.3229113,
     "ast_hash": "72153d62054e6c8069e6b950491d2368",
+    "semantic_hash": ""
+  },
+  "src/app/__tests__/analysis-result.test.tsx": {
+    "mtime": 1784956244.2389934,
+    "ast_hash": "260b3bfade788f4018dd7785233c7d26",
+    "semantic_hash": ""
+  },
+  "src/app/__tests__/symptom-checklist.test.tsx": {
+    "mtime": 1784956141.6493073,
+    "ast_hash": "f8782699d3116579e848971ca59344dc",
+    "semantic_hash": ""
+  },
+  "src/features/detection/checklist/__tests__/checklistConsistency.test.ts": {
+    "mtime": 1784956141.489227,
+    "ast_hash": "e565aadf7552e0bc9c418d61487a72f3",
+    "semantic_hash": ""
+  },
+  "src/features/detection/checklist/checklistConsistency.ts": {
+    "mtime": 1784955946.4920335,
+    "ast_hash": "a10a3e80c398bcd160f911985055a1d0",
+    "semantic_hash": ""
+  },
+  "src/features/detection/constants/__tests__/diseaseCatalog.test.ts": {
+    "mtime": 1784956141.5732691,
+    "ast_hash": "689ee03e5f3c6378a638f43ae3bb0f08",
+    "semantic_hash": ""
+  },
+  "src/features/detection/constants/diseaseCatalog.ts": {
+    "mtime": 1784955946.2918186,
+    "ast_hash": "a7015704b158f22bb99503fa17233a3a",
+    "semantic_hash": ""
+  },
+  "src/features/detection/model/__tests__/postprocessOutput.test.ts": {
+    "mtime": 1784954933.705835,
+    "ast_hash": "95ef21514a9c160b49316c7b7b71fb03",
+    "semantic_hash": ""
+  },
+  "src/features/detection/model/__tests__/runInference.test.ts": {
+    "mtime": 1784955071.335545,
+    "ast_hash": "ca5d0892c481ff0fc5bd3b267063021f",
+    "semantic_hash": ""
+  },
+  "src/features/detection/model/__tests__/softmax.test.ts": {
+    "mtime": 1784954933.6296527,
+    "ast_hash": "c23116a0687a55fc7185d4e74e28e941",
+    "semantic_hash": ""
+  },
+  "src/features/detection/model/inferenceErrors.ts": {
+    "mtime": 1784954823.8394258,
+    "ast_hash": "60528f10f1e3f9cbdcf1592922f0f64b",
+    "semantic_hash": ""
+  },
+  "src/features/detection/model/postprocessOutput.ts": {
+    "mtime": 1784954824.0316312,
+    "ast_hash": "c7ded53e49fb64bfadbf9276385954d1",
+    "semantic_hash": ""
+  },
+  "src/features/detection/model/runInference.ts": {
+    "mtime": 1784955071.2471318,
+    "ast_hash": "91b9ea5b8896705aa40a1a9cf590f33d",
+    "semantic_hash": ""
+  },
+  "src/features/detection/model/softmax.ts": {
+    "mtime": 1784954823.9382868,
+    "ast_hash": "452761d75fe58124dbb5e7ef31d7f31e",
+    "semantic_hash": ""
+  },
+  "graphify-out/memory/query_20260725_045151_how_should_phase_5_tflite_inference_connect_the_ex.md": {
+    "mtime": 1784955111.2326524,
+    "ast_hash": "f074369206a245da9fb07e74ce861bfe",
+    "semantic_hash": ""
+  },
+  "graphify-out/memory/query_20260725_051112_phase_5_is_working__let_s_proceed_with_the_next_ph.md": {
+    "mtime": 1784956272.8509784,
+    "ast_hash": "7b7635cb0cd5278edbf0602dddec024e",
     "semantic_hash": ""
   }
 }

@@ -7,6 +7,7 @@ node_modules/
 .expo/
 dist/
 web-build/
+coverage/
 expo-env.d.ts
 
 # Native
@@ -47,6 +48,11 @@ example
 opencode.jsonc
 PROJECT_CHECKS.md
 docs/
+!docs/
+docs/*
+!docs/model-v0/
+!docs/model-v0/**
+graphify-out/cache/
 .ai
 project-structure.txt
 .agents

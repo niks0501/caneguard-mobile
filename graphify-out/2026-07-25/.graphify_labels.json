@@ -1,0 +1,17 @@
+{
+  "0": "Scan & Analysis Flow",
+  "1": "Records & Disease Library",
+  "2": "Auth & Onboarding",
+  "3": "Reports & Progress",
+  "4": "Settings & Navigation",
+  "5": "Home Screen",
+  "6": "StatusChip.tsx",
+  "7": "Symptom Checklist",
+  "8": "Root Layout",
+  "9": "Color Scheme Hooks",
+  "10": "scan.test.tsx",
+  "11": "scan.tsx",
+  "12": "AppButton.tsx",
+  "13": "ThemePreferenceProvider.tsx",
+  "14": "modelContract.test.ts"
+}

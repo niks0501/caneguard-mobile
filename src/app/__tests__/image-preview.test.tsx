@@ -1,0 +1,341 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
+import { useReducer } from 'react';
+
+import ImagePreviewScreen from '@/app/image-preview';
+import { ScanSessionContext } from '@/features/detection/context/ScanSessionProvider';
+import {
+  initialScanSessionState,
+  scanSessionReducer,
+} from '@/features/detection/context/scanSessionReducer';
+import { InferenceError } from '@/features/detection/model/inferenceErrors';
+import { runInference } from '@/features/detection/model/runInference';
+import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
+import { PreprocessingError } from '@/features/detection/preprocessing/preprocessingErrors';
+import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
+import type {
+  ScanSessionAction,
+  ScanSessionState,
+} from '@/features/detection/types';
+
+jest.mock('@/features/detection/preprocessing/preprocessImage', () => ({
+  preprocessImage: jest.fn(),
+}));
+
+jest.mock('@/features/detection/model/runInference', () => ({
+  runInference: jest.fn(),
+}));
+
+jest.mock('@/features/detection/model/useCaneGuardModel', () => ({
+  useCaneGuardModel: jest.fn(),
+}));
+
+const mockDispatch = jest.fn<void, [ScanSessionAction]>();
+const mockRouterReplace = router.replace as jest.Mock;
+const mockRouterPush = router.push as jest.Mock;
+const mockPreprocessImage = preprocessImage as jest.MockedFunction<typeof preprocessImage>;
+const mockRunInference = runInference as jest.MockedFunction<typeof runInference>;
+const mockUseCaneGuardModel = jest.mocked(useCaneGuardModel);
+const mockModelRun = jest.fn<Promise<ArrayBuffer[]>, [ArrayBuffer[]]>();
+const successfulPreprocessingResult = {
+  processedUri: 'file:///processed.jpg',
+  inputBuffer: new ArrayBuffer(602_112),
+  width: 224,
+  height: 224,
+  channels: 3,
+  dataType: 'float32' as const,
+  minValue: 0,
+  maxValue: 255,
+  meanValue: 116,
+  qualityAssessment: {
+    warnings: [],
+    meanLuminance: 118,
+    luminanceStandardDeviation: 42,
+  },
+  preprocessMs: 42,
+};
+const successfulInferenceResult = {
+  predictedLabel: 'rust' as const,
+  confidence: 0.8,
+  scores: [
+    { label: 'rust' as const, score: 0.8 },
+    { label: 'mosaic' as const, score: 0.15 },
+    { label: 'healthy' as const, score: 0.05 },
+  ],
+  timings: {
+    preprocessMs: 42,
+    inferenceMs: 18,
+    totalMs: 60,
+  },
+  modelVersion: 'v0.1-baseline',
+};
+
+const selectedState: ScanSessionState = {
+  ...initialScanSessionState,
+  sourceUri: 'content://sugarcane/selected-leaf',
+  sourceWidth: 1920,
+  sourceHeight: 1080,
+  sourceType: 'gallery',
+  status: 'image-selected',
+};
+
+async function renderPreview(initialState: ScanSessionState) {
+  function PreviewHarness() {
+    const [state, dispatch] = useReducer(
+      (current: ScanSessionState, action: ScanSessionAction) => {
+        mockDispatch(action);
+        return scanSessionReducer(current, action);
+      },
+      initialState,
+    );
+
+    return (
+      <ScanSessionContext.Provider value={{ state, dispatch }}>
+        <ImagePreviewScreen />
+      </ScanSessionContext.Provider>
+    );
+  }
+
+  return render(<PreviewHarness />);
+}
+
+describe('ImagePreviewScreen', () => {
+  beforeEach(() => {
+    mockPreprocessImage.mockResolvedValue(successfulPreprocessingResult);
+    mockRunInference.mockResolvedValue(successfulInferenceResult);
+    mockUseCaneGuardModel.mockReturnValue({
+      state: 'loaded',
+      model: {} as never,
+      run: mockModelRun,
+      error: null,
+    });
+  });
+
+  it('shows a clear recovery state when no image exists', async () => {
+    await renderPreview(initialScanSessionState);
+
+    expect(screen.getByText('No image selected')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Choose a gallery image or capture a photo before opening the preview.',
+      ),
+    ).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Return to scan image choices'));
+
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+    expect(mockRouterReplace).toHaveBeenCalledWith('/scan');
+  });
+
+  it('displays the exact selected image, source, and dimensions', async () => {
+    await renderPreview(selectedState);
+
+    expect(screen.getByLabelText('Selected sugarcane image from gallery')).toHaveProp('source', {
+      uri: 'content://sugarcane/selected-leaf',
+    });
+    expect(screen.getByText('Gallery')).toBeOnTheScreen();
+    expect(screen.getByText('1920 × 1080 pixels')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Analyze selected image')).toBeDisabled();
+    expect(
+      screen.getByText(
+        'Analysis stays on this screen until preprocessing and inference succeed.',
+      ),
+    ).toBeOnTheScreen();
+  });
+
+  it('preprocesses, runs inference once, stores the result, and continues', async () => {
+    let completePreprocessing:
+      | ((result: typeof successfulPreprocessingResult) => void)
+      | undefined;
+    mockPreprocessImage.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          completePreprocessing = resolve;
+        }),
+    );
+    await renderPreview(selectedState);
+
+    await fireEvent(screen.getByLabelText('Selected sugarcane image from gallery'), 'load');
+    await fireEvent.press(screen.getByLabelText('Analyze selected image'));
+
+    expect(screen.getByLabelText('Preprocessing image')).toBeDisabled();
+    expect(screen.getByText('Preparing image…')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Preprocessing image'));
+    expect(mockPreprocessImage).toHaveBeenCalledTimes(1);
+    completePreprocessing?.(successfulPreprocessingResult);
+
+    await waitFor(() => {
+      expect(mockPreprocessImage).toHaveBeenCalledTimes(1);
+      expect(mockPreprocessImage).toHaveBeenCalledWith(
+        'content://sugarcane/selected-leaf',
+        { width: 1920, height: 1080 },
+      );
+      expect(mockRunInference).toHaveBeenCalledWith(
+        expect.objectContaining({ state: 'loaded' }),
+        successfulPreprocessingResult.inputBuffer,
+        42,
+      );
+      expect(screen.getByText('Model input ready')).toBeOnTheScreen();
+    });
+
+    expect(screen.getByText('224 × 224 RGB float32 · 42 ms')).toBeOnTheScreen();
+    expect(
+      screen
+        .getAllByLabelText('Preparing analysis result')
+        .some((element) => element.props.accessibilityState?.disabled),
+    ).toBe(true);
+    expect(screen.getByText('Preparing result…')).toBeOnTheScreen();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Image analysis complete')).toBeDisabled();
+      expect(
+        screen.getByText(
+          'Analysis complete. Continuing to the symptom checklist…',
+        ),
+      ).toBeOnTheScreen();
+    });
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/symptom-checklist');
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'START_INFERENCE' });
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'START_RESULT_PREPARATION',
+    });
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'COMPLETE_INFERENCE',
+      payload: successfulInferenceResult,
+    });
+  });
+
+  it('keeps Analyze disabled until the model is loaded', async () => {
+    mockUseCaneGuardModel.mockReturnValue({
+      state: 'loading',
+      model: undefined,
+      run: mockModelRun,
+      error: null,
+    });
+    await renderPreview(selectedState);
+
+    await fireEvent(screen.getByLabelText('Selected sugarcane image from gallery'), 'load');
+
+    expect(screen.getByLabelText('Model loading')).toBeDisabled();
+    expect(screen.getByText('Loading the on-device model before analysis…')).toBeOnTheScreen();
+    expect(mockPreprocessImage).not.toHaveBeenCalled();
+  });
+
+  it('shows a recoverable preprocessing failure and allows another attempt', async () => {
+    mockPreprocessImage.mockRejectedValueOnce(
+      new PreprocessingError('jpeg-decode-failed', 'decode failed'),
+    );
+    await renderPreview(selectedState);
+
+    await fireEvent(screen.getByLabelText('Selected sugarcane image from gallery'), 'load');
+    await fireEvent.press(screen.getByLabelText('Analyze selected image'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'The resized image could not be decoded correctly. Please replace it and try again.',
+        ),
+      ).toBeOnTheScreen();
+    });
+
+    expect(screen.getByLabelText('Analyze selected image')).toBeEnabled();
+    expect(screen.queryByText('Model input ready')).not.toBeOnTheScreen();
+  });
+
+  it('shows a recoverable inference failure and allows another attempt', async () => {
+    mockRunInference.mockRejectedValueOnce(
+      new InferenceError('MODEL_RUN_FAILED', 'native failure'),
+    );
+    await renderPreview(selectedState);
+
+    await fireEvent(screen.getByLabelText('Selected sugarcane image from gallery'), 'load');
+    await fireEvent.press(screen.getByLabelText('Analyze selected image'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('The on-device analysis could not finish. Please try again.'),
+      ).toBeOnTheScreen();
+    });
+
+    expect(screen.getByLabelText('Analyze selected image')).toBeEnabled();
+    expect(mockRouterPush).not.toHaveBeenCalledWith('/symptom-checklist');
+  });
+
+  it('does not write a stale error after leaving during preprocessing', async () => {
+    let failPreprocessing: ((error: Error) => void) | undefined;
+    mockPreprocessImage.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          failPreprocessing = reject;
+        }),
+    );
+    const rendered = await renderPreview(selectedState);
+
+    await fireEvent(
+      screen.getByLabelText('Selected sugarcane image from gallery'),
+      'load',
+    );
+    await fireEvent.press(screen.getByLabelText('Analyze selected image'));
+    rendered.unmount();
+
+    failPreprocessing?.(new Error('late native failure'));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockDispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SET_ERROR' }),
+    );
+  });
+
+  it('returns to scan without clearing the selected image for replacement', async () => {
+    await renderPreview(selectedState);
+
+    await fireEvent.press(
+      screen.getByLabelText('Return to scan and replace the selected image'),
+    );
+
+    expect(mockRouterReplace).toHaveBeenCalledWith('/scan');
+    expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+    expect(screen.getByLabelText('Selected sugarcane image from gallery')).toBeOnTheScreen();
+  });
+
+  it('clears the session when starting a completely new scan', async () => {
+    await renderPreview(selectedState);
+
+    await fireEvent.press(screen.getByLabelText('Clear this image and start a new scan'));
+
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+    expect(mockRouterReplace).toHaveBeenCalledWith('/scan');
+    expect(screen.getByText('No image selected')).toBeOnTheScreen();
+  });
+
+  it('handles image loading and display failure without crashing', async () => {
+    await renderPreview(selectedState);
+
+    const image = screen.getByLabelText('Selected sugarcane image from gallery');
+    expect(screen.getByText('Loading image…')).toBeOnTheScreen();
+
+    await fireEvent(image, 'load');
+    expect(screen.queryByText('Loading image…')).not.toBeOnTheScreen();
+
+    await fireEvent(image, 'error');
+    expect(screen.getByText('Image preview unavailable')).toBeOnTheScreen();
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'SET_ERROR',
+      payload: 'The selected image could not be displayed. Please replace it.',
+    });
+  });
+
+  it('reports unavailable dimensions without inventing metadata', async () => {
+    await renderPreview({
+      ...selectedState,
+      sourceWidth: null,
+      sourceHeight: null,
+      sourceType: 'camera',
+    });
+
+    expect(screen.getByText('Camera')).toBeOnTheScreen();
+    expect(screen.getByText('Dimensions unavailable')).toBeOnTheScreen();
+  });
+});

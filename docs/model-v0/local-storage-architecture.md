@@ -77,6 +77,25 @@ It is not read or written by production application code.
 - Orphan detection is explicit maintenance behavior. There is no background
   deletion scheduler.
 
+## Completed Scan Save
+
+- The Analysis Result screen saves only after an explicit user action. Viewing a
+  completed result does not persist it.
+- A UUIDv4 is generated once per mounted completed result and remains stable
+  across recoverable retries.
+- The application validates the completed session before file or database I/O,
+  copies the source image, then inserts the parent and all child rows in one
+  synchronous SQLite transaction.
+- Required class-score rows are atomic with the parent. Symptoms and quality
+  warnings may be empty.
+- If the transaction fails after the image copy, the transaction rolls back and
+  managed-file cleanup is attempted without masking the primary failure.
+- New records use `local_only` with null remote metadata and zero attempts. No
+  network operation or synchronization claim is made.
+- The post-save action remains on Analysis Result and shows local confirmation.
+  Opening the saved record is deferred until the Phase 4 detail route exists, so
+  Phase 3 never navigates to a nonexistent destination.
+
 ## Migration Workflow
 
 1. Change `src/database/schema.ts`.

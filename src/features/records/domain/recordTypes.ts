@@ -70,26 +70,31 @@ export interface LocalReportSummary {
   totalSavedScans: number;
 }
 
-export interface SaveCompletedScanInput {
+export interface CompletedScanDraft {
   barangay: string | null;
   checklistConsistency: ChecklistConsistency;
   classScores: ClassScore[];
   confidence: number;
   createdAt: string;
   id: string;
-  imageMimeType: string | null;
-  imageSizeBytes: number | null;
   imageSourceType: ScanSourceType;
   inferenceMs: number;
-  managedImageUri: string;
   modelVersion: string;
   predictedLabel: ModelLabel;
   preprocessMs: number;
   qualityWarnings: QualityWarning[];
   reportedSeverity: ReportedSeverity | null;
   sourceHeight: number | null;
+  sourceUri: string;
   sourceWidth: number | null;
   symptoms: string[];
   totalMs: number;
   updatedAt: string;
+}
+
+export interface SaveCompletedScanInput
+  extends Omit<CompletedScanDraft, 'sourceUri'> {
+  imageMimeType: string | null;
+  imageSizeBytes: number | null;
+  managedImageUri: string;
 }

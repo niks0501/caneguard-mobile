@@ -7,10 +7,13 @@ import type {
   ScanRecordQuery,
 } from '@/features/records/domain/recordTypes';
 
-export interface ScanRecordRepository {
+export interface ScanRecordWriteRepository {
+  insert(input: SaveCompletedScanInput): Promise<{ id: string }>;
+}
+
+export interface ScanRecordRepository extends ScanRecordWriteRepository {
   deleteById(id: string): Promise<{ managedImageUri: string }>;
   findById(id: string): Promise<ScanRecordDetails>;
-  insert(input: SaveCompletedScanInput): Promise<{ id: string }>;
   list(query: ScanRecordQuery): Promise<ScanRecordListItem[]>;
   listManagedImageUris(): Promise<string[]>;
 }

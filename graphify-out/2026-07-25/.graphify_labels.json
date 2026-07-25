@@ -14,7 +14,10 @@
   "12": "AppButton.tsx",
   "13": "ThemePreferenceProvider.tsx",
   "14": "modelContract.test.ts",
-  "15": "compareParityReference.ts",
   "16": "StatusChip.tsx",
-  "17": "diseaseCatalog.ts"
+  "17": "diseaseCatalog.ts",
+  "19": "BrandedScreenHeader.tsx",
+  "20": "scanImageStorage.ts",
+  "21": "runInference.ts",
+  "30": "_layout.tsx"
 }

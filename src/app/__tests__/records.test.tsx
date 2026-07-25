@@ -3,21 +3,25 @@ import { router } from 'expo-router';
 
 import RecordsScreen from '@/app/records';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
-import { useScanRecords } from '@/features/records/hooks/useRecords';
+import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
 
 const mockRefresh = jest.fn(async () => undefined);
-let mockRecordsState: ReturnType<typeof useScanRecords> = {
+const mockLoadMore = jest.fn(async () => undefined);
+let mockRecordsState: ReturnType<typeof usePaginatedScanRecords> = {
   data: [],
   errorMessage: null,
+  hasMore: false,
   loading: false,
+  loadingMore: false,
+  loadMore: mockLoadMore,
   refresh: mockRefresh,
 };
 
 jest.mock('@/features/records/hooks/useRecords', () => ({
-  useScanRecords: jest.fn(() => mockRecordsState),
+  usePaginatedScanRecords: jest.fn(() => mockRecordsState),
 }));
 
-const mockUseScanRecords = jest.mocked(useScanRecords);
+const mockUsePaginatedScanRecords = jest.mocked(usePaginatedScanRecords);
 const mockRouterPush = router.push as jest.Mock;
 const RECORD: ScanRecordListItem = {
   id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
@@ -34,7 +38,10 @@ describe('RecordsScreen', () => {
     mockRecordsState = {
       data: [],
       errorMessage: null,
+      hasMore: false,
       loading: false,
+      loadingMore: false,
+      loadMore: mockLoadMore,
       refresh: mockRefresh,
     };
   });
@@ -64,19 +71,21 @@ describe('RecordsScreen', () => {
 
   it('submits search deliberately instead of querying every keystroke', async () => {
     await render(<RecordsScreen />);
-    mockUseScanRecords.mockClear();
+    mockUsePaginatedScanRecords.mockClear();
 
     await fireEvent.changeText(
       screen.getByLabelText('Search saved records'),
       'Wawa',
     );
-    expect(mockUseScanRecords).toHaveBeenLastCalledWith(
+    expect(mockUsePaginatedScanRecords).toHaveBeenLastCalledWith(
       expect.objectContaining({ search: undefined }),
+      25,
     );
 
     await fireEvent.press(screen.getByLabelText('Submit record search'));
-    expect(mockUseScanRecords).toHaveBeenLastCalledWith(
+    expect(mockUsePaginatedScanRecords).toHaveBeenLastCalledWith(
       expect.objectContaining({ search: 'Wawa' }),
+      25,
     );
   });
 
@@ -118,5 +127,18 @@ describe('RecordsScreen', () => {
     expect(screen.getByText('Records unavailable')).toBeOnTheScreen();
     await fireEvent.press(screen.getByText('Try Again'));
     expect(mockRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads the next offset page without replacing current records', async () => {
+    mockRecordsState = {
+      ...mockRecordsState,
+      data: [RECORD],
+      hasMore: true,
+    };
+    await render(<RecordsScreen />);
+
+    await fireEvent.press(screen.getByText('Load More'));
+
+    expect(mockLoadMore).toHaveBeenCalledTimes(1);
   });
 });

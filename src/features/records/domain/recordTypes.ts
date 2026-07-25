@@ -5,6 +5,7 @@ import type { QualityWarning } from '@/features/detection/validation/assessImage
 import type { SyncStatus } from '@/database/schema';
 
 export const DEFAULT_RECORD_PAGE_SIZE = 25;
+export const MAX_RECORD_PAGE_SIZE = 100;
 
 export interface DateRange {
   from?: string;

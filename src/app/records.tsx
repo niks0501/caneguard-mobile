@@ -25,7 +25,7 @@ import {
 } from '@/constants/theme';
 import type { ModelLabel } from '@/features/detection/constants/modelContract';
 import { DEFAULT_RECORD_PAGE_SIZE } from '@/features/records/domain/recordTypes';
-import { useScanRecords } from '@/features/records/hooks/useRecords';
+import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
 import { useTheme } from '@/hooks/use-theme';
 
 type FilterKey = 'all' | ModelLabel;
@@ -42,19 +42,14 @@ export default function RecordsScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
   const [searchInput, setSearchInput] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
-  const [limit, setLimit] = useState(DEFAULT_RECORD_PAGE_SIZE);
-  const records = useScanRecords({
-    limit,
+  const records = usePaginatedScanRecords({
     predictedLabel: activeFilter === 'all' ? undefined : activeFilter,
     search: submittedSearch || undefined,
     syncStatus: 'local_only',
-  });
+  }, DEFAULT_RECORD_PAGE_SIZE);
   const hasFilters = activeFilter !== 'all' || Boolean(submittedSearch);
-  const canLoadMore =
-    records.data.length >= limit && records.data.length % DEFAULT_RECORD_PAGE_SIZE === 0;
 
   const submitSearch = () => {
-    setLimit(DEFAULT_RECORD_PAGE_SIZE);
     setSubmittedSearch(searchInput.trim());
   };
 
@@ -62,7 +57,6 @@ export default function RecordsScreen() {
     setActiveFilter('all');
     setSearchInput('');
     setSubmittedSearch('');
-    setLimit(DEFAULT_RECORD_PAGE_SIZE);
   };
 
   return (
@@ -142,7 +136,6 @@ export default function RecordsScreen() {
                     accessibilityState={{ selected }}
                     onPress={() => {
                       setActiveFilter(filter.key);
-                      setLimit(DEFAULT_RECORD_PAGE_SIZE);
                     }}
                     style={({ pressed }) => [
                       styles.filter,
@@ -232,14 +225,12 @@ export default function RecordsScreen() {
                     />
                   ))}
                 </View>
-                {canLoadMore ? (
+                {records.hasMore ? (
                   <AppButton
-                    onPress={() =>
-                      setLimit((current) => current + DEFAULT_RECORD_PAGE_SIZE)
-                    }
-                    disabled={records.loading}
+                    onPress={() => void records.loadMore()}
+                    disabled={records.loadingMore}
                     variant="secondary">
-                    {records.loading ? 'Loading...' : 'Load More'}
+                    {records.loadingMore ? 'Loading...' : 'Load More'}
                   </AppButton>
                 ) : null}
               </>

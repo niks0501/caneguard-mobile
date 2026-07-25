@@ -26,12 +26,11 @@ import {
 } from '@/features/records/domain/recordMappers';
 import {
   DEFAULT_RECORD_PAGE_SIZE,
+  MAX_RECORD_PAGE_SIZE,
   type ScanRecordDetails,
   type ScanRecordListItem,
   type ScanRecordQuery,
 } from '@/features/records/domain/recordTypes';
-
-const MAX_RECORD_PAGE_SIZE = 100;
 
 export function createScanRecordRepository(
   database: CaneGuardDatabase,

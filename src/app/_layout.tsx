@@ -55,6 +55,7 @@ function AppNavigator() {
         <Stack.Protected guard={__DEV__}>
           <Stack.Screen name="model-smoke-test" />
           <Stack.Screen name="model-debug" />
+          <Stack.Screen name="storage-compatibility" />
         </Stack.Protected>
       </Stack>
     </ThemeProvider>

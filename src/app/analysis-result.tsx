@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -381,6 +381,18 @@ export default function AnalysisResultScreen() {
                     : saveRecord.status === 'failed'
                       ? 'Retry Save'
                       : 'Save Record'}
+                  </AppButton>
+              ) : saveRecord.recordId ? (
+                <AppButton
+                  onPress={() =>
+                    router.push({
+                      pathname: '/record-details',
+                      params: { id: saveRecord.recordId! },
+                    } as unknown as Href)
+                  }
+                  leadingIcon="folder"
+                  accessibilityLabel="Open the saved local record">
+                  Open Saved Record
                 </AppButton>
               ) : null}
             </View>

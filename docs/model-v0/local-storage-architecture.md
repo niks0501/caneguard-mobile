@@ -55,11 +55,29 @@ It is not read or written by production application code.
 ## Query Decisions
 
 - Initial Records page size: 25.
-- Refresh strategy: route-focus refresh. Live queries may be introduced inside
-  feature hooks only when they provide a measured benefit.
+- Refresh strategy: route-focus refresh through feature hooks. Saving and
+  deletion become visible when Records or Reports regains focus.
 - Barangay remains nullable until a verified user input source exists.
 - Records use hard deletion. There is no recovery bin or soft-delete behavior.
 - Reports must use SQL aggregate queries and optional date-range filters.
+- Record list filtering, case-insensitive search, ordering, and pagination run in
+  SQLite. Routes receive lightweight projections rather than schema rows.
+- Search is submitted deliberately and matches stored model labels or barangay
+  text. The initial UI exposes only Healthy, Mosaic, and Rust.
+- Details are loaded by record UUID and do not depend on the active scan
+  session. Missing managed images leave all stored metadata visible.
+
+## Record Deletion
+
+- The user must confirm that both the local record and saved image will be
+  removed.
+- The repository deletes the database parent first in a transaction. Foreign-key
+  cascades remove scores, symptoms, and warnings.
+- The application service attempts managed-image deletion only after database
+  success.
+- Image cleanup failure does not recreate the database record or falsely report
+  full cleanup. The orphan remains detectable by comparing managed files with
+  repository image references.
 
 ## Managed Scan Images
 

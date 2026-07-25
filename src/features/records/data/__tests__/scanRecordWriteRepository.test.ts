@@ -12,6 +12,12 @@ import type { SQLiteDatabase, SQLiteStatement } from 'expo-sqlite';
 import type { CaneGuardDatabase } from '@/database/database';
 import * as schema from '@/database/schema';
 import { StorageError } from '@/database/errors';
+import {
+  deleteScanRecordById,
+  findScanRecordById,
+  listManagedImageUris,
+  listScanRecords,
+} from '@/features/records/data/scanRecordRepository';
 import { insertScanRecord } from '@/features/records/data/scanRecordWriteRepository';
 import type { SaveCompletedScanInput } from '@/features/records/domain/recordTypes';
 
@@ -210,6 +216,117 @@ describe('scan record write repository', () => {
     expect(
       native.prepare('SELECT count(*) AS count FROM scan_records').get(),
     ).toEqual({ count: 1 });
+    native.close();
+  });
+
+  it('lists lightweight records newest-first with pagination and SQL filters', async () => {
+    const { database, native } = openTestDatabase();
+
+    for (let index = 0; index < 30; index += 1) {
+      const id = `2b4666c0-ad10-4d0d-a233-${index.toString(16).padStart(12, '0')}`;
+      const label = (['healthy', 'mosaic', 'rust'] as const)[index % 3];
+      const day = String((index % 28) + 1).padStart(2, '0');
+      await insertScanRecord(
+        database,
+        validInput({
+          id,
+          managedImageUri: `file:///documents/caneguard/scan-images/${id}.jpg`,
+          predictedLabel: label,
+          confidence: 0.5 + index / 100,
+          barangay: index === 10 ? 'Wawa' : null,
+          createdAt: `2026-07-${day}T05:30:00.000Z`,
+          updatedAt: `2026-07-${day}T05:30:00.000Z`,
+        }),
+      );
+    }
+
+    const firstPage = await listScanRecords(database, { limit: 10 });
+    const secondPage = await listScanRecords(database, {
+      limit: 10,
+      offset: 10,
+    });
+    const rust = await listScanRecords(database, {
+      predictedLabel: 'rust',
+      limit: 100,
+    });
+    const searched = await listScanRecords(database, {
+      search: 'WaWa',
+      limit: 100,
+    });
+    const barangay = await listScanRecords(database, {
+      barangay: 'awa',
+      limit: 100,
+    });
+    const ranged = await listScanRecords(database, {
+      dateRange: {
+        from: '2026-07-20T00:00:00.000Z',
+        to: '2026-07-22T23:59:59.999Z',
+      },
+      limit: 100,
+    });
+
+    expect(firstPage).toHaveLength(10);
+    expect(firstPage[0].createdAt >= firstPage[1].createdAt).toBe(true);
+    expect(
+      new Set([...firstPage, ...secondPage].map((row) => row.id)).size,
+    ).toBe(20);
+    expect(rust).toHaveLength(10);
+    expect(rust.every((row) => row.predictedLabel === 'rust')).toBe(true);
+    expect(searched).toHaveLength(1);
+    expect(searched[0].barangay).toBe('Wawa');
+    expect(barangay).toHaveLength(1);
+    expect(ranged.map((row) => row.createdAt.slice(8, 10)).sort()).toEqual([
+      '20',
+      '21',
+      '22',
+    ]);
+
+    native
+      .prepare("UPDATE scan_records SET sync_status = 'failed' WHERE id = ?")
+      .run(
+        '2b4666c0-ad10-4d0d-a233-000000000010',
+      );
+    await expect(
+      listScanRecords(database, { syncStatus: 'failed', limit: 100 }),
+    ).resolves.toHaveLength(1);
+    native.close();
+  });
+
+  it('loads full details independently and deletes children by cascade', async () => {
+    const { database, native } = openTestDatabase();
+    await insertScanRecord(database, validInput());
+
+    await expect(findScanRecordById(database, RECORD_ID)).resolves.toMatchObject({
+      id: RECORD_ID,
+      predictedLabel: 'rust',
+      classScores: [
+        { label: 'healthy', score: 0.05 },
+        { label: 'mosaic', score: 0.13 },
+        { label: 'rust', score: 0.82 },
+      ],
+      symptoms: ['rust'],
+      qualityWarnings: ['too-dark'],
+    });
+    await expect(listManagedImageUris(database)).resolves.toEqual([
+      `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
+    ]);
+    await expect(deleteScanRecordById(database, RECORD_ID)).resolves.toEqual({
+      managedImageUri: `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
+    });
+
+    for (const table of [
+      'scan_records',
+      'scan_class_scores',
+      'scan_symptoms',
+      'scan_quality_warnings',
+    ]) {
+      expect(
+        native.prepare(`SELECT count(*) AS count FROM ${table}`).get(),
+      ).toEqual({ count: 0 });
+    }
+    await expect(findScanRecordById(database, RECORD_ID)).rejects.toMatchObject({
+      code: 'RECORD_NOT_FOUND',
+    });
     native.close();
   });
 });

@@ -27,6 +27,7 @@ let mockSaveRecordState = {
   save: mockSaveRecord,
 };
 const mockRouterBack = router.back as jest.Mock;
+const mockRouterPush = router.push as jest.Mock;
 const mockRouterReplace = router.replace as jest.Mock;
 
 jest.mock('@/features/records/hooks/useSaveCompletedScan', () => ({
@@ -275,6 +276,13 @@ describe('AnalysisResultScreen', () => {
     expect(
       screen.queryByLabelText('Save record on this device'),
     ).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Open the saved local record'));
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/record-details',
+      params: {
+        id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+      },
+    });
   });
 
   it('keeps the result visible and offers retry after a save failure', async () => {

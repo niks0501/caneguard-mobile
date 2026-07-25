@@ -28,6 +28,8 @@ jest.mock('expo-router', () => ({
     push: jest.fn(),
     replace: jest.fn(),
   },
+  useFocusEffect: (callback) => callback(),
+  useLocalSearchParams: jest.fn(() => ({})),
 }));
 
 jest.mock('react-native-safe-area-context', () => {
@@ -36,6 +38,7 @@ jest.mock('react-native-safe-area-context', () => {
   return {
     SafeAreaView: ({ children, ...props }) =>
       React.createElement('SafeAreaView', props, children),
+    useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
   };
 });
 

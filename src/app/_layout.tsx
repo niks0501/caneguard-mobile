@@ -53,6 +53,7 @@ function AppNavigator() {
         <Stack.Screen name="symptom-checklist" />
         <Stack.Screen name="analysis-result" />
         <Stack.Screen name="records" />
+        <Stack.Screen name="record-details" />
         <Stack.Screen name="reports" />
         <Stack.Screen name="settings" />
         <Stack.Protected guard={__DEV__}>

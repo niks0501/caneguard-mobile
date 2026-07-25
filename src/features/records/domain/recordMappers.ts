@@ -11,7 +11,18 @@ import type {
 } from '@/features/records/domain/recordTypes';
 import type { QualityWarning } from '@/features/detection/validation/assessImageQuality';
 
-export function mapScanRecordListItem(row: ScanRecordRow): ScanRecordListItem {
+export function mapScanRecordListItem(
+  row: Pick<
+    ScanRecordRow,
+    | 'barangay'
+    | 'confidence'
+    | 'createdAt'
+    | 'id'
+    | 'managedImageUri'
+    | 'predictedLabel'
+    | 'syncStatus'
+  >,
+): ScanRecordListItem {
   return {
     id: row.id,
     managedImageUri: row.managedImageUri,

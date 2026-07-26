@@ -1,0 +1,428 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "ca0f8843-d04b-417d-a723-66ef2559c735",
+  "prevId": "374999bf-48ae-4bae-8fd7-53aab0d1276b",
+  "tables": {
+    "scan_class_scores": {
+      "name": "scan_class_scores",
+      "columns": {
+        "scan_record_id": {
+          "name": "scan_record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "score": {
+          "name": "score",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "scan_class_scores_scan_record_id_scan_records_id_fk": {
+          "name": "scan_class_scores_scan_record_id_scan_records_id_fk",
+          "tableFrom": "scan_class_scores",
+          "tableTo": "scan_records",
+          "columnsFrom": [
+            "scan_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "scan_class_scores_scan_record_id_label_pk": {
+          "columns": [
+            "scan_record_id",
+            "label"
+          ],
+          "name": "scan_class_scores_scan_record_id_label_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "scan_class_scores_score_check": {
+          "name": "scan_class_scores_score_check",
+          "value": "\"scan_class_scores\".\"score\" >= 0 and \"scan_class_scores\".\"score\" <= 1"
+        }
+      }
+    },
+    "scan_quality_warnings": {
+      "name": "scan_quality_warnings",
+      "columns": {
+        "scan_record_id": {
+          "name": "scan_record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "warning_key": {
+          "name": "warning_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "scan_quality_warnings_scan_record_id_scan_records_id_fk": {
+          "name": "scan_quality_warnings_scan_record_id_scan_records_id_fk",
+          "tableFrom": "scan_quality_warnings",
+          "tableTo": "scan_records",
+          "columnsFrom": [
+            "scan_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "scan_quality_warnings_scan_record_id_warning_key_pk": {
+          "columns": [
+            "scan_record_id",
+            "warning_key"
+          ],
+          "name": "scan_quality_warnings_scan_record_id_warning_key_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "scan_records": {
+      "name": "scan_records",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "managed_image_uri": {
+          "name": "managed_image_uri",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "image_mime_type": {
+          "name": "image_mime_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "image_size_bytes": {
+          "name": "image_size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "image_source_type": {
+          "name": "image_source_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_width": {
+          "name": "source_width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source_height": {
+          "name": "source_height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "predicted_label": {
+          "name": "predicted_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "checklist_consistency": {
+          "name": "checklist_consistency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reported_severity": {
+          "name": "reported_severity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "barangay": {
+          "name": "barangay",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "model_version": {
+          "name": "model_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "preprocess_ms": {
+          "name": "preprocess_ms",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "inference_ms": {
+          "name": "inference_ms",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "total_ms": {
+          "name": "total_ms",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sync_status": {
+          "name": "sync_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'local_only'"
+        },
+        "remote_id": {
+          "name": "remote_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sync_attempt_count": {
+          "name": "sync_attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "last_sync_error_code": {
+          "name": "last_sync_error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_sync_attempt_at": {
+          "name": "last_sync_attempt_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_synced_at": {
+          "name": "last_synced_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "scan_records_created_at_idx": {
+          "name": "scan_records_created_at_idx",
+          "columns": [
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "scan_records_label_created_at_idx": {
+          "name": "scan_records_label_created_at_idx",
+          "columns": [
+            "predicted_label",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "scan_records_sync_created_at_idx": {
+          "name": "scan_records_sync_created_at_idx",
+          "columns": [
+            "sync_status",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "scan_records_barangay_created_at_idx": {
+          "name": "scan_records_barangay_created_at_idx",
+          "columns": [
+            "barangay",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "scan_records_remote_id_unique": {
+          "name": "scan_records_remote_id_unique",
+          "columns": [
+            "remote_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "scan_records_image_source_check": {
+          "name": "scan_records_image_source_check",
+          "value": "\"scan_records\".\"image_source_type\" in ('camera', 'gallery')"
+        },
+        "scan_records_confidence_check": {
+          "name": "scan_records_confidence_check",
+          "value": "\"scan_records\".\"confidence\" >= 0 and \"scan_records\".\"confidence\" <= 1"
+        },
+        "scan_records_consistency_check": {
+          "name": "scan_records_consistency_check",
+          "value": "\"scan_records\".\"checklist_consistency\" in ('consistent', 'inconsistent', 'not-applicable', 'not-enough-information')"
+        },
+        "scan_records_severity_check": {
+          "name": "scan_records_severity_check",
+          "value": "\"scan_records\".\"reported_severity\" is null or \"scan_records\".\"reported_severity\" in ('Mild', 'Moderate', 'Severe')"
+        },
+        "scan_records_sync_status_check": {
+          "name": "scan_records_sync_status_check",
+          "value": "\"scan_records\".\"sync_status\" in ('local_only', 'pending', 'syncing', 'synced', 'failed')"
+        },
+        "scan_records_image_size_check": {
+          "name": "scan_records_image_size_check",
+          "value": "\"scan_records\".\"image_size_bytes\" is null or \"scan_records\".\"image_size_bytes\" >= 0"
+        },
+        "scan_records_width_check": {
+          "name": "scan_records_width_check",
+          "value": "\"scan_records\".\"source_width\" is null or \"scan_records\".\"source_width\" > 0"
+        },
+        "scan_records_height_check": {
+          "name": "scan_records_height_check",
+          "value": "\"scan_records\".\"source_height\" is null or \"scan_records\".\"source_height\" > 0"
+        },
+        "scan_records_timings_check": {
+          "name": "scan_records_timings_check",
+          "value": "\"scan_records\".\"preprocess_ms\" >= 0 and \"scan_records\".\"inference_ms\" >= 0 and \"scan_records\".\"total_ms\" >= 0"
+        },
+        "scan_records_sync_attempt_count_check": {
+          "name": "scan_records_sync_attempt_count_check",
+          "value": "\"scan_records\".\"sync_attempt_count\" >= 0"
+        }
+      }
+    },
+    "scan_symptoms": {
+      "name": "scan_symptoms",
+      "columns": {
+        "scan_record_id": {
+          "name": "scan_record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "symptom_key": {
+          "name": "symptom_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "scan_symptoms_scan_record_id_scan_records_id_fk": {
+          "name": "scan_symptoms_scan_record_id_scan_records_id_fk",
+          "tableFrom": "scan_symptoms",
+          "tableTo": "scan_records",
+          "columnsFrom": [
+            "scan_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "scan_symptoms_scan_record_id_symptom_key_pk": {
+          "columns": [
+            "scan_record_id",
+            "symptom_key"
+          ],
+          "name": "scan_symptoms_scan_record_id_symptom_key_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

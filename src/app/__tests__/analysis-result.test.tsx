@@ -18,8 +18,21 @@ import type {
 } from '@/features/detection/types';
 
 const mockDispatch = jest.fn<void, [ScanSessionAction]>();
+const mockSaveRecord = jest.fn();
+let mockSaveRecordState = {
+  status: 'ready' as 'ready' | 'saving' | 'saved' | 'failed',
+  error: null,
+  errorMessage: null as string | null,
+  recordId: null as string | null,
+  save: mockSaveRecord,
+};
 const mockRouterBack = router.back as jest.Mock;
+const mockRouterPush = router.push as jest.Mock;
 const mockRouterReplace = router.replace as jest.Mock;
+
+jest.mock('@/features/records/hooks/useSaveCompletedScan', () => ({
+  useSaveCompletedScan: () => mockSaveRecordState,
+}));
 
 const STATUS_TITLES: Record<ChecklistConsistency, string> = {
   consistent: 'Checklist consistent',
@@ -95,6 +108,16 @@ async function renderResult(state: ScanSessionState) {
 }
 
 describe('AnalysisResultScreen', () => {
+  beforeEach(() => {
+    mockSaveRecordState = {
+      status: 'ready',
+      error: null,
+      errorMessage: null,
+      recordId: null,
+      save: mockSaveRecord,
+    };
+  });
+
   it.each(MATRIX)(
     'renders the %s result with %s checklist status',
     async (predictedLabel, expectedStatus, selectedSymptoms) => {
@@ -210,5 +233,74 @@ describe('AnalysisResultScreen', () => {
 
     expect(mockRouterBack).toHaveBeenCalledTimes(1);
     expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+  });
+
+  it('discloses local-only storage and starts an explicit save', async () => {
+    await renderResult(createCompletedState('rust', ['rust']));
+
+    expect(
+      screen.getByText(
+        'Saving is optional. Records stay on this device and may be removed if app data is cleared or CaneGuard is uninstalled.',
+      ),
+    ).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Save record on this device'));
+    expect(mockSaveRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables duplicate save and new-scan actions while saving', async () => {
+    mockSaveRecordState = {
+      ...mockSaveRecordState,
+      status: 'saving',
+      recordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+    };
+
+    await renderResult(createCompletedState('rust', ['rust']));
+
+    expect(screen.getByLabelText('Saving record on this device')).toBeDisabled();
+    expect(
+      screen.getByLabelText('Clear result and start a new scan'),
+    ).toBeDisabled();
+  });
+
+  it('shows saved confirmation without another save action', async () => {
+    mockSaveRecordState = {
+      ...mockSaveRecordState,
+      status: 'saved',
+      recordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+    };
+
+    await renderResult(createCompletedState('rust', ['rust']));
+
+    expect(screen.getByText('Saved on this device')).toBeOnTheScreen();
+    expect(
+      screen.queryByLabelText('Save record on this device'),
+    ).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Open the saved local record'));
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/record-details',
+      params: {
+        id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+      },
+    });
+  });
+
+  it('keeps the result visible and offers retry after a save failure', async () => {
+    mockSaveRecordState = {
+      ...mockSaveRecordState,
+      status: 'failed',
+      errorMessage:
+        'The record could not be saved. Your scan result is still available.',
+      recordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+    };
+
+    await renderResult(createCompletedState('rust', ['rust']));
+
+    expect(screen.getByText('Possible result: Rust')).toBeOnTheScreen();
+    expect(screen.getByText('Record not saved')).toBeOnTheScreen();
+    await fireEvent.press(
+      screen.getByLabelText('Retry saving record on this device'),
+    );
+    expect(mockSaveRecord).toHaveBeenCalledTimes(1);
   });
 });

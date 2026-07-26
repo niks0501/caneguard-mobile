@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,6 +31,7 @@ import {
   SessionStateError,
 } from '@/features/detection/context/sessionErrors';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
+import { useSaveCompletedScan } from '@/features/records/hooks/useSaveCompletedScan';
 import { useTheme } from '@/hooks/use-theme';
 
 const PROTOTYPE_LOW_SCORE_THRESHOLD = 0.5;
@@ -80,6 +81,7 @@ const CONSISTENCY_PRESENTATION: Record<
 export default function AnalysisResultScreen() {
   const theme = useTheme();
   const { state, dispatch } = useScanSession();
+  const saveRecord = useSaveCompletedScan(state);
 
   const startNewScan = () => {
     dispatch({ type: 'RESET_SCAN' });
@@ -310,8 +312,93 @@ export default function AnalysisResultScreen() {
                 result is unclear or symptoms do not match.
               </Text>
             </View>
+            <View
+              accessibilityLiveRegion={saveRecord.status === 'failed' ? 'assertive' : 'polite'}
+              style={[
+                styles.saveCard,
+                {
+                  backgroundColor:
+                    saveRecord.status === 'saved'
+                      ? theme.successBg
+                      : saveRecord.status === 'failed'
+                        ? theme.dangerBg
+                        : theme.surfaceElevated,
+                  borderColor:
+                    saveRecord.status === 'saved'
+                      ? theme.success
+                      : saveRecord.status === 'failed'
+                        ? theme.danger
+                        : theme.border,
+                },
+              ]}>
+              <View style={styles.saveHeading}>
+                <Feather
+                  name={
+                    saveRecord.status === 'saved'
+                      ? 'check-circle'
+                      : saveRecord.status === 'failed'
+                        ? 'alert-triangle'
+                        : 'save'
+                  }
+                  size={22}
+                  color={
+                    saveRecord.status === 'saved'
+                      ? theme.success
+                      : saveRecord.status === 'failed'
+                        ? theme.danger
+                        : theme.primary
+                  }
+                />
+                <Text style={[styles.saveTitle, { color: theme.primaryDark }]}>
+                  {saveRecord.status === 'saved'
+                    ? 'Saved on this device'
+                    : saveRecord.status === 'failed'
+                      ? 'Record not saved'
+                      : 'Save this observation'}
+                </Text>
+              </View>
+              <Text style={[styles.saveMessage, { color: theme.textSecondary }]}>
+                {saveRecord.status === 'saved'
+                  ? 'The image and AI-supported result are stored locally and available offline.'
+                  : saveRecord.status === 'failed'
+                    ? saveRecord.errorMessage
+                    : 'Saving is optional. Records stay on this device and may be removed if app data is cleared or CaneGuard is uninstalled.'}
+              </Text>
+              {saveRecord.status !== 'saved' ? (
+                <AppButton
+                  onPress={() => void saveRecord.save()}
+                  disabled={saveRecord.status === 'saving'}
+                  leadingIcon={saveRecord.status === 'failed' ? 'refresh-cw' : 'save'}
+                  accessibilityLabel={
+                    saveRecord.status === 'failed'
+                      ? 'Retry saving record on this device'
+                      : saveRecord.status === 'saving'
+                        ? 'Saving record on this device'
+                        : 'Save record on this device'
+                  }>
+                  {saveRecord.status === 'saving'
+                    ? 'Saving Record...'
+                    : saveRecord.status === 'failed'
+                      ? 'Retry Save'
+                      : 'Save Record'}
+                  </AppButton>
+              ) : saveRecord.recordId ? (
+                <AppButton
+                  onPress={() =>
+                    router.push({
+                      pathname: '/record-details',
+                      params: { id: saveRecord.recordId! },
+                    } as unknown as Href)
+                  }
+                  leadingIcon="folder"
+                  accessibilityLabel="Open the saved local record">
+                  Open Saved Record
+                </AppButton>
+              ) : null}
+            </View>
             <AppButton
               onPress={startNewScan}
+              disabled={saveRecord.status === 'saving'}
               leadingIcon="refresh-cw"
               accessibilityLabel="Clear result and start a new scan">
               New Scan
@@ -421,6 +508,10 @@ const styles = StyleSheet.create({
   detailLabel: { ...Typography.bodySmall },
   detailValue: { ...Typography.bodySmall, fontWeight: '800', flexShrink: 1, textAlign: 'right' },
   disclaimer: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm, flexDirection: 'row', alignItems: 'flex-start', overflow: 'hidden', position: 'relative' }, disclaimerLeaf: { position: 'absolute', width: 96, height: 96, right: -18, bottom: -26, opacity: 0.24 }, disclaimerContent: { zIndex: 1 }, disclaimerText: { ...Typography.caption, flex: 1, lineHeight: 18 },
+  saveCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
+  saveHeading: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  saveTitle: { ...Typography.subheading, flex: 1 },
+  saveMessage: { ...Typography.bodySmall },
   recoveryContent: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
   recoveryCard: { width: '100%', maxWidth: Layout.mobileMaxWidth, borderWidth: 1, borderRadius: Radius.xl, padding: Spacing.xl, gap: Spacing.md, alignItems: 'center' },
   recoveryIcon: { width: 48, height: 48, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },

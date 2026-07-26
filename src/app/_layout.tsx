@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 
 import { ScanSessionProvider } from '@/features/detection/context/ScanSessionProvider';
 import { CaneGuardModelProvider } from '@/features/detection/model/useCaneGuardModel';
+import { CaneGuardDatabaseProvider } from '@/database/DatabaseProvider';
 import {
   ThemePreferenceProvider,
   useThemePreference,
@@ -15,11 +16,13 @@ void SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   return (
     <ThemePreferenceProvider>
-      <ScanSessionProvider>
-        <CaneGuardModelProvider>
-          <AppNavigator />
-        </CaneGuardModelProvider>
-      </ScanSessionProvider>
+      <CaneGuardDatabaseProvider>
+        <ScanSessionProvider>
+          <CaneGuardModelProvider>
+            <AppNavigator />
+          </CaneGuardModelProvider>
+        </ScanSessionProvider>
+      </CaneGuardDatabaseProvider>
     </ThemePreferenceProvider>
   );
 }
@@ -50,11 +53,13 @@ function AppNavigator() {
         <Stack.Screen name="symptom-checklist" />
         <Stack.Screen name="analysis-result" />
         <Stack.Screen name="records" />
+        <Stack.Screen name="record-details" />
         <Stack.Screen name="reports" />
         <Stack.Screen name="settings" />
         <Stack.Protected guard={__DEV__}>
           <Stack.Screen name="model-smoke-test" />
           <Stack.Screen name="model-debug" />
+          <Stack.Screen name="storage-debug" />
         </Stack.Protected>
       </Stack>
     </ThemeProvider>

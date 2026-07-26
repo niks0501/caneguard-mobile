@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "src/app/records.tsx": {
-    "mtime": 1784993806.7490518,
-    "ast_hash": "625c340547c0f66ceb66d825ef2faa2b",
+    "mtime": 1784995579.8644884,
+    "ast_hash": "0240a293b3fd3948faf4f10d90be300b",
     "semantic_hash": ""
   },
   "src/app/register.tsx": {
@@ -485,8 +485,8 @@
     "semantic_hash": ""
   },
   "src/features/records/domain/recordTypes.ts": {
-    "mtime": 1784993233.0428867,
-    "ast_hash": "876de6609926f5df35bb3d5a9e468efd",
+    "mtime": 1784995790.6095524,
+    "ast_hash": "7155895115896adfc8571a5f3d66cd61",
     "semantic_hash": ""
   },
   "src/features/records/services/__tests__/scanImageStorage.test.ts": {
@@ -545,8 +545,8 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/records.test.tsx": {
-    "mtime": 1784993843.6087654,
-    "ast_hash": "45ca586945d63f833146acfb0f571eb0",
+    "mtime": 1784995579.9403243,
+    "ast_hash": "0a5830e01a2728625f2f419851a15269",
     "semantic_hash": ""
   },
   "src/app/record-details.tsx": {
@@ -555,13 +555,13 @@
     "semantic_hash": ""
   },
   "src/features/records/data/scanRecordRepository.ts": {
-    "mtime": 1784994539.7161968,
-    "ast_hash": "1575e9038caaa8e2f6c6559e77668e9c",
+    "mtime": 1784995790.6899345,
+    "ast_hash": "f3fff76a1355085e920e50c565f5d059",
     "semantic_hash": ""
   },
   "src/features/records/hooks/useRecords.ts": {
-    "mtime": 1784993932.943541,
-    "ast_hash": "44759c3eeee16e4be99fa14d75832256",
+    "mtime": 1784995797.1492357,
+    "ast_hash": "d1f910ee81c8eacb1297f9e2d735752b",
     "semantic_hash": ""
   },
   "src/features/records/services/__tests__/deleteScanRecord.test.ts": {
@@ -587,6 +587,11 @@
   "src/features/reports/hooks/useLocalReport.ts": {
     "mtime": 1784994188.2815976,
     "ast_hash": "1b1957985a601bff05242300194dd67f",
+    "semantic_hash": ""
+  },
+  "src/features/records/hooks/__tests__/useRecords.test.tsx": {
+    "mtime": 1784995790.8466797,
+    "ast_hash": "470a9e60462457505b99491c00b75bab",
     "semantic_hash": ""
   }
 }

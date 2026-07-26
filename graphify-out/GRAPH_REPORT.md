@@ -1,7 +1,7 @@
 # Graph Report - caneguard-mobile  (2026-07-26)
 
 ## Corpus Check
-- 119 files · ~39,214 words
+- 119 files · ~39,232 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `ce389dad`
+- Built from commit: `d8f8f64d`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -192,7 +192,7 @@ Cohesion: 0.36
 Nodes (4): normalizeScores(), PostprocessedOutput, postprocessOutput(), softmax()
 
 ## Knowledge Gaps
-- **216 isolated node(s):** `mockRefresh`, `mockLoadMore`, `mockRecordsState`, `mockUsePaginatedScanRecords`, `mockRouterPush` (+211 more)
+- **216 isolated node(s):** `RecordCardProps`, `styles`, `mockRefresh`, `mockLoadMore`, `mockRecordsState` (+211 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **1 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -205,7 +205,7 @@ _Questions this graph is uniquely positioned to answer:_
   _High betweenness centrality (0.009) - this node is a cross-community bridge._
 - **Why does `preprocessImage()` connect `scan.tsx` to `scan.test.tsx`, `runInference.ts`, `image-preview.tsx`, `model-debug.tsx`?**
   _High betweenness centrality (0.007) - this node is a cross-community bridge._
-- **What connects `mockRefresh`, `mockLoadMore`, `mockRecordsState` to the rest of the system?**
+- **What connects `RecordCardProps`, `styles`, `mockRefresh` to the rest of the system?**
   _216 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Reports & Progress` be split into smaller, more focused modules?**
   _Cohesion score 0.12380952380952381 - nodes in this community are weakly interconnected._

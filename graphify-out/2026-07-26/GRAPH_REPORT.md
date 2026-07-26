@@ -1,16 +1,16 @@
-# Graph Report - caneguard-mobile  (2026-07-25)
+# Graph Report - caneguard-mobile  (2026-07-26)
 
 ## Corpus Check
-- 118 files · ~38,510 words
+- 119 files · ~39,214 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 615 nodes · 1291 edges · 26 communities (25 shown, 1 thin omitted)
+- 622 nodes · 1314 edges · 33 communities (32 shown, 1 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 4 edges (avg confidence: 0.65)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c58f215d`
+- Built from commit: `ce389dad`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -38,6 +38,13 @@
 - runInference.ts
 - storage-debug.tsx
 - recordMappers.ts
+- recordTypes.ts
+- useCaneGuardModel.tsx
+- runInference.ts
+- image-preview.tsx
+- model-debug.tsx
+- inferenceErrors.ts
+- postprocessOutput.ts
 
 ## God Nodes (most connected - your core abstractions)
 1. `useTheme()` - 61 edges
@@ -52,69 +59,69 @@
 10. `runInference()` - 11 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `SectionTitle()` --calls--> `useTheme()`  [EXTRACTED]
-  src/app/home.tsx → src/hooks/use-theme.ts
-- `QuickActionCard()` --calls--> `useTheme()`  [EXTRACTED]
-  src/app/home.tsx → src/hooks/use-theme.ts
-- `DiseaseCard()` --calls--> `useTheme()`  [EXTRACTED]
-  src/app/home.tsx → src/hooks/use-theme.ts
 - `MetadataRow()` --calls--> `useTheme()`  [EXTRACTED]
   src/app/image-preview.tsx → src/hooks/use-theme.ts
 - `SplashScreen()` --calls--> `useTheme()`  [EXTRACTED]
   src/app/index.tsx → src/hooks/use-theme.ts
+- `DebugRow()` --calls--> `useTheme()`  [EXTRACTED]
+  src/app/model-debug.tsx → src/hooks/use-theme.ts
+- `MetadataRow()` --calls--> `useTheme()`  [EXTRACTED]
+  src/app/model-smoke-test.tsx → src/hooks/use-theme.ts
+- `RegisterScreen()` --calls--> `useTheme()`  [EXTRACTED]
+  src/app/register.tsx → src/hooks/use-theme.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (26 total, 1 thin omitted)
+## Communities (33 total, 1 thin omitted)
 
 ### Community 0 - "Scan & Analysis Flow"
-Cohesion: 0.13
-Nodes (18): SplashScreen(), styles, RegisterScreen(), styles, SEVERITIES, styles, AppButton(), AppButtonProps (+10 more)
+Cohesion: 0.17
+Nodes (13): SplashScreen(), styles, RegisterScreen(), styles, AppButton(), AppButtonProps, AppButtonVariant, styles (+5 more)
 
 ### Community 1 - "Records & Disease Library"
 Cohesion: 0.15
 Nodes (14): styles, ThemedText(), ThemedTextProps, ThemedView(), ThemedViewProps, DiseasePill(), DiseasePillProps, DiseasePillVariant (+6 more)
 
 ### Community 2 - "Auth & Onboarding"
-Cohesion: 0.11
-Nodes (17): MetadataRow(), styles, DebugRow(), DebugRun, Fixture, FIXTURES, styles, MetadataRow() (+9 more)
+Cohesion: 0.16
+Nodes (10): MetadataRow(), styles, AppCard(), AppCardProps, styles, ScreenHeader(), ScreenHeaderProps, styles (+2 more)
 
 ### Community 3 - "Reports & Progress"
-Cohesion: 0.15
-Nodes (11): ProgressBar(), ProgressBarProps, styles, styles, SummaryTile(), SummaryTileProps, styles, SymptomChecklistItem() (+3 more)
+Cohesion: 0.12
+Nodes (16): SEVERITIES, styles, BrandedScreenHeaderProps, styles, ProgressBar(), ProgressBarProps, styles, styles (+8 more)
 
 ### Community 4 - "Settings & Navigation"
 Cohesion: 0.13
 Nodes (15): ClassCount(), getClassPresentation(), ReportsScreen(), styles, mockRefresh, mockRouterPush, SUMMARY, openTestDatabase() (+7 more)
 
 ### Community 5 - "Home Screen"
-Cohesion: 0.06
-Nodes (39): CONSISTENCY_LABELS, formatClassLabel(), formatDuration(), formatSavedAt(), getObservationLabel(), RecordDetailsScreen(), styles, FilterKey (+31 more)
+Cohesion: 0.10
+Nodes (21): CONSISTENCY_LABELS, formatClassLabel(), formatDuration(), formatSavedAt(), getObservationLabel(), RecordDetailsScreen(), styles, DETAILS (+13 more)
 
 ### Community 6 - "StatusChip.tsx"
 Cohesion: 0.40
 Nodes (4): Answer, Outcome, Q: Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md, Source Nodes
 
 ### Community 7 - "Symptom Checklist"
-Cohesion: 0.22
-Nodes (14): HomeScreen(), InputRow(), InputRowProps, LoginScreen(), styles, SelectRow(), SelectRowProps, SettingsScreen() (+6 more)
+Cohesion: 0.18
+Nodes (17): DiseaseCard(), DiseaseExample, DISEASES, HomeScreen(), QuickAction, QuickActionCard(), SectionTitle(), styles (+9 more)
 
 ### Community 8 - "Root Layout"
-Cohesion: 0.07
-Nodes (40): ReportRepository, ScanRecordRepository, ScanRecordWriteRepository, insertScanRecord(), isDuplicateRecordError(), CompletedScanDraft, DateRange, LocalReportSummary (+32 more)
+Cohesion: 0.10
+Nodes (29): insertScanRecord(), isDuplicateRecordError(), CompletedScanDraft, createCompletedScanDraft(), invalid(), QUALITY_WARNINGS, REPORTED_SEVERITIES, SYMPTOM_KEYS (+21 more)
 
 ### Community 10 - "scan.test.tsx"
 Cohesion: 0.05
 Nodes (55): ActiveOperation, clearPendingSource(), IMAGE_PICKER_OPTIONS, rememberPendingSource(), ScanScreen(), styles, takePendingSource(), SymptomChecklistScreen() (+47 more)
 
 ### Community 11 - "scan.tsx"
-Cohesion: 0.07
-Nodes (32): getSessionStateErrorMessage(), SessionStateError, SessionStateErrorCode, DetectionError, DetectionErrorStage, compareModelOutputToParity(), compareNumber(), comparePreprocessingToParity() (+24 more)
+Cohesion: 0.10
+Nodes (25): compareModelOutputToParity(), compareNumber(), comparePreprocessingToParity(), ModelOutputParityComparison, NumericComparison, PreprocessingParityComparison, createInputTensor(), InputTensor (+17 more)
 
 ### Community 12 - "AppButton.tsx"
 Cohesion: 0.13
-Nodes (14): DiseaseCard(), DiseaseExample, DISEASES, QuickAction, QuickActionCard(), SectionTitle(), styles, BottomNav() (+6 more)
+Nodes (14): SelectRow(), SelectRowProps, styles, ToggleRow(), ToggleRowProps, BottomNav(), BottomNavProps, NAV_ITEMS (+6 more)
 
 ### Community 13 - "ThemePreferenceProvider.tsx"
 Cohesion: 0.13
@@ -137,8 +144,8 @@ Cohesion: 0.40
 Nodes (4): Answer, Outcome, Q: How should Phase 5 TFLite inference connect the existing preprocessing contract, model constants and detection UI, and what comparable tests and runtime APIs already exist?, Source Nodes
 
 ### Community 18 - "BrandedScreenHeader.tsx"
-Cohesion: 0.20
-Nodes (5): BrandedScreenHeaderProps, styles, ThemePreferenceContext, ThemePreferenceContextValue, ThemeScheme
+Cohesion: 0.29
+Nodes (3): ThemePreferenceContext, ThemePreferenceContextValue, ThemeScheme
 
 ### Community 19 - "BrandedScreenHeader.tsx"
 Cohesion: 0.29
@@ -149,32 +156,60 @@ Cohesion: 0.07
 Nodes (32): assertManagedScanImageUri(), compensateManagedImageCopy(), CompensationCleanupResult, CopyScanImageInput, copyScanImageToManagedStorage(), DeleteManagedImageResult, deleteManagedScanImage(), ensureManagedScanImageDirectory() (+24 more)
 
 ### Community 21 - "runInference.ts"
-Cohesion: 0.06
-Nodes (46): ImagePreviewScreen(), formatNumber(), formatScore(), ModelDebugScreen(), DevelopmentModelSmokeTestScreen(), mockModelRun, mockPreprocessImage, mockRunInference (+38 more)
+Cohesion: 0.19
+Nodes (13): diseaseCatalog, DiseaseCatalogEntry, DiseaseThemeToken, MODEL_FILENAME, MODEL_INPUT, MODEL_LABELS, MODEL_OUTPUT, MODEL_SHA256 (+5 more)
 
 ### Community 22 - "storage-debug.tsx"
 Cohesion: 0.32
 Nodes (4): DevelopmentStorageDebugScreen(), styles, StorageDiagnostics, useStorageDiagnostics()
 
+### Community 25 - "recordTypes.ts"
+Cohesion: 0.08
+Nodes (34): FilterKey, FILTERS, RecordsScreen(), styles, mockLoadMore, mockRecordsState, mockRefresh, mockRouterPush (+26 more)
+
+### Community 26 - "useCaneGuardModel.tsx"
+Cohesion: 0.15
+Nodes (13): DevelopmentModelSmokeTestScreen(), mockRun, mockUseCaneGuardModel, mockModelRun, mockUseTensorflowModel, ModelStateProbe(), CaneGuardModelContext, CaneGuardModelController (+5 more)
+
+### Community 27 - "runInference.ts"
+Cohesion: 0.20
+Nodes (8): mockModelRun, mockPreprocessImage, mockRunInference, mockUseCaneGuardModel, asInferenceError(), InferenceRunner, runInference(), DetectionResult
+
+### Community 28 - "image-preview.tsx"
+Cohesion: 0.27
+Nodes (8): ImagePreviewScreen(), MetadataRow(), styles, getSessionStateErrorMessage(), SessionStateError, SessionStateErrorCode, getInferenceErrorMessage(), getPreprocessingErrorMessage()
+
+### Community 29 - "model-debug.tsx"
+Cohesion: 0.24
+Nodes (8): DebugRow(), DebugRun, Fixture, FIXTURES, formatNumber(), formatScore(), ModelDebugScreen(), styles
+
+### Community 31 - "inferenceErrors.ts"
+Cohesion: 0.33
+Nodes (5): DetectionError, DetectionErrorStage, getInferenceStage(), InferenceError, InferenceErrorCode
+
+### Community 32 - "postprocessOutput.ts"
+Cohesion: 0.36
+Nodes (4): normalizeScores(), PostprocessedOutput, postprocessOutput(), softmax()
+
 ## Knowledge Gaps
-- **213 isolated node(s):** `styles`, `migration0`, `migration1`, `migrationJournal`, `StorageDiagnostics` (+208 more)
+- **216 isolated node(s):** `mockRefresh`, `mockLoadMore`, `mockRecordsState`, `mockUsePaginatedScanRecords`, `mockRouterPush` (+211 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **1 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `useTheme()` connect `Symptom Checklist` to `Scan & Analysis Flow`, `Records & Disease Library`, `Auth & Onboarding`, `Reports & Progress`, `scan.test.tsx`, `AppButton.tsx`, `StatusChip.tsx`, `BrandedScreenHeader.tsx`, `runInference.ts`?**
-  _High betweenness centrality (0.058) - this node is a cross-community bridge._
-- **Why does `Typography` connect `Scan & Analysis Flow` to `Records & Disease Library`, `Auth & Onboarding`, `Reports & Progress`, `Symptom Checklist`, `scan.test.tsx`, `AppButton.tsx`, `StatusChip.tsx`, `BrandedScreenHeader.tsx`?**
+- **Why does `useTheme()` connect `Symptom Checklist` to `Scan & Analysis Flow`, `Records & Disease Library`, `Auth & Onboarding`, `Reports & Progress`, `scan.test.tsx`, `AppButton.tsx`, `StatusChip.tsx`, `useCaneGuardModel.tsx`, `image-preview.tsx`, `model-debug.tsx`?**
+  _High betweenness centrality (0.056) - this node is a cross-community bridge._
+- **Why does `Typography` connect `Scan & Analysis Flow` to `Records & Disease Library`, `Auth & Onboarding`, `Reports & Progress`, `Symptom Checklist`, `scan.test.tsx`, `AppButton.tsx`, `StatusChip.tsx`, `image-preview.tsx`, `model-debug.tsx`?**
   _High betweenness centrality (0.009) - this node is a cross-community bridge._
-- **Why does `preprocessImage()` connect `scan.tsx` to `Auth & Onboarding`, `scan.test.tsx`, `runInference.ts`?**
+- **Why does `preprocessImage()` connect `scan.tsx` to `scan.test.tsx`, `runInference.ts`, `image-preview.tsx`, `model-debug.tsx`?**
   _High betweenness centrality (0.007) - this node is a cross-community bridge._
-- **What connects `styles`, `migration0`, `migration1` to the rest of the system?**
-  _213 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `Scan & Analysis Flow` be split into smaller, more focused modules?**
-  _Cohesion score 0.12681159420289856 - nodes in this community are weakly interconnected._
-- **Should `Auth & Onboarding` be split into smaller, more focused modules?**
-  _Cohesion score 0.11231884057971014 - nodes in this community are weakly interconnected._
+- **What connects `mockRefresh`, `mockLoadMore`, `mockRecordsState` to the rest of the system?**
+  _216 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Reports & Progress` be split into smaller, more focused modules?**
+  _Cohesion score 0.12380952380952381 - nodes in this community are weakly interconnected._
 - **Should `Settings & Navigation` be split into smaller, more focused modules?**
   _Cohesion score 0.12681159420289856 - nodes in this community are weakly interconnected._
+- **Should `Home Screen` be split into smaller, more focused modules?**
+  _Cohesion score 0.09885057471264368 - nodes in this community are weakly interconnected._

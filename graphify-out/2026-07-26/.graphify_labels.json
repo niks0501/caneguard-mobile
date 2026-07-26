@@ -24,5 +24,12 @@
   "22": "storage-debug.tsx",
   "23": "recordMappers.ts",
   "24": "errors.test.ts",
-  "30": "_layout.tsx"
+  "25": "recordTypes.ts",
+  "26": "useCaneGuardModel.tsx",
+  "27": "runInference.ts",
+  "28": "image-preview.tsx",
+  "29": "model-debug.tsx",
+  "30": "_layout.tsx",
+  "31": "inferenceErrors.ts",
+  "32": "postprocessOutput.ts"
 }

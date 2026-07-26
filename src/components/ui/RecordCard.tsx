@@ -60,14 +60,23 @@ export function RecordCard({ record, onPress }: RecordCardProps) {
       <View style={styles.main}>
         <View style={styles.header}>
           <View style={styles.copy}>
-            <Text style={[styles.result, { color: theme.primaryDark }]}>
+            <Text
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              style={[styles.result, { color: theme.primaryDark }]}>
               {getResultLabel(record.predictedLabel)}
             </Text>
-            <Text style={[styles.date, { color: theme.textSecondary }]}>
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={[styles.date, { color: theme.textSecondary }]}>
               {savedAt}
             </Text>
             {record.barangay ? (
-              <Text style={[styles.location, { color: theme.textSecondary }]}>
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={[styles.location, { color: theme.textSecondary }]}>
                 {record.barangay}
               </Text>
             ) : null}
@@ -80,7 +89,10 @@ export function RecordCard({ record, onPress }: RecordCardProps) {
           </Text>
           <View style={styles.status}>
             <Feather name="smartphone" size={14} color={theme.info} />
-            <Text style={[styles.statusText, { color: theme.info }]}>
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={[styles.statusText, { color: theme.info }]}>
               Saved on this device
             </Text>
           </View>
@@ -130,15 +142,15 @@ const styles = StyleSheet.create({
     ...Shadows.sm,
   },
   thumbnail: {
-    width: 76,
-    minHeight: 92,
+    width: 72,
+    height: 72,
     borderRadius: Radius.lg,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
   image: { width: '100%', height: '100%' },
-  main: { flex: 1, gap: Spacing.md },
+  main: { flex: 1, gap: Spacing.sm },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -149,9 +161,19 @@ const styles = StyleSheet.create({
   result: { ...Typography.bodySmall, fontWeight: '800' },
   date: { ...Typography.caption },
   location: { ...Typography.caption },
-  footer: { gap: Spacing.xs },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
   confidence: { ...Typography.caption, fontWeight: '800' },
-  status: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  statusText: { ...Typography.caption, fontWeight: '700' },
+  status: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    flexShrink: 1,
+  },
+  statusText: { ...Typography.caption, fontWeight: '700', flexShrink: 1 },
   pressed: { opacity: 0.75 },
 });

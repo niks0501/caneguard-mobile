@@ -4,15 +4,92 @@
   "graph": {},
   "nodes": [
     {
+      "label": "RecordCard.tsx",
+      "file_type": "code",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "src_components_ui_recordcard",
+      "community": 5,
+      "community_name": "Home Screen",
+      "norm_label": "recordcard.tsx"
+    },
+    {
+      "label": "RecordCardProps",
+      "file_type": "code",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L17",
+      "_origin": "ast",
+      "id": "src_components_ui_recordcard_recordcardprops",
+      "community": 5,
+      "community_name": "Home Screen",
+      "norm_label": "recordcardprops"
+    },
+    {
+      "label": "RecordCard()",
+      "file_type": "code",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L22",
+      "_origin": "ast",
+      "id": "src_components_ui_recordcard_recordcard",
+      "community": 5,
+      "community_name": "Home Screen",
+      "norm_label": "recordcard()"
+    },
+    {
+      "label": "getResultLabel()",
+      "file_type": "code",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L105",
+      "_origin": "ast",
+      "id": "src_components_ui_recordcard_getresultlabel",
+      "community": 5,
+      "community_name": "Home Screen",
+      "norm_label": "getresultlabel()"
+    },
+    {
+      "label": "toPillVariant()",
+      "file_type": "code",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L118",
+      "_origin": "ast",
+      "id": "src_components_ui_recordcard_topillvariant",
+      "community": 5,
+      "community_name": "Home Screen",
+      "norm_label": "topillvariant()"
+    },
+    {
+      "label": "formatSavedAt()",
+      "file_type": "code",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L124",
+      "_origin": "ast",
+      "id": "src_components_ui_recordcard_formatsavedat",
+      "community": 5,
+      "community_name": "Home Screen",
+      "norm_label": "formatsavedat()"
+    },
+    {
+      "label": "styles",
+      "file_type": "code",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L135",
+      "_origin": "ast",
+      "id": "src_components_ui_recordcard_styles",
+      "community": 5,
+      "community_name": "Home Screen",
+      "norm_label": "styles"
+    },
+    {
       "label": "records.test.tsx",
       "file_type": "code",
       "source_file": "src/app/__tests__/records.test.tsx",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "src_app_tests_records_test",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "records.test.tsx"
+      "norm_label": "records.test.tsx",
+      "id": "src_app_tests_records_test"
     },
     {
       "label": "mockRefresh",
@@ -20,10 +97,10 @@
       "source_file": "src/app/__tests__/records.test.tsx",
       "source_location": "L8",
       "_origin": "ast",
-      "id": "src_app_tests_records_test_mockrefresh",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "mockrefresh"
+      "norm_label": "mockrefresh",
+      "id": "src_app_tests_records_test_mockrefresh"
     },
     {
       "label": "mockLoadMore",
@@ -31,10 +108,10 @@
       "source_file": "src/app/__tests__/records.test.tsx",
       "source_location": "L9",
       "_origin": "ast",
-      "id": "src_app_tests_records_test_mockloadmore",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "mockloadmore"
+      "norm_label": "mockloadmore",
+      "id": "src_app_tests_records_test_mockloadmore"
     },
     {
       "label": "mockRecordsState",
@@ -42,10 +119,10 @@
       "source_file": "src/app/__tests__/records.test.tsx",
       "source_location": "L10",
       "_origin": "ast",
-      "id": "src_app_tests_records_test_mockrecordsstate",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "mockrecordsstate"
+      "norm_label": "mockrecordsstate",
+      "id": "src_app_tests_records_test_mockrecordsstate"
     },
     {
       "label": "mockUsePaginatedScanRecords",
@@ -53,10 +130,10 @@
       "source_file": "src/app/__tests__/records.test.tsx",
       "source_location": "L24",
       "_origin": "ast",
-      "id": "src_app_tests_records_test_mockusepaginatedscanrecords",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "mockusepaginatedscanrecords"
+      "norm_label": "mockusepaginatedscanrecords",
+      "id": "src_app_tests_records_test_mockusepaginatedscanrecords"
     },
     {
       "label": "mockRouterPush",
@@ -64,10 +141,10 @@
       "source_file": "src/app/__tests__/records.test.tsx",
       "source_location": "L25",
       "_origin": "ast",
-      "id": "src_app_tests_records_test_mockrouterpush",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "mockrouterpush"
+      "norm_label": "mockrouterpush",
+      "id": "src_app_tests_records_test_mockrouterpush"
     },
     {
       "label": "RECORD",
@@ -75,10 +152,10 @@
       "source_file": "src/app/__tests__/records.test.tsx",
       "source_location": "L26",
       "_origin": "ast",
-      "id": "src_app_tests_records_test_record",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "record"
+      "norm_label": "record",
+      "id": "src_app_tests_records_test_record"
     },
     {
       "label": "records.tsx",
@@ -86,10 +163,10 @@
       "source_file": "src/app/records.tsx",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "src_app_records",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "records.tsx"
+      "norm_label": "records.tsx",
+      "id": "src_app_records"
     },
     {
       "label": "FilterKey",
@@ -97,10 +174,10 @@
       "source_file": "src/app/records.tsx",
       "source_location": "L31",
       "_origin": "ast",
-      "id": "src_app_records_filterkey",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "filterkey"
+      "norm_label": "filterkey",
+      "id": "src_app_records_filterkey"
     },
     {
       "label": "FILTERS",
@@ -108,10 +185,10 @@
       "source_file": "src/app/records.tsx",
       "source_location": "L33",
       "_origin": "ast",
-      "id": "src_app_records_filters",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "filters"
+      "norm_label": "filters",
+      "id": "src_app_records_filters"
     },
     {
       "label": "RecordsScreen()",
@@ -119,10 +196,10 @@
       "source_file": "src/app/records.tsx",
       "source_location": "L40",
       "_origin": "ast",
-      "id": "src_app_records_recordsscreen",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "recordsscreen()"
+      "norm_label": "recordsscreen()",
+      "id": "src_app_records_recordsscreen"
     },
     {
       "label": "StateCard()",
@@ -130,10 +207,10 @@
       "source_file": "src/app/records.tsx",
       "source_location": "L247",
       "_origin": "ast",
-      "id": "src_app_records_statecard",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "statecard()"
+      "norm_label": "statecard()",
+      "id": "src_app_records_statecard"
     },
     {
       "label": "styles",
@@ -141,10 +218,10 @@
       "source_file": "src/app/records.tsx",
       "source_location": "L280",
       "_origin": "ast",
-      "id": "src_app_records_styles",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "styles"
+      "norm_label": "styles",
+      "id": "src_app_records_styles"
     },
     {
       "label": "scanRecordRepository.ts",
@@ -152,10 +229,10 @@
       "source_file": "src/features/records/data/scanRecordRepository.ts",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "src_features_records_data_scanrecordrepository",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "scanrecordrepository.ts"
+      "norm_label": "scanrecordrepository.ts",
+      "id": "src_features_records_data_scanrecordrepository"
     },
     {
       "label": "createScanRecordRepository()",
@@ -163,10 +240,10 @@
       "source_file": "src/features/records/data/scanRecordRepository.ts",
       "source_location": "L35",
       "_origin": "ast",
-      "id": "src_features_records_data_scanrecordrepository_createscanrecordrepository",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "createscanrecordrepository()"
+      "norm_label": "createscanrecordrepository()",
+      "id": "src_features_records_data_scanrecordrepository_createscanrecordrepository"
     },
     {
       "label": "listScanRecords()",
@@ -174,10 +251,10 @@
       "source_file": "src/features/records/data/scanRecordRepository.ts",
       "source_location": "L47",
       "_origin": "ast",
-      "id": "src_features_records_data_scanrecordrepository_listscanrecords",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "listscanrecords()"
+      "norm_label": "listscanrecords()",
+      "id": "src_features_records_data_scanrecordrepository_listscanrecords"
     },
     {
       "label": "findScanRecordById()",
@@ -185,10 +262,10 @@
       "source_file": "src/features/records/data/scanRecordRepository.ts",
       "source_location": "L81",
       "_origin": "ast",
-      "id": "src_features_records_data_scanrecordrepository_findscanrecordbyid",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "findscanrecordbyid()"
+      "norm_label": "findscanrecordbyid()",
+      "id": "src_features_records_data_scanrecordrepository_findscanrecordbyid"
     },
     {
       "label": "deleteScanRecordById()",
@@ -196,10 +273,10 @@
       "source_file": "src/features/records/data/scanRecordRepository.ts",
       "source_location": "L124",
       "_origin": "ast",
-      "id": "src_features_records_data_scanrecordrepository_deletescanrecordbyid",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "deletescanrecordbyid()"
+      "norm_label": "deletescanrecordbyid()",
+      "id": "src_features_records_data_scanrecordrepository_deletescanrecordbyid"
     },
     {
       "label": "listManagedImageUris()",
@@ -207,10 +284,10 @@
       "source_file": "src/features/records/data/scanRecordRepository.ts",
       "source_location": "L153",
       "_origin": "ast",
-      "id": "src_features_records_data_scanrecordrepository_listmanagedimageuris",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "listmanagedimageuris()"
+      "norm_label": "listmanagedimageuris()",
+      "id": "src_features_records_data_scanrecordrepository_listmanagedimageuris"
     },
     {
       "label": "buildConditions()",
@@ -218,10 +295,10 @@
       "source_file": "src/features/records/data/scanRecordRepository.ts",
       "source_location": "L170",
       "_origin": "ast",
-      "id": "src_features_records_data_scanrecordrepository_buildconditions",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "buildconditions()"
+      "norm_label": "buildconditions()",
+      "id": "src_features_records_data_scanrecordrepository_buildconditions"
     },
     {
       "label": "recordTypes.ts",
@@ -229,10 +306,10 @@
       "source_file": "src/features/records/domain/recordTypes.ts",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "src_features_records_domain_recordtypes",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "recordtypes.ts"
+      "norm_label": "recordtypes.ts",
+      "id": "src_features_records_domain_recordtypes"
     },
     {
       "label": "DateRange",
@@ -240,10 +317,10 @@
       "source_file": "src/features/records/domain/recordTypes.ts",
       "source_location": "L10",
       "_origin": "ast",
-      "id": "src_features_records_domain_recordtypes_daterange",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "daterange"
+      "norm_label": "daterange",
+      "id": "src_features_records_domain_recordtypes_daterange"
     },
     {
       "label": "ScanRecordQuery",
@@ -251,10 +328,10 @@
       "source_file": "src/features/records/domain/recordTypes.ts",
       "source_location": "L15",
       "_origin": "ast",
-      "id": "src_features_records_domain_recordtypes_scanrecordquery",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "scanrecordquery"
+      "norm_label": "scanrecordquery",
+      "id": "src_features_records_domain_recordtypes_scanrecordquery"
     },
     {
       "label": "ScanRecordListItem",
@@ -262,10 +339,10 @@
       "source_file": "src/features/records/domain/recordTypes.ts",
       "source_location": "L25",
       "_origin": "ast",
-      "id": "src_features_records_domain_recordtypes_scanrecordlistitem",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "scanrecordlistitem"
+      "norm_label": "scanrecordlistitem",
+      "id": "src_features_records_domain_recordtypes_scanrecordlistitem"
     },
     {
       "label": "StoredClassScore",
@@ -273,10 +350,10 @@
       "source_file": "src/features/records/domain/recordTypes.ts",
       "source_location": "L35",
       "_origin": "ast",
-      "id": "src_features_records_domain_recordtypes_storedclassscore",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "storedclassscore"
+      "norm_label": "storedclassscore",
+      "id": "src_features_records_domain_recordtypes_storedclassscore"
     },
     {
       "label": "ScanRecordDetails",
@@ -284,10 +361,10 @@
       "source_file": "src/features/records/domain/recordTypes.ts",
       "source_location": "L40",
       "_origin": "ast",
-      "id": "src_features_records_domain_recordtypes_scanrecorddetails",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "scanrecorddetails"
+      "norm_label": "scanrecorddetails",
+      "id": "src_features_records_domain_recordtypes_scanrecorddetails"
     },
     {
       "label": "RecordsByLabel",
@@ -295,10 +372,10 @@
       "source_file": "src/features/records/domain/recordTypes.ts",
       "source_location": "L59",
       "_origin": "ast",
-      "id": "src_features_records_domain_recordtypes_recordsbylabel",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "recordsbylabel"
+      "norm_label": "recordsbylabel",
+      "id": "src_features_records_domain_recordtypes_recordsbylabel"
     },
     {
       "label": "LocalReportSummary",
@@ -306,10 +383,10 @@
       "source_file": "src/features/records/domain/recordTypes.ts",
       "source_location": "L64",
       "_origin": "ast",
-      "id": "src_features_records_domain_recordtypes_localreportsummary",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "localreportsummary"
+      "norm_label": "localreportsummary",
+      "id": "src_features_records_domain_recordtypes_localreportsummary"
     },
     {
       "label": "CompletedScanDraft",
@@ -317,10 +394,10 @@
       "source_file": "src/features/records/domain/recordTypes.ts",
       "source_location": "L74",
       "_origin": "ast",
-      "id": "src_features_records_domain_recordtypes_completedscandraft",
       "community": 8,
       "community_name": "Root Layout",
-      "norm_label": "completedscandraft"
+      "norm_label": "completedscandraft",
+      "id": "src_features_records_domain_recordtypes_completedscandraft"
     },
     {
       "label": "SaveCompletedScanInput",
@@ -328,10 +405,10 @@
       "source_file": "src/features/records/domain/recordTypes.ts",
       "source_location": "L96",
       "_origin": "ast",
-      "id": "src_features_records_domain_recordtypes_savecompletedscaninput",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "savecompletedscaninput"
+      "norm_label": "savecompletedscaninput",
+      "id": "src_features_records_domain_recordtypes_savecompletedscaninput"
     },
     {
       "label": "useRecords.test.tsx",
@@ -339,10 +416,10 @@
       "source_file": "src/features/records/hooks/__tests__/useRecords.test.tsx",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "src_features_records_hooks_tests_userecords_test",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "userecords.test.tsx"
+      "norm_label": "userecords.test.tsx",
+      "id": "src_features_records_hooks_tests_userecords_test"
     },
     {
       "label": "mockDatabase",
@@ -350,10 +427,10 @@
       "source_file": "src/features/records/hooks/__tests__/useRecords.test.tsx",
       "source_location": "L7",
       "_origin": "ast",
-      "id": "src_features_records_hooks_tests_userecords_test_mockdatabase",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "mockdatabase"
+      "norm_label": "mockdatabase",
+      "id": "src_features_records_hooks_tests_userecords_test_mockdatabase"
     },
     {
       "label": "mockListScanRecords",
@@ -361,10 +438,10 @@
       "source_file": "src/features/records/hooks/__tests__/useRecords.test.tsx",
       "source_location": "L23",
       "_origin": "ast",
-      "id": "src_features_records_hooks_tests_userecords_test_mocklistscanrecords",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "mocklistscanrecords"
+      "norm_label": "mocklistscanrecords",
+      "id": "src_features_records_hooks_tests_userecords_test_mocklistscanrecords"
     },
     {
       "label": "record()",
@@ -372,10 +449,10 @@
       "source_file": "src/features/records/hooks/__tests__/useRecords.test.tsx",
       "source_location": "L25",
       "_origin": "ast",
-      "id": "src_features_records_hooks_tests_userecords_test_record",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "record()"
+      "norm_label": "record()",
+      "id": "src_features_records_hooks_tests_userecords_test_record"
     },
     {
       "label": "useRecords.ts",
@@ -383,10 +460,10 @@
       "source_file": "src/features/records/hooks/useRecords.ts",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "src_features_records_hooks_userecords",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "userecords.ts"
+      "norm_label": "userecords.ts",
+      "id": "src_features_records_hooks_userecords"
     },
     {
       "label": "QueryState",
@@ -394,10 +471,10 @@
       "source_file": "src/features/records/hooks/useRecords.ts",
       "source_location": "L17",
       "_origin": "ast",
-      "id": "src_features_records_hooks_userecords_querystate",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "querystate"
+      "norm_label": "querystate",
+      "id": "src_features_records_hooks_userecords_querystate"
     },
     {
       "label": "PaginatedQueryState",
@@ -405,10 +482,10 @@
       "source_file": "src/features/records/hooks/useRecords.ts",
       "source_location": "L23",
       "_origin": "ast",
-      "id": "src_features_records_hooks_userecords_paginatedquerystate",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "paginatedquerystate"
+      "norm_label": "paginatedquerystate",
+      "id": "src_features_records_hooks_userecords_paginatedquerystate"
     },
     {
       "label": "useScanRecords()",
@@ -416,10 +493,10 @@
       "source_file": "src/features/records/hooks/useRecords.ts",
       "source_location": "L31",
       "_origin": "ast",
-      "id": "src_features_records_hooks_userecords_usescanrecords",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "usescanrecords()"
+      "norm_label": "usescanrecords()",
+      "id": "src_features_records_hooks_userecords_usescanrecords"
     },
     {
       "label": "useScanRecordDetails()",
@@ -427,10 +504,10 @@
       "source_file": "src/features/records/hooks/useRecords.ts",
       "source_location": "L101",
       "_origin": "ast",
-      "id": "src_features_records_hooks_userecords_usescanrecorddetails",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "usescanrecorddetails()"
+      "norm_label": "usescanrecorddetails()",
+      "id": "src_features_records_hooks_userecords_usescanrecorddetails"
     },
     {
       "label": "usePaginatedScanRecords()",
@@ -438,10 +515,10 @@
       "source_file": "src/features/records/hooks/useRecords.ts",
       "source_location": "L146",
       "_origin": "ast",
-      "id": "src_features_records_hooks_userecords_usepaginatedscanrecords",
       "community": 25,
       "community_name": "recordTypes.ts",
-      "norm_label": "usepaginatedscanrecords()"
+      "norm_label": "usepaginatedscanrecords()",
+      "id": "src_features_records_hooks_userecords_usepaginatedscanrecords"
     },
     {
       "label": "storage-debug.tsx",
@@ -1355,83 +1432,6 @@
       "community_name": "Home Screen",
       "norm_label": "styles",
       "id": "src_app_record_details_styles"
-    },
-    {
-      "label": "RecordCard.tsx",
-      "file_type": "code",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L1",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "Home Screen",
-      "norm_label": "recordcard.tsx",
-      "id": "src_components_ui_recordcard"
-    },
-    {
-      "label": "RecordCardProps",
-      "file_type": "code",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L17",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "Home Screen",
-      "norm_label": "recordcardprops",
-      "id": "src_components_ui_recordcard_recordcardprops"
-    },
-    {
-      "label": "RecordCard()",
-      "file_type": "code",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L22",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "Home Screen",
-      "norm_label": "recordcard()",
-      "id": "src_components_ui_recordcard_recordcard"
-    },
-    {
-      "label": "getResultLabel()",
-      "file_type": "code",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L93",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "Home Screen",
-      "norm_label": "getresultlabel()",
-      "id": "src_components_ui_recordcard_getresultlabel"
-    },
-    {
-      "label": "toPillVariant()",
-      "file_type": "code",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L106",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "Home Screen",
-      "norm_label": "topillvariant()",
-      "id": "src_components_ui_recordcard_topillvariant"
-    },
-    {
-      "label": "formatSavedAt()",
-      "file_type": "code",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L112",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "Home Screen",
-      "norm_label": "formatsavedat()",
-      "id": "src_components_ui_recordcard_formatsavedat"
-    },
-    {
-      "label": "styles",
-      "file_type": "code",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L123",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "Home Screen",
-      "norm_label": "styles",
-      "id": "src_components_ui_recordcard_styles"
     },
     {
       "label": "recordMappers.ts",
@@ -6851,13 +6851,151 @@
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "src/app/record-details.tsx",
+      "source_location": "L17",
+      "weight": 1.0,
+      "_origin": "ast",
+      "confidence_score": 1.0,
+      "source": "src_app_record_details",
+      "target": "src_components_ui_recordcard"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L124",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_components_ui_recordcard",
+      "target": "src_components_ui_recordcard_formatsavedat",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L105",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_components_ui_recordcard",
+      "target": "src_components_ui_recordcard_getresultlabel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L22",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_components_ui_recordcard",
+      "target": "src_components_ui_recordcard_recordcard",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L17",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_components_ui_recordcard",
+      "target": "src_components_ui_recordcard_recordcardprops",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L135",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_components_ui_recordcard",
+      "target": "src_components_ui_recordcard_styles",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L118",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_components_ui_recordcard",
+      "target": "src_components_ui_recordcard_topillvariant",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L25",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_components_ui_recordcard_recordcard",
+      "target": "src_components_ui_recordcard_formatsavedat",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L31",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_components_ui_recordcard_recordcard",
+      "target": "src_components_ui_recordcard_getresultlabel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ui/RecordCard.tsx",
+      "source_location": "L26",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_components_ui_recordcard_recordcard",
+      "target": "src_components_ui_recordcard_topillvariant",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/app/record-details.tsx",
+      "source_location": "L17",
+      "weight": 1.0,
+      "_origin": "ast",
+      "confidence_score": 1.0,
+      "source": "src_app_record_details",
+      "target": "src_components_ui_recordcard_getresultlabel"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/app/record-details.tsx",
+      "source_location": "L168",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_app_record_details_recorddetailsscreen",
+      "target": "src_components_ui_recordcard_getresultlabel"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "src/app/__tests__/records.test.tsx",
       "source_location": "L4",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_tests_records_test",
-      "target": "src_app_records",
-      "confidence_score": 1.0
+      "target": "src_app_records"
     },
     {
       "relation": "contains",
@@ -6866,9 +7004,9 @@
       "source_location": "L9",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_tests_records_test",
-      "target": "src_app_tests_records_test_mockloadmore",
-      "confidence_score": 1.0
+      "target": "src_app_tests_records_test_mockloadmore"
     },
     {
       "relation": "contains",
@@ -6877,9 +7015,9 @@
       "source_location": "L10",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_tests_records_test",
-      "target": "src_app_tests_records_test_mockrecordsstate",
-      "confidence_score": 1.0
+      "target": "src_app_tests_records_test_mockrecordsstate"
     },
     {
       "relation": "contains",
@@ -6888,9 +7026,9 @@
       "source_location": "L8",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_tests_records_test",
-      "target": "src_app_tests_records_test_mockrefresh",
-      "confidence_score": 1.0
+      "target": "src_app_tests_records_test_mockrefresh"
     },
     {
       "relation": "contains",
@@ -6899,9 +7037,9 @@
       "source_location": "L25",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_tests_records_test",
-      "target": "src_app_tests_records_test_mockrouterpush",
-      "confidence_score": 1.0
+      "target": "src_app_tests_records_test_mockrouterpush"
     },
     {
       "relation": "contains",
@@ -6910,9 +7048,9 @@
       "source_location": "L24",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_tests_records_test",
-      "target": "src_app_tests_records_test_mockusepaginatedscanrecords",
-      "confidence_score": 1.0
+      "target": "src_app_tests_records_test_mockusepaginatedscanrecords"
     },
     {
       "relation": "contains",
@@ -6921,9 +7059,9 @@
       "source_location": "L26",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_tests_records_test",
-      "target": "src_app_tests_records_test_record",
-      "confidence_score": 1.0
+      "target": "src_app_tests_records_test_record"
     },
     {
       "relation": "imports_from",
@@ -6933,9 +7071,9 @@
       "source_location": "L5",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_tests_records_test",
-      "target": "src_features_records_domain_recordtypes",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes"
     },
     {
       "relation": "imports",
@@ -6945,9 +7083,9 @@
       "source_location": "L5",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_tests_records_test",
-      "target": "src_features_records_domain_recordtypes_scanrecordlistitem",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_scanrecordlistitem"
     },
     {
       "relation": "imports_from",
@@ -6957,9 +7095,9 @@
       "source_location": "L6",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_tests_records_test",
-      "target": "src_features_records_hooks_userecords",
-      "confidence_score": 1.0
+      "target": "src_features_records_hooks_userecords"
     },
     {
       "relation": "imports",
@@ -6969,9 +7107,9 @@
       "source_location": "L6",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_tests_records_test",
-      "target": "src_features_records_hooks_userecords_usepaginatedscanrecords",
-      "confidence_score": 1.0
+      "target": "src_features_records_hooks_userecords_usepaginatedscanrecords"
     },
     {
       "relation": "contains",
@@ -6980,9 +7118,9 @@
       "source_location": "L31",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_records",
-      "target": "src_app_records_filterkey",
-      "confidence_score": 1.0
+      "target": "src_app_records_filterkey"
     },
     {
       "relation": "contains",
@@ -6991,9 +7129,9 @@
       "source_location": "L33",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_records",
-      "target": "src_app_records_filters",
-      "confidence_score": 1.0
+      "target": "src_app_records_filters"
     },
     {
       "relation": "contains",
@@ -7002,9 +7140,9 @@
       "source_location": "L40",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_records",
-      "target": "src_app_records_recordsscreen",
-      "confidence_score": 1.0
+      "target": "src_app_records_recordsscreen"
     },
     {
       "relation": "contains",
@@ -7013,9 +7151,9 @@
       "source_location": "L247",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_records",
-      "target": "src_app_records_statecard",
-      "confidence_score": 1.0
+      "target": "src_app_records_statecard"
     },
     {
       "relation": "contains",
@@ -7024,9 +7162,9 @@
       "source_location": "L280",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_records",
-      "target": "src_app_records_styles",
-      "confidence_score": 1.0
+      "target": "src_app_records_styles"
     },
     {
       "relation": "imports_from",
@@ -7036,9 +7174,9 @@
       "source_location": "L27",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_records",
-      "target": "src_features_records_domain_recordtypes",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes"
     },
     {
       "relation": "imports_from",
@@ -7048,9 +7186,9 @@
       "source_location": "L28",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_records",
-      "target": "src_features_records_hooks_userecords",
-      "confidence_score": 1.0
+      "target": "src_features_records_hooks_userecords"
     },
     {
       "relation": "imports",
@@ -7060,9 +7198,9 @@
       "source_location": "L28",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_app_records",
-      "target": "src_features_records_hooks_userecords_usepaginatedscanrecords",
-      "confidence_score": 1.0
+      "target": "src_features_records_hooks_userecords_usepaginatedscanrecords"
     },
     {
       "relation": "calls",
@@ -7083,9 +7221,9 @@
       "source_location": "L170",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_data_scanrecordrepository",
-      "target": "src_features_records_data_scanrecordrepository_buildconditions",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository_buildconditions"
     },
     {
       "relation": "contains",
@@ -7094,9 +7232,9 @@
       "source_location": "L35",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_data_scanrecordrepository",
-      "target": "src_features_records_data_scanrecordrepository_createscanrecordrepository",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository_createscanrecordrepository"
     },
     {
       "relation": "contains",
@@ -7105,9 +7243,9 @@
       "source_location": "L124",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_data_scanrecordrepository",
-      "target": "src_features_records_data_scanrecordrepository_deletescanrecordbyid",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository_deletescanrecordbyid"
     },
     {
       "relation": "contains",
@@ -7116,9 +7254,9 @@
       "source_location": "L81",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_data_scanrecordrepository",
-      "target": "src_features_records_data_scanrecordrepository_findscanrecordbyid",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository_findscanrecordbyid"
     },
     {
       "relation": "contains",
@@ -7127,9 +7265,9 @@
       "source_location": "L153",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_data_scanrecordrepository",
-      "target": "src_features_records_data_scanrecordrepository_listmanagedimageuris",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository_listmanagedimageuris"
     },
     {
       "relation": "contains",
@@ -7138,9 +7276,9 @@
       "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_data_scanrecordrepository",
-      "target": "src_features_records_data_scanrecordrepository_listscanrecords",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository_listscanrecords"
     },
     {
       "relation": "imports_from",
@@ -7150,9 +7288,9 @@
       "source_location": "L27",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_data_scanrecordrepository",
-      "target": "src_features_records_domain_recordtypes",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes"
     },
     {
       "relation": "imports",
@@ -7162,9 +7300,9 @@
       "source_location": "L27",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_data_scanrecordrepository",
-      "target": "src_features_records_domain_recordtypes_scanrecorddetails",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_scanrecorddetails"
     },
     {
       "relation": "imports",
@@ -7174,9 +7312,9 @@
       "source_location": "L27",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_data_scanrecordrepository",
-      "target": "src_features_records_domain_recordtypes_scanrecordlistitem",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_scanrecordlistitem"
     },
     {
       "relation": "imports",
@@ -7186,9 +7324,9 @@
       "source_location": "L27",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_data_scanrecordrepository",
-      "target": "src_features_records_domain_recordtypes_scanrecordquery",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_scanrecordquery"
     },
     {
       "relation": "imports_from",
@@ -7198,9 +7336,9 @@
       "source_location": "L5",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_tests_userecords_test",
-      "target": "src_features_records_data_scanrecordrepository",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository"
     },
     {
       "relation": "imports_from",
@@ -7210,9 +7348,9 @@
       "source_location": "L6",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_userecords",
-      "target": "src_features_records_data_scanrecordrepository",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository"
     },
     {
       "relation": "imports_from",
@@ -7234,9 +7372,9 @@
       "source_location": "L42",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_data_scanrecordrepository_createscanrecordrepository",
-      "target": "src_features_records_data_scanrecordrepository_deletescanrecordbyid",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository_deletescanrecordbyid"
     },
     {
       "relation": "calls",
@@ -7246,9 +7384,9 @@
       "source_location": "L41",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_data_scanrecordrepository_createscanrecordrepository",
-      "target": "src_features_records_data_scanrecordrepository_findscanrecordbyid",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository_findscanrecordbyid"
     },
     {
       "relation": "calls",
@@ -7258,9 +7396,9 @@
       "source_location": "L43",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_data_scanrecordrepository_createscanrecordrepository",
-      "target": "src_features_records_data_scanrecordrepository_listmanagedimageuris",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository_listmanagedimageuris"
     },
     {
       "relation": "calls",
@@ -7270,9 +7408,9 @@
       "source_location": "L40",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_data_scanrecordrepository_createscanrecordrepository",
-      "target": "src_features_records_data_scanrecordrepository_listscanrecords",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository_listscanrecords"
     },
     {
       "relation": "calls",
@@ -7282,9 +7420,9 @@
       "source_location": "L51",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_data_scanrecordrepository_listscanrecords",
-      "target": "src_features_records_data_scanrecordrepository_buildconditions",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository_buildconditions"
     },
     {
       "relation": "imports",
@@ -7294,9 +7432,9 @@
       "source_location": "L5",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_tests_userecords_test",
-      "target": "src_features_records_data_scanrecordrepository_listscanrecords",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository_listscanrecords"
     },
     {
       "relation": "imports",
@@ -7306,9 +7444,9 @@
       "source_location": "L6",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_userecords",
-      "target": "src_features_records_data_scanrecordrepository_listscanrecords",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository_listscanrecords"
     },
     {
       "relation": "calls",
@@ -7342,9 +7480,9 @@
       "source_location": "L6",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_userecords",
-      "target": "src_features_records_data_scanrecordrepository_findscanrecordbyid",
-      "confidence_score": 1.0
+      "target": "src_features_records_data_scanrecordrepository_findscanrecordbyid"
     },
     {
       "relation": "calls",
@@ -7401,9 +7539,9 @@
       "source_location": "L74",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_domain_recordtypes",
-      "target": "src_features_records_domain_recordtypes_completedscandraft",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_completedscandraft"
     },
     {
       "relation": "contains",
@@ -7412,9 +7550,9 @@
       "source_location": "L10",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_domain_recordtypes",
-      "target": "src_features_records_domain_recordtypes_daterange",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_daterange"
     },
     {
       "relation": "contains",
@@ -7423,9 +7561,9 @@
       "source_location": "L64",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_domain_recordtypes",
-      "target": "src_features_records_domain_recordtypes_localreportsummary",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_localreportsummary"
     },
     {
       "relation": "contains",
@@ -7434,9 +7572,9 @@
       "source_location": "L59",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_domain_recordtypes",
-      "target": "src_features_records_domain_recordtypes_recordsbylabel",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_recordsbylabel"
     },
     {
       "relation": "contains",
@@ -7445,9 +7583,9 @@
       "source_location": "L96",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_domain_recordtypes",
-      "target": "src_features_records_domain_recordtypes_savecompletedscaninput",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_savecompletedscaninput"
     },
     {
       "relation": "contains",
@@ -7456,9 +7594,9 @@
       "source_location": "L40",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_domain_recordtypes",
-      "target": "src_features_records_domain_recordtypes_scanrecorddetails",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_scanrecorddetails"
     },
     {
       "relation": "contains",
@@ -7467,9 +7605,9 @@
       "source_location": "L25",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_domain_recordtypes",
-      "target": "src_features_records_domain_recordtypes_scanrecordlistitem",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_scanrecordlistitem"
     },
     {
       "relation": "contains",
@@ -7478,9 +7616,9 @@
       "source_location": "L15",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_domain_recordtypes",
-      "target": "src_features_records_domain_recordtypes_scanrecordquery",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_scanrecordquery"
     },
     {
       "relation": "contains",
@@ -7489,9 +7627,9 @@
       "source_location": "L35",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_domain_recordtypes",
-      "target": "src_features_records_domain_recordtypes_storedclassscore",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_storedclassscore"
     },
     {
       "relation": "imports_from",
@@ -7513,9 +7651,9 @@
       "source_location": "L3",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_tests_userecords_test",
-      "target": "src_features_records_domain_recordtypes",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes"
     },
     {
       "relation": "imports_from",
@@ -7525,9 +7663,9 @@
       "source_location": "L10",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_userecords",
-      "target": "src_features_records_domain_recordtypes",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes"
     },
     {
       "relation": "imports_from",
@@ -7597,9 +7735,9 @@
       "source_location": "L10",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_userecords",
-      "target": "src_features_records_domain_recordtypes_scanrecordquery",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_scanrecordquery"
     },
     {
       "relation": "imports",
@@ -7633,9 +7771,9 @@
       "source_location": "L40",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_domain_recordtypes_scanrecorddetails",
-      "target": "src_features_records_domain_recordtypes_scanrecordlistitem",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_scanrecordlistitem"
     },
     {
       "relation": "imports",
@@ -7645,9 +7783,9 @@
       "source_location": "L3",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_tests_userecords_test",
-      "target": "src_features_records_domain_recordtypes_scanrecordlistitem",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_scanrecordlistitem"
     },
     {
       "relation": "imports",
@@ -7657,9 +7795,9 @@
       "source_location": "L10",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_userecords",
-      "target": "src_features_records_domain_recordtypes_scanrecordlistitem",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_scanrecordlistitem"
     },
     {
       "relation": "references",
@@ -7669,9 +7807,9 @@
       "source_location": "L24",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_userecords_paginatedquerystate",
-      "target": "src_features_records_domain_recordtypes_scanrecordlistitem",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_scanrecordlistitem"
     },
     {
       "relation": "imports",
@@ -7705,9 +7843,9 @@
       "source_location": "L10",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_userecords",
-      "target": "src_features_records_domain_recordtypes_scanrecorddetails",
-      "confidence_score": 1.0
+      "target": "src_features_records_domain_recordtypes_scanrecorddetails"
     },
     {
       "relation": "imports",
@@ -7812,9 +7950,9 @@
       "source_location": "L7",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_tests_userecords_test",
-      "target": "src_features_records_hooks_tests_userecords_test_mockdatabase",
-      "confidence_score": 1.0
+      "target": "src_features_records_hooks_tests_userecords_test_mockdatabase"
     },
     {
       "relation": "contains",
@@ -7823,9 +7961,9 @@
       "source_location": "L23",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_tests_userecords_test",
-      "target": "src_features_records_hooks_tests_userecords_test_mocklistscanrecords",
-      "confidence_score": 1.0
+      "target": "src_features_records_hooks_tests_userecords_test_mocklistscanrecords"
     },
     {
       "relation": "contains",
@@ -7834,9 +7972,9 @@
       "source_location": "L25",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_tests_userecords_test",
-      "target": "src_features_records_hooks_tests_userecords_test_record",
-      "confidence_score": 1.0
+      "target": "src_features_records_hooks_tests_userecords_test_record"
     },
     {
       "relation": "imports_from",
@@ -7846,9 +7984,9 @@
       "source_location": "L4",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_tests_userecords_test",
-      "target": "src_features_records_hooks_userecords",
-      "confidence_score": 1.0
+      "target": "src_features_records_hooks_userecords"
     },
     {
       "relation": "imports",
@@ -7858,9 +7996,9 @@
       "source_location": "L4",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_tests_userecords_test",
-      "target": "src_features_records_hooks_userecords_usepaginatedscanrecords",
-      "confidence_score": 1.0
+      "target": "src_features_records_hooks_userecords_usepaginatedscanrecords"
     },
     {
       "relation": "imports_from",
@@ -7893,9 +8031,9 @@
       "source_location": "L23",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_userecords",
-      "target": "src_features_records_hooks_userecords_paginatedquerystate",
-      "confidence_score": 1.0
+      "target": "src_features_records_hooks_userecords_paginatedquerystate"
     },
     {
       "relation": "contains",
@@ -7904,9 +8042,9 @@
       "source_location": "L17",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_userecords",
-      "target": "src_features_records_hooks_userecords_querystate",
-      "confidence_score": 1.0
+      "target": "src_features_records_hooks_userecords_querystate"
     },
     {
       "relation": "contains",
@@ -7915,9 +8053,9 @@
       "source_location": "L146",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_userecords",
-      "target": "src_features_records_hooks_userecords_usepaginatedscanrecords",
-      "confidence_score": 1.0
+      "target": "src_features_records_hooks_userecords_usepaginatedscanrecords"
     },
     {
       "relation": "contains",
@@ -7926,9 +8064,9 @@
       "source_location": "L101",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_userecords",
-      "target": "src_features_records_hooks_userecords_usescanrecorddetails",
-      "confidence_score": 1.0
+      "target": "src_features_records_hooks_userecords_usescanrecorddetails"
     },
     {
       "relation": "contains",
@@ -7937,9 +8075,9 @@
       "source_location": "L31",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_features_records_hooks_userecords",
-      "target": "src_features_records_hooks_userecords_usescanrecords",
-      "confidence_score": 1.0
+      "target": "src_features_records_hooks_userecords_usescanrecords"
     },
     {
       "relation": "imports",
@@ -9053,30 +9191,6 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/app/record-details.tsx",
-      "source_location": "L17",
-      "weight": 1.0,
-      "_origin": "ast",
-      "confidence_score": 1.0,
-      "source": "src_app_record_details",
-      "target": "src_components_ui_recordcard"
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/app/record-details.tsx",
-      "source_location": "L17",
-      "weight": 1.0,
-      "_origin": "ast",
-      "confidence_score": 1.0,
-      "source": "src_app_record_details",
-      "target": "src_components_ui_recordcard_getresultlabel"
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/app/record-details.tsx",
       "source_location": "L31",
       "weight": 1.0,
       "_origin": "ast",
@@ -9150,125 +9264,11 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/app/record-details.tsx",
-      "source_location": "L168",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "src_app_record_details_recorddetailsscreen",
-      "target": "src_components_ui_recordcard_getresultlabel"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "src/app/record-details.tsx",
       "source_location": "L77",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_app_record_details_recorddetailsscreen",
       "target": "src_features_records_services_deletescanrecord_deletescanrecord"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L112",
-      "weight": 1.0,
-      "_origin": "ast",
-      "confidence_score": 1.0,
-      "source": "src_components_ui_recordcard",
-      "target": "src_components_ui_recordcard_formatsavedat"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L93",
-      "weight": 1.0,
-      "_origin": "ast",
-      "confidence_score": 1.0,
-      "source": "src_components_ui_recordcard",
-      "target": "src_components_ui_recordcard_getresultlabel"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L22",
-      "weight": 1.0,
-      "_origin": "ast",
-      "confidence_score": 1.0,
-      "source": "src_components_ui_recordcard",
-      "target": "src_components_ui_recordcard_recordcard"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L17",
-      "weight": 1.0,
-      "_origin": "ast",
-      "confidence_score": 1.0,
-      "source": "src_components_ui_recordcard",
-      "target": "src_components_ui_recordcard_recordcardprops"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L123",
-      "weight": 1.0,
-      "_origin": "ast",
-      "confidence_score": 1.0,
-      "source": "src_components_ui_recordcard",
-      "target": "src_components_ui_recordcard_styles"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L106",
-      "weight": 1.0,
-      "_origin": "ast",
-      "confidence_score": 1.0,
-      "source": "src_components_ui_recordcard",
-      "target": "src_components_ui_recordcard_topillvariant"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L25",
-      "weight": 1.0,
-      "_origin": "ast",
-      "confidence_score": 1.0,
-      "source": "src_components_ui_recordcard_recordcard",
-      "target": "src_components_ui_recordcard_formatsavedat"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L31",
-      "weight": 1.0,
-      "_origin": "ast",
-      "confidence_score": 1.0,
-      "source": "src_components_ui_recordcard_recordcard",
-      "target": "src_components_ui_recordcard_getresultlabel"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/components/ui/RecordCard.tsx",
-      "source_location": "L26",
-      "weight": 1.0,
-      "_origin": "ast",
-      "confidence_score": 1.0,
-      "source": "src_components_ui_recordcard_recordcard",
-      "target": "src_components_ui_recordcard_topillvariant"
     },
     {
       "relation": "contains",
@@ -22114,5 +22114,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "ce389dad6289dbe3401df5e07087998b934b2574"
+  "built_at_commit": "d8f8f64d1943f0c0d4e9d5e697b83f3182c1fb33"
 }

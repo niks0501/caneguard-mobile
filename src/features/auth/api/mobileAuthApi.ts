@@ -74,7 +74,7 @@ export async function loginMobile(
 export async function verifyMobileSession(token: string): Promise<MobileUser> {
   try {
     const response = await apiRequest<CurrentUserResponse | MobileUser>(
-      '/api/user',
+      '/api/v1/mobile/auth/me',
       { token },
     );
     const user =
@@ -141,6 +141,18 @@ function mapAuthError(error: unknown): MobileAuthError {
       return new MobileAuthError(
         'RATE_LIMITED',
         'Too many sign-in attempts. Wait a moment and try again.',
+      );
+    }
+    if (error.status === 404 || error.status === 405) {
+      return new MobileAuthError(
+        'SERVER_UNAVAILABLE',
+        'The mobile sign-in endpoint is unavailable on the server.',
+      );
+    }
+    if (error.status >= 500) {
+      return new MobileAuthError(
+        'SERVER_UNAVAILABLE',
+        'CaneGuard sign-in is temporarily unavailable. Try again shortly.',
       );
     }
   }

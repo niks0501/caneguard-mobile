@@ -1,9 +1,12 @@
+import { File } from 'expo-file-system';
+
 import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import { managedImageExists } from '@/features/records/services/scanImageStorage';
 import { SyncError } from '@/features/sync/errors/syncErrors';
 
 export interface MultipartMapperDependencies {
+  createImageFile?: (uri: string) => Blob;
   imageExists?: (uri: string) => boolean;
 }
 
@@ -11,6 +14,8 @@ export function mapReportToMultipart(
   record: ScanRecordDetails,
   dependencies: MultipartMapperDependencies = {},
 ): FormData {
+  const createImageFile =
+    dependencies.createImageFile ?? ((uri: string) => new File(uri));
   const imageExists = dependencies.imageExists ?? managedImageExists;
   validateRecord(record, imageExists);
 
@@ -42,14 +47,7 @@ export function mapReportToMultipart(
   appendNumber(form, 'inference_ms', record.inferenceMs);
   appendNumber(form, 'total_ms', record.totalMs);
   form.append('captured_at', record.createdAt);
-  form.append(
-    'image',
-    {
-      uri: record.managedImageUri,
-      name: imageFilename(record),
-      type: record.imageMimeType ?? 'application/octet-stream',
-    } as unknown as Blob,
-  );
+  form.append('image', createImageFile(record.managedImageUri));
 
   return form;
 }
@@ -99,11 +97,6 @@ function appendNumber(form: FormData, key: string, value: number | null): void {
   if (value !== null) {
     form.append(key, String(value));
   }
-}
-
-function imageFilename(record: ScanRecordDetails): string {
-  const uriFilename = record.managedImageUri.split('/').pop()?.split(/[?#]/)[0];
-  return uriFilename || `${record.id}.img`;
 }
 
 function isProbability(value: number): boolean {

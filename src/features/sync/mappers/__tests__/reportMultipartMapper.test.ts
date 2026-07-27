@@ -55,7 +55,14 @@ describe('report multipart mapper', () => {
   });
 
   it('maps the exact Laravel field names and preserves client UUID', () => {
+    const imageFile = {
+      bytes: jest.fn(async () => new Uint8Array([1, 2, 3])),
+      name: `${RECORD.id}.jpg`,
+      type: 'image/jpeg',
+    } as unknown as Blob;
+    const createImageFile = jest.fn(() => imageFile);
     const form = mapReportToMultipart(RECORD, {
+      createImageFile,
       imageExists: () => true,
     });
     const parts = (form as unknown as { _parts: [string, unknown][] })._parts;
@@ -72,8 +79,11 @@ describe('report multipart mapper', () => {
     expect(values.get('captured_at')).toBe(RECORD.createdAt);
     expect(parts).toContainEqual(['symptom_keys[]', 'rust']);
     expect(parts).toContainEqual(['quality_warnings[]', 'too-dark']);
+    expect(createImageFile).toHaveBeenCalledWith(RECORD.managedImageUri);
+    expect(values.get('image')).toBe(imageFile);
     expect(values.get('image')).toMatchObject({
-      uri: RECORD.managedImageUri,
+      bytes: expect.any(Function),
+      name: `${RECORD.id}.jpg`,
       type: 'image/jpeg',
     });
   });

@@ -72,10 +72,30 @@ describe('mobile authentication API', () => {
     await expect(verifyMobileSession('secret-token')).resolves.toEqual(user);
     await expect(logoutMobile('secret-token')).resolves.toBeUndefined();
 
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      'http://127.0.0.1:8000/api/v1/mobile/auth/me',
+    );
     for (const call of fetchMock.mock.calls) {
       const headers = call[1]?.headers as Headers;
       expect(headers.get('Authorization')).toBe('Bearer secret-token');
     }
+  });
+
+  it('explains when the mobile auth route is unavailable', async () => {
+    fetchMock.mockResolvedValueOnce(
+      response(404, { message: 'The requested resource was not found.' }),
+    );
+
+    await expect(
+      loginMobile({
+        email: 'field@caneguard.test',
+        password: 'entered-password',
+        deviceName: 'Phone',
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVER_UNAVAILABLE',
+      message: 'The mobile sign-in endpoint is unavailable on the server.',
+    });
   });
 
   it('maps invalid credentials without exposing the server payload', async () => {

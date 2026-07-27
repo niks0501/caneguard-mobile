@@ -38,5 +38,12 @@
   "36": "symptom-checklist.test.tsx",
   "37": "checklistConsistency.ts",
   "38": "ScanSessionProvider.tsx",
-  "39": "detection/types.ts"
+  "39": "detection/types.ts",
+  "40": "useSaveCompletedScan.ts",
+  "41": "reportMultipartMapper.ts",
+  "42": "apiClient.ts",
+  "43": "SyncProvider.tsx",
+  "44": "scanRecordWriteRepository.ts",
+  "45": "record-details.test.tsx",
+  "46": "saveCompletedScan.test.ts"
 }

@@ -6,6 +6,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { ComponentTokens, Layout, Shadows, Spacing, Typography } from '@/constants/theme';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemePreference } from '@/providers/ThemePreferenceProvider';
 
@@ -74,6 +75,7 @@ function ToggleRow({ label, description, value, onToggle }: ToggleRowProps) {
 export default function SettingsScreen() {
   const theme = useTheme();
   const { isDarkMode, setDarkMode } = useThemePreference();
+  const { logout, user } = useAuth();
 
   const [highContrast, setHighContrast] = useState(false);
   const [syncAlerts, setSyncAlerts] = useState(true);
@@ -126,19 +128,50 @@ export default function SettingsScreen() {
                 { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
               ]}>
               <View style={[styles.menuRow, { borderBottomColor: theme.divider }]}>
-                <Text style={[styles.menuLabel, { color: theme.text }]}>Profile Settings</Text>
-                <AppButton
-                  variant="secondary"
-                  onPress={() => Alert.alert('Profile', 'Profile management will be available in a future update.')}
-                  accessibilityLabel="Manage profile settings"
-                  style={styles.manageButton}>
-                  Manage
-                </AppButton>
+                <View style={styles.toggleCopy}>
+                  <Text style={[styles.menuLabel, { color: theme.text }]}>
+                    {user?.name ?? 'Field reporter'}
+                  </Text>
+                  <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>
+                    {user?.email ?? 'Authenticated mobile account'}
+                  </Text>
+                </View>
               </View>
               <View style={styles.logoutRow}>
                 <AppButton
                   variant="text"
-                  onPress={() => Alert.alert('Logout', 'Logout will be available in a future update.')}
+                  onPress={() =>
+                    Alert.alert(
+                      'Log out?',
+                      'Pending scans remain safely stored on this device.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Log out',
+                          style: 'destructive',
+                          onPress: () => {
+                            void logout().then(
+                              ({
+                                localClearFailed,
+                                remoteRevocationFailed,
+                              }) => {
+                              if (localClearFailed) {
+                                Alert.alert(
+                                  'Logout incomplete',
+                                  'CaneGuard could not clear secure session storage. Restart the app and try again.',
+                                );
+                              } else if (remoteRevocationFailed) {
+                                Alert.alert(
+                                  'Signed out locally',
+                                  'The server could not be reached, so the remote token may remain active until it expires or is revoked later.',
+                                );
+                              }
+                            });
+                          },
+                        },
+                      ],
+                    )
+                  }
                   accessibilityLabel="Log out of your account"
                   style={styles.logoutButton}>
                   <Text style={[styles.logoutText, { color: theme.danger }]}>Logout</Text>

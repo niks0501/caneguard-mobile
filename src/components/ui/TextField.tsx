@@ -31,6 +31,7 @@ export function TextField({
     <>
       <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
       <TextInput
+        accessibilityLabel={label}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}

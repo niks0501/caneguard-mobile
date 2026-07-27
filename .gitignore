@@ -33,6 +33,7 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
 
 # typescript
 *.tsbuildinfo
@@ -47,9 +48,8 @@ example
 .opencode
 opencode.jsonc
 PROJECT_CHECKS.md
-docs/
-!docs/
 docs/*
+!docs/
 !docs/model-v0/
 !docs/model-v0/**
 graphify-out/cache/

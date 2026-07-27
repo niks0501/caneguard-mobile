@@ -6,6 +6,9 @@ import { useEffect } from 'react';
 import { ScanSessionProvider } from '@/features/detection/context/ScanSessionProvider';
 import { CaneGuardModelProvider } from '@/features/detection/model/useCaneGuardModel';
 import { CaneGuardDatabaseProvider } from '@/database/DatabaseProvider';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { AuthProvider } from '@/features/auth/providers/AuthProvider';
+import { SyncProvider } from '@/features/sync/providers/SyncProvider';
 import {
   ThemePreferenceProvider,
   useThemePreference,
@@ -16,27 +19,32 @@ void SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   return (
     <ThemePreferenceProvider>
-      <CaneGuardDatabaseProvider>
-        <ScanSessionProvider>
-          <CaneGuardModelProvider>
-            <AppNavigator />
-          </CaneGuardModelProvider>
-        </ScanSessionProvider>
-      </CaneGuardDatabaseProvider>
+      <AuthProvider>
+        <CaneGuardDatabaseProvider>
+          <ScanSessionProvider>
+            <CaneGuardModelProvider>
+              <SyncProvider>
+                <AppNavigator />
+              </SyncProvider>
+            </CaneGuardModelProvider>
+          </ScanSessionProvider>
+        </CaneGuardDatabaseProvider>
+      </AuthProvider>
     </ThemePreferenceProvider>
   );
 }
 
 function AppNavigator() {
   const { colorScheme, isHydrated } = useThemePreference();
+  const { status } = useAuth();
 
   useEffect(() => {
-    if (isHydrated) {
+    if (isHydrated && status !== 'restoring') {
       void SplashScreen.hideAsync();
     }
-  }, [isHydrated]);
+  }, [isHydrated, status]);
 
-  if (!isHydrated) {
+  if (!isHydrated || status === 'restoring') {
     return null;
   }
 
@@ -44,18 +52,22 @@ function AppNavigator() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="login" />
-        <Stack.Screen name="register" />
-        <Stack.Screen name="home" />
-        <Stack.Screen name="scan" />
-        <Stack.Screen name="image-preview" />
-        <Stack.Screen name="symptom-checklist" />
-        <Stack.Screen name="analysis-result" />
-        <Stack.Screen name="records" />
-        <Stack.Screen name="record-details" />
-        <Stack.Screen name="reports" />
-        <Stack.Screen name="settings" />
+        <Stack.Protected guard={status === 'unauthenticated'}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="login" />
+          <Stack.Screen name="register" />
+        </Stack.Protected>
+        <Stack.Protected guard={status === 'authenticated'}>
+          <Stack.Screen name="home" />
+          <Stack.Screen name="scan" />
+          <Stack.Screen name="image-preview" />
+          <Stack.Screen name="symptom-checklist" />
+          <Stack.Screen name="analysis-result" />
+          <Stack.Screen name="records" />
+          <Stack.Screen name="record-details" />
+          <Stack.Screen name="reports" />
+          <Stack.Screen name="settings" />
+        </Stack.Protected>
         <Stack.Protected guard={__DEV__}>
           <Stack.Screen name="model-smoke-test" />
           <Stack.Screen name="model-debug" />

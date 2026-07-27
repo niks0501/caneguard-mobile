@@ -17,7 +17,7 @@ const SUMMARY: LocalReportSummary = {
   totalSavedScans: 5,
   healthyPredictions: 2,
   possibleDiseasePredictions: 3,
-  localOnlyRecords: 4,
+  pendingSyncRecords: 4,
   lowScorePredictions: 2,
   recordsByLabel: [
     { label: 'healthy', count: 2 },
@@ -55,7 +55,9 @@ describe('ReportsScreen', () => {
       screen.getByLabelText('Possible disease results: 3'),
     ).toBeOnTheScreen();
     expect(screen.getByLabelText('Healthy predictions: 2')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Local-only records: 4')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Awaiting synchronization: 4'),
+    ).toBeOnTheScreen();
     expect(screen.getByText('Healthy')).toBeOnTheScreen();
     expect(screen.getByText('Mosaic')).toBeOnTheScreen();
     expect(screen.getByText('Rust')).toBeOnTheScreen();
@@ -87,7 +89,7 @@ describe('ReportsScreen', () => {
         totalSavedScans: 0,
         healthyPredictions: 0,
         possibleDiseasePredictions: 0,
-        localOnlyRecords: 0,
+        pendingSyncRecords: 0,
         lowScorePredictions: 0,
         recordsByLabel: [],
         recentRecords: [],

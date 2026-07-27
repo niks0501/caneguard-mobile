@@ -16,6 +16,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { RecordCard } from '@/components/ui/RecordCard';
+import { SyncStatusPanel } from '@/components/ui/SyncStatusPanel';
 import {
   ComponentTokens,
   Layout,
@@ -45,7 +46,6 @@ export default function RecordsScreen() {
   const records = usePaginatedScanRecords({
     predictedLabel: activeFilter === 'all' ? undefined : activeFilter,
     search: submittedSearch || undefined,
-    syncStatus: 'local_only',
   }, DEFAULT_RECORD_PAGE_SIZE);
   const hasFilters = activeFilter !== 'all' || Boolean(submittedSearch);
 
@@ -79,10 +79,11 @@ export default function RecordsScreen() {
               ]}>
               <Feather name="hard-drive" size={20} color={theme.primary} />
               <Text style={[styles.introText, { color: theme.textSecondary }]}>
-                These records are stored on this device. CaneGuard is not yet
-                connected to MAO.
+                Every completed report stays on this device even when an upload
+                is pending or fails.
               </Text>
             </View>
+            <SyncStatusPanel />
 
             <View style={styles.searchRow}>
               <View

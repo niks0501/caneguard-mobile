@@ -9,6 +9,7 @@ import {
 import type { ScanRecordWriteRepository } from '@/features/records/data/repositoryContracts';
 import type { SaveCompletedScanInput } from '@/features/records/domain/recordTypes';
 import { validateSaveCompletedScanInput } from '@/features/records/domain/recordValidation';
+import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 export function createScanRecordWriteRepository(
   database: CaneGuardDatabase,
@@ -47,7 +48,7 @@ export async function insertScanRecord(
           preprocessMs: input.preprocessMs,
           inferenceMs: input.inferenceMs,
           totalMs: input.totalMs,
-          syncStatus: 'local_only',
+          syncStatus: 'pending',
           remoteId: null,
           syncAttemptCount: 0,
           lastSyncErrorCode: null,
@@ -94,6 +95,7 @@ export async function insertScanRecord(
       }
     });
 
+    emitSyncRecordsChanged();
     return { id: input.id };
   } catch (error: unknown) {
     if (isDuplicateRecordError(error)) {

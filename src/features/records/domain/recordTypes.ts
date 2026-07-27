@@ -44,6 +44,9 @@ export interface ScanRecordDetails extends ScanRecordListItem {
   imageSizeBytes: number | null;
   imageSourceType: ScanSourceType;
   inferenceMs: number;
+  lastSyncAttemptAt: string | null;
+  lastSyncErrorCode: string | null;
+  lastSyncedAt: string | null;
   modelVersion: string;
   preprocessMs: number;
   qualityWarnings: QualityWarning[];
@@ -51,6 +54,7 @@ export interface ScanRecordDetails extends ScanRecordListItem {
   reportedSeverity: ReportedSeverity | null;
   sourceHeight: number | null;
   sourceWidth: number | null;
+  syncAttemptCount: number;
   symptoms: string[];
   totalMs: number;
   updatedAt: string;
@@ -63,7 +67,7 @@ export interface RecordsByLabel {
 
 export interface LocalReportSummary {
   healthyPredictions: number;
-  localOnlyRecords: number;
+  pendingSyncRecords: number;
   lowScorePredictions: number;
   possibleDiseasePredictions: number;
   recordsByLabel: RecordsByLabel[];
@@ -72,7 +76,7 @@ export interface LocalReportSummary {
 }
 
 export interface CompletedScanDraft {
-  barangay: string | null;
+  barangay: string;
   checklistConsistency: ChecklistConsistency;
   classScores: ClassScore[];
   confidence: number;

@@ -19,6 +19,9 @@ jest.mock('@/database/DatabaseProvider', () => ({
 jest.mock('@/features/records/services/saveCompletedScan', () => ({
   saveCompletedScan: jest.fn(),
 }));
+jest.mock('@/features/sync/hooks/useSync', () => ({
+  useSync: () => ({ syncNow: jest.fn() }),
+}));
 
 const mockRandomUUID = jest.mocked(randomUUID);
 const mockSaveCompletedScan = jest.mocked(saveCompletedScan);
@@ -26,6 +29,7 @@ const mockSaveCompletedScan = jest.mocked(saveCompletedScan);
 function completedState(): ScanSessionState {
   return {
     ...initialScanSessionState,
+    barangay: 'Wawa',
     status: 'completed',
     sourceUri: 'file:///camera/leaf.jpg',
     sourceType: 'camera',

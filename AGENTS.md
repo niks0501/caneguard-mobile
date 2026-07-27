@@ -12,8 +12,18 @@ Load additional `harness/rules/*` files only when the current task category need
 - Prefer readable, maintainable code over clever abstractions.
 - Do not add dependencies unless they clearly reduce complexity or are explicitly requested.
 - Never claim a check passed unless it was actually executed and succeeded.
-- Read `.harness/project.json` when present; it is the source of truth for application checks.
+- Read `.harness/project.json` when present; it is the source of truth for application checks and command runtime.
 - Ask before destructive operations, data deletion, production deployment, credential access, commits, pushes, resets, rebases, stashes, or file deletion.
+
+## Execution Runtime
+
+- Treat `.harness/project.json.runtime` as the source of truth for where application commands run.
+- Run `just project-preflight` before application verification when a project profile is present.
+- When `runtime.kind` is `docker-compose`, run application tools through the configured Compose service. Do not invoke PHP, Composer, Artisan, Node, npm, database clients, or other declared runtime tools directly on the host.
+- Never search Windows installations, `/mnt/c`, sibling drives, or global filesystem locations for a missing application executable.
+- When a required command is unavailable in its configured environment, stop. Tell the user the exact missing command and runtime, then ask whether they want to install it manually, start or rebuild the service, or update the project profile.
+- Do not install missing runtime tools, change images, or fall back to another host environment without explicit approval.
+- Docker wrappers do not weaken policy: dependency changes, migrations, destructive data operations, and deployments still require their normal approval.
 
 ## Workflow Routing
 
@@ -47,6 +57,7 @@ Do not load completed tasks, old run records, full architecture docs, or all ADR
 ## Verification And Reporting
 
 Use `just validate` to validate AkiForge itself. This is not application verification.
+Use `just project-preflight` to verify the configured host or container runtime without installing or changing anything.
 Use `just verify-targeted` for tiny/normal application work and `just verify-full` for high-risk or broad application changes.
 If `just` is unavailable, run the relevant scripts or project commands directly.
 

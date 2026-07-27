@@ -60,8 +60,8 @@ export async function getLocalReportSummary(
             sql<number>`coalesce(sum(case when ${scanRecords.predictedLabel} = 'healthy' then 1 else 0 end), 0)`,
           possibleDiseasePredictions:
             sql<number>`coalesce(sum(case when ${scanRecords.predictedLabel} <> 'healthy' then 1 else 0 end), 0)`,
-          localOnlyRecords:
-            sql<number>`coalesce(sum(case when ${scanRecords.syncStatus} = 'local_only' then 1 else 0 end), 0)`,
+          pendingSyncRecords:
+            sql<number>`coalesce(sum(case when ${scanRecords.syncStatus} <> 'synced' then 1 else 0 end), 0)`,
           lowScorePredictions:
             sql<number>`coalesce(sum(case when ${scanRecords.confidence} < ${lowScoreThreshold} then 1 else 0 end), 0)`,
         })
@@ -89,7 +89,7 @@ export async function getLocalReportSummary(
       possibleDiseasePredictions: Number(
         totals?.possibleDiseasePredictions ?? 0,
       ),
-      localOnlyRecords: Number(totals?.localOnlyRecords ?? 0),
+      pendingSyncRecords: Number(totals?.pendingSyncRecords ?? 0),
       lowScorePredictions: Number(totals?.lowScorePredictions ?? 0),
       recordsByLabel: recordsByLabel.map((row) => ({
         label: row.label,

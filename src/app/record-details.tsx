@@ -14,7 +14,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
-import { getResultLabel } from '@/components/ui/RecordCard';
+import {
+  getResultLabel,
+  getSyncPresentation,
+} from '@/components/ui/RecordCard';
 import {
   ComponentTokens,
   Layout,
@@ -29,6 +32,8 @@ import { getQualityWarningMessage } from '@/features/detection/validation/assess
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
 import { deleteScanRecord } from '@/features/records/services/deleteScanRecord';
+import { getSyncErrorMessage } from '@/features/sync/errors/syncErrors';
+import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
 
 const CONSISTENCY_LABELS: Record<
@@ -47,9 +52,21 @@ export default function RecordDetailsScreen() {
   const id = Array.isArray(params.id) ? params.id[0] : (params.id ?? null);
   const record = useScanRecordDetails(id);
   const database = useCaneGuardDatabase();
+  const sync = useSync();
   const [imageUnavailable, setImageUnavailable] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
+
+  const retrySync = async () => {
+    if (!id || retrying) {
+      return;
+    }
+    setRetrying(true);
+    await sync.retryRecord(id);
+    await record.refresh();
+    setRetrying(false);
+  };
 
   const confirmDelete = () => {
     Alert.alert(
@@ -170,12 +187,7 @@ export default function RecordDetailsScreen() {
                 <Text style={[styles.confidence, { color: theme.primary }]}>
                   {Math.round(record.data.confidence * 100)}% AI confidence
                 </Text>
-                <View style={styles.localStatus}>
-                  <Feather name="smartphone" size={16} color={theme.info} />
-                  <Text style={[styles.localStatusText, { color: theme.info }]}>
-                    Local record, not yet connected to MAO
-                  </Text>
-                </View>
+                <RecordSyncStatus status={record.data.syncStatus} />
               </View>
 
               <Section title="All model class scores">
@@ -233,7 +245,47 @@ export default function RecordDetailsScreen() {
                   label="Saved"
                   value={formatSavedAt(record.data.createdAt)}
                 />
+                <DetailRow
+                  label="Server report UUID"
+                  value={record.data.remoteId ?? 'Not assigned'}
+                />
+                <DetailRow
+                  label="Last synchronized"
+                  value={
+                    record.data.lastSyncedAt
+                      ? formatSavedAt(record.data.lastSyncedAt)
+                      : 'Not yet synchronized'
+                  }
+                />
               </Section>
+
+              {record.data.lastSyncErrorCode ? (
+                <View
+                  accessibilityLiveRegion="assertive"
+                  style={[
+                    styles.syncError,
+                    { backgroundColor: theme.dangerBg, borderColor: theme.danger },
+                  ]}>
+                  <Feather name="alert-triangle" size={19} color={theme.danger} />
+                  <Text style={[styles.syncErrorText, { color: theme.text }]}>
+                    {getSyncErrorMessage(record.data.lastSyncErrorCode) ??
+                      'The last upload did not finish.'}
+                  </Text>
+                </View>
+              ) : null}
+
+              {record.data.syncStatus === 'pending' ||
+              record.data.syncStatus === 'failed' ? (
+                <AppButton
+                  onPress={() => void retrySync()}
+                  disabled={retrying || sync.isSyncing || sync.isOnline !== true}
+                  leadingIcon="refresh-cw"
+                  accessibilityLabel={
+                    retrying ? 'Retrying report synchronization' : 'Retry sync'
+                  }>
+                  {retrying ? 'Retrying...' : 'Retry Sync'}
+                </AppButton>
+              ) : null}
 
               <View
                 style={[
@@ -267,6 +319,32 @@ export default function RecordDetailsScreen() {
         )}
       </View>
     </SafeAreaView>
+  );
+}
+
+function RecordSyncStatus({
+  status,
+}: {
+  status: ScanRecordDetails['syncStatus'];
+}) {
+  const theme = useTheme();
+  const presentation = getSyncPresentation(status);
+
+  return (
+    <View style={styles.localStatus}>
+      <Feather
+        name={presentation.icon}
+        size={16}
+        color={theme[presentation.color]}
+      />
+      <Text
+        style={[
+          styles.localStatusText,
+          { color: theme[presentation.color] },
+        ]}>
+        {presentation.label}
+      </Text>
+    </View>
   );
 }
 
@@ -468,6 +546,15 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   disclaimerText: { ...Typography.caption, flex: 1 },
+  syncError: {
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+  },
+  syncErrorText: { ...Typography.bodySmall, flex: 1 },
   deleteError: { ...Typography.bodySmall, fontWeight: '700' },
   centeredState: {
     flex: 1,

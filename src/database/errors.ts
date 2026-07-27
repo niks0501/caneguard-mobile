@@ -8,6 +8,7 @@ export const STORAGE_ERROR_CODES = [
   'SAVE_TRANSACTION_FAILED',
   'RECORD_NOT_FOUND',
   'QUERY_FAILED',
+  'UPDATE_FAILED',
   'DELETE_FAILED',
   'IMAGE_DELETE_FAILED',
   'DUPLICATE_RECORD',
@@ -27,6 +28,7 @@ const USER_MESSAGES: Record<StorageErrorCode, string> = {
   SAVE_TRANSACTION_FAILED: 'The record could not be saved. Your scan result is still available.',
   RECORD_NOT_FOUND: 'This saved record could not be found.',
   QUERY_FAILED: 'Saved records could not be loaded. Please try again.',
+  UPDATE_FAILED: 'The saved record could not be updated. Please try again.',
   DELETE_FAILED: 'The local record could not be deleted. Please try again.',
   IMAGE_DELETE_FAILED:
     'The record was removed, but its saved image could not be cleaned up.',

@@ -56,6 +56,10 @@ export function mapScanRecordDetails(
     inferenceMs: row.inferenceMs,
     totalMs: row.totalMs,
     remoteId: row.remoteId,
+    syncAttemptCount: row.syncAttemptCount,
+    lastSyncErrorCode: row.lastSyncErrorCode,
+    lastSyncAttemptAt: row.lastSyncAttemptAt,
+    lastSyncedAt: row.lastSyncedAt,
     updatedAt: row.updatedAt,
     classScores: children.classScores.map<StoredClassScore>((score) => ({
       label: score.label,

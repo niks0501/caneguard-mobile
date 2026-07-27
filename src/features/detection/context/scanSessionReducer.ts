@@ -1,6 +1,7 @@
 import type { ScanSessionAction, ScanSessionState } from '@/features/detection/types';
 
 export const initialScanSessionState: ScanSessionState = {
+  barangay: '',
   sourceUri: null,
   processedUri: null,
   preprocessMs: null,
@@ -74,6 +75,11 @@ export function scanSessionReducer(
       return {
         ...state,
         reportedSeverity: action.payload,
+      };
+    case 'SET_BARANGAY':
+      return {
+        ...state,
+        barangay: action.payload,
       };
     case 'SET_ERROR':
       return {

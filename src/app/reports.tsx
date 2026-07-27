@@ -110,11 +110,11 @@ export default function ReportsScreen() {
                       icon="check-circle"
                     />
                     <SummaryTile
-                      value={report.data.localOnlyRecords}
-                      label="Local-only records"
-                      tintColor={theme.info}
-                      tintBackground={theme.infoBg}
-                      icon="smartphone"
+                      value={report.data.pendingSyncRecords}
+                      label="Awaiting synchronization"
+                      tintColor={theme.warning}
+                      tintBackground={theme.warningBg}
+                      icon="upload-cloud"
                     />
                   </View>
                 </View>

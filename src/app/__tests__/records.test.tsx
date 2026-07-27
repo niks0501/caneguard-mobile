@@ -20,6 +20,16 @@ let mockRecordsState: ReturnType<typeof usePaginatedScanRecords> = {
 jest.mock('@/features/records/hooks/useRecords', () => ({
   usePaginatedScanRecords: jest.fn(() => mockRecordsState),
 }));
+jest.mock('@/features/sync/hooks/useSync', () => ({
+  useSync: () => ({
+    errorMessage: null,
+    isOnline: true,
+    isSyncing: false,
+    lastSuccessfulSyncAt: null,
+    pendingCount: 0,
+    syncNow: jest.fn(async () => null),
+  }),
+}));
 
 const mockUsePaginatedScanRecords = jest.mocked(usePaginatedScanRecords);
 const mockRouterPush = router.push as jest.Mock;
@@ -29,7 +39,7 @@ const RECORD: ScanRecordListItem = {
   predictedLabel: 'rust',
   confidence: 0.82,
   barangay: null,
-  syncStatus: 'local_only',
+  syncStatus: 'pending',
   createdAt: '2026-07-25T05:30:00.000Z',
 };
 
@@ -52,7 +62,7 @@ describe('RecordsScreen', () => {
     expect(screen.getByText('No saved records yet')).toBeOnTheScreen();
     expect(
       screen.getByText(
-        'These records are stored on this device. CaneGuard is not yet connected to MAO.',
+        'Every completed report stays on this device even when an upload is pending or fails.',
       ),
     ).toBeOnTheScreen();
     await fireEvent.press(screen.getByText('Start Scan'));
@@ -95,7 +105,7 @@ describe('RecordsScreen', () => {
 
     expect(screen.getByText('Possible result: Rust')).toBeOnTheScreen();
     expect(screen.getByText('82% confidence')).toBeOnTheScreen();
-    expect(screen.getByText('Saved on this device')).toBeOnTheScreen();
+    expect(screen.getByText('Pending upload')).toBeOnTheScreen();
 
     await act(() =>
       screen

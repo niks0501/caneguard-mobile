@@ -13,6 +13,7 @@ import {
   type ScanRecordListItem,
   type ScanRecordQuery,
 } from '@/features/records/domain/recordTypes';
+import { useSyncRecordsRefresh } from '@/features/sync/hooks/useSyncRecordsRevision';
 
 interface QueryState<T> {
   data: T;
@@ -88,6 +89,9 @@ export function useScanRecords(query: ScanRecordQuery) {
     search,
     syncStatus,
   ]);
+  useSyncRecordsRefresh(() => {
+    void refresh();
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -133,6 +137,9 @@ export function useScanRecordDetails(id: string | null) {
       });
     }
   }, [database, id]);
+  useSyncRecordsRefresh(() => {
+    void refresh();
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -244,6 +251,9 @@ export function usePaginatedScanRecords(
     () => loadPage(0, false),
     [loadPage],
   );
+  useSyncRecordsRefresh(() => {
+    void refresh();
+  });
   const loadMore = useCallback(() => {
     if (loadMoreInFlight.current) {
       return loadMoreInFlight.current;

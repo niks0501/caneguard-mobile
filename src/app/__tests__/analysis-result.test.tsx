@@ -90,6 +90,7 @@ function createCompletedState(
 ): ScanSessionState {
   return {
     ...initialScanSessionState,
+    barangay: 'Wawa',
     sourceUri: 'file:///result-leaf.jpg',
     sourceType: 'gallery',
     status: 'completed',
@@ -235,17 +236,27 @@ describe('AnalysisResultScreen', () => {
     expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
   });
 
-  it('discloses local-only storage and starts an explicit save', async () => {
+  it('discloses local-first upload behavior and starts an explicit save', async () => {
     await renderResult(createCompletedState('rust', ['rust']));
 
     expect(
       screen.getByText(
-        'Saving is optional. Records stay on this device and may be removed if app data is cleared or CaneGuard is uninstalled.',
+        'CaneGuard saves locally first, then uploads without deleting the managed image.',
       ),
     ).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByLabelText('Save record on this device'));
     expect(mockSaveRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires a barangay before saving', async () => {
+    await renderResult(
+      createCompletedState('rust', ['rust'], { barangay: '' }),
+    );
+
+    expect(
+      screen.getByLabelText('Enter a barangay before saving'),
+    ).toBeDisabled();
   });
 
   it('disables duplicate save and new-scan actions while saving', async () => {

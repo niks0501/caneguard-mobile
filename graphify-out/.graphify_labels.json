@@ -31,5 +31,12 @@
   "29": "model-debug.tsx",
   "30": "_layout.tsx",
   "31": "inferenceErrors.ts",
-  "32": "postprocessOutput.ts"
+  "32": "postprocessOutput.ts",
+  "33": "image-preview.test.tsx",
+  "34": "scan.test.tsx",
+  "35": "compareParityReference.ts",
+  "36": "symptom-checklist.test.tsx",
+  "37": "checklistConsistency.ts",
+  "38": "ScanSessionProvider.tsx",
+  "39": "detection/types.ts"
 }

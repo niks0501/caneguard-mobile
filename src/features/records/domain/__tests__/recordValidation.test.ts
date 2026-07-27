@@ -14,6 +14,7 @@ function completedState(
 ): ScanSessionState {
   return {
     ...initialScanSessionState,
+    barangay: 'Wawa',
     status: 'completed',
     sourceUri: 'content://gallery/leaf',
     sourceType: 'gallery',
@@ -61,7 +62,7 @@ describe('completed scan record validation', () => {
       checklistConsistency: 'consistent',
       reportedSeverity: 'Moderate',
       qualityWarnings: ['too-dark'],
-      barangay: null,
+      barangay: 'Wawa',
       modelVersion: 'v0.1-baseline',
       preprocessMs: 4.25,
       inferenceMs: 8.5,
@@ -82,6 +83,20 @@ describe('completed scan record validation', () => {
     ['missing result', completedState({ result: null })],
   ])('rejects an %s before persistence', (_name, state) => {
     expect(() => createCompletedScanDraft(state, RECORD_ID, NOW)).toThrow(
+      expect.objectContaining<Partial<StorageError>>({
+        code: 'INVALID_SCAN_RECORD',
+      }),
+    );
+  });
+
+  it('rejects a completed report without a barangay', () => {
+    expect(() =>
+      createCompletedScanDraft(
+        completedState({ barangay: '   ' }),
+        RECORD_ID,
+        NOW,
+      ),
+    ).toThrow(
       expect.objectContaining<Partial<StorageError>>({
         code: 'INVALID_SCAN_RECORD',
       }),

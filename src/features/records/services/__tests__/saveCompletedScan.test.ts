@@ -23,6 +23,7 @@ function completedState(
 ): ScanSessionState {
   return {
     ...initialScanSessionState,
+    barangay: 'Wawa',
     status: 'completed',
     sourceUri: 'file:///camera/leaf.jpg',
     sourceType: 'camera',

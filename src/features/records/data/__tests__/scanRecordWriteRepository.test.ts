@@ -19,6 +19,16 @@ import {
   listScanRecords,
 } from '@/features/records/data/scanRecordRepository';
 import { insertScanRecord } from '@/features/records/data/scanRecordWriteRepository';
+import {
+  countUnsyncedRecords,
+  findSyncCandidates,
+  findLastSuccessfulSyncAt,
+  markFailed,
+  markPending,
+  markSynced,
+  markSyncing,
+  resetStaleSyncingRecords,
+} from '@/features/records/data/scanRecordSyncRepository';
 import type { SaveCompletedScanInput } from '@/features/records/domain/recordTypes';
 import { getLocalReportSummary } from '@/features/reports/data/reportRepository';
 
@@ -99,7 +109,7 @@ function validInput(
     checklistConsistency: 'consistent',
     reportedSeverity: 'Moderate',
     qualityWarnings: ['too-dark'],
-    barangay: null,
+    barangay: 'Wawa',
     modelVersion: 'v0.1-baseline',
     preprocessMs: 4.25,
     inferenceMs: 8.5,
@@ -129,8 +139,8 @@ describe('scan record write repository', () => {
     ).toEqual({
       predicted_label: 'rust',
       confidence: 0.82,
-      barangay: null,
-      sync_status: 'local_only',
+      barangay: 'Wawa',
+      sync_status: 'pending',
       remote_id: null,
       sync_attempt_count: 0,
       created_at: '2026-07-25T05:30:00.000Z',
@@ -234,7 +244,7 @@ describe('scan record write repository', () => {
           managedImageUri: `file:///documents/caneguard/scan-images/${id}.jpg`,
           predictedLabel: label,
           confidence: 0.5 + index / 100,
-          barangay: index === 10 ? 'Wawa' : null,
+          barangay: index === 10 ? 'Wawa' : 'San Jose',
           createdAt: `2026-07-${day}T05:30:00.000Z`,
           updatedAt: `2026-07-${day}T05:30:00.000Z`,
         }),
@@ -366,7 +376,7 @@ describe('scan record write repository', () => {
       totalSavedScans: 5,
       healthyPredictions: 2,
       possibleDiseasePredictions: 3,
-      localOnlyRecords: 4,
+      pendingSyncRecords: 5,
       lowScorePredictions: 3,
       recordsByLabel: [
         { label: 'healthy', count: 2 },
@@ -391,7 +401,7 @@ describe('scan record write repository', () => {
       totalSavedScans: 4,
       healthyPredictions: 1,
       possibleDiseasePredictions: 3,
-      localOnlyRecords: 3,
+      pendingSyncRecords: 4,
       lowScorePredictions: 2,
     });
 
@@ -402,7 +412,7 @@ describe('scan record write repository', () => {
     await expect(getLocalReportSummary(database)).resolves.toMatchObject({
       totalSavedScans: 4,
       possibleDiseasePredictions: 2,
-      localOnlyRecords: 4,
+      pendingSyncRecords: 4,
     });
     native.close();
   });
@@ -414,11 +424,87 @@ describe('scan record write repository', () => {
       totalSavedScans: 0,
       healthyPredictions: 0,
       possibleDiseasePredictions: 0,
-      localOnlyRecords: 0,
+      pendingSyncRecords: 0,
       lowScorePredictions: 0,
       recordsByLabel: [],
       recentRecords: [],
     });
+    native.close();
+  });
+
+  it('updates synchronization state atomically and recovers stale uploads', async () => {
+    const { database, native } = openTestDatabase();
+    await insertScanRecord(database, validInput());
+
+    await expect(countUnsyncedRecords(database)).resolves.toBe(1);
+    await expect(findSyncCandidates(database, 10)).resolves.toHaveLength(1);
+
+    await markSyncing(
+      database,
+      RECORD_ID,
+      '2026-07-27T01:00:00.000Z',
+    );
+    expect(
+      native
+        .prepare(
+          'SELECT sync_status, sync_attempt_count, last_sync_attempt_at FROM scan_records WHERE id = ?',
+        )
+        .get(RECORD_ID),
+    ).toEqual({
+      sync_status: 'syncing',
+      sync_attempt_count: 1,
+      last_sync_attempt_at: '2026-07-27T01:00:00.000Z',
+    });
+
+    await resetStaleSyncingRecords(
+      database,
+      '2026-07-27T01:05:00.000Z',
+    );
+    expect(
+      native
+        .prepare(
+          'SELECT sync_status, last_sync_error_code FROM scan_records WHERE id = ?',
+        )
+        .get(RECORD_ID),
+    ).toEqual({
+      sync_status: 'pending',
+      last_sync_error_code: 'STALE_SYNC_RECOVERED',
+    });
+
+    await markFailed(
+      database,
+      RECORD_ID,
+      'NETWORK_REQUEST_FAILED',
+      '2026-07-27T01:06:00.000Z',
+    );
+    await expect(findSyncCandidates(database, 10)).resolves.toHaveLength(0);
+    await expect(findSyncCandidates(database, 10, true)).resolves.toHaveLength(
+      1,
+    );
+
+    await markPending(database, RECORD_ID);
+    await markSynced(
+      database,
+      RECORD_ID,
+      'server-report-uuid',
+      '2026-07-27T01:07:00.000Z',
+    );
+    expect(
+      native
+        .prepare(
+          'SELECT sync_status, remote_id, last_synced_at, last_sync_error_code FROM scan_records WHERE id = ?',
+        )
+        .get(RECORD_ID),
+    ).toEqual({
+      sync_status: 'synced',
+      remote_id: 'server-report-uuid',
+      last_synced_at: '2026-07-27T01:07:00.000Z',
+      last_sync_error_code: null,
+    });
+    await expect(countUnsyncedRecords(database)).resolves.toBe(0);
+    await expect(findLastSuccessfulSyncAt(database)).resolves.toBe(
+      '2026-07-27T01:07:00.000Z',
+    );
     native.close();
   });
 });

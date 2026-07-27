@@ -73,7 +73,7 @@ export function createCompletedScanDraft(
     ),
     reportedSeverity: state.reportedSeverity,
     qualityWarnings: [...(state.qualityAssessment?.warnings ?? [])],
-    barangay: null,
+    barangay: state.barangay.trim(),
     modelVersion: state.result.modelVersion,
     preprocessMs: state.result.timings.preprocessMs,
     inferenceMs: state.result.timings.inferenceMs,
@@ -101,14 +101,17 @@ export function validateCompletedScanDraft(draft: CompletedScanDraft): void {
   }
   validateProbability(draft.confidence, 'confidence');
   validateClassScores(draft.classScores);
-  validateOptionalDimension(draft.sourceWidth);
-  validateOptionalDimension(draft.sourceHeight);
+  validateRequiredDimension(draft.sourceWidth);
+  validateRequiredDimension(draft.sourceHeight);
   validateNonNegativeFinite(draft.preprocessMs, 'preprocessing timing');
   validateNonNegativeFinite(draft.inferenceMs, 'inference timing');
   validateNonNegativeFinite(draft.totalMs, 'total timing');
 
   if (!draft.modelVersion.trim()) {
     invalid('The model version is required.');
+  }
+  if (!draft.barangay.trim() || draft.barangay.trim().length > 120) {
+    invalid('A valid barangay is required before saving.');
   }
   if (
     draft.reportedSeverity !== null &&
@@ -187,8 +190,8 @@ function validateNonNegativeFinite(value: number, name: string): void {
   }
 }
 
-function validateOptionalDimension(value: number | null): void {
-  if (value !== null && (!Number.isFinite(value) || value <= 0)) {
+function validateRequiredDimension(value: number | null): void {
+  if (value === null || !Number.isFinite(value) || value <= 0) {
     invalid('Source image dimensions must be positive.');
   }
 }

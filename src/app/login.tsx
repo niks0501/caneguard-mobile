@@ -7,15 +7,30 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Fonts, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemePreference } from '@/providers/ThemePreferenceProvider';
 
 export default function LoginScreen() {
   const theme = useTheme();
   const { isDarkMode } = useThemePreference();
-  const [emailOrPhone, setEmailOrPhone] = useState('');
+  const { errorMessage, login } = useAuth();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    if (submitting || !email.trim() || !password) {
+      return;
+    }
+    setSubmitting(true);
+    const authenticated = await login(email, password);
+    setSubmitting(false);
+    if (authenticated) {
+      router.replace('/home');
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
@@ -44,9 +59,23 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.form}>
-            <InputRow icon="mail" value={emailOrPhone} onChangeText={setEmailOrPhone} placeholder="Email or phone" keyboardType="email-address" textContentType="username" />
+            <InputRow icon="mail" value={email} onChangeText={setEmail} placeholder="Email" keyboardType="email-address" textContentType="username" />
             <InputRow icon="lock" value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry={!passwordVisible} textContentType="password" trailingIcon={passwordVisible ? 'eye-off' : 'eye'} onTrailingPress={() => setPasswordVisible((visible) => !visible)} />
-            <AppButton onPress={() => router.replace('/home')} leadingIcon="log-in" trailingIcon="arrow-right" accessibilityLabel="Login to CaneGuard">Login</AppButton>
+            {errorMessage ? (
+              <Text
+                accessibilityLiveRegion="assertive"
+                style={[styles.error, { color: theme.danger }]}>
+                {errorMessage}
+              </Text>
+            ) : null}
+            <AppButton
+              onPress={() => void submit()}
+              disabled={submitting || !email.trim() || !password}
+              leadingIcon="log-in"
+              trailingIcon="arrow-right"
+              accessibilityLabel={submitting ? 'Signing in to CaneGuard' : 'Login to CaneGuard'}>
+              {submitting ? 'Signing In...' : 'Login'}
+            </AppButton>
           </View>
 
           <View style={styles.signupRow}>
@@ -113,6 +142,7 @@ const styles = StyleSheet.create({
   input: { minHeight: 62, paddingHorizontal: Spacing.lg, borderWidth: 1, borderRadius: Radius.lg, flexDirection: 'row', alignItems: 'center', gap: Spacing.md, ...Shadows.sm },
   inputCopy: { flex: 1 },
   inputText: { ...Typography.body, minHeight: 44, paddingVertical: Spacing.sm },
+  error: { ...Typography.bodySmall, fontWeight: '700' },
   trailingButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   signupRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   signupButton: { minHeight: 44, flexShrink: 1, alignItems: 'center', justifyContent: 'center' },

@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@/constants/theme';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
+import type { SyncStatus } from '@/database/schema';
 import { useTheme } from '@/hooks/use-theme';
 
 type RecordCardProps = {
@@ -24,6 +25,7 @@ export function RecordCard({ record, onPress }: RecordCardProps) {
   const [imageUnavailable, setImageUnavailable] = useState(false);
   const savedAt = formatSavedAt(record.createdAt);
   const variant = toPillVariant(record.predictedLabel);
+  const syncPresentation = getSyncPresentation(record.syncStatus);
 
   return (
     <Pressable
@@ -88,18 +90,44 @@ export function RecordCard({ record, onPress }: RecordCardProps) {
             {Math.round(record.confidence * 100)}% confidence
           </Text>
           <View style={styles.status}>
-            <Feather name="smartphone" size={14} color={theme.info} />
+            <Feather
+              name={syncPresentation.icon}
+              size={14}
+              color={theme[syncPresentation.color]}
+            />
             <Text
               numberOfLines={1}
               ellipsizeMode="tail"
-              style={[styles.statusText, { color: theme.info }]}>
-              Saved on this device
+              style={[
+                styles.statusText,
+                { color: theme[syncPresentation.color] },
+              ]}>
+              {syncPresentation.label}
             </Text>
           </View>
         </View>
       </View>
     </Pressable>
   );
+}
+
+export function getSyncPresentation(status: SyncStatus): {
+  color: 'danger' | 'info' | 'success' | 'warning';
+  icon: keyof typeof Feather.glyphMap;
+  label: string;
+} {
+  switch (status) {
+    case 'local_only':
+      return { color: 'info', icon: 'smartphone', label: 'Local only' };
+    case 'pending':
+      return { color: 'warning', icon: 'clock', label: 'Pending upload' };
+    case 'syncing':
+      return { color: 'info', icon: 'upload-cloud', label: 'Uploading' };
+    case 'synced':
+      return { color: 'success', icon: 'check-circle', label: 'Synced' };
+    case 'failed':
+      return { color: 'danger', icon: 'alert-triangle', label: 'Sync failed' };
+  }
 }
 
 export function getResultLabel(label: string): string {

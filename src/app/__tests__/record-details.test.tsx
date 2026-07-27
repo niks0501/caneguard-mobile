@@ -21,6 +21,13 @@ jest.mock('@/features/records/hooks/useRecords', () => ({
 jest.mock('@/features/records/services/deleteScanRecord', () => ({
   deleteScanRecord: jest.fn(),
 }));
+jest.mock('@/features/sync/hooks/useSync', () => ({
+  useSync: () => ({
+    isOnline: true,
+    isSyncing: false,
+    retryRecord: jest.fn(async () => null),
+  }),
+}));
 
 const mockUseLocalSearchParams = jest.mocked(useLocalSearchParams);
 const mockDeleteScanRecord = jest.mocked(deleteScanRecord);
@@ -31,7 +38,7 @@ const DETAILS: ScanRecordDetails = {
   predictedLabel: 'rust',
   confidence: 0.82,
   barangay: null,
-  syncStatus: 'local_only',
+  syncStatus: 'pending',
   createdAt: '2026-07-25T05:30:00.000Z',
   imageMimeType: 'image/jpeg',
   imageSizeBytes: 4096,
@@ -53,6 +60,10 @@ const DETAILS: ScanRecordDetails = {
   ],
   symptoms: ['rust'],
   qualityWarnings: ['too-dark'],
+  syncAttemptCount: 0,
+  lastSyncErrorCode: null,
+  lastSyncAttemptAt: null,
+  lastSyncedAt: null,
 };
 
 describe('RecordDetailsScreen', () => {
@@ -89,7 +100,7 @@ describe('RecordDetailsScreen', () => {
     ).toBeOnTheScreen();
     expect(screen.getByText('v0.1-baseline')).toBeOnTheScreen();
     expect(
-      screen.getByText('Local record, not yet connected to MAO'),
+      screen.getByText('Pending upload'),
     ).toBeOnTheScreen();
   });
 

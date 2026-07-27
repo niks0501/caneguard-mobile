@@ -35,6 +35,7 @@ export interface DetectionResult {
 }
 
 export interface ScanSessionState {
+  barangay: string;
   sourceUri: string | null;
   processedUri: string | null;
   preprocessMs: number | null;
@@ -74,5 +75,6 @@ export type ScanSessionAction =
   | { type: 'COMPLETE_INFERENCE'; payload: DetectionResult }
   | { type: 'SET_SYMPTOMS'; payload: ChecklistObservationId[] }
   | { type: 'SET_REPORTED_SEVERITY'; payload: ReportedSeverity | null }
+  | { type: 'SET_BARANGAY'; payload: string }
   | { type: 'SET_ERROR'; payload: string }
   | { type: 'CLEAR_ERROR' };

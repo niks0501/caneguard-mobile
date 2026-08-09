@@ -19,16 +19,6 @@ import {
   listScanRecords,
 } from '@/features/records/data/scanRecordRepository';
 import { insertScanRecord } from '@/features/records/data/scanRecordWriteRepository';
-import {
-  countUnsyncedRecords,
-  findSyncCandidates,
-  findLastSuccessfulSyncAt,
-  markFailed,
-  markPending,
-  markSynced,
-  markSyncing,
-  resetStaleSyncingRecords,
-} from '@/features/records/data/scanRecordSyncRepository';
 import type { SaveCompletedScanInput } from '@/features/records/domain/recordTypes';
 import { getLocalReportSummary } from '@/features/reports/data/reportRepository';
 
@@ -293,11 +283,24 @@ describe('scan record write repository', () => {
       '22',
     ]);
 
-    native
-      .prepare("UPDATE scan_records SET sync_status = 'failed' WHERE id = ?")
-      .run(
-        '2b4666c0-ad10-4d0d-a233-000000000010',
-      );
+    native.prepare(`
+      INSERT INTO field_reports (
+        id, scan_record_id, authoring_state, farmer_or_farm_owner_name,
+        barangay, final_latitude, final_longitude, location_source,
+        observed_at, submitted_at, sync_status, created_at, updated_at
+      ) VALUES (?, ?, 'finalized', ?, ?, ?, ?, 'manual_map', ?, ?, 'failed', ?, ?)
+    `).run(
+      '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+      '2b4666c0-ad10-4d0d-a233-000000000010',
+      'Maria Santos',
+      'Wawa',
+      14.071,
+      120.635,
+      '2026-07-17T05:30:00.000Z',
+      '2026-07-17T06:00:00.000Z',
+      '2026-07-17T06:00:00.000Z',
+      '2026-07-17T06:00:00.000Z',
+    );
     await expect(
       listScanRecords(database, { syncStatus: 'failed', limit: 100 }),
     ).resolves.toHaveLength(1);
@@ -433,80 +436,4 @@ describe('scan record write repository', () => {
     native.close();
   });
 
-  it('updates synchronization state atomically and recovers stale uploads', async () => {
-    const { database, native } = openTestDatabase();
-    await insertScanRecord(database, validInput());
-    await markPending(database, RECORD_ID);
-
-    await expect(countUnsyncedRecords(database)).resolves.toBe(1);
-    await expect(findSyncCandidates(database, 10)).resolves.toHaveLength(1);
-
-    await markSyncing(
-      database,
-      RECORD_ID,
-      '2026-07-27T01:00:00.000Z',
-    );
-    expect(
-      native
-        .prepare(
-          'SELECT sync_status, sync_attempt_count, last_sync_attempt_at FROM scan_records WHERE id = ?',
-        )
-        .get(RECORD_ID),
-    ).toEqual({
-      sync_status: 'syncing',
-      sync_attempt_count: 1,
-      last_sync_attempt_at: '2026-07-27T01:00:00.000Z',
-    });
-
-    await resetStaleSyncingRecords(
-      database,
-      '2026-07-27T01:05:00.000Z',
-    );
-    expect(
-      native
-        .prepare(
-          'SELECT sync_status, last_sync_error_code FROM scan_records WHERE id = ?',
-        )
-        .get(RECORD_ID),
-    ).toEqual({
-      sync_status: 'pending',
-      last_sync_error_code: 'STALE_SYNC_RECOVERED',
-    });
-
-    await markFailed(
-      database,
-      RECORD_ID,
-      'NETWORK_REQUEST_FAILED',
-      '2026-07-27T01:06:00.000Z',
-    );
-    await expect(findSyncCandidates(database, 10)).resolves.toHaveLength(0);
-    await expect(findSyncCandidates(database, 10, true)).resolves.toHaveLength(
-      1,
-    );
-
-    await markPending(database, RECORD_ID);
-    await markSynced(
-      database,
-      RECORD_ID,
-      'server-report-uuid',
-      '2026-07-27T01:07:00.000Z',
-    );
-    expect(
-      native
-        .prepare(
-          'SELECT sync_status, remote_id, last_synced_at, last_sync_error_code FROM scan_records WHERE id = ?',
-        )
-        .get(RECORD_ID),
-    ).toEqual({
-      sync_status: 'synced',
-      remote_id: 'server-report-uuid',
-      last_synced_at: '2026-07-27T01:07:00.000Z',
-      last_sync_error_code: null,
-    });
-    await expect(countUnsyncedRecords(database)).resolves.toBe(0);
-    await expect(findLastSuccessfulSyncAt(database)).resolves.toBe(
-      '2026-07-27T01:07:00.000Z',
-    );
-    native.close();
-  });
 });

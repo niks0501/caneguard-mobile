@@ -445,8 +445,8 @@
     "semantic_hash": ""
   },
   "src/database/__tests__/migrations.test.ts": {
-    "mtime": 1786297489.925259,
-    "ast_hash": "c83af9da936737d5debac60fba69ccfe",
+    "mtime": 1786299783.7417486,
+    "ast_hash": "a0d8b940697c8f3c4e4e2ab08a0aeca3",
     "semantic_hash": ""
   },
   "src/database/database.ts": {
@@ -465,8 +465,8 @@
     "semantic_hash": ""
   },
   "src/database/schema.ts": {
-    "mtime": 1786297462.013243,
-    "ast_hash": "5451e8a96dd7484b51c02713c4410097",
+    "mtime": 1786299643.1826007,
+    "ast_hash": "79c90949e3a4e1a6b2e685f84800fa7b",
     "semantic_hash": ""
   },
   "src/database/useStorageDiagnostics.ts": {
@@ -540,8 +540,8 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/record-details.test.tsx": {
-    "mtime": 1786298328.0495067,
-    "ast_hash": "412f16d0d9109f994087450e5aa89e23",
+    "mtime": 1786299584.773767,
+    "ast_hash": "bf7d635cb013079a5ae9a2686b14433e",
     "semantic_hash": ""
   },
   "src/app/__tests__/records.test.tsx": {
@@ -725,38 +725,53 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/field-report.test.tsx": {
-    "mtime": 1786297744.5133216,
-    "ast_hash": "f52d3f25a058ae554dbfa7e689ebc163",
+    "mtime": 1786299676.2737327,
+    "ast_hash": "199a38338c5738b4ca7604db197d5198",
     "semantic_hash": ""
   },
   "src/app/field-report.tsx": {
-    "mtime": 1786297801.3293347,
-    "ast_hash": "56b8cd7fff0ecafd016867638fd3ad3b",
+    "mtime": 1786299783.5857484,
+    "ast_hash": "6465e5adbfd2ac6b03d333dcadfd1c9e",
     "semantic_hash": ""
   },
   "src/features/reports/data/__tests__/fieldReportRepository.test.ts": {
-    "mtime": 1786297569.3584337,
-    "ast_hash": "b8de6b8d0c5ccdde5f9d8e509c037af6",
+    "mtime": 1786299787.0497508,
+    "ast_hash": "490fff5ab7a585b240454aae3f8508ac",
     "semantic_hash": ""
   },
   "src/features/reports/data/fieldReportRepository.ts": {
-    "mtime": 1786297539.2932782,
-    "ast_hash": "d0eda30f3143e69132867ebd9114b7f6",
+    "mtime": 1786299416.7137446,
+    "ast_hash": "ed3641d1735acb22b39aa565b3c15e1c",
     "semantic_hash": ""
   },
   "src/features/reports/domain/fieldReportTypes.ts": {
-    "mtime": 1786297539.141278,
-    "ast_hash": "bdb8db68391914d0dff585fc921c5c68",
+    "mtime": 1786299416.6377447,
+    "ast_hash": "c8d7cf5a05553ee2c88cc5974f0c8657",
     "semantic_hash": ""
   },
   "src/features/reports/domain/fieldReportValidation.ts": {
-    "mtime": 1786297539.217278,
-    "ast_hash": "51698a5734a23b469fbbcf609a71f011",
+    "mtime": 1786299409.185745,
+    "ast_hash": "dde105a6d729a1af3cf6ba5b3442ddf0",
     "semantic_hash": ""
   },
   "src/features/reports/hooks/useFieldReportDraft.ts": {
-    "mtime": 1786297620.2532606,
-    "ast_hash": "d2ec210dcc15701f6315a3d3b1cca10b",
+    "mtime": 1786299783.5097485,
+    "ast_hash": "0a0a81818b7bdec00f08ba8d22317a7a",
+    "semantic_hash": ""
+  },
+  "src/features/reports/services/__tests__/captureGpsLocation.test.ts": {
+    "mtime": 1786299544.3057492,
+    "ast_hash": "1938076ad894b506415077c13bb355a2",
+    "semantic_hash": ""
+  },
+  "src/features/reports/services/captureGpsLocation.ts": {
+    "mtime": 1786299449.1417463,
+    "ast_hash": "d5de9378a069d701469b3001cdaf97b4",
+    "semantic_hash": ""
+  },
+  "src/features/reports/services/expoForegroundLocationClient.ts": {
+    "mtime": 1786299449.2177463,
+    "ast_hash": "7e77628cfef8adc57a148e90fd758587",
     "semantic_hash": ""
   }
 }

@@ -1,9 +1,9 @@
 import type { CaneGuardDatabase } from '@/database/database';
-import { createScanRecordSyncRepository } from '@/features/records/data/scanRecordSyncRepository';
+import { createFieldReportSyncRepository } from '@/features/reports/data/fieldReportSyncRepository';
 import {
-  syncScanRecord,
+  syncFieldReport,
   type SyncResult,
-} from '@/features/sync/services/syncScanRecord';
+} from '@/features/sync/services/syncFieldReport';
 
 export type SyncTriggerSource =
   | 'after-save'
@@ -21,7 +21,7 @@ export interface SyncBatchResult {
   synced: number;
 }
 
-interface SyncPendingScansOptions {
+interface SyncPendingFieldReportsOptions {
   database: CaneGuardDatabase;
   limit?: number;
   source: SyncTriggerSource;
@@ -30,13 +30,12 @@ interface SyncPendingScansOptions {
 
 let activeRun: Promise<SyncBatchResult> | null = null;
 
-export function syncPendingScans(
-  options: SyncPendingScansOptions,
+export function syncPendingFieldReports(
+  options: SyncPendingFieldReportsOptions,
 ): Promise<SyncBatchResult> {
   if (activeRun) {
     return activeRun;
   }
-
   const run = executeBatch(options).finally(() => {
     if (activeRun === run) {
       activeRun = null;
@@ -51,8 +50,8 @@ async function executeBatch({
   limit = 10,
   source,
   token,
-}: SyncPendingScansOptions): Promise<SyncBatchResult> {
-  const repository = createScanRecordSyncRepository(database);
+}: SyncPendingFieldReportsOptions): Promise<SyncBatchResult> {
+  const repository = createFieldReportSyncRepository(database);
   const candidates = await repository.findSyncCandidates(
     limit,
     source === 'manual',
@@ -61,13 +60,12 @@ async function executeBatch({
   let authRequired = false;
 
   for (const candidate of candidates) {
-    const result = await syncScanRecord({
-      recordId: candidate.id,
+    const result = await syncFieldReport({
+      reportId: candidate.id,
       repository,
       token,
     });
     results.push(result);
-
     if (result.status === 'failed' && result.error.code === 'AUTH_REQUIRED') {
       authRequired = true;
       break;

@@ -30,9 +30,11 @@ import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
+import type { SyncStatus } from '@/database/schema';
 import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
 import { deleteScanRecord } from '@/features/records/services/deleteScanRecord';
 import { useFieldReportForScan } from '@/features/reports/hooks/useFieldReportDraft';
+import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
 import { getSyncErrorMessage } from '@/features/sync/errors/syncErrors';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
@@ -61,19 +63,19 @@ export default function RecordDetailsScreen() {
   const [retrying, setRetrying] = useState(false);
 
   const retrySync = async () => {
-    if (!id || retrying) {
+    if (!fieldReport.data || retrying) {
       return;
     }
     setRetrying(true);
-    await sync.retryRecord(id);
-    await record.refresh();
+    await sync.retryReport(fieldReport.data.id);
+    await fieldReport.refresh();
     setRetrying(false);
   };
 
   const confirmDelete = () => {
     Alert.alert(
       'Delete local record?',
-      'This removes the scan, its saved image, and any associated Field Report Draft from this device. This action cannot be undone.',
+      'This removes the scan, its saved image, and any associated Field Report from this device. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -192,14 +194,14 @@ export default function RecordDetailsScreen() {
                 <Text style={[styles.confidence, { color: theme.primary }]}>
                   {Math.round(record.data.confidence * 100)}% AI confidence
                 </Text>
-                <RecordSyncStatus status={record.data.syncStatus} />
+                <RecordSyncStatus
+                  status={fieldReport.data?.syncStatus ?? 'local_only'}
+                />
               </View>
 
               <Section title="Field Report">
                 <Text style={[styles.reportMessage, { color: theme.textSecondary }]}>
-                  {fieldReport.data
-                    ? 'Continue the same locally saved Draft. Partial information is preserved.'
-                    : 'Create a separate Field Report Draft from this completed scan.'}
+                  {getFieldReportAction(fieldReport.data).message}
                 </Text>
                 {fieldReport.errorMessage ? (
                   <Text style={[styles.deleteError, { color: theme.danger }]}>
@@ -215,17 +217,11 @@ export default function RecordDetailsScreen() {
                     } as unknown as Href)
                   }
                   disabled={fieldReport.loading}
-                  leadingIcon={fieldReport.data ? 'edit-3' : 'file-plus'}
-                  accessibilityLabel={
-                    fieldReport.data
-                      ? 'Resume Field Report draft'
-                      : 'Create Field Report draft'
-                  }>
+                  leadingIcon={getFieldReportAction(fieldReport.data).icon}
+                  accessibilityLabel={getFieldReportAction(fieldReport.data).accessibilityLabel}>
                   {fieldReport.loading
                     ? 'Checking Draft...'
-                    : fieldReport.data
-                      ? 'Resume Draft'
-                      : 'Create Report Draft'}
+                    : getFieldReportAction(fieldReport.data).label}
                 </AppButton>
               </Section>
 
@@ -287,19 +283,19 @@ export default function RecordDetailsScreen() {
                 />
                 <DetailRow
                   label="Server report UUID"
-                  value={record.data.remoteId ?? 'Not assigned'}
+                  value={fieldReport.data?.remoteId ?? 'Not assigned'}
                 />
                 <DetailRow
                   label="Last synchronized"
                   value={
-                    record.data.lastSyncedAt
-                      ? formatSavedAt(record.data.lastSyncedAt)
+                    fieldReport.data?.lastSyncedAt
+                      ? formatSavedAt(fieldReport.data.lastSyncedAt)
                       : 'Not yet synchronized'
                   }
                 />
               </Section>
 
-              {record.data.lastSyncErrorCode ? (
+              {fieldReport.data?.lastSyncErrorCode ? (
                 <View
                   accessibilityLiveRegion="assertive"
                   style={[
@@ -308,14 +304,14 @@ export default function RecordDetailsScreen() {
                   ]}>
                   <Feather name="alert-triangle" size={19} color={theme.danger} />
                   <Text style={[styles.syncErrorText, { color: theme.text }]}>
-                    {getSyncErrorMessage(record.data.lastSyncErrorCode) ??
+                    {getSyncErrorMessage(fieldReport.data.lastSyncErrorCode) ??
                       'The last upload did not finish.'}
                   </Text>
                 </View>
               ) : null}
 
-              {record.data.syncStatus === 'pending' ||
-              record.data.syncStatus === 'failed' ? (
+              {fieldReport.data?.syncStatus === 'pending' ||
+              fieldReport.data?.syncStatus === 'failed' ? (
                 <AppButton
                   onPress={() => void retrySync()}
                   disabled={retrying || sync.isSyncing || sync.isOnline !== true}
@@ -362,10 +358,40 @@ export default function RecordDetailsScreen() {
   );
 }
 
+function getFieldReportAction(report: FieldReport | null): {
+  accessibilityLabel: string;
+  icon: keyof typeof Feather.glyphMap;
+  label: string;
+  message: string;
+} {
+  if (!report) {
+    return {
+      accessibilityLabel: 'Create Field Report draft',
+      icon: 'file-plus',
+      label: 'Create Report Draft',
+      message: 'Create a separate Field Report Draft from this completed scan.',
+    };
+  }
+  if (report.authoringState === 'draft') {
+    return {
+      accessibilityLabel: 'Resume Field Report draft',
+      icon: 'edit-3',
+      label: 'Resume Draft',
+      message: 'Continue the same locally saved Draft. Partial information is preserved.',
+    };
+  }
+  return {
+    accessibilityLabel: 'Open finalized Field Report',
+    icon: 'check-circle',
+    label: 'View Finalized Report',
+    message: 'This Field Report is finalized locally and pending synchronization.',
+  };
+}
+
 function RecordSyncStatus({
   status,
 }: {
-  status: ScanRecordDetails['syncStatus'];
+  status: SyncStatus;
 }) {
   const theme = useTheme();
   const presentation = getSyncPresentation(status);

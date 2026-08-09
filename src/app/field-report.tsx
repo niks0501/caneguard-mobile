@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
-import { getResultLabel } from '@/components/ui/RecordCard';
+import { getResultLabel, getSyncPresentation } from '@/components/ui/RecordCard';
 import { TextField } from '@/components/ui/TextField';
 import {
   ComponentTokens,
@@ -23,10 +23,14 @@ import {
   Typography,
 } from '@/constants/theme';
 import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
-import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
+import type {
+  FieldReport,
+  FieldReportSubmissionRequirement,
+} from '@/features/reports/domain/fieldReportTypes';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
+import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function FieldReportScreen() {
@@ -38,6 +42,29 @@ export default function FieldReportScreen() {
   const report = useFieldReportDraft(scanRecordId);
   const record = useScanRecordDetails(scanRecordId);
   const { user } = useAuth();
+  const sync = useSync();
+  const [retrying, setRetrying] = useState(false);
+
+  const finalizeAndSync = async (values: {
+    barangay: string;
+    farmerOrFarmOwnerName: string;
+  }) => {
+    const finalized = await report.finalize(values);
+    if (finalized) {
+      await sync.syncNow('after-save');
+      await report.refresh();
+    }
+  };
+
+  const retrySync = async () => {
+    if (!report.data || retrying) {
+      return;
+    }
+    setRetrying(true);
+    await sync.retryReport(report.data.id);
+    await report.refresh();
+    setRetrying(false);
+  };
 
   return (
     <SafeAreaView
@@ -68,39 +95,98 @@ export default function FieldReportScreen() {
             contentContainerStyle={styles.scrollContent}>
             <View style={styles.content}>
               <View
+                testID="field-report.authoring-status"
                 style={[
                   styles.statusCard,
-                  { backgroundColor: theme.warningBg, borderColor: theme.warning },
+                  {
+                    backgroundColor:
+                      report.data.authoringState === 'finalized'
+                        ? theme.successBg
+                        : theme.warningBg,
+                    borderColor:
+                      report.data.authoringState === 'finalized'
+                        ? theme.success
+                        : theme.warning,
+                  },
                 ]}>
-                <Feather name="edit-3" size={20} color={theme.warning} />
+                <Feather
+                  name={report.data.authoringState === 'finalized' ? 'check-circle' : 'edit-3'}
+                  size={20}
+                  color={report.data.authoringState === 'finalized' ? theme.success : theme.warning}
+                />
                 <View style={styles.statusCopy}>
-                  <Text style={[styles.statusTitle, { color: theme.text }]}>Draft</Text>
+                  <Text style={[styles.statusTitle, { color: theme.text }]}>
+                    {report.data.authoringState === 'finalized'
+                      ? `Finalized · ${getSyncPresentation(report.data.syncStatus).label}`
+                      : 'Draft'}
+                  </Text>
                   <Text style={[styles.statusMessage, { color: theme.textSecondary }]}> 
-                    Save incomplete information now and return later. Drafts are
-                    stored only on this device and are not queued for synchronization.
+                    {report.data.authoringState === 'finalized'
+                      ? 'This report passed submission validation and is queued locally for synchronization.'
+                      : 'Save incomplete information now and return later. Drafts are stored only on this device and are not queued for synchronization.'}
                   </Text>
                 </View>
               </View>
 
-              <DraftFields
-                key={report.data.id}
-                fieldReport={report.data}
-                reporterName={
-                  user?.uuid === report.data.submitterIdentity
-                    ? user.name
-                    : report.data.submitterIdentity
-                }
-                captureInProgress={report.capturingLocation}
-                saving={report.saving}
-                onSave={(values) => void report.save(values)}
-              />
+              {report.data.authoringState === 'draft' ? (
+                <>
+                  <DraftFields
+                    key={report.data.id}
+                    fieldReport={report.data}
+                    reporterName={
+                      user?.uuid === report.data.submitterIdentity
+                        ? user.name
+                        : report.data.submitterIdentity
+                    }
+                    captureInProgress={report.capturingLocation}
+                    finalizing={report.finalizing}
+                    saving={report.saving}
+                    submissionIssues={report.submissionIssues}
+                    onFinalize={(values) => void finalizeAndSync(values)}
+                    onSave={(values) => void report.save(values)}
+                  />
 
-              <LocationCapture
-                fieldReport={report.data}
-                capturing={report.capturingLocation}
-                saveInProgress={report.saving}
-                onCapture={() => void report.captureLocation()}
-              />
+                  <LocationCapture
+                    fieldReport={report.data}
+                    capturing={report.capturingLocation}
+                    isOnline={sync.isOnline}
+                    saveInProgress={report.saving || report.finalizing}
+                    onCapture={() => void report.captureLocation()}
+                    onOpenMap={() =>
+                      router.push(
+                        {
+                          pathname: './manual-map',
+                          params: {
+                            reportId: report.data!.id,
+                            scanRecordId: report.data!.scanRecordId,
+                          },
+                        },
+                      )
+                    }
+                  />
+                </>
+              ) : (
+                <>
+                  <FinalizedReportSummary fieldReport={report.data} />
+                  {report.data.syncStatus === 'pending' ||
+                  report.data.syncStatus === 'failed' ? (
+                    <AppButton
+                      testID="field-report.retry-sync"
+                      onPress={() => void retrySync()}
+                      disabled={
+                        retrying || sync.isSyncing || sync.isOnline !== true
+                      }
+                      leadingIcon="refresh-cw"
+                      accessibilityLabel={
+                        retrying
+                          ? 'Retrying Field Report synchronization'
+                          : 'Sync Field Report'
+                      }>
+                      {retrying ? 'Synchronizing…' : 'Sync Report'}
+                    </AppButton>
+                  ) : null}
+                </>
+              )}
 
               <InheritedScanEvidence
                 record={record.data}
@@ -139,8 +225,11 @@ function DraftFields({
   captureInProgress,
   fieldReport,
   onSave,
+  onFinalize,
   reporterName,
   saving,
+  finalizing,
+  submissionIssues,
 }: {
   captureInProgress: boolean;
   fieldReport: FieldReport;
@@ -148,8 +237,14 @@ function DraftFields({
     barangay: string;
     farmerOrFarmOwnerName: string;
   }) => void;
+  onFinalize: (values: {
+    barangay: string;
+    farmerOrFarmOwnerName: string;
+  }) => void;
   reporterName: string | null;
   saving: boolean;
+  finalizing: boolean;
+  submissionIssues: FieldReportSubmissionRequirement[];
 }) {
   const theme = useTheme();
   const [farmerName, setFarmerName] = useState(
@@ -218,6 +313,26 @@ function DraftFields({
         }>
         {saving ? 'Saving Draft...' : 'Save Draft'}
       </AppButton>
+      {submissionIssues.length > 0 ? (
+        <View
+          testID="field-report.submission-issues"
+          accessibilityLiveRegion="assertive"
+          style={[styles.validationCard, { backgroundColor: theme.dangerBg, borderColor: theme.danger }]}>
+          <Text style={[styles.validationTitle, { color: theme.danger }]}>Complete these requirements before finalizing:</Text>
+          {submissionIssues.map((issue) => (
+            <Text key={issue} style={[styles.statusMessage, { color: theme.text }]}>• {SUBMISSION_REQUIREMENT_LABELS[issue]}</Text>
+          ))}
+          <Text style={[styles.helpText, { color: theme.textSecondary }]}>Your latest entries were saved and this report remains a Draft.</Text>
+        </View>
+      ) : null}
+      <AppButton
+        testID="field-report.finalize"
+        onPress={() => onFinalize({ farmerOrFarmOwnerName: farmerName, barangay })}
+        disabled={saving || captureInProgress || finalizing}
+        leadingIcon="check-circle"
+        accessibilityLabel={finalizing ? 'Finalizing Field Report' : 'Finalize Field Report'}>
+        {finalizing ? 'Finalizing Report…' : 'Finalize Report'}
+      </AppButton>
     </>
   );
 }
@@ -226,12 +341,16 @@ function LocationCapture({
   capturing,
   fieldReport,
   onCapture,
+  onOpenMap,
   saveInProgress,
+  isOnline,
 }: {
   capturing: boolean;
   fieldReport: FieldReport;
   onCapture: () => void;
+  onOpenMap: () => void;
   saveInProgress: boolean;
+  isOnline: boolean | null;
 }) {
   const theme = useTheme();
   const presentation = getGpsPresentation(fieldReport);
@@ -244,7 +363,7 @@ function LocationCapture({
       ]}>
       <View style={styles.sectionHeading}>
         <Feather name="map-pin" size={20} color={theme.primary} />
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>GPS location</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Report location</Text>
       </View>
       <Text
         testID="field-report.gps-status"
@@ -259,6 +378,16 @@ function LocationCapture({
           {fieldReport.gpsAttemptLatitude.toFixed(6)}, {fieldReport.gpsAttemptLongitude.toFixed(6)} · ±{Math.round(fieldReport.gpsAttemptAccuracy)} m
         </Text>
       ) : null}
+      {fieldReport.locationSource === 'manual_map' &&
+      fieldReport.finalLatitude !== null &&
+      fieldReport.finalLongitude !== null ? (
+        <View style={styles.automaticFields}>
+          <Text testID="field-report.manual-location" style={[styles.gpsEvidence, { color: theme.text }]}>Manual map · {fieldReport.finalLatitude.toFixed(6)}, {fieldReport.finalLongitude.toFixed(6)} · GPS accuracy not applicable</Text>
+          {fieldReport.manualLocationSelectedAt ? (
+            <Text testID="field-report.manual-location-selected-at" style={[styles.helpText, { color: theme.textSecondary }]}>Selected {formatTimestamp(fieldReport.manualLocationSelectedAt)}</Text>
+          ) : null}
+        </View>
+      ) : null}
       <AppButton
         testID="field-report.capture-gps"
         onPress={onCapture}
@@ -267,6 +396,21 @@ function LocationCapture({
         accessibilityLabel={capturing ? 'Capturing GPS location' : presentation.actionLabel}>
         {capturing ? 'Capturing GPS...' : presentation.actionLabel}
       </AppButton>
+      {canUseManualMap(fieldReport) ? (
+        isOnline === true ? (
+          <AppButton
+            testID="field-report.open-manual-map"
+            accessibilityLabel="Open online manual map"
+            onPress={onOpenMap}
+            disabled={capturing || saveInProgress}
+            leadingIcon="map"
+            variant="secondary">
+            {fieldReport.locationSource === 'manual_map' ? 'Change Manual Map Location' : 'Pin Location on Online Map'}
+          </AppButton>
+        ) : (
+          <Text testID="field-report.manual-map-offline" style={[styles.helpText, { color: theme.textSecondary }]}>The manual map fallback becomes available when this device is online. The Draft remains unchanged.</Text>
+        )
+      ) : null}
       <Text style={[styles.helpText, { color: theme.textSecondary }]}>
         CaneGuard requests one foreground reading only. A reading above the preferred 5 m quality target is retained as attempt evidence but does not become the final report location.
       </Text>
@@ -347,6 +491,16 @@ function getGpsPresentation(fieldReport: FieldReport): {
   message: string;
 } {
   if (
+    fieldReport.locationSource === 'manual_map' &&
+    fieldReport.finalLatitude !== null &&
+    fieldReport.finalLongitude !== null
+  ) {
+    return {
+      actionLabel: 'Use GPS Instead',
+      message: 'Final coordinates were selected manually on the online map. They are not presented as GPS-measured.',
+    };
+  }
+  if (
     fieldReport.locationSource === 'gps' &&
     fieldReport.finalLatitude !== null &&
     fieldReport.finalLongitude !== null &&
@@ -391,6 +545,59 @@ function getGpsPresentation(fieldReport: FieldReport): {
       };
   }
 }
+
+function canUseManualMap(fieldReport: FieldReport): boolean {
+  return (
+    fieldReport.locationSource === 'manual_map' ||
+    (fieldReport.locationSource === null &&
+      fieldReport.gpsCaptureOutcome !== null &&
+      fieldReport.gpsCaptureOutcome !== 'resolved')
+  );
+}
+
+function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.formCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
+      <EvidenceRow label="Farmer or farm owner" value={fieldReport.farmerOrFarmOwnerName ?? 'Not provided'} />
+      <EvidenceRow label="Area" value={`${fieldReport.barangay}, ${fieldReport.municipality}, ${fieldReport.province}`} />
+      <EvidenceRow label="Location source" value={fieldReport.locationSource === 'manual_map' ? 'Manual map' : 'GPS'} />
+      {fieldReport.manualLocationSelectedAt ? (
+        <EvidenceRow label="Manual location selected" value={formatTimestamp(fieldReport.manualLocationSelectedAt)} />
+      ) : null}
+      <EvidenceRow label="Observation time" value={formatTimestamp(fieldReport.observedAt)} />
+      <EvidenceRow label="Local submission time" value={fieldReport.submittedAt ? formatTimestamp(fieldReport.submittedAt) : 'Not submitted'} />
+      <EvidenceRow label="Synchronization" value={getSyncPresentation(fieldReport.syncStatus).label} />
+      {fieldReport.remoteId ? (
+        <EvidenceRow label="Server report UUID" value={fieldReport.remoteId} />
+      ) : null}
+      {fieldReport.lastSyncedAt ? (
+        <EvidenceRow label="Last synchronized" value={formatTimestamp(fieldReport.lastSyncedAt)} />
+      ) : null}
+    </View>
+  );
+}
+
+const SUBMISSION_REQUIREMENT_LABELS: Record<
+  FieldReportSubmissionRequirement,
+  string
+> = {
+  original_scan_image: 'Original scan image',
+  ai_supported_result: 'AI-supported result',
+  confidence: 'Confidence score',
+  class_scores: 'Class scores',
+  symptom_checklist: 'Symptom checklist evidence',
+  farmer_or_farm_owner_name: 'Farmer or farm owner name',
+  submitter_identity: 'Authenticated submitter identity',
+  submitter_role: 'Field reporter role',
+  province: 'Batangas province',
+  municipality: 'Nasugbu municipality',
+  barangay: 'Barangay',
+  final_coordinates: 'Final coordinates',
+  location_source: 'GPS or manual-map location source',
+  gps_accuracy: 'Device-reported GPS accuracy',
+  observation_time: 'Observation time',
+};
 
 function formatTimestamp(value: string): string {
   return new Date(value).toLocaleString();
@@ -442,5 +649,12 @@ const styles = StyleSheet.create({
   evidenceValue: { ...Typography.bodySmall, fontWeight: '600' },
   error: { ...Typography.bodySmall, fontWeight: '700' },
   saved: { ...Typography.bodySmall, fontWeight: '800', textAlign: 'center' },
+  validationCard: {
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  validationTitle: { ...Typography.bodySmall, fontWeight: '800' },
   identity: { ...Typography.caption, textAlign: 'center' },
 });

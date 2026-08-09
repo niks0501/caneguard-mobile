@@ -35,7 +35,7 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({
     isOnline: true,
     isSyncing: false,
-    retryRecord: jest.fn(async () => null),
+    retryReport: jest.fn(async () => null),
   }),
 }));
 
@@ -121,6 +121,10 @@ describe('RecordDetailsScreen', () => {
         finalLatitude: null,
         finalLongitude: null,
         locationSource: null,
+        lastSyncAttemptAt: null,
+        lastSyncErrorCode: null,
+        lastSyncedAt: null,
+        manualLocationSelectedAt: null,
         gpsAccuracy: null,
         gpsAttemptAccuracy: null,
         gpsAttemptLatitude: null,
@@ -129,9 +133,11 @@ describe('RecordDetailsScreen', () => {
         gpsCaptureOutcome: null,
         gpsOutcomeRecordedAt: null,
         observedAt: DETAILS.createdAt,
+        remoteId: null,
         submittedAt: null,
         submitterIdentity: 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
         submitterRole: 'field_reporter',
+        syncAttemptCount: 0,
         syncStatus: 'local_only',
         createdAt: '2026-08-10T01:00:00.000Z',
         updatedAt: '2026-08-10T01:05:00.000Z',
@@ -139,6 +145,50 @@ describe('RecordDetailsScreen', () => {
     };
     await view.rerender(<RecordDetailsScreen />);
     expect(screen.getByLabelText('Resume Field Report draft')).toBeOnTheScreen();
+  });
+
+  it('opens a finalized Field Report without presenting it as an editable Draft', async () => {
+    mockFieldReportState = {
+      ...mockFieldReportState,
+      data: {
+        id: '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+        scanRecordId: RECORD_ID,
+        authoringState: 'finalized',
+        farmerOrFarmOwnerName: 'Maria Santos',
+        province: 'Batangas',
+        municipality: 'Nasugbu',
+        barangay: 'Lumbangan',
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        locationSource: 'gps',
+        lastSyncAttemptAt: null,
+        lastSyncErrorCode: null,
+        lastSyncedAt: null,
+        manualLocationSelectedAt: null,
+        gpsAccuracy: 4.2,
+        gpsAttemptAccuracy: 4.2,
+        gpsAttemptLatitude: 14.0667,
+        gpsAttemptLongitude: 120.6319,
+        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
+        gpsCaptureOutcome: 'resolved',
+        gpsOutcomeRecordedAt: '2026-08-10T01:04:00.000Z',
+        observedAt: DETAILS.createdAt,
+        remoteId: null,
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        submitterIdentity: 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
+        submitterRole: 'field_reporter',
+        syncAttemptCount: 0,
+        syncStatus: 'pending',
+        createdAt: '2026-08-10T01:00:00.000Z',
+        updatedAt: '2026-08-10T03:00:00.000Z',
+      },
+    };
+
+    await render(<RecordDetailsScreen />);
+
+    expect(screen.getByLabelText('Open finalized Field Report')).toBeOnTheScreen();
+    expect(screen.getByText('View Finalized Report')).toBeOnTheScreen();
+    expect(screen.queryByText('Resume Draft')).not.toBeOnTheScreen();
   });
 
   it('loads complete stored metadata by UUID', async () => {
@@ -164,9 +214,7 @@ describe('RecordDetailsScreen', () => {
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText('v0.1-baseline')).toBeOnTheScreen();
-    expect(
-      screen.getByText('Pending upload'),
-    ).toBeOnTheScreen();
+    expect(screen.getByText('Local only')).toBeOnTheScreen();
   });
 
   it('keeps metadata visible when the managed image is missing', async () => {
@@ -193,7 +241,7 @@ describe('RecordDetailsScreen', () => {
     const confirmation = jest.mocked(Alert.alert).mock.calls[0];
     expect(confirmation[0]).toBe('Delete local record?');
     expect(confirmation[1]).toContain('saved image');
-    expect(confirmation[1]).toContain('Field Report Draft');
+    expect(confirmation[1]).toContain('Field Report');
     const deleteAction = confirmation[2]?.find(
       (action) => action.style === 'destructive',
     );

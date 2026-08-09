@@ -14,11 +14,21 @@ import { StorageError } from '@/database/errors';
 import * as schema from '@/database/schema';
 import {
   createOrGetFieldReportDraft,
+  finalizeFieldReport,
   findFieldReportById,
   findFieldReportByScanRecordId,
   saveGpsCapture,
   saveFieldReportDraft,
+  saveManualMapLocation,
 } from '@/features/reports/data/fieldReportRepository';
+import {
+  countUnsyncedFieldReports,
+  findFieldReportSyncCandidates,
+  markFieldReportFailed,
+  markFieldReportPending,
+  markFieldReportSynced,
+  markFieldReportSyncing,
+} from '@/features/reports/data/fieldReportSyncRepository';
 
 const SCAN_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
 const REPORT_ID = '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e';
@@ -91,6 +101,15 @@ function openTestDatabase(): {
     database: drizzle(client, { schema }) as CaneGuardDatabase,
     native,
   };
+}
+
+function insertCompleteClassScores(native: DatabaseSync): void {
+  const insert = native.prepare(
+    'INSERT INTO scan_class_scores (scan_record_id, label, score) VALUES (?, ?, ?)',
+  );
+  insert.run(SCAN_ID, 'healthy', 0.1);
+  insert.run(SCAN_ID, 'mosaic', 0.1);
+  insert.run(SCAN_ID, 'rust', 0.8);
 }
 
 function createStatementAdapter(statement: StatementSync): SQLiteStatement {
@@ -323,4 +342,206 @@ describe('Field Report draft repository', () => {
       native.close();
     },
   );
+
+  it('stores a manual pin on the same Draft without rewriting prior GPS evidence', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveGpsCapture(database, REPORT_ID, {
+      accuracy: 38,
+      capturedAt: '2026-08-10T01:04:00.000Z',
+      latitude: 14.0667,
+      longitude: 120.6319,
+      outcome: 'low_accuracy',
+      updatedAt: '2026-08-10T01:04:01.000Z',
+    });
+
+    const saved = await saveManualMapLocation(database, REPORT_ID, {
+      latitude: 14.071,
+      longitude: 120.635,
+      selectedAt: '2026-08-10T02:00:00.000Z',
+      updatedAt: '2026-08-10T02:00:01.000Z',
+    });
+    const reopened = await findFieldReportById(database, REPORT_ID);
+
+    expect(saved).toMatchObject({
+      id: REPORT_ID,
+      authoringState: 'draft',
+      finalLatitude: 14.071,
+      finalLongitude: 120.635,
+      gpsAccuracy: null,
+      locationSource: 'manual_map',
+      manualLocationSelectedAt: '2026-08-10T02:00:00.000Z',
+      gpsAttemptLatitude: 14.0667,
+      gpsAttemptLongitude: 120.6319,
+      gpsAttemptAccuracy: 38,
+      gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
+      gpsCaptureOutcome: 'low_accuracy',
+    });
+    expect(reopened).toEqual(saved);
+    native.close();
+  });
+
+  it('keeps latest fields on the same Draft when strict finalization fails', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    await createOrGetFieldReportDraft(database, createDraftInput());
+
+    const result = await finalizeFieldReport(database, REPORT_ID, {
+      farmerOrFarmOwnerName: 'Maria Santos',
+      barangay: '',
+      submittedAt: '2026-08-10T03:00:00.000Z',
+      updatedAt: '2026-08-10T03:00:00.000Z',
+    });
+
+    expect(result).toMatchObject({
+      status: 'invalid',
+      missingRequirements: ['barangay', 'final_coordinates', 'location_source'],
+      report: {
+        id: REPORT_ID,
+        authoringState: 'draft',
+        farmerOrFarmOwnerName: 'Maria Santos',
+        submittedAt: null,
+        syncStatus: 'local_only',
+      },
+    });
+    await expect(findFieldReportById(database, REPORT_ID)).resolves.toMatchObject({
+      farmerOrFarmOwnerName: 'Maria Santos',
+      observedAt: OBSERVED_AT,
+      submittedAt: null,
+    });
+    native.close();
+  });
+
+  it('finalizes a GPS-complete report under the same identity and preserves observation time', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveGpsCapture(database, REPORT_ID, {
+      accuracy: 4.2,
+      capturedAt: '2026-08-10T01:04:00.000Z',
+      latitude: 14.0667,
+      longitude: 120.6319,
+      outcome: 'resolved',
+      updatedAt: '2026-08-10T01:04:01.000Z',
+    });
+
+    await expect(
+      finalizeFieldReport(database, REPORT_ID, {
+        farmerOrFarmOwnerName: 'Maria Santos',
+        barangay: 'Lumbangan',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        updatedAt: '2026-08-10T03:00:00.000Z',
+      }),
+    ).resolves.toMatchObject({
+      status: 'finalized',
+      report: {
+        id: REPORT_ID,
+        authoringState: 'finalized',
+        locationSource: 'gps',
+        gpsAccuracy: 4.2,
+        observedAt: OBSERVED_AT,
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        syncStatus: 'pending',
+      },
+    });
+    expect(native.prepare('SELECT count(*) AS count FROM field_reports').get()).toEqual({ count: 1 });
+    native.close();
+  });
+
+  it('finalizes a manual-map-complete report with null GPS accuracy', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveManualMapLocation(database, REPORT_ID, {
+      latitude: 14.071,
+      longitude: 120.635,
+      selectedAt: '2026-08-10T02:00:00.000Z',
+      updatedAt: '2026-08-10T02:00:01.000Z',
+    });
+
+    const result = await finalizeFieldReport(database, REPORT_ID, {
+      farmerOrFarmOwnerName: 'Maria Santos',
+      barangay: 'Lumbangan',
+      submittedAt: '2026-08-10T03:00:00.000Z',
+      updatedAt: '2026-08-10T03:00:00.000Z',
+    });
+
+    expect(result).toMatchObject({
+      status: 'finalized',
+      report: {
+        id: REPORT_ID,
+        locationSource: 'manual_map',
+        gpsAccuracy: null,
+        manualLocationSelectedAt: '2026-08-10T02:00:00.000Z',
+        observedAt: OBSERVED_AT,
+        syncStatus: 'pending',
+      },
+    });
+    native.close();
+  });
+
+  it('excludes Drafts from the upload queue', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+
+    await expect(findFieldReportSyncCandidates(database, 10, true)).resolves.toEqual([]);
+    await expect(countUnsyncedFieldReports(database)).resolves.toBe(0);
+    expect(native.prepare('SELECT sync_status FROM field_reports').get()).toEqual({
+      sync_status: 'local_only',
+    });
+    native.close();
+  });
+
+  it('persists failure, retries the same finalized report, and retains scan evidence after success', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveManualMapLocation(database, REPORT_ID, {
+      latitude: 14.071,
+      longitude: 120.635,
+      selectedAt: '2026-08-10T02:00:00.000Z',
+      updatedAt: '2026-08-10T02:00:01.000Z',
+    });
+    await finalizeFieldReport(database, REPORT_ID, {
+      farmerOrFarmOwnerName: 'Maria Santos',
+      barangay: 'Lumbangan',
+      submittedAt: '2026-08-10T03:00:00.000Z',
+      updatedAt: '2026-08-10T03:00:00.000Z',
+    });
+
+    await expect(findFieldReportSyncCandidates(database, 10)).resolves.toMatchObject([
+      { id: REPORT_ID, scanRecordId: SCAN_ID, syncStatus: 'pending' },
+    ]);
+    await markFieldReportSyncing(database, REPORT_ID, '2026-08-10T04:00:00.000Z');
+    await markFieldReportFailed(
+      database,
+      REPORT_ID,
+      'NETWORK_UNAVAILABLE',
+      '2026-08-10T04:00:01.000Z',
+    );
+    await markFieldReportPending(database, REPORT_ID);
+    await markFieldReportSyncing(database, REPORT_ID, '2026-08-10T04:01:00.000Z');
+    await markFieldReportSynced(
+      database,
+      REPORT_ID,
+      'server-report-uuid',
+      '2026-08-10T04:01:01.000Z',
+    );
+
+    await expect(findFieldReportById(database, REPORT_ID)).resolves.toMatchObject({
+      id: REPORT_ID,
+      remoteId: 'server-report-uuid',
+      syncAttemptCount: 2,
+      syncStatus: 'synced',
+      lastSyncedAt: '2026-08-10T04:01:01.000Z',
+    });
+    expect(native.prepare('SELECT id, managed_image_uri FROM scan_records').get()).toEqual({
+      id: SCAN_ID,
+      managed_image_uri: `file:///caneguard/scan-images/${SCAN_ID}.jpg`,
+    });
+    expect(native.prepare('SELECT count(*) AS count FROM scan_class_scores').get()).toEqual({
+      count: 3,
+    });
+    native.close();
+  });
 });

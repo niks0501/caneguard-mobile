@@ -1,0 +1,155 @@
+appId: com.niks0501.caneguard
+name: P0-06 complete-in-field report finalization
+tags:
+  - p0
+  - complete-in-field
+  - finalization
+---
+- addMedia:
+    - ../../assets/model-fixtures/parity-reference.jpg
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: Connect
+    commands:
+      - tapOn: "http://"
+      - inputText: "http://127.0.0.1:8081"
+      - tapOn: Connect
+- extendedWaitUntil:
+    visible:
+      id: home.screen
+    timeout: 120000
+- openLink: caneguardmobile://scan
+- extendedWaitUntil:
+    visible:
+      id: scan.screen
+    timeout: 30000
+- tapOn:
+    id: scan.choose-gallery
+- extendedWaitUntil:
+    visible: "Photo taken on .*"
+    timeout: 15000
+- tapOn:
+    text: "Photo taken on .*"
+    index: 0
+- runFlow:
+    when:
+      visible: Done
+    commands:
+      - tapOn: Done
+- extendedWaitUntil:
+    visible:
+      id: scan.preview-screen
+    timeout: 30000
+- tapOn:
+    id: scan.analyze-image
+    enabled: true
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: scan.symptom-checklist-screen
+    timeout: 120000
+- tapOn:
+    id: scan.symptom-rust
+- tapOn:
+    id: scan.continue-to-result
+- extendedWaitUntil:
+    visible:
+      id: scan.result-title
+      text: "Possible result: Rust"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: scan.save-record
+    direction: DOWN
+- tapOn:
+    id: scan.save-record
+    enabled: true
+- extendedWaitUntil:
+    visible:
+      id: scan.record-saved
+    timeout: 30000
+- tapOn:
+    id: scan.open-saved-record
+- extendedWaitUntil:
+    visible:
+      id: records.details-screen
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: records.open-field-report
+    direction: DOWN
+- tapOn:
+    id: records.open-field-report
+- extendedWaitUntil:
+    visible:
+      id: field-report.screen
+    timeout: 30000
+- tapOn:
+    id: field-report.farmer-name-input
+- inputText: P0 Complete Farmer
+- hideKeyboard
+- tapOn:
+    id: field-report.barangay-input
+- inputText: Wawa
+- hideKeyboard
+- setPermissions:
+    permissions:
+      location: deny
+- scrollUntilVisible:
+    element:
+      id: field-report.capture-gps
+    direction: DOWN
+- tapOn:
+    id: field-report.capture-gps
+- runFlow:
+    when:
+      visible: "Don.t allow"
+    commands:
+      - tapOn: "Don.t allow"
+- extendedWaitUntil:
+    visible:
+      id: field-report.gps-status
+      text: ".*permission was denied.*"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: field-report.open-manual-map
+    direction: DOWN
+- tapOn:
+    id: field-report.open-manual-map
+- extendedWaitUntil:
+    visible:
+      id: manual-map.viewport
+      enabled: true
+    timeout: 30000
+- tapOn:
+    id: manual-map.viewport
+- assertVisible:
+    id: manual-map.pin
+- scrollUntilVisible:
+    element:
+      id: manual-map.confirm
+    direction: DOWN
+- tapOn:
+    id: manual-map.confirm
+- extendedWaitUntil:
+    visible:
+      id: field-report.manual-location
+      text: "Manual map .* GPS accuracy not applicable"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: field-report.finalize
+    direction: UP
+- setAirplaneMode: enabled
+- tapOn:
+    id: field-report.finalize
+- extendedWaitUntil:
+    visible: "Finalized · Pending upload"
+    timeout: 30000
+- assertNotVisible:
+    id: field-report.finalize
+- takeScreenshot: .maestro/artifacts/p0-06-complete-in-field-finalized
+- setAirplaneMode: disabled

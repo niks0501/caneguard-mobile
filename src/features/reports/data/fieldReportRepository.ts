@@ -2,17 +2,24 @@ import { and, eq } from 'drizzle-orm';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
-import { fieldReports, scanRecords } from '@/database/schema';
+import { fieldReports, scanClassScores, scanRecords } from '@/database/schema';
 import type {
   CreateFieldReportDraftInput,
   FieldReport,
+  FinalizeFieldReportInput,
+  FinalizeFieldReportResult,
   SaveGpsCaptureInput,
   SaveFieldReportDraftInput,
+  SaveManualMapLocationInput,
 } from '@/features/reports/domain/fieldReportTypes';
+import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import {
+  getMissingSubmissionRequirements,
+  normalizeFinalizeFieldReportInput,
   normalizeFieldReportDraftInput,
   validateGpsCaptureInput,
   validateCreateFieldReportDraftInput,
+  validateManualMapLocationInput,
 } from '@/features/reports/domain/fieldReportValidation';
 
 export async function createOrGetFieldReportDraft(
@@ -172,6 +179,154 @@ export async function saveGpsCapture(
   }
 }
 
+export async function saveManualMapLocation(
+  database: CaneGuardDatabase,
+  id: string,
+  input: SaveManualMapLocationInput,
+): Promise<FieldReport> {
+  validateManualMapLocationInput(input);
+
+  try {
+    return database.transaction((transaction) => {
+      const existing = transaction
+        .select({ authoringState: fieldReports.authoringState })
+        .from(fieldReports)
+        .where(eq(fieldReports.id, id))
+        .get();
+      if (!existing) {
+        throw new StorageError('FIELD_REPORT_NOT_FOUND', 'The Field Report does not exist.');
+      }
+      if (existing.authoringState !== 'draft') {
+        throw new StorageError(
+          'UPDATE_FAILED',
+          'Only a Draft Field Report can select a manual location.',
+        );
+      }
+
+      transaction
+        .update(fieldReports)
+        .set({
+          finalLatitude: input.latitude,
+          finalLongitude: input.longitude,
+          gpsAccuracy: null,
+          locationSource: 'manual_map',
+          manualLocationSelectedAt: input.selectedAt,
+          updatedAt: input.updatedAt,
+        })
+        .where(and(eq(fieldReports.id, id), eq(fieldReports.authoringState, 'draft')))
+        .run();
+
+      const saved = transaction
+        .select()
+        .from(fieldReports)
+        .where(eq(fieldReports.id, id))
+        .get();
+      if (!saved) {
+        throw new StorageError('UPDATE_FAILED', 'The manual location could not be reloaded.');
+      }
+      return toFieldReport(saved);
+    });
+  } catch (error: unknown) {
+    throw toStorageError(error, 'UPDATE_FAILED', 'Saving the manual location failed.');
+  }
+}
+
+export async function finalizeFieldReport(
+  database: CaneGuardDatabase,
+  id: string,
+  input: FinalizeFieldReportInput,
+): Promise<FinalizeFieldReportResult> {
+  const values = normalizeFinalizeFieldReportInput(input);
+
+  try {
+    const result = database.transaction((transaction) => {
+      const existing = transaction
+        .select()
+        .from(fieldReports)
+        .where(eq(fieldReports.id, id))
+        .get();
+      if (!existing) {
+        throw new StorageError('FIELD_REPORT_NOT_FOUND', 'The Field Report does not exist.');
+      }
+      if (existing.authoringState !== 'draft') {
+        throw new StorageError('UPDATE_FAILED', 'Only a Draft Field Report can be finalized.');
+      }
+
+      transaction
+        .update(fieldReports)
+        .set({
+          barangay: values.barangay,
+          farmerOrFarmOwnerName: values.farmerOrFarmOwnerName,
+          updatedAt: values.updatedAt,
+        })
+        .where(and(eq(fieldReports.id, id), eq(fieldReports.authoringState, 'draft')))
+        .run();
+
+      const draftRow = transaction
+        .select()
+        .from(fieldReports)
+        .where(eq(fieldReports.id, id))
+        .get();
+      const scan = transaction
+        .select({
+          checklistConsistency: scanRecords.checklistConsistency,
+          confidence: scanRecords.confidence,
+          managedImageUri: scanRecords.managedImageUri,
+          predictedLabel: scanRecords.predictedLabel,
+        })
+        .from(scanRecords)
+        .where(eq(scanRecords.id, existing.scanRecordId))
+        .get();
+      const classScores = transaction
+        .select({ label: scanClassScores.label, score: scanClassScores.score })
+        .from(scanClassScores)
+        .where(eq(scanClassScores.scanRecordId, existing.scanRecordId))
+        .all();
+      if (!draftRow || !scan) {
+        throw new StorageError(
+          'RECORD_NOT_FOUND',
+          'The Field Report scan evidence is unavailable.',
+        );
+      }
+
+      const draft = toFieldReport(draftRow);
+      const missingRequirements = getMissingSubmissionRequirements(draft, {
+        ...scan,
+        classScores,
+      });
+      if (missingRequirements.length > 0) {
+        return { missingRequirements, report: draft, status: 'invalid' as const };
+      }
+
+      transaction
+        .update(fieldReports)
+        .set({
+          authoringState: 'finalized',
+          submittedAt: values.submittedAt,
+          syncStatus: 'pending',
+          updatedAt: values.updatedAt,
+        })
+        .where(and(eq(fieldReports.id, id), eq(fieldReports.authoringState, 'draft')))
+        .run();
+      const finalizedRow = transaction
+        .select()
+        .from(fieldReports)
+        .where(eq(fieldReports.id, id))
+        .get();
+      if (!finalizedRow) {
+        throw new StorageError('UPDATE_FAILED', 'The finalized report could not be reloaded.');
+      }
+      return { report: toFieldReport(finalizedRow), status: 'finalized' as const };
+    });
+    if (result.status === 'finalized') {
+      emitSyncRecordsChanged();
+    }
+    return result;
+  } catch (error: unknown) {
+    throw toStorageError(error, 'UPDATE_FAILED', 'Finalizing the Field Report failed.');
+  }
+}
+
 export async function findFieldReportById(
   database: CaneGuardDatabase,
   id: string,
@@ -280,6 +435,7 @@ function toFieldReport(row: typeof fieldReports.$inferSelect): FieldReport {
     finalLatitude: row.finalLatitude,
     finalLongitude: row.finalLongitude,
     locationSource: row.locationSource,
+    manualLocationSelectedAt: row.manualLocationSelectedAt,
     gpsAccuracy: row.gpsAccuracy,
     gpsAttemptLatitude: row.gpsAttemptLatitude,
     gpsAttemptLongitude: row.gpsAttemptLongitude,
@@ -291,6 +447,11 @@ function toFieldReport(row: typeof fieldReports.$inferSelect): FieldReport {
     submittedAt: row.submittedAt,
     submitterIdentity: row.submitterIdentity,
     submitterRole: row.submitterRole as FieldReport['submitterRole'],
+    remoteId: row.remoteId,
+    syncAttemptCount: row.syncAttemptCount,
+    lastSyncErrorCode: row.lastSyncErrorCode,
+    lastSyncAttemptAt: row.lastSyncAttemptAt,
+    lastSyncedAt: row.lastSyncedAt,
     syncStatus: row.syncStatus,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

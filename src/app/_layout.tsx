@@ -66,6 +66,7 @@ function AppNavigator() {
           <Stack.Screen name="records" />
           <Stack.Screen name="record-details" />
           <Stack.Screen name="field-report" />
+          <Stack.Screen name="manual-map" />
           <Stack.Screen name="reports" />
           <Stack.Screen name="settings" />
         </Stack.Protected>

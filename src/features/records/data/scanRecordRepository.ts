@@ -13,6 +13,7 @@ import {
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import {
+  fieldReports,
   scanClassScores,
   scanQualityWarnings,
   scanRecords,
@@ -62,11 +63,12 @@ export async function listScanRecords(
         managedImageUri: scanRecords.managedImageUri,
         predictedLabel: scanRecords.predictedLabel,
         confidence: scanRecords.confidence,
-        barangay: scanRecords.barangay,
-        syncStatus: scanRecords.syncStatus,
+        barangay: sql<string | null>`coalesce(${fieldReports.barangay}, ${scanRecords.barangay})`,
+        syncStatus: sql<ScanRecordListItem['syncStatus']>`coalesce(${fieldReports.syncStatus}, 'local_only')`,
         createdAt: scanRecords.createdAt,
       })
       .from(scanRecords)
+      .leftJoin(fieldReports, eq(fieldReports.scanRecordId, scanRecords.id))
       .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(scanRecords.createdAt))
       .limit(limit)
@@ -174,11 +176,13 @@ function buildConditions(query: ScanRecordQuery): SQL[] {
     conditions.push(eq(scanRecords.predictedLabel, query.predictedLabel));
   }
   if (query.syncStatus) {
-    conditions.push(eq(scanRecords.syncStatus, query.syncStatus));
+    conditions.push(
+      sql`coalesce(${fieldReports.syncStatus}, 'local_only') = ${query.syncStatus}`,
+    );
   }
   if (query.barangay?.trim()) {
     conditions.push(
-      sql`instr(lower(coalesce(${scanRecords.barangay}, '')), ${query.barangay.trim().toLowerCase()}) > 0`,
+      sql`instr(lower(coalesce(${fieldReports.barangay}, ${scanRecords.barangay}, '')), ${query.barangay.trim().toLowerCase()}) > 0`,
     );
   }
   if (query.dateRange?.from) {
@@ -192,7 +196,7 @@ function buildConditions(query: ScanRecordQuery): SQL[] {
     conditions.push(
       or(
         sql`instr(lower(${scanRecords.predictedLabel}), ${search}) > 0`,
-        sql`instr(lower(coalesce(${scanRecords.barangay}, '')), ${search}) > 0`,
+        sql`instr(lower(coalesce(${fieldReports.barangay}, ${scanRecords.barangay}, '')), ${search}) > 0`,
       )!,
     );
   }

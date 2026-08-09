@@ -6,17 +6,21 @@ import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import {
   createOrGetFieldReportDraft,
+  finalizeFieldReport,
   findFieldReportByScanRecordId,
   saveGpsCapture,
   saveFieldReportDraft,
+  saveManualMapLocation,
 } from '@/features/reports/data/fieldReportRepository';
 import type {
   FieldReport,
+  FieldReportSubmissionRequirement,
   SaveFieldReportDraftInput,
 } from '@/features/reports/domain/fieldReportTypes';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { captureGpsLocation } from '@/features/reports/services/captureGpsLocation';
 import { expoForegroundLocationClient } from '@/features/reports/services/expoForegroundLocationClient';
+import { useSyncRecordsRefresh } from '@/features/sync/hooks/useSyncRecordsRevision';
 
 interface FieldReportState {
   data: FieldReport | null;
@@ -64,11 +68,17 @@ export function useFieldReportForScan(scanRecordId: string | null) {
       void refresh();
     }, [refresh]),
   );
+  useSyncRecordsRefresh(() => {
+    void refresh();
+  });
 
   return { ...state, refresh };
 }
 
-export function useFieldReportDraft(scanRecordId: string | null) {
+export function useFieldReportDraft(
+  scanRecordId: string | null,
+  createIfMissing = true,
+) {
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
   const [state, setState] = useState<FieldReportState>({
@@ -79,6 +89,11 @@ export function useFieldReportDraft(scanRecordId: string | null) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [capturingLocation, setCapturingLocation] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+  const [savingManualLocation, setSavingManualLocation] = useState(false);
+  const [submissionIssues, setSubmissionIssues] = useState<
+    FieldReportSubmissionRequirement[]
+  >([]);
   const reportId = useRef<string | null>(null);
   const saveInFlight = useRef<Promise<FieldReport> | null>(null);
 
@@ -103,6 +118,14 @@ export function useFieldReportDraft(scanRecordId: string | null) {
     setState((current) => ({ ...current, errorMessage: null, loading: true }));
     try {
       const existing = await findFieldReportByScanRecordId(database, scanRecordId);
+      if (!existing && !createIfMissing) {
+        setState({
+          data: null,
+          errorMessage: 'This Field Report Draft could not be found.',
+          loading: false,
+        });
+        return;
+      }
       reportId.current = existing?.id ?? reportId.current ?? randomUUID();
       const data =
         existing ??
@@ -115,6 +138,7 @@ export function useFieldReportDraft(scanRecordId: string | null) {
         }));
       reportId.current = data.id;
       setState({ data, errorMessage: null, loading: false });
+      setSubmissionIssues([]);
     } catch (error: unknown) {
       const storageError = toStorageError(
         error,
@@ -127,13 +151,16 @@ export function useFieldReportDraft(scanRecordId: string | null) {
         loading: false,
       });
     }
-  }, [database, scanRecordId, user]);
+  }, [createIfMissing, database, scanRecordId, user]);
 
   useFocusEffect(
     useCallback(() => {
       void refresh();
     }, [refresh]),
   );
+  useSyncRecordsRefresh(() => {
+    void refresh();
+  });
 
   const save = useCallback(
     async (
@@ -148,6 +175,7 @@ export function useFieldReportDraft(scanRecordId: string | null) {
 
       setSaving(true);
       setSaved(false);
+      setSubmissionIssues([]);
       setState((current) => ({ ...current, errorMessage: null }));
       const operation = saveFieldReportDraft(database, state.data.id, {
         ...values,
@@ -186,6 +214,7 @@ export function useFieldReportDraft(scanRecordId: string | null) {
 
     setCapturingLocation(true);
     setSaved(false);
+    setSubmissionIssues([]);
     setState((current) => ({ ...current, errorMessage: null }));
     try {
       const result = await captureGpsLocation(expoForegroundLocationClient);
@@ -211,13 +240,111 @@ export function useFieldReportDraft(scanRecordId: string | null) {
     }
   }, [capturingLocation, database, state.data]);
 
+  const saveManualLocation = useCallback(
+    async (latitude: number, longitude: number): Promise<FieldReport | null> => {
+      if (
+        !state.data ||
+        savingManualLocation ||
+        capturingLocation ||
+        saveInFlight.current
+      ) {
+        return null;
+      }
+
+      setSavingManualLocation(true);
+      setSaved(false);
+      setSubmissionIssues([]);
+      setState((current) => ({ ...current, errorMessage: null }));
+      const selectedAt = new Date().toISOString();
+      try {
+        const data = await saveManualMapLocation(database, state.data.id, {
+          latitude,
+          longitude,
+          selectedAt,
+          updatedAt: selectedAt,
+        });
+        setState({ data, errorMessage: null, loading: false });
+        setSaved(true);
+        return data;
+      } catch (error: unknown) {
+        const storageError = toStorageError(
+          error,
+          'UPDATE_FAILED',
+          'Saving the manual map location failed.',
+        );
+        setState((current) => ({
+          ...current,
+          errorMessage: getStorageErrorMessage(storageError),
+        }));
+        return null;
+      } finally {
+        setSavingManualLocation(false);
+      }
+    }, [capturingLocation, database, savingManualLocation, state.data],
+  );
+
+  const finalize = useCallback(
+    async (values: {
+      barangay: string;
+      farmerOrFarmOwnerName: string;
+    }): Promise<FieldReport | null> => {
+      if (
+        !state.data ||
+        finalizing ||
+        savingManualLocation ||
+        capturingLocation ||
+        saveInFlight.current
+      ) {
+        return null;
+      }
+
+      setFinalizing(true);
+      setSaved(false);
+      setSubmissionIssues([]);
+      setState((current) => ({ ...current, errorMessage: null }));
+      const submittedAt = new Date().toISOString();
+      try {
+        const result = await finalizeFieldReport(database, state.data.id, {
+          ...values,
+          submittedAt,
+          updatedAt: submittedAt,
+        });
+        setState({ data: result.report, errorMessage: null, loading: false });
+        if (result.status === 'invalid') {
+          setSubmissionIssues(result.missingRequirements);
+          setSaved(true);
+          return null;
+        }
+        return result.report;
+      } catch (error: unknown) {
+        const storageError = toStorageError(
+          error,
+          'UPDATE_FAILED',
+          'Finalizing the Field Report failed.',
+        );
+        setState((current) => ({
+          ...current,
+          errorMessage: getStorageErrorMessage(storageError),
+        }));
+        return null;
+      } finally {
+        setFinalizing(false);
+      }
+    }, [capturingLocation, database, finalizing, savingManualLocation, state.data],
+  );
+
   return {
     ...state,
     captureLocation,
     capturingLocation,
+    finalize,
+    finalizing,
     refresh,
     save,
+    saveManualLocation,
     saved,
     saving,
+    savingManualLocation,
+    submissionIssues,
   };
 }

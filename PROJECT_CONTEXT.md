@@ -78,6 +78,21 @@ Database code lives under `src/database/`. Record persistence and querying live 
 
 Persistent records include prediction data, class scores, symptoms, quality warnings, severity, barangay, model metadata, timings, managed-image metadata, and synchronization state.
 
+### Field Report authoring
+
+A completed Scan Record may own zero or one separate Field Report. Field Reports
+can persist as incomplete local-only Drafts, resolve final coordinates through
+foreground GPS or an online manual map pin, and finalize only after the strict
+submission gate validates the referenced scan evidence and required report
+fields. Manual-map coordinates retain `manual_map` provenance and never receive
+fabricated GPS accuracy; earlier GPS-attempt evidence remains separate.
+
+Successful local finalization preserves the observation timestamp, creates the
+submission timestamp, and transitions the same Field Report identity to
+`finalized` / `pending`. Field Report is the authoritative synchronization
+owner; the referenced Scan Record remains the read-only source of AI and image
+evidence used to build the upload.
+
 ### Authentication
 
 Authentication lives under `src/features/auth/`.
@@ -90,7 +105,9 @@ The bearer session is stored with Expo SecureStore and restored when the applica
 
 Synchronization lives under `src/features/sync/`.
 
-Eligible local records are uploaded to the backend as multipart reports. Sync may be triggered:
+Eligible finalized Field Reports are uploaded to the backend as multipart
+reports. Drafts and Scan Records without a finalized Field Report are excluded.
+Sync may be triggered:
 
 - after save;
 - at startup;
@@ -98,11 +115,16 @@ Eligible local records are uploaded to the backend as multipart reports. Sync ma
 - when network connectivity is restored; or
 - manually.
 
-Only one pending-record synchronization batch should run at a time. Local records retain explicit sync states:
+Only one pending-report synchronization batch should run at a time. Field
+Reports retain explicit sync states:
 
 `local_only` -> `pending` -> `syncing` -> `synced` or `failed`.
 
 Synchronization must preserve the local record even when remote upload fails.
+The Field Report ID is the stable `client_uuid` across automatic retries and
+manual Retry. The API request joins the referenced Scan Record evidence without
+copying or deleting it, derives submitter authority from the bearer session,
+and stores the returned remote UUID and successful sync time on Field Report.
 
 ## Important conventions
 
@@ -149,7 +171,12 @@ Current mobile endpoints:
 
 Authentication expects bearer tokens.
 
-The mobile report endpoint accepts multipart form data including the client UUID, source metadata, predicted label, class scores, symptoms, checklist consistency, optional severity, quality warnings, barangay, model version, processing timings, capture timestamp, and managed image.
+The mobile report endpoint accepts multipart form data including the stable
+Field Report client UUID, referenced Scan Record UUID/evidence, required P0
+report context, final coordinates and provenance, observation/submission times,
+model evidence, and managed image. Manual-map uploads omit GPS accuracy. The
+authenticated submitter is derived from the bearer session rather than trusted
+from client-claimed identity/role fields.
 
 A successful report upload must return a remote identity UUID.
 
@@ -224,6 +251,7 @@ Do not run EAS build or submit automatically.
 - Backend synchronization requires a valid `field_reporter` session and a complete local report, including barangay and managed image.
 - The bundled AI model is decision support, not a diagnostic authority.
 - Current model labels are limited to `healthy`, `mosaic`, and `rust`; do not imply that the model detects additional diseases unless the model contract is intentionally upgraded.
+- The P0 manual-map fallback is online-only. It loads only visible OpenStreetMap tiles with attribution and normal HTTP caching; it does not prefetch or expose offline map downloads.
 - Preserve compatibility with existing SQLite data and generated Drizzle migrations.
 - Avoid unnecessary native dependencies when Expo-supported APIs already satisfy the requirement.
 

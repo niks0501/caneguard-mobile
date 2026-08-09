@@ -13,19 +13,19 @@ import { AppState } from 'react-native';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
-  countUnsyncedRecords,
-  findLastSuccessfulSyncAt,
-  markPending,
-  resetStaleSyncingRecords,
-} from '@/features/records/data/scanRecordSyncRepository';
+  countUnsyncedFieldReports,
+  findLastSuccessfulFieldReportSyncAt,
+  markFieldReportPending,
+  resetStaleSyncingFieldReports,
+} from '@/features/reports/data/fieldReportSyncRepository';
 import {
   subscribeSyncRecords,
 } from '@/features/sync/services/syncEvents';
 import {
-  syncPendingScans,
+  syncPendingFieldReports,
   type SyncBatchResult,
   type SyncTriggerSource,
-} from '@/features/sync/services/syncPendingScans';
+} from '@/features/sync/services/syncPendingFieldReports';
 
 interface SyncContextValue {
   errorMessage: string | null;
@@ -33,7 +33,7 @@ interface SyncContextValue {
   isSyncing: boolean;
   lastSuccessfulSyncAt: string | null;
   pendingCount: number;
-  retryRecord: (recordId: string) => Promise<SyncBatchResult | null>;
+  retryReport: (reportId: string) => Promise<SyncBatchResult | null>;
   syncNow: (source?: SyncTriggerSource) => Promise<SyncBatchResult | null>;
 }
 
@@ -55,8 +55,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
   const refreshPendingCount = useCallback(async () => {
     const [count, lastSyncedAt] = await Promise.all([
-      countUnsyncedRecords(database),
-      findLastSuccessfulSyncAt(database),
+      countUnsyncedFieldReports(database),
+      findLastSuccessfulFieldReportSyncAt(database),
     ]);
     if (mounted.current) {
       setPendingCount(count);
@@ -80,7 +80,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       setIsSyncing(true);
       setErrorMessage(null);
       try {
-        const result = await syncPendingScans({
+        const result = await syncPendingFieldReports({
           database,
           source,
           token: auth.session.token,
@@ -111,9 +111,9 @@ export function SyncProvider({ children }: PropsWithChildren) {
     [auth, database, refreshPendingCount],
   );
 
-  const retryRecord = useCallback(
-    async (recordId: string) => {
-      await markPending(database, recordId);
+  const retryReport = useCallback(
+    async (reportId: string) => {
+      await markFieldReportPending(database, reportId);
       return syncNow('manual');
     },
     [database, syncNow],
@@ -128,7 +128,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     mounted.current = true;
     const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
-    void resetStaleSyncingRecords(database, staleBefore)
+    void resetStaleSyncingFieldReports(database, staleBefore)
       .then(refreshPendingCount)
       .catch(() =>
         setErrorMessage('Interrupted uploads could not be recovered yet.'),
@@ -184,7 +184,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       isSyncing,
       lastSuccessfulSyncAt,
       pendingCount,
-      retryRecord,
+      retryReport,
       syncNow,
     }),
     [
@@ -193,7 +193,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       isSyncing,
       lastSuccessfulSyncAt,
       pendingCount,
-      retryRecord,
+      retryReport,
       syncNow,
     ],
   );

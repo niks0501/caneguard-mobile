@@ -1,8 +1,14 @@
 import { StorageError } from '@/database/errors';
+import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 import type {
   CreateFieldReportDraftInput,
+  FieldReport,
+  FieldReportSubmissionEvidence,
+  FieldReportSubmissionRequirement,
+  FinalizeFieldReportInput,
   SaveGpsCaptureInput,
   SaveFieldReportDraftInput,
+  SaveManualMapLocationInput,
 } from '@/features/reports/domain/fieldReportTypes';
 
 const UUID_V4_PATTERN =
@@ -41,6 +47,101 @@ export function validateGpsCaptureInput(input: SaveGpsCaptureInput): void {
       invalid('GPS accuracy is invalid.');
     }
   }
+}
+
+export function validateManualMapLocationInput(
+  input: SaveManualMapLocationInput,
+): void {
+  validateCoordinates(input.latitude, input.longitude, 'Manual map');
+  validateUtcTimestamp(input.selectedAt);
+  validateUtcTimestamp(input.updatedAt);
+}
+
+export function normalizeFinalizeFieldReportInput(
+  input: FinalizeFieldReportInput,
+): {
+  barangay: string | null;
+  farmerOrFarmOwnerName: string | null;
+  submittedAt: string;
+  updatedAt: string;
+} {
+  validateUtcTimestamp(input.submittedAt);
+  const values = normalizeFieldReportDraftInput(input);
+  return {
+    barangay: values.barangay ?? null,
+    farmerOrFarmOwnerName: values.farmerOrFarmOwnerName ?? null,
+    submittedAt: input.submittedAt,
+    updatedAt: input.updatedAt,
+  };
+}
+
+export function getMissingSubmissionRequirements(
+  report: FieldReport,
+  evidence: FieldReportSubmissionEvidence,
+): FieldReportSubmissionRequirement[] {
+  const missing: FieldReportSubmissionRequirement[] = [];
+  if (!evidence.managedImageUri?.trim()) missing.push('original_scan_image');
+  if (
+    !evidence.predictedLabel ||
+    !MODEL_LABELS.some((label) => label === evidence.predictedLabel)
+  ) {
+    missing.push('ai_supported_result');
+  }
+  if (
+    evidence.confidence === null ||
+    !Number.isFinite(evidence.confidence) ||
+    evidence.confidence < 0 ||
+    evidence.confidence > 1
+  ) {
+    missing.push('confidence');
+  }
+  if (
+    evidence.classScores.length !== MODEL_LABELS.length ||
+    new Set(evidence.classScores.map(({ label }) => label)).size !==
+      MODEL_LABELS.length ||
+    evidence.classScores.some(
+      ({ label, score }) =>
+        !MODEL_LABELS.some((modelLabel) => modelLabel === label) ||
+        !Number.isFinite(score) ||
+        score < 0 ||
+        score > 1,
+    ) ||
+    MODEL_LABELS.some(
+      (modelLabel) =>
+        !evidence.classScores.some(({ label }) => label === modelLabel),
+    )
+  ) {
+    missing.push('class_scores');
+  }
+  if (!evidence.checklistConsistency?.trim()) missing.push('symptom_checklist');
+  if (!report.farmerOrFarmOwnerName?.trim()) {
+    missing.push('farmer_or_farm_owner_name');
+  }
+  if (!report.submitterIdentity?.trim()) missing.push('submitter_identity');
+  if (report.submitterRole !== 'field_reporter') missing.push('submitter_role');
+  if (report.province.trim() !== 'Batangas') missing.push('province');
+  if (report.municipality.trim() !== 'Nasugbu') missing.push('municipality');
+  if (!report.barangay?.trim()) missing.push('barangay');
+
+  const coordinatesValid =
+    report.finalLatitude !== null &&
+    report.finalLongitude !== null &&
+    coordinatesAreValid(report.finalLatitude, report.finalLongitude);
+  if (!coordinatesValid) missing.push('final_coordinates');
+  if (report.locationSource !== 'gps' && report.locationSource !== 'manual_map') {
+    missing.push('location_source');
+  }
+  if (
+    (report.locationSource === 'gps' &&
+      (report.gpsAccuracy === null ||
+        !Number.isFinite(report.gpsAccuracy) ||
+        report.gpsAccuracy < 0)) ||
+    (report.locationSource === 'manual_map' && report.gpsAccuracy !== null)
+  ) {
+    missing.push('gps_accuracy');
+  }
+  if (!isValidUtcTimestamp(report.observedAt)) missing.push('observation_time');
+  return missing;
 }
 
 export function normalizeFieldReportDraftInput(
@@ -89,9 +190,34 @@ function validateSubmitterIdentity(value: string): void {
 }
 
 function validateUtcTimestamp(value: string): void {
-  if (!UTC_ISO_PATTERN.test(value) || Number.isNaN(Date.parse(value))) {
+  if (!isValidUtcTimestamp(value)) {
     invalid('A draft timestamp is invalid.');
   }
+}
+
+function isValidUtcTimestamp(value: string): boolean {
+  return UTC_ISO_PATTERN.test(value) && !Number.isNaN(Date.parse(value));
+}
+
+function validateCoordinates(
+  latitude: number,
+  longitude: number,
+  source: string,
+): void {
+  if (!coordinatesAreValid(latitude, longitude)) {
+    invalid(`${source} coordinates are invalid.`);
+  }
+}
+
+function coordinatesAreValid(latitude: number, longitude: number): boolean {
+  return (
+    Number.isFinite(latitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    Number.isFinite(longitude) &&
+    longitude >= -180 &&
+    longitude <= 180
+  );
 }
 
 function invalid(message: string): never {

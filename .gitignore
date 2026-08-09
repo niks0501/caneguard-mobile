@@ -66,3 +66,12 @@ GUIDE.md
 justfile
 scripts
 tests/
+
+
+# >>> AkiDev project-local runtime >>>
+.akidev/cache/
+.akidev/home/
+.akidev/tools/
+.akidev/tmp/
+.akidev/conflicts/
+# <<< AkiDev project-local runtime <<<

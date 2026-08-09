@@ -1,28 +1,7 @@
 {
   "$schema": "https://opencode.ai/config.json",
 
-  // Project-specific OpenCode config.
-  // Keep secrets in environment variables. Do not hardcode tokens here.
-  // Default context stays intentionally small; load harness/rules/* only when relevant.
-
-  "default_agent": "Orchestrator",
-  "instructions": ["AGENTS.md"],
-
-  "agent": {
-    "Orchestrator": {
-      "mode": "primary"
-    },
-    "Architecture": {
-      "mode": "subagent"
-    },
-    "Implementer": {
-      "mode": "subagent"
-    },
-    "Reviewer": {
-      "mode": "subagent"
-    }
-  },
-
+  "default_agent": "orchestrator",
   "mcp": {
     "context7": {
       "type": "local",
@@ -32,30 +11,6 @@
         "@upstash/context7-mcp@3.2.3"
       ],
       "enabled": true
-    },
-
-    "github": {
-      "type": "local",
-      "command": [
-        "docker",
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "GITHUB_PERSONAL_ACCESS_TOKEN",
-        "-e",
-        "GITHUB_TOOLSETS",
-        "-e",
-        "GITHUB_READ_ONLY",
-        "ghcr.io/github/github-mcp-server:v1.5.0"
-      ],
-      "environment": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_PERSONAL_ACCESS_TOKEN}",
-        "GITHUB_TOOLSETS": "repos,pull_requests,actions",
-        "GITHUB_READ_ONLY": "1"
-      },
-      "enabled": true,
-      "timeout": 30000
     }
   }
 }

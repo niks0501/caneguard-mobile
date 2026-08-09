@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 const migration0 = readMigration('0000_complex_johnny_blaze.sql');
 const migration1 = readMigration('0001_loving_amazoness.sql');
 const migration2 = readMigration('0002_talented_kat_farrell.sql');
+const migration3 = readMigration('0003_careful_marauders.sql');
 const migrationJournal = JSON.parse(
   readFileSync(join(process.cwd(), 'drizzle', 'meta', '_journal.json'), 'utf8'),
 ) as { entries: { tag: string }[] };
@@ -26,6 +27,7 @@ function applyLatest(database: DatabaseSync): void {
   database.exec(migration0);
   database.exec(migration1);
   database.exec(migration2);
+  database.exec(migration3);
 }
 
 function insertScanRecord(
@@ -114,6 +116,51 @@ describe('CaneGuard database migrations', () => {
     expect(
       database.prepare('SELECT count(*) AS count FROM field_reports').get(),
     ).toEqual({ count: 0 });
+    database.close();
+  });
+
+  it('adds GPS outcome provenance without changing existing Draft data', () => {
+    const database = openDatabase();
+    database.exec(migration0);
+    database.exec(migration1);
+    database.exec(migration2);
+    insertScanRecord(database);
+    database
+      .prepare(`
+        INSERT INTO field_reports (
+          id, scan_record_id, farmer_or_farm_owner_name, barangay,
+          submitter_identity, submitter_role, observed_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+        '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+        'Maria Santos',
+        'Lumbangan',
+        'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
+        'field_reporter',
+        '2026-07-25T00:00:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+        '2026-08-10T01:05:00.000Z',
+      );
+
+    database.exec(migration3);
+
+    expect(
+      database
+        .prepare(`
+          SELECT farmer_or_farm_owner_name, barangay, submitter_identity,
+                 gps_capture_outcome, gps_outcome_recorded_at
+          FROM field_reports
+        `)
+        .get(),
+    ).toEqual({
+      farmer_or_farm_owner_name: 'Maria Santos',
+      barangay: 'Lumbangan',
+      submitter_identity: 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
+      gps_capture_outcome: null,
+      gps_outcome_recorded_at: null,
+    });
     database.close();
   });
 
@@ -266,6 +313,7 @@ describe('CaneGuard database migrations', () => {
       '0000_complex_johnny_blaze',
       '0001_loving_amazoness',
       '0002_talented_kat_farrell',
+      '0003_careful_marauders',
     ]);
     for (const [index, tag] of tags.entries()) {
       expect(bundleSource).toContain(`import m000${index} from './${tag}.sql'`);

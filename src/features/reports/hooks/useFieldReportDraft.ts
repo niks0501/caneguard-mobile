@@ -7,12 +7,16 @@ import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import {
   createOrGetFieldReportDraft,
   findFieldReportByScanRecordId,
+  saveGpsCapture,
   saveFieldReportDraft,
 } from '@/features/reports/data/fieldReportRepository';
 import type {
   FieldReport,
   SaveFieldReportDraftInput,
 } from '@/features/reports/domain/fieldReportTypes';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { captureGpsLocation } from '@/features/reports/services/captureGpsLocation';
+import { expoForegroundLocationClient } from '@/features/reports/services/expoForegroundLocationClient';
 
 interface FieldReportState {
   data: FieldReport | null;
@@ -66,6 +70,7 @@ export function useFieldReportForScan(scanRecordId: string | null) {
 
 export function useFieldReportDraft(scanRecordId: string | null) {
   const database = useCaneGuardDatabase();
+  const { user } = useAuth();
   const [state, setState] = useState<FieldReportState>({
     data: null,
     errorMessage: null,
@@ -73,6 +78,7 @@ export function useFieldReportDraft(scanRecordId: string | null) {
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [capturingLocation, setCapturingLocation] = useState(false);
   const reportId = useRef<string | null>(null);
   const saveInFlight = useRef<Promise<FieldReport> | null>(null);
 
@@ -81,6 +87,14 @@ export function useFieldReportDraft(scanRecordId: string | null) {
       setState({
         data: null,
         errorMessage: 'This completed scan link is invalid.',
+        loading: false,
+      });
+      return;
+    }
+    if (!user) {
+      setState({
+        data: null,
+        errorMessage: 'Sign in before creating a Field Report.',
         loading: false,
       });
       return;
@@ -96,6 +110,8 @@ export function useFieldReportDraft(scanRecordId: string | null) {
           id: reportId.current,
           scanRecordId,
           createdAt: new Date().toISOString(),
+          submitterIdentity: user.uuid,
+          submitterRole: user.role,
         }));
       reportId.current = data.id;
       setState({ data, errorMessage: null, loading: false });
@@ -111,7 +127,7 @@ export function useFieldReportDraft(scanRecordId: string | null) {
         loading: false,
       });
     }
-  }, [database, scanRecordId]);
+  }, [database, scanRecordId, user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -123,7 +139,7 @@ export function useFieldReportDraft(scanRecordId: string | null) {
     async (
       values: Omit<SaveFieldReportDraftInput, 'updatedAt'>,
     ): Promise<FieldReport | null> => {
-      if (!state.data) {
+      if (!state.data || capturingLocation) {
         return null;
       }
       if (saveInFlight.current) {
@@ -160,8 +176,48 @@ export function useFieldReportDraft(scanRecordId: string | null) {
         setSaving(false);
       }
     },
-    [database, state.data],
+    [capturingLocation, database, state.data],
   );
 
-  return { ...state, refresh, save, saved, saving };
+  const captureLocation = useCallback(async (): Promise<FieldReport | null> => {
+    if (!state.data || capturingLocation || saveInFlight.current) {
+      return null;
+    }
+
+    setCapturingLocation(true);
+    setSaved(false);
+    setState((current) => ({ ...current, errorMessage: null }));
+    try {
+      const result = await captureGpsLocation(expoForegroundLocationClient);
+      const data = await saveGpsCapture(database, state.data.id, {
+        ...result,
+        updatedAt: new Date().toISOString(),
+      });
+      setState({ data, errorMessage: null, loading: false });
+      return data;
+    } catch (error: unknown) {
+      const storageError = toStorageError(
+        error,
+        'UPDATE_FAILED',
+        'Saving the GPS result failed.',
+      );
+      setState((current) => ({
+        ...current,
+        errorMessage: getStorageErrorMessage(storageError),
+      }));
+      return null;
+    } finally {
+      setCapturingLocation(false);
+    }
+  }, [capturingLocation, database, state.data]);
+
+  return {
+    ...state,
+    captureLocation,
+    capturingLocation,
+    refresh,
+    save,
+    saved,
+    saving,
+  };
 }

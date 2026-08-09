@@ -1,6 +1,7 @@
 import { StorageError } from '@/database/errors';
 import type {
   CreateFieldReportDraftInput,
+  SaveGpsCaptureInput,
   SaveFieldReportDraftInput,
 } from '@/features/reports/domain/fieldReportTypes';
 
@@ -16,6 +17,30 @@ export function validateCreateFieldReportDraftInput(
   validateUuid(input.id, 'Field Report');
   validateUuid(input.scanRecordId, 'Scan Record');
   validateUtcTimestamp(input.createdAt);
+  validateSubmitterIdentity(input.submitterIdentity);
+  if (input.submitterRole !== 'field_reporter') {
+    invalid('The authenticated user is not a field reporter.');
+  }
+}
+
+export function validateGpsCaptureInput(input: SaveGpsCaptureInput): void {
+  validateUtcTimestamp(input.capturedAt);
+  validateUtcTimestamp(input.updatedAt);
+  if ('latitude' in input) {
+    if (!Number.isFinite(input.latitude) || input.latitude < -90 || input.latitude > 90) {
+      invalid('GPS latitude is invalid.');
+    }
+    if (
+      !Number.isFinite(input.longitude) ||
+      input.longitude < -180 ||
+      input.longitude > 180
+    ) {
+      invalid('GPS longitude is invalid.');
+    }
+    if (!Number.isFinite(input.accuracy) || input.accuracy < 0) {
+      invalid('GPS accuracy is invalid.');
+    }
+  }
 }
 
 export function normalizeFieldReportDraftInput(
@@ -54,6 +79,12 @@ function normalizeOptionalText(value: string, maximumLength: number): string | n
 function validateUuid(value: string, name: string): void {
   if (!UUID_V4_PATTERN.test(value)) {
     invalid(`${name} identity must be UUIDv4.`);
+  }
+}
+
+function validateSubmitterIdentity(value: string): void {
+  if (!value.trim() || value.length > 160) {
+    invalid('Submitter identity is invalid.');
   }
 }
 

@@ -6,10 +6,12 @@ import { fieldReports, scanRecords } from '@/database/schema';
 import type {
   CreateFieldReportDraftInput,
   FieldReport,
+  SaveGpsCaptureInput,
   SaveFieldReportDraftInput,
 } from '@/features/reports/domain/fieldReportTypes';
 import {
   normalizeFieldReportDraftInput,
+  validateGpsCaptureInput,
   validateCreateFieldReportDraftInput,
 } from '@/features/reports/domain/fieldReportValidation';
 
@@ -41,6 +43,27 @@ export async function createOrGetFieldReportDraft(
         .get();
 
       if (existing) {
+        if (!existing.submitterIdentity || !existing.submitterRole) {
+          transaction
+            .update(fieldReports)
+            .set({
+              submitterIdentity:
+                existing.submitterIdentity ?? input.submitterIdentity.trim(),
+              submitterRole: existing.submitterRole ?? input.submitterRole,
+              updatedAt: input.createdAt,
+            })
+            .where(eq(fieldReports.id, existing.id))
+            .run();
+          const backfilled = transaction
+            .select()
+            .from(fieldReports)
+            .where(eq(fieldReports.id, existing.id))
+            .get();
+          if (!backfilled) {
+            throw new StorageError('UPDATE_FAILED', 'The Field Report could not be reloaded.');
+          }
+          return toFieldReport(backfilled);
+        }
         return toFieldReport(existing);
       }
 
@@ -50,6 +73,8 @@ export async function createOrGetFieldReportDraft(
           id: input.id,
           scanRecordId: input.scanRecordId,
           authoringState: 'draft',
+          submitterIdentity: input.submitterIdentity.trim(),
+          submitterRole: input.submitterRole,
           observedAt: scan.createdAt,
           syncStatus: 'local_only',
           createdAt: input.createdAt,
@@ -77,6 +102,73 @@ export async function createOrGetFieldReportDraft(
       'SAVE_TRANSACTION_FAILED',
       'Creating the Field Report draft failed.',
     );
+  }
+}
+
+export async function saveGpsCapture(
+  database: CaneGuardDatabase,
+  id: string,
+  input: SaveGpsCaptureInput,
+): Promise<FieldReport> {
+  validateGpsCaptureInput(input);
+
+  try {
+    return database.transaction((transaction) => {
+      const existing = transaction
+        .select({ authoringState: fieldReports.authoringState })
+        .from(fieldReports)
+        .where(eq(fieldReports.id, id))
+        .get();
+      if (!existing) {
+        throw new StorageError('FIELD_REPORT_NOT_FOUND', 'The Field Report does not exist.');
+      }
+      if (existing.authoringState !== 'draft') {
+        throw new StorageError('UPDATE_FAILED', 'Only a Draft Field Report can capture location.');
+      }
+
+      const attemptValues =
+        'latitude' in input
+          ? {
+              gpsAttemptLatitude: input.latitude,
+              gpsAttemptLongitude: input.longitude,
+              gpsAttemptAccuracy: input.accuracy,
+              gpsAttemptedAt: input.capturedAt,
+            }
+          : {};
+      const finalValues =
+        input.outcome === 'resolved'
+          ? {
+              finalLatitude: input.latitude,
+              finalLongitude: input.longitude,
+              gpsAccuracy: input.accuracy,
+              locationSource: 'gps' as const,
+            }
+          : {};
+
+      transaction
+        .update(fieldReports)
+        .set({
+          ...attemptValues,
+          ...finalValues,
+          gpsCaptureOutcome: input.outcome,
+          gpsOutcomeRecordedAt: input.capturedAt,
+          updatedAt: input.updatedAt,
+        })
+        .where(and(eq(fieldReports.id, id), eq(fieldReports.authoringState, 'draft')))
+        .run();
+
+      const saved = transaction
+        .select()
+        .from(fieldReports)
+        .where(eq(fieldReports.id, id))
+        .get();
+      if (!saved) {
+        throw new StorageError('UPDATE_FAILED', 'The GPS result could not be reloaded.');
+      }
+      return toFieldReport(saved);
+    });
+  } catch (error: unknown) {
+    throw toStorageError(error, 'UPDATE_FAILED', 'Saving the GPS result failed.');
   }
 }
 
@@ -189,8 +281,16 @@ function toFieldReport(row: typeof fieldReports.$inferSelect): FieldReport {
     finalLongitude: row.finalLongitude,
     locationSource: row.locationSource,
     gpsAccuracy: row.gpsAccuracy,
+    gpsAttemptLatitude: row.gpsAttemptLatitude,
+    gpsAttemptLongitude: row.gpsAttemptLongitude,
+    gpsAttemptAccuracy: row.gpsAttemptAccuracy,
+    gpsAttemptedAt: row.gpsAttemptedAt,
+    gpsCaptureOutcome: row.gpsCaptureOutcome,
+    gpsOutcomeRecordedAt: row.gpsOutcomeRecordedAt,
     observedAt: row.observedAt,
     submittedAt: row.submittedAt,
+    submitterIdentity: row.submitterIdentity,
+    submitterRole: row.submitterRole as FieldReport['submitterRole'],
     syncStatus: row.syncStatus,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

@@ -37,6 +37,16 @@ export const FIELD_REPORT_LOCATION_SOURCES = ['gps', 'manual_map'] as const;
 export type FieldReportLocationSource =
   (typeof FIELD_REPORT_LOCATION_SOURCES)[number];
 
+export const GPS_CAPTURE_OUTCOMES = [
+  'resolved',
+  'low_accuracy',
+  'permission_denied',
+  'unavailable',
+  'error',
+] as const;
+
+export type GpsCaptureOutcome = (typeof GPS_CAPTURE_OUTCOMES)[number];
+
 export const scanRecords = sqliteTable(
   'scan_records',
   {
@@ -184,6 +194,8 @@ export const fieldReports = sqliteTable(
     gpsAttemptLongitude: real('gps_attempt_longitude'),
     gpsAttemptAccuracy: real('gps_attempt_accuracy'),
     gpsAttemptedAt: text('gps_attempted_at'),
+    gpsCaptureOutcome: text('gps_capture_outcome').$type<GpsCaptureOutcome>(),
+    gpsOutcomeRecordedAt: text('gps_outcome_recorded_at'),
     manualLocationSelectedAt: text('manual_location_selected_at'),
     observedAt: text('observed_at').notNull(),
     submittedAt: text('submitted_at'),

@@ -16,6 +16,7 @@ import {
   createOrGetFieldReportDraft,
   findFieldReportById,
   findFieldReportByScanRecordId,
+  saveGpsCapture,
   saveFieldReportDraft,
 } from '@/features/reports/data/fieldReportRepository';
 
@@ -24,6 +25,17 @@ const REPORT_ID = '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e';
 const SECOND_REPORT_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
 const OBSERVED_AT = '2026-07-25T05:30:00.000Z';
 const CREATED_AT = '2026-08-10T01:00:00.000Z';
+const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
+
+function createDraftInput(id = REPORT_ID) {
+  return {
+    id,
+    scanRecordId: SCAN_ID,
+    createdAt: CREATED_AT,
+    submitterIdentity: SUBMITTER_ID,
+    submitterRole: 'field_reporter' as const,
+  };
+}
 
 function readMigration(filename: string): string {
   return readFileSync(join(process.cwd(), 'drizzle', filename), 'utf8').replaceAll(
@@ -42,6 +54,7 @@ function openTestDatabase(): {
     '0000_complex_johnny_blaze.sql',
     '0001_loving_amazoness.sql',
     '0002_talented_kat_farrell.sql',
+    '0003_careful_marauders.sql',
   ]) {
     native.exec(readMigration(migration));
   }
@@ -111,20 +124,20 @@ describe('Field Report draft repository', () => {
     const { database, native } = openTestDatabase();
 
     await expect(
-      createOrGetFieldReportDraft(database, {
-        id: REPORT_ID,
-        scanRecordId: SCAN_ID,
-        createdAt: CREATED_AT,
-      }),
+      createOrGetFieldReportDraft(database, createDraftInput()),
     ).resolves.toMatchObject({
       id: REPORT_ID,
       scanRecordId: SCAN_ID,
       authoringState: 'draft',
       farmerOrFarmOwnerName: null,
       barangay: null,
+      province: 'Batangas',
+      municipality: 'Nasugbu',
       observedAt: OBSERVED_AT,
       submittedAt: null,
       syncStatus: 'local_only',
+      submitterIdentity: SUBMITTER_ID,
+      submitterRole: 'field_reporter',
     });
     expect(
       native.prepare('SELECT count(*) AS count FROM scan_records').get(),
@@ -134,14 +147,11 @@ describe('Field Report draft repository', () => {
 
   it('persists partial edits without changing identity or observation time', async () => {
     const { database, native } = openTestDatabase();
-    await createOrGetFieldReportDraft(database, {
-      id: REPORT_ID,
-      scanRecordId: SCAN_ID,
-      createdAt: CREATED_AT,
-    });
+    await createOrGetFieldReportDraft(database, createDraftInput());
 
     const saved = await saveFieldReportDraft(database, REPORT_ID, {
       farmerOrFarmOwnerName: '  Maria Santos  ',
+      barangay: '  Lumbangan  ',
       updatedAt: '2026-08-10T01:05:00.000Z',
     });
     const reopened = await findFieldReportById(database, REPORT_ID);
@@ -149,7 +159,7 @@ describe('Field Report draft repository', () => {
     expect(saved).toMatchObject({
       id: REPORT_ID,
       farmerOrFarmOwnerName: 'Maria Santos',
-      barangay: null,
+      barangay: 'Lumbangan',
       observedAt: OBSERVED_AT,
       syncStatus: 'local_only',
     });
@@ -162,16 +172,11 @@ describe('Field Report draft repository', () => {
 
   it('reuses the same Draft when creation is requested again for one scan', async () => {
     const { database, native } = openTestDatabase();
-    await createOrGetFieldReportDraft(database, {
-      id: REPORT_ID,
-      scanRecordId: SCAN_ID,
-      createdAt: CREATED_AT,
-    });
+    await createOrGetFieldReportDraft(database, createDraftInput());
 
     await expect(
       createOrGetFieldReportDraft(database, {
-        id: SECOND_REPORT_ID,
-        scanRecordId: SCAN_ID,
+        ...createDraftInput(SECOND_REPORT_ID),
         createdAt: '2026-08-10T02:00:00.000Z',
       }),
     ).resolves.toMatchObject({ id: REPORT_ID, createdAt: CREATED_AT });
@@ -189,11 +194,133 @@ describe('Field Report draft repository', () => {
 
     await expect(
       createOrGetFieldReportDraft(database, {
-        id: REPORT_ID,
+        ...createDraftInput(),
         scanRecordId: SECOND_REPORT_ID,
-        createdAt: CREATED_AT,
       }),
     ).rejects.toMatchObject<Partial<StorageError>>({ code: 'RECORD_NOT_FOUND' });
     native.close();
   });
+
+  it('persists resolved GPS provenance without changing Draft fields or scan evidence', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveFieldReportDraft(database, REPORT_ID, {
+      farmerOrFarmOwnerName: 'Maria Santos',
+      barangay: 'Lumbangan',
+      updatedAt: '2026-08-10T01:03:00.000Z',
+    });
+
+    const saved = await saveGpsCapture(database, REPORT_ID, {
+      accuracy: 4.2,
+      capturedAt: '2026-08-10T01:04:00.000Z',
+      latitude: 14.0667,
+      longitude: 120.6319,
+      outcome: 'resolved',
+      updatedAt: '2026-08-10T01:04:01.000Z',
+    });
+
+    expect(saved).toMatchObject({
+      farmerOrFarmOwnerName: 'Maria Santos',
+      barangay: 'Lumbangan',
+      locationSource: 'gps',
+      finalLatitude: 14.0667,
+      finalLongitude: 120.6319,
+      gpsAccuracy: 4.2,
+      gpsAttemptAccuracy: 4.2,
+      gpsCaptureOutcome: 'resolved',
+      authoringState: 'draft',
+      syncStatus: 'local_only',
+    });
+    expect(native.prepare('SELECT predicted_label, confidence FROM scan_records').get()).toEqual({
+      predicted_label: 'rust',
+      confidence: 0.8,
+    });
+    native.close();
+  });
+
+  it('retains poor GPS attempt evidence without fabricating a final location', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+
+    await expect(
+      saveGpsCapture(database, REPORT_ID, {
+        accuracy: 38,
+        capturedAt: '2026-08-10T01:04:00.000Z',
+        latitude: 14.0667,
+        longitude: 120.6319,
+        outcome: 'low_accuracy',
+        updatedAt: '2026-08-10T01:04:01.000Z',
+      }),
+    ).resolves.toMatchObject({
+      finalLatitude: null,
+      finalLongitude: null,
+      gpsAccuracy: null,
+      locationSource: null,
+      gpsAttemptAccuracy: 38,
+      gpsCaptureOutcome: 'low_accuracy',
+    });
+    native.close();
+  });
+
+  it('retries a poor reading into resolved GPS on the same Draft identity', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveFieldReportDraft(database, REPORT_ID, {
+      barangay: 'Lumbangan',
+      updatedAt: '2026-08-10T01:03:00.000Z',
+    });
+    await saveGpsCapture(database, REPORT_ID, {
+      accuracy: 38,
+      capturedAt: '2026-08-10T01:04:00.000Z',
+      latitude: 14.066,
+      longitude: 120.631,
+      outcome: 'low_accuracy',
+      updatedAt: '2026-08-10T01:04:01.000Z',
+    });
+
+    await expect(
+      saveGpsCapture(database, REPORT_ID, {
+        accuracy: 4,
+        capturedAt: '2026-08-10T01:05:00.000Z',
+        latitude: 14.0667,
+        longitude: 120.6319,
+        outcome: 'resolved',
+        updatedAt: '2026-08-10T01:05:01.000Z',
+      }),
+    ).resolves.toMatchObject({
+      id: REPORT_ID,
+      barangay: 'Lumbangan',
+      gpsCaptureOutcome: 'resolved',
+      gpsAttemptAccuracy: 4,
+      gpsAccuracy: 4,
+      locationSource: 'gps',
+    });
+    native.close();
+  });
+
+  it.each(['permission_denied', 'unavailable', 'error'] as const)(
+    'records %s without deleting existing Draft content',
+    async (outcome) => {
+      const { database, native } = openTestDatabase();
+      await createOrGetFieldReportDraft(database, createDraftInput());
+      await saveFieldReportDraft(database, REPORT_ID, {
+        farmerOrFarmOwnerName: 'Maria Santos',
+        updatedAt: '2026-08-10T01:03:00.000Z',
+      });
+
+      await expect(
+        saveGpsCapture(database, REPORT_ID, {
+          capturedAt: '2026-08-10T01:04:00.000Z',
+          outcome,
+          updatedAt: '2026-08-10T01:04:01.000Z',
+        }),
+      ).resolves.toMatchObject({
+        farmerOrFarmOwnerName: 'Maria Santos',
+        gpsCaptureOutcome: outcome,
+        finalLatitude: null,
+        locationSource: null,
+      });
+      native.close();
+    },
+  );
 });

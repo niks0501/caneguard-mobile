@@ -1,12 +1,12 @@
 {
   "src/app/_layout.tsx": {
-    "mtime": 1785164739.4339674,
-    "ast_hash": "bd47fb528550d5cfaf7b55110a11e573",
+    "mtime": 1786297620.4172614,
+    "ast_hash": "b341e41ae840265dc908f7d0fdf49cc5",
     "semantic_hash": ""
   },
   "src/app/analysis-result.tsx": {
-    "mtime": 1786286911.5047917,
-    "ast_hash": "07dfc99b6d815c35b22277edb5831a78",
+    "mtime": 1786297853.9253755,
+    "ast_hash": "c0763e54f8018fbf236b06dbea827695",
     "semantic_hash": ""
   },
   "src/app/home.tsx": {
@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "src/app/records.tsx": {
-    "mtime": 1785164739.4339674,
-    "ast_hash": "77f0742161b0f366e02732aaee04777d",
+    "mtime": 1786297940.1813948,
+    "ast_hash": "637c05868501d89d530ac3321e7c5925",
     "semantic_hash": ""
   },
   "src/app/register.tsx": {
@@ -305,8 +305,8 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/analysis-result.test.tsx": {
-    "mtime": 1786286722.0156155,
-    "ast_hash": "7c18104b128137d7429e33a3dbe36480",
+    "mtime": 1786297854.0773761,
+    "ast_hash": "8731df6eeecce13adba443e1bb106e47",
     "semantic_hash": ""
   },
   "src/app/__tests__/symptom-checklist.test.tsx": {
@@ -445,8 +445,8 @@
     "semantic_hash": ""
   },
   "src/database/__tests__/migrations.test.ts": {
-    "mtime": 1785140595.3327043,
-    "ast_hash": "34cea08bc525576f0777918e00338b10",
+    "mtime": 1786297489.925259,
+    "ast_hash": "c83af9da936737d5debac60fba69ccfe",
     "semantic_hash": ""
   },
   "src/database/database.ts": {
@@ -455,8 +455,8 @@
     "semantic_hash": ""
   },
   "src/database/errors.ts": {
-    "mtime": 1785164739.436723,
-    "ast_hash": "2d27666e6274d5b9437aba5f5ed4e46c",
+    "mtime": 1786297539.013278,
+    "ast_hash": "3fd92ec9fafc77dcc3636137cde5e52b",
     "semantic_hash": ""
   },
   "src/database/index.ts": {
@@ -465,8 +465,8 @@
     "semantic_hash": ""
   },
   "src/database/schema.ts": {
-    "mtime": 1785140595.3339803,
-    "ast_hash": "e10c25ff1ef6b498a755c4e39e7dc6fb",
+    "mtime": 1786297462.013243,
+    "ast_hash": "5451e8a96dd7484b51c02713c4410097",
     "semantic_hash": ""
   },
   "src/database/useStorageDiagnostics.ts": {
@@ -500,33 +500,33 @@
     "semantic_hash": ""
   },
   "src/features/records/data/__tests__/scanRecordWriteRepository.test.ts": {
-    "mtime": 1785164739.4376676,
-    "ast_hash": "d1bf29f8231e969091a38ce890918026",
+    "mtime": 1786297699.4572911,
+    "ast_hash": "9c46d891631cb3bf72a9e5d030e6016f",
     "semantic_hash": ""
   },
   "src/features/records/data/scanRecordWriteRepository.ts": {
-    "mtime": 1785164739.4376676,
-    "ast_hash": "a589827f859198fe3a5a97cd144a1da4",
+    "mtime": 1786297650.1572766,
+    "ast_hash": "0e009bc662bb9f27feb26b6550bc5b66",
     "semantic_hash": ""
   },
   "src/features/records/domain/__tests__/recordValidation.test.ts": {
-    "mtime": 1785164739.4376676,
-    "ast_hash": "13b0add3298d65f358240c216d06571e",
+    "mtime": 1786297699.305292,
+    "ast_hash": "1b5bbcba7a04fed73b7dee1a82219359",
     "semantic_hash": ""
   },
   "src/features/records/domain/recordValidation.ts": {
-    "mtime": 1785164739.4376676,
-    "ast_hash": "a8350af874397dbfdaa0ad5cefe702f8",
+    "mtime": 1786297650.2452762,
+    "ast_hash": "b50af6ba248de9776b7be90a5c3ab76b",
     "semantic_hash": ""
   },
   "src/features/records/hooks/__tests__/useSaveCompletedScan.test.tsx": {
-    "mtime": 1785164739.4376676,
-    "ast_hash": "d1d932adc84f4f0f0575bfb72bf9c641",
+    "mtime": 1786297662.4412456,
+    "ast_hash": "1ad24c26b477ce188306d261d65bab5f",
     "semantic_hash": ""
   },
   "src/features/records/hooks/useSaveCompletedScan.ts": {
-    "mtime": 1785164739.4376676,
-    "ast_hash": "6b817f8fb2cd501239371584a3a5fd43",
+    "mtime": 1786297650.3372757,
+    "ast_hash": "49034da9b267afd44519c1eb2067cd4e",
     "semantic_hash": ""
   },
   "src/features/records/services/__tests__/saveCompletedScan.test.ts": {
@@ -540,8 +540,8 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/record-details.test.tsx": {
-    "mtime": 1786292049.4562514,
-    "ast_hash": "80ea91591a471adbd648d0de3656d4ce",
+    "mtime": 1786298328.0495067,
+    "ast_hash": "412f16d0d9109f994087450e5aa89e23",
     "semantic_hash": ""
   },
   "src/app/__tests__/records.test.tsx": {
@@ -550,8 +550,8 @@
     "semantic_hash": ""
   },
   "src/app/record-details.tsx": {
-    "mtime": 1786292049.3802512,
-    "ast_hash": "349eb115b87e26aafc39395a2c96979c",
+    "mtime": 1786298327.9735067,
+    "ast_hash": "01ef56d19a706135f2fffa86751eeae8",
     "semantic_hash": ""
   },
   "src/features/records/data/scanRecordRepository.ts": {
@@ -580,8 +580,8 @@
     "semantic_hash": ""
   },
   "src/features/reports/data/reportRepository.ts": {
-    "mtime": 1785164739.4376676,
-    "ast_hash": "bb73c4ace66fc9ee4fc25dc20e012d7a",
+    "mtime": 1786297854.1533763,
+    "ast_hash": "001591aa76e6797ff5a146a9b41b8b60",
     "semantic_hash": ""
   },
   "src/features/reports/hooks/useLocalReport.ts": {
@@ -722,6 +722,41 @@
   "src/features/sync/services/syncScanRecord.ts": {
     "mtime": 1785164739.440877,
     "ast_hash": "1dcb82124a0c982df97ac350e29a6544",
+    "semantic_hash": ""
+  },
+  "src/app/__tests__/field-report.test.tsx": {
+    "mtime": 1786297744.5133216,
+    "ast_hash": "f52d3f25a058ae554dbfa7e689ebc163",
+    "semantic_hash": ""
+  },
+  "src/app/field-report.tsx": {
+    "mtime": 1786297801.3293347,
+    "ast_hash": "56b8cd7fff0ecafd016867638fd3ad3b",
+    "semantic_hash": ""
+  },
+  "src/features/reports/data/__tests__/fieldReportRepository.test.ts": {
+    "mtime": 1786297569.3584337,
+    "ast_hash": "b8de6b8d0c5ccdde5f9d8e509c037af6",
+    "semantic_hash": ""
+  },
+  "src/features/reports/data/fieldReportRepository.ts": {
+    "mtime": 1786297539.2932782,
+    "ast_hash": "d0eda30f3143e69132867ebd9114b7f6",
+    "semantic_hash": ""
+  },
+  "src/features/reports/domain/fieldReportTypes.ts": {
+    "mtime": 1786297539.141278,
+    "ast_hash": "bdb8db68391914d0dff585fc921c5c68",
+    "semantic_hash": ""
+  },
+  "src/features/reports/domain/fieldReportValidation.ts": {
+    "mtime": 1786297539.217278,
+    "ast_hash": "51698a5734a23b469fbbcf609a71f011",
+    "semantic_hash": ""
+  },
+  "src/features/reports/hooks/useFieldReportDraft.ts": {
+    "mtime": 1786297620.2532606,
+    "ast_hash": "d2ec210dcc15701f6315a3d3b1cca10b",
     "semantic_hash": ""
   }
 }

@@ -89,18 +89,14 @@ describe('completed scan record validation', () => {
     );
   });
 
-  it('rejects a completed report without a barangay', () => {
-    expect(() =>
+  it('allows completed scan evidence without report-owned barangay data', () => {
+    expect(
       createCompletedScanDraft(
         completedState({ barangay: '   ' }),
         RECORD_ID,
         NOW,
-      ),
-    ).toThrow(
-      expect.objectContaining<Partial<StorageError>>({
-        code: 'INVALID_SCAN_RECORD',
-      }),
-    );
+      ).barangay,
+    ).toBe('');
   });
 
   it.each([

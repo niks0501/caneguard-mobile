@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 const migration0 = readMigration('0000_complex_johnny_blaze.sql');
 const migration1 = readMigration('0001_loving_amazoness.sql');
+const migration2 = readMigration('0002_talented_kat_farrell.sql');
 const migrationJournal = JSON.parse(
   readFileSync(join(process.cwd(), 'drizzle', 'meta', '_journal.json'), 'utf8'),
 ) as { entries: { tag: string }[] };
@@ -24,6 +25,35 @@ function openDatabase(): DatabaseSync {
 function applyLatest(database: DatabaseSync): void {
   database.exec(migration0);
   database.exec(migration1);
+  database.exec(migration2);
+}
+
+function insertScanRecord(
+  database: DatabaseSync,
+  id = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+): void {
+  database
+    .prepare(`
+      INSERT INTO scan_records (
+        id, managed_image_uri, image_source_type, predicted_label, confidence,
+        checklist_consistency, model_version, preprocess_ms, inference_ms,
+        total_ms, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    .run(
+      id,
+      `file:///caneguard/scan-images/${id}.jpg`,
+      'camera',
+      'rust',
+      0.8,
+      'consistent',
+      'v0.1-baseline',
+      5,
+      8,
+      13,
+      '2026-07-25T00:00:00.000Z',
+      '2026-07-25T00:00:00.000Z',
+    );
 }
 
 describe('CaneGuard database migrations', () => {
@@ -47,6 +77,7 @@ describe('CaneGuard database migrations', () => {
 
     expect(tables).toEqual([
       'compatibility_probe',
+      'field_reports',
       'scan_class_scores',
       'scan_quality_warnings',
       'scan_records',
@@ -60,6 +91,83 @@ describe('CaneGuard database migrations', () => {
       'scan_records_sync_created_at_idx',
     ]);
 
+    database.close();
+  });
+
+  it('adds Field Reports without changing existing scan evidence', () => {
+    const database = openDatabase();
+    database.exec(migration0);
+    database.exec(migration1);
+    insertScanRecord(database);
+
+    const scanBefore = database
+      .prepare('SELECT * FROM scan_records WHERE id = ?')
+      .get('2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2');
+
+    database.exec(migration2);
+
+    expect(
+      database
+        .prepare('SELECT * FROM scan_records WHERE id = ?')
+        .get('2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2'),
+    ).toEqual(scanBefore);
+    expect(
+      database.prepare('SELECT count(*) AS count FROM field_reports').get(),
+    ).toEqual({ count: 0 });
+    database.close();
+  });
+
+  it('enforces the zero-or-one Field Report relationship', () => {
+    const database = openDatabase();
+    applyLatest(database);
+    insertScanRecord(database);
+
+    const insertReport = database.prepare(`
+      INSERT INTO field_reports (
+        id, scan_record_id, observed_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?)
+    `);
+    const timestamp = '2026-07-25T00:00:00.000Z';
+
+    expect(() =>
+      insertReport.run(
+        '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+        'missing-scan',
+        timestamp,
+        timestamp,
+        timestamp,
+      ),
+    ).toThrow();
+
+    insertReport.run(
+      '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+      '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+      timestamp,
+      timestamp,
+      timestamp,
+    );
+
+    expect(() =>
+      insertReport.run(
+        '51214146-7439-48e0-aef4-d0e003f194b4',
+        '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+        timestamp,
+        timestamp,
+        timestamp,
+      ),
+    ).toThrow();
+    expect(
+      database
+        .prepare(
+          'SELECT id, scan_record_id, authoring_state, sync_status FROM field_reports',
+        )
+        .get(),
+    ).toEqual({
+      id: '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+      scan_record_id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+      authoring_state: 'draft',
+      sync_status: 'local_only',
+    });
     database.close();
   });
 
@@ -157,6 +265,7 @@ describe('CaneGuard database migrations', () => {
     expect(tags).toEqual([
       '0000_complex_johnny_blaze',
       '0001_loving_amazoness',
+      '0002_talented_kat_farrell',
     ]);
     for (const [index, tag] of tags.entries()) {
       expect(bundleSource).toContain(`import m000${index} from './${tag}.sql'`);

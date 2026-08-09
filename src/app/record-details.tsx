@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -32,6 +32,7 @@ import { getQualityWarningMessage } from '@/features/detection/validation/assess
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
 import { deleteScanRecord } from '@/features/records/services/deleteScanRecord';
+import { useFieldReportForScan } from '@/features/reports/hooks/useFieldReportDraft';
 import { getSyncErrorMessage } from '@/features/sync/errors/syncErrors';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
@@ -51,6 +52,7 @@ export default function RecordDetailsScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(params.id) ? params.id[0] : (params.id ?? null);
   const record = useScanRecordDetails(id);
+  const fieldReport = useFieldReportForScan(id);
   const database = useCaneGuardDatabase();
   const sync = useSync();
   const [imageUnavailable, setImageUnavailable] = useState(false);
@@ -71,7 +73,7 @@ export default function RecordDetailsScreen() {
   const confirmDelete = () => {
     Alert.alert(
       'Delete local record?',
-      'This removes the record and its saved image from this device. This action cannot be undone.',
+      'This removes the scan, its saved image, and any associated Field Report Draft from this device. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -193,6 +195,40 @@ export default function RecordDetailsScreen() {
                 <RecordSyncStatus status={record.data.syncStatus} />
               </View>
 
+              <Section title="Field Report">
+                <Text style={[styles.reportMessage, { color: theme.textSecondary }]}>
+                  {fieldReport.data
+                    ? 'Continue the same locally saved Draft. Partial information is preserved.'
+                    : 'Create a separate Field Report Draft from this completed scan.'}
+                </Text>
+                {fieldReport.errorMessage ? (
+                  <Text style={[styles.deleteError, { color: theme.danger }]}>
+                    {fieldReport.errorMessage}
+                  </Text>
+                ) : null}
+                <AppButton
+                  testID="records.open-field-report"
+                  onPress={() =>
+                    router.push({
+                      pathname: '/field-report',
+                      params: { scanRecordId: record.data!.id },
+                    } as unknown as Href)
+                  }
+                  disabled={fieldReport.loading}
+                  leadingIcon={fieldReport.data ? 'edit-3' : 'file-plus'}
+                  accessibilityLabel={
+                    fieldReport.data
+                      ? 'Resume Field Report draft'
+                      : 'Create Field Report draft'
+                  }>
+                  {fieldReport.loading
+                    ? 'Checking Draft...'
+                    : fieldReport.data
+                      ? 'Resume Draft'
+                      : 'Create Report Draft'}
+                </AppButton>
+              </Section>
+
               <Section title="All model class scores">
                 {record.data.classScores.map((score) => (
                   <DetailRow
@@ -213,7 +249,7 @@ export default function RecordDetailsScreen() {
                   value={record.data.reportedSeverity ?? 'Not provided'}
                 />
                 <DetailRow
-                  label="Barangay"
+                  label="Legacy scan barangay"
                   value={record.data.barangay ?? 'Not provided'}
                   valueTestID="records.barangay-value"
                 />
@@ -570,6 +606,7 @@ const styles = StyleSheet.create({
   },
   syncErrorText: { ...Typography.bodySmall, flex: 1 },
   deleteError: { ...Typography.bodySmall, fontWeight: '700' },
+  reportMessage: { ...Typography.bodySmall },
   centeredState: {
     flex: 1,
     alignItems: 'center',

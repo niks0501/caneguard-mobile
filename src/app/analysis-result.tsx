@@ -7,7 +7,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
-import { TextField } from '@/components/ui/TextField';
 import {
   ComponentTokens,
   Layout,
@@ -142,7 +141,6 @@ export default function AnalysisResultScreen() {
   const diseaseColor = theme[metadata.themeToken.foreground];
   const diseaseBackground = theme[metadata.themeToken.background];
   const isLowScore = result.confidence < PROTOTYPE_LOW_SCORE_THRESHOLD;
-  const hasBarangay = Boolean(state.barangay.trim());
   const resultTitle =
     result.predictedLabel === 'healthy'
       ? metadata.displayName
@@ -310,22 +308,6 @@ export default function AnalysisResultScreen() {
               />
             </SectionCard>
 
-            <SectionCard title="Report location">
-              <TextField
-                testID="scan.barangay-input"
-                label="Barangay"
-                value={state.barangay}
-                onChangeText={(value) =>
-                  dispatch({ type: 'SET_BARANGAY', payload: value })
-                }
-                placeholder="Enter the barangay"
-                autoCapitalize="words"
-              />
-              <Text style={[styles.sectionNote, { color: theme.textSecondary }]}>
-                Required before this report can be saved and queued for MAO upload.
-              </Text>
-            </SectionCard>
-
             <View style={[styles.disclaimer, { backgroundColor: theme.infoBg, borderColor: theme.info }]}>
               <ExpoImage accessible={false} contentFit="contain" pointerEvents="none" source={require('../../assets/svg/gold-leaf-corner.svg')} style={styles.disclaimerLeaf} />
               <Feather name="info" size={19} color={theme.info} style={styles.disclaimerContent} />
@@ -383,25 +365,21 @@ export default function AnalysisResultScreen() {
               </View>
               <Text style={[styles.saveMessage, { color: theme.textSecondary }]}>
                 {saveRecord.status === 'saved'
-                  ? 'The image and AI-supported result are stored locally. CaneGuard will upload the pending report when a verified connection is available.'
+                  ? 'The image and AI-supported result are stored locally. Create a separate Field Report Draft from the saved record when ready.'
                   : saveRecord.status === 'failed'
                     ? saveRecord.errorMessage
-                    : hasBarangay
-                      ? 'CaneGuard saves locally first, then uploads without deleting the managed image.'
-                      : 'Enter a barangay to save this completed report.'}
+                    : 'CaneGuard saves the completed scan as local AI evidence without queuing a report upload.'}
               </Text>
               {saveRecord.status !== 'saved' ? (
                 <AppButton
                   testID="scan.save-record"
                   onPress={() => void saveRecord.save()}
-                  disabled={saveRecord.status === 'saving' || !hasBarangay}
+                  disabled={saveRecord.status === 'saving'}
                   leadingIcon={saveRecord.status === 'failed' ? 'refresh-cw' : 'save'}
                   accessibilityLabel={
                     saveRecord.status === 'failed'
                       ? 'Retry saving record on this device'
-                      : !hasBarangay
-                        ? 'Enter a barangay before saving'
-                        : saveRecord.status === 'saving'
+                      : saveRecord.status === 'saving'
                         ? 'Saving record on this device'
                         : 'Save record on this device'
                   }>

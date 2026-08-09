@@ -49,6 +49,7 @@ function openTestDatabase(): {
   native.exec('PRAGMA foreign_keys = ON');
   native.exec(readMigration('0000_complex_johnny_blaze.sql'));
   native.exec(readMigration('0001_loving_amazoness.sql'));
+  native.exec(readMigration('0002_talented_kat_farrell.sql'));
   const client = {
     prepareSync(sql: string) {
       return createStatementAdapter(native.prepare(sql));
@@ -140,7 +141,7 @@ describe('scan record write repository', () => {
       predicted_label: 'rust',
       confidence: 0.82,
       barangay: 'Wawa',
-      sync_status: 'pending',
+      sync_status: 'local_only',
       remote_id: null,
       sync_attempt_count: 0,
       created_at: '2026-07-25T05:30:00.000Z',
@@ -376,7 +377,7 @@ describe('scan record write repository', () => {
       totalSavedScans: 5,
       healthyPredictions: 2,
       possibleDiseasePredictions: 3,
-      pendingSyncRecords: 5,
+      pendingSyncRecords: 0,
       lowScorePredictions: 3,
       recordsByLabel: [
         { label: 'healthy', count: 2 },
@@ -401,7 +402,7 @@ describe('scan record write repository', () => {
       totalSavedScans: 4,
       healthyPredictions: 1,
       possibleDiseasePredictions: 3,
-      pendingSyncRecords: 4,
+      pendingSyncRecords: 0,
       lowScorePredictions: 2,
     });
 
@@ -412,7 +413,7 @@ describe('scan record write repository', () => {
     await expect(getLocalReportSummary(database)).resolves.toMatchObject({
       totalSavedScans: 4,
       possibleDiseasePredictions: 2,
-      pendingSyncRecords: 4,
+      pendingSyncRecords: 0,
     });
     native.close();
   });
@@ -435,6 +436,7 @@ describe('scan record write repository', () => {
   it('updates synchronization state atomically and recovers stale uploads', async () => {
     const { database, native } = openTestDatabase();
     await insertScanRecord(database, validInput());
+    await markPending(database, RECORD_ID);
 
     await expect(countUnsyncedRecords(database)).resolves.toBe(1);
     await expect(findSyncCandidates(database, 10)).resolves.toHaveLength(1);

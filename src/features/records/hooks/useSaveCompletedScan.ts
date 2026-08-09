@@ -9,7 +9,6 @@ import {
 } from '@/database/errors';
 import type { ScanSessionState } from '@/features/detection/types';
 import { saveCompletedScan } from '@/features/records/services/saveCompletedScan';
-import { useSync } from '@/features/sync/hooks/useSync';
 
 export type SaveRecordStatus = 'ready' | 'saving' | 'saved' | 'failed';
 
@@ -29,7 +28,6 @@ const INITIAL_STATE: SaveRecordState = {
 
 export function useSaveCompletedScan(state: ScanSessionState) {
   const database = useCaneGuardDatabase();
-  const sync = useSync();
   const [saveState, setSaveState] = useState<SaveRecordState>(INITIAL_STATE);
   const recordId = useRef<string | null>(null);
   const inFlight = useRef<Promise<{ id: string }> | null>(null);
@@ -62,7 +60,6 @@ export function useSaveCompletedScan(state: ScanSessionState) {
         recordId: saved.id,
         status: 'saved',
       });
-      void sync.syncNow('after-save');
       return saved;
     } catch (error: unknown) {
       const storageError = toStorageError(

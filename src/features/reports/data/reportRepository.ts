@@ -1,8 +1,18 @@
-import { and, asc, count, desc, gte, lte, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  gte,
+  inArray,
+  lte,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { toStorageError } from '@/database/errors';
-import { scanRecords } from '@/database/schema';
+import { fieldReports, scanRecords } from '@/database/schema';
 import type { ReportRepository } from '@/features/records/data/repositoryContracts';
 import { listScanRecords } from '@/features/records/data/scanRecordRepository';
 import type {
@@ -52,7 +62,7 @@ export async function getLocalReportSummary(
   }
 
   try {
-    const [totals, recordsByLabel, recentRecords] = await Promise.all([
+    const [totals, recordsByLabel, recentRecords, pendingReports] = await Promise.all([
       database
         .select({
           totalSavedScans: count(),
@@ -60,8 +70,6 @@ export async function getLocalReportSummary(
             sql<number>`coalesce(sum(case when ${scanRecords.predictedLabel} = 'healthy' then 1 else 0 end), 0)`,
           possibleDiseasePredictions:
             sql<number>`coalesce(sum(case when ${scanRecords.predictedLabel} <> 'healthy' then 1 else 0 end), 0)`,
-          pendingSyncRecords:
-            sql<number>`coalesce(sum(case when ${scanRecords.syncStatus} <> 'synced' then 1 else 0 end), 0)`,
           lowScorePredictions:
             sql<number>`coalesce(sum(case when ${scanRecords.confidence} < ${lowScoreThreshold} then 1 else 0 end), 0)`,
         })
@@ -81,6 +89,11 @@ export async function getLocalReportSummary(
         dateRange: options.dateRange,
         limit: recentLimit,
       }),
+      database
+        .select({ count: count() })
+        .from(fieldReports)
+        .where(buildPendingReportCondition(options.dateRange))
+        .get(),
     ]);
 
     return {
@@ -89,7 +102,7 @@ export async function getLocalReportSummary(
       possibleDiseasePredictions: Number(
         totals?.possibleDiseasePredictions ?? 0,
       ),
-      pendingSyncRecords: Number(totals?.pendingSyncRecords ?? 0),
+      pendingSyncRecords: Number(pendingReports?.count ?? 0),
       lowScorePredictions: Number(totals?.lowScorePredictions ?? 0),
       recordsByLabel: recordsByLabel.map((row) => ({
         label: row.label,
@@ -115,4 +128,17 @@ function buildDateCondition(dateRange?: DateRange): SQL | undefined {
     conditions.push(lte(scanRecords.createdAt, dateRange.to));
   }
   return conditions.length ? and(...conditions) : undefined;
+}
+
+function buildPendingReportCondition(dateRange?: DateRange): SQL {
+  const conditions: SQL[] = [
+    inArray(fieldReports.syncStatus, ['pending', 'syncing', 'failed']),
+  ];
+  if (dateRange?.from) {
+    conditions.push(gte(fieldReports.observedAt, dateRange.from));
+  }
+  if (dateRange?.to) {
+    conditions.push(lte(fieldReports.observedAt, dateRange.to));
+  }
+  return and(...conditions)!;
 }

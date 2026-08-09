@@ -110,8 +110,8 @@ export function validateCompletedScanDraft(draft: CompletedScanDraft): void {
   if (!draft.modelVersion.trim()) {
     invalid('The model version is required.');
   }
-  if (!draft.barangay.trim() || draft.barangay.trim().length > 120) {
-    invalid('A valid barangay is required before saving.');
+  if (draft.barangay.trim().length > 120) {
+    invalid('The legacy scan barangay is too long.');
   }
   if (
     draft.reportedSeverity !== null &&

@@ -1,0 +1,198 @@
+import { and, eq } from 'drizzle-orm';
+
+import type { CaneGuardDatabase } from '@/database/database';
+import { StorageError, toStorageError } from '@/database/errors';
+import { fieldReports, scanRecords } from '@/database/schema';
+import type {
+  CreateFieldReportDraftInput,
+  FieldReport,
+  SaveFieldReportDraftInput,
+} from '@/features/reports/domain/fieldReportTypes';
+import {
+  normalizeFieldReportDraftInput,
+  validateCreateFieldReportDraftInput,
+} from '@/features/reports/domain/fieldReportValidation';
+
+export async function createOrGetFieldReportDraft(
+  database: CaneGuardDatabase,
+  input: CreateFieldReportDraftInput,
+): Promise<FieldReport> {
+  validateCreateFieldReportDraftInput(input);
+
+  try {
+    return database.transaction((transaction) => {
+      const scan = transaction
+        .select({ createdAt: scanRecords.createdAt })
+        .from(scanRecords)
+        .where(eq(scanRecords.id, input.scanRecordId))
+        .get();
+
+      if (!scan) {
+        throw new StorageError(
+          'RECORD_NOT_FOUND',
+          'A Field Report requires an existing completed Scan Record.',
+        );
+      }
+
+      const existing = transaction
+        .select()
+        .from(fieldReports)
+        .where(eq(fieldReports.scanRecordId, input.scanRecordId))
+        .get();
+
+      if (existing) {
+        return toFieldReport(existing);
+      }
+
+      transaction
+        .insert(fieldReports)
+        .values({
+          id: input.id,
+          scanRecordId: input.scanRecordId,
+          authoringState: 'draft',
+          observedAt: scan.createdAt,
+          syncStatus: 'local_only',
+          createdAt: input.createdAt,
+          updatedAt: input.createdAt,
+        })
+        .run();
+
+      const created = transaction
+        .select()
+        .from(fieldReports)
+        .where(eq(fieldReports.id, input.id))
+        .get();
+
+      if (!created) {
+        throw new StorageError(
+          'SAVE_TRANSACTION_FAILED',
+          'The Field Report draft was not persisted.',
+        );
+      }
+      return toFieldReport(created);
+    });
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'SAVE_TRANSACTION_FAILED',
+      'Creating the Field Report draft failed.',
+    );
+  }
+}
+
+export async function findFieldReportById(
+  database: CaneGuardDatabase,
+  id: string,
+): Promise<FieldReport> {
+  try {
+    const row = await database
+      .select()
+      .from(fieldReports)
+      .where(eq(fieldReports.id, id))
+      .get();
+    if (!row) {
+      throw new StorageError(
+        'FIELD_REPORT_NOT_FOUND',
+        'The Field Report does not exist.',
+      );
+    }
+    return toFieldReport(row);
+  } catch (error: unknown) {
+    throw toStorageError(error, 'QUERY_FAILED', 'Reading the Field Report failed.');
+  }
+}
+
+export async function findFieldReportByScanRecordId(
+  database: CaneGuardDatabase,
+  scanRecordId: string,
+): Promise<FieldReport | null> {
+  try {
+    const row = await database
+      .select()
+      .from(fieldReports)
+      .where(eq(fieldReports.scanRecordId, scanRecordId))
+      .get();
+    return row ? toFieldReport(row) : null;
+  } catch (error: unknown) {
+    throw toStorageError(error, 'QUERY_FAILED', 'Reading the Field Report failed.');
+  }
+}
+
+export async function saveFieldReportDraft(
+  database: CaneGuardDatabase,
+  id: string,
+  input: SaveFieldReportDraftInput,
+): Promise<FieldReport> {
+  const values = normalizeFieldReportDraftInput(input);
+
+  try {
+    return database.transaction((transaction) => {
+      const existing = transaction
+        .select({ authoringState: fieldReports.authoringState })
+        .from(fieldReports)
+        .where(eq(fieldReports.id, id))
+        .get();
+
+      if (!existing) {
+        throw new StorageError(
+          'FIELD_REPORT_NOT_FOUND',
+          'The Field Report does not exist.',
+        );
+      }
+      if (existing.authoringState !== 'draft') {
+        throw new StorageError(
+          'UPDATE_FAILED',
+          'Only a Draft Field Report can be edited by this workflow.',
+        );
+      }
+
+      transaction
+        .update(fieldReports)
+        .set(values)
+        .where(
+          and(
+            eq(fieldReports.id, id),
+            eq(fieldReports.authoringState, 'draft'),
+          ),
+        )
+        .run();
+
+      const saved = transaction
+        .select()
+        .from(fieldReports)
+        .where(eq(fieldReports.id, id))
+        .get();
+
+      if (!saved) {
+        throw new StorageError(
+          'UPDATE_FAILED',
+          'The Field Report draft could not be reloaded.',
+        );
+      }
+      return toFieldReport(saved);
+    });
+  } catch (error: unknown) {
+    throw toStorageError(error, 'UPDATE_FAILED', 'Saving the draft failed.');
+  }
+}
+
+function toFieldReport(row: typeof fieldReports.$inferSelect): FieldReport {
+  return {
+    id: row.id,
+    scanRecordId: row.scanRecordId,
+    authoringState: row.authoringState,
+    farmerOrFarmOwnerName: row.farmerOrFarmOwnerName,
+    province: row.province,
+    municipality: row.municipality,
+    barangay: row.barangay,
+    finalLatitude: row.finalLatitude,
+    finalLongitude: row.finalLongitude,
+    locationSource: row.locationSource,
+    gpsAccuracy: row.gpsAccuracy,
+    observedAt: row.observedAt,
+    submittedAt: row.submittedAt,
+    syncStatus: row.syncStatus,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}

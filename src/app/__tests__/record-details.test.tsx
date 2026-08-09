@@ -6,11 +6,18 @@ import RecordDetailsScreen from '@/app/record-details';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
 import { deleteScanRecord } from '@/features/records/services/deleteScanRecord';
+import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
 
 const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
 const mockRefresh = jest.fn(async () => undefined);
 const mockDatabase = {};
 let mockDetailsState: ReturnType<typeof useScanRecordDetails>;
+let mockFieldReportState: {
+  data: FieldReport | null;
+  errorMessage: string | null;
+  loading: boolean;
+  refresh: jest.Mock;
+};
 
 jest.mock('@/database/DatabaseProvider', () => ({
   useCaneGuardDatabase: () => mockDatabase,
@@ -20,6 +27,9 @@ jest.mock('@/features/records/hooks/useRecords', () => ({
 }));
 jest.mock('@/features/records/services/deleteScanRecord', () => ({
   deleteScanRecord: jest.fn(),
+}));
+jest.mock('@/features/reports/hooks/useFieldReportDraft', () => ({
+  useFieldReportForScan: () => mockFieldReportState,
 }));
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({
@@ -32,6 +42,7 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
 const mockUseLocalSearchParams = jest.mocked(useLocalSearchParams);
 const mockDeleteScanRecord = jest.mocked(deleteScanRecord);
 const mockRouterReplace = router.replace as jest.Mock;
+const mockRouterPush = router.push as jest.Mock;
 const DETAILS: ScanRecordDetails = {
   id: RECORD_ID,
   managedImageUri: `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
@@ -75,11 +86,51 @@ describe('RecordDetailsScreen', () => {
       loading: false,
       refresh: mockRefresh,
     };
+    mockFieldReportState = {
+      data: null,
+      errorMessage: null,
+      loading: false,
+      refresh: jest.fn(),
+    };
     mockDeleteScanRecord.mockResolvedValue({
       id: RECORD_ID,
       imageCleanupError: null,
     });
     jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+  });
+
+  it('creates or resumes the Field Report associated with this scan', async () => {
+    const view = await render(<RecordDetailsScreen />);
+
+    await fireEvent.press(screen.getByLabelText('Create Field Report draft'));
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/field-report',
+      params: { scanRecordId: RECORD_ID },
+    });
+
+    mockFieldReportState = {
+      ...mockFieldReportState,
+      data: {
+        id: '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+        scanRecordId: RECORD_ID,
+        authoringState: 'draft',
+        farmerOrFarmOwnerName: 'Maria Santos',
+        province: 'Batangas',
+        municipality: 'Nasugbu',
+        barangay: null,
+        finalLatitude: null,
+        finalLongitude: null,
+        locationSource: null,
+        gpsAccuracy: null,
+        observedAt: DETAILS.createdAt,
+        submittedAt: null,
+        syncStatus: 'local_only',
+        createdAt: '2026-08-10T01:00:00.000Z',
+        updatedAt: '2026-08-10T01:05:00.000Z',
+      },
+    };
+    await view.rerender(<RecordDetailsScreen />);
+    expect(screen.getByLabelText('Resume Field Report draft')).toBeOnTheScreen();
   });
 
   it('loads complete stored metadata by UUID', async () => {
@@ -134,6 +185,7 @@ describe('RecordDetailsScreen', () => {
     const confirmation = jest.mocked(Alert.alert).mock.calls[0];
     expect(confirmation[0]).toBe('Delete local record?');
     expect(confirmation[1]).toContain('saved image');
+    expect(confirmation[1]).toContain('Field Report Draft');
     const deleteAction = confirmation[2]?.find(
       (action) => action.style === 'destructive',
     );

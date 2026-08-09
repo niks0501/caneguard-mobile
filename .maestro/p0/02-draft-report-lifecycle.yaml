@@ -1,0 +1,133 @@
+appId: com.niks0501.caneguard
+name: P0-02 incomplete Field Report Draft survives restart
+tags:
+  - p0
+  - draft-report
+---
+- addMedia:
+    - ../../assets/model-fixtures/parity-reference.jpg
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: Connect
+    commands:
+      - tapOn: "http://"
+      - inputText: "http://127.0.0.1:8081"
+      - tapOn: Connect
+- extendedWaitUntil:
+    visible:
+      id: home.screen
+    timeout: 120000
+- openLink: caneguardmobile://scan
+- extendedWaitUntil:
+    visible:
+      id: scan.screen
+    timeout: 30000
+- tapOn:
+    id: scan.choose-gallery
+- extendedWaitUntil:
+    visible: "Photo taken on .*"
+    timeout: 15000
+- tapOn:
+    text: "Photo taken on .*"
+    index: 0
+- runFlow:
+    when:
+      visible: Done
+    commands:
+      - tapOn: Done
+- extendedWaitUntil:
+    visible:
+      id: scan.preview-screen
+    timeout: 30000
+- tapOn:
+    id: scan.analyze-image
+    enabled: true
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: scan.symptom-checklist-screen
+    timeout: 120000
+- tapOn:
+    id: scan.symptom-rust
+- tapOn:
+    id: scan.continue-to-result
+- extendedWaitUntil:
+    visible:
+      id: scan.result-title
+      text: "Possible result: Rust"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: scan.save-record
+    direction: DOWN
+- tapOn:
+    id: scan.save-record
+    enabled: true
+- extendedWaitUntil:
+    visible:
+      id: scan.record-saved
+    timeout: 30000
+- tapOn:
+    id: scan.open-saved-record
+- extendedWaitUntil:
+    visible:
+      id: records.details-screen
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: records.open-field-report
+    direction: DOWN
+- tapOn:
+    id: records.open-field-report
+- extendedWaitUntil:
+    visible:
+      id: field-report.screen
+    timeout: 30000
+- tapOn:
+    id: field-report.farmer-name-input
+- inputText: P0 Draft Farmer
+- hideKeyboard
+- tapOn:
+    id: field-report.save-draft
+- extendedWaitUntil:
+    visible:
+      id: field-report.saved
+    timeout: 30000
+- takeScreenshot: .maestro/artifacts/p0-02-draft-saved
+- stopApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: home.screen
+    timeout: 120000
+- openLink: caneguardmobile://records
+- extendedWaitUntil:
+    visible:
+      id: records.screen
+    timeout: 30000
+- tapOn:
+    text: "Open Possible result: Rust record saved .*"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: records.details-screen
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: records.open-field-report
+    direction: DOWN
+- assertVisible: Resume Draft
+- tapOn:
+    id: records.open-field-report
+- extendedWaitUntil:
+    visible:
+      id: field-report.screen
+    timeout: 30000
+- assertVisible:
+    id: field-report.farmer-name-input
+    text: P0 Draft Farmer
+- assertVisible: Draft
+- takeScreenshot: .maestro/artifacts/p0-02-draft-reopened

@@ -60,14 +60,6 @@ tags:
     timeout: 30000
 - scrollUntilVisible:
     element:
-      id: scan.barangay-input
-    direction: DOWN
-- tapOn:
-    id: scan.barangay-input
-- inputText: P0 Baseline
-- hideKeyboard
-- scrollUntilVisible:
-    element:
       id: scan.save-record
     direction: DOWN
 - tapOn:
@@ -87,11 +79,5 @@ tags:
 - assertVisible:
     id: records.result-title
     text: "Possible result: Rust"
-- scrollUntilVisible:
-    element:
-      id: records.barangay-value
-    direction: DOWN
-- assertVisible:
-    id: records.barangay-value
-    text: "P0 Baseline"
+- assertVisible: Local only
 - takeScreenshot: .maestro/artifacts/p0-00-reopened-record

@@ -23,6 +23,20 @@ export const SYNC_STATUSES = [
 
 export type SyncStatus = (typeof SYNC_STATUSES)[number];
 
+export const FIELD_REPORT_AUTHORING_STATES = [
+  'draft',
+  'ready_for_submission',
+  'finalized',
+] as const;
+
+export type FieldReportAuthoringState =
+  (typeof FIELD_REPORT_AUTHORING_STATES)[number];
+
+export const FIELD_REPORT_LOCATION_SOURCES = ['gps', 'manual_map'] as const;
+
+export type FieldReportLocationSource =
+  (typeof FIELD_REPORT_LOCATION_SOURCES)[number];
+
 export const scanRecords = sqliteTable(
   'scan_records',
   {
@@ -145,6 +159,113 @@ export const scanQualityWarnings = sqliteTable(
   (table) => [primaryKey({ columns: [table.scanRecordId, table.warningKey] })],
 );
 
+export const fieldReports = sqliteTable(
+  'field_reports',
+  {
+    id: text('id').primaryKey(),
+    scanRecordId: text('scan_record_id')
+      .notNull()
+      .references(() => scanRecords.id, { onDelete: 'cascade' }),
+    authoringState: text('authoring_state')
+      .$type<FieldReportAuthoringState>()
+      .notNull()
+      .default('draft'),
+    farmerOrFarmOwnerName: text('farmer_or_farm_owner_name'),
+    province: text('province').notNull().default('Batangas'),
+    municipality: text('municipality').notNull().default('Nasugbu'),
+    barangay: text('barangay'),
+    submitterIdentity: text('submitter_identity'),
+    submitterRole: text('submitter_role'),
+    finalLatitude: real('final_latitude'),
+    finalLongitude: real('final_longitude'),
+    locationSource: text('location_source').$type<FieldReportLocationSource>(),
+    gpsAccuracy: real('gps_accuracy'),
+    gpsAttemptLatitude: real('gps_attempt_latitude'),
+    gpsAttemptLongitude: real('gps_attempt_longitude'),
+    gpsAttemptAccuracy: real('gps_attempt_accuracy'),
+    gpsAttemptedAt: text('gps_attempted_at'),
+    manualLocationSelectedAt: text('manual_location_selected_at'),
+    observedAt: text('observed_at').notNull(),
+    submittedAt: text('submitted_at'),
+    syncStatus: text('sync_status')
+      .$type<SyncStatus>()
+      .notNull()
+      .default('local_only'),
+    remoteId: text('remote_id'),
+    syncAttemptCount: integer('sync_attempt_count').notNull().default(0),
+    lastSyncErrorCode: text('last_sync_error_code'),
+    lastSyncAttemptAt: text('last_sync_attempt_at'),
+    lastSyncedAt: text('last_synced_at'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('field_reports_scan_record_id_unique').on(table.scanRecordId),
+    uniqueIndex('field_reports_remote_id_unique').on(table.remoteId),
+    index('field_reports_authoring_updated_at_idx').on(
+      table.authoringState,
+      table.updatedAt,
+    ),
+    index('field_reports_sync_updated_at_idx').on(
+      table.syncStatus,
+      table.updatedAt,
+    ),
+    check(
+      'field_reports_authoring_state_check',
+      sql`${table.authoringState} in ('draft', 'ready_for_submission', 'finalized')`,
+    ),
+    check(
+      'field_reports_sync_status_check',
+      sql`${table.syncStatus} in ('local_only', 'pending', 'syncing', 'synced', 'failed')`,
+    ),
+    check(
+      'field_reports_draft_sync_check',
+      sql`${table.authoringState} <> 'draft' or ${table.syncStatus} = 'local_only'`,
+    ),
+    check(
+      'field_reports_draft_submission_check',
+      sql`${table.authoringState} <> 'draft' or ${table.submittedAt} is null`,
+    ),
+    check(
+      'field_reports_location_check',
+      sql`(
+        ${table.locationSource} is null and
+        ${table.finalLatitude} is null and
+        ${table.finalLongitude} is null and
+        ${table.gpsAccuracy} is null
+      ) or (
+        ${table.locationSource} = 'gps' and
+        ${table.finalLatitude} between -90 and 90 and
+        ${table.finalLongitude} between -180 and 180 and
+        ${table.gpsAccuracy} >= 0
+      ) or (
+        ${table.locationSource} = 'manual_map' and
+        ${table.finalLatitude} between -90 and 90 and
+        ${table.finalLongitude} between -180 and 180 and
+        ${table.gpsAccuracy} is null
+      )`,
+    ),
+    check(
+      'field_reports_gps_attempt_check',
+      sql`(
+        ${table.gpsAttemptLatitude} is null and
+        ${table.gpsAttemptLongitude} is null and
+        ${table.gpsAttemptAccuracy} is null and
+        ${table.gpsAttemptedAt} is null
+      ) or (
+        ${table.gpsAttemptLatitude} between -90 and 90 and
+        ${table.gpsAttemptLongitude} between -180 and 180 and
+        ${table.gpsAttemptAccuracy} >= 0 and
+        ${table.gpsAttemptedAt} is not null
+      )`,
+    ),
+    check(
+      'field_reports_sync_attempt_count_check',
+      sql`${table.syncAttemptCount} >= 0`,
+    ),
+  ],
+);
+
 export type ScanRecordRow = typeof scanRecords.$inferSelect;
 export type NewScanRecordRow = typeof scanRecords.$inferInsert;
 export type ScanClassScoreRow = typeof scanClassScores.$inferSelect;
@@ -153,3 +274,5 @@ export type ScanSymptomRow = typeof scanSymptoms.$inferSelect;
 export type NewScanSymptomRow = typeof scanSymptoms.$inferInsert;
 export type ScanQualityWarningRow = typeof scanQualityWarnings.$inferSelect;
 export type NewScanQualityWarningRow = typeof scanQualityWarnings.$inferInsert;
+export type FieldReportRow = typeof fieldReports.$inferSelect;
+export type NewFieldReportRow = typeof fieldReports.$inferInsert;

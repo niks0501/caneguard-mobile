@@ -99,7 +99,10 @@ export default function HomeScreen() {
   ];
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
+    <SafeAreaView
+      testID="home.screen"
+      style={[styles.safe, { backgroundColor: theme.background }]}
+      edges={['top']}>
       <View style={styles.root}>
         <ScrollView
           showsVerticalScrollIndicator={false}

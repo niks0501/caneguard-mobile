@@ -87,6 +87,12 @@ describe('RecordDetailsScreen', () => {
 
     expect(useScanRecordDetails).toHaveBeenCalledWith(RECORD_ID);
     expect(screen.getByText('Possible result: Rust')).toBeOnTheScreen();
+    expect(screen.getByTestId('records.result-title')).toHaveTextContent(
+      'Possible result: Rust',
+    );
+    expect(screen.getByTestId('records.barangay-value')).toHaveTextContent(
+      'Not provided',
+    );
     expect(screen.getByText('82% AI confidence')).toBeOnTheScreen();
     expect(screen.getByText('Checklist consistent')).toBeOnTheScreen();
     expect(screen.getByText('Moderate')).toBeOnTheScreen();

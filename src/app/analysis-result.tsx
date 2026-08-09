@@ -149,7 +149,10 @@ export default function AnalysisResultScreen() {
       : `Possible result: ${metadata.displayName}`;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView
+      testID="scan.result-screen"
+      style={[styles.safe, { backgroundColor: theme.background }]}
+      edges={['top', 'bottom']}>
       <View style={styles.root}>
         <BrandedScreenHeader title="Analysis Result" />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -167,7 +170,9 @@ export default function AnalysisResultScreen() {
                   Model v0
                 </Text>
               </View>
-              <Text style={[styles.diseaseName, { color: theme.primaryDark }]}>
+              <Text
+                testID="scan.result-title"
+                style={[styles.diseaseName, { color: theme.primaryDark }]}>
                 {resultTitle}
               </Text>
               <Text style={[styles.resultMessage, { color: theme.text }]}>
@@ -307,6 +312,7 @@ export default function AnalysisResultScreen() {
 
             <SectionCard title="Report location">
               <TextField
+                testID="scan.barangay-input"
                 label="Barangay"
                 value={state.barangay}
                 onChangeText={(value) =>
@@ -330,6 +336,7 @@ export default function AnalysisResultScreen() {
               </Text>
             </View>
             <View
+              testID={saveRecord.status === 'saved' ? 'scan.record-saved' : 'scan.save-panel'}
               accessibilityLiveRegion={saveRecord.status === 'failed' ? 'assertive' : 'polite'}
               style={[
                 styles.saveCard,
@@ -385,6 +392,7 @@ export default function AnalysisResultScreen() {
               </Text>
               {saveRecord.status !== 'saved' ? (
                 <AppButton
+                  testID="scan.save-record"
                   onPress={() => void saveRecord.save()}
                   disabled={saveRecord.status === 'saving' || !hasBarangay}
                   leadingIcon={saveRecord.status === 'failed' ? 'refresh-cw' : 'save'}
@@ -405,6 +413,7 @@ export default function AnalysisResultScreen() {
                   </AppButton>
               ) : saveRecord.recordId ? (
                 <AppButton
+                  testID="scan.open-saved-record"
                   onPress={() =>
                     router.push({
                       pathname: '/record-details',

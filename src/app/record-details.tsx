@@ -112,6 +112,7 @@ export default function RecordDetailsScreen() {
 
   return (
     <SafeAreaView
+      testID="records.details-screen"
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
       <View style={styles.root}>
@@ -181,7 +182,9 @@ export default function RecordDetailsScreen() {
                     borderColor: theme.border,
                   },
                 ]}>
-                <Text style={[styles.result, { color: theme.primaryDark }]}>
+                <Text
+                  testID="records.result-title"
+                  style={[styles.result, { color: theme.primaryDark }]}>
                   {getResultLabel(record.data.predictedLabel)}
                 </Text>
                 <Text style={[styles.confidence, { color: theme.primary }]}>
@@ -212,6 +215,7 @@ export default function RecordDetailsScreen() {
                 <DetailRow
                   label="Barangay"
                   value={record.data.barangay ?? 'Not provided'}
+                  valueTestID="records.barangay-value"
                 />
                 <ObservationList
                   title="Selected observations"
@@ -400,14 +404,24 @@ function Section({ children, title }: { children: ReactNode; title: string }) {
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({
+  label,
+  value,
+  valueTestID,
+}: {
+  label: string;
+  value: string;
+  valueTestID?: string;
+}) {
   const theme = useTheme();
   return (
     <View style={[styles.row, { borderBottomColor: theme.divider }]}>
       <Text style={[styles.rowLabel, { color: theme.textSecondary }]}>
         {label}
       </Text>
-      <Text style={[styles.rowValue, { color: theme.text }]}>{value}</Text>
+      <Text testID={valueTestID} style={[styles.rowValue, { color: theme.text }]}>
+        {value}
+      </Text>
     </View>
   );
 }

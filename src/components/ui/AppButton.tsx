@@ -13,6 +13,7 @@ type AppButtonProps = {
   variant?: AppButtonVariant;
   disabled?: boolean;
   accessibilityLabel?: string;
+  testID?: string;
   style?: StyleProp<ViewStyle>;
   leadingIcon?: keyof typeof Feather.glyphMap;
   trailingIcon?: keyof typeof Feather.glyphMap;
@@ -24,6 +25,7 @@ export function AppButton({
   variant = 'primary',
   disabled,
   accessibilityLabel,
+  testID,
   style,
   leadingIcon,
   trailingIcon,
@@ -37,6 +39,7 @@ export function AppButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled }}
+      testID={testID}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [

@@ -98,7 +98,10 @@ export default function SymptomChecklistScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView
+      testID="scan.symptom-checklist-screen"
+      style={[styles.safe, { backgroundColor: theme.background }]}
+      edges={['top', 'bottom']}>
       <View style={styles.root}>
         <BrandedScreenHeader title="Symptoms" />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -120,6 +123,7 @@ export default function SymptomChecklistScreen() {
                 {CHECKLIST_OBSERVATIONS.map((observation) => (
                   <SymptomChecklistItem
                     key={observation.id}
+                    testID={`scan.symptom-${observation.id}`}
                     label={observation.label}
                     selected={selectedSymptoms.has(observation.id)}
                     onToggle={() => toggleSymptom(observation.id)}
@@ -172,6 +176,7 @@ export default function SymptomChecklistScreen() {
               </View>
             </View>
             <AppButton
+              testID="scan.continue-to-result"
               onPress={continueToResult}
               leadingIcon="check-circle"
               trailingIcon="arrow-right"

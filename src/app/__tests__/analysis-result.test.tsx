@@ -144,6 +144,12 @@ describe('AnalysisResultScreen', () => {
 
     await renderResult(state);
 
+    expect(screen.getByTestId('scan.result-screen')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.result-title')).toHaveTextContent(
+      'Possible result: Rust',
+    );
+    expect(screen.getByTestId('scan.barangay-input')).toHaveProp('value', 'Wawa');
+    expect(screen.getByTestId('scan.save-record')).toBeOnTheScreen();
     expect(
       screen.getByLabelText('Selected sugarcane image used for analysis'),
     ).toHaveProp('source', { uri: 'file:///result-leaf.jpg' });
@@ -283,6 +289,8 @@ describe('AnalysisResultScreen', () => {
 
     await renderResult(createCompletedState('rust', ['rust']));
 
+    expect(screen.getByTestId('scan.record-saved')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.open-saved-record')).toBeOnTheScreen();
     expect(screen.getByText('Saved on this device')).toBeOnTheScreen();
     expect(
       screen.queryByLabelText('Save record on this device'),

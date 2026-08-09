@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+
+# Keep Maestro and the Android device on the same WSL-native ADB server. The
+# project adb wrapper rejects Windows interop executables instead of silently
+# crossing into a separate Windows ADB device registry.
+export PATH="$ROOT/.akidev/bin:$PATH"
+"$ROOT/.akidev/bin/adb" version >/dev/null
+
 exec "$ROOT/.akidev/tools/maestro/bin/maestro" "$@"

@@ -49,7 +49,6 @@ example
 opencode.jsonc
 PROJECT_CHECKS.md
 docs/*
-!docs/
 !docs/model-v0/
 !docs/model-v0/**
 graphify-out/cache/
@@ -66,6 +65,10 @@ GUIDE.md
 justfile
 scripts
 tests/
+
+# Generated Maestro evidence (the convention and templates remain tracked)
+.maestro/artifacts/*
+!.maestro/artifacts/.gitkeep
 
 
 # >>> AkiDev project-local runtime >>>

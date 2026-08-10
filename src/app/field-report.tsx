@@ -138,7 +138,7 @@ export default function FieldReportScreen() {
                   </Text>
                   <Text style={[styles.statusMessage, { color: theme.textSecondary }]}> 
                     {report.data.authoringState === 'finalized'
-                      ? 'This report passed submission validation and is queued locally for synchronization.'
+                      ? `This report is finalized locally. Current synchronization status: ${getSyncPresentation(report.data.syncStatus).label}.`
                       : 'Save incomplete information now and return later. Drafts are stored only on this device and are not queued for synchronization.'}
                   </Text>
                 </View>

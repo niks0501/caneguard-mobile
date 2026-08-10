@@ -419,6 +419,28 @@ export async function findFieldReportByScanRecordId(
   }
 }
 
+export async function hasFieldReportOwnedByAnotherSubmitter(
+  database: CaneGuardDatabase,
+  scanRecordId: string,
+  submitterIdentity: string,
+): Promise<boolean> {
+  try {
+    const row = await database
+      .select({ submitterIdentity: fieldReports.submitterIdentity })
+      .from(fieldReports)
+      .where(eq(fieldReports.scanRecordId, scanRecordId))
+      .get();
+    const owner = row?.submitterIdentity?.trim();
+    return Boolean(owner && owner !== submitterIdentity.trim());
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'QUERY_FAILED',
+      'Checking Field Report ownership failed.',
+    );
+  }
+}
+
 export async function saveFieldReportDraft(
   database: CaneGuardDatabase,
   id: string,

@@ -17,6 +17,7 @@ let mockDetailsState: ReturnType<typeof useScanRecordDetails>;
 let mockFieldReportState: {
   data: FieldReport | null;
   errorMessage: string | null;
+  hasOtherOwnerReport: boolean;
   loading: boolean;
   refresh: jest.Mock;
 };
@@ -97,6 +98,7 @@ describe('RecordDetailsScreen', () => {
     mockFieldReportState = {
       data: null,
       errorMessage: null,
+      hasOtherOwnerReport: false,
       loading: false,
       refresh: jest.fn(),
     };
@@ -209,6 +211,24 @@ describe('RecordDetailsScreen', () => {
     expect(
       screen.getByText('This Field Report is finalized locally: Synced.'),
     ).toBeOnTheScreen();
+  });
+
+  it('does not offer a Field Report action owned by another submitter', async () => {
+    mockFieldReportState = {
+      ...mockFieldReportState,
+      hasOtherOwnerReport: true,
+    };
+
+    await render(<RecordDetailsScreen />);
+
+    expect(
+      screen.getByLabelText('Field Report owned by another submitter'),
+    ).toBeDisabled();
+    expect(screen.getByText('Report Unavailable')).toBeOnTheScreen();
+    expect(
+      screen.getByText(/belongs to another submitter/),
+    ).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Create Field Report draft')).not.toBeOnTheScreen();
   });
 
   it('loads complete stored metadata by UUID', async () => {

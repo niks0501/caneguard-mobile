@@ -361,12 +361,28 @@ describe('FieldReportScreen', () => {
       }),
     };
 
-    await render(<FieldReportScreen />);
+    const view = await render(<FieldReportScreen />);
     await act(async () => undefined);
 
     expect(screen.getByText('Finalized · Pending upload')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'This report is finalized locally. Current synchronization status: Pending upload.',
+      ),
+    ).toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.finalize')).not.toBeOnTheScreen();
     expect(screen.getByText('GPS')).toBeOnTheScreen();
+
+    mockDraftState = {
+      ...mockDraftState,
+      data: { ...mockDraftState.data!, syncStatus: 'synced' },
+    };
+    await view.rerender(<FieldReportScreen />);
+    expect(
+      screen.getByText(
+        'This report is finalized locally. Current synchronization status: Synced.',
+      ),
+    ).toBeOnTheScreen();
   });
 
   it('manually retries using Field Report identity', async () => {

@@ -221,6 +221,7 @@ export default function RecordDetailsScreen() {
                   {getFieldReportAction(
                     fieldReport.data,
                     record.data.syncStatus,
+                    fieldReport.hasOtherOwnerReport,
                   ).message}
                 </Text>
                 {fieldReport.errorMessage ? (
@@ -241,18 +242,21 @@ export default function RecordDetailsScreen() {
                     getFieldReportAction(
                       fieldReport.data,
                       record.data.syncStatus,
+                      fieldReport.hasOtherOwnerReport,
                     ).disabled
                   }
                   leadingIcon={
                     getFieldReportAction(
                       fieldReport.data,
                       record.data.syncStatus,
+                      fieldReport.hasOtherOwnerReport,
                     ).icon
                   }
                   accessibilityLabel={
                     getFieldReportAction(
                       fieldReport.data,
                       record.data.syncStatus,
+                      fieldReport.hasOtherOwnerReport,
                     ).accessibilityLabel
                   }>
                   {fieldReport.loading
@@ -260,6 +264,7 @@ export default function RecordDetailsScreen() {
                     : getFieldReportAction(
                         fieldReport.data,
                         record.data.syncStatus,
+                        fieldReport.hasOtherOwnerReport,
                       ).label}
                 </AppButton>
               </Section>
@@ -420,6 +425,7 @@ export default function RecordDetailsScreen() {
 function getFieldReportAction(
   report: FieldReport | null,
   legacySyncStatus: SyncStatus,
+  hasOtherOwnerReport = false,
 ): {
   accessibilityLabel: string;
   disabled: boolean;
@@ -428,6 +434,16 @@ function getFieldReportAction(
   message: string;
 } {
   if (!report) {
+    if (hasOtherOwnerReport) {
+      return {
+        accessibilityLabel: 'Field Report owned by another submitter',
+        disabled: true,
+        icon: 'lock',
+        label: 'Report Unavailable',
+        message:
+          'A Field Report for this scan belongs to another submitter and is unavailable to this account.',
+      };
+    }
     if (legacySyncStatus === 'synced') {
       return {
         accessibilityLabel: 'Legacy report already synchronized',

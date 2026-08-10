@@ -17,6 +17,7 @@ import {
   finalizeFieldReport,
   findFieldReportById,
   findFieldReportByScanRecordId,
+  hasFieldReportOwnedByAnotherSubmitter,
   saveGpsCapture,
   saveFieldReportDraft,
   saveManualMapLocation,
@@ -220,6 +221,16 @@ describe('Field Report draft repository', () => {
     await expect(
       findFieldReportByScanRecordId(database, SCAN_ID, OTHER_SUBMITTER_ID),
     ).resolves.toBeNull();
+    await expect(
+      hasFieldReportOwnedByAnotherSubmitter(database, SCAN_ID, SUBMITTER_ID),
+    ).resolves.toBe(false);
+    await expect(
+      hasFieldReportOwnedByAnotherSubmitter(
+        database,
+        SCAN_ID,
+        OTHER_SUBMITTER_ID,
+      ),
+    ).resolves.toBe(true);
     await expect(
       createOrGetFieldReportDraft(database, {
         ...createDraftInput(SECOND_REPORT_ID),

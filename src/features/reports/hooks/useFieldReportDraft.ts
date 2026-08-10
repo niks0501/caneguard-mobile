@@ -8,6 +8,7 @@ import {
   createOrGetFieldReportDraft,
   finalizeFieldReport,
   findFieldReportByScanRecordId,
+  hasFieldReportOwnedByAnotherSubmitter,
   saveGpsCapture,
   saveFieldReportDraft,
   saveManualMapLocation,
@@ -28,12 +29,17 @@ interface FieldReportState {
   loading: boolean;
 }
 
+interface FieldReportLookupState extends FieldReportState {
+  hasOtherOwnerReport: boolean;
+}
+
 export function useFieldReportForScan(scanRecordId: string | null) {
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
-  const [state, setState] = useState<FieldReportState>({
+  const [state, setState] = useState<FieldReportLookupState>({
     data: null,
     errorMessage: null,
+    hasOtherOwnerReport: false,
     loading: true,
   });
 
@@ -42,18 +48,22 @@ export function useFieldReportForScan(scanRecordId: string | null) {
       setState({
         data: null,
         errorMessage: 'This saved record link is invalid.',
+        hasOtherOwnerReport: false,
         loading: false,
       });
       return;
     }
     setState((current) => ({ ...current, errorMessage: null, loading: true }));
     try {
-      const data = await findFieldReportByScanRecordId(
-        database,
-        scanRecordId,
-        user.uuid,
-      );
-      setState({ data, errorMessage: null, loading: false });
+      const [data, hasOtherOwnerReport] = await Promise.all([
+        findFieldReportByScanRecordId(database, scanRecordId, user.uuid),
+        hasFieldReportOwnedByAnotherSubmitter(
+          database,
+          scanRecordId,
+          user.uuid,
+        ),
+      ]);
+      setState({ data, errorMessage: null, hasOtherOwnerReport, loading: false });
     } catch (error: unknown) {
       const storageError = toStorageError(
         error,
@@ -63,6 +73,7 @@ export function useFieldReportForScan(scanRecordId: string | null) {
       setState({
         data: null,
         errorMessage: getStorageErrorMessage(storageError),
+        hasOtherOwnerReport: false,
         loading: false,
       });
     }
@@ -99,7 +110,11 @@ export function useFieldReportDraft(
   const [submissionIssues, setSubmissionIssues] = useState<
     FieldReportSubmissionRequirement[]
   >([]);
-  const reportId = useRef<string | null>(null);
+  const reportId = useRef<{
+    id: string;
+    scanRecordId: string;
+    submitterIdentity: string;
+  } | null>(null);
   const saveInFlight = useRef<Promise<FieldReport> | null>(null);
 
   const refresh = useCallback(async () => {
@@ -135,17 +150,26 @@ export function useFieldReportDraft(
         });
         return;
       }
-      reportId.current = existing?.id ?? reportId.current ?? randomUUID();
+      const cachedReportId =
+        reportId.current?.scanRecordId === scanRecordId &&
+        reportId.current?.submitterIdentity === user.uuid
+          ? reportId.current.id
+          : null;
+      const reportIdForScan = existing?.id ?? cachedReportId ?? randomUUID();
       const data =
         existing ??
         (await createOrGetFieldReportDraft(database, {
-          id: reportId.current,
+          id: reportIdForScan,
           scanRecordId,
           createdAt: new Date().toISOString(),
           submitterIdentity: user.uuid,
           submitterRole: user.role,
         }));
-      reportId.current = data.id;
+      reportId.current = {
+        id: data.id,
+        scanRecordId,
+        submitterIdentity: user.uuid,
+      };
       setState({ data, errorMessage: null, loading: false });
       setSubmissionIssues([]);
     } catch (error: unknown) {

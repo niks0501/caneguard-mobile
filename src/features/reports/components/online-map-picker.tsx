@@ -51,18 +51,16 @@ export function OnlineMapPicker({
   const [tileLoadState, setTileLoadState] = useState<{
     failed: string[];
     loaded: string[];
-    tileSetKey: string;
-  }>({ failed: [], loaded: [], tileSetKey: '' });
+  }>({ failed: [], loaded: [] });
   const tiles = useMemo(
     () => getMapTiles(center, zoom, viewport.width, viewport.height),
     [center, viewport.height, viewport.width, zoom],
   );
-  const tileSetKey = tiles.map(({ key }) => key).join('|');
-
-  const activeLoadState =
-    tileLoadState.tileSetKey === tileSetKey
-      ? tileLoadState
-      : { failed: [], loaded: [], tileSetKey };
+  const visibleTileKeys = new Set(tiles.map(({ key }) => key));
+  const activeLoadState = {
+    failed: tileLoadState.failed.filter((key) => visibleTileKeys.has(key)),
+    loaded: tileLoadState.loaded.filter((key) => visibleTileKeys.has(key)),
+  };
   const mapLoaded =
     tiles.length > 0 && activeLoadState.loaded.length === tiles.length;
   const mapFailed =
@@ -133,24 +131,20 @@ export function OnlineMapPicker({
                 contentFit="fill"
                 onLoad={() =>
                   setTileLoadState((current) => {
-                    const next =
-                      current.tileSetKey === tileSetKey
-                        ? current
-                        : { failed: [], loaded: [], tileSetKey };
-                    return next.loaded.includes(tile.key)
-                      ? next
-                      : { ...next, loaded: [...next.loaded, tile.key] };
+                    return {
+                      ...current,
+                      failed: current.failed.filter((key) => key !== tile.key),
+                      loaded: current.loaded.includes(tile.key)
+                        ? current.loaded
+                        : [...current.loaded, tile.key],
+                    };
                   })
                 }
                 onError={() =>
                   setTileLoadState((current) => {
-                    const next =
-                      current.tileSetKey === tileSetKey
-                        ? current
-                        : { failed: [], loaded: [], tileSetKey };
-                    return next.failed.includes(tile.key)
-                      ? next
-                      : { ...next, failed: [...next.failed, tile.key] };
+                    return current.failed.includes(tile.key)
+                      ? current
+                      : { ...current, failed: [...current.failed, tile.key] };
                   })
                 }
                 style={[

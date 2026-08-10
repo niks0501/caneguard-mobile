@@ -174,6 +174,51 @@ describe('useFieldReportDraft', () => {
     expect(result.current.data?.id).toBe(REPORT_B);
   });
 
+  it('hides the previous Draft and blocks its actions while the next scan loads', async () => {
+    let resolveScanB: ((report: FieldReport | null) => void) | undefined;
+    mockFindFieldReportByScanRecordId.mockImplementation(
+      async (_database, scanRecordId) => {
+        if (scanRecordId === SCAN_A) {
+          return createdReport(REPORT_A, SCAN_A);
+        }
+        return new Promise<FieldReport | null>((resolve) => {
+          resolveScanB = resolve;
+        });
+      },
+    );
+
+    const { result, rerender } = await renderHook(
+      ({ scanRecordId }) => useFieldReportDraft(scanRecordId),
+      { initialProps: { scanRecordId: SCAN_A } },
+    );
+    await waitFor(() => expect(result.current.data?.id).toBe(REPORT_A));
+
+    rerender({ scanRecordId: SCAN_B });
+    await waitFor(() =>
+      expect(mockFindFieldReportByScanRecordId).toHaveBeenLastCalledWith(
+        DATABASE,
+        SCAN_B,
+        SUBMITTER_ID,
+      ),
+    );
+    expect(result.current.data).toBeNull();
+
+    let saveResult: FieldReport | null = null;
+    await act(async () => {
+      saveResult = await result.current.save({
+        barangay: 'Lumbangan',
+        farmerOrFarmOwnerName: 'Maria Santos',
+      });
+    });
+    expect(saveResult).toBeNull();
+    expect(mockSaveFieldReportDraft).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveScanB?.(createdReport(REPORT_B, SCAN_B));
+    });
+    await waitFor(() => expect(result.current.data?.id).toBe(REPORT_B));
+  });
+
   it('blocks Draft saves while finalization is in flight', async () => {
     let resolveFinalize!: (
       result: Awaited<ReturnType<typeof finalizeFieldReport>>,

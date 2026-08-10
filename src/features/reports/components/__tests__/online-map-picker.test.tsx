@@ -78,4 +78,43 @@ describe('OnlineMapPicker', () => {
     expect(screen.getByTestId('manual-map.viewport')).toBeDisabled();
     expect(onSelectionChange).not.toHaveBeenCalled();
   });
+
+  it('retains loaded overlap after panning into a new tile set', async () => {
+    await render(
+      <OnlineMapPicker
+        initialCenter={DEFAULT_MANUAL_MAP_CENTER}
+        isOnline={true}
+        onSelectionChange={jest.fn()}
+      />,
+    );
+    await act(async () => undefined);
+    await act(async () => {
+      screen.getByTestId('manual-map.viewport').props.onLayout({
+        nativeEvent: { layout: { height: 360, width: 390, x: 0, y: 0 } },
+      });
+    });
+
+    for (const tile of screen.getAllByTestId('manual-map.tile')) {
+      await act(async () => tile.props.onLoad());
+    }
+    const initialTileUrls = new Set(
+      screen
+        .getAllByTestId('manual-map.tile')
+        .map((tile) => tile.props.source.uri),
+    );
+
+    await act(async () => {
+      screen.getByLabelText('Pan east').props.onPress();
+    });
+    const newTiles = screen
+      .getAllByTestId('manual-map.tile')
+      .filter((tile) => !initialTileUrls.has(tile.props.source.uri));
+    expect(newTiles.length).toBeGreaterThan(0);
+
+    for (const tile of newTiles) {
+      await act(async () => tile.props.onLoad());
+    }
+
+    expect(screen.getByTestId('manual-map.viewport')).not.toBeDisabled();
+  });
 });

@@ -51,20 +51,20 @@ export function useFieldReportForScan(scanRecordId: string | null) {
     scanRecordId,
     submitterIdentity: user?.uuid ?? null,
   };
-
+  const isCurrentInput = useCallback(
+    () =>
+      refreshInput.current.scanRecordId === scanRecordId &&
+      refreshInput.current.submitterIdentity === (user?.uuid ?? null),
+    [scanRecordId, user?.uuid],
+  );
   const refresh = useCallback(async () => {
-    const submitterIdentity = user?.uuid ?? null;
-    if (
-      refreshInput.current.scanRecordId !== scanRecordId ||
-      refreshInput.current.submitterIdentity !== submitterIdentity
-    ) {
+    if (!isCurrentInput()) {
       return;
     }
     const requestGeneration = ++refreshGeneration.current;
     const isCurrentRequest = () =>
       refreshGeneration.current === requestGeneration &&
-      refreshInput.current.scanRecordId === scanRecordId &&
-      refreshInput.current.submitterIdentity === submitterIdentity;
+      isCurrentInput();
 
     if (!scanRecordId || !user) {
       setState({
@@ -105,7 +105,7 @@ export function useFieldReportForScan(scanRecordId: string | null) {
         loading: false,
       });
     }
-  }, [database, scanRecordId, user]);
+  }, [database, isCurrentInput, scanRecordId, user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -154,20 +154,24 @@ export function useFieldReportDraft(
     scanRecordId,
     submitterIdentity: user?.uuid ?? null,
   };
+  const isCurrentInput = useCallback(
+    () =>
+      refreshInput.current.scanRecordId === scanRecordId &&
+      refreshInput.current.submitterIdentity === (user?.uuid ?? null),
+    [scanRecordId, user?.uuid],
+  );
+  const hasCurrentReport =
+    state.data?.scanRecordId === scanRecordId &&
+    state.data?.submitterIdentity === (user?.uuid ?? null);
 
   const refresh = useCallback(async () => {
-    const submitterIdentity = user?.uuid ?? null;
-    if (
-      refreshInput.current.scanRecordId !== scanRecordId ||
-      refreshInput.current.submitterIdentity !== submitterIdentity
-    ) {
+    if (!isCurrentInput()) {
       return;
     }
     const requestGeneration = ++refreshGeneration.current;
     const isCurrentRequest = () =>
       refreshGeneration.current === requestGeneration &&
-      refreshInput.current.scanRecordId === scanRecordId &&
-      refreshInput.current.submitterIdentity === submitterIdentity;
+      isCurrentInput();
 
     if (!scanRecordId) {
       setState({
@@ -186,7 +190,9 @@ export function useFieldReportDraft(
       return;
     }
 
-    setState((current) => ({ ...current, errorMessage: null, loading: true }));
+    setState({ data: null, errorMessage: null, loading: true });
+    setSaved(false);
+    setSubmissionIssues([]);
     try {
       const existing = await findFieldReportByScanRecordId(
         database,
@@ -244,7 +250,7 @@ export function useFieldReportDraft(
         loading: false,
       });
     }
-  }, [createIfMissing, database, scanRecordId, user]);
+  }, [createIfMissing, database, isCurrentInput, scanRecordId, user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -261,6 +267,7 @@ export function useFieldReportDraft(
     ): Promise<FieldReport | null> => {
       if (
         !state.data ||
+        !hasCurrentReport ||
         !user ||
         capturingLocation ||
         finalizing ||
@@ -284,6 +291,9 @@ export function useFieldReportDraft(
 
       try {
         const data = await operation;
+        if (!isCurrentInput()) {
+          return null;
+        }
         setState({ data, errorMessage: null, loading: false });
         setSaved(true);
         return data;
@@ -293,22 +303,37 @@ export function useFieldReportDraft(
           'UPDATE_FAILED',
           'Saving the Field Report draft failed.',
         );
-        setState((current) => ({
-          ...current,
-          errorMessage: getStorageErrorMessage(storageError),
-        }));
+        if (isCurrentInput()) {
+          setState((current) => ({
+            ...current,
+            errorMessage: getStorageErrorMessage(storageError),
+          }));
+        }
         return null;
       } finally {
-        saveInFlight.current = null;
-        setSaving(false);
+        if (saveInFlight.current === operation) {
+          saveInFlight.current = null;
+          if (isCurrentInput()) {
+            setSaving(false);
+          }
+        }
       }
     },
-    [capturingLocation, database, finalizing, state.data, user],
+    [
+      capturingLocation,
+      database,
+      finalizing,
+      hasCurrentReport,
+      isCurrentInput,
+      state.data,
+      user,
+    ],
   );
 
   const captureLocation = useCallback(async (): Promise<FieldReport | null> => {
     if (
       !state.data ||
+      !hasCurrentReport ||
       !user ||
       capturingLocation ||
       finalizing ||
@@ -328,6 +353,9 @@ export function useFieldReportDraft(
         ...result,
         updatedAt: new Date().toISOString(),
       });
+      if (!isCurrentInput()) {
+        return null;
+      }
       setState({ data, errorMessage: null, loading: false });
       return data;
     } catch (error: unknown) {
@@ -336,20 +364,31 @@ export function useFieldReportDraft(
         'UPDATE_FAILED',
         'Saving the GPS result failed.',
       );
-      setState((current) => ({
-        ...current,
-        errorMessage: getStorageErrorMessage(storageError),
-      }));
+      if (isCurrentInput()) {
+        setState((current) => ({
+          ...current,
+          errorMessage: getStorageErrorMessage(storageError),
+        }));
+      }
       return null;
     } finally {
       setCapturingLocation(false);
     }
-  }, [capturingLocation, database, finalizing, state.data, user]);
+  }, [
+    capturingLocation,
+    database,
+    finalizing,
+    hasCurrentReport,
+    isCurrentInput,
+    state.data,
+    user,
+  ]);
 
   const saveManualLocation = useCallback(
     async (latitude: number, longitude: number): Promise<FieldReport | null> => {
       if (
         !state.data ||
+        !hasCurrentReport ||
         !user ||
         savingManualLocation ||
         capturingLocation ||
@@ -377,6 +416,9 @@ export function useFieldReportDraft(
             updatedAt: selectedAt,
           },
         );
+        if (!isCurrentInput()) {
+          return null;
+        }
         setState({ data, errorMessage: null, loading: false });
         setSaved(true);
         return data;
@@ -386,10 +428,12 @@ export function useFieldReportDraft(
           'UPDATE_FAILED',
           'Saving the manual map location failed.',
         );
-        setState((current) => ({
-          ...current,
-          errorMessage: getStorageErrorMessage(storageError),
-        }));
+        if (isCurrentInput()) {
+          setState((current) => ({
+            ...current,
+            errorMessage: getStorageErrorMessage(storageError),
+          }));
+        }
         return null;
       } finally {
         setSavingManualLocation(false);
@@ -398,6 +442,8 @@ export function useFieldReportDraft(
       capturingLocation,
       database,
       finalizing,
+      hasCurrentReport,
+      isCurrentInput,
       savingManualLocation,
       state.data,
       user,
@@ -411,6 +457,7 @@ export function useFieldReportDraft(
     }): Promise<FieldReport | null> => {
       if (
         !state.data ||
+        !hasCurrentReport ||
         !user ||
         finalizing ||
         savingManualLocation ||
@@ -438,6 +485,9 @@ export function useFieldReportDraft(
             updatedAt: submittedAt,
           },
         );
+        if (!isCurrentInput()) {
+          return null;
+        }
         setState({ data: result.report, errorMessage: null, loading: false });
         if (result.status === 'invalid') {
           setSubmissionIssues(result.missingRequirements);
@@ -451,10 +501,12 @@ export function useFieldReportDraft(
           'UPDATE_FAILED',
           'Finalizing the Field Report failed.',
         );
-        setState((current) => ({
-          ...current,
-          errorMessage: getStorageErrorMessage(storageError),
-        }));
+        if (isCurrentInput()) {
+          setState((current) => ({
+            ...current,
+            errorMessage: getStorageErrorMessage(storageError),
+          }));
+        }
         return null;
       } finally {
         finalizeInFlight.current = false;
@@ -464,24 +516,31 @@ export function useFieldReportDraft(
       capturingLocation,
       database,
       finalizing,
+      hasCurrentReport,
+      isCurrentInput,
       savingManualLocation,
       state.data,
       user,
     ],
   );
 
+  const visibleState =
+    state.data && !hasCurrentReport
+      ? { data: null, errorMessage: null, loading: true }
+      : state;
+
   return {
-    ...state,
+    ...visibleState,
     captureLocation,
-    capturingLocation,
+    capturingLocation: hasCurrentReport ? capturingLocation : false,
     finalize,
-    finalizing,
+    finalizing: hasCurrentReport ? finalizing : false,
     refresh,
     save,
     saveManualLocation,
-    saved,
-    saving,
-    savingManualLocation,
-    submissionIssues,
+    saved: hasCurrentReport ? saved : false,
+    saving: hasCurrentReport ? saving : false,
+    savingManualLocation: hasCurrentReport ? savingManualLocation : false,
+    submissionIssues: hasCurrentReport ? submissionIssues : [],
   };
 }

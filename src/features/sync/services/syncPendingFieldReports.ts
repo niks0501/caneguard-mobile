@@ -29,42 +29,43 @@ interface SyncPendingFieldReportsOptions {
   token: string | null;
 }
 
-const activeRuns = new WeakMap<
-  CaneGuardDatabase,
-  Map<
-    string,
-    { promise: Promise<SyncBatchResult>; token: string | null }
-  >
->();
+interface DatabaseRunState {
+  runs: Map<string, { promise: Promise<SyncBatchResult>; token: string | null }>;
+  tail: Promise<void>;
+}
+
+const activeRuns = new WeakMap<CaneGuardDatabase, DatabaseRunState>();
 
 export function syncPendingFieldReports(
   options: SyncPendingFieldReportsOptions,
 ): Promise<SyncBatchResult> {
   const submitterIdentity = options.submitterIdentity.trim();
-  let databaseRuns = activeRuns.get(options.database);
-  if (!databaseRuns) {
-    databaseRuns = new Map();
-    activeRuns.set(options.database, databaseRuns);
+  let databaseState = activeRuns.get(options.database);
+  if (!databaseState) {
+    databaseState = { runs: new Map(), tail: Promise.resolve() };
+    activeRuns.set(options.database, databaseState);
   }
-  const activeRun = databaseRuns.get(submitterIdentity);
+  const activeRun = databaseState.runs.get(submitterIdentity);
   if (activeRun?.token === options.token) {
     return activeRun.promise;
   }
 
-  const execution = activeRun
-    ? activeRun.promise
-        .catch(() => undefined)
-        .then(() => executeBatch({ ...options, submitterIdentity }))
-    : executeBatch({ ...options, submitterIdentity });
+  const execution = databaseState.tail
+    .catch(() => undefined)
+    .then(() => executeBatch({ ...options, submitterIdentity }));
   const run = execution.finally(() => {
-    if (databaseRuns?.get(submitterIdentity)?.promise === run) {
-      databaseRuns.delete(submitterIdentity);
-      if (databaseRuns.size === 0) {
-        activeRuns.delete(options.database);
-      }
+    if (databaseState?.runs.get(submitterIdentity)?.promise === run) {
+      databaseState.runs.delete(submitterIdentity);
     }
   });
-  databaseRuns.set(submitterIdentity, { promise: run, token: options.token });
+  databaseState.runs.set(submitterIdentity, {
+    promise: run,
+    token: options.token,
+  });
+  databaseState.tail = run.then(
+    () => undefined,
+    () => undefined,
+  );
   return run;
 }
 

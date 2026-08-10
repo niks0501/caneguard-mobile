@@ -68,8 +68,19 @@ describe('pending Field Report queue', () => {
     expect(syncFieldReport).toHaveBeenCalledTimes(1);
   });
 
-  it('runs different submitter queues independently', async () => {
-    findSyncCandidates.mockResolvedValue([]);
+  it('serializes different submitter queues on one database', async () => {
+    let candidateCall = 0;
+    findSyncCandidates.mockImplementation(async () => {
+      candidateCall += 1;
+      return candidateCall === 1 ? [{ id: 'report-1' }] : [];
+    });
+    let finishFirst!: () => void;
+    jest.mocked(syncFieldReport).mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishFirst = () =>
+          resolve({ reportId: 'report-1', remoteId: 'remote-1', status: 'synced' });
+      }),
+    );
 
     const first = syncPendingFieldReports({
       database,
@@ -85,12 +96,19 @@ describe('pending Field Report queue', () => {
     });
 
     expect(second).not.toBe(first);
+    await waitFor(() =>
+      expect(createFieldReportSyncRepository).toHaveBeenCalledTimes(1),
+    );
+    expect(syncFieldReport).toHaveBeenCalledTimes(1);
+    finishFirst();
     await expect(Promise.all([first, second])).resolves.toHaveLength(2);
-    expect(createFieldReportSyncRepository).toHaveBeenCalledWith(
+    expect(createFieldReportSyncRepository).toHaveBeenNthCalledWith(
+      1,
       database,
       SUBMITTER_ID,
     );
-    expect(createFieldReportSyncRepository).toHaveBeenCalledWith(
+    expect(createFieldReportSyncRepository).toHaveBeenNthCalledWith(
+      2,
       database,
       OTHER_SUBMITTER_ID,
     );

@@ -330,10 +330,14 @@ function DraftFields({
         onPress={() =>
           onSave({ farmerOrFarmOwnerName: farmerName, barangay })
         }
-        disabled={saving || captureInProgress}
+        disabled={saving || captureInProgress || finalizing}
         leadingIcon="save"
         accessibilityLabel={
-          saving ? 'Saving Field Report draft' : 'Save Field Report draft'
+          finalizing
+            ? 'Save Field Report draft unavailable while finalizing'
+            : saving
+              ? 'Saving Field Report draft'
+              : 'Save Field Report draft'
         }>
         {saving ? 'Saving Draft...' : 'Save Draft'}
       </AppButton>

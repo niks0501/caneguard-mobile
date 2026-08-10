@@ -328,6 +328,19 @@ describe('FieldReportScreen', () => {
     expect(mockRefresh).toHaveBeenCalled();
   });
 
+  it('disables Draft save while finalization is in flight', async () => {
+    mockDraftState = { ...mockDraftState, finalizing: true };
+
+    await render(<FieldReportScreen />);
+
+    const saveButton = screen.getByLabelText(
+      'Save Field Report draft unavailable while finalizing',
+    );
+    expect(saveButton).toBeDisabled();
+    await fireEvent.press(saveButton);
+    expect(mockSave).not.toHaveBeenCalled();
+  });
+
   it('shows actionable submission issues while retaining Draft status', async () => {
     mockDraftState = {
       ...mockDraftState,

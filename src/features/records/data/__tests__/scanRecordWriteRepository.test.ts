@@ -23,6 +23,8 @@ import type { SaveCompletedScanInput } from '@/features/records/domain/recordTyp
 import { getLocalReportSummary } from '@/features/reports/data/reportRepository';
 
 const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
+const OTHER_SUBMITTER_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
 
 function readMigration(filename: string): string {
   return readFileSync(join(process.cwd(), 'drizzle', filename), 'utf8').replaceAll(
@@ -325,7 +327,9 @@ describe('scan record write repository', () => {
     await expect(listManagedImageUris(database)).resolves.toEqual([
       `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
     ]);
-    await expect(deleteScanRecordById(database, RECORD_ID)).resolves.toEqual({
+    await expect(
+      deleteScanRecordById(database, RECORD_ID, SUBMITTER_ID),
+    ).resolves.toEqual({
       managedImageUri: `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
     });
 
@@ -342,6 +346,65 @@ describe('scan record write repository', () => {
     await expect(findScanRecordById(database, RECORD_ID)).rejects.toMatchObject({
       code: 'RECORD_NOT_FOUND',
     });
+    native.close();
+  });
+
+  it('preserves synchronization metadata for scans created by earlier versions', async () => {
+    const { database, native } = openTestDatabase();
+    await insertScanRecord(database, validInput());
+    native
+      .prepare(
+        "UPDATE scan_records SET sync_status = 'failed', last_sync_error_code = 'NETWORK_UNAVAILABLE' WHERE id = ?",
+      )
+      .run(RECORD_ID);
+
+    await expect(
+      listScanRecords(database, { syncStatus: 'failed' }),
+    ).resolves.toEqual([
+      expect.objectContaining({ id: RECORD_ID, syncStatus: 'failed' }),
+    ]);
+
+    native
+      .prepare(
+        "UPDATE scan_records SET sync_status = 'synced', remote_id = 'legacy-remote-id', last_synced_at = ? WHERE id = ?",
+      )
+      .run('2026-07-25T06:00:00.000Z', RECORD_ID);
+    await expect(findScanRecordById(database, RECORD_ID)).resolves.toMatchObject({
+      remoteId: 'legacy-remote-id',
+      syncStatus: 'synced',
+      lastSyncedAt: '2026-07-25T06:00:00.000Z',
+    });
+    native.close();
+  });
+
+  it('rejects deleting a scan attached to another submitter report', async () => {
+    const { database, native } = openTestDatabase();
+    await insertScanRecord(database, validInput());
+    native
+      .prepare(`
+        INSERT INTO field_reports (
+          id, scan_record_id, submitter_identity, submitter_role,
+          observed_at, created_at, updated_at
+        ) VALUES (?, ?, ?, 'field_reporter', ?, ?, ?)
+      `)
+      .run(
+        '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+        RECORD_ID,
+        SUBMITTER_ID,
+        '2026-07-25T05:30:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+      );
+
+    await expect(
+      deleteScanRecordById(database, RECORD_ID, OTHER_SUBMITTER_ID),
+    ).rejects.toMatchObject<Partial<StorageError>>({ code: 'DELETE_FAILED' });
+    expect(
+      native.prepare('SELECT count(*) AS count FROM scan_records').get(),
+    ).toEqual({ count: 1 });
+    await expect(
+      deleteScanRecordById(database, RECORD_ID, SUBMITTER_ID),
+    ).resolves.toMatchObject({ managedImageUri: expect.any(String) });
     native.close();
   });
 
@@ -412,6 +475,7 @@ describe('scan record write repository', () => {
     await deleteScanRecordById(
       database,
       '2b4666c0-ad10-4d0d-a233-000000000003',
+      SUBMITTER_ID,
     );
     await expect(getLocalReportSummary(database)).resolves.toMatchObject({
       totalSavedScans: 4,

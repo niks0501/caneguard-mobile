@@ -48,6 +48,7 @@ const ONLINE = {
   type: 'wifi',
 } as never;
 const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
+const OTHER_SUBMITTER_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
 
 describe('SyncProvider foreground triggers', () => {
   let networkListener: (state: never) => void;
@@ -124,5 +125,72 @@ describe('SyncProvider foreground triggers', () => {
         expect.objectContaining({ source: 'resume' }),
       ),
     );
+  });
+
+  it('does not expire a replacement session from an older rejected upload', async () => {
+    const markFirstSessionExpired = jest.fn(async () => undefined);
+    const markSecondSessionExpired = jest.fn(async () => undefined);
+    let finish!: (result: {
+      attempted: number;
+      authRequired: boolean;
+      failed: number;
+      results: [];
+      source: 'network-restored';
+      synced: number;
+    }) => void;
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: {
+        token: 'first-token',
+        user: { uuid: SUBMITTER_ID },
+      },
+      markSessionExpired: markFirstSessionExpired,
+    } as never);
+    jest.mocked(syncPendingFieldReports).mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+
+    const view = await render(
+      <SyncProvider>
+        <Text>Ready</Text>
+      </SyncProvider>,
+    );
+    await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+    await act(() => networkListener(OFFLINE));
+    await act(async () => {
+      networkListener(ONLINE);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(syncPendingFieldReports).toHaveBeenCalled());
+
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: {
+        token: 'second-token',
+        user: { uuid: OTHER_SUBMITTER_ID },
+      },
+      markSessionExpired: markSecondSessionExpired,
+    } as never);
+    await view.rerender(
+      <SyncProvider>
+        <Text>Ready</Text>
+      </SyncProvider>,
+    );
+    await act(async () => {
+      finish({
+        attempted: 1,
+        authRequired: true,
+        failed: 1,
+        results: [],
+        source: 'network-restored',
+        synced: 0,
+      });
+      await Promise.resolve();
+    });
+
+    expect(markFirstSessionExpired).not.toHaveBeenCalled();
+    expect(markSecondSessionExpired).not.toHaveBeenCalled();
   });
 });

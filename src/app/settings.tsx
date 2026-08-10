@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -80,6 +81,7 @@ export default function SettingsScreen() {
   const [highContrast, setHighContrast] = useState(false);
   const [syncAlerts, setSyncAlerts] = useState(true);
   const [maoAdvisories, setMaoAdvisories] = useState(true);
+  const appVersion = Constants.expoConfig?.version ?? 'Unknown';
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
@@ -192,7 +194,9 @@ export default function SettingsScreen() {
               </View>
               <View style={styles.menuRow}>
                 <Text style={[styles.menuLabel, { color: theme.text }]}>Version</Text>
-                <Text style={[styles.menuValue, { color: theme.textSecondary }]}>v1.0.0-prototype</Text>
+                <Text style={[styles.menuValue, { color: theme.textSecondary }]}>
+                  v{appVersion}
+                </Text>
               </View>
             </View>
 

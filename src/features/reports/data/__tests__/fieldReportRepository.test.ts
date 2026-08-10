@@ -251,6 +251,40 @@ describe('Field Report draft repository', () => {
     native.close();
   });
 
+  it('upgrades an older unsent scan under its original client identity', async () => {
+    const { database, native } = openTestDatabase();
+    native
+      .prepare("UPDATE scan_records SET sync_status = 'failed' WHERE id = ?")
+      .run(SCAN_ID);
+
+    await expect(
+      createOrGetFieldReportDraft(database, createDraftInput()),
+    ).resolves.toMatchObject({
+      id: SCAN_ID,
+      scanRecordId: SCAN_ID,
+      authoringState: 'draft',
+      syncStatus: 'local_only',
+    });
+    native.close();
+  });
+
+  it('prevents resubmitting a scan synchronized by an older app version', async () => {
+    const { database, native } = openTestDatabase();
+    native
+      .prepare(
+        "UPDATE scan_records SET sync_status = 'synced', remote_id = 'legacy-remote-id' WHERE id = ?",
+      )
+      .run(SCAN_ID);
+
+    await expect(
+      createOrGetFieldReportDraft(database, createDraftInput()),
+    ).rejects.toMatchObject<Partial<StorageError>>({ code: 'UPDATE_FAILED' });
+    expect(
+      native.prepare('SELECT count(*) AS count FROM field_reports').get(),
+    ).toEqual({ count: 0 });
+    native.close();
+  });
+
   it('persists resolved GPS provenance without changing Draft fields or scan evidence', async () => {
     const { database, native } = openTestDatabase();
     await createOrGetFieldReportDraft(database, createDraftInput());

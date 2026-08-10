@@ -13,6 +13,7 @@ jest.mock('@/features/sync/services/syncFieldReport', () => ({ syncFieldReport: 
 
 const database = {} as CaneGuardDatabase;
 const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
+const OTHER_SUBMITTER_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
 const findSyncCandidates = jest.fn();
 const repository = { findSyncCandidates };
 
@@ -65,5 +66,54 @@ describe('pending Field Report queue', () => {
     );
     expect(findSyncCandidates).toHaveBeenCalledWith(10, true);
     expect(syncFieldReport).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs different submitter queues independently', async () => {
+    findSyncCandidates.mockResolvedValue([]);
+
+    const first = syncPendingFieldReports({
+      database,
+      source: 'startup',
+      submitterIdentity: SUBMITTER_ID,
+      token: 'first-token',
+    });
+    const second = syncPendingFieldReports({
+      database,
+      source: 'startup',
+      submitterIdentity: OTHER_SUBMITTER_ID,
+      token: 'second-token',
+    });
+
+    expect(second).not.toBe(first);
+    await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+    expect(createFieldReportSyncRepository).toHaveBeenCalledWith(
+      database,
+      SUBMITTER_ID,
+    );
+    expect(createFieldReportSyncRepository).toHaveBeenCalledWith(
+      database,
+      OTHER_SUBMITTER_ID,
+    );
+  });
+
+  it('queues a replacement session for the same submitter', async () => {
+    findSyncCandidates.mockResolvedValue([]);
+
+    const first = syncPendingFieldReports({
+      database,
+      source: 'startup',
+      submitterIdentity: SUBMITTER_ID,
+      token: 'first-token',
+    });
+    const replacement = syncPendingFieldReports({
+      database,
+      source: 'startup',
+      submitterIdentity: SUBMITTER_ID,
+      token: 'replacement-token',
+    });
+
+    expect(replacement).not.toBe(first);
+    await expect(Promise.all([first, replacement])).resolves.toHaveLength(2);
+    expect(createFieldReportSyncRepository).toHaveBeenCalledTimes(2);
   });
 });

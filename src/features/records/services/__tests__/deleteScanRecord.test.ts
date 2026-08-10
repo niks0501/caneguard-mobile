@@ -4,6 +4,7 @@ import { deleteScanRecord } from '@/features/records/services/deleteScanRecord';
 
 const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
 const IMAGE_URI = `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`;
+const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 
 describe('deleteScanRecord', () => {
   const database = {} as CaneGuardDatabase;
@@ -12,10 +13,17 @@ describe('deleteScanRecord', () => {
 
   it('deletes the database record before its managed image', async () => {
     await expect(
-      deleteScanRecord(database, RECORD_ID, { deleteRecord, deleteImage }),
+      deleteScanRecord(database, RECORD_ID, SUBMITTER_ID, {
+        deleteRecord,
+        deleteImage,
+      }),
     ).resolves.toEqual({ id: RECORD_ID, imageCleanupError: null });
 
-    expect(deleteRecord).toHaveBeenCalledWith(database, RECORD_ID);
+    expect(deleteRecord).toHaveBeenCalledWith(
+      database,
+      RECORD_ID,
+      SUBMITTER_ID,
+    );
     expect(deleteRecord.mock.invocationCallOrder[0]).toBeLessThan(
       deleteImage.mock.invocationCallOrder[0],
     );
@@ -28,7 +36,10 @@ describe('deleteScanRecord', () => {
     );
 
     await expect(
-      deleteScanRecord(database, RECORD_ID, { deleteRecord, deleteImage }),
+      deleteScanRecord(database, RECORD_ID, SUBMITTER_ID, {
+        deleteRecord,
+        deleteImage,
+      }),
     ).rejects.toMatchObject({ code: 'DELETE_FAILED' });
     expect(deleteImage).not.toHaveBeenCalled();
   });
@@ -40,7 +51,10 @@ describe('deleteScanRecord', () => {
     });
 
     await expect(
-      deleteScanRecord(database, RECORD_ID, { deleteRecord, deleteImage }),
+      deleteScanRecord(database, RECORD_ID, SUBMITTER_ID, {
+        deleteRecord,
+        deleteImage,
+      }),
     ).resolves.toEqual({ id: RECORD_ID, imageCleanupError: error });
   });
 });

@@ -32,7 +32,11 @@ export async function createOrGetFieldReportDraft(
   try {
     return database.transaction((transaction) => {
       const scan = transaction
-        .select({ createdAt: scanRecords.createdAt })
+        .select({
+          createdAt: scanRecords.createdAt,
+          remoteId: scanRecords.remoteId,
+          syncStatus: scanRecords.syncStatus,
+        })
         .from(scanRecords)
         .where(eq(scanRecords.id, input.scanRecordId))
         .get();
@@ -84,10 +88,20 @@ export async function createOrGetFieldReportDraft(
         return toFieldReport(existing);
       }
 
+      if (scan.syncStatus === 'synced' || scan.remoteId) {
+        throw new StorageError(
+          'UPDATE_FAILED',
+          'A report already synchronized by an earlier app version cannot be resubmitted.',
+        );
+      }
+
+      const reportId =
+        scan.syncStatus === 'local_only' ? input.id : input.scanRecordId;
+
       transaction
         .insert(fieldReports)
         .values({
-          id: input.id,
+          id: reportId,
           scanRecordId: input.scanRecordId,
           authoringState: 'draft',
           submitterIdentity: input.submitterIdentity.trim(),
@@ -102,7 +116,7 @@ export async function createOrGetFieldReportDraft(
       const created = transaction
         .select()
         .from(fieldReports)
-        .where(eq(fieldReports.id, input.id))
+        .where(eq(fieldReports.id, reportId))
         .get();
 
       if (!created) {

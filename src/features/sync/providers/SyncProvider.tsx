@@ -53,6 +53,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const previousOnline = useRef<boolean | null>(null);
   const onlineRef = useRef<boolean | null>(null);
   const mounted = useRef(true);
+  const sessionRef = useRef(auth.session);
+  sessionRef.current = auth.session;
 
   const refreshPendingCount = useCallback(async () => {
     const submitterIdentity = auth.session?.user.uuid;
@@ -88,15 +90,23 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
       setIsSyncing(true);
       setErrorMessage(null);
+      const initiatingSession = auth.session;
+      const isInitiatingSessionCurrent = () =>
+        sessionRef.current?.token === initiatingSession.token &&
+        sessionRef.current?.user.uuid === initiatingSession.user.uuid;
       try {
         const result = await syncPendingFieldReports({
           database,
           source,
-          submitterIdentity: auth.session.user.uuid,
-          token: auth.session.token,
+          submitterIdentity: initiatingSession.user.uuid,
+          token: initiatingSession.token,
         });
+        if (!isInitiatingSessionCurrent()) {
+          return result;
+        }
         if (result.authRequired) {
           await auth.markSessionExpired();
+          return result;
         }
         if (result.synced > 0) {
           setLastSuccessfulSyncAt(new Date().toISOString());
@@ -109,11 +119,13 @@ export function SyncProvider({ children }: PropsWithChildren) {
         await refreshPendingCount();
         return result;
       } catch {
-        setErrorMessage('CaneGuard could not process the pending upload queue.');
-        await refreshPendingCount();
+        if (isInitiatingSessionCurrent()) {
+          setErrorMessage('CaneGuard could not process the pending upload queue.');
+          await refreshPendingCount();
+        }
         return null;
       } finally {
-        if (mounted.current) {
+        if (mounted.current && isInitiatingSessionCurrent()) {
           setIsSyncing(false);
         }
       }
@@ -136,6 +148,11 @@ export function SyncProvider({ children }: PropsWithChildren) {
     },
     [auth.session?.user.uuid, auth.status, database, syncNow],
   );
+
+  useEffect(() => {
+    setIsSyncing(false);
+    setErrorMessage(null);
+  }, [auth.session?.token, auth.session?.user.uuid]);
 
   useEffect(() => {
     if (auth.status === 'authenticated') {

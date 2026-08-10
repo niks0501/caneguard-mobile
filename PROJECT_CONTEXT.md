@@ -95,6 +95,12 @@ evidence used to build the upload. Draft authoring, finalization, retry, and
 synchronization remain scoped to the authenticated submitter that created the
 Field Report.
 
+Scans queued by earlier app versions are not uploaded until a signed-in reporter
+completes the new required Field Report fields. That upgrade reuses the Scan
+Record UUID as the Field Report client UUID for server idempotency. Legacy scans
+already marked synchronized retain their remote identity and cannot be submitted
+again.
+
 ### Authentication
 
 Authentication lives under `src/features/auth/`.

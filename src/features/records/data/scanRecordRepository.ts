@@ -35,12 +35,14 @@ import {
 
 export function createScanRecordRepository(
   database: CaneGuardDatabase,
+  submitterIdentity: string,
 ): ScanRecordRepository {
   return {
     insert: (input) => insertScanRecord(database, input),
     list: (query) => listScanRecords(database, query),
     findById: (id) => findScanRecordById(database, id),
-    deleteById: (id) => deleteScanRecordById(database, id),
+    deleteById: (id) =>
+      deleteScanRecordById(database, id, submitterIdentity),
     listManagedImageUris: () => listManagedImageUris(database),
   };
 }
@@ -64,7 +66,7 @@ export async function listScanRecords(
         predictedLabel: scanRecords.predictedLabel,
         confidence: scanRecords.confidence,
         barangay: sql<string | null>`coalesce(${fieldReports.barangay}, ${scanRecords.barangay})`,
-        syncStatus: sql<ScanRecordListItem['syncStatus']>`coalesce(${fieldReports.syncStatus}, 'local_only')`,
+        syncStatus: sql<ScanRecordListItem['syncStatus']>`coalesce(${fieldReports.syncStatus}, ${scanRecords.syncStatus})`,
         createdAt: scanRecords.createdAt,
       })
       .from(scanRecords)
@@ -126,12 +128,17 @@ export async function findScanRecordById(
 export async function deleteScanRecordById(
   database: CaneGuardDatabase,
   id: string,
+  submitterIdentity: string,
 ): Promise<{ managedImageUri: string }> {
   try {
     const deleted = database.transaction((transaction) => {
       const row = transaction
-        .select({ managedImageUri: scanRecords.managedImageUri })
+        .select({
+          managedImageUri: scanRecords.managedImageUri,
+          reportSubmitterIdentity: fieldReports.submitterIdentity,
+        })
         .from(scanRecords)
+        .leftJoin(fieldReports, eq(fieldReports.scanRecordId, scanRecords.id))
         .where(eq(scanRecords.id, id))
         .get();
 
@@ -141,9 +148,18 @@ export async function deleteScanRecordById(
           'The scan record does not exist.',
         );
       }
+      if (
+        row.reportSubmitterIdentity &&
+        row.reportSubmitterIdentity !== submitterIdentity.trim()
+      ) {
+        throw new StorageError(
+          'DELETE_FAILED',
+          'A Scan Record owned by another Field Report submitter cannot be deleted.',
+        );
+      }
 
       transaction.delete(scanRecords).where(eq(scanRecords.id, id)).run();
-      return row;
+      return { managedImageUri: row.managedImageUri };
     });
 
     return deleted;
@@ -177,7 +193,7 @@ function buildConditions(query: ScanRecordQuery): SQL[] {
   }
   if (query.syncStatus) {
     conditions.push(
-      sql`coalesce(${fieldReports.syncStatus}, 'local_only') = ${query.syncStatus}`,
+      sql`coalesce(${fieldReports.syncStatus}, ${scanRecords.syncStatus}) = ${query.syncStatus}`,
     );
   }
   if (query.barangay?.trim()) {

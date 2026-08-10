@@ -29,20 +29,42 @@ interface SyncPendingFieldReportsOptions {
   token: string | null;
 }
 
-let activeRun: Promise<SyncBatchResult> | null = null;
+const activeRuns = new WeakMap<
+  CaneGuardDatabase,
+  Map<
+    string,
+    { promise: Promise<SyncBatchResult>; token: string | null }
+  >
+>();
 
 export function syncPendingFieldReports(
   options: SyncPendingFieldReportsOptions,
 ): Promise<SyncBatchResult> {
-  if (activeRun) {
-    return activeRun;
+  const submitterIdentity = options.submitterIdentity.trim();
+  let databaseRuns = activeRuns.get(options.database);
+  if (!databaseRuns) {
+    databaseRuns = new Map();
+    activeRuns.set(options.database, databaseRuns);
   }
-  const run = executeBatch(options).finally(() => {
-    if (activeRun === run) {
-      activeRun = null;
+  const activeRun = databaseRuns.get(submitterIdentity);
+  if (activeRun?.token === options.token) {
+    return activeRun.promise;
+  }
+
+  const execution = activeRun
+    ? activeRun.promise
+        .catch(() => undefined)
+        .then(() => executeBatch({ ...options, submitterIdentity }))
+    : executeBatch({ ...options, submitterIdentity });
+  const run = execution.finally(() => {
+    if (databaseRuns?.get(submitterIdentity)?.promise === run) {
+      databaseRuns.delete(submitterIdentity);
+      if (databaseRuns.size === 0) {
+        activeRuns.delete(options.database);
+      }
     }
   });
-  activeRun = run;
+  databaseRuns.set(submitterIdentity, { promise: run, token: options.token });
   return run;
 }
 

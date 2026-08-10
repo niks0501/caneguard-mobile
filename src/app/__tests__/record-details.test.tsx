@@ -3,12 +3,14 @@ import { Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import RecordDetailsScreen from '@/app/record-details';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
 import { deleteScanRecord } from '@/features/records/services/deleteScanRecord';
 import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
 
 const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 const mockRefresh = jest.fn(async () => undefined);
 const mockDatabase = {};
 let mockDetailsState: ReturnType<typeof useScanRecordDetails>;
@@ -21,6 +23,9 @@ let mockFieldReportState: {
 
 jest.mock('@/database/DatabaseProvider', () => ({
   useCaneGuardDatabase: () => mockDatabase,
+}));
+jest.mock('@/features/auth/hooks/useAuth', () => ({
+  useAuth: jest.fn(),
 }));
 jest.mock('@/features/records/hooks/useRecords', () => ({
   useScanRecordDetails: jest.fn(() => mockDetailsState),
@@ -49,7 +54,7 @@ const DETAILS: ScanRecordDetails = {
   predictedLabel: 'rust',
   confidence: 0.82,
   barangay: null,
-  syncStatus: 'pending',
+  syncStatus: 'local_only',
   createdAt: '2026-07-25T05:30:00.000Z',
   imageMimeType: 'image/jpeg',
   imageSizeBytes: 4096,
@@ -79,6 +84,9 @@ const DETAILS: ScanRecordDetails = {
 
 describe('RecordDetailsScreen', () => {
   beforeEach(() => {
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID },
+    } as never);
     mockUseLocalSearchParams.mockReturnValue({ id: RECORD_ID });
     mockDetailsState = {
       data: DETAILS,
@@ -250,8 +258,50 @@ describe('RecordDetailsScreen', () => {
       deleteAction?.onPress?.();
     });
 
-    expect(mockDeleteScanRecord).toHaveBeenCalledWith(mockDatabase, RECORD_ID);
+    expect(mockDeleteScanRecord).toHaveBeenCalledWith(
+      mockDatabase,
+      RECORD_ID,
+      SUBMITTER_ID,
+    );
     expect(mockRouterReplace).toHaveBeenCalledWith('/records');
+  });
+
+  it('preserves legacy synced identity without offering resubmission', async () => {
+    mockDetailsState = {
+      ...mockDetailsState,
+      data: {
+        ...DETAILS,
+        syncStatus: 'synced',
+        remoteId: 'legacy-remote-id',
+        lastSyncedAt: '2026-07-25T06:00:00.000Z',
+      },
+    };
+
+    await render(<RecordDetailsScreen />);
+
+    expect(screen.getByText('Legacy Report Synced')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Legacy report already synchronized'),
+    ).toBeDisabled();
+    expect(screen.getByText('legacy-remote-id')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Create Field Report draft')).not.toBeOnTheScreen();
+  });
+
+  it('offers an actionable draft for an older unsent scan', async () => {
+    mockDetailsState = {
+      ...mockDetailsState,
+      data: { ...DETAILS, syncStatus: 'failed' },
+    };
+
+    await render(<RecordDetailsScreen />);
+    await fireEvent.press(
+      screen.getByLabelText('Complete legacy Field Report draft'),
+    );
+
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/field-report',
+      params: { scanRecordId: RECORD_ID },
+    });
   });
 
   it('shows a retryable record query error', async () => {

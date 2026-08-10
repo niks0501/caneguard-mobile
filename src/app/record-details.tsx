@@ -29,6 +29,7 @@ import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import type { SyncStatus } from '@/database/schema';
 import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
@@ -56,6 +57,7 @@ export default function RecordDetailsScreen() {
   const record = useScanRecordDetails(id);
   const fieldReport = useFieldReportForScan(id);
   const database = useCaneGuardDatabase();
+  const { user } = useAuth();
   const sync = useSync();
   const [imageUnavailable, setImageUnavailable] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -103,14 +105,14 @@ export default function RecordDetailsScreen() {
   };
 
   const performDelete = async () => {
-    if (!id || deleting) {
+    if (!id || !user || deleting) {
       return;
     }
     setDeleting(true);
     setDeleteError(null);
 
     try {
-      const result = await deleteScanRecord(database, id);
+      const result = await deleteScanRecord(database, id, user.uuid);
       if (result.imageCleanupError) {
         Alert.alert(
           'Record deleted',
@@ -210,13 +212,16 @@ export default function RecordDetailsScreen() {
                   {Math.round(record.data.confidence * 100)}% AI confidence
                 </Text>
                 <RecordSyncStatus
-                  status={fieldReport.data?.syncStatus ?? 'local_only'}
+                  status={fieldReport.data?.syncStatus ?? record.data.syncStatus}
                 />
               </View>
 
               <Section title="Field Report">
                 <Text style={[styles.reportMessage, { color: theme.textSecondary }]}>
-                  {getFieldReportAction(fieldReport.data).message}
+                  {getFieldReportAction(
+                    fieldReport.data,
+                    record.data.syncStatus,
+                  ).message}
                 </Text>
                 {fieldReport.errorMessage ? (
                   <Text style={[styles.deleteError, { color: theme.danger }]}>
@@ -231,12 +236,31 @@ export default function RecordDetailsScreen() {
                       params: { scanRecordId: record.data!.id },
                     } as unknown as Href)
                   }
-                  disabled={fieldReport.loading}
-                  leadingIcon={getFieldReportAction(fieldReport.data).icon}
-                  accessibilityLabel={getFieldReportAction(fieldReport.data).accessibilityLabel}>
+                  disabled={
+                    fieldReport.loading ||
+                    getFieldReportAction(
+                      fieldReport.data,
+                      record.data.syncStatus,
+                    ).disabled
+                  }
+                  leadingIcon={
+                    getFieldReportAction(
+                      fieldReport.data,
+                      record.data.syncStatus,
+                    ).icon
+                  }
+                  accessibilityLabel={
+                    getFieldReportAction(
+                      fieldReport.data,
+                      record.data.syncStatus,
+                    ).accessibilityLabel
+                  }>
                   {fieldReport.loading
                     ? 'Checking Draft...'
-                    : getFieldReportAction(fieldReport.data).label}
+                    : getFieldReportAction(
+                        fieldReport.data,
+                        record.data.syncStatus,
+                      ).label}
                 </AppButton>
               </Section>
 
@@ -298,19 +322,27 @@ export default function RecordDetailsScreen() {
                 />
                 <DetailRow
                   label="Server report UUID"
-                  value={fieldReport.data?.remoteId ?? 'Not assigned'}
+                  value={
+                    fieldReport.data?.remoteId ??
+                    record.data.remoteId ??
+                    'Not assigned'
+                  }
                 />
                 <DetailRow
                   label="Last synchronized"
                   value={
-                    fieldReport.data?.lastSyncedAt
-                      ? formatSavedAt(fieldReport.data.lastSyncedAt)
+                    fieldReport.data?.lastSyncedAt ?? record.data.lastSyncedAt
+                      ? formatSavedAt(
+                          fieldReport.data?.lastSyncedAt ??
+                            record.data.lastSyncedAt!,
+                        )
                       : 'Not yet synchronized'
                   }
                 />
               </Section>
 
-              {fieldReport.data?.lastSyncErrorCode ? (
+              {fieldReport.data?.lastSyncErrorCode ??
+              record.data.lastSyncErrorCode ? (
                 <View
                   accessibilityLiveRegion="assertive"
                   style={[
@@ -319,7 +351,10 @@ export default function RecordDetailsScreen() {
                   ]}>
                   <Feather name="alert-triangle" size={19} color={theme.danger} />
                   <Text style={[styles.syncErrorText, { color: theme.text }]}>
-                    {getSyncErrorMessage(fieldReport.data.lastSyncErrorCode) ??
+                    {getSyncErrorMessage(
+                      fieldReport.data?.lastSyncErrorCode ??
+                        record.data.lastSyncErrorCode!,
+                    ) ??
                       'The last upload did not finish.'}
                   </Text>
                 </View>
@@ -382,15 +417,40 @@ export default function RecordDetailsScreen() {
   );
 }
 
-function getFieldReportAction(report: FieldReport | null): {
+function getFieldReportAction(
+  report: FieldReport | null,
+  legacySyncStatus: SyncStatus,
+): {
   accessibilityLabel: string;
+  disabled: boolean;
   icon: keyof typeof Feather.glyphMap;
   label: string;
   message: string;
 } {
   if (!report) {
+    if (legacySyncStatus === 'synced') {
+      return {
+        accessibilityLabel: 'Legacy report already synchronized',
+        disabled: true,
+        icon: 'check-circle',
+        label: 'Legacy Report Synced',
+        message:
+          'This scan was synchronized by an earlier app version and cannot be submitted again.',
+      };
+    }
+    if (legacySyncStatus !== 'local_only') {
+      return {
+        accessibilityLabel: 'Complete legacy Field Report draft',
+        disabled: false,
+        icon: 'file-plus',
+        label: 'Complete Report Draft',
+        message:
+          'Complete this older unsent scan as a Field Report Draft before uploading it.',
+      };
+    }
     return {
       accessibilityLabel: 'Create Field Report draft',
+      disabled: false,
       icon: 'file-plus',
       label: 'Create Report Draft',
       message: 'Create a separate Field Report Draft from this completed scan.',
@@ -399,6 +459,7 @@ function getFieldReportAction(report: FieldReport | null): {
   if (report.authoringState === 'draft') {
     return {
       accessibilityLabel: 'Resume Field Report draft',
+      disabled: false,
       icon: 'edit-3',
       label: 'Resume Draft',
       message: 'Continue the same locally saved Draft. Partial information is preserved.',
@@ -406,6 +467,7 @@ function getFieldReportAction(report: FieldReport | null): {
   }
   return {
     accessibilityLabel: 'Open finalized Field Report',
+    disabled: false,
     icon: 'check-circle',
     label: 'View Finalized Report',
     message: 'This Field Report is finalized locally and pending synchronization.',

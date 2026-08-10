@@ -91,6 +91,10 @@ tags:
 - hideKeyboard
 - tapOn:
     id: field-report.save-draft
+- scrollUntilVisible:
+    element:
+      id: field-report.saved
+    direction: DOWN
 - extendedWaitUntil:
     visible:
       id: field-report.saved

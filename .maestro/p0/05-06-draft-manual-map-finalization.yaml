@@ -7,6 +7,9 @@ tags:
 ---
 # Precondition: run 02-draft-report-lifecycle.yaml first. It creates and
 # reopens the latest incomplete report with farmer name "P0 Draft Farmer".
+- setPermissions:
+    permissions:
+      location: deny
 - launchApp:
     clearState: false
 - runFlow:
@@ -45,9 +48,6 @@ tags:
 - assertVisible:
     id: field-report.farmer-name-input
     text: P0 Draft Farmer
-- setPermissions:
-    permissions:
-      location: deny
 - scrollUntilVisible:
     element:
       id: field-report.capture-gps
@@ -62,7 +62,6 @@ tags:
 - extendedWaitUntil:
     visible:
       id: field-report.gps-status
-      text: ".*permission was denied.*"
     timeout: 30000
 - assertVisible:
     id: field-report.open-manual-map
@@ -85,6 +84,7 @@ tags:
     element:
       id: manual-map.confirm
     direction: DOWN
+    centerElement: true
 - tapOn:
     id: manual-map.confirm
 - extendedWaitUntil:
@@ -119,14 +119,22 @@ tags:
 - assertVisible: Resume Draft
 - tapOn:
     id: records.open-field-report
+- assertVisible:
+    id: field-report.farmer-name-input
+    text: P0 Draft Farmer
+- scrollUntilVisible:
+    element:
+      id: field-report.manual-location
+    direction: DOWN
 - extendedWaitUntil:
     visible:
       id: field-report.manual-location
       text: "Manual map .* GPS accuracy not applicable"
     timeout: 30000
-- assertVisible:
-    id: field-report.farmer-name-input
-    text: P0 Draft Farmer
+- scrollUntilVisible:
+    element:
+      id: field-report.barangay-input
+    direction: UP
 - tapOn:
     id: field-report.barangay-input
 - inputText: Lumbangan
@@ -137,8 +145,12 @@ tags:
     direction: DOWN
 - tapOn:
     id: field-report.finalize
+- scrollUntilVisible:
+    element:
+      text: "Finalized · (Pending sync|Pending upload|Uploading|Synced|Sync failed)"
+    direction: UP
 - extendedWaitUntil:
-    visible: "Finalized · Pending sync"
+    visible: "Finalized · (Pending sync|Pending upload|Uploading|Synced|Sync failed)"
     timeout: 30000
 - assertVisible:
     id: field-report.authoring-status

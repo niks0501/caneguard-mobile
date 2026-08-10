@@ -61,6 +61,7 @@ export default function RecordsScreen() {
 
   return (
     <SafeAreaView
+      testID="records.screen"
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top']}>
       <View style={styles.root}>

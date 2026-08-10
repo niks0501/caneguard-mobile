@@ -1,0 +1,162 @@
+appId: com.niks0501.caneguard
+name: P0-08 Path A complete in field with GPS and offline finalization
+tags:
+  - p0
+  - acceptance
+  - gps
+  - offline-finalization
+---
+# Prerequisites: authenticated field reporter, reachable Metro, and a fresh
+# development build with expo-location. The device must provide an acceptable
+# foreground GPS reading for this path.
+- addMedia:
+    - ../../assets/model-fixtures/parity-reference.jpg
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: Connect
+    commands:
+      - tapOn: "http://"
+      - inputText: "http://127.0.0.1:8081"
+      - tapOn: Connect
+- extendedWaitUntil:
+    visible:
+      id: home.screen
+    timeout: 120000
+- openLink: caneguardmobile://scan
+- extendedWaitUntil:
+    visible:
+      id: scan.screen
+    timeout: 30000
+- tapOn:
+    id: scan.choose-gallery
+- extendedWaitUntil:
+    visible: "Photo taken on .*"
+    timeout: 15000
+- tapOn:
+    text: "Photo taken on .*"
+    index: 0
+- runFlow:
+    when:
+      visible: Done
+    commands:
+      - tapOn: Done
+- extendedWaitUntil:
+    visible:
+      id: scan.preview-screen
+    timeout: 30000
+- tapOn:
+    id: scan.analyze-image
+    enabled: true
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: scan.symptom-checklist-screen
+    timeout: 120000
+- tapOn:
+    id: scan.symptom-rust
+- tapOn:
+    id: scan.continue-to-result
+- extendedWaitUntil:
+    visible:
+      id: scan.result-title
+      text: "Possible result: Rust"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: scan.save-record
+    direction: DOWN
+- tapOn:
+    id: scan.save-record
+    enabled: true
+- extendedWaitUntil:
+    visible:
+      id: scan.record-saved
+    timeout: 30000
+- tapOn:
+    id: scan.open-saved-record
+- extendedWaitUntil:
+    visible:
+      id: records.details-screen
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: records.open-field-report
+    direction: DOWN
+- tapOn:
+    id: records.open-field-report
+- extendedWaitUntil:
+    visible:
+      id: field-report.screen
+    timeout: 30000
+- tapOn:
+    id: field-report.farmer-name-input
+- inputText: P0 GPS Farmer
+- hideKeyboard
+- tapOn:
+    id: field-report.barangay-input
+- inputText: Wawa
+- hideKeyboard
+- setPermissions:
+    permissions:
+      location: allow
+- scrollUntilVisible:
+    element:
+      id: field-report.capture-gps
+    direction: DOWN
+- tapOn:
+    id: field-report.capture-gps
+- extendedWaitUntil:
+    visible:
+      id: field-report.gps-status
+      text: "GPS location resolved with .*"
+    timeout: 60000
+- assertVisible:
+    id: field-report.gps-evidence
+- scrollUntilVisible:
+    element:
+      id: field-report.finalize
+    direction: UP
+- setAirplaneMode: enabled
+- tapOn:
+    id: field-report.finalize
+- extendedWaitUntil:
+    visible: "Finalized · Pending upload"
+    timeout: 30000
+- takeScreenshot: .maestro/artifacts/p0-08-path-a-gps-pending
+- setAirplaneMode: disabled
+- extendedWaitUntil:
+    visible: "Finalized · (Pending upload|Uploading|Synced|Sync failed)"
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: field-report.retry-sync
+    commands:
+      - tapOn:
+          id: field-report.retry-sync
+- extendedWaitUntil:
+    visible: "Finalized · Synced"
+    timeout: 120000
+- assertVisible: "Server report UUID"
+- assertVisible: "Last synchronized"
+- takeScreenshot: .maestro/artifacts/p0-08-path-a-gps-synced
+- stopApp
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: Connect
+    commands:
+      - tapOn: "http://"
+      - inputText: "http://127.0.0.1:8081"
+      - tapOn: Connect
+- extendedWaitUntil:
+    visible:
+      id: field-report.screen
+    timeout: 120000
+- assertVisible: "Finalized · Synced"
+- assertVisible:
+    id: field-report.inherited-evidence
+- takeScreenshot: .maestro/artifacts/p0-08-path-a-gps-after-restart

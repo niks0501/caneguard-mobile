@@ -13,6 +13,7 @@ import {
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import {
+  fieldReports,
   scanClassScores,
   scanQualityWarnings,
   scanRecords,
@@ -31,15 +32,18 @@ import {
   type ScanRecordListItem,
   type ScanRecordQuery,
 } from '@/features/records/domain/recordTypes';
+import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 export function createScanRecordRepository(
   database: CaneGuardDatabase,
+  submitterIdentity: string,
 ): ScanRecordRepository {
   return {
     insert: (input) => insertScanRecord(database, input),
-    list: (query) => listScanRecords(database, query),
+    list: (query) => listScanRecords(database, query, submitterIdentity),
     findById: (id) => findScanRecordById(database, id),
-    deleteById: (id) => deleteScanRecordById(database, id),
+    deleteById: (id) =>
+      deleteScanRecordById(database, id, submitterIdentity),
     listManagedImageUris: () => listManagedImageUris(database),
   };
 }
@@ -47,6 +51,7 @@ export function createScanRecordRepository(
 export async function listScanRecords(
   database: CaneGuardDatabase,
   query: ScanRecordQuery = {},
+  submitterIdentity?: string,
 ): Promise<ScanRecordListItem[]> {
   const conditions = buildConditions(query);
   const limit = Math.min(
@@ -62,11 +67,15 @@ export async function listScanRecords(
         managedImageUri: scanRecords.managedImageUri,
         predictedLabel: scanRecords.predictedLabel,
         confidence: scanRecords.confidence,
-        barangay: scanRecords.barangay,
-        syncStatus: scanRecords.syncStatus,
+        barangay: sql<string | null>`coalesce(${fieldReports.barangay}, ${scanRecords.barangay})`,
+        syncStatus: sql<ScanRecordListItem['syncStatus']>`coalesce(${fieldReports.syncStatus}, ${scanRecords.syncStatus})`,
         createdAt: scanRecords.createdAt,
       })
       .from(scanRecords)
+      .leftJoin(
+        fieldReports,
+        buildFieldReportJoinCondition(submitterIdentity),
+      )
       .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(scanRecords.createdAt))
       .limit(limit)
@@ -124,12 +133,17 @@ export async function findScanRecordById(
 export async function deleteScanRecordById(
   database: CaneGuardDatabase,
   id: string,
+  submitterIdentity: string,
 ): Promise<{ managedImageUri: string }> {
   try {
     const deleted = database.transaction((transaction) => {
       const row = transaction
-        .select({ managedImageUri: scanRecords.managedImageUri })
+        .select({
+          managedImageUri: scanRecords.managedImageUri,
+          reportSubmitterIdentity: fieldReports.submitterIdentity,
+        })
         .from(scanRecords)
+        .leftJoin(fieldReports, eq(fieldReports.scanRecordId, scanRecords.id))
         .where(eq(scanRecords.id, id))
         .get();
 
@@ -139,11 +153,21 @@ export async function deleteScanRecordById(
           'The scan record does not exist.',
         );
       }
+      if (
+        row.reportSubmitterIdentity &&
+        row.reportSubmitterIdentity !== submitterIdentity.trim()
+      ) {
+        throw new StorageError(
+          'DELETE_FAILED',
+          'A Scan Record owned by another Field Report submitter cannot be deleted.',
+        );
+      }
 
       transaction.delete(scanRecords).where(eq(scanRecords.id, id)).run();
-      return row;
+      return { managedImageUri: row.managedImageUri };
     });
 
+    emitSyncRecordsChanged();
     return deleted;
   } catch (error: unknown) {
     throw toStorageError(error, 'DELETE_FAILED', 'Deleting a scan record failed.');
@@ -174,11 +198,13 @@ function buildConditions(query: ScanRecordQuery): SQL[] {
     conditions.push(eq(scanRecords.predictedLabel, query.predictedLabel));
   }
   if (query.syncStatus) {
-    conditions.push(eq(scanRecords.syncStatus, query.syncStatus));
+    conditions.push(
+      sql`coalesce(${fieldReports.syncStatus}, ${scanRecords.syncStatus}) = ${query.syncStatus}`,
+    );
   }
   if (query.barangay?.trim()) {
     conditions.push(
-      sql`instr(lower(coalesce(${scanRecords.barangay}, '')), ${query.barangay.trim().toLowerCase()}) > 0`,
+      sql`instr(lower(coalesce(${fieldReports.barangay}, ${scanRecords.barangay}, '')), ${query.barangay.trim().toLowerCase()}) > 0`,
     );
   }
   if (query.dateRange?.from) {
@@ -192,10 +218,21 @@ function buildConditions(query: ScanRecordQuery): SQL[] {
     conditions.push(
       or(
         sql`instr(lower(${scanRecords.predictedLabel}), ${search}) > 0`,
-        sql`instr(lower(coalesce(${scanRecords.barangay}, '')), ${search}) > 0`,
+        sql`instr(lower(coalesce(${fieldReports.barangay}, ${scanRecords.barangay}, '')), ${search}) > 0`,
       )!,
     );
   }
 
   return conditions;
+}
+
+function buildFieldReportJoinCondition(submitterIdentity?: string): SQL {
+  const normalizedSubmitterIdentity = submitterIdentity?.trim();
+  if (!normalizedSubmitterIdentity) {
+    return sql`0`;
+  }
+  return and(
+    eq(fieldReports.scanRecordId, scanRecords.id),
+    eq(fieldReports.submitterIdentity, normalizedSubmitterIdentity),
+  )!;
 }

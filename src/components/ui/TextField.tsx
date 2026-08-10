@@ -13,6 +13,7 @@ type TextFieldProps = {
   keyboardType?: KeyboardTypeOptions;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   textContentType?: ComponentProps<typeof TextInput>['textContentType'];
+  testID?: string;
 };
 
 export function TextField({
@@ -24,6 +25,7 @@ export function TextField({
   keyboardType,
   autoCapitalize = 'sentences',
   textContentType,
+  testID,
 }: TextFieldProps) {
   const theme = useTheme();
 
@@ -32,6 +34,7 @@ export function TextField({
       <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
+        testID={testID}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}

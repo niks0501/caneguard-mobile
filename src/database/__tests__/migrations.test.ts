@@ -2,11 +2,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
+import migrationBundle from '../../../drizzle/migrations';
+
 const migration0 = readMigration('0000_complex_johnny_blaze.sql');
 const migration1 = readMigration('0001_loving_amazoness.sql');
-const migrationJournal = JSON.parse(
-  readFileSync(join(process.cwd(), 'drizzle', 'meta', '_journal.json'), 'utf8'),
-) as { entries: { tag: string }[] };
+const migration2 = readMigration('0002_talented_kat_farrell.sql');
+const migration3 = readMigration('0003_careful_marauders.sql');
+const migrationJournal = migrationBundle.journal;
 
 function readMigration(filename: string): string {
   return readFileSync(join(process.cwd(), 'drizzle', filename), 'utf8').replaceAll(
@@ -24,6 +26,36 @@ function openDatabase(): DatabaseSync {
 function applyLatest(database: DatabaseSync): void {
   database.exec(migration0);
   database.exec(migration1);
+  database.exec(migration2);
+  database.exec(migration3);
+}
+
+function insertScanRecord(
+  database: DatabaseSync,
+  id = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+): void {
+  database
+    .prepare(`
+      INSERT INTO scan_records (
+        id, managed_image_uri, image_source_type, predicted_label, confidence,
+        checklist_consistency, model_version, preprocess_ms, inference_ms,
+        total_ms, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    .run(
+      id,
+      `file:///caneguard/scan-images/${id}.jpg`,
+      'camera',
+      'rust',
+      0.8,
+      'consistent',
+      'v0.1-baseline',
+      5,
+      8,
+      13,
+      '2026-07-25T00:00:00.000Z',
+      '2026-07-25T00:00:00.000Z',
+    );
 }
 
 describe('CaneGuard database migrations', () => {
@@ -47,6 +79,7 @@ describe('CaneGuard database migrations', () => {
 
     expect(tables).toEqual([
       'compatibility_probe',
+      'field_reports',
       'scan_class_scores',
       'scan_quality_warnings',
       'scan_records',
@@ -60,6 +93,128 @@ describe('CaneGuard database migrations', () => {
       'scan_records_sync_created_at_idx',
     ]);
 
+    database.close();
+  });
+
+  it('adds Field Reports without changing existing scan evidence', () => {
+    const database = openDatabase();
+    database.exec(migration0);
+    database.exec(migration1);
+    insertScanRecord(database);
+
+    const scanBefore = database
+      .prepare('SELECT * FROM scan_records WHERE id = ?')
+      .get('2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2');
+
+    database.exec(migration2);
+
+    expect(
+      database
+        .prepare('SELECT * FROM scan_records WHERE id = ?')
+        .get('2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2'),
+    ).toEqual(scanBefore);
+    expect(
+      database.prepare('SELECT count(*) AS count FROM field_reports').get(),
+    ).toEqual({ count: 0 });
+    database.close();
+  });
+
+  it('adds GPS outcome provenance without changing existing Draft data', () => {
+    const database = openDatabase();
+    database.exec(migration0);
+    database.exec(migration1);
+    database.exec(migration2);
+    insertScanRecord(database);
+    database
+      .prepare(`
+        INSERT INTO field_reports (
+          id, scan_record_id, farmer_or_farm_owner_name, barangay,
+          submitter_identity, submitter_role, observed_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+        '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+        'Maria Santos',
+        'Lumbangan',
+        'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
+        'field_reporter',
+        '2026-07-25T00:00:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+        '2026-08-10T01:05:00.000Z',
+      );
+
+    database.exec(migration3);
+
+    expect(
+      database
+        .prepare(`
+          SELECT farmer_or_farm_owner_name, barangay, submitter_identity,
+                 gps_capture_outcome, gps_outcome_recorded_at
+          FROM field_reports
+        `)
+        .get(),
+    ).toEqual({
+      farmer_or_farm_owner_name: 'Maria Santos',
+      barangay: 'Lumbangan',
+      submitter_identity: 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
+      gps_capture_outcome: null,
+      gps_outcome_recorded_at: null,
+    });
+    database.close();
+  });
+
+  it('enforces the zero-or-one Field Report relationship', () => {
+    const database = openDatabase();
+    applyLatest(database);
+    insertScanRecord(database);
+
+    const insertReport = database.prepare(`
+      INSERT INTO field_reports (
+        id, scan_record_id, observed_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?)
+    `);
+    const timestamp = '2026-07-25T00:00:00.000Z';
+
+    expect(() =>
+      insertReport.run(
+        '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+        'missing-scan',
+        timestamp,
+        timestamp,
+        timestamp,
+      ),
+    ).toThrow();
+
+    insertReport.run(
+      '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+      '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+      timestamp,
+      timestamp,
+      timestamp,
+    );
+
+    expect(() =>
+      insertReport.run(
+        '51214146-7439-48e0-aef4-d0e003f194b4',
+        '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+        timestamp,
+        timestamp,
+        timestamp,
+      ),
+    ).toThrow();
+    expect(
+      database
+        .prepare(
+          'SELECT id, scan_record_id, authoring_state, sync_status FROM field_reports',
+        )
+        .get(),
+    ).toEqual({
+      id: '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+      scan_record_id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+      authoring_state: 'draft',
+      sync_status: 'local_only',
+    });
     database.close();
   });
 
@@ -148,20 +303,34 @@ describe('CaneGuard database migrations', () => {
   });
 
   it('keeps the bundled migration module aligned with the journal and SQL files', () => {
-    const bundleSource = readFileSync(
-      join(process.cwd(), 'drizzle', 'migrations.js'),
-      'utf8',
-    );
-    const tags = migrationJournal.entries.map((entry) => entry.tag);
+    const consumedMigrations = migrationJournal.entries.map((entry) => {
+      const key = `m${String(entry.idx).padStart(4, '0')}`;
+      const sql = migrationBundle.migrations[key];
 
-    expect(tags).toEqual([
+      expect(typeof sql).toBe('string');
+      return {
+        sql: sql.replaceAll('--> statement-breakpoint', ''),
+        tag: entry.tag,
+      };
+    });
+
+    expect(consumedMigrations.map(({ tag }) => tag)).toEqual([
       '0000_complex_johnny_blaze',
       '0001_loving_amazoness',
+      '0002_talented_kat_farrell',
+      '0003_careful_marauders',
     ]);
-    for (const [index, tag] of tags.entries()) {
-      expect(bundleSource).toContain(`import m000${index} from './${tag}.sql'`);
-      expect(bundleSource).toContain(`m000${index}`);
-      expect(readMigration(`${tag}.sql`).length).toBeGreaterThan(100);
-    }
+    expect(Object.keys(migrationBundle.migrations)).toEqual([
+      'm0000',
+      'm0001',
+      'm0002',
+      'm0003',
+    ]);
+    expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
+      migration0,
+      migration1,
+      migration2,
+      migration3,
+    ]);
   });
 });

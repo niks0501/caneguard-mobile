@@ -19,9 +19,6 @@ jest.mock('@/database/DatabaseProvider', () => ({
 jest.mock('@/features/records/services/saveCompletedScan', () => ({
   saveCompletedScan: jest.fn(),
 }));
-jest.mock('@/features/sync/hooks/useSync', () => ({
-  useSync: () => ({ syncNow: jest.fn() }),
-}));
 
 const mockRandomUUID = jest.mocked(randomUUID);
 const mockSaveCompletedScan = jest.mocked(saveCompletedScan);

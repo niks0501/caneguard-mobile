@@ -2,7 +2,7 @@
   "expo": {
     "name": "caneguard-mobile",
     "slug": "caneguard-mobile",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "caneguardmobile",
@@ -49,7 +49,13 @@
       "expo-status-bar",
       "expo-web-browser",
       "expo-sqlite",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "CaneGuard uses your location while you create a Field Report to record where the sugarcane observation was made."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

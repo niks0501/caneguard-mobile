@@ -130,6 +130,8 @@ describe('ImagePreviewScreen', () => {
   it('displays the exact selected image, source, and dimensions', async () => {
     await renderPreview(selectedState);
 
+    expect(screen.getByTestId('scan.preview-screen')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.analyze-image')).toBeOnTheScreen();
     expect(screen.getByLabelText('Selected sugarcane image from gallery')).toHaveProp('source', {
       uri: 'content://sugarcane/selected-leaf',
     });

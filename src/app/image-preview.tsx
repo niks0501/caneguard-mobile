@@ -174,7 +174,10 @@ export default function ImagePreviewScreen() {
   const sourceLabel = state.sourceType === 'camera' ? 'Camera' : 'Gallery';
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
+    <SafeAreaView
+      testID="scan.preview-screen"
+      style={[styles.safe, { backgroundColor: theme.background }]}
+      edges={['top']}>
       <View style={styles.root}>
         <ScreenHeader title="Image Preview" />
 
@@ -273,6 +276,7 @@ export default function ImagePreviewScreen() {
                 Retake / Replace Image
               </AppButton>
               <AppButton
+                testID="scan.analyze-image"
                 disabled={
                   isImageLoading ||
                   imageLoadFailed ||

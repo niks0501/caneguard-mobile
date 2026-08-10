@@ -48,7 +48,7 @@ export async function insertScanRecord(
           preprocessMs: input.preprocessMs,
           inferenceMs: input.inferenceMs,
           totalMs: input.totalMs,
-          syncStatus: 'pending',
+          syncStatus: 'local_only',
           remoteId: null,
           syncAttemptCount: 0,
           lastSyncErrorCode: null,

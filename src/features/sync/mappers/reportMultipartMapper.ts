@@ -3,6 +3,7 @@ import { File } from 'expo-file-system';
 import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import { managedImageExists } from '@/features/records/services/scanImageStorage';
+import type { FieldReportUploadRecord } from '@/features/reports/data/fieldReportSyncRepository';
 import { SyncError } from '@/features/sync/errors/syncErrors';
 
 export interface MultipartMapperDependencies {
@@ -10,57 +11,104 @@ export interface MultipartMapperDependencies {
   imageExists?: (uri: string) => boolean;
 }
 
-export function mapReportToMultipart(
-  record: ScanRecordDetails,
+export function mapFieldReportToMultipart(
+  uploadRecord: FieldReportUploadRecord,
   dependencies: MultipartMapperDependencies = {},
 ): FormData {
   const createImageFile =
     dependencies.createImageFile ?? ((uri: string) => new File(uri));
   const imageExists = dependencies.imageExists ?? managedImageExists;
-  validateRecord(record, imageExists);
+  const { report, scanRecord } = uploadRecord;
+  validateReport(report, scanRecord, imageExists);
 
   const form = new FormData();
-  form.append('client_uuid', record.id);
-  form.append('image_source_type', record.imageSourceType);
-  appendNumber(form, 'source_width', record.sourceWidth);
-  appendNumber(form, 'source_height', record.sourceHeight);
-  form.append('predicted_label', record.predictedLabel);
-  appendNumber(form, 'confidence', record.confidence);
+  form.append('client_uuid', report.id);
+  form.append('scan_record_client_uuid', scanRecord.id);
+  form.append('image_source_type', scanRecord.imageSourceType);
+  appendNumber(form, 'source_width', scanRecord.sourceWidth);
+  appendNumber(form, 'source_height', scanRecord.sourceHeight);
+  form.append('predicted_label', scanRecord.predictedLabel);
+  appendNumber(form, 'confidence', scanRecord.confidence);
 
   for (const label of MODEL_LABELS) {
-    const score = record.classScores.find((item) => item.label === label)!;
+    const score = scanRecord.classScores.find((item) => item.label === label)!;
     appendNumber(form, `class_scores[${label}]`, score.score);
   }
-  for (const symptom of record.symptoms) {
+  for (const symptom of scanRecord.symptoms) {
     form.append('symptom_keys[]', symptom);
   }
-  form.append('checklist_consistency', record.checklistConsistency);
-  if (record.reportedSeverity) {
-    form.append('reported_severity', record.reportedSeverity);
+  form.append('checklist_consistency', scanRecord.checklistConsistency);
+  if (scanRecord.reportedSeverity) {
+    form.append('reported_severity', scanRecord.reportedSeverity);
   }
-  for (const warning of record.qualityWarnings) {
+  for (const warning of scanRecord.qualityWarnings) {
     form.append('quality_warnings[]', warning);
   }
-  form.append('barangay', record.barangay!.trim());
-  form.append('model_version', record.modelVersion);
-  appendNumber(form, 'preprocess_ms', record.preprocessMs);
-  appendNumber(form, 'inference_ms', record.inferenceMs);
-  appendNumber(form, 'total_ms', record.totalMs);
-  form.append('captured_at', record.createdAt);
-  form.append('image', createImageFile(record.managedImageUri));
+  form.append('farmer_or_farm_owner_name', report.farmerOrFarmOwnerName!.trim());
+  // The backend derives submitter authority from the bearer session rather
+  // than trusting client-claimed identity or role fields.
+  form.append('province', report.province);
+  form.append('municipality', report.municipality);
+  form.append('barangay', report.barangay!.trim());
+  appendNumber(form, 'final_latitude', report.finalLatitude);
+  appendNumber(form, 'final_longitude', report.finalLongitude);
+  form.append('location_source', report.locationSource!);
+  if (report.locationSource === 'gps') {
+    appendNumber(form, 'gps_accuracy', report.gpsAccuracy);
+  }
+  form.append('observed_at', report.observedAt);
+  form.append('submitted_at', report.submittedAt!);
+  form.append('model_version', scanRecord.modelVersion);
+  appendNumber(form, 'preprocess_ms', scanRecord.preprocessMs);
+  appendNumber(form, 'inference_ms', scanRecord.inferenceMs);
+  appendNumber(form, 'total_ms', scanRecord.totalMs);
+  form.append('captured_at', scanRecord.createdAt);
+  form.append('image', createImageFile(scanRecord.managedImageUri));
 
   return form;
 }
 
-function validateRecord(
+function validateReport(
+  report: FieldReportUploadRecord['report'],
   record: ScanRecordDetails,
   imageExists: (uri: string) => boolean,
 ): void {
   if (!imageExists(record.managedImageUri)) {
     throw new SyncError('IMAGE_MISSING', 'The managed report image is missing.');
   }
-  if (!record.barangay?.trim()) {
-    invalid('A barangay is required.');
+  if (report.authoringState !== 'finalized' || report.syncStatus === 'local_only') {
+    invalid('Only a finalized Field Report can be uploaded.');
+  }
+  if (!report.farmerOrFarmOwnerName?.trim() || !report.barangay?.trim()) {
+    invalid('Farmer and barangay report fields are required.');
+  }
+  if (!report.submitterIdentity || report.submitterRole !== 'field_reporter') {
+    invalid('Authenticated Field Report submitter context is required.');
+  }
+  if (!report.submittedAt || !report.observedAt) {
+    invalid('Observation and local submission times are required.');
+  }
+  if (
+    report.finalLatitude === null ||
+    report.finalLongitude === null ||
+    !Number.isFinite(report.finalLatitude) ||
+    !Number.isFinite(report.finalLongitude) ||
+    report.finalLatitude < -90 ||
+    report.finalLatitude > 90 ||
+    report.finalLongitude < -180 ||
+    report.finalLongitude > 180
+  ) {
+    invalid('Valid final report coordinates are required.');
+  }
+  if (
+    (report.locationSource === 'gps' &&
+      (report.gpsAccuracy === null ||
+        !Number.isFinite(report.gpsAccuracy) ||
+        report.gpsAccuracy < 0)) ||
+    (report.locationSource === 'manual_map' && report.gpsAccuracy !== null) ||
+    report.locationSource === null
+  ) {
+    invalid('Valid location provenance is required.');
   }
   if (!new Set<string>(MODEL_LABELS).has(record.predictedLabel)) {
     invalid('The predicted label is unsupported.');

@@ -53,6 +53,12 @@ describe('SymptomChecklistScreen', () => {
   it('shows only Model v0-aligned observations and truthful severity wording', async () => {
     await renderChecklist();
 
+    expect(screen.getByTestId('scan.symptom-checklist-screen')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.symptom-rust')).toHaveProp(
+      'accessibilityState',
+      { checked: false },
+    );
+    expect(screen.getByTestId('scan.continue-to-result')).toBeOnTheScreen();
     for (const observation of CHECKLIST_OBSERVATIONS) {
       expect(screen.getByText(observation.label)).toBeOnTheScreen();
     }

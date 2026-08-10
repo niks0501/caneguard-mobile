@@ -1,38 +1,38 @@
-import type { ScanRecordSyncRepository } from '@/features/records/data/scanRecordSyncRepository';
+import type { FieldReportSyncRepository } from '@/features/reports/data/fieldReportSyncRepository';
 import { uploadMobileReport } from '@/features/sync/api/mobileReportsApi';
 import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
-import { mapReportToMultipart } from '@/features/sync/mappers/reportMultipartMapper';
+import { mapFieldReportToMultipart } from '@/features/sync/mappers/reportMultipartMapper';
 
 const RETRY_DELAYS_MS = [2_000, 5_000, 15_000] as const;
 
 export type SyncResult =
-  | { recordId: string; status: 'already-synced' | 'synced'; remoteId: string | null }
-  | { recordId: string; status: 'failed'; error: SyncError };
+  | { reportId: string; status: 'already-synced' | 'synced'; remoteId: string | null }
+  | { reportId: string; status: 'failed'; error: SyncError };
 
-interface SyncScanRecordOptions {
+interface SyncFieldReportOptions {
   delay?: (milliseconds: number) => Promise<void>;
-  mapMultipart?: typeof mapReportToMultipart;
+  mapMultipart?: typeof mapFieldReportToMultipart;
   now?: () => Date;
-  recordId: string;
-  repository: ScanRecordSyncRepository;
+  reportId: string;
+  repository: FieldReportSyncRepository;
   token: string | null;
   upload?: typeof uploadMobileReport;
 }
 
-export async function syncScanRecord({
+export async function syncFieldReport({
   delay = wait,
-  mapMultipart = mapReportToMultipart,
+  mapMultipart = mapFieldReportToMultipart,
   now = () => new Date(),
-  recordId,
+  reportId,
   repository,
   token,
   upload = uploadMobileReport,
-}: SyncScanRecordOptions): Promise<SyncResult> {
-  const record = await repository.findById(recordId);
-  if (record.syncStatus === 'synced') {
+}: SyncFieldReportOptions): Promise<SyncResult> {
+  const uploadRecord = await repository.findById(reportId);
+  if (uploadRecord.report.syncStatus === 'synced') {
     return {
-      recordId,
-      remoteId: record.remoteId,
+      reportId,
+      remoteId: uploadRecord.report.remoteId,
       status: 'already-synced',
     };
   }
@@ -41,33 +41,28 @@ export async function syncScanRecord({
       'AUTH_REQUIRED',
       'Sign in before uploading pending reports.',
     );
-    await repository.markFailed(recordId, error.code, now().toISOString());
-    return { recordId, status: 'failed', error };
+    await repository.markFailed(reportId, error.code, now().toISOString());
+    return { reportId, status: 'failed', error };
   }
 
   const attemptedAt = now().toISOString();
-  await repository.markSyncing(recordId, attemptedAt);
+  await repository.markSyncing(reportId, attemptedAt);
 
   try {
-    const form = mapMultipart(record);
+    const form = mapMultipart(uploadRecord);
     let retryIndex = 0;
 
     while (true) {
       try {
         const uploaded = await upload(form, token);
         const syncedAt = now().toISOString();
-        await repository.markSynced(recordId, uploaded.remoteId, syncedAt);
-        return {
-          recordId,
-          remoteId: uploaded.remoteId,
-          status: 'synced',
-        };
+        await repository.markSynced(reportId, uploaded.remoteId, syncedAt);
+        return { reportId, remoteId: uploaded.remoteId, status: 'synced' };
       } catch (error: unknown) {
         const syncError = toSyncError(error);
         if (!syncError.retryable || retryIndex >= RETRY_DELAYS_MS.length) {
           throw syncError;
         }
-
         const retryDelay = Math.min(
           syncError.retryAfterMs ?? RETRY_DELAYS_MS[retryIndex],
           60_000,
@@ -78,12 +73,8 @@ export async function syncScanRecord({
     }
   } catch (error: unknown) {
     const syncError = toSyncError(error);
-    await repository.markFailed(
-      recordId,
-      syncError.code,
-      now().toISOString(),
-    );
-    return { recordId, status: 'failed', error: syncError };
+    await repository.markFailed(reportId, syncError.code, now().toISOString());
+    return { reportId, status: 'failed', error: syncError };
   }
 }
 

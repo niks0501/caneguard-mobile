@@ -8,15 +8,17 @@ type SymptomChecklistItemProps = {
   label: string;
   selected: boolean;
   onToggle: () => void;
+  testID?: string;
 };
 
-export function SymptomChecklistItem({ label, selected, onToggle }: SymptomChecklistItemProps) {
+export function SymptomChecklistItem({ label, selected, onToggle, testID }: SymptomChecklistItemProps) {
   const theme = useTheme();
 
   return (
     <Pressable
       accessibilityRole="checkbox"
       accessibilityState={{ checked: selected }}
+      testID={testID}
       onPress={onToggle}
       style={({ pressed }) => [
         styles.row,

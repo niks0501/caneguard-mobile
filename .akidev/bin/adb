@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+ADB="$ROOT/.akidev/tools/android-platform-tools/adb"
+
+if [[ -x "$ADB" ]]; then
+  exec "$ADB" "$@"
+fi
+
+cat >&2 <<'EOF'
+CaneGuard's project-local native Linux adb executable is missing.
+
+Install Android Platform Tools at
+`.akidev/tools/android-platform-tools/adb`. Windows `adb.exe`, global PATH
+entries, and executables under `/mnt/` are intentionally not used because the
+project's Linux Maestro process must share this project-local Linux ADB server.
+EOF
+exit 127

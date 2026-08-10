@@ -144,6 +144,12 @@ describe('AnalysisResultScreen', () => {
 
     await renderResult(state);
 
+    expect(screen.getByTestId('scan.result-screen')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.result-title')).toHaveTextContent(
+      'Possible result: Rust',
+    );
+    expect(screen.queryByTestId('scan.barangay-input')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('scan.save-record')).toBeOnTheScreen();
     expect(
       screen.getByLabelText('Selected sugarcane image used for analysis'),
     ).toHaveProp('source', { uri: 'file:///result-leaf.jpg' });
@@ -236,12 +242,12 @@ describe('AnalysisResultScreen', () => {
     expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
   });
 
-  it('discloses local-first upload behavior and starts an explicit save', async () => {
+  it('discloses separated local scan behavior and starts an explicit save', async () => {
     await renderResult(createCompletedState('rust', ['rust']));
 
     expect(
       screen.getByText(
-        'CaneGuard saves locally first, then uploads without deleting the managed image.',
+        'CaneGuard saves the completed scan as local AI evidence without queuing a report upload.',
       ),
     ).toBeOnTheScreen();
 
@@ -249,14 +255,12 @@ describe('AnalysisResultScreen', () => {
     expect(mockSaveRecord).toHaveBeenCalledTimes(1);
   });
 
-  it('requires a barangay before saving', async () => {
+  it('allows completed scan evidence to save without a barangay', async () => {
     await renderResult(
       createCompletedState('rust', ['rust'], { barangay: '' }),
     );
 
-    expect(
-      screen.getByLabelText('Enter a barangay before saving'),
-    ).toBeDisabled();
+    expect(screen.getByLabelText('Save record on this device')).toBeEnabled();
   });
 
   it('disables duplicate save and new-scan actions while saving', async () => {
@@ -283,6 +287,8 @@ describe('AnalysisResultScreen', () => {
 
     await renderResult(createCompletedState('rust', ['rust']));
 
+    expect(screen.getByTestId('scan.record-saved')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.open-saved-record')).toBeOnTheScreen();
     expect(screen.getByText('Saved on this device')).toBeOnTheScreen();
     expect(
       screen.queryByLabelText('Save record on this device'),

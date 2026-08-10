@@ -96,6 +96,11 @@ describe('ScanScreen', () => {
     mockLaunchImageLibrary.mockResolvedValue(selectedImageResult());
 
     await renderScan();
+    expect(screen.getByTestId('scan.screen')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.choose-gallery')).toHaveProp(
+      'accessibilityState',
+      { disabled: false },
+    );
     await fireEvent.press(screen.getByLabelText('Choose one image from the gallery'));
 
     expect(mockLaunchImageLibrary).toHaveBeenCalledWith({

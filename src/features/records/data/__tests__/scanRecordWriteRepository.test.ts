@@ -19,20 +19,13 @@ import {
   listScanRecords,
 } from '@/features/records/data/scanRecordRepository';
 import { insertScanRecord } from '@/features/records/data/scanRecordWriteRepository';
-import {
-  countUnsyncedRecords,
-  findSyncCandidates,
-  findLastSuccessfulSyncAt,
-  markFailed,
-  markPending,
-  markSynced,
-  markSyncing,
-  resetStaleSyncingRecords,
-} from '@/features/records/data/scanRecordSyncRepository';
 import type { SaveCompletedScanInput } from '@/features/records/domain/recordTypes';
 import { getLocalReportSummary } from '@/features/reports/data/reportRepository';
+import { getSyncRecordsRevision } from '@/features/sync/services/syncEvents';
 
 const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
+const OTHER_SUBMITTER_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
 
 function readMigration(filename: string): string {
   return readFileSync(join(process.cwd(), 'drizzle', filename), 'utf8').replaceAll(
@@ -49,6 +42,7 @@ function openTestDatabase(): {
   native.exec('PRAGMA foreign_keys = ON');
   native.exec(readMigration('0000_complex_johnny_blaze.sql'));
   native.exec(readMigration('0001_loving_amazoness.sql'));
+  native.exec(readMigration('0002_talented_kat_farrell.sql'));
   const client = {
     prepareSync(sql: string) {
       return createStatementAdapter(native.prepare(sql));
@@ -140,7 +134,7 @@ describe('scan record write repository', () => {
       predicted_label: 'rust',
       confidence: 0.82,
       barangay: 'Wawa',
-      sync_status: 'pending',
+      sync_status: 'local_only',
       remote_id: null,
       sync_attempt_count: 0,
       created_at: '2026-07-25T05:30:00.000Z',
@@ -292,20 +286,98 @@ describe('scan record write repository', () => {
       '22',
     ]);
 
-    native
-      .prepare("UPDATE scan_records SET sync_status = 'failed' WHERE id = ?")
-      .run(
-        '2b4666c0-ad10-4d0d-a233-000000000010',
-      );
+    native.prepare(`
+      INSERT INTO field_reports (
+        id, scan_record_id, authoring_state, farmer_or_farm_owner_name,
+        barangay, final_latitude, final_longitude, location_source,
+        submitter_identity,
+        observed_at, submitted_at, sync_status, created_at, updated_at
+      ) VALUES (?, ?, 'finalized', ?, ?, ?, ?, 'manual_map', ?, ?, ?, 'failed', ?, ?)
+    `).run(
+      '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+      '2b4666c0-ad10-4d0d-a233-000000000010',
+      'Maria Santos',
+      'Wawa',
+      14.071,
+      120.635,
+      SUBMITTER_ID,
+      '2026-07-17T05:30:00.000Z',
+      '2026-07-17T06:00:00.000Z',
+      '2026-07-17T06:00:00.000Z',
+      '2026-07-17T06:00:00.000Z',
+    );
     await expect(
-      listScanRecords(database, { syncStatus: 'failed', limit: 100 }),
+      listScanRecords(database, { syncStatus: 'failed', limit: 100 }, SUBMITTER_ID),
     ).resolves.toHaveLength(1);
+    native.close();
+  });
+
+  it('only merges Field Report metadata for the authenticated submitter', async () => {
+    const { database, native } = openTestDatabase();
+    native
+      .prepare(`
+        INSERT INTO field_reports (
+          id, scan_record_id, authoring_state, submitter_identity,
+          barangay, observed_at, sync_status, created_at, updated_at
+        ) VALUES (?, ?, 'finalized', ?, ?, ?, 'failed', ?, ?)
+      `)
+      .run(
+        '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+        RECORD_ID,
+        SUBMITTER_ID,
+        'Lumbangan',
+        '2026-07-25T05:30:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+      );
+
+    await expect(
+      listScanRecords(database, {}, SUBMITTER_ID),
+    ).resolves.toEqual([
+      expect.objectContaining({ barangay: 'Lumbangan', syncStatus: 'failed' }),
+    ]);
+    await expect(
+      listScanRecords(database, {}, OTHER_SUBMITTER_ID),
+    ).resolves.toEqual([
+      expect.objectContaining({ barangay: 'Wawa', syncStatus: 'local_only' }),
+    ]);
+    native.close();
+  });
+
+  it('counts only the authenticated submitter Field Reports in the pending summary', async () => {
+    const { database, native } = openTestDatabase();
+    native
+      .prepare(`
+        INSERT INTO field_reports (
+          id, scan_record_id, authoring_state, submitter_identity,
+          barangay, observed_at, sync_status, created_at, updated_at
+        ) VALUES (?, ?, 'finalized', ?, ?, ?, 'failed', ?, ?)
+      `)
+      .run(
+        '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+        RECORD_ID,
+        SUBMITTER_ID,
+        'Lumbangan',
+        '2026-07-25T05:30:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+      );
+
+    await expect(getLocalReportSummary(database, SUBMITTER_ID)).resolves.toMatchObject({
+      totalSavedScans: 1,
+      pendingSyncRecords: 1,
+    });
+    await expect(getLocalReportSummary(database, OTHER_SUBMITTER_ID)).resolves.toMatchObject({
+      totalSavedScans: 1,
+      pendingSyncRecords: 0,
+    });
     native.close();
   });
 
   it('loads full details independently and deletes children by cascade', async () => {
     const { database, native } = openTestDatabase();
     await insertScanRecord(database, validInput());
+    const revisionBeforeDelete = getSyncRecordsRevision();
 
     await expect(findScanRecordById(database, RECORD_ID)).resolves.toMatchObject({
       id: RECORD_ID,
@@ -321,9 +393,12 @@ describe('scan record write repository', () => {
     await expect(listManagedImageUris(database)).resolves.toEqual([
       `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
     ]);
-    await expect(deleteScanRecordById(database, RECORD_ID)).resolves.toEqual({
+    await expect(
+      deleteScanRecordById(database, RECORD_ID, SUBMITTER_ID),
+    ).resolves.toEqual({
       managedImageUri: `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
     });
+    expect(getSyncRecordsRevision()).toBe(revisionBeforeDelete + 1);
 
     for (const table of [
       'scan_records',
@@ -338,6 +413,65 @@ describe('scan record write repository', () => {
     await expect(findScanRecordById(database, RECORD_ID)).rejects.toMatchObject({
       code: 'RECORD_NOT_FOUND',
     });
+    native.close();
+  });
+
+  it('preserves synchronization metadata for scans created by earlier versions', async () => {
+    const { database, native } = openTestDatabase();
+    await insertScanRecord(database, validInput());
+    native
+      .prepare(
+        "UPDATE scan_records SET sync_status = 'failed', last_sync_error_code = 'NETWORK_UNAVAILABLE' WHERE id = ?",
+      )
+      .run(RECORD_ID);
+
+    await expect(
+      listScanRecords(database, { syncStatus: 'failed' }),
+    ).resolves.toEqual([
+      expect.objectContaining({ id: RECORD_ID, syncStatus: 'failed' }),
+    ]);
+
+    native
+      .prepare(
+        "UPDATE scan_records SET sync_status = 'synced', remote_id = 'legacy-remote-id', last_synced_at = ? WHERE id = ?",
+      )
+      .run('2026-07-25T06:00:00.000Z', RECORD_ID);
+    await expect(findScanRecordById(database, RECORD_ID)).resolves.toMatchObject({
+      remoteId: 'legacy-remote-id',
+      syncStatus: 'synced',
+      lastSyncedAt: '2026-07-25T06:00:00.000Z',
+    });
+    native.close();
+  });
+
+  it('rejects deleting a scan attached to another submitter report', async () => {
+    const { database, native } = openTestDatabase();
+    await insertScanRecord(database, validInput());
+    native
+      .prepare(`
+        INSERT INTO field_reports (
+          id, scan_record_id, submitter_identity, submitter_role,
+          observed_at, created_at, updated_at
+        ) VALUES (?, ?, ?, 'field_reporter', ?, ?, ?)
+      `)
+      .run(
+        '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+        RECORD_ID,
+        SUBMITTER_ID,
+        '2026-07-25T05:30:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+      );
+
+    await expect(
+      deleteScanRecordById(database, RECORD_ID, OTHER_SUBMITTER_ID),
+    ).rejects.toMatchObject<Partial<StorageError>>({ code: 'DELETE_FAILED' });
+    expect(
+      native.prepare('SELECT count(*) AS count FROM scan_records').get(),
+    ).toEqual({ count: 1 });
+    await expect(
+      deleteScanRecordById(database, RECORD_ID, SUBMITTER_ID),
+    ).resolves.toMatchObject({ managedImageUri: expect.any(String) });
     native.close();
   });
 
@@ -371,12 +505,12 @@ describe('scan record write repository', () => {
       .run('2026-07-04T00:00:00.000Z');
 
     await expect(
-      getLocalReportSummary(database, { recentLimit: 3 }),
+      getLocalReportSummary(database, SUBMITTER_ID, { recentLimit: 3 }),
     ).resolves.toMatchObject({
       totalSavedScans: 5,
       healthyPredictions: 2,
       possibleDiseasePredictions: 3,
-      pendingSyncRecords: 5,
+      pendingSyncRecords: 0,
       lowScorePredictions: 3,
       recordsByLabel: [
         { label: 'healthy', count: 2 },
@@ -391,7 +525,7 @@ describe('scan record write repository', () => {
     });
 
     await expect(
-      getLocalReportSummary(database, {
+      getLocalReportSummary(database, SUBMITTER_ID, {
         dateRange: {
           from: '2026-07-01T00:00:00.000Z',
           to: '2026-07-31T23:59:59.999Z',
@@ -401,18 +535,19 @@ describe('scan record write repository', () => {
       totalSavedScans: 4,
       healthyPredictions: 1,
       possibleDiseasePredictions: 3,
-      pendingSyncRecords: 4,
+      pendingSyncRecords: 0,
       lowScorePredictions: 2,
     });
 
     await deleteScanRecordById(
       database,
       '2b4666c0-ad10-4d0d-a233-000000000003',
+      SUBMITTER_ID,
     );
-    await expect(getLocalReportSummary(database)).resolves.toMatchObject({
+    await expect(getLocalReportSummary(database, SUBMITTER_ID)).resolves.toMatchObject({
       totalSavedScans: 4,
       possibleDiseasePredictions: 2,
-      pendingSyncRecords: 4,
+      pendingSyncRecords: 0,
     });
     native.close();
   });
@@ -420,7 +555,7 @@ describe('scan record write repository', () => {
   it('returns zeroed report aggregates for an empty database', async () => {
     const { database, native } = openTestDatabase();
 
-    await expect(getLocalReportSummary(database)).resolves.toEqual({
+    await expect(getLocalReportSummary(database, SUBMITTER_ID)).resolves.toEqual({
       totalSavedScans: 0,
       healthyPredictions: 0,
       possibleDiseasePredictions: 0,
@@ -432,79 +567,4 @@ describe('scan record write repository', () => {
     native.close();
   });
 
-  it('updates synchronization state atomically and recovers stale uploads', async () => {
-    const { database, native } = openTestDatabase();
-    await insertScanRecord(database, validInput());
-
-    await expect(countUnsyncedRecords(database)).resolves.toBe(1);
-    await expect(findSyncCandidates(database, 10)).resolves.toHaveLength(1);
-
-    await markSyncing(
-      database,
-      RECORD_ID,
-      '2026-07-27T01:00:00.000Z',
-    );
-    expect(
-      native
-        .prepare(
-          'SELECT sync_status, sync_attempt_count, last_sync_attempt_at FROM scan_records WHERE id = ?',
-        )
-        .get(RECORD_ID),
-    ).toEqual({
-      sync_status: 'syncing',
-      sync_attempt_count: 1,
-      last_sync_attempt_at: '2026-07-27T01:00:00.000Z',
-    });
-
-    await resetStaleSyncingRecords(
-      database,
-      '2026-07-27T01:05:00.000Z',
-    );
-    expect(
-      native
-        .prepare(
-          'SELECT sync_status, last_sync_error_code FROM scan_records WHERE id = ?',
-        )
-        .get(RECORD_ID),
-    ).toEqual({
-      sync_status: 'pending',
-      last_sync_error_code: 'STALE_SYNC_RECOVERED',
-    });
-
-    await markFailed(
-      database,
-      RECORD_ID,
-      'NETWORK_REQUEST_FAILED',
-      '2026-07-27T01:06:00.000Z',
-    );
-    await expect(findSyncCandidates(database, 10)).resolves.toHaveLength(0);
-    await expect(findSyncCandidates(database, 10, true)).resolves.toHaveLength(
-      1,
-    );
-
-    await markPending(database, RECORD_ID);
-    await markSynced(
-      database,
-      RECORD_ID,
-      'server-report-uuid',
-      '2026-07-27T01:07:00.000Z',
-    );
-    expect(
-      native
-        .prepare(
-          'SELECT sync_status, remote_id, last_synced_at, last_sync_error_code FROM scan_records WHERE id = ?',
-        )
-        .get(RECORD_ID),
-    ).toEqual({
-      sync_status: 'synced',
-      remote_id: 'server-report-uuid',
-      last_synced_at: '2026-07-27T01:07:00.000Z',
-      last_sync_error_code: null,
-    });
-    await expect(countUnsyncedRecords(database)).resolves.toBe(0);
-    await expect(findLastSuccessfulSyncAt(database)).resolves.toBe(
-      '2026-07-27T01:07:00.000Z',
-    );
-    native.close();
-  });
 });

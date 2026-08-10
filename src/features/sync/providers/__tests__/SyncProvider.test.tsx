@@ -1,16 +1,21 @@
 import NetInfo from '@react-native-community/netinfo';
-import { act, render, waitFor } from '@testing-library/react-native';
+import { act, render, screen, waitFor } from '@testing-library/react-native';
+import { useContext } from 'react';
 import { AppState, Text } from 'react-native';
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
-  countUnsyncedRecords,
-  findLastSuccessfulSyncAt,
-  resetStaleSyncingRecords,
-} from '@/features/records/data/scanRecordSyncRepository';
-import { SyncProvider } from '@/features/sync/providers/SyncProvider';
-import { syncPendingScans } from '@/features/sync/services/syncPendingScans';
+  countUnsyncedFieldReports,
+  findFieldReportUploadRecord,
+  findLastSuccessfulFieldReportSyncAt,
+  resetStaleSyncingFieldReports,
+} from '@/features/reports/data/fieldReportSyncRepository';
+import {
+  SyncContext,
+  SyncProvider,
+} from '@/features/sync/providers/SyncProvider';
+import { syncPendingFieldReports } from '@/features/sync/services/syncPendingFieldReports';
 
 jest.mock('@react-native-community/netinfo', () => ({
   __esModule: true,
@@ -25,14 +30,15 @@ jest.mock('@/database/DatabaseProvider', () => ({
 jest.mock('@/features/auth/hooks/useAuth', () => ({
   useAuth: jest.fn(),
 }));
-jest.mock('@/features/records/data/scanRecordSyncRepository', () => ({
-  countUnsyncedRecords: jest.fn(),
-  findLastSuccessfulSyncAt: jest.fn(),
-  markPending: jest.fn(),
-  resetStaleSyncingRecords: jest.fn(),
+jest.mock('@/features/reports/data/fieldReportSyncRepository', () => ({
+  countUnsyncedFieldReports: jest.fn(),
+  findFieldReportUploadRecord: jest.fn(),
+  findLastSuccessfulFieldReportSyncAt: jest.fn(),
+  markFieldReportPending: jest.fn(),
+  resetStaleSyncingFieldReports: jest.fn(),
 }));
-jest.mock('@/features/sync/services/syncPendingScans', () => ({
-  syncPendingScans: jest.fn(),
+jest.mock('@/features/sync/services/syncPendingFieldReports', () => ({
+  syncPendingFieldReports: jest.fn(),
 }));
 
 const OFFLINE = {
@@ -45,6 +51,17 @@ const ONLINE = {
   isInternetReachable: true,
   type: 'wifi',
 } as never;
+const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
+const OTHER_SUBMITTER_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
+
+function SyncStateProbe() {
+  const sync = useContext(SyncContext);
+  return (
+    <Text testID="sync-state">
+      {`${sync?.pendingCount ?? 'none'}:${sync?.lastSuccessfulSyncAt ?? 'none'}`}
+    </Text>
+  );
+}
 
 describe('SyncProvider foreground triggers', () => {
   let networkListener: (state: never) => void;
@@ -54,13 +71,14 @@ describe('SyncProvider foreground triggers', () => {
     jest.mocked(useCaneGuardDatabase).mockReturnValue({} as never);
     jest.mocked(useAuth).mockReturnValue({
       status: 'authenticated',
-      session: { token: 'secure-token' },
+      session: { token: 'secure-token', user: { uuid: SUBMITTER_ID } },
       markSessionExpired: jest.fn(async () => undefined),
     } as never);
-    jest.mocked(countUnsyncedRecords).mockResolvedValue(1);
-    jest.mocked(findLastSuccessfulSyncAt).mockResolvedValue(null);
-    jest.mocked(resetStaleSyncingRecords).mockResolvedValue();
-    jest.mocked(syncPendingScans).mockResolvedValue({
+    jest.mocked(countUnsyncedFieldReports).mockResolvedValue(1);
+    jest.mocked(findFieldReportUploadRecord).mockResolvedValue({} as never);
+    jest.mocked(findLastSuccessfulFieldReportSyncAt).mockResolvedValue(null);
+    jest.mocked(resetStaleSyncingFieldReports).mockResolvedValue();
+    jest.mocked(syncPendingFieldReports).mockResolvedValue({
       attempted: 1,
       authRequired: false,
       failed: 0,
@@ -88,7 +106,11 @@ describe('SyncProvider foreground triggers', () => {
       </SyncProvider>,
     );
     await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
-    await waitFor(() => expect(countUnsyncedRecords).toHaveBeenCalled());
+    await waitFor(() => expect(countUnsyncedFieldReports).toHaveBeenCalled());
+    expect(countUnsyncedFieldReports).toHaveBeenCalledWith(
+      expect.anything(),
+      SUBMITTER_ID,
+    );
 
     await act(() => networkListener(OFFLINE));
     await act(async () => {
@@ -97,11 +119,14 @@ describe('SyncProvider foreground triggers', () => {
     });
 
     await waitFor(() =>
-      expect(syncPendingScans).toHaveBeenCalledWith(
-        expect.objectContaining({ source: 'network-restored' }),
+      expect(syncPendingFieldReports).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: 'network-restored',
+          submitterIdentity: SUBMITTER_ID,
+        }),
       ),
     );
-    jest.mocked(syncPendingScans).mockClear();
+    jest.mocked(syncPendingFieldReports).mockClear();
 
     await act(async () => {
       appStateListener('active');
@@ -109,9 +134,143 @@ describe('SyncProvider foreground triggers', () => {
     });
 
     await waitFor(() =>
-      expect(syncPendingScans).toHaveBeenCalledWith(
+      expect(syncPendingFieldReports).toHaveBeenCalledWith(
         expect.objectContaining({ source: 'resume' }),
       ),
     );
+  });
+
+  it('does not expire a replacement session from an older rejected upload', async () => {
+    const markFirstSessionExpired = jest.fn(async () => undefined);
+    const markSecondSessionExpired = jest.fn(async () => undefined);
+    let finish!: (result: {
+      attempted: number;
+      authRequired: boolean;
+      failed: number;
+      results: [];
+      source: 'network-restored';
+      synced: number;
+    }) => void;
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: {
+        token: 'first-token',
+        user: { uuid: SUBMITTER_ID },
+      },
+      markSessionExpired: markFirstSessionExpired,
+    } as never);
+    jest.mocked(syncPendingFieldReports).mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+
+    const view = await render(
+      <SyncProvider>
+        <Text>Ready</Text>
+      </SyncProvider>,
+    );
+    await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+    await act(() => networkListener(OFFLINE));
+    await act(async () => {
+      networkListener(ONLINE);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(syncPendingFieldReports).toHaveBeenCalled());
+
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: {
+        token: 'second-token',
+        user: { uuid: OTHER_SUBMITTER_ID },
+      },
+      markSessionExpired: markSecondSessionExpired,
+    } as never);
+    await view.rerender(
+      <SyncProvider>
+        <Text>Ready</Text>
+      </SyncProvider>,
+    );
+    await act(async () => {
+      finish({
+        attempted: 1,
+        authRequired: true,
+        failed: 1,
+        results: [],
+        source: 'network-restored',
+        synced: 0,
+      });
+      await Promise.resolve();
+    });
+
+    expect(markFirstSessionExpired).not.toHaveBeenCalled();
+    expect(markSecondSessionExpired).not.toHaveBeenCalled();
+  });
+
+  it('ignores pending-count results from a replaced session', async () => {
+    let finishReset!: () => void;
+    let finishFirstCount!: (count: number) => void;
+    const firstReset = new Promise<void>((resolve) => {
+      finishReset = resolve;
+    });
+    const firstCount = new Promise<number>((resolve) => {
+      finishFirstCount = resolve;
+    });
+    jest.mocked(resetStaleSyncingFieldReports).mockReturnValueOnce(firstReset);
+    jest.mocked(countUnsyncedFieldReports).mockImplementation(
+      (_database, submitterIdentity) =>
+        submitterIdentity === SUBMITTER_ID ? firstCount : Promise.resolve(2),
+    );
+    jest.mocked(findLastSuccessfulFieldReportSyncAt).mockImplementation(
+      (_database, submitterIdentity) =>
+        Promise.resolve(submitterIdentity === SUBMITTER_ID ? 'old' : 'new'),
+    );
+
+    const view = await render(
+      <SyncProvider>
+        <SyncStateProbe />
+      </SyncProvider>,
+    );
+    await waitFor(() => expect(resetStaleSyncingFieldReports).toHaveBeenCalled());
+
+    await act(async () => {
+      finishReset();
+      await Promise.resolve();
+    });
+    await waitFor(() =>
+      expect(countUnsyncedFieldReports).toHaveBeenCalledWith(
+        expect.anything(),
+        SUBMITTER_ID,
+      ),
+    );
+
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: { token: 'second-token', user: { uuid: OTHER_SUBMITTER_ID } },
+      markSessionExpired: jest.fn(async () => undefined),
+    } as never);
+    jest.mocked(resetStaleSyncingFieldReports).mockResolvedValue();
+    await view.rerender(
+      <SyncProvider>
+        <SyncStateProbe />
+      </SyncProvider>,
+    );
+
+    await waitFor(() =>
+      expect(countUnsyncedFieldReports).toHaveBeenCalledWith(
+        expect.anything(),
+        OTHER_SUBMITTER_ID,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('sync-state')).toHaveTextContent('2:new'),
+    );
+
+    await act(async () => {
+      finishFirstCount(99);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId('sync-state')).toHaveTextContent('2:new');
   });
 });

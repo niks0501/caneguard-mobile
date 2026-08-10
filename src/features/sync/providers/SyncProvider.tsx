@@ -12,20 +12,22 @@ import { AppState } from 'react-native';
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import type { MobileSession } from '@/features/auth/types';
 import {
-  countUnsyncedRecords,
-  findLastSuccessfulSyncAt,
-  markPending,
-  resetStaleSyncingRecords,
-} from '@/features/records/data/scanRecordSyncRepository';
+  countUnsyncedFieldReports,
+  findFieldReportUploadRecord,
+  findLastSuccessfulFieldReportSyncAt,
+  markFieldReportPending,
+  resetStaleSyncingFieldReports,
+} from '@/features/reports/data/fieldReportSyncRepository';
 import {
   subscribeSyncRecords,
 } from '@/features/sync/services/syncEvents';
 import {
-  syncPendingScans,
+  syncPendingFieldReports,
   type SyncBatchResult,
   type SyncTriggerSource,
-} from '@/features/sync/services/syncPendingScans';
+} from '@/features/sync/services/syncPendingFieldReports';
 
 interface SyncContextValue {
   errorMessage: string | null;
@@ -33,7 +35,7 @@ interface SyncContextValue {
   isSyncing: boolean;
   lastSuccessfulSyncAt: string | null;
   pendingCount: number;
-  retryRecord: (recordId: string) => Promise<SyncBatchResult | null>;
+  retryReport: (reportId: string) => Promise<SyncBatchResult | null>;
   syncNow: (source?: SyncTriggerSource) => Promise<SyncBatchResult | null>;
 }
 
@@ -52,17 +54,34 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const previousOnline = useRef<boolean | null>(null);
   const onlineRef = useRef<boolean | null>(null);
   const mounted = useRef(true);
+  const sessionRef = useRef(auth.session);
+  sessionRef.current = auth.session;
 
   const refreshPendingCount = useCallback(async () => {
+    const requestedToken = auth.session?.token;
+    const submitterIdentity = auth.session?.user.uuid;
+    if (!submitterIdentity) {
+      if (
+        mounted.current &&
+        isSameSession(sessionRef.current, requestedToken, submitterIdentity)
+      ) {
+        setPendingCount(0);
+        setLastSuccessfulSyncAt(null);
+      }
+      return;
+    }
     const [count, lastSyncedAt] = await Promise.all([
-      countUnsyncedRecords(database),
-      findLastSuccessfulSyncAt(database),
+      countUnsyncedFieldReports(database, submitterIdentity),
+      findLastSuccessfulFieldReportSyncAt(database, submitterIdentity),
     ]);
-    if (mounted.current) {
+    if (
+      mounted.current &&
+      isSameSession(sessionRef.current, requestedToken, submitterIdentity)
+    ) {
       setPendingCount(count);
       setLastSuccessfulSyncAt(lastSyncedAt);
     }
-  }, [database]);
+  }, [auth.session?.token, auth.session?.user.uuid, database]);
 
   const syncNow = useCallback(
     async (
@@ -79,14 +98,23 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
       setIsSyncing(true);
       setErrorMessage(null);
+      const initiatingSession = auth.session;
+      const isInitiatingSessionCurrent = () =>
+        sessionRef.current?.token === initiatingSession.token &&
+        sessionRef.current?.user.uuid === initiatingSession.user.uuid;
       try {
-        const result = await syncPendingScans({
+        const result = await syncPendingFieldReports({
           database,
           source,
-          token: auth.session.token,
+          submitterIdentity: initiatingSession.user.uuid,
+          token: initiatingSession.token,
         });
+        if (!isInitiatingSessionCurrent()) {
+          return result;
+        }
         if (result.authRequired) {
           await auth.markSessionExpired();
+          return result;
         }
         if (result.synced > 0) {
           setLastSuccessfulSyncAt(new Date().toISOString());
@@ -99,11 +127,13 @@ export function SyncProvider({ children }: PropsWithChildren) {
         await refreshPendingCount();
         return result;
       } catch {
-        setErrorMessage('CaneGuard could not process the pending upload queue.');
-        await refreshPendingCount();
+        if (isInitiatingSessionCurrent()) {
+          setErrorMessage('CaneGuard could not process the pending upload queue.');
+          await refreshPendingCount();
+        }
         return null;
       } finally {
-        if (mounted.current) {
+        if (mounted.current && isInitiatingSessionCurrent()) {
           setIsSyncing(false);
         }
       }
@@ -111,13 +141,26 @@ export function SyncProvider({ children }: PropsWithChildren) {
     [auth, database, refreshPendingCount],
   );
 
-  const retryRecord = useCallback(
-    async (recordId: string) => {
-      await markPending(database, recordId);
+  const retryReport = useCallback(
+    async (reportId: string) => {
+      if (auth.status !== 'authenticated' || !auth.session?.user.uuid) {
+        return null;
+      }
+      await findFieldReportUploadRecord(
+        database,
+        reportId,
+        auth.session.user.uuid,
+      );
+      await markFieldReportPending(database, reportId, auth.session.user.uuid);
       return syncNow('manual');
     },
-    [database, syncNow],
+    [auth.session?.user.uuid, auth.status, database, syncNow],
   );
+
+  useEffect(() => {
+    setIsSyncing(false);
+    setErrorMessage(null);
+  }, [auth.session?.token, auth.session?.user.uuid]);
 
   useEffect(() => {
     if (auth.status === 'authenticated') {
@@ -127,12 +170,33 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     mounted.current = true;
+    const sessionToken = auth.session?.token;
+    const submitterIdentity = auth.session?.user.uuid;
+    if (!submitterIdentity) {
+      void refreshPendingCount();
+      return () => {
+        mounted.current = false;
+      };
+    }
     const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
-    void resetStaleSyncingRecords(database, staleBefore)
-      .then(refreshPendingCount)
-      .catch(() =>
-        setErrorMessage('Interrupted uploads could not be recovered yet.'),
-      );
+    void resetStaleSyncingFieldReports(database, submitterIdentity, staleBefore)
+      .then(() => {
+        if (
+          mounted.current &&
+          isSameSession(sessionRef.current, sessionToken, submitterIdentity)
+        ) {
+          return refreshPendingCount();
+        }
+        return undefined;
+      })
+      .catch(() => {
+        if (
+          mounted.current &&
+          isSameSession(sessionRef.current, sessionToken, submitterIdentity)
+        ) {
+          setErrorMessage('Interrupted uploads could not be recovered yet.');
+        }
+      });
 
     const unsubscribeRecords = subscribeSyncRecords(() => {
       void refreshPendingCount();
@@ -175,7 +239,14 @@ export function SyncProvider({ children }: PropsWithChildren) {
       unsubscribeNetwork();
       appStateSubscription.remove();
     };
-  }, [auth.status, database, refreshPendingCount, syncNow]);
+  }, [
+    auth.session?.token,
+    auth.session?.user.uuid,
+    auth.status,
+    database,
+    refreshPendingCount,
+    syncNow,
+  ]);
 
   const value = useMemo<SyncContextValue>(
     () => ({
@@ -184,7 +255,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       isSyncing,
       lastSuccessfulSyncAt,
       pendingCount,
-      retryRecord,
+      retryReport,
       syncNow,
     }),
     [
@@ -193,7 +264,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       isSyncing,
       lastSuccessfulSyncAt,
       pendingCount,
-      retryRecord,
+      retryReport,
       syncNow,
     ],
   );
@@ -203,4 +274,17 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
 function isNetworkOnline(state: NetInfoState): boolean {
   return state.isConnected === true && state.isInternetReachable !== false;
+}
+
+function isSameSession(
+  session: MobileSession | null,
+  token: string | undefined,
+  submitterIdentity: string | undefined,
+): boolean {
+  if (!token || !submitterIdentity) {
+    return session === null;
+  }
+  return (
+    session?.token === token && session?.user.uuid === submitterIdentity
+  );
 }

@@ -236,6 +236,7 @@ export default function ScanScreen() {
 
   return (
     <SafeAreaView
+      testID="scan.screen"
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
       <View style={styles.root}>
@@ -331,6 +332,7 @@ export default function ScanScreen() {
 
             <View style={styles.actions}>
               <AppButton
+                testID="scan.choose-gallery"
                 onPress={pickFromGallery}
                 disabled={isBusy}
                 leadingIcon="upload"

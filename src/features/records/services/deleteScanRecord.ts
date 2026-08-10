@@ -11,6 +11,7 @@ export interface DeleteScanRecordResult {
 export async function deleteScanRecord(
   database: CaneGuardDatabase,
   id: string,
+  submitterIdentity: string,
   dependencies: {
     deleteImage?: typeof deleteManagedScanImage;
     deleteRecord?: typeof deleteScanRecordById;
@@ -18,7 +19,11 @@ export async function deleteScanRecord(
 ): Promise<DeleteScanRecordResult> {
   const deleteRecord = dependencies.deleteRecord ?? deleteScanRecordById;
   const deleteImage = dependencies.deleteImage ?? deleteManagedScanImage;
-  const { managedImageUri } = await deleteRecord(database, id);
+  const { managedImageUri } = await deleteRecord(
+    database,
+    id,
+    submitterIdentity,
+  );
 
   try {
     deleteImage(managedImageUri);

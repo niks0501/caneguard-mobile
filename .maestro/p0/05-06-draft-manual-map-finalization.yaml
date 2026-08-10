@@ -1,0 +1,163 @@
+appId: com.niks0501.caneguard
+name: P0-05/06 Draft completed later with manual map and finalized
+tags:
+  - p0
+  - manual-map
+  - finalization
+---
+# Precondition: run 02-draft-report-lifecycle.yaml first. It creates and
+# reopens the latest incomplete report with farmer name "P0 Draft Farmer".
+- setPermissions:
+    permissions:
+      location: deny
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: Connect
+    commands:
+      - tapOn: "http://"
+      - inputText: "http://127.0.0.1:8081"
+      - tapOn: Connect
+- extendedWaitUntil:
+    visible:
+      id: home.screen
+    timeout: 120000
+- openLink: caneguardmobile://records
+- extendedWaitUntil:
+    visible:
+      id: records.screen
+    timeout: 30000
+- tapOn:
+    text: "Open Possible result: Rust record saved .*"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: records.details-screen
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: records.open-field-report
+    direction: DOWN
+- tapOn:
+    id: records.open-field-report
+- extendedWaitUntil:
+    visible:
+      id: field-report.screen
+    timeout: 30000
+- assertVisible:
+    id: field-report.farmer-name-input
+    text: P0 Draft Farmer
+- scrollUntilVisible:
+    element:
+      id: field-report.capture-gps
+    direction: DOWN
+- tapOn:
+    id: field-report.capture-gps
+- runFlow:
+    when:
+      visible: "Don.t allow"
+    commands:
+      - tapOn: "Don.t allow"
+- extendedWaitUntil:
+    visible:
+      id: field-report.gps-status
+    timeout: 30000
+- assertVisible:
+    id: field-report.open-manual-map
+- tapOn:
+    id: field-report.open-manual-map
+- extendedWaitUntil:
+    visible:
+      id: manual-map.screen
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: manual-map.viewport
+      enabled: true
+    timeout: 30000
+- tapOn:
+    id: manual-map.viewport
+- assertVisible:
+    id: manual-map.pin
+- scrollUntilVisible:
+    element:
+      id: manual-map.confirm
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: manual-map.confirm
+- scrollUntilVisible:
+    element:
+      id: field-report.manual-location
+    direction: DOWN
+- extendedWaitUntil:
+    visible:
+      id: field-report.manual-location
+      text: "Manual map .* GPS accuracy not applicable"
+    timeout: 30000
+- takeScreenshot: .maestro/artifacts/p0-05-manual-location-saved
+- stopApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: home.screen
+    timeout: 120000
+- openLink: caneguardmobile://records
+- extendedWaitUntil:
+    visible:
+      id: records.screen
+    timeout: 30000
+- tapOn:
+    text: "Open Possible result: Rust record saved .*"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: records.details-screen
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: records.open-field-report
+    direction: DOWN
+- assertVisible: Resume Draft
+- tapOn:
+    id: records.open-field-report
+- assertVisible:
+    id: field-report.farmer-name-input
+    text: P0 Draft Farmer
+- scrollUntilVisible:
+    element:
+      id: field-report.manual-location
+    direction: DOWN
+- extendedWaitUntil:
+    visible:
+      id: field-report.manual-location
+      text: "Manual map .* GPS accuracy not applicable"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: field-report.barangay-input
+    direction: UP
+- tapOn:
+    id: field-report.barangay-input
+- inputText: Lumbangan
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: field-report.finalize
+    direction: DOWN
+- tapOn:
+    id: field-report.finalize
+- scrollUntilVisible:
+    element:
+      text: "Finalized · (Pending sync|Pending upload|Uploading|Synced|Sync failed)"
+    direction: UP
+- extendedWaitUntil:
+    visible: "Finalized · (Pending sync|Pending upload|Uploading|Synced|Sync failed)"
+    timeout: 30000
+- assertVisible:
+    id: field-report.authoring-status
+- assertNotVisible:
+    id: field-report.finalize
+- takeScreenshot: .maestro/artifacts/p0-05-06-manual-finalized

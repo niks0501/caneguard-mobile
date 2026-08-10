@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -29,9 +29,13 @@ import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
+import type { SyncStatus } from '@/database/schema';
 import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
 import { deleteScanRecord } from '@/features/records/services/deleteScanRecord';
+import { useFieldReportForScan } from '@/features/reports/hooks/useFieldReportDraft';
+import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
 import { getSyncErrorMessage } from '@/features/sync/errors/syncErrors';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
@@ -51,27 +55,45 @@ export default function RecordDetailsScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(params.id) ? params.id[0] : (params.id ?? null);
   const record = useScanRecordDetails(id);
+  const fieldReport = useFieldReportForScan(id);
   const database = useCaneGuardDatabase();
+  const { user } = useAuth();
   const sync = useSync();
   const [imageUnavailable, setImageUnavailable] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const synchronizationMetadata = fieldReport.data ?? record.data;
 
   const retrySync = async () => {
-    if (!id || retrying) {
+    if (!fieldReport.data || retrying) {
       return;
     }
     setRetrying(true);
-    await sync.retryRecord(id);
-    await record.refresh();
-    setRetrying(false);
+    setRetryError(null);
+    try {
+      await sync.retryReport(fieldReport.data.id);
+      await fieldReport.refresh();
+    } catch (error: unknown) {
+      setRetryError(
+        getStorageErrorMessage(
+          toStorageError(
+            error,
+            'UPDATE_FAILED',
+            'Retrying Field Report synchronization failed.',
+          ),
+        ),
+      );
+    } finally {
+      setRetrying(false);
+    }
   };
 
   const confirmDelete = () => {
     Alert.alert(
       'Delete local record?',
-      'This removes the record and its saved image from this device. This action cannot be undone.',
+      'This removes the scan, its saved image, and any associated Field Report from this device. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -84,14 +106,14 @@ export default function RecordDetailsScreen() {
   };
 
   const performDelete = async () => {
-    if (!id || deleting) {
+    if (!id || !user || deleting) {
       return;
     }
     setDeleting(true);
     setDeleteError(null);
 
     try {
-      const result = await deleteScanRecord(database, id);
+      const result = await deleteScanRecord(database, id, user.uuid);
       if (result.imageCleanupError) {
         Alert.alert(
           'Record deleted',
@@ -112,6 +134,7 @@ export default function RecordDetailsScreen() {
 
   return (
     <SafeAreaView
+      testID="records.details-screen"
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
       <View style={styles.root}>
@@ -181,14 +204,71 @@ export default function RecordDetailsScreen() {
                     borderColor: theme.border,
                   },
                 ]}>
-                <Text style={[styles.result, { color: theme.primaryDark }]}>
+                <Text
+                  testID="records.result-title"
+                  style={[styles.result, { color: theme.primaryDark }]}>
                   {getResultLabel(record.data.predictedLabel)}
                 </Text>
                 <Text style={[styles.confidence, { color: theme.primary }]}>
                   {Math.round(record.data.confidence * 100)}% AI confidence
                 </Text>
-                <RecordSyncStatus status={record.data.syncStatus} />
+                <RecordSyncStatus
+                  status={fieldReport.data?.syncStatus ?? record.data.syncStatus}
+                />
               </View>
+
+              <Section title="Field Report">
+                <Text style={[styles.reportMessage, { color: theme.textSecondary }]}>
+                  {getFieldReportAction(
+                    fieldReport.data,
+                    record.data.syncStatus,
+                    fieldReport.hasOtherOwnerReport,
+                  ).message}
+                </Text>
+                {fieldReport.errorMessage ? (
+                  <Text style={[styles.deleteError, { color: theme.danger }]}>
+                    {fieldReport.errorMessage}
+                  </Text>
+                ) : null}
+                <AppButton
+                  testID="records.open-field-report"
+                  onPress={() =>
+                    router.push({
+                      pathname: '/field-report',
+                      params: { scanRecordId: record.data!.id },
+                    } as unknown as Href)
+                  }
+                  disabled={
+                    fieldReport.loading ||
+                    getFieldReportAction(
+                      fieldReport.data,
+                      record.data.syncStatus,
+                      fieldReport.hasOtherOwnerReport,
+                    ).disabled
+                  }
+                  leadingIcon={
+                    getFieldReportAction(
+                      fieldReport.data,
+                      record.data.syncStatus,
+                      fieldReport.hasOtherOwnerReport,
+                    ).icon
+                  }
+                  accessibilityLabel={
+                    getFieldReportAction(
+                      fieldReport.data,
+                      record.data.syncStatus,
+                      fieldReport.hasOtherOwnerReport,
+                    ).accessibilityLabel
+                  }>
+                  {fieldReport.loading
+                    ? 'Checking Draft...'
+                    : getFieldReportAction(
+                        fieldReport.data,
+                        record.data.syncStatus,
+                        fieldReport.hasOtherOwnerReport,
+                      ).label}
+                </AppButton>
+              </Section>
 
               <Section title="All model class scores">
                 {record.data.classScores.map((score) => (
@@ -210,8 +290,9 @@ export default function RecordDetailsScreen() {
                   value={record.data.reportedSeverity ?? 'Not provided'}
                 />
                 <DetailRow
-                  label="Barangay"
+                  label="Legacy scan barangay"
                   value={record.data.barangay ?? 'Not provided'}
+                  valueTestID="records.barangay-value"
                 />
                 <ObservationList
                   title="Selected observations"
@@ -247,19 +328,21 @@ export default function RecordDetailsScreen() {
                 />
                 <DetailRow
                   label="Server report UUID"
-                  value={record.data.remoteId ?? 'Not assigned'}
+                  value={synchronizationMetadata?.remoteId ?? 'Not assigned'}
                 />
                 <DetailRow
                   label="Last synchronized"
                   value={
-                    record.data.lastSyncedAt
-                      ? formatSavedAt(record.data.lastSyncedAt)
+                    synchronizationMetadata?.lastSyncedAt
+                      ? formatSavedAt(
+                          synchronizationMetadata.lastSyncedAt,
+                        )
                       : 'Not yet synchronized'
                   }
                 />
               </Section>
 
-              {record.data.lastSyncErrorCode ? (
+              {synchronizationMetadata?.lastSyncErrorCode ? (
                 <View
                   accessibilityLiveRegion="assertive"
                   style={[
@@ -268,14 +351,25 @@ export default function RecordDetailsScreen() {
                   ]}>
                   <Feather name="alert-triangle" size={19} color={theme.danger} />
                   <Text style={[styles.syncErrorText, { color: theme.text }]}>
-                    {getSyncErrorMessage(record.data.lastSyncErrorCode) ??
+                    {getSyncErrorMessage(
+                      synchronizationMetadata.lastSyncErrorCode,
+                    ) ??
                       'The last upload did not finish.'}
                   </Text>
                 </View>
               ) : null}
 
-              {record.data.syncStatus === 'pending' ||
-              record.data.syncStatus === 'failed' ? (
+              {retryError ? (
+                <Text
+                  testID="records.retry-error"
+                  accessibilityLiveRegion="assertive"
+                  style={[styles.deleteError, { color: theme.danger }]}>
+                  {retryError}
+                </Text>
+              ) : null}
+
+              {fieldReport.data?.syncStatus === 'pending' ||
+              fieldReport.data?.syncStatus === 'failed' ? (
                 <AppButton
                   onPress={() => void retrySync()}
                   disabled={retrying || sync.isSyncing || sync.isOnline !== true}
@@ -322,10 +416,79 @@ export default function RecordDetailsScreen() {
   );
 }
 
+function getFieldReportAction(
+  report: FieldReport | null,
+  legacySyncStatus: SyncStatus,
+  hasOtherOwnerReport = false,
+): {
+  accessibilityLabel: string;
+  disabled: boolean;
+  icon: keyof typeof Feather.glyphMap;
+  label: string;
+  message: string;
+} {
+  if (!report) {
+    if (hasOtherOwnerReport) {
+      return {
+        accessibilityLabel: 'Field Report owned by another submitter',
+        disabled: true,
+        icon: 'lock',
+        label: 'Report Unavailable',
+        message:
+          'A Field Report for this scan belongs to another submitter and is unavailable to this account.',
+      };
+    }
+    if (legacySyncStatus === 'synced') {
+      return {
+        accessibilityLabel: 'Legacy report already synchronized',
+        disabled: true,
+        icon: 'check-circle',
+        label: 'Legacy Report Synced',
+        message:
+          'This scan was synchronized by an earlier app version and cannot be submitted again.',
+      };
+    }
+    if (legacySyncStatus !== 'local_only') {
+      return {
+        accessibilityLabel: 'Complete legacy Field Report draft',
+        disabled: false,
+        icon: 'file-plus',
+        label: 'Complete Report Draft',
+        message:
+          'Complete this older unsent scan as a Field Report Draft before uploading it.',
+      };
+    }
+    return {
+      accessibilityLabel: 'Create Field Report draft',
+      disabled: false,
+      icon: 'file-plus',
+      label: 'Create Report Draft',
+      message: 'Create a separate Field Report Draft from this completed scan.',
+    };
+  }
+  if (report.authoringState === 'draft') {
+    return {
+      accessibilityLabel: 'Resume Field Report draft',
+      disabled: false,
+      icon: 'edit-3',
+      label: 'Resume Draft',
+      message: 'Continue the same locally saved Draft. Partial information is preserved.',
+    };
+  }
+  const syncPresentation = getSyncPresentation(report.syncStatus);
+  return {
+    accessibilityLabel: 'Open finalized Field Report',
+    disabled: false,
+    icon: 'check-circle',
+    label: 'View Finalized Report',
+    message: `This Field Report is finalized locally: ${syncPresentation.label}.`,
+  };
+}
+
 function RecordSyncStatus({
   status,
 }: {
-  status: ScanRecordDetails['syncStatus'];
+  status: SyncStatus;
 }) {
   const theme = useTheme();
   const presentation = getSyncPresentation(status);
@@ -400,14 +563,24 @@ function Section({ children, title }: { children: ReactNode; title: string }) {
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({
+  label,
+  value,
+  valueTestID,
+}: {
+  label: string;
+  value: string;
+  valueTestID?: string;
+}) {
   const theme = useTheme();
   return (
     <View style={[styles.row, { borderBottomColor: theme.divider }]}>
       <Text style={[styles.rowLabel, { color: theme.textSecondary }]}>
         {label}
       </Text>
-      <Text style={[styles.rowValue, { color: theme.text }]}>{value}</Text>
+      <Text testID={valueTestID} style={[styles.rowValue, { color: theme.text }]}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -556,6 +729,7 @@ const styles = StyleSheet.create({
   },
   syncErrorText: { ...Typography.bodySmall, flex: 1 },
   deleteError: { ...Typography.bodySmall, fontWeight: '700' },
+  reportMessage: { ...Typography.bodySmall },
   centeredState: {
     flex: 1,
     alignItems: 'center',

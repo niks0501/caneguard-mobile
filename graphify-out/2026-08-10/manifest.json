@@ -540,8 +540,8 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/record-details.test.tsx": {
-    "mtime": 1786365365.0567489,
-    "ast_hash": "f7ad1424eb1f23d9d4334cc4ce0de395",
+    "mtime": 1786366945.0443506,
+    "ast_hash": "6da34f368ab4a17ce29aeed02d7faf26",
     "semantic_hash": ""
   },
   "src/app/__tests__/records.test.tsx": {
@@ -550,8 +550,8 @@
     "semantic_hash": ""
   },
   "src/app/record-details.tsx": {
-    "mtime": 1786365200.6847992,
-    "ast_hash": "13a8fb85a3f716ba7fcfe3c05e25ecda",
+    "mtime": 1786366966.1363432,
+    "ast_hash": "29807484ccba71342abbdb13f963aabd",
     "semantic_hash": ""
   },
   "src/features/records/data/scanRecordRepository.ts": {
@@ -700,23 +700,23 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/field-report.test.tsx": {
-    "mtime": 1786363403.9570556,
-    "ast_hash": "608f7bf5e1a739e9e42397d68e2fd2fb",
+    "mtime": 1786366945.0443506,
+    "ast_hash": "2a6ef21bd71c0af06668b608a1216c8c",
     "semantic_hash": ""
   },
   "src/app/field-report.tsx": {
-    "mtime": 1786363403.9570556,
-    "ast_hash": "4aabee5f9c2acbcfdb9c37776cf30d35",
+    "mtime": 1786366809.3643653,
+    "ast_hash": "bee94e9b7631af989fe32d788a82edac",
     "semantic_hash": ""
   },
   "src/features/reports/data/__tests__/fieldReportRepository.test.ts": {
-    "mtime": 1786365243.5327826,
-    "ast_hash": "6561bc9b5685e8d77e05934bdd75d7f8",
+    "mtime": 1786366945.0443506,
+    "ast_hash": "ec6441599dff7224304466034bfd87e6",
     "semantic_hash": ""
   },
   "src/features/reports/data/fieldReportRepository.ts": {
-    "mtime": 1786365200.680799,
-    "ast_hash": "5b38b1ce1c3e107cf61e8144494a9e8c",
+    "mtime": 1786366809.3643653,
+    "ast_hash": "de4c4151670dc805058afc0cda218456",
     "semantic_hash": ""
   },
   "src/features/reports/domain/fieldReportTypes.ts": {
@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "src/features/reports/hooks/useFieldReportDraft.ts": {
-    "mtime": 1786363403.9687064,
-    "ast_hash": "9071fd5dd773d31d0d615430577354d9",
+    "mtime": 1786366945.0443506,
+    "ast_hash": "f8c3027459fdbdd6296ee58648595713",
     "semantic_hash": ""
   },
   "src/features/reports/services/__tests__/captureGpsLocation.test.ts": {
@@ -802,6 +802,11 @@
   "src/features/sync/services/syncPendingFieldReports.ts": {
     "mtime": 1786363403.971051,
     "ast_hash": "7086497f5f3ddceaba7dffacdbf79304",
+    "semantic_hash": ""
+  },
+  "src/features/reports/hooks/__tests__/useFieldReportDraft.test.tsx": {
+    "mtime": 1786366945.0483506,
+    "ast_hash": "61c3aeb487356cf34ba846c36a9d6af9",
     "semantic_hash": ""
   }
 }

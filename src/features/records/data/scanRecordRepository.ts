@@ -32,6 +32,7 @@ import {
   type ScanRecordListItem,
   type ScanRecordQuery,
 } from '@/features/records/domain/recordTypes';
+import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 export function createScanRecordRepository(
   database: CaneGuardDatabase,
@@ -166,6 +167,7 @@ export async function deleteScanRecordById(
       return { managedImageUri: row.managedImageUri };
     });
 
+    emitSyncRecordsChanged();
     return deleted;
   } catch (error: unknown) {
     throw toStorageError(error, 'DELETE_FAILED', 'Deleting a scan record failed.');

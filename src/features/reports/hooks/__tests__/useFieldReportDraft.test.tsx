@@ -1,10 +1,12 @@
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { randomUUID } from 'expo-crypto';
 
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
   createOrGetFieldReportDraft,
+  finalizeFieldReport,
   findFieldReportByScanRecordId,
+  saveFieldReportDraft,
 } from '@/features/reports/data/fieldReportRepository';
 import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
 import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
@@ -54,7 +56,9 @@ jest.mock('@/features/sync/hooks/useSyncRecordsRevision', () => ({
 
 const mockRandomUUID = jest.mocked(randomUUID);
 const mockCreateOrGetFieldReportDraft = jest.mocked(createOrGetFieldReportDraft);
+const mockFinalizeFieldReport = jest.mocked(finalizeFieldReport);
 const mockFindFieldReportByScanRecordId = jest.mocked(findFieldReportByScanRecordId);
+const mockSaveFieldReportDraft = jest.mocked(saveFieldReportDraft);
 
 function createdReport(id: string, scanRecordId: string): FieldReport {
   return {
@@ -99,7 +103,7 @@ describe('useFieldReportDraft', () => {
     } as never);
     mockFindFieldReportByScanRecordId.mockResolvedValue(null);
     mockRandomUUID.mockReturnValueOnce(REPORT_A).mockReturnValueOnce(REPORT_B);
-    mockCreateOrGetFieldReportDraft.mockImplementation(async (database, input) =>
+    mockCreateOrGetFieldReportDraft.mockImplementation(async (_database, input) =>
       createdReport(input.id, input.scanRecordId),
     );
   });
@@ -128,5 +132,87 @@ describe('useFieldReportDraft', () => {
       DATABASE,
       expect.objectContaining({ id: REPORT_B, scanRecordId: SCAN_B }),
     );
+  });
+
+  it('ignores a stale refresh when the scan changes while loading', async () => {
+    let resolveScanA: ((report: FieldReport | null) => void) | undefined;
+    mockFindFieldReportByScanRecordId.mockImplementation(
+      async (_database, scanRecordId) => {
+        if (scanRecordId === SCAN_A) {
+          return new Promise<FieldReport | null>((resolve) => {
+            resolveScanA = resolve;
+          });
+        }
+        return null;
+      },
+    );
+    mockRandomUUID.mockReset().mockReturnValue(REPORT_B);
+
+    const { result, rerender } = await renderHook(
+      ({ scanRecordId }) => useFieldReportDraft(scanRecordId),
+      { initialProps: { scanRecordId: SCAN_A } },
+    );
+    await waitFor(() =>
+      expect(mockFindFieldReportByScanRecordId).toHaveBeenCalledWith(
+        DATABASE,
+        SCAN_A,
+        SUBMITTER_ID,
+      ),
+    );
+
+    rerender({ scanRecordId: SCAN_B });
+    await waitFor(() =>
+      expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
+    );
+    expect(result.current.data?.scanRecordId).toBe(SCAN_B);
+
+    await act(async () => {
+      resolveScanA?.(createdReport(REPORT_A, SCAN_A));
+    });
+
+    expect(result.current.data?.scanRecordId).toBe(SCAN_B);
+    expect(result.current.data?.id).toBe(REPORT_B);
+  });
+
+  it('blocks Draft saves while finalization is in flight', async () => {
+    let resolveFinalize!: (
+      result: Awaited<ReturnType<typeof finalizeFieldReport>>,
+    ) => void;
+    mockFinalizeFieldReport.mockImplementation(
+      () =>
+        new Promise<Awaited<ReturnType<typeof finalizeFieldReport>>>((resolve) => {
+          resolveFinalize = resolve;
+        }),
+    );
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+    await waitFor(() =>
+      expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
+    );
+
+    let finalizePromise: Promise<FieldReport | null> | null = null;
+    let saveResult: FieldReport | null = null;
+    await act(async () => {
+      finalizePromise = result.current.finalize({
+        barangay: 'Lumbangan',
+        farmerOrFarmOwnerName: 'Maria Santos',
+      });
+      saveResult = await result.current.save({
+        barangay: 'Lumbangan',
+        farmerOrFarmOwnerName: 'Maria Santos',
+      });
+    });
+
+    expect(saveResult).toBeNull();
+    expect(mockSaveFieldReportDraft).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveFinalize({
+        missingRequirements: [],
+        report: createdReport(REPORT_A, SCAN_A),
+        status: 'invalid',
+      });
+      await finalizePromise;
+    });
   });
 });

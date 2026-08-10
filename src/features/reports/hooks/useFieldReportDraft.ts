@@ -42,8 +42,30 @@ export function useFieldReportForScan(scanRecordId: string | null) {
     hasOtherOwnerReport: false,
     loading: true,
   });
+  const refreshGeneration = useRef(0);
+  const refreshInput = useRef<{
+    scanRecordId: string | null;
+    submitterIdentity: string | null;
+  }>({ scanRecordId: null, submitterIdentity: null });
+  refreshInput.current = {
+    scanRecordId,
+    submitterIdentity: user?.uuid ?? null,
+  };
 
   const refresh = useCallback(async () => {
+    const submitterIdentity = user?.uuid ?? null;
+    if (
+      refreshInput.current.scanRecordId !== scanRecordId ||
+      refreshInput.current.submitterIdentity !== submitterIdentity
+    ) {
+      return;
+    }
+    const requestGeneration = ++refreshGeneration.current;
+    const isCurrentRequest = () =>
+      refreshGeneration.current === requestGeneration &&
+      refreshInput.current.scanRecordId === scanRecordId &&
+      refreshInput.current.submitterIdentity === submitterIdentity;
+
     if (!scanRecordId || !user) {
       setState({
         data: null,
@@ -63,8 +85,14 @@ export function useFieldReportForScan(scanRecordId: string | null) {
           user.uuid,
         ),
       ]);
+      if (!isCurrentRequest()) {
+        return;
+      }
       setState({ data, errorMessage: null, hasOtherOwnerReport, loading: false });
     } catch (error: unknown) {
+      if (!isCurrentRequest()) {
+        return;
+      }
       const storageError = toStorageError(
         error,
         'QUERY_FAILED',
@@ -116,8 +144,31 @@ export function useFieldReportDraft(
     submitterIdentity: string;
   } | null>(null);
   const saveInFlight = useRef<Promise<FieldReport> | null>(null);
+  const finalizeInFlight = useRef(false);
+  const refreshGeneration = useRef(0);
+  const refreshInput = useRef<{
+    scanRecordId: string | null;
+    submitterIdentity: string | null;
+  }>({ scanRecordId: null, submitterIdentity: null });
+  refreshInput.current = {
+    scanRecordId,
+    submitterIdentity: user?.uuid ?? null,
+  };
 
   const refresh = useCallback(async () => {
+    const submitterIdentity = user?.uuid ?? null;
+    if (
+      refreshInput.current.scanRecordId !== scanRecordId ||
+      refreshInput.current.submitterIdentity !== submitterIdentity
+    ) {
+      return;
+    }
+    const requestGeneration = ++refreshGeneration.current;
+    const isCurrentRequest = () =>
+      refreshGeneration.current === requestGeneration &&
+      refreshInput.current.scanRecordId === scanRecordId &&
+      refreshInput.current.submitterIdentity === submitterIdentity;
+
     if (!scanRecordId) {
       setState({
         data: null,
@@ -142,6 +193,9 @@ export function useFieldReportDraft(
         scanRecordId,
         user.uuid,
       );
+      if (!isCurrentRequest()) {
+        return;
+      }
       if (!existing && !createIfMissing) {
         setState({
           data: null,
@@ -165,6 +219,9 @@ export function useFieldReportDraft(
           submitterIdentity: user.uuid,
           submitterRole: user.role,
         }));
+      if (!isCurrentRequest()) {
+        return;
+      }
       reportId.current = {
         id: data.id,
         scanRecordId,
@@ -173,6 +230,9 @@ export function useFieldReportDraft(
       setState({ data, errorMessage: null, loading: false });
       setSubmissionIssues([]);
     } catch (error: unknown) {
+      if (!isCurrentRequest()) {
+        return;
+      }
       const storageError = toStorageError(
         error,
         'QUERY_FAILED',
@@ -199,7 +259,13 @@ export function useFieldReportDraft(
     async (
       values: Omit<SaveFieldReportDraftInput, 'updatedAt'>,
     ): Promise<FieldReport | null> => {
-      if (!state.data || !user || capturingLocation) {
+      if (
+        !state.data ||
+        !user ||
+        capturingLocation ||
+        finalizing ||
+        finalizeInFlight.current
+      ) {
         return null;
       }
       if (saveInFlight.current) {
@@ -237,11 +303,18 @@ export function useFieldReportDraft(
         setSaving(false);
       }
     },
-    [capturingLocation, database, state.data, user],
+    [capturingLocation, database, finalizing, state.data, user],
   );
 
   const captureLocation = useCallback(async (): Promise<FieldReport | null> => {
-    if (!state.data || !user || capturingLocation || saveInFlight.current) {
+    if (
+      !state.data ||
+      !user ||
+      capturingLocation ||
+      finalizing ||
+      finalizeInFlight.current ||
+      saveInFlight.current
+    ) {
       return null;
     }
 
@@ -271,7 +344,7 @@ export function useFieldReportDraft(
     } finally {
       setCapturingLocation(false);
     }
-  }, [capturingLocation, database, state.data, user]);
+  }, [capturingLocation, database, finalizing, state.data, user]);
 
   const saveManualLocation = useCallback(
     async (latitude: number, longitude: number): Promise<FieldReport | null> => {
@@ -280,6 +353,8 @@ export function useFieldReportDraft(
         !user ||
         savingManualLocation ||
         capturingLocation ||
+        finalizing ||
+        finalizeInFlight.current ||
         saveInFlight.current
       ) {
         return null;
@@ -319,7 +394,14 @@ export function useFieldReportDraft(
       } finally {
         setSavingManualLocation(false);
       }
-    }, [capturingLocation, database, savingManualLocation, state.data, user],
+    }, [
+      capturingLocation,
+      database,
+      finalizing,
+      savingManualLocation,
+      state.data,
+      user,
+    ],
   );
 
   const finalize = useCallback(
@@ -333,11 +415,13 @@ export function useFieldReportDraft(
         finalizing ||
         savingManualLocation ||
         capturingLocation ||
+        finalizeInFlight.current ||
         saveInFlight.current
       ) {
         return null;
       }
 
+      finalizeInFlight.current = true;
       setFinalizing(true);
       setSaved(false);
       setSubmissionIssues([]);
@@ -373,6 +457,7 @@ export function useFieldReportDraft(
         }));
         return null;
       } finally {
+        finalizeInFlight.current = false;
         setFinalizing(false);
       }
     }, [

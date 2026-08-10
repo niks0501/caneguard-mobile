@@ -21,6 +21,7 @@ import {
 import { insertScanRecord } from '@/features/records/data/scanRecordWriteRepository';
 import type { SaveCompletedScanInput } from '@/features/records/domain/recordTypes';
 import { getLocalReportSummary } from '@/features/reports/data/reportRepository';
+import { getSyncRecordsRevision } from '@/features/sync/services/syncEvents';
 
 const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
 const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
@@ -376,6 +377,7 @@ describe('scan record write repository', () => {
   it('loads full details independently and deletes children by cascade', async () => {
     const { database, native } = openTestDatabase();
     await insertScanRecord(database, validInput());
+    const revisionBeforeDelete = getSyncRecordsRevision();
 
     await expect(findScanRecordById(database, RECORD_ID)).resolves.toMatchObject({
       id: RECORD_ID,
@@ -396,6 +398,7 @@ describe('scan record write repository', () => {
     ).resolves.toEqual({
       managedImageUri: `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
     });
+    expect(getSyncRecordsRevision()).toBe(revisionBeforeDelete + 1);
 
     for (const table of [
       'scan_records',

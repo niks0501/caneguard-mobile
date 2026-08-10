@@ -64,6 +64,7 @@ export default function RecordDetailsScreen() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const synchronizationMetadata = fieldReport.data ?? record.data;
 
   const retrySync = async () => {
     if (!fieldReport.data || retrying) {
@@ -327,27 +328,21 @@ export default function RecordDetailsScreen() {
                 />
                 <DetailRow
                   label="Server report UUID"
-                  value={
-                    fieldReport.data?.remoteId ??
-                    record.data.remoteId ??
-                    'Not assigned'
-                  }
+                  value={synchronizationMetadata?.remoteId ?? 'Not assigned'}
                 />
                 <DetailRow
                   label="Last synchronized"
                   value={
-                    fieldReport.data?.lastSyncedAt ?? record.data.lastSyncedAt
+                    synchronizationMetadata?.lastSyncedAt
                       ? formatSavedAt(
-                          fieldReport.data?.lastSyncedAt ??
-                            record.data.lastSyncedAt!,
+                          synchronizationMetadata.lastSyncedAt,
                         )
                       : 'Not yet synchronized'
                   }
                 />
               </Section>
 
-              {fieldReport.data?.lastSyncErrorCode ??
-              record.data.lastSyncErrorCode ? (
+              {synchronizationMetadata?.lastSyncErrorCode ? (
                 <View
                   accessibilityLiveRegion="assertive"
                   style={[
@@ -357,8 +352,7 @@ export default function RecordDetailsScreen() {
                   <Feather name="alert-triangle" size={19} color={theme.danger} />
                   <Text style={[styles.syncErrorText, { color: theme.text }]}>
                     {getSyncErrorMessage(
-                      fieldReport.data?.lastSyncErrorCode ??
-                        record.data.lastSyncErrorCode!,
+                      synchronizationMetadata.lastSyncErrorCode,
                     ) ??
                       'The last upload did not finish.'}
                   </Text>

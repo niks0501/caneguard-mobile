@@ -193,6 +193,15 @@ describe('RecordDetailsScreen', () => {
         updatedAt: '2026-08-10T03:00:00.000Z',
       },
     };
+    mockDetailsState = {
+      ...mockDetailsState,
+      data: {
+        ...DETAILS,
+        lastSyncErrorCode: 'NETWORK_UNAVAILABLE',
+        lastSyncedAt: '2026-08-10T03:01:00.000Z',
+        remoteId: 'legacy-remote-id',
+      },
+    };
 
     const view = await render(<RecordDetailsScreen />);
 
@@ -201,6 +210,11 @@ describe('RecordDetailsScreen', () => {
     expect(
       screen.getByText('This Field Report is finalized locally: Pending upload.'),
     ).toBeOnTheScreen();
+    expect(screen.getByText('Not assigned')).toBeOnTheScreen();
+    expect(screen.getByText('Not yet synchronized')).toBeOnTheScreen();
+    expect(
+      screen.queryByText('The connection was unavailable. Retry when online.'),
+    ).not.toBeOnTheScreen();
     expect(screen.queryByText('Resume Draft')).not.toBeOnTheScreen();
 
     mockFieldReportState = {

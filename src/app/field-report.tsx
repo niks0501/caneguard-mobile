@@ -98,7 +98,7 @@ export default function FieldReportScreen() {
           </View>
         ) : report.errorMessage && !report.data ? (
           <View style={styles.centered}>
-            <Text style={[styles.error, { color: theme.danger }]}> 
+            <Text style={[styles.error, { color: theme.danger }]}>
               {report.errorMessage}
             </Text>
             <AppButton onPress={() => void report.refresh()} leadingIcon="refresh-cw">
@@ -136,7 +136,7 @@ export default function FieldReportScreen() {
                       ? `Finalized · ${getSyncPresentation(report.data.syncStatus).label}`
                       : 'Draft'}
                   </Text>
-                  <Text style={[styles.statusMessage, { color: theme.textSecondary }]}> 
+                  <Text style={[styles.statusMessage, { color: theme.textSecondary }]}>
                     {report.data.authoringState === 'finalized'
                       ? `This report is finalized locally. Current synchronization status: ${getSyncPresentation(report.data.syncStatus).label}.`
                       : 'Save incomplete information now and return later. Drafts are stored only on this device and are not queued for synchronization.'}
@@ -230,11 +230,11 @@ export default function FieldReportScreen() {
                 <Text
                   testID="field-report.saved"
                   accessibilityLiveRegion="polite"
-                  style={[styles.saved, { color: theme.success }]}> 
+                  style={[styles.saved, { color: theme.success }]}>
                   Draft saved on this device.
                 </Text>
               ) : null}
-              <Text style={[styles.identity, { color: theme.textSecondary }]}> 
+              <Text style={[styles.identity, { color: theme.textSecondary }]}>
                 Report ID: {report.data.id}
               </Text>
             </View>
@@ -303,7 +303,7 @@ function DraftFields({
           <Text style={[styles.automaticLabel, { color: theme.textSecondary }]}>
             Automatic area
           </Text>
-          <Text style={[styles.automaticValue, { color: theme.text }]}> 
+          <Text style={[styles.automaticValue, { color: theme.text }]}>
             {fieldReport.municipality}, {fieldReport.province}
           </Text>
         </View>

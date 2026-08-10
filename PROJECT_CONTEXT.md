@@ -82,18 +82,22 @@ Persistent records include prediction data, class scores, symptoms, quality warn
 
 A completed Scan Record may own zero or one separate Field Report. Field Reports
 can persist as incomplete local-only Drafts, resolve final coordinates through
-foreground GPS or an online manual map pin, and finalize only after the strict
-submission gate validates the referenced scan evidence and required report
-fields. Manual-map coordinates retain `manual_map` provenance and never receive
-fabricated GPS accuracy; earlier GPS-attempt evidence remains separate.
+foreground GPS or an online-only manual-map fallback when GPS is not resolved,
+and finalize only after the strict submission gate validates the referenced scan
+evidence and required report fields. Manual-map coordinates retain
+`manual_map` provenance and never receive fabricated GPS accuracy; earlier
+GPS-attempt evidence remains separate.
 
-Successful local finalization preserves the observation timestamp, creates the
+Until all requirements pass, an incomplete submission remains an editable Draft
+and returns actionable missing requirements. Successful local finalization makes
+the report non-editable, preserves the observation timestamp, creates the
 submission timestamp, and transitions the same Field Report identity to
-`finalized` / `pending`. Field Report is the authoritative synchronization
-owner; the referenced Scan Record remains the read-only source of AI and image
-evidence used to build the upload. Draft authoring, finalization, retry, and
-synchronization remain scoped to the authenticated submitter that created the
-Field Report.
+`finalized` / `pending`.
+
+Field Report is the authoritative synchronization owner; the referenced Scan
+Record remains the read-only source of AI and image evidence used to build the
+upload. Draft authoring, finalization, retry, and synchronization remain scoped
+to the authenticated submitter that created the Field Report.
 
 Scans queued by earlier app versions are not uploaded until a signed-in reporter
 completes the new required Field Report fields. That upgrade reuses the Scan
@@ -256,7 +260,7 @@ Do not run EAS build or submit automatically.
 - JS/TS-only changes may use the existing development build when its native runtime is still compatible.
 - Core scan, records, and report viewing behavior must remain useful offline.
 - Synchronization must tolerate unavailable networks and preserve retryable local state.
-- Backend synchronization requires a valid `field_reporter` session and a complete local report, including barangay and managed image.
+- Backend synchronization requires a valid `field_reporter` session and a complete local report, including barangay, final coordinates, location source, and managed image.
 - The bundled AI model is decision support, not a diagnostic authority.
 - Current model labels are limited to `healthy`, `mosaic`, and `rust`; do not imply that the model detects additional diseases unless the model contract is intentionally upgraded.
 - The P0 manual-map fallback is online-only. It loads only visible OpenStreetMap tiles with attribution and normal HTTP caching; it does not prefetch or expose offline map downloads.

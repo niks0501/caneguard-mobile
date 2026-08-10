@@ -30,6 +30,7 @@ interface FieldReportState {
 
 export function useFieldReportForScan(scanRecordId: string | null) {
   const database = useCaneGuardDatabase();
+  const { user } = useAuth();
   const [state, setState] = useState<FieldReportState>({
     data: null,
     errorMessage: null,
@@ -37,7 +38,7 @@ export function useFieldReportForScan(scanRecordId: string | null) {
   });
 
   const refresh = useCallback(async () => {
-    if (!scanRecordId) {
+    if (!scanRecordId || !user) {
       setState({
         data: null,
         errorMessage: 'This saved record link is invalid.',
@@ -47,7 +48,11 @@ export function useFieldReportForScan(scanRecordId: string | null) {
     }
     setState((current) => ({ ...current, errorMessage: null, loading: true }));
     try {
-      const data = await findFieldReportByScanRecordId(database, scanRecordId);
+      const data = await findFieldReportByScanRecordId(
+        database,
+        scanRecordId,
+        user.uuid,
+      );
       setState({ data, errorMessage: null, loading: false });
     } catch (error: unknown) {
       const storageError = toStorageError(
@@ -61,7 +66,7 @@ export function useFieldReportForScan(scanRecordId: string | null) {
         loading: false,
       });
     }
-  }, [database, scanRecordId]);
+  }, [database, scanRecordId, user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -117,7 +122,11 @@ export function useFieldReportDraft(
 
     setState((current) => ({ ...current, errorMessage: null, loading: true }));
     try {
-      const existing = await findFieldReportByScanRecordId(database, scanRecordId);
+      const existing = await findFieldReportByScanRecordId(
+        database,
+        scanRecordId,
+        user.uuid,
+      );
       if (!existing && !createIfMissing) {
         setState({
           data: null,
@@ -166,7 +175,7 @@ export function useFieldReportDraft(
     async (
       values: Omit<SaveFieldReportDraftInput, 'updatedAt'>,
     ): Promise<FieldReport | null> => {
-      if (!state.data || capturingLocation) {
+      if (!state.data || !user || capturingLocation) {
         return null;
       }
       if (saveInFlight.current) {
@@ -177,7 +186,7 @@ export function useFieldReportDraft(
       setSaved(false);
       setSubmissionIssues([]);
       setState((current) => ({ ...current, errorMessage: null }));
-      const operation = saveFieldReportDraft(database, state.data.id, {
+      const operation = saveFieldReportDraft(database, state.data.id, user.uuid, {
         ...values,
         updatedAt: new Date().toISOString(),
       });
@@ -204,11 +213,11 @@ export function useFieldReportDraft(
         setSaving(false);
       }
     },
-    [capturingLocation, database, state.data],
+    [capturingLocation, database, state.data, user],
   );
 
   const captureLocation = useCallback(async (): Promise<FieldReport | null> => {
-    if (!state.data || capturingLocation || saveInFlight.current) {
+    if (!state.data || !user || capturingLocation || saveInFlight.current) {
       return null;
     }
 
@@ -218,7 +227,7 @@ export function useFieldReportDraft(
     setState((current) => ({ ...current, errorMessage: null }));
     try {
       const result = await captureGpsLocation(expoForegroundLocationClient);
-      const data = await saveGpsCapture(database, state.data.id, {
+      const data = await saveGpsCapture(database, state.data.id, user.uuid, {
         ...result,
         updatedAt: new Date().toISOString(),
       });
@@ -238,12 +247,13 @@ export function useFieldReportDraft(
     } finally {
       setCapturingLocation(false);
     }
-  }, [capturingLocation, database, state.data]);
+  }, [capturingLocation, database, state.data, user]);
 
   const saveManualLocation = useCallback(
     async (latitude: number, longitude: number): Promise<FieldReport | null> => {
       if (
         !state.data ||
+        !user ||
         savingManualLocation ||
         capturingLocation ||
         saveInFlight.current
@@ -257,12 +267,17 @@ export function useFieldReportDraft(
       setState((current) => ({ ...current, errorMessage: null }));
       const selectedAt = new Date().toISOString();
       try {
-        const data = await saveManualMapLocation(database, state.data.id, {
-          latitude,
-          longitude,
-          selectedAt,
-          updatedAt: selectedAt,
-        });
+        const data = await saveManualMapLocation(
+          database,
+          state.data.id,
+          user.uuid,
+          {
+            latitude,
+            longitude,
+            selectedAt,
+            updatedAt: selectedAt,
+          },
+        );
         setState({ data, errorMessage: null, loading: false });
         setSaved(true);
         return data;
@@ -280,7 +295,7 @@ export function useFieldReportDraft(
       } finally {
         setSavingManualLocation(false);
       }
-    }, [capturingLocation, database, savingManualLocation, state.data],
+    }, [capturingLocation, database, savingManualLocation, state.data, user],
   );
 
   const finalize = useCallback(
@@ -290,6 +305,7 @@ export function useFieldReportDraft(
     }): Promise<FieldReport | null> => {
       if (
         !state.data ||
+        !user ||
         finalizing ||
         savingManualLocation ||
         capturingLocation ||
@@ -304,11 +320,16 @@ export function useFieldReportDraft(
       setState((current) => ({ ...current, errorMessage: null }));
       const submittedAt = new Date().toISOString();
       try {
-        const result = await finalizeFieldReport(database, state.data.id, {
-          ...values,
-          submittedAt,
-          updatedAt: submittedAt,
-        });
+        const result = await finalizeFieldReport(
+          database,
+          state.data.id,
+          user.uuid,
+          {
+            ...values,
+            submittedAt,
+            updatedAt: submittedAt,
+          },
+        );
         setState({ data: result.report, errorMessage: null, loading: false });
         if (result.status === 'invalid') {
           setSubmissionIssues(result.missingRequirements);
@@ -330,7 +351,14 @@ export function useFieldReportDraft(
       } finally {
         setFinalizing(false);
       }
-    }, [capturingLocation, database, finalizing, savingManualLocation, state.data],
+    }, [
+      capturingLocation,
+      database,
+      finalizing,
+      savingManualLocation,
+      state.data,
+      user,
+    ],
   );
 
   return {

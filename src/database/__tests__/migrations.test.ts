@@ -2,13 +2,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
+import migrationBundle from '../../../drizzle/migrations';
+
 const migration0 = readMigration('0000_complex_johnny_blaze.sql');
 const migration1 = readMigration('0001_loving_amazoness.sql');
 const migration2 = readMigration('0002_talented_kat_farrell.sql');
 const migration3 = readMigration('0003_careful_marauders.sql');
-const migrationJournal = JSON.parse(
-  readFileSync(join(process.cwd(), 'drizzle', 'meta', '_journal.json'), 'utf8'),
-) as { entries: { tag: string }[] };
+const migrationJournal = migrationBundle.journal;
 
 function readMigration(filename: string): string {
   return readFileSync(join(process.cwd(), 'drizzle', filename), 'utf8').replaceAll(
@@ -303,22 +303,34 @@ describe('CaneGuard database migrations', () => {
   });
 
   it('keeps the bundled migration module aligned with the journal and SQL files', () => {
-    const bundleSource = readFileSync(
-      join(process.cwd(), 'drizzle', 'migrations.js'),
-      'utf8',
-    );
-    const tags = migrationJournal.entries.map((entry) => entry.tag);
+    const consumedMigrations = migrationJournal.entries.map((entry) => {
+      const key = `m${String(entry.idx).padStart(4, '0')}`;
+      const sql = migrationBundle.migrations[key];
 
-    expect(tags).toEqual([
+      expect(typeof sql).toBe('string');
+      return {
+        sql: sql.replaceAll('--> statement-breakpoint', ''),
+        tag: entry.tag,
+      };
+    });
+
+    expect(consumedMigrations.map(({ tag }) => tag)).toEqual([
       '0000_complex_johnny_blaze',
       '0001_loving_amazoness',
       '0002_talented_kat_farrell',
       '0003_careful_marauders',
     ]);
-    for (const [index, tag] of tags.entries()) {
-      expect(bundleSource).toContain(`import m000${index} from './${tag}.sql'`);
-      expect(bundleSource).toContain(`m000${index}`);
-      expect(readMigration(`${tag}.sql`).length).toBeGreaterThan(100);
-    }
+    expect(Object.keys(migrationBundle.migrations)).toEqual([
+      'm0000',
+      'm0001',
+      'm0002',
+      'm0003',
+    ]);
+    expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
+      migration0,
+      migration1,
+      migration2,
+      migration3,
+    ]);
   });
 });

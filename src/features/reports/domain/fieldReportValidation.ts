@@ -80,7 +80,19 @@ export function getMissingSubmissionRequirements(
   evidence: FieldReportSubmissionEvidence,
 ): FieldReportSubmissionRequirement[] {
   const missing: FieldReportSubmissionRequirement[] = [];
-  if (!evidence.managedImageUri?.trim()) missing.push('original_scan_image');
+  if (!evidence.managedImageUri?.trim() || !evidence.managedImageAvailable) {
+    missing.push('original_scan_image');
+  }
+  if (
+    evidence.sourceWidth === null ||
+    evidence.sourceHeight === null ||
+    !Number.isFinite(evidence.sourceWidth) ||
+    !Number.isFinite(evidence.sourceHeight) ||
+    evidence.sourceWidth <= 0 ||
+    evidence.sourceHeight <= 0
+  ) {
+    missing.push('source_image_dimensions');
+  }
   if (
     !evidence.predictedLabel ||
     !MODEL_LABELS.some((label) => label === evidence.predictedLabel)

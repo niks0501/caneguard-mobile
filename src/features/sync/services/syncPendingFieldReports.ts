@@ -25,6 +25,7 @@ interface SyncPendingFieldReportsOptions {
   database: CaneGuardDatabase;
   limit?: number;
   source: SyncTriggerSource;
+  submitterIdentity: string;
   token: string | null;
 }
 
@@ -49,9 +50,13 @@ async function executeBatch({
   database,
   limit = 10,
   source,
+  submitterIdentity,
   token,
 }: SyncPendingFieldReportsOptions): Promise<SyncBatchResult> {
-  const repository = createFieldReportSyncRepository(database);
+  const repository = createFieldReportSyncRepository(
+    database,
+    submitterIdentity,
+  );
   const candidates = await repository.findSyncCandidates(
     limit,
     source === 'manual',

@@ -12,6 +12,7 @@ jest.mock('@/features/reports/data/fieldReportSyncRepository', () => ({
 jest.mock('@/features/sync/services/syncFieldReport', () => ({ syncFieldReport: jest.fn() }));
 
 const database = {} as CaneGuardDatabase;
+const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 const findSyncCandidates = jest.fn();
 const repository = { findSyncCandidates };
 
@@ -27,8 +28,18 @@ describe('pending Field Report queue', () => {
       finish = () => resolve({ reportId: 'report-1', remoteId: 'remote-1', status: 'synced' });
     }));
 
-    const first = syncPendingFieldReports({ database, source: 'startup', token: 'secure-token' });
-    const second = syncPendingFieldReports({ database, source: 'network-restored', token: 'secure-token' });
+    const first = syncPendingFieldReports({
+      database,
+      source: 'startup',
+      submitterIdentity: SUBMITTER_ID,
+      token: 'secure-token',
+    });
+    const second = syncPendingFieldReports({
+      database,
+      source: 'network-restored',
+      submitterIdentity: SUBMITTER_ID,
+      token: 'secure-token',
+    });
     expect(second).toBe(first);
     await waitFor(() => expect(syncFieldReport).toHaveBeenCalledTimes(1));
     finish();
@@ -43,8 +54,15 @@ describe('pending Field Report queue', () => {
     });
 
     await expect(syncPendingFieldReports({
-      database, source: 'manual', token: 'expired-token',
+      database,
+      source: 'manual',
+      submitterIdentity: SUBMITTER_ID,
+      token: 'expired-token',
     })).resolves.toMatchObject({ attempted: 1, authRequired: true, failed: 1 });
+    expect(createFieldReportSyncRepository).toHaveBeenCalledWith(
+      database,
+      SUBMITTER_ID,
+    );
     expect(findSyncCandidates).toHaveBeenCalledWith(10, true);
     expect(syncFieldReport).toHaveBeenCalledTimes(1);
   });

@@ -6,6 +6,7 @@ import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
   countUnsyncedFieldReports,
+  findFieldReportUploadRecord,
   findLastSuccessfulFieldReportSyncAt,
   resetStaleSyncingFieldReports,
 } from '@/features/reports/data/fieldReportSyncRepository';
@@ -27,6 +28,7 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
 }));
 jest.mock('@/features/reports/data/fieldReportSyncRepository', () => ({
   countUnsyncedFieldReports: jest.fn(),
+  findFieldReportUploadRecord: jest.fn(),
   findLastSuccessfulFieldReportSyncAt: jest.fn(),
   markFieldReportPending: jest.fn(),
   resetStaleSyncingFieldReports: jest.fn(),
@@ -45,6 +47,7 @@ const ONLINE = {
   isInternetReachable: true,
   type: 'wifi',
 } as never;
+const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 
 describe('SyncProvider foreground triggers', () => {
   let networkListener: (state: never) => void;
@@ -54,10 +57,11 @@ describe('SyncProvider foreground triggers', () => {
     jest.mocked(useCaneGuardDatabase).mockReturnValue({} as never);
     jest.mocked(useAuth).mockReturnValue({
       status: 'authenticated',
-      session: { token: 'secure-token' },
+      session: { token: 'secure-token', user: { uuid: SUBMITTER_ID } },
       markSessionExpired: jest.fn(async () => undefined),
     } as never);
     jest.mocked(countUnsyncedFieldReports).mockResolvedValue(1);
+    jest.mocked(findFieldReportUploadRecord).mockResolvedValue({} as never);
     jest.mocked(findLastSuccessfulFieldReportSyncAt).mockResolvedValue(null);
     jest.mocked(resetStaleSyncingFieldReports).mockResolvedValue();
     jest.mocked(syncPendingFieldReports).mockResolvedValue({
@@ -89,6 +93,10 @@ describe('SyncProvider foreground triggers', () => {
     );
     await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
     await waitFor(() => expect(countUnsyncedFieldReports).toHaveBeenCalled());
+    expect(countUnsyncedFieldReports).toHaveBeenCalledWith(
+      expect.anything(),
+      SUBMITTER_ID,
+    );
 
     await act(() => networkListener(OFFLINE));
     await act(async () => {
@@ -98,7 +106,10 @@ describe('SyncProvider foreground triggers', () => {
 
     await waitFor(() =>
       expect(syncPendingFieldReports).toHaveBeenCalledWith(
-        expect.objectContaining({ source: 'network-restored' }),
+        expect.objectContaining({
+          source: 'network-restored',
+          submitterIdentity: SUBMITTER_ID,
+        }),
       ),
     );
     jest.mocked(syncPendingFieldReports).mockClear();

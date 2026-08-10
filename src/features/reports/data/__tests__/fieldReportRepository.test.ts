@@ -23,6 +23,7 @@ import {
 } from '@/features/reports/data/fieldReportRepository';
 import {
   countUnsyncedFieldReports,
+  findFieldReportUploadRecord,
   findFieldReportSyncCandidates,
   markFieldReportFailed,
   markFieldReportPending,
@@ -36,6 +37,8 @@ const SECOND_REPORT_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
 const OBSERVED_AT = '2026-07-25T05:30:00.000Z';
 const CREATED_AT = '2026-08-10T01:00:00.000Z';
 const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
+const OTHER_SUBMITTER_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
+const IMAGE_EXISTS = { imageExists: () => true };
 
 function createDraftInput(id = REPORT_ID) {
   return {
@@ -73,8 +76,8 @@ function openTestDatabase(): {
       INSERT INTO scan_records (
         id, managed_image_uri, image_source_type, predicted_label, confidence,
         checklist_consistency, model_version, preprocess_ms, inference_ms,
-        total_ms, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        total_ms, source_width, source_height, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .run(
       SCAN_ID,
@@ -87,6 +90,8 @@ function openTestDatabase(): {
       5,
       8,
       13,
+      1200,
+      900,
       OBSERVED_AT,
       OBSERVED_AT,
     );
@@ -168,7 +173,7 @@ describe('Field Report draft repository', () => {
     const { database, native } = openTestDatabase();
     await createOrGetFieldReportDraft(database, createDraftInput());
 
-    const saved = await saveFieldReportDraft(database, REPORT_ID, {
+    const saved = await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
       farmerOrFarmOwnerName: '  Maria Santos  ',
       barangay: '  Lumbangan  ',
       updatedAt: '2026-08-10T01:05:00.000Z',
@@ -199,12 +204,38 @@ describe('Field Report draft repository', () => {
         createdAt: '2026-08-10T02:00:00.000Z',
       }),
     ).resolves.toMatchObject({ id: REPORT_ID, createdAt: CREATED_AT });
-    await expect(findFieldReportByScanRecordId(database, SCAN_ID)).resolves.toMatchObject(
-      { id: REPORT_ID },
-    );
+    await expect(
+      findFieldReportByScanRecordId(database, SCAN_ID, SUBMITTER_ID),
+    ).resolves.toMatchObject({ id: REPORT_ID });
     expect(
       native.prepare('SELECT count(*) AS count FROM field_reports').get(),
     ).toEqual({ count: 1 });
+    native.close();
+  });
+
+  it('keeps an existing Draft owned by its authenticated submitter', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+
+    await expect(
+      findFieldReportByScanRecordId(database, SCAN_ID, OTHER_SUBMITTER_ID),
+    ).resolves.toBeNull();
+    await expect(
+      createOrGetFieldReportDraft(database, {
+        ...createDraftInput(SECOND_REPORT_ID),
+        submitterIdentity: OTHER_SUBMITTER_ID,
+      }),
+    ).rejects.toMatchObject<Partial<StorageError>>({
+      code: 'FIELD_REPORT_NOT_FOUND',
+    });
+    await expect(
+      saveFieldReportDraft(database, REPORT_ID, OTHER_SUBMITTER_ID, {
+        barangay: 'Lumbangan',
+        updatedAt: '2026-08-10T01:05:00.000Z',
+      }),
+    ).rejects.toMatchObject<Partial<StorageError>>({
+      code: 'FIELD_REPORT_NOT_FOUND',
+    });
     native.close();
   });
 
@@ -223,13 +254,13 @@ describe('Field Report draft repository', () => {
   it('persists resolved GPS provenance without changing Draft fields or scan evidence', async () => {
     const { database, native } = openTestDatabase();
     await createOrGetFieldReportDraft(database, createDraftInput());
-    await saveFieldReportDraft(database, REPORT_ID, {
+    await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
       farmerOrFarmOwnerName: 'Maria Santos',
       barangay: 'Lumbangan',
       updatedAt: '2026-08-10T01:03:00.000Z',
     });
 
-    const saved = await saveGpsCapture(database, REPORT_ID, {
+    const saved = await saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
       accuracy: 4.2,
       capturedAt: '2026-08-10T01:04:00.000Z',
       latitude: 14.0667,
@@ -262,7 +293,7 @@ describe('Field Report draft repository', () => {
     await createOrGetFieldReportDraft(database, createDraftInput());
 
     await expect(
-      saveGpsCapture(database, REPORT_ID, {
+      saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
         accuracy: 38,
         capturedAt: '2026-08-10T01:04:00.000Z',
         latitude: 14.0667,
@@ -284,11 +315,11 @@ describe('Field Report draft repository', () => {
   it('retries a poor reading into resolved GPS on the same Draft identity', async () => {
     const { database, native } = openTestDatabase();
     await createOrGetFieldReportDraft(database, createDraftInput());
-    await saveFieldReportDraft(database, REPORT_ID, {
+    await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
       barangay: 'Lumbangan',
       updatedAt: '2026-08-10T01:03:00.000Z',
     });
-    await saveGpsCapture(database, REPORT_ID, {
+    await saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
       accuracy: 38,
       capturedAt: '2026-08-10T01:04:00.000Z',
       latitude: 14.066,
@@ -298,7 +329,7 @@ describe('Field Report draft repository', () => {
     });
 
     await expect(
-      saveGpsCapture(database, REPORT_ID, {
+      saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
         accuracy: 4,
         capturedAt: '2026-08-10T01:05:00.000Z',
         latitude: 14.0667,
@@ -322,13 +353,13 @@ describe('Field Report draft repository', () => {
     async (outcome) => {
       const { database, native } = openTestDatabase();
       await createOrGetFieldReportDraft(database, createDraftInput());
-      await saveFieldReportDraft(database, REPORT_ID, {
+      await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
         farmerOrFarmOwnerName: 'Maria Santos',
         updatedAt: '2026-08-10T01:03:00.000Z',
       });
 
       await expect(
-        saveGpsCapture(database, REPORT_ID, {
+        saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
           capturedAt: '2026-08-10T01:04:00.000Z',
           outcome,
           updatedAt: '2026-08-10T01:04:01.000Z',
@@ -346,7 +377,7 @@ describe('Field Report draft repository', () => {
   it('stores a manual pin on the same Draft without rewriting prior GPS evidence', async () => {
     const { database, native } = openTestDatabase();
     await createOrGetFieldReportDraft(database, createDraftInput());
-    await saveGpsCapture(database, REPORT_ID, {
+    await saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
       accuracy: 38,
       capturedAt: '2026-08-10T01:04:00.000Z',
       latitude: 14.0667,
@@ -355,7 +386,7 @@ describe('Field Report draft repository', () => {
       updatedAt: '2026-08-10T01:04:01.000Z',
     });
 
-    const saved = await saveManualMapLocation(database, REPORT_ID, {
+    const saved = await saveManualMapLocation(database, REPORT_ID, SUBMITTER_ID, {
       latitude: 14.071,
       longitude: 120.635,
       selectedAt: '2026-08-10T02:00:00.000Z',
@@ -386,12 +417,18 @@ describe('Field Report draft repository', () => {
     insertCompleteClassScores(native);
     await createOrGetFieldReportDraft(database, createDraftInput());
 
-    const result = await finalizeFieldReport(database, REPORT_ID, {
-      farmerOrFarmOwnerName: 'Maria Santos',
-      barangay: '',
-      submittedAt: '2026-08-10T03:00:00.000Z',
-      updatedAt: '2026-08-10T03:00:00.000Z',
-    });
+    const result = await finalizeFieldReport(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      {
+        farmerOrFarmOwnerName: 'Maria Santos',
+        barangay: '',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        updatedAt: '2026-08-10T03:00:00.000Z',
+      },
+      IMAGE_EXISTS,
+    );
 
     expect(result).toMatchObject({
       status: 'invalid',
@@ -416,7 +453,7 @@ describe('Field Report draft repository', () => {
     const { database, native } = openTestDatabase();
     insertCompleteClassScores(native);
     await createOrGetFieldReportDraft(database, createDraftInput());
-    await saveGpsCapture(database, REPORT_ID, {
+    await saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
       accuracy: 4.2,
       capturedAt: '2026-08-10T01:04:00.000Z',
       latitude: 14.0667,
@@ -426,12 +463,18 @@ describe('Field Report draft repository', () => {
     });
 
     await expect(
-      finalizeFieldReport(database, REPORT_ID, {
-        farmerOrFarmOwnerName: 'Maria Santos',
-        barangay: 'Lumbangan',
-        submittedAt: '2026-08-10T03:00:00.000Z',
-        updatedAt: '2026-08-10T03:00:00.000Z',
-      }),
+      finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        {
+          farmerOrFarmOwnerName: 'Maria Santos',
+          barangay: 'Lumbangan',
+          submittedAt: '2026-08-10T03:00:00.000Z',
+          updatedAt: '2026-08-10T03:00:00.000Z',
+        },
+        IMAGE_EXISTS,
+      ),
     ).resolves.toMatchObject({
       status: 'finalized',
       report: {
@@ -452,19 +495,25 @@ describe('Field Report draft repository', () => {
     const { database, native } = openTestDatabase();
     insertCompleteClassScores(native);
     await createOrGetFieldReportDraft(database, createDraftInput());
-    await saveManualMapLocation(database, REPORT_ID, {
+    await saveManualMapLocation(database, REPORT_ID, SUBMITTER_ID, {
       latitude: 14.071,
       longitude: 120.635,
       selectedAt: '2026-08-10T02:00:00.000Z',
       updatedAt: '2026-08-10T02:00:01.000Z',
     });
 
-    const result = await finalizeFieldReport(database, REPORT_ID, {
-      farmerOrFarmOwnerName: 'Maria Santos',
-      barangay: 'Lumbangan',
-      submittedAt: '2026-08-10T03:00:00.000Z',
-      updatedAt: '2026-08-10T03:00:00.000Z',
-    });
+    const result = await finalizeFieldReport(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      {
+        farmerOrFarmOwnerName: 'Maria Santos',
+        barangay: 'Lumbangan',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        updatedAt: '2026-08-10T03:00:00.000Z',
+      },
+      IMAGE_EXISTS,
+    );
 
     expect(result).toMatchObject({
       status: 'finalized',
@@ -484,8 +533,10 @@ describe('Field Report draft repository', () => {
     const { database, native } = openTestDatabase();
     await createOrGetFieldReportDraft(database, createDraftInput());
 
-    await expect(findFieldReportSyncCandidates(database, 10, true)).resolves.toEqual([]);
-    await expect(countUnsyncedFieldReports(database)).resolves.toBe(0);
+    await expect(
+      findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, true),
+    ).resolves.toEqual([]);
+    await expect(countUnsyncedFieldReports(database, SUBMITTER_ID)).resolves.toBe(0);
     expect(native.prepare('SELECT sync_status FROM field_reports').get()).toEqual({
       sync_status: 'local_only',
     });
@@ -496,34 +547,62 @@ describe('Field Report draft repository', () => {
     const { database, native } = openTestDatabase();
     insertCompleteClassScores(native);
     await createOrGetFieldReportDraft(database, createDraftInput());
-    await saveManualMapLocation(database, REPORT_ID, {
+    await saveManualMapLocation(database, REPORT_ID, SUBMITTER_ID, {
       latitude: 14.071,
       longitude: 120.635,
       selectedAt: '2026-08-10T02:00:00.000Z',
       updatedAt: '2026-08-10T02:00:01.000Z',
     });
-    await finalizeFieldReport(database, REPORT_ID, {
-      farmerOrFarmOwnerName: 'Maria Santos',
-      barangay: 'Lumbangan',
-      submittedAt: '2026-08-10T03:00:00.000Z',
-      updatedAt: '2026-08-10T03:00:00.000Z',
-    });
+    await finalizeFieldReport(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      {
+        farmerOrFarmOwnerName: 'Maria Santos',
+        barangay: 'Lumbangan',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        updatedAt: '2026-08-10T03:00:00.000Z',
+      },
+      IMAGE_EXISTS,
+    );
 
-    await expect(findFieldReportSyncCandidates(database, 10)).resolves.toMatchObject([
+    await expect(
+      findFieldReportSyncCandidates(database, OTHER_SUBMITTER_ID, 10),
+    ).resolves.toEqual([]);
+    await expect(
+      findFieldReportUploadRecord(database, REPORT_ID, OTHER_SUBMITTER_ID),
+    ).rejects.toMatchObject<Partial<StorageError>>({
+      code: 'FIELD_REPORT_NOT_FOUND',
+    });
+    await expect(
+      findFieldReportSyncCandidates(database, SUBMITTER_ID, 10),
+    ).resolves.toMatchObject([
       { id: REPORT_ID, scanRecordId: SCAN_ID, syncStatus: 'pending' },
     ]);
-    await markFieldReportSyncing(database, REPORT_ID, '2026-08-10T04:00:00.000Z');
+    await markFieldReportSyncing(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      '2026-08-10T04:00:00.000Z',
+    );
     await markFieldReportFailed(
       database,
       REPORT_ID,
+      SUBMITTER_ID,
       'NETWORK_UNAVAILABLE',
       '2026-08-10T04:00:01.000Z',
     );
-    await markFieldReportPending(database, REPORT_ID);
-    await markFieldReportSyncing(database, REPORT_ID, '2026-08-10T04:01:00.000Z');
+    await markFieldReportPending(database, REPORT_ID, SUBMITTER_ID);
+    await markFieldReportSyncing(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      '2026-08-10T04:01:00.000Z',
+    );
     await markFieldReportSynced(
       database,
       REPORT_ID,
+      SUBMITTER_ID,
       'server-report-uuid',
       '2026-08-10T04:01:01.000Z',
     );
@@ -541,6 +620,71 @@ describe('Field Report draft repository', () => {
     });
     expect(native.prepare('SELECT count(*) AS count FROM scan_class_scores').get()).toEqual({
       count: 3,
+    });
+    native.close();
+  });
+
+  it('keeps reports editable when upload image evidence is unavailable', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveManualMapLocation(database, REPORT_ID, SUBMITTER_ID, {
+      latitude: 14.071,
+      longitude: 120.635,
+      selectedAt: '2026-08-10T02:00:00.000Z',
+      updatedAt: '2026-08-10T02:00:01.000Z',
+    });
+
+    const result = await finalizeFieldReport(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      {
+        farmerOrFarmOwnerName: 'Maria Santos',
+        barangay: 'Lumbangan',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        updatedAt: '2026-08-10T03:00:00.000Z',
+      },
+      { imageExists: () => false },
+    );
+
+    expect(result).toMatchObject({
+      status: 'invalid',
+      missingRequirements: ['original_scan_image'],
+      report: { authoringState: 'draft', syncStatus: 'local_only' },
+    });
+    native.close();
+  });
+
+  it('keeps reports editable when source image dimensions are unavailable', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    native.prepare('UPDATE scan_records SET source_width = NULL').run();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveManualMapLocation(database, REPORT_ID, SUBMITTER_ID, {
+      latitude: 14.071,
+      longitude: 120.635,
+      selectedAt: '2026-08-10T02:00:00.000Z',
+      updatedAt: '2026-08-10T02:00:01.000Z',
+    });
+
+    const result = await finalizeFieldReport(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      {
+        farmerOrFarmOwnerName: 'Maria Santos',
+        barangay: 'Lumbangan',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        updatedAt: '2026-08-10T03:00:00.000Z',
+      },
+      IMAGE_EXISTS,
+    );
+
+    expect(result).toMatchObject({
+      status: 'invalid',
+      missingRequirements: ['source_image_dimensions'],
+      report: { authoringState: 'draft', syncStatus: 'local_only' },
     });
     native.close();
   });

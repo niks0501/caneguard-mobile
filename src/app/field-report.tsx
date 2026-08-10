@@ -22,6 +22,7 @@ import {
   Spacing,
   Typography,
 } from '@/constants/theme';
+import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
 import type {
   FieldReport,
@@ -44,6 +45,7 @@ export default function FieldReportScreen() {
   const { user } = useAuth();
   const sync = useSync();
   const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
   const finalizeAndSync = async (values: {
     barangay: string;
@@ -61,9 +63,23 @@ export default function FieldReportScreen() {
       return;
     }
     setRetrying(true);
-    await sync.retryReport(report.data.id);
-    await report.refresh();
-    setRetrying(false);
+    setRetryError(null);
+    try {
+      await sync.retryReport(report.data.id);
+      await report.refresh();
+    } catch (error: unknown) {
+      setRetryError(
+        getStorageErrorMessage(
+          toStorageError(
+            error,
+            'UPDATE_FAILED',
+            'Retrying Field Report synchronization failed.',
+          ),
+        ),
+      );
+    } finally {
+      setRetrying(false);
+    }
   };
 
   return (
@@ -198,8 +214,16 @@ export default function FieldReportScreen() {
               {report.errorMessage ? (
                 <Text
                   accessibilityLiveRegion="assertive"
-                  style={[styles.error, { color: theme.danger }]}> 
+                  style={[styles.error, { color: theme.danger }]}>
                   {report.errorMessage}
+                </Text>
+              ) : null}
+              {retryError ? (
+                <Text
+                  testID="field-report.retry-error"
+                  accessibilityLiveRegion="assertive"
+                  style={[styles.error, { color: theme.danger }]}>
+                  {retryError}
                 </Text>
               ) : null}
               {report.saved ? (
@@ -583,6 +607,7 @@ const SUBMISSION_REQUIREMENT_LABELS: Record<
   string
 > = {
   original_scan_image: 'Original scan image',
+  source_image_dimensions: 'Original scan image dimensions',
   ai_supported_result: 'AI-supported result',
   confidence: 'Confidence score',
   class_scores: 'Class scores',

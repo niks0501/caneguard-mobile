@@ -69,6 +69,7 @@ export interface FinalizeFieldReportInput {
 
 export const FIELD_REPORT_SUBMISSION_REQUIREMENTS = [
   'original_scan_image',
+  'source_image_dimensions',
   'ai_supported_result',
   'confidence',
   'class_scores',
@@ -93,7 +94,10 @@ export interface FieldReportSubmissionEvidence {
   classScores: { label: string; score: number }[];
   confidence: number | null;
   managedImageUri: string | null;
+  managedImageAvailable: boolean;
   predictedLabel: string | null;
+  sourceHeight: number | null;
+  sourceWidth: number | null;
 }
 
 export type FinalizeFieldReportResult =

@@ -386,6 +386,26 @@ describe('FieldReportScreen', () => {
     expect(mockRefresh).toHaveBeenCalled();
   });
 
+  it('recovers the retry action and surfaces a local retry failure', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        authoringState: 'finalized',
+        syncStatus: 'failed',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+      }),
+    };
+    mockRetryReport.mockRejectedValueOnce(new Error('storage unavailable'));
+
+    await render(<FieldReportScreen />);
+    await fireEvent.press(screen.getByLabelText('Sync Field Report'));
+
+    expect(screen.getByTestId('field-report.retry-error')).toHaveTextContent(
+      'The saved record could not be updated. Please try again.',
+    );
+    expect(screen.getByLabelText('Sync Field Report')).toBeEnabled();
+  });
+
   it('reopens persisted partial values under the same report identity', async () => {
     mockDraftState = {
       ...mockDraftState,

@@ -29,28 +29,46 @@ export interface FieldReportSyncRepository {
 
 export function createFieldReportSyncRepository(
   database: CaneGuardDatabase,
+  submitterIdentity: string,
 ): FieldReportSyncRepository {
   return {
-    countUnsynced: () => countUnsyncedFieldReports(database),
-    findById: (id) => findFieldReportUploadRecord(database, id),
-    findLastSuccessfulSyncAt: () => findLastSuccessfulFieldReportSyncAt(database),
+    countUnsynced: () => countUnsyncedFieldReports(database, submitterIdentity),
+    findById: (id) =>
+      findFieldReportUploadRecord(database, id, submitterIdentity),
+    findLastSuccessfulSyncAt: () =>
+      findLastSuccessfulFieldReportSyncAt(database, submitterIdentity),
     findSyncCandidates: (limit, includeFailed) =>
-      findFieldReportSyncCandidates(database, limit, includeFailed),
-    markFailed: (id, code, at) => markFieldReportFailed(database, id, code, at),
-    markPending: (id) => markFieldReportPending(database, id),
+      findFieldReportSyncCandidates(
+        database,
+        submitterIdentity,
+        limit,
+        includeFailed,
+      ),
+    markFailed: (id, code, at) =>
+      markFieldReportFailed(database, id, submitterIdentity, code, at),
+    markPending: (id) =>
+      markFieldReportPending(database, id, submitterIdentity),
     markSynced: (id, remoteId, at) =>
-      markFieldReportSynced(database, id, remoteId, at),
-    markSyncing: (id, at) => markFieldReportSyncing(database, id, at),
+      markFieldReportSynced(database, id, submitterIdentity, remoteId, at),
+    markSyncing: (id, at) =>
+      markFieldReportSyncing(database, id, submitterIdentity, at),
     resetStaleSyncingReports: (before) =>
-      resetStaleSyncingFieldReports(database, before),
+      resetStaleSyncingFieldReports(database, submitterIdentity, before),
   };
 }
 
 export async function findFieldReportUploadRecord(
   database: CaneGuardDatabase,
   reportId: string,
+  submitterIdentity: string,
 ): Promise<FieldReportUploadRecord> {
   const report = await findFieldReportById(database, reportId);
+  if (report.submitterIdentity !== submitterIdentity.trim()) {
+    throw new StorageError(
+      'FIELD_REPORT_NOT_FOUND',
+      'The Field Report does not belong to the authenticated submitter.',
+    );
+  }
   if (report.authoringState !== 'finalized') {
     throw new StorageError(
       'UPDATE_FAILED',
@@ -63,6 +81,7 @@ export async function findFieldReportUploadRecord(
 
 export async function findFieldReportSyncCandidates(
   database: CaneGuardDatabase,
+  submitterIdentity: string,
   limit: number,
   includeFailed = false,
 ): Promise<FieldReport[]> {
@@ -74,6 +93,7 @@ export async function findFieldReportSyncCandidates(
       .where(
         and(
           eq(fieldReports.authoringState, 'finalized'),
+          eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
           includeFailed
             ? inArray(fieldReports.syncStatus, ['pending', 'failed'])
             : eq(fieldReports.syncStatus, 'pending'),
@@ -94,59 +114,88 @@ export async function findFieldReportSyncCandidates(
 export async function markFieldReportPending(
   database: CaneGuardDatabase,
   reportId: string,
+  submitterIdentity: string,
 ): Promise<void> {
-  await updateSyncState(database, reportId, {
-    syncStatus: 'pending',
-    lastSyncErrorCode: null,
-    updatedAt: new Date().toISOString(),
-  }, ['pending', 'failed']);
+  await updateSyncState(
+    database,
+    reportId,
+    {
+      syncStatus: 'pending',
+      lastSyncErrorCode: null,
+      updatedAt: new Date().toISOString(),
+    },
+    ['pending', 'failed'],
+    submitterIdentity,
+  );
 }
 
 export async function markFieldReportSyncing(
   database: CaneGuardDatabase,
   reportId: string,
+  submitterIdentity: string,
   attemptedAt: string,
 ): Promise<void> {
-  await updateSyncState(database, reportId, {
-    syncStatus: 'syncing',
-    lastSyncAttemptAt: attemptedAt,
-    lastSyncErrorCode: null,
-    syncAttemptCount: sql`${fieldReports.syncAttemptCount} + 1`,
-    updatedAt: attemptedAt,
-  }, ['pending', 'failed']);
+  await updateSyncState(
+    database,
+    reportId,
+    {
+      syncStatus: 'syncing',
+      lastSyncAttemptAt: attemptedAt,
+      lastSyncErrorCode: null,
+      syncAttemptCount: sql`${fieldReports.syncAttemptCount} + 1`,
+      updatedAt: attemptedAt,
+    },
+    ['pending', 'failed'],
+    submitterIdentity,
+  );
 }
 
 export async function markFieldReportSynced(
   database: CaneGuardDatabase,
   reportId: string,
+  submitterIdentity: string,
   remoteId: string,
   syncedAt: string,
 ): Promise<void> {
-  await updateSyncState(database, reportId, {
-    syncStatus: 'synced',
-    remoteId,
-    lastSyncedAt: syncedAt,
-    lastSyncErrorCode: null,
-    updatedAt: syncedAt,
-  }, ['syncing']);
+  await updateSyncState(
+    database,
+    reportId,
+    {
+      syncStatus: 'synced',
+      remoteId,
+      lastSyncedAt: syncedAt,
+      lastSyncErrorCode: null,
+      updatedAt: syncedAt,
+    },
+    ['syncing'],
+    submitterIdentity,
+  );
 }
 
 export async function markFieldReportFailed(
   database: CaneGuardDatabase,
   reportId: string,
+  submitterIdentity: string,
   errorCode: string,
   attemptedAt: string,
 ): Promise<void> {
-  await updateSyncState(database, reportId, {
-    syncStatus: 'failed',
-    lastSyncAttemptAt: attemptedAt,
-    lastSyncErrorCode: errorCode,
-    updatedAt: attemptedAt,
-  }, ['pending', 'syncing', 'failed']);
+  await updateSyncState(
+    database,
+    reportId,
+    {
+      syncStatus: 'failed',
+      lastSyncAttemptAt: attemptedAt,
+      lastSyncErrorCode: errorCode,
+      updatedAt: attemptedAt,
+    },
+    ['pending', 'syncing', 'failed'],
+    submitterIdentity,
+  );
 }
 
 export async function resetStaleSyncingFieldReports(
   database: CaneGuardDatabase,
+  submitterIdentity: string,
   staleBefore: string,
 ): Promise<void> {
   try {
@@ -160,6 +209,7 @@ export async function resetStaleSyncingFieldReports(
       .where(
         and(
           eq(fieldReports.authoringState, 'finalized'),
+          eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
           eq(fieldReports.syncStatus, 'syncing'),
           or(
             isNull(fieldReports.lastSyncAttemptAt),
@@ -179,6 +229,7 @@ export async function resetStaleSyncingFieldReports(
 
 export async function countUnsyncedFieldReports(
   database: CaneGuardDatabase,
+  submitterIdentity: string,
 ): Promise<number> {
   try {
     const row = await database
@@ -187,6 +238,7 @@ export async function countUnsyncedFieldReports(
       .where(
         and(
           eq(fieldReports.authoringState, 'finalized'),
+          eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
           inArray(fieldReports.syncStatus, ['pending', 'syncing', 'failed']),
         ),
       )
@@ -203,11 +255,13 @@ export async function countUnsyncedFieldReports(
 
 export async function findLastSuccessfulFieldReportSyncAt(
   database: CaneGuardDatabase,
+  submitterIdentity: string,
 ): Promise<string | null> {
   try {
     const row = await database
       .select({ value: sql<string | null>`max(${fieldReports.lastSyncedAt})` })
       .from(fieldReports)
+      .where(eq(fieldReports.submitterIdentity, submitterIdentity.trim()))
       .get();
     return row?.value ?? null;
   } catch (error: unknown) {
@@ -224,6 +278,7 @@ async function updateSyncState(
   reportId: string,
   values: SQLiteUpdateSetSource<typeof fieldReports>,
   allowedStatuses: FieldReport['syncStatus'][],
+  submitterIdentity: string,
 ): Promise<void> {
   try {
     await database
@@ -232,6 +287,7 @@ async function updateSyncState(
       .where(
         and(
           eq(fieldReports.id, reportId),
+          eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
           eq(fieldReports.authoringState, 'finalized'),
           inArray(fieldReports.syncStatus, allowedStatuses),
         ),

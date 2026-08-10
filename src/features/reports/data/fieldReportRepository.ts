@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import { fieldReports, scanClassScores, scanRecords } from '@/database/schema';
+import { managedImageExists } from '@/features/records/services/scanImageStorage';
 import type {
   CreateFieldReportDraftInput,
   FieldReport,
@@ -50,6 +51,15 @@ export async function createOrGetFieldReportDraft(
         .get();
 
       if (existing) {
+        if (
+          existing.submitterIdentity &&
+          existing.submitterIdentity !== input.submitterIdentity.trim()
+        ) {
+          throw new StorageError(
+            'FIELD_REPORT_NOT_FOUND',
+            'The Field Report belongs to a different submitter.',
+          );
+        }
         if (!existing.submitterIdentity || !existing.submitterRole) {
           transaction
             .update(fieldReports)
@@ -115,6 +125,7 @@ export async function createOrGetFieldReportDraft(
 export async function saveGpsCapture(
   database: CaneGuardDatabase,
   id: string,
+  submitterIdentity: string,
   input: SaveGpsCaptureInput,
 ): Promise<FieldReport> {
   validateGpsCaptureInput(input);
@@ -124,7 +135,12 @@ export async function saveGpsCapture(
       const existing = transaction
         .select({ authoringState: fieldReports.authoringState })
         .from(fieldReports)
-        .where(eq(fieldReports.id, id))
+        .where(
+          and(
+            eq(fieldReports.id, id),
+            eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
+          ),
+        )
         .get();
       if (!existing) {
         throw new StorageError('FIELD_REPORT_NOT_FOUND', 'The Field Report does not exist.');
@@ -182,6 +198,7 @@ export async function saveGpsCapture(
 export async function saveManualMapLocation(
   database: CaneGuardDatabase,
   id: string,
+  submitterIdentity: string,
   input: SaveManualMapLocationInput,
 ): Promise<FieldReport> {
   validateManualMapLocationInput(input);
@@ -191,7 +208,12 @@ export async function saveManualMapLocation(
       const existing = transaction
         .select({ authoringState: fieldReports.authoringState })
         .from(fieldReports)
-        .where(eq(fieldReports.id, id))
+        .where(
+          and(
+            eq(fieldReports.id, id),
+            eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
+          ),
+        )
         .get();
       if (!existing) {
         throw new StorageError('FIELD_REPORT_NOT_FOUND', 'The Field Report does not exist.');
@@ -234,16 +256,24 @@ export async function saveManualMapLocation(
 export async function finalizeFieldReport(
   database: CaneGuardDatabase,
   id: string,
+  submitterIdentity: string,
   input: FinalizeFieldReportInput,
+  dependencies: { imageExists?: (uri: string) => boolean } = {},
 ): Promise<FinalizeFieldReportResult> {
   const values = normalizeFinalizeFieldReportInput(input);
+  const imageExists = dependencies.imageExists ?? managedImageExists;
 
   try {
     const result = database.transaction((transaction) => {
       const existing = transaction
         .select()
         .from(fieldReports)
-        .where(eq(fieldReports.id, id))
+        .where(
+          and(
+            eq(fieldReports.id, id),
+            eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
+          ),
+        )
         .get();
       if (!existing) {
         throw new StorageError('FIELD_REPORT_NOT_FOUND', 'The Field Report does not exist.');
@@ -273,6 +303,8 @@ export async function finalizeFieldReport(
           confidence: scanRecords.confidence,
           managedImageUri: scanRecords.managedImageUri,
           predictedLabel: scanRecords.predictedLabel,
+          sourceHeight: scanRecords.sourceHeight,
+          sourceWidth: scanRecords.sourceWidth,
         })
         .from(scanRecords)
         .where(eq(scanRecords.id, existing.scanRecordId))
@@ -293,6 +325,7 @@ export async function finalizeFieldReport(
       const missingRequirements = getMissingSubmissionRequirements(draft, {
         ...scan,
         classScores,
+        managedImageAvailable: imageExists(scan.managedImageUri),
       });
       if (missingRequirements.length > 0) {
         return { missingRequirements, report: draft, status: 'invalid' as const };
@@ -352,12 +385,18 @@ export async function findFieldReportById(
 export async function findFieldReportByScanRecordId(
   database: CaneGuardDatabase,
   scanRecordId: string,
+  submitterIdentity: string,
 ): Promise<FieldReport | null> {
   try {
     const row = await database
       .select()
       .from(fieldReports)
-      .where(eq(fieldReports.scanRecordId, scanRecordId))
+      .where(
+        and(
+          eq(fieldReports.scanRecordId, scanRecordId),
+          eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
+        ),
+      )
       .get();
     return row ? toFieldReport(row) : null;
   } catch (error: unknown) {
@@ -368,6 +407,7 @@ export async function findFieldReportByScanRecordId(
 export async function saveFieldReportDraft(
   database: CaneGuardDatabase,
   id: string,
+  submitterIdentity: string,
   input: SaveFieldReportDraftInput,
 ): Promise<FieldReport> {
   const values = normalizeFieldReportDraftInput(input);
@@ -377,7 +417,12 @@ export async function saveFieldReportDraft(
       const existing = transaction
         .select({ authoringState: fieldReports.authoringState })
         .from(fieldReports)
-        .where(eq(fieldReports.id, id))
+        .where(
+          and(
+            eq(fieldReports.id, id),
+            eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
+          ),
+        )
         .get();
 
       if (!existing) {

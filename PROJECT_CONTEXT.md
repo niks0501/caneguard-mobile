@@ -91,7 +91,9 @@ Successful local finalization preserves the observation timestamp, creates the
 submission timestamp, and transitions the same Field Report identity to
 `finalized` / `pending`. Field Report is the authoritative synchronization
 owner; the referenced Scan Record remains the read-only source of AI and image
-evidence used to build the upload.
+evidence used to build the upload. Draft authoring, finalization, retry, and
+synchronization remain scoped to the authenticated submitter that created the
+Field Report.
 
 ### Authentication
 

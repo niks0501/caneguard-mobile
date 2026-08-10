@@ -14,6 +14,7 @@ import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
   countUnsyncedFieldReports,
+  findFieldReportUploadRecord,
   findLastSuccessfulFieldReportSyncAt,
   markFieldReportPending,
   resetStaleSyncingFieldReports,
@@ -54,15 +55,23 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const mounted = useRef(true);
 
   const refreshPendingCount = useCallback(async () => {
+    const submitterIdentity = auth.session?.user.uuid;
+    if (!submitterIdentity) {
+      if (mounted.current) {
+        setPendingCount(0);
+        setLastSuccessfulSyncAt(null);
+      }
+      return;
+    }
     const [count, lastSyncedAt] = await Promise.all([
-      countUnsyncedFieldReports(database),
-      findLastSuccessfulFieldReportSyncAt(database),
+      countUnsyncedFieldReports(database, submitterIdentity),
+      findLastSuccessfulFieldReportSyncAt(database, submitterIdentity),
     ]);
     if (mounted.current) {
       setPendingCount(count);
       setLastSuccessfulSyncAt(lastSyncedAt);
     }
-  }, [database]);
+  }, [auth.session?.user.uuid, database]);
 
   const syncNow = useCallback(
     async (
@@ -83,6 +92,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         const result = await syncPendingFieldReports({
           database,
           source,
+          submitterIdentity: auth.session.user.uuid,
           token: auth.session.token,
         });
         if (result.authRequired) {
@@ -113,10 +123,18 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
   const retryReport = useCallback(
     async (reportId: string) => {
-      await markFieldReportPending(database, reportId);
+      if (auth.status !== 'authenticated' || !auth.session?.user.uuid) {
+        return null;
+      }
+      await findFieldReportUploadRecord(
+        database,
+        reportId,
+        auth.session.user.uuid,
+      );
+      await markFieldReportPending(database, reportId, auth.session.user.uuid);
       return syncNow('manual');
     },
-    [database, syncNow],
+    [auth.session?.user.uuid, auth.status, database, syncNow],
   );
 
   useEffect(() => {
@@ -127,8 +145,15 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     mounted.current = true;
+    const submitterIdentity = auth.session?.user.uuid;
+    if (!submitterIdentity) {
+      void refreshPendingCount();
+      return () => {
+        mounted.current = false;
+      };
+    }
     const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
-    void resetStaleSyncingFieldReports(database, staleBefore)
+    void resetStaleSyncingFieldReports(database, submitterIdentity, staleBefore)
       .then(refreshPendingCount)
       .catch(() =>
         setErrorMessage('Interrupted uploads could not be recovered yet.'),
@@ -175,7 +200,13 @@ export function SyncProvider({ children }: PropsWithChildren) {
       unsubscribeNetwork();
       appStateSubscription.remove();
     };
-  }, [auth.status, database, refreshPendingCount, syncNow]);
+  }, [
+    auth.session?.user.uuid,
+    auth.status,
+    database,
+    refreshPendingCount,
+    syncNow,
+  ]);
 
   const value = useMemo<SyncContextValue>(
     () => ({

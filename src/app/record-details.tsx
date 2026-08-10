@@ -61,15 +61,30 @@ export default function RecordDetailsScreen() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
   const retrySync = async () => {
     if (!fieldReport.data || retrying) {
       return;
     }
     setRetrying(true);
-    await sync.retryReport(fieldReport.data.id);
-    await fieldReport.refresh();
-    setRetrying(false);
+    setRetryError(null);
+    try {
+      await sync.retryReport(fieldReport.data.id);
+      await fieldReport.refresh();
+    } catch (error: unknown) {
+      setRetryError(
+        getStorageErrorMessage(
+          toStorageError(
+            error,
+            'UPDATE_FAILED',
+            'Retrying Field Report synchronization failed.',
+          ),
+        ),
+      );
+    } finally {
+      setRetrying(false);
+    }
   };
 
   const confirmDelete = () => {
@@ -308,6 +323,15 @@ export default function RecordDetailsScreen() {
                       'The last upload did not finish.'}
                   </Text>
                 </View>
+              ) : null}
+
+              {retryError ? (
+                <Text
+                  testID="records.retry-error"
+                  accessibilityLiveRegion="assertive"
+                  style={[styles.deleteError, { color: theme.danger }]}>
+                  {retryError}
+                </Text>
               ) : null}
 
               {fieldReport.data?.syncStatus === 'pending' ||

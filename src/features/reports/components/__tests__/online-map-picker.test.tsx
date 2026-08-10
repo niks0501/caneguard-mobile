@@ -104,7 +104,7 @@ describe('OnlineMapPicker', () => {
     );
 
     await act(async () => {
-      screen.getByLabelText('Pan east').props.onPress();
+      await fireEvent.press(screen.getByLabelText('Pan east'));
     });
     const newTiles = screen
       .getAllByTestId('manual-map.tile')

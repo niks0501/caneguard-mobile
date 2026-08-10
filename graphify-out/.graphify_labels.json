@@ -27,8 +27,8 @@
   "25": "fieldReportSyncRepository.ts",
   "26": "syncFieldReport.ts",
   "27": "modelContract.ts",
-  "28": "recordTypes.ts",
-  "29": "repositoryContracts.ts",
+  "28": "checklistConsistency.ts",
+  "29": "recordTypes.ts",
   "30": "saveCompletedScan.ts",
   "31": "analysis-result.tsx",
   "32": "online-map-picker.tsx",
@@ -49,5 +49,7 @@
   "47": "FieldReportSyncRepository",
   "48": "postprocessOutput.ts",
   "49": "syncPendingFieldReports.ts",
-  "50": "diseaseCatalog.ts"
+  "50": "diseaseCatalog.ts",
+  "51": "reports.test.tsx",
+  "52": "readPickerOutcome.ts"
 }

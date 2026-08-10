@@ -659,8 +659,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_tests_reports_test",
-      "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community": 51,
+      "community_name": "reports.test.tsx",
       "norm_label": "reports.test.tsx"
     },
     {
@@ -670,8 +670,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "src_app_tests_reports_test_mockrefresh",
-      "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community": 51,
+      "community_name": "reports.test.tsx",
       "norm_label": "mockrefresh"
     },
     {
@@ -681,8 +681,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "src_app_tests_reports_test_mockrouterpush",
-      "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community": 51,
+      "community_name": "reports.test.tsx",
       "norm_label": "mockrouterpush"
     },
     {
@@ -692,8 +692,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "src_app_tests_reports_test_summary",
-      "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community": 51,
+      "community_name": "reports.test.tsx",
       "norm_label": "summary"
     },
     {
@@ -3343,8 +3343,8 @@
       "source_location": "L211",
       "_origin": "ast",
       "id": "src_database_databaseprovider_usedatabasestate",
-      "community": 23,
-      "community_name": "scanRecordRepository.ts",
+      "community": 0,
+      "community_name": "DatabaseProvider.tsx",
       "norm_label": "usedatabasestate()"
     },
     {
@@ -3751,7 +3751,7 @@
       "_origin": "ast",
       "id": "src_database_schema_syncstatus",
       "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community_name": "recordTypes.ts",
       "norm_label": "syncstatus"
     },
     {
@@ -4014,8 +4014,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "src_database_usestoragediagnostics_usestoragediagnostics",
-      "community": 23,
-      "community_name": "scanRecordRepository.ts",
+      "community": 0,
+      "community_name": "DatabaseProvider.tsx",
       "norm_label": "usestoragediagnostics()"
     },
     {
@@ -4422,7 +4422,7 @@
       "_origin": "ast",
       "id": "src_features_detection_checklist_tests_checklistconsistency_test",
       "community": 28,
-      "community_name": "recordTypes.ts",
+      "community_name": "checklistConsistency.ts",
       "norm_label": "checklistconsistency.test.ts"
     },
     {
@@ -4433,7 +4433,7 @@
       "_origin": "ast",
       "id": "src_features_detection_checklist_tests_checklistconsistency_test_matrixcase",
       "community": 28,
-      "community_name": "recordTypes.ts",
+      "community_name": "checklistConsistency.ts",
       "norm_label": "matrixcase"
     },
     {
@@ -4444,7 +4444,7 @@
       "_origin": "ast",
       "id": "src_features_detection_checklist_tests_checklistconsistency_test_matrix",
       "community": 28,
-      "community_name": "recordTypes.ts",
+      "community_name": "checklistConsistency.ts",
       "norm_label": "matrix"
     },
     {
@@ -4455,7 +4455,7 @@
       "_origin": "ast",
       "id": "src_features_detection_checklist_checklistconsistency",
       "community": 28,
-      "community_name": "recordTypes.ts",
+      "community_name": "checklistConsistency.ts",
       "norm_label": "checklistconsistency.ts"
     },
     {
@@ -4477,7 +4477,7 @@
       "_origin": "ast",
       "id": "src_features_detection_checklist_checklistconsistency_checklistobservationid",
       "community": 28,
-      "community_name": "recordTypes.ts",
+      "community_name": "checklistConsistency.ts",
       "norm_label": "checklistobservationid"
     },
     {
@@ -4488,7 +4488,7 @@
       "_origin": "ast",
       "id": "src_features_detection_checklist_checklistconsistency_checklistconsistency",
       "community": 28,
-      "community_name": "recordTypes.ts",
+      "community_name": "checklistConsistency.ts",
       "norm_label": "checklistconsistency"
     },
     {
@@ -4499,7 +4499,7 @@
       "_origin": "ast",
       "id": "src_features_detection_checklist_checklistconsistency_getchecklistconsistency",
       "community": 28,
-      "community_name": "recordTypes.ts",
+      "community_name": "checklistConsistency.ts",
       "norm_label": "getchecklistconsistency()"
     },
     {
@@ -4631,7 +4631,7 @@
       "_origin": "ast",
       "id": "src_features_detection_constants_modelcontract_modellabel",
       "community": 28,
-      "community_name": "recordTypes.ts",
+      "community_name": "checklistConsistency.ts",
       "norm_label": "modellabel"
     },
     {
@@ -4762,8 +4762,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_features_detection_context_scansessionreducer",
-      "community": 38,
-      "community_name": "detection/types.ts",
+      "community": 13,
+      "community_name": "symptom-checklist.test.tsx",
       "norm_label": "scansessionreducer.ts"
     },
     {
@@ -4773,8 +4773,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "src_features_detection_context_scansessionreducer_initialscansessionstate",
-      "community": 38,
-      "community_name": "detection/types.ts",
+      "community": 13,
+      "community_name": "symptom-checklist.test.tsx",
       "norm_label": "initialscansessionstate"
     },
     {
@@ -4916,8 +4916,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_features_detection_imagepicker_tests_readpickeroutcome_test",
-      "community": 20,
-      "community_name": "scanImageStorage.ts",
+      "community": 52,
+      "community_name": "readPickerOutcome.ts",
       "norm_label": "readpickeroutcome.test.ts"
     },
     {
@@ -4927,8 +4927,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_features_detection_imagepicker_readpickeroutcome",
-      "community": 20,
-      "community_name": "scanImageStorage.ts",
+      "community": 52,
+      "community_name": "readPickerOutcome.ts",
       "norm_label": "readpickeroutcome.ts"
     },
     {
@@ -4938,8 +4938,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "src_features_detection_imagepicker_readpickeroutcome_pickeroutcome",
-      "community": 20,
-      "community_name": "scanImageStorage.ts",
+      "community": 52,
+      "community_name": "readPickerOutcome.ts",
       "norm_label": "pickeroutcome"
     },
     {
@@ -4949,8 +4949,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "src_features_detection_imagepicker_readpickeroutcome_readpickeroutcome",
-      "community": 20,
-      "community_name": "scanImageStorage.ts",
+      "community": 52,
+      "community_name": "readPickerOutcome.ts",
       "norm_label": "readpickeroutcome()"
     },
     {
@@ -5818,8 +5818,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "src_features_detection_types_scansourcetype",
-      "community": 20,
-      "community_name": "scanImageStorage.ts",
+      "community": 29,
+      "community_name": "recordTypes.ts",
       "norm_label": "scansourcetype"
     },
     {
@@ -5840,7 +5840,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "src_features_detection_types_reportedseverity",
-      "community": 28,
+      "community": 29,
       "community_name": "recordTypes.ts",
       "norm_label": "reportedseverity"
     },
@@ -5852,7 +5852,7 @@
       "_origin": "ast",
       "id": "src_features_detection_types_classscore",
       "community": 28,
-      "community_name": "recordTypes.ts",
+      "community_name": "checklistConsistency.ts",
       "norm_label": "classscore"
     },
     {
@@ -5939,8 +5939,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "src_features_detection_validation_assessimagequality_qualitywarning",
-      "community": 28,
-      "community_name": "recordTypes.ts",
+      "community": 36,
+      "community_name": "assessImageQuality.ts",
       "norm_label": "qualitywarning"
     },
     {
@@ -6083,7 +6083,7 @@
       "_origin": "ast",
       "id": "src_features_records_data_repositorycontracts",
       "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community_name": "recordTypes.ts",
       "norm_label": "repositorycontracts.ts"
     },
     {
@@ -6094,7 +6094,7 @@
       "_origin": "ast",
       "id": "src_features_records_data_repositorycontracts_scanrecordwriterepository",
       "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community_name": "recordTypes.ts",
       "norm_label": "scanrecordwriterepository"
     },
     {
@@ -6105,7 +6105,7 @@
       "_origin": "ast",
       "id": "src_features_records_data_repositorycontracts_scanrecordwriterepository_insert",
       "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community_name": "recordTypes.ts",
       "norm_label": ".insert()"
     },
     {
@@ -6116,7 +6116,7 @@
       "_origin": "ast",
       "id": "src_features_records_data_repositorycontracts_scanrecordrepository",
       "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community_name": "recordTypes.ts",
       "norm_label": "scanrecordrepository"
     },
     {
@@ -6127,7 +6127,7 @@
       "_origin": "ast",
       "id": "src_features_records_data_repositorycontracts_scanrecordrepository_deletebyid",
       "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community_name": "recordTypes.ts",
       "norm_label": ".deletebyid()"
     },
     {
@@ -6138,7 +6138,7 @@
       "_origin": "ast",
       "id": "src_features_records_data_repositorycontracts_scanrecordrepository_findbyid",
       "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community_name": "recordTypes.ts",
       "norm_label": ".findbyid()"
     },
     {
@@ -6149,7 +6149,7 @@
       "_origin": "ast",
       "id": "src_features_records_data_repositorycontracts_scanrecordrepository_list",
       "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community_name": "recordTypes.ts",
       "norm_label": ".list()"
     },
     {
@@ -6160,7 +6160,7 @@
       "_origin": "ast",
       "id": "src_features_records_data_repositorycontracts_scanrecordrepository_listmanagedimageuris",
       "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community_name": "recordTypes.ts",
       "norm_label": ".listmanagedimageuris()"
     },
     {
@@ -6170,8 +6170,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "src_features_records_data_repositorycontracts_reportrepository",
-      "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community": 51,
+      "community_name": "reports.test.tsx",
       "norm_label": "reportrepository"
     },
     {
@@ -6181,8 +6181,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "src_features_records_data_repositorycontracts_reportrepository_getlocalsummary",
-      "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community": 51,
+      "community_name": "reports.test.tsx",
       "norm_label": ".getlocalsummary()"
     },
     {
@@ -6390,7 +6390,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_features_records_domain_recordtypes",
-      "community": 28,
+      "community": 29,
       "community_name": "recordTypes.ts",
       "norm_label": "recordtypes.ts"
     },
@@ -6401,7 +6401,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "src_features_records_domain_recordtypes_default_record_page_size",
-      "community": 28,
+      "community": 29,
       "community_name": "recordTypes.ts",
       "norm_label": "default_record_page_size"
     },
@@ -6435,7 +6435,7 @@
       "_origin": "ast",
       "id": "src_features_records_domain_recordtypes_scanrecordquery",
       "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community_name": "recordTypes.ts",
       "norm_label": "scanrecordquery"
     },
     {
@@ -6446,7 +6446,7 @@
       "_origin": "ast",
       "id": "src_features_records_domain_recordtypes_scanrecordlistitem",
       "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community_name": "recordTypes.ts",
       "norm_label": "scanrecordlistitem"
     },
     {
@@ -6467,7 +6467,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "src_features_records_domain_recordtypes_scanrecorddetails",
-      "community": 28,
+      "community": 29,
       "community_name": "recordTypes.ts",
       "norm_label": "scanrecorddetails"
     },
@@ -6478,7 +6478,7 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "src_features_records_domain_recordtypes_recordsbylabel",
-      "community": 28,
+      "community": 29,
       "community_name": "recordTypes.ts",
       "norm_label": "recordsbylabel"
     },
@@ -6489,8 +6489,8 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "src_features_records_domain_recordtypes_localreportsummary",
-      "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community": 51,
+      "community_name": "reports.test.tsx",
       "norm_label": "localreportsummary"
     },
     {
@@ -6501,7 +6501,7 @@
       "_origin": "ast",
       "id": "src_features_records_domain_recordtypes_completedscandraft",
       "community": 28,
-      "community_name": "recordTypes.ts",
+      "community_name": "checklistConsistency.ts",
       "norm_label": "completedscandraft"
     },
     {
@@ -6512,7 +6512,7 @@
       "_origin": "ast",
       "id": "src_features_records_domain_recordtypes_savecompletedscaninput",
       "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community_name": "recordTypes.ts",
       "norm_label": "savecompletedscaninput"
     },
     {
@@ -6787,7 +6787,7 @@
       "_origin": "ast",
       "id": "src_features_records_hooks_userecords_paginatedquerystate",
       "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community_name": "recordTypes.ts",
       "norm_label": "paginatedquerystate"
     },
     {
@@ -6896,8 +6896,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_features_records_services_tests_savecompletedscan_test",
-      "community": 38,
-      "community_name": "detection/types.ts",
+      "community": 30,
+      "community_name": "saveCompletedScan.ts",
       "norm_label": "savecompletedscan.test.ts"
     },
     {
@@ -6907,8 +6907,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "src_features_records_services_tests_savecompletedscan_test_now",
-      "community": 38,
-      "community_name": "detection/types.ts",
+      "community": 30,
+      "community_name": "saveCompletedScan.ts",
       "norm_label": "now"
     },
     {
@@ -6918,8 +6918,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "src_features_records_services_tests_savecompletedscan_test_managed_image",
-      "community": 38,
-      "community_name": "detection/types.ts",
+      "community": 30,
+      "community_name": "saveCompletedScan.ts",
       "norm_label": "managed_image"
     },
     {
@@ -6929,8 +6929,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "src_features_records_services_tests_savecompletedscan_test_completedstate",
-      "community": 38,
-      "community_name": "detection/types.ts",
+      "community": 30,
+      "community_name": "saveCompletedScan.ts",
       "norm_label": "completedstate()"
     },
     {
@@ -7292,8 +7292,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "src_features_records_services_scanimagestorage_managedimage",
-      "community": 20,
-      "community_name": "scanImageStorage.ts",
+      "community": 30,
+      "community_name": "saveCompletedScan.ts",
       "norm_label": "managedimage"
     },
     {
@@ -7413,8 +7413,8 @@
       "source_location": "L192",
       "_origin": "ast",
       "id": "src_features_records_services_scanimagestorage_deletemanagedscanimage",
-      "community": 0,
-      "community_name": "DatabaseProvider.tsx",
+      "community": 20,
+      "community_name": "scanImageStorage.ts",
       "norm_label": "deletemanagedscanimage()"
     },
     {
@@ -7619,7 +7619,7 @@
       "label": "IMAGE_EXISTS",
       "file_type": "code",
       "source_file": "src/features/reports/data/__tests__/fieldReportRepository.test.ts",
-      "source_location": "L42",
+      "source_location": "L43",
       "_origin": "ast",
       "id": "src_features_reports_data_tests_fieldreportrepository_test_image_exists",
       "community": 4,
@@ -7630,7 +7630,7 @@
       "label": "createDraftInput()",
       "file_type": "code",
       "source_file": "src/features/reports/data/__tests__/fieldReportRepository.test.ts",
-      "source_location": "L44",
+      "source_location": "L45",
       "_origin": "ast",
       "id": "src_features_reports_data_tests_fieldreportrepository_test_createdraftinput",
       "community": 4,
@@ -7641,7 +7641,7 @@
       "label": "readMigration()",
       "file_type": "code",
       "source_file": "src/features/reports/data/__tests__/fieldReportRepository.test.ts",
-      "source_location": "L54",
+      "source_location": "L55",
       "_origin": "ast",
       "id": "src_features_reports_data_tests_fieldreportrepository_test_readmigration",
       "community": 4,
@@ -7652,7 +7652,7 @@
       "label": "openTestDatabase()",
       "file_type": "code",
       "source_file": "src/features/reports/data/__tests__/fieldReportRepository.test.ts",
-      "source_location": "L61",
+      "source_location": "L62",
       "_origin": "ast",
       "id": "src_features_reports_data_tests_fieldreportrepository_test_opentestdatabase",
       "community": 4,
@@ -7663,7 +7663,7 @@
       "label": "insertCompleteClassScores()",
       "file_type": "code",
       "source_file": "src/features/reports/data/__tests__/fieldReportRepository.test.ts",
-      "source_location": "L112",
+      "source_location": "L113",
       "_origin": "ast",
       "id": "src_features_reports_data_tests_fieldreportrepository_test_insertcompleteclassscores",
       "community": 4,
@@ -7674,7 +7674,7 @@
       "label": "createStatementAdapter()",
       "file_type": "code",
       "source_file": "src/features/reports/data/__tests__/fieldReportRepository.test.ts",
-      "source_location": "L121",
+      "source_location": "L122",
       "_origin": "ast",
       "id": "src_features_reports_data_tests_fieldreportrepository_test_createstatementadapter",
       "community": 4,
@@ -7729,7 +7729,7 @@
       "label": "finalizeFieldReport()",
       "file_type": "code",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L271",
+      "source_location": "L273",
       "_origin": "ast",
       "id": "src_features_reports_data_fieldreportrepository_finalizefieldreport",
       "community": 4,
@@ -7740,7 +7740,7 @@
       "label": "findFieldReportById()",
       "file_type": "code",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L378",
+      "source_location": "L380",
       "_origin": "ast",
       "id": "src_features_reports_data_fieldreportrepository_findfieldreportbyid",
       "community": 4,
@@ -7751,7 +7751,7 @@
       "label": "findFieldReportByScanRecordId()",
       "file_type": "code",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L400",
+      "source_location": "L402",
       "_origin": "ast",
       "id": "src_features_reports_data_fieldreportrepository_findfieldreportbyscanrecordid",
       "community": 4,
@@ -7762,7 +7762,7 @@
       "label": "hasFieldReportOwnedByAnotherSubmitter()",
       "file_type": "code",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L422",
+      "source_location": "L424",
       "_origin": "ast",
       "id": "src_features_reports_data_fieldreportrepository_hasfieldreportownedbyanothersubmitter",
       "community": 4,
@@ -7773,7 +7773,7 @@
       "label": "saveFieldReportDraft()",
       "file_type": "code",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L444",
+      "source_location": "L446",
       "_origin": "ast",
       "id": "src_features_reports_data_fieldreportrepository_savefieldreportdraft",
       "community": 4,
@@ -7784,7 +7784,7 @@
       "label": "toFieldReport()",
       "file_type": "code",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L508",
+      "source_location": "L510",
       "_origin": "ast",
       "id": "src_features_reports_data_fieldreportrepository_tofieldreport",
       "community": 4,
@@ -8788,8 +8788,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_features_reports_hooks_uselocalreport",
-      "community": 39,
-      "community_name": "reportRepository.ts",
+      "community": 35,
+      "community_name": "useRecords.ts",
       "norm_label": "uselocalreport.ts"
     },
     {
@@ -8799,8 +8799,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "src_features_reports_hooks_uselocalreport_localreportstate",
-      "community": 29,
-      "community_name": "repositoryContracts.ts",
+      "community": 51,
+      "community_name": "reports.test.tsx",
       "norm_label": "localreportstate"
     },
     {
@@ -8810,8 +8810,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "src_features_reports_hooks_uselocalreport_localreportinput",
-      "community": 39,
-      "community_name": "reportRepository.ts",
+      "community": 35,
+      "community_name": "useRecords.ts",
       "norm_label": "localreportinput"
     },
     {
@@ -23435,7 +23435,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L282",
+      "source_location": "L284",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_finalizefieldreport",
@@ -23447,7 +23447,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L383",
+      "source_location": "L385",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_findfieldreportbyid",
@@ -23459,7 +23459,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L406",
+      "source_location": "L408",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_findfieldreportbyscanrecordid",
@@ -23471,7 +23471,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L428",
+      "source_location": "L430",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_hasfieldreportownedbyanothersubmitter",
@@ -23483,7 +23483,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L453",
+      "source_location": "L455",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_savefieldreportdraft",
@@ -24676,7 +24676,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L374",
+      "source_location": "L376",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_finalizefieldreport",
@@ -24688,7 +24688,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L396",
+      "source_location": "L398",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_findfieldreportbyid",
@@ -24700,7 +24700,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L418",
+      "source_location": "L420",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_findfieldreportbyscanrecordid",
@@ -24712,7 +24712,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L436",
+      "source_location": "L438",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_hasfieldreportownedbyanothersubmitter",
@@ -24724,7 +24724,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L504",
+      "source_location": "L506",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_savefieldreportdraft",
@@ -24748,7 +24748,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L267",
+      "source_location": "L269",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_savemanualmaplocation",
@@ -35996,7 +35996,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/__tests__/fieldReportRepository.test.ts",
-      "source_location": "L44",
+      "source_location": "L45",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_tests_fieldreportrepository_test",
@@ -36007,7 +36007,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/__tests__/fieldReportRepository.test.ts",
-      "source_location": "L121",
+      "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_tests_fieldreportrepository_test",
@@ -36018,7 +36018,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/__tests__/fieldReportRepository.test.ts",
-      "source_location": "L42",
+      "source_location": "L43",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_tests_fieldreportrepository_test",
@@ -36029,7 +36029,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/__tests__/fieldReportRepository.test.ts",
-      "source_location": "L112",
+      "source_location": "L113",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_tests_fieldreportrepository_test",
@@ -36040,7 +36040,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/__tests__/fieldReportRepository.test.ts",
-      "source_location": "L61",
+      "source_location": "L62",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_tests_fieldreportrepository_test",
@@ -36051,7 +36051,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/__tests__/fieldReportRepository.test.ts",
-      "source_location": "L54",
+      "source_location": "L55",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_tests_fieldreportrepository_test",
@@ -36059,11 +36059,35 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/reports/data/__tests__/fieldReportRepository.test.ts",
+      "source_location": "L34",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_features_reports_data_tests_fieldreportrepository_test",
+      "target": "src_features_sync_services_syncevents",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/reports/data/__tests__/fieldReportRepository.test.ts",
+      "source_location": "L34",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_features_reports_data_tests_fieldreportrepository_test",
+      "target": "src_features_sync_services_syncevents_subscribesyncrecords",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/__tests__/fieldReportRepository.test.ts",
-      "source_location": "L73",
+      "source_location": "L74",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_tests_fieldreportrepository_test_opentestdatabase",
@@ -36085,7 +36109,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L271",
+      "source_location": "L273",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository",
@@ -36096,7 +36120,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L378",
+      "source_location": "L380",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository",
@@ -36107,7 +36131,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L400",
+      "source_location": "L402",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository",
@@ -36118,7 +36142,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L422",
+      "source_location": "L424",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository",
@@ -36129,7 +36153,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L444",
+      "source_location": "L446",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository",
@@ -36162,7 +36186,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L508",
+      "source_location": "L510",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository",
@@ -36542,6 +36566,18 @@
       "target": "src_features_reports_domain_fieldreportvalidation_validatemanualmaplocationinput"
     },
     {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/features/reports/data/fieldReportRepository.ts",
+      "source_location": "L266",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_features_reports_data_fieldreportrepository_savemanualmaplocation",
+      "target": "src_features_sync_services_syncevents_emitsyncrecordschanged"
+    },
+    {
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -36570,7 +36606,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L339",
+      "source_location": "L341",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_finalizefieldreport",
@@ -36583,7 +36619,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L340",
+      "source_location": "L342",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_finalizefieldreport",
@@ -36595,7 +36631,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L278",
+      "source_location": "L280",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_finalizefieldreport",
@@ -36607,7 +36643,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L370",
+      "source_location": "L372",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_finalizefieldreport",
@@ -36654,7 +36690,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L394",
+      "source_location": "L396",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_findfieldreportbyid",
@@ -36702,7 +36738,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L416",
+      "source_location": "L418",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_findfieldreportbyscanrecordid",
@@ -36786,7 +36822,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L501",
+      "source_location": "L503",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_savefieldreportdraft",
@@ -36799,7 +36835,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/reports/data/fieldReportRepository.ts",
-      "source_location": "L450",
+      "source_location": "L452",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_reports_data_fieldreportrepository_savefieldreportdraft",
@@ -41244,5 +41280,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "bc0dbb6e2fe5e66d489b38eff89a296c0cef13c8"
+  "built_at_commit": "3863fc6be93b727e4caccc6aae63bfe9c4838784"
 }

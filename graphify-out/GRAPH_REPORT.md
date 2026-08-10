@@ -1,16 +1,16 @@
 # Graph Report - 01KZNRWQK5WNC1GTNSM8H7N251  (2026-08-10)
 
 ## Corpus Check
-- 163 files · ~62,436 words
+- 163 files · ~62,458 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 913 nodes · 2662 edges · 51 communities (50 shown, 1 thin omitted)
+- 913 nodes · 2665 edges · 53 communities (51 shown, 2 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 21 edges (avg confidence: 0.77)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `bc0dbb6e`
+- Built from commit: `3863fc6b`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -42,8 +42,8 @@
 - fieldReportSyncRepository.ts
 - syncFieldReport.ts
 - modelContract.ts
+- checklistConsistency.ts
 - recordTypes.ts
-- repositoryContracts.ts
 - saveCompletedScan.ts
 - analysis-result.tsx
 - online-map-picker.tsx
@@ -65,6 +65,8 @@
 - postprocessOutput.ts
 - syncPendingFieldReports.ts
 - diseaseCatalog.ts
+- reports.test.tsx
+- readPickerOutcome.ts
 
 ## God Nodes (most connected - your core abstractions)
 1. `useTheme()` - 103 edges
@@ -93,11 +95,11 @@
 ## Import Cycles
 - None detected.
 
-## Communities (51 total, 1 thin omitted)
+## Communities (53 total, 2 thin omitted)
 
 ### Community 0 - "DatabaseProvider.tsx"
 Cohesion: 0.11
-Nodes (22): CANEGUARD_DATABASE_FILENAME, CaneGuardDatabaseResources, clearCaneGuardDatabaseResourcesForRetry(), createCaneGuardDatabaseResources(), getCaneGuardDatabaseResources(), CaneGuardDatabaseProvider(), DatabaseConnectionAttempt(), DatabaseContext (+14 more)
+Nodes (23): CANEGUARD_DATABASE_FILENAME, CaneGuardDatabaseResources, clearCaneGuardDatabaseResourcesForRetry(), createCaneGuardDatabaseResources(), getCaneGuardDatabaseResources(), CaneGuardDatabaseProvider(), DatabaseConnectionAttempt(), DatabaseContext (+15 more)
 
 ### Community 1 - "theme.ts"
 Cohesion: 0.15
@@ -145,7 +147,7 @@ Nodes (28): AppNavigator(), CurrentUserResponse, isAbortError(), isMobileUser(),
 
 ### Community 13 - "symptom-checklist.test.tsx"
 Cohesion: 0.18
-Nodes (10): completedResult, completedState, mockDispatch, mockRouterPush, mockRouterReplace, ScanSessionContext, ScanSessionContextValue, ScanSessionProvider() (+2 more)
+Nodes (11): completedResult, completedState, mockDispatch, mockRouterPush, mockRouterReplace, ScanSessionContext, ScanSessionContextValue, ScanSessionProvider() (+3 more)
 
 ### Community 14 - "field-report.tsx"
 Cohesion: 0.27
@@ -172,8 +174,8 @@ Cohesion: 0.22
 Nodes (4): migration0, migration1, migration2, migration3
 
 ### Community 20 - "scanImageStorage.ts"
-Cohesion: 0.07
-Nodes (33): PickerOutcome, readPickerOutcome(), ScanSourceType, assertManagedScanImageUri(), CompensationCleanupResult, CopyScanImageInput, copyScanImageToManagedStorage(), DeleteManagedImageResult (+25 more)
+Cohesion: 0.08
+Nodes (30): assertManagedScanImageUri(), CompensationCleanupResult, CopyScanImageInput, copyScanImageToManagedStorage(), DeleteManagedImageResult, deleteManagedScanImage(), ensureManagedScanImageDirectory(), EXTENSION_TO_MIME (+22 more)
 
 ### Community 21 - "useCaneGuardModel.tsx"
 Cohesion: 0.15
@@ -184,8 +186,8 @@ Cohesion: 0.29
 Nodes (6): mockLoadMore, mockRecordsState, mockRefresh, mockRouterPush, mockUsePaginatedScanRecords, RECORD
 
 ### Community 23 - "scanRecordRepository.ts"
-Cohesion: 0.12
-Nodes (25): useDatabaseState(), scanClassScores, scanQualityWarnings, scanRecords, scanSymptoms, StorageDiagnostics, useStorageDiagnostics(), buildConditions() (+17 more)
+Cohesion: 0.14
+Nodes (23): scanClassScores, scanQualityWarnings, scanRecords, scanSymptoms, StorageDiagnostics, buildConditions(), buildFieldReportJoinCondition(), createScanRecordRepository() (+15 more)
 
 ### Community 24 - "captureGpsLocation.ts"
 Cohesion: 0.22
@@ -203,17 +205,17 @@ Nodes (13): isAbortError(), SYNC_ERROR_CODES, SyncError, SyncErrorCode, toSyncEr
 Cohesion: 0.29
 Nodes (9): MODEL_FILENAME, MODEL_INPUT, MODEL_OUTPUT, MODEL_SHA256, MODEL_VERSION, ModelMetadata, tensorMatches(), TensorMetadata (+1 more)
 
-### Community 28 - "recordTypes.ts"
-Cohesion: 0.25
-Nodes (13): ChecklistConsistency, ChecklistObservationId, getChecklistConsistency(), MATRIX, MatrixCase, ModelLabel, ClassScore, ReportedSeverity (+5 more)
+### Community 28 - "checklistConsistency.ts"
+Cohesion: 0.33
+Nodes (8): ChecklistConsistency, ChecklistObservationId, getChecklistConsistency(), MATRIX, MatrixCase, ModelLabel, ClassScore, CompletedScanDraft
 
-### Community 29 - "repositoryContracts.ts"
-Cohesion: 0.12
-Nodes (13): mockRefresh, mockRouterPush, SUMMARY, SyncStatus, ReportRepository, ScanRecordRepository, ScanRecordWriteRepository, LocalReportSummary (+5 more)
+### Community 29 - "recordTypes.ts"
+Cohesion: 0.19
+Nodes (12): SyncStatus, ReportedSeverity, ScanSourceType, ScanRecordRepository, ScanRecordWriteRepository, DEFAULT_RECORD_PAGE_SIZE, RecordsByLabel, SaveCompletedScanInput (+4 more)
 
 ### Community 30 - "saveCompletedScan.ts"
-Cohesion: 0.18
-Nodes (12): mockDatabase, mockRandomUUID, mockSaveCompletedScan, INITIAL_STATE, SaveRecordState, SaveRecordStatus, useSaveCompletedScan(), saveCompletedScan() (+4 more)
+Cohesion: 0.14
+Nodes (15): mockDatabase, mockRandomUUID, mockSaveCompletedScan, INITIAL_STATE, SaveRecordState, SaveRecordStatus, useSaveCompletedScan(), saveCompletedScan() (+7 more)
 
 ### Community 31 - "analysis-result.tsx"
 Cohesion: 0.11
@@ -232,24 +234,24 @@ Cohesion: 0.33
 Nodes (5): ModelDebugRoute(), mockModelRun, mockPreprocessImage, mockRunInference, mockUseCaneGuardModel
 
 ### Community 35 - "useRecords.ts"
-Cohesion: 0.25
-Nodes (14): FieldReportScreen(), useCaneGuardDatabase(), getStorageErrorMessage(), useAuth(), mockDatabase, mockListScanRecords, QueryState, usePaginatedScanRecords() (+6 more)
+Cohesion: 0.23
+Nodes (15): FieldReportScreen(), useCaneGuardDatabase(), getStorageErrorMessage(), useAuth(), mockDatabase, mockListScanRecords, QueryState, usePaginatedScanRecords() (+7 more)
 
 ### Community 36 - "assessImageQuality.ts"
-Cohesion: 0.33
-Nodes (3): ImageQualitySourceDimensions, QUALITY_WARNING_MESSAGES, PROTOTYPE_IMAGE_QUALITY_THRESHOLDS
+Cohesion: 0.29
+Nodes (4): ImageQualitySourceDimensions, QUALITY_WARNING_MESSAGES, QualityWarning, PROTOTYPE_IMAGE_QUALITY_THRESHOLDS
 
 ### Community 37 - "compareParityReference.ts"
 Cohesion: 0.36
 Nodes (7): compareModelOutputToParity(), compareNumber(), comparePreprocessingToParity(), ModelOutputParityComparison, NumericComparison, PreprocessingParityComparison, PreprocessingResult
 
 ### Community 38 - "detection/types.ts"
-Cohesion: 0.22
-Nodes (9): initialScanSessionState, completedResult, InferenceTimings, ScanSessionState, ScanSessionStatus, ImageQualityAssessment, NOW, MANAGED_IMAGE (+1 more)
+Cohesion: 0.27
+Nodes (6): completedResult, InferenceTimings, ScanSessionState, ScanSessionStatus, ImageQualityAssessment, NOW
 
 ### Community 39 - "reportRepository.ts"
 Cohesion: 0.18
-Nodes (13): fieldReports, DateRange, buildDateCondition(), buildPendingReportCondition(), createReportRepository(), DEFAULT_RECENT_RECORD_LIMIT, getLocalReportSummary(), LocalReportOptions (+5 more)
+Nodes (12): fieldReports, DateRange, buildDateCondition(), buildPendingReportCondition(), createReportRepository(), DEFAULT_RECENT_RECORD_LIMIT, getLocalReportSummary(), LocalReportOptions (+4 more)
 
 ### Community 40 - "Typography"
 Cohesion: 0.15
@@ -291,10 +293,14 @@ Nodes (7): SyncContextValue, SyncResult, activeRuns, DatabaseRunState, SyncBatch
 Cohesion: 0.50
 Nodes (3): diseaseCatalog, DiseaseCatalogEntry, DiseaseThemeToken
 
+### Community 51 - "reports.test.tsx"
+Cohesion: 0.25
+Nodes (6): mockRefresh, mockRouterPush, SUMMARY, ReportRepository, LocalReportSummary, LocalReportState
+
 ## Knowledge Gaps
 - **256 isolated node(s):** `mockDispatch`, `mockSaveRecord`, `mockSaveRecordState`, `mockRouterBack`, `mockRouterPush` (+251 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **1 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **2 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -308,7 +314,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **What connects `mockDispatch`, `mockSaveRecord`, `mockSaveRecordState` to the rest of the system?**
   _256 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `DatabaseProvider.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.1140819964349376 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.11092436974789915 - nodes in this community are weakly interconnected._
 - **Should `model-debug.tsx` be split into smaller, more focused modules?**
   _Cohesion score 0.11333333333333333 - nodes in this community are weakly interconnected._
 - **Should `useTheme` be split into smaller, more focused modules?**

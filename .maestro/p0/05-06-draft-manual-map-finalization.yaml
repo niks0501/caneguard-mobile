@@ -87,6 +87,10 @@ tags:
     centerElement: true
 - tapOn:
     id: manual-map.confirm
+- scrollUntilVisible:
+    element:
+      id: field-report.manual-location
+    direction: DOWN
 - extendedWaitUntil:
     visible:
       id: field-report.manual-location

@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import type {
   DateRange,
   LocalReportSummary,
@@ -17,6 +18,7 @@ interface LocalReportState {
 
 export function useLocalReport(dateRange?: DateRange) {
   const database = useCaneGuardDatabase();
+  const { user } = useAuth();
   const dateFrom = dateRange?.from;
   const dateTo = dateRange?.to;
   const [state, setState] = useState<LocalReportState>({
@@ -26,12 +28,24 @@ export function useLocalReport(dateRange?: DateRange) {
   });
 
   const refresh = useCallback(async () => {
+    if (!user) {
+      setState({
+        data: null,
+        errorMessage: 'Sign in before reading local reports.',
+        loading: false,
+      });
+      return;
+    }
     setState((current) => ({ ...current, errorMessage: null, loading: true }));
     try {
-      const data = await getLocalReportSummary(database, {
-        dateRange:
-          dateFrom || dateTo ? { from: dateFrom, to: dateTo } : undefined,
-      });
+      const data = await getLocalReportSummary(
+        database,
+        user.uuid,
+        {
+          dateRange:
+            dateFrom || dateTo ? { from: dateFrom, to: dateTo } : undefined,
+        },
+      );
       setState({ data, errorMessage: null, loading: false });
     } catch (error: unknown) {
       const storageError = toStorageError(
@@ -45,7 +59,7 @@ export function useLocalReport(dateRange?: DateRange) {
         loading: false,
       });
     }
-  }, [database, dateFrom, dateTo]);
+  }, [database, dateFrom, dateTo, user?.uuid]);
 
   useFocusEffect(
     useCallback(() => {

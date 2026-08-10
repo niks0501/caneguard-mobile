@@ -289,8 +289,9 @@ describe('scan record write repository', () => {
       INSERT INTO field_reports (
         id, scan_record_id, authoring_state, farmer_or_farm_owner_name,
         barangay, final_latitude, final_longitude, location_source,
+        submitter_identity,
         observed_at, submitted_at, sync_status, created_at, updated_at
-      ) VALUES (?, ?, 'finalized', ?, ?, ?, ?, 'manual_map', ?, ?, 'failed', ?, ?)
+      ) VALUES (?, ?, 'finalized', ?, ?, ?, ?, 'manual_map', ?, ?, ?, 'failed', ?, ?)
     `).run(
       '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
       '2b4666c0-ad10-4d0d-a233-000000000010',
@@ -298,14 +299,77 @@ describe('scan record write repository', () => {
       'Wawa',
       14.071,
       120.635,
+      SUBMITTER_ID,
       '2026-07-17T05:30:00.000Z',
       '2026-07-17T06:00:00.000Z',
       '2026-07-17T06:00:00.000Z',
       '2026-07-17T06:00:00.000Z',
     );
     await expect(
-      listScanRecords(database, { syncStatus: 'failed', limit: 100 }),
+      listScanRecords(database, { syncStatus: 'failed', limit: 100 }, SUBMITTER_ID),
     ).resolves.toHaveLength(1);
+    native.close();
+  });
+
+  it('only merges Field Report metadata for the authenticated submitter', async () => {
+    const { database, native } = openTestDatabase();
+    native
+      .prepare(`
+        INSERT INTO field_reports (
+          id, scan_record_id, authoring_state, submitter_identity,
+          barangay, observed_at, sync_status, created_at, updated_at
+        ) VALUES (?, ?, 'finalized', ?, ?, ?, 'failed', ?, ?)
+      `)
+      .run(
+        '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+        RECORD_ID,
+        SUBMITTER_ID,
+        'Lumbangan',
+        '2026-07-25T05:30:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+      );
+
+    await expect(
+      listScanRecords(database, {}, SUBMITTER_ID),
+    ).resolves.toEqual([
+      expect.objectContaining({ barangay: 'Lumbangan', syncStatus: 'failed' }),
+    ]);
+    await expect(
+      listScanRecords(database, {}, OTHER_SUBMITTER_ID),
+    ).resolves.toEqual([
+      expect.objectContaining({ barangay: 'Wawa', syncStatus: 'local_only' }),
+    ]);
+    native.close();
+  });
+
+  it('counts only the authenticated submitter Field Reports in the pending summary', async () => {
+    const { database, native } = openTestDatabase();
+    native
+      .prepare(`
+        INSERT INTO field_reports (
+          id, scan_record_id, authoring_state, submitter_identity,
+          barangay, observed_at, sync_status, created_at, updated_at
+        ) VALUES (?, ?, 'finalized', ?, ?, ?, 'failed', ?, ?)
+      `)
+      .run(
+        '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+        RECORD_ID,
+        SUBMITTER_ID,
+        'Lumbangan',
+        '2026-07-25T05:30:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+      );
+
+    await expect(getLocalReportSummary(database, SUBMITTER_ID)).resolves.toMatchObject({
+      totalSavedScans: 1,
+      pendingSyncRecords: 1,
+    });
+    await expect(getLocalReportSummary(database, OTHER_SUBMITTER_ID)).resolves.toMatchObject({
+      totalSavedScans: 1,
+      pendingSyncRecords: 0,
+    });
     native.close();
   });
 
@@ -438,7 +502,7 @@ describe('scan record write repository', () => {
       .run('2026-07-04T00:00:00.000Z');
 
     await expect(
-      getLocalReportSummary(database, { recentLimit: 3 }),
+      getLocalReportSummary(database, SUBMITTER_ID, { recentLimit: 3 }),
     ).resolves.toMatchObject({
       totalSavedScans: 5,
       healthyPredictions: 2,
@@ -458,7 +522,7 @@ describe('scan record write repository', () => {
     });
 
     await expect(
-      getLocalReportSummary(database, {
+      getLocalReportSummary(database, SUBMITTER_ID, {
         dateRange: {
           from: '2026-07-01T00:00:00.000Z',
           to: '2026-07-31T23:59:59.999Z',
@@ -477,7 +541,7 @@ describe('scan record write repository', () => {
       '2b4666c0-ad10-4d0d-a233-000000000003',
       SUBMITTER_ID,
     );
-    await expect(getLocalReportSummary(database)).resolves.toMatchObject({
+    await expect(getLocalReportSummary(database, SUBMITTER_ID)).resolves.toMatchObject({
       totalSavedScans: 4,
       possibleDiseasePredictions: 2,
       pendingSyncRecords: 0,
@@ -488,7 +552,7 @@ describe('scan record write repository', () => {
   it('returns zeroed report aggregates for an empty database', async () => {
     const { database, native } = openTestDatabase();
 
-    await expect(getLocalReportSummary(database)).resolves.toEqual({
+    await expect(getLocalReportSummary(database, SUBMITTER_ID)).resolves.toEqual({
       totalSavedScans: 0,
       healthyPredictions: 0,
       possibleDiseasePredictions: 0,

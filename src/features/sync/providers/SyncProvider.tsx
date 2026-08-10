@@ -12,6 +12,7 @@ import { AppState } from 'react-native';
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import type { MobileSession } from '@/features/auth/types';
 import {
   countUnsyncedFieldReports,
   findFieldReportUploadRecord,
@@ -57,9 +58,13 @@ export function SyncProvider({ children }: PropsWithChildren) {
   sessionRef.current = auth.session;
 
   const refreshPendingCount = useCallback(async () => {
+    const requestedToken = auth.session?.token;
     const submitterIdentity = auth.session?.user.uuid;
     if (!submitterIdentity) {
-      if (mounted.current) {
+      if (
+        mounted.current &&
+        isSameSession(sessionRef.current, requestedToken, submitterIdentity)
+      ) {
         setPendingCount(0);
         setLastSuccessfulSyncAt(null);
       }
@@ -69,11 +74,14 @@ export function SyncProvider({ children }: PropsWithChildren) {
       countUnsyncedFieldReports(database, submitterIdentity),
       findLastSuccessfulFieldReportSyncAt(database, submitterIdentity),
     ]);
-    if (mounted.current) {
+    if (
+      mounted.current &&
+      isSameSession(sessionRef.current, requestedToken, submitterIdentity)
+    ) {
       setPendingCount(count);
       setLastSuccessfulSyncAt(lastSyncedAt);
     }
-  }, [auth.session?.user.uuid, database]);
+  }, [auth.session?.token, auth.session?.user.uuid, database]);
 
   const syncNow = useCallback(
     async (
@@ -162,6 +170,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     mounted.current = true;
+    const sessionToken = auth.session?.token;
     const submitterIdentity = auth.session?.user.uuid;
     if (!submitterIdentity) {
       void refreshPendingCount();
@@ -171,10 +180,23 @@ export function SyncProvider({ children }: PropsWithChildren) {
     }
     const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
     void resetStaleSyncingFieldReports(database, submitterIdentity, staleBefore)
-      .then(refreshPendingCount)
-      .catch(() =>
-        setErrorMessage('Interrupted uploads could not be recovered yet.'),
-      );
+      .then(() => {
+        if (
+          mounted.current &&
+          isSameSession(sessionRef.current, sessionToken, submitterIdentity)
+        ) {
+          return refreshPendingCount();
+        }
+        return undefined;
+      })
+      .catch(() => {
+        if (
+          mounted.current &&
+          isSameSession(sessionRef.current, sessionToken, submitterIdentity)
+        ) {
+          setErrorMessage('Interrupted uploads could not be recovered yet.');
+        }
+      });
 
     const unsubscribeRecords = subscribeSyncRecords(() => {
       void refreshPendingCount();
@@ -218,6 +240,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       appStateSubscription.remove();
     };
   }, [
+    auth.session?.token,
     auth.session?.user.uuid,
     auth.status,
     database,
@@ -251,4 +274,17 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
 function isNetworkOnline(state: NetInfoState): boolean {
   return state.isConnected === true && state.isInternetReachable !== false;
+}
+
+function isSameSession(
+  session: MobileSession | null,
+  token: string | undefined,
+  submitterIdentity: string | undefined,
+): boolean {
+  if (!token || !submitterIdentity) {
+    return session === null;
+  }
+  return (
+    session?.token === token && session?.user.uuid === submitterIdentity
+  );
 }

@@ -39,7 +39,7 @@ export function createScanRecordRepository(
 ): ScanRecordRepository {
   return {
     insert: (input) => insertScanRecord(database, input),
-    list: (query) => listScanRecords(database, query),
+    list: (query) => listScanRecords(database, query, submitterIdentity),
     findById: (id) => findScanRecordById(database, id),
     deleteById: (id) =>
       deleteScanRecordById(database, id, submitterIdentity),
@@ -50,6 +50,7 @@ export function createScanRecordRepository(
 export async function listScanRecords(
   database: CaneGuardDatabase,
   query: ScanRecordQuery = {},
+  submitterIdentity?: string,
 ): Promise<ScanRecordListItem[]> {
   const conditions = buildConditions(query);
   const limit = Math.min(
@@ -70,7 +71,10 @@ export async function listScanRecords(
         createdAt: scanRecords.createdAt,
       })
       .from(scanRecords)
-      .leftJoin(fieldReports, eq(fieldReports.scanRecordId, scanRecords.id))
+      .leftJoin(
+        fieldReports,
+        buildFieldReportJoinCondition(submitterIdentity),
+      )
       .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(scanRecords.createdAt))
       .limit(limit)
@@ -218,4 +222,15 @@ function buildConditions(query: ScanRecordQuery): SQL[] {
   }
 
   return conditions;
+}
+
+function buildFieldReportJoinCondition(submitterIdentity?: string): SQL {
+  const normalizedSubmitterIdentity = submitterIdentity?.trim();
+  if (!normalizedSubmitterIdentity) {
+    return sql`0`;
+  }
+  return and(
+    eq(fieldReports.scanRecordId, scanRecords.id),
+    eq(fieldReports.submitterIdentity, normalizedSubmitterIdentity),
+  )!;
 }

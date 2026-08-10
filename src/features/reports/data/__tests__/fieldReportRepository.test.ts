@@ -446,6 +446,34 @@ describe('Field Report draft repository', () => {
     native.close();
   });
 
+  it('clears manual provenance when a resolved GPS capture replaces the final location', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveManualMapLocation(database, REPORT_ID, SUBMITTER_ID, {
+      latitude: 14.071,
+      longitude: 120.635,
+      selectedAt: '2026-08-10T02:00:00.000Z',
+      updatedAt: '2026-08-10T02:00:01.000Z',
+    });
+
+    await expect(
+      saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
+        accuracy: 4.2,
+        capturedAt: '2026-08-10T03:00:00.000Z',
+        latitude: 14.0667,
+        longitude: 120.6319,
+        outcome: 'resolved',
+        updatedAt: '2026-08-10T03:00:01.000Z',
+      }),
+    ).resolves.toMatchObject({
+      finalLatitude: 14.0667,
+      finalLongitude: 120.6319,
+      locationSource: 'gps',
+      manualLocationSelectedAt: null,
+    });
+    native.close();
+  });
+
   it('keeps latest fields on the same Draft when strict finalization fails', async () => {
     const { database, native } = openTestDatabase();
     insertCompleteClassScores(native);

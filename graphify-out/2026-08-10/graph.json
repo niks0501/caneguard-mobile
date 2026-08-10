@@ -274,7 +274,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_app_tests_image_preview_test",
-      "community": 26,
+      "community": 16,
       "community_name": "image-preview.test.tsx",
       "norm_label": "image-preview.test.tsx"
     },
@@ -285,7 +285,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "src_app_tests_image_preview_test_mockdispatch",
-      "community": 26,
+      "community": 16,
       "community_name": "image-preview.test.tsx",
       "norm_label": "mockdispatch"
     },
@@ -296,7 +296,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "src_app_tests_image_preview_test_mockrouterreplace",
-      "community": 26,
+      "community": 16,
       "community_name": "image-preview.test.tsx",
       "norm_label": "mockrouterreplace"
     },
@@ -307,7 +307,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "src_app_tests_image_preview_test_mockrouterpush",
-      "community": 26,
+      "community": 16,
       "community_name": "image-preview.test.tsx",
       "norm_label": "mockrouterpush"
     },
@@ -318,7 +318,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "src_app_tests_image_preview_test_mockpreprocessimage",
-      "community": 26,
+      "community": 16,
       "community_name": "image-preview.test.tsx",
       "norm_label": "mockpreprocessimage"
     },
@@ -329,7 +329,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "src_app_tests_image_preview_test_mockruninference",
-      "community": 26,
+      "community": 16,
       "community_name": "image-preview.test.tsx",
       "norm_label": "mockruninference"
     },
@@ -340,7 +340,7 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "src_app_tests_image_preview_test_mockusecaneguardmodel",
-      "community": 26,
+      "community": 16,
       "community_name": "image-preview.test.tsx",
       "norm_label": "mockusecaneguardmodel"
     },
@@ -351,7 +351,7 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "src_app_tests_image_preview_test_mockmodelrun",
-      "community": 26,
+      "community": 16,
       "community_name": "image-preview.test.tsx",
       "norm_label": "mockmodelrun"
     },
@@ -362,7 +362,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "src_app_tests_image_preview_test_successfulpreprocessingresult",
-      "community": 26,
+      "community": 16,
       "community_name": "image-preview.test.tsx",
       "norm_label": "successfulpreprocessingresult"
     },
@@ -373,7 +373,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "src_app_tests_image_preview_test_successfulinferenceresult",
-      "community": 26,
+      "community": 16,
       "community_name": "image-preview.test.tsx",
       "norm_label": "successfulinferenceresult"
     },
@@ -384,7 +384,7 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "src_app_tests_image_preview_test_selectedstate",
-      "community": 26,
+      "community": 16,
       "community_name": "image-preview.test.tsx",
       "norm_label": "selectedstate"
     },
@@ -1243,7 +1243,7 @@
       "_origin": "ast",
       "id": "src_app_image_preview_imagepreviewscreen",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": "imagepreviewscreen()"
     },
     {
@@ -4983,7 +4983,7 @@
       "_origin": "ast",
       "id": "src_features_detection_model_tests_runinference_test",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": "runinference.test.ts"
     },
     {
@@ -4994,7 +4994,7 @@
       "_origin": "ast",
       "id": "src_features_detection_model_tests_runinference_test_float32buffer",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": "float32buffer()"
     },
     {
@@ -5005,7 +5005,7 @@
       "_origin": "ast",
       "id": "src_features_detection_model_tests_runinference_test_createrunner",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": "createrunner()"
     },
     {
@@ -5104,7 +5104,7 @@
       "_origin": "ast",
       "id": "src_features_detection_model_inferenceerrors",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": "inferenceerrors.ts"
     },
     {
@@ -5115,7 +5115,7 @@
       "_origin": "ast",
       "id": "src_features_detection_model_inferenceerrors_inferenceerrorcode",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": "inferenceerrorcode"
     },
     {
@@ -5126,7 +5126,7 @@
       "_origin": "ast",
       "id": "src_features_detection_model_inferenceerrors_getinferencestage",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": "getinferencestage()"
     },
     {
@@ -5137,7 +5137,7 @@
       "_origin": "ast",
       "id": "src_features_detection_model_inferenceerrors_inferenceerror",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": "inferenceerror"
     },
     {
@@ -5148,7 +5148,7 @@
       "_origin": "ast",
       "id": "src_features_detection_model_inferenceerrors_inferenceerror_constructor",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": ".constructor()"
     },
     {
@@ -5159,7 +5159,7 @@
       "_origin": "ast",
       "id": "src_features_detection_model_inferenceerrors_asinferenceerror",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": "asinferenceerror()"
     },
     {
@@ -5170,7 +5170,7 @@
       "_origin": "ast",
       "id": "src_features_detection_model_inferenceerrors_getinferenceerrormessage",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": "getinferenceerrormessage()"
     },
     {
@@ -5225,7 +5225,7 @@
       "_origin": "ast",
       "id": "src_features_detection_model_runinference",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": "runinference.ts"
     },
     {
@@ -5236,7 +5236,7 @@
       "_origin": "ast",
       "id": "src_features_detection_model_runinference_inferencerunner",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": "inferencerunner"
     },
     {
@@ -5247,7 +5247,7 @@
       "_origin": "ast",
       "id": "src_features_detection_model_runinference_inferencerunner_run",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": ".run()"
     },
     {
@@ -5258,7 +5258,7 @@
       "_origin": "ast",
       "id": "src_features_detection_model_runinference_now",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": "now()"
     },
     {
@@ -5269,7 +5269,7 @@
       "_origin": "ast",
       "id": "src_features_detection_model_runinference_runinference",
       "community": 16,
-      "community_name": "runInference.ts",
+      "community_name": "image-preview.test.tsx",
       "norm_label": "runinference()"
     },
     {
@@ -9566,7 +9566,7 @@
       "label": "syncPendingFieldReports()",
       "file_type": "code",
       "source_file": "src/features/sync/services/syncPendingFieldReports.ts",
-      "source_location": "L37",
+      "source_location": "L40",
       "_origin": "ast",
       "id": "src_features_sync_services_syncpendingfieldreports_syncpendingfieldreports",
       "community": 44,
@@ -9577,7 +9577,7 @@
       "label": "executeBatch()",
       "file_type": "code",
       "source_file": "src/features/sync/services/syncPendingFieldReports.ts",
-      "source_location": "L63",
+      "source_location": "L71",
       "_origin": "ast",
       "id": "src_features_sync_services_syncpendingfieldreports_executebatch",
       "community": 44,
@@ -36762,7 +36762,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/features/sync/services/syncPendingFieldReports.ts",
-      "source_location": "L70",
+      "source_location": "L78",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_sync_services_syncpendingfieldreports_executebatch",
@@ -39975,7 +39975,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/features/sync/services/syncPendingFieldReports.ts",
-      "source_location": "L82",
+      "source_location": "L90",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_sync_services_syncpendingfieldreports_executebatch",
@@ -39997,7 +39997,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/features/sync/services/syncPendingFieldReports.ts",
-      "source_location": "L63",
+      "source_location": "L71",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_sync_services_syncpendingfieldreports",
@@ -40019,7 +40019,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/features/sync/services/syncPendingFieldReports.ts",
-      "source_location": "L37",
+      "source_location": "L40",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_sync_services_syncpendingfieldreports",
@@ -40053,7 +40053,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/features/sync/services/syncPendingFieldReports.ts",
-      "source_location": "L51",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_features_sync_services_syncpendingfieldreports_syncpendingfieldreports",

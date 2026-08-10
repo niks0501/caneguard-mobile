@@ -1,11 +1,11 @@
 # Graph Report - 01KZNP9FXP3KPF3YBSCHEJGY57  (2026-08-10)
 
 ## Corpus Check
-- 161 files · ~59,736 words
+- 161 files · ~59,812 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 893 nodes · 2599 edges · 42 communities
+- 893 nodes · 2599 edges · 41 communities
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 16 edges (avg confidence: 0.76)
 - Token cost: 0 input · 0 output
 
@@ -30,7 +30,7 @@
 - scan.test.tsx
 - analysis-result.test.tsx
 - fieldReportValidation.ts
-- runInference.ts
+- image-preview.test.tsx
 - Q: How should Phase 5 TFLite inference connect the existing preprocessing contract, model constants and detection UI, and what comparable tests and runtime APIs already exist?
 - schema.ts
 - migrations.test.ts
@@ -40,7 +40,6 @@
 - scanRecordRepository.ts
 - captureGpsLocation.ts
 - record-details.test.tsx
-- image-preview.test.tsx
 - modelContract.ts
 - recordTypes.ts
 - scanRecordWriteRepository.ts
@@ -84,7 +83,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (42 total, 0 thin omitted)
+## Communities (41 total, 0 thin omitted)
 
 ### Community 0 - "toStorageError"
 Cohesion: 0.30
@@ -146,9 +145,9 @@ Nodes (11): createCompletedState(), createResult(), MATRIX, MatrixCase, mockDisp
 Cohesion: 0.09
 Nodes (38): mockCaptureLocation, mockFinalize, mockRefresh, mockRetryReport, mockSave, mockSaveManualLocation, mockScan, mockSyncNow (+30 more)
 
-### Community 16 - "runInference.ts"
-Cohesion: 0.22
-Nodes (8): ImagePreviewScreen(), asInferenceError(), getInferenceErrorMessage(), getInferenceStage(), InferenceError, InferenceErrorCode, InferenceRunner, runInference()
+### Community 16 - "image-preview.test.tsx"
+Cohesion: 0.12
+Nodes (18): ImagePreviewScreen(), mockDispatch, mockModelRun, mockPreprocessImage, mockRouterPush, mockRouterReplace, mockRunInference, mockUseCaneGuardModel (+10 more)
 
 ### Community 17 - "Q: How should Phase 5 TFLite inference connect the existing preprocessing contract, model constants and detection UI, and what comparable tests and runtime APIs already exist?"
 Cohesion: 0.40
@@ -185,10 +184,6 @@ Nodes (7): captureGpsLocation(), ForegroundLocationClient, GpsCaptureResult, isC
 ### Community 25 - "record-details.test.tsx"
 Cohesion: 0.19
 Nodes (9): AppNavigator(), DETAILS, mockDatabase, mockDeleteScanRecord, mockRefresh, mockRouterPush, mockRouterReplace, mockUseLocalSearchParams (+1 more)
-
-### Community 26 - "image-preview.test.tsx"
-Cohesion: 0.18
-Nodes (10): mockDispatch, mockModelRun, mockPreprocessImage, mockRouterPush, mockRouterReplace, mockRunInference, mockUseCaneGuardModel, selectedState (+2 more)
 
 ### Community 27 - "modelContract.ts"
 Cohesion: 0.23
@@ -257,7 +252,7 @@ Nodes (3): Listener, listeners, subscribeSyncRecords()
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `useTheme()` connect `useTheme` to `online-map-picker.tsx`, `theme.ts`, `register.tsx`, `settings.tsx`, `DatabaseProvider.tsx`, `record-details.tsx`, `records.tsx`, `analysis-result.tsx`, `reports.tsx`, `field-report.tsx`, `reportRepository.ts`, `runInference.ts`, `AppButton.tsx`, `Spacing`?**
+- **Why does `useTheme()` connect `useTheme` to `online-map-picker.tsx`, `theme.ts`, `register.tsx`, `settings.tsx`, `DatabaseProvider.tsx`, `record-details.tsx`, `records.tsx`, `analysis-result.tsx`, `reports.tsx`, `field-report.tsx`, `reportRepository.ts`, `image-preview.test.tsx`, `AppButton.tsx`, `Spacing`?**
   _High betweenness centrality (0.129) - this node is a cross-community bridge._
 - **Why does `toStorageError()` connect `toStorageError` to `DatabaseProvider.tsx`, `record-details.tsx`, `saveCompletedScan.ts`, `reportRepository.ts`, `field-report.tsx`, `fieldReportSyncRepository.ts`, `AppButton.tsx`, `scanImageStorage.ts`, `scanRecordRepository.ts`, `scanRecordWriteRepository.ts`?**
   _High betweenness centrality (0.040) - this node is a cross-community bridge._

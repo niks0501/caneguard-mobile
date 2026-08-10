@@ -179,6 +179,7 @@ export async function saveGpsCapture(
               finalLongitude: input.longitude,
               gpsAccuracy: input.accuracy,
               locationSource: 'gps' as const,
+              manualLocationSelectedAt: null,
             }
           : {};
 

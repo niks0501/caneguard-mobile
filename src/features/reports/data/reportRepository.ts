@@ -3,6 +3,7 @@ import {
   asc,
   count,
   desc,
+  eq,
   gte,
   inArray,
   lte,
@@ -31,14 +32,17 @@ export interface LocalReportOptions {
 
 export function createReportRepository(
   database: CaneGuardDatabase,
+  submitterIdentity: string,
 ): ReportRepository {
   return {
-    getLocalSummary: (options) => getLocalReportSummary(database, options),
+    getLocalSummary: (options) =>
+      getLocalReportSummary(database, submitterIdentity, options),
   };
 }
 
 export async function getLocalReportSummary(
   database: CaneGuardDatabase,
+  submitterIdentity: string,
   options: LocalReportOptions = {},
 ): Promise<LocalReportSummary> {
   const lowScoreThreshold =
@@ -88,11 +92,11 @@ export async function getLocalReportSummary(
       listScanRecords(database, {
         dateRange: options.dateRange,
         limit: recentLimit,
-      }),
+      }, submitterIdentity),
       database
         .select({ count: count() })
         .from(fieldReports)
-        .where(buildPendingReportCondition(options.dateRange))
+        .where(buildPendingReportCondition(options.dateRange, submitterIdentity))
         .get(),
     ]);
 
@@ -130,8 +134,13 @@ function buildDateCondition(dateRange?: DateRange): SQL | undefined {
   return conditions.length ? and(...conditions) : undefined;
 }
 
-function buildPendingReportCondition(dateRange?: DateRange): SQL {
+function buildPendingReportCondition(
+  dateRange: DateRange | undefined,
+  submitterIdentity: string,
+): SQL {
   const conditions: SQL[] = [
+    eq(fieldReports.authoringState, 'finalized'),
+    eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
     inArray(fieldReports.syncStatus, ['pending', 'syncing', 'failed']),
   ];
   if (dateRange?.from) {

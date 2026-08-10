@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
 import { listScanRecords } from '@/features/records/data/scanRecordRepository';
 
@@ -15,12 +16,22 @@ jest.mock('expo-router', () => ({
 jest.mock('@/database/DatabaseProvider', () => ({
   useCaneGuardDatabase: () => mockDatabase,
 }));
+jest.mock('@/features/auth/hooks/useAuth', () => ({
+  useAuth: jest.fn(),
+}));
 jest.mock('@/features/records/data/scanRecordRepository', () => ({
   findScanRecordById: jest.fn(),
   listScanRecords: jest.fn(),
 }));
 
 const mockListScanRecords = jest.mocked(listScanRecords);
+const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
+
+beforeEach(() => {
+  jest.mocked(useAuth).mockReturnValue({
+    user: { uuid: SUBMITTER_ID },
+  } as never);
+});
 
 function record(index: number): ScanRecordListItem {
   return {
@@ -63,11 +74,13 @@ describe('usePaginatedScanRecords', () => {
       1,
       mockDatabase,
       expect.objectContaining({ limit: 2, offset: 0 }),
+      SUBMITTER_ID,
     );
     expect(mockListScanRecords).toHaveBeenNthCalledWith(
       2,
       mockDatabase,
       expect.objectContaining({ limit: 2, offset: 2 }),
+      SUBMITTER_ID,
     );
   });
 
@@ -97,6 +110,7 @@ describe('usePaginatedScanRecords', () => {
         offset: 0,
         predictedLabel: 'rust',
       }),
+      SUBMITTER_ID,
     );
   });
 

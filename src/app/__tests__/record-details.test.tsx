@@ -192,11 +192,23 @@ describe('RecordDetailsScreen', () => {
       },
     };
 
-    await render(<RecordDetailsScreen />);
+    const view = await render(<RecordDetailsScreen />);
 
     expect(screen.getByLabelText('Open finalized Field Report')).toBeOnTheScreen();
     expect(screen.getByText('View Finalized Report')).toBeOnTheScreen();
+    expect(
+      screen.getByText('This Field Report is finalized locally: Pending upload.'),
+    ).toBeOnTheScreen();
     expect(screen.queryByText('Resume Draft')).not.toBeOnTheScreen();
+
+    mockFieldReportState = {
+      ...mockFieldReportState,
+      data: { ...mockFieldReportState.data!, syncStatus: 'synced' },
+    };
+    await view.rerender(<RecordDetailsScreen />);
+    expect(
+      screen.getByText('This Field Report is finalized locally: Synced.'),
+    ).toBeOnTheScreen();
   });
 
   it('loads complete stored metadata by UUID', async () => {

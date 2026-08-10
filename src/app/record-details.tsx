@@ -465,12 +465,13 @@ function getFieldReportAction(
       message: 'Continue the same locally saved Draft. Partial information is preserved.',
     };
   }
+  const syncPresentation = getSyncPresentation(report.syncStatus);
   return {
     accessibilityLabel: 'Open finalized Field Report',
     disabled: false,
     icon: 'check-circle',
     label: 'View Finalized Report',
-    message: 'This Field Report is finalized locally and pending synchronization.',
+    message: `This Field Report is finalized locally: ${syncPresentation.label}.`,
   };
 }
 

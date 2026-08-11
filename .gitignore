@@ -67,6 +67,9 @@ example
 # OpenCode local dependencies
 .opencode/node_modules/
 
+# Python bytecode cache
+.opencode/skills/ui-ux-pro-max/scripts/__pycache__/
+
 # Generated Graphify cache
 graphify-out/cache/
 

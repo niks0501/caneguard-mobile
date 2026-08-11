@@ -1,0 +1,24 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-json
+      - id: check-yaml
+      - id: check-toml
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      - id: validate-harness
+        name: Validate harness
+        entry: python3 scripts/validate_harness.py
+        language: system
+        pass_filenames: false
+
+      - id: gitleaks-local
+        name: Gitleaks secret scan
+        entry: gitleaks dir .
+        language: system
+        pass_filenames: false

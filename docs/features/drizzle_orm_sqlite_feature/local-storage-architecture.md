@@ -1,0 +1,178 @@
+# CaneGuard Local Storage Architecture
+
+## Scope
+
+CaneGuard stores completed scan metadata in `caneguard.db` through Drizzle ORM
+and Expo SQLite. Scan images are stored separately in the application documents
+directory. Authentication, uploads, and backend synchronization are outside this
+feature.
+
+## Dependency Direction
+
+```text
+Routes and UI
+  -> feature hooks and application services
+  -> repository contracts and implementations
+  -> Drizzle ORM
+  -> Expo SQLite
+```
+
+Routes must not import `src/database/schema.ts`. File operations are owned by the
+managed image service introduced in Phase 2.
+
+## Database Lifecycle
+
+- `CANEGUARD_DATABASE_FILENAME` in `src/database/database.ts` is the only
+  database filename definition.
+- `CaneGuardDatabaseProvider` opens the shared connection, enables and verifies
+  foreign keys, applies bundled migrations, and gates its children until ready.
+- Initialization states are `migrating`, `ready`, and `error`.
+- An initialization failure shows a retry action with a stable, sanitized error
+  message. Production code never resets or deletes the database automatically.
+- Write-ahead logging remains disabled until verified on the approved Android
+  device.
+
+## Schema
+
+The application schema contains:
+
+- `scan_records`
+- `scan_class_scores`
+- `scan_symptoms`
+- `scan_quality_warnings`
+
+Child rows use composite primary keys and cascade when their parent record is
+deleted. Confidence and score values are stored from `0` to `1`. Timings are
+non-negative real values. Timestamps are UTC ISO 8601 text supplied by the
+application. Images are referenced by URI and metadata; image bytes are not
+stored in SQLite.
+
+The Phase 0 `compatibility_probe` table is absent from the application schema but
+is intentionally retained in databases upgraded from Phase 0. Migration
+`0001_loving_amazoness.sql` does not drop it so upgrade evidence is preserved.
+It is not read or written by production application code.
+
+## Query Decisions
+
+- Initial Records page size: 25.
+- Refresh strategy: route-focus refresh through feature hooks. Saving and
+  deletion become visible when Records or Reports regains focus.
+- Barangay remains nullable until a verified user input source exists.
+- Records use hard deletion. There is no recovery bin or soft-delete behavior.
+- Reports must use SQL aggregate queries and optional date-range filters.
+- Record list filtering, case-insensitive search, ordering, and pagination run in
+  SQLite. Routes receive lightweight projections rather than schema rows.
+- Search is submitted deliberately and matches stored model labels or barangay
+  text. The initial UI exposes only Healthy, Mosaic, and Rust.
+- Details are loaded by record UUID and do not depend on the active scan
+  session. Missing managed images leave all stored metadata visible.
+
+## Record Deletion
+
+- The user must confirm that both the local record and saved image will be
+  removed.
+- The repository deletes the database parent first in a transaction. Foreign-key
+  cascades remove scores, symptoms, and warnings.
+- The application service attempts managed-image deletion only after database
+  success.
+- Image cleanup failure does not recreate the database record or falsely report
+  full cleanup. The orphan remains detectable by comparing managed files with
+  repository image references.
+
+## Local Reports
+
+- The initial Reports scope is all-time and is labeled as a summary of
+  observations saved on the device.
+- Totals, healthy predictions, non-healthy possible results, local-only counts,
+  and low top-score counts use one SQL conditional-aggregate query.
+- Counts by exact stored top label use SQL grouping. Recent records use the same
+  lightweight newest-first projection with a fixed limit.
+- The repository accepts optional UTC ISO date boundaries for aggregate, grouped,
+  and recent queries.
+- A top score below `0.5` is counted only as a prototype presentation rule. It is
+  not treated as a calibrated reliability threshold.
+- Reports contain no upload action, fake queue, backend dependency, or claim of
+  MAO submission, review, or disease confirmation.
+
+## Managed Scan Images
+
+- The image used by inference is copied without re-encoding to
+  `documents/caneguard/scan-images/<record-uuid>.<extension>`.
+- Only the full source image is retained. Thumbnails are deferred until list
+  profiling shows a measured need.
+- Trusted MIME metadata is preferred, followed by a supported filename or URI
+  extension. Unknown formats use `.img` and a null MIME type.
+- File deletion rejects paths outside the managed directory and treats an
+  already-missing managed file as successfully absent.
+- Database writes remain outside the file service. A failed database transaction
+  calls compensation cleanup, and failed cleanup makes the file detectable as an
+  orphan.
+- Orphan detection is explicit maintenance behavior. There is no background
+  deletion scheduler.
+
+## Completed Scan Save
+
+- The Analysis Result screen saves only after an explicit user action. Viewing a
+  completed result does not persist it.
+- A UUIDv4 is generated once per mounted completed result and remains stable
+  across recoverable retries.
+- The application validates the completed session before file or database I/O,
+  copies the source image, then inserts the parent and all child rows in one
+  synchronous SQLite transaction.
+- Required class-score rows are atomic with the parent. Symptoms and quality
+  warnings may be empty.
+- If the transaction fails after the image copy, the transaction rolls back and
+  managed-file cleanup is attempted without masking the primary failure.
+- New records use `local_only` with null remote metadata and zero attempts. No
+  network operation or synchronization claim is made.
+- The post-save action remains on Analysis Result and shows local confirmation.
+  Opening the saved record is deferred until the Phase 4 detail route exists, so
+  Phase 3 never navigates to a nonexistent destination.
+
+## Migration Workflow
+
+1. Change `src/database/schema.ts`.
+2. Run `npm run db:generate`.
+3. Review generated SQL and snapshot metadata.
+4. Run `npm run db:check`.
+5. Run migration tests against an empty database and the immediately preceding
+   schema.
+6. Commit schema, SQL, snapshots, tests, and relevant documentation together.
+
+Migrations are forward-only. A release rollback uses the prior application build
+without deleting the database; a corrective forward migration is required for a
+bad schema change.
+
+## Developer Verification
+
+Run from the repository root:
+
+```bash
+npm ci
+npm run db:check
+node scripts/measure_storage_performance.mjs
+npx expo-doctor
+npx --no-install expo export --platform android --output-dir /tmp/caneguard-export
+just verify-full
+```
+
+The performance fixture uses an in-memory Node SQLite database and creates 5,000
+records with 15,000 class-score rows plus mixed optional children. It validates
+fixture integrity and index use but is not a substitute for Android performance
+measurement.
+
+The developer-only `/storage-debug` route reports initialization, foreign-key
+state, row counts, and actual orphan-image count. It contains no reset action and
+is protected by `__DEV__`.
+
+## Release Boundaries
+
+- Native Android airplane-mode save, process restart, camera/gallery URI
+  behavior, update-install migration, TalkBack review, and device performance
+  require a named physical device and installed development or preview build.
+- A Metro Android export proves JavaScript and asset bundling, not native runtime
+  behavior or APK installation.
+- Dependency advisories in transitive Expo/Jest/config tooling require upstream
+  disposition. Do not force-downgrade Expo or Jest to satisfy `npm audit`.
+- Authentication, upload, synchronization, GPS collection, thumbnails, WAL, and
+  a controlled barangay source remain outside this release scope.

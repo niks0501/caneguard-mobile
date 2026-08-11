@@ -1,0 +1,27 @@
+# AkiDev project-local Codex configuration.
+# This file belongs inside the repository and must not be copied to ~/.codex.
+
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+model_reasoning_effort = "high"
+
+project_doc_fallback_filenames = ["PROJECT_CHECKS.md", "PROJECT_CONTEXT.md"]
+project_doc_max_bytes = 32768
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 4
+
+
+
+# AkiDev manages only this project-local MCP block.
+
+# AkiDev manages only this project-local MCP block.
+# >>> AKIDEV MCP START
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp@3.2.3"]
+startup_timeout_sec = 20
+enabled = true
+
+# <<< AKIDEV MCP END

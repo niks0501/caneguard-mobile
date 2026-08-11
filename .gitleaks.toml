@@ -1,0 +1,8 @@
+title = "OpenCode harness gitleaks config"
+
+[allowlist]
+description = "Allow documentation placeholders only"
+regexes = [
+  '''\{env:[A-Z0-9_]+\}''',
+  '''ghp_\.\.\.''',
+]

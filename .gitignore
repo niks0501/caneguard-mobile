@@ -1,5 +1,3 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
 # dependencies
 node_modules/
 
@@ -35,41 +33,52 @@ yarn-error.*
 .env*.local
 .env
 
-# typescript
+# TypeScript
 *.tsbuildinfo
 
+# Example / temporary
 example
 
-# generated native folders
+# Generated native folders
 /ios
 /android
 
-# Workflow files
-.opencode
-opencode.jsonc
-PROJECT_CHECKS.md
-docs/*
-!docs/model-v0/
-!docs/model-v0/**
-graphify-out/cache/
-.ai
-project-structure.txt
-.agents
-.codex
-.harness
-harness/
-tasks
-.gitleaks.toml
-.pre-commit-config.yaml
-GUIDE.md
-justfile
-scripts
-tests/
+# ============================================================
+# Development / AI workflow runtime
+# ============================================================
+#
+# Project agents, skills, hooks, tests, scripts, documentation,
+# and tooling configuration are intentionally version controlled.
+#
+# Tracked examples:
+#   .agents/
+#   .codex/
+#   .opencode/
+#   opencode.jsonc
+#   PROJECT_CHECKS.md
+#   docs/
+#   .gitleaks.toml
+#   .pre-commit-config.yaml
+#   GUIDE.md
+#   justfile
+#   scripts/
+#   tests/
 
-# Generated Maestro evidence (the convention and templates remain tracked)
+# OpenCode local dependencies
+.opencode/node_modules/
+
+# Generated Graphify cache
+graphify-out/cache/
+
+# Local / generated AI runtime data
+.ai
+
+# Generated project inspection output
+project-structure.txt
+
+# Generated Maestro evidence
 .maestro/artifacts/*
 !.maestro/artifacts/.gitkeep
-
 
 # >>> AkiDev project-local runtime >>>
 .akidev/cache/

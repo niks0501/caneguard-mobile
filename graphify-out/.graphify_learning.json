@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-10T11:03:47.722723+00:00",
+  "generated_at": "2026-08-11T07:23:31.045353+00:00",
   "nodes": {
     "src_app_analysis_result": {
       "code_fingerprint": "79a9326bf91f03cddd864c5881abae0e0f64b2abc0fa18c2d7f0079e8ac8db96",
@@ -12,7 +12,7 @@
           "q": "Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md"
         }
       ],
-      "score": 0.687058603,
+      "score": 0.673743222,
       "source_file": "src/app/analysis-result.tsx",
       "status": "tentative",
       "uses": 1
@@ -28,7 +28,7 @@
           "q": "Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md"
         }
       ],
-      "score": 0.687058603,
+      "score": 0.673743222,
       "source_file": "src/app/symptom-checklist.tsx",
       "status": "tentative",
       "uses": 1
@@ -44,7 +44,7 @@
           "q": "How should Phase 5 TFLite inference connect the existing preprocessing contract, model constants and detection UI, and what comparable tests and runtime APIs already exist?"
         }
       ],
-      "score": 0.68684521,
+      "score": 0.673533964,
       "source_file": "src/features/detection/constants/modelContract.ts",
       "status": "tentative",
       "uses": 1
@@ -60,7 +60,7 @@
           "q": "How should Phase 5 TFLite inference connect the existing preprocessing contract, model constants and detection UI, and what comparable tests and runtime APIs already exist?"
         }
       ],
-      "score": 0.68684521,
+      "score": 0.673533964,
       "source_file": "src/features/detection/constants/modelContract.ts",
       "status": "tentative",
       "uses": 1
@@ -76,7 +76,7 @@
           "q": "Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md"
         }
       ],
-      "score": 0.687058603,
+      "score": 0.673743222,
       "source_file": "src/features/detection/types.ts",
       "status": "tentative",
       "uses": 1
@@ -92,7 +92,7 @@
           "q": "Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md"
         }
       ],
-      "score": 0.687058603,
+      "score": 0.673743222,
       "source_file": "src/features/detection/types.ts",
       "status": "tentative",
       "uses": 1

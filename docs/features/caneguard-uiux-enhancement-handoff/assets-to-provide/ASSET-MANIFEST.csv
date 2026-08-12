@@ -1,0 +1,4 @@
+local_filename,class,status,source_page,source_image_id_or_url,author_or_org,license_name,license_evidence,attribution_text,review_status
+reference_healthy.jpg,Healthy,NEEDS_ASSET,,,,,,,pending
+reference_mosaic.jpg,Mosaic,NEEDS_ASSET,,,,,,,pending
+reference_rust.jpg,Rust,NEEDS_ASSET,,,,,,,pending

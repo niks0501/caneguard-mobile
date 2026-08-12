@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "purpose": "CaneGuard supported-class education/reference assets",
+  "runtimePolicy": {
+    "remoteImagesAllowed": false,
+    "aiGeneratedDiseaseReferenceAllowed": false,
+    "supportedClasses": [
+      "healthy",
+      "mosaic",
+      "rust"
+    ]
+  },
+  "requiredUserAssets": [
+    {
+      "id": "healthy-reference",
+      "class": "healthy",
+      "targetPath": "assets/images/sugarcane-diseases/reference_healthy.jpg",
+      "status": "missing_until_supplied",
+      "mustBeRealPhoto": true,
+      "licenseEvidenceRequired": true
+    },
+    {
+      "id": "mosaic-reference",
+      "class": "mosaic",
+      "targetPath": "assets/images/sugarcane-diseases/reference_mosaic.jpg",
+      "status": "missing_until_supplied",
+      "mustBeRealPhoto": true,
+      "licenseEvidenceRequired": true
+    },
+    {
+      "id": "rust-reference",
+      "class": "rust",
+      "targetPath": "assets/images/sugarcane-diseases/reference_rust.jpg",
+      "status": "missing_until_supplied",
+      "mustBeRealPhoto": true,
+      "licenseEvidenceRequired": true
+    }
+  ],
+  "derivedBrandExports": [
+    {
+      "targetPath": "assets/images/icon.png",
+      "source": "current approved CaneGuard mark"
+    },
+    {
+      "targetPath": "assets/images/android-icon-foreground.png",
+      "source": "current approved CaneGuard mark"
+    },
+    {
+      "targetPath": "assets/images/android-icon-background.png",
+      "source": "brand background treatment if image is still needed"
+    },
+    {
+      "targetPath": "assets/images/android-icon-monochrome.png",
+      "source": "current approved CaneGuard mark"
+    },
+    {
+      "targetPath": "assets/images/splash-icon.png",
+      "source": "current approved CaneGuard mark"
+    }
+  ],
+  "forbiddenNewAssets": [
+    "hero photography",
+    "decorative illustrations",
+    "unsupported disease photos",
+    "remote image dependencies",
+    "new raster icon pack",
+    "map artwork"
+  ]
+}

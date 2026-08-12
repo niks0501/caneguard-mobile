@@ -1,0 +1,16 @@
+00-FINAL-DECISIONS.md
+01-CURRENT-STATE-AUDIT.md
+02-IMPLEMENTATION-PLAN.md
+03-SCREEN-SPECS.md
+04-ASSET-ACQUISITION.md
+05-CHANGESET-MAP.md
+06-ACCEPTANCE-CRITERIA.md
+README.md
+agent/IMPLEMENTATION-PROMPT.md
+assets-to-provide/ASSET-MANIFEST.csv
+assets-to-provide/ASSET-REQUEST.md
+assets-to-provide/PUT-ASSETS-HERE.md
+assets-to-provide/asset-manifest.json
+references/README.md
+references/caneguard-uiux-mockup-reference.png
+testing/MAESTRO-TEST-PLAN.md

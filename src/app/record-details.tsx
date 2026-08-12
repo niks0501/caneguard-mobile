@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
+import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import {
   getResultLabel,
   getSyncPresentation,
@@ -270,16 +271,6 @@ export default function RecordDetailsScreen() {
                 </AppButton>
               </Section>
 
-              <Section title="All model class scores">
-                {record.data.classScores.map((score) => (
-                  <DetailRow
-                    key={score.label}
-                    label={formatClassLabel(score.label)}
-                    value={`${Math.round(score.score * 100)}%`}
-                  />
-                ))}
-              </Section>
-
               <Section title="Observation context">
                 <DetailRow
                   label="Checklist"
@@ -308,39 +299,45 @@ export default function RecordDetailsScreen() {
                 />
               </Section>
 
-              <Section title="Saved analysis details">
-                <DetailRow label="Model version" value={record.data.modelVersion} />
-                <DetailRow
-                  label="Preprocessing"
-                  value={`${formatDuration(record.data.preprocessMs)} ms`}
-                />
-                <DetailRow
-                  label="Inference"
-                  value={`${formatDuration(record.data.inferenceMs)} ms`}
-                />
-                <DetailRow
-                  label="Total processing"
-                  value={`${formatDuration(record.data.totalMs)} ms`}
-                />
-                <DetailRow
-                  label="Saved"
-                  value={formatSavedAt(record.data.createdAt)}
-                />
-                <DetailRow
-                  label="Server report UUID"
-                  value={synchronizationMetadata?.remoteId ?? 'Not assigned'}
-                />
-                <DetailRow
-                  label="Last synchronized"
-                  value={
-                    synchronizationMetadata?.lastSyncedAt
-                      ? formatSavedAt(
-                          synchronizationMetadata.lastSyncedAt,
-                        )
-                      : 'Not yet synchronized'
-                  }
-                />
-              </Section>
+              <DisclosureSection testID="records.technical-details" title="Technical details">
+                <Section title="All model class scores">
+                  {record.data.classScores.map((score) => (
+                    <DetailRow
+                      key={score.label}
+                      label={formatClassLabel(score.label)}
+                      value={`${Math.round(score.score * 100)}%`}
+                    />
+                  ))}
+                </Section>
+                <Section title="Saved analysis details">
+                  <DetailRow label="Model version" value={record.data.modelVersion} />
+                  <DetailRow
+                    label="Preprocessing"
+                    value={`${formatDuration(record.data.preprocessMs)} ms`}
+                  />
+                  <DetailRow
+                    label="Inference"
+                    value={`${formatDuration(record.data.inferenceMs)} ms`}
+                  />
+                  <DetailRow
+                    label="Total processing"
+                    value={`${formatDuration(record.data.totalMs)} ms`}
+                  />
+                  <DetailRow label="Saved" value={formatSavedAt(record.data.createdAt)} />
+                  <DetailRow
+                    label="Server report UUID"
+                    value={synchronizationMetadata?.remoteId ?? 'Not assigned'}
+                  />
+                  <DetailRow
+                    label="Last synchronized"
+                    value={
+                      synchronizationMetadata?.lastSyncedAt
+                        ? formatSavedAt(synchronizationMetadata.lastSyncedAt)
+                        : 'Not yet synchronized'
+                    }
+                  />
+                </Section>
+              </DisclosureSection>
 
               {synchronizationMetadata?.lastSyncErrorCode ? (
                 <View

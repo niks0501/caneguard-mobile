@@ -308,13 +308,9 @@ export default function ScanScreen() {
                   </>
                 ) : (
                   <>
-                    <ExpoImage
-                      accessible={false}
-                      contentFit="contain"
-                      pointerEvents="none"
-                      source={require('../../assets/svg/scan-empty-state.svg')}
-                      style={styles.emptyArtwork}
-                    />
+                    <View style={[styles.emptyIcon, { backgroundColor: theme.surfaceMuted }]}>
+                      <Feather name="image" size={52} color={theme.primary} />
+                    </View>
                     <Text style={[styles.uploadTitle, { color: theme.primaryDark }]}>
                       {activeOperation === 'recovery'
                         ? 'Checking for a selected image'
@@ -376,7 +372,7 @@ export default function ScanScreen() {
               ]}>
               <View style={styles.guideHeading}>
                 <View style={[styles.guideIcon, { backgroundColor: theme.warningBg }]}>
-                  <Feather name="feather" size={18} color={theme.accentDark} />
+                  <Feather name="check-circle" size={18} color={theme.accentDark} />
                 </View>
                 <Text style={[styles.guideTitle, { color: theme.primaryDark }]}>
                   Photo quality guide
@@ -399,25 +395,8 @@ export default function ScanScreen() {
                 styles.disclaimer,
                 { backgroundColor: theme.warningBg, borderColor: theme.accent },
               ]}>
-              <ExpoImage
-                accessible={false}
-                contentFit="contain"
-                pointerEvents="none"
-                source={require('../../assets/svg/gold-leaf-corner.svg')}
-                style={styles.disclaimerLeaf}
-              />
-              <Feather
-                name="info"
-                size={18}
-                color={theme.accentDark}
-                style={styles.disclaimerContent}
-              />
-              <Text
-                style={[
-                  styles.disclaimerText,
-                  styles.disclaimerContent,
-                  { color: theme.text },
-                ]}>
+              <Feather name="info" size={18} color={theme.accentDark} />
+              <Text style={[styles.disclaimerText, { color: theme.text }]}>
                 This result is for decision support only and should not replace expert validation.
               </Text>
             </View>
@@ -487,9 +466,12 @@ const styles = StyleSheet.create({
   selectedDropZone: {
     borderStyle: 'solid',
   },
-  emptyArtwork: {
-    width: 116,
-    height: 116,
+  emptyIcon: {
+    width: 88,
+    height: 88,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   selectedImage: {
     width: '100%',
@@ -551,19 +533,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.sm,
     alignItems: 'flex-start',
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  disclaimerLeaf: {
-    position: 'absolute',
-    width: 92,
-    height: 92,
-    right: -18,
-    bottom: -24,
-    opacity: 0.22,
-  },
-  disclaimerContent: {
-    zIndex: 1,
   },
   disclaimerText: {
     ...Typography.caption,

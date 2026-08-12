@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
+import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import {
   ComponentTokens,
   Layout,
@@ -230,16 +231,6 @@ export default function AnalysisResultScreen() {
               </View>
             ) : null}
 
-            <SectionCard title="All Model v0 class scores">
-              {MODEL_LABELS.map((label) => (
-                <ScoreRow
-                  key={label}
-                  label={label}
-                  score={result.scores.find((item) => item.label === label)?.score}
-                />
-              ))}
-            </SectionCard>
-
             <View
               accessibilityRole={consistency === 'inconsistent' ? 'alert' : undefined}
               style={[
@@ -300,18 +291,28 @@ export default function AnalysisResultScreen() {
               </View>
             ) : null}
 
-            <SectionCard title="Analysis details">
-              <DetailRow label="Model version" value={result.modelVersion} />
-              <DetailRow
-                label="Processing time"
-                value={`${Math.round(result.timings.totalMs)} ms`}
-              />
-            </SectionCard>
+            <DisclosureSection testID="scan.technical-details" title="Technical details">
+              <SectionCard title="All Model v0 class scores">
+                {MODEL_LABELS.map((label) => (
+                  <ScoreRow
+                    key={label}
+                    label={label}
+                    score={result.scores.find((item) => item.label === label)?.score}
+                  />
+                ))}
+              </SectionCard>
+              <SectionCard title="Analysis details">
+                <DetailRow label="Model version" value={result.modelVersion} />
+                <DetailRow
+                  label="Processing time"
+                  value={`${Math.round(result.timings.totalMs)} ms`}
+                />
+              </SectionCard>
+            </DisclosureSection>
 
             <View style={[styles.disclaimer, { backgroundColor: theme.infoBg, borderColor: theme.info }]}>
-              <ExpoImage accessible={false} contentFit="contain" pointerEvents="none" source={require('../../assets/svg/gold-leaf-corner.svg')} style={styles.disclaimerLeaf} />
-              <Feather name="info" size={19} color={theme.info} style={styles.disclaimerContent} />
-              <Text style={[styles.disclaimerText, styles.disclaimerContent, { color: theme.text }]}>
+              <Feather name="info" size={19} color={theme.info} />
+              <Text style={[styles.disclaimerText, { color: theme.text }]}>
                 This output is for decision support only. It does not confirm a
                 disease. Retake the image or consult an agricultural expert when the
                 result is unclear or symptoms do not match.
@@ -515,7 +516,7 @@ const styles = StyleSheet.create({
   detailRow: { minHeight: 36, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
   detailLabel: { ...Typography.bodySmall },
   detailValue: { ...Typography.bodySmall, fontWeight: '800', flexShrink: 1, textAlign: 'right' },
-  disclaimer: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm, flexDirection: 'row', alignItems: 'flex-start', overflow: 'hidden', position: 'relative' }, disclaimerLeaf: { position: 'absolute', width: 96, height: 96, right: -18, bottom: -26, opacity: 0.24 }, disclaimerContent: { zIndex: 1 }, disclaimerText: { ...Typography.caption, flex: 1, lineHeight: 18 },
+  disclaimer: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm, flexDirection: 'row', alignItems: 'flex-start' }, disclaimerText: { ...Typography.caption, flex: 1, lineHeight: 18 },
   saveCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
   saveHeading: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   saveTitle: { ...Typography.subheading, flex: 1 },

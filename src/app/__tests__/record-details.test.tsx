@@ -205,6 +205,7 @@ describe('RecordDetailsScreen', () => {
 
     const view = await render(<RecordDetailsScreen />);
 
+    await fireEvent.press(screen.getByLabelText('Show Technical details'));
     expect(screen.getByLabelText('Open finalized Field Report')).toBeOnTheScreen();
     expect(screen.getByText('View Finalized Report')).toBeOnTheScreen();
     expect(
@@ -248,6 +249,7 @@ describe('RecordDetailsScreen', () => {
   it('loads complete stored metadata by UUID', async () => {
     await render(<RecordDetailsScreen />);
 
+    await fireEvent.press(screen.getByLabelText('Show Technical details'));
     expect(useScanRecordDetails).toHaveBeenCalledWith(RECORD_ID);
     expect(screen.getByText('Possible result: Rust')).toBeOnTheScreen();
     expect(screen.getByTestId('records.result-title')).toHaveTextContent(
@@ -325,6 +327,7 @@ describe('RecordDetailsScreen', () => {
 
     await render(<RecordDetailsScreen />);
 
+    await fireEvent.press(screen.getByLabelText('Show Technical details'));
     expect(screen.getByText('Legacy Report Synced')).toBeOnTheScreen();
     expect(
       screen.getByLabelText('Legacy report already synchronized'),

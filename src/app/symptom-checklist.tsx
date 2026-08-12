@@ -183,7 +183,6 @@ export default function SymptomChecklistScreen() {
               accessibilityLabel="Continue to analysis result">
               Continue
             </AppButton>
-            <View style={[styles.ornament, { backgroundColor: theme.accent }]} />
           </View>
         </ScrollView>
       </View>
@@ -196,7 +195,7 @@ const styles = StyleSheet.create({
   content: { width: '100%', maxWidth: Layout.mobileMaxWidth, paddingHorizontal: ComponentTokens.screen.horizontalPadding, paddingVertical: Spacing.xl, gap: Spacing.xl },
   intro: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md }, introIcon: { width: 42, height: 42, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' }, introText: { ...Typography.bodySmall, flex: 1 },
   section: { gap: Spacing.md }, sectionTitle: { ...Typography.subheading }, helperText: { ...Typography.caption, marginTop: -Spacing.sm }, symptomList: { gap: Spacing.sm },
-  severityControl: { flexDirection: 'row', flexWrap: 'wrap', padding: Spacing.xs, borderRadius: Radius.lg, gap: Spacing.xs }, severityOption: { minHeight: 46, minWidth: '47%', flexGrow: 1, borderRadius: Radius.md, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.sm }, severityText: { ...Typography.bodySmall, fontWeight: '800', textAlign: 'center' }, ornament: { alignSelf: 'center', width: 62, height: 3, borderRadius: Radius.full }, pressed: { opacity: 0.72 },
+  severityControl: { flexDirection: 'row', flexWrap: 'wrap', padding: Spacing.xs, borderRadius: Radius.lg, gap: Spacing.xs }, severityOption: { minHeight: 46, minWidth: '47%', flexGrow: 1, borderRadius: Radius.md, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.sm }, severityText: { ...Typography.bodySmall, fontWeight: '800', textAlign: 'center' }, pressed: { opacity: 0.72 },
   recoveryContent: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
   recoveryCard: { width: '100%', maxWidth: Layout.mobileMaxWidth, borderWidth: 1, borderRadius: Radius.xl, padding: Spacing.xl, gap: Spacing.md, alignItems: 'center' },
   recoveryTitle: { ...Typography.heading, textAlign: 'center' },

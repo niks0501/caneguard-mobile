@@ -30,7 +30,7 @@ export function ScreenHeader({ title, showBack = true, onBackPress }: ScreenHead
             <Feather name="chevron-left" size={20} color={theme.text} />
           </Pressable>
         ) : null}
-        <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
+        <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{title}</Text>
       </View>
     </View>
   );
@@ -40,8 +40,8 @@ const styles = StyleSheet.create({
   wrapper: {
     borderBottomWidth: 1,
     paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
   row: {
     flexDirection: 'row',

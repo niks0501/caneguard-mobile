@@ -1,74 +1,56 @@
 import { Feather } from '@expo/vector-icons';
-import { Image as ExpoImage } from 'expo-image';
 import { router } from 'expo-router';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomNav } from '@/components/ui/BottomNav';
+import { SyncStatusRow } from '@/components/ui/SyncStatusRow';
 import {
   ComponentTokens,
-  DiseaseTokens,
   Fonts,
   Layout,
   Radius,
-  Shadows,
   Spacing,
   Typography,
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { useThemePreference } from '@/providers/ThemePreferenceProvider';
 
 type QuickAction = {
   title: string;
   body: string;
   icon: keyof typeof Feather.glyphMap;
   primary?: boolean;
-  badge?: string;
   onPress: () => void;
 };
 
-type DiseaseExample = {
-  name: string;
-  symptoms: string;
-  image: number;
-  color: string;
+type ReferenceTone = 'healthy' | 'mosaic' | 'rust';
+
+type ReferenceClass = {
+  name: 'Healthy' | 'Mosaic' | 'Rust';
+  tone: ReferenceTone;
+  description: string;
 };
 
-const DISEASES: DiseaseExample[] = [
+export const REFERENCE_CLASSES: readonly ReferenceClass[] = [
   {
-    name: 'Downy Mildew',
-    symptoms: 'White fuzz and yellow stripes',
-    image: require('../../assets/images/sugarcane-diseases/sugarcane_downey_mildew.jpg'),
-    color: DiseaseTokens.downyMildew.color,
+    name: 'Healthy',
+    tone: 'healthy',
+    description: 'No visible symptoms',
   },
   {
-    name: 'Sugarcane Smut',
-    symptoms: 'Black whip-like growth',
-    image: require('../../assets/images/sugarcane-diseases/sugarcane_smut.jpg'),
-    color: DiseaseTokens.smut.color,
+    name: 'Mosaic',
+    tone: 'mosaic',
+    description: 'Mottling or irregular discoloration',
   },
   {
-    name: 'Mosaic Disease',
-    symptoms: 'Yellow-green mosaic pattern',
-    image: require('../../assets/images/sugarcane-diseases/sugarcane_mosaic.jpg'),
-    color: DiseaseTokens.mosaic.color,
-  },
-  {
-    name: 'Sugarcane Rust',
-    symptoms: 'Rust-colored leaf spots',
-    image: require('../../assets/images/sugarcane-diseases/sugarcane_rust.jpg'),
-    color: DiseaseTokens.rust.color,
+    name: 'Rust',
+    tone: 'rust',
+    description: 'Orange-brown spots or pustules',
   },
 ];
 
 export default function HomeScreen() {
   const theme = useTheme();
-  const { isDarkMode } = useThemePreference();
-
-  const showComingSoon = (label: string) => {
-    Alert.alert(label, 'This dashboard shortcut will be available in a future update.');
-  };
-
   const actions: QuickAction[] = [
     {
       title: 'Start Scan',
@@ -83,19 +65,6 @@ export default function HomeScreen() {
       icon: 'folder',
       onPress: () => router.push('/records'),
     },
-    {
-      title: 'Sync Queue',
-      body: 'Reports saved offline',
-      icon: 'refresh-cw',
-      badge: '2',
-      onPress: () => showComingSoon('Sync Queue'),
-    },
-    {
-      title: 'Help & FAQ',
-      body: 'Learn how CaneGuard works',
-      icon: 'help-circle',
-      onPress: () => showComingSoon('Help & FAQ'),
-    },
   ];
 
   return (
@@ -109,15 +78,6 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}>
           <View style={styles.dashboard}>
             <View style={[styles.hero, { backgroundColor: theme.backgroundElement }]}>
-              <ExpoImage
-                accessible={false}
-                contentFit="contain"
-                contentPosition="right bottom"
-                pointerEvents="none"
-                source={require('../../assets/svg/sugarcane-hero.svg')}
-                style={[styles.heroArtwork, isDarkMode && styles.heroArtworkDark]}
-              />
-              <View style={[styles.wave, { backgroundColor: theme.surfaceMuted }]} />
               <View style={styles.heroContent}>
                 <View style={styles.heroTop}>
                   <View style={styles.greetingBlock}>
@@ -134,7 +94,11 @@ export default function HomeScreen() {
                       accessibilityLabel="Open settings"
                       hitSlop={8}
                       onPress={() => router.push('/settings')}
-                      style={[styles.profile, { backgroundColor: theme.primary }]}>
+                      style={({ pressed }) => [
+                        styles.profile,
+                        { backgroundColor: theme.primary },
+                        pressed && styles.pressed,
+                      ]}>
                       <Feather name="user" size={18} color={theme.surfaceElevated} />
                     </Pressable>
                   </View>
@@ -150,7 +114,6 @@ export default function HomeScreen() {
                     Brgy. Cogunan, Nasugbu, Batangas
                   </Text>
                 </View>
-
               </View>
             </View>
 
@@ -162,35 +125,21 @@ export default function HomeScreen() {
                 ))}
               </View>
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="View sync queue, 2 unsent reports"
-                onPress={() => showComingSoon('Sync Queue')}
-                style={({ pressed }) => [
-                  styles.unsent,
-                  { backgroundColor: theme.warningBg, borderColor: theme.accent },
-                  pressed && styles.pressed,
-                ]}>
-                <ExpoImage
-                  accessible={false}
-                  contentFit="contain"
-                  pointerEvents="none"
-                  source={require('../../assets/svg/offline-sync.svg')}
-                  style={styles.unsentArtwork}
-                />
-                <View style={styles.unsentCopy}>
-                  <Text style={[styles.unsentTitle, { color: theme.primaryDark }]}>2 unsent reports</Text>
-                  <Text style={[styles.unsentBody, { color: theme.textSecondary }]}>
-                    Saved locally. Sync when you are online.
-                  </Text>
-                </View>
-                <Text style={[styles.viewQueue, { color: theme.primaryDark }]}>View queue</Text>
-              </Pressable>
+              <SyncStatusRow
+                testID="home.sync-status"
+                onPress={() => router.push('/records')}
+              />
 
-              <SectionTitle label="COMMON DISEASES" />
-              <View style={styles.diseaseGrid}>
-                {DISEASES.map((disease) => (
-                  <DiseaseCard key={disease.name} disease={disease} />
+              <View style={styles.referenceHeading}>
+                <SectionTitle label="DISEASE REFERENCE" />
+                <Text style={[styles.referenceNote, { color: theme.textSecondary }]}>Education only · photos pending</Text>
+              </View>
+              <Text style={[styles.referenceIntro, { color: theme.textSecondary }]}>
+                Healthy, Mosaic, and Rust are the current supported reference classes. Licensed photos are not yet supplied, so this gallery is not complete.
+              </Text>
+              <View style={styles.referenceList}>
+                {REFERENCE_CLASSES.map((reference) => (
+                  <ReferenceCard key={reference.name} reference={reference} />
                 ))}
               </View>
             </View>
@@ -215,9 +164,7 @@ function QuickActionCard({ action }: { action: QuickAction }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={
-        action.badge ? `${action.title}, ${action.badge} pending reports` : action.title
-      }
+      accessibilityLabel={action.title}
       onPress={action.onPress}
       style={({ pressed }) => [
         styles.quickCard,
@@ -246,89 +193,60 @@ function QuickActionCard({ action }: { action: QuickAction }) {
           {action.body}
         </Text>
       </View>
-      {action.badge ? (
-        <View style={[styles.badge, { backgroundColor: theme.accent }]}>
-          <Text style={[styles.badgeText, { color: theme.primaryDark }]}>{action.badge}</Text>
-        </View>
-      ) : (
-        <Feather
-          name="chevron-right"
-          size={18}
-          color={primary ? theme.surfaceElevated : theme.textSecondary}
-        />
-      )}
+      <Feather
+        name="chevron-right"
+        size={18}
+        color={primary ? theme.surfaceElevated : theme.textSecondary}
+      />
     </Pressable>
   );
 }
 
-function DiseaseCard({ disease }: { disease: DiseaseExample }) {
+function ReferenceCard({ reference }: { reference: ReferenceClass }) {
   const theme = useTheme();
+  const toneColor = theme[reference.tone];
 
   return (
     <View
+      accessibilityLabel={`${reference.name} reference photo placeholder`}
       style={[
-        styles.diseaseCard,
+        styles.referenceCard,
         { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
       ]}>
-      <Image
-        source={disease.image}
-        accessibilityLabel={`${disease.name} example`}
-        resizeMode="cover"
-        style={styles.diseaseImage}
-      />
-      <View style={styles.diseaseCopy}>
-        <View style={[styles.diseaseDot, { backgroundColor: disease.color }]} />
-        <Text style={[styles.diseaseName, { color: theme.primaryDark }]}>{disease.name}</Text>
-        <Text style={[styles.diseaseSymptoms, { color: theme.textSecondary }]}>
-          {disease.symptoms}
+      <View style={[styles.referencePlaceholder, { backgroundColor: theme.surfaceMuted, borderColor: toneColor }]}>
+        <Feather name="image" size={28} color={toneColor} />
+        <Text style={[styles.placeholderLabel, { color: toneColor }]}>Photo pending</Text>
+      </View>
+      <View style={styles.referenceCopy}>
+        <View style={styles.referenceTitleRow}>
+          <View style={[styles.referenceDot, { backgroundColor: toneColor }]} />
+          <Text style={[styles.referenceName, { color: theme.primaryDark }]}>{reference.name}</Text>
+        </View>
+        <Text style={[styles.referenceDescription, { color: theme.textSecondary }]}>
+          {reference.description}
         </Text>
+        <Text style={[styles.referenceStatus, { color: theme.textSecondary }]}>Reference photo pending license</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-  },
-  root: {
-    flex: 1,
-  },
-  scrollContent: {
-    alignItems: 'center',
-    paddingBottom: Spacing.xl,
-  },
-  dashboard: {
-    width: '100%',
-    maxWidth: Layout.mobileMaxWidth,
-  },
+  safe: { flex: 1 },
+  root: { flex: 1 },
+  scrollContent: { alignItems: 'center', paddingBottom: Spacing.xl },
+  dashboard: { width: '100%', maxWidth: Layout.mobileMaxWidth },
   hero: {
-    minHeight: 240,
-    overflow: 'hidden',
-  },
-  heroArtwork: {
-    position: 'absolute',
-    width: 280,
-    height: 238,
-    right: -58,
-    bottom: -8,
-    opacity: 0.88,
-  },
-  heroArtworkDark: {
-    opacity: 0.4,
-  },
-  wave: {
-    position: 'absolute',
-    width: '130%',
-    height: 135,
-    bottom: -95,
-    left: -80,
-    borderTopLeftRadius: 180,
-    borderTopRightRadius: 180,
+    minHeight: 190,
+    justifyContent: 'flex-end',
+    borderBottomWidth: 1,
+    borderBottomColor: 'transparent',
   },
   heroContent: {
     paddingHorizontal: ComponentTokens.screen.horizontalPadding,
     paddingTop: Spacing.lg,
+    paddingBottom: Spacing['2xl'],
+    gap: Spacing.lg,
   },
   heroTop: {
     flexDirection: 'row',
@@ -337,25 +255,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: Spacing.sm,
   },
-  greetingBlock: {
-    flexGrow: 1,
-    flexShrink: 1,
-    minWidth: 150,
-  },
-  greeting: {
-    ...Typography.bodySmall,
-  },
-  name: {
-    ...Typography.title,
-    fontFamily: Fonts?.serif,
-    fontWeight: '700',
-  },
-  heroActions: {
-    flexDirection: 'row',
-    flexShrink: 0,
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
+  greetingBlock: { flexGrow: 1, flexShrink: 1, minWidth: 150, gap: Spacing.xs },
+  greeting: { ...Typography.bodySmall },
+  name: { ...Typography.title, fontFamily: Fonts?.serif, fontWeight: '700' },
+  heroActions: { flexDirection: 'row', flexShrink: 0, alignItems: 'center', gap: Spacing.sm },
   online: {
     minHeight: 30,
     borderRadius: Radius.full,
@@ -364,26 +267,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.xs,
   },
-  onlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: Radius.full,
-  },
-  onlineText: {
-    ...Typography.caption,
-    fontWeight: '800',
-  },
-  profile: {
-    width: 42,
-    height: 42,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  onlineDot: { width: 6, height: 6, borderRadius: Radius.full },
+  onlineText: { ...Typography.caption, fontWeight: '800' },
+  profile: { width: 42, height: 42, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   location: {
     alignSelf: 'flex-start',
-    maxWidth: '70%',
-    marginTop: Spacing.lg,
+    maxWidth: '100%',
     borderWidth: 1,
     borderRadius: Radius.full,
     minHeight: 38,
@@ -391,66 +280,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    ...Shadows.sm,
   },
-  locationText: {
-    ...Typography.caption,
-    flexShrink: 1,
-    fontWeight: '700',
-  },
+  locationText: { ...Typography.caption, flexShrink: 1, fontWeight: '700' },
   content: {
     paddingHorizontal: ComponentTokens.screen.horizontalPadding,
     paddingTop: Spacing.xl,
     gap: Spacing.lg,
   },
-  sectionTitle: {
-    ...Typography.label,
-    letterSpacing: 1.1,
-  },
-  grid: {
-    gap: Spacing.sm,
-  },
+  sectionTitle: { ...Typography.label, letterSpacing: 1.1 },
+  grid: { gap: Spacing.sm },
   quickCard: {
-    minHeight: 83,
-    borderWidth: 1,
-    borderRadius: Radius.xl,
-    padding: Spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    ...Shadows.sm,
-  },
-  quickIcon: {
-    width: 45,
-    height: 45,
-    borderRadius: Radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickCopy: {
-    flex: 1,
-    gap: Spacing.xs,
-  },
-  quickTitle: {
-    ...Typography.bodySmall,
-    fontWeight: '800',
-  },
-  quickBody: {
-    ...Typography.caption,
-  },
-  badge: {
-    minWidth: 26,
-    height: 26,
-    paddingHorizontal: Spacing.xs,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: {
-    ...Typography.caption,
-    fontWeight: '900',
-  },
-  unsent: {
+    minHeight: 78,
     borderWidth: 1,
     borderRadius: Radius.xl,
     padding: Spacing.md,
@@ -458,69 +298,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
   },
-  unsentArtwork: {
-    width: 44,
-    height: 44,
-    flexShrink: 0,
-  },
-  unsentCopy: {
-    flex: 1,
-    gap: Spacing.xs,
-  },
-  unsentTitle: {
-    ...Typography.bodySmall,
-    fontWeight: '800',
-  },
-  unsentBody: {
-    ...Typography.caption,
-  },
-  viewQueue: {
-    ...Typography.caption,
-    fontWeight: '800',
-    textDecorationLine: 'underline',
-  },
-  diseaseGrid: {
-    width: '100%',
-    gap: Spacing.sm,
-  },
-  diseaseCard: {
-    width: '100%',
-    minHeight: 112,
+  quickIcon: { width: 45, height: 45, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center' },
+  quickCopy: { flex: 1, gap: Spacing.xs },
+  quickTitle: { ...Typography.bodySmall, fontWeight: '800' },
+  quickBody: { ...Typography.caption },
+  referenceHeading: { gap: Spacing.xs },
+  referenceNote: { ...Typography.caption },
+  referenceIntro: { ...Typography.bodySmall },
+  referenceList: { gap: Spacing.sm },
+  referenceCard: {
+    minHeight: 122,
     borderWidth: 1,
     borderRadius: Radius.xl,
     padding: Spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    ...Shadows.sm,
   },
-  diseaseImage: {
+  referencePlaceholder: {
     width: 96,
     height: 96,
-    flexShrink: 0,
     borderRadius: Radius.lg,
-  },
-  diseaseCopy: {
-    flex: 1,
-    minHeight: 96,
-    paddingVertical: Spacing.xs,
-    gap: Spacing.xs,
-    position: 'relative',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: Spacing.xs,
   },
-  diseaseDot: {
-    width: 7,
-    height: 7,
-    borderRadius: Radius.full,
-  },
-  diseaseName: {
-    ...Typography.bodySmall,
-    fontWeight: '800',
-  },
-  diseaseSymptoms: {
-    ...Typography.caption,
-  },
-  pressed: {
-    opacity: 0.74,
-  },
+  placeholderLabel: { ...Typography.caption, fontWeight: '800' },
+  referenceCopy: { flex: 1, minHeight: 96, justifyContent: 'center', gap: Spacing.xs },
+  referenceTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  referenceDot: { width: 7, height: 7, borderRadius: Radius.full },
+  referenceName: { ...Typography.bodySmall, fontWeight: '800' },
+  referenceDescription: { ...Typography.caption },
+  referenceStatus: { ...Typography.caption, fontStyle: 'italic' },
+  pressed: { opacity: 0.74 },
 });

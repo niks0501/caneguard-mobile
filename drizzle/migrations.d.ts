@@ -1,6 +1,8 @@
 interface MigrationJournalEntry {
   idx: number;
+  when: number;
   tag: string;
+  breakpoints: boolean;
 }
 
 interface MigrationBundle {

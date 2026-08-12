@@ -32,35 +32,32 @@ export function useLocalReport(dateRange?: DateRange) {
     errorMessage: null,
     loading: true,
   });
-  const requestGeneration = useRef(0);
-  const currentInput = useRef<LocalReportInput>({
+  const submitterIdentity = user?.uuid ?? null;
+  const initialInput: LocalReportInput = {
     dateFrom,
     dateTo,
-    submitterIdentity: user?.uuid ?? null,
-  });
-  const appliedInput = useRef<LocalReportInput>(currentInput.current);
-  currentInput.current = {
-    dateFrom,
-    dateTo,
-    submitterIdentity: user?.uuid ?? null,
+    submitterIdentity,
   };
+  const requestGeneration = useRef(0);
+  const currentInput = useRef<LocalReportInput>(initialInput);
+  const [appliedInput, setAppliedInput] = useState<LocalReportInput>(initialInput);
+
+  useEffect(() => {
+    currentInput.current = { dateFrom, dateTo, submitterIdentity };
+    requestGeneration.current += 1;
+  }, [dateFrom, dateTo, submitterIdentity]);
+
   const isCurrentInput = useCallback(
     () =>
       currentInput.current.dateFrom === dateFrom &&
       currentInput.current.dateTo === dateTo &&
-      currentInput.current.submitterIdentity === (user?.uuid ?? null),
-    [dateFrom, dateTo, user?.uuid],
+      currentInput.current.submitterIdentity === submitterIdentity,
+    [dateFrom, dateTo, submitterIdentity],
   );
   const hasCurrentState =
-    appliedInput.current.dateFrom === dateFrom &&
-    appliedInput.current.dateTo === dateTo &&
-    appliedInput.current.submitterIdentity === (user?.uuid ?? null);
-
-  useEffect(() => {
-    requestGeneration.current += 1;
-    appliedInput.current = currentInput.current;
-    setState({ data: null, errorMessage: null, loading: true });
-  }, [user?.uuid]);
+    appliedInput.dateFrom === dateFrom &&
+    appliedInput.dateTo === dateTo &&
+    appliedInput.submitterIdentity === submitterIdentity;
 
   const refresh = useCallback(async () => {
     if (!isCurrentInput()) {
@@ -69,8 +66,7 @@ export function useLocalReport(dateRange?: DateRange) {
     const requestId = ++requestGeneration.current;
     const isCurrentRequest = () =>
       requestGeneration.current === requestId && isCurrentInput();
-    const submitterIdentity = user?.uuid ?? null;
-    appliedInput.current = currentInput.current;
+    setAppliedInput(currentInput.current);
 
     if (!submitterIdentity) {
       setState({
@@ -93,13 +89,13 @@ export function useLocalReport(dateRange?: DateRange) {
       if (!isCurrentRequest()) {
         return;
       }
-      appliedInput.current = currentInput.current;
+      setAppliedInput(currentInput.current);
       setState({ data, errorMessage: null, loading: false });
     } catch (error: unknown) {
       if (!isCurrentRequest()) {
         return;
       }
-      appliedInput.current = currentInput.current;
+      setAppliedInput(currentInput.current);
       const storageError = toStorageError(
         error,
         'QUERY_FAILED',
@@ -111,7 +107,7 @@ export function useLocalReport(dateRange?: DateRange) {
         loading: false,
       });
     }
-  }, [database, dateFrom, dateTo, isCurrentInput, user?.uuid]);
+  }, [database, dateFrom, dateTo, isCurrentInput, setAppliedInput, submitterIdentity]);
 
   useFocusEffect(
     useCallback(() => {

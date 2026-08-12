@@ -44,6 +44,10 @@ export const SyncContext = createContext<SyncContextValue | null>(null);
 export function SyncProvider({ children }: PropsWithChildren) {
   const database = useCaneGuardDatabase();
   const auth = useAuth();
+  const session = auth.session;
+  const sessionToken = session?.token;
+  const submitterIdentity = session?.user.uuid;
+  const authStatus = auth.status;
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
@@ -54,12 +58,14 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const previousOnline = useRef<boolean | null>(null);
   const onlineRef = useRef<boolean | null>(null);
   const mounted = useRef(true);
-  const sessionRef = useRef(auth.session);
-  sessionRef.current = auth.session;
+  const sessionRef = useRef(session);
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   const refreshPendingCount = useCallback(async () => {
-    const requestedToken = auth.session?.token;
-    const submitterIdentity = auth.session?.user.uuid;
+    const requestedToken = sessionToken;
     if (!submitterIdentity) {
       if (
         mounted.current &&
@@ -81,7 +87,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       setPendingCount(count);
       setLastSuccessfulSyncAt(lastSyncedAt);
     }
-  }, [auth.session?.token, auth.session?.user.uuid, database]);
+  }, [database, sessionToken, submitterIdentity]);
 
   const syncNow = useCallback(
     async (
@@ -143,24 +149,28 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
   const retryReport = useCallback(
     async (reportId: string) => {
-      if (auth.status !== 'authenticated' || !auth.session?.user.uuid) {
+      if (authStatus !== 'authenticated' || !submitterIdentity) {
         return null;
       }
-      await findFieldReportUploadRecord(
-        database,
-        reportId,
-        auth.session.user.uuid,
-      );
-      await markFieldReportPending(database, reportId, auth.session.user.uuid);
+      await findFieldReportUploadRecord(database, reportId, submitterIdentity);
+      await markFieldReportPending(database, reportId, submitterIdentity);
       return syncNow('manual');
     },
-    [auth.session?.user.uuid, auth.status, database, syncNow],
+    [authStatus, database, submitterIdentity, syncNow],
   );
 
   useEffect(() => {
-    setIsSyncing(false);
-    setErrorMessage(null);
-  }, [auth.session?.token, auth.session?.user.uuid]);
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) {
+        setIsSyncing(false);
+        setErrorMessage(null);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [sessionToken, submitterIdentity]);
 
   useEffect(() => {
     if (auth.status === 'authenticated') {

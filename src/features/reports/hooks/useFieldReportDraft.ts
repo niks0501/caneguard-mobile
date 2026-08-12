@@ -1,6 +1,6 @@
 import { randomUUID } from 'expo-crypto';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
@@ -47,15 +47,15 @@ export function useFieldReportForScan(scanRecordId: string | null) {
     scanRecordId: string | null;
     submitterIdentity: string | null;
   }>({ scanRecordId: null, submitterIdentity: null });
-  refreshInput.current = {
-    scanRecordId,
-    submitterIdentity: user?.uuid ?? null,
-  };
+  const submitterIdentity = user?.uuid ?? null;
+  useEffect(() => {
+    refreshInput.current = { scanRecordId, submitterIdentity };
+  }, [scanRecordId, submitterIdentity]);
   const isCurrentInput = useCallback(
     () =>
       refreshInput.current.scanRecordId === scanRecordId &&
-      refreshInput.current.submitterIdentity === (user?.uuid ?? null),
-    [scanRecordId, user?.uuid],
+      refreshInput.current.submitterIdentity === submitterIdentity,
+    [scanRecordId, submitterIdentity],
   );
   const refresh = useCallback(async () => {
     if (!isCurrentInput()) {
@@ -150,15 +150,15 @@ export function useFieldReportDraft(
     scanRecordId: string | null;
     submitterIdentity: string | null;
   }>({ scanRecordId: null, submitterIdentity: null });
-  refreshInput.current = {
-    scanRecordId,
-    submitterIdentity: user?.uuid ?? null,
-  };
+  const submitterIdentity = user?.uuid ?? null;
+  useEffect(() => {
+    refreshInput.current = { scanRecordId, submitterIdentity };
+  }, [scanRecordId, submitterIdentity]);
   const isCurrentInput = useCallback(
     () =>
       refreshInput.current.scanRecordId === scanRecordId &&
-      refreshInput.current.submitterIdentity === (user?.uuid ?? null),
-    [scanRecordId, user?.uuid],
+      refreshInput.current.submitterIdentity === submitterIdentity,
+    [scanRecordId, submitterIdentity],
   );
   const hasCurrentReport =
     state.data?.scanRecordId === scanRecordId &&

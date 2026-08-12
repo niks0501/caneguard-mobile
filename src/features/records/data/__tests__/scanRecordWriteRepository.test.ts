@@ -314,6 +314,7 @@ describe('scan record write repository', () => {
 
   it('only merges Field Report metadata for the authenticated submitter', async () => {
     const { database, native } = openTestDatabase();
+    await insertScanRecord(database, validInput());
     native
       .prepare(`
         INSERT INTO field_reports (
@@ -346,6 +347,7 @@ describe('scan record write repository', () => {
 
   it('counts only the authenticated submitter Field Reports in the pending summary', async () => {
     const { database, native } = openTestDatabase();
+    await insertScanRecord(database, validInput());
     native
       .prepare(`
         INSERT INTO field_reports (

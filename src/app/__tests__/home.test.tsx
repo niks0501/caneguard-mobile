@@ -29,7 +29,19 @@ describe('HomeScreen', () => {
     expect(screen.getByText('Mosaic')).toBeOnTheScreen();
     expect(screen.getByText('Rust')).toBeOnTheScreen();
     expect(screen.queryByText(/Downy Mildew|Smut/i)).not.toBeOnTheScreen();
-    expect(screen.getByText(/Licensed photos are not yet supplied/)).toBeOnTheScreen();
+    expect(screen.getByText(/Reference photos are supplied locally/)).toBeOnTheScreen();
+    expect(screen.getByLabelText('Healthy reference photo')).toHaveProp(
+      'source',
+      require('../../../assets/images/sugarcane-diseases/reference_healthy.jpg'),
+    );
+    expect(screen.getByLabelText('Mosaic reference photo')).toHaveProp(
+      'source',
+      require('../../../assets/images/sugarcane-diseases/reference_mosaic.jpg'),
+    );
+    expect(screen.getByLabelText('Rust reference photo')).toHaveProp(
+      'source',
+      require('../../../assets/images/sugarcane-diseases/reference_rust.jpg'),
+    );
   });
 
   it('keeps the live sync row linked to Records without adding a sync shortcut', async () => {

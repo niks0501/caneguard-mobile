@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomNav } from '@/components/ui/BottomNav';
@@ -29,6 +29,7 @@ type ReferenceClass = {
   name: 'Healthy' | 'Mosaic' | 'Rust';
   tone: ReferenceTone;
   description: string;
+  image: number;
 };
 
 export const REFERENCE_CLASSES: readonly ReferenceClass[] = [
@@ -36,16 +37,19 @@ export const REFERENCE_CLASSES: readonly ReferenceClass[] = [
     name: 'Healthy',
     tone: 'healthy',
     description: 'No visible symptoms',
+    image: require('../../assets/images/sugarcane-diseases/reference_healthy.jpg'),
   },
   {
     name: 'Mosaic',
     tone: 'mosaic',
     description: 'Mottling or irregular discoloration',
+    image: require('../../assets/images/sugarcane-diseases/reference_mosaic.jpg'),
   },
   {
     name: 'Rust',
     tone: 'rust',
     description: 'Orange-brown spots or pustules',
+    image: require('../../assets/images/sugarcane-diseases/reference_rust.jpg'),
   },
 ];
 
@@ -132,10 +136,10 @@ export default function HomeScreen() {
 
               <View style={styles.referenceHeading}>
                 <SectionTitle label="DISEASE REFERENCE" />
-                <Text style={[styles.referenceNote, { color: theme.textSecondary }]}>Education only · photos pending</Text>
+                <Text style={[styles.referenceNote, { color: theme.textSecondary }]}>Education only · supplied photos</Text>
               </View>
               <Text style={[styles.referenceIntro, { color: theme.textSecondary }]}>
-                Healthy, Mosaic, and Rust are the current supported reference classes. Licensed photos are not yet supplied, so this gallery is not complete.
+                Healthy, Mosaic, and Rust are the current supported reference classes. Reference photos are supplied locally; source and license evidence still needs to be recorded before final gallery acceptance.
               </Text>
               <View style={styles.referenceList}>
                 {REFERENCE_CLASSES.map((reference) => (
@@ -208,15 +212,17 @@ function ReferenceCard({ reference }: { reference: ReferenceClass }) {
 
   return (
     <View
-      accessibilityLabel={`${reference.name} reference photo placeholder`}
+      accessibilityLabel={`${reference.name} reference card`}
       style={[
         styles.referenceCard,
         { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
       ]}>
-      <View style={[styles.referencePlaceholder, { backgroundColor: theme.surfaceMuted, borderColor: toneColor }]}>
-        <Feather name="image" size={28} color={toneColor} />
-        <Text style={[styles.placeholderLabel, { color: toneColor }]}>Photo pending</Text>
-      </View>
+      <Image
+        accessibilityLabel={`${reference.name} reference photo`}
+        source={reference.image}
+        resizeMode="cover"
+        style={styles.referenceImage}
+      />
       <View style={styles.referenceCopy}>
         <View style={styles.referenceTitleRow}>
           <View style={[styles.referenceDot, { backgroundColor: toneColor }]} />
@@ -225,7 +231,7 @@ function ReferenceCard({ reference }: { reference: ReferenceClass }) {
         <Text style={[styles.referenceDescription, { color: theme.textSecondary }]}>
           {reference.description}
         </Text>
-        <Text style={[styles.referenceStatus, { color: theme.textSecondary }]}>Reference photo pending license</Text>
+        <Text style={[styles.referenceStatus, { color: theme.textSecondary }]}>Photo supplied · license evidence pending</Text>
       </View>
     </View>
   );
@@ -315,17 +321,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
   },
-  referencePlaceholder: {
+  referenceImage: {
     width: 96,
     height: 96,
     borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.xs,
   },
-  placeholderLabel: { ...Typography.caption, fontWeight: '800' },
   referenceCopy: { flex: 1, minHeight: 96, justifyContent: 'center', gap: Spacing.xs },
   referenceTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   referenceDot: { width: 7, height: 7, borderRadius: Radius.full },

@@ -26,6 +26,7 @@ export default function RegisterScreen() {
       <View style={styles.formFields}>
         <View>
           <TextField
+            testID="register.full-name-input"
             label="Full name"
             value={fullName}
             onChangeText={setFullName}
@@ -35,6 +36,7 @@ export default function RegisterScreen() {
         </View>
         <View>
           <TextField
+            testID="register.barangay-input"
             label="Barangay"
             value={barangay}
             onChangeText={setBarangay}
@@ -44,6 +46,7 @@ export default function RegisterScreen() {
         </View>
         <View>
           <TextField
+            testID="register.phone-input"
             label="Phone number"
             value={phoneNumber}
             onChangeText={setPhoneNumber}
@@ -54,6 +57,7 @@ export default function RegisterScreen() {
         </View>
         <View>
           <TextField
+            testID="register.password-input"
             label="Password"
             value={password}
             onChangeText={setPassword}

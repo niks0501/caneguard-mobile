@@ -4,6 +4,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -106,10 +108,13 @@ export default function FieldReportScreen() {
             </AppButton>
           </View>
         ) : report.data ? (
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.scrollContent}>
-            <View style={styles.content}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardAvoiding}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.scrollContent}>
+              <View style={styles.content}>
               <View
                 testID="field-report.authoring-status"
                 style={[
@@ -237,8 +242,9 @@ export default function FieldReportScreen() {
               <Text style={[styles.identity, { color: theme.textSecondary }]}>
                 Report ID: {report.data.id}
               </Text>
-            </View>
-          </ScrollView>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         ) : null}
       </View>
     </SafeAreaView>
@@ -635,6 +641,7 @@ function formatTimestamp(value: string): string {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   root: { flex: 1 },
+  keyboardAvoiding: { flex: 1 },
   centered: {
     flex: 1,
     justifyContent: 'center',

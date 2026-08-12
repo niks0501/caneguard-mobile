@@ -3,6 +3,8 @@ import { router, type Href } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -66,10 +68,14 @@ export default function RecordsScreen() {
       edges={['top']}>
       <View style={styles.root}>
         <BrandedScreenHeader title="My Records" showBack={false} />
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}>
-          <View style={styles.content}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoiding}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.scrollContent}>
+            <View style={styles.content}>
             <View
               style={[
                 styles.intro,
@@ -238,8 +244,9 @@ export default function RecordsScreen() {
               </>
             )}
             <View style={styles.bottomSpace} />
-          </View>
-        </ScrollView>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
         <BottomNav activeTab="records" />
       </View>
     </SafeAreaView>
@@ -282,6 +289,7 @@ function StateCard({
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   root: { flex: 1 },
+  keyboardAvoiding: { flex: 1 },
   scrollContent: { alignItems: 'center' },
   content: {
     width: '100%',

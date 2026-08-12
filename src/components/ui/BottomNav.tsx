@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ComponentTokens, Layout, Radius, Shadows, Spacing } from '@/constants/theme';
+import { ComponentTokens, Layout, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type NavTab = 'home' | 'scan' | 'records' | 'settings' | 'reports';
@@ -70,8 +70,6 @@ export function BottomNav({ activeTab }: BottomNavProps) {
 const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.sm,
     backgroundColor: 'transparent',
   },
   row: {
@@ -83,8 +81,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingHorizontal: Spacing.xs,
     paddingTop: Spacing.xs,
-    borderRadius: Radius['2xl'],
-    ...Shadows.md,
+    borderTopWidth: 1,
   },
   item: {
     flex: 1,

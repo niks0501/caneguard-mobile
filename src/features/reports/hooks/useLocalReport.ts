@@ -33,20 +33,20 @@ export function useLocalReport(dateRange?: DateRange) {
     errorMessage: null,
     loading: true,
   });
+  const initialInput: LocalReportInput = {
+    dateFrom,
+    dateTo,
+    submitterIdentity,
+  };
   const requestGeneration = useRef(0);
-  const currentInput = useRef<LocalReportInput>({
-    dateFrom,
-    dateTo,
-    submitterIdentity,
-  });
-  const [appliedInput, setAppliedInput] = useState<LocalReportInput>({
-    dateFrom,
-    dateTo,
-    submitterIdentity,
-  });
+  const currentInput = useRef<LocalReportInput>(initialInput);
+  const [appliedInput, setAppliedInput] = useState<LocalReportInput>(initialInput);
+
   useEffect(() => {
     currentInput.current = { dateFrom, dateTo, submitterIdentity };
+    requestGeneration.current += 1;
   }, [dateFrom, dateTo, submitterIdentity]);
+
   const isCurrentInput = useCallback(
     () =>
       currentInput.current.dateFrom === dateFrom &&
@@ -107,7 +107,7 @@ export function useLocalReport(dateRange?: DateRange) {
         loading: false,
       });
     }
-  }, [database, dateFrom, dateTo, isCurrentInput, submitterIdentity]);
+  }, [database, dateFrom, dateTo, isCurrentInput, setAppliedInput, submitterIdentity]);
 
   useFocusEffect(
     useCallback(() => {

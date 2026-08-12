@@ -1,5 +1,4 @@
 import { Feather } from '@expo/vector-icons';
-import { Image as ExpoImage } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -9,11 +8,9 @@ import { AppButton } from '@/components/ui/AppButton';
 import { Fonts, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
-import { useThemePreference } from '@/providers/ThemePreferenceProvider';
 
 export default function LoginScreen() {
   const theme = useTheme();
-  const { isDarkMode } = useThemePreference();
   const { errorMessage, login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,16 +36,7 @@ export default function LoginScreen() {
       edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.root}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <View style={[styles.hero, { backgroundColor: theme.backgroundElement }]}>
-          <ExpoImage
-            accessible={false}
-            contentFit="contain"
-            contentPosition="right bottom"
-            pointerEvents="none"
-            source={require('../../assets/svg/sugarcane-hero.svg')}
-            style={[styles.heroArtwork, isDarkMode && styles.heroArtworkDark]}
-          />
-          <View style={[styles.wave, { backgroundColor: theme.surfaceMuted }]} />
+        <View style={[styles.hero, { backgroundColor: theme.backgroundElement, borderBottomColor: theme.divider }]}>
           <View style={styles.brandRow}>
             <Image source={require('../../assets/cane_guard_logo.png')} style={styles.logo} resizeMode="contain" />
             <Text style={[styles.brand, { color: theme.primaryDark }]}>CaneGuard</Text>
@@ -130,10 +118,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   root: { flex: 1 },
   scrollContent: { flexGrow: 1 },
-  hero: { height: 260, overflow: 'hidden', paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg },
-  heroArtwork: { position: 'absolute', width: '108%', height: '108%', right: -36, bottom: -8 },
-  heroArtworkDark: { opacity: 0.58 },
-  wave: { position: 'absolute', bottom: -68, left: -50, right: -50, height: 132, borderTopLeftRadius: 180, borderTopRightRadius: 180 },
+  hero: { height: 190, justifyContent: 'center', paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, borderBottomWidth: 1 },
   brandRow: { maxWidth: '62%', flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, zIndex: 1 },
   logo: { width: 54, height: 54 },
   brand: { ...Typography.subheading, flexShrink: 1, fontFamily: Fonts?.serif, fontSize: 25 },

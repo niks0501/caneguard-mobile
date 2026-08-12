@@ -17,17 +17,16 @@ const SCAN_B = '51214146-7439-48e0-aef4-d0e003f194b4';
 const REPORT_A = '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e';
 const REPORT_B = '6f80a15d-3f9f-4e0a-bf79-7cf2c37e2fa1';
 const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
+type ScanProps = { scanRecordId: string };
 
 jest.mock('expo-crypto', () => ({
   randomUUID: jest.fn(),
 }));
 jest.mock('expo-router', () => {
+  const mockReact = jest.requireActual('react') as typeof import('react');
   return {
     useFocusEffect: (callback: () => void) => {
-      (jest.requireActual('react') as typeof import('react')).useEffect(
-        callback,
-        [callback],
-      );
+      mockReact.useEffect(callback, [callback]);
     },
   };
 });
@@ -112,14 +111,14 @@ describe('useFieldReportDraft', () => {
 
   it('does not reuse a Draft identity when the scan changes', async () => {
     const { rerender } = await renderHook(
-      ({ scanRecordId }: { scanRecordId: string }) => useFieldReportDraft(scanRecordId),
+      ({ scanRecordId }: ScanProps) => useFieldReportDraft(scanRecordId),
       { initialProps: { scanRecordId: SCAN_A } },
     );
 
     await waitFor(() =>
       expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
     );
-    rerender({ scanRecordId: SCAN_B });
+    await rerender({ scanRecordId: SCAN_B });
     await waitFor(() =>
       expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(2),
     );
@@ -151,7 +150,7 @@ describe('useFieldReportDraft', () => {
     mockRandomUUID.mockReset().mockReturnValue(REPORT_B);
 
     const { result, rerender } = await renderHook(
-      ({ scanRecordId }: { scanRecordId: string }) => useFieldReportDraft(scanRecordId),
+      ({ scanRecordId }: ScanProps) => useFieldReportDraft(scanRecordId),
       { initialProps: { scanRecordId: SCAN_A } },
     );
     await waitFor(() =>
@@ -162,7 +161,7 @@ describe('useFieldReportDraft', () => {
       ),
     );
 
-    rerender({ scanRecordId: SCAN_B });
+    await rerender({ scanRecordId: SCAN_B });
     await waitFor(() =>
       expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
     );
@@ -190,12 +189,12 @@ describe('useFieldReportDraft', () => {
     );
 
     const { result, rerender } = await renderHook(
-      ({ scanRecordId }: { scanRecordId: string }) => useFieldReportDraft(scanRecordId),
+      ({ scanRecordId }: ScanProps) => useFieldReportDraft(scanRecordId),
       { initialProps: { scanRecordId: SCAN_A } },
     );
     await waitFor(() => expect(result.current.data?.id).toBe(REPORT_A));
 
-    rerender({ scanRecordId: SCAN_B });
+    await rerender({ scanRecordId: SCAN_B });
     await waitFor(() =>
       expect(mockFindFieldReportByScanRecordId).toHaveBeenLastCalledWith(
         DATABASE,

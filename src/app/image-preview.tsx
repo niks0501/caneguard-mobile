@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
+import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { useScanSession } from '@/features/detection/context/useScanSession';
@@ -245,27 +246,37 @@ export default function ImagePreviewScreen() {
               </View>
 
               <Text style={[styles.statusText, { color: theme.textSecondary }]}>
-                CaneGuard will stretch this image to the model&apos;s exact 224 × 224 RGB input.
+                Your image will be prepared on-device before analysis.
               </Text>
 
-              {preprocessingComplete ? (
-                <View
-                  accessibilityLiveRegion="polite"
-                  style={[styles.preprocessingStatus, { backgroundColor: theme.successBg }]}>
-                  <Feather name="check-circle" size={20} color={theme.success} />
-                  <View style={styles.preprocessingStatusCopy}>
-                    <Text style={[styles.preprocessingStatusTitle, { color: theme.success }]}>
-                      Model input ready
-                    </Text>
-                    <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
-                      {MODEL_INPUT.shape[2]} × {MODEL_INPUT.shape[1]} RGB float32
-                      {state.preprocessMs === null
-                        ? ''
-                        : ` · ${Math.round(state.preprocessMs)} ms`}
-                    </Text>
+              <DisclosureSection
+                testID="scan.technical-details"
+                title="Technical details">
+                <Text style={[styles.technicalIntro, { color: theme.textSecondary }]}>
+                  These diagnostics are optional and do not change the analysis flow.
+                </Text>
+                <Text style={[styles.technicalValue, { color: theme.text }]}>
+                  Model input: {MODEL_INPUT.shape[2]} × {MODEL_INPUT.shape[1]} RGB float32
+                </Text>
+                {preprocessingComplete ? (
+                  <View
+                    accessibilityLiveRegion="polite"
+                    style={[styles.preprocessingStatus, { backgroundColor: theme.successBg }]}>
+                    <Feather name="check-circle" size={20} color={theme.success} />
+                    <View style={styles.preprocessingStatusCopy}>
+                      <Text style={[styles.preprocessingStatusTitle, { color: theme.success }]}>
+                        Model input ready
+                      </Text>
+                      <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+                        {MODEL_INPUT.shape[2]} × {MODEL_INPUT.shape[1]} RGB float32
+                        {state.preprocessMs === null
+                          ? ''
+                          : ` · ${Math.round(state.preprocessMs)} ms`}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              ) : null}
+                ) : null}
+              </DisclosureSection>
             </AppCard>
 
             <View style={styles.actions}>
@@ -445,6 +456,8 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     textAlign: 'center',
   },
+  technicalIntro: { ...Typography.caption },
+  technicalValue: { ...Typography.bodySmall, fontWeight: '700' },
   actions: {
     gap: Spacing.md,
   },

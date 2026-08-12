@@ -46,14 +46,14 @@ const FIXTURES: readonly Fixture[] = [
   {
     id: 'mosaic',
     buttonLabel: 'Run Mosaic Fixture',
-    asset: require('../../assets/images/sugarcane-diseases/sugarcane_mosaic.jpg') as number,
+    asset: require('../../assets/images/sugarcane-diseases/reference_mosaic.jpg') as number,
     width: 4864,
     height: 3648,
   },
   {
     id: 'rust',
     buttonLabel: 'Run Rust Fixture',
-    asset: require('../../assets/images/sugarcane-diseases/sugarcane_rust.jpg') as number,
+    asset: require('../../assets/images/sugarcane-diseases/reference_rust.jpg') as number,
     width: 448,
     height: 800,
   },

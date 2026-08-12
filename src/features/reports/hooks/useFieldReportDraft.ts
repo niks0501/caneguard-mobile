@@ -47,17 +47,15 @@ export function useFieldReportForScan(scanRecordId: string | null) {
     scanRecordId: string | null;
     submitterIdentity: string | null;
   }>({ scanRecordId: null, submitterIdentity: null });
+  const submitterIdentity = user?.uuid ?? null;
   useEffect(() => {
-    refreshInput.current = {
-      scanRecordId,
-      submitterIdentity: user?.uuid ?? null,
-    };
-  }, [scanRecordId, user?.uuid]);
+    refreshInput.current = { scanRecordId, submitterIdentity };
+  }, [scanRecordId, submitterIdentity]);
   const isCurrentInput = useCallback(
     () =>
       refreshInput.current.scanRecordId === scanRecordId &&
-      refreshInput.current.submitterIdentity === (user?.uuid ?? null),
-    [scanRecordId, user?.uuid],
+      refreshInput.current.submitterIdentity === submitterIdentity,
+    [scanRecordId, submitterIdentity],
   );
   const refresh = useCallback(async () => {
     if (!isCurrentInput()) {
@@ -152,21 +150,19 @@ export function useFieldReportDraft(
     scanRecordId: string | null;
     submitterIdentity: string | null;
   }>({ scanRecordId: null, submitterIdentity: null });
+  const submitterIdentity = user?.uuid ?? null;
   useEffect(() => {
-    refreshInput.current = {
-      scanRecordId,
-      submitterIdentity: user?.uuid ?? null,
-    };
-  }, [scanRecordId, user?.uuid]);
+    refreshInput.current = { scanRecordId, submitterIdentity };
+  }, [scanRecordId, submitterIdentity]);
   const isCurrentInput = useCallback(
     () =>
       refreshInput.current.scanRecordId === scanRecordId &&
-      refreshInput.current.submitterIdentity === (user?.uuid ?? null),
-    [scanRecordId, user?.uuid],
+      refreshInput.current.submitterIdentity === submitterIdentity,
+    [scanRecordId, submitterIdentity],
   );
   const hasCurrentReport =
     state.data?.scanRecordId === scanRecordId &&
-    state.data?.submitterIdentity === (user?.uuid ?? null);
+    state.data?.submitterIdentity === submitterIdentity;
 
   const refresh = useCallback(async () => {
     if (!isCurrentInput()) {

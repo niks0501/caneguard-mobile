@@ -19,6 +19,20 @@ tags:
     visible:
       id: home.screen
     timeout: 120000
+- assertVisible: "Start Scan"
+- assertVisible: "Healthy"
+- scrollUntilVisible:
+    element:
+      text: "Mosaic"
+    direction: DOWN
+- assertVisible: "Mosaic"
+- scrollUntilVisible:
+    element:
+      text: "Rust"
+    direction: DOWN
+- assertVisible: "Rust"
+- assertNotVisible: "Downy Mildew"
+- assertNotVisible: "Smut"
 - openLink: caneguardmobile://scan
 - extendedWaitUntil:
     visible:

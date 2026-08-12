@@ -192,6 +192,18 @@ export function SyncProvider({ children }: PropsWithChildren) {
   );
 
   useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) {
+        setSyncState({ errorMessage: null, isSyncing: false, sessionKey });
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [sessionKey]);
+
+  useEffect(() => {
     if (authStatus === 'authenticated') {
       previousOnline.current = null;
     }
@@ -206,13 +218,35 @@ export function SyncProvider({ children }: PropsWithChildren) {
       };
     }
 
+    const requestedToken = sessionToken;
+    const requestedSubmitterIdentity = submitterIdentity;
     const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
-    void resetStaleSyncingFieldReports(database, submitterIdentity, staleBefore)
-      .then(() => refreshPendingCount())
+    void resetStaleSyncingFieldReports(
+      database,
+      requestedSubmitterIdentity,
+      staleBefore,
+    )
+      .then(() => {
+        if (
+          mounted.current &&
+          isSameSession(
+            sessionRef.current,
+            requestedToken,
+            requestedSubmitterIdentity,
+          )
+        ) {
+          return refreshPendingCount();
+        }
+        return undefined;
+      })
       .catch(() => {
         if (
           mounted.current &&
-          isSameSession(sessionRef.current, sessionToken, submitterIdentity)
+          isSameSession(
+            sessionRef.current,
+            requestedToken,
+            requestedSubmitterIdentity,
+          )
         ) {
           setSyncState({
             errorMessage: 'Interrupted uploads could not be recovered yet.',

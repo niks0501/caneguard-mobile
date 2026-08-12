@@ -27,12 +27,12 @@ export function useLocalReport(dateRange?: DateRange) {
   const { user } = useAuth();
   const dateFrom = dateRange?.from;
   const dateTo = dateRange?.to;
+  const submitterIdentity = user?.uuid ?? null;
   const [state, setState] = useState<LocalReportState>({
     data: null,
     errorMessage: null,
     loading: true,
   });
-  const submitterIdentity = user?.uuid ?? null;
   const initialInput: LocalReportInput = {
     dateFrom,
     dateTo,

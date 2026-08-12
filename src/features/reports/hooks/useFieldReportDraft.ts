@@ -162,7 +162,7 @@ export function useFieldReportDraft(
   );
   const hasCurrentReport =
     state.data?.scanRecordId === scanRecordId &&
-    state.data?.submitterIdentity === (user?.uuid ?? null);
+    state.data?.submitterIdentity === submitterIdentity;
 
   const refresh = useCallback(async () => {
     if (!isCurrentInput()) {

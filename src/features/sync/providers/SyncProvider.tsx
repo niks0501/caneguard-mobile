@@ -20,9 +20,7 @@ import {
   markFieldReportPending,
   resetStaleSyncingFieldReports,
 } from '@/features/reports/data/fieldReportSyncRepository';
-import {
-  subscribeSyncRecords,
-} from '@/features/sync/services/syncEvents';
+import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 import {
   syncPendingFieldReports,
   type SyncBatchResult,
@@ -43,22 +41,28 @@ export const SyncContext = createContext<SyncContextValue | null>(null);
 
 export function SyncProvider({ children }: PropsWithChildren) {
   const database = useCaneGuardDatabase();
-  const auth = useAuth();
-  const session = auth.session;
-  const sessionToken = session?.token;
-  const submitterIdentity = session?.user.uuid;
-  const authStatus = auth.status;
+  const {
+    markSessionExpired,
+    session,
+    status: authStatus,
+  } = useAuth();
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncState, setSyncState] = useState<{
+    errorMessage: string | null;
+    isSyncing: boolean;
+    sessionKey: string | null;
+  }>({ errorMessage: null, isSyncing: false, sessionKey: null });
   const [pendingCount, setPendingCount] = useState(0);
   const [lastSuccessfulSyncAt, setLastSuccessfulSyncAt] = useState<string | null>(
     null,
   );
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const previousOnline = useRef<boolean | null>(null);
   const onlineRef = useRef<boolean | null>(null);
   const mounted = useRef(true);
-  const sessionRef = useRef(session);
+  const sessionToken = session?.token;
+  const submitterIdentity = session?.user.uuid;
+  const sessionKey = session ? `${session.token}:${session.user.uuid}` : null;
+  const sessionRef = useRef<MobileSession | null>(session);
 
   useEffect(() => {
     sessionRef.current = session;
@@ -66,23 +70,33 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
   const refreshPendingCount = useCallback(async () => {
     const requestedToken = sessionToken;
-    if (!submitterIdentity) {
+    const requestedSubmitterIdentity = submitterIdentity;
+    if (!requestedSubmitterIdentity) {
       if (
         mounted.current &&
-        isSameSession(sessionRef.current, requestedToken, submitterIdentity)
+        isSameSession(
+          sessionRef.current,
+          requestedToken,
+          requestedSubmitterIdentity,
+        )
       ) {
         setPendingCount(0);
         setLastSuccessfulSyncAt(null);
       }
       return;
     }
+
     const [count, lastSyncedAt] = await Promise.all([
-      countUnsyncedFieldReports(database, submitterIdentity),
-      findLastSuccessfulFieldReportSyncAt(database, submitterIdentity),
+      countUnsyncedFieldReports(database, requestedSubmitterIdentity),
+      findLastSuccessfulFieldReportSyncAt(database, requestedSubmitterIdentity),
     ]);
     if (
       mounted.current &&
-      isSameSession(sessionRef.current, requestedToken, submitterIdentity)
+      isSameSession(
+        sessionRef.current,
+        requestedToken,
+        requestedSubmitterIdentity,
+      )
     ) {
       setPendingCount(count);
       setLastSuccessfulSyncAt(lastSyncedAt);
@@ -94,17 +108,21 @@ export function SyncProvider({ children }: PropsWithChildren) {
       source: SyncTriggerSource = 'manual',
     ): Promise<SyncBatchResult | null> => {
       if (
-        auth.status !== 'authenticated' ||
-        !auth.session?.token ||
+        authStatus !== 'authenticated' ||
+        !sessionToken ||
         onlineRef.current !== true
       ) {
         await refreshPendingCount();
         return null;
       }
 
-      setIsSyncing(true);
-      setErrorMessage(null);
-      const initiatingSession = auth.session;
+      const initiatingSession = session;
+      if (!initiatingSession) {
+        await refreshPendingCount();
+        return null;
+      }
+
+      setSyncState({ errorMessage: null, isSyncing: true, sessionKey });
       const isInitiatingSessionCurrent = () =>
         sessionRef.current?.token === initiatingSession.token &&
         sessionRef.current?.user.uuid === initiatingSession.user.uuid;
@@ -119,32 +137,46 @@ export function SyncProvider({ children }: PropsWithChildren) {
           return result;
         }
         if (result.authRequired) {
-          await auth.markSessionExpired();
+          await markSessionExpired();
           return result;
         }
         if (result.synced > 0) {
           setLastSuccessfulSyncAt(new Date().toISOString());
         }
         if (result.failed > 0 && !result.authRequired) {
-          setErrorMessage(
-            `${result.failed} report${result.failed === 1 ? '' : 's'} still need attention.`,
-          );
+          setSyncState({
+            errorMessage: `${result.failed} report${result.failed === 1 ? '' : 's'} still need attention.`,
+            isSyncing: true,
+            sessionKey,
+          });
         }
         await refreshPendingCount();
         return result;
       } catch {
         if (isInitiatingSessionCurrent()) {
-          setErrorMessage('CaneGuard could not process the pending upload queue.');
+          setSyncState({
+            errorMessage: 'CaneGuard could not process the pending upload queue.',
+            isSyncing: true,
+            sessionKey,
+          });
           await refreshPendingCount();
         }
         return null;
       } finally {
         if (mounted.current && isInitiatingSessionCurrent()) {
-          setIsSyncing(false);
+          setSyncState((current) => ({ ...current, isSyncing: false }));
         }
       }
     },
-    [auth, database, refreshPendingCount],
+    [
+      authStatus,
+      database,
+      markSessionExpired,
+      refreshPendingCount,
+      session,
+      sessionKey,
+      sessionToken,
+    ],
   );
 
   const retryReport = useCallback(
@@ -163,37 +195,45 @@ export function SyncProvider({ children }: PropsWithChildren) {
     let active = true;
     void Promise.resolve().then(() => {
       if (active) {
-        setIsSyncing(false);
-        setErrorMessage(null);
+        setSyncState({ errorMessage: null, isSyncing: false, sessionKey });
       }
     });
     return () => {
       active = false;
     };
-  }, [sessionToken, submitterIdentity]);
+  }, [sessionKey]);
 
   useEffect(() => {
-    if (auth.status === 'authenticated') {
+    if (authStatus === 'authenticated') {
       previousOnline.current = null;
     }
-  }, [auth.status]);
+  }, [authStatus]);
 
   useEffect(() => {
     mounted.current = true;
-    const sessionToken = auth.session?.token;
-    const submitterIdentity = auth.session?.user.uuid;
     if (!submitterIdentity) {
       void refreshPendingCount();
       return () => {
         mounted.current = false;
       };
     }
+
+    const requestedToken = sessionToken;
+    const requestedSubmitterIdentity = submitterIdentity;
     const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
-    void resetStaleSyncingFieldReports(database, submitterIdentity, staleBefore)
+    void resetStaleSyncingFieldReports(
+      database,
+      requestedSubmitterIdentity,
+      staleBefore,
+    )
       .then(() => {
         if (
           mounted.current &&
-          isSameSession(sessionRef.current, sessionToken, submitterIdentity)
+          isSameSession(
+            sessionRef.current,
+            requestedToken,
+            requestedSubmitterIdentity,
+          )
         ) {
           return refreshPendingCount();
         }
@@ -202,9 +242,17 @@ export function SyncProvider({ children }: PropsWithChildren) {
       .catch(() => {
         if (
           mounted.current &&
-          isSameSession(sessionRef.current, sessionToken, submitterIdentity)
+          isSameSession(
+            sessionRef.current,
+            requestedToken,
+            requestedSubmitterIdentity,
+          )
         ) {
-          setErrorMessage('Interrupted uploads could not be recovered yet.');
+          setSyncState({
+            errorMessage: 'Interrupted uploads could not be recovered yet.',
+            isSyncing: false,
+            sessionKey,
+          });
         }
       });
 
@@ -220,7 +268,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       } else if (
         previousOnline.current === null &&
         online &&
-        auth.status === 'authenticated'
+        authStatus === 'authenticated'
       ) {
         void syncNow('startup');
       }
@@ -250,32 +298,37 @@ export function SyncProvider({ children }: PropsWithChildren) {
       appStateSubscription.remove();
     };
   }, [
-    auth.session?.token,
-    auth.session?.user.uuid,
-    auth.status,
+    authStatus,
     database,
     refreshPendingCount,
+    sessionKey,
+    sessionToken,
+    submitterIdentity,
     syncNow,
   ]);
 
   const value = useMemo<SyncContextValue>(
     () => ({
-      errorMessage,
+      errorMessage:
+        syncState.sessionKey === sessionKey ? syncState.errorMessage : null,
       isOnline,
-      isSyncing,
+      isSyncing:
+        syncState.sessionKey === sessionKey ? syncState.isSyncing : false,
       lastSuccessfulSyncAt,
       pendingCount,
       retryReport,
       syncNow,
     }),
     [
-      errorMessage,
       isOnline,
-      isSyncing,
       lastSuccessfulSyncAt,
       pendingCount,
       retryReport,
+      sessionKey,
       syncNow,
+      syncState.errorMessage,
+      syncState.isSyncing,
+      syncState.sessionKey,
     ],
   );
 

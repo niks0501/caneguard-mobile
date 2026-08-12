@@ -22,10 +22,12 @@ jest.mock('expo-crypto', () => ({
   randomUUID: jest.fn(),
 }));
 jest.mock('expo-router', () => {
-  const React = require('react') as typeof import('react');
   return {
     useFocusEffect: (callback: () => void) => {
-      React.useEffect(callback, [callback]);
+      (jest.requireActual('react') as typeof import('react')).useEffect(
+        callback,
+        [callback],
+      );
     },
   };
 });
@@ -110,7 +112,7 @@ describe('useFieldReportDraft', () => {
 
   it('does not reuse a Draft identity when the scan changes', async () => {
     const { rerender } = await renderHook(
-      ({ scanRecordId }) => useFieldReportDraft(scanRecordId),
+      ({ scanRecordId }: { scanRecordId: string }) => useFieldReportDraft(scanRecordId),
       { initialProps: { scanRecordId: SCAN_A } },
     );
 
@@ -149,7 +151,7 @@ describe('useFieldReportDraft', () => {
     mockRandomUUID.mockReset().mockReturnValue(REPORT_B);
 
     const { result, rerender } = await renderHook(
-      ({ scanRecordId }) => useFieldReportDraft(scanRecordId),
+      ({ scanRecordId }: { scanRecordId: string }) => useFieldReportDraft(scanRecordId),
       { initialProps: { scanRecordId: SCAN_A } },
     );
     await waitFor(() =>
@@ -188,7 +190,7 @@ describe('useFieldReportDraft', () => {
     );
 
     const { result, rerender } = await renderHook(
-      ({ scanRecordId }) => useFieldReportDraft(scanRecordId),
+      ({ scanRecordId }: { scanRecordId: string }) => useFieldReportDraft(scanRecordId),
       { initialProps: { scanRecordId: SCAN_A } },
     );
     await waitFor(() => expect(result.current.data?.id).toBe(REPORT_A));

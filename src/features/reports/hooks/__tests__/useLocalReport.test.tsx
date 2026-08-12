@@ -82,7 +82,7 @@ describe('useLocalReport', () => {
     );
 
     mockUser = { uuid: SUBMITTER_B };
-    rerender();
+    await rerender(undefined);
     await act(async () => {
       mockFocusCallback?.();
     });

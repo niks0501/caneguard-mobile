@@ -1,6 +1,6 @@
 import { randomUUID } from 'expo-crypto';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
@@ -47,10 +47,12 @@ export function useFieldReportForScan(scanRecordId: string | null) {
     scanRecordId: string | null;
     submitterIdentity: string | null;
   }>({ scanRecordId: null, submitterIdentity: null });
-  refreshInput.current = {
-    scanRecordId,
-    submitterIdentity: user?.uuid ?? null,
-  };
+  useEffect(() => {
+    refreshInput.current = {
+      scanRecordId,
+      submitterIdentity: user?.uuid ?? null,
+    };
+  }, [scanRecordId, user?.uuid]);
   const isCurrentInput = useCallback(
     () =>
       refreshInput.current.scanRecordId === scanRecordId &&
@@ -150,10 +152,12 @@ export function useFieldReportDraft(
     scanRecordId: string | null;
     submitterIdentity: string | null;
   }>({ scanRecordId: null, submitterIdentity: null });
-  refreshInput.current = {
-    scanRecordId,
-    submitterIdentity: user?.uuid ?? null,
-  };
+  useEffect(() => {
+    refreshInput.current = {
+      scanRecordId,
+      submitterIdentity: user?.uuid ?? null,
+    };
+  }, [scanRecordId, user?.uuid]);
   const isCurrentInput = useCallback(
     () =>
       refreshInput.current.scanRecordId === scanRecordId &&

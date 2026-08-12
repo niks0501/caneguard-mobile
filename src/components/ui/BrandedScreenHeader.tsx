@@ -1,11 +1,9 @@
 import { Feather } from '@expo/vector-icons';
-import { Image as ExpoImage } from 'expo-image';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Fonts, Layout, Radius, Spacing, Typography } from '@/constants/theme';
+import { Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { useThemePreference } from '@/providers/ThemePreferenceProvider';
 
 type BrandedScreenHeaderProps = {
   title: string;
@@ -14,18 +12,9 @@ type BrandedScreenHeaderProps = {
 
 export function BrandedScreenHeader({ title, showBack = true }: BrandedScreenHeaderProps) {
   const theme = useTheme();
-  const { isDarkMode } = useThemePreference();
 
   return (
-    <View style={[styles.hero, { backgroundColor: theme.backgroundElement }]}>
-      <ExpoImage
-        accessible={false}
-        contentFit="cover"
-        contentPosition="right center"
-        pointerEvents="none"
-        source={require('../../../assets/svg/header-botanical-wave.svg')}
-        style={[styles.artwork, isDarkMode && styles.artworkDark]}
-      />
+    <View style={[styles.hero, { backgroundColor: theme.backgroundElement, borderBottomColor: theme.divider }]}>
       <View style={styles.content}>
         <View style={[styles.titleRow, !showBack && styles.titleRowWithoutBack]}>
           {showBack ? (
@@ -47,18 +36,9 @@ export function BrandedScreenHeader({ title, showBack = true }: BrandedScreenHea
 
 const styles = StyleSheet.create({
   hero: {
-    minHeight: 176,
-    overflow: 'hidden',
+    minHeight: 112,
+    borderBottomWidth: 1,
     justifyContent: 'flex-end',
-  },
-  artwork: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    inset: 0,
-  },
-  artworkDark: {
-    opacity: 0.24,
   },
   content: {
     width: '100%',
@@ -82,14 +62,13 @@ const styles = StyleSheet.create({
     paddingRight: Spacing['2xl'],
   },
   titleRowWithoutBack: {
-    paddingRight: 96,
+    paddingRight: 0,
   },
   title: {
-    ...Typography.display,
+    ...Typography.heading,
     flex: 1,
     flexShrink: 1,
-    fontFamily: Fonts?.serif,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   pressed: {
     opacity: 0.7,

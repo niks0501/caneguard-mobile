@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { ComponentTokens, Shadows } from '@/constants/theme';
+import { ComponentTokens } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type AppCardProps = {
@@ -29,6 +29,5 @@ const styles = StyleSheet.create({
     padding: ComponentTokens.card.padding,
     borderRadius: ComponentTokens.card.borderRadius,
     borderWidth: 1,
-    ...Shadows.sm,
   },
 });

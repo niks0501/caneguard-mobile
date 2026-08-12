@@ -7,7 +7,6 @@ import { DiseasePill, type DiseasePillVariant } from '@/components/ui/DiseasePil
 import {
   ComponentTokens,
   Radius,
-  Shadows,
   Spacing,
   Typography,
 } from '@/constants/theme';
@@ -167,7 +166,6 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     flexDirection: 'row',
     gap: Spacing.md,
-    ...Shadows.sm,
   },
   thumbnail: {
     width: 72,

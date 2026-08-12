@@ -155,6 +155,7 @@ describe('AnalysisResultScreen', () => {
     ).toHaveProp('source', { uri: 'file:///result-leaf.jpg' });
     expect(screen.getByText('Possible result: Rust')).toBeOnTheScreen();
     expect(screen.getByLabelText('AI confidence 78%')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Show Technical details'));
     expect(screen.getByLabelText('Healthy score 8%')).toBeOnTheScreen();
     expect(screen.getByLabelText('Mosaic score 14%')).toBeOnTheScreen();
     expect(screen.getByLabelText('Rust score 78%')).toBeOnTheScreen();

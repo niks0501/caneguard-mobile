@@ -177,9 +177,10 @@ describe('ImagePreviewScreen', () => {
         successfulPreprocessingResult.inputBuffer,
         42,
       );
-      expect(screen.getByText('Model input ready')).toBeOnTheScreen();
     });
 
+    await fireEvent.press(screen.getByLabelText('Show Technical details'));
+    expect(screen.getByText('Model input ready')).toBeOnTheScreen();
     expect(screen.getByText('224 × 224 RGB float32 · 42 ms')).toBeOnTheScreen();
     expect(
       screen

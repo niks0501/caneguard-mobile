@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { useState } from 'react';
+import { Feather } from '@expo/vector-icons';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,28 +11,33 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemePreference } from '@/providers/ThemePreferenceProvider';
 
-type SelectRowProps = {
+type DisabledRowProps = {
   label: string;
-  value: string;
+  description?: string;
 };
 
-function SelectRow({ label, value }: SelectRowProps) {
+function DisabledRow({ label, description }: DisabledRowProps) {
   const theme = useTheme();
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${label}: ${value}`}
-      onPress={() => Alert.alert(label, `${label} selection will be available in a future update.`)}
-      style={({ pressed }) => [
-        styles.menuRow,
-        { borderBottomColor: theme.divider },
-        pressed && { opacity: 0.7 },
-      ]}>
-      <Text style={[styles.menuLabel, { color: theme.text }]}>{label}</Text>
+      accessibilityLabel={`${label}: Coming later`}
+      accessibilityState={{ disabled: true }}
+      disabled
+      onPress={() => undefined}
+      style={[styles.menuRow, styles.disabledRow, { borderBottomColor: theme.divider }]}>
+      <View style={styles.toggleCopy}>
+        <Text style={[styles.menuLabel, { color: theme.textSecondary }]}>{label}</Text>
+        {description ? (
+          <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>
+            {description}
+          </Text>
+        ) : null}
+      </View>
       <View style={styles.menuValueRow}>
-        <Text style={[styles.menuValue, { color: theme.textSecondary }]}>{value}</Text>
-        <Text style={[styles.chevron, { color: theme.textSecondary }]}>{'>'}</Text>
+        <Text style={[styles.menuValue, { color: theme.textSecondary }]}>Coming later</Text>
+        <Feather name="chevron-right" size={18} color={theme.textSecondary} />
       </View>
     </Pressable>
   );
@@ -78,9 +83,6 @@ export default function SettingsScreen() {
   const { isDarkMode, setDarkMode } = useThemePreference();
   const { logout, user } = useAuth();
 
-  const [highContrast, setHighContrast] = useState(false);
-  const [syncAlerts, setSyncAlerts] = useState(true);
-  const [maoAdvisories, setMaoAdvisories] = useState(true);
   const appVersion = Constants.expoConfig?.version ?? 'Unknown';
 
   return (
@@ -100,15 +102,18 @@ export default function SettingsScreen() {
                 styles.card,
                 { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
               ]}>
-              <SelectRow label="Language / Wika" value="English" />
-              <SelectRow label="Text Size" value="Normal" />
+              <DisabledRow label="Language / Wika" />
+              <DisabledRow label="Text Size" />
               <ToggleRow
                 label="Dark Mode"
                 description="Use a darker appearance throughout CaneGuard"
                 value={isDarkMode}
                 onToggle={setDarkMode}
               />
-              <ToggleRow label="High Contrast Mode" value={highContrast} onToggle={setHighContrast} />
+              <DisabledRow
+                label="High Contrast Mode"
+                description="Accessibility display controls are not available yet"
+              />
             </View>
 
             <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>NOTIFICATIONS</Text>
@@ -118,8 +123,8 @@ export default function SettingsScreen() {
                 styles.card,
                 { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
               ]}>
-              <ToggleRow label="Sync Alerts" value={syncAlerts} onToggle={setSyncAlerts} />
-              <ToggleRow label="MAO Advisories" value={maoAdvisories} onToggle={setMaoAdvisories} />
+              <DisabledRow label="Sync Alerts" />
+              <DisabledRow label="MAO Advisories" />
             </View>
 
             <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>ACCOUNT & SECURITY</Text>
@@ -253,6 +258,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     flex: 1,
   },
+  disabledRow: { opacity: 0.72 },
   toggleCopy: {
     flex: 1,
     paddingVertical: Spacing.sm,
@@ -268,10 +274,6 @@ const styles = StyleSheet.create({
   },
   menuValue: {
     ...Typography.bodySmall,
-  },
-  chevron: {
-    ...Typography.body,
-    fontWeight: '800',
   },
   manageButton: {
     minHeight: 36,

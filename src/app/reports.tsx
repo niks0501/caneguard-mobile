@@ -19,7 +19,6 @@ import {
   ComponentTokens,
   Layout,
   Radius,
-  Shadows,
   Spacing,
   Typography,
   type ThemeColor,
@@ -413,14 +412,12 @@ const styles = StyleSheet.create({
     borderRadius: Radius.xl,
     padding: Spacing.md,
     gap: Spacing.sm,
-    ...Shadows.sm,
   },
   tileRow: { flexDirection: 'row', gap: Spacing.sm },
   classCard: {
     borderWidth: 1,
     borderRadius: Radius.xl,
     paddingHorizontal: Spacing.lg,
-    ...Shadows.sm,
   },
   classItem: {
     paddingVertical: Spacing.lg,

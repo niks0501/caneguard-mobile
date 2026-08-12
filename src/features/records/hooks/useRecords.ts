@@ -33,6 +33,7 @@ interface PaginatedQueryState {
 export function useScanRecords(query: ScanRecordQuery) {
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
+  const submitterIdentity = user?.uuid;
   const {
     barangay,
     limit,
@@ -66,7 +67,7 @@ export function useScanRecords(query: ScanRecordQuery) {
         predictedLabel,
         search,
         syncStatus,
-      }, user?.uuid);
+      }, submitterIdentity);
       setState({ data, errorMessage: null, loading: false });
     } catch (error: unknown) {
       const storageError = toStorageError(
@@ -90,7 +91,7 @@ export function useScanRecords(query: ScanRecordQuery) {
     predictedLabel,
     search,
     syncStatus,
-    user?.uuid,
+    submitterIdentity,
   ]);
   useSyncRecordsRefresh(() => {
     void refresh();
@@ -159,6 +160,7 @@ export function usePaginatedScanRecords(
 ) {
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
+  const submitterIdentity = user?.uuid;
   const {
     barangay,
     predictedLabel,
@@ -208,7 +210,7 @@ export function usePaginatedScanRecords(
           predictedLabel,
           search,
           syncStatus,
-        }, user?.uuid);
+        }, submitterIdentity);
 
         if (requestId.current !== currentRequestId) {
           return;
@@ -248,7 +250,7 @@ export function usePaginatedScanRecords(
       predictedLabel,
       search,
       syncStatus,
-      user?.uuid,
+      submitterIdentity,
     ],
   );
 

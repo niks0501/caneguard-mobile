@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Gesture, GestureDetector, ScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
@@ -26,6 +27,11 @@ export default function ManualMapScreen() {
   const report = useFieldReportDraft(scanRecordId, false);
   const { isOnline } = useSync();
   const [selection, setSelection] = useState<MapCoordinate | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  // Native scroll gesture of the surrounding ScrollView; the map's pan
+  // gesture blocks it so dragging on the map pans the map instead of
+  // scrolling the page.
+  const scrollNativeGesture = useMemo(() => Gesture.Native(), []);
 
   const reportMatches = report.data?.id === reportId;
   const initialCenter = getInitialCenter(report.data);
@@ -42,7 +48,9 @@ export default function ManualMapScreen() {
   return (
     <SafeAreaView testID="manual-map.screen" style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Pin Report Location" />
+        {!isFullscreen ? (
+          <BrandedScreenHeader title="Pin Report Location" />
+        ) : null}
         {report.loading && !report.data ? (
           <View style={styles.centered}>
             <ActivityIndicator color={theme.primary} accessibilityLabel="Opening manual location map" />
@@ -63,27 +71,49 @@ export default function ManualMapScreen() {
             <AppButton onPress={() => router.back()} variant="secondary">Return to Report</AppButton>
           </View>
         ) : (
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
-            <View style={styles.content}>
-              <Text style={[styles.instructions, { color: theme.text }]}>Move and zoom the online map, then tap the observation location. Confirm only after checking the pin coordinates.</Text>
-              <OnlineMapPicker
-                initialCenter={initialCenter}
-                isOnline={isOnline}
-                onSelectionChange={setSelection}
-              />
-              {report.errorMessage ? (
-                <Text accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>{report.errorMessage}</Text>
-              ) : null}
-              <AppButton
-                testID="manual-map.confirm"
-                accessibilityLabel={report.savingManualLocation ? 'Saving manual map location' : 'Confirm manual map location'}
-                disabled={!selection || isOnline !== true || report.savingManualLocation}
-                leadingIcon="map-pin"
-                onPress={() => void confirmLocation()}>
-                {report.savingManualLocation ? 'Saving Location…' : 'Confirm Location'}
-              </AppButton>
-              <AppButton onPress={() => router.back()} variant="secondary">Keep Draft Unchanged</AppButton>
-            </View>
+          <ScrollView
+            scrollEnabled={!isFullscreen}
+            keyboardShouldPersistTaps="handled"
+            style={styles.scroll}
+            contentContainerStyle={
+              isFullscreen
+                ? styles.scrollContentFullscreen
+                : styles.scrollContent
+            }>
+            <GestureDetector gesture={scrollNativeGesture}>
+              <View
+                style={
+                  isFullscreen ? styles.contentFullscreen : styles.content
+                }>
+                {!isFullscreen ? (
+                  <Text style={[styles.instructions, { color: theme.text }]}>
+                    Move and zoom the online map, then tap the observation location. Confirm only after checking the pin coordinates.
+                  </Text>
+                ) : null}
+                <OnlineMapPicker
+                  blocksScrollGesture={scrollNativeGesture}
+                  fullscreen={isFullscreen}
+                  initialCenter={initialCenter}
+                  isOnline={isOnline}
+                  onSelectionChange={setSelection}
+                  onToggleFullscreen={() =>
+                    setIsFullscreen((current) => !current)
+                  }
+                />
+                {report.errorMessage ? (
+                  <Text accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>{report.errorMessage}</Text>
+                ) : null}
+                <AppButton
+                  testID="manual-map.confirm"
+                  accessibilityLabel={report.savingManualLocation ? 'Saving manual map location' : 'Confirm manual map location'}
+                  disabled={!selection || isOnline !== true || report.savingManualLocation}
+                  leadingIcon="map-pin"
+                  onPress={() => void confirmLocation()}>
+                  {report.savingManualLocation ? 'Saving Location…' : 'Confirm Location'}
+                </AppButton>
+                <AppButton onPress={() => router.back()} variant="secondary">Keep Draft Unchanged</AppButton>
+              </View>
+            </GestureDetector>
           </ScrollView>
         )}
       </View>
@@ -122,12 +152,20 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   root: { flex: 1 },
   centered: { flex: 1, justifyContent: 'center', padding: Spacing.xl, gap: Spacing.lg },
+  scroll: { flex: 1 },
   scrollContent: { alignItems: 'center' },
+  scrollContentFullscreen: { flexGrow: 1, alignItems: 'center' },
   content: {
     width: '100%',
     maxWidth: Layout.mobileMaxWidth,
     paddingHorizontal: ComponentTokens.screen.horizontalPadding,
     paddingVertical: Spacing.xl,
+    gap: Spacing.lg,
+  },
+  contentFullscreen: {
+    flex: 1,
+    width: '100%',
+    paddingVertical: Spacing.md,
     gap: Spacing.lg,
   },
   instructions: { ...Typography.body },

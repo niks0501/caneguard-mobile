@@ -50,6 +50,7 @@ const mockDeleteScanRecord = jest.mocked(deleteScanRecord);
 const mockRouterReplace = router.replace as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
 const DETAILS: ScanRecordDetails = {
+  authorityReview: null,
   id: RECORD_ID,
   managedImageUri: `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
   predictedLabel: 'rust',
@@ -121,6 +122,7 @@ describe('RecordDetailsScreen', () => {
     mockFieldReportState = {
       ...mockFieldReportState,
       data: {
+        authorityReview: null,
         id: '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
         scanRecordId: RECORD_ID,
         authoringState: 'draft',
@@ -161,6 +163,7 @@ describe('RecordDetailsScreen', () => {
     mockFieldReportState = {
       ...mockFieldReportState,
       data: {
+        authorityReview: null,
         id: '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
         scanRecordId: RECORD_ID,
         authoringState: 'finalized',

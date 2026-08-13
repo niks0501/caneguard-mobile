@@ -1,4 +1,5 @@
 import type {
+  FieldReportRow,
   ScanClassScoreRow,
   ScanQualityWarningRow,
   ScanRecordRow,
@@ -10,6 +11,7 @@ import type {
   StoredClassScore,
 } from '@/features/records/domain/recordTypes';
 import type { QualityWarning } from '@/features/detection/validation/assessImageQuality';
+import { toAuthorityReviewSnapshot } from '@/features/reports/domain/reportReviewTypes';
 
 export function mapScanRecordListItem(
   row: Pick<
@@ -21,9 +23,32 @@ export function mapScanRecordListItem(
     | 'managedImageUri'
     | 'predictedLabel'
     | 'syncStatus'
-  >,
+  > &
+    Partial<
+      Pick<
+        FieldReportRow,
+        | 'authorityFeedback'
+        | 'authorityFetchedAt'
+        | 'authorityReferenceCode'
+        | 'authorityReviewedAt'
+        | 'authorityStatusRaw'
+        | 'authorityUpdatedAt'
+      >
+    >,
 ): ScanRecordListItem {
   return {
+    authorityReview: row.authorityStatusRaw
+      ? toAuthorityReviewSnapshot(
+          {
+            feedback: row.authorityFeedback ?? null,
+            rawStatus: row.authorityStatusRaw,
+            referenceCode: row.authorityReferenceCode ?? null,
+            reviewedAt: row.authorityReviewedAt ?? null,
+            statusUpdatedAt: row.authorityUpdatedAt ?? row.authorityFetchedAt ?? row.createdAt,
+          },
+          row.authorityFetchedAt ?? null,
+        )
+      : null,
     id: row.id,
     managedImageUri: row.managedImageUri,
     predictedLabel: row.predictedLabel,

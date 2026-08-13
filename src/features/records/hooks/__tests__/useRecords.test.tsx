@@ -35,6 +35,7 @@ beforeEach(() => {
 
 function record(index: number): ScanRecordListItem {
   return {
+    authorityReview: null,
     id: `2b4666c0-ad10-4d0d-a233-${index.toString(16).padStart(12, '0')}`,
     managedImageUri: `file:///documents/caneguard/scan-images/${index}.jpg`,
     predictedLabel: index % 2 ? 'rust' : 'healthy',

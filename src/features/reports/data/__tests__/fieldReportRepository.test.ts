@@ -69,6 +69,7 @@ function openTestDatabase(): {
     '0001_loving_amazoness.sql',
     '0002_talented_kat_farrell.sql',
     '0003_careful_marauders.sql',
+    '0004_sour_namora.sql',
   ]) {
     native.exec(readMigration(migration));
   }

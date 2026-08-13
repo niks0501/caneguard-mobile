@@ -1,0 +1,769 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "4e147ed7-55a3-4d14-9c4b-0b5c178f9d12",
+  "prevId": "35d978e3-f7cd-4e8e-b58e-e147ac64fbbb",
+  "tables": {
+    "field_reports": {
+      "name": "field_reports",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scan_record_id": {
+          "name": "scan_record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "authoring_state": {
+          "name": "authoring_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'draft'"
+        },
+        "farmer_or_farm_owner_name": {
+          "name": "farmer_or_farm_owner_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "province": {
+          "name": "province",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'Batangas'"
+        },
+        "municipality": {
+          "name": "municipality",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'Nasugbu'"
+        },
+        "barangay": {
+          "name": "barangay",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "submitter_identity": {
+          "name": "submitter_identity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "submitter_role": {
+          "name": "submitter_role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "final_latitude": {
+          "name": "final_latitude",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "final_longitude": {
+          "name": "final_longitude",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "location_source": {
+          "name": "location_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "gps_accuracy": {
+          "name": "gps_accuracy",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "gps_attempt_latitude": {
+          "name": "gps_attempt_latitude",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "gps_attempt_longitude": {
+          "name": "gps_attempt_longitude",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "gps_attempt_accuracy": {
+          "name": "gps_attempt_accuracy",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "gps_attempted_at": {
+          "name": "gps_attempted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "gps_capture_outcome": {
+          "name": "gps_capture_outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "gps_outcome_recorded_at": {
+          "name": "gps_outcome_recorded_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "manual_location_selected_at": {
+          "name": "manual_location_selected_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "observed_at": {
+          "name": "observed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "submitted_at": {
+          "name": "submitted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sync_status": {
+          "name": "sync_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'local_only'"
+        },
+        "remote_id": {
+          "name": "remote_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sync_attempt_count": {
+          "name": "sync_attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "last_sync_error_code": {
+          "name": "last_sync_error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_sync_attempt_at": {
+          "name": "last_sync_attempt_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_synced_at": {
+          "name": "last_synced_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "authority_status_raw": {
+          "name": "authority_status_raw",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "authority_reference_code": {
+          "name": "authority_reference_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "authority_feedback": {
+          "name": "authority_feedback",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "authority_reviewed_at": {
+          "name": "authority_reviewed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "authority_updated_at": {
+          "name": "authority_updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "authority_fetched_at": {
+          "name": "authority_fetched_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "field_reports_scan_record_id_unique": {
+          "name": "field_reports_scan_record_id_unique",
+          "columns": [
+            "scan_record_id"
+          ],
+          "isUnique": true
+        },
+        "field_reports_remote_id_unique": {
+          "name": "field_reports_remote_id_unique",
+          "columns": [
+            "remote_id"
+          ],
+          "isUnique": true
+        },
+        "field_reports_authoring_updated_at_idx": {
+          "name": "field_reports_authoring_updated_at_idx",
+          "columns": [
+            "authoring_state",
+            "updated_at"
+          ],
+          "isUnique": false
+        },
+        "field_reports_sync_updated_at_idx": {
+          "name": "field_reports_sync_updated_at_idx",
+          "columns": [
+            "sync_status",
+            "updated_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "field_reports_scan_record_id_scan_records_id_fk": {
+          "name": "field_reports_scan_record_id_scan_records_id_fk",
+          "tableFrom": "field_reports",
+          "tableTo": "scan_records",
+          "columnsFrom": [
+            "scan_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "field_reports_authoring_state_check": {
+          "name": "field_reports_authoring_state_check",
+          "value": "\"field_reports\".\"authoring_state\" in ('draft', 'ready_for_submission', 'finalized')"
+        },
+        "field_reports_sync_status_check": {
+          "name": "field_reports_sync_status_check",
+          "value": "\"field_reports\".\"sync_status\" in ('local_only', 'pending', 'syncing', 'synced', 'failed')"
+        },
+        "field_reports_draft_sync_check": {
+          "name": "field_reports_draft_sync_check",
+          "value": "\"field_reports\".\"authoring_state\" <> 'draft' or \"field_reports\".\"sync_status\" = 'local_only'"
+        },
+        "field_reports_draft_submission_check": {
+          "name": "field_reports_draft_submission_check",
+          "value": "\"field_reports\".\"authoring_state\" <> 'draft' or \"field_reports\".\"submitted_at\" is null"
+        },
+        "field_reports_location_check": {
+          "name": "field_reports_location_check",
+          "value": "(\n        \"field_reports\".\"location_source\" is null and\n        \"field_reports\".\"final_latitude\" is null and\n        \"field_reports\".\"final_longitude\" is null and\n        \"field_reports\".\"gps_accuracy\" is null\n      ) or (\n        \"field_reports\".\"location_source\" = 'gps' and\n        \"field_reports\".\"final_latitude\" between -90 and 90 and\n        \"field_reports\".\"final_longitude\" between -180 and 180 and\n        \"field_reports\".\"gps_accuracy\" >= 0\n      ) or (\n        \"field_reports\".\"location_source\" = 'manual_map' and\n        \"field_reports\".\"final_latitude\" between -90 and 90 and\n        \"field_reports\".\"final_longitude\" between -180 and 180 and\n        \"field_reports\".\"gps_accuracy\" is null\n      )"
+        },
+        "field_reports_gps_attempt_check": {
+          "name": "field_reports_gps_attempt_check",
+          "value": "(\n        \"field_reports\".\"gps_attempt_latitude\" is null and\n        \"field_reports\".\"gps_attempt_longitude\" is null and\n        \"field_reports\".\"gps_attempt_accuracy\" is null and\n        \"field_reports\".\"gps_attempted_at\" is null\n      ) or (\n        \"field_reports\".\"gps_attempt_latitude\" between -90 and 90 and\n        \"field_reports\".\"gps_attempt_longitude\" between -180 and 180 and\n        \"field_reports\".\"gps_attempt_accuracy\" >= 0 and\n        \"field_reports\".\"gps_attempted_at\" is not null\n      )"
+        },
+        "field_reports_sync_attempt_count_check": {
+          "name": "field_reports_sync_attempt_count_check",
+          "value": "\"field_reports\".\"sync_attempt_count\" >= 0"
+        }
+      }
+    },
+    "scan_class_scores": {
+      "name": "scan_class_scores",
+      "columns": {
+        "scan_record_id": {
+          "name": "scan_record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "score": {
+          "name": "score",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "scan_class_scores_scan_record_id_scan_records_id_fk": {
+          "name": "scan_class_scores_scan_record_id_scan_records_id_fk",
+          "tableFrom": "scan_class_scores",
+          "tableTo": "scan_records",
+          "columnsFrom": [
+            "scan_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "scan_class_scores_scan_record_id_label_pk": {
+          "columns": [
+            "scan_record_id",
+            "label"
+          ],
+          "name": "scan_class_scores_scan_record_id_label_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "scan_class_scores_score_check": {
+          "name": "scan_class_scores_score_check",
+          "value": "\"scan_class_scores\".\"score\" >= 0 and \"scan_class_scores\".\"score\" <= 1"
+        }
+      }
+    },
+    "scan_quality_warnings": {
+      "name": "scan_quality_warnings",
+      "columns": {
+        "scan_record_id": {
+          "name": "scan_record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "warning_key": {
+          "name": "warning_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "scan_quality_warnings_scan_record_id_scan_records_id_fk": {
+          "name": "scan_quality_warnings_scan_record_id_scan_records_id_fk",
+          "tableFrom": "scan_quality_warnings",
+          "tableTo": "scan_records",
+          "columnsFrom": [
+            "scan_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "scan_quality_warnings_scan_record_id_warning_key_pk": {
+          "columns": [
+            "scan_record_id",
+            "warning_key"
+          ],
+          "name": "scan_quality_warnings_scan_record_id_warning_key_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "scan_records": {
+      "name": "scan_records",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "managed_image_uri": {
+          "name": "managed_image_uri",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "image_mime_type": {
+          "name": "image_mime_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "image_size_bytes": {
+          "name": "image_size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "image_source_type": {
+          "name": "image_source_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_width": {
+          "name": "source_width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source_height": {
+          "name": "source_height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "predicted_label": {
+          "name": "predicted_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "checklist_consistency": {
+          "name": "checklist_consistency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reported_severity": {
+          "name": "reported_severity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "barangay": {
+          "name": "barangay",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "model_version": {
+          "name": "model_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "preprocess_ms": {
+          "name": "preprocess_ms",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "inference_ms": {
+          "name": "inference_ms",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "total_ms": {
+          "name": "total_ms",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sync_status": {
+          "name": "sync_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'local_only'"
+        },
+        "remote_id": {
+          "name": "remote_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sync_attempt_count": {
+          "name": "sync_attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "last_sync_error_code": {
+          "name": "last_sync_error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_sync_attempt_at": {
+          "name": "last_sync_attempt_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_synced_at": {
+          "name": "last_synced_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "scan_records_created_at_idx": {
+          "name": "scan_records_created_at_idx",
+          "columns": [
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "scan_records_label_created_at_idx": {
+          "name": "scan_records_label_created_at_idx",
+          "columns": [
+            "predicted_label",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "scan_records_sync_created_at_idx": {
+          "name": "scan_records_sync_created_at_idx",
+          "columns": [
+            "sync_status",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "scan_records_barangay_created_at_idx": {
+          "name": "scan_records_barangay_created_at_idx",
+          "columns": [
+            "barangay",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "scan_records_remote_id_unique": {
+          "name": "scan_records_remote_id_unique",
+          "columns": [
+            "remote_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "scan_records_image_source_check": {
+          "name": "scan_records_image_source_check",
+          "value": "\"scan_records\".\"image_source_type\" in ('camera', 'gallery')"
+        },
+        "scan_records_confidence_check": {
+          "name": "scan_records_confidence_check",
+          "value": "\"scan_records\".\"confidence\" >= 0 and \"scan_records\".\"confidence\" <= 1"
+        },
+        "scan_records_consistency_check": {
+          "name": "scan_records_consistency_check",
+          "value": "\"scan_records\".\"checklist_consistency\" in ('consistent', 'inconsistent', 'not-applicable', 'not-enough-information')"
+        },
+        "scan_records_severity_check": {
+          "name": "scan_records_severity_check",
+          "value": "\"scan_records\".\"reported_severity\" is null or \"scan_records\".\"reported_severity\" in ('Mild', 'Moderate', 'Severe')"
+        },
+        "scan_records_sync_status_check": {
+          "name": "scan_records_sync_status_check",
+          "value": "\"scan_records\".\"sync_status\" in ('local_only', 'pending', 'syncing', 'synced', 'failed')"
+        },
+        "scan_records_image_size_check": {
+          "name": "scan_records_image_size_check",
+          "value": "\"scan_records\".\"image_size_bytes\" is null or \"scan_records\".\"image_size_bytes\" >= 0"
+        },
+        "scan_records_width_check": {
+          "name": "scan_records_width_check",
+          "value": "\"scan_records\".\"source_width\" is null or \"scan_records\".\"source_width\" > 0"
+        },
+        "scan_records_height_check": {
+          "name": "scan_records_height_check",
+          "value": "\"scan_records\".\"source_height\" is null or \"scan_records\".\"source_height\" > 0"
+        },
+        "scan_records_timings_check": {
+          "name": "scan_records_timings_check",
+          "value": "\"scan_records\".\"preprocess_ms\" >= 0 and \"scan_records\".\"inference_ms\" >= 0 and \"scan_records\".\"total_ms\" >= 0"
+        },
+        "scan_records_sync_attempt_count_check": {
+          "name": "scan_records_sync_attempt_count_check",
+          "value": "\"scan_records\".\"sync_attempt_count\" >= 0"
+        }
+      }
+    },
+    "scan_symptoms": {
+      "name": "scan_symptoms",
+      "columns": {
+        "scan_record_id": {
+          "name": "scan_record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "symptom_key": {
+          "name": "symptom_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "scan_symptoms_scan_record_id_scan_records_id_fk": {
+          "name": "scan_symptoms_scan_record_id_scan_records_id_fk",
+          "tableFrom": "scan_symptoms",
+          "tableTo": "scan_records",
+          "columnsFrom": [
+            "scan_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "scan_symptoms_scan_record_id_symptom_key_pk": {
+          "columns": [
+            "scan_record_id",
+            "symptom_key"
+          ],
+          "name": "scan_symptoms_scan_record_id_symptom_key_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

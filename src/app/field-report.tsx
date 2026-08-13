@@ -26,6 +26,7 @@ import {
 } from '@/constants/theme';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
+import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
 import type {
   FieldReport,
   FieldReportSubmissionRequirement,
@@ -46,6 +47,10 @@ export default function FieldReportScreen() {
   const record = useScanRecordDetails(scanRecordId);
   const { user } = useAuth();
   const sync = useSync();
+  const authorityStatus = useAuthorityReviewStatus(
+    report.data?.authoringState === 'finalized' &&
+      report.data.syncStatus === 'synced',
+  );
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
 
@@ -189,6 +194,12 @@ export default function FieldReportScreen() {
               ) : (
                 <>
                   <FinalizedReportSummary fieldReport={report.data} />
+                  {report.data.syncStatus === 'synced' ? (
+                    <AuthorityReviewSection
+                      fieldReport={report.data}
+                      status={authorityStatus}
+                    />
+                  ) : null}
                   {report.data.syncStatus === 'pending' ||
                   report.data.syncStatus === 'failed' ? (
                     <AppButton
@@ -592,7 +603,9 @@ function canUseManualMap(fieldReport: FieldReport): boolean {
 function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
   const theme = useTheme();
   return (
-    <View style={[styles.formCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
+    <View
+      testID="field-report.submission-section"
+      style={[styles.formCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
       <EvidenceRow label="Farmer or farm owner" value={fieldReport.farmerOrFarmOwnerName ?? 'Not provided'} />
       <EvidenceRow label="Area" value={`${fieldReport.barangay}, ${fieldReport.municipality}, ${fieldReport.province}`} />
       <EvidenceRow label="Location source" value={fieldReport.locationSource === 'manual_map' ? 'Manual map' : 'GPS'} />
@@ -608,6 +621,72 @@ function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
       {fieldReport.lastSyncedAt ? (
         <EvidenceRow label="Last synchronized" value={formatTimestamp(fieldReport.lastSyncedAt)} />
       ) : null}
+    </View>
+  );
+}
+
+function AuthorityReviewSection({
+  fieldReport,
+  status,
+}: {
+  fieldReport: FieldReport;
+  status: ReturnType<typeof useAuthorityReviewStatus>;
+}) {
+  const theme = useTheme();
+  const review = fieldReport.authorityReview;
+
+  return (
+    <View
+      testID="field-report.authority-review-section"
+      style={[
+        styles.formCard,
+        { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+      ]}>
+      <View style={styles.sectionHeading}>
+        <Feather name="shield" size={20} color={theme.info} />
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Authority review</Text>
+      </View>
+      {review ? (
+        <>
+          <EvidenceRow label="Status" value={review.statusLabel} />
+          {review.referenceCode ? (
+            <EvidenceRow label="Reference" value={review.referenceCode} />
+          ) : null}
+          {review.feedback ? (
+            <View style={styles.feedback}>
+              <Text style={[styles.automaticLabel, { color: theme.textSecondary }]}>Latest feedback</Text>
+              <Text selectable testID="field-report.authority-feedback" style={[styles.feedbackText, { color: theme.text }]}>
+                {review.feedback.message}
+              </Text>
+              <Text style={[styles.helpText, { color: theme.textSecondary }]}>
+                {review.feedback.authorLabel} · Updated {formatTimestamp(review.feedback.updatedAt)}
+              </Text>
+            </View>
+          ) : null}
+          <EvidenceRow label="Server update" value={formatTimestamp(review.statusUpdatedAt)} />
+        </>
+      ) : (
+        <Text testID="field-report.authority-status-unavailable" style={[styles.statusMessage, { color: theme.textSecondary }]}>
+          Authority review status is unavailable for this synchronized report.
+        </Text>
+      )}
+      {status.errorMessage ? (
+        <Text
+          testID="field-report.authority-refresh-error"
+          accessibilityLiveRegion="assertive"
+          style={[styles.error, { color: theme.danger }]}>
+          {status.errorMessage}
+        </Text>
+      ) : null}
+      <AppButton
+        testID="field-report.refresh-authority-status"
+        onPress={() => void status.refresh()}
+        disabled={status.refreshing}
+        leadingIcon="refresh-cw"
+        variant="secondary"
+        accessibilityLabel={status.refreshing ? 'Refreshing authority review status' : 'Refresh authority review status'}>
+        {status.refreshing ? 'Refreshing status…' : 'Refresh status'}
+      </AppButton>
     </View>
   );
 }
@@ -683,6 +762,8 @@ const styles = StyleSheet.create({
   evidenceImage: { width: '100%', aspectRatio: 16 / 9, borderRadius: Radius.md },
   evidenceRow: { gap: Spacing.xs },
   evidenceValue: { ...Typography.bodySmall, fontWeight: '600' },
+  feedback: { gap: Spacing.xs },
+  feedbackText: { ...Typography.body, fontWeight: '600' },
   error: { ...Typography.bodySmall, fontWeight: '700' },
   saved: { ...Typography.bodySmall, fontWeight: '800', textAlign: 'center' },
   validationCard: {

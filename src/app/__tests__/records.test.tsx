@@ -20,6 +20,15 @@ let mockRecordsState: ReturnType<typeof usePaginatedScanRecords> = {
 jest.mock('@/features/records/hooks/useRecords', () => ({
   usePaginatedScanRecords: jest.fn(() => mockRecordsState),
 }));
+jest.mock('@/features/reports/hooks/useAuthorityReviewStatus', () => ({
+  useAuthorityReviewStatus: () => ({
+    capabilityUnavailable: false,
+    errorMessage: null,
+    lastSuccessfulAt: null,
+    refreshing: false,
+    refresh: mockRefresh,
+  }),
+}));
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({
     errorMessage: null,
@@ -34,6 +43,7 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
 const mockUsePaginatedScanRecords = jest.mocked(usePaginatedScanRecords);
 const mockRouterPush = router.push as jest.Mock;
 const RECORD: ScanRecordListItem = {
+  authorityReview: null,
   id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
   managedImageUri: 'file:///documents/caneguard/scan-images/record.jpg',
   predictedLabel: 'rust',

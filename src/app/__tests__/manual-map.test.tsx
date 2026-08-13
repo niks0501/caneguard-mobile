@@ -2,6 +2,11 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import ManualMapScreen from '@/app/manual-map';
+import {
+  coordinateAtViewportPoint,
+  DEFAULT_MANUAL_MAP_CENTER,
+  DEFAULT_MANUAL_MAP_ZOOM,
+} from '@/features/reports/domain/manualMap';
 import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
 
 const SCAN_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
@@ -66,10 +71,10 @@ function draft(overrides: Partial<FieldReport> = {}): FieldReport {
   };
 }
 
-async function loadMapTiles() {
+async function loadMapTiles(width = 390, height = 360) {
   await act(async () => {
     screen.getByTestId('manual-map.viewport').props.onLayout({
-      nativeEvent: { layout: { height: 360, width: 390, x: 0, y: 0 } },
+      nativeEvent: { layout: { height, width, x: 0, y: 0 } },
     });
   });
   for (const tile of screen.getAllByTestId('manual-map.tile')) {
@@ -77,12 +82,16 @@ async function loadMapTiles() {
   }
 }
 
+async function goFullscreen() {
+  await fireEvent.press(screen.getByTestId('manual-map.fullscreen-toggle'));
+}
+
 describe('ManualMapScreen', () => {
   beforeEach(() => {
     mockDraftState = {
       data: draft({
-        finalLatitude: 14.0667,
-        finalLongitude: 120.6319,
+        finalLatitude: DEFAULT_MANUAL_MAP_CENTER.latitude,
+        finalLongitude: DEFAULT_MANUAL_MAP_CENTER.longitude,
       }),
       errorMessage: null,
       loading: false,
@@ -103,15 +112,25 @@ describe('ManualMapScreen', () => {
       screen.getByLabelText('Expand map to fullscreen'),
     ).toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByTestId('manual-map.fullscreen-toggle'));
+    await goFullscreen();
 
-    // Fullscreen: header and instructions hidden, map fills the screen, and
-    // the confirm/cancel flow stays available.
+    // Fullscreen: header and instructions hidden, the map covers the whole
+    // device screen (absolutely positioned over the content), and the
+    // confirm/cancel flow stays reachable as floating actions.
     expect(screen.queryByText('Pin Report Location')).not.toBeOnTheScreen();
     expect(
       screen.queryByText(/Move and zoom the online map/),
     ).not.toBeOnTheScreen();
-    expect(screen.getByTestId('manual-map.viewport')).toHaveStyle({ flex: 1 });
+    expect(screen.getByTestId('manual-map.viewport')).toHaveStyle({
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+    });
+    expect(screen.getByTestId('manual-map.controls')).toHaveStyle({
+      position: 'absolute',
+    });
     expect(screen.getByTestId('manual-map.confirm')).toBeOnTheScreen();
     expect(screen.getByText('Keep Draft Unchanged')).toBeOnTheScreen();
 
@@ -119,7 +138,7 @@ describe('ManualMapScreen', () => {
     await fireEvent.press(screen.getByTestId('manual-map.fullscreen-toggle'));
     expect(screen.getByText('Pin Report Location')).toBeOnTheScreen();
     expect(screen.getByTestId('manual-map.viewport')).not.toHaveStyle({
-      flex: 1,
+      position: 'absolute',
     });
   });
 
@@ -131,14 +150,79 @@ describe('ManualMapScreen', () => {
     await fireEvent(screen.getByTestId('manual-map.viewport'), 'press', {
       nativeEvent: { locationX: 195, locationY: 180 },
     });
-    await fireEvent.press(screen.getByTestId('manual-map.fullscreen-toggle'));
+    await goFullscreen();
 
     await fireEvent.press(screen.getByTestId('manual-map.confirm'));
 
     expect(mockSaveManualLocation).toHaveBeenCalledWith(
-      expect.closeTo(14.0667, 6),
-      expect.closeTo(120.6319, 6),
+      expect.closeTo(DEFAULT_MANUAL_MAP_CENTER.latitude, 6),
+      expect.closeTo(DEFAULT_MANUAL_MAP_CENTER.longitude, 6),
     );
     expect(router.back).toHaveBeenCalled();
+  });
+
+  it('places the pin exactly under the finger after resizing to fullscreen', async () => {
+    await render(<ManualMapScreen />);
+    await act(async () => undefined);
+    await loadMapTiles();
+
+    await goFullscreen();
+    // Fullscreen layout: the map covers the whole device screen.
+    const fullscreenWidth = 390;
+    const fullscreenHeight = 844;
+    await loadMapTiles(fullscreenWidth, fullscreenHeight);
+
+    const tapX = 300;
+    const tapY = 100;
+    await fireEvent(screen.getByTestId('manual-map.viewport'), 'press', {
+      nativeEvent: { locationX: tapX, locationY: tapY },
+    });
+    expect(screen.getByTestId('manual-map.pin')).toBeOnTheScreen();
+
+    const expected = coordinateAtViewportPoint(
+      DEFAULT_MANUAL_MAP_CENTER,
+      DEFAULT_MANUAL_MAP_ZOOM,
+      fullscreenWidth,
+      fullscreenHeight,
+      tapX,
+      tapY,
+    );
+    await fireEvent.press(screen.getByTestId('manual-map.confirm'));
+    expect(mockSaveManualLocation).toHaveBeenCalledWith(
+      expect.closeTo(expected.latitude, 8),
+      expect.closeTo(expected.longitude, 8),
+    );
+    expect(router.back).toHaveBeenCalled();
+  });
+
+  it('keeps the pinned location and coordinates across the fullscreen toggle', async () => {
+    await render(<ManualMapScreen />);
+    await act(async () => undefined);
+    await loadMapTiles();
+
+    await fireEvent(screen.getByTestId('manual-map.viewport'), 'press', {
+      nativeEvent: { locationX: 300, locationY: 100 },
+    });
+    const selected = coordinateAtViewportPoint(
+      DEFAULT_MANUAL_MAP_CENTER,
+      DEFAULT_MANUAL_MAP_ZOOM,
+      390,
+      360,
+      300,
+      100,
+    );
+    const coordinatesText = `${selected.latitude.toFixed(6)}, ${selected.longitude.toFixed(6)}`;
+
+    await goFullscreen();
+    expect(screen.getByTestId('manual-map.coordinates')).toHaveTextContent(
+      coordinatesText,
+    );
+    expect(screen.getByTestId('manual-map.pin')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('manual-map.fullscreen-toggle'));
+    expect(screen.getByTestId('manual-map.coordinates')).toHaveTextContent(
+      coordinatesText,
+    );
+    expect(screen.getByTestId('manual-map.pin')).toBeOnTheScreen();
   });
 });

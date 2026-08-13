@@ -7,9 +7,11 @@ import {
   finalizeFieldReport,
   findFieldReportByScanRecordId,
   saveFieldReportDraft,
+  saveGpsCapture,
 } from '@/features/reports/data/fieldReportRepository';
 import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
 import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
+import { captureGpsLocation } from '@/features/reports/services/captureGpsLocation';
 
 const DATABASE = {};
 const SCAN_A = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
@@ -56,10 +58,12 @@ jest.mock('@/features/sync/hooks/useSyncRecordsRevision', () => ({
 }));
 
 const mockRandomUUID = jest.mocked(randomUUID);
+const mockCaptureGpsLocation = jest.mocked(captureGpsLocation);
 const mockCreateOrGetFieldReportDraft = jest.mocked(createOrGetFieldReportDraft);
 const mockFinalizeFieldReport = jest.mocked(finalizeFieldReport);
 const mockFindFieldReportByScanRecordId = jest.mocked(findFieldReportByScanRecordId);
 const mockSaveFieldReportDraft = jest.mocked(saveFieldReportDraft);
+const mockSaveGpsCapture = jest.mocked(saveGpsCapture);
 
 function createdReport(id: string, scanRecordId: string): FieldReport {
   return {
@@ -219,6 +223,88 @@ describe('useFieldReportDraft', () => {
       resolveScanB?.(createdReport(REPORT_B, SCAN_B));
     });
     await waitFor(() => expect(result.current.data?.id).toBe(REPORT_B));
+  });
+
+  it('flags location services off when capture reports them disabled', async () => {
+    mockCaptureGpsLocation.mockResolvedValue({
+      capturedAt: '2026-08-10T01:04:00.000Z',
+      outcome: 'unavailable',
+      reason: 'location_services_disabled',
+    });
+    mockSaveGpsCapture.mockResolvedValue(createdReport(REPORT_A, SCAN_A));
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+    await waitFor(() =>
+      expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
+    );
+
+    await act(async () => {
+      await result.current.captureLocation();
+    });
+
+    expect(result.current.locationServicesDisabled).toBe(true);
+    expect(mockSaveGpsCapture).toHaveBeenCalledWith(
+      DATABASE,
+      REPORT_A,
+      SUBMITTER_ID,
+      expect.objectContaining({
+        capturedAt: '2026-08-10T01:04:00.000Z',
+        outcome: 'unavailable',
+        reason: 'location_services_disabled',
+      }),
+    );
+  });
+
+  it('does not blame location services when the reading itself is unavailable', async () => {
+    mockCaptureGpsLocation.mockResolvedValue({
+      capturedAt: '2026-08-10T01:04:00.000Z',
+      outcome: 'unavailable',
+      reason: 'reading_unavailable',
+    });
+    mockSaveGpsCapture.mockResolvedValue(createdReport(REPORT_A, SCAN_A));
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+    await waitFor(() =>
+      expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
+    );
+
+    await act(async () => {
+      await result.current.captureLocation();
+    });
+
+    expect(result.current.locationServicesDisabled).toBe(false);
+  });
+
+  it('clears the services-off flag once a later capture resolves', async () => {
+    mockCaptureGpsLocation
+      .mockResolvedValueOnce({
+        capturedAt: '2026-08-10T01:04:00.000Z',
+        outcome: 'unavailable',
+        reason: 'location_services_disabled',
+      })
+      .mockResolvedValueOnce({
+        accuracy: 4.4,
+        capturedAt: '2026-08-10T01:05:00.000Z',
+        latitude: 14.0667,
+        longitude: 120.6319,
+        outcome: 'resolved',
+      });
+    mockSaveGpsCapture.mockResolvedValue(createdReport(REPORT_A, SCAN_A));
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+    await waitFor(() =>
+      expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
+    );
+
+    await act(async () => {
+      await result.current.captureLocation();
+    });
+    expect(result.current.locationServicesDisabled).toBe(true);
+
+    await act(async () => {
+      await result.current.captureLocation();
+    });
+    expect(result.current.locationServicesDisabled).toBe(false);
   });
 
   it('blocks Draft saves while finalization is in flight', async () => {

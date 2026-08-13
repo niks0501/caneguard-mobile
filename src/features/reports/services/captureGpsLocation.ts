@@ -1,3 +1,5 @@
+import type { GpsCaptureUnavailableReason } from '@/features/reports/domain/fieldReportTypes';
+
 export const PREFERRED_GPS_ACCURACY_METERS = 5;
 
 export interface ForegroundLocationClient {
@@ -21,7 +23,12 @@ export type GpsCaptureResult =
     }
   | {
       capturedAt: string;
-      outcome: 'error' | 'permission_denied' | 'unavailable';
+      outcome: 'error' | 'permission_denied';
+    }
+  | {
+      capturedAt: string;
+      outcome: 'unavailable';
+      reason: GpsCaptureUnavailableReason;
     };
 
 export async function captureGpsLocation(
@@ -36,7 +43,11 @@ export async function captureGpsLocation(
       return { capturedAt: attemptedAt, outcome: 'permission_denied' };
     }
     if (!(await client.hasServicesEnabled())) {
-      return { capturedAt: attemptedAt, outcome: 'unavailable' };
+      return {
+        capturedAt: attemptedAt,
+        outcome: 'unavailable',
+        reason: 'location_services_disabled',
+      };
     }
 
     const position = await client.getCurrentPosition();
@@ -45,7 +56,11 @@ export async function captureGpsLocation(
         position.accuracy === null ||
         !Number.isFinite(position.accuracy) ||
         position.accuracy < 0) {
-      return { capturedAt: attemptedAt, outcome: 'unavailable' };
+      return {
+        capturedAt: attemptedAt,
+        outcome: 'unavailable',
+        reason: 'reading_unavailable',
+      };
     }
 
     const recordedDate = new Date(position.timestamp);

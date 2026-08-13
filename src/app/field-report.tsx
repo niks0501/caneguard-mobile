@@ -5,6 +5,7 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -87,6 +88,14 @@ export default function FieldReportScreen() {
     } finally {
       setRetrying(false);
     }
+  };
+
+  const openDeviceLocationSettings = () => {
+    void Linking.openSettings().catch(() => {
+      setRetryError(
+        'Device settings could not be opened. Please open Settings and enable location services.',
+      );
+    });
   };
 
   return (
@@ -176,8 +185,10 @@ export default function FieldReportScreen() {
                     fieldReport={report.data}
                     capturing={report.capturingLocation}
                     isOnline={sync.isOnline}
+                    locationServicesDisabled={report.locationServicesDisabled}
                     saveInProgress={report.saving || report.finalizing}
                     onCapture={() => void report.captureLocation()}
+                    onOpenLocationSettings={openDeviceLocationSettings}
                     onOpenMap={() =>
                       router.push(
                         {
@@ -385,14 +396,18 @@ function DraftFields({
 function LocationCapture({
   capturing,
   fieldReport,
+  locationServicesDisabled,
   onCapture,
+  onOpenLocationSettings,
   onOpenMap,
   saveInProgress,
   isOnline,
 }: {
   capturing: boolean;
   fieldReport: FieldReport;
+  locationServicesDisabled: boolean;
   onCapture: () => void;
+  onOpenLocationSettings: () => void;
   onOpenMap: () => void;
   saveInProgress: boolean;
   isOnline: boolean | null;
@@ -431,6 +446,31 @@ function LocationCapture({
           {fieldReport.manualLocationSelectedAt ? (
             <Text testID="field-report.manual-location-selected-at" style={[styles.helpText, { color: theme.textSecondary }]}>Selected {formatTimestamp(fieldReport.manualLocationSelectedAt)}</Text>
           ) : null}
+        </View>
+      ) : null}
+      {locationServicesDisabled ? (
+        <View
+          testID="field-report.location-services-off"
+          accessibilityLiveRegion="assertive"
+          style={[
+            styles.validationCard,
+            { backgroundColor: theme.warningBg, borderColor: theme.warning },
+          ]}>
+          <Text style={[styles.validationTitle, { color: theme.warning }]}>
+            Location services are off
+          </Text>
+          <Text style={[styles.statusMessage, { color: theme.text }]}>
+            Enable location services in device settings, then retry GPS capture.
+            Your Draft remains saved.
+          </Text>
+          <AppButton
+            testID="field-report.open-location-settings"
+            accessibilityLabel="Open device location settings"
+            onPress={onOpenLocationSettings}
+            leadingIcon="settings"
+            variant="secondary">
+            Open Location Settings
+          </AppButton>
         </View>
       ) : null}
       <AppButton

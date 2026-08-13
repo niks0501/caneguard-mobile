@@ -110,6 +110,10 @@ export type FinalizeFieldReportResult =
       status: 'invalid';
     };
 
+export type GpsCaptureUnavailableReason =
+  | 'location_services_disabled'
+  | 'reading_unavailable';
+
 export type SaveGpsCaptureInput =
   | {
       accuracy: number;
@@ -122,5 +126,6 @@ export type SaveGpsCaptureInput =
   | {
       capturedAt: string;
       outcome: 'error' | 'permission_denied' | 'unavailable';
+      reason?: GpsCaptureUnavailableReason;
       updatedAt: string;
     };

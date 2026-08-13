@@ -80,6 +80,27 @@ export function coordinateToViewportPoint(
   };
 }
 
+export function zoomMapAtPoint(
+  center: MapCoordinate,
+  zoom: number,
+  nextZoom: number,
+  focalX: number,
+  focalY: number,
+  width: number,
+  height: number,
+): MapCoordinate {
+  // Keep the coordinate under the pinch focal point fixed on screen while
+  // changing zoom: world pixels scale by 2 ** (nextZoom - zoom), so the
+  // viewport-space offset of the focal point from the viewport center must
+  // scale by the same factor. The center therefore shifts by the difference
+  // between the scaled and the unscaled offset (expressed in the new zoom's
+  // world pixels via moveMapCenter).
+  const scaleFactor = 2 ** (nextZoom - zoom);
+  const offsetX = (scaleFactor - 1) * (focalX - width / 2);
+  const offsetY = (scaleFactor - 1) * (focalY - height / 2);
+  return moveMapCenter(center, nextZoom, offsetX, offsetY);
+}
+
 export function moveMapCenter(
   center: MapCoordinate,
   zoom: number,

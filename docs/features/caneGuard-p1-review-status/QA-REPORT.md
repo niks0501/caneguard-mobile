@@ -14,7 +14,10 @@ Risk-based QA covered the high-risk boundaries introduced by P1: additive SQLite
 | PASS | `npm test -- --runInBand` | 62 suites, 367 tests passed. |
 | PASS | `git diff --check` | No whitespace errors. |
 | PASS | Focused P1 Jest suites | Migration, repository, parser, domain, lifecycle, UI suites passed; included in full run. |
-| PASS_WITH_GAPS | `npx expo export --platform web --output-dir .expo/p1-export-check` | Static export reached Metro but failed on the repository/dependency baseline: `expo-sqlite` could not resolve `node_modules/expo-sqlite/web/wa-sqlite/wa-sqlite.wasm`, although the file exists locally. No app source error was reported. Output was removed. |
+| PASS | `EXPO_PUBLIC_API_BASE_URL=https://api.example.invalid npx expo export --platform web --output-dir .expo/p1-export-check` | Web static export completed: 19 routes and web bundles emitted. `metro.config.js` now treats `.wasm` as an asset, and the web-only model implementation avoids the native TFLite module during web export. The output was removed after verification. |
+| PASS | `EXPO_PUBLIC_API_BASE_URL=https://api.example.invalid npx expo export --platform android --output-dir .expo/p1-export-check-android` | Android production/static JS export completed and emitted the Android Hermes bundle, assets, and metadata. Output was removed after verification. |
+| PASS | `npm run test:coverage -- --runInBand` | 62 suites, 367 tests passed; 89.3% statements / 84.65% branches / 92.04% functions / 89% lines for configured coverage scope. |
+| NOT APPLICABLE | `npx expo doctor` | This repository's local Expo CLI explicitly reports that `expo doctor` is unsupported; no project script or supported local command exists. The command was attempted and documented rather than treated as a pass. |
 | NOT RUN | `./.akidev/bin/maestro test .maestro/p1/01-report-review-status-and-offline-cache.yaml` | Intentionally not executed. No physical/device PASS claimed. |
 | NOT RUN | Controlled backend update and offline restart | Requires backend fixture/service and runtime-fresh Android development build; unavailable in this lane. |
 
@@ -34,9 +37,14 @@ Risk-based QA covered the high-risk boundaries introduced by P1: additive SQLite
 
 - No controlled backend worker/runtime was available, so the exact deployed wire response, live auth policy, server checkpoint behavior, and update/feedback round trip remain unverified here.
 - No fresh physical Android build/device was available for the required P1 flow; Maestro scaffold is retained but deliberately not run.
-- Web static export is unavailable due the existing Expo SQLite WASM resolution issue; Android-first native path is the intended target and TypeScript/Jest/database checks pass.
+- Web is configured as a supported Expo static output (`app.json` has `web.output: static`, `react-dom` and `react-native-web` are dependencies), so web export was repaired rather than excluded. The web-only model fallback is explicit: native TFLite inference remains Android/iOS-only; web can render the app shell and reports but cannot run the native model.
+- `npx expo doctor` is not a supported command in this local Expo CLI; the CLI itself reported that fact. No repository-owned doctor script exists. `npx expo-doctor` was not run because it is an unlisted tool invocation and dependency installation/update was not authorized.
 - P0 physical testing and known cross-repository payload-retention evidence remain separate and were not modified or weakened.
 - The mobile parser accepts the established serializer envelope (`meta.sync_before`, `links.next`) and fail-closes malformed/cross-origin pages. Backend hardening must preserve that contract or explicitly coordinate a mobile change.
+
+## Supported platform determination
+
+Web is an explicitly configured and buildable Expo target, not an excluded platform: `app.json` declares `web.output: static`; `package.json` includes `react-dom` and `react-native-web`; and the repository exposes `npm run web`. Therefore the web export was treated as an applicable static/bundle check. The export uses a web-only Model v0 fallback because `react-native-fast-tflite` is a native Nitro module; this keeps web export deterministic without claiming browser TFLite support. Android remains the primary verified deployment target, with the Android export also passing.
 
 ## Coverage sufficiency rationale
 

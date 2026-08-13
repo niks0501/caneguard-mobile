@@ -2,8 +2,10 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
-if (!config.resolver.assetExts.includes('tflite')) {
-  config.resolver.assetExts.push('tflite');
+for (const extension of ['tflite', 'wasm']) {
+  if (!config.resolver.assetExts.includes(extension)) {
+    config.resolver.assetExts.push(extension);
+  }
 }
 
 if (!config.resolver.sourceExts.includes('sql')) {

@@ -141,7 +141,34 @@ tags:
     direction: UP
 - tapOn:
     id: field-report.barangay-input
+- tapOn:
+    id: field-report.barangay-input-search
 - inputText: Lumbangan
+- extendedWaitUntil:
+    visible:
+      id: field-report.barangay-input-option
+      text: Lumbangan
+    timeout: 10000
+- tapOn:
+    id: field-report.barangay-input-option
+    index: 0
+- hideKeyboard
+# D4: affected area and estimated affected portion are required to finalize.
+- scrollUntilVisible:
+    element:
+      id: field-report.affected-area-input
+    direction: DOWN
+- tapOn:
+    id: field-report.affected-area-input
+- inputText: "2.5"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: field-report.affected-portion-input
+    direction: DOWN
+- tapOn:
+    id: field-report.affected-portion-input
+- inputText: "40"
 - hideKeyboard
 - scrollUntilVisible:
     element:

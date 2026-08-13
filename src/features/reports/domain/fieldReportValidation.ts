@@ -16,6 +16,9 @@ const UUID_V4_PATTERN =
 const UTC_ISO_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const MAX_NAME_LENGTH = 160;
 const MAX_BARANGAY_LENGTH = 120;
+const MAX_REGION_TEXT_LENGTH = 120;
+const MAX_DETAIL_LENGTH = 120;
+const MAX_AFFECTED_AREA_HECTARES = 10_000;
 
 export function validateCreateFieldReportDraftInput(
   input: CreateFieldReportDraftInput,
@@ -26,6 +29,12 @@ export function validateCreateFieldReportDraftInput(
   validateSubmitterIdentity(input.submitterIdentity);
   if (input.submitterRole !== 'field_reporter') {
     invalid('The authenticated user is not a field reporter.');
+  }
+  if (input.province !== undefined) {
+    validateRegionText(input.province, 'province');
+  }
+  if (input.municipality !== undefined) {
+    validateRegionText(input.municipality, 'municipality');
   }
 }
 
@@ -60,17 +69,31 @@ export function validateManualMapLocationInput(
 export function normalizeFinalizeFieldReportInput(
   input: FinalizeFieldReportInput,
 ): {
+  affectedAreaHectares: number;
+  affectedPortionPercent: number;
   barangay: string | null;
+  caneClass: string | null;
+  cropAge: string | null;
   farmerOrFarmOwnerName: string | null;
+  fieldNotes: string | null;
   submittedAt: string;
+  sugarcaneVariety: string | null;
   updatedAt: string;
 } {
   validateUtcTimestamp(input.submittedAt);
   const values = normalizeFieldReportDraftInput(input);
+  validateAffectedAreaHectares(input.affectedAreaHectares);
+  validateAffectedPortionPercent(input.affectedPortionPercent);
   return {
+    affectedAreaHectares: input.affectedAreaHectares,
+    affectedPortionPercent: input.affectedPortionPercent,
     barangay: values.barangay ?? null,
+    caneClass: values.caneClass ?? null,
+    cropAge: values.cropAge ?? null,
     farmerOrFarmOwnerName: values.farmerOrFarmOwnerName ?? null,
+    fieldNotes: values.fieldNotes ?? null,
     submittedAt: input.submittedAt,
+    sugarcaneVariety: values.sugarcaneVariety ?? null,
     updatedAt: input.updatedAt,
   };
 }
@@ -131,9 +154,15 @@ export function getMissingSubmissionRequirements(
   }
   if (!report.submitterIdentity?.trim()) missing.push('submitter_identity');
   if (report.submitterRole !== 'field_reporter') missing.push('submitter_role');
-  if (report.province.trim() !== 'Batangas') missing.push('province');
-  if (report.municipality.trim() !== 'Nasugbu') missing.push('municipality');
+  if (!report.province.trim()) missing.push('province');
+  if (!report.municipality.trim()) missing.push('municipality');
   if (!report.barangay?.trim()) missing.push('barangay');
+  if (report.affectedAreaHectares === null) {
+    missing.push('affected_area_hectares');
+  }
+  if (report.affectedPortionPercent === null) {
+    missing.push('affected_portion_percent');
+  }
 
   const coordinatesValid =
     report.finalLatitude !== null &&
@@ -159,8 +188,16 @@ export function getMissingSubmissionRequirements(
 export function normalizeFieldReportDraftInput(
   input: SaveFieldReportDraftInput,
 ): {
+  affectedAreaHectares?: number | null;
+  affectedPortionPercent?: number | null;
   barangay?: string | null;
+  caneClass?: string | null;
+  cropAge?: string | null;
   farmerOrFarmOwnerName?: string | null;
+  fieldNotes?: string | null;
+  municipality?: string;
+  province?: string;
+  sugarcaneVariety?: string | null;
   updatedAt: string;
 } {
   validateUtcTimestamp(input.updatedAt);
@@ -178,6 +215,43 @@ export function normalizeFieldReportDraftInput(
             MAX_NAME_LENGTH,
           ),
         }),
+    ...(input.province === undefined
+      ? {}
+      : { province: normalizeRegionText(input.province) }),
+    ...(input.municipality === undefined
+      ? {}
+      : { municipality: normalizeRegionText(input.municipality) }),
+    ...(input.sugarcaneVariety === undefined
+      ? {}
+      : {
+          sugarcaneVariety: normalizeOptionalText(
+            input.sugarcaneVariety,
+            MAX_DETAIL_LENGTH,
+          ),
+        }),
+    ...(input.cropAge === undefined
+      ? {}
+      : { cropAge: normalizeOptionalText(input.cropAge, MAX_DETAIL_LENGTH) }),
+    ...(input.caneClass === undefined
+      ? {}
+      : { caneClass: normalizeOptionalText(input.caneClass, MAX_DETAIL_LENGTH) }),
+    ...(input.fieldNotes === undefined
+      ? {}
+      : { fieldNotes: normalizeOptionalText(input.fieldNotes, MAX_DETAIL_LENGTH) }),
+    ...(input.affectedAreaHectares === undefined
+      ? {}
+      : {
+          affectedAreaHectares: normalizeOptionalAffectedArea(
+            input.affectedAreaHectares,
+          ),
+        }),
+    ...(input.affectedPortionPercent === undefined
+      ? {}
+      : {
+          affectedPortionPercent: normalizeOptionalAffectedPortion(
+            input.affectedPortionPercent,
+          ),
+        }),
   };
 }
 
@@ -187,6 +261,61 @@ function normalizeOptionalText(value: string, maximumLength: number): string | n
     invalid('A draft field is too long.');
   }
   return normalized || null;
+}
+
+function normalizeRegionText(value: string): string {
+  const normalized = value.trim();
+  if (!normalized) {
+    invalid('The region field is empty.');
+  }
+  if (normalized.length > MAX_REGION_TEXT_LENGTH) {
+    invalid('A region field is too long.');
+  }
+  return normalized;
+}
+
+function validateRegionText(value: string, label: string): void {
+  const normalized = value.trim();
+  if (!normalized) {
+    invalid(`The ${label} is empty.`);
+  }
+  if (normalized.length > MAX_REGION_TEXT_LENGTH) {
+    invalid(`The ${label} is too long.`);
+  }
+}
+
+function normalizeOptionalAffectedArea(value: number | null): number | null {
+  if (value === null) {
+    return null;
+  }
+  validateAffectedAreaHectares(value);
+  return value;
+}
+
+function normalizeOptionalAffectedPortion(value: number | null): number | null {
+  if (value === null) {
+    return null;
+  }
+  validateAffectedPortionPercent(value);
+  return value;
+}
+
+function validateAffectedAreaHectares(value: number): void {
+  if (
+    !Number.isFinite(value) ||
+    value <= 0 ||
+    value > MAX_AFFECTED_AREA_HECTARES
+  ) {
+    invalid(
+      `Affected area must be greater than 0 and at most ${MAX_AFFECTED_AREA_HECTARES} hectares.`,
+    );
+  }
+}
+
+function validateAffectedPortionPercent(value: number): void {
+  if (!Number.isFinite(value) || value < 0 || value > 100) {
+    invalid('Estimated affected portion must be between 0 and 100 percent.');
+  }
 }
 
 function validateUuid(value: string, name: string): void {

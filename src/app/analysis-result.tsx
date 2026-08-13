@@ -391,18 +391,33 @@ export default function AnalysisResultScreen() {
                       : 'Save Record'}
                   </AppButton>
               ) : saveRecord.recordId ? (
-                <AppButton
-                  testID="scan.open-saved-record"
-                  onPress={() =>
-                    router.push({
-                      pathname: '/record-details',
-                      params: { id: saveRecord.recordId! },
-                    } as unknown as Href)
-                  }
-                  leadingIcon="folder"
-                  accessibilityLabel="Open the saved local record">
-                  Open Saved Record
-                </AppButton>
+                <View style={styles.savedActions}>
+                  <AppButton
+                    testID="scan.open-saved-record"
+                    onPress={() =>
+                      router.push({
+                        pathname: '/record-details',
+                        params: { id: saveRecord.recordId! },
+                      } as unknown as Href)
+                    }
+                    leadingIcon="folder"
+                    accessibilityLabel="Open the saved local record">
+                    Open Saved Record
+                  </AppButton>
+                  <AppButton
+                    testID="scan.create-field-report"
+                    onPress={() =>
+                      router.push({
+                        pathname: '/field-report',
+                        params: { scanRecordId: saveRecord.recordId! },
+                      } as unknown as Href)
+                    }
+                    leadingIcon="file-plus"
+                    variant="secondary"
+                    accessibilityLabel="Create a Field Report for this saved record">
+                    Create Field Report
+                  </AppButton>
+                </View>
               ) : null}
             </View>
             <AppButton
@@ -518,6 +533,7 @@ const styles = StyleSheet.create({
   detailValue: { ...Typography.bodySmall, fontWeight: '800', flexShrink: 1, textAlign: 'right' },
   disclaimer: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm, flexDirection: 'row', alignItems: 'flex-start' }, disclaimerText: { ...Typography.caption, flex: 1, lineHeight: 18 },
   saveCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
+  savedActions: { gap: Spacing.sm },
   saveHeading: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   saveTitle: { ...Typography.subheading, flex: 1 },
   saveMessage: { ...Typography.bodySmall },

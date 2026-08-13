@@ -280,11 +280,6 @@ export default function RecordDetailsScreen() {
                   label="Reported severity"
                   value={record.data.reportedSeverity ?? 'Not provided'}
                 />
-                <DetailRow
-                  label="Legacy scan barangay"
-                  value={record.data.barangay ?? 'Not provided'}
-                  valueTestID="records.barangay-value"
-                />
                 <ObservationList
                   title="Selected observations"
                   values={record.data.symptoms.map(getObservationLabel)}

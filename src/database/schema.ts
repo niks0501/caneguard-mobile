@@ -184,6 +184,12 @@ export const fieldReports = sqliteTable(
     province: text('province').notNull().default('Batangas'),
     municipality: text('municipality').notNull().default('Nasugbu'),
     barangay: text('barangay'),
+    sugarcaneVariety: text('sugarcane_variety'),
+    cropAge: text('crop_age'),
+    caneClass: text('cane_class'),
+    affectedAreaHectares: real('affected_area_hectares'),
+    affectedPortionPercent: real('affected_portion_percent'),
+    fieldNotes: text('field_notes'),
     submitterIdentity: text('submitter_identity'),
     submitterRole: text('submitter_role'),
     finalLatitude: real('final_latitude'),
@@ -280,6 +286,14 @@ export const fieldReports = sqliteTable(
     check(
       'field_reports_sync_attempt_count_check',
       sql`${table.syncAttemptCount} >= 0`,
+    ),
+    check(
+      'field_reports_affected_area_check',
+      sql`${table.affectedAreaHectares} is null or ${table.affectedAreaHectares} > 0`,
+    ),
+    check(
+      'field_reports_affected_portion_check',
+      sql`${table.affectedPortionPercent} is null or (${table.affectedPortionPercent} >= 0 and ${table.affectedPortionPercent} <= 100)`,
     ),
   ],
 );

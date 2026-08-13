@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
+import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { getResultLabel, getSyncPresentation } from '@/components/ui/RecordCard';
 import { TextField } from '@/components/ui/TextField';
 import {
@@ -25,17 +26,43 @@ import {
   Typography,
 } from '@/constants/theme';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
-import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
-import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
+import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { BarangayPicker } from '@/features/reports/components/BarangayPicker';
+import { RegionPicker } from '@/features/reports/components/RegionPicker';
+import { formatDecimalInput, parseDecimalInput } from '@/features/reports/domain/decimalInput';
 import type {
   FieldReport,
   FieldReportSubmissionRequirement,
 } from '@/features/reports/domain/fieldReportTypes';
-import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
+import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
+import { useLocationReferenceData } from '@/features/reports/hooks/useLocationReferenceData';
+import type { ReferenceRegion } from '@/features/reports/referenceData/referenceDataTypes';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
+
+const MAX_AFFECTED_AREA_HECTARES = 10_000;
+
+interface FieldReportFormValues {
+  affectedAreaHectares?: number | null;
+  affectedPortionPercent?: number | null;
+  barangay: string;
+  caneClass?: string;
+  cropAge?: string;
+  farmerOrFarmOwnerName: string;
+  fieldNotes?: string;
+  municipality?: string;
+  province?: string;
+  sugarcaneVariety?: string;
+}
+
+type FinalizeFieldReportFormValues = FieldReportFormValues & {
+  affectedAreaHectares: number;
+  affectedPortionPercent: number;
+};
 
 export default function FieldReportScreen() {
   const theme = useTheme();
@@ -43,7 +70,18 @@ export default function FieldReportScreen() {
   const scanRecordId = Array.isArray(params.scanRecordId)
     ? params.scanRecordId[0]
     : (params.scanRecordId ?? null);
-  const report = useFieldReportDraft(scanRecordId);
+  const referenceData = useLocationReferenceData();
+  const defaultRegion = useMemo(() => {
+    const firstRegion = referenceData.data.regions[0];
+    if (!firstRegion) {
+      return undefined;
+    }
+    return {
+      province: firstRegion.province,
+      municipality: firstRegion.municipalities[0] ?? '',
+    };
+  }, [referenceData.data.regions]);
+  const report = useFieldReportDraft(scanRecordId, true, defaultRegion);
   const record = useScanRecordDetails(scanRecordId);
   const { user } = useAuth();
   const sync = useSync();
@@ -54,10 +92,10 @@ export default function FieldReportScreen() {
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
 
-  const finalizeAndSync = async (values: {
-    barangay: string;
-    farmerOrFarmOwnerName: string;
-  }) => {
+  const finalizeAndSync = async (values: FinalizeFieldReportFormValues) => {
+    if (sync.isOnline !== true) {
+      return;
+    }
     const finalized = await report.finalize(values);
     if (finalized) {
       await sync.syncNow('after-save');
@@ -156,16 +194,25 @@ export default function FieldReportScreen() {
 
               {report.data.authoringState === 'draft' ? (
                 <>
-                  <DraftFields
-                    key={report.data.id}
+                  <AutomaticSummaryCard
                     fieldReport={report.data}
+                    record={record.data}
                     reporterName={
                       user?.uuid === report.data.submitterIdentity
                         ? user.name
                         : report.data.submitterIdentity
                     }
+                  />
+
+                  <DraftFields
+                    key={report.data.id}
+                    fieldReport={report.data}
+                    barangays={referenceData.data.barangays}
+                    regions={referenceData.data.regions}
+                    referenceDataError={referenceData.errorMessage}
                     captureInProgress={report.capturingLocation}
                     finalizing={report.finalizing}
+                    isOnline={sync.isOnline}
                     saving={report.saving}
                     submissionIssues={report.submissionIssues}
                     onFinalize={(values) => void finalizeAndSync(values)}
@@ -262,27 +309,125 @@ export default function FieldReportScreen() {
   );
 }
 
+function AutomaticSummaryCard({
+  fieldReport,
+  record,
+  reporterName,
+}: {
+  fieldReport: FieldReport;
+  record: ScanRecordDetails | null;
+  reporterName: string | null;
+}) {
+  const theme = useTheme();
+
+  return (
+    <View
+      testID="field-report.summary"
+      style={[
+        styles.formCard,
+        { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+      ]}>
+      <View style={styles.sectionHeading}>
+        <Feather name="check-circle" size={20} color={theme.success} />
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>
+          Automatic report summary
+        </Text>
+      </View>
+      <Text style={[styles.helpText, { color: theme.textSecondary }]}>
+        Everything below is inherited from the completed scan and cannot be
+        edited here.
+      </Text>
+      {record ? (
+        <ExpoImage
+          source={{ uri: record.managedImageUri }}
+          accessibilityLabel="Original sugarcane scan image"
+          contentFit="cover"
+          style={styles.summaryImage}
+        />
+      ) : null}
+      {record ? (
+        <>
+          <View style={styles.summaryRows}>
+            <Text style={[styles.automaticLabel, { color: theme.textSecondary }]}>
+              AI-supported result
+            </Text>
+            <Text style={[styles.automaticValue, { color: theme.text }]}>
+              {getResultLabel(record.predictedLabel)} ·{' '}
+              {Math.round(record.confidence * 100)}% confidence
+            </Text>
+          </View>
+          {record.symptoms.length ? (
+            <View style={styles.summaryRows}>
+              <Text style={[styles.automaticLabel, { color: theme.textSecondary }]}>
+                Symptoms observed
+              </Text>
+              <Text style={[styles.automaticValue, { color: theme.text }]}>
+                {record.symptoms
+                  .map(
+                    (symptom) =>
+                      CHECKLIST_OBSERVATIONS.find(
+                        (observation) => observation.id === symptom,
+                      )?.label ?? symptom,
+                  )
+                  .join(' · ')}
+              </Text>
+            </View>
+          ) : null}
+        </>
+      ) : (
+        <Text style={[styles.error, { color: theme.danger }]}>
+          Scan evidence is unavailable.
+        </Text>
+      )}
+      <View style={styles.summaryRows}>
+        <Text style={[styles.automaticLabel, { color: theme.textSecondary }]}>
+          Observed
+        </Text>
+        <Text testID="field-report.observed-at" style={[styles.automaticValue, { color: theme.text }]}>
+          {formatTimestamp(fieldReport.observedAt)}
+        </Text>
+      </View>
+      <View style={styles.summaryRows}>
+        <Text style={[styles.automaticLabel, { color: theme.textSecondary }]}>
+          Reporter
+        </Text>
+        <Text testID="field-report.submitter" style={[styles.automaticValue, { color: theme.text }]}>
+          {reporterName ?? 'Authenticated field reporter'} · Field reporter
+        </Text>
+      </View>
+      <View style={styles.summaryRows}>
+        <Text style={[styles.automaticLabel, { color: theme.textSecondary }]}>
+          Area
+        </Text>
+        <Text style={[styles.automaticValue, { color: theme.text }]}>
+          {fieldReport.municipality}, {fieldReport.province}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function DraftFields({
+  barangays,
   captureInProgress,
   fieldReport,
-  onSave,
+  isOnline,
   onFinalize,
-  reporterName,
+  onSave,
+  referenceDataError,
+  regions,
   saving,
   finalizing,
   submissionIssues,
 }: {
+  barangays: string[];
   captureInProgress: boolean;
   fieldReport: FieldReport;
-  onSave: (values: {
-    barangay: string;
-    farmerOrFarmOwnerName: string;
-  }) => void;
-  onFinalize: (values: {
-    barangay: string;
-    farmerOrFarmOwnerName: string;
-  }) => void;
-  reporterName: string | null;
+  isOnline: boolean | null;
+  onFinalize: (values: FinalizeFieldReportFormValues) => void;
+  onSave: (values: FieldReportFormValues) => void;
+  referenceDataError: string | null;
+  regions: ReferenceRegion[];
   saving: boolean;
   finalizing: boolean;
   submissionIssues: FieldReportSubmissionRequirement[];
@@ -292,6 +437,105 @@ function DraftFields({
     fieldReport.farmerOrFarmOwnerName ?? '',
   );
   const [barangay, setBarangay] = useState(fieldReport.barangay ?? '');
+  const [province, setProvince] = useState(fieldReport.province);
+  const [municipality, setMunicipality] = useState(fieldReport.municipality);
+  const [affectedAreaText, setAffectedAreaText] = useState(
+    fieldReport.affectedAreaHectares === null
+      ? ''
+      : formatDecimalInput(fieldReport.affectedAreaHectares),
+  );
+  const [affectedPortionText, setAffectedPortionText] = useState(
+    fieldReport.affectedPortionPercent === null
+      ? ''
+      : formatDecimalInput(fieldReport.affectedPortionPercent),
+  );
+  const [variety, setVariety] = useState(fieldReport.sugarcaneVariety ?? '');
+  const [cropAge, setCropAge] = useState(fieldReport.cropAge ?? '');
+  const [caneClass, setCaneClass] = useState(fieldReport.caneClass ?? '');
+  const [notes, setNotes] = useState(fieldReport.fieldNotes ?? '');
+  const [fieldErrors, setFieldErrors] = useState<{
+    affectedArea?: string;
+    affectedPortion?: string;
+  }>({});
+
+  const provinceOptions = regions.map((region) => region.province);
+  const municipalityOptions =
+    regions.find((region) => region.province === province)?.municipalities ??
+    [];
+
+  const changeProvince = (nextProvince: string) => {
+    setProvince(nextProvince);
+    const region = regions.find((entry) => entry.province === nextProvince);
+    setMunicipality(region?.municipalities[0] ?? municipality);
+  };
+
+  const collectValues = (
+    requireAffectedNumbers: boolean,
+  ): FieldReportFormValues | null => {
+    const errors: { affectedArea?: string; affectedPortion?: string } = {};
+    const affectedArea =
+      affectedAreaText.trim() === '' ? null : parseDecimalInput(affectedAreaText);
+    const affectedPortion =
+      affectedPortionText.trim() === '' ? null : parseDecimalInput(affectedPortionText);
+
+    if (affectedArea !== null) {
+      if (affectedArea <= 0 || affectedArea > MAX_AFFECTED_AREA_HECTARES) {
+        errors.affectedArea = `Enter an area greater than 0 and at most ${MAX_AFFECTED_AREA_HECTARES} hectares.`;
+      }
+    } else if (affectedAreaText.trim() !== '') {
+      errors.affectedArea = 'Enter the affected area as a number, for example 0.5.';
+    } else if (requireAffectedNumbers) {
+      errors.affectedArea = 'Affected area is required to finalize.';
+    }
+
+    if (affectedPortion !== null) {
+      if (affectedPortion < 0 || affectedPortion > 100) {
+        errors.affectedPortion = 'Enter an estimated affected portion between 0 and 100 percent.';
+      }
+    } else if (affectedPortionText.trim() !== '') {
+      errors.affectedPortion = 'Enter the affected portion as a number, for example 30.';
+    } else if (requireAffectedNumbers) {
+      errors.affectedPortion = 'Estimated affected portion is required to finalize.';
+    }
+
+    if (errors.affectedArea || errors.affectedPortion) {
+      setFieldErrors(errors);
+      return null;
+    }
+    setFieldErrors({});
+    return {
+      affectedAreaHectares: affectedArea,
+      affectedPortionPercent: affectedPortion,
+      barangay,
+      farmerOrFarmOwnerName: farmerName,
+      province,
+      municipality,
+      sugarcaneVariety: variety,
+      cropAge,
+      caneClass,
+      fieldNotes: notes,
+    };
+  };
+
+  const handleSave = () => {
+    const values = collectValues(false);
+    if (values) {
+      onSave(values);
+    }
+  };
+
+  const handleFinalize = () => {
+    const values = collectValues(true);
+    if (values) {
+      onFinalize({
+        ...values,
+        affectedAreaHectares: values.affectedAreaHectares!,
+        affectedPortionPercent: values.affectedPortionPercent!,
+      });
+    }
+  };
+
+  const offlineFinalizeBlocked = isOnline !== true;
 
   return (
     <>
@@ -300,6 +544,12 @@ function DraftFields({
           styles.formCard,
           { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
         ]}>
+        <View style={styles.sectionHeading}>
+          <Feather name="edit-3" size={20} color={theme.primary} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Report details
+          </Text>
+        </View>
         <TextField
           testID="field-report.farmer-name-input"
           label="Farmer or farm owner name"
@@ -308,45 +558,103 @@ function DraftFields({
           placeholder="May be added later"
           autoCapitalize="words"
         />
-        <TextField
-          testID="field-report.barangay-input"
-          label="Barangay"
+        <BarangayPicker
+          barangays={barangays}
           value={barangay}
-          onChangeText={setBarangay}
-          placeholder="May be added later"
-          autoCapitalize="words"
+          onChange={setBarangay}
         />
-        <View style={styles.automaticFields}>
-          <Text style={[styles.automaticLabel, { color: theme.textSecondary }]}>
-            Automatic area
-          </Text>
-          <Text style={[styles.automaticValue, { color: theme.text }]}>
-            {fieldReport.municipality}, {fieldReport.province}
-          </Text>
+        <View style={styles.numericRow}>
+          <View style={styles.numericField}>
+            <TextField
+              testID="field-report.affected-area-input"
+              label="Affected area (hectares)"
+              value={affectedAreaText}
+              onChangeText={setAffectedAreaText}
+              placeholder="0.5"
+              keyboardType="decimal-pad"
+            />
+            {fieldErrors.affectedArea ? (
+              <Text style={[styles.fieldError, { color: theme.danger }]}>
+                {fieldErrors.affectedArea}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.numericField}>
+            <TextField
+              testID="field-report.affected-portion-input"
+              label="Estimated affected portion (%)"
+              value={affectedPortionText}
+              onChangeText={setAffectedPortionText}
+              placeholder="30"
+              keyboardType="decimal-pad"
+            />
+            {fieldErrors.affectedPortion ? (
+              <Text style={[styles.fieldError, { color: theme.danger }]}>
+                {fieldErrors.affectedPortion}
+              </Text>
+            ) : null}
+          </View>
         </View>
-        <View style={styles.automaticFields}>
+        <Text style={[styles.helpText, { color: theme.textSecondary }]}>
+          Affected area and estimated affected portion are required before
+          finalizing. Both accept decimals (0.5 or 0,5).
+        </Text>
+        <RegionPicker
+          province={province}
+          municipality={municipality}
+          provinces={provinceOptions}
+          municipalities={municipalityOptions}
+          onProvinceChange={changeProvince}
+          onMunicipalityChange={setMunicipality}
+        />
+        {referenceDataError ? (
           <Text
-            style={[styles.automaticLabel, { color: theme.textSecondary }]}>
-            Signed-in submitter
+            testID="field-report.reference-data-error"
+            style={[styles.helpText, { color: theme.warning }]}>
+            {referenceDataError} Showing the offline list; saved values are unchanged.
           </Text>
-          <Text testID="field-report.submitter" style={[styles.automaticValue, { color: theme.text }]}>
-            {reporterName ?? 'Authenticated field reporter'} · Field reporter
+        ) : null}
+        <DisclosureSection testID="field-report.more-details" title="More field details">
+          <TextField
+            testID="field-report.variety-input"
+            label="Sugarcane variety"
+            value={variety}
+            onChangeText={setVariety}
+            placeholder="Optional"
+            autoCapitalize="words"
+          />
+          <TextField
+            testID="field-report.crop-age-input"
+            label="Crop age"
+            value={cropAge}
+            onChangeText={setCropAge}
+            placeholder="Optional, e.g. ~3 months"
+            autoCapitalize="sentences"
+          />
+          <TextField
+            testID="field-report.cane-class-input"
+            label="Cane class"
+            value={caneClass}
+            onChangeText={setCaneClass}
+            placeholder="Optional"
+            autoCapitalize="words"
+          />
+          <TextField
+            testID="field-report.notes-input"
+            label="Field notes"
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Optional"
+            autoCapitalize="sentences"
+          />
+          <Text style={[styles.helpText, { color: theme.textSecondary }]}>
+            These optional details never block finalization.
           </Text>
-        </View>
-        <View style={styles.automaticFields}>
-          <Text style={[styles.automaticLabel, { color: theme.textSecondary }]}>
-            Observation time
-          </Text>
-          <Text testID="field-report.observed-at" style={[styles.automaticValue, { color: theme.text }]}>
-            {formatTimestamp(fieldReport.observedAt)}
-          </Text>
-        </View>
+        </DisclosureSection>
       </View>
       <AppButton
         testID="field-report.save-draft"
-        onPress={() =>
-          onSave({ farmerOrFarmOwnerName: farmerName, barangay })
-        }
+        onPress={handleSave}
         disabled={saving || captureInProgress || finalizing}
         leadingIcon="save"
         accessibilityLabel={
@@ -370,10 +678,19 @@ function DraftFields({
           <Text style={[styles.helpText, { color: theme.textSecondary }]}>Your latest entries were saved and this report remains a Draft.</Text>
         </View>
       ) : null}
+      {offlineFinalizeBlocked ? (
+        <Text
+          testID="field-report.offline-finalize-block"
+          accessibilityLiveRegion="polite"
+          style={[styles.helpText, { color: theme.warning }]}>
+          Finalization requires an internet connection. You can save the Draft
+          now and finalize when this device is back online.
+        </Text>
+      ) : null}
       <AppButton
         testID="field-report.finalize"
-        onPress={() => onFinalize({ farmerOrFarmOwnerName: farmerName, barangay })}
-        disabled={saving || captureInProgress || finalizing}
+        onPress={handleFinalize}
+        disabled={saving || captureInProgress || finalizing || offlineFinalizeBlocked}
         leadingIcon="check-circle"
         accessibilityLabel={finalizing ? 'Finalizing Field Report' : 'Finalize Field Report'}>
         {finalizing ? 'Finalizing Report…' : 'Finalize Report'}
@@ -607,7 +924,9 @@ function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
       testID="field-report.submission-section"
       style={[styles.formCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
       <EvidenceRow label="Farmer or farm owner" value={fieldReport.farmerOrFarmOwnerName ?? 'Not provided'} />
-      <EvidenceRow label="Area" value={`${fieldReport.barangay}, ${fieldReport.municipality}, ${fieldReport.province}`} />
+      <EvidenceRow label="Area" value={`${fieldReport.barangay ?? 'Not provided'}, ${fieldReport.municipality}, ${fieldReport.province}`} />
+      <EvidenceRow label="Affected area" value={fieldReport.affectedAreaHectares === null ? 'Not provided' : `${fieldReport.affectedAreaHectares} ha`} />
+      <EvidenceRow label="Estimated affected portion" value={fieldReport.affectedPortionPercent === null ? 'Not provided' : `${fieldReport.affectedPortionPercent}%`} />
       <EvidenceRow label="Location source" value={fieldReport.locationSource === 'manual_map' ? 'Manual map' : 'GPS'} />
       {fieldReport.manualLocationSelectedAt ? (
         <EvidenceRow label="Manual location selected" value={formatTimestamp(fieldReport.manualLocationSelectedAt)} />
@@ -704,9 +1023,11 @@ const SUBMISSION_REQUIREMENT_LABELS: Record<
   farmer_or_farm_owner_name: 'Farmer or farm owner name',
   submitter_identity: 'Authenticated submitter identity',
   submitter_role: 'Field reporter role',
-  province: 'Batangas province',
-  municipality: 'Nasugbu municipality',
+  province: 'Province',
+  municipality: 'Municipality',
   barangay: 'Barangay',
+  affected_area_hectares: 'Affected area (hectares)',
+  affected_portion_percent: 'Estimated affected portion (%)',
   final_coordinates: 'Final coordinates',
   location_source: 'GPS or manual-map location source',
   gps_accuracy: 'Device-reported GPS accuracy',
@@ -755,6 +1076,15 @@ const styles = StyleSheet.create({
   automaticFields: { gap: Spacing.xs },
   automaticLabel: { ...Typography.caption, fontWeight: '700' },
   automaticValue: { ...Typography.body, fontWeight: '700' },
+  summaryRows: { gap: Spacing.xs },
+  summaryImage: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: Radius.md,
+  },
+  numericRow: { flexDirection: 'row', gap: Spacing.md },
+  numericField: { flex: 1, gap: Spacing.xs },
+  fieldError: { ...Typography.caption, fontWeight: '700' },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   sectionTitle: { ...Typography.subheading, fontWeight: '800' },
   helpText: { ...Typography.caption },

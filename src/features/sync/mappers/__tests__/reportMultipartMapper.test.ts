@@ -26,6 +26,8 @@ const REPORT: FieldReport = {
   id: '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e', scanRecordId: SCAN.id,
   authoringState: 'finalized', farmerOrFarmOwnerName: 'Maria Santos',
   province: 'Batangas', municipality: 'Nasugbu', barangay: 'Wawa',
+  affectedAreaHectares: null, affectedPortionPercent: null,
+  sugarcaneVariety: null, cropAge: null, caneClass: null, fieldNotes: null,
   submitterIdentity: 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
   submitterRole: 'field_reporter', finalLatitude: 14.0667,
   finalLongitude: 120.6319, locationSource: 'gps', gpsAccuracy: 4.2,

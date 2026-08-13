@@ -36,6 +36,13 @@
       "when": 1786594958216,
       "tag": "0004_sour_namora",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786624606958,
+      "tag": "0005_tricky_the_santerians",
+      "breakpoints": true
     }
   ]
 }

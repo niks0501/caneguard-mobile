@@ -122,6 +122,7 @@ export function useFieldReportForScan(scanRecordId: string | null) {
 export function useFieldReportDraft(
   scanRecordId: string | null,
   createIfMissing = true,
+  regionDefaults?: { municipality: string; province: string },
 ) {
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
@@ -145,15 +146,24 @@ export function useFieldReportDraft(
   } | null>(null);
   const saveInFlight = useRef<Promise<FieldReport> | null>(null);
   const finalizeInFlight = useRef(false);
+  const locationCaptureInFlight = useRef(false);
+  const autoCaptureAttemptedFor = useRef<string | null>(null);
   const refreshGeneration = useRef(0);
   const refreshInput = useRef<{
     scanRecordId: string | null;
     submitterIdentity: string | null;
   }>({ scanRecordId: null, submitterIdentity: null });
+  // `regionDefaults` is only read while creating a brand-new Draft; holding
+  // it in a ref keeps `refresh` stable so the focus effect does not re-run on
+  // every render when a caller passes a fresh object literal.
+  const regionDefaultsRef = useRef(regionDefaults);
   const submitterIdentity = user?.uuid ?? null;
   useEffect(() => {
     refreshInput.current = { scanRecordId, submitterIdentity };
   }, [scanRecordId, submitterIdentity]);
+  useEffect(() => {
+    regionDefaultsRef.current = regionDefaults;
+  }, [regionDefaults]);
   const isCurrentInput = useCallback(
     () =>
       refreshInput.current.scanRecordId === scanRecordId &&
@@ -163,6 +173,89 @@ export function useFieldReportDraft(
   const hasCurrentReport =
     state.data?.scanRecordId === scanRecordId &&
     state.data?.submitterIdentity === submitterIdentity;
+
+  const runLocationCapture = useCallback(
+    async (report: FieldReport): Promise<FieldReport | null> => {
+      if (
+        !user ||
+        locationCaptureInFlight.current ||
+        finalizing ||
+        finalizeInFlight.current ||
+        saveInFlight.current
+      ) {
+        return null;
+      }
+
+      locationCaptureInFlight.current = true;
+      setCapturingLocation(true);
+      setSaved(false);
+      setSubmissionIssues([]);
+      setState((current) => ({ ...current, errorMessage: null }));
+      try {
+        const result = await captureGpsLocation(expoForegroundLocationClient);
+        const data = await saveGpsCapture(database, report.id, user.uuid, {
+          ...result,
+          updatedAt: new Date().toISOString(),
+        });
+        if (!isCurrentInput() || !data) {
+          return null;
+        }
+        setState({ data, errorMessage: null, loading: false });
+        return data;
+      } catch (error: unknown) {
+        const storageError = toStorageError(
+          error,
+          'UPDATE_FAILED',
+          'Saving the GPS result failed.',
+        );
+        if (isCurrentInput()) {
+          setState((current) => ({
+            ...current,
+            errorMessage: getStorageErrorMessage(storageError),
+          }));
+        }
+        return null;
+      } finally {
+        locationCaptureInFlight.current = false;
+        setCapturingLocation(false);
+      }
+    },
+    [database, finalizing, isCurrentInput, user],
+  );
+
+  const captureLocation = useCallback(async (): Promise<FieldReport | null> => {
+    if (!state.data || !hasCurrentReport || !user) {
+      return null;
+    }
+    return runLocationCapture(state.data);
+  }, [hasCurrentReport, runLocationCapture, state.data, user]);
+
+  const attemptAutomaticLocationCapture = useCallback(
+    async (report: FieldReport) => {
+      // D5 guards: draft-only, never overwrite a manual-map final location,
+      // and only one automatic attempt per report identity.
+      if (
+        report.authoringState !== 'draft' ||
+        report.locationSource === 'manual_map' ||
+        report.gpsCaptureOutcome !== null ||
+        autoCaptureAttemptedFor.current === report.id
+      ) {
+        return;
+      }
+      autoCaptureAttemptedFor.current = report.id;
+      await runLocationCapture(report);
+    },
+    [runLocationCapture],
+  );
+  // Stable handle for `refresh`: the focus effect re-runs when `refresh`
+  // changes identity, so the auto-capture callback must not be a direct
+  // dependency (it changes while a GPS capture or finalize is in flight).
+  const attemptAutomaticLocationCaptureRef = useRef(
+    attemptAutomaticLocationCapture,
+  );
+  useEffect(() => {
+    attemptAutomaticLocationCaptureRef.current = attemptAutomaticLocationCapture;
+  }, [attemptAutomaticLocationCapture]);
 
   const refresh = useCallback(async () => {
     if (!isCurrentInput()) {
@@ -224,6 +317,14 @@ export function useFieldReportDraft(
           createdAt: new Date().toISOString(),
           submitterIdentity: user.uuid,
           submitterRole: user.role,
+          // D2: seed province/municipality from the cached region list instead
+          // of the hardcoded schema defaults when a default region is known.
+          ...(regionDefaultsRef.current
+            ? {
+                province: regionDefaultsRef.current.province,
+                municipality: regionDefaultsRef.current.municipality,
+              }
+            : {}),
         }));
       if (!isCurrentRequest()) {
         return;
@@ -235,6 +336,12 @@ export function useFieldReportDraft(
       };
       setState({ data, errorMessage: null, loading: false });
       setSubmissionIssues([]);
+      if (!existing) {
+        // D5: a brand-new draft automatically attempts one foreground GPS
+        // reading. The manual map remains the fallback and may override;
+        // failed attempts are preserved as evidence.
+        void attemptAutomaticLocationCaptureRef.current(data);
+      }
     } catch (error: unknown) {
       if (!isCurrentRequest()) {
         return;
@@ -330,60 +437,6 @@ export function useFieldReportDraft(
     ],
   );
 
-  const captureLocation = useCallback(async (): Promise<FieldReport | null> => {
-    if (
-      !state.data ||
-      !hasCurrentReport ||
-      !user ||
-      capturingLocation ||
-      finalizing ||
-      finalizeInFlight.current ||
-      saveInFlight.current
-    ) {
-      return null;
-    }
-
-    setCapturingLocation(true);
-    setSaved(false);
-    setSubmissionIssues([]);
-    setState((current) => ({ ...current, errorMessage: null }));
-    try {
-      const result = await captureGpsLocation(expoForegroundLocationClient);
-      const data = await saveGpsCapture(database, state.data.id, user.uuid, {
-        ...result,
-        updatedAt: new Date().toISOString(),
-      });
-      if (!isCurrentInput()) {
-        return null;
-      }
-      setState({ data, errorMessage: null, loading: false });
-      return data;
-    } catch (error: unknown) {
-      const storageError = toStorageError(
-        error,
-        'UPDATE_FAILED',
-        'Saving the GPS result failed.',
-      );
-      if (isCurrentInput()) {
-        setState((current) => ({
-          ...current,
-          errorMessage: getStorageErrorMessage(storageError),
-        }));
-      }
-      return null;
-    } finally {
-      setCapturingLocation(false);
-    }
-  }, [
-    capturingLocation,
-    database,
-    finalizing,
-    hasCurrentReport,
-    isCurrentInput,
-    state.data,
-    user,
-  ]);
-
   const saveManualLocation = useCallback(
     async (latitude: number, longitude: number): Promise<FieldReport | null> => {
       if (
@@ -452,8 +505,16 @@ export function useFieldReportDraft(
 
   const finalize = useCallback(
     async (values: {
+      affectedAreaHectares: number;
+      affectedPortionPercent: number;
       barangay: string;
+      caneClass?: string;
+      cropAge?: string;
       farmerOrFarmOwnerName: string;
+      fieldNotes?: string;
+      municipality?: string;
+      province?: string;
+      sugarcaneVariety?: string;
     }): Promise<FieldReport | null> => {
       if (
         !state.data ||

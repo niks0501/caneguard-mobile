@@ -130,6 +130,12 @@ describe('RecordDetailsScreen', () => {
         province: 'Batangas',
         municipality: 'Nasugbu',
         barangay: null,
+        affectedAreaHectares: null,
+        affectedPortionPercent: null,
+        caneClass: null,
+        cropAge: null,
+        fieldNotes: null,
+        sugarcaneVariety: null,
         finalLatitude: null,
         finalLongitude: null,
         locationSource: null,
@@ -171,6 +177,12 @@ describe('RecordDetailsScreen', () => {
         province: 'Batangas',
         municipality: 'Nasugbu',
         barangay: 'Lumbangan',
+        affectedAreaHectares: null,
+        affectedPortionPercent: null,
+        caneClass: null,
+        cropAge: null,
+        fieldNotes: null,
+        sugarcaneVariety: null,
         finalLatitude: 14.0667,
         finalLongitude: 120.6319,
         locationSource: 'gps',
@@ -257,9 +269,6 @@ describe('RecordDetailsScreen', () => {
     expect(screen.getByText('Possible result: Rust')).toBeOnTheScreen();
     expect(screen.getByTestId('records.result-title')).toHaveTextContent(
       'Possible result: Rust',
-    );
-    expect(screen.getByTestId('records.barangay-value')).toHaveTextContent(
-      'Not provided',
     );
     expect(screen.getByText('82% AI confidence')).toBeOnTheScreen();
     expect(screen.getByText('Checklist consistent')).toBeOnTheScreen();

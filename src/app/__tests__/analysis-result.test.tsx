@@ -90,7 +90,6 @@ function createCompletedState(
 ): ScanSessionState {
   return {
     ...initialScanSessionState,
-    barangay: 'Wawa',
     sourceUri: 'file:///result-leaf.jpg',
     sourceType: 'gallery',
     status: 'completed',
@@ -258,7 +257,7 @@ describe('AnalysisResultScreen', () => {
 
   it('allows completed scan evidence to save without a barangay', async () => {
     await renderResult(
-      createCompletedState('rust', ['rust'], { barangay: '' }),
+      createCompletedState('rust', ['rust']),
     );
 
     expect(screen.getByLabelText('Save record on this device')).toBeEnabled();

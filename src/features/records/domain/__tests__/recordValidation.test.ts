@@ -14,7 +14,6 @@ function completedState(
 ): ScanSessionState {
   return {
     ...initialScanSessionState,
-    barangay: 'Wawa',
     status: 'completed',
     sourceUri: 'content://gallery/leaf',
     sourceType: 'gallery',
@@ -62,7 +61,7 @@ describe('completed scan record validation', () => {
       checklistConsistency: 'consistent',
       reportedSeverity: 'Moderate',
       qualityWarnings: ['too-dark'],
-      barangay: 'Wawa',
+      barangay: '',
       modelVersion: 'v0.1-baseline',
       preprocessMs: 4.25,
       inferenceMs: 8.5,
@@ -91,11 +90,7 @@ describe('completed scan record validation', () => {
 
   it('allows completed scan evidence without report-owned barangay data', () => {
     expect(
-      createCompletedScanDraft(
-        completedState({ barangay: '   ' }),
-        RECORD_ID,
-        NOW,
-      ).barangay,
+      createCompletedScanDraft(completedState(), RECORD_ID, NOW).barangay,
     ).toBe('');
   });
 

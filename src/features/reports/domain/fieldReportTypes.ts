@@ -8,11 +8,16 @@ import type { MobileUserRole } from '@/features/auth/types';
 import type { AuthorityReviewSnapshot } from '@/features/reports/domain/reportReviewTypes';
 
 export interface FieldReport {
+  affectedAreaHectares: number | null;
+  affectedPortionPercent: number | null;
   authorityReview: AuthorityReviewSnapshot | null;
   authoringState: FieldReportAuthoringState;
   barangay: string | null;
+  caneClass: string | null;
   createdAt: string;
+  cropAge: string | null;
   farmerOrFarmOwnerName: string | null;
+  fieldNotes: string | null;
   finalLatitude: number | null;
   finalLongitude: number | null;
   gpsAccuracy: number | null;
@@ -36,6 +41,7 @@ export interface FieldReport {
   submittedAt: string | null;
   submitterIdentity: string | null;
   submitterRole: MobileUserRole | null;
+  sugarcaneVariety: string | null;
   syncAttemptCount: number;
   syncStatus: SyncStatus;
   updatedAt: string;
@@ -44,14 +50,24 @@ export interface FieldReport {
 export interface CreateFieldReportDraftInput {
   createdAt: string;
   id: string;
+  municipality?: string;
+  province?: string;
   scanRecordId: string;
   submitterIdentity: string;
   submitterRole: MobileUserRole;
 }
 
 export interface SaveFieldReportDraftInput {
+  affectedAreaHectares?: number | null;
+  affectedPortionPercent?: number | null;
   barangay?: string;
+  caneClass?: string;
+  cropAge?: string;
   farmerOrFarmOwnerName?: string;
+  fieldNotes?: string;
+  municipality?: string;
+  province?: string;
+  sugarcaneVariety?: string;
   updatedAt: string;
 }
 
@@ -63,9 +79,15 @@ export interface SaveManualMapLocationInput {
 }
 
 export interface FinalizeFieldReportInput {
+  affectedAreaHectares: number;
+  affectedPortionPercent: number;
   barangay: string;
+  caneClass?: string;
+  cropAge?: string;
   farmerOrFarmOwnerName: string;
+  fieldNotes?: string;
   submittedAt: string;
+  sugarcaneVariety?: string;
   updatedAt: string;
 }
 
@@ -82,6 +104,8 @@ export const FIELD_REPORT_SUBMISSION_REQUIREMENTS = [
   'province',
   'municipality',
   'barangay',
+  'affected_area_hectares',
+  'affected_portion_percent',
   'final_coordinates',
   'location_source',
   'gps_accuracy',

@@ -8,6 +8,7 @@ const migration0 = readMigration('0000_complex_johnny_blaze.sql');
 const migration1 = readMigration('0001_loving_amazoness.sql');
 const migration2 = readMigration('0002_talented_kat_farrell.sql');
 const migration3 = readMigration('0003_careful_marauders.sql');
+const migration4 = readMigration('0004_sour_namora.sql');
 const migrationJournal = migrationBundle.journal;
 
 function readMigration(filename: string): string {
@@ -28,6 +29,7 @@ function applyLatest(database: DatabaseSync): void {
   database.exec(migration1);
   database.exec(migration2);
   database.exec(migration3);
+  database.exec(migration4);
 }
 
 function insertScanRecord(
@@ -146,11 +148,21 @@ describe('CaneGuard database migrations', () => {
 
     database.exec(migration3);
 
+    const reportBefore = database
+      .prepare('SELECT * FROM field_reports WHERE id = ?')
+      .get('7ea3e6f0-b893-4fd3-b414-0b797e62ec8e');
+    if (!reportBefore) {
+      throw new Error('Expected the seeded Field Report before migration 4.');
+    }
+
+    database.exec(migration4);
+
     expect(
       database
         .prepare(`
           SELECT farmer_or_farm_owner_name, barangay, submitter_identity,
-                 gps_capture_outcome, gps_outcome_recorded_at
+                 gps_capture_outcome, gps_outcome_recorded_at,
+                 authority_status_raw, authority_feedback, authority_updated_at
           FROM field_reports
         `)
         .get(),
@@ -160,7 +172,19 @@ describe('CaneGuard database migrations', () => {
       submitter_identity: 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
       gps_capture_outcome: null,
       gps_outcome_recorded_at: null,
+      authority_status_raw: null,
+      authority_feedback: null,
+      authority_updated_at: null,
     });
+    const reportAfter = database
+      .prepare('SELECT * FROM field_reports WHERE id = ?')
+      .get('7ea3e6f0-b893-4fd3-b414-0b797e62ec8e');
+    if (!reportAfter) {
+      throw new Error('Expected the seeded Field Report after migration 4.');
+    }
+    for (const key of Object.keys(reportBefore)) {
+      expect(reportAfter[key]).toEqual(reportBefore[key]);
+    }
     database.close();
   });
 
@@ -319,18 +343,21 @@ describe('CaneGuard database migrations', () => {
       '0001_loving_amazoness',
       '0002_talented_kat_farrell',
       '0003_careful_marauders',
+      '0004_sour_namora',
     ]);
     expect(Object.keys(migrationBundle.migrations)).toEqual([
       'm0000',
       'm0001',
       'm0002',
       'm0003',
+      'm0004',
     ]);
     expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
       migration0,
       migration1,
       migration2,
       migration3,
+      migration4,
     ]);
   });
 });

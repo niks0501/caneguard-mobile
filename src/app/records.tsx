@@ -29,6 +29,7 @@ import {
 import type { ModelLabel } from '@/features/detection/constants/modelContract';
 import { DEFAULT_RECORD_PAGE_SIZE } from '@/features/records/domain/recordTypes';
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
+import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
 import { useTheme } from '@/hooks/use-theme';
 
 type FilterKey = 'all' | ModelLabel;
@@ -49,6 +50,7 @@ export default function RecordsScreen() {
     predictedLabel: activeFilter === 'all' ? undefined : activeFilter,
     search: submittedSearch || undefined,
   }, DEFAULT_RECORD_PAGE_SIZE);
+  const authorityStatus = useAuthorityReviewStatus();
   const hasFilters = activeFilter !== 'all' || Boolean(submittedSearch);
 
   const submitSearch = () => {
@@ -91,6 +93,33 @@ export default function RecordsScreen() {
               </Text>
             </View>
             <SyncStatusPanel />
+            <View
+              testID="records.authority-status-refresh"
+              style={[
+                styles.authorityRefresh,
+                {
+                  backgroundColor: theme.surfaceMuted,
+                  borderColor: theme.border,
+                },
+              ]}>
+              <View style={styles.authorityRefreshCopy}>
+                <Text style={[styles.authorityRefreshTitle, { color: theme.primaryDark }]}>Authority review</Text>
+                <Text style={[styles.authorityRefreshMessage, { color: theme.textSecondary }]}>Review status appears separately after a report is synchronized.</Text>
+                {authorityStatus.errorMessage ? (
+                  <Text accessibilityLiveRegion="assertive" style={[styles.authorityRefreshMessage, { color: theme.danger }]}>
+                    {authorityStatus.errorMessage}
+                  </Text>
+                ) : null}
+              </View>
+              <AppButton
+                onPress={() => void authorityStatus.refresh()}
+                disabled={authorityStatus.refreshing}
+                variant="secondary"
+                leadingIcon="refresh-cw"
+                accessibilityLabel={authorityStatus.refreshing ? 'Refreshing authority review status' : 'Refresh authority review status'}>
+                {authorityStatus.refreshing ? 'Refreshing…' : 'Refresh status'}
+              </AppButton>
+            </View>
 
             <View style={styles.searchRow}>
               <View
@@ -307,6 +336,15 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   introText: { ...Typography.bodySmall, flex: 1 },
+  authorityRefresh: {
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  authorityRefreshCopy: { gap: Spacing.xs },
+  authorityRefreshTitle: { ...Typography.bodySmall, fontWeight: '800' },
+  authorityRefreshMessage: { ...Typography.caption },
   searchRow: { flexDirection: 'row', gap: Spacing.sm },
   search: {
     minHeight: 54,

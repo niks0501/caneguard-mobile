@@ -43,6 +43,8 @@ function openTestDatabase(): {
   native.exec(readMigration('0000_complex_johnny_blaze.sql'));
   native.exec(readMigration('0001_loving_amazoness.sql'));
   native.exec(readMigration('0002_talented_kat_farrell.sql'));
+  native.exec(readMigration('0003_careful_marauders.sql'));
+  native.exec(readMigration('0004_sour_namora.sql'));
   const client = {
     prepareSync(sql: string) {
       return createStatementAdapter(native.prepare(sql));

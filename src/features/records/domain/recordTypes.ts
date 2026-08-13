@@ -3,6 +3,7 @@ import type { ModelLabel } from '@/features/detection/constants/modelContract';
 import type { ClassScore, ReportedSeverity, ScanSourceType } from '@/features/detection/types';
 import type { QualityWarning } from '@/features/detection/validation/assessImageQuality';
 import type { SyncStatus } from '@/database/schema';
+import type { AuthorityReviewSnapshot } from '@/features/reports/domain/reportReviewTypes';
 
 export const DEFAULT_RECORD_PAGE_SIZE = 25;
 export const MAX_RECORD_PAGE_SIZE = 100;
@@ -23,6 +24,7 @@ export interface ScanRecordQuery {
 }
 
 export interface ScanRecordListItem {
+  authorityReview: AuthorityReviewSnapshot | null;
   barangay: string | null;
   confidence: number;
   createdAt: string;

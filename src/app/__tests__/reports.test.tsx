@@ -26,6 +26,7 @@ const SUMMARY: LocalReportSummary = {
   ],
   recentRecords: [
     {
+      authorityReview: null,
       id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
       managedImageUri: 'file:///documents/caneguard/scan-images/record.jpg',
       predictedLabel: 'rust',

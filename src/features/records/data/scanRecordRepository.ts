@@ -63,6 +63,12 @@ export async function listScanRecords(
   try {
     const rows = await database
       .select({
+        authorityFeedback: fieldReports.authorityFeedback,
+        authorityFetchedAt: fieldReports.authorityFetchedAt,
+        authorityReferenceCode: fieldReports.authorityReferenceCode,
+        authorityReviewedAt: fieldReports.authorityReviewedAt,
+        authorityStatusRaw: fieldReports.authorityStatusRaw,
+        authorityUpdatedAt: fieldReports.authorityUpdatedAt,
         id: scanRecords.id,
         managedImageUri: scanRecords.managedImageUri,
         predictedLabel: scanRecords.predictedLabel,

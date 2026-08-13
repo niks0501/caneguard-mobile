@@ -6,6 +6,7 @@ without replacing the protected scan regression:
 ```text
 .maestro/
 ├── p0/                 # P0 phase flows
+├── p1/                 # P1 review-status evidence scaffolds
 ├── evidence/           # evidence convention and phase records
 └── artifacts/          # generated screenshots/logs; ignored by Git
 ```

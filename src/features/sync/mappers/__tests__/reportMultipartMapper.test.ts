@@ -3,6 +3,7 @@ import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
 import { mapFieldReportToMultipart } from '@/features/sync/mappers/reportMultipartMapper';
 
 const SCAN: ScanRecordDetails = {
+  authorityReview: null,
   id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
   managedImageUri: 'file:///documents/caneguard/scan-images/scan.jpg',
   predictedLabel: 'rust', confidence: 0.82, barangay: null,
@@ -21,6 +22,7 @@ const SCAN: ScanRecordDetails = {
 };
 
 const REPORT: FieldReport = {
+  authorityReview: null,
   id: '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e', scanRecordId: SCAN.id,
   authoringState: 'finalized', farmerOrFarmOwnerName: 'Maria Santos',
   province: 'Batangas', municipality: 'Nasugbu', barangay: 'Wawa',

@@ -18,6 +18,7 @@ const mockFinalize = jest.fn<
 >(async () => null);
 const mockSaveManualLocation = jest.fn(async () => null);
 const mockRefresh = jest.fn(async () => undefined);
+let mockAuthorityError: string | null = null;
 const mockRetryReport = jest.fn(async () => null);
 const mockSyncNow = jest.fn(async () => null);
 let mockDraftState: {
@@ -40,6 +41,15 @@ let mockDraftState: {
 jest.mock('@/features/reports/hooks/useFieldReportDraft', () => ({
   useFieldReportDraft: () => mockDraftState,
 }));
+jest.mock('@/features/reports/hooks/useAuthorityReviewStatus', () => ({
+  useAuthorityReviewStatus: () => ({
+    capabilityUnavailable: false,
+    errorMessage: mockAuthorityError,
+    lastSuccessfulAt: mockAuthorityError ? '2026-08-13T12:01:00.000Z' : null,
+    refreshing: false,
+    refresh: mockRefresh,
+  }),
+}));
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({
     isOnline: true,
@@ -60,6 +70,7 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
 }));
 
 const mockScan: ScanRecordDetails = {
+  authorityReview: null,
   id: SCAN_ID,
   managedImageUri: `file:///caneguard/scan-images/${SCAN_ID}.jpg`,
   predictedLabel: 'rust',
@@ -105,6 +116,7 @@ const mockUseLocalSearchParams = jest.mocked(useLocalSearchParams);
 
 function draft(overrides: Partial<FieldReport> = {}): FieldReport {
   return {
+    authorityReview: null,
     id: REPORT_ID,
     scanRecordId: SCAN_ID,
     authoringState: 'draft',
@@ -142,6 +154,7 @@ function draft(overrides: Partial<FieldReport> = {}): FieldReport {
 describe('FieldReportScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAuthorityError = null;
     mockUseLocalSearchParams.mockReturnValue({ scanRecordId: SCAN_ID });
     mockDraftState = {
       data: draft(),
@@ -396,6 +409,103 @@ describe('FieldReportScreen', () => {
         'This report is finalized locally. Current synchronization status: Synced.',
       ),
     ).toBeOnTheScreen();
+  });
+
+  it('keeps delivery and authority review separate and renders cached feedback', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        authoringState: 'finalized',
+        syncStatus: 'synced',
+        remoteId: 'remote-report-1',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        authorityReview: {
+          rawStatus: 'verified_by_staff',
+          statusKind: 'verified_by_staff',
+          statusLabel: 'Verified by staff',
+          referenceCode: 'CG-100',
+          feedback: {
+            authorLabel: 'Authority staff',
+            message: 'Please inspect the affected area.',
+            updatedAt: '2026-08-13T12:00:00.000Z',
+          },
+          reviewedAt: '2026-08-13T12:00:00.000Z',
+          statusUpdatedAt: '2026-08-13T12:00:00.000Z',
+          fetchedAt: '2026-08-13T12:01:00.000Z',
+        },
+      }),
+    };
+
+    const view = await render(<FieldReportScreen />);
+
+    expect(screen.getByTestId('field-report.submission-section')).toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.authority-review-section')).toBeOnTheScreen();
+    expect(screen.getByText('Verified by staff')).toBeOnTheScreen();
+    expect(screen.getByText('Please inspect the affected area.')).toBeOnTheScreen();
+    expect(screen.getByText(/Authority staff · Updated/)).toBeOnTheScreen();
+    expect(screen.getByText('CG-100')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Refresh authority review status')).toBeOnTheScreen();
+
+    mockDraftState = {
+      ...mockDraftState,
+      data: { ...mockDraftState.data!, syncStatus: 'pending', authorityReview: null },
+    };
+    await view.rerender(<FieldReportScreen />);
+    expect(screen.queryByTestId('field-report.authority-review-section')).not.toBeOnTheScreen();
+    expect(screen.getByText('Finalized · Pending upload')).toBeOnTheScreen();
+  });
+
+  it('keeps cached authority feedback visible when refresh fails', async () => {
+    mockAuthorityError = 'Couldn’t refresh—showing the last update.';
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        authoringState: 'finalized',
+        syncStatus: 'synced',
+        remoteId: 'remote-report-1',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        authorityReview: {
+          rawStatus: 'for_field_validation',
+          statusKind: 'for_field_validation',
+          statusLabel: 'Field validation needed',
+          referenceCode: null,
+          feedback: {
+            authorLabel: 'Authority staff',
+            message: 'Cached feedback remains available offline.',
+            updatedAt: '2026-08-13T12:00:00.000Z',
+          },
+          reviewedAt: '2026-08-13T12:00:00.000Z',
+          statusUpdatedAt: '2026-08-13T12:00:00.000Z',
+          fetchedAt: '2026-08-13T12:01:00.000Z',
+        },
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+
+    expect(screen.getByText('Cached feedback remains available offline.')).toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.authority-refresh-error')).toHaveTextContent(
+      'Couldn’t refresh—showing the last update.',
+    );
+  });
+
+  it('shows a neutral unavailable state without inventing authority status', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        authoringState: 'finalized',
+        syncStatus: 'synced',
+        remoteId: 'remote-report-1',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+
+    expect(screen.getByTestId('field-report.authority-status-unavailable')).toHaveTextContent(
+      'Authority review status is unavailable for this synchronized report.',
+    );
+    expect(screen.queryByText('Under review')).not.toBeOnTheScreen();
   });
 
   it('manually retries using Field Report identity', async () => {

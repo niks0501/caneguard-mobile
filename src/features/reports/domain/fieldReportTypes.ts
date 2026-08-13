@@ -5,8 +5,10 @@ import type {
   SyncStatus,
 } from '@/database/schema';
 import type { MobileUserRole } from '@/features/auth/types';
+import type { AuthorityReviewSnapshot } from '@/features/reports/domain/reportReviewTypes';
 
 export interface FieldReport {
+  authorityReview: AuthorityReviewSnapshot | null;
   authoringState: FieldReportAuthoringState;
   barangay: string | null;
   createdAt: string;

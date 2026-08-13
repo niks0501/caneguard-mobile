@@ -63,6 +63,7 @@ const mockSaveFieldReportDraft = jest.mocked(saveFieldReportDraft);
 
 function createdReport(id: string, scanRecordId: string): FieldReport {
   return {
+    authorityReview: null,
     id,
     scanRecordId,
     authoringState: 'draft',

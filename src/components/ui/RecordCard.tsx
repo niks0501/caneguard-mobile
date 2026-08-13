@@ -12,6 +12,7 @@ import {
 } from '@/constants/theme';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import type { SyncStatus } from '@/database/schema';
+import { getAuthorityReviewPresentation } from '@/features/reports/domain/reportReviewTypes';
 import { useTheme } from '@/hooks/use-theme';
 
 type RecordCardProps = {
@@ -105,6 +106,20 @@ export function RecordCard({ record, onPress }: RecordCardProps) {
             </Text>
           </View>
         </View>
+        {record.syncStatus === 'synced' && record.authorityReview ? (
+          <View
+            testID={`record-card.authority-status.${record.id}`}
+            accessibilityLabel={`Authority review: ${getAuthorityReviewPresentation(record.authorityReview.rawStatus).label}`}
+            style={styles.authorityStatus}>
+            <Feather name="shield" size={14} color={theme.info} />
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={[styles.statusText, { color: theme.info }]}>
+              {getAuthorityReviewPresentation(record.authorityReview.rawStatus).label}
+            </Text>
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -201,5 +216,11 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   statusText: { ...Typography.caption, fontWeight: '700', flexShrink: 1 },
+  authorityStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    flexShrink: 1,
+  },
   pressed: { opacity: 0.75 },
 });

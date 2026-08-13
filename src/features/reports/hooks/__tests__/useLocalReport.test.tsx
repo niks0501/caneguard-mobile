@@ -37,6 +37,7 @@ function summary(recordId: string): LocalReportSummary {
     recordsByLabel: [{ label: 'rust', count: 1 }],
     recentRecords: [
       {
+        authorityReview: null,
         id: recordId,
         managedImageUri: `file:///documents/${recordId}.jpg`,
         predictedLabel: 'rust',

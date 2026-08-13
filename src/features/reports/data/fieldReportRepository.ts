@@ -14,6 +14,7 @@ import type {
   SaveManualMapLocationInput,
 } from '@/features/reports/domain/fieldReportTypes';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
+import { toAuthorityReviewSnapshot } from '@/features/reports/domain/reportReviewTypes';
 import {
   getMissingSubmissionRequirements,
   normalizeFinalizeFieldReportInput,
@@ -509,6 +510,18 @@ function toFieldReport(row: typeof fieldReports.$inferSelect): FieldReport {
   return {
     id: row.id,
     scanRecordId: row.scanRecordId,
+    authorityReview: row.authorityStatusRaw
+      ? toAuthorityReviewSnapshot(
+          {
+            feedback: row.authorityFeedback,
+            rawStatus: row.authorityStatusRaw,
+            referenceCode: row.authorityReferenceCode,
+            reviewedAt: row.authorityReviewedAt,
+            statusUpdatedAt: row.authorityUpdatedAt ?? row.authorityFetchedAt ?? row.updatedAt,
+          },
+          row.authorityFetchedAt,
+        )
+      : null,
     authoringState: row.authoringState,
     farmerOrFarmOwnerName: row.farmerOrFarmOwnerName,
     province: row.province,

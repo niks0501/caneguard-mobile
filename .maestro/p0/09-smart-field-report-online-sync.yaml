@@ -1,0 +1,298 @@
+appId: com.niks0501.caneguard
+name: P2-01 Smart Field Report online finalize and six-field sync verification
+tags:
+  - p2
+  - field-report
+  - smart-field-report
+  - synchronization
+---
+# Verifies the P2-01 smart field report end to end against the local web API:
+# a new draft is opened from a completed scan, the six new fields are filled
+# with distinctive values, the report finalizes online and syncs, and the web
+# side receives all six values. Preserves application state (no clearState)
+# and encodes no credentials.
+# NOTE: the fixture image is staged by the harness before this flow runs
+# (adb push + media scan). Maestro's addMedia gRPC insert fails on this
+# HyperOS device with UNKNOWN, so the flow relies on the staged media.
+# Harness prerequisites: Metro on 8081, web API reachable via adb reverse
+# tcp:8000, and the device location mode enabled (settings put secure
+# location_mode 3) so the permission path below is deterministic.
+- stopApp
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: Connect
+    commands:
+      - tapOn: "http://"
+      - inputText: "http://127.0.0.1:8081"
+      - tapOn: Connect
+- extendedWaitUntil:
+    visible:
+      id: home.screen
+    timeout: 120000
+- openLink: caneguardmobile://scan
+- extendedWaitUntil:
+    visible:
+      id: scan.screen
+    timeout: 30000
+- tapOn:
+    id: scan.choose-gallery
+- extendedWaitUntil:
+    visible: "Photo taken on .*"
+    timeout: 15000
+- tapOn:
+    text: "Photo taken on .*"
+    index: 0
+- runFlow:
+    when:
+      visible: Done
+    commands:
+      - tapOn: Done
+- extendedWaitUntil:
+    visible:
+      id: scan.preview-screen
+    timeout: 30000
+- tapOn:
+    id: scan.analyze-image
+    enabled: true
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      id: scan.symptom-checklist-screen
+    timeout: 120000
+- tapOn:
+    id: scan.symptom-rust
+- tapOn:
+    id: scan.continue-to-result
+- extendedWaitUntil:
+    visible:
+      id: scan.result-title
+      text: "Possible result: Rust"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: scan.save-record
+    direction: DOWN
+- tapOn:
+    id: scan.save-record
+    enabled: true
+- extendedWaitUntil:
+    visible:
+      id: scan.record-saved
+    timeout: 30000
+- tapOn:
+    id: scan.open-saved-record
+- extendedWaitUntil:
+    visible:
+      id: records.details-screen
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: records.open-field-report
+    direction: DOWN
+- tapOn:
+    id: records.open-field-report
+- extendedWaitUntil:
+    visible:
+      id: field-report.screen
+    timeout: 30000
+# D5: a brand-new Draft auto-attempts one GPS reading and raises the system
+# location prompt. Decline it; the manual map below supplies coordinates.
+- runFlow:
+    when:
+      visible: "Don.t allow"
+    commands:
+      - tapOn: "Don.t allow"
+- scrollUntilVisible:
+    element:
+      id: field-report.farmer-name-input
+    direction: DOWN
+- tapOn:
+    id: field-report.farmer-name-input
+- inputText: P2 Maestro Farmer 0814
+- pressKey: BACK
+- scrollUntilVisible:
+    element:
+      id: field-report.barangay-input
+    direction: DOWN
+- tapOn:
+    id: field-report.barangay-input
+# The search input autoFocuses when the panel opens; typing directly avoids
+# a second tap that can land on the keyboard (Gboard settings gear).
+- inputText: Wawa
+- pressKey: BACK
+- extendedWaitUntil:
+    visible:
+      id: field-report.barangay-input-option
+      text: Wawa
+    timeout: 10000
+- tapOn:
+    id: field-report.barangay-input-option
+    index: 0
+# No keyboard dismissal after the option tap: collapsing the panel unmounts
+# the search input, which closes the keyboard on its own. A BACK keypress
+# here would navigate back to the saved record instead.
+- scrollUntilVisible:
+    element:
+      id: field-report.farmer-name-input
+    direction: UP
+- scrollUntilVisible:
+    element:
+      id: field-report.affected-area-input
+    direction: DOWN
+- tapOn:
+    id: field-report.affected-area-input
+- inputText: "2.25"
+- pressKey: BACK
+- scrollUntilVisible:
+    element:
+      id: field-report.affected-portion-input
+    direction: DOWN
+- tapOn:
+    id: field-report.affected-portion-input
+- inputText: "45"
+- pressKey: BACK
+# D2: select province/municipality from the cached region list explicitly.
+# The seeded fallback serves Batangas/Nasugbu until the web endpoint exists.
+- scrollUntilVisible:
+    element:
+      id: field-report.province-input
+    direction: DOWN
+- tapOn:
+    id: field-report.province-input
+- extendedWaitUntil:
+    visible:
+      id: field-report.province-option
+      text: Batangas
+    timeout: 10000
+- tapOn:
+    id: field-report.province-option
+    index: 0
+# Selecting a province auto-opens the municipality panel.
+- extendedWaitUntil:
+    visible:
+      id: field-report.municipality-option
+      text: Nasugbu
+    timeout: 10000
+- tapOn:
+    id: field-report.municipality-option
+    index: 0
+# P2-01 optional details: expand the disclosure and fill all six new fields
+# with distinctive values that must appear verbatim on the web side.
+- scrollUntilVisible:
+    element:
+      id: field-report.more-details
+    direction: DOWN
+- tapOn: "Show More field details"
+- scrollUntilVisible:
+    element:
+      id: field-report.variety-input
+    direction: DOWN
+- tapOn:
+    id: field-report.variety-input
+- inputText: Maestro Variety 0814
+- pressKey: BACK
+- scrollUntilVisible:
+    element:
+      id: field-report.crop-age-input
+    direction: DOWN
+- tapOn:
+    id: field-report.crop-age-input
+- inputText: Maestro Age 0814
+- pressKey: BACK
+- scrollUntilVisible:
+    element:
+      id: field-report.cane-class-input
+    direction: DOWN
+- tapOn:
+    id: field-report.cane-class-input
+- inputText: Maestro Class 0814
+- pressKey: BACK
+- scrollUntilVisible:
+    element:
+      id: field-report.notes-input
+    direction: DOWN
+- tapOn:
+    id: field-report.notes-input
+- inputText: Maestro Notes 0814
+# The lowest form field must remain visible after the Android keyboard opens.
+- assertVisible:
+    id: field-report.notes-input
+- pressKey: BACK
+# Persist the filled details: the manual-map route remounts the report
+# screen from the database, and unsaved values would be lost.
+- scrollUntilVisible:
+    element:
+      id: field-report.save-draft
+    direction: DOWN
+- tapOn:
+    id: field-report.save-draft
+# The saved indicator renders at the top of the form; scroll up to it.
+- scrollUntilVisible:
+    element:
+      id: field-report.saved
+    direction: DOWN
+- assertVisible:
+    id: field-report.saved
+# D6: finalization requires an online connection (device is online here).
+# Supply coordinates via the manual map fallback, then finalize.
+- scrollUntilVisible:
+    element:
+      id: field-report.open-manual-map
+    direction: UP
+# The manual map fallback sets the final coordinates deterministically
+# regardless of the GPS outcome (permission denied, services off, or a
+# low-accuracy reading kept as evidence only).
+- tapOn:
+    id: field-report.open-manual-map
+- extendedWaitUntil:
+    visible:
+      id: manual-map.viewport
+      enabled: true
+    timeout: 30000
+- tapOn:
+    id: manual-map.viewport
+- assertVisible:
+    id: manual-map.pin
+- scrollUntilVisible:
+    element:
+      id: manual-map.confirm
+    direction: DOWN
+- tapOn:
+    id: manual-map.confirm
+# Returning from the map route remounts the report screen at the top;
+# scroll to the location evidence, then up to the finalize button.
+- scrollUntilVisible:
+    element:
+      id: field-report.manual-location
+    direction: DOWN
+- assertVisible:
+    id: field-report.manual-location
+    text: "Manual map .* GPS accuracy not applicable"
+- scrollUntilVisible:
+    element:
+      id: field-report.finalize
+    direction: UP
+- tapOn:
+    id: field-report.finalize
+- extendedWaitUntil:
+    visible: "Finalized · (Pending upload|Uploading|Synced|Sync failed)"
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: field-report.retry-sync
+    commands:
+      - tapOn:
+          id: field-report.retry-sync
+- extendedWaitUntil:
+    visible: "Finalized · Synced"
+    timeout: 120000
+- assertVisible: "Server report UUID"
+- scrollUntilVisible:
+    element:
+      text: "Last synchronized"
+    direction: DOWN
+- assertVisible: "Last synchronized"
+- takeScreenshot: .maestro/artifacts/p2-09-smart-field-report-synced

@@ -161,9 +161,10 @@ export default function FieldReportScreen() {
           </View>
         ) : report.data ? (
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'android' ? 'height' : 'padding'}
             style={styles.keyboardAvoiding}>
             <ScrollView
+              automaticallyAdjustKeyboardInsets
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.scrollContent}>
               <View style={styles.content}>

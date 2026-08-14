@@ -355,7 +355,9 @@ export function OnlineMapPicker({
             pointerEvents="none"
             style={[
               styles.mapAttribution,
-              fullscreen && styles.mapAttributionFullscreen,
+              fullscreen
+                ? styles.mapAttributionFullscreen
+                : styles.mapAttributionInline,
               {
                 top: fullscreen ? insets.top + Spacing.sm : undefined,
                 backgroundColor: theme.surfaceElevated,
@@ -526,17 +528,18 @@ const styles = StyleSheet.create({
   pin: { position: 'absolute', zIndex: 3 },
   mapAttribution: {
     position: 'absolute',
-    right: Spacing.xs,
-    bottom: Spacing.xs,
     zIndex: 5,
     borderRadius: Radius.xs,
     paddingHorizontal: Spacing.xs,
     paddingVertical: 2,
     opacity: 0.88,
   },
+  mapAttributionInline: {
+    right: Spacing.xs,
+    bottom: Spacing.xs,
+  },
   mapAttributionFullscreen: {
-    right: undefined,
-    bottom: undefined,
+    right: Spacing.xs,
   },
   mapAttributionText: { ...Typography.caption, fontSize: 10 },
   loadingOverlay: {

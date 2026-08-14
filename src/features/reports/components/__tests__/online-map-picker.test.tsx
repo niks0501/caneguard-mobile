@@ -1,4 +1,5 @@
 import { act, fireEvent, render, renderHook, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import type {
   GestureStateChangeEvent,
   GestureUpdateEvent,
@@ -394,6 +395,27 @@ describe('OnlineMapPicker', () => {
     });
     const fullscreenTiles = screen.getAllByTestId('manual-map.tile');
     expect(fullscreenTiles.length).toBeGreaterThan(inlineTiles.length);
+    const fullscreenTileBounds = fullscreenTiles.map((tile) => {
+      const tileStyle = Array.isArray(tile.props.style)
+        ? Object.assign({}, ...tile.props.style)
+        : tile.props.style;
+      return {
+        left: tileStyle.left - LAYER_OFFSET,
+        right: tileStyle.left - LAYER_OFFSET + MAP_TILE_SIZE,
+      };
+    });
+    expect(Math.min(...fullscreenTileBounds.map(({ left }) => left))).toBeLessThanOrEqual(0);
+    expect(Math.max(...fullscreenTileBounds.map(({ right }) => right))).toBeGreaterThanOrEqual(390);
+
+    const fullscreenAttribution = screen.getByText(/OpenStreetMap/).parent;
+    expect(fullscreenAttribution).not.toBeNull();
+    expect(
+      StyleSheet.flatten(fullscreenAttribution?.props.style),
+    ).not.toHaveProperty('bottom');
+    expect(
+      StyleSheet.flatten(fullscreenAttribution?.props.style),
+    ).toHaveProperty('top', expect.any(Number));
+
     for (const tile of fullscreenTiles) {
       await act(async () => tile.props.onLoad());
     }

@@ -355,7 +355,9 @@ export function OnlineMapPicker({
             pointerEvents="none"
             style={[
               styles.mapAttribution,
-              fullscreen && styles.mapAttributionFullscreen,
+              fullscreen
+                ? styles.mapAttributionFullscreen
+                : styles.mapAttributionInline,
               {
                 top: fullscreen ? insets.top + Spacing.sm : undefined,
                 backgroundColor: theme.surfaceElevated,
@@ -369,50 +371,46 @@ export function OnlineMapPicker({
         </Pressable>
       </GestureDetector>
 
-      <View
-        testID="manual-map.controls"
-        style={[styles.controls, fullscreen && styles.controlsFullscreen]}>
-        <MapControl
-          label="Pan west"
-          icon="arrow-left"
-          onPress={() => pan(-PAN_DISTANCE, 0)}
-          disabled={!mapLoaded}
-        />
-        <MapControl
-          label="Pan north"
-          icon="arrow-up"
-          onPress={() => pan(0, -PAN_DISTANCE)}
-          disabled={!mapLoaded}
-        />
-        <MapControl
-          label="Pan south"
-          icon="arrow-down"
-          onPress={() => pan(0, PAN_DISTANCE)}
-          disabled={!mapLoaded}
-        />
-        <MapControl
-          label="Pan east"
-          icon="arrow-right"
-          onPress={() => pan(PAN_DISTANCE, 0)}
-          disabled={!mapLoaded}
-        />
-        <MapControl
-          label="Zoom out"
-          icon="minus"
-          onPress={() =>
-            setZoom((current) => clampZoom(current - 1))
-          }
-          disabled={!mapLoaded || zoom === MIN_MANUAL_MAP_ZOOM}
-        />
-        <MapControl
-          label="Zoom in"
-          icon="plus"
-          onPress={() =>
-            setZoom((current) => clampZoom(current + 1))
-          }
-          disabled={!mapLoaded || zoom === MAX_MANUAL_MAP_ZOOM}
-        />
-      </View>
+      {!fullscreen ? (
+        <View testID="manual-map.controls" style={styles.controls}>
+          <MapControl
+            label="Pan west"
+            icon="arrow-left"
+            onPress={() => pan(-PAN_DISTANCE, 0)}
+            disabled={!mapLoaded}
+          />
+          <MapControl
+            label="Pan north"
+            icon="arrow-up"
+            onPress={() => pan(0, -PAN_DISTANCE)}
+            disabled={!mapLoaded}
+          />
+          <MapControl
+            label="Pan south"
+            icon="arrow-down"
+            onPress={() => pan(0, PAN_DISTANCE)}
+            disabled={!mapLoaded}
+          />
+          <MapControl
+            label="Pan east"
+            icon="arrow-right"
+            onPress={() => pan(PAN_DISTANCE, 0)}
+            disabled={!mapLoaded}
+          />
+          <MapControl
+            label="Zoom out"
+            icon="minus"
+            onPress={() => setZoom((current) => clampZoom(current - 1))}
+            disabled={!mapLoaded || zoom === MIN_MANUAL_MAP_ZOOM}
+          />
+          <MapControl
+            label="Zoom in"
+            icon="plus"
+            onPress={() => setZoom((current) => clampZoom(current + 1))}
+            disabled={!mapLoaded || zoom === MAX_MANUAL_MAP_ZOOM}
+          />
+        </View>
+      ) : null}
 
       {!fullscreen ? (
         <Text style={[styles.attribution, { color: theme.textSecondary }]}>
@@ -530,17 +528,18 @@ const styles = StyleSheet.create({
   pin: { position: 'absolute', zIndex: 3 },
   mapAttribution: {
     position: 'absolute',
-    right: Spacing.xs,
-    bottom: Spacing.xs,
     zIndex: 5,
     borderRadius: Radius.xs,
     paddingHorizontal: Spacing.xs,
     paddingVertical: 2,
     opacity: 0.88,
   },
+  mapAttributionInline: {
+    right: Spacing.xs,
+    bottom: Spacing.xs,
+  },
   mapAttributionFullscreen: {
-    right: undefined,
-    bottom: undefined,
+    right: Spacing.xs,
   },
   mapAttributionText: { ...Typography.caption, fontSize: 10 },
   loadingOverlay: {

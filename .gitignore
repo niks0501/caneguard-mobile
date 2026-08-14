@@ -83,6 +83,7 @@ project-structure.txt
 .maestro/artifacts/*
 !.maestro/artifacts/.gitkeep
 
+
 # >>> AkiDev project-local runtime >>>
 .akidev/cache/
 .akidev/home/

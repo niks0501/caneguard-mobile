@@ -16,9 +16,9 @@ Use cheaper checks first when appropriate (typecheck, lint, unit tests, React Na
 npm run e2e:doctor
 npm run e2e:flow -- .maestro/<flow>.yaml
 npm run e2e
-npm run e2e:flow:reinstall -- .maestro/<flow>.yaml  # only for helper-version/stale-driver recovery
+npm run e2e:flow:reinstall -- .maestro/<flow>.yaml
 ```
 
-When the `maestro` integration is enabled, `npm run e2e` and `npm run e2e:flow` invoke the shared `maestro` CLI through `PATH`; their normal commands skip driver/server reinstallation while still installing missing helpers. Use `npm run e2e:flow:reinstall` only after a Maestro CLI update or when a flow misbehaves because its driver is stale. These commands are independent of Maestro MCP. `npm run e2e:doctor` reports missing machine/user-scoped prerequisites without installing anything. A project that selected only `maestro-mcp` should use its CLI fallback only after adding/enabling the `maestro` integration.
+When the `maestro` integration is enabled, `npm run e2e` and `npm run e2e:flow` invoke the shared `maestro` CLI through `PATH` with `--no-reinstall-driver`; they are independent of Maestro MCP. Maestro installs the on-phone helper when missing and then reuses it, making the normal workflow a one-time install model. `npm run e2e:flow:reinstall` intentionally invokes plain `maestro test`; use it after a Maestro CLI update so the on-phone helper catches up, or when a stale driver misbehaves. `npm run e2e:doctor` reports missing machine/user-scoped prerequisites without installing anything. A project that selected only `maestro-mcp` should use its CLI fallback only after adding/enabling the `maestro` integration.
 
 Use targeted E2E for a changed user journey and the full project gate before an acceptance claim when mobile E2E is required. Maestro CLI PASS/FAIL from the project npm command is deterministic evidence. Maestro MCP screenshots, hierarchy, and interactive sessions are diagnostic only and never replace the CLI gate. Keep one active owner per physical device/emulator and route device-control work through the serialized verification lane.

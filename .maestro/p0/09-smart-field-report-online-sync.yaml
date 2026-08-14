@@ -122,6 +122,13 @@ tags:
 # a second tap that can land on the keyboard (Gboard settings gear).
 - inputText: Wawa
 - pressKey: BACK
+# The search result is rendered below the focused picker when the keyboard
+# closes; scroll the outer form until the confirmed matching option is visible.
+- scrollUntilVisible:
+    element:
+      id: field-report.barangay-input-option
+      text: Wawa
+    direction: DOWN
 - extendedWaitUntil:
     visible:
       id: field-report.barangay-input-option

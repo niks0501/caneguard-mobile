@@ -134,6 +134,7 @@ export function useFieldReportDraft(
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [capturingLocation, setCapturingLocation] = useState(false);
+  const [locationServicesDisabled, setLocationServicesDisabled] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [savingManualLocation, setSavingManualLocation] = useState(false);
   const [submissionIssues, setSubmissionIssues] = useState<
@@ -188,11 +189,16 @@ export function useFieldReportDraft(
 
       locationCaptureInFlight.current = true;
       setCapturingLocation(true);
+      setLocationServicesDisabled(false);
       setSaved(false);
       setSubmissionIssues([]);
       setState((current) => ({ ...current, errorMessage: null }));
       try {
         const result = await captureGpsLocation(expoForegroundLocationClient);
+        setLocationServicesDisabled(
+          result.outcome === 'unavailable' &&
+            result.reason === 'location_services_disabled',
+        );
         const data = await saveGpsCapture(database, report.id, user.uuid, {
           ...result,
           updatedAt: new Date().toISOString(),
@@ -596,6 +602,9 @@ export function useFieldReportDraft(
     capturingLocation: hasCurrentReport ? capturingLocation : false,
     finalize,
     finalizing: hasCurrentReport ? finalizing : false,
+    locationServicesDisabled: hasCurrentReport
+      ? locationServicesDisabled
+      : false,
     refresh,
     save,
     saveManualLocation,

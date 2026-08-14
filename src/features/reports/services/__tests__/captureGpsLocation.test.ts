@@ -64,7 +64,7 @@ describe('captureGpsLocation', () => {
     expect(locationClient.getCurrentPosition).not.toHaveBeenCalled();
   });
 
-  it('represents disabled services as unavailable without starting a reading', async () => {
+  it('reports disabled location services as unavailable without starting a reading', async () => {
     const locationClient = client({
       hasServicesEnabled: jest.fn(async () => false),
     });
@@ -72,8 +72,27 @@ describe('captureGpsLocation', () => {
     await expect(captureGpsLocation(locationClient, () => NOW)).resolves.toEqual({
       capturedAt: NOW.toISOString(),
       outcome: 'unavailable',
+      reason: 'location_services_disabled',
     });
     expect(locationClient.getCurrentPosition).not.toHaveBeenCalled();
+  });
+
+  it('distinguishes an unreadable position as unavailable without blaming services', async () => {
+    const locationClient = client({
+      getCurrentPosition: jest.fn(async () => ({
+        accuracy: null,
+        latitude: 14.0667,
+        longitude: 120.6319,
+        timestamp: NOW.getTime(),
+      })),
+    });
+
+    await expect(captureGpsLocation(locationClient, () => NOW)).resolves.toEqual({
+      capturedAt: NOW.toISOString(),
+      outcome: 'unavailable',
+      reason: 'reading_unavailable',
+    });
+    expect(locationClient.hasServicesEnabled).toHaveBeenCalledTimes(1);
   });
 
   it('maps a native capture failure to a retryable error', async () => {

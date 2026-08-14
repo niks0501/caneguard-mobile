@@ -58,12 +58,12 @@ jest.mock('@/features/sync/hooks/useSyncRecordsRevision', () => ({
 }));
 
 const mockRandomUUID = jest.mocked(randomUUID);
+const mockCaptureGpsLocation = jest.mocked(captureGpsLocation);
 const mockCreateOrGetFieldReportDraft = jest.mocked(createOrGetFieldReportDraft);
 const mockFinalizeFieldReport = jest.mocked(finalizeFieldReport);
 const mockFindFieldReportByScanRecordId = jest.mocked(findFieldReportByScanRecordId);
 const mockSaveFieldReportDraft = jest.mocked(saveFieldReportDraft);
 const mockSaveGpsCapture = jest.mocked(saveGpsCapture);
-const mockCaptureGpsLocation = jest.mocked(captureGpsLocation);
 
 function createdReport(
   id: string,
@@ -114,12 +114,18 @@ function createdReport(
 
 describe('useFieldReportDraft', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    // resetAllMocks (not clearAllMocks): the D5 automatic GPS capture fires on
+    // every brand-new Draft, so `mockResolvedValueOnce`/`mockReturnValueOnce`
+    // queues must not leak between tests.
+    jest.resetAllMocks();
     jest.mocked(useAuth).mockReturnValue({
       user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
     } as never);
     mockFindFieldReportByScanRecordId.mockResolvedValue(null);
-    mockRandomUUID.mockReturnValueOnce(REPORT_A).mockReturnValueOnce(REPORT_B);
+    // Persistent default: every test creates exactly one Draft (id REPORT_A).
+    // Test 1 (two scans) overrides locally; `resetAllMocks` above prevents
+    // `mockReturnValueOnce` queues from leaking across tests.
+    mockRandomUUID.mockReset().mockReturnValue(REPORT_A);
     mockCreateOrGetFieldReportDraft.mockImplementation(async (_database, input) =>
       createdReport(input.id, input.scanRecordId),
     );
@@ -133,6 +139,7 @@ describe('useFieldReportDraft', () => {
   });
 
   it('does not reuse a Draft identity when the scan changes', async () => {
+    mockRandomUUID.mockReset().mockReturnValueOnce(REPORT_A).mockReturnValueOnce(REPORT_B);
     const { rerender } = await renderHook(
       ({ scanRecordId }: ScanProps) => useFieldReportDraft(scanRecordId),
       { initialProps: { scanRecordId: SCAN_A } },
@@ -243,6 +250,98 @@ describe('useFieldReportDraft', () => {
     await waitFor(() => expect(result.current.data?.id).toBe(REPORT_B));
   });
 
+  it('flags location services off when capture reports them disabled', async () => {
+    mockCaptureGpsLocation.mockResolvedValue({
+      capturedAt: '2026-08-10T01:04:00.000Z',
+      outcome: 'unavailable',
+      reason: 'location_services_disabled',
+    });
+    mockSaveGpsCapture.mockResolvedValue(createdReport(REPORT_A, SCAN_A));
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+    await waitFor(() =>
+      expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
+    );
+
+    await act(async () => {
+      await result.current.captureLocation();
+    });
+
+    expect(result.current.locationServicesDisabled).toBe(true);
+    expect(mockSaveGpsCapture).toHaveBeenCalledWith(
+      DATABASE,
+      REPORT_A,
+      SUBMITTER_ID,
+      expect.objectContaining({
+        capturedAt: '2026-08-10T01:04:00.000Z',
+        outcome: 'unavailable',
+        reason: 'location_services_disabled',
+      }),
+    );
+  });
+
+  it('does not blame location services when the reading itself is unavailable', async () => {
+    mockCaptureGpsLocation.mockResolvedValue({
+      capturedAt: '2026-08-10T01:04:00.000Z',
+      outcome: 'unavailable',
+      reason: 'reading_unavailable',
+    });
+    mockSaveGpsCapture.mockResolvedValue(createdReport(REPORT_A, SCAN_A));
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+    await waitFor(() =>
+      expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
+    );
+
+    await act(async () => {
+      await result.current.captureLocation();
+    });
+
+    expect(result.current.locationServicesDisabled).toBe(false);
+  });
+
+  it('clears the services-off flag once a later capture resolves', async () => {
+    // The automatic capture (D5) fires once on Draft creation and consumes the
+    // first reading, so queue three: auto + explicit fail, then explicit ok.
+    mockCaptureGpsLocation
+      .mockResolvedValueOnce({
+        capturedAt: '2026-08-10T01:04:00.000Z',
+        outcome: 'unavailable',
+        reason: 'location_services_disabled',
+      })
+      .mockResolvedValueOnce({
+        capturedAt: '2026-08-10T01:04:30.000Z',
+        outcome: 'unavailable',
+        reason: 'location_services_disabled',
+      })
+      .mockResolvedValueOnce({
+        accuracy: 4.4,
+        capturedAt: '2026-08-10T01:05:00.000Z',
+        latitude: 14.0667,
+        longitude: 120.6319,
+        outcome: 'resolved',
+      });
+    mockSaveGpsCapture.mockResolvedValue(createdReport(REPORT_A, SCAN_A));
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+    await waitFor(() =>
+      expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
+    );
+    await waitFor(() =>
+      expect(result.current.capturingLocation).toBe(false),
+    );
+
+    await act(async () => {
+      await result.current.captureLocation();
+    });
+    expect(result.current.locationServicesDisabled).toBe(true);
+
+    await act(async () => {
+      await result.current.captureLocation();
+    });
+    expect(result.current.locationServicesDisabled).toBe(false);
+  });
+
   it('blocks Draft saves while finalization is in flight', async () => {
     let resolveFinalize!: (
       result: Awaited<ReturnType<typeof finalizeFieldReport>>,
@@ -257,6 +356,11 @@ describe('useFieldReportDraft', () => {
     const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
     await waitFor(() =>
       expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
+    );
+    // Let the automatic capture (D5) settle so it cannot trip the
+    // `capturingLocation` guard inside `finalize`.
+    await waitFor(() =>
+      expect(result.current.capturingLocation).toBe(false),
     );
 
     let finalizePromise: Promise<FieldReport | null> | null = null;

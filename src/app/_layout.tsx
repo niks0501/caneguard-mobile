@@ -1,7 +1,12 @@
+// react-native-gesture-handler must be the first import so its native gesture
+// pipeline is installed before any other module runs.
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { StyleSheet } from 'react-native';
 
 import { ScanSessionProvider } from '@/features/detection/context/ScanSessionProvider';
 import { CaneGuardModelProvider } from '@/features/detection/model/useCaneGuardModel';
@@ -18,19 +23,21 @@ void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   return (
-    <ThemePreferenceProvider>
-      <AuthProvider>
-        <CaneGuardDatabaseProvider>
-          <ScanSessionProvider>
-            <CaneGuardModelProvider>
-              <SyncProvider>
-                <AppNavigator />
-              </SyncProvider>
-            </CaneGuardModelProvider>
-          </ScanSessionProvider>
-        </CaneGuardDatabaseProvider>
-      </AuthProvider>
-    </ThemePreferenceProvider>
+    <GestureHandlerRootView style={styles.gestureRoot}>
+      <ThemePreferenceProvider>
+        <AuthProvider>
+          <CaneGuardDatabaseProvider>
+            <ScanSessionProvider>
+              <CaneGuardModelProvider>
+                <SyncProvider>
+                  <AppNavigator />
+                </SyncProvider>
+              </CaneGuardModelProvider>
+            </ScanSessionProvider>
+          </CaneGuardDatabaseProvider>
+        </AuthProvider>
+      </ThemePreferenceProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -79,3 +86,7 @@ function AppNavigator() {
     </ThemeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  gestureRoot: { flex: 1 },
+});

@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { Linking } from 'react-native';
 
 import FieldReportScreen from '@/app/field-report';
 import type {
@@ -44,6 +45,7 @@ let mockDraftState: {
   capturingLocation: boolean;
   finalize: typeof mockFinalize;
   finalizing: boolean;
+  locationServicesDisabled: boolean;
   refresh: typeof mockRefresh;
   save: typeof mockSave;
   saveManualLocation: typeof mockSaveManualLocation;
@@ -214,6 +216,7 @@ describe('FieldReportScreen', () => {
       capturingLocation: false,
       finalize: mockFinalize,
       finalizing: false,
+      locationServicesDisabled: false,
       refresh: mockRefresh,
       save: mockSave,
       saveManualLocation: mockSaveManualLocation,
@@ -299,6 +302,55 @@ describe('FieldReportScreen', () => {
       /±38 m/,
     );
     expect(screen.getByLabelText('Retry GPS Location')).toBeOnTheScreen();
+  });
+
+  it('prompts to enable location services and opens device settings', async () => {
+    const openSettings = jest
+      .spyOn(Linking, 'openSettings')
+      .mockResolvedValue(undefined);
+    mockDraftState = {
+      ...mockDraftState,
+      locationServicesDisabled: true,
+      data: draft({
+        gpsCaptureOutcome: 'unavailable',
+        gpsOutcomeRecordedAt: '2026-08-10T01:04:00.000Z',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    expect(screen.getByTestId('field-report.location-services-off')).toHaveTextContent(
+      /Location services are off/,
+    );
+    expect(
+      screen.getByText(/Enable location services in device settings, then retry GPS capture/),
+    ).toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
+      /Location services or an accurate device reading are unavailable/,
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Open device location settings'));
+    });
+    expect(openSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the location-services prompt when capture is possible again', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      locationServicesDisabled: false,
+      data: draft({
+        gpsCaptureOutcome: 'low_accuracy',
+        gpsOutcomeRecordedAt: '2026-08-10T01:04:00.000Z',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    expect(screen.queryByTestId('field-report.location-services-off')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Open device location settings')).not.toBeOnTheScreen();
   });
 
   it('shows permission denial as retryable while preserving the Draft', async () => {

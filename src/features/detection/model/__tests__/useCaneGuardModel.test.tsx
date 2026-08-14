@@ -5,7 +5,7 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import { Pressable, Text } from 'react-native';
-import type { TensorflowPlugin } from 'react-native-fast-tflite';
+import type { TfliteModel } from 'react-native-fast-tflite';
 import { useState } from 'react';
 
 import {
@@ -17,37 +17,51 @@ import {
   useCaneGuardModel,
 } from '@/features/detection/model/useCaneGuardModel';
 
-const mockUseTensorflowModel = jest.fn();
-const mockModelRun = jest.fn<Promise<ArrayBuffer[]>, [ArrayBuffer[]]>();
+const mockLoadTensorflowModel = jest.fn();
+const mockAssetDownloadAsync = jest.fn();
+const mockAsset: {
+  localUri: string | null;
+  downloadAsync: jest.Mock;
+} = {
+  localUri: 'file:///cached/caneguard_leaf_v0_1_baseline.tflite',
+  downloadAsync: mockAssetDownloadAsync,
+};
 
-jest.mock('react-native-fast-tflite', () => ({
-  useTensorflowModel: (...args: unknown[]) => mockUseTensorflowModel(...args),
+jest.mock('expo-asset', () => ({
+  Asset: {
+    fromModule: jest.fn(() => mockAsset),
+  },
 }));
 
-function createLoadedPlugin(
+jest.mock('react-native-fast-tflite', () => ({
+  loadTensorflowModel: (...args: unknown[]) => mockLoadTensorflowModel(...args),
+}));
+
+const MODEL_LOCAL_URI = 'file:///cached/caneguard_leaf_v0_1_baseline.tflite';
+
+function createLoadedModel(
   inputShape: number[] = [...MODEL_INPUT.shape],
-): TensorflowPlugin {
+): TfliteModel {
   return {
-    state: 'loaded',
-    model: {
-      run: mockModelRun,
-      inputs: [
-        {
-          name: MODEL_INPUT.name,
-          dataType: MODEL_INPUT.dataType,
-          shape: inputShape,
-        },
-      ],
-      outputs: [
-        {
-          name: MODEL_OUTPUT.name,
-          dataType: MODEL_OUTPUT.dataType,
-          shape: [...MODEL_OUTPUT.shape],
-        },
-      ],
-    },
-  } as unknown as TensorflowPlugin;
+    run: mockModelRun,
+    inputs: [
+      {
+        name: MODEL_INPUT.name,
+        dataType: MODEL_INPUT.dataType,
+        shape: inputShape,
+      },
+    ],
+    outputs: [
+      {
+        name: MODEL_OUTPUT.name,
+        dataType: MODEL_OUTPUT.dataType,
+        shape: [...MODEL_OUTPUT.shape],
+      },
+    ],
+  } as unknown as TfliteModel;
 }
+
+const mockModelRun = jest.fn<Promise<ArrayBuffer[]>, [ArrayBuffer[]]>();
 
 function ModelStateProbe() {
   const modelState = useCaneGuardModel();
@@ -81,45 +95,46 @@ function ModelStateProbe() {
 describe('CaneGuardModelProvider', () => {
   beforeEach(() => {
     mockModelRun.mockResolvedValue([]);
-    mockUseTensorflowModel.mockReturnValue({
-      model: undefined,
-      state: 'loading',
-    } satisfies TensorflowPlugin);
+    mockAssetDownloadAsync.mockResolvedValue(undefined);
+    mockLoadTensorflowModel.mockResolvedValue(createLoadedModel());
   });
 
-  it('loads the static model asset once with the CPU delegate', async () => {
+  it('downloads the static model asset to a local file, then loads it with the CPU delegate', async () => {
     await render(
       <CaneGuardModelProvider>
         <ModelStateProbe />
       </CaneGuardModelProvider>,
     );
 
-    expect(screen.getByText('loading')).toBeOnTheScreen();
-    expect(mockUseTensorflowModel).toHaveBeenCalledWith(1, []);
-    expect(mockUseTensorflowModel).toHaveBeenCalledTimes(1);
-  });
-
-  it('provides a loaded model when its tensor metadata matches the contract', async () => {
-    mockUseTensorflowModel.mockReturnValue(createLoadedPlugin());
-
-    await render(
-      <CaneGuardModelProvider>
-        <ModelStateProbe />
-      </CaneGuardModelProvider>,
-    );
-
+    await waitFor(() => {
+      expect(mockAssetDownloadAsync).toHaveBeenCalledTimes(1);
+      expect(mockLoadTensorflowModel).toHaveBeenCalledWith(
+        { url: MODEL_LOCAL_URI },
+        [],
+      );
+      expect(mockLoadTensorflowModel).toHaveBeenCalledTimes(1);
+    });
     expect(screen.getByText('loaded')).toBeOnTheScreen();
   });
 
-  it('runs inference through the reusable loaded model', async () => {
-    mockUseTensorflowModel.mockReturnValue(createLoadedPlugin());
-
+  it('provides a loaded model when its tensor metadata matches the contract', async () => {
     await render(
       <CaneGuardModelProvider>
         <ModelStateProbe />
       </CaneGuardModelProvider>,
     );
 
+    expect(await screen.findByText('loaded')).toBeOnTheScreen();
+  });
+
+  it('runs inference through the reusable loaded model', async () => {
+    await render(
+      <CaneGuardModelProvider>
+        <ModelStateProbe />
+      </CaneGuardModelProvider>,
+    );
+
+    await screen.findByText('loaded');
     await fireEvent.press(screen.getByLabelText('Run model'));
 
     await waitFor(() => {
@@ -129,6 +144,8 @@ describe('CaneGuardModelProvider', () => {
   });
 
   it('blocks inference while the model is still loading', async () => {
+    mockAssetDownloadAsync.mockReturnValue(new Promise(() => {}));
+
     await render(
       <CaneGuardModelProvider>
         <ModelStateProbe />
@@ -142,23 +159,9 @@ describe('CaneGuardModelProvider', () => {
   });
 
   it('converts a loaded model with mismatched tensors into an error state', async () => {
-    mockUseTensorflowModel.mockReturnValue(createLoadedPlugin([1, 256, 256, 3]));
-
-    await render(
-      <CaneGuardModelProvider>
-        <ModelStateProbe />
-      </CaneGuardModelProvider>,
+    mockLoadTensorflowModel.mockResolvedValue(
+      createLoadedModel([1, 256, 256, 3]),
     );
-
-    expect(screen.getByText(/error: Model input does not match the Model v0 contract/)).toBeOnTheScreen();
-  });
-
-  it('preserves an error returned by the native model hook', async () => {
-    mockUseTensorflowModel.mockReturnValue({
-      model: undefined,
-      state: 'error',
-      error: new Error('Native model failed'),
-    } satisfies TensorflowPlugin);
 
     await render(
       <CaneGuardModelProvider>
@@ -167,9 +170,42 @@ describe('CaneGuardModelProvider', () => {
     );
 
     expect(
-      screen.getByText(
+      await screen.findByText(
+        /error: Model input does not match the Model v0 contract/,
+      ),
+    ).toBeOnTheScreen();
+  });
+
+  it('preserves an error returned by the native model loader', async () => {
+    mockLoadTensorflowModel.mockRejectedValue(new Error('Native model failed'));
+
+    await render(
+      <CaneGuardModelProvider>
+        <ModelStateProbe />
+      </CaneGuardModelProvider>,
+    );
+
+    expect(
+      await screen.findByText(
         'error: The native runtime could not load the bundled Model v0 asset.',
       ),
     ).toBeOnTheScreen();
+  });
+
+  it('converts a failing asset download into an error state', async () => {
+    mockAssetDownloadAsync.mockRejectedValue(new Error('Download failed'));
+
+    await render(
+      <CaneGuardModelProvider>
+        <ModelStateProbe />
+      </CaneGuardModelProvider>,
+    );
+
+    expect(
+      await screen.findByText(
+        'error: The native runtime could not load the bundled Model v0 asset.',
+      ),
+    ).toBeOnTheScreen();
+    expect(mockLoadTensorflowModel).not.toHaveBeenCalled();
   });
 });

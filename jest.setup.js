@@ -65,3 +65,11 @@ jest.mock('@/providers/ThemePreferenceProvider', () => ({
     setDarkMode: jest.fn(),
   }),
 }));
+// react-native-gesture-handler ships a jestSetup that mocks its native module.
+// react-native-reanimated 4 and react-native-worklets cannot load their native
+// bindings under Jest, so both are replaced with their shipped JS mocks; the
+// reanimated mock's runOnJS is an identity, so runOnJS-wrapped callbacks run
+// synchronously in tests.
+require('react-native-gesture-handler/jestSetup');
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock.ts'));
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock.js'));

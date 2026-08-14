@@ -65,7 +65,11 @@ const mockFindFieldReportByScanRecordId = jest.mocked(findFieldReportByScanRecor
 const mockSaveFieldReportDraft = jest.mocked(saveFieldReportDraft);
 const mockSaveGpsCapture = jest.mocked(saveGpsCapture);
 
-function createdReport(id: string, scanRecordId: string): FieldReport {
+function createdReport(
+  id: string,
+  scanRecordId: string,
+  overrides: Partial<FieldReport> = {},
+): FieldReport {
   return {
     authorityReview: null,
     id,
@@ -75,6 +79,12 @@ function createdReport(id: string, scanRecordId: string): FieldReport {
     province: 'Batangas',
     municipality: 'Nasugbu',
     barangay: null,
+    affectedAreaHectares: null,
+    affectedPortionPercent: null,
+    caneClass: null,
+    cropAge: null,
+    fieldNotes: null,
+    sugarcaneVariety: null,
     finalLatitude: null,
     finalLongitude: null,
     locationSource: null,
@@ -98,23 +108,38 @@ function createdReport(id: string, scanRecordId: string): FieldReport {
     syncStatus: 'local_only',
     createdAt: '2026-08-10T01:00:00.000Z',
     updatedAt: '2026-08-10T01:00:00.000Z',
+    ...overrides,
   };
 }
 
 describe('useFieldReportDraft', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    // resetAllMocks (not clearAllMocks): the D5 automatic GPS capture fires on
+    // every brand-new Draft, so `mockResolvedValueOnce`/`mockReturnValueOnce`
+    // queues must not leak between tests.
+    jest.resetAllMocks();
     jest.mocked(useAuth).mockReturnValue({
       user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
     } as never);
     mockFindFieldReportByScanRecordId.mockResolvedValue(null);
-    mockRandomUUID.mockReturnValueOnce(REPORT_A).mockReturnValueOnce(REPORT_B);
+    // Persistent default: every test creates exactly one Draft (id REPORT_A).
+    // Test 1 (two scans) overrides locally; `resetAllMocks` above prevents
+    // `mockReturnValueOnce` queues from leaking across tests.
+    mockRandomUUID.mockReset().mockReturnValue(REPORT_A);
     mockCreateOrGetFieldReportDraft.mockImplementation(async (_database, input) =>
       createdReport(input.id, input.scanRecordId),
     );
+    mockSaveGpsCapture.mockImplementation(async (_database, id) =>
+      createdReport(id, id === REPORT_A ? SCAN_A : SCAN_B),
+    );
+    mockCaptureGpsLocation.mockResolvedValue({
+      capturedAt: '2026-08-10T01:02:00.000Z',
+      outcome: 'permission_denied',
+    });
   });
 
   it('does not reuse a Draft identity when the scan changes', async () => {
+    mockRandomUUID.mockReset().mockReturnValueOnce(REPORT_A).mockReturnValueOnce(REPORT_B);
     const { rerender } = await renderHook(
       ({ scanRecordId }: ScanProps) => useFieldReportDraft(scanRecordId),
       { initialProps: { scanRecordId: SCAN_A } },
@@ -276,9 +301,16 @@ describe('useFieldReportDraft', () => {
   });
 
   it('clears the services-off flag once a later capture resolves', async () => {
+    // The automatic capture (D5) fires once on Draft creation and consumes the
+    // first reading, so queue three: auto + explicit fail, then explicit ok.
     mockCaptureGpsLocation
       .mockResolvedValueOnce({
         capturedAt: '2026-08-10T01:04:00.000Z',
+        outcome: 'unavailable',
+        reason: 'location_services_disabled',
+      })
+      .mockResolvedValueOnce({
+        capturedAt: '2026-08-10T01:04:30.000Z',
         outcome: 'unavailable',
         reason: 'location_services_disabled',
       })
@@ -294,6 +326,9 @@ describe('useFieldReportDraft', () => {
     const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
     await waitFor(() =>
       expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
+    );
+    await waitFor(() =>
+      expect(result.current.capturingLocation).toBe(false),
     );
 
     await act(async () => {
@@ -322,11 +357,18 @@ describe('useFieldReportDraft', () => {
     await waitFor(() =>
       expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
     );
+    // Let the automatic capture (D5) settle so it cannot trip the
+    // `capturingLocation` guard inside `finalize`.
+    await waitFor(() =>
+      expect(result.current.capturingLocation).toBe(false),
+    );
 
     let finalizePromise: Promise<FieldReport | null> | null = null;
     let saveResult: FieldReport | null = null;
     await act(async () => {
       finalizePromise = result.current.finalize({
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
         barangay: 'Lumbangan',
         farmerOrFarmOwnerName: 'Maria Santos',
       });
@@ -347,5 +389,115 @@ describe('useFieldReportDraft', () => {
       });
       await finalizePromise;
     });
+  });
+});
+
+describe('useFieldReportDraft automatic location capture (D5)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
+    } as never);
+    mockFindFieldReportByScanRecordId.mockResolvedValue(null);
+    mockRandomUUID.mockReset().mockReturnValue(REPORT_A);
+    mockCreateOrGetFieldReportDraft.mockImplementation(async (_database, input) =>
+      createdReport(input.id, input.scanRecordId),
+    );
+    mockSaveGpsCapture.mockImplementation(async (_database, id) =>
+      createdReport(id, SCAN_A),
+    );
+  });
+
+  it('attempts one GPS reading when a brand-new Draft is created', async () => {
+    mockCaptureGpsLocation.mockResolvedValue({
+      capturedAt: '2026-08-10T01:02:00.000Z',
+      outcome: 'permission_denied',
+    });
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+
+    await waitFor(() => expect(result.current.data?.id).toBe(REPORT_A));
+    await waitFor(() =>
+      expect(mockCaptureGpsLocation).toHaveBeenCalledTimes(1),
+    );
+    expect(mockSaveGpsCapture).toHaveBeenCalledWith(
+      DATABASE,
+      REPORT_A,
+      SUBMITTER_ID,
+      expect.objectContaining({ outcome: 'permission_denied' }),
+    );
+  });
+
+  it('does not auto-capture again after a refresh, and never on an existing Draft', async () => {
+    mockCaptureGpsLocation.mockResolvedValue({
+      capturedAt: '2026-08-10T01:02:00.000Z',
+      outcome: 'permission_denied',
+    });
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+
+    await waitFor(() =>
+      expect(mockCaptureGpsLocation).toHaveBeenCalledTimes(1),
+    );
+    await act(async () => {
+      await result.current.refresh();
+    });
+    expect(mockCaptureGpsLocation).toHaveBeenCalledTimes(1);
+
+    // An existing Draft must never trigger the automatic attempt.
+    jest.clearAllMocks();
+    mockFindFieldReportByScanRecordId.mockResolvedValue(
+      createdReport(REPORT_A, SCAN_A),
+    );
+    mockCaptureGpsLocation.mockResolvedValue({
+      capturedAt: '2026-08-10T02:00:00.000Z',
+      outcome: 'permission_denied',
+    });
+    mockSaveGpsCapture.mockImplementation(async () =>
+      createdReport(REPORT_A, SCAN_A),
+    );
+    const reopened = await renderHook(() => useFieldReportDraft(SCAN_A));
+    await waitFor(() => expect(reopened.result.current.data?.id).toBe(REPORT_A));
+    expect(mockCaptureGpsLocation).not.toHaveBeenCalled();
+  });
+
+  it('never overwrites a manual-map final location', async () => {
+    mockFindFieldReportByScanRecordId.mockResolvedValue(null);
+    mockCaptureGpsLocation.mockResolvedValue({
+      capturedAt: '2026-08-10T01:02:00.000Z',
+      outcome: 'permission_denied',
+    });
+    mockCreateOrGetFieldReportDraft.mockImplementation(async (_database, input) =>
+      createdReport(input.id, input.scanRecordId, {
+        finalLatitude: 14.071,
+        finalLongitude: 120.635,
+        locationSource: 'manual_map',
+        manualLocationSelectedAt: '2026-08-10T00:59:00.000Z',
+      }),
+    );
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+
+    await waitFor(() => expect(result.current.data?.id).toBe(REPORT_A));
+    expect(mockCaptureGpsLocation).not.toHaveBeenCalled();
+    expect(mockSaveGpsCapture).not.toHaveBeenCalled();
+  });
+
+  it('seeds the region defaults from the reference-data store', async () => {
+    const { result } = await renderHook(() =>
+      useFieldReportDraft(SCAN_A, true, {
+        province: 'Batangas',
+        municipality: 'Nasugbu',
+      }),
+    );
+
+    await waitFor(() => expect(result.current.data?.id).toBe(REPORT_A));
+    expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledWith(
+      DATABASE,
+      expect.objectContaining({
+        province: 'Batangas',
+        municipality: 'Nasugbu',
+      }),
+    );
   });
 });

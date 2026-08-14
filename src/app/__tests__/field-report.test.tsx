@@ -11,17 +11,32 @@ import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 
 const SCAN_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
 const REPORT_ID = '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e';
+
+interface FormValues {
+  affectedAreaHectares?: number | null;
+  affectedPortionPercent?: number | null;
+  barangay: string;
+  caneClass?: string;
+  cropAge?: string;
+  farmerOrFarmOwnerName: string;
+  fieldNotes?: string;
+  municipality?: string;
+  province?: string;
+  sugarcaneVariety?: string;
+}
+
 const mockSave = jest.fn(async () => null);
 const mockCaptureLocation = jest.fn(async () => null);
-const mockFinalize = jest.fn<
-  Promise<FieldReport | null>,
-  [{ barangay: string; farmerOrFarmOwnerName: string }]
->(async () => null);
+const mockFinalize = jest.fn<Promise<FieldReport | null>, [FormValues]>(
+  async () => null,
+);
 const mockSaveManualLocation = jest.fn(async () => null);
 const mockRefresh = jest.fn(async () => undefined);
 let mockAuthorityError: string | null = null;
 const mockRetryReport = jest.fn(async () => null);
 const mockSyncNow = jest.fn(async () => null);
+let mockIsOnline: boolean | null = true;
+const mockReferenceDataRefresh = jest.fn(async () => undefined);
 let mockDraftState: {
   data: FieldReport | null;
   errorMessage: string | null;
@@ -43,6 +58,18 @@ let mockDraftState: {
 jest.mock('@/features/reports/hooks/useFieldReportDraft', () => ({
   useFieldReportDraft: () => mockDraftState,
 }));
+jest.mock('@/features/reports/hooks/useLocationReferenceData', () => ({
+  useLocationReferenceData: () => ({
+    data: jest.requireActual(
+      '@/features/reports/referenceData/nasugbuSeed',
+    ).SEED_LOCATION_REFERENCE_DATA,
+    errorMessage: null,
+    loading: false,
+    refresh: mockReferenceDataRefresh,
+    refreshing: false,
+    source: 'seed',
+  }),
+}));
 jest.mock('@/features/reports/hooks/useAuthorityReviewStatus', () => ({
   useAuthorityReviewStatus: () => ({
     capabilityUnavailable: false,
@@ -54,7 +81,7 @@ jest.mock('@/features/reports/hooks/useAuthorityReviewStatus', () => ({
 }));
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({
-    isOnline: true,
+    isOnline: mockIsOnline,
     isSyncing: false,
     retryReport: mockRetryReport,
     syncNow: mockSyncNow,
@@ -98,7 +125,7 @@ const mockScan: ScanRecordDetails = {
     { label: 'mosaic', score: 0.1 },
     { label: 'rust', score: 0.82 },
   ],
-  symptoms: ['orange-brown-pustules'],
+  symptoms: ['rust'],
   qualityWarnings: [],
   syncAttemptCount: 0,
   lastSyncErrorCode: null,
@@ -126,6 +153,12 @@ function draft(overrides: Partial<FieldReport> = {}): FieldReport {
     province: 'Batangas',
     municipality: 'Nasugbu',
     barangay: null,
+    affectedAreaHectares: null,
+    affectedPortionPercent: null,
+    sugarcaneVariety: null,
+    cropAge: null,
+    caneClass: null,
+    fieldNotes: null,
     finalLatitude: null,
     finalLongitude: null,
     locationSource: null,
@@ -153,10 +186,27 @@ function draft(overrides: Partial<FieldReport> = {}): FieldReport {
   };
 }
 
+function expectFormValues(values: Partial<FormValues> = {}): FormValues {
+  const base: FormValues = {
+    affectedAreaHectares: null,
+    affectedPortionPercent: null,
+    barangay: '',
+    caneClass: '',
+    cropAge: '',
+    farmerOrFarmOwnerName: '',
+    fieldNotes: '',
+    municipality: 'Nasugbu',
+    province: 'Batangas',
+    sugarcaneVariety: '',
+  };
+  return { ...base, ...values };
+}
+
 describe('FieldReportScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthorityError = null;
+    mockIsOnline = true;
     mockUseLocalSearchParams.mockReturnValue({ scanRecordId: SCAN_ID });
     mockDraftState = {
       data: draft(),
@@ -177,7 +227,7 @@ describe('FieldReportScreen', () => {
     };
   });
 
-  it('saves incomplete report values as a local Draft', async () => {
+  it('shows the automatic summary prefilled and saves incomplete values as a Draft', async () => {
     await render(<FieldReportScreen />);
 
     await act(async () => undefined);
@@ -186,12 +236,13 @@ describe('FieldReportScreen', () => {
     expect(
       screen.getByText(/Drafts are stored only on this device and are not queued/),
     ).toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.summary')).toBeOnTheScreen();
     expect(screen.getByText('Nasugbu, Batangas')).toBeOnTheScreen();
     expect(screen.getByTestId('field-report.submitter')).toHaveTextContent(
       'Ana Reyes · Field reporter',
     );
-    expect(screen.getByText('Possible result: Rust')).toBeOnTheScreen();
-    expect(screen.getByText('82%')).toBeOnTheScreen();
+    expect(screen.getByText('Possible result: Rust · 82% confidence')).toBeOnTheScreen();
+    expect(screen.getByText('Rust-colored or orange-brown spots or pustules')).toBeOnTheScreen();
 
     await act(async () => {
       fireEvent.changeText(
@@ -203,10 +254,9 @@ describe('FieldReportScreen', () => {
       fireEvent.press(screen.getByLabelText('Save Field Report draft'));
     });
 
-    expect(mockSave).toHaveBeenCalledWith({
-      farmerOrFarmOwnerName: 'Maria Santos',
-      barangay: '',
-    });
+    expect(mockSave).toHaveBeenCalledWith(
+      expectFormValues({ farmerOrFarmOwnerName: 'Maria Santos' }),
+    );
   });
 
   it('captures GPS without discarding unsaved form values', async () => {
@@ -360,22 +410,180 @@ describe('FieldReportScreen', () => {
     expect(screen.getByTestId('field-report.gps-evidence')).toHaveTextContent(/±38 m/);
   });
 
-  it('finalizes using the latest form values', async () => {
+  it('selects a barangay from the searchable picker', async () => {
+    await render(<FieldReportScreen />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-report.barangay-input'));
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.barangay-input-search'),
+        'Lumb',
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Lumbangan'));
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
+    });
+    expect(mockSave).toHaveBeenCalledWith(
+      expectFormValues({ barangay: 'Lumbangan' }),
+    );
+  });
+
+  it('keeps a legacy free-text barangay that is not in the reference list', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({ barangay: 'Old Barrio' }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    expect(screen.getByTestId('field-report.barangay-input')).toHaveTextContent(
+      'Old Barrio',
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-report.barangay-input'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Keep “Old Barrio”'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
+    });
+    expect(mockSave).toHaveBeenCalledWith(
+      expectFormValues({ barangay: 'Old Barrio' }),
+    );
+  });
+
+  it('saves a typed barangay that matches nothing as-is', async () => {
+    await render(<FieldReportScreen />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-report.barangay-input'));
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.barangay-input-search'),
+        'San Isidro Norte',
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Use “San Isidro Norte” as typed'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
+    });
+    expect(mockSave).toHaveBeenCalledWith(
+      expectFormValues({ barangay: 'San Isidro Norte' }),
+    );
+  });
+
+  it('saves affected numbers with locale-safe decimal parsing', async () => {
+    await render(<FieldReportScreen />);
+
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-area-input'),
+        '0,5',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-portion-input'),
+        '30',
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
+    });
+
+    expect(mockSave).toHaveBeenCalledWith(
+      expectFormValues({
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
+      }),
+    );
+  });
+
+  it('blocks Draft save with an inline error when a number is invalid', async () => {
+    await render(<FieldReportScreen />);
+
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-area-input'),
+        '-2',
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
+    });
+
+    expect(mockSave).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/Enter an area greater than 0/),
+    ).toBeOnTheScreen();
+  });
+
+  it('finalizes using the latest form values including affected numbers', async () => {
     await render(<FieldReportScreen />);
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.farmer-name-input'), 'Maria Santos');
     });
     await act(async () => {
-      fireEvent.changeText(screen.getByTestId('field-report.barangay-input'), 'Lumbangan');
+      fireEvent.press(screen.getByTestId('field-report.barangay-input'));
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.barangay-input-search'),
+        'Wawa',
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Wawa'));
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-area-input'),
+        '1.25',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-portion-input'),
+        '40',
+      );
     });
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
 
-    expect(mockFinalize).toHaveBeenCalledWith({
-      farmerOrFarmOwnerName: 'Maria Santos',
-      barangay: 'Lumbangan',
+    expect(mockFinalize).toHaveBeenCalledWith(
+      expectFormValues({
+        affectedAreaHectares: 1.25,
+        affectedPortionPercent: 40,
+        barangay: 'Wawa',
+        farmerOrFarmOwnerName: 'Maria Santos',
+      }),
+    );
+  });
+
+  it('requires affected numbers before finalizing', async () => {
+    await render(<FieldReportScreen />);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
+
+    expect(mockFinalize).not.toHaveBeenCalled();
+    expect(screen.getByText('Affected area is required to finalize.')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Estimated affected portion is required to finalize.'),
+    ).toBeOnTheScreen();
   });
 
   it('starts foreground synchronization after successful local finalization', async () => {
@@ -387,10 +595,39 @@ describe('FieldReportScreen', () => {
     mockFinalize.mockResolvedValueOnce(finalized);
 
     await render(<FieldReportScreen />);
+    await act(async () => {
+      fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '0.5');
+    });
+    await act(async () => {
+      fireEvent.changeText(screen.getByTestId('field-report.affected-portion-input'), '30');
+    });
     await fireEvent.press(screen.getByLabelText('Finalize Field Report'));
 
     expect(mockSyncNow).toHaveBeenCalledWith('after-save');
     expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  it('blocks finalization while offline but still allows Draft saves', async () => {
+    mockIsOnline = false;
+
+    await render(<FieldReportScreen />);
+
+    expect(
+      screen.getByTestId('field-report.offline-finalize-block'),
+    ).toHaveTextContent(/Finalization requires an internet connection/);
+    expect(screen.getByLabelText('Finalize Field Report')).toBeDisabled();
+
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.farmer-name-input'),
+        'Maria Santos',
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
+    });
+    expect(mockSave).toHaveBeenCalled();
+    expect(mockFinalize).not.toHaveBeenCalled();
   });
 
   it('disables Draft save while finalization is in flight', async () => {
@@ -430,6 +667,8 @@ describe('FieldReportScreen', () => {
         authoringState: 'finalized',
         barangay: 'Lumbangan',
         farmerOrFarmOwnerName: 'Maria Santos',
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
         finalLatitude: 14.0667,
         finalLongitude: 120.6319,
         gpsAccuracy: 4.2,
@@ -450,6 +689,8 @@ describe('FieldReportScreen', () => {
     ).toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.finalize')).not.toBeOnTheScreen();
     expect(screen.getByText('GPS')).toBeOnTheScreen();
+    expect(screen.getByText('0.5 ha')).toBeOnTheScreen();
+    expect(screen.getByText('30%')).toBeOnTheScreen();
 
     mockDraftState = {
       ...mockDraftState,
@@ -602,6 +843,8 @@ describe('FieldReportScreen', () => {
       ...mockDraftState,
       data: draft({
         farmerOrFarmOwnerName: 'Maria Santos',
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
         updatedAt: '2026-08-10T01:05:00.000Z',
       }),
       saved: true,
@@ -615,9 +858,61 @@ describe('FieldReportScreen', () => {
       'value',
       'Maria Santos',
     );
+    expect(screen.getByTestId('field-report.affected-area-input')).toHaveProp(
+      'value',
+      '0.5',
+    );
+    expect(screen.getByTestId('field-report.affected-portion-input')).toHaveProp(
+      'value',
+      '30',
+    );
     expect(screen.getByText(`Report ID: ${REPORT_ID}`)).toBeOnTheScreen();
     expect(screen.getByTestId('field-report.saved')).toHaveTextContent(
       'Draft saved on this device.',
+    );
+  });
+
+  it('collects optional more-details values into the Draft save', async () => {
+    await render(<FieldReportScreen />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Show More field details'));
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.variety-input'),
+        'Phil 2000',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.crop-age-input'),
+        '~3 months',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.cane-class-input'),
+        'Plant cane',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.notes-input'),
+        'Near the river',
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
+    });
+
+    expect(mockSave).toHaveBeenCalledWith(
+      expectFormValues({
+        caneClass: 'Plant cane',
+        cropAge: '~3 months',
+        fieldNotes: 'Near the river',
+        sugarcaneVariety: 'Phil 2000',
+      }),
     );
   });
 });

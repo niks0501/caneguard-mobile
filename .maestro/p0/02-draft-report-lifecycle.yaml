@@ -85,6 +85,13 @@ tags:
     visible:
       id: field-report.screen
     timeout: 30000
+# D5: a brand-new Draft auto-attempts one GPS reading, which raises the
+# system location prompt on first open. Decline it; this flow only drafts.
+- runFlow:
+    when:
+      visible: "Don.t allow"
+    commands:
+      - tapOn: "Don.t allow"
 - tapOn:
     id: field-report.farmer-name-input
 - inputText: P0 Draft Farmer

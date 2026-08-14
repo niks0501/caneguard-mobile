@@ -107,6 +107,14 @@ export async function createOrGetFieldReportDraft(
           authoringState: 'draft',
           submitterIdentity: input.submitterIdentity.trim(),
           submitterRole: input.submitterRole,
+          // Region defaults come from the reference-data store (D2); the
+          // schema defaults remain the offline fallback.
+          ...(input.province === undefined
+            ? {}
+            : { province: input.province.trim() }),
+          ...(input.municipality === undefined
+            ? {}
+            : { municipality: input.municipality.trim() }),
           observedAt: scan.createdAt,
           syncStatus: 'local_only',
           createdAt: input.createdAt,
@@ -301,8 +309,14 @@ export async function finalizeFieldReport(
       transaction
         .update(fieldReports)
         .set({
+          affectedAreaHectares: values.affectedAreaHectares,
+          affectedPortionPercent: values.affectedPortionPercent,
           barangay: values.barangay,
+          caneClass: values.caneClass,
+          cropAge: values.cropAge,
           farmerOrFarmOwnerName: values.farmerOrFarmOwnerName,
+          fieldNotes: values.fieldNotes,
+          sugarcaneVariety: values.sugarcaneVariety,
           updatedAt: values.updatedAt,
         })
         .where(and(eq(fieldReports.id, id), eq(fieldReports.authoringState, 'draft')))
@@ -527,6 +541,12 @@ function toFieldReport(row: typeof fieldReports.$inferSelect): FieldReport {
     province: row.province,
     municipality: row.municipality,
     barangay: row.barangay,
+    sugarcaneVariety: row.sugarcaneVariety,
+    cropAge: row.cropAge,
+    caneClass: row.caneClass,
+    affectedAreaHectares: row.affectedAreaHectares,
+    affectedPortionPercent: row.affectedPortionPercent,
+    fieldNotes: row.fieldNotes,
     finalLatitude: row.finalLatitude,
     finalLongitude: row.finalLongitude,
     locationSource: row.locationSource,

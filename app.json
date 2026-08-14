@@ -12,6 +12,7 @@
     },
     "android": {
       "package": "com.niks0501.caneguard",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

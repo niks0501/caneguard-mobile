@@ -73,7 +73,9 @@ export function createCompletedScanDraft(
     ),
     reportedSeverity: state.reportedSeverity,
     qualityWarnings: [...(state.qualityAssessment?.warnings ?? [])],
-    barangay: state.barangay.trim(),
+    // The scan-session barangay capture path was removed; the legacy scan
+    // record column is written empty for new records.
+    barangay: '',
     modelVersion: state.result.modelVersion,
     preprocessMs: state.result.timings.preprocessMs,
     inferenceMs: state.result.timings.inferenceMs,

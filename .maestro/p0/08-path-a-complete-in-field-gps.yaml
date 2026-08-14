@@ -90,13 +90,48 @@ tags:
     visible:
       id: field-report.screen
     timeout: 30000
+# D5: a brand-new Draft auto-attempts one GPS reading and raises the system
+# location prompt. Decline it; the flow grants permission below and captures
+# GPS explicitly.
+- runFlow:
+    when:
+      visible: "Don.t allow"
+    commands:
+      - tapOn: "Don.t allow"
 - tapOn:
     id: field-report.farmer-name-input
 - inputText: P0 GPS Farmer
 - hideKeyboard
 - tapOn:
     id: field-report.barangay-input
+- tapOn:
+    id: field-report.barangay-input-search
 - inputText: Wawa
+- extendedWaitUntil:
+    visible:
+      id: field-report.barangay-input-option
+      text: Wawa
+    timeout: 10000
+- tapOn:
+    id: field-report.barangay-input-option
+    index: 0
+- hideKeyboard
+# D4: affected area and estimated affected portion are required to finalize.
+- scrollUntilVisible:
+    element:
+      id: field-report.affected-area-input
+    direction: DOWN
+- tapOn:
+    id: field-report.affected-area-input
+- inputText: "1.5"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: field-report.affected-portion-input
+    direction: DOWN
+- tapOn:
+    id: field-report.affected-portion-input
+- inputText: "30"
 - hideKeyboard
 - setPermissions:
     permissions:
@@ -118,14 +153,26 @@ tags:
     element:
       id: field-report.finalize
     direction: UP
+# D6: finalization requires an online connection; offline it is blocked and
+# explained.
 - setAirplaneMode: enabled
+- assertVisible:
+    id: field-report.offline-finalize-block
+- assertNotEnabled:
+    id: field-report.finalize
+- takeScreenshot: .maestro/artifacts/p0-08-path-a-offline-finalize-blocked
+- setAirplaneMode: disabled
+- extendedWaitUntil:
+    visible:
+      id: field-report.finalize
+      enabled: true
+    timeout: 30000
 - tapOn:
     id: field-report.finalize
 - extendedWaitUntil:
-    visible: "Finalized · Pending upload"
+    visible: "Finalized · (Pending upload|Uploading|Synced|Sync failed)"
     timeout: 30000
 - takeScreenshot: .maestro/artifacts/p0-08-path-a-gps-pending
-- setAirplaneMode: disabled
 - extendedWaitUntil:
     visible: "Finalized · (Pending upload|Uploading|Synced|Sync failed)"
     timeout: 30000

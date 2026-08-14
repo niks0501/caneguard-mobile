@@ -70,6 +70,7 @@ function openTestDatabase(): {
     '0002_talented_kat_farrell.sql',
     '0003_careful_marauders.sql',
     '0004_sour_namora.sql',
+    '0005_tricky_the_santerians.sql',
   ]) {
     native.exec(readMigration(migration));
   }
@@ -497,6 +498,8 @@ describe('Field Report draft repository', () => {
       SUBMITTER_ID,
       {
         farmerOrFarmOwnerName: 'Maria Santos',
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
         barangay: '',
         submittedAt: '2026-08-10T03:00:00.000Z',
         updatedAt: '2026-08-10T03:00:00.000Z',
@@ -543,6 +546,8 @@ describe('Field Report draft repository', () => {
         SUBMITTER_ID,
         {
           farmerOrFarmOwnerName: 'Maria Santos',
+          affectedAreaHectares: 0.5,
+          affectedPortionPercent: 30,
           barangay: 'Lumbangan',
           submittedAt: '2026-08-10T03:00:00.000Z',
           updatedAt: '2026-08-10T03:00:00.000Z',
@@ -582,6 +587,8 @@ describe('Field Report draft repository', () => {
       SUBMITTER_ID,
       {
         farmerOrFarmOwnerName: 'Maria Santos',
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
         barangay: 'Lumbangan',
         submittedAt: '2026-08-10T03:00:00.000Z',
         updatedAt: '2026-08-10T03:00:00.000Z',
@@ -633,6 +640,8 @@ describe('Field Report draft repository', () => {
       SUBMITTER_ID,
       {
         farmerOrFarmOwnerName: 'Maria Santos',
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
         barangay: 'Lumbangan',
         submittedAt: '2026-08-10T03:00:00.000Z',
         updatedAt: '2026-08-10T03:00:00.000Z',
@@ -715,6 +724,8 @@ describe('Field Report draft repository', () => {
       SUBMITTER_ID,
       {
         farmerOrFarmOwnerName: 'Maria Santos',
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
         barangay: 'Lumbangan',
         submittedAt: '2026-08-10T03:00:00.000Z',
         updatedAt: '2026-08-10T03:00:00.000Z',
@@ -748,6 +759,8 @@ describe('Field Report draft repository', () => {
       SUBMITTER_ID,
       {
         farmerOrFarmOwnerName: 'Maria Santos',
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
         barangay: 'Lumbangan',
         submittedAt: '2026-08-10T03:00:00.000Z',
         updatedAt: '2026-08-10T03:00:00.000Z',
@@ -760,6 +773,180 @@ describe('Field Report draft repository', () => {
       missingRequirements: ['source_image_dimensions'],
       report: { authoringState: 'draft', syncStatus: 'local_only' },
     });
+    native.close();
+  });
+});
+
+describe('P2-01 smart field report fields', () => {
+  it('persists and reloads the new draft fields and region selection', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+
+    const saved = await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
+      farmerOrFarmOwnerName: 'Maria Santos',
+      province: 'Cavite',
+      municipality: 'Tagaytay',
+      barangay: 'Kaybagal',
+      affectedAreaHectares: 1.25,
+      affectedPortionPercent: 40,
+      sugarcaneVariety: 'Phil 2000',
+      cropAge: '~3 months',
+      caneClass: 'Plant cane',
+      fieldNotes: 'Near the river',
+      updatedAt: '2026-08-10T01:05:00.000Z',
+    });
+    const reopened = await findFieldReportById(database, REPORT_ID);
+
+    expect(saved).toMatchObject({
+      province: 'Cavite',
+      municipality: 'Tagaytay',
+      barangay: 'Kaybagal',
+      affectedAreaHectares: 1.25,
+      affectedPortionPercent: 40,
+      sugarcaneVariety: 'Phil 2000',
+      cropAge: '~3 months',
+      caneClass: 'Plant cane',
+      fieldNotes: 'Near the river',
+    });
+    expect(reopened).toEqual(saved);
+    native.close();
+  });
+
+  it('seeds province and municipality from the create input', async () => {
+    const { database, native } = openTestDatabase();
+    const created = await createOrGetFieldReportDraft(database, {
+      ...createDraftInput(),
+      province: 'Cavite',
+      municipality: 'Tagaytay',
+    });
+
+    expect(created).toMatchObject({
+      province: 'Cavite',
+      municipality: 'Tagaytay',
+    });
+    native.close();
+  });
+
+  it('rejects an out-of-range affected area on Draft save', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+
+    await expect(
+      saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
+        affectedAreaHectares: -1,
+        updatedAt: '2026-08-10T01:05:00.000Z',
+      }),
+    ).rejects.toMatchObject<Partial<StorageError>>({
+      code: 'INVALID_FIELD_REPORT',
+    });
+    native.close();
+  });
+
+  it('clears stored affected numbers when the Draft is saved with nulls', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
+      affectedAreaHectares: 1.25,
+      affectedPortionPercent: 40,
+      updatedAt: '2026-08-10T01:05:00.000Z',
+    });
+
+    const cleared = await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
+      affectedAreaHectares: null,
+      affectedPortionPercent: null,
+      updatedAt: '2026-08-10T01:06:00.000Z',
+    });
+
+    expect(cleared.affectedAreaHectares).toBeNull();
+    expect(cleared.affectedPortionPercent).toBeNull();
+    native.close();
+  });
+
+  it('rejects missing or invalid affected numbers at finalization', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    await createOrGetFieldReportDraft(database, createDraftInput());
+
+    await expect(
+      finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        {
+          farmerOrFarmOwnerName: 'Maria Santos',
+          barangay: 'Wawa',
+          affectedAreaHectares: Number.NaN,
+          affectedPortionPercent: Number.NaN,
+          submittedAt: '2026-08-10T03:00:00.000Z',
+          updatedAt: '2026-08-10T03:00:00.000Z',
+        },
+        IMAGE_EXISTS,
+      ),
+    ).rejects.toMatchObject<Partial<StorageError>>({ code: 'INVALID_FIELD_REPORT' });
+
+    await expect(
+      finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        {
+          farmerOrFarmOwnerName: 'Maria Santos',
+          barangay: 'Wawa',
+          affectedAreaHectares: 0.5,
+          affectedPortionPercent: 150,
+          submittedAt: '2026-08-10T03:00:00.000Z',
+          updatedAt: '2026-08-10T03:00:00.000Z',
+        },
+        IMAGE_EXISTS,
+      ),
+    ).rejects.toMatchObject<Partial<StorageError>>({ code: 'INVALID_FIELD_REPORT' });
+    native.close();
+  });
+
+  it('finalizes with the new fields persisted and mapped', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
+      accuracy: 4.2,
+      capturedAt: '2026-08-10T01:04:00.000Z',
+      latitude: 14.0667,
+      longitude: 120.6319,
+      outcome: 'resolved',
+      updatedAt: '2026-08-10T01:04:01.000Z',
+    });
+
+    const result = await finalizeFieldReport(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      {
+        farmerOrFarmOwnerName: 'Maria Santos',
+        barangay: 'Wawa',
+        affectedAreaHectares: 0.75,
+        affectedPortionPercent: 25,
+        sugarcaneVariety: 'Phil 2000',
+        cropAge: '~3 months',
+        caneClass: 'Plant cane',
+        fieldNotes: 'Dry patches',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        updatedAt: '2026-08-10T03:00:00.000Z',
+      },
+      IMAGE_EXISTS,
+    );
+
+    expect(result.status).toBe('finalized');
+    if (result.status === 'finalized') {
+      expect(result.report).toMatchObject({
+        authoringState: 'finalized',
+        affectedAreaHectares: 0.75,
+        affectedPortionPercent: 25,
+        sugarcaneVariety: 'Phil 2000',
+        cropAge: '~3 months',
+        caneClass: 'Plant cane',
+        fieldNotes: 'Dry patches',
+      });
+    }
     native.close();
   });
 });

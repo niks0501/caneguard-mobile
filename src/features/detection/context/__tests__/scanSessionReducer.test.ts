@@ -26,7 +26,6 @@ const completedResult: DetectionResult = {
 describe('scanSessionReducer', () => {
   it('starts with an empty temporary scan', () => {
     expect(initialScanSessionState).toEqual({
-      barangay: '',
       sourceUri: null,
       processedUri: null,
       preprocessMs: null,
@@ -44,7 +43,6 @@ describe('scanSessionReducer', () => {
 
   it('selects an image and clears data from the previous scan', () => {
     const previousState: ScanSessionState = {
-      barangay: 'Wawa',
       sourceUri: 'file:///old.jpg',
       processedUri: 'file:///old-processed.jpg',
       preprocessMs: 12,

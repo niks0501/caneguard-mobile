@@ -50,6 +50,12 @@ export function mapFieldReportToMultipart(
   form.append('province', report.province);
   form.append('municipality', report.municipality);
   form.append('barangay', report.barangay!.trim());
+  appendOptionalText(form, 'sugarcane_variety', report.sugarcaneVariety);
+  appendOptionalText(form, 'crop_age', report.cropAge);
+  appendOptionalText(form, 'cane_class', report.caneClass);
+  appendNumber(form, 'affected_area_hectares', report.affectedAreaHectares);
+  appendNumber(form, 'affected_portion_percent', report.affectedPortionPercent);
+  appendOptionalText(form, 'field_notes', report.fieldNotes);
   appendNumber(form, 'final_latitude', report.finalLatitude);
   appendNumber(form, 'final_longitude', report.finalLongitude);
   form.append('location_source', report.locationSource!);
@@ -144,6 +150,13 @@ function validateReport(
 function appendNumber(form: FormData, key: string, value: number | null): void {
   if (value !== null) {
     form.append(key, String(value));
+  }
+}
+
+function appendOptionalText(form: FormData, key: string, value: string | null): void {
+  const normalized = value?.trim();
+  if (normalized) {
+    form.append(key, normalized);
   }
 }
 

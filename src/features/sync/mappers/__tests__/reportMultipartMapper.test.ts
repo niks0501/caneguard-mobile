@@ -26,6 +26,8 @@ const REPORT: FieldReport = {
   id: '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e', scanRecordId: SCAN.id,
   authoringState: 'finalized', farmerOrFarmOwnerName: 'Maria Santos',
   province: 'Batangas', municipality: 'Nasugbu', barangay: 'Wawa',
+  affectedAreaHectares: null, affectedPortionPercent: null,
+  sugarcaneVariety: null, cropAge: null, caneClass: null, fieldNotes: null,
   submitterIdentity: 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
   submitterRole: 'field_reporter', finalLatitude: 14.0667,
   finalLongitude: 120.6319, locationSource: 'gps', gpsAccuracy: 4.2,
@@ -80,6 +82,59 @@ describe('Field Report multipart mapper', () => {
     expect(values.get('predicted_label')).toBe('rust');
     expect(values.get('class_scores[rust]')).toBe('0.82');
     expect(parts).toContainEqual(['symptom_keys[]', 'rust']);
+  });
+
+  it('appends the smart field report details when present', () => {
+    const values = new Map(
+      (map({
+        ...REPORT,
+        sugarcaneVariety: 'Phil 2000',
+        cropAge: '6 months',
+        caneClass: 'Ratoon',
+        affectedAreaHectares: 2.5,
+        affectedPortionPercent: 40,
+        fieldNotes: 'Wet patches near the river side.',
+      }) as unknown as { _parts: [string, unknown][] })._parts,
+    );
+
+    expect(values.get('sugarcane_variety')).toBe('Phil 2000');
+    expect(values.get('crop_age')).toBe('6 months');
+    expect(values.get('cane_class')).toBe('Ratoon');
+    expect(values.get('affected_area_hectares')).toBe('2.5');
+    expect(values.get('affected_portion_percent')).toBe('40');
+    expect(values.get('field_notes')).toBe('Wet patches near the river side.');
+  });
+
+  it('omits null, absent, and whitespace-only detail fields', () => {
+    const parts = (map({
+      ...REPORT,
+      sugarcaneVariety: '   ',
+      cropAge: null,
+      caneClass: undefined as unknown as null,
+      affectedAreaHectares: null,
+      affectedPortionPercent: null,
+      fieldNotes: '',
+    }) as unknown as { _parts: [string, unknown][] })._parts;
+    const keys = parts.map(([name]) => name);
+
+    expect(keys).not.toContain('sugarcane_variety');
+    expect(keys).not.toContain('crop_age');
+    expect(keys).not.toContain('cane_class');
+    expect(keys).not.toContain('affected_area_hectares');
+    expect(keys).not.toContain('affected_portion_percent');
+    expect(keys).not.toContain('field_notes');
+  });
+
+  it('trims surrounding whitespace from detail text before appending', () => {
+    const values = new Map(
+      (map({
+        ...REPORT,
+        sugarcaneVariety: '  Phil 2000  ',
+        fieldNotes: '  Waterlogged  ',
+      }) as unknown as { _parts: [string, unknown][] })._parts,
+    );
+    expect(values.get('sugarcane_variety')).toBe('Phil 2000');
+    expect(values.get('field_notes')).toBe('Waterlogged');
   });
 
   it('distinguishes manual-map provenance without fabricating GPS accuracy', () => {

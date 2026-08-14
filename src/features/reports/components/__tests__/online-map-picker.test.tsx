@@ -184,7 +184,7 @@ describe('OnlineMapPicker', () => {
     });
   });
 
-  it('requests fullscreen expansion and marks the map as fullscreen', async () => {
+  it('hides navigation controls in fullscreen and restores them on exit', async () => {
     const onToggleFullscreen = jest.fn();
     const view = await render(
       <OnlineMapPicker
@@ -198,6 +198,7 @@ describe('OnlineMapPicker', () => {
 
     const toggle = screen.getByTestId('manual-map.fullscreen-toggle');
     expect(screen.getByLabelText('Expand map to fullscreen')).toBeOnTheScreen();
+    expect(screen.getByTestId('manual-map.controls')).toBeOnTheScreen();
     await fireEvent.press(toggle);
     expect(onToggleFullscreen).toHaveBeenCalledTimes(1);
 
@@ -219,15 +220,24 @@ describe('OnlineMapPicker', () => {
       bottom: 0,
       left: 0,
     });
-    // ...the pan/zoom controls float over it instead of taking layout space...
-    expect(screen.getByTestId('manual-map.controls')).toHaveStyle({
-      position: 'absolute',
-    });
+    // ...the navigation controls are hidden so the map fills the screen,
+    // leaving only the fullscreen toggle over it.
+    expect(screen.queryByTestId('manual-map.controls')).not.toBeOnTheScreen();
     // ...and the below-map prose is hidden, but the coordinates stay visible.
     expect(
       screen.queryByText(/Tiles load only for the visible online map/),
     ).not.toBeOnTheScreen();
     expect(screen.getByTestId('manual-map.coordinates')).toBeOnTheScreen();
+
+    await view.rerender(
+      <OnlineMapPicker
+        initialCenter={DEFAULT_MANUAL_MAP_CENTER}
+        isOnline={false}
+        onSelectionChange={jest.fn()}
+        onToggleFullscreen={onToggleFullscreen}
+      />,
+    );
+    expect(screen.getByTestId('manual-map.controls')).toBeOnTheScreen();
   });
 
   it('keeps selection and center across the fullscreen toggle', async () => {

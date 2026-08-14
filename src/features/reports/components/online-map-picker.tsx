@@ -369,50 +369,46 @@ export function OnlineMapPicker({
         </Pressable>
       </GestureDetector>
 
-      <View
-        testID="manual-map.controls"
-        style={[styles.controls, fullscreen && styles.controlsFullscreen]}>
-        <MapControl
-          label="Pan west"
-          icon="arrow-left"
-          onPress={() => pan(-PAN_DISTANCE, 0)}
-          disabled={!mapLoaded}
-        />
-        <MapControl
-          label="Pan north"
-          icon="arrow-up"
-          onPress={() => pan(0, -PAN_DISTANCE)}
-          disabled={!mapLoaded}
-        />
-        <MapControl
-          label="Pan south"
-          icon="arrow-down"
-          onPress={() => pan(0, PAN_DISTANCE)}
-          disabled={!mapLoaded}
-        />
-        <MapControl
-          label="Pan east"
-          icon="arrow-right"
-          onPress={() => pan(PAN_DISTANCE, 0)}
-          disabled={!mapLoaded}
-        />
-        <MapControl
-          label="Zoom out"
-          icon="minus"
-          onPress={() =>
-            setZoom((current) => clampZoom(current - 1))
-          }
-          disabled={!mapLoaded || zoom === MIN_MANUAL_MAP_ZOOM}
-        />
-        <MapControl
-          label="Zoom in"
-          icon="plus"
-          onPress={() =>
-            setZoom((current) => clampZoom(current + 1))
-          }
-          disabled={!mapLoaded || zoom === MAX_MANUAL_MAP_ZOOM}
-        />
-      </View>
+      {!fullscreen ? (
+        <View testID="manual-map.controls" style={styles.controls}>
+          <MapControl
+            label="Pan west"
+            icon="arrow-left"
+            onPress={() => pan(-PAN_DISTANCE, 0)}
+            disabled={!mapLoaded}
+          />
+          <MapControl
+            label="Pan north"
+            icon="arrow-up"
+            onPress={() => pan(0, -PAN_DISTANCE)}
+            disabled={!mapLoaded}
+          />
+          <MapControl
+            label="Pan south"
+            icon="arrow-down"
+            onPress={() => pan(0, PAN_DISTANCE)}
+            disabled={!mapLoaded}
+          />
+          <MapControl
+            label="Pan east"
+            icon="arrow-right"
+            onPress={() => pan(PAN_DISTANCE, 0)}
+            disabled={!mapLoaded}
+          />
+          <MapControl
+            label="Zoom out"
+            icon="minus"
+            onPress={() => setZoom((current) => clampZoom(current - 1))}
+            disabled={!mapLoaded || zoom === MIN_MANUAL_MAP_ZOOM}
+          />
+          <MapControl
+            label="Zoom in"
+            icon="plus"
+            onPress={() => setZoom((current) => clampZoom(current + 1))}
+            disabled={!mapLoaded || zoom === MAX_MANUAL_MAP_ZOOM}
+          />
+        </View>
+      ) : null}
 
       {!fullscreen ? (
         <Text style={[styles.attribution, { color: theme.textSecondary }]}>

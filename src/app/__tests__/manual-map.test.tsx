@@ -128,9 +128,7 @@ describe('ManualMapScreen', () => {
       bottom: 0,
       left: 0,
     });
-    expect(screen.getByTestId('manual-map.controls')).toHaveStyle({
-      position: 'absolute',
-    });
+    expect(screen.queryByTestId('manual-map.controls')).not.toBeOnTheScreen();
     expect(screen.getByTestId('manual-map.confirm')).toBeOnTheScreen();
     expect(screen.getByText('Keep Draft Unchanged')).toBeOnTheScreen();
 
@@ -140,6 +138,7 @@ describe('ManualMapScreen', () => {
     expect(screen.getByTestId('manual-map.viewport')).not.toHaveStyle({
       position: 'absolute',
     });
+    expect(screen.getByTestId('manual-map.controls')).toBeOnTheScreen();
   });
 
   it('confirms the pinned location while in fullscreen', async () => {

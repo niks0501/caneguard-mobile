@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { OnlineMapPicker } from '@/features/reports/components/online-map-picker';
 import { DEFAULT_MANUAL_MAP_CENTER } from '@/features/reports/domain/manualMap';
@@ -116,71 +116,5 @@ describe('OnlineMapPicker', () => {
     }
 
     expect(screen.getByTestId('manual-map.viewport')).not.toBeDisabled();
-  });
-
-  it('hides the navigation controls and shows only the exit control in fullscreen', async () => {
-    await render(
-      <OnlineMapPicker
-        initialCenter={DEFAULT_MANUAL_MAP_CENTER}
-        isOnline={true}
-        onSelectionChange={jest.fn()}
-      />,
-    );
-    await act(async () => undefined);
-    await act(async () => {
-      screen.getByTestId('manual-map.viewport').props.onLayout({
-        nativeEvent: { layout: { height: 360, width: 390, x: 0, y: 0 } },
-      });
-    });
-    for (const tile of screen.getAllByTestId('manual-map.tile')) {
-      await act(async () => tile.props.onLoad());
-    }
-
-    await fireEvent.press(screen.getByLabelText('Enter fullscreen map'));
-
-    expect(screen.getByTestId('manual-map.fullscreen')).toBeOnTheScreen();
-    expect(screen.getByTestId('manual-map.exit-fullscreen')).toBeOnTheScreen();
-    expect(screen.queryByLabelText('Enter fullscreen map')).not.toBeOnTheScreen();
-    expect(screen.queryByLabelText('Pan east')).not.toBeOnTheScreen();
-    expect(screen.queryByLabelText('Zoom in')).not.toBeOnTheScreen();
-    expect(screen.queryByTestId('manual-map.coordinates')).not.toBeOnTheScreen();
-  });
-
-  it('restores the navigation controls and keeps the pin when exiting fullscreen', async () => {
-    await render(
-      <OnlineMapPicker
-        initialCenter={DEFAULT_MANUAL_MAP_CENTER}
-        isOnline={true}
-        onSelectionChange={jest.fn()}
-      />,
-    );
-    await act(async () => undefined);
-    await act(async () => {
-      screen.getByTestId('manual-map.viewport').props.onLayout({
-        nativeEvent: { layout: { height: 360, width: 390, x: 0, y: 0 } },
-      });
-    });
-    for (const tile of screen.getAllByTestId('manual-map.tile')) {
-      await act(async () => tile.props.onLoad());
-    }
-    const loadedViewport = screen.getByTestId('manual-map.viewport');
-    await fireEvent(loadedViewport, 'press', {
-      nativeEvent: { locationX: 195, locationY: 180 },
-    });
-
-    await fireEvent.press(screen.getByLabelText('Enter fullscreen map'));
-    expect(
-      within(screen.getByTestId('manual-map.fullscreen')).getByTestId('manual-map.pin'),
-    ).toBeOnTheScreen();
-    await fireEvent.press(screen.getByTestId('manual-map.exit-fullscreen'));
-
-    expect(screen.queryByTestId('manual-map.fullscreen')).not.toBeOnTheScreen();
-    expect(screen.queryByTestId('manual-map.exit-fullscreen')).not.toBeOnTheScreen();
-    expect(screen.getByLabelText('Pan east')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Zoom in')).toBeOnTheScreen();
-    expect(screen.getByTestId('manual-map.coordinates')).toHaveTextContent(
-      '14.066700, 120.631900',
-    );
-    expect(screen.getByTestId('manual-map.pin')).toBeOnTheScreen();
   });
 });

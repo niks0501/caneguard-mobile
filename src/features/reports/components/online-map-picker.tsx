@@ -1,10 +1,8 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
-import { StatusBar } from 'expo-status-bar';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -13,10 +11,7 @@ import {
   type LayoutChangeEvent,
   type NativeSyntheticEvent,
   type NativeTouchEvent,
-  type StyleProp,
-  type ViewStyle,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import {
@@ -29,7 +24,6 @@ import {
   getMapTiles,
   moveMapCenter,
   type MapCoordinate,
-  type MapTile,
 } from '@/features/reports/domain/manualMap';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -47,29 +41,20 @@ export function OnlineMapPicker({
 }) {
   const theme = useTheme();
   const window = useWindowDimensions();
-  const insets = useSafeAreaInsets();
   const [center, setCenter] = useState(initialCenter);
   const [selection, setSelection] = useState<MapCoordinate | null>(null);
   const [zoom, setZoom] = useState(DEFAULT_MANUAL_MAP_ZOOM);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [inlineViewport, setInlineViewport] = useState({
+  const [viewport, setViewport] = useState({
     height: MAP_HEIGHT,
     width: Math.max(240, Math.min(window.width - Spacing.xl * 2, 390)),
-  });
-  const [fullscreenViewport, setFullscreenViewport] = useState({
-    height: window.height,
-    width: window.width,
   });
   const [tileLoadState, setTileLoadState] = useState<{
     failed: string[];
     loaded: string[];
   }>({ failed: [], loaded: [] });
-  const viewport = isFullscreen ? fullscreenViewport : inlineViewport;
-  const viewportHeight = viewport.height;
-  const viewportWidth = viewport.width;
   const tiles = useMemo(
-    () => getMapTiles(center, zoom, viewportWidth, viewportHeight),
-    [center, viewportHeight, viewportWidth, zoom],
+    () => getMapTiles(center, zoom, viewport.width, viewport.height),
+    [center, viewport.height, viewport.width, zoom],
   );
   const visibleTileKeys = new Set(tiles.map(({ key }) => key));
   const activeLoadState = {
@@ -87,34 +72,10 @@ export function OnlineMapPicker({
         center,
         selection,
         zoom,
-        viewportWidth,
-        viewportHeight,
+        viewport.width,
+        viewport.height,
       )
     : null;
-
-  let overlay: ReactNode = null;
-  if (isOnline !== true) {
-    overlay = (
-      <MapOverlay
-        icon="wifi-off"
-        message="Connect to the internet to load the manual map. Your Draft is unchanged."
-      />
-    );
-  } else if (mapFailed) {
-    overlay = (
-      <MapOverlay
-        icon="alert-triangle"
-        message="The online map could not load. Keep this report as a Draft and try again later."
-      />
-    );
-  } else if (!mapLoaded) {
-    overlay = (
-      <View style={styles.loadingOverlay}>
-        <ActivityIndicator color={theme.primary} />
-        <Text style={[styles.overlayText, { color: theme.text }]}>Loading online map…</Text>
-      </View>
-    );
-  }
 
   function updateSelection(coordinate: MapCoordinate | null) {
     setSelection(coordinate);
@@ -127,40 +88,17 @@ export function OnlineMapPicker({
       coordinateAtViewportPoint(
         center,
         zoom,
-        viewportWidth,
-        viewportHeight,
+        viewport.width,
+        viewport.height,
         event.nativeEvent.locationX,
         event.nativeEvent.locationY,
       ),
     );
   }
 
-  function onInlineLayout(event: LayoutChangeEvent) {
+  function onLayout(event: LayoutChangeEvent) {
     const { height, width } = event.nativeEvent.layout;
-    if (width > 0 && height > 0) setInlineViewport({ height, width });
-  }
-
-  function onFullscreenLayout(event: LayoutChangeEvent) {
-    const { height, width } = event.nativeEvent.layout;
-    if (width > 0 && height > 0) setFullscreenViewport({ height, width });
-  }
-
-  function markTileLoaded(key: string) {
-    setTileLoadState((current) => ({
-      ...current,
-      failed: current.failed.filter((candidate) => candidate !== key),
-      loaded: current.loaded.includes(key)
-        ? current.loaded
-        : [...current.loaded, key],
-    }));
-  }
-
-  function markTileFailed(key: string) {
-    setTileLoadState((current) => {
-      return current.failed.includes(key)
-        ? current
-        : { ...current, failed: [...current.failed, key] };
-    });
+    if (width > 0 && height > 0) setViewport({ height, width });
   }
 
   function pan(deltaX: number, deltaY: number) {
@@ -169,190 +107,124 @@ export function OnlineMapPicker({
 
   return (
     <View style={styles.wrapper}>
-      <MapCanvas
+      <Pressable
         testID="manual-map.viewport"
+        accessibilityRole="imagebutton"
         accessibilityLabel="Online map. Tap to place the report location pin."
         disabled={isOnline !== true || !mapLoaded}
-        isOnline={isOnline}
-        onLayout={onInlineLayout}
+        onLayout={onLayout}
         onPress={onMapPress}
-        onTileError={markTileFailed}
-        onTileLoad={markTileLoaded}
-        overlay={overlay}
-        pinPoint={pinPoint}
-        tiles={tiles}
-      />
+        style={[
+          styles.map,
+          { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+        ]}>
+        {isOnline === true
+          ? tiles.map((tile) => (
+              <ExpoImage
+                key={tile.key}
+                testID="manual-map.tile"
+                source={{
+                  headers: { 'User-Agent': 'CaneGuard-Mobile/1.0' },
+                  uri: tile.url,
+                }}
+                cachePolicy="disk"
+                contentFit="fill"
+                onLoad={() =>
+                  setTileLoadState((current) => {
+                    return {
+                      ...current,
+                      failed: current.failed.filter((key) => key !== tile.key),
+                      loaded: current.loaded.includes(tile.key)
+                        ? current.loaded
+                        : [...current.loaded, tile.key],
+                    };
+                  })
+                }
+                onError={() =>
+                  setTileLoadState((current) => {
+                    return current.failed.includes(tile.key)
+                      ? current
+                      : { ...current, failed: [...current.failed, tile.key] };
+                  })
+                }
+                style={[
+                  styles.tile,
+                  { left: tile.left, top: tile.top },
+                ]}
+              />
+            ))
+          : null}
 
-      {!isFullscreen ? (
-        <View style={styles.controls}>
-          <MapControl label="Pan west" icon="arrow-left" onPress={() => pan(-PAN_DISTANCE, 0)} disabled={!mapLoaded} />
-          <MapControl label="Pan north" icon="arrow-up" onPress={() => pan(0, -PAN_DISTANCE)} disabled={!mapLoaded} />
-          <MapControl label="Pan south" icon="arrow-down" onPress={() => pan(0, PAN_DISTANCE)} disabled={!mapLoaded} />
-          <MapControl label="Pan east" icon="arrow-right" onPress={() => pan(PAN_DISTANCE, 0)} disabled={!mapLoaded} />
-          <MapControl
-            label="Zoom out"
-            icon="minus"
-            onPress={() => setZoom((current) => Math.max(MIN_MANUAL_MAP_ZOOM, current - 1))}
-            disabled={!mapLoaded || zoom === MIN_MANUAL_MAP_ZOOM}
-          />
-          <MapControl
-            label="Zoom in"
-            icon="plus"
-            onPress={() => setZoom((current) => Math.min(MAX_MANUAL_MAP_ZOOM, current + 1))}
-            disabled={!mapLoaded || zoom === MAX_MANUAL_MAP_ZOOM}
-          />
-          <MapControl
-            label="Enter fullscreen map"
-            icon="maximize"
-            onPress={() => setIsFullscreen(true)}
-            disabled={!mapLoaded}
-          />
-        </View>
-      ) : null}
-
-      {!isFullscreen ? (
-        <>
-          <Text style={[styles.attribution, { color: theme.textSecondary }]}>
-            Tiles load only for the visible online map. CaneGuard does not prefetch or offer offline map downloads.
-          </Text>
-          <Text
-            testID="manual-map.coordinates"
-            selectable
-            style={[styles.coordinates, { color: theme.text }]}>
-            {selection
-              ? `${selection.latitude.toFixed(6)}, ${selection.longitude.toFixed(6)}`
-              : 'Tap the loaded map to choose the final report coordinates.'}
-          </Text>
-        </>
-      ) : null}
-
-      <Modal
-        visible={isFullscreen}
-        animationType="fade"
-        presentationStyle="fullScreen"
-        onRequestClose={() => setIsFullscreen(false)}>
-        <View
-          testID="manual-map.fullscreen"
-          style={[styles.fullscreenRoot, { backgroundColor: theme.surfaceMuted }]}>
-          <StatusBar hidden={isFullscreen} />
-          <MapCanvas
-            testID="manual-map.fullscreen-viewport"
-            accessibilityLabel="Fullscreen online map. Tap to place the report location pin."
-            disabled={isOnline !== true || !mapLoaded}
-            isOnline={isOnline}
-            onLayout={onFullscreenLayout}
-            onPress={onMapPress}
-            onTileError={markTileFailed}
-            onTileLoad={markTileLoaded}
-            overlay={overlay}
-            pinPoint={pinPoint}
-            style={styles.fullscreenMap}
-            tiles={tiles}
-          />
-          <Pressable
-            testID="manual-map.exit-fullscreen"
-            accessibilityRole="button"
-            accessibilityLabel="Exit fullscreen map"
-            onPress={() => setIsFullscreen(false)}
-            style={({ pressed }) => [
-              styles.exitFullscreen,
-              {
-                top: insets.top + Spacing.sm,
-                backgroundColor: theme.surfaceElevated,
-                borderColor: theme.border,
-              },
-              pressed && styles.pressed,
+        {pinPoint ? (
+          <View
+            testID="manual-map.pin"
+            pointerEvents="none"
+            style={[
+              styles.pin,
+              { left: pinPoint.x - 16, top: pinPoint.y - 32 },
             ]}>
-            <Feather name="minimize" size={20} color={theme.primary} />
-          </Pressable>
-        </View>
-      </Modal>
-    </View>
-  );
-}
+            <Feather name="map-pin" size={32} color={theme.danger} />
+          </View>
+        ) : null}
 
-function MapCanvas({
-  accessibilityLabel,
-  disabled,
-  isOnline,
-  onLayout,
-  onPress,
-  onTileError,
-  onTileLoad,
-  overlay,
-  pinPoint,
-  style,
-  testID,
-  tiles,
-}: {
-  accessibilityLabel: string;
-  disabled: boolean;
-  isOnline: boolean | null;
-  onLayout?: (event: LayoutChangeEvent) => void;
-  onPress: (event: NativeSyntheticEvent<NativeTouchEvent>) => void;
-  onTileError: (key: string) => void;
-  onTileLoad: (key: string) => void;
-  overlay: ReactNode;
-  pinPoint: { x: number; y: number } | null;
-  style?: StyleProp<ViewStyle>;
-  testID: string;
-  tiles: MapTile[];
-}) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      testID={testID}
-      accessibilityRole="imagebutton"
-      accessibilityLabel={accessibilityLabel}
-      disabled={disabled}
-      onLayout={onLayout}
-      onPress={onPress}
-      style={[
-        styles.map,
-        style,
-        { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-      ]}>
-      {isOnline === true
-        ? tiles.map((tile) => (
-            <ExpoImage
-              key={tile.key}
-              testID="manual-map.tile"
-              source={{
-                headers: { 'User-Agent': 'CaneGuard-Mobile/1.0' },
-                uri: tile.url,
-              }}
-              cachePolicy="disk"
-              contentFit="fill"
-              onLoad={() => onTileLoad(tile.key)}
-              onError={() => onTileError(tile.key)}
-              style={[styles.tile, { left: tile.left, top: tile.top }]}
-            />
-          ))
-        : null}
+        {isOnline !== true ? (
+          <MapOverlay
+            icon="wifi-off"
+            message="Connect to the internet to load the manual map. Your Draft is unchanged."
+          />
+        ) : mapFailed ? (
+          <MapOverlay
+            icon="alert-triangle"
+            message="The online map could not load. Keep this report as a Draft and try again later."
+          />
+        ) : !mapLoaded ? (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator color={theme.primary} />
+            <Text style={[styles.overlayText, { color: theme.text }]}>Loading online map…</Text>
+          </View>
+        ) : null}
 
-      {pinPoint ? (
         <View
-          testID="manual-map.pin"
           pointerEvents="none"
           style={[
-            styles.pin,
-            { left: pinPoint.x - 16, top: pinPoint.y - 32 },
+            styles.mapAttribution,
+            { backgroundColor: theme.surfaceElevated },
           ]}>
-          <Feather name="map-pin" size={32} color={theme.danger} />
+          <Text style={[styles.mapAttributionText, { color: theme.text }]}>© OpenStreetMap contributors</Text>
         </View>
-      ) : null}
+      </Pressable>
 
-      {overlay}
-
-      <View
-        pointerEvents="none"
-        style={[
-          styles.mapAttribution,
-          { backgroundColor: theme.surfaceElevated },
-        ]}>
-        <Text style={[styles.mapAttributionText, { color: theme.text }]}>© OpenStreetMap contributors</Text>
+      <View style={styles.controls}>
+        <MapControl label="Pan west" icon="arrow-left" onPress={() => pan(-PAN_DISTANCE, 0)} disabled={!mapLoaded} />
+        <MapControl label="Pan north" icon="arrow-up" onPress={() => pan(0, -PAN_DISTANCE)} disabled={!mapLoaded} />
+        <MapControl label="Pan south" icon="arrow-down" onPress={() => pan(0, PAN_DISTANCE)} disabled={!mapLoaded} />
+        <MapControl label="Pan east" icon="arrow-right" onPress={() => pan(PAN_DISTANCE, 0)} disabled={!mapLoaded} />
+        <MapControl
+          label="Zoom out"
+          icon="minus"
+          onPress={() => setZoom((current) => Math.max(MIN_MANUAL_MAP_ZOOM, current - 1))}
+          disabled={!mapLoaded || zoom === MIN_MANUAL_MAP_ZOOM}
+        />
+        <MapControl
+          label="Zoom in"
+          icon="plus"
+          onPress={() => setZoom((current) => Math.min(MAX_MANUAL_MAP_ZOOM, current + 1))}
+          disabled={!mapLoaded || zoom === MAX_MANUAL_MAP_ZOOM}
+        />
       </View>
-    </Pressable>
+
+      <Text style={[styles.attribution, { color: theme.textSecondary }]}>
+        Tiles load only for the visible online map. CaneGuard does not prefetch or offer offline map downloads.
+      </Text>
+      <Text
+        testID="manual-map.coordinates"
+        selectable
+        style={[styles.coordinates, { color: theme.text }]}>
+        {selection
+          ? `${selection.latitude.toFixed(6)}, ${selection.longitude.toFixed(6)}`
+          : 'Tap the loaded map to choose the final report coordinates.'}
+      </Text>
+    </View>
   );
 }
 
@@ -410,24 +282,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     borderWidth: 1,
     overflow: 'hidden',
-  },
-  fullscreenRoot: { flex: 1 },
-  fullscreenMap: {
-    flex: 1,
-    height: '100%',
-    borderRadius: 0,
-    borderWidth: 0,
-  },
-  exitFullscreen: {
-    position: 'absolute',
-    right: Spacing.sm,
-    zIndex: 10,
-    width: 48,
-    height: 48,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   tile: {
     position: 'absolute',

@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-set -e
-ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
-exec "$ROOT/.akidev/tools/node/node_modules/.bin/agent-device" "$@"

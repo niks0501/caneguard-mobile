@@ -65,8 +65,33 @@ the reverse mappings on the same Linux ADB server:
 ```
 
 HyperOS must keep **Install via USB** and **USB debugging (Security settings)**
-enabled for Maestro input injection. A fresh Maestro session may still show an
-on-device helper installation prompt; keep the phone unlocked and approve it.
+enabled for Maestro input injection. The normal npm E2E scripts pass
+`--no-reinstall-driver`: Maestro installs the driver and server apps only when
+they are missing. Approve that one-time install prompt on the unlocked phone;
+both apps remain installed between runs, including failed reruns, so normal
+retries do not reinstall them.
+
+## E2E command behavior
+
+Use the project npm scripts for Maestro runs:
+
+```bash
+npm run e2e                         # all flows under .maestro
+npm run e2e:flow -- .maestro/p0/00-baseline-scan.yaml
+```
+
+These default commands do not reinstall the on-phone driver or server. If the
+Maestro CLI has been updated and the on-phone helper version needs to catch up,
+or if a flow misbehaves because its driver is stale, use the explicit reinstall
+escape hatch:
+
+```bash
+npm run e2e:flow:reinstall -- .maestro/p0/00-baseline-scan.yaml
+```
+
+The reinstall command intentionally uses the plain `maestro test` path. After
+the helper apps are current, return to `npm run e2e` or `npm run e2e:flow` for
+normal runs.
 
 ## P0-00 baseline
 
@@ -87,13 +112,13 @@ Rust result, and then follows the public scan UI.
 Run the focused baseline from the repository root:
 
 ```bash
-./.akidev/bin/maestro test .maestro/p0/00-baseline-scan.yaml
+npm run e2e:flow -- .maestro/p0/00-baseline-scan.yaml
 ```
 
 Run all current P0 flows:
 
 ```bash
-./.akidev/bin/maestro test .maestro/p0
+npm run e2e:flow -- .maestro/p0
 ```
 
 If `auth.login-screen` is visible, authenticate manually and rerun; do not add

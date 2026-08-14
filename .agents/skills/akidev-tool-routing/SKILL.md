@@ -6,7 +6,7 @@ description: Route unfamiliar, cross-cutting, debugging, runtime, and verificati
 <!-- Managed by AkiDev integration: akidev-tool-routing -->
 # AkiDev tool routing
 
-This react-native-expo project declares these AkiDev integrations/capabilities: `expo-skills,maestro,agent-device,context7,maestro-mobile-testing`. Read `.akidev/config` as the source of truth. Availability is not a mandate to use a tool.
+This react-native-expo project declares these AkiDev integrations/capabilities: `expo-skills,maestro,agent-device,context7`. Read `.akidev/config` as the source of truth. Availability is not a mandate to use a tool.
 
 ## Choose the smallest sufficient path
 

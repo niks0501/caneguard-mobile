@@ -1,9 +1,19 @@
 #!/usr/bin/env node
 // Managed by AkiDev integration: maestro
 
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const checks = [];
+const UPSTREAM_MOBILE_TESTING_COMMAND = "npx skills add tovimx/maestro-mobile-testing-skill -y";
+const UPSTREAM_MOBILE_TESTING_SKILL = join(
+  process.cwd(),
+  ".agents",
+  "skills",
+  "maestro-mobile-testing",
+  "SKILL.md",
+);
 
 function commandExists(name) {
   const lookup = process.platform === "win32" ? "where" : "which";
@@ -39,4 +49,15 @@ requireCommand("adb", "install Android Platform Tools once for your user");
 requireCommand("maestro", "install Maestro once for your user");
 
 for (const [ok, message] of checks) console.log(message);
+
+// This is an advisory, read-only check. AkiDev does not vendor or install the
+// upstream authoring skill, and this check must never invoke npx or modify the
+// project. The skills CLI installs the full skill at this project-local path.
+if (existsSync(UPSTREAM_MOBILE_TESTING_SKILL)) {
+  console.log("PASS upstream Maestro mobile-testing skill found at .agents/skills/maestro-mobile-testing/SKILL.md");
+} else {
+  console.log("REMINDER optional upstream Maestro mobile-testing skill is not installed.");
+  console.log(`         Project owner may run manually: ${UPSTREAM_MOBILE_TESTING_COMMAND}`);
+}
+
 if (checks.some(([ok]) => !ok)) process.exitCode = 1;

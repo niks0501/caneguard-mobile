@@ -1,4 +1,4 @@
 # Managed by AkiDev. Values are intentionally plain text; no shell evaluation is required.
 profile=react-native-expo
 overlays=
-tools=expo-skills,maestro,agent-device,context7,maestro-mobile-testing
+tools=expo-skills,maestro,agent-device,context7

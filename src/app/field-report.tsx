@@ -94,12 +94,11 @@ export default function FieldReportScreen() {
   const [retryError, setRetryError] = useState<string | null>(null);
 
   const finalizeAndSync = async (values: FinalizeFieldReportFormValues) => {
-    if (sync.isOnline !== true) {
-      return;
-    }
     const finalized = await report.finalize(values);
     if (finalized) {
-      await sync.syncNow('after-save');
+      if (sync.isOnline === true) {
+        await sync.syncNow('after-save');
+      }
       await report.refresh();
     }
   };
@@ -222,7 +221,6 @@ export default function FieldReportScreen() {
                     referenceDataError={referenceData.errorMessage}
                     captureInProgress={report.capturingLocation}
                     finalizing={report.finalizing}
-                    isOnline={sync.isOnline}
                     saving={report.saving}
                     submissionIssues={report.submissionIssues}
                     onFinalize={(values) => void finalizeAndSync(values)}
@@ -423,7 +421,6 @@ function DraftFields({
   barangays,
   captureInProgress,
   fieldReport,
-  isOnline,
   onFinalize,
   onSave,
   referenceDataError,
@@ -435,7 +432,6 @@ function DraftFields({
   barangays: string[];
   captureInProgress: boolean;
   fieldReport: FieldReport;
-  isOnline: boolean | null;
   onFinalize: (values: FinalizeFieldReportFormValues) => void;
   onSave: (values: FieldReportFormValues) => void;
   referenceDataError: string | null;
@@ -546,8 +542,6 @@ function DraftFields({
       });
     }
   };
-
-  const offlineFinalizeBlocked = isOnline !== true;
 
   return (
     <>
@@ -690,19 +684,10 @@ function DraftFields({
           <Text style={[styles.helpText, { color: theme.textSecondary }]}>Your latest entries were saved and this report remains a Draft.</Text>
         </View>
       ) : null}
-      {offlineFinalizeBlocked ? (
-        <Text
-          testID="field-report.offline-finalize-block"
-          accessibilityLiveRegion="polite"
-          style={[styles.helpText, { color: theme.warning }]}>
-          Finalization requires an internet connection. You can save the Draft
-          now and finalize when this device is back online.
-        </Text>
-      ) : null}
       <AppButton
         testID="field-report.finalize"
         onPress={handleFinalize}
-        disabled={saving || captureInProgress || finalizing || offlineFinalizeBlocked}
+        disabled={saving || captureInProgress || finalizing}
         leadingIcon="check-circle"
         accessibilityLabel={finalizing ? 'Finalizing Field Report' : 'Finalize Field Report'}>
         {finalizing ? 'Finalizing Report…' : 'Finalize Report'}

@@ -607,27 +607,44 @@ describe('FieldReportScreen', () => {
     expect(mockRefresh).toHaveBeenCalled();
   });
 
-  it('blocks finalization while offline but still allows Draft saves', async () => {
+  it('finalizes locally while offline without starting synchronization', async () => {
     mockIsOnline = false;
+    mockFinalize.mockResolvedValueOnce(
+      draft({
+        authoringState: 'finalized',
+        syncStatus: 'pending',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+      }),
+    );
 
     await render(<FieldReportScreen />);
 
-    expect(
-      screen.getByTestId('field-report.offline-finalize-block'),
-    ).toHaveTextContent(/Finalization requires an internet connection/);
-    expect(screen.getByLabelText('Finalize Field Report')).toBeDisabled();
-
+    expect(screen.queryByTestId('field-report.offline-finalize-block')).not.toBeOnTheScreen();
+    expect(screen.getByLabelText('Finalize Field Report')).not.toBeDisabled();
     await act(async () => {
       fireEvent.changeText(
-        screen.getByTestId('field-report.farmer-name-input'),
-        'Maria Santos',
+        screen.getByTestId('field-report.affected-area-input'),
+        '0.5',
       );
     });
     await act(async () => {
-      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-portion-input'),
+        '30',
+      );
     });
-    expect(mockSave).toHaveBeenCalled();
-    expect(mockFinalize).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+    });
+
+    expect(mockFinalize).toHaveBeenCalledWith(
+      expectFormValues({
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
+      }),
+    );
+    expect(mockSyncNow).not.toHaveBeenCalled();
+    expect(mockRefresh).toHaveBeenCalled();
   });
 
   it('disables Draft save while finalization is in flight', async () => {

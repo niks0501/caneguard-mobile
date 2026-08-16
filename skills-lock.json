@@ -5,7 +5,7 @@
       "source": "callstack/agent-device",
       "sourceType": "github",
       "skillPath": "skills/agent-device/SKILL.md",
-      "computedHash": "a35262f3c23acafd69417aacbc88970007f343f5bbcfeb9007971f7e7467ec21"
+      "computedHash": "0a673fe5ec24469f6ad35596cdf40f9d33076b78d0a929742d9e1de83f97d231"
     },
     "dogfood": {
       "source": "callstack/agent-device",
@@ -71,7 +71,7 @@
       "source": "expo/skills",
       "sourceType": "github",
       "skillPath": "plugins/expo/skills/expo-upgrade/SKILL.md",
-      "computedHash": "440ca7d3ea4a7ff6c4ee10b18288e1dd79062d002be68f7d209c33ef8fc47daf"
+      "computedHash": "77aea7026b8cfc732fd09587a9ee612d4abe5c7c82d00b0370f1079b9f3c59ce"
     },
     "maestro-mobile-testing": {
       "source": "tovimx/maestro-mobile-testing-skill",

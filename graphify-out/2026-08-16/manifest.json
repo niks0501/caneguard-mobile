@@ -700,18 +700,18 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/field-report.test.tsx": {
-    "mtime": 1786696999.3113427,
-    "ast_hash": "7fae2b904c05606f181b1fc3c216268b",
+    "mtime": 1786893311.9793277,
+    "ast_hash": "576cb3fe96261665dfe146026b609890",
     "semantic_hash": ""
   },
   "src/app/field-report.tsx": {
-    "mtime": 1786714719.649112,
-    "ast_hash": "f724c6663fef3ce264a53fdd798333ab",
+    "mtime": 1786893269.6898117,
+    "ast_hash": "8a58dd9e3b75d5ba7ad2caa97049615f",
     "semantic_hash": ""
   },
   "src/features/reports/data/__tests__/fieldReportRepository.test.ts": {
-    "mtime": 1786625444.9549816,
-    "ast_hash": "c629a44e2660f69b5971a4219eb9fe18",
+    "mtime": 1786893295.3667653,
+    "ast_hash": "c711fc202aa474cb5efaeada32763ae1",
     "semantic_hash": ""
   },
   "src/features/reports/data/fieldReportRepository.ts": {
@@ -755,13 +755,13 @@
     "semantic_hash": ""
   },
   "src/features/reports/components/__tests__/online-map-picker.test.tsx": {
-    "mtime": 1786696999.3113427,
-    "ast_hash": "670c1d20f1db30c9e55bbd8662400cbf",
+    "mtime": 1786716629.1355095,
+    "ast_hash": "69add7ddc7ad2dce60669c041b132922",
     "semantic_hash": ""
   },
   "src/features/reports/components/online-map-picker.tsx": {
-    "mtime": 1786696999.3113427,
-    "ast_hash": "6952dd25a7818dd3cfda0e4e9c392413",
+    "mtime": 1786716629.1355095,
+    "ast_hash": "f7fa5776638a8da55a330fc3f0415d15",
     "semantic_hash": ""
   },
   "src/features/reports/data/fieldReportSyncRepository.ts": {
@@ -850,8 +850,8 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/manual-map.test.tsx": {
-    "mtime": 1786697074.2168348,
-    "ast_hash": "79d1b143bbf2d29d51fb43285f0b5066",
+    "mtime": 1786716629.1355095,
+    "ast_hash": "fd38bc296ee7ad1d4fa435919cd1a961",
     "semantic_hash": ""
   },
   "src/features/detection/model/useCaneGuardModel.web.tsx": {

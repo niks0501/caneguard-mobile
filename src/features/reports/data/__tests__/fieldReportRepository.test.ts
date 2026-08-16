@@ -526,7 +526,7 @@ describe('Field Report draft repository', () => {
     native.close();
   });
 
-  it('finalizes a GPS-complete report under the same identity and preserves observation time', async () => {
+  it('finalizes a GPS-complete report locally with pending status for offline sync', async () => {
     const { database, native } = openTestDatabase();
     insertCompleteClassScores(native);
     await createOrGetFieldReportDraft(database, createDraftInput());
@@ -565,6 +565,11 @@ describe('Field Report draft repository', () => {
         submittedAt: '2026-08-10T03:00:00.000Z',
         syncStatus: 'pending',
       },
+    });
+    await expect(findFieldReportById(database, REPORT_ID)).resolves.toMatchObject({
+      id: REPORT_ID,
+      authoringState: 'finalized',
+      syncStatus: 'pending',
     });
     expect(native.prepare('SELECT count(*) AS count FROM field_reports').get()).toEqual({ count: 1 });
     native.close();

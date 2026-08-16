@@ -1,7 +1,7 @@
 # Graph Report - caneguard-mobile  (2026-08-16)
 
 ## Corpus Check
-- 197 files · ~82,999 words
+- 197 files · ~82,977 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `393f0368`
+- Built from commit: `8578816c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -24,10 +24,10 @@
 - Q: Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md
 - theme.ts
 - Typography
-- recordValidation.ts
+- assessImageQuality.ts
 - preprocessImage.ts
 - mobileAuthApi.ts
-- checklistConsistency.ts
+- recordValidation.ts
 - field-report.tsx
 - fieldReportValidation.ts
 - runInference.ts
@@ -62,7 +62,7 @@
 - symptom-checklist.test.tsx
 - fieldReportReviewRepository.ts
 - reports.test.tsx
-- assessImageQuality.ts
+- checklistConsistency.ts
 - diseaseCatalog.ts
 - env.ts
 - scan.tsx
@@ -131,9 +131,9 @@ Nodes (22): InputRow(), InputRowProps, LoginScreen(), styles, styles, ThemedText
 Cohesion: 0.13
 Nodes (16): SplashScreen(), styles, RegisterScreen(), styles, AppButton(), AppButtonProps, AppButtonVariant, styles (+8 more)
 
-### Community 10 - "recordValidation.ts"
-Cohesion: 0.37
-Nodes (13): MODEL_LABELS, createCompletedScanDraft(), invalid(), QUALITY_WARNINGS, REPORTED_SEVERITIES, SYMPTOM_KEYS, validateClassScores(), validateCompletedScanDraft() (+5 more)
+### Community 10 - "assessImageQuality.ts"
+Cohesion: 0.25
+Nodes (5): getQualityWarningMessage(), ImageQualitySourceDimensions, QUALITY_WARNING_MESSAGES, QualityWarning, PROTOTYPE_IMAGE_QUALITY_THRESHOLDS
 
 ### Community 11 - "preprocessImage.ts"
 Cohesion: 0.19
@@ -143,9 +143,9 @@ Nodes (15): createInputTensor(), InputTensor, DecodedJpeg, decodeJpeg(), now(), 
 Cohesion: 0.10
 Nodes (29): AppNavigator(), styles, CurrentUserResponse, isAbortError(), isMobileUser(), loginMobile(), LoginResponse, logoutMobile() (+21 more)
 
-### Community 13 - "checklistConsistency.ts"
-Cohesion: 0.33
-Nodes (8): ChecklistConsistency, ChecklistObservationId, getChecklistConsistency(), MATRIX, MatrixCase, ModelLabel, ClassScore, CompletedScanDraft
+### Community 13 - "recordValidation.ts"
+Cohesion: 0.37
+Nodes (13): MODEL_LABELS, createCompletedScanDraft(), invalid(), QUALITY_WARNINGS, REPORTED_SEVERITIES, SYMPTOM_KEYS, validateClassScores(), validateCompletedScanDraft() (+5 more)
 
 ### Community 14 - "field-report.tsx"
 Cohesion: 0.15
@@ -283,9 +283,9 @@ Nodes (14): ReportStatusesApiError, ApplyAuthorityReviewResult, findLastAuthorit
 Cohesion: 0.20
 Nodes (8): mockRefresh, mockRouterPush, SUMMARY, ReportRepository, DateRange, LocalReportSummary, LocalReportOptions, LocalReportState
 
-### Community 48 - "assessImageQuality.ts"
-Cohesion: 0.25
-Nodes (5): getQualityWarningMessage(), ImageQualitySourceDimensions, QUALITY_WARNING_MESSAGES, QualityWarning, PROTOTYPE_IMAGE_QUALITY_THRESHOLDS
+### Community 48 - "checklistConsistency.ts"
+Cohesion: 0.33
+Nodes (8): ChecklistConsistency, ChecklistObservationId, getChecklistConsistency(), MATRIX, MatrixCase, ModelLabel, ClassScore, CompletedScanDraft
 
 ### Community 49 - "diseaseCatalog.ts"
 Cohesion: 0.50

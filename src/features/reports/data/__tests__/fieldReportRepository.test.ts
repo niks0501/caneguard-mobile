@@ -71,6 +71,7 @@ function openTestDatabase(): {
     '0003_careful_marauders.sql',
     '0004_sour_namora.sql',
     '0005_tricky_the_santerians.sql',
+    '0006_curvy_piledriver.sql',
   ]) {
     native.exec(readMigration(migration));
   }
@@ -934,6 +935,9 @@ describe('P2-01 smart field report fields', () => {
         cropAge: '~3 months',
         caneClass: 'Plant cane',
         fieldNotes: 'Dry patches',
+        mismatchReported: true,
+        reporterObservationText: 'Visible symptoms differ from the possible result.',
+        reporterSuspectedCondition: 'Local condition',
         submittedAt: '2026-08-10T03:00:00.000Z',
         updatedAt: '2026-08-10T03:00:00.000Z',
       },
@@ -950,6 +954,14 @@ describe('P2-01 smart field report fields', () => {
         cropAge: '~3 months',
         caneClass: 'Plant cane',
         fieldNotes: 'Dry patches',
+        mismatchReported: true,
+        reporterObservationText: 'Visible symptoms differ from the possible result.',
+        reporterSuspectedCondition: 'Local condition',
+      });
+      expect(native.prepare('SELECT predicted_label, confidence, checklist_consistency FROM scan_records').get()).toEqual({
+        predicted_label: 'rust',
+        confidence: 0.8,
+        checklist_consistency: 'consistent',
       });
     }
     native.close();

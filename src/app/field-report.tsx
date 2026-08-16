@@ -1,12 +1,13 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Linking,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -55,6 +56,9 @@ interface FieldReportFormValues {
   cropAge?: string;
   farmerOrFarmOwnerName: string;
   fieldNotes?: string;
+  mismatchReported: boolean | null;
+  reporterObservationText: string;
+  reporterSuspectedCondition: string;
   municipality?: string;
   province?: string;
   sugarcaneVariety?: string;
@@ -92,6 +96,35 @@ export default function FieldReportScreen() {
   );
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [mismatchDraft, setMismatchDraft] = useState(() => ({
+    reportId: report.data?.id ?? null,
+    mismatchReported: report.data?.mismatchReported ?? null,
+    reporterObservationText: report.data?.reporterObservationText ?? '',
+    reporterSuspectedCondition: report.data?.reporterSuspectedCondition ?? '',
+  }));
+  useEffect(() => {
+    if (!report.data || mismatchDraft.reportId === report.data.id) {
+      return;
+    }
+    // Local editor state must hydrate when the async Draft arrives after the
+    // screen mounts. It is intentionally separate from the persisted report.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMismatchDraft({
+      reportId: report.data.id,
+      mismatchReported: report.data.mismatchReported,
+      reporterObservationText: report.data.reporterObservationText ?? '',
+      reporterSuspectedCondition: report.data.reporterSuspectedCondition ?? '',
+    });
+  }, [mismatchDraft.reportId, report.data]);
+
+  const handleMismatchReportedChange = (value: boolean) => {
+    setMismatchDraft((current) => ({
+      ...current,
+      mismatchReported: value,
+      reporterObservationText: value ? current.reporterObservationText : '',
+      reporterSuspectedCondition: value ? current.reporterSuspectedCondition : '',
+    }));
+  };
 
   const finalizeAndSync = async (values: FinalizeFieldReportFormValues) => {
     const finalized = await report.finalize(values);
@@ -223,6 +256,9 @@ export default function FieldReportScreen() {
                     finalizing={report.finalizing}
                     saving={report.saving}
                     submissionIssues={report.submissionIssues}
+                    mismatchReported={mismatchDraft.mismatchReported}
+                    reporterObservationText={mismatchDraft.reporterObservationText}
+                    reporterSuspectedCondition={mismatchDraft.reporterSuspectedCondition}
                     onFinalize={(values) => void finalizeAndSync(values)}
                     onSave={(values) => void report.save(values)}
                   />
@@ -282,6 +318,23 @@ export default function FieldReportScreen() {
                 loading={record.loading}
                 errorMessage={record.errorMessage}
                 onRetry={() => void record.refresh()}
+                editable={report.data.authoringState === 'draft'}
+                mismatchReported={mismatchDraft.mismatchReported}
+                reporterObservationText={mismatchDraft.reporterObservationText}
+                reporterSuspectedCondition={mismatchDraft.reporterSuspectedCondition}
+                onMismatchReportedChange={handleMismatchReportedChange}
+                onReporterObservationTextChange={(value) =>
+                  setMismatchDraft((current) => ({
+                    ...current,
+                    reporterObservationText: value,
+                  }))
+                }
+                onReporterSuspectedConditionChange={(value) =>
+                  setMismatchDraft((current) => ({
+                    ...current,
+                    reporterSuspectedCondition: value,
+                  }))
+                }
               />
 
               {report.errorMessage ? (
@@ -428,6 +481,9 @@ function DraftFields({
   saving,
   finalizing,
   submissionIssues,
+  mismatchReported,
+  reporterObservationText,
+  reporterSuspectedCondition,
 }: {
   barangays: string[];
   captureInProgress: boolean;
@@ -439,6 +495,9 @@ function DraftFields({
   saving: boolean;
   finalizing: boolean;
   submissionIssues: FieldReportSubmissionRequirement[];
+  mismatchReported: boolean | null;
+  reporterObservationText: string;
+  reporterSuspectedCondition: string;
 }) {
   const theme = useTheme();
   const [farmerName, setFarmerName] = useState(
@@ -522,6 +581,9 @@ function DraftFields({
       cropAge,
       caneClass,
       fieldNotes: notes,
+      mismatchReported,
+      reporterObservationText,
+      reporterSuspectedCondition,
     };
   };
 
@@ -807,15 +869,29 @@ function LocationCapture({
 }
 
 function InheritedScanEvidence({
+  editable,
   errorMessage,
   loading,
+  mismatchReported,
+  onMismatchReportedChange,
+  onReporterObservationTextChange,
+  onReporterSuspectedConditionChange,
   onRetry,
   record,
+  reporterObservationText,
+  reporterSuspectedCondition,
 }: {
+  editable: boolean;
   errorMessage: string | null;
   loading: boolean;
+  mismatchReported: boolean | null;
+  onMismatchReportedChange: (value: boolean) => void;
+  onReporterObservationTextChange: (value: string) => void;
+  onReporterSuspectedConditionChange: (value: string) => void;
   onRetry: () => void;
   record: ScanRecordDetails | null;
+  reporterObservationText: string;
+  reporterSuspectedCondition: string;
 }) {
   const theme = useTheme();
 
@@ -858,8 +934,132 @@ function InheritedScanEvidence({
             label="Symptom checklist"
             value={record.symptoms.length ? record.symptoms.join(', ') : 'No symptoms selected'}
           />
+          <ReporterMismatchSection
+            editable={editable}
+            mismatchReported={mismatchReported}
+            onMismatchReportedChange={onMismatchReportedChange}
+            onReporterObservationTextChange={onReporterObservationTextChange}
+            onReporterSuspectedConditionChange={onReporterSuspectedConditionChange}
+            reporterObservationText={reporterObservationText}
+            reporterSuspectedCondition={reporterSuspectedCondition}
+          />
         </>
       )}
+    </View>
+  );
+}
+
+function ReporterMismatchSection({
+  editable,
+  mismatchReported,
+  onMismatchReportedChange,
+  onReporterObservationTextChange,
+  onReporterSuspectedConditionChange,
+  reporterObservationText,
+  reporterSuspectedCondition,
+}: {
+  editable: boolean;
+  mismatchReported: boolean | null;
+  onMismatchReportedChange: (value: boolean) => void;
+  onReporterObservationTextChange: (value: string) => void;
+  onReporterSuspectedConditionChange: (value: string) => void;
+  reporterObservationText: string;
+  reporterSuspectedCondition: string;
+}) {
+  const theme = useTheme();
+
+  if (!editable) {
+    return mismatchReported === true ? (
+      <View
+        testID="field-report.mismatch-marker"
+        style={[styles.mismatchMarker, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
+        <Feather name="alert-triangle" size={18} color={theme.warning} />
+        <View style={styles.mismatchCopy}>
+          <Text style={[styles.mismatchTitle, { color: theme.text }]}>Reporter flagged an AI mismatch</Text>
+          {reporterSuspectedCondition ? (
+            <EvidenceRow label="Suspected condition, if known" value={reporterSuspectedCondition} />
+          ) : null}
+          {reporterObservationText ? (
+            <EvidenceRow label="What do you see?" value={reporterObservationText} />
+          ) : null}
+        </View>
+      </View>
+    ) : null;
+  }
+
+  return (
+    <View
+      testID="field-report.mismatch-section"
+      style={[styles.mismatchSection, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+      <View style={styles.sectionHeading}>
+        <Feather name="message-circle" size={20} color={theme.warning} />
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Reporter observation</Text>
+      </View>
+      <Text style={[styles.helpText, { color: theme.textSecondary }]}>The possible result is decision-support only. Tell us if it does not match what you see; your observation will be sent separately for authority review.</Text>
+      <View style={styles.mismatchOptions}>
+        <Pressable
+          accessibilityRole="radio"
+          accessibilityLabel="The possible result matches what I see"
+          accessibilityState={{ selected: mismatchReported === false }}
+          onPress={() => onMismatchReportedChange(false)}
+          style={({ pressed }) => [
+            styles.mismatchOption,
+            { borderColor: mismatchReported === false ? theme.primary : theme.border },
+            mismatchReported === false && { backgroundColor: theme.backgroundSelected },
+            pressed && styles.pressed,
+          ]}>
+          <Feather
+            name={mismatchReported === false ? 'check-circle' : 'circle'}
+            size={20}
+            color={mismatchReported === false ? theme.primary : theme.textSecondary}
+          />
+          <Text style={[styles.mismatchOptionText, { color: theme.text }]}>The possible result matches what I see</Text>
+        </Pressable>
+        <Pressable
+          testID="field-report.mismatch-toggle"
+          accessibilityRole="radio"
+          accessibilityLabel="The AI result does not match what I see"
+          accessibilityState={{ selected: mismatchReported === true }}
+          onPress={() => onMismatchReportedChange(true)}
+          style={({ pressed }) => [
+            styles.mismatchOption,
+            styles.mismatchOptionLast,
+            { borderColor: mismatchReported === true ? theme.warning : theme.warning },
+            mismatchReported === true && { backgroundColor: theme.warningBg },
+            pressed && styles.pressed,
+          ]}>
+          <Feather
+            name={mismatchReported === true ? 'check-circle' : 'alert-circle'}
+            size={20}
+            color={theme.warning}
+          />
+          <Text style={[styles.mismatchOptionText, { color: theme.text }]}>The AI result does not match what I see</Text>
+        </Pressable>
+      </View>
+      {mismatchReported === true ? (
+        <View style={styles.mismatchFields}>
+          <TextField
+            testID="field-report.reporter-observation-input"
+            label="What do you see?"
+            value={reporterObservationText}
+            onChangeText={onReporterObservationTextChange}
+            placeholder="Optional"
+            maxLength={1_000}
+            multiline
+            autoCapitalize="sentences"
+          />
+          <TextField
+            testID="field-report.reporter-condition-input"
+            label="Suspected condition, if known"
+            value={reporterSuspectedCondition}
+            onChangeText={onReporterSuspectedConditionChange}
+            placeholder="Optional"
+            maxLength={120}
+            autoCapitalize="sentences"
+          />
+          <Text style={[styles.helpText, { color: theme.textSecondary }]}>Both fields are optional and do not block finalization.</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -1120,6 +1320,37 @@ const styles = StyleSheet.create({
   evidenceValue: { ...Typography.bodySmall, fontWeight: '600' },
   feedback: { gap: Spacing.xs },
   feedbackText: { ...Typography.body, fontWeight: '600' },
+  mismatchSection: {
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  mismatchOptions: { gap: Spacing.sm },
+  mismatchOption: {
+    minHeight: 52,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  mismatchOptionLast: { borderWidth: 2 },
+  mismatchOptionText: { ...Typography.bodySmall, fontWeight: '700', flex: 1 },
+  mismatchFields: { gap: Spacing.md },
+  mismatchMarker: {
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+  },
+  mismatchCopy: { flex: 1, gap: Spacing.sm },
+  mismatchTitle: { ...Typography.bodySmall, fontWeight: '800' },
+  pressed: { opacity: 0.74 },
   error: { ...Typography.bodySmall, fontWeight: '700' },
   saved: { ...Typography.bodySmall, fontWeight: '800', textAlign: 'center' },
   validationCard: {

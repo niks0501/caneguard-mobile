@@ -29,6 +29,17 @@ export function mapFieldReportToMultipart(
   appendNumber(form, 'source_height', scanRecord.sourceHeight);
   form.append('predicted_label', scanRecord.predictedLabel);
   appendNumber(form, 'confidence', scanRecord.confidence);
+  appendMismatchReported(form, report.mismatchReported);
+  appendOptionalText(
+    form,
+    'reporter_suspected_condition',
+    report.reporterSuspectedCondition,
+  );
+  appendOptionalText(
+    form,
+    'reporter_observation_text',
+    report.reporterObservationText,
+  );
 
   for (const label of MODEL_LABELS) {
     const score = scanRecord.classScores.find((item) => item.label === label)!;
@@ -88,6 +99,7 @@ function validateReport(
   if (!report.farmerOrFarmOwnerName?.trim() || !report.barangay?.trim()) {
     invalid('Farmer and barangay report fields are required.');
   }
+  validateMismatchFields(report);
   if (!report.submitterIdentity || report.submitterRole !== 'field_reporter') {
     invalid('Authenticated Field Report submitter context is required.');
   }
@@ -150,6 +162,27 @@ function validateReport(
 function appendNumber(form: FormData, key: string, value: number | null): void {
   if (value !== null) {
     form.append(key, String(value));
+  }
+}
+
+function appendMismatchReported(
+  form: FormData,
+  value: boolean | null,
+): void {
+  if (value !== null) {
+    form.append('mismatch_reported', value ? '1' : '0');
+  }
+}
+
+function validateMismatchFields(report: FieldReportUploadRecord['report']): void {
+  if (report.mismatchReported !== null && typeof report.mismatchReported !== 'boolean') {
+    invalid('Mismatch reported must be a boolean or null.');
+  }
+  if (report.reporterSuspectedCondition && report.reporterSuspectedCondition.length > 120) {
+    invalid('The suspected condition is too long.');
+  }
+  if (report.reporterObservationText && report.reporterObservationText.length > 1_000) {
+    invalid('The reporter observation is too long.');
   }
 }
 

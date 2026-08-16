@@ -28,6 +28,9 @@ function draft(overrides: Partial<FieldReport> = {}): FieldReport {
     cropAge: null,
     caneClass: null,
     fieldNotes: null,
+    mismatchReported: null,
+    reporterObservationText: null,
+    reporterSuspectedCondition: null,
     finalLatitude: 14.0667,
     finalLongitude: 120.6319,
     locationSource: 'gps',
@@ -102,6 +105,42 @@ describe('normalizeFieldReportDraftInput', () => {
         code: 'INVALID_FIELD_REPORT',
       }),
     );
+  });
+
+  it('normalizes mismatch observations with independent length and boolean validation', () => {
+    expect(
+      normalizeFieldReportDraftInput({
+        mismatchReported: true,
+        reporterSuspectedCondition: '  Local condition  ',
+        reporterObservationText: '  The visible symptoms differ.  ',
+        updatedAt: NOW,
+      }),
+    ).toMatchObject({
+      mismatchReported: true,
+      reporterSuspectedCondition: 'Local condition',
+      reporterObservationText: 'The visible symptoms differ.',
+    });
+    expect(
+      normalizeFieldReportDraftInput({ mismatchReported: false, updatedAt: NOW }),
+    ).toMatchObject({ mismatchReported: false });
+    expect(() =>
+      normalizeFieldReportDraftInput({
+        mismatchReported: 'yes' as unknown as boolean,
+        updatedAt: NOW,
+      }),
+    ).toThrow(expect.objectContaining({ code: 'INVALID_FIELD_REPORT' }));
+    expect(() =>
+      normalizeFieldReportDraftInput({
+        reporterSuspectedCondition: 'x'.repeat(121),
+        updatedAt: NOW,
+      }),
+    ).toThrow(expect.objectContaining({ code: 'INVALID_FIELD_REPORT' }));
+    expect(() =>
+      normalizeFieldReportDraftInput({
+        reporterObservationText: 'x'.repeat(1_001),
+        updatedAt: NOW,
+      }),
+    ).toThrow(expect.objectContaining({ code: 'INVALID_FIELD_REPORT' }));
   });
 
   it('validates the affected area range and portion range', () => {
@@ -261,6 +300,19 @@ describe('getMissingSubmissionRequirements', () => {
         'field_notes',
       ]),
     );
+  });
+
+  it('does not add a submission gate for mismatch observations', () => {
+    const missing = getMissingSubmissionRequirements(
+      draft({
+        mismatchReported: true,
+        reporterObservationText: null,
+        reporterSuspectedCondition: null,
+      }),
+      evidence(),
+    );
+
+    expect(missing).toEqual([]);
   });
 
   it('flags empty region values as missing', () => {

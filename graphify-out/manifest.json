@@ -130,8 +130,8 @@
     "semantic_hash": ""
   },
   "src/components/ui/TextField.tsx": {
-    "mtime": 1786533086.9026573,
-    "ast_hash": "25ebd92f5a7f1f3f18bd4df151d7c719",
+    "mtime": 1786899637.2621226,
+    "ast_hash": "1334d2fa84bd67a2930ee469c053cdb0",
     "semantic_hash": ""
   },
   "src/constants/theme.ts": {
@@ -445,8 +445,8 @@
     "semantic_hash": ""
   },
   "src/database/__tests__/migrations.test.ts": {
-    "mtime": 1786718377.0352323,
-    "ast_hash": "46ea564410ee491f08d458a9bcc5f29e",
+    "mtime": 1786900446.4007325,
+    "ast_hash": "9716179055b08b73287976038840c92f",
     "semantic_hash": ""
   },
   "src/database/database.ts": {
@@ -465,8 +465,8 @@
     "semantic_hash": ""
   },
   "src/database/schema.ts": {
-    "mtime": 1786718377.0352323,
-    "ast_hash": "0849d3e7b21336e0eaa4169901f48e8d",
+    "mtime": 1786899579.7978742,
+    "ast_hash": "edb178f078bf17db6fcd6d35aef538f6",
     "semantic_hash": ""
   },
   "src/database/useStorageDiagnostics.ts": {
@@ -540,8 +540,8 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/record-details.test.tsx": {
-    "mtime": 1786718377.0352323,
-    "ast_hash": "8c2dcd7f145e60564cc8b4bd27d4a2d0",
+    "mtime": 1786899797.494755,
+    "ast_hash": "d93b0228db2aacc1e42a1de491c35f80",
     "semantic_hash": ""
   },
   "src/app/__tests__/records.test.tsx": {
@@ -675,13 +675,13 @@
     "semantic_hash": ""
   },
   "src/features/sync/mappers/__tests__/reportMultipartMapper.test.ts": {
-    "mtime": 1786718377.0397885,
-    "ast_hash": "5787eaff28da4031892d1e9fafe5c2c1",
+    "mtime": 1786899912.847105,
+    "ast_hash": "5410598359e71e4e5a56853319309e75",
     "semantic_hash": ""
   },
   "src/features/sync/mappers/reportMultipartMapper.ts": {
-    "mtime": 1786718377.0397885,
-    "ast_hash": "e60bed4d67c137082f89775a82b9293a",
+    "mtime": 1786899627.39008,
+    "ast_hash": "70cb1ef3f8bb748a29300829dd3b48db",
     "semantic_hash": ""
   },
   "src/features/sync/providers/SyncProvider.tsx": {
@@ -700,38 +700,38 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/field-report.test.tsx": {
-    "mtime": 1786895154.7440503,
-    "ast_hash": "576cb3fe96261665dfe146026b609890",
+    "mtime": 1786900329.780367,
+    "ast_hash": "2609d40d1690c030447dd8ae7a33ee39",
     "semantic_hash": ""
   },
   "src/app/field-report.tsx": {
-    "mtime": 1786895154.7440503,
-    "ast_hash": "8a58dd9e3b75d5ba7ad2caa97049615f",
+    "mtime": 1786900380.0565238,
+    "ast_hash": "019ab21082c1ef0ed1fbe4d8d2c1a939",
     "semantic_hash": ""
   },
   "src/features/reports/data/__tests__/fieldReportRepository.test.ts": {
-    "mtime": 1786895154.7440503,
-    "ast_hash": "c711fc202aa474cb5efaeada32763ae1",
+    "mtime": 1786899922.4351342,
+    "ast_hash": "dd92cd7a19783785e4e863d8295621a2",
     "semantic_hash": ""
   },
   "src/features/reports/data/fieldReportRepository.ts": {
-    "mtime": 1786718377.0352323,
-    "ast_hash": "522a133e075f47c58d55dac5892d5330",
+    "mtime": 1786899609.6300063,
+    "ast_hash": "7794839efd4aeb65dbe7aeb19ed61094",
     "semantic_hash": ""
   },
   "src/features/reports/domain/fieldReportTypes.ts": {
-    "mtime": 1786718377.0352323,
-    "ast_hash": "564708b7283f43309ce667bcdd657f84",
+    "mtime": 1786899575.8458624,
+    "ast_hash": "9d8dc2fdda22074dc9d6f3fa50e0185e",
     "semantic_hash": ""
   },
   "src/features/reports/domain/fieldReportValidation.ts": {
-    "mtime": 1786718377.0352323,
-    "ast_hash": "830caba2c616490fdefa0ce29e47d596",
+    "mtime": 1786899598.145943,
+    "ast_hash": "1d9b655553ddc990fd00bff51f19db53",
     "semantic_hash": ""
   },
   "src/features/reports/hooks/useFieldReportDraft.ts": {
-    "mtime": 1786718377.0352323,
-    "ast_hash": "e7ce63ebf271cf0bb883d36add76fee1",
+    "mtime": 1786899613.27402,
+    "ast_hash": "1be314d48e6d40512b5a3e673890662b",
     "semantic_hash": ""
   },
   "src/features/reports/services/__tests__/captureGpsLocation.test.ts": {
@@ -805,8 +805,8 @@
     "semantic_hash": ""
   },
   "src/features/reports/hooks/__tests__/useFieldReportDraft.test.tsx": {
-    "mtime": 1786718377.0352323,
-    "ast_hash": "a06781885a3f47be51ed7050318b7288",
+    "mtime": 1786899786.4867268,
+    "ast_hash": "7481a27bba64f82b4fb2c58be2fc2b8c",
     "semantic_hash": ""
   },
   "src/features/reports/hooks/__tests__/useLocalReport.test.tsx": {
@@ -850,8 +850,8 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/manual-map.test.tsx": {
-    "mtime": 1786718377.0352323,
-    "ast_hash": "fd38bc296ee7ad1d4fa435919cd1a961",
+    "mtime": 1786899786.4867268,
+    "ast_hash": "a9e6c1c95ac6e67e30fe7844c416073d",
     "semantic_hash": ""
   },
   "src/features/detection/model/useCaneGuardModel.web.tsx": {
@@ -930,8 +930,8 @@
     "semantic_hash": ""
   },
   "src/features/reports/domain/__tests__/fieldReportValidation.test.ts": {
-    "mtime": 1786718377.0352323,
-    "ast_hash": "cc765ecb74f492930c36d2a72195f628",
+    "mtime": 1786899902.1070743,
+    "ast_hash": "ee41cf8aa64ce97dc46c0ed24d112f70",
     "semantic_hash": ""
   },
   "src/features/reports/domain/decimalInput.ts": {

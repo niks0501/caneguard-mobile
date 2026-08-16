@@ -9,7 +9,7 @@
   "7": "theme.ts",
   "8": "Typography",
   "9": "use-color-scheme.web.ts",
-  "10": "recordValidation.ts",
+  "10": "assessImageQuality.ts",
   "11": "preprocessImage.ts",
   "12": "mobileAuthApi.ts",
   "13": "detection/types.ts",
@@ -53,6 +53,7 @@
   "51": "scan.tsx",
   "52": "reportReviewTypes.ts",
   "53": "symptom-checklist.tsx",
+  "54": "ScanSourceType",
   "55": "records.test.tsx",
   "58": "inferenceErrors.ts"
 }

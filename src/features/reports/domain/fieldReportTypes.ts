@@ -18,6 +18,9 @@ export interface FieldReport {
   cropAge: string | null;
   farmerOrFarmOwnerName: string | null;
   fieldNotes: string | null;
+  mismatchReported: boolean | null;
+  reporterObservationText: string | null;
+  reporterSuspectedCondition: string | null;
   finalLatitude: number | null;
   finalLongitude: number | null;
   gpsAccuracy: number | null;
@@ -64,7 +67,10 @@ export interface SaveFieldReportDraftInput {
   caneClass?: string;
   cropAge?: string;
   farmerOrFarmOwnerName?: string;
-  fieldNotes?: string;
+  fieldNotes?: string | null;
+  mismatchReported?: boolean | null;
+  reporterObservationText?: string | null;
+  reporterSuspectedCondition?: string | null;
   municipality?: string;
   province?: string;
   sugarcaneVariety?: string;
@@ -85,7 +91,10 @@ export interface FinalizeFieldReportInput {
   caneClass?: string;
   cropAge?: string;
   farmerOrFarmOwnerName: string;
-  fieldNotes?: string;
+  fieldNotes?: string | null;
+  mismatchReported?: boolean | null;
+  reporterObservationText?: string | null;
+  reporterSuspectedCondition?: string | null;
   submittedAt: string;
   sugarcaneVariety?: string;
   updatedAt: string;

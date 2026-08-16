@@ -517,7 +517,10 @@ export function useFieldReportDraft(
       caneClass?: string;
       cropAge?: string;
       farmerOrFarmOwnerName: string;
-      fieldNotes?: string;
+      fieldNotes?: string | null;
+      mismatchReported?: boolean | null;
+      reporterObservationText?: string | null;
+      reporterSuspectedCondition?: string | null;
       municipality?: string;
       province?: string;
       sugarcaneVariety?: string;

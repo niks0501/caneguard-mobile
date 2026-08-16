@@ -28,6 +28,7 @@ const REPORT: FieldReport = {
   province: 'Batangas', municipality: 'Nasugbu', barangay: 'Wawa',
   affectedAreaHectares: null, affectedPortionPercent: null,
   sugarcaneVariety: null, cropAge: null, caneClass: null, fieldNotes: null,
+  mismatchReported: null, reporterObservationText: null, reporterSuspectedCondition: null,
   submitterIdentity: 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
   submitterRole: 'field_reporter', finalLatitude: 14.0667,
   finalLongitude: 120.6319, locationSource: 'gps', gpsAccuracy: 4.2,
@@ -82,6 +83,42 @@ describe('Field Report multipart mapper', () => {
     expect(values.get('predicted_label')).toBe('rust');
     expect(values.get('class_scores[rust]')).toBe('0.82');
     expect(parts).toContainEqual(['symptom_keys[]', 'rust']);
+  });
+
+  it('emits the mismatch wire keys without changing model evidence', () => {
+    const parts = (
+      map({
+        ...REPORT,
+        mismatchReported: true,
+        reporterSuspectedCondition: 'Local condition',
+        reporterObservationText: 'The visible symptoms differ.',
+      }) as unknown as { _parts: [string, unknown][] }
+    )._parts;
+    const values = new Map(parts);
+
+    expect(values.get('mismatch_reported')).toBe('1');
+    expect(values.get('reporter_suspected_condition')).toBe('Local condition');
+    expect(values.get('reporter_observation_text')).toBe('The visible symptoms differ.');
+    expect(values.get('predicted_label')).toBe('rust');
+    expect(values.get('confidence')).toBe('0.82');
+    expect(values.get('class_scores[rust]')).toBe('0.82');
+    expect(parts).toContainEqual(['symptom_keys[]', 'rust']);
+  });
+
+  it('emits an explicit no-mismatch answer and omits empty optional text', () => {
+    const parts = (
+      map({
+        ...REPORT,
+        mismatchReported: false,
+        reporterSuspectedCondition: null,
+        reporterObservationText: null,
+      }) as unknown as { _parts: [string, unknown][] }
+    )._parts;
+    const values = new Map(parts);
+
+    expect(values.get('mismatch_reported')).toBe('0');
+    expect(values.get('reporter_suspected_condition')).toBeUndefined();
+    expect(values.get('reporter_observation_text')).toBeUndefined();
   });
 
   it('appends the smart field report details when present', () => {

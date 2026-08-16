@@ -10,6 +10,8 @@ type TextFieldProps = {
   onChangeText: (value: string) => void;
   placeholder?: string;
   secureTextEntry?: boolean;
+  maxLength?: number;
+  multiline?: boolean;
   keyboardType?: KeyboardTypeOptions;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   textContentType?: ComponentProps<typeof TextInput>['textContentType'];
@@ -22,6 +24,8 @@ export function TextField({
   onChangeText,
   placeholder,
   secureTextEntry,
+  maxLength,
+  multiline = false,
   keyboardType,
   autoCapitalize = 'sentences',
   textContentType,
@@ -40,6 +44,8 @@ export function TextField({
         placeholder={placeholder}
         placeholderTextColor={theme.textSecondary}
         secureTextEntry={secureTextEntry}
+        maxLength={maxLength}
+        multiline={multiline}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
         textContentType={textContentType}
@@ -50,6 +56,7 @@ export function TextField({
             borderColor: theme.border,
             color: theme.text,
           },
+          multiline && styles.multilineInput,
         ]}
       />
     </>
@@ -67,5 +74,10 @@ const styles = StyleSheet.create({
     borderWidth: ComponentTokens.input.borderWidth,
     paddingHorizontal: ComponentTokens.input.paddingHorizontal,
     ...Typography.body,
+  },
+  multilineInput: {
+    minHeight: 120,
+    paddingTop: ComponentTokens.input.paddingHorizontal,
+    textAlignVertical: 'top',
   },
 });

@@ -18,6 +18,8 @@ const MAX_NAME_LENGTH = 160;
 const MAX_BARANGAY_LENGTH = 120;
 const MAX_REGION_TEXT_LENGTH = 120;
 const MAX_DETAIL_LENGTH = 120;
+const MAX_REPORTER_SUSPECTED_CONDITION_LENGTH = 120;
+const MAX_REPORTER_OBSERVATION_TEXT_LENGTH = 1_000;
 const MAX_AFFECTED_AREA_HECTARES = 10_000;
 
 export function validateCreateFieldReportDraftInput(
@@ -76,6 +78,9 @@ export function normalizeFinalizeFieldReportInput(
   cropAge: string | null;
   farmerOrFarmOwnerName: string | null;
   fieldNotes: string | null;
+  mismatchReported: boolean | null;
+  reporterObservationText: string | null;
+  reporterSuspectedCondition: string | null;
   submittedAt: string;
   sugarcaneVariety: string | null;
   updatedAt: string;
@@ -92,6 +97,9 @@ export function normalizeFinalizeFieldReportInput(
     cropAge: values.cropAge ?? null,
     farmerOrFarmOwnerName: values.farmerOrFarmOwnerName ?? null,
     fieldNotes: values.fieldNotes ?? null,
+    mismatchReported: values.mismatchReported ?? null,
+    reporterObservationText: values.reporterObservationText ?? null,
+    reporterSuspectedCondition: values.reporterSuspectedCondition ?? null,
     submittedAt: input.submittedAt,
     sugarcaneVariety: values.sugarcaneVariety ?? null,
     updatedAt: input.updatedAt,
@@ -195,6 +203,9 @@ export function normalizeFieldReportDraftInput(
   cropAge?: string | null;
   farmerOrFarmOwnerName?: string | null;
   fieldNotes?: string | null;
+  mismatchReported?: boolean | null;
+  reporterObservationText?: string | null;
+  reporterSuspectedCondition?: string | null;
   municipality?: string;
   province?: string;
   sugarcaneVariety?: string | null;
@@ -238,6 +249,25 @@ export function normalizeFieldReportDraftInput(
     ...(input.fieldNotes === undefined
       ? {}
       : { fieldNotes: normalizeOptionalText(input.fieldNotes, MAX_DETAIL_LENGTH) }),
+    ...(input.mismatchReported === undefined
+      ? {}
+      : { mismatchReported: normalizeMismatchReported(input.mismatchReported) }),
+    ...(input.reporterSuspectedCondition === undefined
+      ? {}
+      : {
+          reporterSuspectedCondition: normalizeOptionalText(
+            input.reporterSuspectedCondition,
+            MAX_REPORTER_SUSPECTED_CONDITION_LENGTH,
+          ),
+        }),
+    ...(input.reporterObservationText === undefined
+      ? {}
+      : {
+          reporterObservationText: normalizeOptionalText(
+            input.reporterObservationText,
+            MAX_REPORTER_OBSERVATION_TEXT_LENGTH,
+          ),
+        }),
     ...(input.affectedAreaHectares === undefined
       ? {}
       : {
@@ -255,7 +285,13 @@ export function normalizeFieldReportDraftInput(
   };
 }
 
-function normalizeOptionalText(value: string, maximumLength: number): string | null {
+function normalizeOptionalText(
+  value: string | null,
+  maximumLength: number,
+): string | null {
+  if (value === null) {
+    return null;
+  }
   const normalized = value.trim();
   if (normalized.length > maximumLength) {
     invalid('A draft field is too long.');
@@ -282,6 +318,13 @@ function validateRegionText(value: string, label: string): void {
   if (normalized.length > MAX_REGION_TEXT_LENGTH) {
     invalid(`The ${label} is too long.`);
   }
+}
+
+function normalizeMismatchReported(value: boolean | null): boolean | null {
+  if (value !== null && typeof value !== 'boolean') {
+    invalid('Mismatch reported must be a boolean or null.');
+  }
+  return value;
 }
 
 function normalizeOptionalAffectedArea(value: number | null): number | null {

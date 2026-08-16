@@ -20,6 +20,9 @@ interface FormValues {
   cropAge?: string;
   farmerOrFarmOwnerName: string;
   fieldNotes?: string;
+  mismatchReported: boolean | null;
+  reporterObservationText: string;
+  reporterSuspectedCondition: string;
   municipality?: string;
   province?: string;
   sugarcaneVariety?: string;
@@ -159,6 +162,9 @@ function draft(overrides: Partial<FieldReport> = {}): FieldReport {
     cropAge: null,
     caneClass: null,
     fieldNotes: null,
+    mismatchReported: null,
+    reporterObservationText: null,
+    reporterSuspectedCondition: null,
     finalLatitude: null,
     finalLongitude: null,
     locationSource: null,
@@ -195,6 +201,9 @@ function expectFormValues(values: Partial<FormValues> = {}): FormValues {
     cropAge: '',
     farmerOrFarmOwnerName: '',
     fieldNotes: '',
+    mismatchReported: null,
+    reporterObservationText: '',
+    reporterSuspectedCondition: '',
     municipality: 'Nasugbu',
     province: 'Batangas',
     sugarcaneVariety: '',
@@ -256,6 +265,84 @@ describe('FieldReportScreen', () => {
 
     expect(mockSave).toHaveBeenCalledWith(
       expectFormValues({ farmerOrFarmOwnerName: 'Maria Santos' }),
+    );
+  });
+
+  it('reveals optional mismatch observations and includes them in finalization without blocking', async () => {
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-report.mismatch-toggle'));
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.reporter-observation-input'),
+        'Long whip-like growth near the stalk.',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.reporter-condition-input'),
+        'Local field observation',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-area-input'),
+        '0.5',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-portion-input'),
+        '30',
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+    });
+
+    expect(mockFinalize).toHaveBeenCalledWith(
+      expectFormValues({
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
+        mismatchReported: true,
+        reporterObservationText: 'Long whip-like growth near the stalk.',
+        reporterSuspectedCondition: 'Local field observation',
+      }),
+    );
+  });
+
+  it('stores an explicit no-mismatch answer and hides optional observations', async () => {
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-report.mismatch-toggle'));
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.reporter-observation-input'),
+        'Temporary observation',
+      );
+    });
+    await act(async () => {
+      fireEvent.press(
+        screen.getByLabelText('The possible result matches what I see'),
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
+    });
+
+    expect(screen.queryByTestId('field-report.reporter-observation-input')).not.toBeOnTheScreen();
+    expect(mockSave).toHaveBeenCalledWith(
+      expectFormValues({
+        mismatchReported: false,
+        reporterObservationText: '',
+        reporterSuspectedCondition: '',
+      }),
     );
   });
 

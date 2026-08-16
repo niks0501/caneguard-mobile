@@ -10,6 +10,7 @@ const migration2 = readMigration('0002_talented_kat_farrell.sql');
 const migration3 = readMigration('0003_careful_marauders.sql');
 const migration4 = readMigration('0004_sour_namora.sql');
 const migration5 = readMigration('0005_tricky_the_santerians.sql');
+const migration6 = readMigration('0006_curvy_piledriver.sql');
 const migrationJournal = migrationBundle.journal;
 
 function readMigration(filename: string): string {
@@ -32,6 +33,7 @@ function applyLatest(database: DatabaseSync): void {
   database.exec(migration3);
   database.exec(migration4);
   database.exec(migration5);
+  database.exec(migration6);
 }
 
 function insertScanRecord(
@@ -347,6 +349,7 @@ describe('CaneGuard database migrations', () => {
       '0003_careful_marauders',
       '0004_sour_namora',
       '0005_tricky_the_santerians',
+      '0006_curvy_piledriver',
     ]);
     expect(Object.keys(migrationBundle.migrations)).toEqual([
       'm0000',
@@ -355,6 +358,7 @@ describe('CaneGuard database migrations', () => {
       'm0003',
       'm0004',
       'm0005',
+      'm0006',
     ]);
     expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
       migration0,
@@ -363,6 +367,7 @@ describe('CaneGuard database migrations', () => {
       migration3,
       migration4,
       migration5,
+      migration6,
     ]);
   });
 });

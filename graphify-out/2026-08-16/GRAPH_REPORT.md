@@ -1,16 +1,16 @@
-# Graph Report - caneguard-mobile  (2026-08-14)
+# Graph Report - caneguard-mobile  (2026-08-16)
 
 ## Corpus Check
-- 197 files · ~82,803 words
+- 197 files · ~82,857 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1105 nodes · 3164 edges · 56 communities (54 shown, 2 thin omitted)
+- 1105 nodes · 3164 edges · 57 communities (55 shown, 2 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 30 edges (avg confidence: 0.77)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `f26c3f04`
+- Built from commit: `393f0368`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -24,7 +24,7 @@
 - Q: Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md
 - theme.ts
 - Typography
-- recordValidation.ts
+- assessImageQuality.ts
 - preprocessImage.ts
 - mobileAuthApi.ts
 - detection/types.ts
@@ -68,6 +68,7 @@
 - scan.tsx
 - reportReviewTypes.ts
 - symptom-checklist.tsx
+- ScanSourceType
 - records.test.tsx
 - inferenceErrors.ts
 
@@ -98,7 +99,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (56 total, 2 thin omitted)
+## Communities (57 total, 2 thin omitted)
 
 ### Community 0 - "DatabaseProvider.tsx"
 Cohesion: 0.15
@@ -132,9 +133,9 @@ Nodes (17): InputRow(), InputRowProps, LoginScreen(), styles, styles, ThemedText
 Cohesion: 0.11
 Nodes (19): SplashScreen(), styles, RegisterScreen(), styles, DevelopmentStorageDebugScreen(), DiagnosticRow(), styles, AppButton() (+11 more)
 
-### Community 10 - "recordValidation.ts"
+### Community 10 - "assessImageQuality.ts"
 Cohesion: 0.40
-Nodes (12): createCompletedScanDraft(), invalid(), QUALITY_WARNINGS, REPORTED_SEVERITIES, SYMPTOM_KEYS, validateClassScores(), validateCompletedScanDraft(), validateNonNegativeFinite() (+4 more)
+Nodes (4): ImageQualitySourceDimensions, QUALITY_WARNING_MESSAGES, QualityWarning, PROTOTYPE_IMAGE_QUALITY_THRESHOLDS
 
 ### Community 11 - "preprocessImage.ts"
 Cohesion: 0.17
@@ -146,7 +147,7 @@ Nodes (29): AppNavigator(), styles, CurrentUserResponse, isAbortError(), isMobil
 
 ### Community 13 - "detection/types.ts"
 Cohesion: 0.15
-Nodes (16): ChecklistConsistency, ChecklistObservationId, getChecklistConsistency(), MATRIX, MatrixCase, ModelLabel, PickerOutcome, readPickerOutcome() (+8 more)
+Nodes (25): ChecklistConsistency, ChecklistObservationId, getChecklistConsistency(), MATRIX, MatrixCase, ModelLabel, ClassScore, InferenceTimings (+17 more)
 
 ### Community 14 - "field-report.tsx"
 Cohesion: 0.13
@@ -198,7 +199,7 @@ Nodes (36): CaneGuardDatabase, findFieldReportById(), countUnsyncedFieldReports(
 
 ### Community 26 - "recordTypes.ts"
 Cohesion: 0.17
-Nodes (14): SyncStatus, ReportedSeverity, ImageQualitySourceDimensions, QUALITY_WARNING_MESSAGES, QualityWarning, PROTOTYPE_IMAGE_QUALITY_THRESHOLDS, DEFAULT_RECORD_PAGE_SIZE, MAX_RECORD_PAGE_SIZE (+6 more)
+Nodes (13): SyncStatus, ReportedSeverity, ScanRecordRepository, ScanRecordWriteRepository, DEFAULT_RECORD_PAGE_SIZE, MAX_RECORD_PAGE_SIZE, RecordsByLabel, SaveCompletedScanInput (+5 more)
 
 ### Community 27 - "model-smoke-test.tsx"
 Cohesion: 0.11
@@ -249,8 +250,8 @@ Cohesion: 0.20
 Nodes (8): GpsCaptureUnavailableReason, captureGpsLocation(), ForegroundLocationClient, GpsCaptureResult, isCoordinate(), PREFERRED_GPS_ACCURACY_METERS, expoForegroundLocationClient, NOW
 
 ### Community 39 - "reportRepository.ts"
-Cohesion: 0.14
-Nodes (15): fieldReports, ReportRepository, ScanRecordRepository, ScanRecordWriteRepository, DateRange, LocalReportSummary, SaveCompletedScanInput, buildDateCondition() (+7 more)
+Cohesion: 0.21
+Nodes (12): fieldReports, ReportRepository, DateRange, LocalReportSummary, buildDateCondition(), buildPendingReportCondition(), createReportRepository(), DEFAULT_RECENT_RECORD_LIMIT (+4 more)
 
 ### Community 40 - "ComponentTokens"
 Cohesion: 0.18
@@ -303,6 +304,10 @@ Nodes (8): AUTHORITY_REVIEW_LABELS, AUTHORITY_REVIEW_STATUSES, AuthorityReviewFe
 ### Community 53 - "symptom-checklist.tsx"
 Cohesion: 0.29
 Nodes (6): SEVERITIES, styles, SymptomChecklistScreen(), styles, SymptomChecklistItem(), SymptomChecklistItemProps
+
+### Community 54 - "ScanSourceType"
+Cohesion: 0.50
+Nodes (3): PickerOutcome, readPickerOutcome(), ScanSourceType
 
 ### Community 55 - "records.test.tsx"
 Cohesion: 0.25

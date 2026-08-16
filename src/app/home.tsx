@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomNav } from '@/components/ui/BottomNav';
 import { SyncStatusRow } from '@/components/ui/SyncStatusRow';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useSync } from '@/features/sync/hooks/useSync';
 import {
   ComponentTokens,
   Fonts,
@@ -55,6 +57,13 @@ export const REFERENCE_CLASSES: readonly ReferenceClass[] = [
 
 export default function HomeScreen() {
   const theme = useTheme();
+  const { user } = useAuth();
+  const { isOnline } = useSync();
+  const connectionBadge = isOnline === true
+    ? { backgroundColor: theme.successBg, color: theme.success, label: 'Online' }
+    : isOnline === false
+      ? { backgroundColor: theme.warningBg, color: theme.warning, label: 'Offline' }
+      : { backgroundColor: theme.infoBg, color: theme.info, label: 'Checking connection' };
   const actions: QuickAction[] = [
     {
       title: 'Start Scan',
@@ -86,12 +95,12 @@ export default function HomeScreen() {
                 <View style={styles.heroTop}>
                   <View style={styles.greetingBlock}>
                     <Text style={[styles.greeting, { color: theme.textSecondary }]}>Magandang umaga,</Text>
-                    <Text style={[styles.name, { color: theme.primaryDark }]}>Nikko Selwyn</Text>
+                    <Text style={[styles.name, { color: theme.primaryDark }]}>{user?.name ?? 'Field reporter'}</Text>
                   </View>
                   <View style={styles.heroActions}>
-                    <View style={[styles.online, { backgroundColor: theme.successBg }]}>
-                      <View style={[styles.onlineDot, { backgroundColor: theme.success }]} />
-                      <Text style={[styles.onlineText, { color: theme.success }]}>Online</Text>
+                    <View style={[styles.online, { backgroundColor: connectionBadge.backgroundColor }]}>
+                      <View style={[styles.onlineDot, { backgroundColor: connectionBadge.color }]} />
+                      <Text style={[styles.onlineText, { color: connectionBadge.color }]}>{connectionBadge.label}</Text>
                     </View>
                     <Pressable
                       accessibilityRole="button"
@@ -106,17 +115,6 @@ export default function HomeScreen() {
                       <Feather name="user" size={18} color={theme.surfaceElevated} />
                     </Pressable>
                   </View>
-                </View>
-
-                <View
-                  style={[
-                    styles.location,
-                    { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
-                  ]}>
-                  <Feather name="map-pin" size={16} color={theme.accentDark} />
-                  <Text style={[styles.locationText, { color: theme.primaryDark }]}>
-                    Brgy. Cogunan, Nasugbu, Batangas
-                  </Text>
                 </View>
               </View>
             </View>
@@ -276,18 +274,6 @@ const styles = StyleSheet.create({
   onlineDot: { width: 6, height: 6, borderRadius: Radius.full },
   onlineText: { ...Typography.caption, fontWeight: '800' },
   profile: { width: 42, height: 42, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
-  location: {
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
-    borderWidth: 1,
-    borderRadius: Radius.full,
-    minHeight: 38,
-    paddingHorizontal: Spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  locationText: { ...Typography.caption, flexShrink: 1, fontWeight: '700' },
   content: {
     paddingHorizontal: ComponentTokens.screen.horizontalPadding,
     paddingTop: Spacing.xl,

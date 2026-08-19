@@ -223,12 +223,12 @@ export default function FieldReportScreen() {
                 <View style={styles.statusCopy}>
                   <Text style={[styles.statusTitle, { color: theme.text }]}>
                     {report.data.authoringState === 'finalized'
-                      ? `Finalized · ${getSyncPresentation(report.data.syncStatus).label}`
+                      ? `Finalized · ${getSyncPresentation(report.data.syncStatus, report.data.lastSyncErrorCode).label}`
                       : 'Draft'}
                   </Text>
                   <Text style={[styles.statusMessage, { color: theme.textSecondary }]}>
                     {report.data.authoringState === 'finalized'
-                      ? `This report is finalized locally. Current synchronization status: ${getSyncPresentation(report.data.syncStatus).label}.`
+                      ? `This report is finalized locally. Current synchronization status: ${getSyncPresentation(report.data.syncStatus, report.data.lastSyncErrorCode).label}.`
                       : 'Save incomplete information now and return later. Drafts are stored only on this device and are not queued for synchronization.'}
                   </Text>
                 </View>
@@ -1159,7 +1159,10 @@ function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
       ) : null}
       <EvidenceRow label="Observation time" value={formatTimestamp(fieldReport.observedAt)} />
       <EvidenceRow label="Local submission time" value={fieldReport.submittedAt ? formatTimestamp(fieldReport.submittedAt) : 'Not submitted'} />
-      <EvidenceRow label="Synchronization" value={getSyncPresentation(fieldReport.syncStatus).label} />
+      <EvidenceRow
+        label="Synchronization"
+        value={getSyncPresentation(fieldReport.syncStatus, fieldReport.lastSyncErrorCode).label}
+      />
       {fieldReport.remoteId ? (
         <EvidenceRow label="Server report UUID" value={fieldReport.remoteId} />
       ) : null}

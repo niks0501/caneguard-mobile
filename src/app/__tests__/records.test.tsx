@@ -115,7 +115,7 @@ describe('RecordsScreen', () => {
 
     expect(screen.getByText('Possible result: Rust')).toBeOnTheScreen();
     expect(screen.getByText('82% confidence')).toBeOnTheScreen();
-    expect(screen.getByText('Pending upload')).toBeOnTheScreen();
+    expect(screen.getByText('Waiting to sync')).toBeOnTheScreen();
 
     await act(() =>
       screen

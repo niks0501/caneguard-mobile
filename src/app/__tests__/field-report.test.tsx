@@ -785,10 +785,10 @@ describe('FieldReportScreen', () => {
     const view = await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    expect(screen.getByText('Finalized · Pending upload')).toBeOnTheScreen();
+    expect(screen.getByText('Finalized · Waiting to sync')).toBeOnTheScreen();
     expect(
       screen.getByText(
-        'This report is finalized locally. Current synchronization status: Pending upload.',
+        'This report is finalized locally. Current synchronization status: Waiting to sync.',
       ),
     ).toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.finalize')).not.toBeOnTheScreen();
@@ -849,7 +849,7 @@ describe('FieldReportScreen', () => {
     };
     await view.rerender(<FieldReportScreen />);
     expect(screen.queryByTestId('field-report.authority-review-section')).not.toBeOnTheScreen();
-    expect(screen.getByText('Finalized · Pending upload')).toBeOnTheScreen();
+    expect(screen.getByText('Finalized · Waiting to sync')).toBeOnTheScreen();
   });
 
   it('keeps cached authority feedback visible when refresh fails', async () => {

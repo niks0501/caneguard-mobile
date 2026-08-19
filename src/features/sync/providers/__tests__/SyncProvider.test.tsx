@@ -36,6 +36,7 @@ jest.mock('@/features/reports/data/fieldReportSyncRepository', () => ({
   findLastSuccessfulFieldReportSyncAt: jest.fn(),
   markFieldReportPending: jest.fn(),
   resetStaleSyncingFieldReports: jest.fn(),
+  SYNC_RETRY_COOLDOWN_MS: 60_000,
 }));
 jest.mock('@/features/sync/services/syncPendingFieldReports', () => ({
   syncPendingFieldReports: jest.fn(),
@@ -68,6 +69,10 @@ describe('SyncProvider foreground triggers', () => {
   let appStateListener: (state: string) => void;
 
   beforeEach(() => {
+    Object.defineProperty(AppState, 'currentState', {
+      configurable: true,
+      value: 'active',
+    });
     jest.mocked(useCaneGuardDatabase).mockReturnValue({} as never);
     jest.mocked(useAuth).mockReturnValue({
       status: 'authenticated',
@@ -82,6 +87,7 @@ describe('SyncProvider foreground triggers', () => {
       attempted: 1,
       authRequired: false,
       failed: 0,
+      haltReason: 'empty',
       results: [],
       source: 'startup',
       synced: 1,
@@ -140,6 +146,172 @@ describe('SyncProvider foreground triggers', () => {
     );
   });
 
+  it('schedules one app-active retry after a transient queue blocker', async () => {
+    jest.useFakeTimers();
+    try {
+      jest.mocked(syncPendingFieldReports)
+        .mockResolvedValueOnce({
+          attempted: 1,
+          authRequired: false,
+          failed: 1,
+          haltReason: 'transient-blocker',
+          results: [],
+          source: 'startup',
+          synced: 0,
+        })
+        .mockResolvedValue({
+          attempted: 0,
+          authRequired: false,
+          failed: 0,
+          haltReason: 'empty',
+          results: [],
+          source: 'retry-timer',
+          synced: 0,
+        });
+      await render(
+        <SyncProvider>
+          <Text>Ready</Text>
+        </SyncProvider>,
+      );
+      await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+
+      await act(async () => {
+        networkListener(ONLINE);
+        await Promise.resolve();
+      });
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        jest.advanceTimersByTime(60_000);
+        await Promise.resolve();
+      });
+      expect(syncPendingFieldReports).toHaveBeenCalledWith(
+        expect.objectContaining({ source: 'retry-timer' }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not schedule a timer for permanent failures and clears it on unmount', async () => {
+    jest.useFakeTimers();
+    try {
+      jest.mocked(syncPendingFieldReports).mockResolvedValue({
+        attempted: 1,
+        authRequired: false,
+        failed: 1,
+        haltReason: 'empty',
+        results: [],
+        source: 'startup',
+        synced: 0,
+      });
+      const view = await render(
+        <SyncProvider>
+          <Text>Ready</Text>
+        </SyncProvider>,
+      );
+      await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+
+      await act(async () => {
+        networkListener(ONLINE);
+        await Promise.resolve();
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(60_000);
+        await Promise.resolve();
+      });
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(1);
+
+      view.unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('clears a pending retry timer when a later resume sync succeeds', async () => {
+    jest.useFakeTimers();
+    try {
+      jest.mocked(syncPendingFieldReports)
+        .mockResolvedValueOnce({
+          attempted: 1,
+          authRequired: false,
+          failed: 1,
+          haltReason: 'transient-blocker',
+          results: [],
+          source: 'startup',
+          synced: 0,
+        })
+        .mockResolvedValueOnce({
+          attempted: 1,
+          authRequired: false,
+          failed: 0,
+          haltReason: 'empty',
+          results: [],
+          source: 'resume',
+          synced: 1,
+        });
+      await render(
+        <SyncProvider>
+          <Text>Ready</Text>
+        </SyncProvider>,
+      );
+      await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+
+      await act(async () => {
+        networkListener(ONLINE);
+        await Promise.resolve();
+      });
+      await act(async () => {
+        appStateListener('active');
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(2);
+
+      await act(async () => {
+        jest.advanceTimersByTime(60_000);
+        await Promise.resolve();
+      });
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not fire a pending retry timer while the app is backgrounded', async () => {
+    jest.useFakeTimers();
+    try {
+      jest.mocked(syncPendingFieldReports).mockResolvedValue({
+        attempted: 1,
+        authRequired: false,
+        failed: 1,
+        haltReason: 'transient-blocker',
+        results: [],
+        source: 'startup',
+        synced: 0,
+      });
+      await render(
+        <SyncProvider>
+          <Text>Ready</Text>
+        </SyncProvider>,
+      );
+      await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+
+      await act(async () => {
+        networkListener(ONLINE);
+        await Promise.resolve();
+      });
+      await act(async () => {
+        appStateListener('background');
+        jest.advanceTimersByTime(60_000);
+        await Promise.resolve();
+      });
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('does not expire a replacement session from an older rejected upload', async () => {
     const markFirstSessionExpired = jest.fn(async () => undefined);
     const markSecondSessionExpired = jest.fn(async () => undefined);
@@ -147,6 +319,7 @@ describe('SyncProvider foreground triggers', () => {
       attempted: number;
       authRequired: boolean;
       failed: number;
+      haltReason: 'auth-required' | null;
       results: [];
       source: 'network-restored';
       synced: number;
@@ -196,6 +369,7 @@ describe('SyncProvider foreground triggers', () => {
         attempted: 1,
         authRequired: true,
         failed: 1,
+        haltReason: 'auth-required',
         results: [],
         source: 'network-restored',
         synced: 0,

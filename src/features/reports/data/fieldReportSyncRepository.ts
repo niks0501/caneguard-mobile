@@ -8,7 +8,15 @@ import { findScanRecordById } from '@/features/records/data/scanRecordRepository
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import { findFieldReportById } from '@/features/reports/data/fieldReportRepository';
 import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
+import { AUTO_RETRYABLE_SYNC_ERROR_CODES } from '@/features/sync/errors/syncErrors';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
+
+export const SYNC_RETRY_COOLDOWN_MS = 60_000;
+
+export interface FindSyncCandidatesOptions {
+  failedBefore?: string;
+  includeRetryableFailed?: boolean;
+}
 
 export interface FieldReportUploadRecord {
   report: FieldReport;
@@ -19,7 +27,10 @@ export interface FieldReportSyncRepository {
   countUnsynced(): Promise<number>;
   findById(id: string): Promise<FieldReportUploadRecord>;
   findLastSuccessfulSyncAt(): Promise<string | null>;
-  findSyncCandidates(limit: number, includeFailed?: boolean): Promise<FieldReport[]>;
+  findSyncCandidates(
+    limit: number,
+    options?: FindSyncCandidatesOptions,
+  ): Promise<FieldReport[]>;
   markFailed(reportId: string, errorCode: string, attemptedAt: string): Promise<void>;
   markPending(reportId: string): Promise<void>;
   markSynced(reportId: string, remoteId: string, syncedAt: string): Promise<void>;
@@ -37,12 +48,12 @@ export function createFieldReportSyncRepository(
       findFieldReportUploadRecord(database, id, submitterIdentity),
     findLastSuccessfulSyncAt: () =>
       findLastSuccessfulFieldReportSyncAt(database, submitterIdentity),
-    findSyncCandidates: (limit, includeFailed) =>
+    findSyncCandidates: (limit, options) =>
       findFieldReportSyncCandidates(
         database,
         submitterIdentity,
         limit,
-        includeFailed,
+        options,
       ),
     markFailed: (id, code, at) =>
       markFieldReportFailed(database, id, submitterIdentity, code, at),
@@ -83,10 +94,29 @@ export async function findFieldReportSyncCandidates(
   database: CaneGuardDatabase,
   submitterIdentity: string,
   limit: number,
-  includeFailed = false,
+  options: FindSyncCandidatesOptions = {},
 ): Promise<FieldReport[]> {
   const normalizedLimit = Math.min(Math.max(Math.trunc(limit), 1), 100);
+  const failedBefore =
+    options.failedBefore ??
+    new Date(Date.now() - SYNC_RETRY_COOLDOWN_MS).toISOString();
   try {
+    const eligibleStatus = options.includeRetryableFailed
+      ? or(
+          eq(fieldReports.syncStatus, 'pending'),
+          and(
+            eq(fieldReports.syncStatus, 'failed'),
+            inArray(
+              fieldReports.lastSyncErrorCode,
+              AUTO_RETRYABLE_SYNC_ERROR_CODES,
+            ),
+            or(
+              isNull(fieldReports.lastSyncAttemptAt),
+              lt(fieldReports.lastSyncAttemptAt, failedBefore),
+            ),
+          ),
+        )
+      : eq(fieldReports.syncStatus, 'pending');
     const rows = await database
       .select({ id: fieldReports.id })
       .from(fieldReports)
@@ -94,9 +124,7 @@ export async function findFieldReportSyncCandidates(
         and(
           eq(fieldReports.authoringState, 'finalized'),
           eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
-          includeFailed
-            ? inArray(fieldReports.syncStatus, ['pending', 'failed'])
-            : eq(fieldReports.syncStatus, 'pending'),
+          eligibleStatus,
         ),
       )
       .orderBy(asc(fieldReports.submittedAt), asc(fieldReports.createdAt))

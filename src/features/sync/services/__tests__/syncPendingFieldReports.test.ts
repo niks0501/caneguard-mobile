@@ -8,6 +8,7 @@ import { syncPendingFieldReports } from '@/features/sync/services/syncPendingFie
 
 jest.mock('@/features/reports/data/fieldReportSyncRepository', () => ({
   createFieldReportSyncRepository: jest.fn(),
+  SYNC_RETRY_COOLDOWN_MS: 60_000,
 }));
 jest.mock('@/features/sync/services/syncFieldReport', () => ({ syncFieldReport: jest.fn() }));
 
@@ -19,11 +20,15 @@ const repository = { findSyncCandidates };
 
 describe('pending Field Report queue', () => {
   beforeEach(() => {
+    findSyncCandidates.mockReset();
+    jest.mocked(syncFieldReport).mockReset();
     jest.mocked(createFieldReportSyncRepository).mockReturnValue(repository as never);
   });
 
   it('coalesces concurrent foreground triggers into one sequential run', async () => {
-    findSyncCandidates.mockResolvedValueOnce([{ id: 'report-1' }]);
+    findSyncCandidates
+      .mockResolvedValueOnce([{ id: 'report-1' }])
+      .mockResolvedValueOnce([]);
     let finish!: () => void;
     jest.mocked(syncFieldReport).mockReturnValueOnce(new Promise((resolve) => {
       finish = () => resolve({ reportId: 'report-1', remoteId: 'remote-1', status: 'synced' });
@@ -64,7 +69,13 @@ describe('pending Field Report queue', () => {
       database,
       SUBMITTER_ID,
     );
-    expect(findSyncCandidates).toHaveBeenCalledWith(10, true);
+    expect(findSyncCandidates).toHaveBeenCalledWith(
+      10,
+      expect.objectContaining({
+        failedBefore: expect.any(String),
+        includeRetryableFailed: true,
+      }),
+    );
     expect(syncFieldReport).toHaveBeenCalledTimes(1);
   });
 
@@ -111,6 +122,90 @@ describe('pending Field Report queue', () => {
       2,
       database,
       OTHER_SUBMITTER_ID,
+    );
+  });
+
+  it('continues after a permanent report failure', async () => {
+    findSyncCandidates
+      .mockResolvedValueOnce([{ id: 'bad-report' }, { id: 'good-report' }])
+      .mockResolvedValueOnce([]);
+    jest.mocked(syncFieldReport)
+      .mockResolvedValueOnce({
+        reportId: 'bad-report',
+        status: 'failed',
+        error: new SyncError('API_VALIDATION_FAILED', 'Review this report.'),
+      })
+      .mockResolvedValueOnce({
+        reportId: 'good-report',
+        remoteId: 'remote-good',
+        status: 'synced',
+      });
+
+    await expect(syncPendingFieldReports({
+      database,
+      source: 'startup',
+      submitterIdentity: SUBMITTER_ID,
+      token: 'secure-token',
+    })).resolves.toMatchObject({
+      attempted: 2,
+      failed: 1,
+      haltReason: 'empty',
+      synced: 1,
+    });
+    expect(syncFieldReport).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops the current drain after an exhausted transient failure', async () => {
+    findSyncCandidates.mockResolvedValueOnce([
+      { id: 'transient-report' },
+      { id: 'later-report' },
+    ]);
+    jest.mocked(syncFieldReport).mockResolvedValueOnce({
+      reportId: 'transient-report',
+      status: 'failed',
+      error: new SyncError('SERVER_ERROR', 'The server is unavailable.'),
+    });
+
+    await expect(syncPendingFieldReports({
+      database,
+      source: 'startup',
+      submitterIdentity: SUBMITTER_ID,
+      token: 'secure-token',
+    })).resolves.toMatchObject({
+      attempted: 1,
+      failed: 1,
+      haltReason: 'transient-blocker',
+    });
+    expect(syncFieldReport).toHaveBeenCalledTimes(1);
+    expect(findSyncCandidates).toHaveBeenCalledTimes(1);
+  });
+
+  it('drains multiple batches and stops at the safety maximum', async () => {
+    let nextReport = 1;
+    findSyncCandidates.mockImplementation(async (limit: number) =>
+      Array.from({ length: limit }, () => ({ id: `report-${nextReport++}` })),
+    );
+    jest.mocked(syncFieldReport).mockImplementation(async ({ reportId }) => ({
+      reportId,
+      remoteId: `remote-${reportId}`,
+      status: 'synced',
+    }));
+
+    await expect(syncPendingFieldReports({
+      database,
+      source: 'startup',
+      submitterIdentity: SUBMITTER_ID,
+      token: 'secure-token',
+    })).resolves.toMatchObject({
+      attempted: 50,
+      haltReason: 'run-limit',
+      synced: 50,
+    });
+    expect(findSyncCandidates).toHaveBeenCalledTimes(5);
+    expect(findSyncCandidates).toHaveBeenNthCalledWith(
+      2,
+      10,
+      expect.objectContaining({ includeRetryableFailed: true }),
     );
   });
 

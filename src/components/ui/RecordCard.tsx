@@ -13,6 +13,7 @@ import {
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import type { SyncStatus } from '@/database/schema';
 import { getAuthorityReviewPresentation } from '@/features/reports/domain/reportReviewTypes';
+import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import { useTheme } from '@/hooks/use-theme';
 
 type RecordCardProps = {
@@ -125,7 +126,10 @@ export function RecordCard({ record, onPress }: RecordCardProps) {
   );
 }
 
-export function getSyncPresentation(status: SyncStatus): {
+export function getSyncPresentation(
+  status: SyncStatus,
+  lastSyncErrorCode: string | null = null,
+): {
   color: 'danger' | 'info' | 'success' | 'warning';
   icon: keyof typeof Feather.glyphMap;
   label: string;
@@ -134,13 +138,19 @@ export function getSyncPresentation(status: SyncStatus): {
     case 'local_only':
       return { color: 'info', icon: 'smartphone', label: 'Local only' };
     case 'pending':
-      return { color: 'warning', icon: 'clock', label: 'Pending upload' };
+      return { color: 'warning', icon: 'clock', label: 'Waiting to sync' };
     case 'syncing':
       return { color: 'info', icon: 'upload-cloud', label: 'Uploading' };
     case 'synced':
       return { color: 'success', icon: 'check-circle', label: 'Synced' };
     case 'failed':
-      return { color: 'danger', icon: 'alert-triangle', label: 'Sync failed' };
+      if (lastSyncErrorCode === 'AUTH_REQUIRED') {
+        return { color: 'danger', icon: 'lock', label: 'Sign in required' };
+      }
+      if (isAutoRetryableSyncErrorCode(lastSyncErrorCode)) {
+        return { color: 'info', icon: 'clock', label: 'Will retry automatically' };
+      }
+      return { color: 'danger', icon: 'alert-triangle', label: 'Needs attention' };
   }
 }
 

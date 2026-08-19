@@ -621,12 +621,83 @@ describe('Field Report draft repository', () => {
     await createOrGetFieldReportDraft(database, createDraftInput());
 
     await expect(
-      findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, true),
+      findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, {
+        includeRetryableFailed: true,
+      }),
     ).resolves.toEqual([]);
     await expect(countUnsyncedFieldReports(database, SUBMITTER_ID)).resolves.toBe(0);
     expect(native.prepare('SELECT sync_status FROM field_reports').get()).toEqual({
       sync_status: 'local_only',
     });
+    native.close();
+  });
+
+  it('selects only due retryable failed reports for automatic synchronization', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveManualMapLocation(database, REPORT_ID, SUBMITTER_ID, {
+      latitude: 14.071,
+      longitude: 120.635,
+      selectedAt: '2026-08-10T02:00:00.000Z',
+      updatedAt: '2026-08-10T02:00:01.000Z',
+    });
+    await finalizeFieldReport(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      {
+        farmerOrFarmOwnerName: 'Maria Santos',
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
+        barangay: 'Lumbangan',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        updatedAt: '2026-08-10T03:00:00.000Z',
+      },
+      IMAGE_EXISTS,
+    );
+
+    await markFieldReportFailed(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      'NETWORK_REQUEST_FAILED',
+      '2026-08-10T04:00:00.000Z',
+    );
+    await expect(
+      findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, {
+        failedBefore: '2026-08-10T05:00:00.000Z',
+        includeRetryableFailed: true,
+      }),
+    ).resolves.toMatchObject([{ id: REPORT_ID, syncStatus: 'failed' }]);
+
+    await markFieldReportFailed(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      'NETWORK_REQUEST_FAILED',
+      '2026-08-10T05:30:00.000Z',
+    );
+    await expect(
+      findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, {
+        failedBefore: '2026-08-10T05:00:00.000Z',
+        includeRetryableFailed: true,
+      }),
+    ).resolves.toEqual([]);
+
+    await markFieldReportFailed(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      'API_VALIDATION_FAILED',
+      '2026-08-10T03:00:00.000Z',
+    );
+    await expect(
+      findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, {
+        failedBefore: '2026-08-10T05:00:00.000Z',
+        includeRetryableFailed: true,
+      }),
+    ).resolves.toEqual([]);
     native.close();
   });
 

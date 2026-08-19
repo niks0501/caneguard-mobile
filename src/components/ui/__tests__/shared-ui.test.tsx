@@ -49,7 +49,7 @@ describe('shared navigation UI', () => {
         onPress={jest.fn()}
       />,
     );
-    expect(screen.getByText('Sync failed')).toBeOnTheScreen();
+    expect(screen.getByText('Needs attention')).toBeOnTheScreen();
     expect(screen.queryByText('Status update unavailable')).not.toBeOnTheScreen();
   });
 

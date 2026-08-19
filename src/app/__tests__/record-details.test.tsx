@@ -230,7 +230,7 @@ describe('RecordDetailsScreen', () => {
     expect(screen.getByLabelText('Open finalized Field Report')).toBeOnTheScreen();
     expect(screen.getByText('View Finalized Report')).toBeOnTheScreen();
     expect(
-      screen.getByText('This Field Report is finalized locally: Pending upload.'),
+      screen.getByText('This Field Report is finalized locally: Waiting to sync.'),
     ).toBeOnTheScreen();
     expect(screen.getByText('Not assigned')).toBeOnTheScreen();
     expect(screen.getByText('Not yet synchronized')).toBeOnTheScreen();

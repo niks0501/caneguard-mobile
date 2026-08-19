@@ -19,6 +19,7 @@ import {
   findLastSuccessfulFieldReportSyncAt,
   markFieldReportPending,
   resetStaleSyncingFieldReports,
+  SYNC_RETRY_COOLDOWN_MS,
 } from '@/features/reports/data/fieldReportSyncRepository';
 import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 import {
@@ -58,15 +59,56 @@ export function SyncProvider({ children }: PropsWithChildren) {
   );
   const previousOnline = useRef<boolean | null>(null);
   const onlineRef = useRef<boolean | null>(null);
+  const appStateRef = useRef(AppState.currentState);
   const mounted = useRef(true);
   const sessionToken = session?.token;
   const submitterIdentity = session?.user.uuid;
   const sessionKey = session ? `${session.token}:${session.user.uuid}` : null;
   const sessionRef = useRef<MobileSession | null>(session);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryTimerSessionKey = useRef<string | null>(null);
+  const syncNowRef = useRef<
+    ((source?: SyncTriggerSource) => Promise<SyncBatchResult | null>) | null
+  >(null);
+
+  const clearRetryTimer = useCallback(() => {
+    if (retryTimer.current !== null) {
+      clearTimeout(retryTimer.current);
+      retryTimer.current = null;
+    }
+    retryTimerSessionKey.current = null;
+  }, []);
+
+  const scheduleRetryTimer = useCallback(() => {
+    if (
+      retryTimer.current !== null ||
+      onlineRef.current !== true ||
+      appStateRef.current !== 'active' ||
+      !sessionKey
+    ) {
+      return;
+    }
+    retryTimerSessionKey.current = sessionKey;
+    retryTimer.current = setTimeout(() => {
+      const scheduledSessionKey = retryTimerSessionKey.current;
+      retryTimer.current = null;
+      retryTimerSessionKey.current = null;
+      if (
+        mounted.current &&
+        onlineRef.current === true &&
+        appStateRef.current === 'active' &&
+        scheduledSessionKey === getSessionKey(sessionRef.current)
+      ) {
+        void syncNowRef.current?.('retry-timer');
+      }
+    }, SYNC_RETRY_COOLDOWN_MS);
+  }, [sessionKey]);
 
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
+
+  useEffect(() => () => clearRetryTimer(), [clearRetryTimer, sessionKey]);
 
   const refreshPendingCount = useCallback(async () => {
     const requestedToken = sessionToken;
@@ -107,6 +149,9 @@ export function SyncProvider({ children }: PropsWithChildren) {
     async (
       source: SyncTriggerSource = 'manual',
     ): Promise<SyncBatchResult | null> => {
+      if (source !== 'retry-timer') {
+        clearRetryTimer();
+      }
       if (
         authStatus !== 'authenticated' ||
         !sessionToken ||
@@ -137,15 +182,24 @@ export function SyncProvider({ children }: PropsWithChildren) {
           return result;
         }
         if (result.authRequired) {
+          clearRetryTimer();
           await markSessionExpired();
           return result;
+        }
+        if (result.haltReason === 'transient-blocker') {
+          scheduleRetryTimer();
+        } else {
+          clearRetryTimer();
         }
         if (result.synced > 0) {
           setLastSuccessfulSyncAt(new Date().toISOString());
         }
         if (result.failed > 0 && !result.authRequired) {
           setSyncState({
-            errorMessage: `${result.failed} report${result.failed === 1 ? '' : 's'} still need attention.`,
+            errorMessage:
+              result.haltReason === 'transient-blocker'
+                ? 'Waiting to sync. Will retry automatically.'
+                : `${result.failed} report${result.failed === 1 ? '' : 's'} still need attention.`,
             isSyncing: true,
             sessionKey,
           });
@@ -170,14 +224,20 @@ export function SyncProvider({ children }: PropsWithChildren) {
     },
     [
       authStatus,
+      clearRetryTimer,
       database,
       markSessionExpired,
       refreshPendingCount,
+      scheduleRetryTimer,
       session,
       sessionKey,
       sessionToken,
     ],
   );
+
+  useEffect(() => {
+    syncNowRef.current = syncNow;
+  }, [syncNow]);
 
   const retryReport = useCallback(
     async (reportId: string) => {
@@ -263,6 +323,9 @@ export function SyncProvider({ children }: PropsWithChildren) {
       const online = isNetworkOnline(state);
       onlineRef.current = online;
       setIsOnline(online);
+      if (!online) {
+        clearRetryTimer();
+      }
       if (previousOnline.current === false && online) {
         void syncNow('network-restored');
       } else if (
@@ -277,11 +340,18 @@ export function SyncProvider({ children }: PropsWithChildren) {
     const appStateSubscription = AppState.addEventListener(
       'change',
       (nextState) => {
+        appStateRef.current = nextState;
+        if (nextState !== 'active') {
+          clearRetryTimer();
+        }
         if (nextState === 'active') {
           void NetInfo.fetch().then((state) => {
             const online = isNetworkOnline(state);
             onlineRef.current = online;
             setIsOnline(online);
+            if (!online) {
+              clearRetryTimer();
+            }
             previousOnline.current = online;
             if (online) {
               void syncNow('resume');
@@ -305,6 +375,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
     sessionToken,
     submitterIdentity,
     syncNow,
+    clearRetryTimer,
   ]);
 
   const value = useMemo<SyncContextValue>(
@@ -337,6 +408,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
 function isNetworkOnline(state: NetInfoState): boolean {
   return state.isConnected === true && state.isInternetReachable !== false;
+}
+
+function getSessionKey(session: MobileSession | null): string | null {
+  return session ? `${session.token}:${session.user.uuid}` : null;
 }
 
 function isSameSession(

@@ -1,21 +1,37 @@
 import type { CaneGuardDatabase } from '@/database/database';
-import { createFieldReportSyncRepository } from '@/features/reports/data/fieldReportSyncRepository';
+import {
+  createFieldReportSyncRepository,
+  SYNC_RETRY_COOLDOWN_MS,
+} from '@/features/reports/data/fieldReportSyncRepository';
+import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import {
   syncFieldReport,
   type SyncResult,
 } from '@/features/sync/services/syncFieldReport';
+
+export const DEFAULT_SYNC_BATCH_SIZE = 10;
+export const MAX_SYNC_REPORTS_PER_RUN = 50;
 
 export type SyncTriggerSource =
   | 'after-save'
   | 'startup'
   | 'resume'
   | 'network-restored'
+  | 'retry-timer'
   | 'manual';
+
+export type SyncHaltReason =
+  | 'empty'
+  | 'auth-required'
+  | 'transient-blocker'
+  | 'run-limit'
+  | null;
 
 export interface SyncBatchResult {
   attempted: number;
   authRequired: boolean;
   failed: number;
+  haltReason: SyncHaltReason;
   results: SyncResult[];
   source: SyncTriggerSource;
   synced: number;
@@ -71,7 +87,7 @@ export function syncPendingFieldReports(
 
 async function executeBatch({
   database,
-  limit = 10,
+  limit = DEFAULT_SYNC_BATCH_SIZE,
   source,
   submitterIdentity,
   token,
@@ -80,30 +96,74 @@ async function executeBatch({
     database,
     submitterIdentity,
   );
-  const candidates = await repository.findSyncCandidates(
-    limit,
-    source === 'manual',
+  const batchSize = Math.min(
+    Math.max(Math.trunc(limit), 1),
+    MAX_SYNC_REPORTS_PER_RUN,
   );
   const results: SyncResult[] = [];
   let authRequired = false;
+  let haltReason: SyncHaltReason = null;
 
-  for (const candidate of candidates) {
-    const result = await syncFieldReport({
-      reportId: candidate.id,
-      repository,
-      token,
-    });
-    results.push(result);
-    if (result.status === 'failed' && result.error.code === 'AUTH_REQUIRED') {
-      authRequired = true;
+  while (results.length < MAX_SYNC_REPORTS_PER_RUN) {
+    const remaining = MAX_SYNC_REPORTS_PER_RUN - results.length;
+    const candidates = await repository.findSyncCandidates(
+      Math.min(batchSize, remaining),
+      {
+        failedBefore: new Date(
+          Date.now() - SYNC_RETRY_COOLDOWN_MS,
+        ).toISOString(),
+        includeRetryableFailed: true,
+      },
+    );
+    if (candidates.length === 0) {
+      haltReason = 'empty';
       break;
     }
+
+    for (const candidate of candidates) {
+      const result = await syncFieldReport({
+        reportId: candidate.id,
+        repository,
+        token,
+      });
+      results.push(result);
+
+      if (result.status !== 'failed') {
+        if (results.length >= MAX_SYNC_REPORTS_PER_RUN) {
+          haltReason = 'run-limit';
+          break;
+        }
+        continue;
+      }
+      if (result.error.code === 'AUTH_REQUIRED') {
+        authRequired = true;
+        haltReason = 'auth-required';
+        break;
+      }
+      if (isAutoRetryableSyncErrorCode(result.error.code)) {
+        haltReason = 'transient-blocker';
+        break;
+      }
+      if (results.length >= MAX_SYNC_REPORTS_PER_RUN) {
+        haltReason = 'run-limit';
+        break;
+      }
+    }
+
+    if (haltReason) {
+      break;
+    }
+  }
+
+  if (!haltReason && results.length >= MAX_SYNC_REPORTS_PER_RUN) {
+    haltReason = 'run-limit';
   }
 
   return {
     attempted: results.length,
     authRequired,
     failed: results.filter((result) => result.status === 'failed').length,
+    haltReason,
     results,
     source,
     synced: results.filter((result) => result.status === 'synced').length,

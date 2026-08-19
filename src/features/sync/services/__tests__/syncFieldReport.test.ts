@@ -58,8 +58,41 @@ describe('single Field Report synchronization', () => {
     expect(repo.findById).toHaveBeenCalledWith(REPORT.id);
     expect(repo.markSyncing).toHaveBeenCalledWith(REPORT.id, expect.any(String));
     expect(upload).toHaveBeenCalledTimes(2);
+    expect(upload.mock.calls[1]?.[0]).toBe(upload.mock.calls[0]?.[0]);
     expect(delay).toHaveBeenCalledWith(2_000);
     expect(repo.markFailed).not.toHaveBeenCalled();
+  });
+
+  it('keeps the bounded immediate retry sequence before persisting a transient failure', async () => {
+    const repo = repository();
+    const upload = jest.fn(async () => {
+      throw new ApiHttpError(503, 'server failed');
+    });
+    const delay = jest.fn(async (_milliseconds: number) => undefined);
+
+    await expect(syncFieldReport({
+      reportId: REPORT.id,
+      repository: repo,
+      token: 'secure-token',
+      upload,
+      delay,
+      mapMultipart: jest.fn(() => new FormData()),
+    })).resolves.toMatchObject({
+      reportId: REPORT.id,
+      status: 'failed',
+      error: { code: 'SERVER_ERROR' },
+    });
+    expect(upload).toHaveBeenCalledTimes(4);
+    expect(delay.mock.calls.map(([milliseconds]) => milliseconds)).toEqual([
+      2_000,
+      5_000,
+      15_000,
+    ]);
+    expect(repo.markFailed).toHaveBeenCalledWith(
+      REPORT.id,
+      'SERVER_ERROR',
+      expect.any(String),
+    );
   });
 
   it.each([[401, 'AUTH_REQUIRED'], [403, 'API_FORBIDDEN'], [422, 'API_VALIDATION_FAILED']])(

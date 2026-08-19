@@ -15,6 +15,22 @@ export const SYNC_ERROR_CODES = [
 
 export type SyncErrorCode = (typeof SYNC_ERROR_CODES)[number];
 
+export const AUTO_RETRYABLE_SYNC_ERROR_CODES = [
+  'NETWORK_UNAVAILABLE',
+  'NETWORK_REQUEST_FAILED',
+  'API_RATE_LIMITED',
+  'SERVER_ERROR',
+] as const satisfies readonly SyncErrorCode[];
+
+export function isAutoRetryableSyncErrorCode(
+  code: string | null | undefined,
+): boolean {
+  return (
+    typeof code === 'string' &&
+    (AUTO_RETRYABLE_SYNC_ERROR_CODES as readonly string[]).includes(code)
+  );
+}
+
 export class SyncError extends Error {
   readonly code: SyncErrorCode;
   readonly retryAfterMs: number | null;
@@ -28,7 +44,7 @@ export class SyncError extends Error {
     super(message);
     this.name = 'SyncError';
     this.code = code;
-    this.retryable = options.retryable ?? false;
+    this.retryable = options.retryable ?? isAutoRetryableSyncErrorCode(code);
     this.retryAfterMs = options.retryAfterMs ?? null;
   }
 }
@@ -61,14 +77,13 @@ export function toSyncError(error: unknown): SyncError {
       return new SyncError(
         'API_RATE_LIMITED',
         'The server asked CaneGuard to wait before uploading again.',
-        { retryAfterMs: error.retryAfterMs, retryable: true },
+        { retryAfterMs: error.retryAfterMs },
       );
     }
     if (error.status >= 500) {
       return new SyncError(
         'SERVER_ERROR',
-        'The server could not accept the report yet.',
-        { retryable: true },
+        'The server could not accept the report yet.'
       );
     }
   }
@@ -76,8 +91,7 @@ export function toSyncError(error: unknown): SyncError {
   if (error instanceof TypeError || isAbortError(error)) {
     return new SyncError(
       'NETWORK_REQUEST_FAILED',
-      'The upload connection failed.',
-      { retryable: true },
+      'The upload connection failed.'
     );
   }
 

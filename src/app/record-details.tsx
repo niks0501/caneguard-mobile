@@ -214,6 +214,7 @@ export default function RecordDetailsScreen() {
                   {Math.round(record.data.confidence * 100)}% AI confidence
                 </Text>
                 <RecordSyncStatus
+                  errorCode={synchronizationMetadata?.lastSyncErrorCode}
                   status={fieldReport.data?.syncStatus ?? record.data.syncStatus}
                 />
               </View>
@@ -467,7 +468,10 @@ function getFieldReportAction(
       message: 'Continue the same locally saved Draft. Partial information is preserved.',
     };
   }
-  const syncPresentation = getSyncPresentation(report.syncStatus);
+  const syncPresentation = getSyncPresentation(
+    report.syncStatus,
+    report.lastSyncErrorCode,
+  );
   return {
     accessibilityLabel: 'Open finalized Field Report',
     disabled: false,
@@ -478,12 +482,14 @@ function getFieldReportAction(
 }
 
 function RecordSyncStatus({
+  errorCode,
   status,
 }: {
+  errorCode: string | null | undefined;
   status: SyncStatus;
 }) {
   const theme = useTheme();
-  const presentation = getSyncPresentation(status);
+  const presentation = getSyncPresentation(status, errorCode);
 
   return (
     <View style={styles.localStatus}>

@@ -11,6 +11,7 @@ import {
   findLastSuccessfulFieldReportSyncAt,
   resetStaleSyncingFieldReports,
 } from '@/features/reports/data/fieldReportSyncRepository';
+import { SyncError } from '@/features/sync/errors/syncErrors';
 import {
   SyncContext,
   SyncProvider,
@@ -60,6 +61,15 @@ function SyncStateProbe() {
   return (
     <Text testID="sync-state">
       {`${sync?.pendingCount ?? 'none'}:${sync?.lastSuccessfulSyncAt ?? 'none'}`}
+    </Text>
+  );
+}
+
+function SyncApiHealthProbe() {
+  const sync = useContext(SyncContext);
+  return (
+    <Text testID="sync-api-health">
+      {`${sync?.isOnline ?? 'none'}:${sync?.apiReachability ?? 'none'}`}
     </Text>
   );
 }
@@ -144,6 +154,81 @@ describe('SyncProvider foreground triggers', () => {
         expect.objectContaining({ source: 'resume' }),
       ),
     );
+  });
+
+  it('tracks API unavailability separately from phone network availability', async () => {
+    jest.mocked(syncPendingFieldReports).mockResolvedValue({
+      attempted: 1,
+      authRequired: false,
+      failed: 1,
+      haltReason: 'transient-blocker',
+      results: [
+        {
+          reportId: 'report-1',
+          status: 'failed',
+          error: new SyncError(
+            'NETWORK_REQUEST_FAILED',
+            'The upload connection failed.',
+          ),
+        },
+      ],
+      source: 'startup',
+      synced: 0,
+    });
+    const view = await render(
+      <SyncProvider>
+        <SyncApiHealthProbe />
+      </SyncProvider>,
+    );
+    await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+
+    await act(async () => {
+      networkListener(ONLINE);
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('sync-api-health')).toHaveTextContent(
+        'true:unavailable',
+      ),
+    );
+    view.unmount();
+  });
+
+  it('tracks API availability after a successful report upload', async () => {
+    jest.mocked(syncPendingFieldReports).mockResolvedValue({
+      attempted: 1,
+      authRequired: false,
+      failed: 0,
+      haltReason: 'empty',
+      results: [
+        {
+          reportId: 'report-1',
+          remoteId: 'remote-1',
+          status: 'synced',
+        },
+      ],
+      source: 'startup',
+      synced: 1,
+    });
+    const view = await render(
+      <SyncProvider>
+        <SyncApiHealthProbe />
+      </SyncProvider>,
+    );
+    await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+
+    await act(async () => {
+      networkListener(ONLINE);
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('sync-api-health')).toHaveTextContent(
+        'true:available',
+      ),
+    );
+    view.unmount();
   });
 
   it('schedules one app-active retry after a transient queue blocker', async () => {

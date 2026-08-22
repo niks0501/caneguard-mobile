@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import HomeScreen from '@/app/home';
 
 let mockIsOnline: boolean | null = true;
+let mockApiReachability: 'unknown' | 'available' | 'unavailable' = 'unknown';
 
 jest.mock('@/features/auth/hooks/useAuth', () => ({
   useAuth: () => ({
@@ -17,6 +18,7 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
 }));
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({
+    apiReachability: mockApiReachability,
     errorMessage: null,
     get isOnline() {
       return mockIsOnline;
@@ -33,23 +35,31 @@ const mockRouterPush = router.push as jest.Mock;
 describe('HomeScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockApiReachability = 'unknown';
     mockIsOnline = true;
   });
 
-  it('renders the session identity and tri-state connection badge without a location line', async () => {
-    const connectionStates: { isOnline: boolean | null; label: string }[] = [
-      { isOnline: true, label: 'Online' },
-      { isOnline: false, label: 'Offline' },
-      { isOnline: null, label: 'Checking connection' },
+  it('renders separate network and API connection states without a location line', async () => {
+    const connectionStates: {
+      apiReachability: 'unknown' | 'available' | 'unavailable';
+      isOnline: boolean | null;
+      label: string;
+    }[] = [
+      { apiReachability: 'available', isOnline: true, label: 'Online' },
+      { apiReachability: 'unknown', isOnline: true, label: 'Network available' },
+      { apiReachability: 'unavailable', isOnline: true, label: 'Server unavailable' },
+      { apiReachability: 'unknown', isOnline: false, label: 'Offline' },
+      { apiReachability: 'unknown', isOnline: null, label: 'Checking connection' },
     ];
 
     for (const state of connectionStates) {
+      mockApiReachability = state.apiReachability;
       mockIsOnline = state.isOnline;
       const rendered = await render(<HomeScreen />);
 
       expect(screen.getByText('Ari Santos')).toBeOnTheScreen();
       expect(screen.queryByText('Nikko Selwyn')).not.toBeOnTheScreen();
-      expect(screen.getByText(state.label)).toBeOnTheScreen();
+      expect(screen.getAllByText(state.label).length).toBeGreaterThan(0);
       expect(screen.queryByText('Brgy. Cogunan, Nasugbu, Batangas')).not.toBeOnTheScreen();
 
       await rendered.unmount();
@@ -88,5 +98,18 @@ describe('HomeScreen', () => {
 
     await fireEvent.press(screen.getByTestId('home.sync-status'));
     expect(mockRouterPush).toHaveBeenCalledWith('/records');
+  });
+
+  it('shows CaneGuard server unavailability separately from phone network state', async () => {
+    mockApiReachability = 'unavailable';
+    mockIsOnline = true;
+
+    await render(<HomeScreen />);
+
+    expect(screen.getByText('Server unavailable')).toBeOnTheScreen();
+    expect(
+      screen.getByText('1 report awaiting sync · CaneGuard server unavailable'),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText('Online')).not.toBeOnTheScreen();
   });
 });

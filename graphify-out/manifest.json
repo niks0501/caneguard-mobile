@@ -10,8 +10,8 @@
     "semantic_hash": ""
   },
   "src/app/home.tsx": {
-    "mtime": 1786893281.04215,
-    "ast_hash": "838196b3bd87a5856d7d22ad4d306e67",
+    "mtime": 1787408883.165105,
+    "ast_hash": "d3fc98f9b75085d6ffe6a05135136e8e",
     "semantic_hash": ""
   },
   "src/app/image-preview.tsx": {
@@ -595,8 +595,8 @@
     "semantic_hash": ""
   },
   "src/components/ui/SyncStatusPanel.tsx": {
-    "mtime": 1786533086.9026573,
-    "ast_hash": "a7d4ab87023de1d60623371fdab2eb14",
+    "mtime": 1787408873.0155797,
+    "ast_hash": "083d216e51f0fca06e14bf7eade6eb52",
     "semantic_hash": ""
   },
   "src/config/__tests__/env.test.ts": {
@@ -685,13 +685,13 @@
     "semantic_hash": ""
   },
   "src/features/sync/providers/SyncProvider.tsx": {
-    "mtime": 1787148186.5407715,
-    "ast_hash": "5e04f730a6b56774c87ecdb5808156a6",
+    "mtime": 1787408836.3033376,
+    "ast_hash": "2a471d0f2860fab7bc57b134cf6a6986",
     "semantic_hash": ""
   },
   "src/features/sync/providers/__tests__/SyncProvider.test.tsx": {
-    "mtime": 1787393365.1876907,
-    "ast_hash": "61418fd10928e3d138f6295b1682c390",
+    "mtime": 1787408991.4687402,
+    "ast_hash": "a54f0309f943031b0b13fcd3adcb7a6a",
     "semantic_hash": ""
   },
   "src/features/sync/services/syncEvents.ts": {
@@ -815,8 +815,8 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/home.test.tsx": {
-    "mtime": 1786893356.1807175,
-    "ast_hash": "c47d3a3ac427ededd631320f8780d9a6",
+    "mtime": 1787408953.4220011,
+    "ast_hash": "f628947da5aa4a199b86f660b5ede928",
     "semantic_hash": ""
   },
   "src/app/__tests__/register.test.tsx": {
@@ -835,8 +835,8 @@
     "semantic_hash": ""
   },
   "src/components/ui/SyncStatusRow.tsx": {
-    "mtime": 1786540369.7645473,
-    "ast_hash": "dd9daac34630414f992e31455f950eae",
+    "mtime": 1787408862.4484227,
+    "ast_hash": "21dba1de9f168f12604276386c91e1a1",
     "semantic_hash": ""
   },
   "src/components/ui/__tests__/shared-ui.test.tsx": {
@@ -992,6 +992,11 @@
   "src/features/reports/api/__fixtures__/mobileReportStatusesV1.ts": {
     "mtime": 1787392725.9655669,
     "ast_hash": "0152f6165ef0f0432ee684fc5f7e02cf",
+    "semantic_hash": ""
+  },
+  "src/components/ui/__tests__/sync-status.test.tsx": {
+    "mtime": 1787409039.5340726,
+    "ast_hash": "0a8e07b162e06bb18f9e4b32a6f83f5f",
     "semantic_hash": ""
   }
 }

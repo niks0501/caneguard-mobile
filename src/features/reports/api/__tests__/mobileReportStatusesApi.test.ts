@@ -1,4 +1,5 @@
 import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
+import { MOBILE_REPORT_STATUSES_V1_FIXTURE } from '@/features/reports/api/__fixtures__/mobileReportStatusesV1';
 import {
   fetchAllMobileReportStatuses,
   ReportStatusesApiError,
@@ -46,6 +47,23 @@ function page(
 describe('mobile report statuses API', () => {
   beforeEach(() => {
     request.mockReset();
+  });
+
+  it('reads the canonical sync.before checkpoint from the v1 envelope', async () => {
+    request.mockResolvedValueOnce(MOBILE_REPORT_STATUSES_V1_FIXTURE);
+
+    await expect(
+      fetchAllMobileReportStatuses({ token: 'secure-token' }),
+    ).resolves.toEqual({
+      syncBefore: CHECKPOINT,
+      updates: [
+        expect.objectContaining({
+          clientUuid: 'client-1',
+          rawStatus: 'for_field_validation',
+          feedback: 'Latest field note',
+        }),
+      ],
+    });
   });
 
   it('follows every cursor page with one server checkpoint and preserves unknown statuses', async () => {

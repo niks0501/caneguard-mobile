@@ -690,8 +690,8 @@
     "semantic_hash": ""
   },
   "src/features/sync/providers/__tests__/SyncProvider.test.tsx": {
-    "mtime": 1787148222.1554332,
-    "ast_hash": "23d9bb95bed7aacf0301ae56ac87029b",
+    "mtime": 1787393365.1876907,
+    "ast_hash": "61418fd10928e3d138f6295b1682c390",
     "semantic_hash": ""
   },
   "src/features/sync/services/syncEvents.ts": {
@@ -785,23 +785,23 @@
     "semantic_hash": ""
   },
   "src/features/sync/services/__tests__/syncFieldReport.test.ts": {
-    "mtime": 1787147831.7153673,
-    "ast_hash": "d0b1e5fa6d2b68505d66f5f951611d9f",
+    "mtime": 1787393287.9440694,
+    "ast_hash": "6daecfda7081895216fc5a0d7f57d424",
     "semantic_hash": ""
   },
   "src/features/sync/services/__tests__/syncPendingFieldReports.test.ts": {
-    "mtime": 1787147639.172253,
-    "ast_hash": "009efe546a2b6bdf1224caf360b69926",
+    "mtime": 1787393293.8196504,
+    "ast_hash": "68d3f5879ed1a5ec684f11901c48bfda",
     "semantic_hash": ""
   },
   "src/features/sync/services/syncFieldReport.ts": {
-    "mtime": 1786533086.9122903,
-    "ast_hash": "dc592a862c71e3e49b7349509958ae9f",
+    "mtime": 1787393307.4028482,
+    "ast_hash": "06fdd093fa9df70702b68ba900883669",
     "semantic_hash": ""
   },
   "src/features/sync/services/syncPendingFieldReports.ts": {
-    "mtime": 1787147290.134005,
-    "ast_hash": "d88dc7134fc4acb39ef54a9c8d53ffc7",
+    "mtime": 1787393358.7934206,
+    "ast_hash": "3e1b0ac8729b56ddf210c868ba3b02d0",
     "semantic_hash": ""
   },
   "src/features/reports/hooks/__tests__/useFieldReportDraft.test.tsx": {
@@ -860,13 +860,13 @@
     "semantic_hash": ""
   },
   "src/features/reports/api/__tests__/mobileReportStatusesApi.test.ts": {
-    "mtime": 1786609633.6999993,
-    "ast_hash": "2df5e649349a998fc5fd4f967377edb2",
+    "mtime": 1787392734.0099185,
+    "ast_hash": "66447c393069ea7b03f14d777ba4ccd3",
     "semantic_hash": ""
   },
   "src/features/reports/api/mobileReportStatusesApi.ts": {
-    "mtime": 1786609633.6999993,
-    "ast_hash": "bcf6d158e53dca7cc1060dc7dfb125f5",
+    "mtime": 1787392748.4400868,
+    "ast_hash": "3df1ba674c7305b8e074234f52c67fc0",
     "semantic_hash": ""
   },
   "src/features/reports/components/use-manual-map-gestures.ts": {
@@ -987,6 +987,11 @@
   "src/features/sync/errors/__tests__/syncErrors.test.ts": {
     "mtime": 1787147491.5273845,
     "ast_hash": "64290e29004497b1ee703fe66648e5ff",
+    "semantic_hash": ""
+  },
+  "src/features/reports/api/__fixtures__/mobileReportStatusesV1.ts": {
+    "mtime": 1787392725.9655669,
+    "ast_hash": "0152f6165ef0f0432ee684fc5f7e02cf",
     "semantic_hash": ""
   }
 }

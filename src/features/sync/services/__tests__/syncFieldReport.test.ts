@@ -63,6 +63,33 @@ describe('single Field Report synchronization', () => {
     expect(repo.markFailed).not.toHaveBeenCalled();
   });
 
+  it('can hand a transient failure to the provider retry timer after one request', async () => {
+    const repo = repository();
+    const upload = jest.fn(async () => {
+      throw new ApiHttpError(503, 'server failed');
+    });
+
+    await expect(syncFieldReport({
+      reportId: REPORT.id,
+      repository: repo,
+      token: 'secure-token',
+      upload,
+      allowImmediateRetries: false,
+      delay: jest.fn(async () => undefined),
+      mapMultipart: jest.fn(() => new FormData()),
+    })).resolves.toMatchObject({
+      reportId: REPORT.id,
+      status: 'failed',
+      error: { code: 'SERVER_ERROR' },
+    });
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(repo.markFailed).toHaveBeenCalledWith(
+      REPORT.id,
+      'SERVER_ERROR',
+      expect.any(String),
+    );
+  });
+
   it('keeps the bounded immediate retry sequence before persisting a transient failure', async () => {
     const repo = repository();
     const upload = jest.fn(async () => {

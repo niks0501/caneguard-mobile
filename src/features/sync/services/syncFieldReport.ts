@@ -10,6 +10,7 @@ export type SyncResult =
   | { reportId: string; status: 'failed'; error: SyncError };
 
 interface SyncFieldReportOptions {
+  allowImmediateRetries?: boolean;
   delay?: (milliseconds: number) => Promise<void>;
   mapMultipart?: typeof mapFieldReportToMultipart;
   now?: () => Date;
@@ -20,6 +21,7 @@ interface SyncFieldReportOptions {
 }
 
 export async function syncFieldReport({
+  allowImmediateRetries = true,
   delay = wait,
   mapMultipart = mapFieldReportToMultipart,
   now = () => new Date(),
@@ -60,7 +62,11 @@ export async function syncFieldReport({
         return { reportId, remoteId: uploaded.remoteId, status: 'synced' };
       } catch (error: unknown) {
         const syncError = toSyncError(error);
-        if (!syncError.retryable || retryIndex >= RETRY_DELAYS_MS.length) {
+        if (
+          !syncError.retryable ||
+          !allowImmediateRetries ||
+          retryIndex >= RETRY_DELAYS_MS.length
+        ) {
           throw syncError;
         }
         const retryDelay = Math.min(

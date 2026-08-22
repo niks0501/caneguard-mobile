@@ -121,7 +121,11 @@ async function executeBatch({
     }
 
     for (const candidate of candidates) {
+      // Automatic runs hand a transient outage back to SyncProvider after one
+      // request. Repeating long multipart timeouts here can postpone the
+      // lifecycle retry timer until after the API has already recovered.
       const result = await syncFieldReport({
+        allowImmediateRetries: source === 'manual',
         reportId: candidate.id,
         repository,
         token,

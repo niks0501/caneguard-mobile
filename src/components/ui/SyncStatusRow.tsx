@@ -14,29 +14,42 @@ export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
   const theme = useTheme();
   const sync = useSync();
   const hasPendingReports = sync.pendingCount > 0;
+  const pendingSummary = `${sync.pendingCount} ${sync.pendingCount === 1 ? 'report' : 'reports'} awaiting sync`;
+  const apiUnavailable =
+    sync.isOnline === true && sync.apiReachability === 'unavailable';
   const icon = sync.isSyncing
     ? 'upload-cloud'
-    : hasPendingReports
-      ? 'clock'
-      : sync.isOnline === null
-        ? 'wifi'
-        : sync.isOnline === false
-          ? 'wifi-off'
-          : 'check-circle';
-  const iconColor = sync.isOnline === null
-    ? theme.info
-    : hasPendingReports || sync.isOnline === false
-      ? theme.warning
-      : theme.success;
+    : apiUnavailable
+      ? 'alert-triangle'
+      : hasPendingReports
+        ? 'clock'
+        : sync.isOnline === null
+          ? 'wifi'
+          : sync.isOnline === false
+            ? 'wifi-off'
+            : 'check-circle';
+  const iconColor = apiUnavailable
+    ? theme.danger
+    : sync.isOnline === null
+      ? theme.info
+      : hasPendingReports || sync.isOnline === false
+        ? theme.warning
+        : theme.success;
   const summary = sync.isSyncing
     ? 'Syncing saved reports…'
-    : hasPendingReports
-      ? `${sync.pendingCount} ${sync.pendingCount === 1 ? 'report' : 'reports'} awaiting sync`
-      : sync.isOnline === null
-        ? 'Checking connection'
-        : sync.isOnline === false
-          ? 'Offline · saved reports stay on this device'
-          : 'All saved reports are synced';
+    : sync.isOnline === null
+      ? 'Checking connection'
+      : sync.isOnline === false
+        ? 'Offline · saved reports stay on this device'
+        : apiUnavailable
+          ? hasPendingReports
+            ? `${pendingSummary} · CaneGuard server unavailable`
+            : 'Network available · CaneGuard server unavailable'
+          : hasPendingReports
+            ? pendingSummary
+            : sync.apiReachability === 'unknown'
+              ? 'Network available · CaneGuard status not checked'
+              : 'CaneGuard connected · All saved reports are synced';
 
   return (
     <Pressable

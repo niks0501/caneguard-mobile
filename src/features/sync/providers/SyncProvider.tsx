@@ -28,7 +28,10 @@ import {
   type SyncTriggerSource,
 } from '@/features/sync/services/syncPendingFieldReports';
 
+export type ApiReachability = 'unknown' | 'available' | 'unavailable';
+
 interface SyncContextValue {
+  apiReachability: ApiReachability;
   errorMessage: string | null;
   isOnline: boolean | null;
   isSyncing: boolean;
@@ -49,10 +52,16 @@ export function SyncProvider({ children }: PropsWithChildren) {
   } = useAuth();
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [syncState, setSyncState] = useState<{
+    apiReachability: ApiReachability;
     errorMessage: string | null;
     isSyncing: boolean;
     sessionKey: string | null;
-  }>({ errorMessage: null, isSyncing: false, sessionKey: null });
+  }>({
+    apiReachability: 'unknown',
+    errorMessage: null,
+    isSyncing: false,
+    sessionKey: null,
+  });
   const [pendingCount, setPendingCount] = useState(0);
   const [lastSuccessfulSyncAt, setLastSuccessfulSyncAt] = useState<string | null>(
     null,
@@ -167,7 +176,12 @@ export function SyncProvider({ children }: PropsWithChildren) {
         return null;
       }
 
-      setSyncState({ errorMessage: null, isSyncing: true, sessionKey });
+      setSyncState((current) => ({
+        ...current,
+        errorMessage: null,
+        isSyncing: true,
+        sessionKey,
+      }));
       const isInitiatingSessionCurrent = () =>
         sessionRef.current?.token === initiatingSession.token &&
         sessionRef.current?.user.uuid === initiatingSession.user.uuid;
@@ -180,6 +194,13 @@ export function SyncProvider({ children }: PropsWithChildren) {
         });
         if (!isInitiatingSessionCurrent()) {
           return result;
+        }
+        const observedApiReachability = inferApiReachability(result);
+        if (observedApiReachability) {
+          setSyncState((current) => ({
+            ...current,
+            apiReachability: observedApiReachability,
+          }));
         }
         if (result.authRequired) {
           clearRetryTimer();
@@ -195,24 +216,26 @@ export function SyncProvider({ children }: PropsWithChildren) {
           setLastSuccessfulSyncAt(new Date().toISOString());
         }
         if (result.failed > 0 && !result.authRequired) {
-          setSyncState({
+          setSyncState((current) => ({
+            ...current,
             errorMessage:
               result.haltReason === 'transient-blocker'
                 ? 'Waiting to sync. Will retry automatically.'
                 : `${result.failed} report${result.failed === 1 ? '' : 's'} still need attention.`,
             isSyncing: true,
             sessionKey,
-          });
+          }));
         }
         await refreshPendingCount();
         return result;
       } catch {
         if (isInitiatingSessionCurrent()) {
-          setSyncState({
+          setSyncState((current) => ({
+            ...current,
             errorMessage: 'CaneGuard could not process the pending upload queue.',
             isSyncing: true,
             sessionKey,
-          });
+          }));
           await refreshPendingCount();
         }
         return null;
@@ -255,7 +278,12 @@ export function SyncProvider({ children }: PropsWithChildren) {
     let active = true;
     void Promise.resolve().then(() => {
       if (active) {
-        setSyncState({ errorMessage: null, isSyncing: false, sessionKey });
+        setSyncState({
+          apiReachability: 'unknown',
+          errorMessage: null,
+          isSyncing: false,
+          sessionKey,
+        });
       }
     });
     return () => {
@@ -308,11 +336,12 @@ export function SyncProvider({ children }: PropsWithChildren) {
             requestedSubmitterIdentity,
           )
         ) {
-          setSyncState({
+          setSyncState((current) => ({
+            ...current,
             errorMessage: 'Interrupted uploads could not be recovered yet.',
             isSyncing: false,
             sessionKey,
-          });
+          }));
         }
       });
 
@@ -380,6 +409,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<SyncContextValue>(
     () => ({
+      apiReachability:
+        syncState.sessionKey === sessionKey
+          ? syncState.apiReachability
+          : 'unknown',
       errorMessage:
         syncState.sessionKey === sessionKey ? syncState.errorMessage : null,
       isOnline,
@@ -397,6 +430,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       retryReport,
       sessionKey,
       syncNow,
+      syncState.apiReachability,
       syncState.errorMessage,
       syncState.isSyncing,
       syncState.sessionKey,
@@ -408,6 +442,44 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
 function isNetworkOnline(state: NetInfoState): boolean {
   return state.isConnected === true && state.isInternetReachable !== false;
+}
+
+/**
+ * Infers service availability from the last sync attempt without replacing the
+ * separate phone-network signal used for offline gating.
+ */
+function inferApiReachability(
+  result: SyncBatchResult,
+): ApiReachability | null {
+  let observation: ApiReachability | null = null;
+
+  for (const syncResult of result.results) {
+    if (syncResult.status === 'synced') {
+      observation = 'available';
+      continue;
+    }
+    if (syncResult.status !== 'failed') {
+      continue;
+    }
+
+    switch (syncResult.error.code) {
+      case 'NETWORK_UNAVAILABLE':
+      case 'NETWORK_REQUEST_FAILED':
+      case 'SERVER_ERROR':
+        observation = 'unavailable';
+        break;
+      case 'AUTH_REQUIRED':
+      case 'API_VALIDATION_FAILED':
+      case 'API_FORBIDDEN':
+      case 'API_RATE_LIMITED':
+        observation = 'available';
+        break;
+      default:
+        break;
+    }
+  }
+
+  return observation;
 }
 
 function getSessionKey(session: MobileSession | null): string | null {

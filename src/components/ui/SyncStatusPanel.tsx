@@ -9,12 +9,32 @@ import { useTheme } from '@/hooks/use-theme';
 export function SyncStatusPanel() {
   const theme = useTheme();
   const sync = useSync();
+  const apiUnavailable =
+    sync.isOnline === true && sync.apiReachability === 'unavailable';
   const connectionLabel =
     sync.isOnline === null
       ? 'Checking connection'
-      : sync.isOnline
-        ? 'Online'
-        : 'Offline';
+      : sync.isOnline === false
+        ? 'Offline'
+        : apiUnavailable
+          ? 'Network available · CaneGuard server unavailable'
+          : sync.apiReachability === 'unknown'
+            ? 'Network available · CaneGuard status not checked'
+            : 'Network and CaneGuard available';
+  const icon = apiUnavailable
+    ? 'alert-triangle'
+    : sync.isOnline === true
+      ? 'wifi'
+      : sync.isOnline === null
+        ? 'wifi'
+        : 'wifi-off';
+  const iconColor = apiUnavailable
+    ? theme.danger
+    : sync.isOnline === true
+      ? theme.success
+      : sync.isOnline === null
+        ? theme.info
+        : theme.warning;
 
   return (
     <View
@@ -24,11 +44,7 @@ export function SyncStatusPanel() {
         { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
       ]}>
       <View style={styles.heading}>
-        <Feather
-          name={sync.isOnline ? 'wifi' : 'wifi-off'}
-          size={20}
-          color={sync.isOnline ? theme.success : theme.warning}
-        />
+        <Feather name={icon} size={20} color={iconColor} />
         <View style={styles.copy}>
           <Text style={[styles.title, { color: theme.primaryDark }]}>
             Report synchronization

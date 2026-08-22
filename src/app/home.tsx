@@ -58,9 +58,13 @@ export const REFERENCE_CLASSES: readonly ReferenceClass[] = [
 export default function HomeScreen() {
   const theme = useTheme();
   const { user } = useAuth();
-  const { isOnline } = useSync();
+  const { apiReachability, isOnline } = useSync();
   const connectionBadge = isOnline === true
-    ? { backgroundColor: theme.successBg, color: theme.success, label: 'Online' }
+    ? apiReachability === 'unavailable'
+      ? { backgroundColor: theme.dangerBg, color: theme.danger, label: 'Server unavailable' }
+      : apiReachability === 'unknown'
+        ? { backgroundColor: theme.infoBg, color: theme.info, label: 'Network available' }
+        : { backgroundColor: theme.successBg, color: theme.success, label: 'Online' }
     : isOnline === false
       ? { backgroundColor: theme.warningBg, color: theme.warning, label: 'Offline' }
       : { backgroundColor: theme.infoBg, color: theme.info, label: 'Checking connection' };

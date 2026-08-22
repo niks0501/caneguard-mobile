@@ -155,6 +155,28 @@ describe('pending Field Report queue', () => {
     expect(syncFieldReport).toHaveBeenCalledTimes(2);
   });
 
+  it('hands automatic transient failures to the provider retry timer', async () => {
+    findSyncCandidates.mockResolvedValueOnce([{ id: 'transient-report' }]);
+    jest.mocked(syncFieldReport).mockResolvedValueOnce({
+      reportId: 'transient-report',
+      status: 'failed',
+      error: new SyncError('SERVER_ERROR', 'The server is unavailable.'),
+    });
+
+    await expect(syncPendingFieldReports({
+      database,
+      source: 'startup',
+      submitterIdentity: SUBMITTER_ID,
+      token: 'secure-token',
+    })).resolves.toMatchObject({ haltReason: 'transient-blocker' });
+    expect(syncFieldReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowImmediateRetries: false,
+        reportId: 'transient-report',
+      }),
+    );
+  });
+
   it('stops the current drain after an exhausted transient failure', async () => {
     findSyncCandidates.mockResolvedValueOnce([
       { id: 'transient-report' },

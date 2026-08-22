@@ -185,8 +185,15 @@ describe('SyncProvider foreground triggers', () => {
         jest.advanceTimersByTime(60_000);
         await Promise.resolve();
       });
-      expect(syncPendingFieldReports).toHaveBeenCalledWith(
+      await waitFor(() =>
+        expect(syncPendingFieldReports).toHaveBeenCalledTimes(2),
+      );
+      expect(syncPendingFieldReports).toHaveBeenNthCalledWith(
+        2,
         expect.objectContaining({ source: 'retry-timer' }),
+      );
+      expect(syncPendingFieldReports).not.toHaveBeenCalledWith(
+        expect.objectContaining({ source: 'manual' }),
       );
     } finally {
       jest.useRealTimers();

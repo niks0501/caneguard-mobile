@@ -126,7 +126,8 @@ function parsePage(body: unknown): {
   }
 
   const meta = isRecord(body.meta) ? body.meta : null;
-  const rawSyncBefore = meta?.sync_before ?? body.sync_before;
+  const sync = isRecord(body.sync) ? body.sync : null;
+  const rawSyncBefore = sync?.before ?? meta?.sync_before ?? body.sync_before;
   const syncBefore = requireTimestamp(rawSyncBefore, 'sync_before');
   const rawNext = body.links.next;
   if (rawNext !== null && typeof rawNext !== 'string') {

@@ -597,6 +597,20 @@ describe('Field Report draft repository', () => {
       barangay: 'Lumbangan',
       submitted_at: null,
     });
+    expect(
+      native
+        .prepare(
+          `SELECT managed_image_uri, submission_image_uri,
+                  submission_image_mime_type, submission_image_size_bytes
+             FROM scan_records`,
+        )
+        .get(),
+    ).toEqual({
+      managed_image_uri: `file:///caneguard/scan-images/${SCAN_ID}.jpg`,
+      submission_image_uri: null,
+      submission_image_mime_type: null,
+      submission_image_size_bytes: null,
+    });
     native.close();
   });
 

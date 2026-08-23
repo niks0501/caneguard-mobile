@@ -471,6 +471,25 @@ describe('scan record write repository', () => {
     native.close();
   });
 
+  it('lists source and submission image references without duplicates', async () => {
+    const { database, native } = openTestDatabase();
+    const submissionImageUri = getSubmissionImageUri(RECORD_ID);
+    await insertScanRecord(
+      database,
+      validInput({
+        submissionImageMimeType: 'image/jpeg',
+        submissionImageSizeBytes: 4096,
+        submissionImageUri,
+      }),
+    );
+
+    await expect(listManagedImageUris(database)).resolves.toEqual([
+      `${MANAGED_ROOT}/${RECORD_ID}.jpg`,
+      submissionImageUri,
+    ]);
+    native.close();
+  });
+
   it('does not hand shared image references to cleanup after deleting one record', async () => {
     const { database, native } = openTestDatabase();
     const sharedManagedImageUri = validInput().managedImageUri;

@@ -111,17 +111,43 @@ describe('CaneGuard database migrations', () => {
     insertScanRecord(database);
 
     const scanBefore = database
-      .prepare('SELECT * FROM scan_records WHERE id = ?')
+      .prepare(
+        `SELECT id, managed_image_uri, image_source_type, predicted_label,
+                confidence, checklist_consistency, reported_severity, barangay,
+                model_version, preprocess_ms, inference_ms, total_ms, sync_status,
+                remote_id, sync_attempt_count, last_sync_error_code,
+                last_sync_attempt_at, last_synced_at, created_at, updated_at
+           FROM scan_records WHERE id = ?`,
+      )
       .get('2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2');
 
     database.exec(migration2);
 
     expect(
       database
-        .prepare('SELECT * FROM scan_records WHERE id = ?')
+        .prepare(
+          `SELECT id, managed_image_uri, image_source_type, predicted_label,
+                  confidence, checklist_consistency, reported_severity, barangay,
+                  model_version, preprocess_ms, inference_ms, total_ms, sync_status,
+                  remote_id, sync_attempt_count, last_sync_error_code,
+                  last_sync_attempt_at, last_synced_at, created_at, updated_at
+             FROM scan_records WHERE id = ?`,
+        )
         .get('2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2'),
     ).toEqual(scanBefore);
     database.exec(migration7);
+    expect(
+      database
+        .prepare(
+          `SELECT id, managed_image_uri, image_source_type, predicted_label,
+                  confidence, checklist_consistency, reported_severity, barangay,
+                  model_version, preprocess_ms, inference_ms, total_ms, sync_status,
+                  remote_id, sync_attempt_count, last_sync_error_code,
+                  last_sync_attempt_at, last_synced_at, created_at, updated_at
+             FROM scan_records WHERE id = ?`,
+        )
+        .get('2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2'),
+    ).toEqual(scanBefore);
     expect(
       database
         .prepare(

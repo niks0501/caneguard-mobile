@@ -29,6 +29,8 @@ const EXTENSION_TO_MIME: Readonly<Record<string, string>> = {
 };
 
 const FALLBACK_EXTENSION = 'img';
+const BACKUP_SUFFIX = '.backup';
+const LEGACY_MANAGED_IMAGE_ROOTS = ['file:///caneguard'] as const;
 
 export interface CopyScanImageInput {
   recordId: string;
@@ -74,6 +76,10 @@ export interface ResolvedImageFormat {
 
 export function getManagedScanImageDirectory(): Directory {
   return new Directory(Paths.document, 'caneguard', 'scan-images');
+}
+
+function getManagedImageRootDirectory(): Directory {
+  return new Directory(Paths.document, 'caneguard');
 }
 
 export function ensureManagedScanImageDirectory(): Directory {
@@ -146,10 +152,9 @@ export async function copyScanImageToManagedStorage(
     sourceUri: input.sourceUri,
   });
   const directory = ensureManagedScanImageDirectory();
-  const existingRecordImages = directory
-    .list()
-    .filter((entry): entry is File => entry instanceof File)
-    .filter((file) => isManagedScanImageUriForRecord(file.uri, input.recordId));
+  const existingRecordImages = listManagedScanImageFiles().filter((file) =>
+    isManagedScanImageUriForRecord(file.uri, input.recordId),
+  );
   if (existingRecordImages.length > 0) {
     throw new StorageError(
       'DUPLICATE_RECORD',
@@ -204,7 +209,13 @@ export function readManagedImageMetadata(uri: string): ManagedImageMetadata | nu
   }
 
   const info = file.info();
-  const extension = normalizeExtension(file.extension) ?? FALLBACK_EXTENSION;
+  const filename = file.uri.slice(file.uri.lastIndexOf('/') + 1);
+  const imageFilename = filename.endsWith(BACKUP_SUFFIX)
+    ? filename.slice(0, -BACKUP_SUFFIX.length)
+    : filename;
+  const extension =
+    normalizeExtension(imageFilename.slice(imageFilename.lastIndexOf('.'))) ??
+    FALLBACK_EXTENSION;
 
   return {
     managedUri: file.uri,
@@ -256,12 +267,10 @@ export function findOrphanedManagedImages(
     referencedManagedUris instanceof Set
       ? referencedManagedUris
       : new Set(referencedManagedUris);
-  const directory = ensureManagedScanImageDirectory();
+  ensureManagedScanImageDirectory();
 
-  return directory
-    .list()
-    .filter((entry): entry is File => entry instanceof File)
-    .filter((file) => isManagedScanImageUri(file.uri) && !referenced.has(file.uri))
+  return listManagedScanImageFiles()
+    .filter((file) => !referenced.has(file.uri))
     .map((file) => readManagedImageMetadata(file.uri))
     .filter((metadata): metadata is ManagedImageMetadata => metadata !== null);
 }
@@ -286,26 +295,49 @@ export function isManagedScanImageUri(uri: string): boolean {
     return false;
   }
 
-  const directoryUri = withTrailingSlash(getManagedScanImageDirectory().uri);
+  // Keep the historical logical root as a narrow compatibility allowance.
+  // New writes remain under the current app document directory.
+  const roots = [
+    getManagedImageRootDirectory().uri,
+    ...LEGACY_MANAGED_IMAGE_ROOTS,
+  ];
+  return roots.some((root) => isManagedImagePathUnderRoot(uri, root));
+}
+
+function isManagedImagePathUnderRoot(uri: string, rootUri: string): boolean {
+  const directoryUri = withTrailingSlash(rootUri);
   if (!uri.startsWith(directoryUri)) {
     return false;
   }
 
-  const filename = uri.slice(directoryUri.length);
-  if (!filename || filename.includes('/')) {
+  const pathParts = uri.slice(directoryUri.length).split('/');
+  const isCanonicalPath =
+    pathParts.length === 2 && pathParts[0] === 'scan-images';
+  const isLegacyFlatPath = pathParts.length === 1;
+  if (
+    (!isCanonicalPath && !isLegacyFlatPath) ||
+    pathParts.some((part) => !part || part === '.' || part === '..')
+  ) {
     return false;
   }
 
-  const separatorIndex = filename.lastIndexOf('.');
+  return isManagedImageFilename(pathParts[pathParts.length - 1]);
+}
+
+function isManagedImageFilename(filename: string): boolean {
+  const imageFilename = filename.endsWith(BACKUP_SUFFIX)
+    ? filename.slice(0, -BACKUP_SUFFIX.length)
+    : filename;
+  const separatorIndex = imageFilename.lastIndexOf('.');
   if (separatorIndex <= 0) {
     return false;
   }
 
-  const basename = filename.slice(0, separatorIndex);
+  const basename = imageFilename.slice(0, separatorIndex);
   const recordId = basename.endsWith('.submission')
     ? basename.slice(0, -'.submission'.length)
     : basename;
-  const extension = normalizeExtension(filename.slice(separatorIndex));
+  const extension = normalizeExtension(imageFilename.slice(separatorIndex));
 
   return (
     UUID_V4_PATTERN.test(recordId) &&
@@ -397,14 +429,61 @@ function readManagedImageRecordPart(uri: string): string | null {
     return null;
   }
 
-  const directoryUri = withTrailingSlash(getManagedScanImageDirectory().uri);
-  if (!uri.startsWith(directoryUri)) {
-    return null;
+  const filename = uri.slice(uri.lastIndexOf('/') + 1);
+  const imageFilename = filename.endsWith(BACKUP_SUFFIX)
+    ? filename.slice(0, -BACKUP_SUFFIX.length)
+    : filename;
+  const separatorIndex = imageFilename.lastIndexOf('.');
+  return separatorIndex > 0 ? imageFilename.slice(0, separatorIndex) : null;
+}
+
+function listManagedScanImageFiles(): File[] {
+  const files = new Map<string, File>();
+  const visitedDirectories = new Set<string>();
+  const rootDirectories = [
+    getManagedScanImageDirectory(),
+    getManagedImageRootDirectory(),
+    ...LEGACY_MANAGED_IMAGE_ROOTS.flatMap((root) => [
+      new Directory(root),
+      new Directory(root, 'scan-images'),
+    ]),
+  ];
+
+  for (const directory of rootDirectories) {
+    collectManagedScanImageFiles(directory, files, visitedDirectories);
   }
 
-  const filename = uri.slice(directoryUri.length);
-  const separatorIndex = filename.lastIndexOf('.');
-  return separatorIndex > 0 ? filename.slice(0, separatorIndex) : null;
+  return [...files.values()];
+}
+
+function collectManagedScanImageFiles(
+  directory: Directory,
+  files: Map<string, File>,
+  visitedDirectories: Set<string>,
+): void {
+  if (visitedDirectories.has(directory.uri)) {
+    return;
+  }
+  visitedDirectories.add(directory.uri);
+
+  let entries: (File | Directory)[];
+  try {
+    entries = directory.list();
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (entry instanceof File) {
+      if (isManagedScanImageUri(entry.uri)) {
+        files.set(entry.uri, entry);
+      }
+      continue;
+    }
+    if (entry instanceof Directory) {
+      collectManagedScanImageFiles(entry, files, visitedDirectories);
+    }
+  }
 }
 
 function withTrailingSlash(uri: string): string {

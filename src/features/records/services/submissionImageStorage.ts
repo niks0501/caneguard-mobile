@@ -1,7 +1,7 @@
 import { File } from 'expo-file-system';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
-import { StorageError, toStorageError } from '@/database/errors';
+import { StorageError } from '@/database/errors';
 import {
   canReuseSourceAsSubmissionImage,
   MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES,
@@ -10,7 +10,7 @@ import {
   type MobileReportUploadImageMimeType,
 } from '@/features/sync/constants/mobileReportUploadContract';
 import {
-  deleteManagedScanImage,
+  getManagedScanImageDirectory,
   getSubmissionImageUri,
   isManagedScanImageUri,
   readManagedImageMetadata,
@@ -18,6 +18,20 @@ import {
 
 const UUID_V4_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const LEGACY_UNSUPPORTED_IMAGE_EXTENSIONS = new Set([
+  'avif',
+  'gif',
+  'heic',
+  'heif',
+]);
+
+const LEGACY_UNSUPPORTED_IMAGE_MIME_TYPES = new Set([
+  'image/avif',
+  'image/gif',
+  'image/heic',
+  'image/heif',
+]);
 
 export const SUBMISSION_IMAGE_QUALITY_STEPS = [
   0.85,
@@ -75,9 +89,8 @@ export async function prepareSubmissionImage(
     );
   }
 
-  const sourceMimeType = normalizeMobileReportImageMimeType(
-    sourceMetadata.mimeType ?? input.sourceMimeType,
-  );
+  const sourceMimeCandidate = sourceMetadata.mimeType ?? input.sourceMimeType;
+  const sourceMimeType = normalizeMobileReportImageMimeType(sourceMimeCandidate);
   const sourceSizeBytes = sourceMetadata.sizeBytes ?? input.sourceSizeBytes;
   if (
     typeof sourceSizeBytes !== 'number' ||
@@ -123,7 +136,84 @@ export async function prepareSubmissionImage(
     };
   }
 
-  return generateSubmissionDerivative(input);
+  if (!sourceMimeType && !isLegacyUnsupportedSource(sourceMetadata, sourceMimeCandidate)) {
+    throw new StorageError(
+      'IMAGE_PREPARATION_FAILED',
+      'The legacy source image format is not supported for recovery.',
+    );
+  }
+
+  return prepareDerivativeFromManagedSource(input, sourceMetadata);
+}
+
+async function prepareDerivativeFromManagedSource(
+  input: SubmissionImagePreparationInput,
+  sourceMetadata: { extension: string },
+): Promise<PreparedSubmissionImage> {
+  let preparationSourceUri = input.sourceUri;
+  let stagingUri: string | null = null;
+
+  if (!isCanonicalManagedSourceUri(input.sourceUri)) {
+    stagingUri = await copyLegacySourceToCanonical(input, sourceMetadata);
+    preparationSourceUri = stagingUri;
+  }
+
+  try {
+    return await generateSubmissionDerivative({
+      ...input,
+      sourceUri: preparationSourceUri,
+    });
+  } finally {
+    if (stagingUri) {
+      removeStagedSource(stagingUri);
+    }
+  }
+}
+
+function isCanonicalManagedSourceUri(uri: string): boolean {
+  const directoryUri = getManagedScanImageDirectory().uri;
+  const relativePath = uri.startsWith(`${directoryUri}/`)
+    ? uri.slice(directoryUri.length + 1)
+    : null;
+  return Boolean(relativePath && !relativePath.includes('/') && isManagedScanImageUri(uri));
+}
+
+async function copyLegacySourceToCanonical(
+  input: SubmissionImagePreparationInput,
+  sourceMetadata: { extension: string },
+): Promise<string> {
+  const directory = getManagedScanImageDirectory();
+  const staging = new File(
+    directory,
+    `${input.recordId}.legacy-source.${sourceMetadata.extension || 'img'}`,
+  );
+
+  try {
+    directory.create({ idempotent: true, intermediates: true });
+    await new File(input.sourceUri).copy(staging, { overwrite: true });
+    if (!staging.exists) {
+      throw new Error('The canonical legacy source copy was not created.');
+    }
+    return staging.uri;
+  } catch (error: unknown) {
+    removeStagedSource(staging.uri);
+    throw new StorageError(
+      'IMAGE_PREPARATION_FAILED',
+      'The legacy source image could not be copied into managed storage.',
+      { cause: error },
+    );
+  }
+}
+
+function removeStagedSource(uri: string): void {
+  try {
+    const file = new File(uri);
+    if (file.exists) {
+      file.delete();
+    }
+  } catch {
+    // The source remains available for a later repair attempt.
+  }
 }
 
 function readPersistedArtifact(
@@ -193,7 +283,12 @@ async function generateSubmissionDerivative(
   }
 
   const destinationUri = getSubmissionImageUri(input.recordId);
-  removeExistingDerivative(destinationUri);
+  if (destinationUri === input.sourceUri.trim()) {
+    throw new StorageError(
+      'IMAGE_PREPARATION_FAILED',
+      'The submission derivative cannot replace the preserved source image.',
+    );
+  }
 
   let lastError: unknown = null;
   for (const dimensions of getDimensionCandidates(sourceWidth, sourceHeight)) {
@@ -225,32 +320,16 @@ async function generateSubmissionDerivative(
           continue;
         }
 
-        const destination = new File(destinationUri);
-        await candidate.copy(destination, { overwrite: false });
-        if (!destination.exists) {
-          throw new Error('The submission image destination was not created.');
-        }
-
-        const persistedSizeBytes = readPositiveFileSize(destination);
-        const persistedMimeType = normalizeMobileReportImageMimeType(
-          destination.type || 'image/jpeg',
+        const candidateMimeType = normalizeMobileReportImageMimeType(
+          candidate.type || 'image/jpeg',
         );
-        if (
-          !persistedMimeType ||
-          persistedMimeType !== 'image/jpeg' ||
-          persistedSizeBytes === null ||
-          persistedSizeBytes > MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES
-        ) {
-          removeDestination(destination);
-          throw new Error('The generated submission image metadata is invalid.');
+        if (candidateMimeType !== 'image/jpeg') {
+          throw new Error('The generated candidate is not a JPEG.');
         }
 
+        const artifact = await persistCandidate(candidate, destinationUri);
         return {
-          artifact: {
-            mimeType: 'image/jpeg',
-            sizeBytes: persistedSizeBytes,
-            uri: destination.uri,
-          },
+          artifact,
           created: true,
           requiresPersistence: true,
         };
@@ -294,6 +373,22 @@ function getDimensionCandidates(
   });
 }
 
+function isLegacyUnsupportedSource(
+  metadata: { extension: string; mimeType: string | null },
+  mimeType: string | null | undefined,
+): boolean {
+  const extension = metadata.extension.trim().toLowerCase().replace(/^\./, '');
+  const normalizedMimeType = (mimeType ?? metadata.mimeType)
+    ?.split(';', 1)[0]
+    .trim()
+    .toLowerCase();
+  return (
+    LEGACY_UNSUPPORTED_IMAGE_EXTENSIONS.has(extension) ||
+    (normalizedMimeType !== undefined &&
+      LEGACY_UNSUPPORTED_IMAGE_MIME_TYPES.has(normalizedMimeType))
+  );
+}
+
 function validatePreparationInput(input: SubmissionImagePreparationInput): void {
   if (!UUID_V4_PATTERN.test(input.recordId)) {
     throw new StorageError(
@@ -319,20 +414,64 @@ function readPositiveFileSize(file: File): number | null {
     : null;
 }
 
-function removeExistingDerivative(uri: string): void {
-  const file = new File(uri);
-  if (!file.exists) {
-    return;
-  }
+async function persistCandidate(
+  candidate: File,
+  destinationUri: string,
+): Promise<SubmissionImageArtifact> {
+  const destination = new File(destinationUri);
+  const hadDestination = destination.exists;
+  const backup = hadDestination
+    ? new File(`${destinationUri}.backup`)
+    : null;
+  let backupCreated = false;
+  let keepBackup = false;
 
   try {
-    deleteManagedScanImage(uri);
-  } catch (error: unknown) {
-    throw toStorageError(
-      error,
-      'IMAGE_PREPARATION_FAILED',
-      'An existing submission image could not be replaced.',
+    if (backup) {
+      await destination.copy(backup, { overwrite: true });
+      if (!backup.exists) {
+        throw new Error('The existing submission image backup was not created.');
+      }
+      backupCreated = true;
+    }
+
+    await candidate.copy(destination, { overwrite: true });
+    if (!destination.exists) {
+      throw new Error('The submission image destination was not created.');
+    }
+
+    const persistedSizeBytes = readPositiveFileSize(destination);
+    const persistedMimeType = normalizeMobileReportImageMimeType(
+      destination.type || 'image/jpeg',
     );
+    if (
+      persistedMimeType !== 'image/jpeg' ||
+      persistedSizeBytes === null ||
+      persistedSizeBytes > MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES
+    ) {
+      throw new Error('The generated submission image metadata is invalid.');
+    }
+
+    return {
+      mimeType: 'image/jpeg',
+      sizeBytes: persistedSizeBytes,
+      uri: destination.uri,
+    };
+  } catch (error: unknown) {
+    if (backupCreated && backup) {
+      try {
+        await backup.copy(destination, { overwrite: true });
+      } catch {
+        keepBackup = true;
+      }
+    } else if (!hadDestination) {
+      removeDestination(destination);
+    }
+    throw error;
+  } finally {
+    if (backup && backup.exists && !keepBackup) {
+      removeDestination(backup);
+    }
   }
 }
 

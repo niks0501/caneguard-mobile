@@ -129,6 +129,7 @@ jest.mock('expo-file-system', () => {
 const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
 const SECOND_RECORD_ID = 'c863a5af-e9ad-44fe-a0dc-73f9d3436cac';
 const MANAGED_ROOT = 'file:///documents/caneguard/scan-images';
+const LEGACY_MANAGED_ROOT = 'file:///documents/caneguard';
 
 function seedFile(
   uri: string,
@@ -291,12 +292,18 @@ describe('scanImageStorage', () => {
     });
   });
 
-  it('deletes only files within managed scan storage', () => {
+  it('deletes current and legacy files only within app-managed scan storage', () => {
     const managedUri = `${MANAGED_ROOT}/${RECORD_ID}.jpg`;
+    const legacyUri = `${LEGACY_MANAGED_ROOT}/${SECOND_RECORD_ID}.heic`;
     seedFile(managedUri);
+    seedFile(legacyUri, { mimeType: 'image/heic' });
     seedFile('file:///documents/unrelated.jpg');
 
     expect(deleteManagedScanImage(managedUri)).toEqual({
+      alreadyMissing: false,
+      deleted: true,
+    });
+    expect(deleteManagedScanImage(legacyUri)).toEqual({
       alreadyMissing: false,
       deleted: true,
     });
@@ -333,19 +340,53 @@ describe('scanImageStorage', () => {
     expect(mockFiles.has(managedUri)).toBe(false);
   });
 
-  it('finds managed files that do not correspond to database URIs', () => {
+  it('finds source and submission orphans across current and legacy layouts', () => {
     const referencedUri = `${MANAGED_ROOT}/${RECORD_ID}.jpg`;
+    const referencedSubmissionUri = `${MANAGED_ROOT}/${RECORD_ID}.submission.jpg`;
+    const legacyReferencedUri = `${LEGACY_MANAGED_ROOT}/${RECORD_ID}.heic`;
     const orphanUri = `${MANAGED_ROOT}/${SECOND_RECORD_ID}.png`;
+    const legacyOrphanUri = `${LEGACY_MANAGED_ROOT}/${SECOND_RECORD_ID}.submission.jpg`;
+    const fixedLegacyOrphanUri = `file:///caneguard/scan-images/${SECOND_RECORD_ID}.gif`;
+    const retainedBackupUri = `${MANAGED_ROOT}/${SECOND_RECORD_ID}.submission.jpg.backup`;
     seedFile(referencedUri);
+    seedFile(referencedSubmissionUri);
+    seedFile(legacyReferencedUri, { mimeType: 'image/heic' });
     seedFile(orphanUri, { mimeType: 'image/png', size: 512 });
+    seedFile(legacyOrphanUri, { mimeType: 'image/jpeg', size: 256 });
+    seedFile(fixedLegacyOrphanUri, { mimeType: 'image/gif', size: 128 });
+    seedFile(retainedBackupUri, { mimeType: 'image/jpeg', size: 64 });
     seedFile(`${MANAGED_ROOT}/not-a-record.tmp`);
 
-    expect(findOrphanedManagedImages([referencedUri])).toEqual([
+    expect(
+      findOrphanedManagedImages([
+        referencedUri,
+        referencedSubmissionUri,
+        legacyReferencedUri,
+      ]),
+    ).toEqual([
       {
         managedUri: orphanUri,
         extension: 'png',
         mimeType: 'image/png',
         sizeBytes: 512,
+      },
+      {
+        managedUri: retainedBackupUri,
+        extension: 'jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 64,
+      },
+      {
+        managedUri: legacyOrphanUri,
+        extension: 'jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 256,
+      },
+      {
+        managedUri: fixedLegacyOrphanUri,
+        extension: 'gif',
+        mimeType: 'image/gif',
+        sizeBytes: 128,
       },
     ]);
   });
@@ -367,15 +408,21 @@ describe('scanImageStorage', () => {
     expect(mockFiles.has(`${MANAGED_ROOT}/${RECORD_ID}.jpg`)).toBe(false);
   });
 
-  it('recognizes only UUID-named files directly under managed storage', () => {
+  it('recognizes UUID-named files in current and legacy managed layouts', () => {
+    const legacyUri = `${LEGACY_MANAGED_ROOT}/${RECORD_ID}.heic`;
+    const legacyCanonicalUri = `file:///caneguard/scan-images/${RECORD_ID}.heic`;
     expect(isManagedScanImageUri(`${MANAGED_ROOT}/${RECORD_ID}.jpg`)).toBe(true);
     expect(isManagedScanImageUri(`${MANAGED_ROOT}/${RECORD_ID}.submission.jpg`)).toBe(true);
     expect(isManagedScanImageUri(`${MANAGED_ROOT}/${RECORD_ID}.img`)).toBe(true);
+    expect(isManagedScanImageUri(legacyUri)).toBe(true);
+    expect(isManagedScanImageUri(legacyCanonicalUri)).toBe(true);
     expect(isManagedScanImageUri(`${MANAGED_ROOT}/rust.jpg`)).toBe(false);
     expect(isManagedScanImageUri(`${MANAGED_ROOT}/nested/${RECORD_ID}.jpg`)).toBe(false);
     expect(isManagedScanImageUriForRecord(`${MANAGED_ROOT}/${RECORD_ID}.jpg`, RECORD_ID)).toBe(true);
     expect(isManagedSourceScanImageUriForRecord(`${MANAGED_ROOT}/${RECORD_ID}.submission.jpg`, RECORD_ID)).toBe(false);
     expect(isManagedScanImageUriForRecord(`${MANAGED_ROOT}/${RECORD_ID}.submission.jpg`, RECORD_ID)).toBe(true);
+    expect(isManagedSourceScanImageUriForRecord(legacyUri, RECORD_ID)).toBe(true);
+    expect(isManagedSourceScanImageUriForRecord(legacyCanonicalUri, RECORD_ID)).toBe(true);
     expect(isManagedScanImageUriForRecord(`${MANAGED_ROOT}/rust.jpg`, RECORD_ID)).toBe(false);
   });
 

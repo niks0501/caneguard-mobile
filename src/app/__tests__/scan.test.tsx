@@ -32,6 +32,18 @@ const mockLaunchImageLibrary = jest.mocked(ImagePicker.launchImageLibraryAsync);
 const mockRequestCameraPermission = jest.mocked(ImagePicker.requestCameraPermissionsAsync);
 const mockRouterPush = router.push as jest.Mock;
 const originalPlatformOS = Platform.OS;
+const supportedImageFormats = [
+  ['JPEG', 'image/jpeg', 'leaf.jpeg'],
+  ['JPG', 'image/jpeg', 'leaf.jpg'],
+  ['PNG', 'image/png', 'leaf.png'],
+  ['WebP', 'image/webp', 'leaf.webp'],
+] as const;
+const unsupportedImageFormats = [
+  ['HEIC', 'image/heic', 'leaf.heic'],
+  ['HEIF', 'image/heif', 'leaf.heif'],
+  ['AVIF', 'image/avif', 'leaf.avif'],
+  ['GIF', 'image/gif', 'leaf.gif'],
+] as const;
 
 function selectedImageResult(uri = 'content://sugarcane/leaf-1'): ImagePicker.ImagePickerResult {
   return {
@@ -43,6 +55,26 @@ function selectedImageResult(uri = 'content://sugarcane/leaf-1'): ImagePicker.Im
         height: 1080,
         type: 'image',
         mimeType: 'image/jpeg',
+      },
+    ],
+  };
+}
+
+function formattedImageResult(
+  mimeType: string,
+  fileName: string,
+  uri = `content://sugarcane/${fileName}`,
+): ImagePicker.ImagePickerResult {
+  return {
+    canceled: false,
+    assets: [
+      {
+        uri,
+        fileName,
+        width: 1920,
+        height: 1080,
+        type: 'image',
+        mimeType,
       },
     ],
   };
@@ -131,6 +163,39 @@ describe('ScanScreen', () => {
     expect(mockRouterPush).toHaveBeenCalledWith('/image-preview');
   });
 
+  it.each(supportedImageFormats)(
+    'continues a supported %s gallery selection to the scan preview',
+    async (_label, mimeType, fileName) => {
+      mockLaunchImageLibrary.mockResolvedValue(formattedImageResult(mimeType, fileName));
+
+      await renderScan();
+      await fireEvent.press(screen.getByLabelText('Choose one image from the gallery'));
+
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'SELECT_IMAGE' }),
+      );
+      expect(mockRouterPush).toHaveBeenCalledWith('/image-preview');
+    },
+  );
+
+  it.each(unsupportedImageFormats)(
+    'rejects a new %s gallery selection before the scan preview',
+    async (_label, mimeType, fileName) => {
+      mockLaunchImageLibrary.mockResolvedValue(formattedImageResult(mimeType, fileName));
+
+      await renderScan();
+      await fireEvent.press(screen.getByLabelText('Choose one image from the gallery'));
+
+      expect(
+        screen.getByText('Unsupported image format. Please choose a JPEG, PNG, or WebP image.'),
+      ).toBeOnTheScreen();
+      expect(mockDispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'SELECT_IMAGE' }),
+      );
+      expect(mockRouterPush).not.toHaveBeenCalled();
+    },
+  );
+
   it('stays on the scan screen when gallery selection is canceled', async () => {
     await renderScan();
     await fireEvent.press(screen.getByLabelText('Choose one image from the gallery'));
@@ -187,6 +252,43 @@ describe('ScanScreen', () => {
     });
     expect(mockRouterPush).toHaveBeenCalledWith('/image-preview');
   });
+
+  it.each(supportedImageFormats)(
+    'continues a supported %s camera capture to the scan preview',
+    async (_label, mimeType, fileName) => {
+      mockLaunchCamera.mockResolvedValue(
+        formattedImageResult(mimeType, fileName, `file:///camera/${fileName}`),
+      );
+
+      await renderScan();
+      await fireEvent.press(screen.getByLabelText('Capture a photo with the camera'));
+
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'SELECT_IMAGE' }),
+      );
+      expect(mockRouterPush).toHaveBeenCalledWith('/image-preview');
+    },
+  );
+
+  it.each(unsupportedImageFormats)(
+    'rejects a new %s camera capture before the scan preview',
+    async (_label, mimeType, fileName) => {
+      mockLaunchCamera.mockResolvedValue(
+        formattedImageResult(mimeType, fileName, `file:///camera/${fileName}`),
+      );
+
+      await renderScan();
+      await fireEvent.press(screen.getByLabelText('Capture a photo with the camera'));
+
+      expect(
+        screen.getByText('Unsupported image format. Please choose a JPEG, PNG, or WebP image.'),
+      ).toBeOnTheScreen();
+      expect(mockDispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'SELECT_IMAGE' }),
+      );
+      expect(mockRouterPush).not.toHaveBeenCalled();
+    },
+  );
 
   it('explains retryable camera denial and lets the user try again', async () => {
     mockRequestCameraPermission
@@ -266,6 +368,55 @@ describe('ScanScreen', () => {
       '@caneguard/model-v0/pending-picker-source',
     );
   });
+
+  it.each(supportedImageFormats)(
+    'recovers a supported %s image from the pending Android picker result',
+    async (_label, mimeType, fileName) => {
+      Object.defineProperty(Platform, 'OS', {
+        configurable: true,
+        value: 'android',
+      });
+      mockGetPendingResult.mockResolvedValue(
+        formattedImageResult(mimeType, fileName, `content://recovered/${fileName}`),
+      );
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce('gallery');
+
+      await renderScan();
+
+      await waitFor(() => {
+        expect(mockRouterPush).toHaveBeenCalledWith('/image-preview');
+      });
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'SELECT_IMAGE' }),
+      );
+    },
+  );
+
+  it.each(unsupportedImageFormats)(
+    'rejects a new %s image recovered from the pending Android picker result',
+    async (_label, mimeType, fileName) => {
+      Object.defineProperty(Platform, 'OS', {
+        configurable: true,
+        value: 'android',
+      });
+      mockGetPendingResult.mockResolvedValue(
+        formattedImageResult(mimeType, fileName, `content://recovered/${fileName}`),
+      );
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce('gallery');
+
+      await renderScan();
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Unsupported image format. Please choose a JPEG, PNG, or WebP image.'),
+        ).toBeOnTheScreen();
+      });
+      expect(mockDispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'SELECT_IMAGE' }),
+      );
+      expect(mockRouterPush).not.toHaveBeenCalled();
+    },
+  );
 
   it('clears all scan data when starting a new scan', async () => {
     await renderScan({

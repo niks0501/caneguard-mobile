@@ -8,6 +8,8 @@ import {
   ensureManagedScanImageDirectory,
   findOrphanedManagedImages,
   isManagedScanImageUri,
+  isManagedScanImageUriForRecord,
+  isManagedSourceScanImageUriForRecord,
   managedImageExists,
   readManagedImageMetadata,
   resolveImageFormat,
@@ -264,7 +266,8 @@ describe('scanImageStorage', () => {
   it('rejects destination collisions instead of overwriting', async () => {
     const sourceUri = 'file:///camera/leaf.jpg';
     seedFile(sourceUri);
-    seedFile(`${MANAGED_ROOT}/${RECORD_ID}.jpg`);
+    seedFile(`${MANAGED_ROOT}/${RECORD_ID}.png`, { mimeType: 'image/png' });
+    seedFile(`${MANAGED_ROOT}/${RECORD_ID}.submission.jpg`);
 
     await expect(
       copyScanImageToManagedStorage({
@@ -366,9 +369,14 @@ describe('scanImageStorage', () => {
 
   it('recognizes only UUID-named files directly under managed storage', () => {
     expect(isManagedScanImageUri(`${MANAGED_ROOT}/${RECORD_ID}.jpg`)).toBe(true);
+    expect(isManagedScanImageUri(`${MANAGED_ROOT}/${RECORD_ID}.submission.jpg`)).toBe(true);
     expect(isManagedScanImageUri(`${MANAGED_ROOT}/${RECORD_ID}.img`)).toBe(true);
     expect(isManagedScanImageUri(`${MANAGED_ROOT}/rust.jpg`)).toBe(false);
     expect(isManagedScanImageUri(`${MANAGED_ROOT}/nested/${RECORD_ID}.jpg`)).toBe(false);
+    expect(isManagedScanImageUriForRecord(`${MANAGED_ROOT}/${RECORD_ID}.jpg`, RECORD_ID)).toBe(true);
+    expect(isManagedSourceScanImageUriForRecord(`${MANAGED_ROOT}/${RECORD_ID}.submission.jpg`, RECORD_ID)).toBe(false);
+    expect(isManagedScanImageUriForRecord(`${MANAGED_ROOT}/${RECORD_ID}.submission.jpg`, RECORD_ID)).toBe(true);
+    expect(isManagedScanImageUriForRecord(`${MANAGED_ROOT}/rust.jpg`, RECORD_ID)).toBe(false);
   });
 
   it('constructs File instances without reading or encoding image bytes', () => {

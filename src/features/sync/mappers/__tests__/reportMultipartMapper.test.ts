@@ -1,11 +1,15 @@
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
+import { getSubmissionImageUri } from '@/features/records/services/scanImageStorage';
 import { mapFieldReportToMultipart } from '@/features/sync/mappers/reportMultipartMapper';
 
 const SCAN: ScanRecordDetails = {
   authorityReview: null,
   id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
   managedImageUri: 'file:///documents/caneguard/scan-images/scan.jpg',
+  submissionImageUri: 'file:///documents/caneguard/scan-images/scan.jpg',
+  submissionImageMimeType: 'image/jpeg',
+  submissionImageSizeBytes: 4096,
   predictedLabel: 'rust', confidence: 0.82, barangay: null,
   syncStatus: 'local_only', createdAt: '2026-07-25T05:30:00.000Z',
   imageMimeType: 'image/jpeg', imageSizeBytes: 4096, imageSourceType: 'camera',
@@ -61,6 +65,40 @@ describe('Field Report multipart mapper', () => {
       imageExists: () => true,
     });
   }
+
+  it('uploads the persisted submission artifact instead of the preserved source path', () => {
+    const createImageFile = jest.fn(
+      () => ({ name: 'submission.jpg', type: 'image/jpeg' }) as unknown as Blob,
+    );
+    mapFieldReportToMultipart({
+      report: REPORT,
+      scanRecord: {
+        ...SCAN,
+        submissionImageUri: getSubmissionImageUri(SCAN.id),
+      },
+    }, { createImageFile, imageExists: () => true });
+
+    expect(createImageFile).toHaveBeenCalledWith(
+      getSubmissionImageUri(SCAN.id),
+    );
+  });
+
+  it('rejects a persisted derivative owned by another Scan Record', () => {
+    expect(() =>
+      mapFieldReportToMultipart(
+        {
+          report: REPORT,
+          scanRecord: {
+            ...SCAN,
+            submissionImageUri: getSubmissionImageUri(
+              'c863a5af-e9ad-44fe-a0dc-73f9d3436cac',
+            ),
+          },
+        },
+        { imageExists: () => true },
+      ),
+    ).toThrow(expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }));
+  });
 
   it('uses the stable Field Report identity and includes accepted P0 context plus scan evidence', () => {
     const parts = (map() as unknown as { _parts: [string, unknown][] })._parts;

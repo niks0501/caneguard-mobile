@@ -12,6 +12,7 @@ import type { SQLiteDatabase, SQLiteStatement } from 'expo-sqlite';
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError } from '@/database/errors';
 import * as schema from '@/database/schema';
+import { getSubmissionImageUri } from '@/features/records/services/scanImageStorage';
 import {
   createOrGetFieldReportDraft,
   finalizeFieldReport,
@@ -39,7 +40,18 @@ const OBSERVED_AT = '2026-07-25T05:30:00.000Z';
 const CREATED_AT = '2026-08-10T01:00:00.000Z';
 const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 const OTHER_SUBMITTER_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
-const IMAGE_EXISTS = { imageExists: () => true };
+const IMAGE_EXISTS = {
+  imageExists: () => true,
+  prepareSubmissionImage: async (input: { sourceUri: string }) => ({
+    artifact: {
+      mimeType: 'image/jpeg' as const,
+      sizeBytes: 4096,
+      uri: input.sourceUri,
+    },
+    created: false,
+    requiresPersistence: true,
+  }),
+};
 
 function createDraftInput(id = REPORT_ID) {
   return {
@@ -72,6 +84,7 @@ function openTestDatabase(): {
     '0004_sour_namora.sql',
     '0005_tricky_the_santerians.sql',
     '0006_curvy_piledriver.sql',
+    '0007_familiar_old_lace.sql',
   ]) {
     native.exec(readMigration(migration));
   }
@@ -527,6 +540,128 @@ describe('Field Report draft repository', () => {
     native.close();
   });
 
+  it('keeps entered Draft data when submission-image preparation fails', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveManualMapLocation(database, REPORT_ID, SUBMITTER_ID, {
+      latitude: 14.071,
+      longitude: 120.635,
+      selectedAt: '2026-08-10T02:00:00.000Z',
+      updatedAt: '2026-08-10T02:00:01.000Z',
+    });
+
+    const result = await finalizeFieldReport(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      {
+        farmerOrFarmOwnerName: 'Maria Santos',
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
+        barangay: 'Lumbangan',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        updatedAt: '2026-08-10T03:00:00.000Z',
+      },
+      {
+        imageExists: () => true,
+        prepareSubmissionImage: async () => {
+          throw new StorageError(
+            'IMAGE_PREPARATION_FAILED',
+            'compression failed',
+          );
+        },
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: 'invalid',
+      missingRequirements: ['submission_image'],
+      report: {
+        authoringState: 'draft',
+        farmerOrFarmOwnerName: 'Maria Santos',
+        barangay: 'Lumbangan',
+        submittedAt: null,
+        syncStatus: 'local_only',
+      },
+    });
+    expect(
+      native
+        .prepare(
+          'SELECT authoring_state, farmer_or_farm_owner_name, barangay, submitted_at FROM field_reports',
+        )
+        .get(),
+    ).toEqual({
+      authoring_state: 'draft',
+      farmer_or_farm_owner_name: 'Maria Santos',
+      barangay: 'Lumbangan',
+      submitted_at: null,
+    });
+    native.close();
+  });
+
+  it('persists an oversized-image derivative before finalization', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveManualMapLocation(database, REPORT_ID, SUBMITTER_ID, {
+      latitude: 14.071,
+      longitude: 120.635,
+      selectedAt: '2026-08-10T02:00:00.000Z',
+      updatedAt: '2026-08-10T02:00:01.000Z',
+    });
+    const prepareSubmissionImage = jest.fn(async (input: { sourceUri: string }) => ({
+      artifact: {
+        mimeType: 'image/jpeg' as const,
+        sizeBytes: 9 * 1024 * 1024,
+        uri: getSubmissionImageUri(SCAN_ID),
+      },
+      created: true,
+      requiresPersistence: true,
+    }));
+
+    const result = await finalizeFieldReport(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      {
+        farmerOrFarmOwnerName: 'Maria Santos',
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
+        barangay: 'Lumbangan',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        updatedAt: '2026-08-10T03:00:00.000Z',
+      },
+      {
+        imageExists: () => true,
+        prepareSubmissionImage,
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: 'finalized',
+      report: { authoringState: 'finalized', syncStatus: 'pending' },
+    });
+    expect(prepareSubmissionImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recordId: SCAN_ID,
+        sourceUri: `file:///caneguard/scan-images/${SCAN_ID}.jpg`,
+      }),
+    );
+    expect(
+      native
+        .prepare(
+          'SELECT submission_image_uri, submission_image_mime_type, submission_image_size_bytes FROM scan_records',
+        )
+        .get(),
+    ).toEqual({
+      submission_image_uri: getSubmissionImageUri(SCAN_ID),
+      submission_image_mime_type: 'image/jpeg',
+      submission_image_size_bytes: 9 * 1024 * 1024,
+    });
+    native.close();
+  });
+
   it('finalizes a GPS-complete report locally with pending status for offline sync', async () => {
     const { database, native } = openTestDatabase();
     insertCompleteClassScores(native);
@@ -573,6 +708,17 @@ describe('Field Report draft repository', () => {
       syncStatus: 'pending',
     });
     expect(native.prepare('SELECT count(*) AS count FROM field_reports').get()).toEqual({ count: 1 });
+    expect(
+      native
+        .prepare(
+          'SELECT submission_image_uri, submission_image_mime_type, submission_image_size_bytes FROM scan_records',
+        )
+        .get(),
+    ).toEqual({
+      submission_image_uri: `file:///caneguard/scan-images/${SCAN_ID}.jpg`,
+      submission_image_mime_type: 'image/jpeg',
+      submission_image_size_bytes: 4096,
+    });
     native.close();
   });
 

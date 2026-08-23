@@ -65,6 +65,8 @@ function openTestDatabase(): { database: CaneGuardDatabase; native: DatabaseSync
     '0003_careful_marauders.sql',
     '0004_sour_namora.sql',
     '0005_tricky_the_santerians.sql',
+    '0006_curvy_piledriver.sql',
+    '0007_familiar_old_lace.sql',
   ]) {
     native.exec(readMigration(migration));
   }

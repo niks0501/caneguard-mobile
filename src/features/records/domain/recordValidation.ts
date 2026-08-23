@@ -17,6 +17,8 @@ import type {
   CompletedScanDraft,
   SaveCompletedScanInput,
 } from '@/features/records/domain/recordTypes';
+import { isManagedSourceScanImageUriForRecord } from '@/features/records/services/scanImageStorage';
+import { isValidSubmissionImageMetadata } from '@/features/sync/constants/mobileReportUploadContract';
 
 const UUID_V4_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -144,8 +146,11 @@ export function validateSaveCompletedScanInput(
 ): void {
   validateCompletedScanDraft({ ...input, sourceUri: input.managedImageUri });
 
-  if (!input.managedImageUri.trim()) {
-    invalid('The managed image URI is required.');
+  if (
+    !input.managedImageUri.trim() ||
+    !isManagedSourceScanImageUriForRecord(input.managedImageUri, input.id)
+  ) {
+    invalid('The managed image URI is invalid.');
   }
   if (
     input.imageSizeBytes !== null &&
@@ -158,6 +163,19 @@ export function validateSaveCompletedScanInput(
     !/^image\/[a-z0-9.+-]+$/i.test(input.imageMimeType)
   ) {
     invalid('The managed image MIME type is invalid.');
+  }
+  if (
+    !isValidSubmissionImageMetadata({
+      sourceUri: input.managedImageUri,
+      submissionImageMimeType: input.submissionImageMimeType,
+      submissionImageSizeBytes: input.submissionImageSizeBytes,
+      submissionImageUri: input.submissionImageUri,
+      expectedSubmissionImageUri: input.submissionImageUri
+        ? `${input.managedImageUri.slice(0, input.managedImageUri.lastIndexOf('/') + 1)}${input.id}.submission.jpg`
+        : null,
+    })
+  ) {
+    invalid('The submission image metadata is invalid.');
   }
 }
 

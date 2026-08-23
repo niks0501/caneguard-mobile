@@ -19,23 +19,31 @@ export async function deleteScanRecord(
 ): Promise<DeleteScanRecordResult> {
   const deleteRecord = dependencies.deleteRecord ?? deleteScanRecordById;
   const deleteImage = dependencies.deleteImage ?? deleteManagedScanImage;
-  const { managedImageUri } = await deleteRecord(
+  const { managedImageUri, submissionImageUri } = await deleteRecord(
     database,
     id,
     submitterIdentity,
   );
+  const imageUris = [
+    ...new Set(
+      [managedImageUri, submissionImageUri].filter(
+        (uri): uri is string => Boolean(uri),
+      ),
+    ),
+  ];
+  let imageCleanupError: StorageError | null = null;
 
-  try {
-    deleteImage(managedImageUri);
-    return { id, imageCleanupError: null };
-  } catch (error: unknown) {
-    return {
-      id,
-      imageCleanupError: toStorageError(
+  for (const imageUri of imageUris) {
+    try {
+      deleteImage(imageUri);
+    } catch (error: unknown) {
+      imageCleanupError ??= toStorageError(
         error,
         'IMAGE_DELETE_FAILED',
         'Managed image cleanup failed after record deletion.',
-      ),
-    };
+      );
+    }
   }
+
+  return { id, imageCleanupError };
 }

@@ -12,7 +12,10 @@ export interface ScanRecordWriteRepository {
 }
 
 export interface ScanRecordRepository extends ScanRecordWriteRepository {
-  deleteById(id: string): Promise<{ managedImageUri: string }>;
+  deleteById(id: string): Promise<{
+    managedImageUri: string | null;
+    submissionImageUri?: string | null;
+  }>;
   findById(id: string): Promise<ScanRecordDetails>;
   list(query: ScanRecordQuery): Promise<ScanRecordListItem[]>;
   listManagedImageUris(): Promise<string[]>;

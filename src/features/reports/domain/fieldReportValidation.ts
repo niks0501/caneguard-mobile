@@ -1,5 +1,6 @@
 import { StorageError } from '@/database/errors';
 import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
+import { isValidSubmissionImageMetadata } from '@/features/sync/constants/mobileReportUploadContract';
 import type {
   CreateFieldReportDraftInput,
   FieldReport,
@@ -113,6 +114,19 @@ export function getMissingSubmissionRequirements(
   const missing: FieldReportSubmissionRequirement[] = [];
   if (!evidence.managedImageUri?.trim() || !evidence.managedImageAvailable) {
     missing.push('original_scan_image');
+  }
+  if (
+    !evidence.submissionImageUri?.trim() ||
+    !evidence.submissionImageAvailable ||
+    !isValidSubmissionImageMetadata({
+      sourceUri: evidence.managedImageUri ?? '',
+      submissionImageMimeType: evidence.submissionImageMimeType,
+      submissionImageSizeBytes: evidence.submissionImageSizeBytes,
+      submissionImageUri: evidence.submissionImageUri,
+      expectedSubmissionImageUri: evidence.expectedSubmissionImageUri,
+    })
+  ) {
+    missing.push('submission_image');
   }
   if (
     evidence.sourceWidth === null ||

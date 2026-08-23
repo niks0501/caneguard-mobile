@@ -72,6 +72,10 @@ function evidence(): FieldReportSubmissionEvidence {
     predictedLabel: 'rust',
     sourceHeight: 900,
     sourceWidth: 1200,
+    submissionImageAvailable: true,
+    submissionImageMimeType: 'image/jpeg',
+    submissionImageSizeBytes: 4096,
+    submissionImageUri: 'file:///caneguard/scan-images/scan.jpg',
   };
 }
 

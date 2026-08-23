@@ -3,7 +3,18 @@ import { and, eq } from 'drizzle-orm';
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import { fieldReports, scanClassScores, scanRecords } from '@/database/schema';
-import { managedImageExists } from '@/features/records/services/scanImageStorage';
+import { persistSubmissionImageMetadata } from '@/features/records/data/submissionImageRepository';
+import {
+  prepareSubmissionImage,
+  type PreparedSubmissionImage,
+  type SubmissionImagePreparationInput,
+} from '@/features/records/services/submissionImageStorage';
+import {
+  deleteManagedScanImage,
+  getSubmissionImageUri,
+  isManagedScanImageUri,
+  managedImageExists,
+} from '@/features/records/services/scanImageStorage';
 import type {
   CreateFieldReportDraftInput,
   FieldReport,
@@ -277,18 +288,27 @@ export async function saveManualMapLocation(
   }
 }
 
+export interface FinalizeFieldReportDependencies {
+  imageExists?: (uri: string) => boolean;
+  persistSubmissionImage?: typeof persistSubmissionImageMetadata;
+  prepareSubmissionImage?: typeof prepareSubmissionImage;
+}
+
 export async function finalizeFieldReport(
   database: CaneGuardDatabase,
   id: string,
   submitterIdentity: string,
   input: FinalizeFieldReportInput,
-  dependencies: { imageExists?: (uri: string) => boolean } = {},
+  dependencies: FinalizeFieldReportDependencies = {},
 ): Promise<FinalizeFieldReportResult> {
   const values = normalizeFinalizeFieldReportInput(input);
   const imageExists = dependencies.imageExists ?? managedImageExists;
+  const prepareImage = dependencies.prepareSubmissionImage ?? prepareSubmissionImage;
+  const persistImage =
+    dependencies.persistSubmissionImage ?? persistSubmissionImageMetadata;
 
   try {
-    const result = database.transaction((transaction) => {
+    const draftContext = database.transaction((transaction) => {
       const existing = transaction
         .select()
         .from(fieldReports)
@@ -334,10 +354,15 @@ export async function finalizeFieldReport(
         .select({
           checklistConsistency: scanRecords.checklistConsistency,
           confidence: scanRecords.confidence,
+          imageMimeType: scanRecords.imageMimeType,
+          imageSizeBytes: scanRecords.imageSizeBytes,
           managedImageUri: scanRecords.managedImageUri,
           predictedLabel: scanRecords.predictedLabel,
           sourceHeight: scanRecords.sourceHeight,
           sourceWidth: scanRecords.sourceWidth,
+          submissionImageMimeType: scanRecords.submissionImageMimeType,
+          submissionImageSizeBytes: scanRecords.submissionImageSizeBytes,
+          submissionImageUri: scanRecords.submissionImageUri,
         })
         .from(scanRecords)
         .where(eq(scanRecords.id, existing.scanRecordId))
@@ -354,14 +379,127 @@ export async function finalizeFieldReport(
         );
       }
 
-      const draft = toFieldReport(draftRow);
-      const missingRequirements = getMissingSubmissionRequirements(draft, {
-        ...scan,
+      return {
         classScores,
-        managedImageAvailable: imageExists(scan.managedImageUri),
-      });
+        draft: toFieldReport(draftRow),
+        scan,
+      };
+    });
+
+    const initialMissingRequirements = getMissingSubmissionRequirements(
+      draftContext.draft,
+      toSubmissionEvidence(
+        draftContext.scan,
+        draftContext.classScores,
+        draftContext.draft.scanRecordId,
+        imageExists,
+      ),
+    );
+    const requirementsBeforeImagePreparation = initialMissingRequirements.filter(
+      (requirement) => requirement !== 'submission_image',
+    );
+    if (requirementsBeforeImagePreparation.length > 0) {
+      return {
+        missingRequirements: requirementsBeforeImagePreparation,
+        report: draftContext.draft,
+        status: 'invalid',
+      };
+    }
+
+    {
+      let preparedImage: PreparedSubmissionImage;
+      try {
+        preparedImage = await prepareImage(
+          toSubmissionPreparationInput(
+            draftContext.scan,
+            draftContext.draft.scanRecordId,
+          ),
+        );
+      } catch (error: unknown) {
+        if (error instanceof StorageError && error.code === 'IMAGE_PREPARATION_FAILED') {
+          return {
+            missingRequirements: ['submission_image'],
+            report: draftContext.draft,
+            status: 'invalid',
+          };
+        }
+        throw error;
+      }
+
+      if (preparedImage.requiresPersistence) {
+        try {
+          await persistImage(
+            database,
+            draftContext.draft.scanRecordId,
+            draftContext.scan.managedImageUri,
+            preparedImage.artifact,
+          );
+        } catch (error: unknown) {
+          if (preparedImage.created) {
+            cleanupPreparedImage(preparedImage, draftContext.scan.managedImageUri);
+          }
+          throw error;
+        }
+      }
+    }
+
+    const result = database.transaction((transaction) => {
+      const existing = transaction
+        .select()
+        .from(fieldReports)
+        .where(
+          and(
+            eq(fieldReports.id, id),
+            eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
+          ),
+        )
+        .get();
+      if (!existing) {
+        throw new StorageError('FIELD_REPORT_NOT_FOUND', 'The Field Report does not exist.');
+      }
+      if (existing.authoringState !== 'draft') {
+        throw new StorageError('UPDATE_FAILED', 'Only a Draft Field Report can be finalized.');
+      }
+
+      const scan = transaction
+        .select({
+          checklistConsistency: scanRecords.checklistConsistency,
+          confidence: scanRecords.confidence,
+          managedImageUri: scanRecords.managedImageUri,
+          predictedLabel: scanRecords.predictedLabel,
+          sourceHeight: scanRecords.sourceHeight,
+          sourceWidth: scanRecords.sourceWidth,
+          submissionImageMimeType: scanRecords.submissionImageMimeType,
+          submissionImageSizeBytes: scanRecords.submissionImageSizeBytes,
+          submissionImageUri: scanRecords.submissionImageUri,
+        })
+        .from(scanRecords)
+        .where(eq(scanRecords.id, existing.scanRecordId))
+        .get();
+      const classScores = transaction
+        .select({ label: scanClassScores.label, score: scanClassScores.score })
+        .from(scanClassScores)
+        .where(eq(scanClassScores.scanRecordId, existing.scanRecordId))
+        .all();
+      if (!scan) {
+        throw new StorageError(
+          'RECORD_NOT_FOUND',
+          'The Field Report scan evidence is unavailable.',
+        );
+      }
+
+      const report = toFieldReport(existing);
+      const missingRequirements = getMissingSubmissionRequirements(
+        report,
+        toSubmissionEvidence(
+          scan,
+          classScores,
+          existing.scanRecordId,
+          imageExists,
+        ),
+      );
       if (missingRequirements.length > 0) {
-        return { missingRequirements, report: draft, status: 'invalid' as const };
+        return { missingRequirements, report, status: 'invalid' as const };
       }
 
       transaction
@@ -390,6 +528,83 @@ export async function finalizeFieldReport(
     return result;
   } catch (error: unknown) {
     throw toStorageError(error, 'UPDATE_FAILED', 'Finalizing the Field Report failed.');
+  }
+}
+
+function toSubmissionPreparationInput(
+  scan: {
+    imageMimeType: string | null;
+    imageSizeBytes: number | null;
+    managedImageUri: string;
+    sourceHeight: number | null;
+    sourceWidth: number | null;
+    submissionImageMimeType: string | null;
+    submissionImageSizeBytes: number | null;
+    submissionImageUri: string | null;
+  },
+  recordId: string,
+): SubmissionImagePreparationInput {
+  return {
+    recordId,
+    sourceHeight: scan.sourceHeight,
+    sourceMimeType: scan.imageMimeType ?? null,
+    sourceSizeBytes: scan.imageSizeBytes ?? null,
+    sourceUri: scan.managedImageUri,
+    sourceWidth: scan.sourceWidth,
+    submissionImageMimeType: scan.submissionImageMimeType,
+    submissionImageSizeBytes: scan.submissionImageSizeBytes,
+    submissionImageUri: scan.submissionImageUri,
+  };
+}
+
+function toSubmissionEvidence(
+  scan: {
+    checklistConsistency: string | null;
+    confidence: number | null;
+    managedImageUri: string;
+    predictedLabel: string | null;
+    sourceHeight: number | null;
+    sourceWidth: number | null;
+    submissionImageMimeType: string | null;
+    submissionImageSizeBytes: number | null;
+    submissionImageUri: string | null;
+  },
+  classScores: { label: string; score: number }[],
+  recordId: string,
+  imageExists: (uri: string) => boolean,
+) {
+  return {
+    checklistConsistency: scan.checklistConsistency,
+    classScores,
+    confidence: scan.confidence,
+    managedImageUri: scan.managedImageUri,
+    managedImageAvailable: imageExists(scan.managedImageUri),
+    predictedLabel: scan.predictedLabel,
+    sourceHeight: scan.sourceHeight,
+    sourceWidth: scan.sourceWidth,
+    submissionImageMimeType: scan.submissionImageMimeType,
+    submissionImageSizeBytes: scan.submissionImageSizeBytes,
+    submissionImageUri: scan.submissionImageUri,
+    expectedSubmissionImageUri: getSubmissionImageUri(recordId),
+    submissionImageAvailable:
+      Boolean(scan.submissionImageUri) && imageExists(scan.submissionImageUri!),
+  };
+}
+
+function cleanupPreparedImage(
+  preparedImage: PreparedSubmissionImage,
+  sourceUri: string,
+): void {
+  if (
+    preparedImage.artifact.uri === sourceUri ||
+    !isManagedScanImageUri(preparedImage.artifact.uri)
+  ) {
+    return;
+  }
+  try {
+    deleteManagedScanImage(preparedImage.artifact.uri);
+  } catch {
+    // The database failure remains the primary error.
   }
 }
 

@@ -2,8 +2,15 @@ import { File } from 'expo-file-system';
 
 import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
-import { managedImageExists } from '@/features/records/services/scanImageStorage';
+import {
+  getSubmissionImageUri,
+  managedImageExists,
+} from '@/features/records/services/scanImageStorage';
 import type { FieldReportUploadRecord } from '@/features/reports/data/fieldReportSyncRepository';
+import {
+  isValidSubmissionImageMetadata,
+  normalizeMobileReportImageMimeType,
+} from '@/features/sync/constants/mobileReportUploadContract';
 import { SyncError } from '@/features/sync/errors/syncErrors';
 
 export interface MultipartMapperDependencies {
@@ -80,7 +87,10 @@ export function mapFieldReportToMultipart(
   appendNumber(form, 'inference_ms', scanRecord.inferenceMs);
   appendNumber(form, 'total_ms', scanRecord.totalMs);
   form.append('captured_at', scanRecord.createdAt);
-  form.append('image', createImageFile(scanRecord.managedImageUri));
+  form.append(
+    'image',
+    createImageFile(scanRecord.submissionImageUri!),
+  );
 
   return form;
 }
@@ -90,8 +100,26 @@ function validateReport(
   record: ScanRecordDetails,
   imageExists: (uri: string) => boolean,
 ): void {
-  if (!imageExists(record.managedImageUri)) {
-    throw new SyncError('IMAGE_MISSING', 'The managed report image is missing.');
+  if (
+    !record.submissionImageUri?.trim() ||
+    !isValidSubmissionImageMetadata({
+      sourceUri: record.managedImageUri,
+      submissionImageMimeType: record.submissionImageMimeType,
+      submissionImageSizeBytes: record.submissionImageSizeBytes,
+      submissionImageUri: record.submissionImageUri,
+      expectedSubmissionImageUri: getSubmissionImageUri(record.id),
+    })
+  ) {
+    invalid('A valid persisted submission image is required.');
+  }
+  if (!imageExists(record.submissionImageUri)) {
+    throw new SyncError('IMAGE_MISSING', 'The persisted submission image is missing.');
+  }
+  if (
+    !normalizeMobileReportImageMimeType(record.submissionImageMimeType) ||
+    record.submissionImageSizeBytes === null
+  ) {
+    invalid('Persisted submission image metadata is incomplete.');
   }
   if (report.authoringState !== 'finalized' || report.syncStatus === 'local_only') {
     invalid('Only a finalized Field Report can be uploaded.');

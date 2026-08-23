@@ -45,6 +45,9 @@ export interface ScanRecordDetails extends ScanRecordListItem {
   imageMimeType: string | null;
   imageSizeBytes: number | null;
   imageSourceType: ScanSourceType;
+  submissionImageMimeType: string | null;
+  submissionImageSizeBytes: number | null;
+  submissionImageUri: string | null;
   inferenceMs: number;
   lastSyncAttemptAt: string | null;
   lastSyncErrorCode: string | null;
@@ -104,4 +107,7 @@ export interface SaveCompletedScanInput
   imageMimeType: string | null;
   imageSizeBytes: number | null;
   managedImageUri: string;
+  submissionImageMimeType?: string | null;
+  submissionImageSizeBytes?: number | null;
+  submissionImageUri?: string | null;
 }

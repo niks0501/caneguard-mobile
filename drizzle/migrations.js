@@ -8,6 +8,7 @@ import m0003 from './0003_careful_marauders.sql';
 import m0004 from './0004_sour_namora.sql';
 import m0005 from './0005_tricky_the_santerians.sql';
 import m0006 from './0006_curvy_piledriver.sql';
+import m0007 from './0007_familiar_old_lace.sql';
 
 export default {
   journal,
@@ -19,5 +20,6 @@ export default {
     m0004,
     m0005,
     m0006,
+    m0007,
   },
 };

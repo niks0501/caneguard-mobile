@@ -42,7 +42,10 @@ export function useStorageDiagnostics() {
       state.database.select({ value: count() }).from(scanSymptoms),
       state.database.select({ value: count() }).from(scanQualityWarnings),
       state.database
-        .select({ managedImageUri: scanRecords.managedImageUri })
+        .select({
+          managedImageUri: scanRecords.managedImageUri,
+          submissionImageUri: scanRecords.submissionImageUri,
+        })
         .from(scanRecords),
       state.database.$client.getFirstAsync<{ foreign_keys: number }>('PRAGMA foreign_keys'),
     ])
@@ -59,8 +62,10 @@ export function useStorageDiagnostics() {
           return;
         }
 
-        const referencedImages = managedImages.map(
-          (image) => image.managedImageUri,
+        const referencedImages = managedImages.flatMap((image) =>
+          [image.managedImageUri, image.submissionImageUri].filter(
+            (uri): uri is string => Boolean(uri),
+          ),
         );
         setDiagnostics({
           databaseFilename: CANEGUARD_DATABASE_FILENAME,

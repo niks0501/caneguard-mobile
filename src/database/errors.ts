@@ -5,6 +5,7 @@ export const STORAGE_ERROR_CODES = [
   'INVALID_SCAN_RECORD',
   'INVALID_FIELD_REPORT',
   'IMAGE_COPY_FAILED',
+  'IMAGE_PREPARATION_FAILED',
   'IMAGE_NOT_FOUND',
   'SAVE_TRANSACTION_FAILED',
   'RECORD_NOT_FOUND',
@@ -27,6 +28,8 @@ const USER_MESSAGES: Record<StorageErrorCode, string> = {
   INVALID_SCAN_RECORD: 'This scan is incomplete and cannot be saved yet.',
   INVALID_FIELD_REPORT: 'This report draft contains invalid information.',
   IMAGE_COPY_FAILED: 'The scan image could not be saved on this device.',
+  IMAGE_PREPARATION_FAILED:
+    'The report image could not be prepared for upload. Your draft is still saved.',
   IMAGE_NOT_FOUND: 'The saved scan image is no longer available on this device.',
   SAVE_TRANSACTION_FAILED: 'The record could not be saved. Your scan result is still available.',
   RECORD_NOT_FOUND: 'This saved record could not be found.',

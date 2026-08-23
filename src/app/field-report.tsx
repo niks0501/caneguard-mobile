@@ -1244,6 +1244,7 @@ const SUBMISSION_REQUIREMENT_LABELS: Record<
   string
 > = {
   original_scan_image: 'Original scan image',
+  submission_image: 'Upload-ready submission image',
   source_image_dimensions: 'Original scan image dimensions',
   ai_supported_result: 'AI-supported result',
   confidence: 'Confidence score',

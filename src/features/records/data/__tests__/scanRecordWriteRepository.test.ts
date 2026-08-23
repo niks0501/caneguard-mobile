@@ -21,11 +21,17 @@ import {
 import { insertScanRecord } from '@/features/records/data/scanRecordWriteRepository';
 import type { SaveCompletedScanInput } from '@/features/records/domain/recordTypes';
 import { getLocalReportSummary } from '@/features/reports/data/reportRepository';
+import {
+  getManagedScanImageDirectory,
+  getSubmissionImageUri,
+} from '@/features/records/services/scanImageStorage';
 import { getSyncRecordsRevision } from '@/features/sync/services/syncEvents';
 
 const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+const SECOND_RECORD_ID = 'c863a5af-e9ad-44fe-a0dc-73f9d3436cac';
 const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 const OTHER_SUBMITTER_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
+const MANAGED_ROOT = getManagedScanImageDirectory().uri;
 
 function readMigration(filename: string): string {
   return readFileSync(join(process.cwd(), 'drizzle', filename), 'utf8').replaceAll(
@@ -46,6 +52,8 @@ function openTestDatabase(): {
   native.exec(readMigration('0003_careful_marauders.sql'));
   native.exec(readMigration('0004_sour_namora.sql'));
   native.exec(readMigration('0005_tricky_the_santerians.sql'));
+  native.exec(readMigration('0006_curvy_piledriver.sql'));
+  native.exec(readMigration('0007_familiar_old_lace.sql'));
   const client = {
     prepareSync(sql: string) {
       return createStatementAdapter(native.prepare(sql));
@@ -89,7 +97,7 @@ function validInput(
 ): SaveCompletedScanInput {
   return {
     id: RECORD_ID,
-    managedImageUri: `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
+    managedImageUri: `${MANAGED_ROOT}/${RECORD_ID}.jpg`,
     imageMimeType: 'image/jpeg',
     imageSizeBytes: 4096,
     imageSourceType: 'camera',
@@ -214,6 +222,47 @@ describe('scan record write repository', () => {
     native.close();
   });
 
+  it('rejects a persisted submission URI outside the Scan Record boundary', async () => {
+    const { database, native } = openTestDatabase();
+    const invalidSubmissionUri = getSubmissionImageUri(SECOND_RECORD_ID);
+
+    await expect(
+      insertScanRecord(
+        database,
+        validInput({
+          submissionImageMimeType: 'image/jpeg',
+          submissionImageSizeBytes: 4096,
+          submissionImageUri: invalidSubmissionUri,
+        }),
+      ),
+    ).rejects.toMatchObject<Partial<StorageError>>({
+      code: 'INVALID_SCAN_RECORD',
+    });
+    expect(native.prepare('SELECT count(*) AS count FROM scan_records').get()).toEqual({
+      count: 0,
+    });
+    native.close();
+  });
+
+  it('rejects a managed source URI owned by another Scan Record', async () => {
+    const { database, native } = openTestDatabase();
+
+    await expect(
+      insertScanRecord(
+        database,
+        validInput({
+          managedImageUri: `${MANAGED_ROOT}/${SECOND_RECORD_ID}.jpg`,
+        }),
+      ),
+    ).rejects.toMatchObject<Partial<StorageError>>({
+      code: 'INVALID_SCAN_RECORD',
+    });
+    expect(native.prepare('SELECT count(*) AS count FROM scan_records').get()).toEqual({
+      count: 0,
+    });
+    native.close();
+  });
+
   it('maps a repeated stable identifier to a duplicate-record error', async () => {
     const { database, native } = openTestDatabase();
     await insertScanRecord(database, validInput());
@@ -238,7 +287,7 @@ describe('scan record write repository', () => {
         database,
         validInput({
           id,
-          managedImageUri: `file:///documents/caneguard/scan-images/${id}.jpg`,
+          managedImageUri: `${MANAGED_ROOT}/${id}.jpg`,
           predictedLabel: label,
           confidence: 0.5 + index / 100,
           barangay: index === 10 ? 'Wawa' : 'San Jose',
@@ -396,12 +445,13 @@ describe('scan record write repository', () => {
       qualityWarnings: ['too-dark'],
     });
     await expect(listManagedImageUris(database)).resolves.toEqual([
-      `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
+      `${MANAGED_ROOT}/${RECORD_ID}.jpg`,
     ]);
     await expect(
       deleteScanRecordById(database, RECORD_ID, SUBMITTER_ID),
     ).resolves.toEqual({
-      managedImageUri: `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
+      managedImageUri: `${MANAGED_ROOT}/${RECORD_ID}.jpg`,
+      submissionImageUri: null,
     });
     expect(getSyncRecordsRevision()).toBe(revisionBeforeDelete + 1);
 
@@ -418,6 +468,45 @@ describe('scan record write repository', () => {
     await expect(findScanRecordById(database, RECORD_ID)).rejects.toMatchObject({
       code: 'RECORD_NOT_FOUND',
     });
+    native.close();
+  });
+
+  it('does not hand shared image references to cleanup after deleting one record', async () => {
+    const { database, native } = openTestDatabase();
+    const sharedManagedImageUri = validInput().managedImageUri;
+    await insertScanRecord(database, validInput({ managedImageUri: sharedManagedImageUri }));
+    native
+      .prepare(`
+        INSERT INTO scan_records (
+          id, managed_image_uri, image_source_type, predicted_label, confidence,
+          checklist_consistency, model_version, preprocess_ms, inference_ms,
+          total_ms, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        SECOND_RECORD_ID,
+        sharedManagedImageUri,
+        'camera',
+        'rust',
+        0.8,
+        'consistent',
+        'v0.1-baseline',
+        5,
+        8,
+        13,
+        '2026-07-25T05:30:00.000Z',
+        '2026-07-25T05:30:00.000Z',
+      );
+
+    await expect(
+      deleteScanRecordById(database, RECORD_ID, SUBMITTER_ID),
+    ).resolves.toEqual({
+      managedImageUri: null,
+      submissionImageUri: null,
+    });
+    expect(
+      native.prepare('SELECT count(*) AS count FROM scan_records').get(),
+    ).toEqual({ count: 1 });
     native.close();
   });
 
@@ -497,7 +586,7 @@ describe('scan record write repository', () => {
         database,
         validInput({
           id,
-          managedImageUri: `file:///documents/caneguard/scan-images/${id}.jpg`,
+          managedImageUri: `${MANAGED_ROOT}/${id}.jpg`,
           predictedLabel,
           confidence,
           createdAt,

@@ -82,6 +82,20 @@ export function ensureManagedScanImageDirectory(): Directory {
   return directory;
 }
 
+export function getSubmissionImageUri(recordId: string): string {
+  if (!UUID_V4_PATTERN.test(recordId)) {
+    throw new StorageError(
+      'INVALID_SCAN_RECORD',
+      'The scan record ID is not UUIDv4.',
+    );
+  }
+
+  return new File(
+    ensureManagedScanImageDirectory(),
+    `${recordId}.submission.jpg`,
+  ).uri;
+}
+
 export function resolveImageFormat(input: {
   sourceFileName?: string | null;
   sourceMimeType?: string | null;
@@ -132,6 +146,17 @@ export async function copyScanImageToManagedStorage(
     sourceUri: input.sourceUri,
   });
   const directory = ensureManagedScanImageDirectory();
+  const existingRecordImages = directory
+    .list()
+    .filter((entry): entry is File => entry instanceof File)
+    .filter((file) => isManagedScanImageUriForRecord(file.uri, input.recordId));
+  if (existingRecordImages.length > 0) {
+    throw new StorageError(
+      'DUPLICATE_RECORD',
+      'A managed scan image already exists for this record identifier.',
+    );
+  }
+
   const destination = new File(directory, `${input.recordId}.${format.extension}`);
 
   if (destination.exists) {
@@ -241,6 +266,21 @@ export function findOrphanedManagedImages(
     .filter((metadata): metadata is ManagedImageMetadata => metadata !== null);
 }
 
+export function isManagedSourceScanImageUriForRecord(
+  uri: string,
+  recordId: string,
+): boolean {
+  return readManagedImageRecordPart(uri) === recordId;
+}
+
+export function isManagedScanImageUriForRecord(
+  uri: string,
+  recordId: string,
+): boolean {
+  const recordPart = readManagedImageRecordPart(uri);
+  return recordPart === recordId || recordPart === `${recordId}.submission`;
+}
+
 export function isManagedScanImageUri(uri: string): boolean {
   if (!uri) {
     return false;
@@ -261,11 +301,15 @@ export function isManagedScanImageUri(uri: string): boolean {
     return false;
   }
 
-  const recordId = filename.slice(0, separatorIndex);
+  const basename = filename.slice(0, separatorIndex);
+  const recordId = basename.endsWith('.submission')
+    ? basename.slice(0, -'.submission'.length)
+    : basename;
   const extension = normalizeExtension(filename.slice(separatorIndex));
 
   return (
     UUID_V4_PATTERN.test(recordId) &&
+    (basename === recordId || basename === `${recordId}.submission`) &&
     (extension === FALLBACK_EXTENSION || Boolean(extension && EXTENSION_TO_MIME[extension]))
   );
 }
@@ -346,6 +390,21 @@ function normalizeSupportedMimeType(value: string | null | undefined): string | 
   const mimeType = normalizeMimeType(value);
   const extension = mimeType ? MIME_TO_EXTENSION[mimeType] : undefined;
   return extension ? EXTENSION_TO_MIME[extension] : null;
+}
+
+function readManagedImageRecordPart(uri: string): string | null {
+  if (!isManagedScanImageUri(uri)) {
+    return null;
+  }
+
+  const directoryUri = withTrailingSlash(getManagedScanImageDirectory().uri);
+  if (!uri.startsWith(directoryUri)) {
+    return null;
+  }
+
+  const filename = uri.slice(directoryUri.length);
+  const separatorIndex = filename.lastIndexOf('.');
+  return separatorIndex > 0 ? filename.slice(0, separatorIndex) : null;
 }
 
 function withTrailingSlash(uri: string): string {

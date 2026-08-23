@@ -5,6 +5,7 @@ import {
   eq,
   gte,
   lte,
+  ne,
   or,
   sql,
   type SQL,
@@ -140,12 +141,13 @@ export async function deleteScanRecordById(
   database: CaneGuardDatabase,
   id: string,
   submitterIdentity: string,
-): Promise<{ managedImageUri: string }> {
+): Promise<{ managedImageUri: string | null; submissionImageUri?: string | null }> {
   try {
     const deleted = database.transaction((transaction) => {
       const row = transaction
         .select({
           managedImageUri: scanRecords.managedImageUri,
+          submissionImageUri: scanRecords.submissionImageUri,
           reportSubmitterIdentity: fieldReports.submitterIdentity,
         })
         .from(scanRecords)
@@ -169,8 +171,32 @@ export async function deleteScanRecordById(
         );
       }
 
+      const otherRows = transaction
+        .select({
+          managedImageUri: scanRecords.managedImageUri,
+          submissionImageUri: scanRecords.submissionImageUri,
+        })
+        .from(scanRecords)
+        .where(ne(scanRecords.id, id))
+        .all();
+      const referencedUris = new Set(
+        otherRows.flatMap((otherRow) =>
+          [otherRow.managedImageUri, otherRow.submissionImageUri].filter(
+            (uri): uri is string => Boolean(uri),
+          ),
+        ),
+      );
+
       transaction.delete(scanRecords).where(eq(scanRecords.id, id)).run();
-      return { managedImageUri: row.managedImageUri };
+      return {
+        managedImageUri: referencedUris.has(row.managedImageUri)
+          ? null
+          : row.managedImageUri,
+        submissionImageUri:
+          row.submissionImageUri && referencedUris.has(row.submissionImageUri)
+            ? null
+            : row.submissionImageUri,
+      };
     });
 
     emitSyncRecordsChanged();
@@ -185,9 +211,20 @@ export async function listManagedImageUris(
 ): Promise<string[]> {
   try {
     const rows = await database
-      .select({ managedImageUri: scanRecords.managedImageUri })
+      .select({
+        managedImageUri: scanRecords.managedImageUri,
+        submissionImageUri: scanRecords.submissionImageUri,
+      })
       .from(scanRecords);
-    return rows.map((row) => row.managedImageUri);
+    return [
+      ...new Set(
+        rows.flatMap((row) =>
+          [row.managedImageUri, row.submissionImageUri].filter(
+            (uri): uri is string => Boolean(uri),
+          ),
+        ),
+      ),
+    ];
   } catch (error: unknown) {
     throw toStorageError(
       error,

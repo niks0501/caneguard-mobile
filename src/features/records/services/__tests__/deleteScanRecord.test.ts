@@ -1,14 +1,25 @@
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError } from '@/database/errors';
+import { deleteScanRecordById } from '@/features/records/data/scanRecordRepository';
 import { deleteScanRecord } from '@/features/records/services/deleteScanRecord';
 
 const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
 const IMAGE_URI = `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`;
+const SUBMISSION_IMAGE_URI = `file:///documents/caneguard/scan-images/${RECORD_ID}.submission.jpg`;
 const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 
 describe('deleteScanRecord', () => {
   const database = {} as CaneGuardDatabase;
-  const deleteRecord = jest.fn(async () => ({ managedImageUri: IMAGE_URI }));
+  const deleteRecord = jest.fn(
+    async (
+      _database: CaneGuardDatabase,
+      _id: string,
+      _submitterIdentity: string,
+    ) => ({
+      managedImageUri: IMAGE_URI,
+      submissionImageUri: null,
+    }),
+  ) as jest.MockedFunction<typeof deleteScanRecordById>;
   const deleteImage = jest.fn();
 
   it('deletes the database record before its managed image', async () => {
@@ -27,6 +38,36 @@ describe('deleteScanRecord', () => {
     expect(deleteRecord.mock.invocationCallOrder[0]).toBeLessThan(
       deleteImage.mock.invocationCallOrder[0],
     );
+    expect(deleteImage).toHaveBeenCalledWith(IMAGE_URI);
+  });
+
+  it('cleans a distinct submission derivative and avoids deleting a reused source twice', async () => {
+    deleteRecord.mockResolvedValueOnce({
+      managedImageUri: IMAGE_URI,
+      submissionImageUri: SUBMISSION_IMAGE_URI,
+    });
+    deleteImage.mockClear();
+
+    await expect(
+      deleteScanRecord(database, RECORD_ID, SUBMITTER_ID, {
+        deleteRecord,
+        deleteImage,
+      }),
+    ).resolves.toEqual({ id: RECORD_ID, imageCleanupError: null });
+    expect(deleteImage).toHaveBeenCalledTimes(2);
+    expect(deleteImage).toHaveBeenNthCalledWith(1, IMAGE_URI);
+    expect(deleteImage).toHaveBeenNthCalledWith(2, SUBMISSION_IMAGE_URI);
+
+    deleteRecord.mockResolvedValueOnce({
+      managedImageUri: IMAGE_URI,
+      submissionImageUri: IMAGE_URI,
+    });
+    deleteImage.mockClear();
+    await deleteScanRecord(database, RECORD_ID, SUBMITTER_ID, {
+      deleteRecord,
+      deleteImage,
+    });
+    expect(deleteImage).toHaveBeenCalledTimes(1);
     expect(deleteImage).toHaveBeenCalledWith(IMAGE_URI);
   });
 

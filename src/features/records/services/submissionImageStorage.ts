@@ -1,0 +1,370 @@
+import { File } from 'expo-file-system';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+
+import { StorageError, toStorageError } from '@/database/errors';
+import {
+  canReuseSourceAsSubmissionImage,
+  MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES,
+  normalizeMobileReportImageMimeType,
+  isValidSubmissionImageMetadata,
+  type MobileReportUploadImageMimeType,
+} from '@/features/sync/constants/mobileReportUploadContract';
+import {
+  deleteManagedScanImage,
+  getSubmissionImageUri,
+  isManagedScanImageUri,
+  readManagedImageMetadata,
+} from '@/features/records/services/scanImageStorage';
+
+const UUID_V4_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export const SUBMISSION_IMAGE_QUALITY_STEPS = [
+  0.85,
+  0.7,
+  0.55,
+  0.4,
+  0.25,
+  0.15,
+] as const;
+
+const SUBMISSION_IMAGE_MAX_DIMENSIONS = [
+  3072,
+  2048,
+  1600,
+  1280,
+  1024,
+  768,
+  640,
+] as const;
+
+export interface SubmissionImagePreparationInput {
+  recordId: string;
+  sourceHeight: number | null;
+  sourceMimeType: string | null;
+  sourceSizeBytes: number | null;
+  sourceUri: string;
+  sourceWidth: number | null;
+  submissionImageMimeType: string | null;
+  submissionImageSizeBytes: number | null;
+  submissionImageUri: string | null;
+}
+
+export interface SubmissionImageArtifact {
+  mimeType: MobileReportUploadImageMimeType;
+  sizeBytes: number;
+  uri: string;
+}
+
+export interface PreparedSubmissionImage {
+  artifact: SubmissionImageArtifact;
+  created: boolean;
+  requiresPersistence: boolean;
+}
+
+export async function prepareSubmissionImage(
+  input: SubmissionImagePreparationInput,
+): Promise<PreparedSubmissionImage> {
+  validatePreparationInput(input);
+
+  const sourceMetadata = readManagedImageMetadata(input.sourceUri);
+  if (!sourceMetadata) {
+    throw new StorageError(
+      'IMAGE_PREPARATION_FAILED',
+      'The preserved source image could not be read for submission preparation.',
+    );
+  }
+
+  const sourceMimeType = normalizeMobileReportImageMimeType(
+    sourceMetadata.mimeType ?? input.sourceMimeType,
+  );
+  const sourceSizeBytes = sourceMetadata.sizeBytes ?? input.sourceSizeBytes;
+  if (
+    typeof sourceSizeBytes !== 'number' ||
+    !Number.isInteger(sourceSizeBytes) ||
+    sourceSizeBytes <= 0
+  ) {
+    throw new StorageError(
+      'IMAGE_PREPARATION_FAILED',
+      'The preserved source image has no valid submission metadata.',
+    );
+  }
+
+  const persistedArtifact = readPersistedArtifact(input);
+  if (persistedArtifact) {
+    return {
+      artifact: persistedArtifact,
+      created: false,
+      requiresPersistence: false,
+    };
+  }
+
+  if (
+    sourceMimeType &&
+    canReuseSourceAsSubmissionImage({
+      mimeType: sourceMimeType,
+      sizeBytes: sourceSizeBytes,
+    })
+  ) {
+    const artifact: SubmissionImageArtifact = {
+      mimeType: sourceMimeType,
+      sizeBytes: sourceSizeBytes,
+      uri: input.sourceUri,
+    };
+    return {
+      artifact,
+      created: false,
+      requiresPersistence: !(
+        input.submissionImageUri?.trim() === input.sourceUri.trim() &&
+        normalizeMobileReportImageMimeType(input.submissionImageMimeType) ===
+          sourceMimeType &&
+        input.submissionImageSizeBytes === sourceSizeBytes
+      ),
+    };
+  }
+
+  return generateSubmissionDerivative(input);
+}
+
+function readPersistedArtifact(
+  input: SubmissionImagePreparationInput,
+): SubmissionImageArtifact | null {
+  const uri = input.submissionImageUri?.trim();
+  if (!uri) {
+    return null;
+  }
+
+  const expectedUri = getSubmissionImageUri(input.recordId);
+  if (uri !== input.sourceUri.trim() && uri !== expectedUri) {
+    return null;
+  }
+
+  const actual = readManagedImageMetadata(uri);
+  const mimeType = normalizeMobileReportImageMimeType(
+    input.submissionImageMimeType,
+  );
+  const actualMimeType = normalizeMobileReportImageMimeType(actual?.mimeType);
+  const sizeBytes = input.submissionImageSizeBytes;
+
+  if (
+    !actual ||
+    actual.managedUri !== uri ||
+    !actualMimeType ||
+    !mimeType ||
+    actualMimeType !== mimeType ||
+    actual.sizeBytes === null ||
+    typeof sizeBytes !== 'number' ||
+    sizeBytes !== actual.sizeBytes ||
+    !isValidSubmissionImageMetadata({
+      sourceUri: input.sourceUri,
+      submissionImageMimeType: mimeType,
+      submissionImageSizeBytes: sizeBytes,
+      submissionImageUri: uri,
+      expectedSubmissionImageUri: expectedUri,
+    })
+  ) {
+    return null;
+  }
+
+  return {
+    mimeType,
+    sizeBytes,
+    uri,
+  };
+}
+
+async function generateSubmissionDerivative(
+  input: SubmissionImagePreparationInput,
+): Promise<PreparedSubmissionImage> {
+  const sourceWidth = input.sourceWidth;
+  const sourceHeight = input.sourceHeight;
+  if (
+    sourceWidth === null ||
+    sourceHeight === null ||
+    !Number.isFinite(sourceWidth) ||
+    !Number.isFinite(sourceHeight) ||
+    sourceWidth <= 0 ||
+    sourceHeight <= 0
+  ) {
+    throw new StorageError(
+      'IMAGE_PREPARATION_FAILED',
+      'Source image dimensions are required to prepare a submission image.',
+    );
+  }
+
+  const destinationUri = getSubmissionImageUri(input.recordId);
+  removeExistingDerivative(destinationUri);
+
+  let lastError: unknown = null;
+  for (const dimensions of getDimensionCandidates(sourceWidth, sourceHeight)) {
+    for (const quality of SUBMISSION_IMAGE_QUALITY_STEPS) {
+      let candidateUri: string | null = null;
+      try {
+        const result = await manipulateAsync(
+          input.sourceUri,
+          dimensions
+            ? [
+                {
+                  resize: dimensions,
+                },
+              ]
+            : [],
+          {
+            compress: quality,
+            format: SaveFormat.JPEG,
+          },
+        );
+        candidateUri = result.uri;
+        const candidate = new File(candidateUri);
+        const candidateSizeBytes = readPositiveFileSize(candidate);
+
+        if (
+          candidateSizeBytes === null ||
+          candidateSizeBytes > MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES
+        ) {
+          continue;
+        }
+
+        const destination = new File(destinationUri);
+        await candidate.copy(destination, { overwrite: false });
+        if (!destination.exists) {
+          throw new Error('The submission image destination was not created.');
+        }
+
+        const persistedSizeBytes = readPositiveFileSize(destination);
+        const persistedMimeType = normalizeMobileReportImageMimeType(
+          destination.type || 'image/jpeg',
+        );
+        if (
+          !persistedMimeType ||
+          persistedMimeType !== 'image/jpeg' ||
+          persistedSizeBytes === null ||
+          persistedSizeBytes > MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES
+        ) {
+          removeDestination(destination);
+          throw new Error('The generated submission image metadata is invalid.');
+        }
+
+        return {
+          artifact: {
+            mimeType: 'image/jpeg',
+            sizeBytes: persistedSizeBytes,
+            uri: destination.uri,
+          },
+          created: true,
+          requiresPersistence: true,
+        };
+      } catch (error: unknown) {
+        lastError = error;
+      } finally {
+        if (candidateUri) {
+          removeTemporaryFile(candidateUri, input.sourceUri, destinationUri);
+        }
+      }
+    }
+  }
+
+  throw new StorageError(
+    'IMAGE_PREPARATION_FAILED',
+    'The source image could not be reduced to an upload-ready JPEG.',
+    { cause: lastError },
+  );
+}
+
+function getDimensionCandidates(
+  sourceWidth: number,
+  sourceHeight: number,
+): ({ height: number; width: number } | null)[] {
+  const longestSide = Math.max(sourceWidth, sourceHeight);
+  const maxDimensions = [longestSide, ...SUBMISSION_IMAGE_MAX_DIMENSIONS].filter(
+    (value, index, values) =>
+      value <= longestSide && values.indexOf(value) === index,
+  );
+
+  return maxDimensions.map((maxDimension) => {
+    if (maxDimension === longestSide) {
+      return null;
+    }
+
+    const scale = maxDimension / longestSide;
+    return {
+      height: Math.max(1, Math.round(sourceHeight * scale)),
+      width: Math.max(1, Math.round(sourceWidth * scale)),
+    };
+  });
+}
+
+function validatePreparationInput(input: SubmissionImagePreparationInput): void {
+  if (!UUID_V4_PATTERN.test(input.recordId)) {
+    throw new StorageError(
+      'INVALID_SCAN_RECORD',
+      'The scan record ID is not UUIDv4.',
+    );
+  }
+  if (!input.sourceUri.trim()) {
+    throw new StorageError(
+      'IMAGE_PREPARATION_FAILED',
+      'A preserved source image URI is required.',
+    );
+  }
+}
+
+function readPositiveFileSize(file: File): number | null {
+  if (!file.exists) {
+    return null;
+  }
+  const size = file.info().size;
+  return typeof size === 'number' && Number.isInteger(size) && size > 0
+    ? size
+    : null;
+}
+
+function removeExistingDerivative(uri: string): void {
+  const file = new File(uri);
+  if (!file.exists) {
+    return;
+  }
+
+  try {
+    deleteManagedScanImage(uri);
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'IMAGE_PREPARATION_FAILED',
+      'An existing submission image could not be replaced.',
+    );
+  }
+}
+
+function removeDestination(file: File): void {
+  try {
+    if (file.exists) {
+      file.delete();
+    }
+  } catch {
+    // The preparation error remains the actionable failure.
+  }
+}
+
+function removeTemporaryFile(
+  uri: string,
+  sourceUri: string,
+  destinationUri: string,
+): void {
+  if (
+    uri === sourceUri ||
+    uri === destinationUri ||
+    isManagedScanImageUri(uri)
+  ) {
+    return;
+  }
+
+  try {
+    const file = new File(uri);
+    if (file.exists) {
+      file.delete();
+    }
+  } catch {
+    // Temporary cache cleanup is best effort.
+  }
+}

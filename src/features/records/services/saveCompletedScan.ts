@@ -8,6 +8,10 @@ import {
   copyScanImageToManagedStorage,
   type ManagedImage,
 } from '@/features/records/services/scanImageStorage';
+import {
+  canReuseSourceAsSubmissionImage,
+  normalizeMobileReportImageMimeType,
+} from '@/features/sync/constants/mobileReportUploadContract';
 
 export interface SaveCompletedScanOptions {
   database: CaneGuardDatabase;
@@ -61,10 +65,21 @@ function toPersistenceInput(
   managedImage: ManagedImage,
 ) {
   const { sourceUri: _sourceUri, ...record } = draft;
+  const sourceCanBeSubmitted = canReuseSourceAsSubmissionImage({
+    mimeType: managedImage.mimeType,
+    sizeBytes: managedImage.sizeBytes,
+  });
+  const submissionImageMimeType = sourceCanBeSubmitted
+    ? normalizeMobileReportImageMimeType(managedImage.mimeType)
+    : null;
+
   return {
     ...record,
     managedImageUri: managedImage.managedUri,
     imageMimeType: managedImage.mimeType,
     imageSizeBytes: managedImage.sizeBytes,
+    submissionImageUri: sourceCanBeSubmitted ? managedImage.managedUri : null,
+    submissionImageMimeType,
+    submissionImageSizeBytes: sourceCanBeSubmitted ? managedImage.sizeBytes : null,
   };
 }

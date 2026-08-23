@@ -11,6 +11,7 @@ const migration3 = readMigration('0003_careful_marauders.sql');
 const migration4 = readMigration('0004_sour_namora.sql');
 const migration5 = readMigration('0005_tricky_the_santerians.sql');
 const migration6 = readMigration('0006_curvy_piledriver.sql');
+const migration7 = readMigration('0007_familiar_old_lace.sql');
 const migrationJournal = migrationBundle.journal;
 
 function readMigration(filename: string): string {
@@ -34,6 +35,7 @@ function applyLatest(database: DatabaseSync): void {
   database.exec(migration4);
   database.exec(migration5);
   database.exec(migration6);
+  database.exec(migration7);
 }
 
 function insertScanRecord(
@@ -119,6 +121,18 @@ describe('CaneGuard database migrations', () => {
         .prepare('SELECT * FROM scan_records WHERE id = ?')
         .get('2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2'),
     ).toEqual(scanBefore);
+    database.exec(migration7);
+    expect(
+      database
+        .prepare(
+          'SELECT submission_image_uri, submission_image_mime_type, submission_image_size_bytes FROM scan_records',
+        )
+        .get(),
+    ).toEqual({
+      submission_image_uri: null,
+      submission_image_mime_type: null,
+      submission_image_size_bytes: null,
+    });
     expect(
       database.prepare('SELECT count(*) AS count FROM field_reports').get(),
     ).toEqual({ count: 0 });
@@ -350,6 +364,7 @@ describe('CaneGuard database migrations', () => {
       '0004_sour_namora',
       '0005_tricky_the_santerians',
       '0006_curvy_piledriver',
+      '0007_familiar_old_lace',
     ]);
     expect(Object.keys(migrationBundle.migrations)).toEqual([
       'm0000',
@@ -359,6 +374,7 @@ describe('CaneGuard database migrations', () => {
       'm0004',
       'm0005',
       'm0006',
+      'm0007',
     ]);
     expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
       migration0,
@@ -368,6 +384,7 @@ describe('CaneGuard database migrations', () => {
       migration4,
       migration5,
       migration6,
+      migration7,
     ]);
   });
 });

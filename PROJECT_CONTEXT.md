@@ -185,8 +185,10 @@ Authentication expects bearer tokens.
 
 The mobile report endpoint accepts multipart form data including the stable
 Field Report client UUID, referenced Scan Record UUID/evidence, required P0
-report context, final coordinates and provenance, observation/submission times,
-model evidence, and managed image. Manual-map uploads omit GPS accuracy. The
+report context, final coordinates and provenance, observation time, capture time,
+model evidence, and the persisted submission image. The local submission timestamp
+is retained for mobile finalization and synchronization state but is not a v1
+multipart field. Manual-map uploads omit GPS accuracy. The
 authenticated submitter is derived from the bearer session rather than trusted
 from client-claimed identity/role fields.
 

@@ -61,14 +61,14 @@ describe('Field Report multipart mapper', () => {
   function map(report = REPORT, scanRecord = SCAN) {
     return mapFieldReportToMultipart({ report, scanRecord }, {
       createImageFile: () =>
-        ({ name: 'scan.jpg', type: 'image/jpeg' }) as unknown as Blob,
+        ({ name: 'scan.jpg', type: 'image/jpeg', size: 4096 }) as unknown as Blob,
       imageExists: () => true,
     });
   }
 
   it('uploads the persisted submission artifact instead of the preserved source path', () => {
     const createImageFile = jest.fn(
-      () => ({ name: 'submission.jpg', type: 'image/jpeg' }) as unknown as Blob,
+      () => ({ name: 'submission.jpg', type: 'image/jpeg', size: 4096 }) as unknown as Blob,
     );
     mapFieldReportToMultipart({
       report: REPORT,
@@ -117,7 +117,7 @@ describe('Field Report multipart mapper', () => {
     expect(values.get('location_source')).toBe('gps');
     expect(values.get('gps_accuracy')).toBe('4.2');
     expect(values.get('observed_at')).toBe(REPORT.observedAt);
-    expect(values.get('submitted_at')).toBe(REPORT.submittedAt);
+    expect(values.get('submitted_at')).toBeUndefined();
     expect(values.get('predicted_label')).toBe('rust');
     expect(values.get('class_scores[rust]')).toBe('0.82');
     expect(parts).toContainEqual(['symptom_keys[]', 'rust']);

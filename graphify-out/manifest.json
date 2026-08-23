@@ -675,13 +675,13 @@
     "semantic_hash": ""
   },
   "src/features/sync/mappers/__tests__/reportMultipartMapper.test.ts": {
-    "mtime": 1787499892.53744,
-    "ast_hash": "8ad123dacc01372a263b64c5bbc68bdf",
+    "mtime": 1787501993.506631,
+    "ast_hash": "1fc881954a4d8da5855e5fef3e650f2a",
     "semantic_hash": ""
   },
   "src/features/sync/mappers/reportMultipartMapper.ts": {
-    "mtime": 1787499892.53744,
-    "ast_hash": "2934a546a76d183368219b456803763d",
+    "mtime": 1787501993.5106878,
+    "ast_hash": "40df0ea8da2ce21fd17bb40f2d250c85",
     "semantic_hash": ""
   },
   "src/features/sync/providers/SyncProvider.tsx": {
@@ -725,8 +725,8 @@
     "semantic_hash": ""
   },
   "src/features/reports/domain/fieldReportValidation.ts": {
-    "mtime": 1787499892.5334125,
-    "ast_hash": "6331cd333894723d384b0f13984a0a8c",
+    "mtime": 1787501993.506631,
+    "ast_hash": "6a27e8ffac42c7fd939dfdd854d4a75d",
     "semantic_hash": ""
   },
   "src/features/reports/hooks/useFieldReportDraft.ts": {
@@ -930,8 +930,8 @@
     "semantic_hash": ""
   },
   "src/features/reports/domain/__tests__/fieldReportValidation.test.ts": {
-    "mtime": 1787499892.5334125,
-    "ast_hash": "ab559f2d9dc2d98af4d26c468fe514bd",
+    "mtime": 1787501993.506631,
+    "ast_hash": "a4e6a8508e6a6939873a9ced836d9c18",
     "semantic_hash": ""
   },
   "src/features/reports/domain/decimalInput.ts": {
@@ -1005,8 +1005,8 @@
     "semantic_hash": ""
   },
   "src/features/records/services/__tests__/submissionImageStorage.test.ts": {
-    "mtime": 1787501173.2091162,
-    "ast_hash": "f9c538236cec32082f7dd785be54e77d",
+    "mtime": 1787501642.1710627,
+    "ast_hash": "819cecf031556cbf1bbdb1689c11fc96",
     "semantic_hash": ""
   },
   "src/features/records/services/submissionImageStorage.ts": {
@@ -1017,6 +1017,11 @@
   "src/features/sync/constants/mobileReportUploadContract.ts": {
     "mtime": 1787499892.53744,
     "ast_hash": "ea5edfa5f1ead919c07cd9d000fc43c1",
+    "semantic_hash": ""
+  },
+  "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts": {
+    "mtime": 1787501993.506631,
+    "ast_hash": "f9a4aeab02d965f2325507fa456859fc",
     "semantic_hash": ""
   }
 }

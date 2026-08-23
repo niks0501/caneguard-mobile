@@ -18,7 +18,8 @@ const UTC_ISO_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const MAX_NAME_LENGTH = 160;
 const MAX_BARANGAY_LENGTH = 120;
 const MAX_REGION_TEXT_LENGTH = 120;
-const MAX_DETAIL_LENGTH = 120;
+const MAX_SUGARCANE_DETAIL_LENGTH = 100;
+const MAX_FIELD_NOTES_LENGTH = 120;
 const MAX_REPORTER_SUSPECTED_CONDITION_LENGTH = 120;
 const MAX_REPORTER_OBSERVATION_TEXT_LENGTH = 1_000;
 const MAX_AFFECTED_AREA_HECTARES = 10_000;
@@ -251,18 +252,33 @@ export function normalizeFieldReportDraftInput(
       : {
           sugarcaneVariety: normalizeOptionalText(
             input.sugarcaneVariety,
-            MAX_DETAIL_LENGTH,
+            MAX_SUGARCANE_DETAIL_LENGTH,
           ),
         }),
     ...(input.cropAge === undefined
       ? {}
-      : { cropAge: normalizeOptionalText(input.cropAge, MAX_DETAIL_LENGTH) }),
+      : {
+          cropAge: normalizeOptionalText(
+            input.cropAge,
+            MAX_SUGARCANE_DETAIL_LENGTH,
+          ),
+        }),
     ...(input.caneClass === undefined
       ? {}
-      : { caneClass: normalizeOptionalText(input.caneClass, MAX_DETAIL_LENGTH) }),
+      : {
+          caneClass: normalizeOptionalText(
+            input.caneClass,
+            MAX_SUGARCANE_DETAIL_LENGTH,
+          ),
+        }),
     ...(input.fieldNotes === undefined
       ? {}
-      : { fieldNotes: normalizeOptionalText(input.fieldNotes, MAX_DETAIL_LENGTH) }),
+      : {
+          fieldNotes: normalizeOptionalText(
+            input.fieldNotes,
+            MAX_FIELD_NOTES_LENGTH,
+          ),
+        }),
     ...(input.mismatchReported === undefined
       ? {}
       : { mismatchReported: normalizeMismatchReported(input.mismatchReported) }),

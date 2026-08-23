@@ -54,10 +54,25 @@ describe('readPickerOutcome', () => {
     },
   );
 
-  it('keeps usable images when Android omits optional type metadata', () => {
+  it.each([
+    ['JPEG', 'image/jpeg', 'leaf.jpeg'],
+    ['JPG', 'image/jpeg', 'leaf.JPG'],
+    ['JPG MIME alias', 'image/jpg', 'leaf.jpg'],
+    ['PNG', 'image/png', 'leaf.png'],
+    ['WebP', 'image/webp', 'leaf.webp'],
+  ])('accepts a supported %s format from its filename', (_label, mimeType, fileName) => {
     const result: ImagePickerResult = {
       canceled: false,
-      assets: [{ uri: 'content://leaf/2', width: 0, height: 0 }],
+      assets: [
+        {
+          uri: 'content://leaf/2',
+          fileName,
+          width: 0,
+          height: 0,
+          type: null,
+          mimeType,
+        },
+      ],
     };
 
     expect(readPickerOutcome(result, 'camera')).toEqual({
@@ -68,6 +83,89 @@ describe('readPickerOutcome', () => {
         sourceHeight: null,
         sourceType: 'camera',
       },
+    });
+  });
+
+  it('keeps a supported image when Android omits its MIME and generic type metadata', () => {
+    const result: ImagePickerResult = {
+      canceled: false,
+      assets: [{ uri: 'content://leaf/3', fileName: 'leaf.webp', width: 0, height: 0 }],
+    };
+
+    expect(readPickerOutcome(result, 'camera')).toEqual({
+      kind: 'selected',
+      image: {
+        sourceUri: 'content://leaf/3',
+        sourceWidth: null,
+        sourceHeight: null,
+        sourceType: 'camera',
+      },
+    });
+  });
+
+  it.each([
+    ['HEIC', 'image/heic', 'leaf.heic'],
+    ['HEIF', 'image/heif', 'leaf.heif'],
+    ['AVIF', 'image/avif', 'leaf.avif'],
+    ['GIF', 'image/gif', 'leaf.gif'],
+  ])('rejects a new %s selection before analysis', (_label, mimeType, fileName) => {
+    const result: ImagePickerResult = {
+      canceled: false,
+      assets: [
+        {
+          uri: 'content://leaf/unsupported',
+          fileName,
+          width: 1920,
+          height: 1080,
+          type: 'image',
+          mimeType,
+        },
+      ],
+    };
+
+    expect(readPickerOutcome(result, 'gallery')).toEqual({
+      kind: 'error',
+      stage: 'image-acquisition',
+      code: 'UNSUPPORTED_IMAGE_FORMAT',
+      message: 'Unsupported image format. Please choose a JPEG, PNG, or WebP image.',
+    });
+  });
+
+  it.each([
+    [
+      'a supported MIME type paired with an HEIC filename',
+      { uri: 'content://leaf/inconsistent-1', fileName: 'leaf.heic', mimeType: 'image/jpeg' },
+    ],
+    [
+      'an HEIF MIME type paired with a JPG filename',
+      { uri: 'content://leaf/inconsistent-2', fileName: 'leaf.jpg', mimeType: 'image/heif' },
+    ],
+    [
+      'a GIF URI with no MIME type',
+      { uri: 'content://leaf/leaf.gif', fileName: null, mimeType: undefined },
+    ],
+    [
+      'an image with no format evidence',
+      { uri: 'content://leaf/unknown', fileName: null, mimeType: undefined },
+    ],
+  ])('rejects %s without weakening the format allowlist', (_caseName, assetMetadata) => {
+    const result: ImagePickerResult = {
+      canceled: false,
+      assets: [
+        {
+          ...assetMetadata,
+          width: 100,
+          height: 100,
+          type: 'image',
+        },
+      ],
+    };
+
+    expect(readPickerOutcome(result, 'gallery')).toEqual({
+      kind: 'error',
+      stage: 'image-acquisition',
+      code: 'UNSUPPORTED_IMAGE_FORMAT',
+      message: 'Unsupported image format. Please choose a JPEG, PNG, or WebP image.',
     });
   });
 

@@ -190,8 +190,8 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/scan.test.tsx": {
-    "mtime": 1786533086.9001884,
-    "ast_hash": "e5dcdca990b8856ba558b87240d1221f",
+    "mtime": 1787495738.0534089,
+    "ast_hash": "f730ace9943d792fe8f06e4063f5d84c",
     "semantic_hash": ""
   },
   "src/features/detection/constants/__tests__/modelContract.test.ts": {
@@ -225,13 +225,13 @@
     "semantic_hash": ""
   },
   "src/features/detection/imagePicker/__tests__/readPickerOutcome.test.ts": {
-    "mtime": 1786533086.906384,
-    "ast_hash": "7932fd15259067ccbf032c94aead7979",
+    "mtime": 1787495628.3705637,
+    "ast_hash": "fe17f1e7c50904e2f2da5813b3a8098b",
     "semantic_hash": ""
   },
   "src/features/detection/imagePicker/readPickerOutcome.ts": {
-    "mtime": 1786533086.906384,
-    "ast_hash": "969f89f1ceef304d34f770c407acac27",
+    "mtime": 1787495566.7151847,
+    "ast_hash": "ae491db28f00f2b3ef66682328cd7ff6",
     "semantic_hash": ""
   },
   "src/features/detection/model/__tests__/useCaneGuardModel.test.tsx": {
@@ -685,8 +685,8 @@
     "semantic_hash": ""
   },
   "src/features/sync/providers/SyncProvider.tsx": {
-    "mtime": 1787408836.3033376,
-    "ast_hash": "2a471d0f2860fab7bc57b134cf6a6986",
+    "mtime": 1787409150.736421,
+    "ast_hash": "77e69fb990e16e94ae2f177939cc9adb",
     "semantic_hash": ""
   },
   "src/features/sync/providers/__tests__/SyncProvider.test.tsx": {

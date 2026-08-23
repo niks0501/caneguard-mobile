@@ -93,6 +93,10 @@ jest.mock('@/features/records/services/scanImageStorage', () => ({
     return { alreadyMissing: false, deleted: true };
   }),
   ensureManagedScanImageDirectory: jest.fn(() => ({ uri: MANAGED_ROOT })),
+  getManagedScanImageDirectory: jest.fn(() => ({
+    create: jest.fn(),
+    uri: MANAGED_ROOT,
+  })),
   getSubmissionImageUri: jest.fn(
     (recordId: string) => `${MANAGED_ROOT}/${recordId}.submission.jpg`,
   ),
@@ -102,8 +106,10 @@ jest.mock('@/features/records/services/scanImageStorage', () => ({
     if (!entry) {
       return null;
     }
+    const filename = uri.split('/').at(-1) ?? '';
+    const extension = filename.split('.').at(-1) ?? 'jpg';
     return {
-      extension: 'jpg',
+      extension,
       managedUri: uri,
       mimeType: entry.mimeType,
       sizeBytes: entry.size,
@@ -196,6 +202,40 @@ describe('submission image preparation', () => {
     });
   });
 
+  it.each([
+    ['PNG', 'image/png'],
+    ['WebP', 'image/webp'],
+  ])('repairs an oversized legacy %s source with a JPEG derivative', async (_label, mimeType) => {
+    seedFile(SOURCE_URI, {
+      mimeType,
+      size: MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES + 1,
+    });
+    const sourceBefore = mockFiles.get(SOURCE_URI);
+    mockManipulateAsync.mockImplementation(async () => {
+      const uri = 'file:///cache/supported-legacy-repair.jpg';
+      seedFile(uri, { mimeType: 'image/jpeg', size: 4_000_000 });
+      return { uri, width: 1600, height: 1200 };
+    });
+
+    await expect(
+      prepareSubmissionImage(
+        input({
+          sourceMimeType: mimeType,
+          sourceSizeBytes: MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES + 1,
+        }),
+      ),
+    ).resolves.toMatchObject({
+      artifact: {
+        mimeType: 'image/jpeg',
+        sizeBytes: 4_000_000,
+        uri: getSubmissionImageUri(RECORD_ID),
+      },
+      created: true,
+      requiresPersistence: true,
+    });
+    expect(mockFiles.get(SOURCE_URI)).toEqual(sourceBefore);
+  });
+
   it('reuses the persisted derivative on retry without recompressing', async () => {
     let attempt = 0;
     mockManipulateAsync.mockImplementation(async () => {
@@ -224,6 +264,105 @@ describe('submission image preparation', () => {
     expect(mockManipulateAsync).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['HEIC', 'image/heic'],
+    ['HEIF', 'image/heif'],
+    ['AVIF', 'image/avif'],
+    ['GIF', 'image/gif'],
+  ])(
+    'creates one persisted JPEG derivative for a legacy %s source',
+    async (_label, mimeType) => {
+      seedFile(SOURCE_URI, {
+        mimeType,
+        size: MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES,
+      });
+      const sourceBefore = mockFiles.get(SOURCE_URI);
+      mockManipulateAsync.mockImplementation(async () => {
+        const uri = 'file:///cache/legacy-repair.jpg';
+        seedFile(uri, { mimeType: 'image/jpeg', size: 4_000_000 });
+        return { uri, width: 1600, height: 1200 };
+      });
+
+      const result = await prepareSubmissionImage(
+        input({
+          sourceMimeType: mimeType,
+          sourceSizeBytes: MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES,
+        }),
+      );
+
+      expect(result).toEqual({
+        artifact: {
+          mimeType: 'image/jpeg',
+          sizeBytes: 4_000_000,
+          uri: getSubmissionImageUri(RECORD_ID),
+        },
+        created: true,
+        requiresPersistence: true,
+      });
+      expect(mockManipulateAsync).toHaveBeenCalledTimes(1);
+      expect(mockFiles.get(SOURCE_URI)).toEqual(sourceBefore);
+      expect(mockFiles.get(getSubmissionImageUri(RECORD_ID))).toEqual({
+        mimeType: 'image/jpeg',
+        size: 4_000_000,
+      });
+    },
+  );
+
+  it('does not grandfather an unknown legacy image format', async () => {
+    seedFile(SOURCE_URI, {
+      mimeType: 'application/octet-stream',
+      size: MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES + 1,
+    });
+
+    await expect(prepareSubmissionImage(input())).rejects.toMatchObject<Partial<StorageError>>({
+      code: 'IMAGE_PREPARATION_FAILED',
+    });
+    expect(mockManipulateAsync).not.toHaveBeenCalled();
+    expect(mockFiles.get(SOURCE_URI)).toEqual({
+      mimeType: 'application/octet-stream',
+      size: MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES + 1,
+    });
+  });
+
+  it('stages a legacy source outside the current canonical directory before repair', async () => {
+    const legacySourceUri = `file:///caneguard/scan-images/${RECORD_ID}.heic`;
+    seedFile(legacySourceUri, {
+      mimeType: 'image/heic',
+      size: MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES + 1,
+    });
+    mockManipulateAsync.mockImplementation(async (uri) => {
+      expect(uri).toContain('.legacy-source.heic');
+      const candidateUri = 'file:///cache/legacy-staged-repair.jpg';
+      seedFile(candidateUri, { mimeType: 'image/jpeg', size: 4_000_000 });
+      return { uri: candidateUri, width: 1600, height: 1200 };
+    });
+
+    await expect(
+      prepareSubmissionImage(
+        input({
+          sourceMimeType: 'image/heic',
+          sourceSizeBytes: MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES + 1,
+          sourceUri: legacySourceUri,
+        }),
+      ),
+    ).resolves.toMatchObject({
+      artifact: {
+        mimeType: 'image/jpeg',
+        sizeBytes: 4_000_000,
+        uri: getSubmissionImageUri(RECORD_ID),
+      },
+      created: true,
+      requiresPersistence: true,
+    });
+    expect(mockFiles.get(legacySourceUri)).toEqual({
+      mimeType: 'image/heic',
+      size: MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES + 1,
+    });
+    expect(
+      [...mockFiles.keys()].some((uri) => uri.includes('.legacy-source.')),
+    ).toBe(false);
+  });
+
   it('fails with a recoverable preparation error when no bounded result exists', async () => {
     mockManipulateAsync.mockImplementation(async () => {
       const uri = `file:///cache/too-large-${mockFiles.size}.jpg`;
@@ -236,6 +375,61 @@ describe('submission image preparation', () => {
     });
     expect(mockManipulateAsync).toHaveBeenCalled();
     expect(mockFiles.get(SOURCE_URI)).toBeDefined();
+  });
+
+  it('preserves an existing derivative when legacy repair fails', async () => {
+    const destinationUri = getSubmissionImageUri(RECORD_ID);
+    seedFile(destinationUri, { mimeType: 'image/jpeg', size: 123 });
+    mockManipulateAsync.mockRejectedValue(new Error('legacy repair failed'));
+
+    await expect(
+      prepareSubmissionImage(
+        input({
+          submissionImageMimeType: 'image/jpeg',
+          submissionImageSizeBytes: 456,
+          submissionImageUri: destinationUri,
+        }),
+      ),
+    ).rejects.toMatchObject<Partial<StorageError>>({
+      code: 'IMAGE_PREPARATION_FAILED',
+    });
+    expect(mockFiles.get(destinationUri)).toEqual({
+      mimeType: 'image/jpeg',
+      size: 123,
+    });
+  });
+
+  it('replaces a stale derivative only after a valid candidate is ready', async () => {
+    const destinationUri = getSubmissionImageUri(RECORD_ID);
+    seedFile(destinationUri, { mimeType: 'image/jpeg', size: 123 });
+    mockManipulateAsync.mockImplementation(async () => {
+      const candidateUri = 'file:///cache/replacement.jpg';
+      seedFile(candidateUri, { mimeType: 'image/jpeg', size: 4_000_000 });
+      return { uri: candidateUri, width: 1600, height: 1200 };
+    });
+
+    await expect(
+      prepareSubmissionImage(
+        input({
+          submissionImageMimeType: 'image/jpeg',
+          submissionImageSizeBytes: 456,
+          submissionImageUri: destinationUri,
+        }),
+      ),
+    ).resolves.toMatchObject({
+      artifact: {
+        mimeType: 'image/jpeg',
+        sizeBytes: 4_000_000,
+        uri: destinationUri,
+      },
+      created: true,
+      requiresPersistence: true,
+    });
+    expect(mockFiles.get(destinationUri)).toEqual({
+      mimeType: 'image/jpeg',
+      size: 4_000_000,
+    });
+    expect(mockFiles.has(`${destinationUri}.backup`)).toBe(false);
   });
 
   it('recognizes the deterministic derivative as managed storage', () => {

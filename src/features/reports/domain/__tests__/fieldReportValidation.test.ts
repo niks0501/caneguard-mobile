@@ -98,7 +98,7 @@ describe('normalizeFieldReportDraftInput', () => {
     });
   });
 
-  it('rejects detail texts longer than 120 characters', () => {
+  it('rejects field notes longer than the intentionally stricter 120-character mobile limit', () => {
     expect(() =>
       normalizeFieldReportDraftInput({
         fieldNotes: 'x'.repeat(121),
@@ -110,6 +110,18 @@ describe('normalizeFieldReportDraftInput', () => {
       }),
     );
   });
+
+  it.each(['sugarcaneVariety', 'cropAge', 'caneClass'] as const)(
+    'enforces the v1-safe 100-character limit for %s',
+    (field) => {
+      expect(() =>
+        normalizeFieldReportDraftInput({
+          [field]: 'x'.repeat(101),
+          updatedAt: NOW,
+        }),
+      ).toThrow(expect.objectContaining({ code: 'INVALID_FIELD_REPORT' }));
+    },
+  );
 
   it('normalizes mismatch observations with independent length and boolean validation', () => {
     expect(

@@ -1,14 +1,15 @@
 ---
 name: akidev-e2e-verification
-description: Run targeted or deterministic Expo/Maestro verification only for explicit E2E/device requests; use project npm scripts as authoritative PASS/FAIL evidence when the Maestro integration is enabled.
+description: Run targeted or deterministic Expo/Maestro verification only for explicit E2E/device requests; use project npm scripts as authoritative PASS/FAIL evidence.
 ---
 
 <!-- Managed by AkiDev integration: akidev-e2e-verification -->
 # AkiDev E2E verification
 
-This skill is discoverable when Maestro or Maestro MCP is selected but is **explicit-user-intent only**. Load it only when the user explicitly asks to run E2E/Maestro/device verification or inspect a user flow on a device. Acceptance criteria, task difficulty, or every React Native UI edit do not activate it.
-
-Use cheaper checks first when appropriate (typecheck, lint, unit tests, React Native tests). Do not run expensive mobile E2E after every tiny edit.
+This skill owns the project command interface and deterministic acceptance result.
+Load it only after explicit E2E, Maestro, device, or mobile verification intent.
+The task difficulty alone does not activate this skill.
+The canonical `maestro-mobile-testing` skill owns incremental authoring, version-sensitive MCP use, selector policy, and failure diagnosis.
 
 ## Project interface
 
@@ -19,6 +20,11 @@ npm run e2e
 npm run e2e:flow:reinstall -- .maestro/<flow>.yaml
 ```
 
-When the `maestro` integration is enabled, `npm run e2e` and `npm run e2e:flow` invoke the shared `maestro` CLI through `PATH` with `--no-reinstall-driver`; they are independent of Maestro MCP. Maestro installs the on-phone helper when missing and then reuses it, making the normal workflow a one-time install model. `npm run e2e:flow:reinstall` intentionally invokes plain `maestro test`; use it after a Maestro CLI update so the on-phone helper catches up, or when a stale driver misbehaves. `npm run e2e:doctor` reports missing machine/user-scoped prerequisites without installing anything. A project that selected only `maestro-mcp` should use its CLI fallback only after adding/enabling the `maestro` integration.
+Run relevant lint, typecheck, unit, and integration checks before interpreting mobile results.
+Use the project's native-build freshness guidance before treating a device result as an app result.
+When the `maestro` integration is selected, the normal flow commands use the shared CLI with `--no-reinstall-driver`.
+Use the reinstall command only as the explicit stale-driver escape hatch supported by the project.
 
-Use targeted E2E for a changed user journey and the full project gate before an acceptance claim when mobile E2E is required. Maestro CLI PASS/FAIL from the project npm command is deterministic evidence. Maestro MCP screenshots, hierarchy, and interactive sessions are diagnostic only and never replace the CLI gate. Keep one active owner per physical device/emulator and route device-control work through the serialized verification lane.
+MCP hierarchy, screenshots, and interactive results are diagnostic evidence.
+The project npm or Maestro CLI result is the deterministic PASS or FAIL gate.
+Keep one active owner per physical device or emulator and return any failure to the canonical evidence lifecycle before another full-flow run.

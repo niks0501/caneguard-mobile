@@ -28,4 +28,9 @@ args = ["-y", "@upstash/context7-mcp@3.2.3"]
 startup_timeout_sec = 20
 enabled = true
 
+[mcp_servers.maestro]
+command = "maestro"
+args = ["mcp", "--no-viewer"]
+enabled = true
+
 # <<< AKIDEV MCP END

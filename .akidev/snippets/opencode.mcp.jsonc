@@ -12,6 +12,15 @@
         "@upstash/context7-mcp@3.2.3"
       ],
       "enabled": true
+    },
+    "maestro": {
+      "type": "local",
+      "command": [
+        "maestro",
+        "mcp",
+        "--no-viewer"
+      ],
+      "enabled": true
     }
   }
 }

@@ -19,21 +19,19 @@ cannot assign IDs inside another application.
 
 ## WSL2-native Android toolchain
 
-CaneGuard runs Metro, ADB, and Maestro inside WSL2. The project wrappers do not
-fall back to Windows `adb.exe`, PowerShell, `.bat` launchers, or UNC working
-directories:
+CaneGuard runs Metro, ADB, and Maestro inside WSL2. The project does not create
+wrappers or fall back to Windows `adb.exe`, PowerShell, `.bat` launchers, or UNC
+working directories:
 
 ```text
-WSL2 Metro ──────────────┐
-WSL2 Maestro → WSL2 ADB ├── Wi-Fi ──→ Android device
-WSL2 backend ────────────┘
+WSL2 Metro ------+
+WSL2 Maestro --> WSL2 ADB --- Wi-Fi ---> Android device
+WSL2 backend ----+
 ```
 
-`./.akidev/bin/adb` runs the native Linux binary installed at
-`.akidev/tools/android-platform-tools/adb`. The ignored `.akidev/tools/`
-directory keeps the platform package local to this checkout without committing
-the downloaded SDK binaries. `./.akidev/bin/maestro` prepends the wrapper to
-`PATH` so Maestro and terminal commands always share the same Linux ADB server.
+Use the shared `adb` and `maestro` commands from the active WSL2 `PATH`.
+Keep both tools on the same native Linux toolchain so Maestro and terminal
+commands use the same Linux ADB server.
 
 ### Pair a physical device directly with WSL2
 
@@ -43,9 +41,9 @@ On Android, enable **Developer options → Wireless debugging**, choose
 six-digit code. Then run from WSL:
 
 ```bash
-./.akidev/bin/adb pair PHONE_IP:PAIRING_PORT
-./.akidev/bin/adb connect PHONE_IP:CONNECTION_PORT
-./.akidev/bin/adb devices -l
+adb pair PHONE_IP:PAIRING_PORT
+adb connect PHONE_IP:CONNECTION_PORT
+adb devices -l
 ```
 
 Enter the six-digit code only at ADB's interactive prompt; never store it in the
@@ -59,9 +57,9 @@ For a physical device loading WSL-hosted services through localhost, configure
 the reverse mappings on the same Linux ADB server:
 
 ```bash
-./.akidev/bin/adb reverse tcp:8081 tcp:8081
-./.akidev/bin/adb reverse tcp:8000 tcp:8000
-./.akidev/bin/adb reverse --list
+adb reverse tcp:8081 tcp:8081
+adb reverse tcp:8000 tcp:8000
+adb reverse --list
 ```
 
 HyperOS must keep **Install via USB** and **USB debugging (Security settings)**

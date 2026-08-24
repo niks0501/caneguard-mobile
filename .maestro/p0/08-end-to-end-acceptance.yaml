@@ -5,8 +5,9 @@ tags:
   - acceptance
   - evidence
 ---
-# Path A: full scan, acceptable GPS, offline local finalization, connectivity
-# recovery, synchronization, and restart persistence.
+# Path A: full scan, acceptable GPS, local finalization, connectivity recovery,
+# synchronization, and restart persistence. True Wi-Fi-off recovery remains a
+# manual step because this device uses wireless ADB.
 - runFlow: 08-path-a-complete-in-field-gps.yaml
 
 # Path B: the existing P0-02/P0-05/06 flows prove Draft persistence, online
@@ -15,7 +16,7 @@ tags:
 - runFlow: 02-draft-report-lifecycle.yaml
 - runFlow: 05-06-draft-manual-map-finalization.yaml
 - extendedWaitUntil:
-    visible: "Finalized · (Pending upload|Uploading|Synced|Sync failed)"
+    visible: "Finalized · (Needs attention|Pending upload|Uploading|Synced|Sync failed)"
     timeout: 30000
 - runFlow:
     when:

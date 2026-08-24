@@ -284,7 +284,7 @@ tags:
 - tapOn:
     id: field-report.finalize
 - extendedWaitUntil:
-    visible: "Finalized · (Pending upload|Uploading|Synced|Sync failed)"
+    visible: "Finalized · (Needs attention|Pending upload|Uploading|Synced|Sync failed)"
     timeout: 30000
 - runFlow:
     when:

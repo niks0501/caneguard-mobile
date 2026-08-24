@@ -92,10 +92,18 @@ tags:
       visible: "Don.t allow"
     commands:
       - tapOn: "Don.t allow"
+- scrollUntilVisible:
+    element:
+      id: field-report.farmer-name-input
+    direction: DOWN
 - tapOn:
     id: field-report.farmer-name-input
 - inputText: P0 Draft Farmer
-- hideKeyboard
+- pressKey: BACK
+- scrollUntilVisible:
+    element:
+      id: field-report.save-draft
+    direction: DOWN
 - tapOn:
     id: field-report.save-draft
 - scrollUntilVisible:
@@ -119,6 +127,10 @@ tags:
     visible:
       id: records.screen
     timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: "Open Possible result: Rust record saved .*"
+    direction: DOWN
 - tapOn:
     text: "Open Possible result: Rust record saved .*"
     index: 0
@@ -137,8 +149,17 @@ tags:
     visible:
       id: field-report.screen
     timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: field-report.farmer-name-input
+      text: P0 Draft Farmer
+    direction: DOWN
 - assertVisible:
     id: field-report.farmer-name-input
     text: P0 Draft Farmer
+- scrollUntilVisible:
+    element:
+      text: Draft
+    direction: UP
 - assertVisible: Draft
 - takeScreenshot: .maestro/artifacts/p0-02-draft-reopened

@@ -4,7 +4,10 @@ import type { CaneGuardDatabase } from '@/database/database';
 import { createFieldReportSyncRepository } from '@/features/reports/data/fieldReportSyncRepository';
 import { SyncError } from '@/features/sync/errors/syncErrors';
 import { syncFieldReport } from '@/features/sync/services/syncFieldReport';
-import { syncPendingFieldReports } from '@/features/sync/services/syncPendingFieldReports';
+import {
+  MAX_SYNC_REPORTS_PER_RUN,
+  syncPendingFieldReports,
+} from '@/features/sync/services/syncPendingFieldReports';
 
 jest.mock('@/features/reports/data/fieldReportSyncRepository', () => ({
   createFieldReportSyncRepository: jest.fn(),
@@ -202,32 +205,42 @@ describe('pending Field Report queue', () => {
     expect(findSyncCandidates).toHaveBeenCalledTimes(1);
   });
 
-  it('drains multiple batches and stops at the safety maximum', async () => {
+  it('drains multiple automatic batches through the safety maximum without requesting another batch', async () => {
     let nextReport = 1;
-    findSyncCandidates.mockImplementation(async (limit: number) =>
-      Array.from({ length: limit }, () => ({ id: `report-${nextReport++}` })),
-    );
+    const requestedLimits: number[] = [];
+    findSyncCandidates.mockImplementation(async (limit: number) => {
+      requestedLimits.push(limit);
+      return Array.from({ length: limit }, () => ({ id: `report-${nextReport++}` }));
+    });
     jest.mocked(syncFieldReport).mockImplementation(async ({ reportId }) => ({
       reportId,
       remoteId: `remote-${reportId}`,
       status: 'synced',
     }));
 
-    await expect(syncPendingFieldReports({
+    const result = await syncPendingFieldReports({
       database,
       source: 'startup',
       submitterIdentity: SUBMITTER_ID,
       token: 'secure-token',
-    })).resolves.toMatchObject({
-      attempted: 50,
-      haltReason: 'run-limit',
-      synced: 50,
     });
+
+    expect(result).toMatchObject({
+      attempted: MAX_SYNC_REPORTS_PER_RUN,
+      haltReason: 'run-limit',
+      source: 'startup',
+      synced: MAX_SYNC_REPORTS_PER_RUN,
+    });
+    expect(MAX_SYNC_REPORTS_PER_RUN).toBe(50);
+    expect(requestedLimits).toEqual([10, 10, 10, 10, 10]);
     expect(findSyncCandidates).toHaveBeenCalledTimes(5);
     expect(findSyncCandidates).toHaveBeenNthCalledWith(
       2,
       10,
       expect.objectContaining({ includeRetryableFailed: true }),
+    );
+    expect(jest.mocked(syncFieldReport).mock.calls.map(([input]) => input.reportId)).toEqual(
+      Array.from({ length: MAX_SYNC_REPORTS_PER_RUN }, (_, index) => `report-${index + 1}`),
     );
   });
 

@@ -1,324 +1,398 @@
 # CaneGuard Mobile
 
-CaneGuard Mobile is an Android-first Expo and React Native field application for collecting sugarcane observations and producing on-device AI-assisted disease classification.
-
-Field reporters can capture or choose an image, assess image quality, run the bundled TensorFlow Lite model, review the result and symptom checklist, save the completed scan offline, author a Field Report, and synchronize finalized reports when the API is reachable.
+CaneGuard Mobile is an Android-first Expo and React Native field app for collecting sugarcane observations and producing on-device AI-assisted disease classification.
 
 AI output is decision support only.
-The app must not present a possible disease result as a confirmed diagnosis or as expert validation.
+The app must not present a possible disease result as a confirmed diagnosis or expert validation.
 
-## What the app does
+## How the repositories fit together
 
-The primary user flow is:
+CaneGuard Mobile is the device-side producer.
+It runs the TensorFlow Lite model locally, stores scans and report drafts in Expo SQLite plus managed device storage, and uploads finalized reports when the API is reachable.
+
+[CaneGuard Web](https://github.com/niks0501/caneguard-web) is the companion private repository.
+Its root contains the React and Vite reviewer dashboard, and `api/` contains the Laravel 13 and Sanctum API backed by MySQL.
+
+The normal system flow is:
 
 ```text
-camera or gallery
-  -> image selection and format validation
-  -> image-quality assessment
-  -> 224 x 224 RGB preprocessing
-  -> bundled TensorFlow Lite inference
-  -> result and confidence review
-  -> symptom checklist and severity
-  -> offline Scan Record
-  -> Field Report Draft
-  -> location and required field completion
+Android development build
+  -> local image analysis
+  -> SQLite Scan Record and Field Report Draft
   -> local finalization
-  -> authenticated multipart synchronization
+  -> authenticated multipart API upload
+  -> Web reviewer queue
+  -> API review status
+  -> Mobile status refresh
 ```
 
-A Scan Record owns the captured image and the AI evidence.
-A Field Report is a separate record that references one Scan Record and owns authoring, finalization, submitter, location, upload, and authority-review state.
+## Architecture and local services
 
-The app supports the model classes `healthy`, `mosaic`, and `rust` only.
-The bundled model contract is version `v0.1-baseline` and is defined in [`src/features/detection/constants/modelContract.ts`](src/features/detection/constants/modelContract.ts).
+- **Mobile:** Expo SDK 57, Expo Router, React Native 0.86, bundled `react-native-fast-tflite`, Expo SQLite, Drizzle, SecureStore, and retryable synchronization.
+- **Web:** React 19, TypeScript, and Vite at the root of `caneguard-web`.
+- **API:** Laravel 13 and Sanctum under `caneguard-web/api`.
+- **Database:** MySQL 8.4 LTS for the API and device-local SQLite for mobile records.
+- **Local API:** `http://127.0.0.1:8000` for the Laravel development server and `GET /api/health` for readiness checks.
+- **Local Web:** `http://localhost:5173` for the Vite dashboard.
+- **Local Metro:** the Expo development server uses the repository's normal port, with `8081` reverse-mapped for the documented WSL2 Android workflow.
 
-## Requirements
+Completed scans are saved locally before upload is attempted.
+A Field Report Draft can remain incomplete and local-only while offline.
+Finalization makes a complete report non-editable and queues it as `pending`.
+Synchronization runs after save, at startup, on app resume, after connectivity returns, or from the manual sync action.
+Failed uploads preserve the local report and image for retry.
+Only an authenticated `field_reporter` session can synchronize mobile reports.
 
-- Node.js and npm suitable for the versions pinned in `package-lock.json`.
-- An Android development device or emulator for the primary native workflow.
-- A compatible Expo development build for the full app because `react-native-fast-tflite` and `react-native-nitro-modules` are native dependencies.
-- Access to a CaneGuard API environment for authentication and report synchronization.
+The mobile upload endpoint is `POST /api/v1/mobile/reports`.
+The Web/API review flow uses the same remote report identity and exposes the resulting review status back to Mobile.
+The image roles and multipart compatibility contract remain owned by the Web/API repository, so this README keeps those details brief and links to the authoritative documents below.
 
-Expo Go is not sufficient for the TFLite runtime.
-A development build is also the authoritative runtime for camera, filesystem, SQLite, and synchronization checks on Android.
+## Prerequisites
 
-## Setup
+Install or obtain these prerequisites before setup:
 
-Install the locked dependencies:
+- Git with authenticated access to both private repositories.
+- Node.js and npm compatible with the Mobile `package-lock.json` and the Web repository's Vite 8 toolchain.
+- PHP 8.3 through 8.5 with PDO MySQL.
+- Composer.
+- MySQL 8.4 LTS.
+- An Android emulator or physical Android device.
+- Android Platform Tools with `adb` available on `PATH`.
+- The EAS CLI when creating the Android development APK.
+- A browser and `curl` for the local Web/API smoke checks.
+
+The Mobile app requires a compatible native development build because `react-native-fast-tflite` and `react-native-nitro-modules` are native dependencies.
+Expo Go is not sufficient for the complete Android workflow.
+
+Maestro is optional.
+The optional Maestro doctor also requires Java 17 or newer and the `maestro` command on `PATH`.
+
+A MapTiler browser key is optional for the Web map.
+The Web dashboard keeps its report-table fallback visible when `VITE_MAPTILER_KEY` is blank.
+
+## One-time setup
+
+### 1. Clone the private repositories side by side
+
+The commands below use `<WORKSPACE>` as a placeholder for a parent directory that you choose.
+Replace it before running the commands and do not put GitHub tokens or other credentials in clone URLs.
 
 ```bash
+mkdir -p "<WORKSPACE>"
+cd "<WORKSPACE>"
+git clone https://github.com/niks0501/caneguard-web.git
+git clone https://github.com/niks0501/caneguard-mobile.git
+```
+
+The resulting layout must be:
+
+```text
+<WORKSPACE>/
+├── caneguard-web/
+└── caneguard-mobile/
+```
+
+Use your existing authenticated Git transport for the private clone operations.
+The two repositories are separate checkouts, but the Web/API repository's contract gate can inspect the selected Mobile checkout when both are available.
+
+### 2. Install and configure Web/API
+
+Run the following from `<WORKSPACE>/caneguard-web`.
+The root install is for the Web dashboard, and `npm run api:install` installs the Laravel Composer dependencies under `api/`.
+
+```bash
+cd "<WORKSPACE>/caneguard-web"
+npm install
+npm run api:install
+cp .env.example .env.local
+cp api/.env.example api/.env
+```
+
+The copied Web defaults use `VITE_API_BASE_URL=http://localhost:8000`, API-backed data, a 10-minute report refresh, and an empty optional `VITE_MAPTILER_KEY`.
+Keep those local defaults when the browser and API run on the same development machine.
+
+The copied API defaults use the local Laravel URL, the Web URL, MySQL on port `3306`, database `caneguard`, user `caneguard_app`, and `utf8mb4_unicode_ci`.
+Create both MySQL databases named `caneguard` and `caneguard_test` with `utf8mb4_unicode_ci`, then grant a dedicated local `caneguard_app` user access to both.
+
+Edit only the local `api/.env` file for the database password and the three local demo account passwords:
+
+- `DB_PASSWORD`
+- `CANEGUARD_FIELD_PASSWORD`
+- `CANEGUARD_REVIEWER_PASSWORD`
+- `CANEGUARD_ADMIN_PASSWORD`
+
+Do not commit `api/.env`, and do not put any of these values in this README or another checked-in environment file.
+The seed emails are `field@caneguard.test`, `mao@caneguard.test`, and `admin@caneguard.test`.
+Use the password values you set locally when logging in during the smoke check.
+
+Generate the application key, apply migrations, and seed the local accounts and report fixtures from the Web repository root:
+
+```bash
+cd "<WORKSPACE>/caneguard-web"
+php api/artisan key:generate
+php api/artisan migrate
+php api/artisan db:seed
+```
+
+The API must be migrated before it is served.
+For an existing installation created before private evidence storage, follow the migration and image-storage procedure in the [Web/API README](https://github.com/niks0501/caneguard-web/blob/main/README.md) instead of repeating the first-install seed sequence.
+
+### 3. Install and configure Mobile
+
+Run the following from `<WORKSPACE>/caneguard-mobile`.
+
+```bash
+cd "<WORKSPACE>/caneguard-mobile"
 npm ci
-```
-
-Create the local API configuration:
-
-```bash
 cp .env.example .env
 ```
 
-Set `EXPO_PUBLIC_API_BASE_URL` in `.env` to the CaneGuard API base URL.
-Development builds may use `http://` for a local API.
-Non-development builds require `https://`.
-The URL must not contain credentials, and `EXPO_PUBLIC_*` values are not a place for tokens or other secrets.
+The checked-in Mobile example sets:
 
-Start Metro for a development client:
-
-```bash
-npm run start -- --dev-client
+```env
+EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 ```
 
-If the development client is not installed yet, create an internal Android development APK with the existing EAS profile and install it on the device:
+Use that local value with the ADB reverse mapping in the Android connectivity section.
+The value must be an absolute `http` or `https` URL without credentials.
+Development builds may use `http`; non-development builds require `https`.
+Restart Metro after changing `.env` because Expo public environment values are inlined into the JavaScript bundle.
+
+### 4. Create and install the Android development build
+
+The development profile in [`eas.json`](eas.json) creates an internal Android APK with `developmentClient: true`.
+The same file requires an EAS CLI version of `21.2.0` or newer.
+
+Create the APK only once for initial setup or again after a native dependency, Expo plugin, or native app configuration change.
+Connect an emulator or device using the Android connectivity steps below before running `adb install`.
 
 ```bash
+cd "<WORKSPACE>/caneguard-mobile"
 eas build --platform android --profile development
-adb install path/to/build.apk
+adb install <APK_PATH>
 ```
 
-The development profile is defined in [`eas.json`](eas.json).
-Do not use an EAS build or submission as an automatic part of normal local validation.
+`<APK_PATH>` is the path to the APK downloaded from the completed EAS build.
+Do not run an EAS build as part of every-day startup.
 
-Restart Metro after changing `.env` because Expo public environment variables are inlined into the JavaScript bundle.
+## Android API connectivity
 
-## Architecture
+The team-default path keeps Laravel bound to its local loopback address and uses ADB reverse.
+It works for an emulator or a physical device without committing a developer-specific LAN address or exposing the API to the network.
 
-The root composition and protected route boundaries are defined in [`src/app/_layout.tsx`](src/app/_layout.tsx).
-The providers are composed in this order:
+### Emulator
 
-1. `ThemePreferenceProvider` manages the persisted light or dark preference.
-2. `AuthProvider` restores the SecureStore-backed bearer session.
-3. `CaneGuardDatabaseProvider` owns the Expo SQLite and Drizzle database.
-4. `ScanSessionProvider` owns the active scan flow.
-5. `CaneGuardModelProvider` loads the bundled TFLite model on native platforms.
-6. `SyncProvider` observes connectivity and application lifecycle events and coordinates report synchronization.
-
-Expo Router protects unauthenticated routes from authenticated application routes.
-Development-only model and storage diagnostics are available only in development builds.
-
-The main source boundaries are:
-
-| Area | Responsibility |
-| --- | --- |
-| `src/app/` | Expo Router screens and screen-level orchestration. |
-| `src/features/auth/` | Login, session restoration, SecureStore token persistence, and role checks. |
-| `src/features/detection/` | Image acquisition, quality assessment, preprocessing, TFLite inference, and result validation. |
-| `src/database/` | Expo SQLite initialization, Drizzle schema, migrations, and database providers. |
-| `src/features/records/` | Scan Record persistence, managed image storage, record queries, and deletion. |
-| `src/features/reports/` | Field Report Drafts, finalization validation, coordinates, reference data, authority-review cache, and report views. |
-| `src/features/sync/` | Upload contract constants, multipart mapping, upload API calls, queue draining, retry classification, and sync state. |
-| `src/features/shared/api/` | The shared authenticated HTTP client and API configuration boundary. |
-
-The normal data flow is:
-
-```text
-ScanSessionProvider
-  -> saveCompletedScan()
-  -> managed scan image + SQLite Scan Record transaction
-  -> Field Report Draft
-  -> GPS or online manual-map location
-  -> finalization gate
-  -> Field Report pending upload
-  -> SyncProvider
-  -> mobile report multipart API
-```
-
-## Offline-first reporting
-
-Completed scans are saved locally before any upload is attempted.
-The source image is copied into the app-managed document directory, and the Scan Record plus related class scores, symptoms, quality warnings, timings, and model metadata are persisted transactionally in SQLite.
-
-A Field Report Draft may remain incomplete and local-only while the device is offline.
-The Draft stays editable until the strict finalization gate has all required scan evidence, source dimensions, AI result data, required report fields, and final coordinates.
-
-GPS coordinates are captured in the foreground when available.
-The manual map fallback is online-only and records `manual_map` provenance without inventing GPS accuracy.
-
-Successful local finalization makes the same Field Report identity non-editable and changes it to `finalized` and `pending`.
-An incomplete report remains a Draft with actionable missing requirements.
-
-A Field Report references its Scan Record rather than copying or replacing the AI evidence.
-The Scan Record remains the read-only source of the model result and image evidence used to build an upload.
-
-## Synchronization
-
-Synchronization is authenticated and only accepts a signed-in `field_reporter` session.
-The current API endpoints are:
-
-- `POST /api/v1/mobile/auth/login`
-- `GET /api/v1/mobile/auth/me`
-- `DELETE /api/v1/mobile/auth/logout`
-- `POST /api/v1/mobile/reports`
-
-Eligible finalized Field Reports can synchronize after save, at startup, when the app resumes, when connectivity is restored, or through the manual sync action.
-Drafts, local-only Field Reports, and Scan Records without a finalized Field Report are not uploaded.
-
-Each Field Report has an explicit retryable state machine:
-
-```text
-local_only -> pending -> syncing -> synced
-                              \-> failed
-```
-
-The Field Report UUID is the stable `client_uuid` for retries and manual Retry.
-A successful upload stores the remote UUID and synchronization time locally.
-A failed upload preserves the local report and its image for recovery.
-
-Only one foreground run is active for a submitter and database at a time.
-Automatic runs stop on authentication failures and exhausted transient failures so `SyncProvider` can recover the session or schedule a later retry.
-Manual runs may use the existing immediate retry behavior.
-
-Automatic synchronization requests the default batch size of 10 and drains multiple batches up to the existing safety maximum of 50 reports per run.
-The 50-report maximum is an abuse and lifecycle safety boundary, not a server contract limit, and must not be raised or removed as part of ordinary synchronization changes.
-
-The executable regression evidence for this behavior is in [`syncPendingFieldReports.test.ts`](src/features/sync/services/__tests__/syncPendingFieldReports.test.ts).
-It proves that an automatic run processes five batches of ten, synchronizes exactly 50 reports, and does not request a sixth batch.
-
-## Upload contract and image lifecycle
-
-`mobile-report-upload-v1` is the canonical mobile report wire contract owned by the CaneGuard web/API repository.
-This repository keeps the mirrored artifact at [`references/mobile-report-upload-v1.json`](references/mobile-report-upload-v1.json) and validates the producer boundary in [`reportMultipartMapper.contract.test.ts`](src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts).
-The API upload endpoint is `POST /api/v1/mobile/reports` with `multipart/form-data`.
-
-The producer relationship is intentionally a subset relationship:
-
-```text
-mobile producer domain ⊆ mobile-report-upload-v1 ⊆ Laravel accepted domain
-```
-
-The mobile producer must not emit fields, values, image formats, or ranges outside the canonical v1 artifact.
-The API consumer may accept a wider safe domain, but the producer must remain inside the accepted API domain.
-
-### Three image roles
-
-The **source scan image** is the original camera or gallery selection.
-It is copied into CaneGuard-managed storage and retained as the Scan Record evidence.
-Its source dimensions, source type, and original bytes are preserved for review and future preparation.
-
-The **inference image** is the temporary 224 x 224 JPEG and decoded RGB tensor produced from the source for the bundled TFLite model.
-It exists to satisfy the model input contract and quality checks.
-It is not the persisted upload artifact and is not a second diagnosis source.
-
-The **submission image** is the persisted, upload-ready artifact used for the multipart `image` field.
-It may reuse the managed source when the source already satisfies the v1 image boundary, or it may be a separate deterministic JPEG derivative at `<record-id>.submission.jpg`.
-Retries reuse a valid persisted derivative instead of recompressing it.
-
-Derivative preparation never overwrites the preserved source scan image.
-A failed repair keeps the source and any previously valid submission derivative recoverable.
-
-### Image boundary
-
-The API hard limit is 10 MiB, or 10,485,760 bytes.
-Generated mobile JPEG submission derivatives target 9 MiB or less, or 9,437,184 bytes, to leave headroom below the API hard limit.
-
-The v1 image domain accepts JPEG, PNG, and WebP.
-The picker rejects new unsupported formats instead of creating new local records that the upload contract cannot represent.
-
-Older local records may still contain a legacy unsupported source such as HEIC, HEIF, AVIF, or GIF.
-When a recognized legacy record needs synchronization, mobile preserves the source and attempts a recoverable JPEG submission derivative.
-An unknown or unrecognized legacy format fails with an actionable preparation error rather than being silently grandfathered.
-
-A supported source that is within the 10 MiB hard limit can be reused as the submission image.
-An oversized source or a legacy unsupported source is reduced through bounded JPEG derivative attempts until it is at or below the 9 MiB target.
-If no bounded derivative can be produced, the report remains local and retryable with the preparation failure visible to the user.
-
-The contract mapper validates the persisted submission URI, MIME type, byte size, file existence, source dimensions, model fields, disease class values, checklist values, location provenance, and report fields before an HTTP request is made.
-The server derives upload MIME type and byte size from the received file.
-
-## Compatibility checks and P0F
-
-Run the local producer contract test when changing upload fields or image handling:
+Boot the emulator using your normal Android tooling, then run these commands from the Mobile repository or another directory where `adb` is available:
 
 ```bash
-npm test -- --runInBand src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts
+adb devices -l
+adb reverse tcp:8081 tcp:8081
+adb reverse tcp:8000 tcp:8000
+adb reverse --list
 ```
 
-The web/API repository provides the fast cross-repository compatibility gate.
-From a checkout of `niks0501/caneguard-web`, its focused producer check is:
+The device list must show the emulator as `device`.
+The reverse list should include the `8081` Metro mapping and the `8000` API mapping.
+With this mapping, keep `EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000` in the Mobile `.env`.
+
+### Physical Android device over wireless debugging
+
+The placeholders below are values displayed by Android under **Developer options > Wireless debugging**.
+`<PAIRING_IP>:<PAIRING_PORT>` is shown by **Pair device with pairing code**.
+`<CONNECTION_PORT>` is the separate port shown on the main Wireless debugging screen.
+Do not store the six-digit pairing code in the repository or evidence logs.
+`adb pair` prompts for that code interactively.
 
 ```bash
-npm run contract:producer
+adb pair <PAIRING_IP>:<PAIRING_PORT>
+adb connect <DEVICE_IP>:<CONNECTION_PORT>
+adb devices -l
+adb reverse tcp:8081 tcp:8081
+adb reverse tcp:8000 tcp:8000
+adb reverse --list
 ```
 
-The complete gate is:
+Keep the phone and development machine on a network that allows wireless debugging.
+The device list must show `device`, and the reverse list must show the `8000` mapping before the app smoke check.
+If wireless debugging restarts, use the current connection port and rerun `adb connect`.
+
+ADB reverse is the primary path because the API command binds to loopback.
+Only use a private LAN fallback when reverse is unreliable in your local environment.
+That fallback requires an explicitly reviewed API binding and firewall rule, and the Mobile value must use a placeholder such as `http://<HOST_REACHABLE_FROM_ANDROID>:8000` rather than a checked-in LAN address.
+Do not commit that address or expose the development server publicly.
+
+## Every-day startup order
+
+Complete the one-time setup above before using this sequence.
+Use one terminal per long-running process.
+
+1. Start MySQL and confirm that the `caneguard` database is available.
+2. Start the API from the Web repository root.
+
+   ```bash
+   cd "<WORKSPACE>/caneguard-web"
+   npm run api:dev
+   ```
+
+3. In another terminal, check API readiness from the Web repository root or any directory with `curl`.
+
+   ```bash
+   curl http://127.0.0.1:8000/api/health
+   ```
+
+   The response should report `data.status` as `ok` and both current dependency checks as `ready`.
+
+4. Start the Web dashboard in another terminal.
+
+   ```bash
+   cd "<WORKSPACE>/caneguard-web"
+   npm run dev
+   ```
+
+   Open `http://localhost:5173`.
+
+5. Connect the Android emulator or device and establish the `8081` and `8000` reverse mappings shown above.
+6. Start Metro from the Mobile repository root.
+
+   ```bash
+   cd "<WORKSPACE>/caneguard-mobile"
+   npm run start -- --dev-client
+   ```
+
+7. Open the already installed `caneguard-mobile` development build on the Android device or emulator and connect it to the running Metro server.
+
+Do not start a second Metro session with a different environment file.
+If `.env` changes, stop and restart Metro before reopening the development build.
+
+## Fast full-system smoke checklist
+
+Use the local passwords you configured in `api/.env` and do not paste them into logs, screenshots, or this repository.
+
+1. **API:** `curl http://127.0.0.1:8000/api/health` returns `data.status: ok` with ready dependency checks.
+2. **Web:** open `http://localhost:5173`, sign in as `mao@caneguard.test` with the locally configured reviewer password, and confirm the dashboard loads API-backed data.
+3. **Mobile authentication:** open the development build, sign in as `field@caneguard.test` with the locally configured field-reporter password, and confirm the authenticated home screen loads.
+4. **Offline creation:** make the API unavailable or take the device offline, capture or choose an image, complete the on-device analysis, save the scan, and create or edit a Field Report Draft.
+5. **Local persistence:** confirm the draft remains present and editable while offline and is not shown as remotely synchronized.
+6. **Finalize and synchronize:** restore API reachability, complete the required report fields and location, finalize the report, and use the normal sync action or resume path until its state becomes synced.
+7. **Web review:** refresh the Web queue, open the uploaded report, and confirm the report image and AI evidence are present without describing the AI output as a diagnosis.
+8. **Mobile status return:** save a reviewer status update in Web, refresh the report status in Mobile, and confirm the authority-review status returns to the device.
+
+A successful checklist proves the local path `Mobile -> API -> Web -> API -> Mobile` rather than only proving that the two development servers start.
+
+## Validation and optional acceptance testing
+
+### Fast repository checks
+
+Run Mobile checks from `<WORKSPACE>/caneguard-mobile`:
 
 ```bash
-npm run contract:gate
-```
-
-The gate checks the web-owned artifact, repository pin configuration, the selected mobile producer revision, and the Laravel consumer boundary.
-It proves the subset relationship without requiring a device or a full-system flow.
-Use the reviewed exact mobile commit when the web repository updates its producer pin.
-
-The fast gate supplements rather than replaces P0F.
-P0F is the separate full-system release proof for Mobile -> API -> Web -> API -> Mobile behavior, including the real authenticated synchronization and review path.
-A passing contract gate does not prove camera behavior, native model execution, offline persistence, map interaction, or end-to-end remote identity handling.
-
-## Model and review semantics
-
-The bundled model is a TFLite artifact with these fixed v0.1 inputs and outputs:
-
-- Input tensor: float32 `[1, 224, 224, 3]` in RGB and NHWC layout.
-- Preprocessing: resize to the model dimensions, decode to RGB, and preserve the model's configured value range.
-- Output tensor: three probabilities for `healthy`, `mosaic`, and `rust`.
-- Model artifact: `assets/models/caneguard_leaf_v0_1_baseline.tflite`.
-
-Model preprocessing, inference, disease classes, confidence, class scores, symptom checklist, severity, and report-review semantics are compatibility-sensitive behavior.
-This documentation change does not alter them.
-
-Authority review is separate from delivery status.
-The app can display cached authority statuses such as `Awaiting authority review`, `Field validation needed`, `Verified by staff`, `Unable to verify`, or `Resolved` without converting an AI result into a confirmed diagnosis.
-Unknown server statuses remain a neutral `Status update unavailable` presentation.
-
-## Tests and validation
-
-Run the focused synchronization regression test:
-
-```bash
-npm test -- --runInBand src/features/sync/services/__tests__/syncPendingFieldReports.test.ts
-```
-
-Run the full repository checks:
-
-```bash
+cd "<WORKSPACE>/caneguard-mobile"
 npm run lint
 npm run typecheck
 npm test
 npm run db:check
 ```
 
-Run the optional coverage report:
+Useful focused Mobile checks are:
 
 ```bash
-npm run test:coverage
+cd "<WORKSPACE>/caneguard-mobile"
+npm test -- --runInBand src/features/sync/services/__tests__/syncPendingFieldReports.test.ts
+npm test -- --runInBand src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts
 ```
 
-Run the mobile E2E prerequisite check before using Maestro:
+Run Web checks from `<WORKSPACE>/caneguard-web`:
 
 ```bash
+cd "<WORKSPACE>/caneguard-web"
+npm run check:web
+npm run check:api
+npm run check:all
+```
+
+The Web repository's MySQL schema and release-flow checks require the migrated `caneguard_test` database:
+
+```bash
+cd "<WORKSPACE>/caneguard-web"
+npm run api:test:mysql
+```
+
+The cross-repository contract checks are optional compatibility gates, not a substitute for the full smoke checklist:
+
+```bash
+cd "<WORKSPACE>/caneguard-web"
+npm run contract:producer
+npm run contract:gate
+```
+
+Run them only when the Web/API gate configuration points at the intended Mobile producer revision.
+
+### Optional Maestro and P0F testing
+
+Maestro is not required for normal onboarding.
+Before running it, use a fresh compatible development build, a running Metro session, a reachable API, a connected Android device or emulator, and an authenticated field-reporter session.
+
+Run the read-only prerequisite check from the Mobile repository root:
+
+```bash
+cd "<WORKSPACE>/caneguard-mobile"
 npm run e2e:doctor
 ```
 
-When a fresh compatible development build, Metro session, API environment, and Android device or emulator are available, run the project Maestro flows with:
+Run the checked-in flows only after the doctor and runtime prerequisites pass:
 
 ```bash
+cd "<WORKSPACE>/caneguard-mobile"
 npm run e2e
+npm run e2e:flow -- .maestro/p0/00-baseline-scan.yaml
 ```
 
-A focused Maestro flow can be run with:
+If the Maestro helper apps need a deliberate version refresh, the checked-in reinstall escape hatch is:
 
 ```bash
-npm run e2e:flow -- .maestro/p0/07-field-report-sync-and-restart.yaml
+npm run e2e:flow:reinstall -- .maestro/p0/00-baseline-scan.yaml
 ```
 
-Native runtime checks are required for TFLite execution, camera and gallery acquisition, managed filesystem persistence, SQLite migrations, offline transitions, and real authenticated synchronization.
-Unit tests remain the authoritative fast check for domain, mapper, queue, storage, and UI logic.
-Do not interpret a Maestro result from a stale development build as application evidence.
+P0F is a separate full-system release acceptance flow for Mobile, API, Web review, and Mobile status return.
+It is not part of daily startup or the fast onboarding path.
+Use the [P0-08 acceptance record](docs/features/caneGuard-p0-implementation-phases/P0-08-End-to-End-Acceptance-and-Evidence.md), the [Maestro workspace guide](.maestro/README.md), and the Web/API repository's contract documentation for that work.
 
-## Repository references
+## Troubleshooting
 
-- [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md) records the current architecture and external contracts.
-- [`PROJECT_STACK.md`](PROJECT_STACK.md) records the Expo and React Native stack conventions.
-- [`src/features/sync/constants/mobileReportUploadContract.ts`](src/features/sync/constants/mobileReportUploadContract.ts) mirrors the v1 image boundaries.
-- [`src/features/records/services/submissionImageStorage.ts`](src/features/records/services/submissionImageStorage.ts) owns derivative preparation and legacy repair.
-- [`src/features/reports/domain/fieldReportValidation.ts`](src/features/reports/domain/fieldReportValidation.ts) owns local finalization requirements.
-- [`src/features/sync/services/syncPendingFieldReports.ts`](src/features/sync/services/syncPendingFieldReports.ts) owns batching and the 50-report safety maximum.
-- [`docs/features/caneGuard-p0-implementation-phases/P0-07-Field-Report-Synchronization-and-API.md`](docs/features/caneGuard-p0-implementation-phases/P0-07-Field-Report-Synchronization-and-API.md) records the synchronization design history.
+### Wireless ADB
+
+If `adb devices -l` does not show the target as `device`, repair Android Wireless debugging, pair again with the current pairing port, and reconnect with the current connection port.
+If `adb reverse --list` does not show `tcp:8000 tcp:8000`, rerun `adb reverse tcp:8000 tcp:8000` while the target is connected.
+Keep Wi-Fi on during wireless ADB or Maestro control.
+
+The checked-in [Maestro README](.maestro/README.md) documents the WSL2-native Android and Maestro workflow, including the repository's `8081` and `8000` reverse mappings.
+That guide also describes a WSL2-specific `./.akidev/bin/adb` wrapper, while the current project scripts expect `adb` and `maestro` on the active `PATH`.
+Use the commands available on your active `PATH` for the project scripts.
+
+### Metro or development-client compatibility
+
+Run `npm run start -- --dev-client` from the Mobile root, reverse port `8081` for a host-local Android workflow, and connect the installed development build to that Metro session.
+Restart Metro after every Mobile `.env` change.
+If native dependencies, Expo plugins, or native app configuration changed, rebuild and reinstall the development APK before interpreting device or Maestro failures.
+A JavaScript-only change can reuse an existing compatible native build.
+
+### API reachability
+
+If the host health check fails, fix MySQL or the Laravel API before debugging Android.
+If the host health check passes but Mobile reports the server as unavailable, confirm `EXPO_PUBLIC_API_BASE_URL`, confirm `adb reverse tcp:8000 tcp:8000`, and restart Metro after changing the environment.
+If the phone remains controllable through wireless ADB while API requests fail, leave Wi-Fi on and diagnose the API mapping or Laravel process separately.
+
+### Seed or database setup
+
+If `php api/artisan db:seed` reports missing demo passwords, set all three `CANEGUARD_*_PASSWORD` values in the uncommitted `api/.env` and rerun the seed command.
+If migrations fail, confirm the MySQL service, database names, `caneguard_app` grants, `DB_*` values, and `utf8mb4_unicode_ci` configuration before rerunning `php api/artisan migrate`.
+
+## Authoritative references
+
+- [Web/API full README](https://github.com/niks0501/caneguard-web/blob/main/README.md) for the companion installation, Laravel setup, database procedure, API startup, and Web/API validation.
+- [Web/API physical Android connectivity guide](https://github.com/niks0501/caneguard-web/blob/main/docs/development/physical-android-api.md) for the loopback API and ADB reverse path.
+- [Mobile Maestro workspace guide](.maestro/README.md) for WSL2 wireless debugging, flow behavior, and evidence handling.
+- [Mobile project context](PROJECT_CONTEXT.md) for architecture and external contracts.
+- [Mobile project stack](PROJECT_STACK.md) for native-runtime compatibility and verification rules.
+- [Mobile upload contract mirror](references/mobile-report-upload-v1.json) for the concise machine-readable producer boundary.
+- [P0-07 synchronization design](docs/features/caneGuard-p0-implementation-phases/P0-07-Field-Report-Synchronization-and-API.md) for advanced sync and API details.

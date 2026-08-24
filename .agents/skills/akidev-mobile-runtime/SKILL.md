@@ -1,23 +1,28 @@
 ---
 name: akidev-mobile-runtime
-description: Use only after explicit user intent for device/runtime inspection or mobile UI behavior; choose agent-device, ADB, Maestro MCP, or static checks without racing a shared device.
+description: Use only after explicit user intent for device/runtime inspection or mobile UI behavior; route agent-device, ADB, Maestro MCP, or static checks without racing a shared device.
 ---
 
 <!-- Managed by AkiDev integration: akidev-mobile-runtime -->
 # AkiDev mobile runtime routing
 
-This skill is discoverable for the selected Expo/mobile integrations but is **explicit-user-intent only**. Load or delegate it only when the user asks to use/check a physical device or emulator, inspect the running app, reproduce behavior on-device, interact with UI at runtime, or verify a mobile flow. Task difficulty or a desire for extra confidence never activates it.
+This skill is an explicit-user-intent router.
+Read `.akidev/config` before any selected mobile runtime work.
+When `maestro` or `maestro-mcp` is selected, also read the canonical `maestro-mobile-testing` skill.
 
-## Choose the right layer
+## Choose the layer
 
-1. Use static code/tests when runtime state is not needed.
-2. Use shared `agent-device` for quick app/device exploration and interaction.
-3. Use shared `adb` for transport/device state, package/process/shell troubleshooting, install/connectivity checks, or when higher-level inspection cannot answer the question.
-4. Use Maestro MCP through the dedicated `mobile-mcp` child for explicitly requested hierarchy/state, screenshot, selector, or interactive flow diagnosis. Interactive evidence is diagnostic.
-5. Use the project npm commands and shared Maestro CLI for deterministic final acceptance evidence.
+1. Use source inspection and static tests when runtime state is not needed.
+2. Use `agent-device` for unfamiliar-flow exploration, reproduction, logs, network or crash investigation, and deep runtime state.
+3. Use shared `adb` for transport, package/process, logs, reverse ports, or facts that higher-level tools cannot provide.
+4. Use the selected `mobile-mcp` child and installed Maestro MCP for explicit hierarchy, screenshot, selector, or incremental flow diagnosis.
+5. Use the shared Maestro CLI and project npm commands for permanent flows and deterministic acceptance.
 
-Do not use device-oriented ADB, agent-device, Maestro MCP, or `mobile-mcp` for code-only work. If a selected shared command is missing, report it and use static/fallback investigation; never install or upgrade workstation prerequisites.
+The canonical skill owns the evidence-driven lifecycle, version-sensitive MCP schema, selector policy, and failure gate.
+This router owns only capability choice and the one-device boundary.
 
-## One-device-owner policy
+## One-device owner
 
-Source analysis and Graphify may run in parallel, but a physical Android device or emulator is shared mutable state. Only one agent/worktree may actively own a given device at a time. Serialize agent-device, ADB-control, Maestro MCP, and Maestro sessions through the designated verification/debugging lane, and keep deterministic verification evidence in that lane.
+Only one agent or worktree may control a physical device or emulator at a time.
+Serialize `agent-device`, device-oriented ADB, Maestro MCP, and Maestro CLI sessions through the designated verification lane.
+Do not start device tooling because a task is difficult or because a command happens to be available.

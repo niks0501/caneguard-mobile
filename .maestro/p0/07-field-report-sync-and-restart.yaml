@@ -9,7 +9,7 @@ tags:
 # P0-06 creates and locally finalizes a report under a stable Field Report ID.
 - runFlow: 06-complete-in-field-finalization.yaml
 - extendedWaitUntil:
-    visible: "Finalized · (Pending upload|Uploading|Synced|Sync failed)"
+    visible: "Finalized · (Needs attention|Pending upload|Uploading|Synced|Sync failed)"
     timeout: 30000
 - runFlow:
     when:

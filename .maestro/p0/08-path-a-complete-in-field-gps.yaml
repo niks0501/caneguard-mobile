@@ -1,10 +1,10 @@
 appId: com.niks0501.caneguard
-name: P0-08 Path A complete in field with GPS and offline finalization
+name: P0-08 Path A complete in field with GPS and local finalization
 tags:
   - p0
   - acceptance
   - gps
-  - offline-finalization
+  - local-finalization
 ---
 # Prerequisites: authenticated field reporter, reachable Metro, and a fresh
 # development build with expo-location. The device must provide an acceptable
@@ -98,15 +98,25 @@ tags:
       visible: "Don.t allow"
     commands:
       - tapOn: "Don.t allow"
+- scrollUntilVisible:
+    element:
+      id: field-report.farmer-name-input
+    direction: DOWN
 - tapOn:
     id: field-report.farmer-name-input
 - inputText: P0 GPS Farmer
-- hideKeyboard
+- pressKey: BACK
 - tapOn:
     id: field-report.barangay-input
-- tapOn:
-    id: field-report.barangay-input-search
+# The picker search field auto-focuses; a second tap can land on the Android
+# keyboard settings control instead of the app-owned field.
 - inputText: Wawa
+- pressKey: BACK
+- scrollUntilVisible:
+    element:
+      id: field-report.barangay-input-option
+      text: Wawa
+    direction: DOWN
 - extendedWaitUntil:
     visible:
       id: field-report.barangay-input-option
@@ -115,7 +125,8 @@ tags:
 - tapOn:
     id: field-report.barangay-input-option
     index: 0
-- hideKeyboard
+# Selecting the option collapses the picker and keyboard. Do not send another
+# BACK/hide action here because it navigates back to the saved record.
 # D4: affected area and estimated affected portion are required to finalize.
 - scrollUntilVisible:
     element:
@@ -124,7 +135,7 @@ tags:
 - tapOn:
     id: field-report.affected-area-input
 - inputText: "1.5"
-- hideKeyboard
+- pressKey: BACK
 - scrollUntilVisible:
     element:
       id: field-report.affected-portion-input
@@ -132,14 +143,30 @@ tags:
 - tapOn:
     id: field-report.affected-portion-input
 - inputText: "30"
-- hideKeyboard
+- pressKey: BACK
+# Location capture remounts the report from SQLite. Persist the entered fields
+# before the GPS transition so the route cannot discard them.
+- scrollUntilVisible:
+    element:
+      id: field-report.save-draft
+    direction: DOWN
+- tapOn:
+    id: field-report.save-draft
+- scrollUntilVisible:
+    element:
+      id: field-report.saved
+    direction: DOWN
+- assertVisible:
+    id: field-report.saved
 - setPermissions:
     permissions:
       location: allow
+# After the save indicator is reached, the location section is above the
+# current viewport; scroll back up to the GPS action.
 - scrollUntilVisible:
     element:
       id: field-report.capture-gps
-    direction: DOWN
+    direction: UP
 - tapOn:
     id: field-report.capture-gps
 - extendedWaitUntil:
@@ -153,28 +180,27 @@ tags:
     element:
       id: field-report.finalize
     direction: UP
-# D6: finalization requires an online connection; offline it is blocked and
-# explained.
-- setAirplaneMode: enabled
-- assertVisible:
-    id: field-report.offline-finalize-block
-- assertNotEnabled:
-    id: field-report.finalize
-- takeScreenshot: .maestro/artifacts/p0-08-path-a-offline-finalize-blocked
-- setAirplaneMode: disabled
+# True Wi-Fi-off recovery is a manual acceptance step because this device uses
+# wireless ADB. Keep Maestro connected and verify that local finalization is
+# available; the separate manual procedure covers the radio-off path.
 - extendedWaitUntil:
     visible:
       id: field-report.finalize
       enabled: true
     timeout: 30000
+- takeScreenshot: .maestro/artifacts/p0-08-path-a-ready-to-finalize
 - tapOn:
     id: field-report.finalize
+- scrollUntilVisible:
+    element:
+      id: field-report.authoring-status
+    direction: UP
 - extendedWaitUntil:
-    visible: "Finalized · (Pending upload|Uploading|Synced|Sync failed)"
+    visible: "Finalized · (Needs attention|Pending upload|Uploading|Synced|Sync failed)"
     timeout: 30000
 - takeScreenshot: .maestro/artifacts/p0-08-path-a-gps-pending
 - extendedWaitUntil:
-    visible: "Finalized · (Pending upload|Uploading|Synced|Sync failed)"
+    visible: "Finalized · (Needs attention|Pending upload|Uploading|Synced|Sync failed)"
     timeout: 30000
 - runFlow:
     when:

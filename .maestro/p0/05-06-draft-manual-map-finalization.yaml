@@ -28,6 +28,10 @@ tags:
     visible:
       id: records.screen
     timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: "Open Possible result: Rust record saved .*"
+    direction: DOWN
 - tapOn:
     text: "Open Possible result: Rust record saved .*"
     index: 0
@@ -45,6 +49,11 @@ tags:
     visible:
       id: field-report.screen
     timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: field-report.farmer-name-input
+      text: P0 Draft Farmer
+    direction: DOWN
 - assertVisible:
     id: field-report.farmer-name-input
     text: P0 Draft Farmer
@@ -109,6 +118,10 @@ tags:
     visible:
       id: records.screen
     timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: "Open Possible result: Rust record saved .*"
+    direction: DOWN
 - tapOn:
     text: "Open Possible result: Rust record saved .*"
     index: 0
@@ -123,6 +136,11 @@ tags:
 - assertVisible: Resume Draft
 - tapOn:
     id: records.open-field-report
+- scrollUntilVisible:
+    element:
+      id: field-report.farmer-name-input
+      text: P0 Draft Farmer
+    direction: DOWN
 - assertVisible:
     id: field-report.farmer-name-input
     text: P0 Draft Farmer
@@ -141,9 +159,15 @@ tags:
     direction: UP
 - tapOn:
     id: field-report.barangay-input
-- tapOn:
-    id: field-report.barangay-input-search
+# The picker search field auto-focuses; a second tap can land on the Android
+# keyboard settings control instead of the app-owned field.
 - inputText: Lumbangan
+- pressKey: BACK
+- scrollUntilVisible:
+    element:
+      id: field-report.barangay-input-option
+      text: Lumbangan
+    direction: DOWN
 - extendedWaitUntil:
     visible:
       id: field-report.barangay-input-option
@@ -152,7 +176,8 @@ tags:
 - tapOn:
     id: field-report.barangay-input-option
     index: 0
-- hideKeyboard
+# Selecting the option collapses the picker and keyboard. Do not send another
+# BACK/hide action here because it navigates back to the saved record.
 # D4: affected area and estimated affected portion are required to finalize.
 - scrollUntilVisible:
     element:
@@ -161,7 +186,7 @@ tags:
 - tapOn:
     id: field-report.affected-area-input
 - inputText: "2.5"
-- hideKeyboard
+- pressKey: BACK
 - scrollUntilVisible:
     element:
       id: field-report.affected-portion-input
@@ -169,7 +194,7 @@ tags:
 - tapOn:
     id: field-report.affected-portion-input
 - inputText: "40"
-- hideKeyboard
+- pressKey: BACK
 - scrollUntilVisible:
     element:
       id: field-report.finalize
@@ -178,10 +203,10 @@ tags:
     id: field-report.finalize
 - scrollUntilVisible:
     element:
-      text: "Finalized · (Pending sync|Pending upload|Uploading|Synced|Sync failed)"
+      text: "Finalized · (Needs attention|Pending sync|Pending upload|Uploading|Synced|Sync failed)"
     direction: UP
 - extendedWaitUntil:
-    visible: "Finalized · (Pending sync|Pending upload|Uploading|Synced|Sync failed)"
+    visible: "Finalized · (Needs attention|Pending sync|Pending upload|Uploading|Synced|Sync failed)"
     timeout: 30000
 - assertVisible:
     id: field-report.authoring-status

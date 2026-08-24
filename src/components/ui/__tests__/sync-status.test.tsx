@@ -26,6 +26,9 @@ let mockSyncState: MockSyncState = {
   syncNow: jest.fn(),
 };
 
+jest.mock('@/features/auth/hooks/useAuth', () => ({
+  useAuth: () => ({ sessionVerification: 'idle' }),
+}));
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => mockSyncState,
 }));

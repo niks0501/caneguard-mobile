@@ -10,8 +10,8 @@
     "semantic_hash": ""
   },
   "src/app/home.tsx": {
-    "mtime": 1787408883.165105,
-    "ast_hash": "d3fc98f9b75085d6ffe6a05135136e8e",
+    "mtime": 1787562114.005531,
+    "ast_hash": "0deeec3e68a8c9edd2f43933cffb2466",
     "semantic_hash": ""
   },
   "src/app/image-preview.tsx": {
@@ -610,13 +610,13 @@
     "semantic_hash": ""
   },
   "src/features/auth/api/__tests__/mobileAuthApi.test.ts": {
-    "mtime": 1786533086.904146,
-    "ast_hash": "7537a433431479842f653d0980073e9b",
+    "mtime": 1787562353.4374669,
+    "ast_hash": "53bee7f534c15fde13b943ae956ef4e6",
     "semantic_hash": ""
   },
   "src/features/auth/api/mobileAuthApi.ts": {
-    "mtime": 1786533086.904146,
-    "ast_hash": "57e92f2ca73f550bc3011e82763309c1",
+    "mtime": 1787562075.1255429,
+    "ast_hash": "6ed1438e43c90a45e9e577b12eaa29d5",
     "semantic_hash": ""
   },
   "src/features/auth/hooks/useAuth.ts": {
@@ -625,33 +625,33 @@
     "semantic_hash": ""
   },
   "src/features/auth/providers/AuthProvider.tsx": {
-    "mtime": 1786533086.904146,
-    "ast_hash": "3a8525b5b3a930b9a934e51b4bfcb3aa",
+    "mtime": 1787562029.3615456,
+    "ast_hash": "43e676bb4809e4cd6f1a0221a6296335",
     "semantic_hash": ""
   },
   "src/features/auth/providers/__tests__/AuthProvider.test.tsx": {
-    "mtime": 1786533086.9045208,
-    "ast_hash": "de4565273a525cf24a13e6ddd1faf671",
+    "mtime": 1787562453.5174618,
+    "ast_hash": "fd955f5b326f0966a8c2fc3e521b4e25",
     "semantic_hash": ""
   },
   "src/features/auth/services/__tests__/tokenStore.test.ts": {
-    "mtime": 1786533086.9046853,
-    "ast_hash": "05a24bdbdb8cd7397d596aa9cbf79060",
+    "mtime": 1787562341.3134763,
+    "ast_hash": "702ddce5a260ff4162a6b93e67dde5a3",
     "semantic_hash": ""
   },
   "src/features/auth/services/tokenStore.ts": {
-    "mtime": 1786533086.9046853,
-    "ast_hash": "bfeaab8344ce469ee1b2a1fd37d345a2",
+    "mtime": 1787562256.9814894,
+    "ast_hash": "df11faf6029512ec05de3abe176b013c",
     "semantic_hash": ""
   },
   "src/features/auth/types.ts": {
-    "mtime": 1786533086.9046853,
-    "ast_hash": "5f84181c09db108e0a27a7d530c796b9",
+    "mtime": 1787562036.9215372,
+    "ast_hash": "e4d1f951af7873819384c21f73c83cbf",
     "semantic_hash": ""
   },
   "src/features/shared/api/apiClient.ts": {
-    "mtime": 1786533086.9111238,
-    "ast_hash": "eafa1680f120075f64f7d8135e211e70",
+    "mtime": 1787562094.3575368,
+    "ast_hash": "ece24d19da212e3b1c854f0812b6e21c",
     "semantic_hash": ""
   },
   "src/features/sync/api/mobileReportsApi.ts": {
@@ -790,8 +790,8 @@
     "semantic_hash": ""
   },
   "src/features/sync/services/__tests__/syncPendingFieldReports.test.ts": {
-    "mtime": 1787393293.8196504,
-    "ast_hash": "68d3f5879ed1a5ec684f11901c48bfda",
+    "mtime": 1787544183.025441,
+    "ast_hash": "3111da54cd6a59581724c7d618ba6278",
     "semantic_hash": ""
   },
   "src/features/sync/services/syncFieldReport.ts": {
@@ -815,8 +815,8 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/home.test.tsx": {
-    "mtime": 1787408953.4220011,
-    "ast_hash": "f628947da5aa4a199b86f660b5ede928",
+    "mtime": 1787562375.117482,
+    "ast_hash": "3c69066d09485b69c4031d69f05c95aa",
     "semantic_hash": ""
   },
   "src/app/__tests__/register.test.tsx": {
@@ -835,8 +835,8 @@
     "semantic_hash": ""
   },
   "src/components/ui/SyncStatusRow.tsx": {
-    "mtime": 1787408862.4484227,
-    "ast_hash": "21dba1de9f168f12604276386c91e1a1",
+    "mtime": 1787562123.9655304,
+    "ast_hash": "b756fb81988edbf0472ca7105a0ca942",
     "semantic_hash": ""
   },
   "src/components/ui/__tests__/shared-ui.test.tsx": {
@@ -995,8 +995,8 @@
     "semantic_hash": ""
   },
   "src/components/ui/__tests__/sync-status.test.tsx": {
-    "mtime": 1787409039.5340726,
-    "ast_hash": "0a8e07b162e06bb18f9e4b32a6f83f5f",
+    "mtime": 1787562358.82947,
+    "ast_hash": "d1c7ccc9cad69ea892e9ed6da2eda44e",
     "semantic_hash": ""
   },
   "src/features/records/data/submissionImageRepository.ts": {
@@ -1022,6 +1022,16 @@
   "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts": {
     "mtime": 1787501993.506631,
     "ast_hash": "f9a4aeab02d965f2325507fa456859fc",
+    "semantic_hash": ""
+  },
+  "src/app/__tests__/auth-bootstrap.test.tsx": {
+    "mtime": 1787562527.4894483,
+    "ast_hash": "03c59bc481a69fb3fafc20ab00fff6e7",
+    "semantic_hash": ""
+  },
+  "src/features/shared/api/__tests__/apiClient.test.ts": {
+    "mtime": 1787562204.881515,
+    "ast_hash": "7453d5222164bee34535bb9e965eb1f4",
     "semantic_hash": ""
   }
 }

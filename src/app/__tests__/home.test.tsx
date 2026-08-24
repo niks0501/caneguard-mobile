@@ -5,9 +5,11 @@ import HomeScreen from '@/app/home';
 
 let mockIsOnline: boolean | null = true;
 let mockApiReachability: 'unknown' | 'available' | 'unavailable' = 'unknown';
+let mockSessionVerification: 'idle' | 'pending' | 'verified' | 'unavailable' = 'idle';
 
 jest.mock('@/features/auth/hooks/useAuth', () => ({
   useAuth: () => ({
+    sessionVerification: mockSessionVerification,
     user: {
       email: 'ari@example.test',
       name: 'Ari Santos',
@@ -37,6 +39,7 @@ describe('HomeScreen', () => {
     jest.clearAllMocks();
     mockApiReachability = 'unknown';
     mockIsOnline = true;
+    mockSessionVerification = 'idle';
   });
 
   it('renders separate network and API connection states without a location line', async () => {
@@ -64,6 +67,18 @@ describe('HomeScreen', () => {
 
       await rendered.unmount();
     }
+  });
+
+  it('exposes cached-session server unavailability as an accessible Home state', async () => {
+    mockSessionVerification = 'unavailable';
+
+    await render(<HomeScreen />);
+
+    expect(screen.getByTestId('home.connection-status')).toHaveProp(
+      'accessibilityLabel',
+      'Server unavailable',
+    );
+    expect(screen.getByText('Server unavailable')).toBeOnTheScreen();
   });
 
   it('shows only the supported education reference classes', async () => {

@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Radius, Spacing, Typography } from '@/constants/theme';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -12,11 +13,13 @@ type SyncStatusRowProps = {
 
 export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
   const theme = useTheme();
+  const { sessionVerification } = useAuth();
   const sync = useSync();
   const hasPendingReports = sync.pendingCount > 0;
   const pendingSummary = `${sync.pendingCount} ${sync.pendingCount === 1 ? 'report' : 'reports'} awaiting sync`;
   const apiUnavailable =
-    sync.isOnline === true && sync.apiReachability === 'unavailable';
+    sessionVerification === 'unavailable' ||
+    (sync.isOnline === true && sync.apiReachability === 'unavailable');
   const icon = sync.isSyncing
     ? 'upload-cloud'
     : apiUnavailable

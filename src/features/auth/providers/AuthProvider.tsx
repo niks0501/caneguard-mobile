@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -23,6 +24,7 @@ import type {
   AuthStatus,
   MobileSession,
   MobileUser,
+  SessionVerificationStatus,
 } from '@/features/auth/types';
 
 interface AuthContextValue {
@@ -34,6 +36,7 @@ interface AuthContextValue {
   }>;
   markSessionExpired: () => Promise<void>;
   session: MobileSession | null;
+  sessionVerification: SessionVerificationStatus;
   status: AuthStatus;
   user: MobileUser | null;
 }
@@ -44,8 +47,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<MobileSession | null>(null);
   const [status, setStatus] = useState<AuthStatus>('restoring');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [sessionVerification, setSessionVerification] =
+    useState<SessionVerificationStatus>('idle');
+  const verificationGeneration = useRef(0);
 
   const markSessionExpired = useCallback(async () => {
+    verificationGeneration.current += 1;
     let localClearFailed = false;
     try {
       await clearMobileSession();
@@ -54,6 +61,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     setSession(null);
     setStatus('unauthenticated');
+    setSessionVerification('idle');
     setErrorMessage(
       localClearFailed
         ? 'Your session expired, but secure storage could not be cleared. Restart the app before signing in again.'
@@ -63,52 +71,79 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let active = true;
+    const generation = verificationGeneration.current;
+    const isCurrent = () =>
+      active && generation === verificationGeneration.current;
 
     void (async () => {
       const stored = await readMobileSession();
-      if (!active) {
+      if (!isCurrent()) {
         return;
       }
       if (!stored) {
         setStatus('unauthenticated');
+        setSessionVerification('idle');
         return;
       }
 
+      // A structurally valid session has already been verified by the server
+      // when it was stored. Hydrate it before any network work so the
+      // authenticated navigator remains usable during an outage.
+      setSession(stored);
+      setStatus('authenticated');
+      setSessionVerification('pending');
+      setErrorMessage(null);
+
       try {
         const user = await verifyMobileSession(stored.token);
+        if (!isCurrent()) {
+          return;
+        }
+
         const verified = { ...stored, user };
-        await saveMobileSession(verified);
-        if (active) {
+        try {
+          await saveMobileSession(verified);
+        } catch {
+          // Keep the already loaded session usable in memory. A later login
+          // or session refresh can retry the secure-store reconciliation.
+        }
+        if (isCurrent()) {
           setSession(verified);
           setStatus('authenticated');
+          setSessionVerification('verified');
+          setErrorMessage(null);
         }
       } catch (error: unknown) {
-        if (
-          error instanceof MobileAuthError &&
-          (error.code === 'INVALID_CREDENTIALS' ||
-            error.code === 'FORBIDDEN_ROLE' ||
-            error.code === 'SESSION_EXPIRED')
-        ) {
+        if (!isCurrent()) {
+          return;
+        }
+        if (isAuthoritativeSessionRejection(error)) {
           await clearMobileSession();
-          if (active) {
+          if (isCurrent()) {
+            setSession(null);
             setStatus('unauthenticated');
+            setSessionVerification('idle');
+            setErrorMessage(null);
           }
           return;
         }
 
-        // Keep a previously verified session usable offline. The API will
-        // confirm or reject it before any report is accepted.
-        if (active) {
+        // Network timeouts, DNS failures, connection refusals, and temporary
+        // server failures do not prove that the cached session is invalid.
+        if (isCurrent()) {
           setSession(stored);
           setStatus('authenticated');
+          setSessionVerification('unavailable');
           setErrorMessage(
             'Working offline. CaneGuard will verify your session when the server is available.',
           );
         }
       }
     })().catch(() => {
-      if (active) {
+      if (isCurrent()) {
+        setSession(null);
         setStatus('unauthenticated');
+        setSessionVerification('idle');
         setErrorMessage('Secure session storage could not be opened.');
       }
     });
@@ -119,7 +154,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
+    verificationGeneration.current += 1;
     setErrorMessage(null);
+    setSessionVerification('pending');
     try {
       const nextSession = await loginMobile({
         email,
@@ -143,6 +180,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
       setSession(nextSession);
       setStatus('authenticated');
+      setSessionVerification('verified');
       return true;
     } catch (error: unknown) {
       setErrorMessage(
@@ -151,11 +189,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
           : 'CaneGuard could not complete sign in.',
       );
       setStatus('unauthenticated');
+      setSessionVerification('idle');
       return false;
     }
   }, []);
 
   const logout = useCallback(async () => {
+    verificationGeneration.current += 1;
     let remoteRevocationFailed = false;
     if (session?.token) {
       try {
@@ -174,6 +214,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     setSession(null);
     setStatus('unauthenticated');
+    setSessionVerification('idle');
     setErrorMessage(
       remoteRevocationFailed
         ? 'Signed out on this device. The server token could not be revoked and may remain active.'
@@ -189,11 +230,29 @@ export function AuthProvider({ children }: PropsWithChildren) {
       logout,
       markSessionExpired,
       session,
+      sessionVerification,
       status,
       user: session?.user ?? null,
     }),
-    [errorMessage, login, logout, markSessionExpired, session, status],
+    [
+      errorMessage,
+      login,
+      logout,
+      markSessionExpired,
+      session,
+      sessionVerification,
+      status,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+function isAuthoritativeSessionRejection(error: unknown): boolean {
+  return (
+    error instanceof MobileAuthError &&
+    (error.code === 'INVALID_CREDENTIALS' ||
+      error.code === 'FORBIDDEN_ROLE' ||
+      error.code === 'SESSION_EXPIRED')
+  );
 }

@@ -67,7 +67,7 @@ export async function loginMobile(
       user: response.user,
     };
   } catch (error: unknown) {
-    throw mapAuthError(error);
+    throw mapAuthError(error, 'login');
   }
 }
 
@@ -90,7 +90,7 @@ export async function verifyMobileSession(token: string): Promise<MobileUser> {
     }
     return user;
   } catch (error: unknown) {
-    throw mapAuthError(error);
+    throw mapAuthError(error, 'session');
   }
 }
 
@@ -101,7 +101,7 @@ export async function logoutMobile(token: string): Promise<void> {
       token,
     });
   } catch (error: unknown) {
-    throw mapAuthError(error);
+    throw mapAuthError(error, 'logout');
   }
 }
 
@@ -120,12 +120,28 @@ function isMobileUser(value: unknown): value is MobileUser {
   );
 }
 
-function mapAuthError(error: unknown): MobileAuthError {
+type AuthRequestKind = 'login' | 'session' | 'logout';
+
+function mapAuthError(
+  error: unknown,
+  requestKind: AuthRequestKind,
+): MobileAuthError {
   if (error instanceof MobileAuthError) {
     return error;
   }
   if (error instanceof ApiHttpError) {
-    if (error.status === 401 || error.status === 422) {
+    if (error.status === 401) {
+      return requestKind === 'session'
+        ? new MobileAuthError(
+            'SESSION_EXPIRED',
+            'Your CaneGuard session is no longer valid.',
+          )
+        : new MobileAuthError(
+            'INVALID_CREDENTIALS',
+            'The email or password is incorrect.',
+          );
+    }
+    if (error.status === 422 && requestKind === 'login') {
       return new MobileAuthError(
         'INVALID_CREDENTIALS',
         'The email or password is incorrect.',
@@ -146,13 +162,13 @@ function mapAuthError(error: unknown): MobileAuthError {
     if (error.status === 404 || error.status === 405) {
       return new MobileAuthError(
         'SERVER_UNAVAILABLE',
-        'The mobile sign-in endpoint is unavailable on the server.',
+        'The mobile auth endpoint is unavailable on the server.',
       );
     }
     if (error.status >= 500) {
       return new MobileAuthError(
         'SERVER_UNAVAILABLE',
-        'CaneGuard sign-in is temporarily unavailable. Try again shortly.',
+        'CaneGuard authentication is temporarily unavailable. Try again shortly.',
       );
     }
   }
@@ -164,7 +180,7 @@ function mapAuthError(error: unknown): MobileAuthError {
   }
   return new MobileAuthError(
     'INVALID_RESPONSE',
-    'CaneGuard could not complete sign in.',
+    'CaneGuard could not complete authentication.',
   );
 }
 

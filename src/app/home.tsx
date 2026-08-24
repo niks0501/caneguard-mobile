@@ -57,17 +57,19 @@ export const REFERENCE_CLASSES: readonly ReferenceClass[] = [
 
 export default function HomeScreen() {
   const theme = useTheme();
-  const { user } = useAuth();
+  const { sessionVerification, user } = useAuth();
   const { apiReachability, isOnline } = useSync();
-  const connectionBadge = isOnline === true
-    ? apiReachability === 'unavailable'
+  const serverUnavailable =
+    sessionVerification === 'unavailable' || apiReachability === 'unavailable';
+  const connectionBadge = isOnline === false
+    ? { backgroundColor: theme.warningBg, color: theme.warning, label: 'Offline' }
+    : serverUnavailable
       ? { backgroundColor: theme.dangerBg, color: theme.danger, label: 'Server unavailable' }
-      : apiReachability === 'unknown'
-        ? { backgroundColor: theme.infoBg, color: theme.info, label: 'Network available' }
-        : { backgroundColor: theme.successBg, color: theme.success, label: 'Online' }
-    : isOnline === false
-      ? { backgroundColor: theme.warningBg, color: theme.warning, label: 'Offline' }
-      : { backgroundColor: theme.infoBg, color: theme.info, label: 'Checking connection' };
+      : isOnline === true
+        ? apiReachability === 'unknown'
+          ? { backgroundColor: theme.infoBg, color: theme.info, label: 'Network available' }
+          : { backgroundColor: theme.successBg, color: theme.success, label: 'Online' }
+        : { backgroundColor: theme.infoBg, color: theme.info, label: 'Checking connection' };
   const actions: QuickAction[] = [
     {
       title: 'Start Scan',
@@ -104,7 +106,15 @@ export default function HomeScreen() {
                   <View style={styles.heroActions}>
                     <View style={[styles.online, { backgroundColor: connectionBadge.backgroundColor }]}>
                       <View style={[styles.onlineDot, { backgroundColor: connectionBadge.color }]} />
-                      <Text style={[styles.onlineText, { color: connectionBadge.color }]}>{connectionBadge.label}</Text>
+                      <Text
+                        accessibilityRole="text"
+                        accessibilityLabel={connectionBadge.label}
+                        accessibilityLiveRegion="polite"
+                        testID="home.connection-status"
+                        style={[styles.onlineText, { color: connectionBadge.color }]}
+                      >
+                        {connectionBadge.label}
+                      </Text>
                     </View>
                     <Pressable
                       accessibilityRole="button"

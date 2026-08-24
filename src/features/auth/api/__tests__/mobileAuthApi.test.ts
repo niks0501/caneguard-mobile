@@ -81,6 +81,18 @@ describe('mobile authentication API', () => {
     }
   });
 
+  it('maps authoritative session rejection responses separately from outages', async () => {
+    fetchMock.mockResolvedValueOnce(response(401, { message: 'Expired' }));
+    await expect(verifyMobileSession('secret-token')).rejects.toMatchObject({
+      code: 'SESSION_EXPIRED',
+    });
+
+    fetchMock.mockResolvedValueOnce(response(403, { message: 'Forbidden' }));
+    await expect(verifyMobileSession('secret-token')).rejects.toMatchObject({
+      code: 'FORBIDDEN_ROLE',
+    });
+  });
+
   it('explains when the mobile auth route is unavailable', async () => {
     fetchMock.mockResolvedValueOnce(
       response(404, { message: 'The requested resource was not found.' }),
@@ -94,7 +106,7 @@ describe('mobile authentication API', () => {
       }),
     ).rejects.toMatchObject({
       code: 'SERVER_UNAVAILABLE',
-      message: 'The mobile sign-in endpoint is unavailable on the server.',
+      message: 'The mobile auth endpoint is unavailable on the server.',
     });
   });
 

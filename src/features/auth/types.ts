@@ -20,3 +20,8 @@ export interface MobileLoginInput {
 }
 
 export type AuthStatus = 'restoring' | 'authenticated' | 'unauthenticated';
+export type SessionVerificationStatus =
+  | 'idle'
+  | 'pending'
+  | 'verified'
+  | 'unavailable';

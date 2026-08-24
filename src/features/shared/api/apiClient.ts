@@ -1,6 +1,6 @@
 import { apiBaseUrl } from '@/config/env';
 
-const DEFAULT_TIMEOUT_MS = 20_000;
+export const DEFAULT_API_TIMEOUT_MS = 20_000;
 
 export class ApiHttpError extends Error {
   readonly body: unknown;
@@ -28,40 +28,69 @@ export async function apiRequest<T>(
   } = {},
 ): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-  );
-  const headers = new Headers(options.headers);
+  const {
+    timeoutMs = DEFAULT_API_TIMEOUT_MS,
+    token,
+    signal: _callerSignal,
+    ...requestInit
+  } = options;
+  const headers = new Headers(requestInit.headers);
 
   headers.set('Accept', 'application/json');
-  if (options.token) {
-    headers.set('Authorization', `Bearer ${options.token}`);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
   }
+
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      controller.abort();
+      reject(createAbortError());
+    }, timeoutMs);
+  });
 
   try {
-    const response = await fetch(`${apiBaseUrl}${normalizePath(path)}`, {
-      ...options,
-      headers,
-      signal: controller.signal,
-    });
-    const body = await readResponseBody(response);
+    return await Promise.race([
+      (async () => {
+        const response = await fetch(
+          `${apiBaseUrl}${normalizePath(path)}`,
+          {
+            ...requestInit,
+            headers,
+            signal: controller.signal,
+          },
+        );
+        const body = await readResponseBody(response);
 
-    if (!response.ok) {
-      throw new ApiHttpError(
-        response.status,
-        readServerMessage(body) ?? `The server returned HTTP ${response.status}.`,
-        {
-          body,
-          retryAfterMs: parseRetryAfter(response.headers.get('Retry-After')),
-        },
-      );
-    }
+        if (!response.ok) {
+          throw new ApiHttpError(
+            response.status,
+            readServerMessage(body) ??
+              `The server returned HTTP ${response.status}.`,
+            {
+              body,
+              retryAfterMs: parseRetryAfter(
+                response.headers.get('Retry-After'),
+              ),
+            },
+          );
+        }
 
-    return body as T;
+        return body as T;
+      })(),
+      timeoutPromise,
+    ]);
   } finally {
-    clearTimeout(timeout);
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
   }
+}
+
+function createAbortError(): Error {
+  const error = new Error('The request timed out.');
+  error.name = 'AbortError';
+  return error;
 }
 
 function normalizePath(path: string): string {

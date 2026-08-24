@@ -49,6 +49,30 @@ describe('mobile secure session store', () => {
     expect(mockDelete).toHaveBeenCalled();
   });
 
+  it('does not restore expired sessions', async () => {
+    mockGet.mockResolvedValueOnce(
+      JSON.stringify({
+        ...SESSION,
+        expiresAt: '2020-01-01T00:00:00.000Z',
+      }),
+    );
+
+    await expect(readMobileSession()).resolves.toBeNull();
+    expect(mockDelete).toHaveBeenCalled();
+  });
+
+  it('does not restore sessions with an invalid mobile user structure', async () => {
+    mockGet.mockResolvedValueOnce(
+      JSON.stringify({
+        ...SESSION,
+        user: { ...SESSION.user, role: 'admin' },
+      }),
+    );
+
+    await expect(readMobileSession()).resolves.toBeNull();
+    expect(mockDelete).toHaveBeenCalled();
+  });
+
   it('clears the secure session without touching scan storage', async () => {
     await clearMobileSession();
     expect(mockDelete).toHaveBeenCalledWith(

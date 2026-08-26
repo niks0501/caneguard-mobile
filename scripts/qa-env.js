@@ -55,6 +55,8 @@ function missingApiBaseUrlMessage(localEnvFilePath) {
     `${API_BASE_URL_KEY} is required before a QA export or build; no artifact was started.`,
     `Remote EAS QA must set it as a plaintext variable in the EAS ${EAS_QA_ENVIRONMENT} environment selected by eas.json:`,
     `eas env:set --name ${API_BASE_URL_KEY} --value "$QA_PUBLIC_URL" --environment ${EAS_QA_ENVIRONMENT} --visibility plaintext`,
+    `EAS config/build must load that environment before local Expo config resolution:`,
+    `eas env:exec ${EAS_QA_ENVIRONMENT} 'EXPO_NO_DOTENV=1 eas build --platform android --profile qa --json --no-wait'`,
     `Local QA must copy .env.qa.example to ${localPath} with the current HTTPS Funnel URL, then run npm run qa:export.`,
   ].join('\n');
 }

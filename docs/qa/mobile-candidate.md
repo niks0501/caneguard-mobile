@@ -54,6 +54,14 @@ The repository preflight runs before Expo export and before every EAS Build inst
 
 The Expo config also rejects a direct QA export when `EXPO_PUBLIC_QA_MODE=true`, before Metro can create an artifact.
 
+EAS CLI resolves the Expo config on the local machine before the build profile's remote `environment` variables are available to that config process.
+
+Therefore, a plain `eas build --profile qa` can fail before submission even when the EAS `preview` environment is configured.
+
+Run the QA build through `eas env:exec preview` so the selected EAS environment is present during local config resolution.
+
+Set `EXPO_NO_DOTENV=1` inside the wrapped command so a stale local `.env` value cannot override the selected remote value.
+
 It fails without creating an artifact when `EXPO_PUBLIC_API_BASE_URL` is missing, invalid, non-HTTPS, or local-only.
 
 ```bash
@@ -90,11 +98,17 @@ Run the QA profile validation independently when changing EAS configuration:
 npm run qa:config
 ```
 
-`npx expo config --json --full` was rerun during this fix and succeeds in the current checkout, but it resolves local Expo configuration and is not profile-aware.
+`npx expo config --json --full` succeeds in this checkout when QA mode is not active, but it resolves only local Expo configuration and is not profile-aware.
+
+The earlier `--full` failure was the same `app.config.js` QA preflight failure, not a problem with the `--full` flag.
+
+When `EAS_BUILD_PROFILE=qa` or `EXPO_PUBLIC_QA_MODE=true` is active, this command also requires `EXPO_PUBLIC_API_BASE_URL` to be present and valid.
 
 It does not prove that the remote EAS `preview` environment contains the public API URL.
 
-Use `eas config --platform android --profile qa --json` together with `npm run qa:config` and the EAS environment check above for QA configuration validation.
+Use `eas env:exec preview 'EXPO_NO_DOTENV=1 eas config --platform android --profile qa --json'` together with `npm run qa:config` and the EAS environment check above for QA configuration validation.
+
+The `eas env:exec` wrapper is required for the EAS config command because it supplies `EXPO_PUBLIC_API_BASE_URL` before Expo evaluates `app.config.js`.
 
 The dependency check previously failed because 16 Expo SDK 57 packages were behind the versions required by the installed Expo package.
 
@@ -104,9 +118,9 @@ A passing run reports `21/21 checks passed. No issues detected!`.
 
 The Doctor result is separate from the QA environment check.
 
-Use `eas config --platform android --profile qa --json` to verify that the QA profile selects the `preview` EAS environment and retains only `EXPO_PUBLIC_QA_MODE=true` in profile-local `env`.
+Use `eas env:exec preview 'EXPO_NO_DOTENV=1 eas config --platform android --profile qa --json'` to verify that the QA profile selects the `preview` EAS environment and retains only `EXPO_PUBLIC_QA_MODE=true` in profile-local `env`.
 
-The `eas-build-pre-install` hook runs the same environment preflight automatically for a remote `eas build --profile qa`, so a missing EAS variable fails before the JavaScript bundle or APK is produced.
+The `eas-build-pre-install` hook runs the same environment preflight automatically for the wrapped remote `eas build --profile qa`, so a missing EAS variable fails before the JavaScript bundle or APK is produced.
 
 ## EAS profiles and delivery channels
 
@@ -129,14 +143,24 @@ The `environment: preview` field selects that EAS environment for the `qa` build
 A QA APK is built with:
 
 ```bash
-eas config --platform android --profile qa --json
 npm run qa:config
-eas build --platform android --profile qa --json | tee qa-mobile-build.json
+set -o pipefail
+eas env:exec preview \
+  'EXPO_NO_DOTENV=1 eas config --platform android --profile qa --json'
+eas env:exec preview \
+  'EXPO_NO_DOTENV=1 eas build --platform android --profile qa --json --no-wait' \
+  | tee qa-mobile-build.json
 ```
 
-The first two commands verify the local profile shape, including `environment: preview`, the QA-only profile flag, and the absence of a hard-coded API URL.
+`npm run qa:config` verifies the tracked profile shape, including `environment: preview`, the QA-only profile flag, and the absence of a hard-coded API URL.
 
-The EAS Build preflight then requires the server-side `preview` environment value before the build proceeds.
+The wrapped `eas config` command verifies that the remote `preview` environment can resolve the Expo config before submission.
+
+The wrapped EAS Build command supplies that same server-side `preview` value during local config resolution and reaches EAS submission when it is valid.
+
+The EAS Build preflight then requires the server-side `preview` environment value again before the remote build proceeds.
+
+`set -o pipefail` preserves a non-zero status when config resolution or EAS submission fails even though build output is captured with `tee`.
 
 The build uses that EAS value and the profile-local QA flag.
 
@@ -165,7 +189,9 @@ Do not hand-copy only the download URL when recording a build.
 
 Retain the complete JSON output and record the build `id`, build details URL, artifact URL, channel, and runtime version.
 
-A compatible JavaScript, TypeScript, or assets-only change may be published without reinstalling the APK:
+A compatible JavaScript, TypeScript, or assets-only change may be published without reinstalling the APK.
+
+Use the same `eas env:exec preview` preflight before publishing an update so local Expo config resolution uses the selected remote value.
 
 ```bash
 EXPO_PUBLIC_QA_MODE=true \
@@ -180,7 +206,7 @@ The update command explicitly enables QA URL validation because `eas.json` build
 
 The `preview` EAS environment supplies the public staging URL to the update bundle.
 
-Run `eas env:exec preview 'EXPO_PUBLIC_QA_MODE=true npm run qa:preflight'` before publishing an update so the same required-variable check runs against the selected EAS environment.
+Run `eas env:exec preview 'EXPO_NO_DOTENV=1 EXPO_PUBLIC_QA_MODE=true npm run qa:preflight'` before publishing an update so the same required-variable check runs against the selected EAS environment.
 
 Retain the complete update JSON output and record the update group identity, update details URL, channel, and runtime version.
 

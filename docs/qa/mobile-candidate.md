@@ -40,24 +40,36 @@ QA_PUBLIC_URL="$QA_PUBLIC_URL" eas env:exec preview \
 
 The final `eas env:exec` check proves that the EAS value is exactly the current Web/API Funnel origin without putting that origin in tracked mobile configuration.
 
+If `eas env:list --environment preview` reports that no variables are configured, stop before building and have the captain or an authenticated EAS operator run the setup above once.
+
 Do not put a QA password, bearer token, database credential, or other secret in an `EXPO_PUBLIC_*` variable.
 
 For a local bundle check, copy `.env.qa.example` to `.env.qa.local` and replace its placeholder with the same `QA_PUBLIC_URL`.
 
 The `.env.qa.local` file is ignored by Git and is not uploaded to a remote EAS Build.
 
-Expo does not treat `.env.qa.local` as the remote EAS environment source, so local checks must pass its values explicitly to the command.
+Expo does not treat `.env.qa.local` as the remote EAS environment source, so the local QA command loads that file explicitly.
+
+The repository preflight runs before Expo export and before every EAS Build install step.
+
+The Expo config also rejects a direct QA export when `EXPO_PUBLIC_QA_MODE=true`, before Metro can create an artifact.
+
+It fails without creating an artifact when `EXPO_PUBLIC_API_BASE_URL` is missing, invalid, non-HTTPS, or local-only.
 
 ```bash
 cd "<WORKSPACE>/caneguard-mobile"
-QA_API_URL="$(awk -F= '$1 == "EXPO_PUBLIC_API_BASE_URL" { print substr($0, index($0, "=") + 1); exit }' .env.qa.local)"
-EXPO_PUBLIC_QA_MODE=true \
-EXPO_PUBLIC_API_BASE_URL="$QA_API_URL" \
-  npx expo export --platform android --output-dir .expo/qa-export-check
+cp .env.qa.example .env.qa.local
+# Replace the placeholder in .env.qa.local with the current QA_PUBLIC_URL.
+npm run qa:preflight
+npm run qa:export -- --platform android --output-dir .expo/qa-export-check
 rm -rf .expo/qa-export-check
 ```
 
 The EAS `preview` environment must contain `EXPO_PUBLIC_API_BASE_URL` before a QA build or update is published.
+
+`npm run qa:export` never falls back to `.env`, localhost, a stale Funnel hostname, or a blank URL.
+
+An explicit `EXPO_PUBLIC_API_BASE_URL=https://qa.example.test npm run qa:export` may be used for a disposable local check, but `.env.qa.local` is the repeatable local QA source.
 
 ## Expo Doctor and repository verification
 
@@ -72,6 +84,18 @@ npm ci
 npx expo-doctor --verbose
 ```
 
+Run the QA profile validation independently when changing EAS configuration:
+
+```bash
+npm run qa:config
+```
+
+`npx expo config --json --full` was rerun during this fix and succeeds in the current checkout, but it resolves local Expo configuration and is not profile-aware.
+
+It does not prove that the remote EAS `preview` environment contains the public API URL.
+
+Use `eas config --platform android --profile qa --json` together with `npm run qa:config` and the EAS environment check above for QA configuration validation.
+
 The dependency check previously failed because 16 Expo SDK 57 packages were behind the versions required by the installed Expo package.
 
 Those package ranges are now aligned in `package.json` and `package-lock.json` through explicit `npx expo install` arguments, rather than an ignore list or blanket suppression.
@@ -81,6 +105,8 @@ A passing run reports `21/21 checks passed. No issues detected!`.
 The Doctor result is separate from the QA environment check.
 
 Use `eas config --platform android --profile qa --json` to verify that the QA profile selects the `preview` EAS environment and retains only `EXPO_PUBLIC_QA_MODE=true` in profile-local `env`.
+
+The `eas-build-pre-install` hook runs the same environment preflight automatically for a remote `eas build --profile qa`, so a missing EAS variable fails before the JavaScript bundle or APK is produced.
 
 ## EAS profiles and delivery channels
 
@@ -104,12 +130,15 @@ A QA APK is built with:
 
 ```bash
 eas config --platform android --profile qa --json
+npm run qa:config
 eas build --platform android --profile qa --json | tee qa-mobile-build.json
 ```
 
-The first command verifies the local profile shape, including `environment: preview` and the QA-only profile flag.
+The first two commands verify the local profile shape, including `environment: preview`, the QA-only profile flag, and the absence of a hard-coded API URL.
 
-The second command uses the server-side `preview` environment value and the profile-local QA flag.
+The EAS Build preflight then requires the server-side `preview` environment value before the build proceeds.
+
+The build uses that EAS value and the profile-local QA flag.
 
 The `qa` profile is an EAS Preview build, not a Development Build.
 
@@ -151,6 +180,8 @@ The update command explicitly enables QA URL validation because `eas.json` build
 
 The `preview` EAS environment supplies the public staging URL to the update bundle.
 
+Run `eas env:exec preview 'EXPO_PUBLIC_QA_MODE=true npm run qa:preflight'` before publishing an update so the same required-variable check runs against the selected EAS environment.
+
 Retain the complete update JSON output and record the update group identity, update details URL, channel, and runtime version.
 
 Use the `qa` channel for the installed QA APK and for its updates.
@@ -173,7 +204,11 @@ Treat a mixed or uncertain diff as native/runtime/build-level and build a fresh 
 
 Changing the QA staging URL through the EAS environment changes the compiled JavaScript configuration.
 
-It may use EAS Update only when the installed `qa` runtime remains compatible and the update command supplies the same QA mode and `preview` EAS environment.
+Changing the Funnel hostname requires a fresh QA APK when delivering an APK, or a new local export when performing a local bundle check.
+
+A compatible EAS Update can replace the JavaScript without reinstalling the APK only when that delivery is explicitly chosen and the installed `qa` runtime remains compatible.
+
+The update command must supply the same QA mode and `preview` EAS environment.
 
 Changing the EAS profile, Expo app configuration, native dependencies, or runtime version requires a fresh APK.
 

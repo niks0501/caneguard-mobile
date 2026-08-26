@@ -27,6 +27,24 @@ function runScript(script, env, cwd) {
   });
 }
 
+function runExpoConfig(env, unset = []) {
+  const expoCli = path.resolve(__dirname, '../../node_modules/expo/bin/cli');
+  const childEnv = {
+    ...process.env,
+    EXPO_NO_DOTENV: '1',
+    ...env,
+  };
+  for (const key of unset) {
+    delete childEnv[key];
+  }
+
+  return spawnSync(process.execPath, [expoCli, 'config', '--json'], {
+    cwd: path.resolve(__dirname, '../..'),
+    env: childEnv,
+    encoding: 'utf8',
+  });
+}
+
 describe('QA build configuration', () => {
   it('accepts the representative public QA URL without exposing it in eas.json', () => {
     expect(
@@ -57,13 +75,13 @@ describe('QA build configuration', () => {
   });
 
   it.each([
-    'http://qa.example.test',
-    'https://localhost:8000',
-    'https://127.0.0.1:8000',
-  ])('rejects a non-public QA URL in the export preflight: %s', (value) => {
-    expect(() => parseConfiguredQaApiBaseUrl(value)).toThrow(
-      /https for QA|public HTTPS staging host/,
-    );
+    ['not-a-url', /valid absolute URL/],
+    ['http://qa.example.test', /https for QA/],
+    ['https://localhost:8000', /public HTTPS staging host/],
+    ['https://127.0.0.1:8000', /public HTTPS staging host/],
+    ['https://[::1]:8000', /public HTTPS staging host/],
+  ])('rejects an unsafe QA URL in the export preflight: %s', (value, message) => {
+    expect(() => parseConfiguredQaApiBaseUrl(value)).toThrow(message);
   });
 
   it('guards a direct QA Expo config/export before artifact creation', () => {
@@ -87,6 +105,26 @@ describe('QA build configuration', () => {
         process.env.EXPO_PUBLIC_QA_MODE = previousQaMode;
       }
     }
+  });
+
+  it('resolves QA Expo config only when the direct config process has a valid URL', () => {
+    const missing = runExpoConfig(
+      { EAS_BUILD_PROFILE: 'qa' },
+      ['EXPO_PUBLIC_API_BASE_URL', 'EXPO_PUBLIC_QA_MODE'],
+    );
+    expect(missing.status).toBe(1);
+    expect(missing.stderr).toMatch(
+      /EXPO_PUBLIC_API_BASE_URL is required[\s\S]*preview/,
+    );
+
+    const valid = runExpoConfig({
+      EAS_BUILD_PROFILE: 'qa',
+      EXPO_PUBLIC_API_BASE_URL: 'https://qa.example.test/api',
+    });
+    expect(valid.status).toBe(0);
+    expect(JSON.parse(valid.stdout)).toMatchObject({
+      slug: 'caneguard-mobile',
+    });
   });
 
   it('fails the missing-variable preflight with remote and local instructions', () => {

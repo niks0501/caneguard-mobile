@@ -159,7 +159,8 @@ and stores the returned remote UUID and successful sync time on Field Report.
 - Mobile sessions are persisted with Expo SecureStore using device-only keychain accessibility after first unlock.
 - Only backend users with role `field_reporter` are accepted by the mobile client.
 - `EXPO_PUBLIC_API_BASE_URL` is configuration, not a secret. Never place API credentials or tokens in public Expo environment variables.
-- Production API configuration must use HTTPS; plain HTTP is accepted only in development.
+- `EXPO_PUBLIC_QA_MODE=true` enables the QA-only validation that the API URL uses public HTTPS rather than a loopback host.
+- Production and QA API configuration must use HTTPS; plain HTTP is accepted only in development.
 - API base URLs must not embed usernames or passwords.
 - Report images, user identity/email, barangay, scan observations, model outputs, and synchronization metadata should be treated as application data that must not be logged or exposed unnecessarily.
 - The device filesystem/SQLite database is a trust boundary because reports may exist locally before synchronization.

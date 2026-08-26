@@ -175,6 +175,26 @@ adb install <APK_PATH>
 `<APK_PATH>` is the path to the APK downloaded from the completed EAS build.
 Do not run an EAS build as part of every-day startup.
 
+## Coordinated QA Mobile candidates
+
+Use the [Mobile QA candidate guide](docs/qa/mobile-candidate.md) when preparing a `qa/YYYY-MM-DD-NN` candidate for human QA.
+
+The `qa` EAS profile creates an internal Preview APK configured for the public staging HTTPS API.
+
+Compatible JavaScript, TypeScript, and assets-only changes may use an EAS Update on the `qa` channel when the installed Preview runtime is compatible.
+
+Native, runtime, and build-level changes require a fresh `qa` Preview APK.
+
+The FirstMate captain may explicitly override that decision and require a fresh APK for any candidate.
+
+At the beginning of every QA cycle, clear CaneGuard app data with `adb shell pm clear com.niks0501.caneguard`, independently of whether the APK is reinstalled.
+
+Use the seeded `field@caneguard.test` account and the password held in the Web/API staging host's uncommitted environment file.
+
+Do not commit the staging URL, QA password, or any other credential.
+
+The guide records exact EAS build or update JSON output for the coordinated release record and keeps the real-device smoke gate manual.
+
 ## Android API connectivity
 
 The team-default path keeps Laravel bound to its local loopback address and uses ADB reverse.

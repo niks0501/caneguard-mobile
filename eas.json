@@ -19,6 +19,14 @@
       },
       "channel": "preview"
     },
+    "qa": {
+      "extends": "preview",
+      "environment": "preview",
+      "channel": "qa",
+      "env": {
+        "EXPO_PUBLIC_QA_MODE": "true"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "channel": "production"

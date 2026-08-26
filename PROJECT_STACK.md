@@ -267,7 +267,10 @@ Existing EAS profiles:
 
 - `development`: internal development-client APK;
 - `preview`: internal APK;
+- `qa`: internal Preview APK on the `qa` channel for the public staging HTTPS API;
 - `production`: production channel with auto-increment.
+
+The hybrid QA delivery procedure and release-record template live in `docs/qa/mobile-candidate.md` and `docs/qa/mobile-release-record.template.md`.
 
 Do not trigger EAS builds, submissions, or production updates without explicit user approval.
 

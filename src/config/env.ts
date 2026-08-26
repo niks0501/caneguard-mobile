@@ -1,6 +1,9 @@
 const API_BASE_URL_KEY = 'EXPO_PUBLIC_API_BASE_URL';
 
-export function parseApiBaseUrl(value: string | undefined): string {
+function parseConfiguredApiBaseUrl(
+  value: string | undefined,
+  options: { requireHttps: boolean; requirePublicHost: boolean },
+): string {
   const normalized = value?.trim().replace(/\/+$/, '');
 
   if (!normalized) {
@@ -25,15 +28,43 @@ export function parseApiBaseUrl(value: string | undefined): string {
       `${API_BASE_URL_KEY} must use http or https and must not contain credentials.`,
     );
   }
+  if (options.requireHttps && url.protocol !== 'https:') {
+    throw new Error(`${API_BASE_URL_KEY} must use https for QA staging.`);
+  }
   if (!__DEV__ && url.protocol !== 'https:') {
     throw new Error(
       `${API_BASE_URL_KEY} must use https outside a development build.`,
+    );
+  }
+  if (
+    options.requirePublicHost &&
+    /^(localhost|0\.0\.0\.0|127(?:\.\d{1,3}){3}|\[?::1\]?)$/i.test(
+      url.hostname,
+    )
+  ) {
+    throw new Error(
+      `${API_BASE_URL_KEY} must use the public HTTPS staging host for QA, not a local address.`,
     );
   }
 
   return normalized;
 }
 
-export const apiBaseUrl = parseApiBaseUrl(
-  process.env.EXPO_PUBLIC_API_BASE_URL,
-);
+export function parseApiBaseUrl(value: string | undefined): string {
+  return parseConfiguredApiBaseUrl(value, {
+    requireHttps: false,
+    requirePublicHost: false,
+  });
+}
+
+export function parseQaApiBaseUrl(value: string | undefined): string {
+  return parseConfiguredApiBaseUrl(value, {
+    requireHttps: true,
+    requirePublicHost: true,
+  });
+}
+
+export const apiBaseUrl =
+  process.env.EXPO_PUBLIC_QA_MODE === 'true'
+    ? parseQaApiBaseUrl(process.env.EXPO_PUBLIC_API_BASE_URL)
+    : parseApiBaseUrl(process.env.EXPO_PUBLIC_API_BASE_URL);

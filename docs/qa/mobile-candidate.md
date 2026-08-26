@@ -8,28 +8,79 @@ Normal `.env` development and the `development` Development Build profile remain
 
 ## One-time EAS staging configuration
 
-The public staging URL is configuration, not a credential, but it must not be committed because the staging host can change between QA cycles.
+The Web/API repository's `docs/staging.md` owns the Tailscale Funnel origin in its private `.qa-staging/staging.env` file.
 
-Set the URL in the EAS `preview` environment as a plain-text variable.
+`QA_PUBLIC_URL` is the single public origin used by the Web browser and the QA APK.
+
+The origin is configuration, not a credential, but it must not be committed because the Funnel host can change between QA cycles.
+
+From a host that has both repositories and an authenticated EAS CLI, copy that exact origin into the EAS `preview` environment as a plain-text variable.
+
+The extraction command reads only `QA_PUBLIC_URL` and does not source the staging file, which also contains private passwords.
 
 ```bash
+cd "<WORKSPACE>/caneguard-web"
+QA_PUBLIC_URL="$(awk -F= '$1 == "QA_PUBLIC_URL" { print substr($0, index($0, "=") + 1); exit }' .qa-staging/staging.env)"
+case "$QA_PUBLIC_URL" in
+  https://*) ;;
+  *) echo "QA_PUBLIC_URL must be an HTTPS Funnel origin" >&2; exit 1 ;;
+esac
+export QA_PUBLIC_URL
+
+cd "<WORKSPACE>/caneguard-mobile"
 eas env:set \
   --name EXPO_PUBLIC_API_BASE_URL \
-  --value "https://<public-staging-host>" \
+  --value "$QA_PUBLIC_URL" \
   --environment preview \
   --visibility plaintext
 eas env:list --environment preview
+QA_PUBLIC_URL="$QA_PUBLIC_URL" eas env:exec preview \
+  'test "$EXPO_PUBLIC_API_BASE_URL" = "$QA_PUBLIC_URL"'
 ```
 
-Use the one public HTTPS origin supplied by the Web/API staging operator.
+The final `eas env:exec` check proves that the EAS value is exactly the current Web/API Funnel origin without putting that origin in tracked mobile configuration.
 
 Do not put a QA password, bearer token, database credential, or other secret in an `EXPO_PUBLIC_*` variable.
 
-For a local configuration check, copy `.env.qa.example` to `.env.qa.local` and replace the placeholder URL.
+For a local bundle check, copy `.env.qa.example` to `.env.qa.local` and replace its placeholder with the same `QA_PUBLIC_URL`.
 
-The `.env.qa.local` file is ignored by Git and must never be renamed to `.env` in the normal development checkout.
+The `.env.qa.local` file is ignored by Git and is not uploaded to a remote EAS Build.
+
+Expo does not treat `.env.qa.local` as the remote EAS environment source, so local checks must pass its values explicitly to the command.
+
+```bash
+cd "<WORKSPACE>/caneguard-mobile"
+QA_API_URL="$(awk -F= '$1 == "EXPO_PUBLIC_API_BASE_URL" { print substr($0, index($0, "=") + 1); exit }' .env.qa.local)"
+EXPO_PUBLIC_QA_MODE=true \
+EXPO_PUBLIC_API_BASE_URL="$QA_API_URL" \
+  npx expo export --platform android --output-dir .expo/qa-export-check
+rm -rf .expo/qa-export-check
+```
 
 The EAS `preview` environment must contain `EXPO_PUBLIC_API_BASE_URL` before a QA build or update is published.
+
+## Expo Doctor and repository verification
+
+Expo Doctor checks project compatibility and configuration rather than exercising the app on a device.
+
+With `--verbose`, the current Expo Doctor command reports these 21 checks: local environment-file tracking, package and Expo configuration, overridden dependencies, Hermes V1 regressions, store submission requirements, lockfile presence, direct dependency guidance, CNG synchronization, Metro configuration, native tooling, common setup, peer dependencies, npm/yarn version, Expo schema, SDK package versions, duplicate dependencies, React Native Directory metadata, icon package conflicts, native support-package compatibility, and legacy global CLI installation.
+
+The fixed repository must be verified from a clean dependency install with the real command below.
+
+```bash
+npm ci
+npx expo-doctor --verbose
+```
+
+The dependency check previously failed because 16 Expo SDK 57 packages were behind the versions required by the installed Expo package.
+
+Those package ranges are now aligned in `package.json` and `package-lock.json` through explicit `npx expo install` arguments, rather than an ignore list or blanket suppression.
+
+A passing run reports `21/21 checks passed. No issues detected!`.
+
+The Doctor result is separate from the QA environment check.
+
+Use `eas config --platform android --profile qa --json` to verify that the QA profile selects the `preview` EAS environment and retains only `EXPO_PUBLIC_QA_MODE=true` in profile-local `env`.
 
 ## EAS profiles and delivery channels
 
@@ -37,17 +88,49 @@ The EAS `preview` environment must contain `EXPO_PUBLIC_API_BASE_URL` before a Q
 
 The existing `development` and `preview` profiles are retained for their existing workflows.
 
+The `qa` profile's local `env` intentionally contains only `EXPO_PUBLIC_QA_MODE=true`.
+
+That stable flag selects the strict public-HTTPS validation path in `src/config/env.ts`.
+
+`EXPO_PUBLIC_API_BASE_URL` belongs in the EAS `preview` environment because the Funnel origin is deployment configuration that can change for each staging host.
+
+It is not inherently an `eas.json` field.
+
+Expo's Metro bundling inlines `EXPO_PUBLIC_API_BASE_URL` into the JavaScript bundle at build time, so the value is public app configuration rather than a secret and must be present in the selected build environment before the build starts.
+
+The `environment: preview` field selects that EAS environment for the `qa` build.
+
 A QA APK is built with:
 
 ```bash
+eas config --platform android --profile qa --json
 eas build --platform android --profile qa --json | tee qa-mobile-build.json
 ```
+
+The first command verifies the local profile shape, including `environment: preview` and the QA-only profile flag.
+
+The second command uses the server-side `preview` environment value and the profile-local QA flag.
 
 The `qa` profile is an EAS Preview build, not a Development Build.
 
 The exact JSON output contains the build identity and artifact URL needed by the coordinated release record.
 
 The `qa-mobile-*.json` output files are ignored locally so they can be attached or copied into the coordinated release record without entering the source candidate.
+
+A fresh host downloads and verifies the APK after the build completes with:
+
+```bash
+eas build:download --build-id <build-id-from-qa-mobile-build.json>
+adb install <downloaded-qa-apk>
+adb shell pm clear com.niks0501.caneguard
+curl --fail-with-body "$QA_PUBLIC_URL/api/health"
+```
+
+Open the installed `qa` APK after the clean-data command and sign in with the seeded field-reporter account.
+
+The clean-device smoke check must reach the authenticated home screen and complete one authenticated API workflow.
+
+The EAS equality check from the setup section, the public health check above, and the authenticated app workflow together verify that the APK uses the current Web/API Funnel origin rather than a loopback or stale tracked URL.
 
 Do not hand-copy only the download URL when recording a build.
 
@@ -118,10 +201,10 @@ A fresh APK is required for native, runtime, or build-level changes, but clearin
 
 Do not use ADB reverse for QA authentication or API reachability.
 
-Verify the public boundary before opening the app:
+Verify the same `QA_PUBLIC_URL` that was copied into the EAS `preview` environment before opening the app:
 
 ```bash
-curl --fail-with-body "https://<public-staging-host>/api/health"
+curl --fail-with-body "$QA_PUBLIC_URL/api/health"
 ```
 
 The response must report an `ok` health status and ready dependencies according to the Web/API staging procedure.

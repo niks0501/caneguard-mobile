@@ -13,6 +13,23 @@ Maestro is not automatically the first verification step after implementation.
 
 Before running Maestro, establish whether the currently installed app runtime can actually execute the changed behavior. A stale development build can produce failures that look like application regressions even when the installed native runtime simply lacks newly required native code or configuration.
 
+This skill applies to device or E2E work only after the user explicitly requests runtime, device, emulator, or E2E verification.
+A code-only task does not activate it merely because the task is difficult or touches React Native.
+
+## WSL2 Android emulator preflight
+
+For React Native + Expo Android verification from WSL2, the developer starts and manages the Windows-hosted Android Studio emulator before development.
+That emulator is the default Android verification device for agents running in WSL2.
+Use the existing localhost ADB connection from WSL2.
+Before any Android device or E2E operation, run `adb devices -l` and discover the ready device from the current output at runtime.
+Prefer the ready emulator over a physical device and keep its current serial or device ID for the operation.
+If no usable emulator is listed, report a verification blocker and stop.
+Do not launch, recreate, wipe, reconfigure, or repair an AVD.
+Do not reconfigure or repair ADB networking.
+Do not set `ADB_SERVER_SOCKET`, start a second ADB server, or run `adb kill-server` in the healthy-connection path.
+Use a physical device only when the task explicitly requires physical-device behavior.
+Keep active control of the shared emulator serialized to one agent or worktree owner.
+
 ## Verification order
 
 Prefer this order when relevant:

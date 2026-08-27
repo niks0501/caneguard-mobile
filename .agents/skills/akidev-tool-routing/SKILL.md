@@ -24,8 +24,19 @@ Use `maestro`, `agent-device`, `adb`, and other selected shared commands from th
 If a prerequisite is missing, report it and use a safe static fallback where possible.
 AkiDev does not install, upgrade, repair, wrap, or register workstation tools from the project.
 
+## Android emulator preflight
+
+For explicit React Native + Expo Android verification from WSL2, the developer starts and manages the Windows-hosted Android Studio emulator before development.
+That emulator is the default Android verification device for agents running in WSL2.
+Use the existing localhost ADB connection rather than changing host or ADB networking.
+Before any Android device or E2E operation, run `adb devices -l`, discover the ready device at runtime, and prefer the emulator over a physical device.
+If no usable emulator is listed, report a verification blocker instead of launching, recreating, wiping, reconfiguring, or repairing an AVD.
+Do not reconfigure or repair ADB networking.
+Do not set `ADB_SERVER_SOCKET`, start a second ADB server, or run `adb kill-server` in the healthy-connection path.
+Use a physical device only when the task explicitly requires physical-device behavior.
+
 ## Explicit mobile intent and ownership
 
 `akidev-mobile-runtime`, `akidev-e2e-verification`, `agent-device`, device-oriented ADB, Maestro MCP, and `mobile-mcp` are explicit-user-intent capabilities.
 Only one agent or worktree may actively control a given physical device or emulator.
-Route active device work through the designated serialized verification lane.
+The shared Windows-hosted emulator is mutable state, so route active device work through the designated serialized verification lane.

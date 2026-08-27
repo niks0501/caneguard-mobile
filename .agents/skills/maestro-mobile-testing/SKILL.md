@@ -28,6 +28,9 @@ AkiDev keeps `maestro`, Java, Android Platform Tools, `agent-device`, and any MC
 It never installs Maestro, Java, Android Platform Tools, Pi packages, wrappers, BrowserStack, Appium, generated tool payloads, or a device session.
 Read `.akidev/config` before using a selected capability.
 Device, MCP, and E2E work requires explicit user intent and one active owner for the target device or emulator.
+For WSL2 Android verification, the developer starts and manages the Windows-hosted Android Studio emulator before development.
+That emulator is the default Android verification device for agents running in WSL2.
+Use the existing localhost ADB connection from WSL2 rather than changing host or ADB networking.
 
 ## Capability boundaries
 
@@ -67,6 +70,24 @@ Use `cheat_sheet` before an unfamiliar command, required argument, nested proper
 The AkiDev MCP entry starts the local stdio server as `maestro mcp --no-viewer`.
 The `--no-viewer` choice keeps the diagnostic server headless and avoids an unsolicited Viewer process.
 
+## Android emulator preflight
+
+After explicit user intent is established and before any Android device or E2E operation, run:
+
+```bash
+adb devices -l
+```
+
+Discover a ready device from the current output at runtime.
+Prefer the ready emulator over a physical device, and pass its current serial or MCP `device_id` to later operations when the interface supports it.
+For MCP, match the `list_devices` result to the device discovered by ADB instead of assuming a hard-coded ID.
+
+If no usable emulator is listed, report a verification blocker and stop.
+Do not launch, recreate, wipe, reconfigure, or repair an AVD to recover it.
+Do not reconfigure or repair ADB networking to recover it.
+Do not set `ADB_SERVER_SOCKET`, start a second ADB server, or run `adb kill-server` in the healthy-connection path.
+Use a physical device only when the task explicitly requires physical-device behavior.
+
 ## Evidence-driven lifecycle
 
 Run this sequence exactly:
@@ -78,19 +99,20 @@ EXPLORE -> AUTHOR INCREMENTALLY -> VALIDATE -> DIAGNOSE LOCALLY ON FAILURE -> FI
 ### EXPLORE
 
 1. Confirm explicit mobile or E2E intent, the selected integration, the project worktree, app identity, backend or fixture prerequisites, and the native-build freshness status.
-2. Run the relevant lint, typecheck, unit, and integration checks before interpreting device behavior.
-3. Run `npm run e2e:doctor` when `maestro` is selected.
-4. Confirm that no other worker owns the target device or emulator.
-5. Use `agent-device` for an unfamiliar flow or deep runtime investigation.
-6. If Maestro MCP is selected and authorized, call `list_devices` once and retain exactly one returned `device_id`.
+2. Run `adb devices -l` before any Android device or E2E operation, discover the ready device at runtime, and prefer the emulator.
+3. Run the relevant lint, typecheck, unit, and integration checks before interpreting device behavior.
+4. Run `npm run e2e:doctor` when `maestro` is selected.
+5. Confirm that no other worker owns the target device or emulator.
+6. Use `agent-device` for an unfamiliar flow or deep runtime investigation.
+7. If Maestro MCP is selected and authorized, call `list_devices` once and retain exactly one returned `device_id` that matches the ADB-discovered emulator.
 
 Completion criterion: prerequisites, build freshness, device ownership, and the next smallest observable transition are recorded.
 
 ### AUTHOR INCREMENTALLY
 
 1. Start with the smallest permanent flow or one-transition reproduction.
-2. Prefer selectors in this order: stable test or accessibility ID, stable semantic text, stable accessibility property, another proven selector, and coordinates only as a last resort after hierarchy inspection.
-3. Inspect the current hierarchy before guessing at a selector.
+2. Inspect the current screen or hierarchy when useful before choosing a selector or guessing at a transition.
+3. Prefer selectors in this order: stable test or accessibility ID, stable semantic text, stable accessibility property, another proven selector, and coordinates only as a last resort after hierarchy inspection.
 4. Copy visible hierarchy text exactly when using text selectors.
 5. Prefer relative relationships over indexes when a hierarchy proves the relationship.
 6. With MCP, use `run` with inline YAML first, then `files`, then a bounded `dir` or tag selection after the inline behavior is understood.
@@ -103,7 +125,8 @@ Completion criterion: the smallest flow expresses one intended transition with a
 1. Run the project-supported Maestro syntax check or `maestro check-syntax` for the changed flow.
 2. Run the smallest relevant project command, normally `npm run e2e:flow -- <flow>`, with the normal `--no-reinstall-driver` path.
 3. Keep the result, commit, build identity, device ID, and artifacts in the project evidence convention.
-4. Do not run the full flow until the focused flow passes and the first failure, if any, has a changed cause.
+4. Do not run broader E2E or the full flow until the focused flow passes and the first failure, if any, has a changed cause.
+5. Run broader E2E only when the task or an acceptance gate requires it.
 
 Completion criterion: syntax and the focused flow pass, or a preserved first failure has the required diagnostic record below.
 

@@ -283,7 +283,7 @@ describe('RecordDetailsScreen', () => {
     expect(screen.getByText('Checklist consistent')).toBeOnTheScreen();
     expect(screen.getByText('Moderate')).toBeOnTheScreen();
     expect(
-      screen.getByText('Rust-colored or orange-brown spots or pustules'),
+      screen.getByText('Raised rust-colored or orange-brown spots or pustules, mainly on the leaf underside'),
     ).toBeOnTheScreen();
     expect(
       screen.getByText(

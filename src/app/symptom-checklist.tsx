@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
@@ -9,53 +9,50 @@ import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { SymptomChecklistItem } from '@/components/ui/SymptomChecklistItem';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import {
-  CHECKLIST_OBSERVATIONS,
+  getGuidedValidationQuestions,
   type ChecklistObservationId,
 } from '@/features/detection/checklist/checklistConsistency';
 import { useScanSession } from '@/features/detection/context/useScanSession';
-import type { ReportedSeverity } from '@/features/detection/types';
 import { useTheme } from '@/hooks/use-theme';
-
-const SEVERITIES: readonly (ReportedSeverity | null)[] = [
-  null,
-  'Mild',
-  'Moderate',
-  'Severe',
-];
 
 export default function SymptomChecklistScreen() {
   const theme = useTheme();
   const { state, dispatch } = useScanSession();
+  const hasCompletedScan =
+    state.status === 'completed' && Boolean(state.result) && Boolean(state.sourceUri);
+  const guidedQuestions = state.result
+    ? getGuidedValidationQuestions(state.result.predictedLabel)
+    : [];
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedSymptoms, setSelectedSymptoms] = useState(
     () => new Set<ChecklistObservationId>(state.selectedSymptoms),
   );
-  const [selectedSeverity, setSelectedSeverity] =
-    useState<ReportedSeverity | null>(state.reportedSeverity);
-  const hasCompletedScan =
-    state.status === 'completed' && Boolean(state.result) && Boolean(state.sourceUri);
+  const currentQuestion = guidedQuestions[currentQuestionIndex];
+  const isLastQuestion =
+    currentQuestionIndex >= guidedQuestions.length - 1;
 
-  const toggleSymptom = (symptom: ChecklistObservationId) =>
+  const selectObservation = (observation: ChecklistObservationId) =>
     setSelectedSymptoms((current) => {
-      const next = new Set(current);
-
-      if (next.has(symptom)) {
-        next.delete(symptom);
-        return next;
+      if (current.size === 1 && current.has(observation)) {
+        return new Set();
       }
 
-      if (symptom === 'none' || symptom === 'unable-to-tell') {
-        return new Set([symptom]);
-      }
-
-      next.delete('none');
-      next.delete('unable-to-tell');
-      next.add(symptom);
-      return next;
+      // Each guided question records one answer. Fallback options such as
+      // Something else and Unable to tell are therefore never combined with a
+      // supported pattern in the same answer.
+      return new Set([observation]);
     });
 
   const continueToResult = () => {
+    if (!currentQuestion) {
+      return;
+    }
+    if (!isLastQuestion) {
+      setCurrentQuestionIndex((index) => index + 1);
+      return;
+    }
+
     dispatch({ type: 'SET_SYMPTOMS', payload: [...selectedSymptoms] });
-    dispatch({ type: 'SET_REPORTED_SEVERITY', payload: selectedSeverity });
     router.push('/analysis-result');
   };
 
@@ -103,85 +100,68 @@ export default function SymptomChecklistScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Symptoms" />
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <BrandedScreenHeader title="Guided observations" />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
             <View style={styles.intro}>
               <View style={[styles.introIcon, { backgroundColor: theme.warningBg }]}>
                 <Feather name="eye" size={20} color={theme.accentDark} />
               </View>
               <Text style={[styles.introText, { color: theme.textSecondary }]}>
-                Select what you can see. These observations are compared with the model
-                result but never change its scores.
+                Add a short visual observation before reviewing the AI-assisted result.
+                Your answer is stored separately and never changes model scores.
               </Text>
             </View>
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.primaryDark }]}>
-                What do you see?
-              </Text>
-              <View style={styles.symptomList}>
-                {CHECKLIST_OBSERVATIONS.map((observation) => (
-                  <SymptomChecklistItem
-                    key={observation.id}
-                    testID={`scan.symptom-${observation.id}`}
-                    label={observation.label}
-                    selected={selectedSymptoms.has(observation.id)}
-                    onToggle={() => toggleSymptom(observation.id)}
-                  />
-                ))}
+            {currentQuestion ? (
+              <View style={styles.section}>
+                <View style={styles.questionHeading}>
+                  <Text
+                    testID="scan.guided-progress"
+                    style={[styles.progressText, { color: theme.primary }]}>
+                    Observation {currentQuestionIndex + 1} of {guidedQuestions.length}
+                  </Text>
+                  <Text
+                    testID="scan.guided-question"
+                    style={[styles.questionText, { color: theme.primaryDark }]}>
+                    {currentQuestion.prompt}
+                  </Text>
+                  <Text style={[styles.helperText, { color: theme.textSecondary }]}>
+                    {currentQuestion.helperText}
+                  </Text>
+                </View>
+                <View style={styles.symptomList}>
+                  {currentQuestion.options.map((observation) => (
+                    <SymptomChecklistItem
+                      key={observation.id}
+                      testID={`scan.symptom-${observation.id}`}
+                      label={observation.label}
+                      selected={selectedSymptoms.has(observation.id)}
+                      selectionMode="radio"
+                      onToggle={() => selectObservation(observation.id)}
+                    />
+                  ))}
+                </View>
               </View>
-            </View>
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.primaryDark }]}>
-                Reported severity (optional)
-              </Text>
+            ) : (
               <Text style={[styles.helperText, { color: theme.textSecondary }]}>
-                This is your observation, not a model-estimated severity.
+                Guided observations are unavailable for this model context. You can
+                still review the AI-assisted result.
               </Text>
-              <View
-                style={[styles.severityControl, { backgroundColor: theme.surfaceMuted }]}>
-                {SEVERITIES.map((severity) => {
-                  const selected = selectedSeverity === severity;
-                  const label = severity ?? 'Not provided';
-
-                  return (
-                    <Pressable
-                      key={severity ?? 'not-provided'}
-                      accessibilityRole="radio"
-                      accessibilityLabel={`Reported severity: ${label}`}
-                      accessibilityState={{ selected }}
-                      onPress={() => setSelectedSeverity(severity)}
-                      style={({ pressed }) => [
-                        styles.severityOption,
-                        selected && {
-                          backgroundColor: theme.surfaceElevated,
-                          borderColor: theme.border,
-                        },
-                        pressed && styles.pressed,
-                      ]}>
-                      <Text
-                        style={[
-                          styles.severityText,
-                          {
-                            color: selected
-                              ? theme.primaryDark
-                              : theme.textSecondary,
-                          },
-                        ]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
+            )}
             <AppButton
               testID="scan.continue-to-result"
               onPress={continueToResult}
+              disabled={!currentQuestion}
               leadingIcon="check-circle"
               trailingIcon="arrow-right"
-              accessibilityLabel="Continue to analysis result">
-              Continue
+              accessibilityLabel={
+                isLastQuestion
+                  ? 'Continue to analysis result'
+                  : 'Continue to next observation'
+              }>
+              {isLastQuestion ? 'Continue' : 'Next observation'}
             </AppButton>
           </View>
         </ScrollView>
@@ -191,13 +171,46 @@ export default function SymptomChecklistScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 }, root: { flex: 1 }, scrollContent: { alignItems: 'center' },
-  content: { width: '100%', maxWidth: Layout.mobileMaxWidth, paddingHorizontal: ComponentTokens.screen.horizontalPadding, paddingVertical: Spacing.xl, gap: Spacing.xl },
-  intro: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md }, introIcon: { width: 42, height: 42, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' }, introText: { ...Typography.bodySmall, flex: 1 },
-  section: { gap: Spacing.md }, sectionTitle: { ...Typography.subheading }, helperText: { ...Typography.caption, marginTop: -Spacing.sm }, symptomList: { gap: Spacing.sm },
-  severityControl: { flexDirection: 'row', flexWrap: 'wrap', padding: Spacing.xs, borderRadius: Radius.lg, gap: Spacing.xs }, severityOption: { minHeight: 46, minWidth: '47%', flexGrow: 1, borderRadius: Radius.md, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.sm }, severityText: { ...Typography.bodySmall, fontWeight: '800', textAlign: 'center' }, pressed: { opacity: 0.72 },
-  recoveryContent: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
-  recoveryCard: { width: '100%', maxWidth: Layout.mobileMaxWidth, borderWidth: 1, borderRadius: Radius.xl, padding: Spacing.xl, gap: Spacing.md, alignItems: 'center' },
+  safe: { flex: 1 },
+  root: { flex: 1 },
+  scrollContent: { alignItems: 'center' },
+  content: {
+    width: '100%',
+    maxWidth: Layout.mobileMaxWidth,
+    paddingHorizontal: ComponentTokens.screen.horizontalPadding,
+    paddingVertical: Spacing.xl,
+    gap: Spacing.xl,
+  },
+  intro: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  introIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  introText: { ...Typography.bodySmall, flex: 1 },
+  section: { gap: Spacing.md },
+  questionHeading: { gap: Spacing.xs },
+  progressText: { ...Typography.caption, fontWeight: '800' },
+  questionText: { ...Typography.heading, fontWeight: '800' },
+  helperText: { ...Typography.caption },
+  symptomList: { gap: Spacing.sm },
+  recoveryContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.xl,
+  },
+  recoveryCard: {
+    width: '100%',
+    maxWidth: Layout.mobileMaxWidth,
+    borderWidth: 1,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    gap: Spacing.md,
+    alignItems: 'center',
+  },
   recoveryTitle: { ...Typography.heading, textAlign: 'center' },
   recoveryText: { ...Typography.bodySmall, textAlign: 'center' },
 });

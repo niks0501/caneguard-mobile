@@ -168,6 +168,26 @@ describe('scanSessionReducer', () => {
     expect(withSeverity.reportedSeverity).toBe('Moderate');
   });
 
+  it('keeps model evidence unchanged when guided observations are recorded', () => {
+    const completedState: ScanSessionState = {
+      ...initialScanSessionState,
+      sourceUri: 'file:///leaf.jpg',
+      sourceType: 'gallery',
+      status: 'completed',
+      result: completedResult,
+    };
+
+    const nextState = scanSessionReducer(completedState, {
+      type: 'SET_SYMPTOMS',
+      payload: ['yellow-midrib'],
+    });
+
+    expect(nextState.result).toEqual(completedResult);
+    expect(nextState.result?.confidence).toBe(0.82);
+    expect(nextState.result?.scores).toEqual(completedResult.scores);
+    expect(nextState.selectedSymptoms).toEqual(['yellow-midrib']);
+  });
+
   it('recovers from errors according to whether an image is selected', () => {
     const idleError = scanSessionReducer(initialScanSessionState, {
       type: 'SET_ERROR',

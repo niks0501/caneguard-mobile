@@ -2,7 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import SymptomChecklistScreen from '@/app/symptom-checklist';
-import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
+import {
+  CHECKLIST_OBSERVATIONS,
+  GUIDED_VALIDATION_QUESTIONS,
+} from '@/features/detection/checklist/checklistConsistency';
 import { ScanSessionContext } from '@/features/detection/context/ScanSessionProvider';
 import {
   initialScanSessionState,
@@ -50,72 +53,90 @@ async function renderChecklist(state: ScanSessionState = completedState) {
 }
 
 describe('SymptomChecklistScreen', () => {
-  it('shows only Model v0-aligned observations and truthful severity wording', async () => {
+  it('shows a short data-driven neutral differential with fallback answers', async () => {
     await renderChecklist();
 
     expect(screen.getByTestId('scan.symptom-checklist-screen')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.guided-progress')).toHaveTextContent(
+      'Observation 1 of 1',
+    );
+    expect(screen.getByTestId('scan.guided-question')).toHaveTextContent(
+      'What visible pattern, if any, best describes the area you are checking?',
+    );
     expect(screen.getByTestId('scan.symptom-rust')).toHaveProp(
       'accessibilityState',
-      { checked: false },
+      { selected: false },
     );
     expect(screen.getByTestId('scan.continue-to-result')).toBeOnTheScreen();
     for (const observation of CHECKLIST_OBSERVATIONS) {
       expect(screen.getByText(observation.label)).toBeOnTheScreen();
     }
-
-    expect(screen.getByText('Reported severity (optional)')).toBeOnTheScreen();
-    expect(
-      screen.getByText('This is your observation, not a model-estimated severity.'),
-    ).toBeOnTheScreen();
+    expect(GUIDED_VALIDATION_QUESTIONS[0].options).toHaveLength(6);
+    expect(screen.getByText('Something else')).toBeOnTheScreen();
+    expect(screen.getByText('Unable to tell')).toBeOnTheScreen();
+    expect(screen.queryByText('Reported severity (optional)')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Mild')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Moderate')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Severe')).not.toBeOnTheScreen();
     expect(screen.queryByText('Black whip-like growth')).not.toBeOnTheScreen();
     expect(screen.queryByText('Drying young shoot')).not.toBeOnTheScreen();
   });
 
-  it('stores observations and optional reported severity in the scan session', async () => {
+  it('stores the selected observation without changing model evidence or severity', async () => {
     await renderChecklist();
 
     await fireEvent.press(
-      screen.getByText('Mosaic-like irregular discoloration or mottling'),
+      screen.getByText(
+        'Contrasting islands or streaks of normal green among paler green or yellowish leaf areas',
+      ),
     );
-    await fireEvent.press(screen.getByLabelText('Reported severity: Mild'));
     await fireEvent.press(screen.getByLabelText('Continue to analysis result'));
 
-    expect(mockDispatch).toHaveBeenNthCalledWith(1, {
+    expect(mockDispatch).toHaveBeenCalledTimes(1);
+    expect(mockDispatch).toHaveBeenCalledWith({
       type: 'SET_SYMPTOMS',
       payload: ['mosaic'],
     });
-    expect(mockDispatch).toHaveBeenNthCalledWith(2, {
-      type: 'SET_REPORTED_SEVERITY',
-      payload: 'Mild',
-    });
+    expect(mockDispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SET_REPORTED_SEVERITY' }),
+    );
     expect(mockRouterPush).toHaveBeenCalledWith('/analysis-result');
   });
 
-  it('allows continuing without checklist information or severity', async () => {
+  it('allows continuing without a selected observation', async () => {
     await renderChecklist();
 
     await fireEvent.press(screen.getByLabelText('Continue to analysis result'));
 
-    expect(mockDispatch).toHaveBeenNthCalledWith(1, {
+    expect(mockDispatch).toHaveBeenCalledTimes(1);
+    expect(mockDispatch).toHaveBeenCalledWith({
       type: 'SET_SYMPTOMS',
       payload: [],
-    });
-    expect(mockDispatch).toHaveBeenNthCalledWith(2, {
-      type: 'SET_REPORTED_SEVERITY',
-      payload: null,
     });
     expect(mockRouterPush).toHaveBeenCalledWith('/analysis-result');
   });
 
-  it('keeps unable-to-tell and no-visible-symptom mutually exclusive', async () => {
+  it('keeps fallback answers mutually exclusive from supported patterns', async () => {
     await renderChecklist();
 
     await fireEvent.press(
-      screen.getByText('Mosaic-like irregular discoloration or mottling'),
+      screen.getByText(
+        'Contrasting islands or streaks of normal green among paler green or yellowish leaf areas',
+      ),
     );
-    await fireEvent.press(
-      screen.getByText('Unable to tell from the image or plant'),
-    );
+    await fireEvent.press(screen.getByText('Something else'));
+    await fireEvent.press(screen.getByLabelText('Continue to analysis result'));
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'SET_SYMPTOMS',
+      payload: ['something-else'],
+    });
+  });
+
+  it('preserves Unable to tell as an independent answer', async () => {
+    await renderChecklist();
+
+    await fireEvent.press(screen.getByText('Unable to tell'));
     await fireEvent.press(screen.getByLabelText('Continue to analysis result'));
 
     expect(mockDispatch).toHaveBeenCalledWith({

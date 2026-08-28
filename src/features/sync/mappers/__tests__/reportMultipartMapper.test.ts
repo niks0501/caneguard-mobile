@@ -123,6 +123,23 @@ describe('Field Report multipart mapper', () => {
     expect(parts).toContainEqual(['symptom_keys[]', 'rust']);
   });
 
+  it('accepts the guided Something else observation as symptom evidence', () => {
+    const parts = (
+      map(
+        REPORT,
+        {
+          ...SCAN,
+          checklistConsistency: 'inconsistent',
+          symptoms: ['something-else'],
+        },
+      ) as unknown as { _parts: [string, unknown][] }
+    )._parts;
+
+    expect(parts).toContainEqual(['symptom_keys[]', 'something-else']);
+    expect(parts).toContainEqual(['checklist_consistency', 'inconsistent']);
+    expect(parts).toContainEqual(['predicted_label', 'rust']);
+  });
+
   it('emits the mismatch wire keys without changing model evidence', () => {
     const parts = (
       map({

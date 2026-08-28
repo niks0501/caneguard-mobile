@@ -109,6 +109,7 @@ async function renderResult(state: ScanSessionState) {
 
 describe('AnalysisResultScreen', () => {
   beforeEach(() => {
+    mockSaveRecord.mockReset();
     mockSaveRecordState = {
       status: 'ready',
       error: null,
@@ -134,7 +135,7 @@ describe('AnalysisResultScreen', () => {
     },
   );
 
-  it('renders the selected image, raw model scores, metadata, and user severity', async () => {
+  it('renders the selected image, raw model scores, and metadata without scan severity controls', async () => {
     const result = createResult('rust');
     const state = createCompletedState('rust', ['rust'], {
       result,
@@ -148,7 +149,9 @@ describe('AnalysisResultScreen', () => {
       'Possible result: Rust',
     );
     expect(screen.queryByTestId('scan.barangay-input')).not.toBeOnTheScreen();
-    expect(screen.getByTestId('scan.save-record')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.report-to-office')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.keep-as-scan-only')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.new-scan')).toBeOnTheScreen();
     expect(
       screen.getByLabelText('Selected sugarcane image used for analysis'),
     ).toHaveProp('source', { uri: 'file:///result-leaf.jpg' });
@@ -158,8 +161,10 @@ describe('AnalysisResultScreen', () => {
     expect(screen.getByLabelText('Healthy score 8%')).toBeOnTheScreen();
     expect(screen.getByLabelText('Mosaic score 14%')).toBeOnTheScreen();
     expect(screen.getByLabelText('Rust score 78%')).toBeOnTheScreen();
-    expect(screen.getByText('Reported severity')).toBeOnTheScreen();
-    expect(screen.getByText('Moderate')).toBeOnTheScreen();
+    expect(screen.queryByText('Reported severity')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Mild')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Moderate')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Severe')).not.toBeOnTheScreen();
     expect(screen.getByText('v0.1-baseline')).toBeOnTheScreen();
     expect(screen.getByText('60 ms')).toBeOnTheScreen();
     expect(result.confidence).toBe(0.78);
@@ -242,28 +247,41 @@ describe('AnalysisResultScreen', () => {
     expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
   });
 
-  it('discloses separated local scan behavior and starts an explicit save', async () => {
+  it('offers separate report and scan-only outcomes while preserving local evidence', async () => {
     await renderResult(createCompletedState('rust', ['rust']));
 
     expect(
       screen.getByText(
-        'CaneGuard saves the completed scan as local AI evidence without queuing a report upload.',
+        'Report to Office opens a Field Report Draft. Keep as Scan Only stores the scan without sending a report.',
       ),
     ).toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByLabelText('Save record on this device'));
+    await fireEvent.press(screen.getByLabelText('Keep this scan only on the device'));
     expect(mockSaveRecord).toHaveBeenCalledTimes(1);
   });
 
-  it('allows completed scan evidence to save without a barangay', async () => {
+  it('saves before opening the existing Field Report flow', async () => {
+    mockSaveRecord.mockResolvedValue({ id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' });
+
+    await renderResult(createCompletedState('rust', ['rust']));
+    await fireEvent.press(screen.getByLabelText('Report this scan to the office'));
+
+    expect(mockSaveRecord).toHaveBeenCalledTimes(1);
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/field-report',
+      params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
+    });
+  });
+
+  it('allows completed scan evidence to remain scan-only without a barangay', async () => {
     await renderResult(
       createCompletedState('rust', ['rust']),
     );
 
-    expect(screen.getByLabelText('Save record on this device')).toBeEnabled();
+    expect(screen.getByLabelText('Keep this scan only on the device')).toBeEnabled();
   });
 
-  it('disables duplicate save and new-scan actions while saving', async () => {
+  it('disables report, scan-only, and new-scan actions while saving', async () => {
     mockSaveRecordState = {
       ...mockSaveRecordState,
       status: 'saving',
@@ -272,7 +290,8 @@ describe('AnalysisResultScreen', () => {
 
     await renderResult(createCompletedState('rust', ['rust']));
 
-    expect(screen.getByLabelText('Saving record on this device')).toBeDisabled();
+    expect(screen.getByLabelText('Report this scan to the office')).toBeDisabled();
+    expect(screen.getByLabelText('Keep this scan only on the device')).toBeDisabled();
     expect(
       screen.getByLabelText('Clear result and start a new scan'),
     ).toBeDisabled();
@@ -289,11 +308,10 @@ describe('AnalysisResultScreen', () => {
 
     expect(screen.getByTestId('scan.record-saved')).toBeOnTheScreen();
     expect(screen.getByTestId('scan.open-saved-record')).toBeOnTheScreen();
-    expect(screen.getByText('Saved on this device')).toBeOnTheScreen();
-    expect(
-      screen.queryByLabelText('Save record on this device'),
-    ).not.toBeOnTheScreen();
-    await fireEvent.press(screen.getByLabelText('Open the saved local record'));
+    expect(screen.getByText('Scan saved on this device')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Report this scan to the office')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Keep this scan only on the device')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Open the saved local scan'));
     expect(mockRouterPush).toHaveBeenCalledWith({
       pathname: '/record-details',
       params: {
@@ -314,10 +332,32 @@ describe('AnalysisResultScreen', () => {
     await renderResult(createCompletedState('rust', ['rust']));
 
     expect(screen.getByText('Possible result: Rust')).toBeOnTheScreen();
-    expect(screen.getByText('Record not saved')).toBeOnTheScreen();
+    expect(screen.getByText('Choose another action')).toBeOnTheScreen();
     await fireEvent.press(
-      screen.getByLabelText('Retry saving record on this device'),
+      screen.getByLabelText('Retry and keep this scan only'),
     );
     expect(mockSaveRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps an AI/checklist mismatch visible while reporting remains available', async () => {
+    mockSaveRecord.mockResolvedValue({ id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' });
+
+    await renderResult(createCompletedState('mosaic', ['something-else']));
+
+    expect(screen.getByTestId('scan.checklist-consistency')).toBeOnTheScreen();
+    expect(screen.getByText('Checklist inconsistent')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'The selected observation differs from the model result. Both remain separate evidence, and this scan can still be reported to the office.',
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.getByLabelText('Report this scan to the office')).toBeEnabled();
+
+    await fireEvent.press(screen.getByLabelText('Report this scan to the office'));
+
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/field-report',
+      params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
+    });
   });
 });

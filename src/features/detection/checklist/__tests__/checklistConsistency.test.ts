@@ -1,5 +1,6 @@
 import {
   getChecklistConsistency,
+  getGuidedValidationQuestions,
   type ChecklistConsistency,
   type ChecklistObservationId,
 } from '@/features/detection/checklist/checklistConsistency';
@@ -27,6 +28,23 @@ const MATRIX: MatrixCase[] = [
 ];
 
 describe('getChecklistConsistency', () => {
+  it.each(['healthy', 'mosaic', 'rust'] as const)(
+    'selects a short guided question set for the %s model context',
+    (modelLabel) => {
+      const questions = getGuidedValidationQuestions(modelLabel);
+
+      expect(questions.length).toBeGreaterThan(0);
+      expect(questions.length).toBeLessThanOrEqual(4);
+      expect(questions[0].options.map(({ id }) => id)).toEqual([
+        'mosaic',
+        'rust',
+        'yellow-midrib',
+        'none',
+        'something-else',
+        'unable-to-tell',
+      ]);
+    },
+  );
   it.each(MATRIX)(
     'returns %s / %s for observations %j',
     (predictedLabel, expected, observations) => {
@@ -38,6 +56,12 @@ describe('getChecklistConsistency', () => {
     expect(
       getChecklistConsistency('mosaic', ['unable-to-tell', 'mosaic']),
     ).toBe('not-enough-information');
+  });
+
+  it('marks unsupported reference patterns and Something else as visible disagreement', () => {
+    expect(getChecklistConsistency('mosaic', ['yellow-midrib'])).toBe('inconsistent');
+    expect(getChecklistConsistency('mosaic', ['something-else'])).toBe('inconsistent');
+    expect(getChecklistConsistency('healthy', ['something-else'])).toBe('inconsistent');
   });
 
   it('does not mutate the supplied observations', () => {

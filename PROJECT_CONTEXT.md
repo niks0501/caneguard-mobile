@@ -11,7 +11,7 @@ The app lets authenticated field reporters:
 - capture or select a sugarcane image;
 - assess basic image quality;
 - run the bundled TFLite model on-device;
-- review the predicted class, confidence, symptom checklist, and severity;
+- review the predicted class, confidence, and short guided symptom observations; historical severity remains readable in saved records;
 - save completed scan records locally for offline use;
 - review local records and report summaries; and
 - synchronize eligible reports and their images to the CaneGuard web/backend API.
@@ -54,7 +54,7 @@ camera/gallery
   -> preprocessing
   -> bundled TFLite inference
   -> model postprocessing
-  -> symptom checklist / consistency check
+  -> short guided differential observations / consistency check
   -> analysis result
 ```
 

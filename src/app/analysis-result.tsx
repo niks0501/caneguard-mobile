@@ -56,7 +56,8 @@ const CONSISTENCY_PRESENTATION: Record<
   },
   inconsistent: {
     title: 'Checklist inconsistent',
-    message: 'The selected observations do not match the model result.',
+    message:
+      'The selected observation differs from the model result. Both remain separate evidence, and this scan can still be reported to the office.',
     icon: 'alert-triangle',
     foreground: 'danger',
     background: 'dangerBg',
@@ -87,6 +88,28 @@ export default function AnalysisResultScreen() {
   const startNewScan = () => {
     dispatch({ type: 'RESET_SCAN' });
     router.replace('/scan');
+  };
+
+  const persistScanForOutcome = async () => {
+    if (saveRecord.status === 'saved' && saveRecord.recordId) {
+      return { id: saveRecord.recordId };
+    }
+    return saveRecord.save();
+  };
+
+  const reportToOffice = async () => {
+    const saved = await persistScanForOutcome();
+    if (!saved) {
+      return;
+    }
+    router.push({
+      pathname: '/field-report',
+      params: { scanRecordId: saved.id },
+    } as unknown as Href);
+  };
+
+  const keepAsScanOnly = () => {
+    void persistScanForOutcome();
   };
 
   if (state.status !== 'completed' || !state.result || !state.sourceUri) {
@@ -232,6 +255,7 @@ export default function AnalysisResultScreen() {
             ) : null}
 
             <View
+              testID="scan.checklist-consistency"
               accessibilityRole={consistency === 'inconsistent' ? 'alert' : undefined}
               style={[
                 styles.consistencyCard,
@@ -258,20 +282,6 @@ export default function AnalysisResultScreen() {
                 </Text>
               </View>
             </View>
-
-            {state.reportedSeverity ? (
-              <SectionCard title="Reported severity">
-                <View style={styles.inlineValue}>
-                  <Feather name="user" size={19} color={theme.primary} />
-                  <Text style={[styles.inlineValueText, { color: theme.primaryDark }]}>
-                    {state.reportedSeverity}
-                  </Text>
-                </View>
-                <Text style={[styles.sectionNote, { color: theme.textSecondary }]}>
-                  User-provided observation; not estimated by the model.
-                </Text>
-              </SectionCard>
-            ) : null}
 
             {isLowScore ? (
               <View
@@ -319,7 +329,7 @@ export default function AnalysisResultScreen() {
               </Text>
             </View>
             <View
-              testID={saveRecord.status === 'saved' ? 'scan.record-saved' : 'scan.save-panel'}
+              testID="scan.outcome-panel"
               accessibilityLiveRegion={saveRecord.status === 'failed' ? 'assertive' : 'polite'}
               style={[
                 styles.saveCard,
@@ -338,14 +348,16 @@ export default function AnalysisResultScreen() {
                         : theme.border,
                 },
               ]}>
-              <View style={styles.saveHeading}>
+              <View
+                testID={saveRecord.status === 'saved' ? 'scan.record-saved' : undefined}
+                style={styles.saveHeading}>
                 <Feather
                   name={
                     saveRecord.status === 'saved'
                       ? 'check-circle'
                       : saveRecord.status === 'failed'
                         ? 'alert-triangle'
-                        : 'save'
+                        : 'navigation'
                   }
                   size={22}
                   color={
@@ -358,40 +370,54 @@ export default function AnalysisResultScreen() {
                 />
                 <Text style={[styles.saveTitle, { color: theme.primaryDark }]}>
                   {saveRecord.status === 'saved'
-                    ? 'Saved on this device'
+                    ? 'Scan saved on this device'
                     : saveRecord.status === 'failed'
-                      ? 'Record not saved'
-                      : 'Save this observation'}
+                      ? 'Choose another action'
+                      : 'Choose what happens next'}
                 </Text>
               </View>
               <Text style={[styles.saveMessage, { color: theme.textSecondary }]}>
                 {saveRecord.status === 'saved'
-                  ? 'The image and AI-supported result are stored locally. Create a separate Field Report Draft from the saved record when ready.'
+                  ? 'This scan is stored as local AI evidence. Reporting it to the office remains a separate choice.'
                   : saveRecord.status === 'failed'
-                    ? saveRecord.errorMessage
-                    : 'CaneGuard saves the completed scan as local AI evidence without queuing a report upload.'}
+                    ? saveRecord.errorMessage ?? 'The scan could not be saved on this device.'
+                    : 'Report to Office opens a Field Report Draft. Keep as Scan Only stores the scan without sending a report.'}
               </Text>
-              {saveRecord.status !== 'saved' ? (
+              <View style={styles.outcomeActions}>
                 <AppButton
-                  testID="scan.save-record"
-                  onPress={() => void saveRecord.save()}
+                  testID="scan.report-to-office"
+                  onPress={() => void reportToOffice()}
                   disabled={saveRecord.status === 'saving'}
-                  leadingIcon={saveRecord.status === 'failed' ? 'refresh-cw' : 'save'}
+                  leadingIcon="send"
                   accessibilityLabel={
                     saveRecord.status === 'failed'
-                      ? 'Retry saving record on this device'
-                      : saveRecord.status === 'saving'
-                        ? 'Saving record on this device'
-                        : 'Save record on this device'
+                      ? 'Retry and report this scan to the office'
+                      : 'Report this scan to the office'
                   }>
                   {saveRecord.status === 'saving'
-                    ? 'Saving Record...'
+                    ? 'Saving scan...'
                     : saveRecord.status === 'failed'
-                      ? 'Retry Save'
-                      : 'Save Record'}
-                  </AppButton>
-              ) : saveRecord.recordId ? (
-                <View style={styles.savedActions}>
+                      ? 'Retry and Report to Office'
+                      : 'Report to Office'}
+                </AppButton>
+                <AppButton
+                  testID="scan.keep-as-scan-only"
+                  onPress={keepAsScanOnly}
+                  disabled={saveRecord.status === 'saving'}
+                  leadingIcon={saveRecord.status === 'failed' ? 'refresh-cw' : 'save'}
+                  variant="secondary"
+                  accessibilityLabel={
+                    saveRecord.status === 'failed'
+                      ? 'Retry and keep this scan only'
+                      : 'Keep this scan only on the device'
+                  }>
+                  {saveRecord.status === 'saving'
+                    ? 'Saving scan...'
+                    : saveRecord.status === 'failed'
+                      ? 'Retry and Keep as Scan Only'
+                      : 'Keep as Scan Only'}
+                </AppButton>
+                {saveRecord.status === 'saved' && saveRecord.recordId ? (
                   <AppButton
                     testID="scan.open-saved-record"
                     onPress={() =>
@@ -401,26 +427,15 @@ export default function AnalysisResultScreen() {
                       } as unknown as Href)
                     }
                     leadingIcon="folder"
-                    accessibilityLabel="Open the saved local record">
-                    Open Saved Record
+                    variant="text"
+                    accessibilityLabel="Open the saved local scan">
+                    Open Saved Scan
                   </AppButton>
-                  <AppButton
-                    testID="scan.create-field-report"
-                    onPress={() =>
-                      router.push({
-                        pathname: '/field-report',
-                        params: { scanRecordId: saveRecord.recordId! },
-                      } as unknown as Href)
-                    }
-                    leadingIcon="file-plus"
-                    variant="secondary"
-                    accessibilityLabel="Create a Field Report for this saved record">
-                    Create Field Report
-                  </AppButton>
-                </View>
-              ) : null}
+                ) : null}
+              </View>
             </View>
             <AppButton
+              testID="scan.new-scan"
               onPress={startNewScan}
               disabled={saveRecord.status === 'saving'}
               leadingIcon="refresh-cw"
@@ -523,9 +538,6 @@ const styles = StyleSheet.create({
   consistencyCopy: { flex: 1, gap: Spacing.xs },
   consistencyTitle: { ...Typography.subheading },
   consistencyMessage: { ...Typography.bodySmall },
-  inlineValue: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  inlineValueText: { ...Typography.heading, fontWeight: '800' },
-  sectionNote: { ...Typography.caption },
   caution: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
   cautionText: { ...Typography.caption, flex: 1 },
   detailRow: { minHeight: 36, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
@@ -533,7 +545,7 @@ const styles = StyleSheet.create({
   detailValue: { ...Typography.bodySmall, fontWeight: '800', flexShrink: 1, textAlign: 'right' },
   disclaimer: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm, flexDirection: 'row', alignItems: 'flex-start' }, disclaimerText: { ...Typography.caption, flex: 1, lineHeight: 18 },
   saveCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
-  savedActions: { gap: Spacing.sm },
+  outcomeActions: { gap: Spacing.sm },
   saveHeading: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   saveTitle: { ...Typography.subheading, flex: 1 },
   saveMessage: { ...Typography.bodySmall },

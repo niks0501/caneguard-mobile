@@ -254,7 +254,7 @@ describe('FieldReportScreen', () => {
       'Ana Reyes · Field reporter',
     );
     expect(screen.getByText('Possible result: Rust · 82% confidence')).toBeOnTheScreen();
-    expect(screen.getByText('Rust-colored or orange-brown spots or pustules')).toBeOnTheScreen();
+    expect(screen.getByText('Raised rust-colored or orange-brown spots or pustules, mainly on the leaf underside')).toBeOnTheScreen();
 
     await act(async () => {
       fireEvent.changeText(

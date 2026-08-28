@@ -16,6 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AssignmentCard } from '@/features/activity/components/AssignmentCard';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
+import { NotificationInbox } from '@/features/notifications/components/NotificationInbox';
+import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 import { RecordCard } from '@/components/ui/RecordCard';
 import { AppButton } from '@/components/ui/AppButton';
 import { BottomNav } from '@/components/ui/BottomNav';
@@ -37,6 +39,7 @@ import { useFieldValidationAssignments } from '@/features/assignments/hooks/useF
 import { DEFAULT_RECORD_PAGE_SIZE } from '@/features/records/domain/recordTypes';
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
 import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
+import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ActivityScreen() {
@@ -59,6 +62,7 @@ export default function ActivityScreen() {
   );
   const authorityStatus = useAuthorityReviewStatus(activeFilter !== 'assignments');
   const assignments = useFieldValidationAssignments();
+  const notifications = useMobileNotifications();
   const visibleAssignments =
     activeFilter === 'all' || activeFilter === 'assignments'
       ? assignments.assignments.filter((assignment) => matchesSearch(assignment, submittedSearch))
@@ -126,6 +130,17 @@ export default function ActivityScreen() {
               </View>
 
               {activeFilter !== 'scans' ? <SyncStatusPanel /> : null}
+
+              {activeFilter !== 'scans' ? (
+                <NotificationInbox
+                  errorMessage={notifications.errorMessage}
+                  notifications={notifications.notifications}
+                  onNotificationPress={(notification) => openNotification(notification)}
+                  onRefresh={() => void notifications.refresh()}
+                  refreshing={notifications.refreshing}
+                  unreadCount={notifications.unreadCount}
+                />
+              ) : null}
 
               {activeFilter !== 'scans' ? (
                 <View
@@ -368,6 +383,15 @@ export default function ActivityScreen() {
       </View>
     </SafeAreaView>
   );
+}
+
+function openNotification(notification: MobileNotification): void {
+  if (notification.assignmentUuid) {
+    router.push({
+      pathname: '/field-validation',
+      params: { assignmentId: notification.assignmentUuid },
+    } as never);
+  }
 }
 
 function formatActivityCount(

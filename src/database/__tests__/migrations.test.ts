@@ -15,6 +15,7 @@ const migration7 = readMigration('0007_familiar_old_lace.sql');
 const migration8 = readMigration('0008_field_validation_assignments.sql');
 const migration9 = readMigration('0009_scope_field_validation_assignment_cache_by_owner.sql');
 const migration10 = readMigration('0010_numerous_princess_powerful.sql');
+const migration11 = readMigration('0011_tidy_meteorite.sql');
 const migrationJournal = migrationBundle.journal;
 
 function readMigration(filename: string): string {
@@ -42,6 +43,7 @@ function applyLatest(database: DatabaseSync): void {
   database.exec(migration8);
   database.exec(migration9);
   database.exec(migration10);
+  database.exec(migration11);
 }
 
 function insertScanRecord(
@@ -96,6 +98,7 @@ describe('CaneGuard database migrations', () => {
       'field_reports',
       'field_validation_assignments',
       'field_validation_completions',
+      'notifications_cache',
       'scan_class_scores',
       'scan_quality_warnings',
       'scan_records',
@@ -402,6 +405,7 @@ describe('CaneGuard database migrations', () => {
       '0008_field_validation_assignments',
       '0009_scope_field_validation_assignment_cache_by_owner',
       '0010_numerous_princess_powerful',
+      '0011_tidy_meteorite',
     ]);
     expect(Object.keys(migrationBundle.migrations)).toEqual([
       'm0000',
@@ -415,6 +419,7 @@ describe('CaneGuard database migrations', () => {
       'm0008',
       'm0009',
       'm0010',
+      'm0011',
     ]);
     expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
       migration0,
@@ -428,6 +433,7 @@ describe('CaneGuard database migrations', () => {
       migration8,
       migration9,
       migration10,
+      migration11,
     ]);
   });
 });

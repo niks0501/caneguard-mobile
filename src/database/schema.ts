@@ -288,6 +288,39 @@ export const fieldValidationCompletions = sqliteTable(
   ],
 );
 
+export const mobileNotifications = sqliteTable(
+  'notifications_cache',
+  {
+    id: text('id').notNull(),
+    ownerIdentity: text('owner_identity').notNull(),
+    eventType: text('event_type').notNull(),
+    title: text('title').notNull(),
+    message: text('message').notNull(),
+    caseUuid: text('case_uuid'),
+    referenceCode: text('reference_code'),
+    assignmentUuid: text('assignment_uuid'),
+    isRead: integer('is_read', { mode: 'boolean' }).notNull(),
+    readAt: text('read_at'),
+    createdAt: text('created_at'),
+    cachedAt: text('cached_at').notNull(),
+  },
+  (table) => [
+    index('notifications_cache_owner_created_at_idx').on(
+      table.ownerIdentity,
+      table.createdAt,
+    ),
+    primaryKey({ columns: [table.ownerIdentity, table.id] }),
+    check(
+      'notifications_cache_event_type_check',
+      sql`${table.eventType} <> ''`,
+    ),
+    check(
+      'notifications_cache_is_read_check',
+      sql`${table.isRead} in (0, 1)`,
+    ),
+  ],
+);
+
 export const scanClassScores = sqliteTable(
   'scan_class_scores',
   {
@@ -460,6 +493,8 @@ export const fieldReports = sqliteTable(
   ],
 );
 
+export type MobileNotificationRow = typeof mobileNotifications.$inferSelect;
+export type NewMobileNotificationRow = typeof mobileNotifications.$inferInsert;
 export type FieldValidationAssignmentRow = typeof fieldValidationAssignments.$inferSelect;
 export type NewFieldValidationAssignmentRow = typeof fieldValidationAssignments.$inferInsert;
 export type FieldValidationCompletionRow = typeof fieldValidationCompletions.$inferSelect;

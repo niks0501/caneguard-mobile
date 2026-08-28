@@ -12,6 +12,13 @@ import { AppState } from 'react-native';
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import {
+  countUnsyncedFieldValidationCompletions,
+  findLastSuccessfulFieldValidationCompletionSyncAt,
+  markFieldValidationCompletionPending,
+  resetStaleSyncingFieldValidationCompletions,
+} from '@/features/assignments/data/fieldValidationCompletionRepository';
+import { syncPendingFieldValidationCompletions } from '@/features/assignments/services/syncPendingFieldValidationCompletions';
 import type { MobileSession } from '@/features/auth/types';
 import {
   countUnsyncedFieldReports,
@@ -38,6 +45,7 @@ interface SyncContextValue {
   lastSuccessfulSyncAt: string | null;
   pendingCount: number;
   retryReport: (reportId: string) => Promise<SyncBatchResult | null>;
+  retryFieldValidationCompletion: (completionId: string) => Promise<SyncBatchResult | null>;
   syncNow: (source?: SyncTriggerSource) => Promise<SyncBatchResult | null>;
 }
 
@@ -137,10 +145,14 @@ export function SyncProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    const [count, lastSyncedAt] = await Promise.all([
-      countUnsyncedFieldReports(database, requestedSubmitterIdentity),
-      findLastSuccessfulFieldReportSyncAt(database, requestedSubmitterIdentity),
-    ]);
+    const [reportCount, completionCount, reportLastSyncedAt, completionLastSyncedAt] =
+      await Promise.all([
+        countUnsyncedFieldReports(database, requestedSubmitterIdentity),
+        countUnsyncedFieldValidationCompletions(database, requestedSubmitterIdentity),
+        findLastSuccessfulFieldReportSyncAt(database, requestedSubmitterIdentity),
+        findLastSuccessfulFieldValidationCompletionSyncAt(database, requestedSubmitterIdentity),
+      ]);
+    const lastSyncedAt = latestTimestamp(reportLastSyncedAt, completionLastSyncedAt);
     if (
       mounted.current &&
       isSameSession(
@@ -149,7 +161,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         requestedSubmitterIdentity,
       )
     ) {
-      setPendingCount(count);
+      setPendingCount(reportCount + completionCount);
       setLastSuccessfulSyncAt(lastSyncedAt);
     }
   }, [database, sessionToken, submitterIdentity]);
@@ -186,12 +198,19 @@ export function SyncProvider({ children }: PropsWithChildren) {
         sessionRef.current?.token === initiatingSession.token &&
         sessionRef.current?.user.uuid === initiatingSession.user.uuid;
       try {
-        const result = await syncPendingFieldReports({
+        const reportResult = await syncPendingFieldReports({
           database,
           source,
           submitterIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
+        const completionResult = await syncPendingFieldValidationCompletions({
+          database,
+          source,
+          ownerIdentity: initiatingSession.user.uuid,
+          token: initiatingSession.token,
+        });
+        const result = mergeSyncBatchResults(reportResult, completionResult);
         if (!isInitiatingSessionCurrent()) {
           return result;
         }
@@ -274,6 +293,21 @@ export function SyncProvider({ children }: PropsWithChildren) {
     [authStatus, database, submitterIdentity, syncNow],
   );
 
+  const retryFieldValidationCompletion = useCallback(
+    async (completionId: string) => {
+      if (authStatus !== 'authenticated' || !submitterIdentity) {
+        return null;
+      }
+      await markFieldValidationCompletionPending(
+        database,
+        completionId,
+        submitterIdentity,
+      );
+      return syncNow('manual');
+    },
+    [authStatus, database, submitterIdentity, syncNow],
+  );
+
   useEffect(() => {
     let active = true;
     void Promise.resolve().then(() => {
@@ -309,11 +343,18 @@ export function SyncProvider({ children }: PropsWithChildren) {
     const requestedToken = sessionToken;
     const requestedSubmitterIdentity = submitterIdentity;
     const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
-    void resetStaleSyncingFieldReports(
-      database,
-      requestedSubmitterIdentity,
-      staleBefore,
-    )
+    void Promise.all([
+      resetStaleSyncingFieldReports(
+        database,
+        requestedSubmitterIdentity,
+        staleBefore,
+      ),
+      resetStaleSyncingFieldValidationCompletions(
+        database,
+        requestedSubmitterIdentity,
+        staleBefore,
+      ),
+    ])
       .then(() => {
         if (
           mounted.current &&
@@ -420,6 +461,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         syncState.sessionKey === sessionKey ? syncState.isSyncing : false,
       lastSuccessfulSyncAt,
       pendingCount,
+      retryFieldValidationCompletion,
       retryReport,
       syncNow,
     }),
@@ -427,6 +469,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       isOnline,
       lastSuccessfulSyncAt,
       pendingCount,
+      retryFieldValidationCompletion,
       retryReport,
       sessionKey,
       syncNow,
@@ -438,6 +481,34 @@ export function SyncProvider({ children }: PropsWithChildren) {
   );
 
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;
+}
+
+function mergeSyncBatchResults(
+  reports: SyncBatchResult,
+  completions: SyncBatchResult,
+): SyncBatchResult {
+  return {
+    attempted: reports.attempted + completions.attempted,
+    authRequired: reports.authRequired || completions.authRequired,
+    failed: reports.failed + completions.failed,
+    haltReason:
+      reports.haltReason === 'auth-required' || completions.haltReason === 'auth-required'
+        ? 'auth-required'
+        : reports.haltReason === 'transient-blocker' || completions.haltReason === 'transient-blocker'
+          ? 'transient-blocker'
+          : reports.haltReason === 'run-limit' || completions.haltReason === 'run-limit'
+            ? 'run-limit'
+            : reports.haltReason ?? completions.haltReason,
+    results: [...reports.results, ...completions.results],
+    source: reports.source,
+    synced: reports.synced + completions.synced,
+  };
+}
+
+function latestTimestamp(first: string | null, second: string | null): string | null {
+  if (!first) return second;
+  if (!second) return first;
+  return Date.parse(first) >= Date.parse(second) ? first : second;
 }
 
 function isNetworkOnline(state: NetInfoState): boolean {

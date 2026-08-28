@@ -13,6 +13,17 @@ jest.mock('@/features/records/hooks/useRecords', () => ({
     refresh: jest.fn(async () => undefined),
   })),
 }));
+jest.mock('@/features/assignments/hooks/useFieldValidationAssignments', () => ({
+  useFieldValidationAssignments: () => ({
+    assignments: [],
+    capabilityUnavailable: false,
+    errorMessage: null,
+    lastSuccessfulAt: null,
+    refreshing: false,
+    refresh: jest.fn(async () => undefined),
+    sessionKey: 'test-session',
+  }),
+}));
 jest.mock('@/features/reports/hooks/useAuthorityReviewStatus', () => ({
   useAuthorityReviewStatus: () => ({
     capabilityUnavailable: false,

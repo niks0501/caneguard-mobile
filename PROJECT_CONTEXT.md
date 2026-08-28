@@ -182,6 +182,7 @@ Current mobile endpoints:
 - `DELETE /api/v1/mobile/auth/logout`
 - `POST /api/v1/mobile/reports`
 - `GET /api/v1/mobile/assignments`
+- `POST /api/v1/mobile/assignments/{assignment}/completion`
 
 Authentication expects bearer tokens.
 
@@ -288,5 +289,6 @@ Do not run EAS build or submit automatically.
 - Native TFLite behavior cannot be fully validated by unit tests or Expo Go; a compatible development build and physical-device testing remain necessary.
 - iOS and static-web configurations exist, but the repository evidence is primarily Android-focused.
 - Mobile/backend synchronization is tightly coupled to the current multipart field names and response identity shape; backend contract changes require coordinated mobile updates.
-- Field-validation assignment payloads are defined by `references/mobile-field-validation-assignment-v1.json` and the matching web artifact; completion and sync-back are deferred to T07.
+- Field-validation assignment and completion payloads are defined by `references/mobile-field-validation-assignment-v1.json`, `references/mobile-field-validation-completion-v1.json`, and their matching web artifacts.
+Mobile completion evidence is persisted in SQLite with a retryable queue and synchronized through the owner-scoped assignment completion endpoint.
 - Local report summaries represent AI-supported observations, not confirmed disease incidence.

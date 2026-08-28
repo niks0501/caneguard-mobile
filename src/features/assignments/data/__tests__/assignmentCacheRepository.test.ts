@@ -43,7 +43,7 @@ function openTestDatabase(): { database: CaneGuardDatabase; native: DatabaseSync
 function createStatementAdapter(statement: StatementSync): SQLiteStatement {
   function execute(params: unknown[]) {
     const result = statement.run(...(params as SQLInputValue[]));
-    return { changes: Number(result.changes), lastInsertRowId: Number(result.lastInsertrowid), getAllSync: () => [], getFirstSync: () => null };
+    return { changes: Number(result.changes), lastInsertRowId: Number(result.lastInsertRowid), getAllSync: () => [], getFirstSync: () => null };
   }
   return {
     executeSync: (params: unknown[] = []) => execute(params),

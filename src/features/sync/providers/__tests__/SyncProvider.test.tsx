@@ -6,6 +6,12 @@ import { AppState, Text } from 'react-native';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
+  countUnsyncedFieldValidationCompletions,
+  findLastSuccessfulFieldValidationCompletionSyncAt,
+  resetStaleSyncingFieldValidationCompletions,
+} from '@/features/assignments/data/fieldValidationCompletionRepository';
+import { syncPendingFieldValidationCompletions } from '@/features/assignments/services/syncPendingFieldValidationCompletions';
+import {
   countUnsyncedFieldReports,
   findFieldReportUploadRecord,
   findLastSuccessfulFieldReportSyncAt,
@@ -30,6 +36,15 @@ jest.mock('@/database/DatabaseProvider', () => ({
 }));
 jest.mock('@/features/auth/hooks/useAuth', () => ({
   useAuth: jest.fn(),
+}));
+jest.mock('@/features/assignments/data/fieldValidationCompletionRepository', () => ({
+  countUnsyncedFieldValidationCompletions: jest.fn(),
+  findLastSuccessfulFieldValidationCompletionSyncAt: jest.fn(),
+  markFieldValidationCompletionPending: jest.fn(),
+  resetStaleSyncingFieldValidationCompletions: jest.fn(),
+}));
+jest.mock('@/features/assignments/services/syncPendingFieldValidationCompletions', () => ({
+  syncPendingFieldValidationCompletions: jest.fn(),
 }));
 jest.mock('@/features/reports/data/fieldReportSyncRepository', () => ({
   countUnsyncedFieldReports: jest.fn(),
@@ -90,9 +105,21 @@ describe('SyncProvider foreground triggers', () => {
       markSessionExpired: jest.fn(async () => undefined),
     } as never);
     jest.mocked(countUnsyncedFieldReports).mockResolvedValue(1);
+    jest.mocked(countUnsyncedFieldValidationCompletions).mockResolvedValue(0);
     jest.mocked(findFieldReportUploadRecord).mockResolvedValue({} as never);
     jest.mocked(findLastSuccessfulFieldReportSyncAt).mockResolvedValue(null);
+    jest.mocked(findLastSuccessfulFieldValidationCompletionSyncAt).mockResolvedValue(null);
     jest.mocked(resetStaleSyncingFieldReports).mockResolvedValue();
+    jest.mocked(resetStaleSyncingFieldValidationCompletions).mockResolvedValue();
+    jest.mocked(syncPendingFieldValidationCompletions).mockResolvedValue({
+      attempted: 0,
+      authRequired: false,
+      failed: 0,
+      haltReason: 'empty',
+      results: [],
+      source: 'startup',
+      synced: 0,
+    });
     jest.mocked(syncPendingFieldReports).mockResolvedValue({
       attempted: 1,
       authRequired: false,

@@ -57,6 +57,17 @@ export const FIELD_VALIDATION_ASSIGNMENT_STATES = [
 export type FieldValidationAssignmentState =
   (typeof FIELD_VALIDATION_ASSIGNMENT_STATES)[number];
 
+export const FIELD_VALIDATION_GPS_OUTCOMES = [
+  'resolved',
+  'low_accuracy',
+  'permission_denied',
+  'unavailable',
+  'error',
+] as const;
+
+export type FieldValidationGpsOutcome =
+  (typeof FIELD_VALIDATION_GPS_OUTCOMES)[number];
+
 export const scanRecords = sqliteTable(
   'scan_records',
   {
@@ -200,6 +211,80 @@ export const fieldValidationAssignments = sqliteTable(
       sql`${table.affectedPortionPercent} is null or (${table.affectedPortionPercent} >= 0 and ${table.affectedPortionPercent} <= 100)`,
     ),
     primaryKey({ columns: [table.ownerIdentity, table.id] }),
+  ],
+);
+
+export const fieldValidationCompletions = sqliteTable(
+  'field_validation_completions',
+  {
+    id: text('id').primaryKey(),
+    ownerIdentity: text('owner_identity').notNull(),
+    assignmentId: text('assignment_id').notNull(),
+    reportUuid: text('report_uuid').notNull(),
+    fieldObservation: text('field_observation').notNull(),
+    fieldFinding: text('field_finding').notNull(),
+    actionTaken: text('action_taken').notNull(),
+    visitedAt: text('visited_at').notNull(),
+    gpsOutcome: text('gps_outcome')
+      .$type<FieldValidationGpsOutcome>()
+      .notNull(),
+    gpsAttemptedAt: text('gps_attempted_at').notNull(),
+    gpsLatitude: real('gps_latitude'),
+    gpsLongitude: real('gps_longitude'),
+    gpsAccuracy: real('gps_accuracy'),
+    freshPhotoUri: text('fresh_photo_uri'),
+    freshPhotoMimeType: text('fresh_photo_mime_type'),
+    freshPhotoSizeBytes: integer('fresh_photo_size_bytes'),
+    syncStatus: text('sync_status')
+      .$type<SyncStatus>()
+      .notNull()
+      .default('pending'),
+    remoteId: text('remote_id'),
+    syncAttemptCount: integer('sync_attempt_count').notNull().default(0),
+    lastSyncErrorCode: text('last_sync_error_code'),
+    lastSyncAttemptAt: text('last_sync_attempt_at'),
+    lastSyncedAt: text('last_synced_at'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('field_validation_completions_owner_status_idx').on(
+      table.ownerIdentity,
+      table.syncStatus,
+      table.createdAt,
+    ),
+    uniqueIndex('field_validation_completions_owner_assignment_unique').on(
+      table.ownerIdentity,
+      table.assignmentId,
+    ),
+    check(
+      'field_validation_completions_gps_outcome_check',
+      sql`${table.gpsOutcome} in ('resolved', 'low_accuracy', 'permission_denied', 'unavailable', 'error')`,
+    ),
+    check(
+      'field_validation_completions_sync_status_check',
+      sql`${table.syncStatus} in ('local_only', 'pending', 'syncing', 'synced', 'failed')`,
+    ),
+    check(
+      'field_validation_completions_gps_latitude_check',
+      sql`${table.gpsLatitude} is null or ${table.gpsLatitude} between -90 and 90`,
+    ),
+    check(
+      'field_validation_completions_gps_longitude_check',
+      sql`${table.gpsLongitude} is null or ${table.gpsLongitude} between -180 and 180`,
+    ),
+    check(
+      'field_validation_completions_gps_accuracy_check',
+      sql`${table.gpsAccuracy} is null or ${table.gpsAccuracy} >= 0`,
+    ),
+    check(
+      'field_validation_completions_photo_size_check',
+      sql`${table.freshPhotoSizeBytes} is null or ${table.freshPhotoSizeBytes} > 0`,
+    ),
+    check(
+      'field_validation_completions_sync_attempt_count_check',
+      sql`${table.syncAttemptCount} >= 0`,
+    ),
   ],
 );
 
@@ -377,6 +462,8 @@ export const fieldReports = sqliteTable(
 
 export type FieldValidationAssignmentRow = typeof fieldValidationAssignments.$inferSelect;
 export type NewFieldValidationAssignmentRow = typeof fieldValidationAssignments.$inferInsert;
+export type FieldValidationCompletionRow = typeof fieldValidationCompletions.$inferSelect;
+export type NewFieldValidationCompletionRow = typeof fieldValidationCompletions.$inferInsert;
 export type ScanRecordRow = typeof scanRecords.$inferSelect;
 export type NewScanRecordRow = typeof scanRecords.$inferInsert;
 export type ScanClassScoreRow = typeof scanClassScores.$inferSelect;

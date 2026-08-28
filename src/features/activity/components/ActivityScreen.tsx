@@ -327,6 +327,12 @@ export default function ActivityScreen() {
                           key={`assignment-${item.assignment.id}`}
                           testID={`activity.assignment.${item.assignment.id}`}
                           assignment={item.assignment}
+                          onPress={() =>
+                            router.push({
+                              pathname: '/field-validation',
+                              params: { assignmentId: item.assignment.id },
+                            } as never)
+                          }
                         />
                       ) : (
                         <RecordCard

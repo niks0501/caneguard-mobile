@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DiseasePill, type DiseasePillVariant } from '@/components/ui/DiseasePill';
 import { ComponentTokens, Radius, Spacing, Typography } from '@/constants/theme';
@@ -8,9 +8,11 @@ import { useTheme } from '@/hooks/use-theme';
 
 export function AssignmentCard({
   assignment,
+  onPress,
   testID,
 }: {
   assignment: FieldValidationAssignment;
+  onPress?: () => void;
   testID?: string;
 }) {
   const theme = useTheme();
@@ -20,13 +22,18 @@ export function AssignmentCard({
     : 'No target visit date';
 
   return (
-    <View
+    <Pressable
+      accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={`Field validation assignment ${assignment.referenceCode}`}
-      style={[
-        styles.card,
-        { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
-      ]}
+      disabled={!onPress}
+      onPress={onPress}
+      style={({ pressed }) => [pressed && styles.pressed]}
       testID={testID}>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+        ]}>
       <View style={styles.header}>
         <View style={styles.titleBlock}>
           <View style={[styles.assignmentTag, { backgroundColor: theme.infoBg }]}>
@@ -53,7 +60,8 @@ export function AssignmentCard({
           <Text style={[styles.samePersonText, { color: theme.warning }]}>You submitted this case and are its validator.</Text>
         </View>
       ) : null}
-    </View>
+      </View>
+    </Pressable>
   );
 }
 
@@ -101,6 +109,7 @@ function toPillVariant(label: string): DiseasePillVariant {
 }
 
 const styles = StyleSheet.create({
+  pressed: { opacity: 0.72 },
   card: {
     borderRadius: ComponentTokens.card.borderRadius,
     borderWidth: 1,

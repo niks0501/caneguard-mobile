@@ -86,7 +86,8 @@ project-structure.txt
 # Local EAS QA release command output
 qa-mobile-*.json
 
-
+# Cross-repository API checkout used for local contract verification
+/caneguard-web/
 
 # >>> AkiDev project-local runtime >>>
 .akidev/cache/

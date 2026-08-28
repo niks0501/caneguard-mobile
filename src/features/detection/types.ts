@@ -13,6 +13,11 @@ export type ScanSessionStatus =
   | 'completed'
   | 'error';
 
+/**
+ * Legacy persisted scan metadata.
+ * The guided scan flow no longer collects this value, but historical records
+ * remain readable and the storage contract remains backward-compatible.
+ */
 export type ReportedSeverity = 'Mild' | 'Moderate' | 'Severe';
 
 export interface ClassScore {

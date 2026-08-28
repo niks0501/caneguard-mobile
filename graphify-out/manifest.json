@@ -5,8 +5,8 @@
     "semantic_hash": ""
   },
   "src/app/analysis-result.tsx": {
-    "mtime": 1786718377.0352323,
-    "ast_hash": "e8452f599123c937a194637fd4e70094",
+    "mtime": 1787897183.9856002,
+    "ast_hash": "211e143e675de76978c6e031c144d09a",
     "semantic_hash": ""
   },
   "src/app/home.tsx": {
@@ -55,8 +55,8 @@
     "semantic_hash": ""
   },
   "src/app/symptom-checklist.tsx": {
-    "mtime": 1786540369.7645473,
-    "ast_hash": "dd64c835cd9b610d2b0491607ce7f3c6",
+    "mtime": 1787897007.061784,
+    "ast_hash": "2b0a3e5720fef034f20fc8e3c7a863b4",
     "semantic_hash": ""
   },
   "src/components/themed-text.tsx": {
@@ -125,8 +125,8 @@
     "semantic_hash": ""
   },
   "src/components/ui/SymptomChecklistItem.tsx": {
-    "mtime": 1786540369.7645473,
-    "ast_hash": "700d3e37f89d0eb58100ec313a005b41",
+    "mtime": 1787897022.6939716,
+    "ast_hash": "edb2327835f9fcab209d0b4baffa6b52",
     "semantic_hash": ""
   },
   "src/components/ui/TextField.tsx": {
@@ -210,8 +210,8 @@
     "semantic_hash": ""
   },
   "src/features/detection/context/__tests__/scanSessionReducer.test.ts": {
-    "mtime": 1786718377.0352323,
-    "ast_hash": "15badd3790973c40b91e641be09393b3",
+    "mtime": 1787897664.7138257,
+    "ast_hash": "87f1cadce036c9bfe3cc647f70a0cde3",
     "semantic_hash": ""
   },
   "src/features/detection/context/scanSessionReducer.ts": {
@@ -250,8 +250,8 @@
     "semantic_hash": ""
   },
   "src/features/detection/types.ts": {
-    "mtime": 1786718377.0352323,
-    "ast_hash": "fa0722edc1dfec314aa2b3021423965e",
+    "mtime": 1787897900.1939852,
+    "ast_hash": "313d9cb37b585189dbf7b1f9674baa51",
     "semantic_hash": ""
   },
   "src/features/detection/preprocessing/__tests__/compareParityReference.test.ts": {
@@ -305,23 +305,23 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/analysis-result.test.tsx": {
-    "mtime": 1786718377.0352323,
-    "ast_hash": "72adff7efe3b2d0059e3b65b295f437b",
+    "mtime": 1787897304.3639743,
+    "ast_hash": "a961dfeabe50ce57b2d53733333c3388",
     "semantic_hash": ""
   },
   "src/app/__tests__/symptom-checklist.test.tsx": {
-    "mtime": 1786533086.9001884,
-    "ast_hash": "4cec908294e47ba220b8c80244c7251f",
+    "mtime": 1787897524.171915,
+    "ast_hash": "c85c442a8e6e992bc69298a177ae44ac",
     "semantic_hash": ""
   },
   "src/features/detection/checklist/__tests__/checklistConsistency.test.ts": {
-    "mtime": 1786533086.904934,
-    "ast_hash": "e565aadf7552e0bc9c418d61487a72f3",
+    "mtime": 1787897914.7033293,
+    "ast_hash": "607fbe4e009bde337d89b3efac5d2544",
     "semantic_hash": ""
   },
   "src/features/detection/checklist/checklistConsistency.ts": {
-    "mtime": 1786533086.904934,
-    "ast_hash": "a10a3e80c398bcd160f911985055a1d0",
+    "mtime": 1787897503.9834762,
+    "ast_hash": "53aab60e55f0ef3cf0fbe961ea116af7",
     "semantic_hash": ""
   },
   "src/features/detection/constants/__tests__/diseaseCatalog.test.ts": {
@@ -540,8 +540,8 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/record-details.test.tsx": {
-    "mtime": 1787499892.5334125,
-    "ast_hash": "6dc00500e8705f5bfe7ac8c488fc3376",
+    "mtime": 1787897646.0867114,
+    "ast_hash": "57a96e3b9622fcd9b81be4c0e59e7038",
     "semantic_hash": ""
   },
   "src/app/__tests__/records.test.tsx": {
@@ -675,8 +675,8 @@
     "semantic_hash": ""
   },
   "src/features/sync/mappers/__tests__/reportMultipartMapper.test.ts": {
-    "mtime": 1787501993.506631,
-    "ast_hash": "1fc881954a4d8da5855e5fef3e650f2a",
+    "mtime": 1787897361.19668,
+    "ast_hash": "6dfac45506460beffed283fee9293612",
     "semantic_hash": ""
   },
   "src/features/sync/mappers/reportMultipartMapper.ts": {
@@ -700,8 +700,8 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/field-report.test.tsx": {
-    "mtime": 1787499892.5334125,
-    "ast_hash": "9fcb2baf142c5cdeac6b46f9b89af132",
+    "mtime": 1787897646.0867114,
+    "ast_hash": "0d32b23d4d497681d0e859a9e560ea73",
     "semantic_hash": ""
   },
   "src/app/field-report.tsx": {
@@ -1020,8 +1020,8 @@
     "semantic_hash": ""
   },
   "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts": {
-    "mtime": 1787501993.506631,
-    "ast_hash": "f9a4aeab02d965f2325507fa456859fc",
+    "mtime": 1787897535.9438915,
+    "ast_hash": "368bc6e176cba05f95e4968321051cc1",
     "semantic_hash": ""
   },
   "src/app/__tests__/auth-bootstrap.test.tsx": {

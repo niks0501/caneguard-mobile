@@ -26,20 +26,32 @@ Do not:
 
 The checklist may only produce a **consistency status**.
 
-## Model-Aligned Checklist
+## Guided Differential Checklist
 
-Replace unsupported checklist entries with Model v0 observations.
+Replace the generic checklist with a short data-driven visible-pattern question.
 
-Proposed checklist content, subject to agricultural review:
+The current Model v0 set contains three distinguishing observations plus neutral escape options:
 
 ```text
-Mosaic-like irregular discoloration or mottling
-Rust-colored or orange-brown spots or pustules
-No visible symptom from the supported disease classes
-Unable to tell from the image or plant
+Contrasting islands or streaks of normal green among paler green or yellowish leaf areas
+Raised rust-colored or orange-brown spots or pustules, mainly on the leaf underside
+Bright yellow midrib on lower or older leaves, or yellowing spreading outward from the midrib
+No visible symptom from Mosaic or Rust
+Something else
+Unable to tell
 ```
 
-The checklist wording must be understandable to non-technical users. A future validated Filipino translation may be added separately.
+The question is neutral and does not mention the predicted class.
+
+The current implementation selects this set from the approved Model v0 context and keeps the option definitions separate from model scores.
+
+The pattern descriptions are observation guidance rather than diagnostic claims and require agricultural stakeholder validation before wider clinical use.
+
+The wording must be understandable to non-technical users.
+
+A future validated Filipino translation may be added separately.
+
+The option wording is derived from UF/IFAS EDIS SC009, UF/IFAS EDIS PI207, UF/IFAS EDIS SC099, UF/IFAS EDIS SS-AGR-256, and the APS Plant Health Progress sugarcane disease profile.
 
 ## Consistency Logic
 
@@ -63,6 +75,7 @@ Example rules:
 | Mosaic | Only rust symptom selected | Inconsistent |
 | Rust | Only mosaic symptom selected | Inconsistent |
 | Healthy | Disease symptom selected | Inconsistent |
+| Any | Yellow midrib or Something else | Inconsistent |
 | Any | Unable to tell | Not enough information |
 | Any | No response | Not enough information |
 
@@ -70,15 +83,11 @@ Do not use checklist consistency to alter raw scores.
 
 ## Severity Treatment
 
-The current Mild, Moderate, and Severe control represents user observation only.
+The normal scan flow no longer asks for Mild, Moderate, or Severe.
 
-Rename the displayed field:
+Existing reported severity values remain readable in historical saved-record details and are not destructively removed.
 
-```text
-Reported severity
-```
-
-Do not describe it as model-estimated severity. Consider making severity optional for the prototype because the model is a classifier, not a severity estimator.
+New guided observations must not be described as model-estimated severity because the model is a classifier, not a severity estimator.
 
 ## Result Screen Information Architecture
 

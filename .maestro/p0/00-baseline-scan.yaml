@@ -74,10 +74,10 @@ tags:
     timeout: 30000
 - scrollUntilVisible:
     element:
-      id: scan.save-record
+      id: scan.keep-as-scan-only
     direction: DOWN
 - tapOn:
-    id: scan.save-record
+    id: scan.keep-as-scan-only
     enabled: true
 - extendedWaitUntil:
     visible:

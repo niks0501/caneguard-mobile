@@ -4,7 +4,6 @@ import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
-import { BottomNav } from '@/components/ui/BottomNav';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { ComponentTokens, Layout, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -205,11 +204,10 @@ export default function SettingsScreen() {
               </View>
             </View>
 
-            <View style={{ height: Layout.bottomNavHeight + Spacing.xl }} />
+            <View style={{ height: Spacing.xl }} />
           </View>
         </ScrollView>
 
-        <BottomNav activeTab="settings" />
       </View>
     </SafeAreaView>
   );

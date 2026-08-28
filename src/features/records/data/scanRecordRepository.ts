@@ -70,6 +70,7 @@ export async function listScanRecords(
         authorityReviewedAt: fieldReports.authorityReviewedAt,
         authorityStatusRaw: fieldReports.authorityStatusRaw,
         authorityUpdatedAt: fieldReports.authorityUpdatedAt,
+        hasFieldReport: sql<number>`case when ${fieldReports.id} is null then 0 else 1 end`,
         id: scanRecords.id,
         managedImageUri: scanRecords.managedImageUri,
         predictedLabel: scanRecords.predictedLabel,
@@ -243,6 +244,13 @@ function buildConditions(query: ScanRecordQuery): SQL[] {
   if (query.syncStatus) {
     conditions.push(
       sql`coalesce(${fieldReports.syncStatus}, ${scanRecords.syncStatus}) = ${query.syncStatus}`,
+    );
+  }
+  if (query.hasFieldReport !== undefined) {
+    conditions.push(
+      query.hasFieldReport
+        ? sql`${fieldReports.id} is not null`
+        : sql`${fieldReports.id} is null`,
     );
   }
   if (query.barangay?.trim()) {

@@ -45,13 +45,13 @@ tags:
     visible:
       id: home.screen
     timeout: 120000
-- openLink: caneguardmobile://records
+- openLink: caneguardmobile://activity
 - extendedWaitUntil:
     visible:
-      id: records.screen
+      id: activity.screen
     timeout: 30000
 - tapOn:
-    text: "Open Possible result: Rust record saved .*"
+    text: "Open Possible result: Rust .* saved .*"
     index: 0
 - extendedWaitUntil:
     visible:

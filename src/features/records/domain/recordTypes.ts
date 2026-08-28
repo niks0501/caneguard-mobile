@@ -16,6 +16,7 @@ export interface DateRange {
 export interface ScanRecordQuery {
   barangay?: string;
   dateRange?: DateRange;
+  hasFieldReport?: boolean;
   limit?: number;
   offset?: number;
   predictedLabel?: string;
@@ -28,6 +29,7 @@ export interface ScanRecordListItem {
   barangay: string | null;
   confidence: number;
   createdAt: string;
+  hasFieldReport?: boolean;
   id: string;
   managedImageUri: string;
   predictedLabel: string;

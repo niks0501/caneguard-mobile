@@ -79,10 +79,22 @@ tags:
     id: scan.checklist-consistency
 - assertVisible: Checklist inconsistent
 - assertVisible: "The selected observation differs from the model result. Both remain separate evidence, and this scan can still be reported to the office."
+- scrollUntilVisible:
+    element:
+      id: scan.report-to-office
+    direction: DOWN
 - assertVisible:
     id: scan.report-to-office
+- scrollUntilVisible:
+    element:
+      id: scan.keep-as-scan-only
+    direction: DOWN
 - assertVisible:
     id: scan.keep-as-scan-only
+- scrollUntilVisible:
+    element:
+      id: scan.new-scan
+    direction: DOWN
 - assertVisible:
     id: scan.new-scan
 - assertNotVisible: "Reported severity"

@@ -4,7 +4,7 @@
 - Behavior/flow: `.maestro/p0/01-guided-validation.yaml` covers Scan -> short neutral differential -> Something else mismatch -> result outcomes.
 - Timestamp and timezone: 2026-08-28 06:20 UTC (+0000)
 - Branch: `fm/cg-t02`
-- Commit SHA: `cc39164`
+- Commit SHA: `62680921ba394cd61a5ad35939187343af168877`
 - Worktree state: committed implementation worktree
 
 ## Runtime
@@ -31,6 +31,6 @@
 
 ## Limitations and follow-up
 
-- No physical-device screenshot or end-to-end result is claimed because the shared adb preflight timed out at commit `cc39164`.
+- No physical-device screenshot or end-to-end result is claimed because the shared adb preflight timed out at commit `62680921ba394cd61a5ad35939187343af168877`.
 - The mobile upload contract now allows `yellow-midrib` and `something-else`; the API counterpart should accept these values before synchronized reports rely on them.
 - The observation descriptions are decision-support guidance, not diagnostic proof, and require agricultural stakeholder validation for wider clinical use.

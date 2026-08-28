@@ -1,5 +1,5 @@
 {
-  "version": "7",
+  "version": "8",
   "dialect": "sqlite",
   "entries": [
     {
@@ -56,6 +56,13 @@
       "version": "6",
       "when": 1787496335354,
       "tag": "0007_familiar_old_lace",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787907095787,
+      "tag": "0008_field_validation_assignments",
       "breakpoints": true
     }
   ]

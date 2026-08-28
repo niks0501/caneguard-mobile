@@ -1,0 +1,39 @@
+export const MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE = {
+  data: [
+    {
+      uuid: '3fbd7f77-7d6b-4eb0-a1c7-b673f5a2f39f',
+      report_uuid: '7e8c2e48-a2d4-4aca-9a50-9ca460fd7a7f',
+      report_client_uuid: 'cf9023da-e23c-43cb-a3ae-08ec6e0f302e',
+      reference_code: 'CG-2026-0001',
+      submitter: {
+        uuid: '1ca4cd6e-ab57-4744-a8be-47a91271fd02',
+        name: 'Ana Reporter',
+      },
+      assignee: {
+        uuid: 'd4f4c3b8-4f27-49c7-9ec7-3ab7ea6fc91d',
+        name: 'Mara Field Reporter',
+      },
+      submitter_is_assignee: false,
+      target_visit_date: '2026-08-20',
+      field_validation_state: 'assigned',
+      assigned_at: '2026-08-13T12:00:00.000Z',
+      updated_at: '2026-08-13T12:00:00.000Z',
+      case: {
+        barangay: 'Mabini',
+        province: 'Negros Occidental',
+        municipality: 'Bago',
+        farmer_or_farm_owner_name: 'Juan Dela Cruz',
+        affected_area_hectares: 12.5,
+        affected_portion_percent: 42.75,
+        captured_at: '2026-07-20T09:55:00.000Z',
+        observed_at: '2026-07-20T09:58:00.000Z',
+        submitted_at: '2026-07-20T10:00:00.000Z',
+        predicted_label: 'rust',
+        confidence: 0.93,
+      },
+    },
+  ],
+  links: { next: null },
+  meta: { per_page: 100 },
+  sync: { before: '2026-08-13T12:05:00.000Z' },
+} as const;

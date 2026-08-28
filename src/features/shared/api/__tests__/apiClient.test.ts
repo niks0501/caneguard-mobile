@@ -15,6 +15,24 @@ describe('api client', () => {
     jest.clearAllMocks();
   });
 
+  it('preserves continuation query parameters when building API URLs', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      text: async () => '{}',
+    });
+
+    await apiRequest('/api/v1/mobile/assignments?cursor=next&sync_before=checkpoint', {
+      token: 'test-token',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/mobile/assignments?cursor=next&sync_before=checkpoint'),
+      expect.objectContaining({ headers: expect.any(Headers) }),
+    );
+  });
+
   it('settles a request that ignores AbortController at the documented timeout', async () => {
     jest.useFakeTimers();
     fetchMock.mockImplementationOnce(

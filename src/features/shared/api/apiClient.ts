@@ -97,16 +97,16 @@ function normalizePath(path: string): string {
 
 function buildRequestUrl(path: string): string {
   const base = new URL(apiBaseUrl);
-  const normalizedPath = normalizePath(path);
+  const pathUrl = new URL(normalizePath(path), 'http://caneguard.local');
   const basePath = base.pathname.replace(/\/+$/, '');
   const requestPath = basePath &&
-    (normalizedPath === basePath || normalizedPath.startsWith(`${basePath}/`))
-    ? normalizedPath
-    : `${basePath}${normalizedPath}` || normalizedPath;
+    (pathUrl.pathname === basePath || pathUrl.pathname.startsWith(`${basePath}/`))
+    ? pathUrl.pathname
+    : `${basePath}${pathUrl.pathname}` || pathUrl.pathname;
 
   base.pathname = requestPath;
-  base.search = '';
-  base.hash = '';
+  base.search = pathUrl.search;
+  base.hash = pathUrl.hash;
   return base.toString();
 }
 

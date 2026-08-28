@@ -64,8 +64,25 @@ export default function ActivityScreen() {
       ? assignments.assignments.filter((assignment) => matchesSearch(assignment, submittedSearch))
       : [];
   const visibleRecords = activeFilter === 'assignments' ? [] : records.data;
+  const timeline = [
+    ...visibleAssignments.map((assignment) => ({
+      assignment,
+      id: assignment.id,
+      kind: 'assignment' as const,
+      timestamp: assignment.updatedAt,
+    })),
+    ...visibleRecords.map((record) => ({
+      id: record.id,
+      kind: 'record' as const,
+      record,
+      timestamp: record.createdAt,
+    })),
+  ].sort((first, second) =>
+    Date.parse(second.timestamp) - Date.parse(first.timestamp) ||
+    second.id.localeCompare(first.id),
+  );
   const hasFilters = activeFilter !== 'all' || Boolean(submittedSearch);
-  const activityCount = visibleRecords.length + visibleAssignments.length;
+  const activityCount = timeline.length;
 
   const submitSearch = () => {
     setSubmittedSearch(searchInput.trim());
@@ -304,27 +321,28 @@ export default function ActivityScreen() {
                     {formatActivityCount(activityCount, activeFilter)}
                   </Text>
                   <View testID="activity.timeline" style={styles.list}>
-                    {visibleAssignments.map((assignment) => (
-                      <AssignmentCard
-                        key={`assignment-${assignment.id}`}
-                        testID={`activity.assignment.${assignment.id}`}
-                        assignment={assignment}
-                      />
-                    ))}
-                    {visibleRecords.map((record) => (
-                      <RecordCard
-                        key={record.id}
-                        testID={`activity.item.${record.id}`}
-                        activityType={getActivityItemKind(record.hasFieldReport)}
-                        record={record}
-                        onPress={() =>
-                          router.push({
-                            pathname: '/record-details',
-                            params: { id: record.id },
-                          } as unknown as Href)
-                        }
-                      />
-                    ))}
+                    {timeline.map((item) =>
+                      item.kind === 'assignment' ? (
+                        <AssignmentCard
+                          key={`assignment-${item.assignment.id}`}
+                          testID={`activity.assignment.${item.assignment.id}`}
+                          assignment={item.assignment}
+                        />
+                      ) : (
+                        <RecordCard
+                          key={item.record.id}
+                          testID={`activity.item.${item.record.id}`}
+                          activityType={getActivityItemKind(item.record.hasFieldReport)}
+                          record={item.record}
+                          onPress={() =>
+                            router.push({
+                              pathname: '/record-details',
+                              params: { id: item.record.id },
+                            } as unknown as Href)
+                          }
+                        />
+                      ),
+                    )}
                   </View>
                   {records.hasMore ? (
                     <AppButton

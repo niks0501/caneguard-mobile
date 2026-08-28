@@ -145,7 +145,7 @@ export const scanRecords = sqliteTable(
 export const fieldValidationAssignments = sqliteTable(
   'field_validation_assignments',
   {
-    id: text('id').primaryKey(),
+    id: text('id').notNull(),
     ownerIdentity: text('owner_identity').notNull(),
     reportUuid: text('report_uuid').notNull(),
     reportClientUuid: text('report_client_uuid').notNull(),
@@ -179,7 +179,10 @@ export const fieldValidationAssignments = sqliteTable(
       table.ownerIdentity,
       table.updatedAt,
     ),
-    uniqueIndex('field_validation_assignments_report_uuid_unique').on(table.reportUuid),
+    uniqueIndex('field_validation_assignments_owner_report_uuid_unique').on(
+      table.ownerIdentity,
+      table.reportUuid,
+    ),
     check(
       'field_validation_assignments_state_check',
       sql`${table.fieldValidationState} in ('unassigned', 'assigned', 'in_progress', 'completed')`,
@@ -196,6 +199,7 @@ export const fieldValidationAssignments = sqliteTable(
       'field_validation_assignments_portion_check',
       sql`${table.affectedPortionPercent} is null or (${table.affectedPortionPercent} >= 0 and ${table.affectedPortionPercent} <= 100)`,
     ),
+    primaryKey({ columns: [table.ownerIdentity, table.id] }),
   ],
 );
 

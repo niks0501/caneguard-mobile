@@ -1,4 +1,4 @@
-import { asc, eq, or } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
@@ -53,15 +53,6 @@ export async function replaceCachedFieldValidationAssignments(
         .run();
 
       for (const update of updates) {
-        transaction
-          .delete(fieldValidationAssignments)
-          .where(
-            or(
-              eq(fieldValidationAssignments.id, update.id),
-              eq(fieldValidationAssignments.reportUuid, update.reportUuid),
-            ),
-          )
-          .run();
         transaction
           .insert(fieldValidationAssignments)
           .values(toRow(update, owner, cachedAt))

@@ -106,7 +106,9 @@ describe('field validation assignment cache', () => {
     await replaceCachedFieldValidationAssignments(database, 'owner-1', [ASSIGNMENT], '2026-08-13T12:05:00.000Z');
     await replaceCachedFieldValidationAssignments(database, 'owner-2', [{ ...ASSIGNMENT, assignee: { uuid: 'owner-2', name: 'Other Reporter' } }], '2026-08-13T12:06:00.000Z');
 
-    await expect(listCachedFieldValidationAssignments(database, 'owner-1')).resolves.toEqual([]);
+    await expect(listCachedFieldValidationAssignments(database, 'owner-1')).resolves.toEqual([
+      expect.objectContaining({ ownerIdentity: 'owner-1', assignee: { uuid: ASSIGNMENT.assignee.uuid, name: ASSIGNMENT.assignee.name } }),
+    ]);
     await expect(listCachedFieldValidationAssignments(database, 'owner-2')).resolves.toEqual([
       expect.objectContaining({ ownerIdentity: 'owner-2', assignee: { uuid: 'owner-2', name: 'Other Reporter' } }),
     ]);

@@ -103,17 +103,13 @@ describe('SymptomChecklistScreen', () => {
     expect(mockRouterPush).toHaveBeenCalledWith('/analysis-result');
   });
 
-  it('allows continuing without a selected observation', async () => {
+  it('requires one guided observation before continuing', async () => {
     await renderChecklist();
 
-    await fireEvent.press(screen.getByLabelText('Continue to analysis result'));
-
-    expect(mockDispatch).toHaveBeenCalledTimes(1);
-    expect(mockDispatch).toHaveBeenCalledWith({
-      type: 'SET_SYMPTOMS',
-      payload: [],
-    });
-    expect(mockRouterPush).toHaveBeenCalledWith('/analysis-result');
+    expect(screen.getByTestId('scan.continue-to-result')).toBeDisabled();
+    expect(screen.getByText('Choose an observation')).toBeOnTheScreen();
+    expect(mockDispatch).not.toHaveBeenCalled();
+    expect(mockRouterPush).not.toHaveBeenCalled();
   });
 
   it('keeps fallback answers mutually exclusive from supported patterns', async () => {

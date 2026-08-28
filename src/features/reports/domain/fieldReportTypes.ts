@@ -16,6 +16,7 @@ export interface FieldReport {
   caneClass: string | null;
   createdAt: string;
   cropAge: string | null;
+  /** Backward-compatible field name; the value may be any usable farmer/farm reference. */
   farmerOrFarmOwnerName: string | null;
   fieldNotes: string | null;
   mismatchReported: boolean | null;
@@ -66,6 +67,7 @@ export interface SaveFieldReportDraftInput {
   barangay?: string;
   caneClass?: string;
   cropAge?: string;
+  /** Accepts a farmer/owner name, farm name, or usable local farm identifier. */
   farmerOrFarmOwnerName?: string;
   fieldNotes?: string | null;
   mismatchReported?: boolean | null;
@@ -90,6 +92,7 @@ export interface FinalizeFieldReportInput {
   barangay: string;
   caneClass?: string;
   cropAge?: string;
+  /** Accepts a farmer/owner name, farm name, or usable local farm identifier. */
   farmerOrFarmOwnerName: string;
   fieldNotes?: string | null;
   mismatchReported?: boolean | null;

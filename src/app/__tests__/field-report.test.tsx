@@ -249,7 +249,14 @@ describe('FieldReportScreen', () => {
       screen.getByText(/Drafts are stored only on this device and are not queued/),
     ).toBeOnTheScreen();
     expect(screen.getByTestId('field-report.summary')).toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.minimum-requirements')).toHaveTextContent(
+      /The only details you need to provide are a farmer or farm reference, barangay, affected area, and estimated affected portion\./,
+    );
     expect(screen.getByText('Nasugbu, Batangas')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Farmer or farm reference')).toHaveProp(
+      'placeholder',
+      'Farmer, farm name, or local farm ID',
+    );
     expect(screen.getByTestId('field-report.submitter')).toHaveTextContent(
       'Ana Reyes · Field reporter',
     );
@@ -268,6 +275,39 @@ describe('FieldReportScreen', () => {
 
     expect(mockSave).toHaveBeenCalledWith(
       expectFormValues({ farmerOrFarmOwnerName: 'Maria Santos' }),
+    );
+  });
+
+  it('accepts a local farm reference in place of a farmer name', async () => {
+    await render(<FieldReportScreen />);
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.farmer-name-input'),
+        'North Block Farm 12',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-area-input'),
+        '0.5',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-portion-input'),
+        '30',
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+    });
+
+    expect(mockFinalize).toHaveBeenCalledWith(
+      expectFormValues({
+        farmerOrFarmOwnerName: 'North Block Farm 12',
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
+      }),
     );
   });
 

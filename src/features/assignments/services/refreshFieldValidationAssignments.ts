@@ -18,6 +18,7 @@ interface ActiveRefresh {
 }
 
 const activeRefreshes = new WeakMap<CaneGuardDatabase, Map<string, ActiveRefresh>>();
+const refreshGenerations = new WeakMap<CaneGuardDatabase, Map<string, number>>();
 
 export function refreshFieldValidationAssignments(options: {
   database: CaneGuardDatabase;
@@ -34,7 +35,19 @@ export function refreshFieldValidationAssignments(options: {
   const active = databaseRefreshes.get(owner);
   if (active?.token === options.token) return active.promise;
 
-  const operation = executeRefresh({ ...options, ownerIdentity: owner });
+  let databaseGenerations = refreshGenerations.get(options.database);
+  if (!databaseGenerations) {
+    databaseGenerations = new Map();
+    refreshGenerations.set(options.database, databaseGenerations);
+  }
+  const generation = (databaseGenerations.get(owner) ?? 0) + 1;
+  databaseGenerations.set(owner, generation);
+
+  const operation = executeRefresh({
+    ...options,
+    isCurrent: () => databaseGenerations?.get(owner) === generation,
+    ownerIdentity: owner,
+  });
   const promise = operation.finally(() => {
     if (databaseRefreshes?.get(owner)?.promise === promise) databaseRefreshes.delete(owner);
   });
@@ -44,10 +57,12 @@ export function refreshFieldValidationAssignments(options: {
 
 async function executeRefresh(options: {
   database: CaneGuardDatabase;
+  isCurrent: () => boolean;
   ownerIdentity: string;
   token: string;
 }): Promise<FieldValidationAssignmentsRefreshResult> {
   const response = await fetchAllMobileFieldValidationAssignments({ token: options.token });
+  if (!options.isCurrent()) throw new Error('The assignment refresh was superseded.');
   const fetchedAt = new Date().toISOString();
   await replaceCachedFieldValidationAssignments(
     options.database,

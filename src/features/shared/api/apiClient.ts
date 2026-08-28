@@ -52,9 +52,7 @@ export async function apiRequest<T>(
   try {
     return await Promise.race([
       (async () => {
-        const response = await fetch(
-          `${apiBaseUrl}${normalizePath(path)}`,
-          {
+        const response = await fetch(buildRequestUrl(path), {
             ...requestInit,
             headers,
             signal: controller.signal,
@@ -95,6 +93,21 @@ function createAbortError(): Error {
 
 function normalizePath(path: string): string {
   return path.startsWith('/') ? path : `/${path}`;
+}
+
+function buildRequestUrl(path: string): string {
+  const base = new URL(apiBaseUrl);
+  const normalizedPath = normalizePath(path);
+  const basePath = base.pathname.replace(/\/+$/, '');
+  const requestPath = basePath &&
+    (normalizedPath === basePath || normalizedPath.startsWith(`${basePath}/`))
+    ? normalizedPath
+    : `${basePath}${normalizedPath}` || normalizedPath;
+
+  base.pathname = requestPath;
+  base.search = '';
+  base.hash = '';
+  return base.toString();
 }
 
 async function readResponseBody(response: Response): Promise<unknown> {

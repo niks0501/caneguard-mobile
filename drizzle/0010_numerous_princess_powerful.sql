@@ -1,0 +1,36 @@
+CREATE TABLE `field_validation_completions` (
+	`id` text PRIMARY KEY NOT NULL,
+	`owner_identity` text NOT NULL,
+	`assignment_id` text NOT NULL,
+	`report_uuid` text NOT NULL,
+	`field_observation` text NOT NULL,
+	`field_finding` text NOT NULL,
+	`action_taken` text NOT NULL,
+	`visited_at` text NOT NULL,
+	`gps_outcome` text NOT NULL,
+	`gps_attempted_at` text NOT NULL,
+	`gps_latitude` real,
+	`gps_longitude` real,
+	`gps_accuracy` real,
+	`fresh_photo_uri` text,
+	`fresh_photo_mime_type` text,
+	`fresh_photo_size_bytes` integer,
+	`sync_status` text DEFAULT 'pending' NOT NULL,
+	`remote_id` text,
+	`sync_attempt_count` integer DEFAULT 0 NOT NULL,
+	`last_sync_error_code` text,
+	`last_sync_attempt_at` text,
+	`last_synced_at` text,
+	`created_at` text NOT NULL,
+	`updated_at` text NOT NULL,
+	CONSTRAINT "field_validation_completions_gps_outcome_check" CHECK("field_validation_completions"."gps_outcome" in ('resolved', 'low_accuracy', 'permission_denied', 'unavailable', 'error')),
+	CONSTRAINT "field_validation_completions_sync_status_check" CHECK("field_validation_completions"."sync_status" in ('local_only', 'pending', 'syncing', 'synced', 'failed')),
+	CONSTRAINT "field_validation_completions_gps_latitude_check" CHECK("field_validation_completions"."gps_latitude" is null or "field_validation_completions"."gps_latitude" between -90 and 90),
+	CONSTRAINT "field_validation_completions_gps_longitude_check" CHECK("field_validation_completions"."gps_longitude" is null or "field_validation_completions"."gps_longitude" between -180 and 180),
+	CONSTRAINT "field_validation_completions_gps_accuracy_check" CHECK("field_validation_completions"."gps_accuracy" is null or "field_validation_completions"."gps_accuracy" >= 0),
+	CONSTRAINT "field_validation_completions_photo_size_check" CHECK("field_validation_completions"."fresh_photo_size_bytes" is null or "field_validation_completions"."fresh_photo_size_bytes" > 0),
+	CONSTRAINT "field_validation_completions_sync_attempt_count_check" CHECK("field_validation_completions"."sync_attempt_count" >= 0)
+);
+--> statement-breakpoint
+CREATE INDEX `field_validation_completions_owner_status_idx` ON `field_validation_completions` (`owner_identity`,`sync_status`,`created_at`);--> statement-breakpoint
+CREATE UNIQUE INDEX `field_validation_completions_owner_assignment_unique` ON `field_validation_completions` (`owner_identity`,`assignment_id`);

@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
@@ -34,6 +34,81 @@ export async function listCachedFieldValidationAssignments(
  * feed has been fully validated. A successful refresh removes assignments
  * that were reassigned away, while a failed refresh leaves the old cache intact.
  */
+export async function findCachedFieldValidationAssignment(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  assignmentId: string,
+): Promise<FieldValidationAssignment | null> {
+  const owner = requireOwner(ownerIdentity);
+  try {
+    const row = await database
+      .select()
+      .from(fieldValidationAssignments)
+      .where(
+        and(
+          eq(fieldValidationAssignments.ownerIdentity, owner),
+          eq(fieldValidationAssignments.id, assignmentId),
+        ),
+      )
+      .get();
+    return row ? toAssignment(row) : null;
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'QUERY_FAILED',
+      'Reading the cached field validation assignment failed.',
+    );
+  }
+}
+
+export async function markCachedFieldValidationAssignmentInProgress(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  assignmentId: string,
+  updatedAt: string,
+): Promise<void> {
+  await updateCachedAssignmentState(database, ownerIdentity, assignmentId, 'in_progress', updatedAt);
+}
+
+export async function markCachedFieldValidationAssignmentCompleted(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  assignmentId: string,
+  updatedAt: string,
+): Promise<void> {
+  await updateCachedAssignmentState(database, ownerIdentity, assignmentId, 'completed', updatedAt);
+}
+
+async function updateCachedAssignmentState(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  assignmentId: string,
+  fieldValidationState: FieldValidationAssignment['fieldValidationState'],
+  updatedAt: string,
+): Promise<void> {
+  const owner = requireOwner(ownerIdentity);
+  if (!updatedAt || Number.isNaN(Date.parse(updatedAt))) {
+    throw new StorageError('UPDATE_FAILED', 'The assignment completion timestamp is invalid.');
+  }
+  try {
+    await database
+      .update(fieldValidationAssignments)
+      .set({ fieldValidationState, updatedAt })
+      .where(
+        and(
+          eq(fieldValidationAssignments.ownerIdentity, owner),
+          eq(fieldValidationAssignments.id, assignmentId),
+        ),
+      );
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'UPDATE_FAILED',
+      'Updating the cached assignment completion state failed.',
+    );
+  }
+}
+
 export async function replaceCachedFieldValidationAssignments(
   database: CaneGuardDatabase,
   ownerIdentity: string,

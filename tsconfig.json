@@ -15,6 +15,9 @@
       ]
     }
   },
+  "exclude": [
+    "caneguard-web/**"
+  ],
   "include": [
     "**/*.ts",
     "**/*.tsx",

@@ -19,7 +19,7 @@ jest.mock('@/features/shared/api/apiClient', () => ({
 const request = jest.mocked(apiRequest);
 const CHECKPOINT = '2026-08-13T12:05:00.000Z';
 
-function page(data: unknown[] = MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE.data, next: string | null = null, before = CHECKPOINT) {
+function page(data: readonly unknown[] = MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE.data, next: string | null = null, before = CHECKPOINT) {
   return { data, links: { next }, meta: { per_page: 100 }, sync: { before } };
 }
 

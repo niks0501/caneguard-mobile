@@ -141,6 +141,17 @@ describe('ActivityScreen', () => {
     );
   });
 
+  it('opens a cached assignment in the field validation flow', async () => {
+    await render(<ActivityScreen />);
+
+    await fireEvent.press(screen.getByTestId(`activity.assignment.${ASSIGNMENT.id}`));
+
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/field-validation',
+      params: { assignmentId: ASSIGNMENT.id },
+    });
+  });
+
   it('filters assignments independently from local report and scan activity', async () => {
     const view = await render(<ActivityScreen />);
 

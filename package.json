@@ -84,6 +84,9 @@
   "jest": {
     "preset": "jest-expo",
     "clearMocks": true,
+    "testPathIgnorePatterns": [
+      "<rootDir>/caneguard-web/"
+    ],
     "setupFilesAfterEnv": [
       "<rootDir>/jest.setup.js"
     ],

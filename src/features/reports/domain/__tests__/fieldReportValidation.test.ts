@@ -277,6 +277,19 @@ describe('normalizeFinalizeFieldReportInput', () => {
 });
 
 describe('getMissingSubmissionRequirements', () => {
+  it.each([
+    'Maria Santos',
+    'North Block Farm 12',
+    'Farm owner: Juan dela Cruz',
+  ])('accepts a usable %s farm reference', (farmReference) => {
+    const missing = getMissingSubmissionRequirements(
+      draft({ farmerOrFarmOwnerName: farmReference }),
+      evidence(),
+    );
+
+    expect(missing).not.toContain('farmer_or_farm_owner_name');
+  });
+
   it('requires affected area and portion at finalization', () => {
     const missing = getMissingSubmissionRequirements(
       draft({ affectedAreaHectares: null, affectedPortionPercent: null }),

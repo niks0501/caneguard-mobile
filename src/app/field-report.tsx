@@ -400,6 +400,21 @@ function AutomaticSummaryCard({
         Everything below is inherited from the completed scan and cannot be
         edited here.
       </Text>
+      <View
+        testID="field-report.minimum-requirements"
+        style={[
+          styles.minimumRequirements,
+          { backgroundColor: theme.infoBg, borderColor: theme.info },
+        ]}>
+        <Text style={[styles.minimumRequirementsTitle, { color: theme.text }]}>
+          Confirm four reporter details
+        </Text>
+        <Text style={[styles.helpText, { color: theme.textSecondary }]}>
+          The only details you need to provide are a farmer or farm reference,
+          barangay, affected area, and estimated affected portion. GPS is
+          attempted automatically; use the online map only when needed.
+        </Text>
+      </View>
       {record ? (
         <ExpoImage
           source={{ uri: record.managedImageUri }}
@@ -620,12 +635,16 @@ function DraftFields({
         </View>
         <TextField
           testID="field-report.farmer-name-input"
-          label="Farmer or farm owner name"
+          label="Farmer or farm reference"
           value={farmerName}
           onChangeText={setFarmerName}
-          placeholder="May be added later"
+          placeholder="Farmer, farm name, or local farm ID"
           autoCapitalize="words"
         />
+        <Text style={[styles.helpText, { color: theme.textSecondary }]}>
+          Use a farmer or owner name, farm name, or another usable local farm
+          reference.
+        </Text>
         <BarangayPicker
           barangays={barangays}
           value={barangay}
@@ -1149,7 +1168,7 @@ function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
     <View
       testID="field-report.submission-section"
       style={[styles.formCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
-      <EvidenceRow label="Farmer or farm owner" value={fieldReport.farmerOrFarmOwnerName ?? 'Not provided'} />
+      <EvidenceRow label="Farmer or farm reference" value={fieldReport.farmerOrFarmOwnerName ?? 'Not provided'} />
       <EvidenceRow label="Area" value={`${fieldReport.barangay ?? 'Not provided'}, ${fieldReport.municipality}, ${fieldReport.province}`} />
       <EvidenceRow label="Affected area" value={fieldReport.affectedAreaHectares === null ? 'Not provided' : `${fieldReport.affectedAreaHectares} ha`} />
       <EvidenceRow label="Estimated affected portion" value={fieldReport.affectedPortionPercent === null ? 'Not provided' : `${fieldReport.affectedPortionPercent}%`} />
@@ -1250,7 +1269,7 @@ const SUBMISSION_REQUIREMENT_LABELS: Record<
   confidence: 'Confidence score',
   class_scores: 'Class scores',
   symptom_checklist: 'Symptom checklist evidence',
-  farmer_or_farm_owner_name: 'Farmer or farm owner name',
+  farmer_or_farm_owner_name: 'Farmer or farm reference',
   submitter_identity: 'Authenticated submitter identity',
   submitter_role: 'Field reporter role',
   province: 'Province',
@@ -1306,6 +1325,13 @@ const styles = StyleSheet.create({
   automaticFields: { gap: Spacing.xs },
   automaticLabel: { ...Typography.caption, fontWeight: '700' },
   automaticValue: { ...Typography.body, fontWeight: '700' },
+  minimumRequirements: {
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+  minimumRequirementsTitle: { ...Typography.bodySmall, fontWeight: '800' },
   summaryRows: { gap: Spacing.xs },
   summaryImage: {
     width: '100%',

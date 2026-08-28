@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { router, type Href } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -84,6 +84,7 @@ export default function AnalysisResultScreen() {
   const theme = useTheme();
   const { state, dispatch } = useScanSession();
   const saveRecord = useSaveCompletedScan(state);
+  const [openingReport, setOpeningReport] = useState(false);
 
   const startNewScan = () => {
     dispatch({ type: 'RESET_SCAN' });
@@ -98,8 +99,13 @@ export default function AnalysisResultScreen() {
   };
 
   const reportToOffice = async () => {
+    if (openingReport) {
+      return;
+    }
+    setOpeningReport(true);
     const saved = await persistScanForOutcome();
     if (!saved) {
+      setOpeningReport(false);
       return;
     }
     router.push({
@@ -301,33 +307,6 @@ export default function AnalysisResultScreen() {
               </View>
             ) : null}
 
-            <DisclosureSection testID="scan.technical-details" title="Technical details">
-              <SectionCard title="All Model v0 class scores">
-                {MODEL_LABELS.map((label) => (
-                  <ScoreRow
-                    key={label}
-                    label={label}
-                    score={result.scores.find((item) => item.label === label)?.score}
-                  />
-                ))}
-              </SectionCard>
-              <SectionCard title="Analysis details">
-                <DetailRow label="Model version" value={result.modelVersion} />
-                <DetailRow
-                  label="Processing time"
-                  value={`${Math.round(result.timings.totalMs)} ms`}
-                />
-              </SectionCard>
-            </DisclosureSection>
-
-            <View style={[styles.disclaimer, { backgroundColor: theme.infoBg, borderColor: theme.info }]}>
-              <Feather name="info" size={19} color={theme.info} />
-              <Text style={[styles.disclaimerText, { color: theme.text }]}>
-                This output is for decision support only. It does not confirm a
-                disease. Retake the image or consult an agricultural expert when the
-                result is unclear or symptoms do not match.
-              </Text>
-            </View>
             <View
               testID="scan.outcome-panel"
               accessibilityLiveRegion={saveRecord.status === 'failed' ? 'assertive' : 'polite'}
@@ -381,24 +360,28 @@ export default function AnalysisResultScreen() {
                   ? 'This scan is stored as local AI evidence. Reporting it to the office remains a separate choice.'
                   : saveRecord.status === 'failed'
                     ? saveRecord.errorMessage ?? 'The scan could not be saved on this device.'
-                    : 'Report to Office opens a Field Report Draft. Keep as Scan Only stores the scan without sending a report.'}
+                    : 'Report to Office saves this scan and opens a short Field Report Draft. Keep as Scan Only stores the scan without sending a report.'}
               </Text>
               <View style={styles.outcomeActions}>
                 <AppButton
                   testID="scan.report-to-office"
                   onPress={() => void reportToOffice()}
-                  disabled={saveRecord.status === 'saving'}
+                  disabled={saveRecord.status === 'saving' || openingReport}
                   leadingIcon="send"
                   accessibilityLabel={
-                    saveRecord.status === 'failed'
-                      ? 'Retry and report this scan to the office'
-                      : 'Report this scan to the office'
+                    openingReport
+                      ? 'Opening Field Report'
+                      : saveRecord.status === 'failed'
+                        ? 'Retry and report this scan to the office'
+                        : 'Report this scan to the office'
                   }>
-                  {saveRecord.status === 'saving'
-                    ? 'Saving scan...'
-                    : saveRecord.status === 'failed'
-                      ? 'Retry and Report to Office'
-                      : 'Report to Office'}
+                  {openingReport
+                    ? 'Opening Field Report...'
+                    : saveRecord.status === 'saving'
+                      ? 'Saving scan...'
+                      : saveRecord.status === 'failed'
+                        ? 'Retry and Report to Office'
+                        : 'Report to Office'}
                 </AppButton>
                 <AppButton
                   testID="scan.keep-as-scan-only"
@@ -433,6 +416,34 @@ export default function AnalysisResultScreen() {
                   </AppButton>
                 ) : null}
               </View>
+            </View>
+
+            <DisclosureSection testID="scan.technical-details" title="Technical details">
+              <SectionCard title="All Model v0 class scores">
+                {MODEL_LABELS.map((label) => (
+                  <ScoreRow
+                    key={label}
+                    label={label}
+                    score={result.scores.find((item) => item.label === label)?.score}
+                  />
+                ))}
+              </SectionCard>
+              <SectionCard title="Analysis details">
+                <DetailRow label="Model version" value={result.modelVersion} />
+                <DetailRow
+                  label="Processing time"
+                  value={`${Math.round(result.timings.totalMs)} ms`}
+                />
+              </SectionCard>
+            </DisclosureSection>
+
+            <View style={[styles.disclaimer, { backgroundColor: theme.infoBg, borderColor: theme.info }]}>
+              <Feather name="info" size={19} color={theme.info} />
+              <Text style={[styles.disclaimerText, { color: theme.text }]}>
+                This output is for decision support only. It does not confirm a
+                disease. Retake the image or consult an agricultural expert when the
+                result is unclear or symptoms do not match.
+              </Text>
             </View>
             <AppButton
               testID="scan.new-scan"

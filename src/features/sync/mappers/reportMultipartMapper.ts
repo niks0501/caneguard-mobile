@@ -173,7 +173,7 @@ function validateReport(
   }
   validateRequiredText(
     report.farmerOrFarmOwnerName,
-    'Farmer or farm owner name',
+    'Farmer or farm reference',
     MAX_FARMER_NAME_LENGTH,
   );
   validateRequiredText(report.barangay, 'Barangay', MAX_REGION_TEXT_LENGTH);

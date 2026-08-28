@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import AnalysisResultScreen from '@/app/analysis-result';
@@ -252,7 +252,7 @@ describe('AnalysisResultScreen', () => {
 
     expect(
       screen.getByText(
-        'Report to Office opens a Field Report Draft. Keep as Scan Only stores the scan without sending a report.',
+        'Report to Office saves this scan and opens a short Field Report Draft. Keep as Scan Only stores the scan without sending a report.',
       ),
     ).toBeOnTheScreen();
 
@@ -271,6 +271,46 @@ describe('AnalysisResultScreen', () => {
       pathname: '/field-report',
       params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
     });
+  });
+
+  it('opens the report from an already preserved scan without saving it again', async () => {
+    mockSaveRecordState = {
+      ...mockSaveRecordState,
+      status: 'saved',
+      recordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+    };
+
+    await renderResult(createCompletedState('rust', ['rust']));
+    await fireEvent.press(screen.getByLabelText('Report this scan to the office'));
+
+    expect(mockSaveRecord).not.toHaveBeenCalled();
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/field-report',
+      params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
+    });
+  });
+
+  it('shows direct report progress while the scan is being preserved', async () => {
+    let resolveSave!: (value: { id: string }) => void;
+    mockSaveRecord.mockReturnValue(
+      new Promise<{ id: string }>((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
+
+    await renderResult(createCompletedState('rust', ['rust']));
+    await fireEvent.press(screen.getByLabelText('Report this scan to the office'));
+
+    expect(screen.getByLabelText('Opening Field Report')).toBeDisabled();
+    expect(mockRouterPush).not.toHaveBeenCalled();
+
+    resolveSave({ id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' });
+    await waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith({
+        pathname: '/field-report',
+        params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
+      }),
+    );
   });
 
   it('allows completed scan evidence to remain scan-only without a barangay', async () => {

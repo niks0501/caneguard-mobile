@@ -387,12 +387,28 @@ describe('scan record write repository', () => {
     await expect(
       listScanRecords(database, {}, SUBMITTER_ID),
     ).resolves.toEqual([
-      expect.objectContaining({ barangay: 'Lumbangan', syncStatus: 'failed' }),
+      expect.objectContaining({
+        barangay: 'Lumbangan',
+        hasFieldReport: true,
+        syncStatus: 'failed',
+      }),
     ]);
+    await expect(
+      listScanRecords(database, { hasFieldReport: true }, SUBMITTER_ID),
+    ).resolves.toEqual([
+      expect.objectContaining({ id: RECORD_ID, hasFieldReport: true }),
+    ]);
+    await expect(
+      listScanRecords(database, { hasFieldReport: false }, SUBMITTER_ID),
+    ).resolves.toEqual([]);
     await expect(
       listScanRecords(database, {}, OTHER_SUBMITTER_ID),
     ).resolves.toEqual([
-      expect.objectContaining({ barangay: 'Wawa', syncStatus: 'local_only' }),
+      expect.objectContaining({
+        barangay: 'Wawa',
+        hasFieldReport: false,
+        syncStatus: 'local_only',
+      }),
     ]);
     native.close();
   });

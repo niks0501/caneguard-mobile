@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import RecordsScreen from '@/app/records';
@@ -31,6 +31,7 @@ jest.mock('@/features/reports/hooks/useAuthorityReviewStatus', () => ({
 }));
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({
+    apiReachability: 'available',
     errorMessage: null,
     isOnline: true,
     isSyncing: false,
@@ -51,10 +52,12 @@ const RECORD: ScanRecordListItem = {
   barangay: null,
   syncStatus: 'pending',
   createdAt: '2026-07-25T05:30:00.000Z',
+  hasFieldReport: false,
 };
 
-describe('RecordsScreen', () => {
+describe('legacy records route', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     mockRecordsState = {
       data: [],
       errorMessage: null,
@@ -66,66 +69,17 @@ describe('RecordsScreen', () => {
     };
   });
 
-  it('shows the true empty state and starts a scan', async () => {
-    await render(<RecordsScreen />);
-
-    expect(screen.getByText('No saved records yet')).toBeOnTheScreen();
-    expect(
-      screen.getByText(
-        'Every completed report stays on this device even when an upload is pending or fails.',
-      ),
-    ).toBeOnTheScreen();
-    await fireEvent.press(screen.getByText('Start Scan'));
-    expect(mockRouterPush).toHaveBeenCalledWith('/scan');
-  });
-
-  it('shows only supported Model v0 filters', async () => {
-    await render(<RecordsScreen />);
-
-    expect(screen.getByText('Healthy')).toBeOnTheScreen();
-    expect(screen.getByText('Mosaic')).toBeOnTheScreen();
-    expect(screen.getByText('Rust')).toBeOnTheScreen();
-    expect(screen.queryByText('Smut')).not.toBeOnTheScreen();
-    expect(screen.queryByText('Mildew')).not.toBeOnTheScreen();
-  });
-
-  it('submits search deliberately instead of querying every keystroke', async () => {
-    await render(<RecordsScreen />);
-    mockUsePaginatedScanRecords.mockClear();
-
-    await fireEvent.changeText(
-      screen.getByLabelText('Search saved records'),
-      'Wawa',
-    );
-    expect(mockUsePaginatedScanRecords).toHaveBeenLastCalledWith(
-      expect.objectContaining({ search: undefined }),
-      25,
-    );
-
-    await fireEvent.press(screen.getByLabelText('Submit record search'));
-    expect(mockUsePaginatedScanRecords).toHaveBeenLastCalledWith(
-      expect.objectContaining({ search: 'Wawa' }),
-      25,
-    );
-  });
-
-  it('renders local record data, missing-image fallback, and UUID navigation', async () => {
+  it('keeps old records links on Activity and retains scan discovery', async () => {
     mockRecordsState = { ...mockRecordsState, data: [RECORD] };
     await render(<RecordsScreen />);
 
-    expect(screen.getByText('Possible result: Rust')).toBeOnTheScreen();
-    expect(screen.getByText('82% confidence')).toBeOnTheScreen();
+    expect(screen.getByTestId('activity.screen')).toBeOnTheScreen();
+    expect(screen.getByRole('header')).toHaveTextContent('Activity');
+    expect(screen.getByLabelText('Scan activity')).toBeOnTheScreen();
     expect(screen.getByText('Waiting to sync')).toBeOnTheScreen();
 
-    await act(() =>
-      screen
-        .getByLabelText('Saved image for Possible result: Rust')
-        .props.onError(),
-    );
-    expect(screen.getByLabelText('Saved image unavailable')).toBeOnTheScreen();
-
     await fireEvent.press(
-      screen.getByLabelText(/Open Possible result: Rust record saved/),
+      screen.getByLabelText(/Open Possible result: Rust scan saved/),
     );
     expect(mockRouterPush).toHaveBeenCalledWith({
       pathname: '/record-details',
@@ -133,32 +87,17 @@ describe('RecordsScreen', () => {
     });
   });
 
-  it('distinguishes filtered no-results and query errors', async () => {
-    const view = await render(<RecordsScreen />);
-    await fireEvent.press(screen.getByLabelText('Filter records by Rust'));
-    expect(screen.getByText('No matching records')).toBeOnTheScreen();
-
-    mockRecordsState = {
-      ...mockRecordsState,
-      errorMessage: 'Saved records could not be loaded. Please try again.',
-    };
-    await view.rerender(<RecordsScreen />);
-
-    expect(screen.getByText('Records unavailable')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByText('Try Again'));
-    expect(mockRefresh).toHaveBeenCalledTimes(1);
-  });
-
-  it('loads the next offset page without replacing current records', async () => {
-    mockRecordsState = {
-      ...mockRecordsState,
-      data: [RECORD],
-      hasMore: true,
-    };
+  it('retains the Activity filter contract through the old route', async () => {
     await render(<RecordsScreen />);
 
-    await fireEvent.press(screen.getByText('Load More'));
-
-    expect(mockLoadMore).toHaveBeenCalledTimes(1);
+    for (const label of ['All', 'Reports', 'Scans']) {
+      expect(screen.getByText(label)).toBeOnTheScreen();
+    }
+    expect(screen.queryByText('Healthy')).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('activity.filter.reports'));
+    expect(mockUsePaginatedScanRecords).toHaveBeenLastCalledWith(
+      { hasFieldReport: true, search: undefined },
+      25,
+    );
   });
 });

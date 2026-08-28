@@ -24,6 +24,9 @@ export function mapScanRecordListItem(
     | 'predictedLabel'
     | 'syncStatus'
   > &
+    {
+      hasFieldReport?: boolean | number | null;
+    } &
     Partial<
       Pick<
         FieldReportRow,
@@ -56,6 +59,7 @@ export function mapScanRecordListItem(
     barangay: row.barangay,
     syncStatus: row.syncStatus,
     createdAt: row.createdAt,
+    hasFieldReport: Boolean(row.hasFieldReport),
   };
 }
 

@@ -57,7 +57,7 @@ export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open Records, ${summary}`}
+      accessibilityLabel={`Open Activity, ${summary}`}
       accessibilityLiveRegion="polite"
       testID={testID}
       onPress={onPress}

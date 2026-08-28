@@ -121,7 +121,7 @@ export default function RecordDetailsScreen() {
           'The database record was removed, but the saved image could not be cleaned up. CaneGuard can identify it for later maintenance.',
         );
       }
-      router.replace('/records');
+      router.replace('/activity' as Href);
     } catch (error: unknown) {
       const storageError = toStorageError(
         error,

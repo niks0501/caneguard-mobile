@@ -17,21 +17,25 @@ import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors'
 import { useTheme } from '@/hooks/use-theme';
 
 type RecordCardProps = {
+  activityType?: 'report' | 'scan';
   onPress: () => void;
   record: ScanRecordListItem;
+  testID?: string;
 };
 
-export function RecordCard({ record, onPress }: RecordCardProps) {
+export function RecordCard({ activityType, onPress, record, testID }: RecordCardProps) {
   const theme = useTheme();
   const [imageUnavailable, setImageUnavailable] = useState(false);
   const savedAt = formatSavedAt(record.createdAt);
   const variant = toPillVariant(record.predictedLabel);
   const syncPresentation = getSyncPresentation(record.syncStatus);
+  const itemLabel = activityType ?? 'record';
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${getResultLabel(record.predictedLabel)} record saved ${savedAt}`}
+      accessibilityLabel={`Open ${getResultLabel(record.predictedLabel)} ${itemLabel} saved ${savedAt}`}
+      testID={testID}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
@@ -61,6 +65,28 @@ export function RecordCard({ record, onPress }: RecordCardProps) {
         )}
       </View>
       <View style={styles.main}>
+        {activityType ? (
+          <View
+            accessibilityLabel={activityType === 'report' ? 'Field Report activity' : 'Scan activity'}
+            style={[
+              styles.activityType,
+              {
+                backgroundColor:
+                  activityType === 'report'
+                    ? theme.infoBg
+                    : theme.surfaceMuted,
+              },
+            ]}>
+            <Feather
+              name={activityType === 'report' ? 'file-text' : 'camera'}
+              size={13}
+              color={theme.primary}
+            />
+            <Text style={[styles.activityTypeText, { color: theme.primary }]}>
+              {activityType === 'report' ? 'Report' : 'Scan'}
+            </Text>
+          </View>
+        ) : null}
         <View style={styles.header}>
           <View style={styles.copy}>
             <Text
@@ -202,6 +228,16 @@ const styles = StyleSheet.create({
   },
   image: { width: '100%', height: '100%' },
   main: { flex: 1, gap: Spacing.sm },
+  activityType: {
+    alignSelf: 'flex-start',
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  activityTypeText: { ...Typography.caption, fontWeight: '800' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

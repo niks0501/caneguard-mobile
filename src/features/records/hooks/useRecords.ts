@@ -36,6 +36,7 @@ export function useScanRecords(query: ScanRecordQuery) {
   const submitterIdentity = user?.uuid;
   const {
     barangay,
+    hasFieldReport,
     limit,
     offset,
     predictedLabel,
@@ -62,6 +63,7 @@ export function useScanRecords(query: ScanRecordQuery) {
                 to: dateTo,
               }
             : undefined,
+        hasFieldReport,
         limit,
         offset,
         predictedLabel,
@@ -86,6 +88,7 @@ export function useScanRecords(query: ScanRecordQuery) {
     barangay,
     dateFrom,
     dateTo,
+    hasFieldReport,
     limit,
     offset,
     predictedLabel,
@@ -163,6 +166,7 @@ export function usePaginatedScanRecords(
   const submitterIdentity = user?.uuid;
   const {
     barangay,
+    hasFieldReport,
     predictedLabel,
     search,
     syncStatus,
@@ -205,6 +209,7 @@ export function usePaginatedScanRecords(
                   to: dateTo,
                 }
               : undefined,
+          hasFieldReport,
           limit: normalizedPageSize,
           offset,
           predictedLabel,
@@ -246,6 +251,7 @@ export function usePaginatedScanRecords(
       barangay,
       dateFrom,
       dateTo,
+      hasFieldReport,
       normalizedPageSize,
       predictedLabel,
       search,

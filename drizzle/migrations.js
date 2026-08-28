@@ -9,6 +9,8 @@ import m0004 from './0004_sour_namora.sql';
 import m0005 from './0005_tricky_the_santerians.sql';
 import m0006 from './0006_curvy_piledriver.sql';
 import m0007 from './0007_familiar_old_lace.sql';
+import m0008 from './0008_field_validation_assignments.sql';
+import m0009 from './0009_scope_field_validation_assignment_cache_by_owner.sql';
 
 export default {
   journal,
@@ -21,5 +23,7 @@ export default {
     m0005,
     m0006,
     m0007,
+    m0008,
+    m0009,
   },
 };

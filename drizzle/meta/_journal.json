@@ -1,5 +1,5 @@
 {
-  "version": "7",
+  "version": "9",
   "dialect": "sqlite",
   "entries": [
     {
@@ -56,6 +56,20 @@
       "version": "6",
       "when": 1787496335354,
       "tag": "0007_familiar_old_lace",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787907095787,
+      "tag": "0008_field_validation_assignments",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "8",
+      "when": 1787909641962,
+      "tag": "0009_scope_field_validation_assignment_cache_by_owner",
       "breakpoints": true
     }
   ]

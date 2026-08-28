@@ -47,6 +47,16 @@ export const GPS_CAPTURE_OUTCOMES = [
 
 export type GpsCaptureOutcome = (typeof GPS_CAPTURE_OUTCOMES)[number];
 
+export const FIELD_VALIDATION_ASSIGNMENT_STATES = [
+  'unassigned',
+  'assigned',
+  'in_progress',
+  'completed',
+] as const;
+
+export type FieldValidationAssignmentState =
+  (typeof FIELD_VALIDATION_ASSIGNMENT_STATES)[number];
+
 export const scanRecords = sqliteTable(
   'scan_records',
   {
@@ -129,6 +139,67 @@ export const scanRecords = sqliteTable(
       'scan_records_sync_attempt_count_check',
       sql`${table.syncAttemptCount} >= 0`,
     ),
+  ],
+);
+
+export const fieldValidationAssignments = sqliteTable(
+  'field_validation_assignments',
+  {
+    id: text('id').notNull(),
+    ownerIdentity: text('owner_identity').notNull(),
+    reportUuid: text('report_uuid').notNull(),
+    reportClientUuid: text('report_client_uuid').notNull(),
+    referenceCode: text('reference_code').notNull(),
+    submitterUuid: text('submitter_uuid').notNull(),
+    submitterName: text('submitter_name').notNull(),
+    assigneeUuid: text('assignee_uuid').notNull(),
+    assigneeName: text('assignee_name').notNull(),
+    submitterIsAssignee: integer('submitter_is_assignee', { mode: 'boolean' }).notNull(),
+    targetVisitDate: text('target_visit_date'),
+    fieldValidationState: text('field_validation_state')
+      .$type<FieldValidationAssignmentState>()
+      .notNull(),
+    assignedAt: text('assigned_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+    cachedAt: text('cached_at').notNull(),
+    barangay: text('barangay').notNull(),
+    province: text('province'),
+    municipality: text('municipality'),
+    farmerOrFarmOwnerName: text('farmer_or_farm_owner_name'),
+    affectedAreaHectares: real('affected_area_hectares'),
+    affectedPortionPercent: real('affected_portion_percent'),
+    capturedAt: text('captured_at').notNull(),
+    observedAt: text('observed_at'),
+    submittedAt: text('submitted_at').notNull(),
+    predictedLabel: text('predicted_label').notNull(),
+    confidence: real('confidence').notNull(),
+  },
+  (table) => [
+    index('field_validation_assignments_owner_updated_at_idx').on(
+      table.ownerIdentity,
+      table.updatedAt,
+    ),
+    uniqueIndex('field_validation_assignments_owner_report_uuid_unique').on(
+      table.ownerIdentity,
+      table.reportUuid,
+    ),
+    check(
+      'field_validation_assignments_state_check',
+      sql`${table.fieldValidationState} in ('unassigned', 'assigned', 'in_progress', 'completed')`,
+    ),
+    check(
+      'field_validation_assignments_confidence_check',
+      sql`${table.confidence} >= 0 and ${table.confidence} <= 1`,
+    ),
+    check(
+      'field_validation_assignments_area_check',
+      sql`${table.affectedAreaHectares} is null or ${table.affectedAreaHectares} >= 0`,
+    ),
+    check(
+      'field_validation_assignments_portion_check',
+      sql`${table.affectedPortionPercent} is null or (${table.affectedPortionPercent} >= 0 and ${table.affectedPortionPercent} <= 100)`,
+    ),
+    primaryKey({ columns: [table.ownerIdentity, table.id] }),
   ],
 );
 
@@ -304,6 +375,8 @@ export const fieldReports = sqliteTable(
   ],
 );
 
+export type FieldValidationAssignmentRow = typeof fieldValidationAssignments.$inferSelect;
+export type NewFieldValidationAssignmentRow = typeof fieldValidationAssignments.$inferInsert;
 export type ScanRecordRow = typeof scanRecords.$inferSelect;
 export type NewScanRecordRow = typeof scanRecords.$inferInsert;
 export type ScanClassScoreRow = typeof scanClassScores.$inferSelect;

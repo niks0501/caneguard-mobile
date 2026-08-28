@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AssignmentCard } from '@/features/activity/components/AssignmentCard';
+import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import { RecordCard } from '@/components/ui/RecordCard';
 import { AppButton } from '@/components/ui/AppButton';
 import { BottomNav } from '@/components/ui/BottomNav';
@@ -31,6 +33,7 @@ import {
   getActivityItemKind,
   type CurrentActivityFilter,
 } from '@/features/activity/domain/activityTypes';
+import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
 import { DEFAULT_RECORD_PAGE_SIZE } from '@/features/records/domain/recordTypes';
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
 import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
@@ -54,8 +57,32 @@ export default function ActivityScreen() {
     },
     DEFAULT_RECORD_PAGE_SIZE,
   );
-  const authorityStatus = useAuthorityReviewStatus();
+  const authorityStatus = useAuthorityReviewStatus(activeFilter !== 'assignments');
+  const assignments = useFieldValidationAssignments();
+  const visibleAssignments =
+    activeFilter === 'all' || activeFilter === 'assignments'
+      ? assignments.assignments.filter((assignment) => matchesSearch(assignment, submittedSearch))
+      : [];
+  const visibleRecords = activeFilter === 'assignments' ? [] : records.data;
+  const timeline = [
+    ...visibleAssignments.map((assignment) => ({
+      assignment,
+      id: assignment.id,
+      kind: 'assignment' as const,
+      timestamp: assignment.updatedAt,
+    })),
+    ...visibleRecords.map((record) => ({
+      id: record.id,
+      kind: 'record' as const,
+      record,
+      timestamp: record.createdAt,
+    })),
+  ].sort((first, second) =>
+    Date.parse(second.timestamp) - Date.parse(first.timestamp) ||
+    second.id.localeCompare(first.id),
+  );
   const hasFilters = activeFilter !== 'all' || Boolean(submittedSearch);
+  const activityCount = timeline.length;
 
   const submitSearch = () => {
     setSubmittedSearch(searchInput.trim());
@@ -140,6 +167,34 @@ export default function ActivityScreen() {
                 </View>
               ) : null}
 
+              {activeFilter !== 'scans' ? (
+                <View
+                  testID="activity.assignment-refresh"
+                  style={[
+                    styles.authorityRefresh,
+                    {
+                      backgroundColor: theme.surfaceMuted,
+                      borderColor: theme.border,
+                    },
+                  ]}>
+                  <View style={styles.authorityRefreshCopy}>
+                    <Text style={[styles.authorityRefreshTitle, { color: theme.primaryDark }]}>Field assignments</Text>
+                    <Text style={[styles.authorityRefreshMessage, { color: theme.textSecondary }]}>Assignments are refreshed from the server and kept on this device for field work.</Text>
+                    {assignments.errorMessage ? (
+                      <Text accessibilityLiveRegion="assertive" style={[styles.authorityRefreshMessage, { color: theme.danger }]}>{assignments.errorMessage}</Text>
+                    ) : null}
+                  </View>
+                  <AppButton
+                    onPress={() => void assignments.refresh()}
+                    disabled={assignments.refreshing}
+                    variant="secondary"
+                    leadingIcon="refresh-cw"
+                    accessibilityLabel={assignments.refreshing ? 'Refreshing field assignments' : 'Refresh field assignments'}>
+                    {assignments.refreshing ? 'Refreshing...' : 'Refresh assignments'}
+                  </AppButton>
+                </View>
+              ) : null}
+
               <View style={styles.searchRow}>
                 <View
                   style={[
@@ -214,7 +269,7 @@ export default function ActivityScreen() {
                 })}
               </ScrollView>
 
-              {records.loading && records.data.length === 0 ? (
+              {activeFilter !== 'assignments' && records.loading && records.data.length === 0 ? (
                 <StateCard
                   icon="loader"
                   title="Loading activity"
@@ -225,7 +280,7 @@ export default function ActivityScreen() {
                     color={theme.primary}
                   />
                 </StateCard>
-              ) : records.errorMessage ? (
+              ) : activeFilter !== 'assignments' && records.errorMessage ? (
                 <StateCard
                   icon="alert-triangle"
                   title="Activity unavailable"
@@ -235,7 +290,15 @@ export default function ActivityScreen() {
                     Try Again
                   </AppButton>
                 </StateCard>
-              ) : records.data.length === 0 ? (
+              ) : (records.loading || assignments.refreshing) && activityCount === 0 ? (
+                <StateCard
+                  icon="loader"
+                  title="Loading activity"
+                  message="Reading saved reports, scans, and assignments from this device."
+                  liveRegion="polite">
+                  <ActivityIndicator accessibilityLabel="Loading activity" color={theme.primary} />
+                </StateCard>
+              ) : activityCount === 0 ? (
                 <StateCard
                   icon={hasFilters ? 'search' : 'activity'}
                   title={getEmptyTitle(activeFilter, hasFilters)}
@@ -255,23 +318,31 @@ export default function ActivityScreen() {
               ) : (
                 <>
                   <Text testID="activity.count" style={[styles.count, { color: theme.textSecondary }]}>
-                    {formatActivityCount(records.data.length, activeFilter)}
+                    {formatActivityCount(activityCount, activeFilter)}
                   </Text>
                   <View testID="activity.timeline" style={styles.list}>
-                    {records.data.map((record) => (
-                      <RecordCard
-                        key={record.id}
-                        testID={`activity.item.${record.id}`}
-                        activityType={getActivityItemKind(record.hasFieldReport)}
-                        record={record}
-                        onPress={() =>
-                          router.push({
-                            pathname: '/record-details',
-                            params: { id: record.id },
-                          } as unknown as Href)
-                        }
-                      />
-                    ))}
+                    {timeline.map((item) =>
+                      item.kind === 'assignment' ? (
+                        <AssignmentCard
+                          key={`assignment-${item.assignment.id}`}
+                          testID={`activity.assignment.${item.assignment.id}`}
+                          assignment={item.assignment}
+                        />
+                      ) : (
+                        <RecordCard
+                          key={item.record.id}
+                          testID={`activity.item.${item.record.id}`}
+                          activityType={getActivityItemKind(item.record.hasFieldReport)}
+                          record={item.record}
+                          onPress={() =>
+                            router.push({
+                              pathname: '/record-details',
+                              params: { id: item.record.id },
+                            } as unknown as Href)
+                          }
+                        />
+                      ),
+                    )}
                   </View>
                   {records.hasMore ? (
                     <AppButton
@@ -303,6 +374,20 @@ function formatActivityCount(
   return `${count} ${filter}`;
 }
 
+function matchesSearch(
+  assignment: FieldValidationAssignment,
+  search: string,
+): boolean {
+  const query = search.trim().toLowerCase();
+  if (!query) return true;
+  return [
+    assignment.referenceCode,
+    assignment.case.barangay,
+    assignment.case.predictedLabel,
+    assignment.submitter.name,
+  ].some((value) => value.toLowerCase().includes(query));
+}
+
 function getEmptyTitle(
   filter: CurrentActivityFilter,
   hasFilters: boolean,
@@ -315,6 +400,9 @@ function getEmptyTitle(
   }
   if (filter === 'scans') {
     return 'No scan-only activity yet';
+  }
+  if (filter === 'assignments') {
+    return 'No assignments yet';
   }
   return 'No activity yet';
 }
@@ -331,6 +419,9 @@ function getEmptyMessage(
   }
   if (filter === 'scans') {
     return 'Keep a scan without reporting it to the office and it will appear here.';
+  }
+  if (filter === 'assignments') {
+    return 'Assignments from the office will appear here after a refresh.';
   }
   return 'Complete a scan to start building your field activity.';
 }

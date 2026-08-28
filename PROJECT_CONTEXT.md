@@ -181,6 +181,7 @@ Current mobile endpoints:
 - `GET /api/v1/mobile/auth/me`
 - `DELETE /api/v1/mobile/auth/logout`
 - `POST /api/v1/mobile/reports`
+- `GET /api/v1/mobile/assignments`
 
 Authentication expects bearer tokens.
 
@@ -192,6 +193,9 @@ is retained for mobile finalization and synchronization state but is not a v1
 multipart field. Manual-map uploads omit GPS accuracy. The
 authenticated submitter is derived from the bearer session rather than trusted
 from client-claimed identity/role fields.
+
+The assignment feed is owner-scoped to the authenticated field reporter and returns the complete current assignment snapshot through the `sync.before` and `links.next` pagination boundary.
+Mobile caches assignment snapshots separately from locally authored Scan Records and Field Reports so a server assignment can materialize even when the assignee did not submit the case.
 
 A successful report upload must return a remote identity UUID.
 
@@ -284,4 +288,5 @@ Do not run EAS build or submit automatically.
 - Native TFLite behavior cannot be fully validated by unit tests or Expo Go; a compatible development build and physical-device testing remain necessary.
 - iOS and static-web configurations exist, but the repository evidence is primarily Android-focused.
 - Mobile/backend synchronization is tightly coupled to the current multipart field names and response identity shape; backend contract changes require coordinated mobile updates.
+- Field-validation assignment payloads are defined by `references/mobile-field-validation-assignment-v1.json` and the matching web artifact; completion and sync-back are deferred to T07.
 - Local report summaries represent AI-supported observations, not confirmed disease incidence.

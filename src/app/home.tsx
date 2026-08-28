@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -79,10 +79,10 @@ export default function HomeScreen() {
       onPress: () => router.push('/scan'),
     },
     {
-      title: 'My Records',
-      body: 'View field observations',
-      icon: 'folder',
-      onPress: () => router.push('/records'),
+      title: 'My Activity',
+      body: 'View scans and reports',
+      icon: 'activity',
+      onPress: () => router.push('/activity' as Href),
     },
   ];
 
@@ -143,7 +143,7 @@ export default function HomeScreen() {
 
               <SyncStatusRow
                 testID="home.sync-status"
-                onPress={() => router.push('/records')}
+                onPress={() => router.push('/activity' as Href)}
               />
 
               <View style={styles.referenceHeading}>

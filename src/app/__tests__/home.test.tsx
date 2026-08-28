@@ -104,7 +104,7 @@ describe('HomeScreen', () => {
     );
   });
 
-  it('keeps the live sync row linked to Records without adding a sync shortcut', async () => {
+  it('keeps the live sync row linked to Activity without adding a sync shortcut', async () => {
     await render(<HomeScreen />);
 
     expect(screen.getByText('1 report awaiting sync')).toBeOnTheScreen();
@@ -112,7 +112,7 @@ describe('HomeScreen', () => {
     expect(screen.queryByText('Help & FAQ')).not.toBeOnTheScreen();
 
     await fireEvent.press(screen.getByTestId('home.sync-status'));
-    expect(mockRouterPush).toHaveBeenCalledWith('/records');
+    expect(mockRouterPush).toHaveBeenCalledWith('/activity');
   });
 
   it('shows CaneGuard server unavailability separately from phone network state', async () => {

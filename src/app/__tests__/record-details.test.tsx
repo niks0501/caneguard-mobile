@@ -332,7 +332,7 @@ describe('RecordDetailsScreen', () => {
       RECORD_ID,
       SUBMITTER_ID,
     );
-    expect(mockRouterReplace).toHaveBeenCalledWith('/records');
+    expect(mockRouterReplace).toHaveBeenCalledWith('/activity');
   });
 
   it('preserves legacy synced identity without offering resubmission', async () => {

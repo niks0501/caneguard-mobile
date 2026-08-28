@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ComponentTokens, Layout, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-type NavTab = 'home' | 'scan' | 'records' | 'settings' | 'reports';
+type NavTab = 'home' | 'scan' | 'activity';
 
 export type BottomNavProps = {
   activeTab: NavTab;
@@ -22,9 +22,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { key: 'home', label: 'Home', icon: 'home', route: '/home' },
   { key: 'scan', label: 'Scan', icon: 'camera', route: '/scan' },
-  { key: 'records', label: 'Records', icon: 'folder', route: '/records' },
-  { key: 'settings', label: 'Settings', icon: 'settings', route: '/settings' },
-  { key: 'reports', label: 'Reports', icon: 'bar-chart-2', route: '/reports' },
+  { key: 'activity', label: 'Activity', icon: 'activity', route: '/activity' },
 ];
 
 export function BottomNav({ activeTab }: BottomNavProps) {
@@ -40,6 +38,7 @@ export function BottomNav({ activeTab }: BottomNavProps) {
           return (
             <Pressable
               key={item.key}
+              testID={`nav.${item.key}`}
               accessibilityRole="button"
               accessibilityLabel={item.label}
               accessibilityState={{ selected: active }}

@@ -53,14 +53,17 @@ describe('shared navigation UI', () => {
     expect(screen.queryByText('Status update unavailable')).not.toBeOnTheScreen();
   });
 
-  it('keeps all bottom navigation destinations accessible', async () => {
+  it('keeps the operational destinations accessible without analytics or settings tabs', async () => {
     await render(<BottomNav activeTab="home" />);
 
-    for (const label of ['Home', 'Scan', 'Records', 'Settings', 'Reports']) {
+    for (const label of ['Home', 'Scan', 'Activity']) {
       expect(screen.getByLabelText(label)).toBeOnTheScreen();
     }
+    for (const label of ['Records', 'Settings', 'Reports']) {
+      expect(screen.queryByLabelText(label)).not.toBeOnTheScreen();
+    }
 
-    await fireEvent.press(screen.getByLabelText('Records'));
-    expect(router.push).toHaveBeenCalledWith('/records');
+    await fireEvent.press(screen.getByLabelText('Activity'));
+    expect(router.push).toHaveBeenCalledWith('/activity');
   });
 });

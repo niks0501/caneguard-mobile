@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import ActivityScreen from '@/app/activity';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
+import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
 
 const mockRefresh = jest.fn(async () => undefined);
@@ -33,6 +34,20 @@ let mockAssignmentsState: ReturnType<typeof useFieldValidationAssignments> = {
 };
 jest.mock('@/features/assignments/hooks/useFieldValidationAssignments', () => ({
   useFieldValidationAssignments: jest.fn(() => mockAssignmentsState),
+}));
+const mockRefreshNotifications = jest.fn(async () => undefined);
+let mockNotificationsState: ReturnType<typeof useMobileNotifications> = {
+  capabilityUnavailable: false,
+  errorMessage: null,
+  lastSuccessfulAt: null,
+  notifications: [],
+  refreshing: false,
+  refresh: mockRefreshNotifications,
+  sessionKey: 'session-1',
+  unreadCount: 0,
+};
+jest.mock('@/features/notifications/hooks/useMobileNotifications', () => ({
+  useMobileNotifications: jest.fn(() => mockNotificationsState),
 }));
 jest.mock('@/features/reports/hooks/useAuthorityReviewStatus', () => ({
   useAuthorityReviewStatus: () => ({
@@ -112,6 +127,11 @@ describe('ActivityScreen', () => {
       ...mockAssignmentsState,
       assignments: [ASSIGNMENT],
     };
+    mockNotificationsState = {
+      ...mockNotificationsState,
+      notifications: [],
+      unreadCount: 0,
+    };
     mockRecordsState = {
       data: [SCAN, REPORT],
       errorMessage: null,
@@ -139,6 +159,33 @@ describe('ActivityScreen', () => {
       { hasFieldReport: undefined, search: undefined },
       25,
     );
+  });
+
+  it('shows cached attention items and offers a manual refresh', async () => {
+    mockNotificationsState = {
+      ...mockNotificationsState,
+      notifications: [{
+        id: '4e04321c-a879-423f-875d-4cdce5e028a6',
+        ownerIdentity: 'session-1',
+        eventType: 'field_validation_assigned',
+        title: 'Field validation assigned',
+        message: 'CG-2026-0001 was assigned to you.',
+        caseUuid: '7e8c2e48-a2d4-4aca-9a50-9ca460fd7a7f',
+        referenceCode: 'CG-2026-0001',
+        assignmentUuid: ASSIGNMENT.id,
+        isRead: false,
+        readAt: null,
+        createdAt: '2026-08-13T12:00:00.000Z',
+        cachedAt: '2026-08-13T12:05:00.000Z',
+      }],
+      unreadCount: 1,
+    };
+    await render(<ActivityScreen />);
+
+    expect(screen.getByText('Attention items')).toBeOnTheScreen();
+    expect(screen.getByText('1 unread item from the office.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Refresh notifications'));
+    expect(mockRefreshNotifications).toHaveBeenCalled();
   });
 
   it('opens a cached assignment in the field validation flow', async () => {

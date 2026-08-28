@@ -183,6 +183,7 @@ Current mobile endpoints:
 - `POST /api/v1/mobile/reports`
 - `GET /api/v1/mobile/assignments`
 - `POST /api/v1/mobile/assignments/{assignment}/completion`
+- `GET /api/v1/mobile/notifications`
 
 Authentication expects bearer tokens.
 
@@ -197,6 +198,10 @@ from client-claimed identity/role fields.
 
 The assignment feed is owner-scoped to the authenticated field reporter and returns the complete current assignment snapshot through the `sync.before` and `links.next` pagination boundary.
 Mobile caches assignment snapshots separately from locally authored Scan Records and Field Reports so a server assignment can materialize even when the assignee did not submit the case.
+
+The notification feed is owner-scoped to the authenticated field reporter and returns a complete durable attention snapshot through the same checkpoint/pagination boundary.
+Mobile replaces the local notification snapshot only after all pages validate, so network failures preserve the last-known read state and attention items.
+Mobile refreshes this cache on launch, resume, Activity focus, and explicit Activity refresh without opening a Reverb/WebSocket connection.
 
 A successful report upload must return a remote identity UUID.
 
@@ -289,6 +294,8 @@ Do not run EAS build or submit automatically.
 - Native TFLite behavior cannot be fully validated by unit tests or Expo Go; a compatible development build and physical-device testing remain necessary.
 - iOS and static-web configurations exist, but the repository evidence is primarily Android-focused.
 - Mobile/backend synchronization is tightly coupled to the current multipart field names and response identity shape; backend contract changes require coordinated mobile updates.
-- Field-validation assignment and completion payloads are defined by `references/mobile-field-validation-assignment-v1.json`, `references/mobile-field-validation-completion-v1.json`, and their matching web artifacts.
+- Field-validation assignment, completion, and notification payloads are defined by `references/mobile-field-validation-assignment-v1.json`, `references/mobile-field-validation-completion-v1.json`, `references/mobile-notifications-v1.json`, and their matching web artifacts.
 Mobile completion evidence is persisted in SQLite with a retryable queue and synchronized through the owner-scoped assignment completion endpoint.
+Mobile notifications are persisted in the owner-scoped `notifications_cache` SQLite table.
+Follow-up due notifications use only the server-provided target date and incomplete field-validation state.
 - Local report summaries represent AI-supported observations, not confirmed disease incidence.

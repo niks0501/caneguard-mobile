@@ -24,6 +24,18 @@ jest.mock('@/features/assignments/hooks/useFieldValidationAssignments', () => ({
     sessionKey: 'test-session',
   }),
 }));
+jest.mock('@/features/notifications/hooks/useMobileNotifications', () => ({
+  useMobileNotifications: () => ({
+    capabilityUnavailable: false,
+    errorMessage: null,
+    lastSuccessfulAt: null,
+    notifications: [],
+    refreshing: false,
+    refresh: jest.fn(async () => undefined),
+    sessionKey: 'test-session',
+    unreadCount: 0,
+  }),
+}));
 jest.mock('@/features/reports/hooks/useAuthorityReviewStatus', () => ({
   useAuthorityReviewStatus: () => ({
     capabilityUnavailable: false,

@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 
+import { MobileAttentionLifecycle } from '@/features/notifications/components/MobileAttentionLifecycle';
 import { ScanSessionProvider } from '@/features/detection/context/ScanSessionProvider';
 import { CaneGuardModelProvider } from '@/features/detection/model/useCaneGuardModel';
 import { CaneGuardDatabaseProvider } from '@/database/DatabaseProvider';
@@ -57,6 +58,7 @@ function AppNavigator() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      {status === 'authenticated' ? <MobileAttentionLifecycle /> : null}
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={status === 'unauthenticated'}>

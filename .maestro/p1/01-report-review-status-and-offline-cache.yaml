@@ -14,7 +14,7 @@ tags:
 # - the backend fixture can make the status endpoint unavailable for the final
 #   offline/restart segment. Never place credentials or report content here.
 # This scaffold is intentionally not executed by the implementation lane.
-- openLink: caneguardmobile://activity
+- openLink: caneguardmobile:///activity
 - extendedWaitUntil:
     visible:
       id: activity.screen
@@ -50,7 +50,7 @@ tags:
 - stopApp
 - launchApp:
     clearState: false
-- openLink: caneguardmobile://activity
+- openLink: caneguardmobile:///activity
 - extendedWaitUntil:
     visible:
       id: activity.screen

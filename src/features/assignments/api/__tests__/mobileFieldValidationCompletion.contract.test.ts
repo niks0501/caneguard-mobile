@@ -18,8 +18,8 @@ const contract = JSON.parse(
 const completion: FieldValidationCompletion = {
   id: '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f',
   ownerIdentity: 'd4f4c3b8-4f27-49c7-9ec7-3ab7ea6fc91d',
-  assignmentId: '3fbd7f77-7d6b-4eb0-a1c7-b673f5a2f39f',
-  reportUuid: '7e8c2e48-a2d4-4aca-9a50-9ca460fd7a7f',
+  assignmentId: '01a04de2-280e-7140-bf56-3c98f98259d5',
+  reportUuid: '01a04ddc-9d08-70f7-9b43-ca247cea1a60',
   fieldObservation: 'Fresh observation',
   fieldFinding: 'Fresh finding',
   actionTaken: 'Fresh action',

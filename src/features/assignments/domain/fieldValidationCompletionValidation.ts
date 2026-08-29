@@ -5,8 +5,8 @@ import {
 } from '@/database/schema';
 import type { SaveFieldValidationCompletionInput } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 
-const UUID_V4_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UTC_ISO_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 export const FIELD_VALIDATION_TEXT_MAX_LENGTH = 2_000;
 
@@ -76,6 +76,10 @@ export function isSupportedPhotoMimeType(value: string): boolean {
   return ['image/jpeg', 'image/png', 'image/webp'].includes(value.trim().toLowerCase());
 }
 
+export function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}
+
 function validateRequiredText(value: string, name: string): void {
   if (!value.trim() || value.trim().length > FIELD_VALIDATION_TEXT_MAX_LENGTH) {
     invalid(`${name} is required and must be no more than 2,000 characters.`);
@@ -83,7 +87,7 @@ function validateRequiredText(value: string, name: string): void {
 }
 
 function validateUuid(value: string, name: string): void {
-  if (!UUID_V4_PATTERN.test(value)) invalid(`${name} identity is invalid.`);
+  if (!isUuid(value)) invalid(`${name} identity is invalid.`);
 }
 
 function validateTimestamp(value: string, name: string): void {

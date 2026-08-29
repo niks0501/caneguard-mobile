@@ -31,13 +31,16 @@ import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { BarangayPicker } from '@/features/reports/components/BarangayPicker';
+import { PossibleRecentMatchWarning } from '@/features/reports/components/PossibleRecentMatchWarning';
 import { RegionPicker } from '@/features/reports/components/RegionPicker';
 import { formatDecimalInput, parseDecimalInput } from '@/features/reports/domain/decimalInput';
+import type { PossibleMatchLookupInput } from '@/features/reports/domain/possibleMatch';
 import type {
   FieldReport,
   FieldReportSubmissionRequirement,
 } from '@/features/reports/domain/fieldReportTypes';
 import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
+import { usePossibleRecentMatch } from '@/features/reports/hooks/usePossibleRecentMatch';
 import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
 import { useLocationReferenceData } from '@/features/reports/hooks/useLocationReferenceData';
 import type { ReferenceRegion } from '@/features/reports/referenceData/referenceDataTypes';
@@ -249,6 +252,7 @@ export default function FieldReportScreen() {
                   <DraftFields
                     key={report.data.id}
                     fieldReport={report.data}
+                    record={record.data}
                     barangays={referenceData.data.barangays}
                     regions={referenceData.data.regions}
                     referenceDataError={referenceData.errorMessage}
@@ -489,6 +493,7 @@ function DraftFields({
   barangays,
   captureInProgress,
   fieldReport,
+  record,
   onFinalize,
   onSave,
   referenceDataError,
@@ -503,6 +508,7 @@ function DraftFields({
   barangays: string[];
   captureInProgress: boolean;
   fieldReport: FieldReport;
+  record: ScanRecordDetails | null;
   onFinalize: (values: FinalizeFieldReportFormValues) => void;
   onSave: (values: FieldReportFormValues) => void;
   referenceDataError: string | null;
@@ -539,6 +545,35 @@ function DraftFields({
     affectedArea?: string;
     affectedPortion?: string;
   }>({});
+  const possibleMatchInput = useMemo<PossibleMatchLookupInput>(
+    () => ({
+      barangay: barangay || null,
+      finalLatitude: fieldReport.finalLatitude,
+      finalLongitude: fieldReport.finalLongitude,
+      farmerOrFarmOwnerName: farmerName || null,
+      locationSource: fieldReport.locationSource,
+      municipality: municipality || null,
+      observedAt: fieldReport.observedAt,
+      predictedLabel: record?.predictedLabel ?? null,
+      province: province || null,
+      reportId: fieldReport.id,
+      scanRecordId: fieldReport.scanRecordId,
+    }),
+    [
+      barangay,
+      farmerName,
+      fieldReport.finalLatitude,
+      fieldReport.finalLongitude,
+      fieldReport.id,
+      fieldReport.locationSource,
+      fieldReport.observedAt,
+      fieldReport.scanRecordId,
+      municipality,
+      province,
+      record?.predictedLabel,
+    ],
+  );
+  const possibleRecentMatch = usePossibleRecentMatch(possibleMatchInput);
 
   const provinceOptions = regions.map((region) => region.province);
   const municipalityOptions =
@@ -764,6 +799,9 @@ function DraftFields({
           ))}
           <Text style={[styles.helpText, { color: theme.textSecondary }]}>Your latest entries were saved and this report remains a Draft.</Text>
         </View>
+      ) : null}
+      {possibleRecentMatch.match ? (
+        <PossibleRecentMatchWarning match={possibleRecentMatch.match} />
       ) : null}
       <AppButton
         testID="field-report.finalize"

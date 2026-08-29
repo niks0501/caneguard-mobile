@@ -7,6 +7,10 @@ import type {
   FieldReport,
   FieldReportSubmissionRequirement,
 } from '@/features/reports/domain/fieldReportTypes';
+import type {
+  PossibleRecentMatch,
+} from '@/features/reports/domain/possibleMatch';
+import type { PossibleRecentMatchState } from '@/features/reports/hooks/usePossibleRecentMatch';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 
 const SCAN_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
@@ -40,6 +44,11 @@ const mockRetryReport = jest.fn(async () => null);
 const mockSyncNow = jest.fn(async () => null);
 let mockIsOnline: boolean | null = true;
 const mockReferenceDataRefresh = jest.fn(async () => undefined);
+let mockPossibleRecentMatchState: PossibleRecentMatchState = {
+  match: null,
+  unavailable: false,
+  loading: false,
+};
 let mockDraftState: {
   data: FieldReport | null;
   errorMessage: string | null;
@@ -60,6 +69,9 @@ let mockDraftState: {
 
 jest.mock('@/features/reports/hooks/useFieldReportDraft', () => ({
   useFieldReportDraft: () => mockDraftState,
+}));
+jest.mock('@/features/reports/hooks/usePossibleRecentMatch', () => ({
+  usePossibleRecentMatch: () => mockPossibleRecentMatchState,
 }));
 jest.mock('@/features/reports/hooks/useLocationReferenceData', () => ({
   useLocationReferenceData: () => ({
@@ -137,6 +149,21 @@ const mockScan: ScanRecordDetails = {
   lastSyncErrorCode: null,
   lastSyncAttemptAt: null,
   lastSyncedAt: null,
+};
+
+const possibleRecentMatch: PossibleRecentMatch = {
+  barangay: 'Wawa',
+  distanceMeters: 12,
+  farmerOrFarmOwnerName: 'Maria Santos Farm',
+  finalLatitude: 14.0667,
+  finalLongitude: 120.6319,
+  locationSource: 'gps',
+  municipality: 'Nasugbu',
+  observedAt: '2026-08-09T12:00:00.000Z',
+  predictedLabel: 'rust',
+  province: 'Batangas',
+  reportId: '51214146-7439-48e0-aef4-d0e003f194b4',
+  scanRecordId: '6f80a15d-3f9f-4e0a-bf79-7cf2c37e2fa1',
 };
 jest.mock('@/features/records/hooks/useRecords', () => ({
   useScanRecordDetails: () => ({
@@ -219,6 +246,11 @@ describe('FieldReportScreen', () => {
     jest.clearAllMocks();
     mockAuthorityError = null;
     mockIsOnline = true;
+    mockPossibleRecentMatchState = {
+      match: null,
+      unavailable: false,
+      loading: false,
+    };
     mockUseLocalSearchParams.mockReturnValue({ scanRecordId: SCAN_ID });
     mockDraftState = {
       data: draft(),
@@ -249,6 +281,7 @@ describe('FieldReportScreen', () => {
       screen.getByText(/Drafts are stored only on this device and are not queued/),
     ).toBeOnTheScreen();
     expect(screen.getByTestId('field-report.summary')).toBeOnTheScreen();
+    expect(screen.queryByTestId('field-report.possible-match-warning')).not.toBeOnTheScreen();
     expect(screen.getByTestId('field-report.minimum-requirements')).toHaveTextContent(
       /The only details you need to provide are a farmer or farm reference, barangay, affected area, and estimated affected portion\./,
     );
@@ -714,6 +747,51 @@ describe('FieldReportScreen', () => {
     expect(
       screen.getByText('Estimated affected portion is required to finalize.'),
     ).toBeOnTheScreen();
+  });
+
+  it('shows a possible recent match without blocking a new submission', async () => {
+    mockPossibleRecentMatchState = {
+      match: possibleRecentMatch,
+      unavailable: false,
+      loading: false,
+    };
+    mockFinalize.mockResolvedValueOnce(
+      draft({
+        authoringState: 'finalized',
+        syncStatus: 'pending',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+      }),
+    );
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    expect(screen.getByTestId('field-report.possible-match-warning')).toHaveTextContent(
+      /Possible recent match.*only a possible match, not a duplicate decision/s,
+    );
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-area-input'),
+        '0.5',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-portion-input'),
+        '30',
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+    });
+
+    expect(mockFinalize).toHaveBeenCalledWith(
+      expectFormValues({
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
+      }),
+    );
+    expect(mockSyncNow).toHaveBeenCalledWith('after-save');
   });
 
   it('starts foreground synchronization after successful local finalization', async () => {

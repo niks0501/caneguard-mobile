@@ -34,7 +34,7 @@ Android development build
 - **Database:** MySQL 8.4 LTS for the API and device-local SQLite for mobile records.
 - **Local API:** `http://127.0.0.1:8000` for the Laravel development server and `GET /api/health` for readiness checks.
 - **Local Web:** `http://localhost:5173` for the Vite dashboard.
-- **Local Metro:** the Expo development server uses the repository's normal port, with `8081` reverse-mapped for the documented WSL2 Android workflow.
+- **Local Metro:** the Expo development server uses the repository's normal port, with `8081` reverse-mapped through the Windows-hosted ADB server for the Android Studio emulator workflow.
 
 Completed scans are saved locally before upload is attempted.
 A Field Report Draft can remain incomplete and local-only while offline.
@@ -56,7 +56,7 @@ Install or obtain these prerequisites before setup:
 - PHP 8.3 through 8.5 with PDO MySQL.
 - Composer.
 - MySQL 8.4 LTS.
-- An Android emulator or physical Android device.
+- Android Studio with an Android emulator.
 - Android Platform Tools with `adb` available on `PATH`.
 - The EAS CLI when creating the Android development APK.
 - A browser and `curl` for the local Web/API smoke checks.
@@ -164,7 +164,7 @@ The development profile in [`eas.json`](eas.json) creates an internal Android AP
 The same file requires an EAS CLI version of `21.2.0` or newer.
 
 Create the APK only once for initial setup or again after a native dependency, Expo plugin, or native app configuration change.
-Connect an emulator or device using the Android connectivity steps below before running `adb install`.
+Start the Android Studio emulator and follow the Android connectivity steps below before running `adb install`.
 
 ```bash
 cd "<WORKSPACE>/caneguard-mobile"
@@ -198,11 +198,13 @@ The guide records exact EAS build or update JSON output for the coordinated rele
 ## Android API connectivity
 
 The team-default path keeps Laravel bound to its local loopback address and uses ADB reverse.
-It works for an emulator or a physical device without committing a developer-specific LAN address or exposing the API to the network.
+The Android Studio emulator reaches that service through the Windows-hosted ADB server without committing a developer-specific LAN address or exposing the API to the network.
 
-### Emulator
+### Android Studio emulator
 
-Boot the emulator using your normal Android tooling, then run these commands from the Mobile repository or another directory where `adb` is available:
+Start the Android Studio emulator from the Windows host.
+From WSL2, use the official `adb` command on the active `PATH`, which connects to the Windows-hosted ADB server.
+Begin with `adb devices -l` and confirm the current emulator is ready before setting up the reverse mappings:
 
 ```bash
 adb devices -l
@@ -211,35 +213,9 @@ adb reverse tcp:8000 tcp:8000
 adb reverse --list
 ```
 
-The device list must show the emulator as `device`.
+The current emulator should appear as `emulator-5554` with state `device`.
 The reverse list should include the `8081` Metro mapping and the `8000` API mapping.
-With this mapping, keep `EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000` in the Mobile `.env`.
-
-### Physical Android device over wireless debugging
-
-The placeholders below are values displayed by Android under **Developer options > Wireless debugging**.
-`<PAIRING_IP>:<PAIRING_PORT>` is shown by **Pair device with pairing code**.
-`<CONNECTION_PORT>` is the separate port shown on the main Wireless debugging screen.
-Do not store the six-digit pairing code in the repository or evidence logs.
-`adb pair` prompts for that code interactively.
-
-```bash
-adb pair <PAIRING_IP>:<PAIRING_PORT>
-adb connect <DEVICE_IP>:<CONNECTION_PORT>
-adb devices -l
-adb reverse tcp:8081 tcp:8081
-adb reverse tcp:8000 tcp:8000
-adb reverse --list
-```
-
-Keep the phone and development machine on a network that allows wireless debugging.
-The device list must show `device`, and the reverse list must show the `8000` mapping before the app smoke check.
-If wireless debugging restarts, use the current connection port and rerun `adb connect`.
-
-ADB reverse is the primary path because the API command binds to loopback.
-Only use a private LAN fallback when reverse is unreliable in your local environment.
-That fallback requires an explicitly reviewed API binding and firewall rule, and the Mobile value must use a placeholder such as `http://<HOST_REACHABLE_FROM_ANDROID>:8000` rather than a checked-in LAN address.
-Do not commit that address or expose the development server publicly.
+With these mappings, keep `EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000` in the Mobile `.env`.
 
 ## Every-day startup order
 
@@ -271,7 +247,7 @@ Use one terminal per long-running process.
 
    Open `http://localhost:5173`.
 
-5. Connect the Android emulator or device and establish the `8081` and `8000` reverse mappings shown above.
+5. Start the Android Studio emulator and establish the `8081` and `8000` reverse mappings shown above.
 6. Start Metro from the Mobile repository root.
 
    ```bash
@@ -279,7 +255,7 @@ Use one terminal per long-running process.
    npm run start -- --dev-client
    ```
 
-7. Open the already installed `caneguard-mobile` development build on the Android device or emulator and connect it to the running Metro server.
+7. Open the already installed `caneguard-mobile` development build on the Android Studio emulator and connect it to the running Metro server.
 
 Do not start a second Metro session with a different environment file.
 If `.env` changes, stop and restart Metro before reopening the development build.
@@ -350,7 +326,7 @@ Run them only when the Web/API gate configuration points at the intended Mobile 
 ### Optional Maestro and P0F testing
 
 Maestro is not required for normal onboarding.
-Before running it, use a fresh compatible development build, a running Metro session, a reachable API, a connected Android device or emulator, and an authenticated field-reporter session.
+Before running it, use a fresh compatible development build, a running Metro session, a reachable API, a connected Android Studio emulator, and an authenticated field-reporter session.
 
 Run the read-only prerequisite check from the Mobile repository root:
 
@@ -379,19 +355,16 @@ Use the [P0-08 acceptance record](docs/features/caneGuard-p0-implementation-phas
 
 ## Troubleshooting
 
-### Wireless ADB
+### Android Studio emulator ADB
 
-If `adb devices -l` does not show the target as `device`, repair Android Wireless debugging, pair again with the current pairing port, and reconnect with the current connection port.
-If `adb reverse --list` does not show `tcp:8000 tcp:8000`, rerun `adb reverse tcp:8000 tcp:8000` while the target is connected.
-Keep Wi-Fi on during wireless ADB or Maestro control.
-
-The checked-in [Maestro README](.maestro/README.md) documents the WSL2-native Android and Maestro workflow, including the repository's `8081` and `8000` reverse mappings.
-That guide also describes a WSL2-specific `./.akidev/bin/adb` wrapper, while the current project scripts expect `adb` and `maestro` on the active `PATH`.
+If `adb devices -l` does not show the Android Studio emulator as `device`, confirm that the emulator is running in Android Studio and that the official `adb` command reaches the Windows-hosted ADB server.
+If `adb reverse --list` does not show `tcp:8000 tcp:8000`, rerun `adb reverse tcp:8000 tcp:8000` while the emulator is connected.
+The checked-in [Maestro README](.maestro/README.md) documents the Android Studio emulator and Windows-hosted ADB workflow, including the repository's `8081` and `8000` reverse mappings.
 Use the commands available on your active `PATH` for the project scripts.
 
 ### Metro or development-client compatibility
 
-Run `npm run start -- --dev-client` from the Mobile root, reverse port `8081` for a host-local Android workflow, and connect the installed development build to that Metro session.
+Run `npm run start -- --dev-client` from the Mobile root, reverse port `8081` for the Android Studio emulator workflow, and connect the installed development build to that Metro session.
 Restart Metro after every Mobile `.env` change.
 If native dependencies, Expo plugins, or native app configuration changed, rebuild and reinstall the development APK before interpreting device or Maestro failures.
 A JavaScript-only change can reuse an existing compatible native build.
@@ -400,7 +373,7 @@ A JavaScript-only change can reuse an existing compatible native build.
 
 If the host health check fails, fix MySQL or the Laravel API before debugging Android.
 If the host health check passes but Mobile reports the server as unavailable, confirm `EXPO_PUBLIC_API_BASE_URL`, confirm `adb reverse tcp:8000 tcp:8000`, and restart Metro after changing the environment.
-If the phone remains controllable through wireless ADB while API requests fail, leave Wi-Fi on and diagnose the API mapping or Laravel process separately.
+If the emulator is listed by ADB but API requests fail, leave the Windows-hosted ADB connection in place and diagnose the API mapping or Laravel process separately.
 
 ### Seed or database setup
 
@@ -410,8 +383,7 @@ If migrations fail, confirm the MySQL service, database names, `caneguard_app` g
 ## Authoritative references
 
 - [Web/API full README](https://github.com/niks0501/caneguard-web/blob/main/README.md) for the companion installation, Laravel setup, database procedure, API startup, and Web/API validation.
-- [Web/API physical Android connectivity guide](https://github.com/niks0501/caneguard-web/blob/main/docs/development/physical-android-api.md) for the loopback API and ADB reverse path.
-- [Mobile Maestro workspace guide](.maestro/README.md) for WSL2 wireless debugging, flow behavior, and evidence handling.
+- [Mobile Maestro workspace guide](.maestro/README.md) for the Android Studio emulator, Windows-hosted ADB server, flow behavior, and evidence handling.
 - [Mobile project context](PROJECT_CONTEXT.md) for architecture and external contracts.
 - [Mobile project stack](PROJECT_STACK.md) for native-runtime compatibility and verification rules.
 - [Mobile upload contract mirror](references/mobile-report-upload-v1.json) for the concise machine-readable producer boundary.

@@ -45,7 +45,7 @@ tags:
     visible:
       id: home.screen
     timeout: 120000
-- openLink: caneguardmobile://activity
+- openLink: caneguardmobile:///activity
 - extendedWaitUntil:
     visible:
       id: activity.screen

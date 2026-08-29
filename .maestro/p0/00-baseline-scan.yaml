@@ -33,7 +33,7 @@ tags:
 - assertVisible: "Rust"
 - assertNotVisible: "Downy Mildew"
 - assertNotVisible: "Smut"
-- openLink: caneguardmobile://scan
+- openLink: caneguardmobile:///scan
 - extendedWaitUntil:
     visible:
       id: scan.screen

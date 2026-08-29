@@ -24,7 +24,7 @@ tags:
     visible:
       id: home.screen
     timeout: 120000
-- openLink: caneguardmobile://scan
+- openLink: caneguardmobile:///scan
 - extendedWaitUntil:
     visible:
       id: scan.screen

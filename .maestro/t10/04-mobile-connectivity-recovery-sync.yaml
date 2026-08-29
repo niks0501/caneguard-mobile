@@ -1,0 +1,44 @@
+appId: com.niks0501.caneguard
+name: T10 stage 10 - connectivity recovery and completion synchronization
+---
+- stopApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: home.screen
+    timeout: 120000
+- extendedWaitUntil:
+    visible: "(Online|Network available)"
+    timeout: 60000
+- tapOn: My Activity
+- extendedWaitUntil:
+    visible:
+      id: activity.screen
+    timeout: 30000
+- scrollUntilVisible:
+    element: "Field validation assignment ${T10_CASE_REFERENCE}"
+    direction: DOWN
+- tapOn: "Field validation assignment ${T10_CASE_REFERENCE}"
+- extendedWaitUntil:
+    visible:
+      id: field-validation.screen
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: field-validation.completion-status
+    direction: DOWN
+- runFlow:
+    when:
+      visible:
+        id: field-validation.retry
+    commands:
+      - tapOn:
+          id: field-validation.retry
+- extendedWaitUntil:
+    visible: Validation synchronized
+    timeout: 120000
+- assertVisible: "The office can now review this field evidence. The case remains open and is not automatically verified or closed."
+- assertVisible: Visit time
+- assertVisible: GPS
+- takeScreenshot: .maestro/artifacts/t10-10-mobile-connectivity-recovery-synced

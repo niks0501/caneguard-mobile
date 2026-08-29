@@ -1,0 +1,37 @@
+appId: com.niks0501.caneguard
+name: T10 stage 7 - owner-scoped Mobile assignment retrieval
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: home.screen
+    timeout: 120000
+- tapOn: My Activity
+- extendedWaitUntil:
+    visible:
+      id: activity.screen
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: activity.assignment-refresh
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    id: activity.assignment-refresh
+- scrollUntilVisible:
+    element: "Field validation assignment ${T10_CASE_REFERENCE}"
+    direction: DOWN
+    timeout: 60000
+- assertVisible: "Field validation assignment ${T10_CASE_REFERENCE}"
+- takeScreenshot: .maestro/artifacts/t10-07-mobile-owner-assignment
+- tapOn: "Field validation assignment ${T10_CASE_REFERENCE}"
+- extendedWaitUntil:
+    visible:
+      id: field-validation.screen
+    timeout: 30000
+- assertVisible:
+    id: field-validation.assignment-summary
+- assertVisible: "${T10_CASE_REFERENCE}"
+- assertVisible: "You submitted this case and are its validator."
+- takeScreenshot: .maestro/artifacts/t10-07-mobile-assignment-opened

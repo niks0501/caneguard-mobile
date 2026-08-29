@@ -1,11 +1,12 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
 import { StorageError, toStorageError } from '@/database/errors';
-import { isSupportedPhotoMimeType } from '@/features/assignments/domain/fieldValidationCompletionValidation';
+import {
+  isSupportedPhotoMimeType,
+  isUuid,
+} from '@/features/assignments/domain/fieldValidationCompletionValidation';
 
 const PHOTO_DIRECTORY_NAME = 'field-validation';
-const UUID_V4_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const MIME_TO_EXTENSION: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -77,7 +78,7 @@ export function isManagedFieldValidationPhotoUri(uri: string): boolean {
 }
 
 function validateInput(input: FieldValidationPhotoInput): void {
-  if (!UUID_V4_PATTERN.test(input.assignmentId) || !UUID_V4_PATTERN.test(input.completionId)) {
+  if (!isUuid(input.assignmentId) || !isUuid(input.completionId)) {
     throw new StorageError('INVALID_FIELD_VALIDATION_COMPLETION', 'The field validation photo identity is invalid.');
   }
   if (!input.sourceUri.trim()) {

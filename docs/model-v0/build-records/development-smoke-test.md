@@ -58,7 +58,7 @@ npx expo start --dev-client
 Open the developer route with the app scheme:
 
 ```text
-caneguardmobile://model-smoke-test
+caneguardmobile:///model-smoke-test
 ```
 
 ## Unresolved Warnings and Gaps

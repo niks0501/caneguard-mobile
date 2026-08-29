@@ -4,11 +4,10 @@ import type { FieldValidationCompletionUploadRecord } from '@/features/assignmen
 import {
   FIELD_VALIDATION_TEXT_MAX_LENGTH,
   isSupportedPhotoMimeType,
+  isUuid,
 } from '@/features/assignments/domain/fieldValidationCompletionValidation';
 import { SyncError } from '@/features/sync/errors/syncErrors';
 
-const UUID_V4_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UTC_ISO_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const GPS_OUTCOMES = ['resolved', 'low_accuracy', 'permission_denied', 'unavailable', 'error'] as const;
@@ -57,7 +56,7 @@ function validateCompletion(
     [completion.assignmentId, 'Assignment'],
     [completion.reportUuid, 'Report'],
   ] as const) {
-    if (!UUID_V4_PATTERN.test(value)) invalid(`${name} identity is invalid.`);
+    if (!isUuid(value)) invalid(`${name} identity is invalid.`);
   }
   for (const [value, name] of [
     [completion.fieldObservation, 'Field observation'],

@@ -1,7 +1,7 @@
 ---
 name: maestro-mobile-testing
-description: Use for explicit Maestro flow authoring, incremental mobile diagnosis, or deterministic Maestro acceptance in a React Native or Expo project.
-version: 2.0.0
+description: Use for explicit Maestro flow authoring, evidence-driven mobile diagnosis, or deterministic Maestro acceptance in a React Native or Expo project.
+version: 2.1.0
 category: toolchain
 author: AkiDev
 license: MIT
@@ -31,6 +31,21 @@ Device, MCP, and E2E work requires explicit user intent and one active owner for
 For WSL2 Android verification, the developer starts and manages the Windows-hosted Android Studio emulator before development.
 That emulator is the default Android verification device for agents running in WSL2.
 Use the existing localhost ADB connection from WSL2 rather than changing host or ADB networking.
+
+## Operating objective
+
+Do not optimize for making the test continue.
+Optimize for increasing certainty about the current failure until the next action is justified by evidence.
+
+A failing Maestro command is an observation, not a diagnosis.
+A plausible explanation is a hypothesis, not a proven cause.
+A successful command is not acceptance unless it proves the required behavior on the required evidence surface.
+
+Before every retry or modification, answer:
+
+> What new evidence or changed state makes this action more informative than repeating the previous one?
+
+If there is no good answer, do not repeat the action.
 
 ## Capability boundaries
 
@@ -88,6 +103,15 @@ Do not reconfigure or repair ADB networking to recover it.
 Do not set `ADB_SERVER_SOCKET`, start a second ADB server, or run `adb kill-server` in the healthy-connection path.
 Use a physical device only when the task explicitly requires physical-device behavior.
 
+When the project defines a shared device lock, acquire it exactly once at the top-level device or UI segment.
+Do not nest acquisition of the same lock inside a child command or wrapper.
+Every agent, wrapper, and helper that actively controls the shared device must respect the same ownership convention.
+
+Bound agent-issued ADB probes with a caller or shell timeout when the environment supports one.
+A timed-out ADB client does not prove that the shared ADB server recovered.
+ADB responsiveness also does not prove that the Maestro driver or device transport is healthy.
+Do not restart the shared ADB server automatically merely because one client command timed out.
+
 ## Evidence-driven lifecycle
 
 Run this sequence exactly:
@@ -95,6 +119,14 @@ Run this sequence exactly:
 ```text
 EXPLORE -> AUTHOR INCREMENTALLY -> VALIDATE -> DIAGNOSE LOCALLY ON FAILURE -> FIX -> RERUN ONLY AFTER EVIDENCE
 ```
+
+When a failure occurs, use this internal control loop before changing anything:
+
+```text
+OBSERVE -> CLASSIFY -> ISOLATE -> PROVE -> CHANGE -> RERUN -> EVALUATE
+```
+
+Never jump directly from observation to change unless the evidence already identifies the faulty layer without a material competing explanation.
 
 ### EXPLORE
 
@@ -142,7 +174,7 @@ Escalate to `agent-device` only when the MCP hierarchy, result, and artifacts ar
 
 Classify the failure as exactly one of:
 
-`TEST | APP | DATA | TIMING | ENVIRONMENT | DEVICE | BACKEND/NETWORK | UNKNOWN`
+`TEST | APP | DATA | TIMING | ENVIRONMENT | DEVICE | BACKEND/NETWORK | VERIFIER/HARNESS | EXTERNAL | UNKNOWN`
 
 Record all five fields before changing code, flow, or environment:
 
@@ -154,22 +186,41 @@ Cause: the current evidence-backed classification and hypothesis.
 Next experiment: the smallest change that can distinguish the hypothesis.
 ```
 
-Completion criterion: the first failure is preserved, classified, and reduced to a smallest next experiment.
+Do not modify product code while the best evidence-backed classification is `DEVICE`, `ENVIRONMENT`, `VERIFIER/HARNESS`, `EXTERNAL`, or `UNKNOWN`.
+A nonzero command proves that the command failed.
+It does not automatically prove that the application failed.
+
+If two evidence sources disagree, stop progression and resolve the contradiction.
+For example, if a device-side connectivity probe reports failure while an independent host/API check proves the service is healthy, investigate the probe before changing application networking.
+
+Choose a smallest discriminating probe or counterfactual whenever more than one explanation remains plausible.
+Change one relevant variable when practical.
+Examples include a real UI trigger versus a development deep link, canonical input versus malformed input, one text-entry mechanism versus another, direct ADB health versus Maestro driver health, or API persistence versus required browser UI rendering.
+
+Promote a hypothesis into an actionable diagnosis only when the reduced probe reproduces it, a counterfactual separates it from the competing explanation, or independent evidence identifies the faulty layer without contradiction.
+
+Completion criterion: the first failure is preserved, classified, reduced to a smallest next experiment, and proven enough to justify the next change or stop decision.
 
 ### FIX
 
-Apply only the relevant code, test, flow, data, timing, environment, device, or backend correction supported by the evidence.
+Apply only the relevant code, test, flow, data, timing, environment, device, backend, verifier, or tool correction supported by the evidence.
 Preserve native-build freshness and project conventions.
 Add or update a unit or integration regression test when the cause is application or data behavior.
 Do not hide an app defect with a guessed selector, blind sleep, coordinate fallback, or an unchanged retry.
+Do not add product compatibility behavior solely to make a malformed test invocation pass unless that compatibility is an accepted requirement.
+Do not weaken an assertion, skip a required stage, or relabel supporting evidence merely to obtain a pass.
 
 Completion criterion: the correction is recorded and the smallest reproduction is ready to run.
 
 ### RERUN ONLY AFTER EVIDENCE
 
 Run the smallest reproduction after the correction, then the focused flow.
+Rerun the smallest previously failing segment before restarting a broader chain.
 A second complete or full-flow run requires all of the following: new evidence, a relevant code, test, or environment correction, a passing smallest reproduction, and a passing focused flow.
 It also requires a usable native build, known backend or fixture prerequisites, and the same serialized device owner.
+
+Earlier evidence may be reused only when the source, build, runtime, and acceptance boundary remain valid and the correction cannot affect those earlier stages.
+If the correction crosses an earlier stage's behavior boundary, invalidate and rerun that stage.
 
 There are exactly zero blind full-flow retries.
 A full-flow failure returns to local diagnosis and focused validation rather than another unchanged full-flow attempt.
@@ -177,12 +228,50 @@ Run exactly one final `npm run e2e` gate only after the evidence gate passes.
 The Maestro CLI or project npm result is the deterministic PASS or FAIL record.
 MCP hierarchy, screenshots, and interactive results remain diagnostic evidence.
 
-Completion criterion: the final CLI gate has one deterministic result and a complete evidence record, or the task stops with the unresolved diagnosis.
+After every run, choose one continuation state:
+
+- `PROVEN`: the segment passed with valid evidence, so continue to the next required segment.
+- `NEW_FAILURE`: the failure changed, so preserve the new first failure and return to classification.
+- `SAME_FAILURE_CHANGED_STATE`: a meaningful recovery or correction changed relevant state, so one controlled rerun is justified.
+- `SAME_FAILURE_UNCHANGED_STATE`: do not rerun the same operation.
+- `EXTERNAL_BLOCKER`: the required dependency cannot be repaired safely within task authority, so preserve evidence, record a keyed blocker, and stop the affected chain.
+
+Do not blind-retry an unchanged infrastructure, device, browser, driver, or external failure.
+After two equivalent occurrences without a meaningful state change, preserve the evidence, record a stable blocker key, identify the exact missing recovery or capability, and stop.
+A third identical retry is not diagnosis.
+
+Completion criterion: the final CLI gate has one deterministic result and a complete evidence record, or the task stops with the unresolved diagnosis or keyed external blocker.
+
+## Evidence boundaries
+
+Match evidence to the claim being accepted.
+
+- Required Android UI behavior needs real device or Maestro evidence.
+- Required Web UI behavior needs real browser UI evidence.
+- API or database evidence may support persistence, identity, or backend claims, but it does not replace explicitly required UI evidence.
+- Restart survival requires an actual restart transition when that is the acceptance criterion.
+- Offline behavior requires an actual offline device state when that is the acceptance criterion.
+- Connectivity recovery requires a real connectivity transition and synchronization when that is the acceptance criterion.
+
+Never relabel simulated state, local-only state, API state, static inspection, or an adjacent successful stage as evidence for a different required surface.
+
+## Evaluate the evaluator
+
+Treat preflights, assertions, shell probes, evidence scripts, and validation commands as fallible software.
+When a verifier fails, identify the exact claim it was intended to prove and compare its result with independent evidence.
+Inspect the verifier's assumptions before modifying product code.
+Correct the verifier when it measures the wrong condition, uses an unsupported command contract, scopes files incorrectly, or interprets an expected artifact as a regression.
+
+A failed verifier is evidence about the verifier execution first.
+Only classify the product as failed when the verifier validly measures the product claim and the evidence supports that conclusion.
 
 ## Evidence closeout
 
 Use the project's evidence template when present.
 Record the phase or flow, commit and worktree status, device model and OS, app and native-build identity, runtime freshness, exact commands or MCP inputs, timestamps, artifacts, backend or persistence proof when relevant, and skipped checks.
+Record required evidence surfaces separately so supporting evidence cannot silently substitute for them.
 Leave no Viewer or MCP process running.
 Close an `agent-device` session when that tool owns it.
 Do not clear app state or delete test data unless the approved acceptance procedure requires it.
+
+Claim acceptance only when every required stage is proven on its required evidence surface, required source/build/runtime identities are known, no required stage was skipped or weakened, and the required deterministic checks passed.

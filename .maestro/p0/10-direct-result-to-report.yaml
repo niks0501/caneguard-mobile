@@ -170,7 +170,7 @@ tags:
       id: field-report.authoring-status
     direction: UP
 - extendedWaitUntil:
-    visible: "Finalized · (Needs attention|Pending upload|Uploading|Synced|Sync failed|Waiting to sync|Will retry automatically)"
+    visible: "This report is finalized locally\\. Current synchronization status: (Needs attention|Pending upload|Uploading|Synced|Sync failed|Waiting to sync|Will retry automatically)\\."
     timeout: 30000
 - runFlow:
     when:
@@ -180,7 +180,7 @@ tags:
       - tapOn:
           id: field-report.retry-sync
 - extendedWaitUntil:
-    visible: "Finalized · Synced"
+    visible: "This report is finalized locally\\. Current synchronization status: Synced\\."
     timeout: 120000
 - assertVisible: "Server report UUID"
 - takeScreenshot: .maestro/artifacts/t03-direct-result-to-report-synced

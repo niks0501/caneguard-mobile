@@ -10,10 +10,13 @@ import {
   MobileAuthError,
   requestPasswordReset,
 } from '@/features/auth/api/mobileAuthApi';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ForgotPasswordScreen() {
   const theme = useTheme();
+  const { status } = useAuth();
+  const loginRoute = status === 'authenticated' ? '/home' : '/login';
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -54,7 +57,7 @@ export default function ForgotPasswordScreen() {
           <Text style={[styles.messageTitle, { color: theme.primaryDark }]}>Check your email</Text>
           <Text style={[styles.messageText, { color: theme.text }]}>If an account matches, a password recovery link will be sent. The message is the same whether or not an account matches.</Text>
           <Text style={[styles.messageText, { color: theme.textSecondary }]}>Open the link on this device. The one-time value is never displayed or saved by CaneGuard.</Text>
-          <AppButton variant="text" onPress={() => router.replace('/login')}>
+          <AppButton variant="text" onPress={() => router.replace(loginRoute)}>
             Return to login
           </AppButton>
         </View>
@@ -88,7 +91,7 @@ export default function ForgotPasswordScreen() {
         </View>
       )}
 
-      <AppButton variant="text" onPress={() => router.push('/login')}>
+      <AppButton variant="text" onPress={() => router.push(loginRoute)}>
         Back to login
       </AppButton>
     </ScreenContainer>

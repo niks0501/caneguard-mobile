@@ -23,12 +23,14 @@ export class ApiHttpError extends Error {
 export async function apiRequest<T>(
   path: string,
   options: RequestInit & {
+    csrf?: boolean;
     timeoutMs?: number;
     token?: string | null;
   } = {},
 ): Promise<T> {
   const controller = new AbortController();
   const {
+    csrf = false,
     timeoutMs = DEFAULT_API_TIMEOUT_MS,
     token,
     signal: _callerSignal,
@@ -39,6 +41,10 @@ export async function apiRequest<T>(
   headers.set('Accept', 'application/json');
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
+  }
+  if (csrf) {
+    headers.set('X-XSRF-TOKEN', await initializeCsrf(timeoutMs));
+    requestInit.credentials = 'include';
   }
 
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -53,11 +59,10 @@ export async function apiRequest<T>(
     return await Promise.race([
       (async () => {
         const response = await fetch(buildRequestUrl(path), {
-            ...requestInit,
-            headers,
-            signal: controller.signal,
-          },
-        );
+          ...requestInit,
+          headers,
+          signal: controller.signal,
+        });
         const body = await readResponseBody(response);
 
         if (!response.ok) {
@@ -75,6 +80,61 @@ export async function apiRequest<T>(
         }
 
         return body as T;
+      })(),
+      timeoutPromise,
+    ]);
+  } finally {
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+export async function initializeCsrf(
+  timeoutMs = DEFAULT_API_TIMEOUT_MS,
+): Promise<string> {
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      controller.abort();
+      reject(createAbortError());
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([
+      (async () => {
+        const response = await fetch(buildRequestUrl('/sanctum/csrf-cookie'), {
+          credentials: 'include',
+          headers: new Headers({ Accept: 'application/json' }),
+          signal: controller.signal,
+        });
+        const body = await readResponseBody(response);
+
+        if (!response.ok) {
+          throw new ApiHttpError(
+            response.status,
+            readServerMessage(body) ??
+              `The server returned HTTP ${response.status}.`,
+            {
+              body,
+              retryAfterMs: parseRetryAfter(
+                response.headers.get('Retry-After'),
+              ),
+            },
+          );
+        }
+
+        const token = readXsrfToken(response.headers.get('set-cookie'));
+        if (!token) {
+          throw new ApiHttpError(
+            503,
+            'The server did not provide a CSRF cookie.',
+            { body },
+          );
+        }
+        return token;
       })(),
       timeoutPromise,
     ]);
@@ -120,6 +180,23 @@ async function readResponseBody(response: Response): Promise<unknown> {
     return JSON.parse(text) as unknown;
   } catch {
     return text;
+  }
+}
+
+function readXsrfToken(setCookie: string | null): string | null {
+  if (!setCookie) {
+    return null;
+  }
+
+  const match = /XSRF-TOKEN=([^;]+)/i.exec(setCookie);
+  if (!match?.[1]) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
   }
 }
 

@@ -1,0 +1,76 @@
+appId: com.niks0501.caneguard
+name: Auth v1 registration, unverified login, and verification resend
+tags:
+  - auth-v1
+  - auth-registration
+  - auth-verification
+---
+- launchApp:
+    clearState: true
+- runFlow:
+    when:
+      visible: Connect
+    commands:
+      - tapOn: "http://"
+      - inputText: "http://127.0.0.1:8081"
+      - tapOn: Connect
+- extendedWaitUntil:
+    visible: "Continue|Close|Get Started"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: Continue
+    commands:
+      - tapOn: Continue
+- runFlow:
+    when:
+      visible: Close
+    commands:
+      - tapOn: Close
+- extendedWaitUntil:
+    visible: Get Started
+    timeout: 120000
+- tapOn: Get Started
+- extendedWaitUntil:
+    visible: Create account
+    timeout: 30000
+- tapOn:
+    id: register.full-name-input
+- inputText: ${AUTH_NAME}
+- tapOn:
+    id: register.email-input
+- inputText: ${AUTH_EMAIL}
+- tapOn:
+    id: register.password-input
+- inputText: ${AUTH_PASSWORD}
+- tapOn:
+    id: register.submit
+- extendedWaitUntil:
+    visible:
+      id: register.verification-state
+    timeout: 30000
+- assertVisible: Check your email
+- assertVisible: "We created your field-reporter account.*"
+- tapOn:
+    id: register.resend-verification
+- extendedWaitUntil:
+    visible: 'If the address is eligible, a verification link will be sent\.'
+    timeout: 30000
+- takeScreenshot: .maestro/artifacts/auth-v1-registration-resend
+- tapOn: Return to login
+- extendedWaitUntil:
+    visible:
+      id: auth.login-screen
+    timeout: 30000
+- tapOn:
+    id: auth.email-input
+- inputText: ${AUTH_EMAIL}
+- tapOn:
+    id: auth.password-input
+- inputText: ${AUTH_PASSWORD}
+- tapOn:
+    id: auth.login-submit
+- extendedWaitUntil:
+    visible: 'Verify your email address before using Mobile\.'
+    timeout: 30000
+- takeScreenshot: .maestro/artifacts/auth-v1-unverified-login

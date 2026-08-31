@@ -56,8 +56,8 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.form}>
-            <InputRow icon="mail" value={email} onChangeText={setEmail} placeholder="Email" keyboardType="email-address" textContentType="username" />
-            <InputRow icon="lock" value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry={!passwordVisible} textContentType="password" trailingIcon={passwordVisible ? 'eye-off' : 'eye'} onTrailingPress={() => setPasswordVisible((visible) => !visible)} />
+            <InputRow testID="auth.email-input" icon="mail" value={email} onChangeText={setEmail} placeholder="Email" keyboardType="email-address" textContentType="username" />
+            <InputRow testID="auth.password-input" icon="lock" value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry={!passwordVisible} textContentType="password" trailingIcon={passwordVisible ? 'eye-off' : 'eye'} onTrailingPress={() => setPasswordVisible((visible) => !visible)} />
             {errorMessage ? (
               <Text
                 accessibilityLiveRegion="assertive"
@@ -66,6 +66,7 @@ export default function LoginScreen() {
               </Text>
             ) : null}
             <AppButton
+              testID="auth.login-submit"
               onPress={() => void submit()}
               disabled={submitting || !email.trim() || !password}
               leadingIcon="log-in"
@@ -113,6 +114,7 @@ export default function LoginScreen() {
 }
 
 type InputRowProps = {
+  testID?: string;
   icon: keyof typeof Feather.glyphMap;
   value: string;
   onChangeText: (value: string) => void;
@@ -124,14 +126,14 @@ type InputRowProps = {
   onTrailingPress?: () => void;
 };
 
-function InputRow({ icon, value, onChangeText, placeholder, keyboardType, textContentType, secureTextEntry, trailingIcon, onTrailingPress }: InputRowProps) {
+function InputRow({ testID, icon, value, onChangeText, placeholder, keyboardType, textContentType, secureTextEntry, trailingIcon, onTrailingPress }: InputRowProps) {
   const theme = useTheme();
 
   return (
     <View style={[styles.input, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
       <Feather name={icon} size={20} color={theme.primary} />
       <View style={styles.inputCopy}>
-        <TextInput accessibilityLabel={placeholder} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={theme.textSecondary} keyboardType={keyboardType} textContentType={textContentType} autoCapitalize="none" secureTextEntry={secureTextEntry} style={[styles.inputText, { color: theme.text }]} />
+        <TextInput testID={testID} accessibilityLabel={placeholder} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={theme.textSecondary} keyboardType={keyboardType} textContentType={textContentType} autoCapitalize="none" secureTextEntry={secureTextEntry} style={[styles.inputText, { color: theme.text }]} />
       </View>
        {trailingIcon && onTrailingPress ? <Pressable accessibilityRole="button" accessibilityLabel={secureTextEntry ? 'Show password' : 'Hide password'} hitSlop={4} onPress={onTrailingPress} style={styles.trailingButton}><Feather name={trailingIcon} size={20} color={theme.textSecondary} /></Pressable> : null}
     </View>

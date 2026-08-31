@@ -16,13 +16,25 @@ import {
 const fetchMock = jest.fn();
 const EXPIRES_AT = new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString();
 
-function response(status: number, body: unknown): Response {
+function response(
+  status: number,
+  body: unknown,
+  headers = new Headers(),
+): Response {
   return {
     ok: status >= 200 && status < 300,
     status,
-    headers: new Headers(),
+    headers,
     text: jest.fn(async () => (body === null ? '' : JSON.stringify(body))),
   } as unknown as Response;
+}
+
+function csrfResponse(): Response {
+  return response(
+    204,
+    null,
+    new Headers({ 'set-cookie': 'XSRF-TOKEN=csrf-token%3D; Path=/' }),
+  );
 }
 
 const USER = {
@@ -168,13 +180,15 @@ describe('mobile authentication API', () => {
   });
 
   it('parses registration and sends only the approved fields', async () => {
-    fetchMock.mockResolvedValueOnce(
-      response(201, {
-        message: 'Account created.',
-        code: 'REGISTRATION_CREATED',
-        user: { ...USER, email_verified: false },
-      }),
-    );
+    fetchMock
+      .mockResolvedValueOnce(csrfResponse())
+      .mockResolvedValueOnce(
+        response(201, {
+          message: 'Account created.',
+          code: 'REGISTRATION_CREATED',
+          user: { ...USER, email_verified: false },
+        }),
+      );
 
     await expect(
       registerMobile({
@@ -186,7 +200,8 @@ describe('mobile authentication API', () => {
       code: 'REGISTRATION_CREATED',
       user: { email: 'field@caneguard.test', emailVerified: false },
     });
-    expect(fetchMock).toHaveBeenCalledWith(
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
       'http://127.0.0.1:8000/register',
       expect.objectContaining({
         method: 'POST',
@@ -201,12 +216,14 @@ describe('mobile authentication API', () => {
 
   it('keeps verification and recovery responses generic', async () => {
     fetchMock
+      .mockResolvedValueOnce(csrfResponse())
       .mockResolvedValueOnce(
         response(202, {
           message: 'If the address is eligible, a verification link will be sent.',
           code: 'VERIFICATION_LINK_SENT',
         }),
       )
+      .mockResolvedValueOnce(csrfResponse())
       .mockResolvedValueOnce(
         response(202, {
           message: 'If an account matches, a password recovery link will be sent.',
@@ -223,10 +240,10 @@ describe('mobile authentication API', () => {
       code: 'PASSWORD_RESET_LINK_SENT',
     });
 
-    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(
+    expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(
       JSON.stringify({ email: 'reporter@caneguard.test' }),
     );
-    expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(
+    expect(fetchMock.mock.calls[3]?.[1]?.body).toBe(
       JSON.stringify({ email: 'reporter@caneguard.test' }),
     );
   });
@@ -333,7 +350,9 @@ describe('mobile authentication API', () => {
       }),
     ).rejects.toMatchObject({ code: 'STEP_UP_REQUIRED' });
 
-    fetchMock.mockResolvedValueOnce(response(422, { code: 'INVALID_RESET_TOKEN' }));
+    fetchMock
+      .mockResolvedValueOnce(csrfResponse())
+      .mockResolvedValueOnce(response(422, { code: 'INVALID_RESET_TOKEN' }));
     await expect(
       resetPassword({
         email: 'reporter@caneguard.test',

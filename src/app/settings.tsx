@@ -162,6 +162,7 @@ export default function SettingsScreen() {
               </Pressable>
               <View style={styles.logoutRow}>
                 <AppButton
+                  testID="settings.logout"
                   variant="text"
                   onPress={() =>
                     Alert.alert(

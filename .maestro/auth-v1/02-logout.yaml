@@ -1,0 +1,71 @@
+appId: com.niks0501.caneguard
+name: Auth v1 logout revokes the current session
+tags:
+  - auth-v1
+  - auth-logout
+---
+- launchApp:
+    clearState: true
+- runFlow:
+    when:
+      visible: Connect
+    commands:
+      - tapOn: "http://"
+      - inputText: "http://127.0.0.1:8081"
+      - tapOn: Connect
+- extendedWaitUntil:
+    visible: "Continue|Close|Get Started"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: Continue
+    commands:
+      - tapOn: Continue
+- runFlow:
+    when:
+      visible: Close
+    commands:
+      - tapOn: Close
+- extendedWaitUntil:
+    visible: Get Started
+    timeout: 120000
+- tapOn: I already have an account
+- extendedWaitUntil:
+    visible:
+      id: auth.login-screen
+    timeout: 30000
+- tapOn:
+    id: auth.email-input
+- inputText: ${AUTH_EMAIL}
+- tapOn:
+    id: auth.password-input
+- inputText: ${AUTH_PASSWORD}
+- tapOn:
+    id: auth.login-submit
+- extendedWaitUntil:
+    visible:
+      id: home.screen
+    timeout: 120000
+- tapOn:
+    text: Open settings
+- extendedWaitUntil:
+    visible: Settings
+    timeout: 30000
+- tapOn:
+    id: settings.logout
+- extendedWaitUntil:
+    visible: 'Log out\?'
+    timeout: 10000
+- tapOn: Log out
+- extendedWaitUntil:
+    visible: Get Started
+    timeout: 30000
+- tapOn: I already have an account
+- extendedWaitUntil:
+    visible:
+      id: auth.login-screen
+    timeout: 30000
+- assertVisible: Welcome back
+- assertNotVisible:
+    id: home.screen
+- takeScreenshot: .maestro/artifacts/auth-v1-logout

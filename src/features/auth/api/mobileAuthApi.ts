@@ -213,6 +213,7 @@ export async function registerMobile(
 ): Promise<MobileRegistrationResult> {
   try {
     const response = await apiRequest<unknown>('/register', {
+      csrf: true,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -235,6 +236,7 @@ export async function resendVerification(
     const response = await apiRequest<unknown>(
       '/email/verification-notification',
       {
+        csrf: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim().toLowerCase() }),
@@ -270,6 +272,7 @@ export async function requestPasswordReset(
 ): Promise<AuthActionResponse> {
   try {
     const response = await apiRequest<unknown>('/forgot-password', {
+      csrf: true,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email.trim().toLowerCase() }),
@@ -285,6 +288,7 @@ export async function resetPassword(
 ): Promise<AuthActionResponse> {
   try {
     const response = await apiRequest<unknown>('/reset-password', {
+      csrf: true,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

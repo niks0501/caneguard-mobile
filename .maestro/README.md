@@ -7,6 +7,7 @@ without replacing the protected scan regression:
 .maestro/
 ├── p0/                 # P0 phase flows
 ├── p1/                 # P1 review-status evidence scaffolds
+├── auth-v1/            # Android auth-v1 evidence flows
 ├── evidence/           # evidence convention and phase records
 └── artifacts/          # generated screenshots/logs; ignored by Git
 ```
@@ -35,6 +36,7 @@ adb reverse --list
 The current emulator should appear as `emulator-5554` with state `device`.
 The reverse list should include the `8081` Metro mapping and the `8000` API mapping.
 With these mappings, keep `EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000` in the Mobile `.env`.
+The auth-v1 evidence flow instructions and deep-link handoff procedure live in `auth-v1/README.md` and `.maestro/evidence/AUTH-V1.md`.
 
 The shared `maestro` CLI is resolved from `PATH`.
 Plain `maestro test` is the normal deterministic path.

@@ -36,9 +36,10 @@ The current emulator should appear as `emulator-5554` with state `device`.
 The reverse list should include the `8081` Metro mapping and the `8000` API mapping.
 With these mappings, keep `EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000` in the Mobile `.env`.
 
-The normal npm E2E scripts pass `--no-reinstall-driver`: Maestro installs the driver and server apps only when they are missing.
-Approve that one-time install prompt in the unlocked emulator if it appears.
-Both apps remain installed between runs, including failed reruns, so normal retries do not reinstall them.
+The shared `maestro` CLI is resolved from `PATH`.
+Plain `maestro test` is the normal deterministic path.
+Approve any first-use helper-app prompt in the unlocked emulator if it appears.
+Do not add automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns around Maestro.
 
 ## E2E command behavior
 
@@ -49,18 +50,24 @@ npm run e2e                         # all flows under .maestro
 npm run e2e:flow -- .maestro/p0/00-baseline-scan.yaml
 ```
 
-These default commands do not reinstall the on-device driver or server. If the
-Maestro CLI has been updated and the on-device helper version needs to catch up,
-or if a flow misbehaves because its driver is stale, use the explicit reinstall
-escape hatch:
+For explicit E2E work, run the smallest focused flow first with the plain command:
 
 ```bash
-npm run e2e:flow:reinstall -- .maestro/p0/00-baseline-scan.yaml
+maestro test <flow>
 ```
 
-The reinstall command intentionally uses the plain `maestro test` path. After
-the helper apps are current, return to `npm run e2e` or `npm run e2e:flow` for
-normal runs.
+The equivalent project action is `npm run e2e:flow -- <flow>`.
+
+Use this evidence-driven progression:
+
+1. Run the focused flow with `maestro test <flow>`.
+2. Preserve the exact command, first failing interaction, device/build identity, logs, screenshots, and artifacts.
+3. Diagnose the smallest failing interaction.
+4. Make one evidence-backed change.
+5. Rerun the focused flow.
+6. Run broader or full E2E with `npm run e2e` only when the task or an acceptance gate requires it.
+
+A failed Maestro command proves that the command failed; it does not by itself prove an application defect.
 
 ## P0-00 baseline
 

@@ -218,6 +218,13 @@ For JS/TS-only changes that do not alter the native runtime, reuse the existing 
 
 Expo Go is not the authoritative runtime for TFLite/native-module verification.
 
+For Maestro authoring, inspect the current screen or hierarchy when useful before choosing selectors.
+Start with the smallest focused flow and run `maestro test <flow>`.
+Preserve the first failure, diagnose the smallest failing interaction, make one evidence-backed change, and rerun the focused flow.
+Broaden to full E2E only when the task or an acceptance gate requires it.
+Do not add automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns around Maestro.
+A failed Maestro command is evidence that the command failed, not proof of an application defect.
+
 ## Verification
 
 Use project-defined checks first:

@@ -76,9 +76,8 @@
     "qa:export": "node ./scripts/qa-export.js",
     "eas-build-pre-install": "node ./scripts/validate-qa-env.js",
     "test:coverage": "jest --coverage",
-    "e2e": "maestro test --no-reinstall-driver .maestro",
-    "e2e:flow": "maestro test --no-reinstall-driver",
-    "e2e:flow:reinstall": "maestro test",
+    "e2e": "maestro test .maestro",
+    "e2e:flow": "maestro test",
     "e2e:doctor": "node scripts/check-mobile-e2e-tools.mjs"
   },
   "jest": {

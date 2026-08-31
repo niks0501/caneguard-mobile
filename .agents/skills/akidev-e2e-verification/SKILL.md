@@ -30,15 +30,26 @@ Use a physical device only when the task explicitly requires physical-device beh
 
 ```bash
 npm run e2e:doctor
+maestro test <flow>
 npm run e2e:flow -- .maestro/<flow>.yaml
 npm run e2e
-npm run e2e:flow:reinstall -- .maestro/<flow>.yaml
 ```
 
 Run relevant lint, typecheck, unit, and integration checks before interpreting mobile results.
 Use the project's native-build freshness guidance before treating a device result as an app result.
-When the `maestro` integration is selected, the normal flow commands use the shared CLI with `--no-reinstall-driver`.
-Use the reinstall command only as the explicit stale-driver escape hatch supported by the project.
+Plain `maestro test` is the normal path, and the project flow action is its package-script form.
+
+Use this focused-to-broad progression:
+
+1. Run the focused flow with `maestro test <flow>`.
+2. Preserve the exact failing interaction, device/build identity, logs, screenshots, and other artifacts.
+3. Diagnose the smallest failing interaction.
+4. Make one evidence-backed change.
+5. Rerun the focused flow.
+6. Run broader or full E2E with `npm run e2e` only when the task or an acceptance gate requires it.
+
+Do not add automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns around Maestro.
+A failed Maestro command proves that the command failed; it does not by itself prove an application defect.
 
 MCP hierarchy, screenshots, and interactive results are diagnostic evidence.
 The project npm or Maestro CLI result is the deterministic PASS or FAIL gate.

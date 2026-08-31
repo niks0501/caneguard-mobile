@@ -335,19 +335,19 @@ cd "<WORKSPACE>/caneguard-mobile"
 npm run e2e:doctor
 ```
 
-Run the checked-in flows only after the doctor and runtime prerequisites pass:
+Run the checked-in flows only after the doctor and runtime prerequisites pass.
+Start with the smallest focused flow using plain Maestro:
 
 ```bash
 cd "<WORKSPACE>/caneguard-mobile"
-npm run e2e
-npm run e2e:flow -- .maestro/p0/00-baseline-scan.yaml
+maestro test .maestro/p0/00-baseline-scan.yaml
 ```
 
-If the Maestro helper apps need a deliberate version refresh, the checked-in reinstall escape hatch is:
-
-```bash
-npm run e2e:flow:reinstall -- .maestro/p0/00-baseline-scan.yaml
-```
+The equivalent project action is `npm run e2e:flow -- .maestro/p0/00-baseline-scan.yaml`.
+Preserve the first failure and its evidence, diagnose the smallest failing interaction, make one evidence-backed change, and rerun the focused flow.
+Run broader or full E2E with `npm run e2e` only when the task or an acceptance gate requires it.
+Do not add automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns around Maestro.
+A failed Maestro command proves that the command failed; it does not by itself prove an application defect.
 
 P0F is a separate full-system release acceptance flow for Mobile, API, Web review, and Mobile status return.
 It is not part of daily startup or the fast onboarding path.

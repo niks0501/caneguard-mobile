@@ -10,6 +10,8 @@ Use when Maestro is available or mobile E2E is being considered for a React Nati
 ## Core rule
 
 Maestro is not automatically the first verification step after implementation.
+The normal CLI path is plain `maestro test`.
+Do not add automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns around it.
 
 Before running Maestro, establish whether the currently installed app runtime can actually execute the changed behavior. A stale development build can produce failures that look like application regressions even when the installed native runtime simply lacks newly required native code or configuration.
 
@@ -70,7 +72,15 @@ Run Maestro only when:
 - Metro, backend services, and other prerequisites for the flow are available;
 - the flow is meaningful for E2E verification.
 
-Use the project action when present so the shared CLI is resolved from `PATH`:
+Use a focused flow first:
+
+```bash
+maestro test <flow>
+```
+
+The project action `npm run e2e:flow -- <flow>` is the package-script form of that command.
+Preserve the first failure and its evidence, diagnose the smallest failing interaction, make one evidence-backed change, and rerun the focused flow.
+Use the project action when a broader gate is required so the shared CLI is resolved from `PATH`:
 
 ```bash
 npm run e2e
@@ -106,6 +116,7 @@ First distinguish among:
 - environment/tooling failure.
 
 Never repeatedly rerun Maestro without changing the condition that caused the failure.
+A failed Maestro command proves that the command failed; it does not by itself prove an application defect.
 
 ## Reporting
 

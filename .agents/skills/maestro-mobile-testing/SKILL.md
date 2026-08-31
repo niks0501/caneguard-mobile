@@ -37,6 +37,9 @@ Use the existing localhost ADB connection from WSL2 rather than changing host or
 Do not optimize for making the test continue.
 Optimize for increasing certainty about the current failure until the next action is justified by evidence.
 
+The normal CLI path is plain `maestro test`.
+Do not wrap it in automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns.
+
 A failing Maestro command is an observation, not a diagnosis.
 A plausible explanation is a hypothesis, not a proven cause.
 A successful command is not acceptance unless it proves the required behavior on the required evidence surface.
@@ -155,10 +158,16 @@ Completion criterion: the smallest flow expresses one intended transition with a
 ### VALIDATE
 
 1. Run the project-supported Maestro syntax check or `maestro check-syntax` for the changed flow.
-2. Run the smallest relevant project command, normally `npm run e2e:flow -- <flow>`, with the normal `--no-reinstall-driver` path.
-3. Keep the result, commit, build identity, device ID, and artifacts in the project evidence convention.
-4. Do not run broader E2E or the full flow until the focused flow passes and the first failure, if any, has a changed cause.
-5. Run broader E2E only when the task or an acceptance gate requires it.
+2. Run the focused flow with plain `maestro test <flow>`.
+3. Preserve the exact command, first failing interaction, commit, build identity, device ID, logs, screenshots, and artifacts.
+4. Diagnose the smallest failing interaction before changing code, flow, data, or environment.
+5. Make one evidence-backed change.
+6. Rerun the focused flow with `maestro test <flow>`.
+7. Run broader or full E2E with `npm run e2e` only when the task or an acceptance gate requires it.
+
+The project action `npm run e2e:flow -- <flow>` is the package-script form of the focused plain Maestro command.
+Do not add automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns around these commands.
+A failed Maestro command proves that the command failed; it does not by itself prove an application defect.
 
 Completion criterion: syntax and the focused flow pass, or a preserved first failure has the required diagnostic record below.
 
@@ -204,6 +213,7 @@ Completion criterion: the first failure is preserved, classified, reduced to a s
 ### FIX
 
 Apply only the relevant code, test, flow, data, timing, environment, device, backend, verifier, or tool correction supported by the evidence.
+Make one evidence-backed change at a time.
 Preserve native-build freshness and project conventions.
 Add or update a unit or integration regression test when the cause is application or data behavior.
 Do not hide an app defect with a guessed selector, blind sleep, coordinate fallback, or an unchanged retry.
@@ -224,6 +234,7 @@ If the correction crosses an earlier stage's behavior boundary, invalidate and r
 
 There are exactly zero blind full-flow retries.
 A full-flow failure returns to local diagnosis and focused validation rather than another unchanged full-flow attempt.
+Do not automatically rebuild, wipe the emulator, recover ADB or Metro, or rerun the same unchanged command.
 Run exactly one final `npm run e2e` gate only after the evidence gate passes.
 The Maestro CLI or project npm result is the deterministic PASS or FAIL record.
 MCP hierarchy, screenshots, and interactive results remain diagnostic evidence.

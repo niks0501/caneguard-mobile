@@ -8,6 +8,8 @@ This record covers the Android follow-up for Mobile PR #61 against the local Web
 
 The Mobile worktree started from PR #61 head `2b31e577a78aa1943585d2de335e22fbf455434d`.
 
+The implementation and evidence-flow commit is `dd8d131d9dd04391c42addca6ea362fbd16d2acf`.
+
 The exact Web/API contract source was Web PR #77 head `d3acea604a98f01574f757561fc05df12f5ff38b`.
 
 The device was `emulator-5554`, Android 14, API 34, model `sdk_gphone64_x86_64`.

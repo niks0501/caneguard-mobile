@@ -53,7 +53,7 @@ Install or obtain these prerequisites before setup:
 
 - Git with authenticated access to both private repositories.
 - Node.js and npm compatible with the Mobile `package-lock.json` and the Web repository's Vite 8 toolchain.
-- PHP 8.3 through 8.5 with PDO MySQL.
+- PHP satisfying the Web/API `api/composer.json`'s `^8.3` constraint, Composer, and PDO MySQL.
 - Composer.
 - MySQL 8.4 LTS.
 - Android Studio with an Android emulator.
@@ -69,6 +69,10 @@ The optional Maestro doctor also requires Java 17 or newer and the `maestro` com
 
 A MapTiler browser key is optional for the Web map.
 The Web dashboard keeps its report-table fallback visible when `VITE_MAPTILER_KEY` is blank.
+
+For the Mobile GPS path, grant CaneGuard foreground location permission and enable location services on the Android emulator or device.
+If GPS is unavailable, permission is denied, or location services are off, the manual-map fallback requires an active internet connection and loaded online map tiles.
+It is not available offline, and the Draft remains unchanged until a final location is selected.
 
 ## One-time setup
 
@@ -102,7 +106,7 @@ The root install is for the Web dashboard, and `npm run api:install` installs th
 
 ```bash
 cd "<WORKSPACE>/caneguard-web"
-npm install
+npm ci
 npm run api:install
 cp .env.example .env.local
 cp api/.env.example api/.env
@@ -124,6 +128,9 @@ Edit only the local `api/.env` file for the database password and the three loca
 Do not commit `api/.env`, and do not put any of these values in this README or another checked-in environment file.
 The seed emails are `field@caneguard.test`, `mao@caneguard.test`, and `admin@caneguard.test`.
 Use the password values you set locally when logging in during the smoke check.
+
+Current main's Mobile onboarding supports sign-in with the seeded `field@caneguard.test` account.
+Registration, password recovery, biometric login, and authentication deep-link setup are not available in this onboarding path.
 
 Generate the application key, apply migrations, and seed the local accounts and report fixtures from the Web repository root:
 
@@ -161,7 +168,19 @@ Restart Metro after changing `.env` because Expo public environment values are i
 ### 4. Create and install the Android development build
 
 The development profile in [`eas.json`](eas.json) creates an internal Android APK with `developmentClient: true`.
-The same file requires an EAS CLI version of `21.2.0` or newer.
+The CLI must satisfy the `eas.json` requirement of `>= 21.2.0`, and the Expo account must have access to the `caneguard/caneguard-mobile` project.
+
+Before the first build, install and authenticate the EAS CLI from the Mobile repository root:
+
+```bash
+cd "<WORKSPACE>/caneguard-mobile"
+npm install --global eas-cli
+eas login
+eas whoami
+eas project:info
+```
+
+`eas whoami` confirms the authenticated account, and `eas project:info` confirms access to the existing Expo project.
 
 Create the APK only once for initial setup or again after a native dependency, Expo plugin, or native app configuration change.
 Start the Android Studio emulator and follow the Android connectivity steps below before running `adb install`.
@@ -213,7 +232,8 @@ adb reverse tcp:8000 tcp:8000
 adb reverse --list
 ```
 
-The current emulator should appear as `emulator-5554` with state `device`.
+The connected emulator should appear in the `adb devices -l` output with state `device`.
+Do not assume a fixed emulator serial; if more than one target is listed, pass the intended serial with `adb -s <DEVICE_ID>` to each ADB command.
 The reverse list should include the `8081` Metro mapping and the `8000` API mapping.
 With these mappings, keep `EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000` in the Mobile `.env`.
 
@@ -238,7 +258,23 @@ Use one terminal per long-running process.
 
    The response should report `data.status` as `ok` and both current dependency checks as `ready`.
 
-4. Start the Web dashboard in another terminal.
+4. Optional live Web updates: start the Web queue worker and Reverb process only when testing reviewer freshness signals.
+   Use one additional terminal for each process:
+
+   ```bash
+   cd "<WORKSPACE>/caneguard-web"
+   npm run api:queue
+   ```
+
+   ```bash
+   cd "<WORKSPACE>/caneguard-web"
+   npm run api:reverb
+   ```
+
+   The queue worker processes database-backed broadcast jobs, and Reverb serves the WebSocket on port `8080`.
+   These processes are not required for Mobile uploads or normal REST-backed Web data; REST remains the source of truth if either is unavailable.
+
+5. Start the Web dashboard in another terminal.
 
    ```bash
    cd "<WORKSPACE>/caneguard-web"
@@ -247,15 +283,15 @@ Use one terminal per long-running process.
 
    Open `http://localhost:5173`.
 
-5. Start the Android Studio emulator and establish the `8081` and `8000` reverse mappings shown above.
-6. Start Metro from the Mobile repository root.
+6. Start the Android Studio emulator and establish the `8081` and `8000` reverse mappings shown above.
+7. Start Metro from the Mobile repository root.
 
    ```bash
    cd "<WORKSPACE>/caneguard-mobile"
    npm run start -- --dev-client
    ```
 
-7. Open the already installed `caneguard-mobile` development build on the Android Studio emulator and connect it to the running Metro server.
+8. Open the already installed `caneguard-mobile` development build on the Android Studio emulator and connect it to the running Metro server.
 
 Do not start a second Metro session with a different environment file.
 If `.env` changes, stop and restart Metro before reopening the development build.

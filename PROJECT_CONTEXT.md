@@ -41,7 +41,9 @@ AI results are decision-support outputs only. User-facing copy must not present 
 5. `CaneGuardModelProvider`
 6. `SyncProvider`
 
-Expo Router protected routes separate unauthenticated screens from authenticated application screens. Development-only routes expose model and storage diagnostics.
+Expo Router protected routes separate unauthenticated screens from authenticated application screens.
+Password recovery and email-verification routes remain public so deep links can be handled even when a cached session exists.
+Development-only routes expose model and storage diagnostics.
 
 ### Detection flow
 
@@ -109,9 +111,17 @@ again.
 
 Authentication lives under `src/features/auth/`.
 
-The mobile client authenticates against the CaneGuard API. Only users returned with the `field_reporter` role are accepted for mobile synchronization.
+The mobile client authenticates against the CaneGuard API.
+Only users returned with the `field_reporter` role are accepted for mobile synchronization.
 
-The bearer session is stored with Expo SecureStore and restored when the application starts.
+Mobile bearer sessions have a fixed seven-day server expiry and are restored only while that expiry is in the future.
+The client does not refresh or extend sessions, including when a protected session is unlocked biometrically.
+A fresh password login is required after expiry.
+
+The session is stored with Expo SecureStore and restored when the application starts.
+Optional biometric unlock stores the session under a separate `requireAuthentication` SecureStore key and preserves the server expiry.
+The client persists a random opaque installation UUID in SecureStore for API device identity; it does not use immutable hardware identifiers.
+Logout, expiry, reset, and authoritative server rejection clear all session and protected biometric entries without deleting local scan or report data.
 
 ### Synchronization
 
@@ -177,9 +187,18 @@ Base URL:
 
 Current mobile endpoints:
 
+- `POST /register`
+- `POST /email/verification-notification`
+- `GET /email/verify/{id}/{hash}`
+- `POST /forgot-password`
+- `POST /reset-password`
 - `POST /api/v1/mobile/auth/login`
 - `GET /api/v1/mobile/auth/me`
 - `DELETE /api/v1/mobile/auth/logout`
+- `POST /api/v1/mobile/auth/enroll`
+- `POST /api/v1/auth/password`
+- `PATCH /api/v1/auth/email`
+- `POST /api/v1/auth/biometric/disable`
 - `POST /api/v1/mobile/reports`
 - `GET /api/v1/mobile/assignments`
 - `POST /api/v1/mobile/assignments/{assignment}/completion`

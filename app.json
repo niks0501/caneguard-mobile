@@ -53,6 +53,12 @@
       "expo-sqlite",
       "expo-secure-store",
       [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "CaneGuard uses Face ID to unlock your protected field session."
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "CaneGuard uses your location while you create a Field Report to record where the sugarcane observation was made."

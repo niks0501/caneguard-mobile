@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import { Feather } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -143,6 +144,22 @@ export default function SettingsScreen() {
                   </Text>
                 </View>
               </View>
+              <Pressable
+                testID="settings.account-security"
+                accessibilityRole="button"
+                accessibilityLabel="Account and security"
+                onPress={() => router.push('/account-security')}
+                style={({ pressed }) => [
+                  styles.menuRow,
+                  { borderBottomColor: theme.divider },
+                  pressed && styles.pressed,
+                ]}>
+                <View style={styles.toggleCopy}>
+                  <Text style={[styles.menuLabel, { color: theme.text }]}>Account security</Text>
+                  <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>Password, email, device, and biometric controls</Text>
+                </View>
+                <Feather name="chevron-right" size={18} color={theme.textSecondary} />
+              </Pressable>
               <View style={styles.logoutRow}>
                 <AppButton
                   variant="text"
@@ -287,5 +304,8 @@ const styles = StyleSheet.create({
   logoutText: {
     ...Typography.body,
     fontWeight: '800',
+  },
+  pressed: {
+    opacity: 0.72,
   },
 });

@@ -11,7 +11,13 @@ import { useTheme } from '@/hooks/use-theme';
 
 export default function LoginScreen() {
   const theme = useTheme();
-  const { errorMessage, login } = useAuth();
+  const {
+    biometricEnabled,
+    biometricLoading,
+    errorMessage,
+    login,
+    unlockWithBiometrics,
+  } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -66,6 +72,24 @@ export default function LoginScreen() {
               trailingIcon="arrow-right"
               accessibilityLabel={submitting ? 'Signing in to CaneGuard' : 'Login to CaneGuard'}>
               {submitting ? 'Signing In...' : 'Login'}
+            </AppButton>
+            {biometricEnabled ? (
+              <AppButton
+                testID="auth.biometric-unlock"
+                variant="secondary"
+                onPress={() => void unlockWithBiometrics()}
+                disabled={submitting || biometricLoading}
+                leadingIcon="shield"
+                accessibilityLabel="Unlock CaneGuard with biometrics">
+                {biometricLoading ? 'Unlocking...' : 'Unlock with biometrics'}
+              </AppButton>
+            ) : null}
+            <AppButton
+              testID="auth.forgot-password"
+              variant="text"
+              onPress={() => router.push('/forgot-password')}
+              accessibilityLabel="Forgot your password">
+              Forgot password?
             </AppButton>
           </View>
 

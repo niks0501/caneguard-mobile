@@ -9,8 +9,9 @@ import type { MobileSession } from '@/features/auth/types';
 const fetchMock = jest.fn();
 
 const mockSession: MobileSession = {
-  token: 'cached-session-token',
-  expiresAt: null,
+  deviceId: 'installation-uuid',
+  token: 'test-session-value',
+  expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString(),
   user: {
     uuid: 'user-uuid',
     name: 'Field Reporter',

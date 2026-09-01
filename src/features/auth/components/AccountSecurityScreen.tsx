@@ -89,7 +89,7 @@ export function AccountSecurityScreen() {
     if (enrolled) {
       setEnrollmentPassword('');
       setSuccessMessage(
-        'This installation is enrolled with a fresh seven-day session. Existing sessions on other device identities are unchanged.',
+        'This installation is enrolled with a fresh server session. Existing sessions on other device identities are unchanged.',
       );
     }
   };
@@ -117,7 +117,7 @@ export function AccountSecurityScreen() {
     setBusyAction(null);
     if (enabled) {
       setSuccessMessage(
-        'Biometric unlock is enabled on this installation. It unlocks this cached session but never extends its seven-day server expiry.',
+        'Biometric unlock is enabled on this installation. It unlocks the stored session after a cold start and never extends the server expiry.',
       );
     }
   };
@@ -142,7 +142,7 @@ export function AccountSecurityScreen() {
         <Text testID="account-security.success" accessibilityLiveRegion="polite" style={[styles.success, { color: theme.primaryDark, backgroundColor: theme.successBg }]}>{successMessage}</Text>
       ) : null}
 
-      <SecuritySection title="Biometric unlock" description="Use a strong enrolled biometric to unlock the cached session. A device passcode remains the native fallback; password sign-in is always available.">
+      <SecuritySection title="Biometric unlock" description="Use a strong enrolled biometric to unlock the stored session after a cold start. A device passcode remains the native fallback; password sign-in is always available.">
         <Text style={[styles.capability, { color: theme.textSecondary }]}>{biometricCapabilityMessage(biometricCapability?.status)}</Text>
         {biometricEnabled ? (
           <View style={styles.form}>
@@ -315,13 +315,13 @@ function biometricCapabilityMessage(
 
 function formatExpiry(expiresAt: string | null | undefined): string {
   if (!expiresAt) {
-    return 'Session expiry is unavailable. Sign in again to establish a seven-day session.';
+    return 'Session expiry is unavailable. Sign in again to establish a server session.';
   }
   const timestamp = Date.parse(expiresAt);
   if (!Number.isFinite(timestamp)) {
-    return 'Session expiry is unavailable. Sign in again to establish a seven-day session.';
+    return 'Session expiry is unavailable. Sign in again to establish a server session.';
   }
-  return `Session expires ${new Date(timestamp).toLocaleString()}. Biometric unlock does not extend it.`;
+  return `Server session expires ${new Date(timestamp).toLocaleString()}. Biometric unlock does not extend it.`;
 }
 
 const styles = StyleSheet.create({

@@ -60,6 +60,7 @@ describe('AccountSecurityScreen', () => {
       enableBiometricUnlock: mockEnableBiometric,
       enrollMobileDevice: mockEnroll,
       errorMessage: null,
+      hasCompletedLogin: true,
       login: jest.fn(async () => true),
       logout: jest.fn(async () => ({
         localClearFailed: false,

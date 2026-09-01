@@ -42,7 +42,7 @@ AI results are decision-support outputs only. User-facing copy must not present 
 6. `SyncProvider`
 
 Expo Router protected routes separate unauthenticated screens from authenticated application screens.
-Password recovery and email-verification routes remain public so deep links can be handled even when a cached session exists.
+Password recovery and email-verification routes remain public so deep links can be handled even when protected session material exists.
 Development-only routes expose model and storage diagnostics.
 
 ### Detection flow
@@ -114,13 +114,14 @@ Authentication lives under `src/features/auth/`.
 The mobile client authenticates against the CaneGuard API.
 Only users returned with the `field_reporter` role are accepted for mobile synchronization.
 
-Mobile bearer sessions have a fixed seven-day server expiry and are restored only while that expiry is in the future.
+Mobile bearer sessions have a fixed seven-day server expiry.
 The client does not refresh or extend sessions, including when a protected session is unlocked biometrically.
-A fresh password login is required after expiry.
+A fresh password login is required after expiry or a process restart without biometric unlock.
 
-The session is stored with Expo SecureStore and restored when the application starts.
-Optional biometric unlock stores the session under a separate device-only SecureStore key and preserves the server expiry.
-The AuthProvider performs one explicit strong biometric or device-credential prompt before restoring or enabling that cached session, avoiding a second SecureStore prompt on Android.
+Password sessions remain in memory only, so removing the app from the recent-apps list cannot silently restore an authenticated session.
+When biometric unlock is enabled, the client stores the session under a separate device-only SecureStore key and requires one explicit strong biometric or device-credential prompt before reading it on each cold start.
+A password fallback updates that protected session without disabling the user's biometric preference, and the prompt is deduplicated to avoid a second SecureStore prompt on Android.
+A non-sensitive login-history marker routes returning users to the password form and is never used as authentication material.
 The client persists a random opaque installation UUID in SecureStore for API device identity; it does not use immutable hardware identifiers.
 Logout, expiry, reset, and authoritative server rejection clear all session and protected biometric entries without deleting local scan or report data.
 

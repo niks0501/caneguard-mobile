@@ -1,13 +1,22 @@
 import { router } from 'expo-router';
+import { useEffect } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { Spacing, Typography } from '@/constants/theme';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function SplashScreen() {
   const theme = useTheme();
+  const { hasCompletedLogin, status } = useAuth();
+
+  useEffect(() => {
+    if (status === 'unauthenticated' && hasCompletedLogin) {
+      router.replace('/login');
+    }
+  }, [hasCompletedLogin, status]);
 
   return (
     <ScreenContainer contentStyle={styles.container}>

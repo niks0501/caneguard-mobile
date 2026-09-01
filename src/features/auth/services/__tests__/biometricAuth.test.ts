@@ -105,6 +105,7 @@ describe('mobile biometric capability and authentication', () => {
     expect(mockAuthenticate).toHaveBeenCalledWith(
       expect.objectContaining({
         biometricsSecurityLevel: 'strong',
+        cancelLabel: 'Use password instead',
         disableDeviceFallback: false,
         fallbackLabel: 'Use device passcode',
       }),

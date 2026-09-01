@@ -3,6 +3,7 @@ import { act, render, renderHook, screen, waitFor } from '@testing-library/react
 
 import {
   changePassword,
+  disableBiometric as disableBiometricApi,
   enrollMobileDevice,
   loginMobile,
   logoutMobile,
@@ -13,12 +14,13 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { AuthProvider } from '@/features/auth/providers/AuthProvider';
 import HomeScreen from '@/app/home';
 import {
+  clearLegacyMobileSession,
   clearMobileSession,
   disableBiometricUnlock,
+  hasCompletedMobileLogin,
   isBiometricUnlockEnabled,
-  readMobileSession,
+  markMobileLoginCompleted,
   readProtectedMobileSession,
-  saveMobileSession,
   saveProtectedMobileSession,
 } from '@/features/auth/services/tokenStore';
 import { getOrCreateMobileDeviceId } from '@/features/auth/services/deviceIdentity';
@@ -37,6 +39,7 @@ jest.mock('@/features/auth/api/mobileAuthApi', () => {
   return {
     ...actual,
     changePassword: jest.fn(),
+    disableBiometric: jest.fn(),
     enrollMobileDevice: jest.fn(),
     loginMobile: jest.fn(),
     logoutMobile: jest.fn(),
@@ -48,12 +51,13 @@ jest.mock('@/features/auth/services/tokenStore', () => ({
     code = 'ACCESS_FAILED';
   },
   StoredSessionExpiredError: class StoredSessionExpiredError extends Error {},
+  clearLegacyMobileSession: jest.fn(async () => false),
   clearMobileSession: jest.fn(async () => undefined),
   disableBiometricUnlock: jest.fn(async () => undefined),
+  hasCompletedMobileLogin: jest.fn(async () => false),
   isBiometricUnlockEnabled: jest.fn(async () => false),
-  readMobileSession: jest.fn(async () => null),
+  markMobileLoginCompleted: jest.fn(async () => undefined),
   readProtectedMobileSession: jest.fn(async () => null),
-  saveMobileSession: jest.fn(async () => undefined),
   saveProtectedMobileSession: jest.fn(async () => undefined),
 }));
 
@@ -85,7 +89,7 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
 const SESSION: MobileSession = {
   deviceId: 'installation-uuid',
   token: 'test-session-value',
-  expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString(),
+  expiresAt: null,
   user: {
     uuid: 'user-uuid',
     name: 'Field Reporter',
@@ -113,13 +117,15 @@ function AuthenticatedHomeRoute() {
 
 describe('AuthProvider', () => {
   const mockChangePassword = jest.mocked(changePassword);
+  const mockDisableBiometricApi = jest.mocked(disableBiometricApi);
   const mockEnroll = jest.mocked(enrollMobileDevice);
   const mockLogin = jest.mocked(loginMobile);
   const mockLogout = jest.mocked(logoutMobile);
   const mockVerify = jest.mocked(verifyMobileSession);
-  const mockRead = jest.mocked(readMobileSession);
+  const mockClearLegacy = jest.mocked(clearLegacyMobileSession);
+  const mockLoginHistory = jest.mocked(hasCompletedMobileLogin);
+  const mockMarkLogin = jest.mocked(markMobileLoginCompleted);
   const mockReadProtected = jest.mocked(readProtectedMobileSession);
-  const mockSave = jest.mocked(saveMobileSession);
   const mockSaveProtected = jest.mocked(saveProtectedMobileSession);
   const mockClear = jest.mocked(clearMobileSession);
   const mockDisableBiometric = jest.mocked(disableBiometricUnlock);
@@ -134,17 +140,24 @@ describe('AuthProvider', () => {
 
   beforeEach(() => {
     mockChangePassword.mockReset();
+    mockDisableBiometricApi.mockReset();
+    mockDisableBiometricApi.mockResolvedValue({
+      code: 'BIOMETRIC_DISABLED',
+      message: 'Biometric sign-in is disabled.',
+    });
     mockEnroll.mockReset();
     mockLogout.mockReset();
     mockLogout.mockResolvedValue(undefined);
     mockLogin.mockReset();
     mockVerify.mockReset();
-    mockRead.mockReset();
-    mockRead.mockResolvedValue(null);
+    mockClearLegacy.mockReset();
+    mockClearLegacy.mockResolvedValue(false);
+    mockLoginHistory.mockReset();
+    mockLoginHistory.mockResolvedValue(false);
+    mockMarkLogin.mockReset();
+    mockMarkLogin.mockResolvedValue(undefined);
     mockReadProtected.mockReset();
     mockReadProtected.mockResolvedValue(null);
-    mockSave.mockReset();
-    mockSave.mockResolvedValue(undefined);
     mockSaveProtected.mockReset();
     mockSaveProtected.mockResolvedValue(undefined);
     mockClear.mockReset();
@@ -166,7 +179,13 @@ describe('AuthProvider', () => {
     });
   });
 
-  it('signs in and stores the verified session securely', async () => {
+  function prepareProtectedStartup(storedSession = SESSION) {
+    mockBiometricEnabled.mockResolvedValueOnce(true);
+    mockBiometricAuth.mockResolvedValueOnce({ success: true });
+    mockReadProtected.mockResolvedValueOnce(storedSession);
+  }
+
+  it('signs in without retaining an unprotected session', async () => {
     mockLogin.mockResolvedValueOnce(SESSION);
     const { result } = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
@@ -183,12 +202,27 @@ describe('AuthProvider', () => {
       password: 'password',
       deviceName: 'Test Android phone',
     });
-    expect(mockSave).toHaveBeenCalledWith(SESSION);
+    expect(mockSaveProtected).not.toHaveBeenCalled();
+    expect(mockMarkLogin).toHaveBeenCalledTimes(1);
+    expect(result.current.hasCompletedLogin).toBe(true);
     expect(result.current.status).toBe('authenticated');
   });
 
+  it('does not silently restore an unprotected session on cold start', async () => {
+    mockClearLegacy.mockResolvedValueOnce(true);
+
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+
+    expect(mockClearLegacy).toHaveBeenCalled();
+    expect(mockReadProtected).not.toHaveBeenCalled();
+    expect(mockVerify).not.toHaveBeenCalled();
+    expect(result.current.hasCompletedLogin).toBe(true);
+    expect(result.current.session).toBeNull();
+  });
+
   it('hydrates Home before an unreachable session verification settles', async () => {
-    mockRead.mockResolvedValueOnce(SESSION);
+    prepareProtectedStartup();
     let rejectVerification!: (error: unknown) => void;
     mockVerify.mockReturnValueOnce(
       new Promise((_resolve, reject) => {
@@ -228,7 +262,7 @@ describe('AuthProvider', () => {
   });
 
   it('clears a server-rejected restored session', async () => {
-    mockRead.mockResolvedValueOnce(SESSION);
+    prepareProtectedStartup();
     mockVerify.mockRejectedValueOnce(
       new MobileAuthError('INVALID_CREDENTIALS', 'Expired'),
     );
@@ -246,7 +280,7 @@ describe('AuthProvider', () => {
       user: { ...SESSION.user, name: 'Cached reporter' },
     };
     const verifiedUser = { ...SESSION.user, name: 'Current reporter' };
-    mockRead.mockResolvedValueOnce(cachedSession);
+    prepareProtectedStartup(cachedSession);
     mockVerify.mockResolvedValueOnce(verifiedUser);
 
     const { result } = await renderHook(() => useAuth(), { wrapper });
@@ -256,14 +290,14 @@ describe('AuthProvider', () => {
 
     expect(result.current.status).toBe('authenticated');
     expect(result.current.user).toEqual(verifiedUser);
-    expect(mockSave).toHaveBeenCalledWith({ ...cachedSession, user: verifiedUser });
+    expect(mockSaveProtected).not.toHaveBeenCalled();
   });
 
   it.each([
     'FORBIDDEN_ROLE',
     'SESSION_EXPIRED',
   ] as const)('clears a restored session for authoritative %s rejection', async (code) => {
-    mockRead.mockResolvedValueOnce(SESSION);
+    prepareProtectedStartup();
     mockVerify.mockRejectedValueOnce(new MobileAuthError(code, 'Rejected'));
 
     const { result } = await renderHook(() => useAuth(), { wrapper });
@@ -274,7 +308,7 @@ describe('AuthProvider', () => {
   });
 
   it('ignores a pending verification after logout', async () => {
-    mockRead.mockResolvedValueOnce(SESSION);
+    prepareProtectedStartup();
     let resolveVerification!: (user: MobileSession['user']) => void;
     mockVerify.mockReturnValueOnce(
       new Promise((resolve) => {
@@ -299,7 +333,7 @@ describe('AuthProvider', () => {
   });
 
   it('does not reconcile secure storage after unmount during verification', async () => {
-    mockRead.mockResolvedValueOnce(SESSION);
+    prepareProtectedStartup();
     let resolveVerification!: (user: MobileSession['user']) => void;
     mockVerify.mockReturnValueOnce(
       new Promise((resolve) => {
@@ -319,16 +353,20 @@ describe('AuthProvider', () => {
       await Promise.resolve();
     });
 
-    expect(mockSave).not.toHaveBeenCalled();
+    expect(mockSaveProtected).not.toHaveBeenCalled();
   });
 
-  it('clears locally and reports when remote logout cannot revoke', async () => {
-    mockRead.mockResolvedValueOnce(SESSION);
-    mockVerify.mockResolvedValueOnce(SESSION.user);
-    mockLogout.mockRejectedValueOnce(new Error('offline'));
-
+  it('clears locally and reports when non-biometric logout cannot revoke', async () => {
+    mockLogin.mockResolvedValueOnce(SESSION);
     const { result } = await renderHook(() => useAuth(), { wrapper });
-    await waitFor(() => expect(result.current.status).toBe('authenticated'));
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+
+    await act(async () => {
+      await expect(
+        result.current.login('field@caneguard.test', 'password'),
+      ).resolves.toBe(true);
+    });
+    mockLogout.mockRejectedValueOnce(new Error('offline'));
 
     await act(async () => {
       await expect(result.current.logout()).resolves.toEqual({
@@ -337,7 +375,9 @@ describe('AuthProvider', () => {
       });
     });
 
+    expect(mockLogout).toHaveBeenCalledWith(SESSION.token);
     expect(mockClear).toHaveBeenCalled();
+    expect(result.current.biometricEnabled).toBe(false);
     expect(result.current.status).toBe('unauthenticated');
     expect(result.current.session).toBeNull();
   });
@@ -348,7 +388,7 @@ describe('AuthProvider', () => {
       ...SESSION,
       expiresAt: new Date(Date.now() + 1_000).toISOString(),
     };
-    mockRead.mockResolvedValueOnce(expiringSession);
+    prepareProtectedStartup(expiringSession);
     mockVerify.mockResolvedValueOnce(expiringSession.user);
 
     const { result } = await renderHook(() => useAuth(), { wrapper });
@@ -398,7 +438,9 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
 
     expect(mockBiometricAuth).toHaveBeenCalledTimes(1);
+    expect(mockReadProtected).not.toHaveBeenCalled();
     expect(result.current.biometricEnabled).toBe(true);
+    expect(result.current.hasCompletedLogin).toBe(true);
   });
 
   it('uses one biometric prompt and one protected write for one enable action', async () => {
@@ -445,6 +487,10 @@ describe('AuthProvider', () => {
 
     const { result } = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
 
     mockBiometricAuth.mockResolvedValueOnce({ success: true });
     mockReadProtected.mockResolvedValueOnce(SESSION);
@@ -465,14 +511,15 @@ describe('AuthProvider', () => {
     expect(mockReadProtected).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps password login available after biometric cancellation', async () => {
+  it('keeps password login available after biometric cancellation and re-arms the rotated session', async () => {
     mockBiometricEnabled.mockResolvedValueOnce(true).mockResolvedValue(false);
 
     const { result } = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
     expect(result.current.biometricEnabled).toBe(true);
 
-    mockLogin.mockResolvedValueOnce(SESSION);
+    const rotatedSession = { ...SESSION, token: 'rotated-session-value' };
+    mockLogin.mockResolvedValueOnce(rotatedSession);
     await act(async () => {
       await expect(result.current.login('field@caneguard.test', 'password')).resolves.toBe(
         true,
@@ -480,10 +527,12 @@ describe('AuthProvider', () => {
     });
 
     expect(result.current.status).toBe('authenticated');
-    expect(mockSave).toHaveBeenCalledWith(SESSION);
+    expect(mockSaveProtected).toHaveBeenCalledWith(rotatedSession);
+    expect(mockMarkLogin).toHaveBeenCalledTimes(1);
+    expect(result.current.hasCompletedLogin).toBe(true);
   });
 
-  it('unlocks the protected cached session without changing its expiry', async () => {
+  it('keeps a protected session without a scheduled expiry after biometric unlock', async () => {
     mockBiometricEnabled.mockResolvedValueOnce(true);
     mockBiometricAuth.mockResolvedValueOnce({ success: true });
     mockReadProtected.mockResolvedValueOnce(SESSION);
@@ -492,11 +541,13 @@ describe('AuthProvider', () => {
     const { result } = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.sessionVerification).toBe('verified'));
 
-    expect(result.current.session?.expiresAt).toBe(SESSION.expiresAt);
+    expect(result.current.status).toBe('authenticated');
+    expect(result.current.session?.expiresAt).toBeNull();
+    expect(mockClear).not.toHaveBeenCalled();
     expect(mockReadProtected).toHaveBeenCalled();
   });
 
-  it('clears protected local state on logout after biometric enablement', async () => {
+  it('retains the protected credential and skips revocation on biometric logout', async () => {
     mockLogin.mockResolvedValueOnce(SESSION);
     const { result } = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
@@ -509,13 +560,99 @@ describe('AuthProvider', () => {
       await expect(result.current.enableBiometricUnlock()).resolves.toBe(true);
     });
     expect(mockSaveProtected).toHaveBeenCalledWith(SESSION);
+    mockClear.mockClear();
+    mockLogout.mockClear();
 
     await act(async () => {
-      await result.current.logout();
+      await expect(result.current.logout()).resolves.toEqual({
+        localClearFailed: false,
+        remoteRevocationFailed: false,
+      });
     });
+
+    expect(mockClear).not.toHaveBeenCalled();
+    expect(mockLogout).not.toHaveBeenCalled();
+    expect(result.current.biometricEnabled).toBe(true);
+    expect(result.current.status).toBe('unauthenticated');
+    expect(result.current.session).toBeNull();
+  });
+
+  it('restores the retained credential after biometric logout on the next cold start', async () => {
+    let biometricConfigured = false;
+    let protectedSession: MobileSession | null = null;
+    mockBiometricEnabled.mockImplementation(async () => biometricConfigured);
+    mockSaveProtected.mockImplementation(async (nextSession) => {
+      protectedSession = nextSession;
+      biometricConfigured = true;
+    });
+    mockReadProtected.mockImplementation(async () => protectedSession);
+    mockClear.mockImplementation(async () => {
+      protectedSession = null;
+      biometricConfigured = false;
+    });
+    mockLogin.mockResolvedValueOnce(SESSION);
+
+    const firstProvider = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(firstProvider.result.current.status).toBe('unauthenticated'));
+    await act(async () => {
+      await firstProvider.result.current.login('field@caneguard.test', 'password');
+    });
+    mockBiometricAuth.mockResolvedValueOnce({ success: true });
+    await act(async () => {
+      await expect(firstProvider.result.current.enableBiometricUnlock()).resolves.toBe(true);
+    });
+    await act(async () => {
+      await expect(firstProvider.result.current.logout()).resolves.toEqual({
+        localClearFailed: false,
+        remoteRevocationFailed: false,
+      });
+    });
+
+    expect(protectedSession).toEqual(SESSION);
+    expect(mockLogout).not.toHaveBeenCalled();
+    await firstProvider.unmount();
+
+    mockBiometricAuth.mockResolvedValueOnce({ success: true });
+    mockVerify.mockResolvedValueOnce(SESSION.user);
+    const coldStart = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() =>
+      expect(coldStart.result.current.sessionVerification).toBe('verified'),
+    );
+
+    expect(mockReadProtected).toHaveBeenCalledTimes(1);
+    expect(mockVerify).toHaveBeenCalledWith(SESSION.token);
+    expect(mockLogin).toHaveBeenCalledTimes(1);
+    expect(coldStart.result.current.status).toBe('authenticated');
+    expect(coldStart.result.current.session).toEqual(SESSION);
+    await coldStart.unmount();
+  });
+
+  it('revokes the retained token before clearing biometrics', async () => {
+    mockLogin.mockResolvedValueOnce(SESSION);
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+
+    await act(async () => {
+      await result.current.login('field@caneguard.test', 'password');
+      mockBiometricAuth.mockResolvedValueOnce({ success: true });
+      await expect(result.current.enableBiometricUnlock()).resolves.toBe(true);
+    });
+    mockClear.mockClear();
+    mockLogout.mockClear();
+
+    await act(async () => {
+      await expect(result.current.disableBiometric('current-password')).resolves.toBe(true);
+    });
+
+    expect(mockDisableBiometricApi).toHaveBeenCalledWith(
+      SESSION.token,
+      'current-password',
+    );
+    expect(mockLogout).toHaveBeenCalledWith(SESSION.token);
     expect(mockClear).toHaveBeenCalled();
     expect(result.current.biometricEnabled).toBe(false);
     expect(result.current.status).toBe('unauthenticated');
+    expect(result.current.session).toBeNull();
   });
 
   it('rotates the session during password-protected installation enrollment', async () => {
@@ -523,7 +660,7 @@ describe('AuthProvider', () => {
     const rotatedSession = {
       ...SESSION,
       token: 'rotated-session-value',
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString(),
+      expiresAt: null,
     };
     mockEnroll.mockResolvedValueOnce(rotatedSession);
 
@@ -541,7 +678,7 @@ describe('AuthProvider', () => {
       deviceId: 'installation-uuid',
       deviceName: 'Test installation',
     });
-    expect(mockSave).toHaveBeenLastCalledWith(rotatedSession);
+    expect(mockSaveProtected).not.toHaveBeenCalled();
     expect(result.current.session).toEqual(rotatedSession);
   });
 

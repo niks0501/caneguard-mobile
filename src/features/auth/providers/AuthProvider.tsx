@@ -26,12 +26,13 @@ import {
 import { getOrCreateMobileDeviceId, DeviceIdentityError } from '@/features/auth/services/deviceIdentity';
 import {
   BiometricSessionError,
+  clearLegacyMobileSession,
   clearMobileSession,
   disableBiometricUnlock,
+  hasCompletedMobileLogin,
   isBiometricUnlockEnabled,
-  readMobileSession,
+  markMobileLoginCompleted,
   readProtectedMobileSession,
-  saveMobileSession,
   saveProtectedMobileSession,
   StoredSessionExpiredError,
 } from '@/features/auth/services/tokenStore';
@@ -57,6 +58,7 @@ interface AuthContextValue {
   enableBiometricUnlock: () => Promise<boolean>;
   enrollMobileDevice: (currentPassword: string, deviceName: string) => Promise<boolean>;
   errorMessage: string | null;
+  hasCompletedLogin: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<{
     localClearFailed: boolean;
@@ -81,6 +83,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [biometricCapability, setBiometricCapability] =
     useState<BiometricCapability | null>(null);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [hasCompletedLogin, setHasCompletedLogin] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const verificationGeneration = useRef(0);
   const sessionRef = useRef<MobileSession | null>(null);
@@ -150,7 +153,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const verifyAndHydrateSession = useCallback(
     async (
       stored: MobileSession,
-      protectedSession: boolean,
       isCurrent: () => boolean,
     ): Promise<boolean> => {
       if (!isCurrent()) {
@@ -159,6 +161,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       // Hydrate before network verification so safe, unexpired local work can
       // remain available during an outage.
+      setHasCompletedLogin(true);
+      if (typeof markMobileLoginCompleted === 'function') {
+        void markMobileLoginCompleted();
+      }
       setCurrentSession(stored);
       setStatus('authenticated');
       setSessionVerification('pending');
@@ -171,16 +177,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
 
         const verified = { ...stored, user };
-        if (!protectedSession) {
-          try {
-            await saveMobileSession(verified);
-          } catch {
-            // Memory remains usable; a later password login can reconcile it.
-          }
-        }
-        if (!isCurrent()) {
-          return false;
-        }
         setCurrentSession(verified);
         setStatus('authenticated');
         setSessionVerification('verified');
@@ -223,38 +219,54 @@ export function AuthProvider({ children }: PropsWithChildren) {
       active && generation === verificationGeneration.current;
 
     void (async () => {
-      const configured =
+      const [configured, loginHistory] = await Promise.all([
         typeof isBiometricUnlockEnabled === 'function'
-          ? await isBiometricUnlockEnabled()
+          ? isBiometricUnlockEnabled()
+          : false,
+        typeof hasCompletedMobileLogin === 'function'
+          ? hasCompletedMobileLogin()
+          : false,
+      ]);
+      if (!isCurrent()) {
+        return;
+      }
+      // Sessions saved by auth-v1 without biometric protection must not survive
+      // a process restart. They are removed during cold-start cleanup, but are
+      // never read or used to authenticate the app.
+      const hadLegacySession =
+        typeof clearLegacyMobileSession === 'function'
+          ? await clearLegacyMobileSession().catch(() => false)
           : false;
       if (!isCurrent()) {
         return;
       }
       setBiometricEnabled(configured);
+      setHasCompletedLogin(configured || loginHistory || hadLegacySession);
 
-      let stored: MobileSession | null;
-      if (configured) {
-        const unlock = await authenticateBiometricOnce();
-        if (!isCurrent()) {
-          return;
-        }
-        if (!unlock.success) {
-          if (shouldDisableBiometricUnlock(unlock)) {
-            if (typeof disableBiometricUnlock === 'function') {
-              await disableBiometricUnlock().catch(() => undefined);
-            }
-            setBiometricEnabled(false);
-          }
-          setStatus('unauthenticated');
-          setSessionVerification('idle');
-          setErrorMessage(unlock.message);
-          return;
-        }
-        stored = await readProtectedMobileSession();
-      } else {
-        stored = await readMobileSession();
+      if (!configured) {
+        setStatus('unauthenticated');
+        setSessionVerification('idle');
+        return;
       }
 
+      const unlock = await authenticateBiometricOnce();
+      if (!isCurrent()) {
+        return;
+      }
+      if (!unlock.success) {
+        if (shouldDisableBiometricUnlock(unlock)) {
+          if (typeof disableBiometricUnlock === 'function') {
+            await disableBiometricUnlock().catch(() => undefined);
+          }
+          setBiometricEnabled(false);
+        }
+        setStatus('unauthenticated');
+        setSessionVerification('idle');
+        setErrorMessage(unlock.message);
+        return;
+      }
+
+      const stored = await readProtectedMobileSession();
       if (!isCurrent()) {
         return;
       }
@@ -264,7 +276,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return;
       }
 
-      await verifyAndHydrateSession(stored, configured, isCurrent);
+      await verifyAndHydrateSession(stored, isCurrent);
     })().catch(async (error: unknown) => {
       if (!isCurrent()) {
         return;
@@ -320,10 +332,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       return;
     }
     if (expiresAt === null) {
-      const timer = setTimeout(() => {
-        void markSessionExpired();
-      }, 0);
-      return () => clearTimeout(timer);
+      return;
     }
     const remaining = Date.parse(expiresAt) - Date.now();
     const timer = setTimeout(() => {
@@ -349,7 +358,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
             'CaneGuard mobile device',
         });
         try {
-          await saveMobileSession(nextSession);
+          if (biometricEnabled) {
+            // A password fallback refreshes the protected credential without
+            // disabling the user's biometric preference for the next cold open.
+            await saveProtectedMobileSession(nextSession);
+          } else {
+            // Password sessions intentionally remain in memory only. A process
+            // restart must return to the login form instead of auto-resuming.
+            if (typeof clearLegacyMobileSession === 'function') {
+              await clearLegacyMobileSession().catch(() => undefined);
+            }
+          }
         } catch {
           await clearMobileSession().catch(() => undefined);
           void logoutMobile(nextSession.token).catch(() => undefined);
@@ -358,7 +377,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
             'Secure session storage is unavailable. Sign in was cancelled.',
           );
         }
-        setBiometricEnabled(false);
+        if (typeof markMobileLoginCompleted === 'function') {
+          await markMobileLoginCompleted().catch(() => undefined);
+        }
+        setHasCompletedLogin(true);
         setCurrentSession(nextSession);
         setStatus('authenticated');
         setSessionVerification('verified');
@@ -377,7 +399,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return false;
       }
     },
-    [setCurrentSession],
+    [biometricEnabled, setCurrentSession],
   );
 
   const unlockWithBiometrics = useCallback((): Promise<boolean> => {
@@ -419,7 +441,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setBiometricEnabled(true);
         return await verifyAndHydrateSession(
           stored,
-          true,
           () => generation === verificationGeneration.current,
         );
       } catch (error: unknown) {
@@ -571,7 +592,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
       try {
         await disableBiometricApi(activeSession.token, currentPassword);
-        return await clearSessionAfterRemoteRevocation();
+        let remoteRevocationFailed = false;
+        try {
+          // Disabling biometrics removes the retained credential, so revoke the
+          // server token that would otherwise remain usable until its expiry.
+          await logoutMobile(activeSession.token);
+        } catch {
+          remoteRevocationFailed = true;
+        }
+        const cleared = await clearSessionAfterRemoteRevocation();
+        if (remoteRevocationFailed && cleared) {
+          setErrorMessage(
+            'Biometric unlock was disabled on this device, but the server token could not be revoked.',
+          );
+        }
+        return cleared;
       } catch (error: unknown) {
         if (isAuthoritativeSessionRejection(error)) {
           await markSessionExpired();
@@ -601,8 +636,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
         try {
           if (biometricEnabled) {
             await saveProtectedMobileSession(nextSession);
-          } else {
-            await saveMobileSession(nextSession);
           }
         } catch {
           await clearLocalSession(null);
@@ -636,6 +669,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const logout = useCallback(async () => {
     verificationGeneration.current += 1;
+    if (biometricEnabled) {
+      // A biometric-enabled logout is intentionally a local soft logout. The
+      // protected credential remains available behind the next biometric gate.
+      setCurrentSession(null);
+      setStatus('unauthenticated');
+      setSessionVerification('idle');
+      setErrorMessage(null);
+      return { localClearFailed: false, remoteRevocationFailed: false };
+    }
+
     const token = sessionRef.current?.token;
     let remoteRevocationFailed = false;
     if (token) {
@@ -673,7 +716,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         : null,
     );
     return { localClearFailed: false, remoteRevocationFailed };
-  }, [setCurrentSession]);
+  }, [biometricEnabled, setCurrentSession]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -687,6 +730,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       enableBiometricUnlock,
       enrollMobileDevice,
       errorMessage,
+      hasCompletedLogin,
       login,
       logout,
       markSessionExpired,
@@ -707,6 +751,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       enableBiometricUnlock,
       enrollMobileDevice,
       errorMessage,
+      hasCompletedLogin,
       login,
       logout,
       markSessionExpired,

@@ -87,7 +87,7 @@ export async function authenticateWithBiometrics(): Promise<BiometricAuthResult>
   try {
     const result = await LocalAuthentication.authenticateAsync({
       biometricsSecurityLevel: 'strong',
-      cancelLabel: 'Use password',
+      cancelLabel: 'Use password instead',
       disableDeviceFallback: false,
       fallbackLabel: 'Use device passcode',
       promptMessage: 'Unlock CaneGuard',

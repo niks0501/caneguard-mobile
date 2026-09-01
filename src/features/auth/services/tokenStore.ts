@@ -2,9 +2,10 @@ import * as SecureStore from 'expo-secure-store';
 
 import type { MobileSession, MobileUser } from '@/features/auth/types';
 
-const SESSION_KEY = 'caneguard.mobile.session.v1';
+const LEGACY_SESSION_KEY = 'caneguard.mobile.session.v1';
 const PROTECTED_SESSION_KEY = 'caneguard.mobile.session.protected.v1';
 const BIOMETRIC_ENABLED_KEY = 'caneguard.mobile.biometric-enabled.v1';
+const LOGIN_HISTORY_KEY = 'caneguard.mobile.login-history.v1';
 
 const STORE_OPTIONS: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
@@ -48,24 +49,6 @@ export class SecureSessionStoreError extends Error {
   }
 }
 
-export async function saveMobileSession(session: MobileSession): Promise<void> {
-  assertPersistableSession(session);
-  try {
-    // A password login is the explicit fallback after a biometric cancel or
-    // enrollment change, so do not leave the old protected credential active.
-    if (await isBiometricUnlockEnabled()) {
-      await disableBiometricUnlock();
-    }
-    await SecureStore.setItemAsync(
-      SESSION_KEY,
-      JSON.stringify(session),
-      STORE_OPTIONS,
-    );
-  } catch (error: unknown) {
-    throw toSecureStoreError(error);
-  }
-}
-
 export async function saveProtectedMobileSession(
   session: MobileSession,
 ): Promise<void> {
@@ -82,29 +65,13 @@ export async function saveProtectedMobileSession(
         'true',
         STORE_OPTIONS,
       );
-      await SecureStore.deleteItemAsync(SESSION_KEY, STORE_OPTIONS);
+      await SecureStore.deleteItemAsync(LEGACY_SESSION_KEY, STORE_OPTIONS);
     } catch (error: unknown) {
       await deleteBestEffort(PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS);
       await deleteBestEffort(BIOMETRIC_ENABLED_KEY, STORE_OPTIONS);
       throw error;
     }
   } catch (error: unknown) {
-    throw toSecureStoreError(error);
-  }
-}
-
-export async function readMobileSession(): Promise<MobileSession | null> {
-  try {
-    return (await isBiometricUnlockEnabled())
-      ? await readProtectedMobileSession()
-      : await readUnprotectedMobileSession();
-  } catch (error: unknown) {
-    if (
-      error instanceof StoredSessionExpiredError ||
-      error instanceof BiometricSessionError
-    ) {
-      throw error;
-    }
     throw toSecureStoreError(error);
   }
 }
@@ -131,7 +98,7 @@ export async function readProtectedMobileSession(): Promise<MobileSession | null
     );
   }
 
-  const parsed = await parseStoredSession(stored, true);
+  const parsed = await parseStoredSession(stored);
   if (!parsed) {
     await clearMobileSessionBestEffort();
     throw new BiometricSessionError(
@@ -140,6 +107,33 @@ export async function readProtectedMobileSession(): Promise<MobileSession | null
     );
   }
   return parsed;
+}
+
+export async function clearLegacyMobileSession(): Promise<boolean> {
+  try {
+    const stored = await SecureStore.getItemAsync(LEGACY_SESSION_KEY, STORE_OPTIONS);
+    await SecureStore.deleteItemAsync(LEGACY_SESSION_KEY, STORE_OPTIONS);
+    return stored !== null;
+  } catch (error: unknown) {
+    throw toSecureStoreError(error);
+  }
+}
+
+export async function hasCompletedMobileLogin(): Promise<boolean> {
+  try {
+    const value = await SecureStore.getItemAsync(LOGIN_HISTORY_KEY, STORE_OPTIONS);
+    return value === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export async function markMobileLoginCompleted(): Promise<void> {
+  try {
+    await SecureStore.setItemAsync(LOGIN_HISTORY_KEY, 'true', STORE_OPTIONS);
+  } catch {
+    // Login history only controls the public entry screen, not authentication.
+  }
 }
 
 export async function isBiometricUnlockEnabled(): Promise<boolean> {
@@ -174,7 +168,7 @@ export async function disableBiometricUnlock(): Promise<void> {
 export async function clearMobileSession(): Promise<void> {
   const failures: unknown[] = [];
   for (const [key, options] of [
-    [SESSION_KEY, STORE_OPTIONS],
+    [LEGACY_SESSION_KEY, STORE_OPTIONS],
     [PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS],
     [BIOMETRIC_ENABLED_KEY, STORE_OPTIONS],
   ] as const) {
@@ -189,42 +183,22 @@ export async function clearMobileSession(): Promise<void> {
   }
 }
 
-async function readUnprotectedMobileSession(): Promise<MobileSession | null> {
-  const stored = await SecureStore.getItemAsync(SESSION_KEY, STORE_OPTIONS);
-  if (!stored) {
-    return null;
-  }
-  return parseStoredSession(stored, false);
-}
-
-async function parseStoredSession(
-  stored: string,
-  protectedSession: boolean,
-): Promise<MobileSession | null> {
+async function parseStoredSession(stored: string): Promise<MobileSession | null> {
   let value: unknown;
   try {
     value = JSON.parse(stored) as unknown;
   } catch {
-    await deleteBestEffort(
-      protectedSession ? PROTECTED_SESSION_KEY : SESSION_KEY,
-      protectedSession ? PROTECTED_STORE_OPTIONS : STORE_OPTIONS,
-    );
+    await deleteBestEffort(PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS);
     return null;
   }
 
   if (!isEligibleStoredSession(value)) {
-    await deleteBestEffort(
-      protectedSession ? PROTECTED_SESSION_KEY : SESSION_KEY,
-      protectedSession ? PROTECTED_STORE_OPTIONS : STORE_OPTIONS,
-    );
+    await deleteBestEffort(PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS);
     return null;
   }
 
-  if (value.expiresAt === null || !isFutureIsoDate(value.expiresAt)) {
-    await deleteBestEffort(
-      protectedSession ? PROTECTED_SESSION_KEY : SESSION_KEY,
-      protectedSession ? PROTECTED_STORE_OPTIONS : STORE_OPTIONS,
-    );
+  if (value.expiresAt !== null && !isFutureIsoDate(value.expiresAt)) {
+    await deleteBestEffort(PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS);
     await deleteBestEffort(BIOMETRIC_ENABLED_KEY, STORE_OPTIONS);
     throw new StoredSessionExpiredError(value.token);
   }
@@ -249,8 +223,7 @@ function isEligibleStoredSession(value: unknown): value is MobileSession {
 function assertPersistableSession(session: MobileSession): void {
   if (
     !isEligibleStoredSession(session) ||
-    session.expiresAt === null ||
-    !isFutureIsoDate(session.expiresAt)
+    (session.expiresAt !== null && !isFutureIsoDate(session.expiresAt))
   ) {
     throw new SecureSessionStoreError(
       'Only an unexpired server session can be stored securely.',

@@ -2,11 +2,12 @@ import * as SecureStore from 'expo-secure-store';
 
 import {
   BiometricSessionError,
+  clearLegacyMobileSession,
   clearMobileSession,
   disableBiometricUnlock,
-  readMobileSession,
+  hasCompletedMobileLogin,
+  markMobileLoginCompleted,
   readProtectedMobileSession,
-  saveMobileSession,
   saveProtectedMobileSession,
   StoredSessionExpiredError,
 } from '@/features/auth/services/tokenStore';
@@ -22,7 +23,7 @@ jest.mock('expo-secure-store', () => ({
 const SESSION: MobileSession = {
   deviceId: 'installation-uuid',
   token: 'test-session-value',
-  expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString(),
+  expiresAt: null,
   user: {
     uuid: 'server-user-uuid',
     name: 'Field Reporter',
@@ -45,36 +46,44 @@ describe('mobile secure session store', () => {
     mockDelete.mockResolvedValue(undefined);
   });
 
-  it('stores a password session only through unprotected SecureStore', async () => {
-    await saveMobileSession(SESSION);
-    expect(mockSet).toHaveBeenCalledWith(
+  it('clears the legacy unprotected session during cold-start cleanup', async () => {
+    await expect(clearLegacyMobileSession()).resolves.toBe(false);
+
+    expect(mockGet).toHaveBeenCalledWith(
       'caneguard.mobile.session.v1',
+      { keychainAccessible: 'device-only' },
+    );
+    expect(mockDelete).toHaveBeenCalledWith(
+      'caneguard.mobile.session.v1',
+      { keychainAccessible: 'device-only' },
+    );
+  });
+
+  it('keeps login history separate from session credentials', async () => {
+    await expect(hasCompletedMobileLogin()).resolves.toBe(false);
+    mockGet.mockResolvedValueOnce('true');
+    await expect(hasCompletedMobileLogin()).resolves.toBe(true);
+    await markMobileLoginCompleted();
+
+    expect(mockSet).toHaveBeenCalledWith(
+      'caneguard.mobile.login-history.v1',
+      'true',
+      { keychainAccessible: 'device-only' },
+    );
+  });
+
+  it('persists a protected session without a scheduled expiry', async () => {
+    await expect(saveProtectedMobileSession(SESSION)).resolves.toBeUndefined();
+    expect(mockSet).toHaveBeenCalledWith(
+      'caneguard.mobile.session.protected.v1',
       JSON.stringify(SESSION),
       { keychainAccessible: 'device-only' },
     );
   });
 
-  it('restores an unprotected session with its fixed future expiry', async () => {
+  it('rejects and removes an expired protected session', async () => {
     mockGet.mockImplementation(async (key) => {
-      if (key === 'caneguard.mobile.session.v1') {
-        return JSON.stringify(SESSION);
-      }
-      return null;
-    });
-
-    await expect(readMobileSession()).resolves.toEqual(SESSION);
-  });
-
-  it('never persists a session without a fixed future expiry', async () => {
-    await expect(
-      saveMobileSession({ ...SESSION, expiresAt: null }),
-    ).rejects.toThrow('Only an unexpired server session can be stored securely.');
-    expect(mockSet).not.toHaveBeenCalled();
-  });
-
-  it('rejects and removes an expired cached session', async () => {
-    mockGet.mockImplementation(async (key) => {
-      if (key === 'caneguard.mobile.session.v1') {
+      if (key === 'caneguard.mobile.session.protected.v1') {
         return JSON.stringify({
           ...SESSION,
           expiresAt: '2020-01-01T00:00:00.000Z',
@@ -83,29 +92,30 @@ describe('mobile secure session store', () => {
       return null;
     });
 
-    await expect(readMobileSession()).rejects.toBeInstanceOf(StoredSessionExpiredError);
+    await expect(readProtectedMobileSession()).rejects.toBeInstanceOf(
+      StoredSessionExpiredError,
+    );
     expect(mockDelete).toHaveBeenCalledWith(
-      'caneguard.mobile.session.v1',
+      'caneguard.mobile.session.protected.v1',
       { keychainAccessible: 'device-only' },
     );
   });
 
-  it('does not restore malformed or non-field-reporter data', async () => {
-    mockGet.mockImplementation(async (key) => {
-      if (key === 'caneguard.mobile.session.v1') {
-        return JSON.stringify({ ...SESSION, user: { ...SESSION.user, role: 'admin' } });
-      }
-      return null;
+  it('does not restore malformed or non-field-reporter protected data', async () => {
+    mockGet.mockResolvedValueOnce(
+      JSON.stringify({ ...SESSION, user: { ...SESSION.user, role: 'admin' } }),
+    );
+
+    await expect(readProtectedMobileSession()).rejects.toMatchObject({
+      code: 'ENROLLMENT_CHANGED',
     });
-
-    await expect(readMobileSession()).resolves.toBeNull();
     expect(mockDelete).toHaveBeenCalledWith(
-      'caneguard.mobile.session.v1',
+      'caneguard.mobile.session.protected.v1',
       { keychainAccessible: 'device-only' },
     );
   });
 
-  it('stores the biometric-gated cached session in device-only SecureStore', async () => {
+  it('stores the biometric-gated session in device-only SecureStore', async () => {
     await saveProtectedMobileSession(SESSION);
 
     expect(mockSet).toHaveBeenNthCalledWith(
@@ -126,18 +136,10 @@ describe('mobile secure session store', () => {
     );
   });
 
-  it('reads the protected session only after the biometric flag selects it', async () => {
-    mockGet.mockImplementation(async (key) => {
-      if (key === 'caneguard.mobile.biometric-enabled.v1') {
-        return 'true';
-      }
-      if (key === 'caneguard.mobile.session.protected.v1') {
-        return JSON.stringify(SESSION);
-      }
-      return null;
-    });
+  it('reads a protected session without a scheduled expiry after biometric authentication', async () => {
+    mockGet.mockResolvedValueOnce(JSON.stringify(SESSION));
 
-    await expect(readMobileSession()).resolves.toEqual(SESSION);
+    await expect(readProtectedMobileSession()).resolves.toEqual(SESSION);
     expect(mockGet).toHaveBeenCalledWith(
       'caneguard.mobile.session.protected.v1',
       { keychainAccessible: 'device-only' },

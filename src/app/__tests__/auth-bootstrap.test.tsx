@@ -1,29 +1,17 @@
-import { act, render, screen } from '@testing-library/react-native';
+import { renderHook, waitFor } from '@testing-library/react-native';
+import type { PropsWithChildren } from 'react';
 
-import HomeScreen from '@/app/home';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { AuthProvider } from '@/features/auth/providers/AuthProvider';
-import { DEFAULT_API_TIMEOUT_MS } from '@/features/shared/api/apiClient';
-import type { MobileSession } from '@/features/auth/types';
 
 const fetchMock = jest.fn();
 
-const mockSession: MobileSession = {
-  deviceId: 'installation-uuid',
-  token: 'test-session-value',
-  expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString(),
-  user: {
-    uuid: 'user-uuid',
-    name: 'Field Reporter',
-    email: 'field@caneguard.test',
-    role: 'field_reporter',
-  },
-};
-
 jest.mock('@/features/auth/services/tokenStore', () => ({
+  clearLegacyMobileSession: jest.fn(async () => false),
   clearMobileSession: jest.fn(async () => undefined),
-  readMobileSession: jest.fn(async () => mockSession),
-  saveMobileSession: jest.fn(async () => undefined),
+  hasCompletedMobileLogin: jest.fn(async () => false),
+  isBiometricUnlockEnabled: jest.fn(async () => false),
+  markMobileLoginCompleted: jest.fn(async () => undefined),
 }));
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({
@@ -38,9 +26,8 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
   }),
 }));
 
-function AuthenticatedHomeRoute() {
-  const { status } = useAuth();
-  return status === 'authenticated' ? <HomeScreen /> : null;
+function wrapper({ children }: PropsWithChildren) {
+  return <AuthProvider>{children}</AuthProvider>;
 }
 
 describe('cached session bootstrap', () => {
@@ -53,40 +40,12 @@ describe('cached session bootstrap', () => {
     jest.clearAllMocks();
   });
 
-  it('renders Home and then exposes server unavailability when verification times out', async () => {
-    jest.useFakeTimers();
-    fetchMock.mockImplementationOnce(
-      () => new Promise<Response>(() => undefined),
-    );
+  it('does not restore a cached password session on cold start', async () => {
+    const { result } = await renderHook(() => useAuth(), { wrapper });
 
-    await act(async () => {
-      render(
-        <AuthProvider>
-          <AuthenticatedHomeRoute />
-        </AuthProvider>,
-      );
-      await Promise.resolve();
-      await Promise.resolve();
-    });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      'http://127.0.0.1:8000/api/v1/mobile/auth/me',
-      expect.objectContaining({
-        signal: expect.any(AbortSignal),
-      }),
-    );
-    expect(screen.getByTestId('home.screen')).toBeOnTheScreen();
-
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(DEFAULT_API_TIMEOUT_MS);
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(screen.getByTestId('home.connection-status')).toHaveProp(
-      'accessibilityLabel',
-      'Server unavailable',
-    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.session).toBeNull();
   });
 });

@@ -70,8 +70,7 @@ export function parseMobileSessionResponse(
     token.trim() === '' ||
     typeof tokenType !== 'string' ||
     tokenType.toLowerCase() !== 'bearer' ||
-    typeof expiresAt !== 'string' ||
-    !isFutureIsoDate(expiresAt) ||
+    !isValidSessionExpiry(expiresAt) ||
     !isMobileUser(value.user)
   ) {
     throw invalidResponseError();
@@ -562,6 +561,10 @@ function isRegistrationUser(
 function isFutureIsoDate(value: string): boolean {
   const timestamp = Date.parse(value);
   return Number.isFinite(timestamp) && timestamp > Date.now();
+}
+
+function isValidSessionExpiry(value: unknown): value is string | null {
+  return value === null || (typeof value === 'string' && isFutureIsoDate(value));
 }
 
 function normalizeOptionalDeviceId(value: string | undefined): string | undefined {

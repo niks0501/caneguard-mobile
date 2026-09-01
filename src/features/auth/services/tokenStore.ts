@@ -9,10 +9,12 @@ const BIOMETRIC_ENABLED_KEY = 'caneguard.mobile.biometric-enabled.v1';
 const STORE_OPTIONS: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
 };
+// AuthProvider performs the single explicit biometric or device-credential
+// gate before protected session restore and biometric enablement. SecureStore's
+// requireAuthentication option would start a second Android prompt and cannot
+// share the device-credential fallback from expo-local-authentication.
 const PROTECTED_STORE_OPTIONS: SecureStore.SecureStoreOptions = {
   ...STORE_OPTIONS,
-  requireAuthentication: true,
-  authenticationPrompt: 'Unlock CaneGuard to resume your field session.',
 };
 
 export class StoredSessionExpiredError extends Error {

@@ -1,6 +1,7 @@
 # T03 evidence
 
-- Overall result: `PASS_WITH_GAPS`
+- Overall result: `PASS_WITH_GAPS` for the historical automated record.
+- Acceptance closure: `CLOSED` through a captain-reported manual result.
 - Behavior/flow: Direct Scan -> guided symptom observation -> Report to Office -> prefilled Field Report Draft -> four operational entries -> automatic GPS -> local finalization.
 - Timestamp and timezone: 2026-08-28, Asia/Manila.
 - Branch: `fm/cg-t03`
@@ -28,7 +29,15 @@
 | PASS_WITH_GAPS | `npm run e2e:flow -- .maestro/p0/10-direct-result-to-report.yaml` | `/home/aki/.maestro/tests/2026-08-28_183738` completed the direct result-to-report path through local finalization with inherited evidence, Batangas/Nasugbu context, farm reference, affected values, GPS location, and finalized pending state. |
 | GAP | Direct API synchronization in the same flow | The provided local API returned HTTP 500 while persisting the valid report because its database has three pending migrations: notifications, lifecycle dimensions, and review actions/audits. The flow therefore remained `Waiting to sync`; no API migration was run from this mobile worktree. |
 
+## Closure update
+
+The captain later reported the optional P0 direct-report flow as `PASS` on physical Android phone `AYAUFIN76LEYR46X` after the earlier gap.
+
+This is a manual closure report, not a new Maestro rerun.
+
+The closure report did not include a new command or artifact path, so the historical automated result remains labeled `PASS_WITH_GAPS` above.
+
 ## Limitations and follow-up
 
-- Re-run the permanent flow after the local Web/API database is migrated, then confirm `Finalized · Synced` and the resulting Web case queue entry.
+- The historical automated run and its failure artifacts remain part of this record for traceability.
 - Existing P0/P2 flows cover manual-map fallback and report retry behavior; this T03 flow intentionally uses the automatic GPS path to keep direct reporting minimum effort.

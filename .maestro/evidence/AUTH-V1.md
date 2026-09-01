@@ -1,8 +1,24 @@
 # Auth v1 Android evidence
 
-Outcome: `PASS_WITH_GAPS`.
+Outcome: `PASS_WITH_GAPS` for the automated emulator evidence.
+
+Acceptance closure: `CLOSED` through the captain-reported physical-device manual checks below.
 
 This record covers the Android follow-up for Mobile PR #61 against the local Web/API implementation from Web PR #77.
+
+## Acceptance closure
+
+Captain reported the physical enrolled-biometric enable and relaunch checks as passing on Android phone `AYAUFIN76LEYR46X` on 2026-09-01, with one native prompt for each check.
+
+Captain also reported the optional P0 direct-report flow as passing after the earlier automated gap.
+
+These are manual closure reports, not new automated reruns.
+
+The closure report did not provide a new CLI command or artifact path, so this record does not claim automated evidence for those interactions.
+
+The emulator automated evidence below remains capability-only because that emulator has no enrolled biometric.
+
+No automated biometric rejection, cancellation, or device-credential fallback pass is claimed here.
 
 ## Code and runtime
 
@@ -118,26 +134,36 @@ Login and logout controls received stable test IDs for executable Maestro covera
 
 The executable auth-v1 flow set covers login, logout, expiry, registration, verification, recovery, reset, role enforcement, offline preservation, and biometric capability.
 
-## Remaining gaps
+The approved follow-up implementation coalesces in-flight biometric prompts for startup, enable, and manual unlock while keeping password sign-in available after cancellation.
 
-The existing P0 direct-report flow reached the authenticated report form, finalized a local report, displayed `Synced`, and displayed a server report UUID during its first run, but its command failed on a stale synchronization-status assertion.
+Explicit logout still clears the cached session and biometric flag.
+
+## Prior automated gaps and closure
+
+The prior automated P0 direct-report run reached the authenticated report form, finalized a local report, displayed `Synced`, and displayed a server report UUID during its first run, but its command failed on a stale synchronization-status assertion.
 
 That assertion was corrected to match the current UI copy.
 
-A rerun then hit a Maestro 2.9 Android driver `inputText` timeout while editing the report form, so that optional P0 flow is not counted as a clean pass here.
+A rerun then hit a Maestro 2.9 Android driver `inputText` timeout while editing the report form.
+
+The later captain-reported manual P0 direct-report result is `PASS` and closes that optional gap.
+
+The manual result does not replace the prior automated failure record and no new automated rerun is claimed.
 
 The auth-v1 flow itself verifies the authenticated report boundary by entering the scan workflow and never exposes it without a field-reporter session.
 
 The complete auth-v1 directory was not run as one batch because the expiry, browser handoff, and offline flows require ordered private preconditions and one-time links.
 
+The approved one-prompt implementation is covered by the provider, token-store, and login component checks listed below.
+
 The final implementation checks below passed after the source changes.
 
 ```text
-npm run e2e:doctor       PASS
-npm run lint             PASS
-npm run typecheck        PASS
-npm test -- --runInBand  PASS - 101 suites, 761 tests
-npm run db:check         PASS
-auth flow syntax         PASS - all 11 YAML flows
-git diff --check         PASS
+npm run e2e:doctor                                      PASS
+npm run lint                                            PASS
+npm run typecheck                                       PASS
+npm test -- --runInBand --testPathIgnorePatterns=.inspection-pr61  PASS - 102 suites, 767 tests
+npm run db:check                                       PASS
+auth flow syntax                                        PASS - all 11 YAML flows
+git diff --check                                        PASS
 ```

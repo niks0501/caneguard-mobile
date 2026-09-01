@@ -229,7 +229,10 @@ unset CANEGUARD_FIELD_PASSWORD CANEGUARD_REVIEWER_PASSWORD CANEGUARD_ADMIN_PASSW
 
 The rerun date was 2026-09-01.
 
-The Mobile commit was `f3955f2eedd3159ffc1993000ce0afb53a787067`.
+The Mobile commit for the automated evidence in this section was `f3955f2eedd3159ffc1993000ce0afb53a787067`.
+
+The automated results in this section predate the approved one-prompt follow-up implementation.
+The physical-device closure below is manual evidence for that follow-up implementation.
 
 The selected device was `emulator-5554`, model `sdk_gphone64_x86_64`, Android 14, API 34.
 
@@ -315,7 +318,7 @@ The same full Mobile suite with the inspection snapshot explicitly excluded pass
 
 ```text
 npm test -- --runInBand --testPathIgnorePatterns=.inspection-pr61  PASS
-101 suites, 761 tests
+102 suites, 767 tests
 ```
 
 The complete auth-v1 folder was not rerun as one batch because its expiry, one-time browser handoff, and airplane-mode flows require ordered state and private values.
@@ -361,6 +364,30 @@ After enrollment, rerun flow 11 or navigate manually to Account & security.
 Only continue to native prompt testing when the app says `A strong platform biometric is available for this installation.`
 
 If the Settings wizard or virtual sensor is unavailable on another emulator, use an emulator with an enrolled strong biometric or an enrolled physical Android device instead.
+
+## Captain-reported physical-device closure
+
+On 2026-09-01, the captain manually tested the approved follow-up implementation on physical Android phone `AYAUFIN76LEYR46X`.
+
+The `Enable biometric unlock` action produced one native biometric prompt and the enable action completed successfully.
+
+Relaunching the app without explicit logout produced one native biometric prompt and the cached-session unlock completed successfully.
+
+This closes the physical enable and relaunch checks as manual `PASS` results.
+
+These results are not a new automated Maestro rerun.
+
+The closure report did not provide a new CLI command, screenshot, or artifact path, so no automated prompt result is claimed for the physical phone.
+
+The emulator result above remains capability-only because its biometric enrollment state is `null` with zero enrolled fingerprints.
+
+The manual report did not cover biometric rejection, cancellation, or device-credential fallback.
+
+Those scenarios remain unexecuted here and must be recorded separately when run on an enrolled emulator or physical device.
+
+Explicit logout remains the separate session-clearing path described below.
+
+No biometric-after-logout behavior is part of this PR #61 closure.
 
 ## Manual equivalent: biometric success
 

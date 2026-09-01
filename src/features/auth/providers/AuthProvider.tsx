@@ -37,6 +37,7 @@ import {
 } from '@/features/auth/services/tokenStore';
 import type {
   AuthStatus,
+  BiometricAuthResult,
   BiometricCapability,
   EmailChangeInput,
   MobileSession,
@@ -83,10 +84,36 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [biometricLoading, setBiometricLoading] = useState(false);
   const verificationGeneration = useRef(0);
   const sessionRef = useRef<MobileSession | null>(null);
+  const biometricPromptRef = useRef<Promise<BiometricAuthResult> | null>(null);
+  const biometricEnableRef = useRef<Promise<boolean> | null>(null);
+  const biometricUnlockRef = useRef<Promise<boolean> | null>(null);
 
   const setCurrentSession = useCallback((nextSession: MobileSession | null) => {
     sessionRef.current = nextSession;
     setSession(nextSession);
+  }, []);
+
+  const authenticateBiometricOnce = useCallback((): Promise<BiometricAuthResult> => {
+    const inFlight = biometricPromptRef.current;
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const pending = authenticateWithBiometrics();
+    biometricPromptRef.current = pending;
+    void pending.then(
+      () => {
+        if (biometricPromptRef.current === pending) {
+          biometricPromptRef.current = null;
+        }
+      },
+      () => {
+        if (biometricPromptRef.current === pending) {
+          biometricPromptRef.current = null;
+        }
+      },
+    );
+    return pending;
   }, []);
 
   const clearLocalSession = useCallback(
@@ -207,12 +234,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       let stored: MobileSession | null;
       if (configured) {
-        const unlock = await authenticateWithBiometrics();
+        const unlock = await authenticateBiometricOnce();
         if (!isCurrent()) {
           return;
         }
         if (!unlock.success) {
-          if (unlock.code === 'NOT_ENROLLED') {
+          if (shouldDisableBiometricUnlock(unlock)) {
             if (typeof disableBiometricUnlock === 'function') {
               await disableBiometricUnlock().catch(() => undefined);
             }
@@ -273,7 +300,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       active = false;
     };
-  }, [setCurrentSession, verifyAndHydrateSession]);
+  }, [authenticateBiometricOnce, setCurrentSession, verifyAndHydrateSession]);
 
   useEffect(() => {
     let active = true;
@@ -353,94 +380,138 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [setCurrentSession],
   );
 
-  const unlockWithBiometrics = useCallback(async () => {
-    verificationGeneration.current += 1;
-    const generation = verificationGeneration.current;
-    setBiometricLoading(true);
-    setErrorMessage(null);
-    try {
-      if (
-        typeof isBiometricUnlockEnabled !== 'function' ||
-        !(await isBiometricUnlockEnabled())
-      ) {
-        setErrorMessage('Biometric unlock is not set up. Sign in with your password.');
-        return false;
-      }
-      const unlock = await authenticateWithBiometrics();
-      if (!unlock.success) {
-        if (unlock.code === 'NOT_ENROLLED') {
-          if (typeof disableBiometricUnlock === 'function') {
-            await disableBiometricUnlock().catch(() => undefined);
-          }
-          setBiometricEnabled(false);
-        }
-        setErrorMessage(unlock.message);
-        return false;
-      }
-      const stored = await readProtectedMobileSession();
-      if (!stored) {
-        setBiometricEnabled(false);
-        setErrorMessage('Biometric unlock is unavailable. Sign in with your password.');
-        return false;
-      }
-      setBiometricEnabled(true);
-      return await verifyAndHydrateSession(
-        stored,
-        true,
-        () => generation === verificationGeneration.current,
-      );
-    } catch (error: unknown) {
-      if (isStoredSessionExpiredError(error)) {
-        await clearMobileSession().catch(() => undefined);
-        setBiometricEnabled(false);
-        setCurrentSession(null);
-        setStatus('unauthenticated');
-        setSessionVerification('idle');
-        setErrorMessage('Your session expired. Sign in to resume pending uploads.');
-        if (error.token) {
-          void logoutMobile(error.token).catch(() => undefined);
-        }
-      } else if (isBiometricSessionError(error)) {
-        if (error.code === 'ENROLLMENT_CHANGED') {
-          setBiometricEnabled(false);
-        }
-        setErrorMessage(error.message);
-      } else {
-        setErrorMessage('Biometric unlock is unavailable. Sign in with your password.');
-      }
-      return false;
-    } finally {
-      setBiometricLoading(false);
+  const unlockWithBiometrics = useCallback((): Promise<boolean> => {
+    const inFlight = biometricUnlockRef.current;
+    if (inFlight) {
+      return inFlight;
     }
-  }, [setCurrentSession, verifyAndHydrateSession]);
 
-  const enableBiometricUnlock = useCallback(async () => {
-    const activeSession = sessionRef.current;
-    if (!activeSession) {
-      setErrorMessage('Sign in with your password before enabling biometric unlock.');
-      return false;
+    const operation = (async () => {
+      verificationGeneration.current += 1;
+      const generation = verificationGeneration.current;
+      setBiometricLoading(true);
+      setErrorMessage(null);
+      try {
+        if (
+          typeof isBiometricUnlockEnabled !== 'function' ||
+          !(await isBiometricUnlockEnabled())
+        ) {
+          setErrorMessage('Biometric unlock is not set up. Sign in with your password.');
+          return false;
+        }
+        const unlock = await authenticateBiometricOnce();
+        if (!unlock.success) {
+          if (shouldDisableBiometricUnlock(unlock)) {
+            if (typeof disableBiometricUnlock === 'function') {
+              await disableBiometricUnlock().catch(() => undefined);
+            }
+            setBiometricEnabled(false);
+          }
+          setErrorMessage(unlock.message);
+          return false;
+        }
+        const stored = await readProtectedMobileSession();
+        if (!stored) {
+          setBiometricEnabled(false);
+          setErrorMessage('Biometric unlock is unavailable. Sign in with your password.');
+          return false;
+        }
+        setBiometricEnabled(true);
+        return await verifyAndHydrateSession(
+          stored,
+          true,
+          () => generation === verificationGeneration.current,
+        );
+      } catch (error: unknown) {
+        if (isStoredSessionExpiredError(error)) {
+          await clearMobileSession().catch(() => undefined);
+          setBiometricEnabled(false);
+          setCurrentSession(null);
+          setStatus('unauthenticated');
+          setSessionVerification('idle');
+          setErrorMessage('Your session expired. Sign in to resume pending uploads.');
+          if (error.token) {
+            void logoutMobile(error.token).catch(() => undefined);
+          }
+        } else if (isBiometricSessionError(error)) {
+          if (error.code === 'ENROLLMENT_CHANGED') {
+            setBiometricEnabled(false);
+          }
+          setErrorMessage(error.message);
+        } else {
+          setErrorMessage('Biometric unlock is unavailable. Sign in with your password.');
+        }
+        return false;
+      } finally {
+        setBiometricLoading(false);
+      }
+    })();
+
+    biometricUnlockRef.current = operation;
+    void operation.then(
+      () => {
+        if (biometricUnlockRef.current === operation) {
+          biometricUnlockRef.current = null;
+        }
+      },
+      () => {
+        if (biometricUnlockRef.current === operation) {
+          biometricUnlockRef.current = null;
+        }
+      },
+    );
+    return operation;
+  }, [authenticateBiometricOnce, setCurrentSession, verifyAndHydrateSession]);
+
+  const enableBiometricUnlock = useCallback((): Promise<boolean> => {
+    const inFlight = biometricEnableRef.current;
+    if (inFlight) {
+      return inFlight;
     }
-    setBiometricLoading(true);
-    setErrorMessage(null);
-    try {
-      const unlock = await authenticateWithBiometrics();
-      if (!unlock.success) {
-        setErrorMessage(unlock.message);
+
+    const operation = (async () => {
+      const activeSession = sessionRef.current;
+      if (!activeSession) {
+        setErrorMessage('Sign in with your password before enabling biometric unlock.');
         return false;
       }
-      await saveProtectedMobileSession(activeSession);
-      setBiometricEnabled(true);
+      setBiometricLoading(true);
       setErrorMessage(null);
-      return true;
-    } catch {
-      setErrorMessage(
-        'Biometric unlock could not be enabled. Your password session is still active.',
-      );
-      return false;
-    } finally {
-      setBiometricLoading(false);
-    }
-  }, []);
+      try {
+        const unlock = await authenticateBiometricOnce();
+        if (!unlock.success) {
+          setErrorMessage(unlock.message);
+          return false;
+        }
+        await saveProtectedMobileSession(activeSession);
+        setBiometricEnabled(true);
+        setErrorMessage(null);
+        return true;
+      } catch {
+        setErrorMessage(
+          'Biometric unlock could not be enabled. Your password session is still active.',
+        );
+        return false;
+      } finally {
+        setBiometricLoading(false);
+      }
+    })();
+
+    biometricEnableRef.current = operation;
+    void operation.then(
+      () => {
+        if (biometricEnableRef.current === operation) {
+          biometricEnableRef.current = null;
+        }
+      },
+      () => {
+        if (biometricEnableRef.current === operation) {
+          biometricEnableRef.current = null;
+        }
+      },
+    );
+    return operation;
+  }, [authenticateBiometricOnce]);
 
   const clearSessionAfterRemoteRevocation = useCallback(
     () => clearLocalSession(null),
@@ -647,6 +718,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+function shouldDisableBiometricUnlock(unlock: BiometricAuthResult): boolean {
+  return (
+    !unlock.success &&
+    (unlock.code === 'NOT_AVAILABLE' || unlock.code === 'NOT_ENROLLED')
+  );
 }
 
 function isAuthoritativeSessionRejection(error: unknown): boolean {

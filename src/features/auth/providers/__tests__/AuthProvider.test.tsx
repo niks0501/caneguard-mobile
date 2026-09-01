@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import { StrictMode, type PropsWithChildren } from 'react';
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 
 import {
@@ -96,6 +96,14 @@ const SESSION: MobileSession = {
 
 function wrapper({ children }: PropsWithChildren) {
   return <AuthProvider>{children}</AuthProvider>;
+}
+
+function strictWrapper({ children }: PropsWithChildren) {
+  return (
+    <StrictMode>
+      <AuthProvider>{children}</AuthProvider>
+    </StrictMode>
+  );
 }
 
 function AuthenticatedHomeRoute() {
@@ -362,6 +370,99 @@ describe('AuthProvider', () => {
     expect(result.current.session).toBeNull();
     expect(mockClear).toHaveBeenCalled();
     expect(mockLogout).toHaveBeenCalledWith(expiringSession.token);
+  });
+
+  it('runs the automatic biometric startup prompt once and keeps the manual fallback configured after cancellation', async () => {
+    mockBiometricEnabled.mockResolvedValue(true);
+    let resolveBiometric!: (value: {
+      code: 'CANCELLED';
+      message: string;
+      success: false;
+    }) => void;
+    mockBiometricAuth.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveBiometric = resolve;
+      }),
+    );
+
+    const { result } = await renderHook(() => useAuth(), {
+      wrapper: strictWrapper,
+    });
+    await waitFor(() => expect(mockBiometricAuth).toHaveBeenCalledTimes(1));
+
+    resolveBiometric({
+      code: 'CANCELLED',
+      message: 'Cancelled',
+      success: false,
+    });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+
+    expect(mockBiometricAuth).toHaveBeenCalledTimes(1);
+    expect(result.current.biometricEnabled).toBe(true);
+  });
+
+  it('uses one biometric prompt and one protected write for one enable action', async () => {
+    mockLogin.mockResolvedValueOnce(SESSION);
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+
+    await act(async () => {
+      await expect(
+        result.current.login('field@caneguard.test', 'password'),
+      ).resolves.toBe(true);
+    });
+
+    let resolveBiometric!: (value: { success: true }) => void;
+    mockBiometricAuth.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveBiometric = resolve;
+      }),
+    );
+
+    let firstEnable!: Promise<boolean>;
+    let secondEnable!: Promise<boolean>;
+    await act(async () => {
+      firstEnable = result.current.enableBiometricUnlock();
+      secondEnable = result.current.enableBiometricUnlock();
+      resolveBiometric({ success: true });
+      await expect(Promise.all([firstEnable, secondEnable])).resolves.toEqual([
+        true,
+        true,
+      ]);
+    });
+
+    expect(mockBiometricAuth).toHaveBeenCalledTimes(1);
+    expect(mockSaveProtected).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses one biometric prompt and one protected read for one manual unlock action', async () => {
+    mockBiometricEnabled.mockResolvedValue(true);
+    mockBiometricAuth.mockResolvedValueOnce({
+      code: 'CANCELLED',
+      message: 'Cancelled',
+      success: false,
+    });
+
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+
+    mockBiometricAuth.mockResolvedValueOnce({ success: true });
+    mockReadProtected.mockResolvedValueOnce(SESSION);
+    mockVerify.mockResolvedValueOnce(SESSION.user);
+
+    let firstUnlock!: Promise<boolean>;
+    let secondUnlock!: Promise<boolean>;
+    await act(async () => {
+      firstUnlock = result.current.unlockWithBiometrics();
+      secondUnlock = result.current.unlockWithBiometrics();
+      await expect(Promise.all([firstUnlock, secondUnlock])).resolves.toEqual([
+        true,
+        true,
+      ]);
+    });
+
+    expect(mockBiometricAuth).toHaveBeenCalledTimes(2);
+    expect(mockReadProtected).toHaveBeenCalledTimes(1);
   });
 
   it('keeps password login available after biometric cancellation', async () => {

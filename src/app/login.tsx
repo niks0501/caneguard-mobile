@@ -81,7 +81,7 @@ export default function LoginScreen() {
                 onPress={() => void unlockWithBiometrics()}
                 disabled={submitting || biometricLoading}
                 leadingIcon="shield"
-                accessibilityLabel="Unlock CaneGuard with biometrics">
+                accessibilityLabel="Unlock with biometrics">
                 {biometricLoading ? 'Unlocking...' : 'Unlock with biometrics'}
               </AppButton>
             ) : null}

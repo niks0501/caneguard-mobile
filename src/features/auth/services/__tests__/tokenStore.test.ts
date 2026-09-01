@@ -105,18 +105,14 @@ describe('mobile secure session store', () => {
     );
   });
 
-  it('protects the cached session behind SecureStore authentication when enabled', async () => {
+  it('stores the biometric-gated cached session in device-only SecureStore', async () => {
     await saveProtectedMobileSession(SESSION);
 
     expect(mockSet).toHaveBeenNthCalledWith(
       1,
       'caneguard.mobile.session.protected.v1',
       JSON.stringify(SESSION),
-      {
-        keychainAccessible: 'device-only',
-        requireAuthentication: true,
-        authenticationPrompt: 'Unlock CaneGuard to resume your field session.',
-      },
+      { keychainAccessible: 'device-only' },
     );
     expect(mockSet).toHaveBeenNthCalledWith(
       2,
@@ -144,11 +140,7 @@ describe('mobile secure session store', () => {
     await expect(readMobileSession()).resolves.toEqual(SESSION);
     expect(mockGet).toHaveBeenCalledWith(
       'caneguard.mobile.session.protected.v1',
-      {
-        keychainAccessible: 'device-only',
-        requireAuthentication: true,
-        authenticationPrompt: 'Unlock CaneGuard to resume your field session.',
-      },
+      { keychainAccessible: 'device-only' },
     );
   });
 
@@ -171,11 +163,7 @@ describe('mobile secure session store', () => {
     expect(mockDelete).toHaveBeenCalledTimes(3);
     expect(mockDelete).toHaveBeenCalledWith(
       'caneguard.mobile.session.protected.v1',
-      {
-        keychainAccessible: 'device-only',
-        requireAuthentication: true,
-        authenticationPrompt: 'Unlock CaneGuard to resume your field session.',
-      },
+      { keychainAccessible: 'device-only' },
     );
 
     await disableBiometricUnlock();

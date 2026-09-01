@@ -119,7 +119,8 @@ The client does not refresh or extend sessions, including when a protected sessi
 A fresh password login is required after expiry.
 
 The session is stored with Expo SecureStore and restored when the application starts.
-Optional biometric unlock stores the session under a separate `requireAuthentication` SecureStore key and preserves the server expiry.
+Optional biometric unlock stores the session under a separate device-only SecureStore key and preserves the server expiry.
+The AuthProvider performs one explicit strong biometric or device-credential prompt before restoring or enabling that cached session, avoiding a second SecureStore prompt on Android.
 The client persists a random opaque installation UUID in SecureStore for API device identity; it does not use immutable hardware identifiers.
 Logout, expiry, reset, and authoritative server rejection clear all session and protected biometric entries without deleting local scan or report data.
 

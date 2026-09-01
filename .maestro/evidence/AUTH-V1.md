@@ -83,8 +83,9 @@ Never put account values or one-time links in a flow file or evidence record.
 - `10-offline-session-and-local-report.yaml`: PASS.
   With airplane mode enabled, the cached field-reporter session restored locally, the home status showed `Offline`, the checked-in fixture produced a Rust result, and the scan was saved on the device without API access.
 
-- `11-biometric-or-device-credential-fallback.yaml`: PASS.
+- `11-biometric-or-device-credential-fallback.yaml`: PASS_WITH_GAPS (capability-only).
   The capability branch was verified and the Account & security surface remained available.
+  The emulator had no enrolled biometric, so no native biometric prompt or device-credential fallback was exercised.
 
 - Authenticated relaunch probe: PASS.
   An authenticated app relaunch now selects Home instead of the unprotected recovery route.

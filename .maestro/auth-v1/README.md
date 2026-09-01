@@ -105,3 +105,5 @@ maestro test --device <device> -e AUTH_EMAIL=... -e AUTH_PASSWORD=... .maestro/a
 Run the full auth folder only after each preconditioned segment has passed.
 The expiry, deep-link, and offline flows intentionally require the ordered setup above and should not be treated as independent tests.
 The executable evidence report is `.maestro/evidence/AUTH-V1.md`.
+
+The self-contained manual-equivalent checklist is [MANUAL-EQUIVALENT-TESTING.md](MANUAL-EQUIVALENT-TESTING.md).

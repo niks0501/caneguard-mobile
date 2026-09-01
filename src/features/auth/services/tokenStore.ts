@@ -197,7 +197,7 @@ async function parseStoredSession(stored: string): Promise<MobileSession | null>
     return null;
   }
 
-  if (value.expiresAt === null || !isFutureIsoDate(value.expiresAt)) {
+  if (value.expiresAt !== null && !isFutureIsoDate(value.expiresAt)) {
     await deleteBestEffort(PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS);
     await deleteBestEffort(BIOMETRIC_ENABLED_KEY, STORE_OPTIONS);
     throw new StoredSessionExpiredError(value.token);
@@ -223,8 +223,7 @@ function isEligibleStoredSession(value: unknown): value is MobileSession {
 function assertPersistableSession(session: MobileSession): void {
   if (
     !isEligibleStoredSession(session) ||
-    session.expiresAt === null ||
-    !isFutureIsoDate(session.expiresAt)
+    (session.expiresAt !== null && !isFutureIsoDate(session.expiresAt))
   ) {
     throw new SecureSessionStoreError(
       'Only an unexpired server session can be stored securely.',

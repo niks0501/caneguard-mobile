@@ -20,7 +20,7 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
 
 const SESSION = {
   deviceId: 'installation-uuid',
-  expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString(),
+  expiresAt: null,
   token: 'test-session-value',
   user: {
     email: 'reporter@example.test',
@@ -73,6 +73,16 @@ describe('AccountSecurityScreen', () => {
       unlockWithBiometrics: jest.fn(async () => true),
       user: SESSION.user,
     });
+  });
+
+  it('describes a session without a scheduled expiry', async () => {
+    await render(<AccountSecurityScreen />);
+
+    expect(
+      screen.getByText(
+        'Server session has no scheduled expiry. It remains valid until logout or server-side revocation.',
+      ),
+    ).toBeOnTheScreen();
   });
 
   it('routes password changes through the authenticated step-up provider', async () => {

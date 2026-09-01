@@ -332,10 +332,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       return;
     }
     if (expiresAt === null) {
-      const timer = setTimeout(() => {
-        void markSessionExpired();
-      }, 0);
-      return () => clearTimeout(timer);
+      return;
     }
     const remaining = Date.parse(expiresAt) - Date.now();
     const timer = setTimeout(() => {

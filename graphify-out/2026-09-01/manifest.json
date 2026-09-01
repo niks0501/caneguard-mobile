@@ -750,21 +750,21 @@
     "semantic_hash": ""
   },
   "src/features/auth/providers/AuthProvider.tsx": {
-    "mtime": 1788269395.7717164,
-    "seen": 1788269437.507376,
-    "ast_hash": "d5ac7f5a1a3d2c5a9206a5ec8e2ac123",
+    "mtime": 1788269777.0597928,
+    "seen": 1788269835.2642095,
+    "ast_hash": "ad50397fd119024a8e78a81b42a94ec3",
     "semantic_hash": ""
   },
   "src/features/auth/providers/__tests__/AuthProvider.test.tsx": {
-    "mtime": 1788269210.8331134,
-    "seen": 1788269437.5073764,
-    "ast_hash": "31ea5020af0296f5b309ab42e55f73ff",
+    "mtime": 1788269786.029826,
+    "seen": 1788269835.264211,
+    "ast_hash": "62de63ebc639420daaa8aa19d67960a7",
     "semantic_hash": ""
   },
   "src/features/auth/services/__tests__/tokenStore.test.ts": {
-    "mtime": 1788269228.1544967,
-    "seen": 1788269437.507379,
-    "ast_hash": "137b8e01e5b15d25be8cea455f9c58b1",
+    "mtime": 1788269633.975972,
+    "seen": 1788269685.2239017,
+    "ast_hash": "ebb8d64d0486ee8af017cef39fae4747",
     "semantic_hash": ""
   },
   "src/features/auth/services/tokenStore.ts": {
@@ -1608,9 +1608,9 @@
     "semantic_hash": ""
   },
   "src/features/auth/services/__tests__/biometricAuth.test.ts": {
-    "mtime": 1788175110.5009782,
-    "seen": 1788269437.5073774,
-    "ast_hash": "a7fe0becd39ddddff773ba99a9c0256b",
+    "mtime": 1788269627.0136018,
+    "seen": 1788269685.2239,
+    "ast_hash": "7a8a19c0ff5c9bcb888183943f14f34d",
     "semantic_hash": ""
   },
   "src/features/auth/services/__tests__/deviceIdentity.test.ts": {
@@ -1620,9 +1620,9 @@
     "semantic_hash": ""
   },
   "src/features/auth/services/biometricAuth.ts": {
-    "mtime": 1788174289.9770877,
-    "seen": 1788269437.5073798,
-    "ast_hash": "546251f2376d9e7baa37f542d3861f47",
+    "mtime": 1788269622.5688665,
+    "seen": 1788269685.2239025,
+    "ast_hash": "705b5323e7bf6b6d00fd063446e6e8cf",
     "semantic_hash": ""
   },
   "src/features/auth/services/deviceIdentity.ts": {
@@ -1635,6 +1635,12 @@
     "mtime": 1788267747.8490732,
     "seen": 1788269437.5072935,
     "ast_hash": "eca123f15db8ecc453dccb2a1eb9a6d3",
+    "semantic_hash": ""
+  },
+  "src/app/__tests__/index.test.tsx": {
+    "mtime": 1788269488.6248155,
+    "seen": 1788269685.223805,
+    "ast_hash": "ded1e3a045de13eba4ee1b3a59b98ff5",
     "semantic_hash": ""
   }
 }

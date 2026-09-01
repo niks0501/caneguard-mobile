@@ -314,6 +314,9 @@ function biometricCapabilityMessage(
 }
 
 function formatExpiry(expiresAt: string | null | undefined): string {
+  if (expiresAt === null) {
+    return 'Server session has no scheduled expiry. It remains valid until logout or server-side revocation.';
+  }
   if (!expiresAt) {
     return 'Session expiry is unavailable. Sign in again to establish a server session.';
   }

@@ -114,9 +114,10 @@ Authentication lives under `src/features/auth/`.
 The mobile client authenticates against the CaneGuard API.
 Only users returned with the `field_reporter` role are accepted for mobile synchronization.
 
-Mobile bearer sessions have a fixed seven-day server expiry.
+Mobile bearer sessions have no automatic server expiry (`expires_at` is `null` for newly issued login and enrollment sessions).
 The client does not refresh or extend sessions, including when a protected session is unlocked biometrically.
-A fresh password login is required after expiry or a process restart without biometric unlock.
+Sessions remain valid until explicit logout, server-side revocation, or an explicitly recorded legacy expiry.
+A fresh password login is required after an explicit expiry or a process restart without biometric unlock.
 
 Password sessions remain in memory only, so removing the app from the recent-apps list cannot silently restore an authenticated session.
 When biometric unlock is enabled, the client stores the session under a separate device-only SecureStore key and requires one explicit strong biometric or device-credential prompt before reading it on each cold start.

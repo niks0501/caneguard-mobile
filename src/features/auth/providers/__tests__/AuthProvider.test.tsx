@@ -87,7 +87,7 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
 const SESSION: MobileSession = {
   deviceId: 'installation-uuid',
   token: 'test-session-value',
-  expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString(),
+  expiresAt: null,
   user: {
     uuid: 'user-uuid',
     name: 'Field Reporter',
@@ -517,7 +517,7 @@ describe('AuthProvider', () => {
     expect(result.current.hasCompletedLogin).toBe(true);
   });
 
-  it('unlocks the protected cached session without changing its expiry', async () => {
+  it('keeps a protected session without a scheduled expiry after biometric unlock', async () => {
     mockBiometricEnabled.mockResolvedValueOnce(true);
     mockBiometricAuth.mockResolvedValueOnce({ success: true });
     mockReadProtected.mockResolvedValueOnce(SESSION);
@@ -526,7 +526,9 @@ describe('AuthProvider', () => {
     const { result } = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.sessionVerification).toBe('verified'));
 
-    expect(result.current.session?.expiresAt).toBe(SESSION.expiresAt);
+    expect(result.current.status).toBe('authenticated');
+    expect(result.current.session?.expiresAt).toBeNull();
+    expect(mockClear).not.toHaveBeenCalled();
     expect(mockReadProtected).toHaveBeenCalled();
   });
 
@@ -557,7 +559,7 @@ describe('AuthProvider', () => {
     const rotatedSession = {
       ...SESSION,
       token: 'rotated-session-value',
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString(),
+      expiresAt: null,
     };
     mockEnroll.mockResolvedValueOnce(rotatedSession);
 

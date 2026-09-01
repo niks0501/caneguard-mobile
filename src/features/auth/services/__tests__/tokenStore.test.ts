@@ -23,7 +23,7 @@ jest.mock('expo-secure-store', () => ({
 const SESSION: MobileSession = {
   deviceId: 'installation-uuid',
   token: 'test-session-value',
-  expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString(),
+  expiresAt: null,
   user: {
     uuid: 'server-user-uuid',
     name: 'Field Reporter',
@@ -72,11 +72,13 @@ describe('mobile secure session store', () => {
     );
   });
 
-  it('never persists a protected session without a fixed future expiry', async () => {
-    await expect(
-      saveProtectedMobileSession({ ...SESSION, expiresAt: null }),
-    ).rejects.toThrow('Only an unexpired server session can be stored securely.');
-    expect(mockSet).not.toHaveBeenCalled();
+  it('persists a protected session without a scheduled expiry', async () => {
+    await expect(saveProtectedMobileSession(SESSION)).resolves.toBeUndefined();
+    expect(mockSet).toHaveBeenCalledWith(
+      'caneguard.mobile.session.protected.v1',
+      JSON.stringify(SESSION),
+      { keychainAccessible: 'device-only' },
+    );
   });
 
   it('rejects and removes an expired protected session', async () => {
@@ -134,7 +136,7 @@ describe('mobile secure session store', () => {
     );
   });
 
-  it('reads the protected session after the provider completes biometric authentication', async () => {
+  it('reads a protected session without a scheduled expiry after biometric authentication', async () => {
     mockGet.mockResolvedValueOnce(JSON.stringify(SESSION));
 
     await expect(readProtectedMobileSession()).resolves.toEqual(SESSION);

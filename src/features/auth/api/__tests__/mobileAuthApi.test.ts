@@ -14,7 +14,6 @@ import {
 } from '@/features/auth/api/mobileAuthApi';
 
 const fetchMock = jest.fn();
-const EXPIRES_AT = new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString();
 
 function response(
   status: number,
@@ -47,7 +46,7 @@ const USER = {
 const TOKEN_RESPONSE = {
   token: 'test-session-value',
   token_type: 'Bearer',
-  expires_at: EXPIRES_AT,
+  expires_at: null,
   user: USER,
 };
 
@@ -69,7 +68,7 @@ describe('mobile authentication API', () => {
       }),
     ).resolves.toMatchObject({
       deviceId: 'installation-uuid',
-      expiresAt: EXPIRES_AT,
+      expiresAt: null,
       user: { role: 'field_reporter' },
     });
     expect(fetchMock).toHaveBeenCalledWith(
@@ -86,9 +85,12 @@ describe('mobile authentication API', () => {
     );
   });
 
-  it('rejects a token response without a future fixed expiry', async () => {
+  it('rejects a token response with an explicit expired expiry', async () => {
     fetchMock.mockResolvedValueOnce(
-      response(200, { ...TOKEN_RESPONSE, expires_at: null }),
+      response(200, {
+        ...TOKEN_RESPONSE,
+        expires_at: '2020-01-01T00:00:00.000Z',
+      }),
     );
 
     await expect(
@@ -326,7 +328,7 @@ describe('mobile authentication API', () => {
       }),
     ).resolves.toMatchObject({
       deviceId: 'new-installation-uuid',
-      expiresAt: EXPIRES_AT,
+      expiresAt: null,
     });
 
     expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(expect.any(Headers));

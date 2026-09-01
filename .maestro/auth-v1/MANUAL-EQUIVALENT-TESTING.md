@@ -12,6 +12,8 @@ The Mobile PR head inspected for this rerun is `fm/cg-auth-mobile-implementation
 
 The current documentation worktree branch is `fm/cg-auth-mobile-bio-manual-20260901`.
 
+The approved one-prompt follow-up implementation and regression coverage are in commit `780d9c8f77fd11bf204d4a291cc8a866e2831d32`.
+
 The existing PR URL is https://github.com/niks0501/caneguard-mobile/pull/61.
 
 The inspected setup references were the Mobile [root README](../../README.md), the [Maestro workspace README](../README.md), the [auth-v1 flow README](README.md), and the Web/API setup sections in the companion Web/API README.

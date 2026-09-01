@@ -184,17 +184,34 @@ async function readResponseBody(response: Response): Promise<unknown> {
 }
 
 function readXsrfToken(setCookie: string | null): string | null {
-  if (!setCookie) {
+  const responseToken = readCookieValue(setCookie);
+  if (responseToken || setCookie !== null) {
+    return responseToken;
+  }
+
+  if (typeof document === 'undefined') {
     return null;
   }
 
-  const match = /XSRF-TOKEN=([^;]+)/i.exec(setCookie);
-  if (!match?.[1]) {
+  return readCookieValue(document.cookie);
+}
+
+function readCookieValue(cookieHeader: string | null | undefined): string | null {
+  if (!cookieHeader) {
+    return null;
+  }
+
+  const cookie = cookieHeader
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.toLowerCase().startsWith('xsrf-token='));
+  const encodedValue = cookie?.slice('XSRF-TOKEN='.length);
+  if (!encodedValue) {
     return null;
   }
 
   try {
-    return decodeURIComponent(match[1]);
+    return decodeURIComponent(encodedValue);
   } catch {
     return null;
   }

@@ -70,6 +70,46 @@ describe('api client', () => {
     ).toBe('csrf-token=');
   });
 
+  it('falls back to the browser cookie when Fetch hides Set-Cookie', async () => {
+    const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+    Object.defineProperty(globalThis, 'document', {
+      configurable: true,
+      value: { cookie: 'XSRF-TOKEN=browser-token%3D; other=value' },
+    });
+
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        headers: new Headers(),
+        text: async () => '',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        headers: new Headers(),
+        text: async () => '{}',
+      });
+
+    try {
+      await apiRequest('/register', {
+        csrf: true,
+        method: 'POST',
+        body: '{}',
+      });
+    } finally {
+      if (originalDocument) {
+        Object.defineProperty(globalThis, 'document', originalDocument);
+      } else {
+        Reflect.deleteProperty(globalThis, 'document');
+      }
+    }
+
+    expect(
+      (fetchMock.mock.calls[1]?.[1]?.headers as Headers).get('X-XSRF-TOKEN'),
+    ).toBe('browser-token=');
+  });
+
   it('settles a request that ignores AbortController at the documented timeout', async () => {
     jest.useFakeTimers();
     fetchMock.mockImplementationOnce(

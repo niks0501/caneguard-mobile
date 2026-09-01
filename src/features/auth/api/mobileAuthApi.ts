@@ -100,10 +100,7 @@ export function parseMobileUser(value: unknown): MobileUser {
     throw invalidResponseError();
   }
   if (value.role !== 'field_reporter') {
-    throw new MobileAuthError(
-      'FORBIDDEN_ROLE',
-      'This account cannot submit mobile field reports.',
-    );
+    throw authError('FORBIDDEN_ROLE');
   }
   return value as unknown as MobileUser;
 }

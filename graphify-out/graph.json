@@ -4868,7 +4868,7 @@
       "file_type": "code",
       "norm_label": "prepareprotectedstartup()",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L174"
+      "source_location": "L182"
     },
     {
       "id": "src_features_auth_providers_tests_authprovider_test_strictwrapper",
@@ -4880,7 +4880,7 @@
       "file_type": "code",
       "norm_label": "strictwrapper()",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L103"
+      "source_location": "L105"
     },
     {
       "id": "src_features_auth_providers_tests_authprovider_test_wrapper",
@@ -4892,7 +4892,7 @@
       "file_type": "code",
       "norm_label": "wrapper()",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L99"
+      "source_location": "L101"
     },
     {
       "id": "src_features_auth_services_tokenstore_assertpersistablesession",
@@ -7976,7 +7976,7 @@
       "file_type": "code",
       "norm_label": "getautherrormessage()",
       "source_file": "src/features/auth/providers/AuthProvider.tsx",
-      "source_location": "L761"
+      "source_location": "L785"
     },
     {
       "id": "src_features_auth_providers_authprovider_isauthoritativesessionrejection",
@@ -7988,7 +7988,7 @@
       "file_type": "code",
       "norm_label": "isauthoritativesessionrejection()",
       "source_file": "src/features/auth/providers/AuthProvider.tsx",
-      "source_location": "L751"
+      "source_location": "L775"
     },
     {
       "id": "src_features_auth_providers_authprovider_isbiometricsessionerror",
@@ -8000,7 +8000,7 @@
       "file_type": "code",
       "norm_label": "isbiometricsessionerror()",
       "source_file": "src/features/auth/providers/AuthProvider.tsx",
-      "source_location": "L778"
+      "source_location": "L802"
     },
     {
       "id": "src_features_auth_providers_authprovider_isnamederror",
@@ -8012,7 +8012,7 @@
       "file_type": "code",
       "norm_label": "isnamederror()",
       "source_file": "src/features/auth/providers/AuthProvider.tsx",
-      "source_location": "L786"
+      "source_location": "L810"
     },
     {
       "id": "src_features_auth_providers_authprovider_isstoredsessionexpirederror",
@@ -8024,7 +8024,7 @@
       "file_type": "code",
       "norm_label": "isstoredsessionexpirederror()",
       "source_file": "src/features/auth/providers/AuthProvider.tsx",
-      "source_location": "L767"
+      "source_location": "L791"
     },
     {
       "id": "src_features_auth_providers_authprovider_shoulddisablebiometricunlock",
@@ -8036,7 +8036,7 @@
       "file_type": "code",
       "norm_label": "shoulddisablebiometricunlock()",
       "source_file": "src/features/auth/providers/AuthProvider.tsx",
-      "source_location": "L744"
+      "source_location": "L768"
     },
     {
       "id": "src_features_assignments_data_fieldvalidationcompletionrepository_countunsyncedfieldvalidationcompletions",
@@ -11468,7 +11468,7 @@
       "file_type": "code",
       "norm_label": "authenticatedhomeroute()",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L111"
+      "source_location": "L113"
     },
     {
       "id": "src_features_records_hooks_tests_userecords_test_record",
@@ -13995,7 +13995,7 @@
       "file_type": "code",
       "norm_label": "session",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L87"
+      "source_location": "L89"
     },
     {
       "id": "src_features_auth_services_tests_tokenstore_test",
@@ -26282,7 +26282,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/auth/providers/AuthProvider.tsx",
-      "source_location": "L782",
+      "source_location": "L806",
       "weight": 1.0
     },
     {
@@ -26294,7 +26294,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/auth/providers/AuthProvider.tsx",
-      "source_location": "L773",
+      "source_location": "L797",
       "weight": 1.0
     },
     {
@@ -26306,7 +26306,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L112",
+      "source_location": "L114",
       "weight": 1.0
     },
     {
@@ -43598,7 +43598,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L12",
+      "source_location": "L13",
       "weight": 1.0
     },
     {
@@ -43610,7 +43610,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L13",
+      "source_location": "L14",
       "weight": 1.0
     },
     {
@@ -43622,7 +43622,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L14",
+      "source_location": "L15",
       "weight": 1.0
     },
     {
@@ -43634,7 +43634,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L15",
+      "source_location": "L16",
       "weight": 1.0
     },
     {
@@ -43646,7 +43646,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L15",
+      "source_location": "L16",
       "weight": 1.0
     },
     {
@@ -43658,7 +43658,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L15",
+      "source_location": "L16",
       "weight": 1.0
     },
     {
@@ -43670,7 +43670,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L15",
+      "source_location": "L16",
       "weight": 1.0
     },
     {
@@ -43682,7 +43682,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L15",
+      "source_location": "L16",
       "weight": 1.0
     },
     {
@@ -43694,7 +43694,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L15",
+      "source_location": "L16",
       "weight": 1.0
     },
     {
@@ -43706,7 +43706,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L15",
+      "source_location": "L16",
       "weight": 1.0
     },
     {
@@ -43718,7 +43718,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L15",
+      "source_location": "L16",
       "weight": 1.0
     },
     {
@@ -43730,7 +43730,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L25",
+      "source_location": "L26",
       "weight": 1.0
     },
     {
@@ -43742,7 +43742,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L26",
+      "source_location": "L27",
       "weight": 1.0
     },
     {
@@ -43754,7 +43754,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L26",
+      "source_location": "L27",
       "weight": 1.0
     },
     {
@@ -43766,12 +43766,24 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L30",
+      "source_location": "L31",
       "weight": 1.0
     },
     {
       "source": "src_features_auth_providers_tests_authprovider_test",
       "target": "src_features_auth_api_mobileauthapi_changepassword",
+      "relation": "imports",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "import",
+      "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "src_features_auth_providers_tests_authprovider_test",
+      "target": "src_features_auth_api_mobileauthapi_disablebiometric",
       "relation": "imports",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -57950,7 +57962,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L12",
+      "source_location": "L13",
       "weight": 1.0
     },
     {
@@ -57962,7 +57974,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L13",
+      "source_location": "L14",
       "weight": 1.0
     },
     {
@@ -57974,7 +57986,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L14",
+      "source_location": "L15",
       "weight": 1.0
     },
     {
@@ -57986,7 +57998,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L15",
+      "source_location": "L16",
       "weight": 1.0
     },
     {
@@ -57998,7 +58010,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L25",
+      "source_location": "L26",
       "weight": 1.0
     },
     {
@@ -58010,7 +58022,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L26",
+      "source_location": "L27",
       "weight": 1.0
     },
     {
@@ -58022,7 +58034,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L30",
+      "source_location": "L31",
       "weight": 1.0
     },
     {
@@ -70216,17 +70228,6 @@
     },
     {
       "source": "src_features_auth_providers_authprovider",
-      "target": "src_features_auth_providers_authprovider_shoulddisablebiometricunlock",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "src/features/auth/providers/AuthProvider.tsx",
-      "source_location": "L744",
-      "weight": 1.0
-    },
-    {
-      "source": "src_features_auth_providers_authprovider",
       "target": "src_features_auth_providers_authprovider_authcontext",
       "relation": "contains",
       "_origin": "ast",
@@ -70238,35 +70239,13 @@
     },
     {
       "source": "src_features_auth_providers_authprovider",
-      "target": "src_features_auth_providers_authprovider_isauthoritativesessionrejection",
+      "target": "src_features_auth_providers_authprovider_shoulddisablebiometricunlock",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/auth/providers/AuthProvider.tsx",
-      "source_location": "L751",
-      "weight": 1.0
-    },
-    {
-      "source": "src_features_auth_providers_authprovider",
-      "target": "src_features_auth_providers_authprovider_getautherrormessage",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "src/features/auth/providers/AuthProvider.tsx",
-      "source_location": "L761",
-      "weight": 1.0
-    },
-    {
-      "source": "src_features_auth_providers_authprovider",
-      "target": "src_features_auth_providers_authprovider_isstoredsessionexpirederror",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "src/features/auth/providers/AuthProvider.tsx",
-      "source_location": "L767",
+      "source_location": "L768",
       "weight": 1.0
     },
     {
@@ -70282,13 +70261,46 @@
     },
     {
       "source": "src_features_auth_providers_authprovider",
+      "target": "src_features_auth_providers_authprovider_isauthoritativesessionrejection",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/features/auth/providers/AuthProvider.tsx",
+      "source_location": "L775",
+      "weight": 1.0
+    },
+    {
+      "source": "src_features_auth_providers_authprovider",
+      "target": "src_features_auth_providers_authprovider_getautherrormessage",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/features/auth/providers/AuthProvider.tsx",
+      "source_location": "L785",
+      "weight": 1.0
+    },
+    {
+      "source": "src_features_auth_providers_authprovider",
+      "target": "src_features_auth_providers_authprovider_isstoredsessionexpirederror",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/features/auth/providers/AuthProvider.tsx",
+      "source_location": "L791",
+      "weight": 1.0
+    },
+    {
+      "source": "src_features_auth_providers_authprovider",
       "target": "src_features_auth_providers_authprovider_isbiometricsessionerror",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/auth/providers/AuthProvider.tsx",
-      "source_location": "L778",
+      "source_location": "L802",
       "weight": 1.0
     },
     {
@@ -70299,51 +70311,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/auth/providers/AuthProvider.tsx",
-      "source_location": "L786",
-      "weight": 1.0
-    },
-    {
-      "source": "src_features_auth_providers_tests_authprovider_test",
-      "target": "src_features_auth_providers_tests_authprovider_test_strictwrapper",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L103",
-      "weight": 1.0
-    },
-    {
-      "source": "src_features_auth_providers_tests_authprovider_test",
-      "target": "src_features_auth_providers_tests_authprovider_test_authenticatedhomeroute",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L111",
-      "weight": 1.0
-    },
-    {
-      "source": "src_features_auth_providers_tests_authprovider_test",
-      "target": "src_features_auth_providers_tests_authprovider_test_prepareprotectedstartup",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L174",
-      "weight": 1.0
-    },
-    {
-      "source": "src_features_auth_providers_tests_authprovider_test",
-      "target": "src_features_auth_providers_tests_authprovider_test_session",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L87",
+      "source_location": "L810",
       "weight": 1.0
     },
     {
@@ -70354,7 +70322,51 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
-      "source_location": "L99",
+      "source_location": "L101",
+      "weight": 1.0
+    },
+    {
+      "source": "src_features_auth_providers_tests_authprovider_test",
+      "target": "src_features_auth_providers_tests_authprovider_test_strictwrapper",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
+      "source_location": "L105",
+      "weight": 1.0
+    },
+    {
+      "source": "src_features_auth_providers_tests_authprovider_test",
+      "target": "src_features_auth_providers_tests_authprovider_test_authenticatedhomeroute",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
+      "source_location": "L113",
+      "weight": 1.0
+    },
+    {
+      "source": "src_features_auth_providers_tests_authprovider_test",
+      "target": "src_features_auth_providers_tests_authprovider_test_prepareprotectedstartup",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
+      "source_location": "L182",
+      "weight": 1.0
+    },
+    {
+      "source": "src_features_auth_providers_tests_authprovider_test",
+      "target": "src_features_auth_providers_tests_authprovider_test_session",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/features/auth/providers/__tests__/AuthProvider.test.tsx",
+      "source_location": "L89",
       "weight": 1.0
     },
     {
@@ -80562,5 +80574,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "3a30449f0b2e3c2626a5b32d81d6c5e7fe67edff"
+  "built_at_commit": "c118641cd2efdcecbb8ec3081a89e4cb209fcd7b"
 }

@@ -124,7 +124,9 @@ When biometric unlock is enabled, the client stores the session under a separate
 A password fallback updates that protected session without disabling the user's biometric preference, and the prompt is deduplicated to avoid a second SecureStore prompt on Android.
 A non-sensitive login-history marker routes returning users to the password form and is never used as authentication material.
 The client persists a random opaque installation UUID in SecureStore for API device identity; it does not use immutable hardware identifiers.
-Logout, expiry, reset, and authoritative server rejection clear all session and protected biometric entries without deleting local scan or report data.
+Explicit logout with biometrics enabled is a local soft logout: it clears the active session while retaining the biometric-gated credential and bearer token for the next cold-start unlock, so it does not call the server logout endpoint.
+When biometrics are disabled, or when a session expires, is reset, or is rejected authoritatively, the client clears all session and protected biometric entries without deleting local scan or report data.
+The retained token remains server-valid after a biometric-enabled logout until password reset, email or role changes, another server revocation path, or biometric disablement revokes it.
 
 ### Synchronization
 

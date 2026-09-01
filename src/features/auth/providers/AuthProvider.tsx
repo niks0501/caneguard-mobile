@@ -592,7 +592,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
       try {
         await disableBiometricApi(activeSession.token, currentPassword);
-        return await clearSessionAfterRemoteRevocation();
+        let remoteRevocationFailed = false;
+        try {
+          // Disabling biometrics removes the retained credential, so revoke the
+          // server token that would otherwise remain usable until its expiry.
+          await logoutMobile(activeSession.token);
+        } catch {
+          remoteRevocationFailed = true;
+        }
+        const cleared = await clearSessionAfterRemoteRevocation();
+        if (remoteRevocationFailed && cleared) {
+          setErrorMessage(
+            'Biometric unlock was disabled on this device, but the server token could not be revoked.',
+          );
+        }
+        return cleared;
       } catch (error: unknown) {
         if (isAuthoritativeSessionRejection(error)) {
           await markSessionExpired();
@@ -655,6 +669,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const logout = useCallback(async () => {
     verificationGeneration.current += 1;
+    if (biometricEnabled) {
+      // A biometric-enabled logout is intentionally a local soft logout. The
+      // protected credential remains available behind the next biometric gate.
+      setCurrentSession(null);
+      setStatus('unauthenticated');
+      setSessionVerification('idle');
+      setErrorMessage(null);
+      return { localClearFailed: false, remoteRevocationFailed: false };
+    }
+
     const token = sessionRef.current?.token;
     let remoteRevocationFailed = false;
     if (token) {
@@ -692,7 +716,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         : null,
     );
     return { localClearFailed: false, remoteRevocationFailed };
-  }, [setCurrentSession]);
+  }, [biometricEnabled, setCurrentSession]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

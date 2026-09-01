@@ -1,48 +1,75 @@
 import {
+  changeEmail,
+  changePassword,
+  disableBiometric,
+  enrollMobileDevice,
   loginMobile,
   logoutMobile,
+  registerMobile,
+  requestPasswordReset,
+  resendVerification,
+  resetPassword,
+  verifyEmail,
   verifyMobileSession,
 } from '@/features/auth/api/mobileAuthApi';
 
 const fetchMock = jest.fn();
+const EXPIRES_AT = new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString();
 
-function response(status: number, body: unknown): Response {
+function response(
+  status: number,
+  body: unknown,
+  headers = new Headers(),
+): Response {
   return {
     ok: status >= 200 && status < 300,
     status,
-    headers: new Headers(),
-    text: jest.fn(async () => JSON.stringify(body)),
+    headers,
+    text: jest.fn(async () => (body === null ? '' : JSON.stringify(body))),
   } as unknown as Response;
 }
+
+function csrfResponse(): Response {
+  return response(
+    204,
+    null,
+    new Headers({ 'set-cookie': 'XSRF-TOKEN=csrf-token%3D; Path=/' }),
+  );
+}
+
+const USER = {
+  uuid: 'user-uuid',
+  name: 'Field Reporter',
+  email: 'field@caneguard.test',
+  role: 'field_reporter' as const,
+};
+
+const TOKEN_RESPONSE = {
+  token: 'test-session-value',
+  token_type: 'Bearer',
+  expires_at: EXPIRES_AT,
+  user: USER,
+};
 
 describe('mobile authentication API', () => {
   beforeEach(() => {
     global.fetch = fetchMock;
+    fetchMock.mockReset();
   });
 
-  it('logs in with the locked mobile contract', async () => {
-    fetchMock.mockResolvedValueOnce(
-      response(200, {
-        token: 'secret-token',
-        token_type: 'Bearer',
-        expires_at: null,
-        user: {
-          uuid: 'user-uuid',
-          name: 'Field Reporter',
-          email: 'field@caneguard.test',
-          role: 'field_reporter',
-        },
-      }),
-    );
+  it('logs in with the locked mobile contract and an opaque device identity', async () => {
+    fetchMock.mockResolvedValueOnce(response(200, TOKEN_RESPONSE));
 
     await expect(
       loginMobile({
+        deviceId: 'installation-uuid',
         email: ' FIELD@caneguard.test ',
         password: 'entered-password',
         deviceName: 'Android test phone',
       }),
     ).resolves.toMatchObject({
-      token: 'secret-token',
+      deviceId: 'installation-uuid',
+      expiresAt: EXPIRES_AT,
       user: { role: 'field_reporter' },
     });
     expect(fetchMock).toHaveBeenCalledWith(
@@ -53,43 +80,85 @@ describe('mobile authentication API', () => {
           email: 'field@caneguard.test',
           password: 'entered-password',
           device_name: 'Android test phone',
+          device_id: 'installation-uuid',
         }),
       }),
     );
   });
 
+  it('rejects a token response without a future fixed expiry', async () => {
+    fetchMock.mockResolvedValueOnce(
+      response(200, { ...TOKEN_RESPONSE, expires_at: null }),
+    );
+
+    await expect(
+      loginMobile({
+        deviceId: 'installation-uuid',
+        email: 'field@caneguard.test',
+        password: 'entered-password',
+        deviceName: 'Phone',
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_RESPONSE' });
+  });
+
   it('verifies and revokes a bearer session', async () => {
-    const user = {
-      uuid: 'user-uuid',
-      name: 'Field Reporter',
-      email: 'field@caneguard.test',
-      role: 'field_reporter',
-    };
     fetchMock
-      .mockResolvedValueOnce(response(200, user))
+      .mockResolvedValueOnce(response(200, { user: USER }))
       .mockResolvedValueOnce(response(204, null));
 
-    await expect(verifyMobileSession('secret-token')).resolves.toEqual(user);
-    await expect(logoutMobile('secret-token')).resolves.toBeUndefined();
+    await expect(verifyMobileSession('test-session-value')).resolves.toEqual(USER);
+    await expect(logoutMobile('test-session-value')).resolves.toBeUndefined();
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       'http://127.0.0.1:8000/api/v1/mobile/auth/me',
     );
     for (const call of fetchMock.mock.calls) {
       const headers = call[1]?.headers as Headers;
-      expect(headers.get('Authorization')).toBe('Bearer secret-token');
+      expect(headers.get('Authorization')).toBe('Bearer test-session-value');
     }
   });
 
   it('maps authoritative session rejection responses separately from outages', async () => {
     fetchMock.mockResolvedValueOnce(response(401, { message: 'Expired' }));
-    await expect(verifyMobileSession('secret-token')).rejects.toMatchObject({
+    await expect(verifyMobileSession('test-session-value')).rejects.toMatchObject({
       code: 'SESSION_EXPIRED',
     });
 
-    fetchMock.mockResolvedValueOnce(response(403, { message: 'Forbidden' }));
-    await expect(verifyMobileSession('secret-token')).rejects.toMatchObject({
+    fetchMock.mockResolvedValueOnce(response(403, { code: 'FORBIDDEN' }));
+    await expect(verifyMobileSession('test-session-value')).rejects.toMatchObject({
       code: 'FORBIDDEN_ROLE',
+      message: 'Only field-reporter accounts can use mobile synchronization.',
+    });
+  });
+
+  it('rejects malformed user DTOs without misclassifying them as a role denial', async () => {
+    fetchMock.mockResolvedValueOnce(
+      response(200, { user: { role: 'field_reporter' } }),
+    );
+
+    await expect(verifyMobileSession('test-session-value')).rejects.toMatchObject({
+      code: 'INVALID_RESPONSE',
+    });
+  });
+
+  it('maps unverified login without exposing the server payload', async () => {
+    fetchMock.mockResolvedValueOnce(
+      response(403, {
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Sensitive server detail',
+      }),
+    );
+
+    await expect(
+      loginMobile({
+        deviceId: 'installation-uuid',
+        email: 'field@caneguard.test',
+        password: 'entered-password',
+        deviceName: 'Phone',
+      }),
+    ).rejects.toMatchObject({
+      code: 'EMAIL_NOT_VERIFIED',
+      message: 'Verify your email address before using Mobile.',
     });
   });
 
@@ -100,6 +169,7 @@ describe('mobile authentication API', () => {
 
     await expect(
       loginMobile({
+        deviceId: 'installation-uuid',
         email: 'field@caneguard.test',
         password: 'entered-password',
         deviceName: 'Phone',
@@ -110,20 +180,189 @@ describe('mobile authentication API', () => {
     });
   });
 
-  it('maps invalid credentials without exposing the server payload', async () => {
+  it('parses registration and sends only the approved fields', async () => {
+    fetchMock
+      .mockResolvedValueOnce(csrfResponse())
+      .mockResolvedValueOnce(
+        response(201, {
+          message: 'Account created.',
+          code: 'REGISTRATION_CREATED',
+          user: { ...USER, email_verified: false },
+        }),
+      );
+
+    await expect(
+      registerMobile({
+        email: ' NEW@caneguard.test ',
+        name: 'New Reporter',
+        password: 'long-enough-passphrase',
+      }),
+    ).resolves.toMatchObject({
+      code: 'REGISTRATION_CREATED',
+      user: { email: 'field@caneguard.test', emailVerified: false },
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://127.0.0.1:8000/register',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'New Reporter',
+          email: 'new@caneguard.test',
+          password: 'long-enough-passphrase',
+        }),
+      }),
+    );
+  });
+
+  it('keeps verification and recovery responses generic', async () => {
+    fetchMock
+      .mockResolvedValueOnce(csrfResponse())
+      .mockResolvedValueOnce(
+        response(202, {
+          message: 'If the address is eligible, a verification link will be sent.',
+          code: 'VERIFICATION_LINK_SENT',
+        }),
+      )
+      .mockResolvedValueOnce(csrfResponse())
+      .mockResolvedValueOnce(
+        response(202, {
+          message: 'If an account matches, a password recovery link will be sent.',
+          code: 'PASSWORD_RESET_LINK_SENT',
+        }),
+      );
+
+    await expect(resendVerification(' REPORTER@caneguard.test ')).resolves.toEqual({
+      message: 'If the address is eligible, a verification link will be sent.',
+      code: 'VERIFICATION_LINK_SENT',
+    });
+    await expect(requestPasswordReset(' REPORTER@caneguard.test ')).resolves.toEqual({
+      message: 'If an account matches, a password recovery link will be sent.',
+      code: 'PASSWORD_RESET_LINK_SENT',
+    });
+
+    expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(
+      JSON.stringify({ email: 'reporter@caneguard.test' }),
+    );
+    expect(fetchMock.mock.calls[3]?.[1]?.body).toBe(
+      JSON.stringify({ email: 'reporter@caneguard.test' }),
+    );
+  });
+
+  it('hands signed verification parameters to the API without persisting them', async () => {
     fetchMock.mockResolvedValueOnce(
-      response(401, { message: 'Sensitive server detail' }),
+      response(200, { message: 'Email address verified.', code: 'EMAIL_VERIFIED' }),
     );
 
     await expect(
-      loginMobile({
-        email: 'field@caneguard.test',
-        password: 'wrong',
-        deviceName: 'Phone',
+      verifyEmail({
+        expires: '123',
+        hash: 'email-hash',
+        id: 'user id',
+        signature: 'signed-value',
+      }),
+    ).resolves.toMatchObject({ code: 'EMAIL_VERIFIED' });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      'http://127.0.0.1:8000/email/verify/user%20id/email-hash?expires=123&signature=signed-value',
+    );
+  });
+
+  it('uses an authenticated password step-up request', async () => {
+    fetchMock.mockResolvedValueOnce(
+      response(200, { message: 'Updated.', code: 'PASSWORD_CHANGED' }),
+    );
+
+    await expect(
+      changePassword('test-session-value', {
+        currentPassword: 'current-password',
+        password: 'new-password-value',
+      }),
+    ).resolves.toMatchObject({ code: 'PASSWORD_CHANGED' });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toContain('/api/v1/auth/password');
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('POST');
+    expect(
+      (fetchMock.mock.calls[0]?.[1]?.headers as Headers).get('Authorization'),
+    ).toBe('Bearer test-session-value');
+  });
+
+  it('uses an authenticated email step-up request', async () => {
+    fetchMock.mockResolvedValueOnce(
+      response(202, {
+        message: 'Verify the new email address.',
+        code: 'EMAIL_VERIFICATION_REQUIRED',
+      }),
+    );
+
+    await expect(
+      changeEmail('test-session-value', {
+        currentPassword: 'current-password',
+        email: 'new@caneguard.test',
+      }),
+    ).resolves.toMatchObject({ code: 'EMAIL_VERIFICATION_REQUIRED' });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toContain('/api/v1/auth/email');
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('PATCH');
+    expect(
+      (fetchMock.mock.calls[0]?.[1]?.headers as Headers).get('Authorization'),
+    ).toBe('Bearer test-session-value');
+  });
+
+  it('sends authenticated step-up requests and parses device enrollment rotation', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        response(200, { message: 'Biometric sign-in is disabled.', code: 'BIOMETRIC_DISABLED' }),
+      )
+      .mockResolvedValueOnce(response(200, TOKEN_RESPONSE));
+
+    await expect(
+      disableBiometric('test-session-value', 'current-password'),
+    ).resolves.toMatchObject({ code: 'BIOMETRIC_DISABLED' });
+    await expect(
+      enrollMobileDevice('test-session-value', {
+        currentPassword: 'current-password',
+        deviceId: 'new-installation-uuid',
+        deviceName: 'New Android',
+      }),
+    ).resolves.toMatchObject({
+      deviceId: 'new-installation-uuid',
+      expiresAt: EXPIRES_AT,
+    });
+
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(expect.any(Headers));
+    expect((fetchMock.mock.calls[0]?.[1]?.headers as Headers).get('Authorization')).toBe(
+      'Bearer test-session-value',
+    );
+    expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(
+      JSON.stringify({
+        current_password: 'current-password',
+        device_name: 'New Android',
+        device_id: 'new-installation-uuid',
+      }),
+    );
+  });
+
+  it('maps step-up and already-used reset links to stable errors', async () => {
+    fetchMock.mockResolvedValueOnce(response(422, { code: 'STEP_UP_REQUIRED' }));
+    await expect(
+      changePassword('test-session-value', {
+        currentPassword: 'wrong',
+        password: 'new-password-value',
+      }),
+    ).rejects.toMatchObject({ code: 'STEP_UP_REQUIRED' });
+
+    fetchMock
+      .mockResolvedValueOnce(csrfResponse())
+      .mockResolvedValueOnce(response(422, { code: 'INVALID_RESET_TOKEN' }));
+    await expect(
+      resetPassword({
+        email: 'reporter@caneguard.test',
+        password: 'new-password-value',
+        token: 'one-time-value',
       }),
     ).rejects.toMatchObject({
-      code: 'INVALID_CREDENTIALS',
-      message: 'The email or password is incorrect.',
+      code: 'INVALID_RESET_TOKEN',
+      message: 'This recovery link is invalid, expired, or already used. Request a new link.',
     });
   });
 });

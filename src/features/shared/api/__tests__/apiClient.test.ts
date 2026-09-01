@@ -33,6 +33,83 @@ describe('api client', () => {
     );
   });
 
+  it('initializes CSRF and sends the decoded token with cookie credentials', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        headers: new Headers({
+          'set-cookie': 'XSRF-TOKEN=csrf-token%3D; Path=/',
+        }),
+        text: async () => '',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        headers: new Headers(),
+        text: async () => '{}',
+      });
+
+    await apiRequest('/register', {
+      csrf: true,
+      method: 'POST',
+      body: '{}',
+    });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      'http://127.0.0.1:8000/sanctum/csrf-cookie',
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ credentials: 'include' }),
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toEqual(
+      expect.objectContaining({ credentials: 'include' }),
+    );
+    expect(
+      (fetchMock.mock.calls[1]?.[1]?.headers as Headers).get('X-XSRF-TOKEN'),
+    ).toBe('csrf-token=');
+  });
+
+  it('falls back to the browser cookie when Fetch hides Set-Cookie', async () => {
+    const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+    Object.defineProperty(globalThis, 'document', {
+      configurable: true,
+      value: { cookie: 'XSRF-TOKEN=browser-token%3D; other=value' },
+    });
+
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        headers: new Headers(),
+        text: async () => '',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        headers: new Headers(),
+        text: async () => '{}',
+      });
+
+    try {
+      await apiRequest('/register', {
+        csrf: true,
+        method: 'POST',
+        body: '{}',
+      });
+    } finally {
+      if (originalDocument) {
+        Object.defineProperty(globalThis, 'document', originalDocument);
+      } else {
+        Reflect.deleteProperty(globalThis, 'document');
+      }
+    }
+
+    expect(
+      (fetchMock.mock.calls[1]?.[1]?.headers as Headers).get('X-XSRF-TOKEN'),
+    ).toBe('browser-token=');
+  });
+
   it('settles a request that ignores AbortController at the documented timeout', async () => {
     jest.useFakeTimers();
     fetchMock.mockImplementationOnce(

@@ -12,6 +12,7 @@ Project-specific stack and implementation guidance for CaneGuard Mobile.
 - Expo SQLite
 - Drizzle ORM / Drizzle Kit
 - Expo SecureStore
+- Expo LocalAuthentication
 - Expo FileSystem
 - Expo Image Picker / Image Manipulator
 - React Native NetInfo

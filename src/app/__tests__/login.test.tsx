@@ -1,0 +1,85 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+
+import LoginScreen from '@/app/login';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+
+afterEach(() => {
+  jest.clearAllMocks();
+});
+
+jest.mock('@/features/auth/hooks/useAuth', () => ({
+  useAuth: jest.fn(),
+}));
+
+const mockUseAuth = jest.mocked(useAuth);
+
+function setAuthValue(overrides: Record<string, unknown> = {}) {
+  mockUseAuth.mockReturnValue({
+    biometricCapability: {
+      deviceCredentialAvailable: true,
+      status: 'available',
+      strongBiometricsAvailable: true,
+    },
+    biometricEnabled: false,
+    biometricLoading: false,
+    changeEmail: jest.fn(async () => false),
+    changePassword: jest.fn(async () => false),
+    clearSessionAfterRemoteRevocation: jest.fn(async () => true),
+    disableBiometric: jest.fn(async () => false),
+    enableBiometricUnlock: jest.fn(async () => false),
+    enrollMobileDevice: jest.fn(async () => false),
+    errorMessage: null,
+    login: jest.fn(async () => false),
+    logout: jest.fn(async () => ({
+      localClearFailed: false,
+      remoteRevocationFailed: false,
+    })),
+    markSessionExpired: jest.fn(async () => undefined),
+    session: null,
+    sessionVerification: 'idle',
+    status: 'unauthenticated',
+    unlockWithBiometrics: jest.fn(async () => false),
+    user: null,
+    ...overrides,
+  } as unknown as ReturnType<typeof useAuth>);
+}
+
+describe('LoginScreen biometric fallback', () => {
+  it('shows one accessible fallback button when biometric unlock is configured', async () => {
+    const unlockWithBiometrics = jest.fn(async () => true);
+    setAuthValue({ biometricEnabled: true, unlockWithBiometrics });
+
+    await render(<LoginScreen />);
+
+    const button = screen.getByTestId('auth.biometric-unlock');
+    expect(button).toHaveTextContent('Unlock with biometrics');
+    expect(button).toHaveProp('accessibilityLabel', 'Unlock with biometrics');
+
+    await fireEvent.press(button);
+    await waitFor(() => expect(unlockWithBiometrics).toHaveBeenCalledTimes(1));
+  });
+
+  it('keeps the fallback button unavailable when biometric unlock is not configured', async () => {
+    setAuthValue({
+      biometricCapability: {
+        deviceCredentialAvailable: false,
+        status: 'unsupported',
+        strongBiometricsAvailable: false,
+      },
+    });
+
+    await render(<LoginScreen />);
+
+    expect(screen.queryByTestId('auth.biometric-unlock')).not.toBeOnTheScreen();
+  });
+
+  it('disables the fallback button while its biometric prompt is loading', async () => {
+    setAuthValue({ biometricEnabled: true, biometricLoading: true });
+
+    await render(<LoginScreen />);
+
+    const button = screen.getByTestId('auth.biometric-unlock');
+    expect(button).toBeDisabled();
+    expect(button).toHaveTextContent('Unlocking...');
+  });
+});

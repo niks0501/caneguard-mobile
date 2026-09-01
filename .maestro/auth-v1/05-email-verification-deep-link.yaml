@@ -1,0 +1,34 @@
+appId: com.niks0501.caneguard
+name: Auth v1 email verification deep link opens Mobile
+tags:
+  - auth-v1
+  - auth-verification
+  - auth-deep-link
+---
+# Precondition: hand the latest local verification link to the installed app
+# from Chrome as documented by .maestro/evidence/AUTH-V1.md.
+- extendedWaitUntil:
+    visible:
+      id: verify-email.success
+    timeout: 60000
+- assertVisible: Email verified
+- assertVisible: 'You may now sign in to CaneGuard Mobile\.'
+- takeScreenshot: .maestro/artifacts/auth-v1-email-verification-deep-link
+- tapOn: Continue to login
+- extendedWaitUntil:
+    visible:
+      id: auth.login-screen
+    timeout: 30000
+- tapOn:
+    id: auth.email-input
+- inputText: ${AUTH_EMAIL}
+- tapOn:
+    id: auth.password-input
+- inputText: ${AUTH_PASSWORD}
+- tapOn:
+    id: auth.login-submit
+- extendedWaitUntil:
+    visible:
+      id: home.screen
+    timeout: 120000
+- assertVisible: Start Scan

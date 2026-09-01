@@ -61,11 +61,6 @@ function AppNavigator() {
       {status === 'authenticated' ? <MobileAttentionLifecycle /> : null}
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Protected guard={status === 'unauthenticated'}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="login" />
-          <Stack.Screen name="register" />
-        </Stack.Protected>
         <Stack.Protected guard={status === 'authenticated'}>
           <Stack.Screen name="home" />
           <Stack.Screen name="activity" />
@@ -80,7 +75,16 @@ function AppNavigator() {
           <Stack.Screen name="manual-map" />
           <Stack.Screen name="reports" />
           <Stack.Screen name="settings" />
+          <Stack.Screen name="account-security" />
         </Stack.Protected>
+        <Stack.Protected guard={status === 'unauthenticated'}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="login" />
+          <Stack.Screen name="register" />
+        </Stack.Protected>
+        <Stack.Screen name="forgot-password" />
+        <Stack.Screen name="reset-password" />
+        <Stack.Screen name="verify-email" />
         <Stack.Protected guard={__DEV__}>
           <Stack.Screen name="model-smoke-test" />
           <Stack.Screen name="model-debug" />

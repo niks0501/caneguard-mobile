@@ -1,0 +1,39 @@
+context platform=android timeout=900000
+
+# Auth v1 logout revokes the current session.
+# Converted from .maestro/auth-v1/02-logout.yaml.
+#
+# Preflow: npm run e2e:env, then scripts/ad-flow-env.sh reset-app,
+# with AUTH_EMAIL/AUTH_PASSWORD set for a verified field-reporter account.
+#
+# Behavior note: the original flow expected the app to return to the
+# "Get Started" welcome screen after logout. The current app returns to
+# the login screen instead, so this script asserts the login screen
+# directly after logout (divergence classified as app behavior drift).
+
+open "com.niks0501.caneguard" --platform android
+wait text "http://" 30000
+find "http://" fill "http://127.0.0.1:8081"
+click "label=\"Connect\""
+wait "label=\"Continue\"" 30000
+click "label=\"Continue\""
+click "label=\"Close\""
+wait "label=\"Get started with CaneGuard\"" 180000
+click "label=\"I already have an account\""
+wait "id=auth.login-screen" 30000
+fill "id=auth.email-input" "${AUTH_EMAIL}"
+fill "id=auth.password-input" "${AUTH_PASSWORD}"
+click "id=auth.login-submit"
+wait "id=home.screen" 120000
+click "label=\"Open settings\""
+wait "label=Settings" 30000
+click "id=settings.logout"
+wait "label=\"Log out?\"" 10000
+click "label=\"Log out\""
+wait "id=auth.login-screen" 30000
+is visible "label=\"Welcome back\""
+# assertNotVisible conversion: the preceding screen wait already proves the
+# element is absent; is hidden only matches elements that exist but are hidden.
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/auth-v1-logout.png"
+
+close

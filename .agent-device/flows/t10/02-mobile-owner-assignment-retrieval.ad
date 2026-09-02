@@ -1,0 +1,32 @@
+context platform=android timeout=900000
+
+# T10 stage 7 - owner-scoped Mobile assignment retrieval.
+# Converted from .maestro/t10/02-mobile-owner-assignment-retrieval.yaml.
+#
+# Prerequisites: the signed-in field reporter owns the seeded T10 case
+# referenced by ${T10_CASE_REFERENCE} (the web side of the T10 fixture
+# creates it). The flow preserves application state.
+
+open "com.niks0501.caneguard" --platform android
+wait "id=home.screen" 120000
+click "label=\"My Activity\""
+wait "id=activity.screen" 30000
+scroll down --settle
+wait "id=activity.assignment-refresh" 60000
+scroll down --settle
+wait "id=activity.assignment-refresh" 60000
+click "id=activity.assignment-refresh"
+scroll down --settle
+wait "label=\"Field validation assignment ${T10_CASE_REFERENCE}\"" 60000
+scroll down --settle
+wait "label=\"Field validation assignment ${T10_CASE_REFERENCE}\"" 60000
+is visible "label=\"Field validation assignment ${T10_CASE_REFERENCE}\""
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/t10-07-mobile-owner-assignment.png"
+click "label=\"Field validation assignment ${T10_CASE_REFERENCE}\""
+wait "id=field-validation.screen" 30000
+is visible "id=field-validation.assignment-summary"
+is visible "label=${T10_CASE_REFERENCE}"
+is visible "label=\"You submitted this case and are its validator.\""
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/t10-07-mobile-assignment-opened.png"
+
+close

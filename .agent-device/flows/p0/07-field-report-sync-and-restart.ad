@@ -1,0 +1,25 @@
+context platform=android timeout=900000
+
+# P0-07 Field Report sync identity and restart persistence.
+# Converted from .maestro/p0/07-field-report-sync-and-restart.yaml.
+#
+# Prerequisites: authenticated field reporter, reachable API, fresh native
+# build. P0-06 creates and locally finalizes a report under a stable Field
+# Report ID. The original embedded 06-complete-in-field-finalization.yaml
+# via runFlow; run that script first, then this one.
+#
+# The conditional retry-sync tap of the original becomes a tolerant skip:
+# when the report is already syncing, the retry control is absent and the
+# wait for "Finalized · Synced" below still proves the sync identity.
+
+wait "label=\"Finalized · Synced\"" 120000
+is visible "label=\"Server report UUID\""
+is visible "label=\"Last synchronized\""
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-07-field-report-synced.png"
+open "com.niks0501.caneguard" --relaunch --platform android
+wait "id=field-report.screen" 120000
+is visible "label=\"Finalized · Synced\""
+is visible "label=\"Server report UUID\""
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-07-field-report-synced-after-restart.png"
+
+close

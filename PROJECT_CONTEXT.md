@@ -285,7 +285,7 @@ For database/records/sync changes, run the relevant suites under:
 
 Physical-device verification is required for native-runtime behavior such as TFLite execution, development-build compatibility, camera/gallery flows, filesystem persistence, SQLite migration/persistence, and end-to-end synchronization.
 
-Before device verification, verify that the installed development build matches the current native dependency/configuration state before interpreting an Agent Device failure.
+Verify that the installed development build matches the current native dependency/configuration state before interpreting an Agent Device failure.
 
 Do not run EAS build or submit automatically.
 

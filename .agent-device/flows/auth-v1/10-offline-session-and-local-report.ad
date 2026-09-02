@@ -1,0 +1,43 @@
+context platform=android timeout=900000
+
+# Auth v1 cached session and local report evidence while offline.
+# Converted from .maestro/auth-v1/10-offline-session-and-local-report.yaml.
+#
+# Preconditions (ordered segment):
+# 1. Authenticate with 01-login-session-and-report-boundary.ad so a cached
+#    session exists.
+# 2. Enable airplane mode on the emulator.
+# 3. scripts/ad-flow-env.sh revoke-permissions (location deny) and
+#    scripts/ad-flow-env.sh stage-media (the Rust fixture), replacing the
+#    Maestro setPermissions deny and addMedia commands.
+# 4. Do not clear app state.
+# After the flow, restore the emulator network.
+#
+# Conversion note: the Maestro stopApp + launchApp pair restarts the app
+# process while preserving state; --relaunch preserves that semantic.
+
+open "com.niks0501.caneguard" --relaunch --platform android
+wait "id=home.screen" 120000
+wait "label=Offline" 30000
+click "label=\"Start Scan\""
+wait "id=scan.screen" 30000
+click "id=scan.choose-gallery"
+wait "label=\"Photo taken on\"" 15000
+find "Photo taken on" click --first
+click "label=Done"
+wait "id=scan.preview-screen" 30000
+click "id=scan.analyze-image"
+wait "id=scan.symptom-checklist-screen" 120000
+click "id=scan.symptom-rust"
+click "id=scan.continue-to-result"
+wait "label=\"Possible result: Rust\"" 30000
+scroll down --settle
+wait "id=scan.keep-as-scan-only" 10000
+scroll down --settle
+wait "id=scan.keep-as-scan-only" 10000
+click "id=scan.keep-as-scan-only"
+wait "id=scan.record-saved" 30000
+is visible "label=\"Scan saved on this device\""
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/auth-v1-offline-local-scan.png"
+
+close

@@ -1,0 +1,42 @@
+context platform=android timeout=900000
+
+# T04 Activity navigation and record discovery.
+# Converted from .maestro/p0/04-activity-navigation.yaml.
+#
+# Prerequisites (unchanged from the Maestro original, performed outside the
+# flow): a current Android development build and matching Metro bundle; an
+# authenticated field reporter session; at least one saved scan-only
+# observation; and at least one synchronized Field Report owned by the
+# signed-in reporter. The flow preserves application state and does not add
+# credentials or fixtures.
+#
+# Conversion note: the Maestro launchApp command restarts the app process;
+# --relaunch preserves that semantic so the app boots to its initial route.
+
+open "com.niks0501.caneguard" --relaunch --platform android
+wait "id=home.screen" 120000
+click "id=nav.activity"
+wait "id=activity.screen" 30000
+is visible "label=Activity"
+is visible "id=activity.filter.all"
+is visible "id=activity.filter.reports"
+is visible "id=activity.filter.scans"
+is visible "id=activity.timeline"
+find "report saved" click --first
+wait "id=records.details-screen" 30000
+is visible "id=records.result-title"
+back --settle
+wait "id=activity.screen" 30000
+click "id=activity.filter.reports"
+wait "id=activity.screen" 30000
+find "report saved" click --first
+wait "id=records.details-screen" 30000
+back --settle
+wait "id=activity.screen" 30000
+click "id=activity.filter.scans"
+wait "id=activity.screen" 30000
+find "scan saved" click --first
+wait "id=records.details-screen" 30000
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/t04-activity-navigation-and-discovery.png"
+
+close

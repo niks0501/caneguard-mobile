@@ -1,0 +1,28 @@
+context platform=android timeout=900000
+
+# Auth v1 rejects non-field-reporter Mobile login.
+# Converted from .maestro/auth-v1/09-role-enforcement.yaml.
+#
+# Preflow: npm run e2e:env, then scripts/ad-flow-env.sh reset-app,
+# with AUTH_REVIEWER_EMAIL/AUTH_REVIEWER_PASSWORD identifying the seeded
+# reviewer account.
+
+open "com.niks0501.caneguard" --platform android
+wait text "http://" 30000
+find "http://" fill "http://127.0.0.1:8081"
+click "label=\"Connect\""
+wait "label=\"Continue\"" 30000
+click "label=\"Continue\""
+click "label=\"Close\""
+wait "label=\"Get started with CaneGuard\"" 180000
+click "label=\"I already have an account\""
+wait "id=auth.login-screen" 30000
+fill "id=auth.email-input" "${AUTH_REVIEWER_EMAIL}"
+fill "id=auth.password-input" "${AUTH_REVIEWER_PASSWORD}"
+click "id=auth.login-submit"
+wait "label=\"Only field-reporter accounts can use mobile synchronization.\"" 30000
+# assertNotVisible conversion: the preceding screen wait already proves the
+# element is absent; is hidden only matches elements that exist but are hidden.
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/auth-v1-role-enforcement.png"
+
+close

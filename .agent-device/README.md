@@ -68,12 +68,17 @@ scripts/ad-flow-env.sh preflight          # device check, reverse mappings, gran
 scripts/ad-flow-env.sh stage-media        # push + media-scan assets/model-fixtures/parity-reference.jpg
 scripts/ad-flow-env.sh grant-permissions  # pm grant fine/coarse location
 scripts/ad-flow-env.sh revoke-permissions # revoke + force-deny location (no system dialog)
+scripts/ad-flow-env.sh connect-metro      # deep-link handoff of exp://127.0.0.1:8081 to the dev client
+scripts/ad-flow-env.sh reset-app          # clear app data and relaunch into Metro (replaces launchApp clearState)
 ```
 
 `preflight` stages the shared Rust fixture and grants location permissions.
 Flows that need location denied run `revoke-permissions` first (or the suite
 runner notes it in the flow's evidence record). Media and permissions persist
 on the emulator, so one preflight before a suite run is normally enough.
+Scripts whose Maestro originals started with `launchApp clearState` assume
+`reset-app` ran first; scripts that preserve state assume the app is already
+signed in as documented per flow group.
 
 Clipboard-based text entry has no helper on purpose: `.ad` scripts use the
 agent-device `fill` command on the target field, which the bundled test IME

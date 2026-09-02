@@ -1,0 +1,149 @@
+context platform=android timeout=900000
+
+# P2-01 Smart Field Report online finalize and six-field sync verification.
+# Converted from .maestro/p0/09-smart-field-report-online-sync.yaml.
+#
+# Preflow: npm run e2e:env (Metro on 8081, API reachable via adb reverse,
+# Rust fixture staged, device location mode enabled). The flow preserves
+# application state (no clearState) and encodes no credentials.
+#
+# The "Don't allow" branch of the original is not needed: the preflow
+# contract resolves the new Draft's GPS attempt without a system dialog.
+
+open "com.niks0501.caneguard" --relaunch --platform android
+wait "id=home.screen" 120000
+open "com.niks0501.caneguard" "caneguardmobile:///scan" --platform android
+wait "id=scan.screen" 30000
+click "id=scan.choose-gallery"
+wait "label=\"Photo taken on\"" 15000
+find "Photo taken on" click --first
+click "label=Done"
+wait "id=scan.preview-screen" 30000
+click "id=scan.analyze-image"
+wait "id=scan.symptom-checklist-screen" 120000
+click "id=scan.symptom-rust"
+click "id=scan.continue-to-result"
+wait "label=\"Possible result: Rust\"" 30000
+scroll down --settle
+wait "id=scan.keep-as-scan-only" 10000
+scroll down --settle
+wait "id=scan.keep-as-scan-only" 10000
+click "id=scan.keep-as-scan-only"
+wait "id=scan.record-saved" 30000
+click "id=scan.open-saved-record"
+wait "id=records.details-screen" 30000
+scroll down --settle
+wait "id=records.open-field-report" 10000
+scroll down --settle
+wait "id=records.open-field-report" 10000
+click "id=records.open-field-report"
+wait "id=field-report.screen" 30000
+scroll down --settle
+wait "id=field-report.farmer-name-input" 10000
+scroll down --settle
+wait "id=field-report.farmer-name-input" 10000
+fill "id=field-report.farmer-name-input" "P2 Agent Device Farmer"
+back --settle
+scroll down --settle
+wait "id=field-report.barangay-input" 10000
+scroll down --settle
+wait "id=field-report.barangay-input" 10000
+click "id=field-report.barangay-input"
+fill "id=field-report.barangay-input" "Wawa"
+back --settle
+scroll down --settle
+wait "id=field-report.barangay-input-option" 10000
+scroll down --settle
+wait "id=field-report.barangay-input-option" 10000
+find "Wawa" click --first
+scroll up --settle
+wait "id=field-report.farmer-name-input" 10000
+scroll down --settle
+wait "id=field-report.affected-area-input" 10000
+scroll down --settle
+wait "id=field-report.affected-area-input" 10000
+fill "id=field-report.affected-area-input" "2.25"
+back --settle
+scroll down --settle
+wait "id=field-report.affected-portion-input" 10000
+scroll down --settle
+wait "id=field-report.affected-portion-input" 10000
+fill "id=field-report.affected-portion-input" "45"
+back --settle
+scroll down --settle
+wait "id=field-report.province-input" 10000
+scroll down --settle
+wait "id=field-report.province-input" 10000
+click "id=field-report.province-input"
+wait "label=Batangas" 10000
+find "Batangas" click --first
+wait "label=Nasugbu" 10000
+find "Nasugbu" click --first
+scroll down --settle
+wait "id=field-report.more-details" 10000
+scroll down --settle
+wait "id=field-report.more-details" 10000
+click "label=\"Show More field details\""
+scroll down --settle
+wait "id=field-report.variety-input" 10000
+scroll down --settle
+wait "id=field-report.variety-input" 10000
+fill "id=field-report.variety-input" "Agent Device Variety"
+back --settle
+scroll down --settle
+wait "id=field-report.crop-age-input" 10000
+scroll down --settle
+wait "id=field-report.crop-age-input" 10000
+fill "id=field-report.crop-age-input" "Agent Device Age"
+back --settle
+scroll down --settle
+wait "id=field-report.cane-class-input" 10000
+scroll down --settle
+wait "id=field-report.cane-class-input" 10000
+fill "id=field-report.cane-class-input" "Agent Device Class"
+back --settle
+scroll down --settle
+wait "id=field-report.notes-input" 10000
+scroll down --settle
+wait "id=field-report.notes-input" 10000
+fill "id=field-report.notes-input" "Agent Device Notes"
+is visible "id=field-report.notes-input"
+back --settle
+scroll down --settle
+wait "id=field-report.save-draft" 10000
+scroll down --settle
+wait "id=field-report.save-draft" 10000
+click "id=field-report.save-draft"
+scroll down --settle
+wait "id=field-report.saved" 30000
+# D6: finalization requires an online connection (device is online here).
+# Supply coordinates via the manual map fallback, then finalize.
+scroll up --settle
+wait "id=field-report.open-manual-map" 10000
+scroll up --settle
+wait "id=field-report.open-manual-map" 10000
+click "id=field-report.open-manual-map"
+wait "id=manual-map.viewport" 30000
+click "id=manual-map.viewport"
+is visible "id=manual-map.pin"
+scroll down --settle
+wait "id=manual-map.confirm" 10000
+scroll down --settle
+wait "id=manual-map.confirm" 10000
+click "id=manual-map.confirm"
+scroll down --settle
+wait "id=field-report.manual-location" 30000
+scroll up --settle
+wait "id=field-report.finalize" 10000
+scroll up --settle
+wait "id=field-report.finalize" 10000
+click "id=field-report.finalize"
+wait "label=\"Finalized · Synced\"" 120000
+is visible "label=\"Server report UUID\""
+scroll down --settle
+wait "label=\"Last synchronized\"" 10000
+scroll down --settle
+wait "label=\"Last synchronized\"" 10000
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p2-09-smart-field-report-synced.png"
+
+close

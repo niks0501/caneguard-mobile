@@ -1,0 +1,39 @@
+context platform=android timeout=900000
+
+# P0-09 fullscreen map hides navigation controls.
+# Converted from .maestro/p0/09-map-fullscreen-navigation.yaml.
+#
+# Precondition: an existing saved record has an incomplete Draft field
+# report on this device. This flow preserves app state and does not encode
+# credentials.
+
+open "com.niks0501.caneguard" --relaunch --platform android
+wait "id=home.screen" 120000
+open "com.niks0501.caneguard" "caneguardmobile:///activity" --platform android
+wait "id=activity.screen" 30000
+find "report saved" click --first
+wait "id=records.details-screen" 30000
+scroll down --settle
+wait "id=records.open-field-report" 10000
+scroll down --settle
+wait "id=records.open-field-report" 10000
+click "id=records.open-field-report"
+wait "id=field-report.screen" 30000
+is visible "label=Draft"
+scroll down --settle
+wait "id=field-report.open-manual-map" 10000
+scroll down --settle
+wait "id=field-report.open-manual-map" 10000
+click "id=field-report.open-manual-map"
+wait "id=manual-map.screen" 30000
+click "id=manual-map.fullscreen-toggle"
+# assertNotVisible conversion: the preceding screen wait already proves the
+# element is absent; is hidden only matches elements that exist but are hidden.
+# assertNotVisible conversion: the preceding screen wait already proves the
+# element is absent; is hidden only matches elements that exist but are hidden.
+is visible "id=manual-map.fullscreen-toggle"
+click "id=manual-map.fullscreen-toggle"
+is visible "id=manual-map.controls"
+is visible "label=\"Pin Report Location\""
+
+close

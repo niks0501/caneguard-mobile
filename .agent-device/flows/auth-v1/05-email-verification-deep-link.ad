@@ -1,0 +1,24 @@
+context platform=android timeout=900000
+
+# Auth v1 email verification deep link opens Mobile.
+# Converted from .maestro/auth-v1/05-email-verification-deep-link.yaml.
+#
+# Precondition (ordered segment): hand the latest local verification link
+# from the disposable API log to the installed app (scripts/ad-flow-env.sh
+# connect-metro, then the one-time verification deep link) before running
+# this script. Never record the one-time link or token anywhere.
+#
+# AUTH_EMAIL/AUTH_PASSWORD identify the newly registered account.
+
+wait "id=verify-email.success" 60000
+is visible "label=\"Email verified\""
+click "label=\"Continue to login\""
+wait "id=auth.login-screen" 30000
+fill "id=auth.email-input" "${AUTH_EMAIL}"
+fill "id=auth.password-input" "${AUTH_PASSWORD}"
+click "id=auth.login-submit"
+wait "id=home.screen" 120000
+is visible "label=\"Start Scan\""
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/auth-v1-email-verification-deep-link.png"
+
+close

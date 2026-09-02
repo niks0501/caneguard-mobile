@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Pre-flow environment helper for Agent Device flows.
 #
-# Replaces the two Maestro flow commands that the agent-device Maestro
+# Replaces the Maestro flow commands that the agent-device Maestro
 # compatibility runtime does not support:
 #
 #   addMedia      -> stage-media  (adb push + media-scanner broadcast)
 #   setPermissions -> grant-permissions / revoke-permissions (pm grant / appops)
 #
 # The clipboard commands (setClipboard/pasteText) have no helper on purpose:
-# converted .ad scripts use the agent-device `fill` command on the target
+# converted .ad scripts use the agent-device fill command on the target
 # field instead, which the bundled test IME makes reliable.
 #
 # Usage:
@@ -16,6 +16,8 @@
 #   scripts/ad-flow-env.sh stage-media [file]
 #   scripts/ad-flow-env.sh grant-permissions
 #   scripts/ad-flow-env.sh revoke-permissions
+#   scripts/ad-flow-env.sh connect-metro
+#   scripts/ad-flow-env.sh reset-app
 #
 # Run from the repository root before running flows that stage media or need
 # a known location-permission state. Media and permissions persist on the
@@ -75,6 +77,25 @@ revoke-permissions() {
   echo "ad-flow-env: location permissions force-denied for $APP_PACKAGE"
 }
 
+connect-metro() {
+  need_adb
+  # Launch the dev client; when its dev-server preference is already set
+  # it reconnects to Metro on its own.
+  agent-device open com.niks0501.caneguard --foreground --platform android >/dev/null
+  echo "ad-flow-env: dev client foregrounded"
+}
+
+reset-app() {
+  need_adb
+  # Replaces the Maestro launchApp clearState command: release any device
+  # claim and clear the app's data. The converted reset flows then run the
+  # dev-client connect prologue themselves as wait-driven .ad steps, which
+  # is deterministic where a blind shell sequence is not.
+  agent-device close --platform android >/dev/null 2>&1 || true
+  adb shell pm clear "$APP_PACKAGE" >/dev/null
+  echo "ad-flow-env: cleared $APP_PACKAGE app data (flows reconnect the dev client)"
+}
+
 preflight() {
   need_adb
   adb devices -l
@@ -99,8 +120,14 @@ case "${1:-}" in
   revoke-permissions)
     revoke-permissions
     ;;
+  connect-metro)
+    connect-metro
+    ;;
+  reset-app)
+    reset-app
+    ;;
   *)
-    echo "usage: $0 {preflight|stage-media [file]|grant-permissions|revoke-permissions}" >&2
+    echo "usage: $0 {preflight|stage-media [file]|grant-permissions|revoke-permissions|connect-metro|reset-app}" >&2
     exit 64
     ;;
 esac

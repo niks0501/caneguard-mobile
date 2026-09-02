@@ -51,3 +51,7 @@ E2E validation belongs to the implementation phase and must not be repeated by n
 
 - Report what changed, what verification actually ran, and any remaining meaningful risks or gaps.
 - Keep reports proportional to the task.
+
+## Maintaining this file
+
+Keep this file focused on durable project-wide guidance. Prefer pointers to authoritative files and commands over duplicating details that can drift.

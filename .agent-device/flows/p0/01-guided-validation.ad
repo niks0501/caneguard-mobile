@@ -8,11 +8,17 @@ context platform=android timeout=900000
 # authenticated field-reporter session.
 
 open "com.niks0501.caneguard" --relaunch --platform android
+# Cold start requires explicit authentication (auth security change:
+# the app requires unlock on restart). Sign in with the field account.
+wait "label=\"Welcome back\"" 120000
+fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
+fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
+click "id=\"auth.login-submit\""
 wait "id=home.screen" 120000
 open "com.niks0501.caneguard" "caneguardmobile:///scan" --platform android
 wait "id=scan.screen" 30000
 click "id=scan.choose-gallery"
-wait "label=\"Photo taken on\"" 15000
+wait stable 2000 15000
 find "Photo taken on" click --first
 click "label=Done"
 wait "id=scan.preview-screen" 30000
@@ -31,26 +37,26 @@ is visible "id=scan.symptom-unable-to-tell"
 click "id=scan.symptom-something-else"
 click "id=scan.continue-to-result"
 wait "label=\"Possible result: Rust\"" 30000
-scroll down --settle
+scroll down 1 --settle
 wait "id=scan.checklist-consistency" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=scan.checklist-consistency" 10000
 is visible "id=scan.checklist-consistency"
 is visible "label=\"Checklist inconsistent\""
 is visible "label=\"The selected observation differs from the model result. Both remain separate evidence, and this scan can still be reported to the office.\""
-scroll down --settle
+scroll down 1 --settle
 wait "id=scan.report-to-office" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=scan.report-to-office" 10000
 is visible "id=scan.report-to-office"
-scroll down --settle
+scroll down 1 --settle
 wait "id=scan.keep-as-scan-only" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=scan.keep-as-scan-only" 10000
 is visible "id=scan.keep-as-scan-only"
-scroll down --settle
+scroll down 1 --settle
 wait "id=scan.new-scan" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=scan.new-scan" 10000
 is visible "id=scan.new-scan"
 # assertNotVisible conversion: the preceding screen wait already proves the

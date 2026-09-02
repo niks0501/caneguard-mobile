@@ -21,14 +21,20 @@ is visible "label=\"Server report UUID\""
 is visible "label=\"Last synchronized\""
 screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-08-path-b-manual-map-synced.png"
 open "com.niks0501.caneguard" --relaunch --platform android
+# Cold start requires explicit authentication (auth security change:
+# the app requires unlock on restart). Sign in with the field account.
+wait "label=\"Welcome back\"" 120000
+fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
+fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
+click "id=\"auth.login-submit\""
 wait "id=home.screen" 120000
 open "com.niks0501.caneguard" "caneguardmobile:///activity" --platform android
 wait "id=activity.screen" 30000
 find "report saved" click --first
 wait "id=records.details-screen" 30000
-scroll down --settle
+scroll down 1 --settle
 wait "id=records.open-field-report" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=records.open-field-report" 10000
 click "id=records.open-field-report"
 wait "id=field-report.screen" 30000

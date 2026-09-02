@@ -79,9 +79,8 @@ graphify-out/cache/
 # Generated project inspection output
 project-structure.txt
 
-# Generated Maestro evidence
-.maestro/artifacts/*
-!.maestro/artifacts/.gitkeep
+# Generated Agent Device test artifacts
+.agent-device/test-artifacts/
 
 # Local EAS QA release command output
 qa-mobile-*.json

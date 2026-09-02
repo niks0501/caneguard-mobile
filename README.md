@@ -383,7 +383,7 @@ Start with the smallest focused flow using plain Agent Device:
 
 ```bash
 cd "<WORKSPACE>/caneguard-mobile"
-agent-device replay .agent-device/flows/p0-baseline-scan.ad
+agent-device replay .agent-device/flows/p0/00-baseline-scan.ad
 ```
 
 The equivalent project action is `npm run e2e:flow -- .agent-device/flows/<flow>.ad`.

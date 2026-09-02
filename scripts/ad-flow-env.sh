@@ -72,9 +72,7 @@ revoke-permissions() {
   # (the state Maestro's setPermissions deny produced).
   adb shell pm revoke "$APP_PACKAGE" android.permission.ACCESS_FINE_LOCATION 2>/dev/null || true
   adb shell pm revoke "$APP_PACKAGE" android.permission.ACCESS_COARSE_LOCATION 2>/dev/null || true
-  adb shell appops set "$APP_PACKAGE" ACCESS_FINE_LOCATION deny
-  adb shell appops set "$APP_PACKAGE" ACCESS_COARSE_LOCATION deny
-  echo "ad-flow-env: location permissions force-denied for $APP_PACKAGE"
+  echo "ad-flow-env: location permissions revoked (ask state; deny flows handle the system dialog)"
 }
 
 connect-metro() {

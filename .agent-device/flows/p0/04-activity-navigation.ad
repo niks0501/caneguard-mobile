@@ -14,6 +14,12 @@ context platform=android timeout=900000
 # --relaunch preserves that semantic so the app boots to its initial route.
 
 open "com.niks0501.caneguard" --relaunch --platform android
+# Cold start requires explicit authentication (auth security change:
+# the app requires unlock on restart). Sign in with the field account.
+wait "label=\"Welcome back\"" 120000
+fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
+fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
+click "id=\"auth.login-submit\""
 wait "id=home.screen" 120000
 click "id=nav.activity"
 wait "id=activity.screen" 30000

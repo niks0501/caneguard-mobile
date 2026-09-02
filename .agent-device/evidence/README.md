@@ -15,8 +15,8 @@ following:
 5. **Persistence proof** — the before/after observation demonstrating that the
    record remains retrievable, plus any applicable database/migration evidence.
 6. **Artifacts** — repository-relative or CI artifact paths for screenshots and
-   logs. Generated files under `.maestro/artifacts/` are local and ignored; move
-   durable evidence to the team's review/CI artifact store.
+   logs. Generated files under `.agent-device/test-artifacts/` are local and
+   ignored; move durable evidence to the team's review/CI artifact store.
 7. **Limitations** — missing credentials/services, stale builds, system-picker
    differences, skipped platforms, or other constraints that affect confidence.
 

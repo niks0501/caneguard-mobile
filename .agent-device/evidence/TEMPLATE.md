@@ -23,7 +23,7 @@
 | NOT RUN | Static checks | |
 | NOT RUN | Focused tests | |
 | NOT RUN | Persistence proof | |
-| NOT RUN | Maestro E2E | |
+| NOT RUN | Agent Device E2E | |
 
 ## Limitations and follow-up
 

@@ -9,11 +9,17 @@ context platform=android timeout=900000
 # helper, and the setClipboard/pasteText entries become fill commands.
 
 open "com.niks0501.caneguard" --relaunch --platform android
+# Cold start requires explicit authentication (auth security change:
+# the app requires unlock on restart). Sign in with the field account.
+wait "label=\"Welcome back\"" 120000
+fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
+fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
+click "id=\"auth.login-submit\""
 wait "id=home.screen" 120000
 open "com.niks0501.caneguard" "caneguardmobile:///scan" --platform android
 wait "id=scan.screen" 30000
 click "id=scan.choose-gallery"
-wait "label=\"Photo taken on\"" 15000
+wait stable 2000 15000
 find "Photo taken on" click --first
 click "label=Done"
 wait "id=scan.preview-screen" 30000
@@ -22,44 +28,44 @@ wait "id=scan.symptom-checklist-screen" 120000
 click "id=scan.symptom-rust"
 click "id=scan.continue-to-result"
 wait "label=\"Possible result: Rust\"" 30000
-scroll down --settle
+scroll down 1 --settle
 wait "id=scan.report-to-office" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=scan.report-to-office" 10000
 click "id=scan.report-to-office"
 wait "id=field-report.screen" 30000
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-report.farmer-name-input" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-report.farmer-name-input" 10000
 fill "id=field-report.farmer-name-input" "T10 Phase 1 Block"
 back --settle
 click "id=field-report.barangay-input"
 fill "id=field-report.barangay-input" "Wawa"
 back --settle
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-report.barangay-input-option" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-report.barangay-input-option" 10000
 find "Wawa" click --first
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-report.affected-area-input" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-report.affected-area-input" 10000
 fill "id=field-report.affected-area-input" "1.58"
 back --settle
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-report.affected-portion-input" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-report.affected-portion-input" 10000
 fill "id=field-report.affected-portion-input" "58"
 back --settle
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-report.finalize" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-report.finalize" 10000
 click "id=field-report.finalize"
-scroll up --settle
+scroll up 1 --settle
 wait "id=field-report.authoring-status" 30000
 screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/t10-04-mobile-report-finalized.png"
 

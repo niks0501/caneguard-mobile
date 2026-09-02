@@ -23,9 +23,9 @@ open "com.niks0501.caneguard" "caneguardmobile:///activity" --platform android
 wait "id=activity.screen" 30000
 find "Open " click --first
 wait "id=records.details-screen" 30000
-scroll down --settle
+scroll down 1 --settle
 wait "id=records.open-field-report" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=records.open-field-report" 10000
 click "id=records.open-field-report"
 wait "id=field-report.screen" 30000
@@ -41,9 +41,9 @@ open "com.niks0501.caneguard" "caneguardmobile:///activity" --platform android
 wait "id=activity.screen" 30000
 find "Open " click --first
 wait "id=records.details-screen" 30000
-scroll down --settle
+scroll down 1 --settle
 wait "id=records.open-field-report" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=records.open-field-report" 10000
 click "id=records.open-field-report"
 wait "id=field-report.screen" 30000

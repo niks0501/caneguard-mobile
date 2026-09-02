@@ -12,19 +12,25 @@ context platform=android timeout=900000
 # wait for "Validation synchronized" still proves the outcome.
 
 open "com.niks0501.caneguard" --relaunch --platform android
+# Cold start requires explicit authentication (auth security change:
+# the app requires unlock on restart). Sign in with the field account.
+wait "label=\"Welcome back\"" 120000
+fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
+fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
+click "id=\"auth.login-submit\""
 wait "id=home.screen" 120000
 wait "label=Online" 60000
 click "label=\"My Activity\""
 wait "id=activity.screen" 30000
-scroll down --settle
+scroll down 1 --settle
 wait "label=\"Field validation assignment ${T10_CASE_REFERENCE}\"" 60000
-scroll down --settle
+scroll down 1 --settle
 wait "label=\"Field validation assignment ${T10_CASE_REFERENCE}\"" 60000
 click "label=\"Field validation assignment ${T10_CASE_REFERENCE}\""
 wait "id=field-validation.screen" 30000
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-validation.completion-status" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-validation.completion-status" 10000
 wait "label=\"Validation synchronized\"" 120000
 is visible "label=\"The office can now review this field evidence. The case remains open and is not automatically verified or closed.\""

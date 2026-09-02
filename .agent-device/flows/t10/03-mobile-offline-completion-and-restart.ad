@@ -1,5 +1,11 @@
 context platform=android timeout=900000
 
+# BLOCKED (2026-09-02, auth security change): the offline cold-start journey
+# can no longer run on this emulator. The app now requires explicit
+# authentication on restart, and without an enrolled device credential the
+# offline login path cannot complete. Needs an emulator with an enrolled
+# device credential (developer setup) before this flow can run again.
+
 # T10 stages 8-9 - offline field validation completion and restart
 # preservation. Converted from .maestro/t10/03-mobile-offline-completion-and-restart.yaml.
 #
@@ -11,37 +17,43 @@ context platform=android timeout=900000
 # the emulator network.
 
 open "com.niks0501.caneguard" --relaunch --platform android
+# Cold start requires explicit authentication (auth security change:
+# the app requires unlock on restart). Sign in with the field account.
+wait "label=\"Welcome back\"" 120000
+fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
+fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
+click "id=\"auth.login-submit\""
 wait "id=home.screen" 120000
 is visible "label=Offline"
 click "label=\"My Activity\""
 wait "id=activity.screen" 30000
-scroll down --settle
+scroll down 1 --settle
 wait "label=\"Field validation assignment ${T10_CASE_REFERENCE}\"" 60000
-scroll down --settle
+scroll down 1 --settle
 wait "label=\"Field validation assignment ${T10_CASE_REFERENCE}\"" 60000
 click "label=\"Field validation assignment ${T10_CASE_REFERENCE}\""
 wait "id=field-validation.screen" 30000
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-validation.observation-input" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-validation.observation-input" 10000
 fill "id=field-validation.observation-input" "T10 leaves show localized orange-brown pustules without stem lodging."
 back --settle
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-validation.finding-input" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-validation.finding-input" 10000
 fill "id=field-validation.finding-input" "T10 field evidence is consistent with rust symptoms and remains separate from the AI result."
 back --settle
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-validation.action-input" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-validation.action-input" 10000
 fill "id=field-validation.action-input" "T10 advised isolation, monitoring, and office review before any final disposition."
 back --settle
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-validation.complete" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=field-validation.complete" 10000
 click "id=field-validation.complete"
 wait "label=\"Saved on this device\"" 60000
@@ -51,20 +63,26 @@ is visible "label=GPS"
 is visible "id=field-validation.retry"
 screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/t10-08-mobile-offline-completion-pending.png"
 open "com.niks0501.caneguard" --relaunch --platform android
+# Cold start requires explicit authentication (auth security change:
+# the app requires unlock on restart). Sign in with the field account.
+wait "label=\"Welcome back\"" 120000
+fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
+fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
+click "id=\"auth.login-submit\""
 wait "id=home.screen" 120000
 is visible "label=Offline"
 click "label=\"My Activity\""
 wait "id=activity.screen" 30000
-scroll down --settle
+scroll down 1 --settle
 wait "label=\"Field validation assignment ${T10_CASE_REFERENCE}\"" 60000
-scroll down --settle
+scroll down 1 --settle
 wait "label=\"Field validation assignment ${T10_CASE_REFERENCE}\"" 60000
 click "label=\"Field validation assignment ${T10_CASE_REFERENCE}\""
 wait "id=field-validation.screen" 30000
 is visible "label=${T10_CASE_REFERENCE}"
-scroll down --settle
+scroll down 1 --settle
 wait "label=\"Saved on this device\"" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "label=\"Saved on this device\"" 10000
 is visible "label=\"Visit time\""
 is visible "id=field-validation.retry"

@@ -65,7 +65,7 @@ adb -s emulator-5554 reverse --list
 
 The API health endpoint reported a successful local response with database and storage ready.
 
-Run each flow from the Mobile repository root with private `-e` values for the account variables described in `.maestro/auth-v1/README.md`.
+Historical note: these flows originally used private `-e` account variables documented in the retired `.maestro/auth-v1/README.md`. Current Agent Device environment setup is documented in `.agent-device/README.md`.
 
 Never put account values or one-time links in a flow file or evidence record.
 

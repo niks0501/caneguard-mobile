@@ -84,12 +84,6 @@
       "sourceType": "github",
       "skillPath": ".agents/skills/impeccable/SKILL.md",
       "computedHash": "fcca0e64a46392a83c4d43766d21f2b0b2a0c584278e0cb4fb9739019b87bcb5"
-    },
-    "maestro-mobile-testing": {
-      "source": "tovimx/maestro-mobile-testing-skill",
-      "sourceType": "github",
-      "skillPath": "SKILL.md",
-      "computedHash": "bdbd865389287a513591c184ca7958256b42d694216ae55c8e94372843eda46b"
     }
   }
 }

@@ -123,7 +123,7 @@ describe('Phase 1 lifecycle automated seam acceptance', () => {
    * This test is automated seam evidence only. The assignment API response and
    * completion upload are simulated, and the SQLite restart is represented by
    * closing and reopening a file-backed temporary database. It is not device,
-   * network, backend, or Maestro evidence.
+   * network, backend, or Agent Device evidence.
    */
   it('preserves owner-scoped work through offline completion, restart, retry, and attention refresh', async () => {
     const first = openDatabase();

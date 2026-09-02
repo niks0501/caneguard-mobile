@@ -1,5 +1,11 @@
 context platform=android timeout=900000
 
+# BLOCKED (2026-09-02, auth security change): the offline cold-start journey
+# can no longer run on this emulator. The app now requires explicit
+# authentication on restart, and without an enrolled device credential the
+# offline login path cannot complete. Needs an emulator with an enrolled
+# device credential (developer setup) before this flow can run again.
+
 # Auth v1 cached session and local report evidence while offline.
 # Converted from .maestro/auth-v1/10-offline-session-and-local-report.yaml.
 #
@@ -17,12 +23,18 @@ context platform=android timeout=900000
 # process while preserving state; --relaunch preserves that semantic.
 
 open "com.niks0501.caneguard" --relaunch --platform android
+# Cold start requires explicit authentication (auth security change:
+# the app requires unlock on restart). Sign in with the field account.
+wait "label=\"Welcome back\"" 120000
+fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
+fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
+click "id=\"auth.login-submit\""
 wait "id=home.screen" 120000
 wait "label=Offline" 30000
 click "label=\"Start Scan\""
 wait "id=scan.screen" 30000
 click "id=scan.choose-gallery"
-wait "label=\"Photo taken on\"" 15000
+wait stable 2000 15000
 find "Photo taken on" click --first
 click "label=Done"
 wait "id=scan.preview-screen" 30000
@@ -31,9 +43,9 @@ wait "id=scan.symptom-checklist-screen" 120000
 click "id=scan.symptom-rust"
 click "id=scan.continue-to-result"
 wait "label=\"Possible result: Rust\"" 30000
-scroll down --settle
+scroll down 1 --settle
 wait "id=scan.keep-as-scan-only" 10000
-scroll down --settle
+scroll down 1 --settle
 wait "id=scan.keep-as-scan-only" 10000
 click "id=scan.keep-as-scan-only"
 wait "id=scan.record-saved" 30000

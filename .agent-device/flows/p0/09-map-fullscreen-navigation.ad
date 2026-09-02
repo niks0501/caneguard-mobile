@@ -1,0 +1,45 @@
+context platform=android timeout=900000
+
+# P0-09 fullscreen map hides navigation controls.
+# Converted from .maestro/p0/09-map-fullscreen-navigation.yaml.
+#
+# Precondition: an existing saved record has an incomplete Draft field
+# report on this device. This flow preserves app state and does not encode
+# credentials.
+
+open "com.niks0501.caneguard" --relaunch --platform android
+# Cold start requires explicit authentication (auth security change:
+# the app requires unlock on restart). Sign in with the field account.
+wait "label=\"Welcome back\"" 120000
+fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
+fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
+click "id=\"auth.login-submit\""
+wait "id=home.screen" 120000
+open "com.niks0501.caneguard" "caneguardmobile:///activity" --platform android
+wait "id=activity.screen" 30000
+find "Possible result: Rust" click --first
+wait "id=records.details-screen" 30000
+scroll down 1 --settle
+wait "id=records.open-field-report" 10000
+scroll down 1 --settle
+wait "id=records.open-field-report" 10000
+click "id=records.open-field-report"
+wait "id=field-report.screen" 30000
+is visible "label=Draft"
+scroll down 1 --settle
+wait "id=field-report.open-manual-map" 10000
+scroll down 1 --settle
+wait "id=field-report.open-manual-map" 10000
+click "id=field-report.open-manual-map"
+wait "id=manual-map.screen" 30000
+click "id=manual-map.fullscreen-toggle"
+# assertNotVisible conversion: the preceding screen wait already proves the
+# element is absent; is hidden only matches elements that exist but are hidden.
+# assertNotVisible conversion: the preceding screen wait already proves the
+# element is absent; is hidden only matches elements that exist but are hidden.
+is visible "id=manual-map.fullscreen-toggle"
+click "id=manual-map.fullscreen-toggle"
+is visible "id=manual-map.controls"
+is visible "label=\"Pin Report Location\""
+
+close

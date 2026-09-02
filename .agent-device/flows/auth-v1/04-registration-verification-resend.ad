@@ -1,0 +1,38 @@
+context platform=android timeout=900000
+
+# Auth v1 registration, unverified login, and verification resend.
+# Converted from .maestro/auth-v1/04-registration-verification-resend.yaml.
+#
+# Preflow: npm run e2e:env, then scripts/ad-flow-env.sh reset-app.
+# Run with a NEW local email in AUTH_EMAIL that does not exist in the
+# disposable local API database; AUTH_NAME is the display name and
+# AUTH_PASSWORD the new local passphrase.
+
+open "com.niks0501.caneguard" --platform android
+wait text "http://" 30000
+find "http://" fill "http://127.0.0.1:8081"
+click "label=\"Connect\""
+wait "label=\"Continue\"" 30000
+click "label=\"Continue\""
+click "label=\"Close\""
+wait "label=\"Get started with CaneGuard\"" 180000
+click "label=\"Get started with CaneGuard\""
+wait "label=\"Create account\"" 30000
+fill "id=register.full-name-input" "${AUTH_NAME}"
+fill "id=register.email-input" "${AUTH_EMAIL}"
+fill "id=register.password-input" "${AUTH_PASSWORD}"
+click "id=register.submit"
+wait "id=register.verification-state" 30000
+is visible "label=\"Check your email\""
+click "id=register.resend-verification"
+wait "label=\"If the address is eligible, a verification link will be sent.\"" 30000
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/auth-v1-registration-resend.png"
+click "label=\"Return to login\""
+wait "id=auth.login-screen" 30000
+fill "id=auth.email-input" "${AUTH_EMAIL}"
+fill "id=auth.password-input" "${AUTH_PASSWORD}"
+click "id=auth.login-submit"
+wait "label=\"Verify your email address before using Mobile.\"" 30000
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/auth-v1-unverified-login.png"
+
+close

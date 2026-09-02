@@ -1,6 +1,6 @@
 ---
 name: akidev-mobile-runtime
-description: Use only after explicit user intent for device/runtime inspection or mobile UI behavior; route agent-device, ADB, Maestro MCP, or static checks without racing a shared device.
+description: Use only after explicit user intent for device/runtime inspection or mobile UI behavior; route agent-device interactive sessions, ADB, the deterministic .ad suite, or static checks without racing a shared device.
 ---
 
 <!-- Managed by AkiDev integration: akidev-mobile-runtime -->
@@ -8,17 +8,18 @@ description: Use only after explicit user intent for device/runtime inspection o
 
 This skill is an explicit-user-intent router.
 Read `.akidev/config` before any selected mobile runtime work.
-When `maestro` or `maestro-mcp` is selected, also read the canonical `maestro-mobile-testing` skill.
+When `agent-device` is selected, also read the canonical `akidev-mobile-verification` policy skill for the intent gate, operating modes, freshness rules, and evidence boundaries.
 
 ## Choose the layer
 
 1. Use source inspection and static tests when runtime state is not needed.
-2. Use `agent-device` for unfamiliar-flow exploration, reproduction, logs, network or crash investigation, and deep runtime state.
+2. Use `agent-device` interactively (Mode A) for unfamiliar-flow exploration, reproduction, logs, network or crash investigation, and deep runtime state: open a session, inspect the current UI, act, re-inspect, and continue from the existing session rather than restarting the journey.
 3. Use shared `adb` for transport, package/process, logs, reverse ports, or facts that higher-level tools cannot provide.
-4. Use the selected `mobile-mcp` child and installed Maestro MCP for explicit hierarchy, screenshot, selector, or incremental flow diagnosis.
-5. Use the shared Maestro CLI and project npm commands for permanent flows and deterministic acceptance.
+4. Use the selected `agent-device-mcp` integration only when a structured MCP interface is explicitly useful; it exposes the same command contracts as the CLI and never replaces the CLI as the acceptance gate.
+5. Use the deterministic `.ad` suite through the project npm commands (Mode B) for regression and acceptance evidence.
 
-The canonical skill owns the evidence-driven lifecycle, version-sensitive MCP schema, selector policy, and failure gate.
+The `akidev-mobile-verification` skill owns the evidence-driven policy, failure classification, selector guidance, and evidence boundaries.
+The `akidev-e2e-verification` skill owns the project command interface and the deterministic PASS/FAIL gate.
 This router owns only capability choice and the one-device boundary.
 
 ## WSL2 Android emulator preflight
@@ -44,5 +45,6 @@ Do not fall back to a physical device unless the task explicitly requires physic
 
 The shared Windows-hosted emulator is mutable shared state.
 Only one agent or worktree may control a physical device or emulator at a time.
-Serialize `agent-device`, device-oriented ADB, Maestro MCP, and Maestro CLI sessions through the designated verification lane.
+Serialize `agent-device` sessions, device-oriented ADB, and MCP sessions through the designated verification lane.
+`agent-device` device claims block a second `open` while a foreign live claim exists; named sessions are for intentional sharing only.
 Do not start device tooling because a task is difficult or because a command happens to be available.

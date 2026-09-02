@@ -285,7 +285,7 @@ For database/records/sync changes, run the relevant suites under:
 
 Physical-device verification is required for native-runtime behavior such as TFLite execution, development-build compatibility, camera/gallery flows, filesystem persistence, SQLite migration/persistence, and end-to-end synchronization.
 
-If Maestro is used, verify that the installed development build matches the current native dependency/configuration state before interpreting a Maestro failure.
+Verify that the installed development build matches the current native dependency/configuration state before interpreting an Agent Device failure.
 
 Do not run EAS build or submit automatically.
 
@@ -293,7 +293,7 @@ Do not run EAS build or submit automatically.
 
 - The project is Android-first and should remain cross-platform where practical.
 - `react-native-fast-tflite` and Nitro modules require a compatible native development build; Expo Go is not sufficient for the full model runtime.
-- After changes to native dependencies, Expo plugins, native configuration, or other development-build inputs, rebuild the development client before device/Maestro verification.
+- After changes to native dependencies, Expo plugins, native configuration, or other development-build inputs, rebuild the development client before device or Agent Device verification.
 - JS/TS-only changes may use the existing development build when its native runtime is still compatible.
 - Core scan, records, and report viewing behavior must remain useful offline.
 - Synchronization must tolerate unavailable networks and preserve retryable local state.

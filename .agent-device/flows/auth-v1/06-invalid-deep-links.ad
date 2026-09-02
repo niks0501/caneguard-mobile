@@ -1,0 +1,29 @@
+context platform=android timeout=900000
+
+# Auth v1 invalid verification and reset deep links stay safe.
+# Converted from .maestro/auth-v1/06-invalid-deep-links.yaml.
+#
+# Preflow: npm run e2e:env, then scripts/ad-flow-env.sh reset-app,
+# with AUTH_PASSWORD set to any valid local password value.
+
+open "com.niks0501.caneguard" --platform android
+wait text "http://" 30000
+find "http://" fill "http://127.0.0.1:8081"
+click "label=\"Connect\""
+wait "label=\"Continue\"" 30000
+click "label=\"Continue\""
+click "label=\"Close\""
+wait "label=\"Get started with CaneGuard\"" 180000
+open com.niks0501.caneguard "caneguardmobile:///verify-email?id=1&hash=invalid&expires=4102444800&signature=invalid" --platform android
+wait "id=verify-email.error" 30000
+is visible "label=\"This email-verification link is invalid or expired.\""
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/auth-v1-invalid-verification-link.png"
+open com.niks0501.caneguard "caneguardmobile:///reset-password?email=invalid%40example.test&token=invalid" --platform android
+wait "label=\"Choose a new password\"" 30000
+fill "id=reset-password.password-input" "${AUTH_PASSWORD}"
+click "id=reset-password.submit"
+wait "id=reset-password.error" 30000
+is visible "label=\"This recovery link is invalid, expired, or already used.\""
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/auth-v1-invalid-reset-link.png"
+
+close

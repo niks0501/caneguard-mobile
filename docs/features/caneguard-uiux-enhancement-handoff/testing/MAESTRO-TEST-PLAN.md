@@ -1,3 +1,5 @@
+<!-- Historical record - framework retired 2026-09. Device automation moved to Agent Device; see .agent-device/README.md. -->
+
 # Maestro Test Plan — UI/UX Enhancement
 
 The repository already contains a Maestro harness and evidence workflow. Extend that approach rather than introducing another E2E framework.

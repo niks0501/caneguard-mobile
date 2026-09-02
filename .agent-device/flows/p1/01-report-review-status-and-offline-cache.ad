@@ -1,0 +1,55 @@
+context platform=android timeout=900000
+
+# P1 report review status, feedback, refresh, and offline cache (scaffold).
+# Converted from .maestro/p1/01-report-review-status-and-offline-cache.yaml.
+#
+# Prerequisites (performed outside this flow):
+# - runtime-fresh Android development build and matching Metro bundle;
+# - authenticated field reporter;
+# - one owned finalized Field Report is already Finalized · Synced;
+# - controlled backend fixture records the report's initial status, then
+#   changes the same report to for_field_validation with plain-text
+#   feedback; and
+# - the backend fixture can make the status endpoint unavailable for the
+#   final offline/restart segment. Never place credentials or report
+#   content here.
+#
+# This scaffold is intentionally not executed by the implementation lane,
+# exactly like its Maestro original. The activity-list selector below
+# matches the first "Open ... saved ..." list item by text prefix and is
+# verified against the live activity list before first execution.
+
+open "com.niks0501.caneguard" "caneguardmobile:///activity" --platform android
+wait "id=activity.screen" 30000
+find "Open " click --first
+wait "id=records.details-screen" 30000
+scroll down 1 --settle
+wait "id=records.open-field-report" 10000
+scroll down 1 --settle
+wait "id=records.open-field-report" 10000
+click "id=records.open-field-report"
+wait "id=field-report.screen" 30000
+is visible "label=\"Finalized · Synced\""
+is visible "id=field-report.authority-review-section"
+click "id=field-report.refresh-authority-status"
+wait "label=\"Field validation needed\"" 30000
+is visible "label=\"Authority staff\""
+is visible "label=\"Latest feedback\""
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p1-01-authority-update-feedback.png"
+open "com.niks0501.caneguard" --relaunch --platform android
+open "com.niks0501.caneguard" "caneguardmobile:///activity" --platform android
+wait "id=activity.screen" 30000
+find "Open " click --first
+wait "id=records.details-screen" 30000
+scroll down 1 --settle
+wait "id=records.open-field-report" 10000
+scroll down 1 --settle
+wait "id=records.open-field-report" 10000
+click "id=records.open-field-report"
+wait "id=field-report.screen" 30000
+is visible "label=\"Finalized · Synced\""
+is visible "label=\"Field validation needed\""
+is visible "label=\"Authority staff\""
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p1-01-authority-offline-restart-cache.png"
+
+close

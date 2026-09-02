@@ -1,15 +1,15 @@
 ---
 name: akidev-e2e-verification
-description: Run targeted or deterministic Expo/Maestro verification only for explicit E2E/device requests; use project npm scripts as authoritative PASS/FAIL evidence.
+description: Run targeted or deterministic Expo/agent-device verification only for explicit E2E/device requests; use project npm scripts as authoritative PASS/FAIL evidence.
 ---
 
 <!-- Managed by AkiDev integration: akidev-e2e-verification -->
 # AkiDev E2E verification
 
 This skill owns the project command interface and deterministic acceptance result.
-Load it only after explicit E2E, Maestro, device, or mobile verification intent.
+Load it only after explicit E2E, device, or mobile verification intent.
 The task difficulty alone does not activate this skill.
-The canonical `maestro-mobile-testing` skill owns incremental authoring, version-sensitive MCP use, selector policy, and failure diagnosis.
+The `akidev-mobile-verification` policy skill owns operating modes, runtime freshness, failure classification, and evidence boundaries.
 
 ## Android emulator preflight
 
@@ -30,27 +30,29 @@ Use a physical device only when the task explicitly requires physical-device beh
 
 ```bash
 npm run e2e:doctor
-maestro test <flow>
-npm run e2e:flow -- .maestro/<flow>.yaml
+agent-device replay .agent-device/flows/<flow>.ad
+npm run e2e:flow -- .agent-device/flows/<flow>.ad
 npm run e2e
 ```
 
 Run relevant lint, typecheck, unit, and integration checks before interpreting mobile results.
 Use the project's native-build freshness guidance before treating a device result as an app result.
-Plain `maestro test` is the normal path, and the project flow action is its package-script form.
+Plain `agent-device replay <script>` is the normal focused path, and the project flow action is its package-script form.
+`npm run e2e` runs the deterministic `.ad` suite under `.agent-device/flows/`, and `npm run e2e:doctor` delegates to `agent-device doctor` for device/toolchain readiness.
 
 Use this focused-to-broad progression:
 
-1. Run the focused flow with `maestro test <flow>`.
+1. Run the focused script with `agent-device replay <script>`.
 2. Preserve the exact failing interaction, device/build identity, logs, screenshots, and other artifacts.
-3. Diagnose the smallest failing interaction.
+3. Diagnose the smallest failing interaction using the structured divergence report (step, file, line, post-failure snapshot digest, ranked selector suggestions).
 4. Make one evidence-backed change.
-5. Rerun the focused flow.
+5. Rerun the focused script.
 6. Run broader or full E2E with `npm run e2e` only when the task or an acceptance gate requires it.
 
-Do not add automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns around Maestro.
-A failed Maestro command proves that the command failed; it does not by itself prove an application defect.
+Do not add automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns around agent-device.
+The guarded `replay --from <step> --plan-digest <digest>` resume is allowed only with an unchanged plan and understood, repaired state.
+A failed replay command proves that the command failed; it does not by itself prove an application defect.
 
-MCP hierarchy, screenshots, and interactive results are diagnostic evidence.
-The project npm or Maestro CLI result is the deterministic PASS or FAIL gate.
+MCP sessions, snapshots, and interactive results are diagnostic evidence.
+The project npm or agent-device CLI result is the deterministic PASS or FAIL gate.
 Keep one active owner per physical device or emulator and return any failure to the canonical evidence lifecycle before another full-flow run.

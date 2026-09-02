@@ -1,0 +1,45 @@
+context platform=android timeout=900000
+
+# P0-08 end-to-end acceptance and evidence.
+# Converted from .maestro/p0/08-end-to-end-acceptance.yaml.
+#
+# The original embedded three flows via runFlow. Run them in this order
+# with the same app state preserved between them:
+#   1. scripts/ad-flow-env.sh preflight
+#   2. agent-device replay .agent-device/flows/p0/08-path-a-complete-in-field-gps.ad
+#   3. agent-device replay .agent-device/flows/p0/02-draft-report-lifecycle.ad
+#   4. agent-device replay .agent-device/flows/p0/05-06-draft-manual-map-finalization.ad
+# This script then continues with the P0-08 sync and restart assertions for
+# the Path B report left on the finalized report screen.
+#
+# The conditional retry-sync tap of the original becomes a tolerant skip:
+# when the report is already syncing, the retry control is absent and the
+# wait for "Finalized · Synced" below still proves the sync identity.
+
+wait "label=\"Finalized · Synced\"" 120000
+is visible "label=\"Server report UUID\""
+is visible "label=\"Last synchronized\""
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-08-path-b-manual-map-synced.png"
+open "com.niks0501.caneguard" --relaunch --platform android
+# Cold start requires explicit authentication (auth security change:
+# the app requires unlock on restart). Sign in with the field account.
+wait "label=\"Welcome back\"" 120000
+fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
+fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
+click "id=\"auth.login-submit\""
+wait "id=home.screen" 120000
+open "com.niks0501.caneguard" "caneguardmobile:///activity" --platform android
+wait "id=activity.screen" 30000
+find "report saved" click --first
+wait "id=records.details-screen" 30000
+scroll down 1 --settle
+wait "id=records.open-field-report" 10000
+scroll down 1 --settle
+wait "id=records.open-field-report" 10000
+click "id=records.open-field-report"
+wait "id=field-report.screen" 30000
+is visible "label=\"Finalized · Synced\""
+is visible "id=field-report.inherited-evidence"
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-08-path-b-manual-map-after-restart.png"
+
+close

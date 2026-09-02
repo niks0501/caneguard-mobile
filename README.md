@@ -64,8 +64,9 @@ Install or obtain these prerequisites before setup:
 The Mobile app requires a compatible native development build because `react-native-fast-tflite` and `react-native-nitro-modules` are native dependencies.
 Expo Go is not sufficient for the complete Android workflow.
 
-Maestro is optional.
-The optional Maestro doctor also requires Java 17 or newer and the `maestro` command on `PATH`.
+Device automation, UI verification, and E2E flow testing use the Agent Device CLI.
+The `agent-device` command and Node.js 22.12+ must be available on the `PATH`; `adb` is listed above.
+Run `npm run e2e:doctor` to check local device and toolchain readiness.
 
 A MapTiler browser key is optional for the Web map.
 The Web dashboard keeps its report-table fallback visible when `VITE_MAPTILER_KEY` is blank.
@@ -359,10 +360,16 @@ npm run contract:gate
 
 Run them only when the Web/API gate configuration points at the intended Mobile producer revision.
 
-### Optional Maestro and P0F testing
+### Device testing and P0F acceptance
 
-Maestro is not required for normal onboarding.
-Before running it, use a fresh compatible development build, a running Metro session, a reachable API, a connected Android Studio emulator, and an authenticated field-reporter session.
+Agent Device testing is not required for normal onboarding.
+Before running flows, use a fresh compatible development build, a running Metro session, a reachable API, a connected Android Studio emulator, and an authenticated field-reporter session.
+Stage the shared scan fixture and location permissions with the pre-flow environment helper when a flow needs them:
+
+```bash
+cd "<WORKSPACE>/caneguard-mobile"
+npm run e2e:env
+```
 
 Run the read-only prerequisite check from the Mobile repository root:
 
@@ -372,22 +379,22 @@ npm run e2e:doctor
 ```
 
 Run the checked-in flows only after the doctor and runtime prerequisites pass.
-Start with the smallest focused flow using plain Maestro:
+Start with the smallest focused flow using plain Agent Device:
 
 ```bash
 cd "<WORKSPACE>/caneguard-mobile"
-maestro test .maestro/p0/00-baseline-scan.yaml
+agent-device replay .agent-device/flows/p0/00-baseline-scan.ad
 ```
 
-The equivalent project action is `npm run e2e:flow -- .maestro/p0/00-baseline-scan.yaml`.
-Preserve the first failure and its evidence, diagnose the smallest failing interaction, make one evidence-backed change, and rerun the focused flow.
+The equivalent project action is `npm run e2e:flow -- .agent-device/flows/<flow>.ad`.
+Preserve the first failure and its evidence, diagnose the smallest failing interaction from the structured divergence report, make one evidence-backed change, and rerun the focused flow.
 Run broader or full E2E with `npm run e2e` only when the task or an acceptance gate requires it.
-Do not add automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns around Maestro.
-A failed Maestro command proves that the command failed; it does not by itself prove an application defect.
+Do not add automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns around Agent Device.
+A failed replay command proves that the command failed; it does not by itself prove an application defect.
 
 P0F is a separate full-system release acceptance flow for Mobile, API, Web review, and Mobile status return.
 It is not part of daily startup or the fast onboarding path.
-Use the [P0-08 acceptance record](docs/features/caneGuard-p0-implementation-phases/P0-08-End-to-End-Acceptance-and-Evidence.md), the [Maestro workspace guide](.maestro/README.md), and the Web/API repository's contract documentation for that work.
+Use the [P0-08 acceptance record](docs/features/caneGuard-p0-implementation-phases/P0-08-End-to-End-Acceptance-and-Evidence.md), the [Agent Device workspace guide](.agent-device/README.md), and the Web/API repository's contract documentation for that work.
 
 ## Troubleshooting
 
@@ -395,14 +402,14 @@ Use the [P0-08 acceptance record](docs/features/caneGuard-p0-implementation-phas
 
 If `adb devices -l` does not show the Android Studio emulator as `device`, confirm that the emulator is running in Android Studio and that the official `adb` command reaches the Windows-hosted ADB server.
 If `adb reverse --list` does not show `tcp:8000 tcp:8000`, rerun `adb reverse tcp:8000 tcp:8000` while the emulator is connected.
-The checked-in [Maestro README](.maestro/README.md) documents the Android Studio emulator and Windows-hosted ADB workflow, including the repository's `8081` and `8000` reverse mappings.
+The checked-in [Agent Device workspace guide](.agent-device/README.md) documents the Android Studio emulator and Windows-hosted ADB workflow, including the repository's `8081` and `8000` reverse mappings.
 Use the commands available on your active `PATH` for the project scripts.
 
 ### Metro or development-client compatibility
 
 Run `npm run start -- --dev-client` from the Mobile root, reverse port `8081` for the Android Studio emulator workflow, and connect the installed development build to that Metro session.
 Restart Metro after every Mobile `.env` change.
-If native dependencies, Expo plugins, or native app configuration changed, rebuild and reinstall the development APK before interpreting device or Maestro failures.
+If native dependencies, Expo plugins, or native app configuration changed, rebuild and reinstall the development APK before interpreting device or Agent Device failures.
 A JavaScript-only change can reuse an existing compatible native build.
 
 ### API reachability
@@ -419,7 +426,7 @@ If migrations fail, confirm the MySQL service, database names, `caneguard_app` g
 ## Authoritative references
 
 - [Web/API full README](https://github.com/niks0501/caneguard-web/blob/main/README.md) for the companion installation, Laravel setup, database procedure, API startup, and Web/API validation.
-- [Mobile Maestro workspace guide](.maestro/README.md) for the Android Studio emulator, Windows-hosted ADB server, flow behavior, and evidence handling.
+- [Mobile Agent Device workspace guide](.agent-device/README.md) for the Android Studio emulator, Windows-hosted ADB server, flow behavior, and evidence handling.
 - [Mobile project context](PROJECT_CONTEXT.md) for architecture and external contracts.
 - [Mobile project stack](PROJECT_STACK.md) for native-runtime compatibility and verification rules.
 - [Mobile upload contract mirror](references/mobile-report-upload-v1.json) for the concise machine-readable producer boundary.

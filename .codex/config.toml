@@ -15,12 +15,6 @@ max_concurrent_threads_per_session = 4
 
 
 # AkiDev manages only this project-local MCP block.
-
-# AkiDev manages only this project-local MCP block.
-
-# AkiDev manages only this project-local MCP block.
-
-# AkiDev manages only this project-local MCP block.
 # >>> AKIDEV MCP START
 [mcp_servers.context7]
 command = "npx"
@@ -28,9 +22,9 @@ args = ["-y", "@upstash/context7-mcp@3.2.3"]
 startup_timeout_sec = 20
 enabled = true
 
-[mcp_servers.maestro]
-command = "maestro"
-args = ["mcp", "--no-viewer"]
+[mcp_servers.agent-device]
+command = "agent-device"
+args = ["mcp"]
 enabled = true
 
 # <<< AKIDEV MCP END

@@ -6,7 +6,7 @@ description: Route unfamiliar, cross-cutting, debugging, runtime, and verificati
 <!-- Managed by AkiDev integration: akidev-tool-routing -->
 # AkiDev tool routing
 
-This react-native-expo project declares these AkiDev integrations/capabilities: `expo-skills,maestro,agent-device,context7,maestro-mcp`.
+This react-native-expo project declares these AkiDev integrations/capabilities: `expo-skills,agent-device,context7`.
 Read `.akidev/config` as the source of truth.
 Availability is not a mandate to use a tool.
 
@@ -15,12 +15,12 @@ Availability is not a mandate to use a tool.
 1. Start with direct source inspection, existing tests, and normal static checks.
 2. Use a selected structural-analysis capability only for unfamiliar or cross-cutting impact questions; do not run Graphify on every task.
 3. Use mobile runtime capabilities only after explicit user intent to inspect, reproduce, verify, or interact with a device, emulator, or running app.
-4. For Maestro authoring or diagnosis, read `maestro-mobile-testing` once and follow its single evidence-driven lifecycle.
-5. Use the project npm commands and shared Maestro CLI for the deterministic final gate.
+4. For mobile verification policy, read `akidev-mobile-verification` once and follow its intent gate, operating modes, freshness, and evidence rules.
+5. Use the project npm commands and shared agent-device CLI for the deterministic final gate.
 
 ## Shared prerequisite policy
 
-Use `maestro`, `agent-device`, `adb`, and other selected shared commands from the active shell `PATH`.
+Use `agent-device`, `adb`, and other selected shared commands from the active shell `PATH`.
 If a prerequisite is missing, report it and use a safe static fallback where possible.
 AkiDev does not install, upgrade, repair, wrap, or register workstation tools from the project.
 
@@ -37,6 +37,6 @@ Use a physical device only when the task explicitly requires physical-device beh
 
 ## Explicit mobile intent and ownership
 
-`akidev-mobile-runtime`, `akidev-e2e-verification`, `agent-device`, device-oriented ADB, Maestro MCP, and `mobile-mcp` are explicit-user-intent capabilities.
+`akidev-mobile-runtime`, `akidev-mobile-verification`, `akidev-e2e-verification`, `agent-device`, and device-oriented ADB are explicit-user-intent capabilities.
 Only one agent or worktree may actively control a given physical device or emulator.
 The shared Windows-hosted emulator is mutable state, so route active device work through the designated serialized verification lane.

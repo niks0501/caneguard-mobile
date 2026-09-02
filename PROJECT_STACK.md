@@ -210,21 +210,21 @@ implementation
   -> unit/static checks
   -> rebuild development client
   -> install/run updated build
-  -> Maestro or physical-device verification
+  -> Agent Device or physical-device verification
 ```
 
-Do not interpret Maestro/native-runtime failures from a stale build as application regressions.
+Do not interpret Agent Device/native-runtime failures from a stale build as application regressions.
 
 For JS/TS-only changes that do not alter the native runtime, reuse the existing compatible development build.
 
 Expo Go is not the authoritative runtime for TFLite/native-module verification.
 
-For Maestro authoring, inspect the current screen or hierarchy when useful before choosing selectors.
-Start with the smallest focused flow and run `maestro test <flow>`.
-Preserve the first failure, diagnose the smallest failing interaction, make one evidence-backed change, and rerun the focused flow.
+For flow authoring, inspect the current screen or hierarchy when useful before choosing selectors.
+Start with the smallest focused flow and run `agent-device replay <script>`.
+Preserve the first failure, diagnose the smallest failing interaction from the structured divergence report, make one evidence-backed change, and rerun the focused flow.
 Broaden to full E2E only when the task or an acceptance gate requires it.
-Do not add automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns around Maestro.
-A failed Maestro command is evidence that the command failed, not proof of an application defect.
+Do not add automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns around Agent Device.
+A failed replay command is evidence that the command failed, not proof of an application defect.
 
 ## Verification
 
@@ -252,7 +252,7 @@ For critical flows, consider:
 - database migration and persistence tests;
 - model contract/preprocessing/inference tests;
 - auth and synchronization tests;
-- Maestro E2E flows when a compatible development build is installed;
+- Agent Device E2E flows when a compatible development build is installed;
 - agent-device or manual physical-device verification;
 - Android-specific manual checks.
 

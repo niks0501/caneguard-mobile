@@ -77,9 +77,10 @@
     "qa:export": "node ./scripts/qa-export.js",
     "eas-build-pre-install": "node ./scripts/validate-qa-env.js",
     "test:coverage": "jest --coverage",
-    "e2e": "maestro test .maestro",
-    "e2e:flow": "maestro test",
-    "e2e:doctor": "node scripts/check-mobile-e2e-tools.mjs"
+    "e2e": "agent-device test .agent-device/flows",
+    "e2e:flow": "agent-device replay",
+    "e2e:doctor": "agent-device doctor",
+    "e2e:env": "bash scripts/ad-flow-env.sh preflight"
   },
   "jest": {
     "preset": "jest-expo",

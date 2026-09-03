@@ -15,10 +15,12 @@ max_concurrent_threads_per_session = 4
 
 
 # AkiDev manages only this project-local MCP block.
+
+# AkiDev manages only this project-local MCP block.
 # >>> AKIDEV MCP START
 [mcp_servers.context7]
 command = "npx"
-args = ["-y", "@upstash/context7-mcp@3.2.3"]
+args = ["-y", "@upstash/context7-mcp@4.0.4"]
 startup_timeout_sec = 20
 enabled = true
 

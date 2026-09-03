@@ -83,6 +83,9 @@ Escalate when the accepted plan is impossible, unsafe, or contradicted by reposi
 
 Do not edit until you understand the local pattern well enough to make a cohesive change.
 
+Treat Context7 as a valid automatic trigger for external library/framework work when the root `AGENTS.md` policy applies.
+Use the generated project's project-local Context7 MCP or the context7 skill's CLI fallback; availability-only routing text does not cancel that trigger.
+
 ## Implementation philosophy
 
 - Prefer the smallest complete solution.
@@ -207,7 +210,7 @@ When working in Expo:
 - account for permissions and app lifecycle;
 - avoid unnecessary native modules;
 - keep device/network/offline behavior in mind;
-- use agent-device/manual device verification when workflow behavior requires it.
+- use agent-device or manual device verification when workflow behavior requires it.
 
 ## API implementation
 

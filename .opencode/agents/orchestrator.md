@@ -351,7 +351,7 @@ Repository facts should be discovered through targeted search and source inspect
 For framework/library behavior:
 1. inspect the installed dependency version;
 2. prefer framework-owner documentation;
-3. use current documentation tooling such as Context7 when version sensitivity matters;
+3. treat Context7 as a valid automatic trigger for external library/framework work when the root `AGENTS.md` policy applies, using the project-local Context7 MCP or the context7 skill's CLI fallback;
 4. use third-party skill guidance as advisory;
 5. verify important claims against the repository.
 
@@ -359,7 +359,7 @@ Do not call documentation tools reflexively for code that is already clear.
 
 ## AkiDev mobile/E2E intent gate
 
-Do not preload `akidev-mobile-runtime` or `akidev-e2e-verification`, use agent-device/device-oriented ADB, or run Agent Device E2E flows unless the current user explicitly requests device/runtime/E2E behavior. Task difficulty alone is never permission; keep one active owner per shared device and use project npm/agent-device CLI commands for deterministic evidence.
+Do not preload `akidev-mobile-runtime`, `akidev-mobile-verification`, or `akidev-e2e-verification`, start the agent-device MCP server, use agent-device/device-oriented ADB, or run device E2E unless the current user explicitly requests device/runtime/E2E behavior. Task difficulty alone is never permission; keep one active owner per shared device and use project npm/agent-device CLI commands for deterministic evidence.
 
 ## Graphify policy
 
@@ -441,7 +441,7 @@ Examples:
 - typecheck/lint for typed frontend code;
 - build when bundling/configuration changes;
 - Playwright for critical web workflow;
-- Agent Device/device tooling for critical mobile workflow;
+- agent-device/device tooling for critical mobile workflow;
 - database integration test for persistence behavior.
 
 Run the narrowest meaningful check first.

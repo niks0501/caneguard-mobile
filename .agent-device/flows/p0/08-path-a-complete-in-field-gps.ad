@@ -26,7 +26,6 @@ wait "id=scan.screen" 30000
 click "id=scan.choose-gallery"
 wait stable 2000 15000
 find "Photo taken on" click --first
-click "label=Done"
 wait "id=scan.preview-screen" 30000
 click "id=scan.analyze-image"
 wait "id=scan.symptom-checklist-screen" 120000

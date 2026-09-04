@@ -149,10 +149,17 @@ describe('ImagePreviewScreen', () => {
     let completePreprocessing:
       | ((result: typeof successfulPreprocessingResult) => void)
       | undefined;
+    let completeInference: ((result: typeof successfulInferenceResult) => void) | undefined;
     mockPreprocessImage.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
           completePreprocessing = resolve;
+        }),
+    );
+    mockRunInference.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          completeInference = resolve;
         }),
     );
     await renderPreview(selectedState);
@@ -182,12 +189,17 @@ describe('ImagePreviewScreen', () => {
     await fireEvent.press(screen.getByLabelText('Show Technical details'));
     expect(screen.getByText('Model input ready')).toBeOnTheScreen();
     expect(screen.getByText('224 × 224 RGB float32 · 42 ms')).toBeOnTheScreen();
-    expect(
-      screen
-        .getAllByLabelText('Preparing analysis result')
-        .some((element) => element.props.accessibilityState?.disabled),
-    ).toBe(true);
-    expect(screen.getByText('Preparing result…')).toBeOnTheScreen();
+    expect(screen.getByText('Running on-device model…')).toBeOnTheScreen();
+
+    completeInference?.(successfulInferenceResult);
+    await waitFor(() => {
+      expect(
+        screen
+          .getAllByLabelText('Preparing analysis result')
+          .some((element) => element.props.accessibilityState?.disabled),
+      ).toBe(true);
+      expect(screen.getByText('Preparing result…')).toBeOnTheScreen();
+    });
 
     await waitFor(() => {
       expect(screen.getByLabelText('Image analysis complete')).toBeDisabled();

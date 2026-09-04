@@ -48,8 +48,8 @@ wait "id=records.open-field-report" 10000
 click "id=records.open-field-report"
 # D5: the new Draft auto-attempts one GPS reading before the screen landmark
 # becomes available. Handle the system prompt before waiting on the screen.
-wait 1000
-click "label=\"Don’t allow\""
+wait "label=\"Don't allow\"" 10000
+click "label=\"Don't allow\""
 wait "id=field-report.screen" 30000
 wait stable 2000 15000
 # Fractional gestures keep the nested report scroll anchored on the editable

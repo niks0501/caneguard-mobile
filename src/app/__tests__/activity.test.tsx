@@ -237,6 +237,32 @@ describe('ActivityScreen', () => {
     });
   });
 
+  it('exposes the newest visible record as activity.latest-record', async () => {
+    await render(<ActivityScreen />);
+
+    const latest = screen.getByTestId('activity.latest-record');
+    expect(latest).toBeOnTheScreen();
+    expect(latest.props.accessibilityLabel).toMatch(
+      /Open Possible result: Rust report saved/,
+    );
+    expect(screen.queryByTestId(`activity.item.${REPORT.id}`)).not.toBeOnTheScreen();
+    expect(screen.getByTestId(`activity.item.${SCAN.id}`)).toBeOnTheScreen();
+  });
+
+  it('moves the latest-record target when the visible record set changes', async () => {
+    const view = await render(<ActivityScreen />);
+
+    mockRecordsState = { ...mockRecordsState, data: [SCAN] };
+    await view.rerender(<ActivityScreen />);
+
+    const latest = screen.getByTestId('activity.latest-record');
+    expect(latest).toBeOnTheScreen();
+    expect(latest.props.accessibilityLabel).toMatch(
+      /Open Possible result: Mosaic scan saved/,
+    );
+    expect(screen.queryByTestId(`activity.item.${SCAN.id}`)).not.toBeOnTheScreen();
+  });
+
   it('keeps search and empty states scoped to Activity', async () => {
     const view = await render(<ActivityScreen />);
 

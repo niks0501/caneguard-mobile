@@ -20,8 +20,10 @@
 #   scripts/ad-flow-env.sh reset-app
 #
 # Run from the repository root before running flows that stage media or need
-# a known location-permission state. Media and permissions persist on the
-# emulator across flows, so one preflight before a suite run is enough.
+# a known location-permission state. Permissions persist on the emulator, but
+# Android's picker copies selected images into Pictures, so restage media
+# (stage-media) before each scan flow or isolated scan-flow segment. See
+# .agent-device/README.md for the full preflow contract.
 set -euo pipefail
 
 APP_PACKAGE="${AD_APP_PACKAGE:-com.niks0501.caneguard}"

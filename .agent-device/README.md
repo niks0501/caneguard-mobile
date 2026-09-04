@@ -128,11 +128,9 @@ it coverage.
 
 ## Correction status
 
-The navigation and permission-dialog edits in `p0/02-draft-report-lifecycle.ad`,
-`p0/06-complete-in-field-finalization.ad`, `p0/08-path-a-complete-in-field-gps.ad`,
-`p0/09-smart-field-report-online-sync.ad`, `p0/10-direct-result-to-report.ad`, and
-`t10/01-mobile-scan-guided-report.ad` are corrections, not verified fixes; they
-still need live re-verification.
+Per-flow replay status (green, fixed-and-green, or owned-exception) and which
+corrections still lack live re-verification are owned by
+`.agent-device/evidence/AD-FLOW-COMPLETION-2026-09-04.md`.
 
 ## P0-00 baseline
 

@@ -1,0 +1,35 @@
+{
+  "memoryFiles": [
+    "AGENTS.md",
+    "CLAUDE.md"
+  ],
+  "budgetTokens": 5000,
+  "skillsDir": ".agents/skills",
+  "minGapEvidence": 2,
+  "maxTranscripts": 100,
+  "analysis": {
+    "agent": "pi",
+    "model": "zai/glm-5.3-flash",
+    "effort": "low"
+  },
+  "synthesis": {
+    "agent": "pi",
+    "model": "zai/glm-5.3-flash",
+    "effort": "high"
+  },
+  "discovery": {
+    "harnesses": [
+      "claude",
+      "codex",
+      "pi",
+      "opencode",
+      "grok",
+      "cursor",
+      "hermes"
+    ],
+    "since": "7d",
+    "worktreeGlobs": [],
+    "minUserTurns": 2
+  },
+  "jobs": 4
+}

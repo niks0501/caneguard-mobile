@@ -6,7 +6,7 @@
 - Preserve unrelated user work and never overwrite, reset, stash, delete, or rewrite unrelated changes.
 - Treat secrets, credentials, tokens, environment values, production data, and personal data as sensitive.
 - Do not expose sensitive values in output, logs, commits, examples, or generated files.
-- Ask before destructive actions, production changes, deployments, publishing, force operations, dependency changes, credential access, or other externally consequential actions.
+- Ask before destructive actions, production changes, deployments, publishing, force operations, dependency changes, credential access, or other externally consequential actions. Approval must be explicit and received before the action starts.
 - Resolve facts that can be discovered from the repository before asking the user.
 - Ask only when a genuine product decision, missing credential, destructive behavior, or material tradeoff requires user input.
 
@@ -20,7 +20,7 @@ When `graphify-out/graph.json` exists, use Graphify as the first source for unde
 - Prefer these scoped commands over reading the full graph or performing broad source searches.
 - If `graphify-out/wiki/index.md` exists, use it for broad repository navigation.
 - Read `graphify-out/GRAPH_REPORT.md` only for broad architecture review or when `query`, `path`, and `explain` do not provide enough context.
-- Dirty files under `graphify-out/` are expected after hooks or incremental updates and are not a reason to avoid Graphify.
+- Dirty files under `graphify-out/` are expected after hooks or incremental updates and are not a reason to avoid Graphify. Do not stage, restore, or commit them merely to clean generated dirtiness.
 - After modifying code, run `graphify update .` to keep the graph current.
 - When the user explicitly invokes `/graphify`, follow the installed Graphify skill or instructions before doing anything else.
 
@@ -35,13 +35,14 @@ When `graphify-out/graph.json` exists, use Graphify as the first source for unde
 ## Failure Handling
 
 - Read the actual error before attempting a fix.
-- Determine whether a failure comes from the change, environment, configuration, or existing repository state.
-- Make evidence-based corrective attempts rather than repeatedly rerunning the same failing command unchanged.
+- After an unexpected command failure, investigate it before continuing; if it remains unresolved, report it.
 - Report blockers clearly when further progress requires user action or an unsafe assumption.
 
 ## No-Mistakes Test Policy
 
 During no-mistakes validation, never run E2E, UI, browser, device, or interactive acceptance tests such as agent-device, Playwright, Appium, Detox, Cypress, or Selenium.
+
+This includes smoke checks and rechecks of implementation-phase behavior; do not launch a device during this phase.
 
 Use only fast non-interactive automated checks, including targeted unit tests, integration tests, type checks, lint, and static validation.
 

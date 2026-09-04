@@ -12,6 +12,12 @@ context platform=android timeout=900000
 # when the report is already syncing, the retry control is absent and the
 # wait for "Finalized · Synced" below still proves the sync identity.
 
+# Establish the active app session required by the first assertion when this
+# flow is replayed independently of the preceding finalization flow.
+open "com.niks0501.caneguard" --platform android
+
+# The report screen can reopen at its previous scroll position; expose the status card first.
+scroll up 1 --settle
 wait "label=\"Finalized · Synced\"" 120000
 is visible "label=\"Server report UUID\""
 is visible "label=\"Last synchronized\""

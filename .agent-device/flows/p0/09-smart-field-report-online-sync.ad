@@ -43,48 +43,33 @@ scroll down 1 --settle
 wait "id=records.open-field-report" 10000
 click "id=records.open-field-report"
 wait "id=field-report.screen" 30000
-scroll down 1 --settle
-wait "id=field-report.farmer-name-input" 10000
-scroll down 1 --settle
+wait stable 2000 15000
+scroll down 0.5 --settle
 wait "id=field-report.farmer-name-input" 10000
 fill "id=field-report.farmer-name-input" "P2 Agent Device Farmer"
-back --settle
-scroll down 1 --settle
-wait "id=field-report.barangay-input" 10000
-scroll down 1 --settle
-wait "id=field-report.barangay-input" 10000
-click "id=field-report.barangay-input"
-fill "id=field-report.barangay-input" "Wawa"
-back --settle
-scroll down 1 --settle
-wait "id=field-report.barangay-input-option" 10000
-scroll down 1 --settle
-wait "id=field-report.barangay-input-option" 10000
-find "Wawa" click --first
-scroll up 1 --settle
-wait "id=field-report.farmer-name-input" 10000
-scroll down 1 --settle
-wait "id=field-report.affected-area-input" 10000
-scroll down 1 --settle
-wait "id=field-report.affected-area-input" 10000
+scroll down 0.25 --settle
+wait "role=button label=\"Barangay\"" 10000
+click "role=button label=\"Barangay\""
+wait "label=\"Search barangay\"" 10000
+fill "label=\"Search barangay\"" "Wawa"
+# The filtered option is below the keyboard; scroll the outer report view to expose it.
+scroll down 0.3 --settle
+wait "role=button label=\"Wawa\"" 30000
+click "role=button label=\"Wawa\""
 fill "id=field-report.affected-area-input" "2.25"
-back --settle
-scroll down 1 --settle
-wait "id=field-report.affected-portion-input" 10000
-scroll down 1 --settle
-wait "id=field-report.affected-portion-input" 10000
+keyboard dismiss
 fill "id=field-report.affected-portion-input" "45"
-back --settle
-scroll down 1 --settle
-wait "id=field-report.province-input" 10000
-scroll down 1 --settle
-wait "id=field-report.province-input" 10000
-click "id=field-report.province-input"
+keyboard dismiss
+scroll down 0.5 --settle
+wait "role=button label=\"Province\"" 10000
+click "role=button label=\"Province\""
 wait "label=Batangas" 10000
-find "Batangas" click --first
+click "label=Batangas"
+wait "role=button label=\"Municipality\"" 10000
+click "role=button label=\"Municipality\""
 wait "label=Nasugbu" 10000
-find "Nasugbu" click --first
-scroll down 1 --settle
+click "label=Nasugbu"
+scroll down 0.5 --settle
 wait "id=field-report.more-details" 10000
 scroll down 1 --settle
 wait "id=field-report.more-details" 10000

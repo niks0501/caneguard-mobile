@@ -86,6 +86,7 @@ export default function ActivityScreen() {
     second.id.localeCompare(first.id),
   );
   const hasFilters = activeFilter !== 'all' || Boolean(submittedSearch);
+  const latestVisibleRecordId = timeline.find((item) => item.kind === 'record')?.id;
   const activityCount = timeline.length;
 
   const submitSearch = () => {
@@ -352,7 +353,11 @@ export default function ActivityScreen() {
                       ) : (
                         <RecordCard
                           key={item.record.id}
-                          testID={`activity.item.${item.record.id}`}
+                          testID={
+                            item.id === latestVisibleRecordId
+                              ? 'activity.latest-record'
+                              : `activity.item.${item.record.id}`
+                          }
                           activityType={getActivityItemKind(item.record.hasFieldReport)}
                           record={item.record}
                           onPress={() =>

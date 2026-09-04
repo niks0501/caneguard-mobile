@@ -11,13 +11,7 @@ context platform=android timeout=900000
 # the login screen instead, so this script asserts the login screen
 # directly after logout (divergence classified as app behavior drift).
 
-open "com.niks0501.caneguard" --platform android
-wait text "http://" 30000
-find "http://" fill "http://127.0.0.1:8081"
-click "label=\"Connect\""
-wait "label=\"Continue\"" 30000
-click "label=\"Continue\""
-click "label=\"Close\""
+open "com.niks0501.caneguard" --relaunch --platform android
 wait "label=\"Get started with CaneGuard\"" 180000
 click "label=\"I already have an account\""
 wait "id=auth.login-screen" 30000

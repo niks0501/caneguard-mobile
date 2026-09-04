@@ -8,13 +8,7 @@ context platform=android timeout=900000
 # disposable local API database; AUTH_NAME is the display name and
 # AUTH_PASSWORD the new local passphrase.
 
-open "com.niks0501.caneguard" --platform android
-wait text "http://" 30000
-find "http://" fill "http://127.0.0.1:8081"
-click "label=\"Connect\""
-wait "label=\"Continue\"" 30000
-click "label=\"Continue\""
-click "label=\"Close\""
+open "com.niks0501.caneguard" --relaunch --platform android
 wait "label=\"Get started with CaneGuard\"" 180000
 click "label=\"Get started with CaneGuard\""
 wait "label=\"Create account\"" 30000

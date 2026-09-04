@@ -20,8 +20,10 @@
 #   scripts/ad-flow-env.sh reset-app
 #
 # Run from the repository root before running flows that stage media or need
-# a known location-permission state. Media and permissions persist on the
-# emulator across flows, so one preflight before a suite run is enough.
+# a known location-permission state. Permissions persist on the emulator, but
+# Android's picker copies selected images into Pictures, so restage media
+# (stage-media) before each scan flow or isolated scan-flow segment. See
+# .agent-device/README.md for the full preflow contract.
 set -euo pipefail
 
 APP_PACKAGE="${AD_APP_PACKAGE:-com.niks0501.caneguard}"
@@ -44,6 +46,12 @@ stage-media() {
     exit 1
   fi
   name="$(basename "$src")"
+  # Android's system picker copies selected fixtures into Pictures. Remove
+  # only prior copies of this controlled fixture so the flow's semantic
+  # picker target remains unique across repeated checks.
+  adb shell "rm -f /sdcard/Pictures/${name%.*}*.${name##*.}"
+  adb shell content delete --uri content://media/external/images/media \
+    --where "_display_name LIKE '${name%.*}%${name##*.}'" >/dev/null 2>&1 || true
   adb push "$src" "$DEVICE_DIR/$name" >/dev/null
   # Index the file so the app's photo picker can see it. This is the same
   # adb push + media scan pattern the t10 flows used instead of Maestro's
@@ -77,21 +85,31 @@ revoke-permissions() {
 
 connect-metro() {
   need_adb
-  # Launch the dev client; when its dev-server preference is already set
-  # it reconnects to Metro on its own.
-  agent-device open com.niks0501.caneguard --foreground --platform android >/dev/null
-  echo "ad-flow-env: dev client foregrounded"
+  # A cleared Expo development client may show its server picker, while an
+  # already-connected client opens the app directly. Handle both states here
+  # so every flow starts against the same Metro-backed app surface.
+  agent-device open "$APP_PACKAGE" --foreground --platform android >/dev/null
+  if agent-device wait 'text="http://"' 10000 --platform android >/dev/null 2>&1; then
+    agent-device find 'http://' fill 'http://127.0.0.1:8081' --platform android >/dev/null
+    agent-device click 'label="Connect"' --platform android --settle >/dev/null
+    agent-device wait 'label="Continue"' 30000 --platform android >/dev/null
+    agent-device click 'label="Continue"' --platform android --settle >/dev/null
+    agent-device click 'label="Close"' --platform android --settle >/dev/null
+  fi
+  agent-device wait 'label="Get started with CaneGuard"' 180000 --platform android >/dev/null
+  agent-device close "$APP_PACKAGE" --platform android >/dev/null
+  echo "ad-flow-env: dev client connected to Metro"
 }
 
 reset-app() {
   need_adb
   # Replaces the Maestro launchApp clearState command: release any device
-  # claim and clear the app's data. The converted reset flows then run the
-  # dev-client connect prologue themselves as wait-driven .ad steps, which
-  # is deterministic where a blind shell sequence is not.
+  # claim, clear the app's data, and establish the Metro connection before
+  # the next .ad script opens the app.
   agent-device close --platform android >/dev/null 2>&1 || true
   adb shell pm clear "$APP_PACKAGE" >/dev/null
-  echo "ad-flow-env: cleared $APP_PACKAGE app data (flows reconnect the dev client)"
+  connect-metro
+  echo "ad-flow-env: cleared $APP_PACKAGE app data and connected the dev client"
 }
 
 preflight() {

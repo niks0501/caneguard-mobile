@@ -3,22 +3,17 @@ context platform=android timeout=900000
 # Auth v1 login, session bootstrap, and authenticated report boundary.
 # Converted from .maestro/auth-v1/01-login-session-and-report-boundary.yaml.
 #
-# Preflow: npm run e2e:env (reset-app included; replaces the Maestro
-# launchApp clearState and the dev-client connect dialog handling), with
-# AUTH_EMAIL/AUTH_PASSWORD set for a verified field-reporter account.
+# Preflow: npm run e2e:env, then scripts/ad-flow-env.sh reset-app (which
+# replaces the Maestro launchApp clearState and completes the dev-client
+# connection), with AUTH_EMAIL/AUTH_PASSWORD set for a verified
+# field-reporter account.
 #
 # Conversion note: the home quick-action buttons sit inside a collapsed
 # scroll region, so the label assertions become find+click navigation
 # anchors (My Activity -> Activity screen -> back), which proves the same
 # affordances deterministically.
 
-open "com.niks0501.caneguard" --platform android
-wait text "http://" 30000
-find "http://" fill "http://127.0.0.1:8081"
-click "label=\"Connect\""
-wait "label=\"Continue\"" 30000
-click "label=\"Continue\""
-click "label=\"Close\""
+open "com.niks0501.caneguard" --relaunch --platform android
 wait "label=\"Get started with CaneGuard\"" 180000
 click "label=\"I already have an account\""
 wait "id=\"auth.login-screen\"" 30000

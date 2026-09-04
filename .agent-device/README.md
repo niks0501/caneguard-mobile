@@ -68,14 +68,20 @@ scripts/ad-flow-env.sh preflight          # device check, reverse mappings, gran
 scripts/ad-flow-env.sh stage-media        # push + media-scan assets/model-fixtures/parity-reference.jpg
 scripts/ad-flow-env.sh grant-permissions  # pm grant fine/coarse location
 scripts/ad-flow-env.sh revoke-permissions # revoke + force-deny location (no system dialog)
-scripts/ad-flow-env.sh connect-metro      # deep-link handoff of exp://127.0.0.1:8081 to the dev client
-scripts/ad-flow-env.sh reset-app          # clear app data and relaunch into Metro (replaces launchApp clearState)
+scripts/ad-flow-env.sh connect-metro      # connect the dev client to http://127.0.0.1:8081 and close the setup session
+scripts/ad-flow-env.sh reset-app          # clear app data and establish the Metro connection (replaces launchApp clearState)
 ```
+
+`connect-metro` expects the post-reset onboarding state it waits for; for
+state-preserving or mid-suite Metro reconnects, connect Metro directly without
+this helper.
 
 `preflight` stages the shared Rust fixture and grants location permissions.
 Flows that need location denied run `revoke-permissions` first (or the suite
-runner notes it in the flow's evidence record). Media and permissions persist
-on the emulator, so one preflight before a suite run is normally enough.
+runner notes it in the flow's evidence record).
+`stage-media` removes only prior copies of the controlled fixture before
+staging it, because Android's picker copies selected images into Pictures.
+Run it before each scan flow or isolated scan-flow segment.
 Scripts whose Maestro originals started with `launchApp clearState` assume
 `reset-app` ran first; scripts that preserve state assume the app is already
 signed in as documented per flow group.
@@ -119,6 +125,14 @@ exploration and diagnosis (Mode A). Checked-in `.ad` scripts are the
 deterministic regression surface (Mode B). A fixed interactive pass is not
 regression acceptance; promote a verified journey into a `.ad` script to make
 it coverage.
+
+## Correction status
+
+The navigation and permission-dialog edits in `p0/02-draft-report-lifecycle.ad`,
+`p0/06-complete-in-field-finalization.ad`, `p0/08-path-a-complete-in-field-gps.ad`,
+`p0/09-smart-field-report-online-sync.ad`, `p0/10-direct-result-to-report.ad`, and
+`t10/01-mobile-scan-guided-report.ad` are corrections, not verified fixes; they
+still need live re-verification.
 
 ## P0-00 baseline
 

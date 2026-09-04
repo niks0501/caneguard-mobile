@@ -72,6 +72,10 @@ scripts/ad-flow-env.sh connect-metro      # connect the dev client to http://127
 scripts/ad-flow-env.sh reset-app          # clear app data and establish the Metro connection (replaces launchApp clearState)
 ```
 
+`connect-metro` expects the post-reset onboarding state it waits for; for
+state-preserving or mid-suite Metro reconnects, connect Metro directly without
+this helper.
+
 `preflight` stages the shared Rust fixture and grants location permissions.
 Flows that need location denied run `revoke-permissions` first (or the suite
 runner notes it in the flow's evidence record).
@@ -121,6 +125,14 @@ exploration and diagnosis (Mode A). Checked-in `.ad` scripts are the
 deterministic regression surface (Mode B). A fixed interactive pass is not
 regression acceptance; promote a verified journey into a `.ad` script to make
 it coverage.
+
+## Correction status
+
+The navigation and permission-dialog edits in `p0/02-draft-report-lifecycle.ad`,
+`p0/06-complete-in-field-finalization.ad`, `p0/08-path-a-complete-in-field-gps.ad`,
+`p0/09-smart-field-report-online-sync.ad`, `p0/10-direct-result-to-report.ad`, and
+`t10/01-mobile-scan-guided-report.ad` are corrections, not verified fixes; they
+still need live re-verification.
 
 ## P0-00 baseline
 

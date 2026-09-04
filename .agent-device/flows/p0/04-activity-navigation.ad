@@ -23,19 +23,23 @@ click "id=\"auth.login-submit\""
 wait "id=home.screen" 120000
 click "id=nav.activity"
 wait "id=activity.screen" 30000
-is visible "label=Activity"
+# The screen test ID is the stable Activity assertion; the title is not a label on Android.
+is visible "id=activity.screen"
 is visible "id=activity.filter.all"
 is visible "id=activity.filter.reports"
 is visible "id=activity.filter.scans"
+# Activity's timeline is below the refresh controls; expose it before selecting a record.
+scroll down 1 --settle
 is visible "id=activity.timeline"
-find "report saved" click --first
+click "id=activity.latest-record"
 wait "id=records.details-screen" 30000
 is visible "id=records.result-title"
 back --settle
 wait "id=activity.screen" 30000
 click "id=activity.filter.reports"
 wait "id=activity.screen" 30000
-find "report saved" click --first
+scroll down 1 --settle
+click "id=activity.latest-record"
 wait "id=records.details-screen" 30000
 back --settle
 wait "id=activity.screen" 30000

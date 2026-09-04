@@ -10,6 +10,8 @@ context platform=android timeout=900000
 #
 # AUTH_EMAIL/AUTH_PASSWORD identify the newly registered account.
 
+# Establish the replay session without relaunching so the handed-off route is preserved.
+open "com.niks0501.caneguard" --platform android
 wait "id=verify-email.success" 60000
 is visible "label=\"Email verified\""
 click "label=\"Continue to login\""
@@ -18,7 +20,7 @@ fill "id=auth.email-input" "${AUTH_EMAIL}"
 fill "id=auth.password-input" "${AUTH_PASSWORD}"
 click "id=auth.login-submit"
 wait "id=home.screen" 120000
-is visible "label=\"Start Scan\""
+wait "label=\"Start Scan\"" 30000
 screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/auth-v1-email-verification-deep-link.png"
 
 close

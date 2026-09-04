@@ -1,0 +1,63 @@
+# Agent Device conversion completion record
+
+Date: 2026-09-04
+Target: Pixel 8 Android emulator `emulator-5554`
+
+This record covers all 27 converted `.ad` flows. `green` means fresh exit-0 replay evidence exists; `fixed-and-green` means a flow or app wiring correction was made in this worktree and a fresh exit-0 replay followed; `owned-exception` means the exact automation blocker was captured and intentionally owned rather than hidden as a pass.
+
+The six flows already green in the completed baseline report were not edited in this lane because their shared prologues are owned by the parallel corrections task. Their fresh replay evidence is retained below.
+
+## Per-flow result table
+
+| Flow | Result | Evidence or exact owned reason |
+|---|---|---|
+| `auth-v1/01-login-session-and-report-boundary.ad` | green | Baseline fresh replay: exit 0, `Replayed 29 steps in 50.9s`. Shared-correction-owned; not edited here. |
+| `auth-v1/02-logout.ad` | green | Baseline fresh replay: exit 0, `Replayed 17 steps in 36.3s`. Shared-correction-owned; not edited here. |
+| `auth-v1/03-expiry-and-password-reauthentication.ad` | green | Baseline fresh replay: exit 0, `Replayed 14 steps in 34.9s`. Shared-correction-owned; not edited here. |
+| `auth-v1/04-registration-verification-resend.ad` | green | Fresh disposable local-account replay after emulator reset: exit 0, `Replayed 27 steps in 51.9s`. |
+| `auth-v1/05-email-verification-deep-link.ad` | fixed-and-green | After adding a no-relaunch handoff session and replacing the final visibility assertion with a wait, fresh replay exit 0: `Replayed 12 steps in 16.4s`. |
+| `auth-v1/06-invalid-deep-links.ad` | fixed-and-green | Updated both error selectors to the live Android copy. Fresh replay exit 0: `Replayed 20 steps in 31.6s`. |
+| `auth-v1/07-password-recovery-request.ad` | green | Fresh disposable local-account replay after reset and API state preparation: exit 0, `Replayed 18 steps in 31.1s`. |
+| `auth-v1/08-password-reset-deep-link.ad` | fixed-and-green | Added the no-relaunch handoff session and replaced the final visibility assertion with a wait. Fresh replay exit 0: `Replayed 15 steps in 22.0s`. |
+| `auth-v1/09-role-enforcement.ad` | green | Baseline fresh replay: exit 0, `Replayed 10 steps in 29.1s`. Shared-correction-owned; not edited here. |
+| `auth-v1/10-offline-session-and-local-report.ad` | owned-exception | The emulator cannot provide an automatable enrolled device credential. `adb shell locksettings set-pin` accepted a disposable setup, but `adb -s emulator-5554 emu finger touch 1` returned `KO: unknown command, try 'help'`; fingerprint enrollment left `dumpsys fingerprint` with zero enrolled prints and Android Settings still reported no enrolled credential. The cold-start offline flow therefore cannot be automated on this target. |
+| `p0/00-baseline-scan.ad` | green | Baseline fresh replay: exit 0, `Replayed 38 steps in 65.9s`. Shared-correction-owned; not edited here. |
+| `p0/01-guided-validation.ad` | green | Baseline fresh replay: exit 0, `Replayed 47 steps in 75.1s`. Shared-correction-owned; not edited here. |
+| `p0/02-draft-report-lifecycle.ad` | fixed-and-green | Replaced the obsolete picker completion tap and made field/report navigation landmark-driven. Fresh replay exit 0: `Replayed 60 steps in 108.1s`. |
+| `p0/04-activity-navigation.ad` | owned-exception | After adding timeline scrolling and latest-record targeting, attempt 1 failed at step 10 because Android did not expose `label=Activity`; after replacing that assertion, attempt 2 failed at step 11 because Android did not expose `id=activity.filter.all` after the timeline was scrolled. The script was corrected to place scrolling after filter assertions and is parked without a third retry under the retry policy. |
+| `p0/05-06-draft-manual-map-finalization.ad` | owned-exception | Attempt 1 failed waiting for `id=field-report.capture-gps` after one scroll; the screen remained on field-report fields. After changing the scroll plan, attempt 2 failed waiting for `Don’t allow`; the screen showed `GPS location resolved with ±5 m`, proving the permission-state setup did not produce the expected dialog. |
+| `p0/06-complete-in-field-finalization.ad` | owned-exception | Attempt 1 failed at `click label=Done` because Android’s single-selection picker returned directly without that button. After changing picker dismissal to a settled back action, attempt 2 failed at `fill label="Search barangay"`; back had left the field-report screen. Parked after two changed attempts. |
+| `p0/07-field-report-sync-and-restart.ad` | owned-exception | A manual exploratory pass did produce a locally finalized and synchronized report, but the flow did not replay: the initial attempt timed out with `Daemon request timed out`; after changing setup it failed with `No active session`; after adding an open step it failed because `scroll top` requires a numeric amount. The flow was corrected to use numeric scrolling, but no unchanged retry was made and no replay exit 0 exists. |
+| `p0/08-end-to-end-acceptance.ad` | owned-exception | Its ordered chain depends on the P0 path-A and manual-map finalization flows. Those prerequisites have no replay exit 0 (their exact blockers are recorded above), so this acceptance chain cannot be automated honestly. The manually synchronized exploratory report is not substituted for the ordered chain. |
+| `p0/08-path-a-complete-in-field-gps.ad` | owned-exception | Attempt 1 failed waiting for picker `label=Done`. After changing to settled back dismissal, attempt 2 failed waiting/clicking the filtered `Wawa` option because the Android keyboard kept the option outside the exposed accessibility surface. Parked after two changed attempts. |
+| `p0/09-map-fullscreen-navigation.ad` | owned-exception | Attempt 1 could not find `Possible result: Rust` because the Activity timeline was below the refresh controls. After adding a timeline scroll, attempt 2 found four matching records and failed because the broad `find` selector was ambiguous. The script now targets `id=activity.latest-record`; no third replay was made. |
+| `p0/09-smart-field-report-online-sync.ad` | owned-exception | Attempt 1 and the changed attempt 2 both ended in the captured Agent Device error `Daemon request timed out` (diagnostics `mtng9has-c6cdc061` and `mtngginn-0fb23020`). Interactive diagnosis showed the filtered barangay option was below the keyboard; the script now scrolls the outer report view to expose it. Parked after two changed replays. |
+| `p0/10-direct-result-to-report.ad` | owned-exception | Attempt 1 failed waiting for `id=field-report.observed-at` before scrolling; after adding a field-report scroll, attempt 2 failed at the same selector with the summary still at the top of the field-report screen. Parked after two changed attempts. |
+| `p1/01-report-review-status-and-offline-cache.ad` | owned-exception | Requires a controlled backend report-status transition and feedback fixture. The permitted Chrome DevTools fixture path could not reach the WSL-local API: browser fetches to both `http://localhost:8000/api/health` and `http://127.0.0.1:8000/api/health` returned `TypeError: Failed to fetch`, while shell curl from WSL returned HTTP 200. No controlled review-status fixture exists. |
+| `t10/01-mobile-scan-guided-report.ad` | owned-exception | Requires the Web-side T10 owner account and seeded `T10_CASE_REFERENCE`. The running Web UI was inaccessible to Chrome DevTools because its WSL-local API fetch returned `TypeError: Failed to fetch`; creating the fixture by hand or editing generated app files was not permitted. |
+| `t10/02-mobile-owner-assignment-retrieval.ad` | owned-exception | Requires the Web-side T10 case and owner assignment. Exact blocker: Chrome DevTools could not reach the WSL-local API (`TypeError: Failed to fetch` for both localhost API addresses), so no controlled case fixture or `T10_CASE_REFERENCE` could be created. |
+| `t10/03-mobile-offline-completion-and-restart.ad` | owned-exception | Requires both the unavailable Web-side T10 case fixture and an enrolled device credential. The Web fixture was blocked by Chrome’s `TypeError: Failed to fetch` against the WSL-local API; credential enrollment was blocked by the emulator’s unsupported fingerprint command and zero enrolled prints described for `auth-v1/10`. |
+| `t10/04-mobile-connectivity-recovery-sync.ad` | owned-exception | Depends on the locally completed T10 case from `t10/03`. That ordered case cannot exist because the Web fixture is unavailable (`TypeError: Failed to fetch` from Chrome to the WSL-local API), and the offline credential prerequisite is also unavailable. |
+
+## Changes made
+
+- `.agent-device/flows/auth-v1/05-email-verification-deep-link.ad`: preserved the handed-off deep-link route and waited for the final scan affordance.
+- `.agent-device/flows/auth-v1/06-invalid-deep-links.ad`: matched the live invalid verification and recovery error copy.
+- `.agent-device/flows/auth-v1/08-password-reset-deep-link.ad`: preserved the reset deep-link route and waited for the final scan affordance.
+- `.agent-device/flows/p0/02-draft-report-lifecycle.ad`: removed the obsolete picker tap and replaced overshooting scroll/navigation with stable report landmarks.
+- `.agent-device/flows/p0/04-activity-navigation.ad`: exposed the timeline before selection, removed Android-inaccurate title matching, and used the stable latest-record ID. Its remaining selector exposure issue is recorded above.
+- `.agent-device/flows/p0/05-06-draft-manual-map-finalization.ad`, `.agent-device/flows/p0/06-complete-in-field-finalization.ad`, and `.agent-device/flows/p0/08-path-a-complete-in-field-gps.ad`: removed obsolete picker completion taps and replaced brittle field-report scrolls with fractional/semantic navigation where evidence supported it.
+- `.agent-device/flows/p0/07-field-report-sync-and-restart.ad`: made independent replay establish a session and corrected the unsupported top-scroll form; its ordered replay still lacks exit-0 evidence.
+- `.agent-device/flows/p0/09-map-fullscreen-navigation.ad`: exposed the Activity timeline and replaced ambiguous text selection with the stable latest-record ID.
+- `.agent-device/flows/p0/09-smart-field-report-online-sync.ad` and `.agent-device/flows/p0/10-direct-result-to-report.ad`: replaced the failed repeated scroll-only field navigation with semantic anchors and fractional scrolls; the remaining exact blockers are recorded above.
+- `src/features/activity/components/ActivityScreen.tsx`: exposes `activity.latest-record` on the newest visible record so deterministic flows do not depend on duplicated record text.
+- `CLAUDE.md`: points the existing Claude import at the repository `AGENTS.md` without changing project guidance.
+
+## Verification evidence
+
+- `npm run e2e:doctor` passed its documented preflight with warnings only.
+- `npm run e2e:env` passed; the emulator was online, adb reverse mappings for ports 8081 and 8000 were present, location permissions were granted, and the checked-in media fixture was staged.
+- `bash -n scripts/ad-flow-env.sh` passed.
+- `git diff --check` passed at evidence-record creation time.
+- Interactive manual finalization reached `Finalized · Synced`; it is explicitly not counted as a deterministic flow pass.
+- No secrets, one-time links, passwords, or tokens are recorded here.

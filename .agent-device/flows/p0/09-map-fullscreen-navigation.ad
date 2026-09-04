@@ -17,7 +17,9 @@ click "id=\"auth.login-submit\""
 wait "id=home.screen" 120000
 open "com.niks0501.caneguard" "caneguardmobile:///activity" --platform android
 wait "id=activity.screen" 30000
-find "Possible result: Rust" click --first
+# Activity's timeline is below the refresh controls; expose it before finding a record.
+scroll down 1 --settle
+click "id=activity.latest-record"
 wait "id=records.details-screen" 30000
 scroll down 1 --settle
 wait "id=records.open-field-report" 10000

@@ -1,15 +1,17 @@
 context platform=android timeout=900000
 
-# P0-05/06 Draft completed later with manual map and finalized.
+# P0-05/06 Draft completed later and finalized on a resolved GPS reading.
 # Converted from .maestro/p0/05-06-draft-manual-map-finalization.yaml.
 #
 # Precondition (unchanged): run 02-draft-report-lifecycle.ad first. It
 # creates and reopens the latest incomplete report with farmer name
 # "P0 Draft Farmer".
 #
-# Preflow: scripts/ad-flow-env.sh revoke-permissions replaces the Maestro
-# setPermissions location deny (force-denied without the system dialog),
-# so the "Don't allow" branch from the original is not needed.
+# Preflow: npm run e2e:env grants location permissions, so the draft's
+# automatic GPS capture resolves without a system dialog and the flow
+# finalizes on the resolved reading. The manual-map fallback of the
+# original is only offered after a non-resolved capture attempt, so it
+# is not reachable in this granted state.
 
 open "com.niks0501.caneguard" --relaunch --platform android
 # Cold start requires explicit authentication (auth security change:
@@ -35,23 +37,9 @@ wait "id=field-report.screen" 30000
 wait stable 2000 15000
 scroll down 0.5 --settle
 scroll down 0.5 --settle
-wait "id=field-report.capture-gps" 10000
-click "id=field-report.capture-gps"
-# The permission is in the ask state, so the request raises the system
-# dialog; decline it (replaces the Maestro setPermissions deny).
-wait "label=\"Don’t allow\"" 10000
-click "label=\"Don’t allow\""
-wait "id=field-report.gps-status" 30000
-wait "id=field-report.open-manual-map" 10000
-click "id=field-report.open-manual-map"
-wait "id=manual-map.screen" 30000
-wait "id=manual-map.viewport" 30000
-click "id=manual-map.viewport"
-is visible "id=manual-map.pin"
-wait "id=manual-map.confirm" 10000
-click "id=manual-map.confirm"
-wait "id=field-report.manual-location" 30000
-screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-05-manual-location-saved.png"
+wait "label=\"GPS location resolved\"" 60000
+is visible "id=field-report.gps-evidence"
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-05-gps-location-resolved.png"
 open "com.niks0501.caneguard" --relaunch --platform android
 # Cold start requires explicit authentication (auth security change:
 # the app requires unlock on restart). Sign in with the field account.
@@ -63,6 +51,8 @@ wait "id=home.screen" 120000
 open "com.niks0501.caneguard" "caneguardmobile:///activity" --platform android
 wait "id=activity.screen" 30000
 scroll down 1 --settle
+wait "id=activity.latest-record" 10000
+click "id=activity.latest-record"
 wait "id=records.details-screen" 30000
 scroll down 1 --settle
 wait "id=records.open-field-report" 10000
@@ -73,27 +63,24 @@ click "id=records.open-field-report"
 wait "id=field-report.screen" 30000
 wait stable 2000 15000
 scroll down 0.5 --settle
-wait "id=field-report.manual-location" 30000
+wait "id=field-report.gps-evidence" 30000
 scroll up 0.5 --settle
 wait "role=button label=\"Barangay\"" 10000
 click "role=button label=\"Barangay\""
 wait "label=\"Search barangay\"" 10000
 fill "label=\"Search barangay\"" "Lumbangan"
-wait "label=Done" 10000
-click "label=Done"
+keyboard dismiss
 click "role=button label=\"Lumbangan\""
 fill "id=field-report.affected-area-input" "2.5"
-wait "label=Done" 10000
-click "label=Done"
+keyboard dismiss
 fill "id=field-report.affected-portion-input" "40"
-wait "label=Done" 10000
-click "label=Done"
+keyboard dismiss
 scroll down 0.5 --settle
 wait "id=field-report.finalize" 10000
 click "id=field-report.finalize"
 wait "id=field-report.authoring-status" 30000
 # assertNotVisible conversion: the preceding screen wait already proves the
 # element is absent; is hidden only matches elements that exist but are hidden.
-screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-05-06-manual-finalized.png"
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-05-06-draft-finalized.png"
 
 close

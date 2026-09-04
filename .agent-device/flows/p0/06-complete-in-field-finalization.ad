@@ -60,16 +60,14 @@ fill "id=field-report.farmer-name-input" "P0 Complete Farmer"
 scroll down 0.25 --settle
 wait "role=button label=\"Barangay\"" 10000
 click "role=button label=\"Barangay\""
-# The picker opens the search field behind the test keyboard. Android back
-# dismisses that keyboard without navigating away from the report.
-back --settle
+wait "label=\"Search barangay\"" 10000
 fill "label=\"Search barangay\"" "Wawa"
-click "label=Done"
+keyboard dismiss
 click "role=button label=\"Wawa\""
 fill "id=field-report.affected-area-input" "1.5"
-click "label=Done"
+keyboard dismiss
 fill "id=field-report.affected-portion-input" "30"
-click "label=Done"
+keyboard dismiss
 scroll down 0.5 --settle
 wait "id=field-report.save-draft" 10000
 click "id=field-report.save-draft"

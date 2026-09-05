@@ -1,19 +1,17 @@
-context platform=android timeout=900000
+context platform=android timeout=240000
 
-# T03 direct result to minimum Field Report submission.
-# Converted from .maestro/p0/10-direct-result-to-report.yaml.
-#
-# Preflow: npm run e2e:env stages the Rust fixture (replacing addMedia) and
-# grants location (replacing setPermissions allow). Existing app state and
-# authentication are preserved.
+# INTENT: Submit a minimum report directly from a Rust result, without the
+# separate save-scan/create-draft detour; verify inherited context and sync.
+# Converted from .maestro/p0/10-direct-result-to-report.yaml; reconstructed
+# for Agent Device's hidden test IME and the app's nested report scroll view.
+# Preflow: stage-media + grant-permissions. Verified 1080x2400 Android target.
+# AUTH_EMAIL / AUTH_PASSWORD: private verified disposable field reporter.
 
 open "com.niks0501.caneguard" --relaunch --platform android
-# Cold start requires explicit authentication (auth security change:
-# the app requires unlock on restart). Sign in with the field account.
 wait "label=\"Welcome back\"" 120000
-fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
-fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
-click "id=\"auth.login-submit\""
+fill "id=auth.email-input" "${AUTH_EMAIL}"
+fill "id=auth.password-input" "${AUTH_PASSWORD}"
+click "id=auth.login-submit"
 wait "id=home.screen" 120000
 open "com.niks0501.caneguard" "caneguardmobile:///scan" --platform android
 wait "id=scan.screen" 30000
@@ -26,41 +24,35 @@ wait "id=scan.symptom-checklist-screen" 120000
 click "id=scan.symptom-rust"
 click "id=scan.continue-to-result"
 wait "label=\"Possible result: Rust\"" 30000
-scroll down 1 --settle
-wait "id=scan.report-to-office" 10000
-scroll down 1 --settle
+scroll down 0.5 --settle
 wait "id=scan.report-to-office" 10000
 click "id=scan.report-to-office"
 wait "id=field-report.screen" 30000
 wait "id=field-report.minimum-requirements" 30000
 is visible "id=field-report.summary"
-scroll down 0.5 --settle
-wait "id=field-report.observed-at" 10000
-wait "id=field-report.submitter" 10000
-scroll down 0.5 --settle
-wait "id=field-report.farmer-name-input" 10000
-fill "id=field-report.farmer-name-input" "T03 Farm Block 12"
 scroll down 0.25 --settle
-wait "role=button label=\"Barangay\"" 10000
+wait "id=field-report.observed-at" 10000
+is visible "id=field-report.submitter"
+scroll down 0.25 --settle
+fill "id=field-report.farmer-name-input" "T03 Farm Block 12"
 click "role=button label=\"Barangay\""
-wait "label=\"Search barangay\"" 10000
 fill "label=\"Search barangay\"" "Wawa"
-keyboard dismiss
-wait "role=button label=\"Wawa\"" 30000
+# fill uses the hidden test IME. Back would leave the form; dismiss is not
+# needed. Expose the filtered option below the inline picker instead.
+scroll down 0.25 --settle
 click "role=button label=\"Wawa\""
 fill "id=field-report.affected-area-input" "1.25"
-keyboard dismiss
 fill "id=field-report.affected-portion-input" "40"
-keyboard dismiss
-# The report's new Draft automatically attempts one foreground GPS reading.
-# No separate Save Record or Create Field Report action is needed, and a
-# resolved GPS reading lets the reporter finalize directly from this form.
+scroll down 0.25 --settle
 wait "id=field-report.gps-status" 10000
-scroll down 0.5 --settle
-wait "id=field-report.finalize" 10000
 click "id=field-report.finalize"
-wait "id=field-report.authoring-status" 30000
 wait "label=\"Server report UUID\"" 120000
-screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/t03-direct-result-to-report-synced.png"
-
+is visible "label=\"Last synchronized\""
+# Semantic scroll-up targets the outer Android wrapper and does not move
+# this nested view. Screenshot-grounded fling inside the report content.
+swipe 530 650 530 1800
+wait "label=\"Finalized · Synced\"" 30000
+is visible "label=\"T03 Farm Block 12\""
+is visible "label=\"1.25 ha\""
+is visible "label=\"40%\""
 close

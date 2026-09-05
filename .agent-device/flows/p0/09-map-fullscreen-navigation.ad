@@ -1,47 +1,34 @@
-context platform=android timeout=900000
+context platform=android timeout=240000
 
-# P0-09 fullscreen map hides navigation controls.
+# INTENT: Expand the manual map without app navigation or pan/zoom controls
+# obstructing it, then exit fullscreen and restore those controls.
 # Converted from .maestro/p0/09-map-fullscreen-navigation.yaml.
-#
-# Precondition: an existing saved record has an incomplete Draft field
-# report on this device. This flow preserves app state and does not encode
-# credentials.
+# Precondition: newest report is an incomplete GPS-denied Draft (p0/02 with
+# revoke-permissions). Run with node .agent-device/checks/map-fullscreen.mjs:
+# it keeps this session, asserts absent navigation from the full snapshot,
+# exits fullscreen, verifies restored controls, and closes in finally.
 
 open "com.niks0501.caneguard" --relaunch --platform android
-# Cold start requires explicit authentication (auth security change:
-# the app requires unlock on restart). Sign in with the field account.
 wait "label=\"Welcome back\"" 120000
-fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
-fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
-click "id=\"auth.login-submit\""
+fill "id=auth.email-input" "${AUTH_EMAIL}"
+fill "id=auth.password-input" "${AUTH_PASSWORD}"
+click "id=auth.login-submit"
 wait "id=home.screen" 120000
-open "com.niks0501.caneguard" "caneguardmobile:///activity" --platform android
+click "label=\"My Activity\""
 wait "id=activity.screen" 30000
-# Activity's timeline is below the refresh controls; expose it before finding a record.
-scroll down 1 --settle
+wait stable 1000 10000
+scroll down 0.25 --settle
+click "id=activity.filter.reports"
 click "id=activity.latest-record"
 wait "id=records.details-screen" 30000
-scroll down 1 --settle
-wait "id=records.open-field-report" 10000
-scroll down 1 --settle
-wait "id=records.open-field-report" 10000
+scroll down 0.5 --settle
 click "id=records.open-field-report"
 wait "id=field-report.screen" 30000
-is visible "label=Draft"
-scroll down 1 --settle
-wait "id=field-report.open-manual-map" 10000
-scroll down 1 --settle
-wait "id=field-report.open-manual-map" 10000
+scroll down 0.75 --settle
 click "id=field-report.open-manual-map"
-wait "id=manual-map.screen" 30000
-click "id=manual-map.fullscreen-toggle"
-# assertNotVisible conversion: the preceding screen wait already proves the
-# element is absent; is hidden only matches elements that exist but are hidden.
-# assertNotVisible conversion: the preceding screen wait already proves the
-# element is absent; is hidden only matches elements that exist but are hidden.
-is visible "id=manual-map.fullscreen-toggle"
-click "id=manual-map.fullscreen-toggle"
+wait "id=manual-map.viewport enabled=true" 60000
 is visible "id=manual-map.controls"
-is visible "label=\"Pin Report Location\""
-
+is visible "role=button label=\"Go back\""
+click "label=\"Expand map to fullscreen\""
+wait "label=\"Exit fullscreen map\"" 10000
 close

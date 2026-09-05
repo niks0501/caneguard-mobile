@@ -1,6 +1,7 @@
 context platform=android timeout=900000
 
-# T04 Activity navigation and record discovery.
+# INTENT: Find both synchronized reports and scan-only observations in
+# Activity, open their details, and return without losing filter navigation.
 # Converted from .maestro/p0/04-activity-navigation.yaml.
 #
 # Prerequisites (unchanged from the Maestro original, performed outside the
@@ -25,11 +26,12 @@ click "id=nav.activity"
 wait "id=activity.screen" 30000
 # The screen test ID is the stable Activity assertion; the title is not a label on Android.
 is visible "id=activity.screen"
+wait stable 1000 10000
+scroll down 0.25 --settle
 is visible "id=activity.filter.all"
 is visible "id=activity.filter.reports"
 is visible "id=activity.filter.scans"
-# Activity's timeline is below the refresh controls; expose it before selecting a record.
-scroll down 1 --settle
+# Fractional scrolling exposes filters and newest records together.
 is visible "id=activity.timeline"
 click "id=activity.latest-record"
 wait "id=records.details-screen" 30000
@@ -38,7 +40,6 @@ back --settle
 wait "id=activity.screen" 30000
 click "id=activity.filter.reports"
 wait "id=activity.screen" 30000
-scroll down 1 --settle
 click "id=activity.latest-record"
 wait "id=records.details-screen" 30000
 back --settle

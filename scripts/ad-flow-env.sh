@@ -68,6 +68,8 @@ stage-media() {
 
 grant-permissions() {
   need_adb
+  adb shell pm clear-permission-flags "$APP_PACKAGE" android.permission.ACCESS_FINE_LOCATION user-set user-fixed
+  adb shell pm clear-permission-flags "$APP_PACKAGE" android.permission.ACCESS_COARSE_LOCATION user-set user-fixed
   adb shell pm grant "$APP_PACKAGE" android.permission.ACCESS_FINE_LOCATION
   adb shell pm grant "$APP_PACKAGE" android.permission.ACCESS_COARSE_LOCATION
   echo "ad-flow-env: location permissions granted for $APP_PACKAGE"
@@ -80,7 +82,9 @@ revoke-permissions() {
   # (the state Maestro's setPermissions deny produced).
   adb shell pm revoke "$APP_PACKAGE" android.permission.ACCESS_FINE_LOCATION 2>/dev/null || true
   adb shell pm revoke "$APP_PACKAGE" android.permission.ACCESS_COARSE_LOCATION 2>/dev/null || true
-  echo "ad-flow-env: location permissions revoked (ask state; deny flows handle the system dialog)"
+  adb shell pm set-permission-flags "$APP_PACKAGE" android.permission.ACCESS_FINE_LOCATION user-set user-fixed
+  adb shell pm set-permission-flags "$APP_PACKAGE" android.permission.ACCESS_COARSE_LOCATION user-set user-fixed
+  echo "ad-flow-env: location permissions force-denied (no system dialog)"
 }
 
 connect-metro() {

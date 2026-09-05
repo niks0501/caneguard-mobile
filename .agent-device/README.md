@@ -9,6 +9,8 @@ without replacing the protected scan regression:
 ```text
 .agent-device/
 ├── flows/              # deterministic .ad replay scripts (the E2E suite)
+├── checks/             # Node drivers for ordered/cross-repository journeys
+├── manual-tests/       # human-run guides for journeys automation cannot reach
 ├── evidence/           # evidence convention and phase records
 └── test-artifacts/     # generated screenshots/logs; ignored by Git
 ```
@@ -90,6 +92,39 @@ Clipboard-based text entry has no helper on purpose: `.ad` scripts use the
 agent-device `fill` command on the target field, which the bundled test IME
 makes reliable.
 
+## Manual test guides
+
+`.agent-device/manual-tests/` holds one Markdown guide per journey that
+Agent Device plus Chrome DevTools AXI genuinely cannot automate — for example
+credential-gated offline restarts on an emulator that cannot enroll a device
+credential, the captain-owned biometric skip, and the one flow blocked by the
+replay harness's viewport failure after authorized repairs. Each guide states
+the journey's intent, prerequisites, numbered steps with expected results,
+and why automation was not possible. A human tester with only the emulator
+and a browser can run them. When a guide's blocker is later removed, promote
+the journey back into `flows/` and delete the guide in the same change.
+
+## Script variables
+
+`.ad` scripts do not inherit arbitrary environment variables. `${NAME}`
+references resolve only from `AD_VAR_<NAME>` environment variables or explicit
+`-e KEY=VALUE` flags on `agent-device replay` / `npm run e2e:flow`. Disposable
+credential values stay in the git-ignored `.agent-device/test-artifacts/`
+account file and are exported as `AD_VAR_AUTH_EMAIL` / `AD_VAR_AUTH_PASSWORD`
+per session; never commit them.
+
+## Chain drivers
+
+Ordered and cross-repository journeys are driven by Node scripts in
+`.agent-device/checks/` rather than one mega-flow. Each driver owns exactly
+one device session at a time, closes it before the next setup step, and
+restores the emulator networking/permission state it changed. The flagship
+example is the T10 chain (`node .agent-device/checks/t10-acceptance.mjs`):
+Mobile scan -> Web review/assignment via Chrome DevTools AXI -> Mobile owner
+retrieval -> genuinely offline visit completion -> recovery sync ->
+synchronized evidence verified on Web. See
+`.agent-device/evidence/INTENT-REPLAY.md` for the full per-flow outcome map.
+
 ## E2E command behavior
 
 Use the project npm scripts for Agent Device runs:
@@ -128,9 +163,13 @@ it coverage.
 
 ## Correction status
 
-Per-flow replay status (green, fixed-and-green, or owned-exception) and which
-corrections still lack live re-verification are owned by
-`.agent-device/evidence/AD-FLOW-COMPLETION-2026-09-04.md`.
+Per-flow replay status from the first conversion pass (green,
+fixed-and-green, or owned-exception) is owned by
+`.agent-device/evidence/AD-FLOW-COMPLETION-2026-09-04.md`. The later
+intent-based rewrite of every problem flow — reconstructed-and-green versus
+manual-test-guide, with replay evidence and the script-variable contract — is
+owned by `.agent-device/evidence/INTENT-REPLAY.md`, which supersedes the
+earlier record for the flows it covers.
 
 ## P0-00 baseline
 

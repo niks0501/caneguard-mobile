@@ -1,86 +1,72 @@
-context platform=android timeout=900000
+context platform=android timeout=240000
 
-# P0-05/06 Draft completed later and finalized on a resolved GPS reading.
+# INTENT: Return to an incomplete saved Draft, preserve its existing farmer
+# detail, complete it using a manual pin after denied GPS, and prove the
+# finalized report survives another password-authenticated restart.
 # Converted from .maestro/p0/05-06-draft-manual-map-finalization.yaml.
-#
-# Precondition (unchanged): run 02-draft-report-lifecycle.ad first. It
-# creates and reopens the latest incomplete report with farmer name
-# "P0 Draft Farmer".
-#
-# Preflow: npm run e2e:env grants location permissions, so the draft's
-# automatic GPS capture resolves without a system dialog and the flow
-# finalizes on the resolved reading. The manual-map fallback of the
-# original is only offered after a non-resolved capture attempt, so it
-# is not reachable in this granted state.
+# Ordered precondition: p0/02 passed with revoke-permissions; no newer report.
 
 open "com.niks0501.caneguard" --relaunch --platform android
-# Cold start requires explicit authentication (auth security change:
-# the app requires unlock on restart). Sign in with the field account.
 wait "label=\"Welcome back\"" 120000
-fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
-fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
-click "id=\"auth.login-submit\""
+fill "id=auth.email-input" "${AUTH_EMAIL}"
+fill "id=auth.password-input" "${AUTH_PASSWORD}"
+click "id=auth.login-submit"
 wait "id=home.screen" 120000
-open "com.niks0501.caneguard" "caneguardmobile:///activity" --platform android
+click "label=\"My Activity\""
 wait "id=activity.screen" 30000
-wait stable 2000 15000
-scroll down 1 --settle
-wait "id=activity.latest-record" 10000
+wait stable 1000 10000
+scroll down 0.25 --settle
+click "id=activity.filter.reports"
 click "id=activity.latest-record"
 wait "id=records.details-screen" 30000
-scroll down 1 --settle
-wait "id=records.open-field-report" 10000
-scroll down 1 --settle
-wait "id=records.open-field-report" 10000
+scroll down 0.5 --settle
 click "id=records.open-field-report"
+wait "label=Draft" 30000
+# Set location before authoring so the map route cannot discard unsaved fields.
+scroll down 0.75 --settle
+click "id=field-report.open-manual-map"
+wait "id=manual-map.viewport enabled=true" 60000
+click "id=manual-map.viewport"
+is visible "id=manual-map.pin"
+click "id=manual-map.confirm"
 wait "id=field-report.screen" 30000
-wait stable 2000 15000
 scroll down 0.5 --settle
-scroll down 0.5 --settle
-wait "label=\"GPS location resolved\"" 60000
-is visible "id=field-report.gps-evidence"
-screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-05-gps-location-resolved.png"
-open "com.niks0501.caneguard" --relaunch --platform android
-# Cold start requires explicit authentication (auth security change:
-# the app requires unlock on restart). Sign in with the field account.
-wait "label=\"Welcome back\"" 120000
-fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
-fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
-click "id=\"auth.login-submit\""
-wait "id=home.screen" 120000
-open "com.niks0501.caneguard" "caneguardmobile:///activity" --platform android
-wait "id=activity.screen" 30000
-scroll down 1 --settle
-wait "id=activity.latest-record" 10000
-click "id=activity.latest-record"
-wait "id=records.details-screen" 30000
-scroll down 1 --settle
-wait "id=records.open-field-report" 10000
-scroll down 1 --settle
-wait "id=records.open-field-report" 10000
-is visible "label=\"Resume Draft\""
-click "id=records.open-field-report"
-wait "id=field-report.screen" 30000
-wait stable 2000 15000
-scroll down 0.5 --settle
-wait "id=field-report.gps-evidence" 30000
-scroll up 0.5 --settle
-wait "role=button label=\"Barangay\"" 10000
+is text "id=field-report.farmer-name-input" "P0 Draft Farmer"
 click "role=button label=\"Barangay\""
-wait "label=\"Search barangay\"" 10000
-fill "label=\"Search barangay\"" "Lumbangan"
-keyboard dismiss
-click "role=button label=\"Lumbangan\""
-fill "id=field-report.affected-area-input" "2.5"
-keyboard dismiss
-fill "id=field-report.affected-portion-input" "40"
-keyboard dismiss
+fill "label=\"Search barangay\"" "Wawa"
+# fill uses the hidden test IME. Back would leave the form; dismiss is not
+# needed. Expose the filtered option below the inline picker instead.
+scroll down 0.25 --settle
+click "role=button label=\"Wawa\""
+fill "id=field-report.affected-area-input" "1.5"
+fill "id=field-report.affected-portion-input" "30"
+# Include space for the possible-recent-match notice on repeat runs.
 scroll down 0.5 --settle
-wait "id=field-report.finalize" 10000
+wait "id=field-report.manual-location" 10000
 click "id=field-report.finalize"
-wait "id=field-report.authoring-status" 30000
-# assertNotVisible conversion: the preceding screen wait already proves the
-# element is absent; is hidden only matches elements that exist but are hidden.
-screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-05-06-draft-finalized.png"
-
+wait "label=\"Server report UUID\"" 120000
+is visible "label=\"Last synchronized\""
+swipe 530 650 530 1800
+wait "label=\"Finalized · Synced\"" 30000
+is visible "label=\"Manual map\""
+is visible "label=\"P0 Draft Farmer\""
+open "com.niks0501.caneguard" --relaunch --platform android
+wait "label=\"Welcome back\"" 120000
+fill "id=auth.email-input" "${AUTH_EMAIL}"
+fill "id=auth.password-input" "${AUTH_PASSWORD}"
+click "id=auth.login-submit"
+wait "id=home.screen" 120000
+click "label=\"My Activity\""
+wait "id=activity.screen" 30000
+wait stable 1000 10000
+scroll down 0.25 --settle
+click "id=activity.filter.reports"
+click "id=activity.latest-record"
+wait "id=records.details-screen" 30000
+scroll down 0.5 --settle
+click "id=records.open-field-report"
+wait "label=\"Finalized · Synced\"" 30000
+is visible "label=\"P0 Draft Farmer\""
+is visible "label=\"Manual map\""
+is visible "label=\"Server report UUID\""
 close

@@ -1,0 +1,15 @@
+context platform=android timeout=240000
+
+# INTENT: During an already-unlocked session, losing connectivity must not
+# erase the cached office review and feedback. This is NOT offline unlock.
+# Precondition: p1/01 left the authority review visible; review-cache.mjs
+# disabled actual emulator networking and will restore it afterward.
+
+open "com.niks0501.caneguard" --platform android
+wait "id=field-report.authority-review-section" 10000
+click "id=field-report.refresh-authority-status"
+wait stable 2000 15000
+is visible "label=\"Field validation needed\""
+is visible "label=\"${T10_CASE_REFERENCE}\""
+is text "id=field-report.authority-feedback" "Intent review: visit the field and document visible symptoms."
+close

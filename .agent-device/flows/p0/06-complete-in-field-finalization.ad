@@ -1,26 +1,18 @@
-context platform=android timeout=900000
+context platform=android timeout=240000
 
-# P0-06 complete-in-field report finalization.
+# INTENT: Complete a report in the field when foreground GPS is denied,
+# choose an online manual pin, and finalize/synchronize the same report.
 # Converted from .maestro/p0/06-complete-in-field-finalization.yaml.
-#
-# Preflow: npm run e2e:env stages the Rust fixture (replacing addMedia) and
-# scripts/ad-flow-env.sh revoke-permissions force-denies location before the
-# flow (replacing setPermissions deny), so the "Don't allow" branches from
-# the original are not needed and the new Draft's GPS attempt stays on the
-# manual-map path.
-#
-# Conversion note: true Wi-Fi-off recovery remains a manual acceptance step
-# because this device uses wireless ADB. The script verifies that local
-# finalization is available; the separate manual procedure covers the
-# radio-off path.
+# Preflow: stage-media + revoke-permissions (force-denied, no permission dialog).
+# Direct result entry replaces the save-scan detour; the report intent is unchanged.
+# Online finalization is required by the current product; offline cold-start
+# authoring belongs to manual-tests, not a fake online/offline assertion.
 
 open "com.niks0501.caneguard" --relaunch --platform android
-# Cold start requires explicit authentication (auth security change:
-# the app requires unlock on restart). Sign in with the field account.
 wait "label=\"Welcome back\"" 120000
-fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
-fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
-click "id=\"auth.login-submit\""
+fill "id=auth.email-input" "${AUTH_EMAIL}"
+fill "id=auth.password-input" "${AUTH_PASSWORD}"
+click "id=auth.login-submit"
 wait "id=home.screen" 120000
 open "com.niks0501.caneguard" "caneguardmobile:///scan" --platform android
 wait "id=scan.screen" 30000
@@ -33,63 +25,35 @@ wait "id=scan.symptom-checklist-screen" 120000
 click "id=scan.symptom-rust"
 click "id=scan.continue-to-result"
 wait "label=\"Possible result: Rust\"" 30000
-scroll down 1 --settle
-wait "id=scan.keep-as-scan-only" 10000
-scroll down 1 --settle
-wait "id=scan.keep-as-scan-only" 10000
-click "id=scan.keep-as-scan-only"
-wait "id=scan.record-saved" 30000
-click "id=scan.open-saved-record"
-wait "id=records.details-screen" 30000
-scroll down 1 --settle
-wait "id=records.open-field-report" 10000
-scroll down 1 --settle
-wait "id=records.open-field-report" 10000
-click "id=records.open-field-report"
-# D5: the new Draft auto-attempts one GPS reading before the screen landmark
-# becomes available. Handle the system prompt before waiting on the screen.
-wait "label=\"Don't allow\"" 10000
-click "label=\"Don't allow\""
+scroll down 0.5 --settle
+wait "id=scan.report-to-office" 10000
+click "id=scan.report-to-office"
 wait "id=field-report.screen" 30000
-wait stable 2000 15000
-# Fractional gestures keep the nested report scroll anchored on the editable
-# details instead of jumping past them to the action buttons.
-scroll down 0.5 --settle
-wait "id=field-report.farmer-name-input" 10000
-fill "id=field-report.farmer-name-input" "P0 Complete Farmer"
-scroll down 0.25 --settle
-wait "role=button label=\"Barangay\"" 10000
-click "role=button label=\"Barangay\""
-wait "label=\"Search barangay\"" 10000
-fill "label=\"Search barangay\"" "Wawa"
-keyboard dismiss
-click "role=button label=\"Wawa\""
-fill "id=field-report.affected-area-input" "1.5"
-keyboard dismiss
-fill "id=field-report.affected-portion-input" "30"
-keyboard dismiss
-scroll down 0.5 --settle
-wait "id=field-report.save-draft" 10000
-click "id=field-report.save-draft"
-wait "id=field-report.saved" 30000
-# The initial denied reading already establishes the manual-map fallback; do
-# not request the same denied permission a second time in this replay.
-wait "id=field-report.gps-status" 10000
-wait "id=field-report.open-manual-map" 10000
+# Set location before authoring so the map route cannot discard unsaved fields.
+scroll down 0.75 --settle
 click "id=field-report.open-manual-map"
-wait "id=manual-map.viewport" 30000
+wait "id=manual-map.viewport enabled=true" 60000
 click "id=manual-map.viewport"
 is visible "id=manual-map.pin"
-wait "id=manual-map.confirm" 10000
 click "id=manual-map.confirm"
-wait "id=field-report.manual-location" 30000
-wait "id=field-report.finalize" 10000
-screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-06-ready-to-finalize.png"
+wait "id=field-report.screen" 30000
+scroll down 0.5 --settle
+fill "id=field-report.farmer-name-input" "P0 Complete Farmer"
+click "role=button label=\"Barangay\""
+fill "label=\"Search barangay\"" "Wawa"
+# fill uses the hidden test IME. Back would leave the form; dismiss is not
+# needed. Expose the filtered option below the inline picker instead.
+scroll down 0.25 --settle
+click "role=button label=\"Wawa\""
+fill "id=field-report.affected-area-input" "1.5"
+fill "id=field-report.affected-portion-input" "30"
+scroll down 0.25 --settle
+wait "id=field-report.manual-location" 10000
 click "id=field-report.finalize"
-scroll up 1 --settle
-wait "id=field-report.authoring-status" 30000
-# assertNotVisible conversion: the preceding screen wait already proves the
-# element is absent; is hidden only matches elements that exist but are hidden.
-screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-06-complete-in-field-finalized.png"
-
+wait "label=\"Server report UUID\"" 120000
+is visible "label=\"Last synchronized\""
+swipe 530 650 530 1800
+wait "label=\"Finalized · Synced\"" 30000
+is visible "label=\"Manual map\""
+is visible "label=\"P0 Complete Farmer\""
 close

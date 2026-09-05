@@ -1,0 +1,26 @@
+context platform=android timeout=240000
+
+# INTENT: Record a field visit while already unlocked but genuinely offline;
+# its observation, finding, action, visit time, and GPS evidence persist locally.
+# This automates the non-credential segment of t10/03. Offline cold restart
+# remains manual-tests/t10-offline-completion-and-restart.md.
+# Precondition: t10/02 has opened a NEW uncompleted assignment. The network
+# driver disabled airplane/Wi-Fi connectivity without restarting the app.
+
+open "com.niks0501.caneguard" --platform android
+wait "id=field-validation.assignment-summary" 30000
+is visible "label=\"${T10_CASE_REFERENCE}\""
+fill "id=field-validation.observation-input" "Intent offline observation"
+scroll down 0.25 --settle
+fill "id=field-validation.finding-input" "Intent field finding"
+fill "id=field-validation.action-input" "Intent field action"
+# Move the submit control away from Android's bottom gesture/navigation edge.
+scroll down 0.25 --settle
+click "id=field-validation.complete"
+wait "label=\"Saved on this device\"" 60000
+is visible "label=\"The completed evidence is preserved locally and will retry automatically when connectivity returns.\""
+# Completion status renders before all asynchronously captured visit evidence.
+wait "label=\"Visit time\"" 30000
+wait "label=GPS" 30000
+is visible "id=field-validation.retry"
+close

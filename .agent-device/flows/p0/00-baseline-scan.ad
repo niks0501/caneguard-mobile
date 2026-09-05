@@ -1,34 +1,21 @@
-context platform=android timeout=900000
+context platform=android timeout=240000
 
-# P0-00 completed scan persists and reopens.
+# INTENT: Discover supported reference classes, analyze a known Rust image,
+# and keep/reopen it locally as a scan-only observation without submitting.
 # Converted from .maestro/p0/00-baseline-scan.yaml.
-#
-# Preflow: npm run e2e:env (stages the Rust fixture and grants location,
-# replacing the Maestro addMedia command). The flow preserves application
-# state: a valid field-reporter session must already be stored on the
-# emulator. If auth.login-screen is visible, authenticate manually and rerun.
+# Preflow: stage-media. Private AUTH_EMAIL and AUTH_PASSWORD required.
 
 open "com.niks0501.caneguard" --relaunch --platform android
-# Cold start requires explicit authentication (auth security change:
-# the app requires unlock on restart). Sign in with the field account.
 wait "label=\"Welcome back\"" 120000
-fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
-fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
-click "id=\"auth.login-submit\""
+fill "id=auth.email-input" "${AUTH_EMAIL}"
+fill "id=auth.password-input" "${AUTH_PASSWORD}"
+click "id=auth.login-submit"
 wait "id=home.screen" 120000
-is visible "role=\"button\" label=\"Start Scan\""
+scroll down 0.5 --settle
 is visible "label=Healthy"
-scroll down 1 --settle
-wait "label=Mosaic" 10000
 is visible "label=Mosaic"
-scroll down 1 --settle
-wait "label=Rust" 10000
 is visible "label=Rust"
-# assertNotVisible conversion: the preceding screen wait already proves the
-# element is absent; is hidden only matches elements that exist but are hidden.
-# assertNotVisible conversion: the preceding screen wait already proves the
-# element is absent; is hidden only matches elements that exist but are hidden.
-open "com.niks0501.caneguard" "caneguardmobile:///scan" --platform android
+click "role=button label=\"Start Scan\""
 wait "id=scan.screen" 30000
 click "id=scan.choose-gallery"
 wait stable 2000 15000
@@ -39,17 +26,12 @@ wait "id=scan.symptom-checklist-screen" 120000
 click "id=scan.symptom-rust"
 click "id=scan.continue-to-result"
 wait "label=\"Possible result: Rust\"" 30000
-scroll down 1 --settle
-wait "id=scan.keep-as-scan-only" 10000
-scroll down 1 --settle
+scroll down 0.5 --settle
 wait "id=scan.keep-as-scan-only" 10000
 click "id=scan.keep-as-scan-only"
 wait "id=scan.record-saved" 30000
-screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-00-saved-result.png"
 click "id=scan.open-saved-record"
 wait "id=records.details-screen" 30000
 is visible "label=\"Possible result: Rust\""
 is visible "label=\"Local only\""
-screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-00-reopened-record.png"
-
 close

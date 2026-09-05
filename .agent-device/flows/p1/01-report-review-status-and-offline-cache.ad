@@ -1,55 +1,26 @@
-context platform=android timeout=900000
+context platform=android timeout=240000
 
-# P1 report review status, feedback, refresh, and offline cache (scaffold).
+# INTENT: Retrieve the office's real review transition and exact feedback for
+# an owned synchronized report, preserving scan/submission identity.
 # Converted from .maestro/p1/01-report-review-status-and-offline-cache.yaml.
-#
-# Prerequisites (performed outside this flow):
-# - runtime-fresh Android development build and matching Metro bundle;
-# - authenticated field reporter;
-# - one owned finalized Field Report is already Finalized · Synced;
-# - controlled backend fixture records the report's initial status, then
-#   changes the same report to for_field_validation with plain-text
-#   feedback; and
-# - the backend fixture can make the status endpoint unavailable for the
-#   final offline/restart segment. Never place credentials or report
-#   content here.
-#
-# This scaffold is intentionally not executed by the implementation lane,
-# exactly like its Maestro original. The activity-list selector below
-# matches the first "Open ... saved ..." list item by text prefix and is
-# verified against the live activity list before first execution.
+# Browser prerequisite: web-review.mjs assigned the Mobile-produced case.
+# SCAN_RECORD_UUID is that report's scan_record_client_uuid from the local
+# fixture API/DB, not an auth token. T10_CASE_REFERENCE is its Web reference.
+# Full warm-cache check: node .agent-device/checks/review-cache.mjs.
+# Offline cold restart requires manual-tests/p1-review-offline-restart.md.
 
-open "com.niks0501.caneguard" "caneguardmobile:///activity" --platform android
-wait "id=activity.screen" 30000
-find "Open " click --first
-wait "id=records.details-screen" 30000
-scroll down 1 --settle
-wait "id=records.open-field-report" 10000
-scroll down 1 --settle
-wait "id=records.open-field-report" 10000
-click "id=records.open-field-report"
-wait "id=field-report.screen" 30000
-is visible "label=\"Finalized · Synced\""
-is visible "id=field-report.authority-review-section"
+open "com.niks0501.caneguard" --relaunch --platform android
+wait "label=\"Welcome back\"" 120000
+fill "id=auth.email-input" "${AUTH_EMAIL}"
+fill "id=auth.password-input" "${AUTH_PASSWORD}"
+click "id=auth.login-submit"
+wait "id=home.screen" 120000
+open "com.niks0501.caneguard" "caneguardmobile:///field-report?scanRecordId=${SCAN_RECORD_UUID}" --platform android
+wait "label=\"Finalized · Synced\"" 30000
+wait stable 2000 15000
+scroll down 0.35 --settle
 click "id=field-report.refresh-authority-status"
 wait "label=\"Field validation needed\"" 30000
-is visible "label=\"Authority staff\""
-is visible "label=\"Latest feedback\""
-screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p1-01-authority-update-feedback.png"
-open "com.niks0501.caneguard" --relaunch --platform android
-open "com.niks0501.caneguard" "caneguardmobile:///activity" --platform android
-wait "id=activity.screen" 30000
-find "Open " click --first
-wait "id=records.details-screen" 30000
-scroll down 1 --settle
-wait "id=records.open-field-report" 10000
-scroll down 1 --settle
-wait "id=records.open-field-report" 10000
-click "id=records.open-field-report"
-wait "id=field-report.screen" 30000
-is visible "label=\"Finalized · Synced\""
-is visible "label=\"Field validation needed\""
-is visible "label=\"Authority staff\""
-screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p1-01-authority-offline-restart-cache.png"
-
+is visible "label=\"${T10_CASE_REFERENCE}\""
+is text "id=field-report.authority-feedback" "Intent review: visit the field and document visible symptoms."
 close

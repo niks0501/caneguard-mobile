@@ -1,31 +1,33 @@
-context platform=android timeout=900000
+context platform=android timeout=240000
 
-# P0-07 Field Report sync identity and restart persistence.
+# INTENT: A finalized report's server identity and synchronized state survive
+# a real process restart and password reauthentication, not just navigation.
 # Converted from .maestro/p0/07-field-report-sync-and-restart.yaml.
-#
-# Prerequisites: authenticated field reporter, reachable API, fresh native
-# build. P0-06 creates and locally finalizes a report under a stable Field
-# Report ID. The original embedded 06-complete-in-field-finalization.yaml
-# via runFlow; run that script first, then this one.
-#
-# The conditional retry-sync tap of the original becomes a tolerant skip:
-# when the report is already syncing, the retry control is absent and the
-# wait for "Finalized · Synced" below still proves the sync identity.
+# Precondition: p0/06 just passed, leaving its report open. FIELD_REPORT_UUID
+# is the server UUID read from that report (never a token). No newer report.
 
-# Establish the active app session required by the first assertion when this
-# flow is replayed independently of the preceding finalization flow.
 open "com.niks0501.caneguard" --platform android
-
-# The report screen can reopen at its previous scroll position; expose the status card first.
-scroll up 1 --settle
-wait "label=\"Finalized · Synced\"" 120000
-is visible "label=\"Server report UUID\""
+wait "label=\"Finalized · Synced\"" 30000
+is visible "label=\"${FIELD_REPORT_UUID}\""
 is visible "label=\"Last synchronized\""
-screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-07-field-report-synced.png"
 open "com.niks0501.caneguard" --relaunch --platform android
-wait "id=field-report.screen" 120000
-is visible "label=\"Finalized · Synced\""
-is visible "label=\"Server report UUID\""
-screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-07-field-report-synced-after-restart.png"
-
+wait "label=\"Welcome back\"" 120000
+fill "id=auth.email-input" "${AUTH_EMAIL}"
+fill "id=auth.password-input" "${AUTH_PASSWORD}"
+click "id=auth.login-submit"
+wait "id=home.screen" 120000
+click "label=\"My Activity\""
+wait "id=activity.screen" 30000
+wait stable 1000 10000
+scroll down 0.25 --settle
+click "id=activity.filter.reports"
+click "id=activity.latest-record"
+wait "id=records.details-screen" 30000
+scroll down 0.5 --settle
+click "id=records.open-field-report"
+wait "label=\"Finalized · Synced\"" 30000
+is visible "label=\"${FIELD_REPORT_UUID}\""
+is visible "label=\"P0 Complete Farmer\""
+is visible "label=\"Manual map\""
+is visible "label=\"Last synchronized\""
 close

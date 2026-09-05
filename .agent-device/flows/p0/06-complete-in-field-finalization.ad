@@ -46,70 +46,43 @@ wait "id=records.open-field-report" 10000
 scroll down 1 --settle
 wait "id=records.open-field-report" 10000
 click "id=records.open-field-report"
-wait "id=field-report.screen" 30000
-# D5: the new Draft auto-attempts one GPS reading; with the permission in
-# the ask state the system dialog appears - decline it.
+# D5: the new Draft auto-attempts one GPS reading before the screen landmark
+# becomes available. Handle the system prompt before waiting on the screen.
 wait "label=\"Don't allow\"" 10000
 click "label=\"Don't allow\""
-scroll down 1 --settle
-wait "id=field-report.farmer-name-input" 10000
-scroll down 1 --settle
+wait "id=field-report.screen" 30000
+wait stable 2000 15000
+# Fractional gestures keep the nested report scroll anchored on the editable
+# details instead of jumping past them to the action buttons.
+scroll down 0.5 --settle
 wait "id=field-report.farmer-name-input" 10000
 fill "id=field-report.farmer-name-input" "P0 Complete Farmer"
-back --settle
-click "id=field-report.barangay-input"
-fill "id=field-report.barangay-input" "Wawa"
-back --settle
-scroll down 1 --settle
-wait "id=field-report.barangay-input-option" 10000
-scroll down 1 --settle
-wait "id=field-report.barangay-input-option" 10000
-find "Wawa" click --first
-scroll down 1 --settle
-wait "id=field-report.affected-area-input" 10000
-scroll down 1 --settle
-wait "id=field-report.affected-area-input" 10000
+scroll down 0.25 --settle
+wait "role=button label=\"Barangay\"" 10000
+click "role=button label=\"Barangay\""
+wait "label=\"Search barangay\"" 10000
+fill "label=\"Search barangay\"" "Wawa"
+keyboard dismiss
+click "role=button label=\"Wawa\""
 fill "id=field-report.affected-area-input" "1.5"
-back --settle
-scroll down 1 --settle
-wait "id=field-report.affected-portion-input" 10000
-scroll down 1 --settle
-wait "id=field-report.affected-portion-input" 10000
+keyboard dismiss
 fill "id=field-report.affected-portion-input" "30"
-back --settle
-scroll down 1 --settle
-wait "id=field-report.save-draft" 10000
-scroll down 1 --settle
+keyboard dismiss
+scroll down 0.5 --settle
 wait "id=field-report.save-draft" 10000
 click "id=field-report.save-draft"
-scroll down 1 --settle
 wait "id=field-report.saved" 30000
-scroll up 1 --settle
-wait "id=field-report.capture-gps" 10000
-scroll up 1 --settle
-wait "id=field-report.capture-gps" 10000
-click "id=field-report.capture-gps"
-wait "label=\"Don't allow\"" 10000
-click "label=\"Don't allow\""
-wait "id=field-report.gps-status" 30000
-scroll down 1 --settle
-wait "id=field-report.open-manual-map" 10000
-scroll down 1 --settle
+# The initial denied reading already establishes the manual-map fallback; do
+# not request the same denied permission a second time in this replay.
+wait "id=field-report.gps-status" 10000
 wait "id=field-report.open-manual-map" 10000
 click "id=field-report.open-manual-map"
 wait "id=manual-map.viewport" 30000
 click "id=manual-map.viewport"
 is visible "id=manual-map.pin"
-scroll down 1 --settle
-wait "id=manual-map.confirm" 10000
-scroll down 1 --settle
 wait "id=manual-map.confirm" 10000
 click "id=manual-map.confirm"
-scroll down 1 --settle
 wait "id=field-report.manual-location" 30000
-scroll up 1 --settle
-wait "id=field-report.finalize" 10000
-scroll up 1 --settle
 wait "id=field-report.finalize" 10000
 screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/p0-06-ready-to-finalize.png"
 click "id=field-report.finalize"

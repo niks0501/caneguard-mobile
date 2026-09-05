@@ -40,7 +40,7 @@ secret is stored in the repository.
 | `t10-acceptance.mjs` | Full cross-repository T10 chain: Mobile scan/submit -> Web review + field-validation assignment (Chrome DevTools AXI on the real submitted report UUID) -> Mobile owner retrieval -> genuinely offline visit completion -> network restoration + retry sync -> synchronized visit evidence visible on Web. |
 | `t10-recovery.mjs` | Offline completion followed by real network restoration and conditional retry synchronization of the same case. |
 | `review-cache.mjs` | Real airplane/Wi-Fi loss during an unlocked session must not erase cached office review/feedback; state restored afterward. |
-| `web-review.mjs` | Web-side review/assignment/verification of the exact Mobile-submitted case (`assign`, `verify-report`, `verify-completion` modes). |
+| `web-review.mjs` | Web-side review/assignment/verification of the exact Mobile-submitted case (`assign`, `verify-completion` modes). |
 | `device-network.mjs` | Emulator claim check and supported airplane/Wi-Fi toggling with verified start/restore state. |
 | `map-fullscreen.mjs` | Map fullscreen enter/exit assertions via Agent Device snapshot. |
 

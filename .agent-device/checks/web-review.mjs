@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 const uuid = process.env.REPORT_UUID;
 assert.match(uuid ?? '', /^[0-9a-f-]{36}$/i, 'Set REPORT_UUID from Mobile sync evidence');
 const mode = process.argv[2] ?? 'assign';
-assert.ok(['assign', 'verify-report', 'verify-completion'].includes(mode));
+assert.ok(['assign', 'verify-completion'].includes(mode));
 const run = (...args) => execFileSync('chrome-devtools-axi', args, {
   encoding: 'utf8', timeout: 90_000,
   env: { ...process.env, CHROME_DEVTOOLS_AXI_BROWSER_URL: 'http://127.0.0.1:9222' },
@@ -52,12 +52,10 @@ if (mode === 'assign') {
   assert.ok(after.includes('"Needs field validation"'));
   assert.ok(after.includes('Intent review: visit the field and document visible symptoms.'));
   console.log('PASS: exact Mobile case reviewed and assigned on Web');
-} else if (mode === 'verify-completion') {
+} else {
   const after = snapshot();
   for (const expected of ['Intent offline observation', 'Intent field finding', 'Intent field action']) {
     assert.ok(after.includes(expected), `Missing synchronized field evidence: ${expected}`);
   }
   console.log('PASS: exact Mobile case and synchronized visit evidence visible on Web');
-} else {
-  console.log('PASS: exact Mobile case, checklist, and reporting values visible on Web');
 }

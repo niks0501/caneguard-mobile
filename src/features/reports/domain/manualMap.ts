@@ -65,14 +65,12 @@ export function getConfiguredMapTileUrlTemplate(): string | null {
   return rawTemplate;
 }
 
-export const configuredMapTileUrlTemplate = getConfiguredMapTileUrlTemplate();
-
 export function getMapTiles(
   center: MapCoordinate,
   zoom: number,
   width: number,
   height: number,
-  tileUrlTemplate: string | null = configuredMapTileUrlTemplate,
+  tileUrlTemplate: string | null,
 ): MapTile[] {
   if (!tileUrlTemplate) {
     return [];

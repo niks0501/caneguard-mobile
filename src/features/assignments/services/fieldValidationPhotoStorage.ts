@@ -84,7 +84,13 @@ export function deleteFieldValidationPhoto(
   } catch {
     return;
   }
-  if (!isManagedFieldValidationPhotoUri(uri, owner)) {
+  // Legacy photos have no owner partition. The URI is eligible here only
+  // because cleanup collected it from a completion row already scoped to this
+  // owner; never expose this compatibility path as a general owner check.
+  if (
+    !isManagedFieldValidationPhotoUri(uri, owner) &&
+    !isLegacyFieldValidationPhotoUri(uri)
+  ) {
     return;
   }
   removePhoto(uri);
@@ -101,6 +107,38 @@ export function isManagedFieldValidationPhotoUri(
   const relative = uri.slice(directory.length + 1).split('/');
   const filename = relative.at(-1);
   return Boolean(relative.length === 1 && filename && !filename.includes('..'));
+}
+
+function isLegacyFieldValidationPhotoUri(uri: string): boolean {
+  const directory = new Directory(
+    Paths.document,
+    'caneguard',
+    PHOTO_DIRECTORY_NAME,
+  ).uri;
+  if (!uri.startsWith(`${directory}/`)) {
+    return false;
+  }
+
+  const filename = uri.slice(directory.length + 1);
+  if (filename.includes('/')) {
+    return false;
+  }
+  const extensionIndex = filename.lastIndexOf('.');
+  if (extensionIndex <= 0) {
+    return false;
+  }
+  const extension = filename.slice(extensionIndex + 1).toLowerCase();
+  if (!Object.values(MIME_TO_EXTENSION).includes(extension)) {
+    return false;
+  }
+
+  const basename = filename.slice(0, extensionIndex);
+  const separatorIndex = basename.indexOf('-', 36);
+  return (
+    separatorIndex === 36 &&
+    isUuid(basename.slice(0, separatorIndex)) &&
+    isUuid(basename.slice(separatorIndex + 1))
+  );
 }
 
 function validateInput(input: FieldValidationPhotoInput): void {

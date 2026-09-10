@@ -3,7 +3,7 @@ import type { SQLiteUpdateSetSource } from 'drizzle-orm/sqlite-core/query-builde
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
-import { fieldReports } from '@/database/schema';
+import { fieldReports, scanRecords } from '@/database/schema';
 import { findScanRecordById } from '@/features/records/data/scanRecordRepository';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import { findFieldReportById } from '@/features/reports/data/fieldReportRepository';
@@ -121,6 +121,13 @@ export async function findFieldReportSyncCandidates(
     const rows = await database
       .select({ id: fieldReports.id })
       .from(fieldReports)
+      .innerJoin(
+        scanRecords,
+        and(
+          eq(scanRecords.id, fieldReports.scanRecordId),
+          eq(scanRecords.ownerIdentity, submitterIdentity.trim()),
+        ),
+      )
       .where(
         and(
           eq(fieldReports.authoringState, 'finalized'),

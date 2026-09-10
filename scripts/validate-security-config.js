@@ -53,6 +53,7 @@ if (mapTileTemplate) {
       tileUrl.username ||
       tileUrl.password ||
       tileUrl.hostname === 'tile.openstreetmap.org' ||
+      tileUrl.hostname.endsWith('.tile.openstreetmap.org') ||
       !['{z}', '{x}', '{y}'].every((placeholder) =>
         mapTileTemplate.includes(placeholder),
       ))

@@ -135,7 +135,7 @@ export function useScanRecordDetails(id: string | null) {
 
   const refresh = useCallback(async () => {
     if (!id) {
-      setDataOwnerIdentity(null);
+      setDataOwnerIdentity(user?.uuid ?? null);
       setState({
         data: null,
         errorMessage: 'This saved record link is invalid.',
@@ -284,6 +284,7 @@ export function usePaginatedScanRecords(
           'QUERY_FAILED',
           'Listing scan records failed.',
         );
+        setDataOwnerIdentity(submitterIdentity);
         setState((current) => ({
           ...current,
           errorMessage: getStorageErrorMessage(storageError),

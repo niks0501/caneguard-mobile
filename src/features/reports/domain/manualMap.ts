@@ -43,6 +43,7 @@ export function getConfiguredMapTileUrlTemplate(): string | null {
     tileUrl.username ||
     tileUrl.password ||
     tileUrl.hostname === 'tile.openstreetmap.org' ||
+    tileUrl.hostname.endsWith('.tile.openstreetmap.org') ||
     !['{z}', '{x}', '{y}'].every((placeholder) =>
       rawTemplate.includes(placeholder),
     )
@@ -64,14 +65,12 @@ export function getConfiguredMapTileUrlTemplate(): string | null {
   return rawTemplate;
 }
 
-export const configuredMapTileUrlTemplate = getConfiguredMapTileUrlTemplate();
-
 export function getMapTiles(
   center: MapCoordinate,
   zoom: number,
   width: number,
   height: number,
-  tileUrlTemplate: string | null = configuredMapTileUrlTemplate,
+  tileUrlTemplate: string | null,
 ): MapTile[] {
   if (!tileUrlTemplate) {
     return [];

@@ -70,7 +70,7 @@ export function useFieldReportForScan(scanRecordId: string | null) {
       isCurrentInput();
 
     if (!scanRecordId || !user) {
-      setDataOwnerIdentity(null);
+      setDataOwnerIdentity(submitterIdentity);
       setState({
         data: null,
         errorMessage: 'This saved record link is invalid.',

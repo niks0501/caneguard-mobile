@@ -43,6 +43,7 @@ export function getConfiguredMapTileUrlTemplate(): string | null {
     tileUrl.username ||
     tileUrl.password ||
     tileUrl.hostname === 'tile.openstreetmap.org' ||
+    tileUrl.hostname.endsWith('.tile.openstreetmap.org') ||
     !['{z}', '{x}', '{y}'].every((placeholder) =>
       rawTemplate.includes(placeholder),
     )

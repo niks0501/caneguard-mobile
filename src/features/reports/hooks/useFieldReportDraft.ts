@@ -42,6 +42,9 @@ export function useFieldReportForScan(scanRecordId: string | null) {
     hasOtherOwnerReport: false,
     loading: true,
   });
+  const [dataOwnerIdentity, setDataOwnerIdentity] = useState<
+    string | null
+  >(null);
   const refreshGeneration = useRef(0);
   const refreshInput = useRef<{
     scanRecordId: string | null;
@@ -67,6 +70,7 @@ export function useFieldReportForScan(scanRecordId: string | null) {
       isCurrentInput();
 
     if (!scanRecordId || !user) {
+      setDataOwnerIdentity(null);
       setState({
         data: null,
         errorMessage: 'This saved record link is invalid.',
@@ -88,6 +92,7 @@ export function useFieldReportForScan(scanRecordId: string | null) {
       if (!isCurrentRequest()) {
         return;
       }
+      setDataOwnerIdentity(submitterIdentity);
       setState({ data, errorMessage: null, hasOtherOwnerReport, loading: false });
     } catch (error: unknown) {
       if (!isCurrentRequest()) {
@@ -98,6 +103,7 @@ export function useFieldReportForScan(scanRecordId: string | null) {
         'QUERY_FAILED',
         'Reading the Field Report failed.',
       );
+      setDataOwnerIdentity(submitterIdentity);
       setState({
         data: null,
         errorMessage: getStorageErrorMessage(storageError),
@@ -117,11 +123,11 @@ export function useFieldReportForScan(scanRecordId: string | null) {
   });
 
   const visibleState =
-    state.data?.submitterIdentity === submitterIdentity
+    dataOwnerIdentity === submitterIdentity
       ? state
       : {
-          ...state,
           data: null,
+          errorMessage: null,
           hasOtherOwnerReport: false,
           loading: true,
         };

@@ -284,6 +284,7 @@ export function usePaginatedScanRecords(
           'QUERY_FAILED',
           'Listing scan records failed.',
         );
+        setDataOwnerIdentity(submitterIdentity);
         setState((current) => ({
           ...current,
           errorMessage: getStorageErrorMessage(storageError),

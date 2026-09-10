@@ -1,12 +1,15 @@
 import Constants from 'expo-constants';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { ComponentTokens, Layout, Shadows, Spacing, Typography } from '@/constants/theme';
+import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
+import { clearLocalDataForOwner } from '@/database/localDataLifecycle';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemePreference } from '@/providers/ThemePreferenceProvider';
@@ -81,9 +84,36 @@ function ToggleRow({ label, description, value, onToggle }: ToggleRowProps) {
 export default function SettingsScreen() {
   const theme = useTheme();
   const { isDarkMode, setDarkMode } = useThemePreference();
+  const database = useCaneGuardDatabase();
   const { logout, user } = useAuth();
+  const [clearingLocalData, setClearingLocalData] = useState(false);
 
   const appVersion = Constants.expoConfig?.version ?? 'Unknown';
+
+  const clearLocalData = async () => {
+    if (!user || clearingLocalData) {
+      return;
+    }
+    setClearingLocalData(true);
+    try {
+      const result = await clearLocalDataForOwner(database, user.uuid);
+      Alert.alert(
+        result.imageCleanupErrors.length > 0
+          ? 'Local data cleared with cleanup warnings'
+          : 'Local data cleared',
+        result.imageCleanupErrors.length > 0
+          ? 'Your local records were removed, but one or more cached images could not be deleted yet.'
+          : 'Saved scans, report drafts, field-validation evidence, and cached account data were removed from this device.',
+      );
+    } catch {
+      Alert.alert(
+        'Could not clear local data',
+        'CaneGuard could not remove all local records. Try again before handing this device to another user.',
+      );
+    } finally {
+      setClearingLocalData(false);
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
@@ -167,7 +197,7 @@ export default function SettingsScreen() {
                   onPress={() =>
                     Alert.alert(
                       'Log out?',
-                      'Pending scans remain safely stored on this device.',
+                      'Logging out revokes the server session and removes the protected credential. Pending scans remain owner-scoped on this device; use Clear local data before handing the device to another user.',
                       [
                         { text: 'Cancel', style: 'cancel' },
                         {
@@ -199,6 +229,30 @@ export default function SettingsScreen() {
                   accessibilityLabel="Log out of your account"
                   style={styles.logoutButton}>
                   <Text style={[styles.logoutText, { color: theme.danger }]}>Logout</Text>
+                </AppButton>
+                <AppButton
+                  testID="settings.clear-local-data"
+                  variant="text"
+                  disabled={clearingLocalData}
+                  onPress={() =>
+                    Alert.alert(
+                      'Clear local data?',
+                      'This permanently removes saved scans, report drafts, validation evidence, and cached account data from this device. It does not change data already synchronized to the server.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: clearingLocalData ? 'Clearing…' : 'Clear local data',
+                          style: 'destructive',
+                          onPress: () => void clearLocalData(),
+                        },
+                      ],
+                    )
+                  }
+                  accessibilityLabel="Clear local data from this device"
+                  style={styles.logoutButton}>
+                  <Text style={[styles.logoutText, { color: theme.danger }]}>
+                    {clearingLocalData ? 'Clearing local data…' : 'Clear local data'}
+                  </Text>
                 </AppButton>
               </View>
             </View>

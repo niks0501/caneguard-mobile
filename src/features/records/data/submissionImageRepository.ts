@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
@@ -14,6 +14,7 @@ import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 export async function persistSubmissionImageMetadata(
   database: CaneGuardDatabase,
   scanRecordId: string,
+  ownerIdentity: string,
   sourceUri: string,
   artifact: SubmissionImageArtifact,
 ): Promise<void> {
@@ -25,7 +26,10 @@ export async function persistSubmissionImageMetadata(
       submissionImageMimeType: mimeType,
       submissionImageSizeBytes: artifact.sizeBytes,
       submissionImageUri: artifact.uri,
-      expectedSubmissionImageUri: getSubmissionImageUri(scanRecordId),
+      expectedSubmissionImageUri: getSubmissionImageUri(
+        scanRecordId,
+        ownerIdentity,
+      ),
     })
   ) {
     throw new StorageError(
@@ -43,7 +47,12 @@ export async function persistSubmissionImageMetadata(
         submissionImageSizeBytes: artifact.sizeBytes,
         updatedAt: new Date().toISOString(),
       })
-      .where(eq(scanRecords.id, scanRecordId));
+      .where(
+        and(
+          eq(scanRecords.id, scanRecordId),
+          eq(scanRecords.ownerIdentity, ownerIdentity.trim()),
+        ),
+      );
 
     if (result.changes === 0) {
       throw new StorageError(

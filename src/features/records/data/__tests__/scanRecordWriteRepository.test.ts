@@ -31,7 +31,7 @@ const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
 const SECOND_RECORD_ID = 'c863a5af-e9ad-44fe-a0dc-73f9d3436cac';
 const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 const OTHER_SUBMITTER_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
-const MANAGED_ROOT = getManagedScanImageDirectory().uri;
+const MANAGED_ROOT = getManagedScanImageDirectory(SUBMITTER_ID).uri;
 
 function readMigration(filename: string): string {
   return readFileSync(join(process.cwd(), 'drizzle', filename), 'utf8').replaceAll(
@@ -54,6 +54,7 @@ function openTestDatabase(): {
   native.exec(readMigration('0005_tricky_the_santerians.sql'));
   native.exec(readMigration('0006_curvy_piledriver.sql'));
   native.exec(readMigration('0007_familiar_old_lace.sql'));
+  native.exec(readMigration('0012_dapper_sumo.sql'));
   const client = {
     prepareSync(sql: string) {
       return createStatementAdapter(native.prepare(sql));
@@ -97,6 +98,7 @@ function validInput(
 ): SaveCompletedScanInput {
   return {
     id: RECORD_ID,
+    ownerIdentity: SUBMITTER_ID,
     managedImageUri: `${MANAGED_ROOT}/${RECORD_ID}.jpg`,
     imageMimeType: 'image/jpeg',
     imageSizeBytes: 4096,
@@ -224,7 +226,7 @@ describe('scan record write repository', () => {
 
   it('rejects a persisted submission URI outside the Scan Record boundary', async () => {
     const { database, native } = openTestDatabase();
-    const invalidSubmissionUri = getSubmissionImageUri(SECOND_RECORD_ID);
+    const invalidSubmissionUri = getSubmissionImageUri(SECOND_RECORD_ID, SUBMITTER_ID);
 
     await expect(
       insertScanRecord(
@@ -297,30 +299,30 @@ describe('scan record write repository', () => {
       );
     }
 
-    const firstPage = await listScanRecords(database, { limit: 10 });
+    const firstPage = await listScanRecords(database, { limit: 10 }, SUBMITTER_ID);
     const secondPage = await listScanRecords(database, {
       limit: 10,
       offset: 10,
-    });
+    }, SUBMITTER_ID);
     const rust = await listScanRecords(database, {
       predictedLabel: 'rust',
       limit: 100,
-    });
+    }, SUBMITTER_ID);
     const searched = await listScanRecords(database, {
       search: 'WaWa',
       limit: 100,
-    });
+    }, SUBMITTER_ID);
     const barangay = await listScanRecords(database, {
       barangay: 'awa',
       limit: 100,
-    });
+    }, SUBMITTER_ID);
     const ranged = await listScanRecords(database, {
       dateRange: {
         from: '2026-07-20T00:00:00.000Z',
         to: '2026-07-22T23:59:59.999Z',
       },
       limit: 100,
-    });
+    }, SUBMITTER_ID);
 
     expect(firstPage).toHaveLength(10);
     expect(firstPage[0].createdAt >= firstPage[1].createdAt).toBe(true);
@@ -403,13 +405,7 @@ describe('scan record write repository', () => {
     ).resolves.toEqual([]);
     await expect(
       listScanRecords(database, {}, OTHER_SUBMITTER_ID),
-    ).resolves.toEqual([
-      expect.objectContaining({
-        barangay: 'Wawa',
-        hasFieldReport: false,
-        syncStatus: 'local_only',
-      }),
-    ]);
+    ).resolves.toEqual([]);
     native.close();
   });
 
@@ -438,7 +434,7 @@ describe('scan record write repository', () => {
       pendingSyncRecords: 1,
     });
     await expect(getLocalReportSummary(database, OTHER_SUBMITTER_ID)).resolves.toMatchObject({
-      totalSavedScans: 1,
+      totalSavedScans: 0,
       pendingSyncRecords: 0,
     });
     native.close();
@@ -449,7 +445,7 @@ describe('scan record write repository', () => {
     await insertScanRecord(database, validInput());
     const revisionBeforeDelete = getSyncRecordsRevision();
 
-    await expect(findScanRecordById(database, RECORD_ID)).resolves.toMatchObject({
+    await expect(findScanRecordById(database, RECORD_ID, SUBMITTER_ID)).resolves.toMatchObject({
       id: RECORD_ID,
       predictedLabel: 'rust',
       classScores: [
@@ -460,7 +456,7 @@ describe('scan record write repository', () => {
       symptoms: ['rust'],
       qualityWarnings: ['too-dark'],
     });
-    await expect(listManagedImageUris(database)).resolves.toEqual([
+    await expect(listManagedImageUris(database, SUBMITTER_ID)).resolves.toEqual([
       `${MANAGED_ROOT}/${RECORD_ID}.jpg`,
     ]);
     await expect(
@@ -481,7 +477,7 @@ describe('scan record write repository', () => {
         native.prepare(`SELECT count(*) AS count FROM ${table}`).get(),
       ).toEqual({ count: 0 });
     }
-    await expect(findScanRecordById(database, RECORD_ID)).rejects.toMatchObject({
+    await expect(findScanRecordById(database, RECORD_ID, SUBMITTER_ID)).rejects.toMatchObject({
       code: 'RECORD_NOT_FOUND',
     });
     native.close();
@@ -489,7 +485,7 @@ describe('scan record write repository', () => {
 
   it('lists source and submission image references without duplicates', async () => {
     const { database, native } = openTestDatabase();
-    const submissionImageUri = getSubmissionImageUri(RECORD_ID);
+    const submissionImageUri = getSubmissionImageUri(RECORD_ID, SUBMITTER_ID);
     await insertScanRecord(
       database,
       validInput({
@@ -499,7 +495,7 @@ describe('scan record write repository', () => {
       }),
     );
 
-    await expect(listManagedImageUris(database)).resolves.toEqual([
+    await expect(listManagedImageUris(database, SUBMITTER_ID)).resolves.toEqual([
       `${MANAGED_ROOT}/${RECORD_ID}.jpg`,
       submissionImageUri,
     ]);
@@ -555,7 +551,7 @@ describe('scan record write repository', () => {
       .run(RECORD_ID);
 
     await expect(
-      listScanRecords(database, { syncStatus: 'failed' }),
+      listScanRecords(database, { syncStatus: 'failed' }, SUBMITTER_ID),
     ).resolves.toEqual([
       expect.objectContaining({ id: RECORD_ID, syncStatus: 'failed' }),
     ]);
@@ -565,7 +561,7 @@ describe('scan record write repository', () => {
         "UPDATE scan_records SET sync_status = 'synced', remote_id = 'legacy-remote-id', last_synced_at = ? WHERE id = ?",
       )
       .run('2026-07-25T06:00:00.000Z', RECORD_ID);
-    await expect(findScanRecordById(database, RECORD_ID)).resolves.toMatchObject({
+    await expect(findScanRecordById(database, RECORD_ID, SUBMITTER_ID)).resolves.toMatchObject({
       remoteId: 'legacy-remote-id',
       syncStatus: 'synced',
       lastSyncedAt: '2026-07-25T06:00:00.000Z',
@@ -573,7 +569,7 @@ describe('scan record write repository', () => {
     native.close();
   });
 
-  it('rejects deleting a scan attached to another submitter report', async () => {
+  it('hides a scan from a different submitter during deletion', async () => {
     const { database, native } = openTestDatabase();
     await insertScanRecord(database, validInput());
     native
@@ -594,7 +590,7 @@ describe('scan record write repository', () => {
 
     await expect(
       deleteScanRecordById(database, RECORD_ID, OTHER_SUBMITTER_ID),
-    ).rejects.toMatchObject<Partial<StorageError>>({ code: 'DELETE_FAILED' });
+    ).rejects.toMatchObject<Partial<StorageError>>({ code: 'RECORD_NOT_FOUND' });
     expect(
       native.prepare('SELECT count(*) AS count FROM scan_records').get(),
     ).toEqual({ count: 1 });

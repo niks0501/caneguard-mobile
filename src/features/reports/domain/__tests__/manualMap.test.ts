@@ -45,11 +45,27 @@ describe('manual map Web Mercator helpers', () => {
     expect(roundTrip.longitude).toBeCloseTo(selected.longitude, 8);
   });
 
-  it('generates only online OpenStreetMap tile URLs needed by the viewport', () => {
-    const tiles = getMapTiles(DEFAULT_MANUAL_MAP_CENTER, 15, 390, 360);
+  it('generates only privacy-proxy tile URLs when a proxy is configured', () => {
+    const tiles = getMapTiles(
+      DEFAULT_MANUAL_MAP_CENTER,
+      15,
+      390,
+      360,
+      'https://api.example.test/api/v1/mobile/map-tiles/{z}/{x}/{y}.png',
+    );
     expect(tiles.length).toBeGreaterThan(0);
     expect(tiles.length).toBeLessThanOrEqual(9);
-    expect(tiles.every(({ url }) => /^https:\/\/tile\.openstreetmap\.org\/15\/\d+\/\d+\.png$/.test(url))).toBe(true);
+    expect(
+      tiles.every(({ url }) =>
+        /^https:\/\/api\.example\.test\/api\/v1\/mobile\/map-tiles\/15\/\d+\/\d+\.png$/.test(
+          url,
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it('does not generate third-party tile URLs without a privacy proxy', () => {
+    expect(getMapTiles(DEFAULT_MANUAL_MAP_CENTER, 15, 390, 360, null)).toEqual([]);
   });
 
   it('moves the center deterministically without selecting a location', () => {

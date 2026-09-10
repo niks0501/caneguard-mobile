@@ -142,7 +142,7 @@ export function AccountSecurityScreen() {
         <Text testID="account-security.success" accessibilityLiveRegion="polite" style={[styles.success, { color: theme.primaryDark, backgroundColor: theme.successBg }]}>{successMessage}</Text>
       ) : null}
 
-      <SecuritySection title="Biometric unlock" description="Use a strong enrolled biometric to unlock the stored session after a cold start. A device passcode remains the native fallback; password sign-in is always available.">
+      <SecuritySection title="Biometric unlock" description="Use an enrolled strong biometric to unlock the OS-protected session after a cold start. Password sign-in is always available; a device passcode cannot unlock this credential.">
         <Text style={[styles.capability, { color: theme.textSecondary }]}>{biometricCapabilityMessage(biometricCapability?.status)}</Text>
         {biometricEnabled ? (
           <View style={styles.form}>
@@ -315,7 +315,7 @@ function biometricCapabilityMessage(
 
 function formatExpiry(expiresAt: string | null | undefined): string {
   if (expiresAt === null) {
-    return 'Server session has no scheduled expiry. It remains valid until logout or server-side revocation.';
+    return 'Local session safety expiry unavailable; sign in again before continuing.';
   }
   if (!expiresAt) {
     return 'Session expiry is unavailable. Sign in again to establish a server session.';

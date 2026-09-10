@@ -50,8 +50,14 @@ export function useScanRecords(query: ScanRecordQuery) {
     errorMessage: null,
     loading: true,
   });
+  const [dataOwnerIdentity, setDataOwnerIdentity] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (!submitterIdentity) {
+      setDataOwnerIdentity(null);
+      setState({ data: [], errorMessage: null, loading: false });
+      return;
+    }
     setState((current) => ({ ...current, errorMessage: null, loading: true }));
     try {
       const data = await listScanRecords(database, {
@@ -70,6 +76,7 @@ export function useScanRecords(query: ScanRecordQuery) {
         search,
         syncStatus,
       }, submitterIdentity);
+      setDataOwnerIdentity(submitterIdentity);
       setState({ data, errorMessage: null, loading: false });
     } catch (error: unknown) {
       const storageError = toStorageError(
@@ -77,8 +84,10 @@ export function useScanRecords(query: ScanRecordQuery) {
         'QUERY_FAILED',
         'Listing scan records failed.',
       );
+      setDataOwnerIdentity(submitterIdentity);
       setState((current) => ({
         ...current,
+        data: [],
         errorMessage: getStorageErrorMessage(storageError),
         loading: false,
       }));
@@ -106,19 +115,27 @@ export function useScanRecords(query: ScanRecordQuery) {
     }, [refresh]),
   );
 
-  return { ...state, refresh };
+  const visibleState =
+    dataOwnerIdentity === submitterIdentity
+      ? state
+      : { data: [], errorMessage: null, loading: true };
+
+  return { ...visibleState, refresh };
 }
 
 export function useScanRecordDetails(id: string | null) {
   const database = useCaneGuardDatabase();
+  const { user } = useAuth();
   const [state, setState] = useState<QueryState<ScanRecordDetails | null>>({
     data: null,
     errorMessage: null,
     loading: true,
   });
+  const [dataOwnerIdentity, setDataOwnerIdentity] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!id) {
+      setDataOwnerIdentity(null);
       setState({
         data: null,
         errorMessage: 'This saved record link is invalid.',
@@ -129,7 +146,17 @@ export function useScanRecordDetails(id: string | null) {
 
     setState((current) => ({ ...current, errorMessage: null, loading: true }));
     try {
-      const data = await findScanRecordById(database, id);
+      if (!user) {
+        setDataOwnerIdentity(null);
+        setState({
+          data: null,
+          errorMessage: 'Sign in before opening a saved record.',
+          loading: false,
+        });
+        return;
+      }
+      const data = await findScanRecordById(database, id, user.uuid);
+      setDataOwnerIdentity(user.uuid);
       setState({ data, errorMessage: null, loading: false });
     } catch (error: unknown) {
       const storageError = toStorageError(
@@ -137,13 +164,14 @@ export function useScanRecordDetails(id: string | null) {
         'QUERY_FAILED',
         'Reading a scan record failed.',
       );
+      setDataOwnerIdentity(user?.uuid ?? null);
       setState({
         data: null,
         errorMessage: getStorageErrorMessage(storageError),
         loading: false,
       });
     }
-  }, [database, id]);
+  }, [database, id, user]);
   useSyncRecordsRefresh(() => {
     void refresh();
   });
@@ -154,7 +182,12 @@ export function useScanRecordDetails(id: string | null) {
     }, [refresh]),
   );
 
-  return { ...state, refresh };
+  const visibleState =
+    dataOwnerIdentity === (user?.uuid ?? null)
+      ? state
+      : { data: null, errorMessage: null, loading: true };
+
+  return { ...visibleState, refresh };
 }
 
 export function usePaginatedScanRecords(
@@ -179,6 +212,7 @@ export function usePaginatedScanRecords(
   );
   const loadMoreInFlight = useRef<Promise<void> | null>(null);
   const requestId = useRef(0);
+  const [dataOwnerIdentity, setDataOwnerIdentity] = useState<string | null>(null);
   const [state, setState] = useState<PaginatedQueryState>({
     data: [],
     errorMessage: null,
@@ -190,6 +224,17 @@ export function usePaginatedScanRecords(
   const loadPage = useCallback(
     async (offset: number, append: boolean) => {
       const currentRequestId = ++requestId.current;
+      if (!submitterIdentity) {
+        setDataOwnerIdentity(null);
+        setState({
+          data: [],
+          errorMessage: null,
+          hasMore: false,
+          loading: false,
+          loadingMore: false,
+        });
+        return;
+      }
       setState((current) => ({
         ...current,
         data: append ? current.data : [],
@@ -220,6 +265,7 @@ export function usePaginatedScanRecords(
         if (requestId.current !== currentRequestId) {
           return;
         }
+        setDataOwnerIdentity(submitterIdentity);
 
         setState((current) => ({
           data: append ? [...current.data, ...page] : page,
@@ -298,5 +344,17 @@ export function usePaginatedScanRecords(
     }, [refresh]),
   );
 
-  return { ...state, loadMore, refresh };
+  const visibleState =
+    dataOwnerIdentity === submitterIdentity
+      ? state
+      : {
+          ...state,
+          data: [],
+          errorMessage: null,
+          hasMore: true,
+          loading: true,
+          loadingMore: false,
+        };
+
+  return { ...visibleState, loadMore, refresh };
 }

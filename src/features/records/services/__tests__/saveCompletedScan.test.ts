@@ -7,9 +7,10 @@ import type { ManagedImage } from '@/features/records/services/scanImageStorage'
 import { saveCompletedScan } from '@/features/records/services/saveCompletedScan';
 
 const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+const OWNER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 const NOW = new Date('2026-07-25T05:30:00.000Z');
 const MANAGED_IMAGE: ManagedImage = {
-  managedUri: `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
+  managedUri: `file:///documents/caneguard/scan-images/${OWNER_ID}/${RECORD_ID}.jpg`,
   extension: 'jpg',
   mimeType: 'image/jpeg',
   sizeBytes: 4096,
@@ -58,6 +59,7 @@ describe('saveCompletedScan', () => {
   function save(state = completedState()) {
     return saveCompletedScan({
       database,
+      ownerIdentity: OWNER_ID,
       recordId: RECORD_ID,
       state,
       dependencies: {
@@ -74,6 +76,7 @@ describe('saveCompletedScan', () => {
 
     expect(copyImage).toHaveBeenCalledWith({
       recordId: RECORD_ID,
+      ownerIdentity: OWNER_ID,
       sourceUri: 'file:///camera/leaf.jpg',
       sourceType: 'camera',
       sourceWidth: 1200,
@@ -126,7 +129,10 @@ describe('saveCompletedScan', () => {
     );
 
     await expect(save()).rejects.toMatchObject({ code: 'DUPLICATE_RECORD' });
-    expect(cleanupImage).toHaveBeenCalledWith(MANAGED_IMAGE.managedUri);
+    expect(cleanupImage).toHaveBeenCalledWith(
+      MANAGED_IMAGE.managedUri,
+      OWNER_ID,
+    );
   });
 
   it('preserves the transaction error when best-effort cleanup also fails', async () => {

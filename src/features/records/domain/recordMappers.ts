@@ -73,6 +73,7 @@ export function mapScanRecordDetails(
 ): ScanRecordDetails {
   return {
     ...mapScanRecordListItem(row),
+    ownerIdentity: row.ownerIdentity,
     imageMimeType: row.imageMimeType,
     imageSizeBytes: row.imageSizeBytes,
     imageSourceType: row.imageSourceType,

@@ -116,7 +116,17 @@ export function useFieldReportForScan(scanRecordId: string | null) {
     void refresh();
   });
 
-  return { ...state, refresh };
+  const visibleState =
+    state.data?.submitterIdentity === submitterIdentity
+      ? state
+      : {
+          ...state,
+          data: null,
+          hasOtherOwnerReport: false,
+          loading: true,
+        };
+
+  return { ...visibleState, refresh };
 }
 
 export function useFieldReportDraft(

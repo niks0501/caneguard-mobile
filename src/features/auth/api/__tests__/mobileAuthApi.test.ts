@@ -68,7 +68,7 @@ describe('mobile authentication API', () => {
       }),
     ).resolves.toMatchObject({
       deviceId: 'installation-uuid',
-      expiresAt: null,
+      expiresAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
       user: { role: 'field_reporter' },
     });
     expect(fetchMock).toHaveBeenCalledWith(
@@ -328,7 +328,7 @@ describe('mobile authentication API', () => {
       }),
     ).resolves.toMatchObject({
       deviceId: 'new-installation-uuid',
-      expiresAt: null,
+      expiresAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
     });
 
     expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(expect.any(Headers));

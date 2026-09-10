@@ -21,12 +21,61 @@ export interface MapTile {
   url: string;
 }
 
+/**
+ * Third-party tile URLs are intentionally disabled by default. Production
+ * must provide a CaneGuard-owned API/proxy template such as
+ * `https://api.example.test/api/v1/mobile/map-tiles/{z}/{x}/{y}.png`.
+ */
+export function getConfiguredMapTileUrlTemplate(): string | null {
+  const rawTemplate = process.env.EXPO_PUBLIC_MAP_TILE_PROXY_URL?.trim();
+  if (!rawTemplate) {
+    return null;
+  }
+
+  let tileUrl: URL;
+  try {
+    tileUrl = new URL(rawTemplate);
+  } catch {
+    return null;
+  }
+  if (
+    tileUrl.protocol !== 'https:' ||
+    tileUrl.username ||
+    tileUrl.password ||
+    tileUrl.hostname === 'tile.openstreetmap.org' ||
+    !['{z}', '{x}', '{y}'].every((placeholder) =>
+      rawTemplate.includes(placeholder),
+    )
+  ) {
+    return null;
+  }
+
+  const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+  if (apiBaseUrl) {
+    try {
+      if (new URL(apiBaseUrl).origin !== tileUrl.origin) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  return rawTemplate;
+}
+
+export const configuredMapTileUrlTemplate = getConfiguredMapTileUrlTemplate();
+
 export function getMapTiles(
   center: MapCoordinate,
   zoom: number,
   width: number,
   height: number,
+  tileUrlTemplate: string | null = configuredMapTileUrlTemplate,
 ): MapTile[] {
+  if (!tileUrlTemplate) {
+    return [];
+  }
   const world = coordinateToWorldPixel(center, zoom);
   const firstX = Math.floor((world.x - width / 2) / MAP_TILE_SIZE);
   const lastX = Math.floor((world.x + width / 2) / MAP_TILE_SIZE);
@@ -43,7 +92,10 @@ export function getMapTiles(
         key: `${zoom}-${rawX}-${rawY}`,
         left: rawX * MAP_TILE_SIZE - world.x + width / 2,
         top: rawY * MAP_TILE_SIZE - world.y + height / 2,
-        url: `https://tile.openstreetmap.org/${zoom}/${wrappedX}/${rawY}.png`,
+        url: tileUrlTemplate
+          .replaceAll('{z}', String(zoom))
+          .replaceAll('{x}', String(wrappedX))
+          .replaceAll('{y}', String(rawY)),
       });
     }
   }

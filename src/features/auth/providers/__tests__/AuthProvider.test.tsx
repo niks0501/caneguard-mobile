@@ -89,7 +89,7 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
 const SESSION: MobileSession = {
   deviceId: 'installation-uuid',
   token: 'test-session-value',
-  expiresAt: null,
+  expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
   user: {
     uuid: 'user-uuid',
     name: 'Field Reporter',
@@ -532,7 +532,7 @@ describe('AuthProvider', () => {
     expect(result.current.hasCompletedLogin).toBe(true);
   });
 
-  it('keeps a protected session without a scheduled expiry after biometric unlock', async () => {
+  it('keeps a protected session with its finite server expiry after biometric unlock', async () => {
     mockBiometricEnabled.mockResolvedValueOnce(true);
     mockBiometricAuth.mockResolvedValueOnce({ success: true });
     mockReadProtected.mockResolvedValueOnce(SESSION);
@@ -542,12 +542,12 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(result.current.sessionVerification).toBe('verified'));
 
     expect(result.current.status).toBe('authenticated');
-    expect(result.current.session?.expiresAt).toBeNull();
+    expect(result.current.session?.expiresAt).toBe(SESSION.expiresAt);
     expect(mockClear).not.toHaveBeenCalled();
     expect(mockReadProtected).toHaveBeenCalled();
   });
 
-  it('retains the protected credential and skips revocation on biometric logout', async () => {
+  it('revokes and clears the protected credential on logout', async () => {
     mockLogin.mockResolvedValueOnce(SESSION);
     const { result } = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
@@ -570,14 +570,14 @@ describe('AuthProvider', () => {
       });
     });
 
-    expect(mockClear).not.toHaveBeenCalled();
-    expect(mockLogout).not.toHaveBeenCalled();
-    expect(result.current.biometricEnabled).toBe(true);
+    expect(mockClear).toHaveBeenCalledTimes(1);
+    expect(mockLogout).toHaveBeenCalledWith(SESSION.token);
+    expect(result.current.biometricEnabled).toBe(false);
     expect(result.current.status).toBe('unauthenticated');
     expect(result.current.session).toBeNull();
   });
 
-  it('restores the retained credential after biometric logout on the next cold start', async () => {
+  it('does not restore a credential after terminal logout on the next cold start', async () => {
     let biometricConfigured = false;
     let protectedSession: MobileSession | null = null;
     mockBiometricEnabled.mockImplementation(async () => biometricConfigured);
@@ -608,22 +608,19 @@ describe('AuthProvider', () => {
       });
     });
 
-    expect(protectedSession).toEqual(SESSION);
-    expect(mockLogout).not.toHaveBeenCalled();
+    expect(protectedSession).toBeNull();
+    expect(mockLogout).toHaveBeenCalledWith(SESSION.token);
     await firstProvider.unmount();
 
-    mockBiometricAuth.mockResolvedValueOnce({ success: true });
-    mockVerify.mockResolvedValueOnce(SESSION.user);
     const coldStart = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() =>
-      expect(coldStart.result.current.sessionVerification).toBe('verified'),
+      expect(coldStart.result.current.status).toBe('unauthenticated'),
     );
 
-    expect(mockReadProtected).toHaveBeenCalledTimes(1);
-    expect(mockVerify).toHaveBeenCalledWith(SESSION.token);
+    expect(mockReadProtected).not.toHaveBeenCalled();
+    expect(mockVerify).not.toHaveBeenCalled();
     expect(mockLogin).toHaveBeenCalledTimes(1);
-    expect(coldStart.result.current.status).toBe('authenticated');
-    expect(coldStart.result.current.session).toEqual(SESSION);
+    expect(coldStart.result.current.session).toBeNull();
     await coldStart.unmount();
   });
 
@@ -660,7 +657,7 @@ describe('AuthProvider', () => {
     const rotatedSession = {
       ...SESSION,
       token: 'rotated-session-value',
-      expiresAt: null,
+      expiresAt: SESSION.expiresAt,
     };
     mockEnroll.mockResolvedValueOnce(rotatedSession);
 

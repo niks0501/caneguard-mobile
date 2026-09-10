@@ -85,19 +85,21 @@ function openTestDatabase(): {
     '0005_tricky_the_santerians.sql',
     '0006_curvy_piledriver.sql',
     '0007_familiar_old_lace.sql',
+    '0012_dapper_sumo.sql',
   ]) {
     native.exec(readMigration(migration));
   }
   native
     .prepare(`
       INSERT INTO scan_records (
-        id, managed_image_uri, image_source_type, predicted_label, confidence,
+        id, owner_identity, managed_image_uri, image_source_type, predicted_label, confidence,
         checklist_consistency, model_version, preprocess_ms, inference_ms,
         total_ms, source_width, source_height, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .run(
       SCAN_ID,
+      SUBMITTER_ID,
       `file:///caneguard/scan-images/${SCAN_ID}.jpg`,
       'camera',
       'rust',
@@ -195,7 +197,7 @@ describe('Field Report draft repository', () => {
       barangay: '  Lumbangan  ',
       updatedAt: '2026-08-10T01:05:00.000Z',
     });
-    const reopened = await findFieldReportById(database, REPORT_ID);
+    const reopened = await findFieldReportById(database, REPORT_ID, SUBMITTER_ID);
 
     expect(saved).toMatchObject({
       id: REPORT_ID,
@@ -246,14 +248,14 @@ describe('Field Report draft repository', () => {
         SCAN_ID,
         OTHER_SUBMITTER_ID,
       ),
-    ).resolves.toBe(true);
+    ).resolves.toBe(false);
     await expect(
       createOrGetFieldReportDraft(database, {
         ...createDraftInput(SECOND_REPORT_ID),
         submitterIdentity: OTHER_SUBMITTER_ID,
       }),
     ).rejects.toMatchObject<Partial<StorageError>>({
-      code: 'FIELD_REPORT_NOT_FOUND',
+      code: 'RECORD_NOT_FOUND',
     });
     await expect(
       saveFieldReportDraft(database, REPORT_ID, OTHER_SUBMITTER_ID, {
@@ -453,7 +455,7 @@ describe('Field Report draft repository', () => {
       selectedAt: '2026-08-10T02:00:00.000Z',
       updatedAt: '2026-08-10T02:00:01.000Z',
     });
-    const reopened = await findFieldReportById(database, REPORT_ID);
+    const reopened = await findFieldReportById(database, REPORT_ID, SUBMITTER_ID);
 
     expect(saved).toMatchObject({
       id: REPORT_ID,
@@ -532,7 +534,7 @@ describe('Field Report draft repository', () => {
         syncStatus: 'local_only',
       },
     });
-    await expect(findFieldReportById(database, REPORT_ID)).resolves.toMatchObject({
+    await expect(findFieldReportById(database, REPORT_ID, SUBMITTER_ID)).resolves.toMatchObject({
       farmerOrFarmOwnerName: 'Maria Santos',
       observedAt: OBSERVED_AT,
       submittedAt: null,
@@ -628,7 +630,7 @@ describe('Field Report draft repository', () => {
       artifact: {
         mimeType: 'image/jpeg' as const,
         sizeBytes: 9 * 1024 * 1024,
-        uri: getSubmissionImageUri(SCAN_ID),
+        uri: getSubmissionImageUri(SCAN_ID, SUBMITTER_ID),
       },
       created: true,
       requiresPersistence: true,
@@ -669,7 +671,7 @@ describe('Field Report draft repository', () => {
         )
         .get(),
     ).toEqual({
-      submission_image_uri: getSubmissionImageUri(SCAN_ID),
+      submission_image_uri: getSubmissionImageUri(SCAN_ID, SUBMITTER_ID),
       submission_image_mime_type: 'image/jpeg',
       submission_image_size_bytes: 9 * 1024 * 1024,
     });
@@ -716,7 +718,7 @@ describe('Field Report draft repository', () => {
         syncStatus: 'pending',
       },
     });
-    await expect(findFieldReportById(database, REPORT_ID)).resolves.toMatchObject({
+    await expect(findFieldReportById(database, REPORT_ID, SUBMITTER_ID)).resolves.toMatchObject({
       id: REPORT_ID,
       authoringState: 'finalized',
       syncStatus: 'pending',
@@ -927,7 +929,7 @@ describe('Field Report draft repository', () => {
       '2026-08-10T04:01:01.000Z',
     );
 
-    await expect(findFieldReportById(database, REPORT_ID)).resolves.toMatchObject({
+    await expect(findFieldReportById(database, REPORT_ID, SUBMITTER_ID)).resolves.toMatchObject({
       id: REPORT_ID,
       remoteId: 'server-report-uuid',
       syncAttemptCount: 2,
@@ -1032,7 +1034,7 @@ describe('P2-01 smart field report fields', () => {
       fieldNotes: 'Near the river',
       updatedAt: '2026-08-10T01:05:00.000Z',
     });
-    const reopened = await findFieldReportById(database, REPORT_ID);
+    const reopened = await findFieldReportById(database, REPORT_ID, SUBMITTER_ID);
 
     expect(saved).toMatchObject({
       province: 'Cavite',

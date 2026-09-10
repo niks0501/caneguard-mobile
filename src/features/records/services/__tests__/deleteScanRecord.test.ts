@@ -38,7 +38,7 @@ describe('deleteScanRecord', () => {
     expect(deleteRecord.mock.invocationCallOrder[0]).toBeLessThan(
       deleteImage.mock.invocationCallOrder[0],
     );
-    expect(deleteImage).toHaveBeenCalledWith(IMAGE_URI);
+    expect(deleteImage).toHaveBeenCalledWith(IMAGE_URI, SUBMITTER_ID);
   });
 
   it('cleans a distinct submission derivative and avoids deleting a reused source twice', async () => {
@@ -55,8 +55,8 @@ describe('deleteScanRecord', () => {
       }),
     ).resolves.toEqual({ id: RECORD_ID, imageCleanupError: null });
     expect(deleteImage).toHaveBeenCalledTimes(2);
-    expect(deleteImage).toHaveBeenNthCalledWith(1, IMAGE_URI);
-    expect(deleteImage).toHaveBeenNthCalledWith(2, SUBMISSION_IMAGE_URI);
+    expect(deleteImage).toHaveBeenNthCalledWith(1, IMAGE_URI, SUBMITTER_ID);
+    expect(deleteImage).toHaveBeenNthCalledWith(2, SUBMISSION_IMAGE_URI, SUBMITTER_ID);
 
     deleteRecord.mockResolvedValueOnce({
       managedImageUri: IMAGE_URI,
@@ -68,7 +68,7 @@ describe('deleteScanRecord', () => {
       deleteImage,
     });
     expect(deleteImage).toHaveBeenCalledTimes(1);
-    expect(deleteImage).toHaveBeenCalledWith(IMAGE_URI);
+    expect(deleteImage).toHaveBeenCalledWith(IMAGE_URI, SUBMITTER_ID);
   });
 
   it('never deletes the image when the database delete fails', async () => {

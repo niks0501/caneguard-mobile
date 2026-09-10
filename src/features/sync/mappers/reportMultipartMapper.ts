@@ -149,7 +149,10 @@ function validateReport(
       submissionImageMimeType: record.submissionImageMimeType,
       submissionImageSizeBytes: record.submissionImageSizeBytes,
       submissionImageUri,
-      expectedSubmissionImageUri: getSubmissionImageUri(record.id),
+      expectedSubmissionImageUri: getSubmissionImageUri(
+        record.id,
+        record.ownerIdentity,
+      ),
     })
   ) {
     invalid('A valid persisted submission image is required.');

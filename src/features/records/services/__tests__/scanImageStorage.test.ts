@@ -56,9 +56,13 @@ jest.mock('expo-file-system', () => {
 
     list() {
       const prefix = `${this.uri}/`;
-      return [...mockFiles.keys()]
+      const files = [...mockFiles.keys()]
         .filter((uri) => uri.startsWith(prefix) && !uri.slice(prefix.length).includes('/'))
         .map((uri) => new MockFile(uri));
+      const directories = [...mockDirectories]
+        .filter((uri) => uri.startsWith(prefix) && !uri.slice(prefix.length).includes('/'))
+        .map((uri) => new MockDirectory(uri));
+      return [...files, ...directories];
     }
   }
 
@@ -128,7 +132,10 @@ jest.mock('expo-file-system', () => {
 
 const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
 const SECOND_RECORD_ID = 'c863a5af-e9ad-44fe-a0dc-73f9d3436cac';
-const MANAGED_ROOT = 'file:///documents/caneguard/scan-images';
+const OWNER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
+const OTHER_OWNER_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
+const BASE_MANAGED_ROOT = 'file:///documents/caneguard/scan-images';
+const MANAGED_ROOT = `${BASE_MANAGED_ROOT}/${OWNER_ID}`;
 const LEGACY_MANAGED_ROOT = 'file:///documents/caneguard';
 
 function seedFile(
@@ -140,6 +147,10 @@ function seedFile(
     size: 2048,
     ...options,
   });
+  const separator = uri.lastIndexOf('/');
+  if (separator > 0) {
+    mockDirectories.add(uri.slice(0, separator));
+  }
 }
 
 describe('scanImageStorage', () => {
@@ -150,9 +161,9 @@ describe('scanImageStorage', () => {
   });
 
   it('creates the managed documents directory idempotently', () => {
-    expect(ensureManagedScanImageDirectory().uri).toBe(MANAGED_ROOT);
+    expect(ensureManagedScanImageDirectory().uri).toBe(BASE_MANAGED_ROOT);
     expect(() => ensureManagedScanImageDirectory()).not.toThrow();
-    expect(mockDirectories).toContain(MANAGED_ROOT);
+    expect(mockDirectories).toContain(BASE_MANAGED_ROOT);
   });
 
   it.each([
@@ -181,6 +192,7 @@ describe('scanImageStorage', () => {
 
     const managed = await copyScanImageToManagedStorage({
       recordId: RECORD_ID,
+      ownerIdentity: OWNER_ID,
       sourceUri,
       sourceFileName,
       sourceType,
@@ -217,6 +229,7 @@ describe('scanImageStorage', () => {
 
     const managed = await copyScanImageToManagedStorage({
       recordId: RECORD_ID,
+      ownerIdentity: OWNER_ID,
       sourceUri,
       sourceType: 'gallery',
       sourceWidth: null,
@@ -231,6 +244,7 @@ describe('scanImageStorage', () => {
     await expect(
       copyScanImageToManagedStorage({
         recordId: RECORD_ID,
+        ownerIdentity: OWNER_ID,
         sourceUri: 'file:///missing.jpg',
         sourceType: 'camera',
         sourceWidth: null,
@@ -246,6 +260,7 @@ describe('scanImageStorage', () => {
     await expect(
       copyScanImageToManagedStorage({
         recordId: 'rust-at-brgy-wawa',
+        ownerIdentity: OWNER_ID,
         sourceUri,
         sourceType: 'camera',
         sourceWidth: 100,
@@ -255,6 +270,7 @@ describe('scanImageStorage', () => {
     await expect(
       copyScanImageToManagedStorage({
         recordId: RECORD_ID,
+        ownerIdentity: OWNER_ID,
         sourceUri,
         sourceType: 'camera',
         sourceWidth: 0,
@@ -273,6 +289,7 @@ describe('scanImageStorage', () => {
     await expect(
       copyScanImageToManagedStorage({
         recordId: RECORD_ID,
+        ownerIdentity: OWNER_ID,
         sourceUri,
         sourceType: 'camera',
         sourceWidth: 100,
@@ -303,6 +320,12 @@ describe('scanImageStorage', () => {
       alreadyMissing: false,
       deleted: true,
     });
+    expect(() =>
+      deleteManagedScanImage(
+        `${BASE_MANAGED_ROOT}/${OTHER_OWNER_ID}/${RECORD_ID}.jpg`,
+        OWNER_ID,
+      ),
+    ).toThrow(expect.objectContaining({ code: 'IMAGE_DELETE_FAILED' }));
     expect(deleteManagedScanImage(legacyUri)).toEqual({
       alreadyMissing: false,
       deleted: true,
@@ -399,6 +422,7 @@ describe('scanImageStorage', () => {
     await expect(
       copyScanImageToManagedStorage({
         recordId: RECORD_ID,
+        ownerIdentity: OWNER_ID,
         sourceUri,
         sourceType: 'camera',
         sourceWidth: null,

@@ -52,6 +52,7 @@ export async function findPossibleRecentMatch(
         and(
           eq(fieldReports.authoringState, 'finalized'),
           eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
+          eq(scanRecords.ownerIdentity, submitterIdentity.trim()),
           eq(scanRecords.predictedLabel, input.predictedLabel!.trim()),
           ne(fieldReports.id, input.reportId),
           ne(fieldReports.scanRecordId, input.scanRecordId),

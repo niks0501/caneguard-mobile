@@ -35,7 +35,7 @@ export async function deleteScanRecord(
 
   for (const imageUri of imageUris) {
     try {
-      deleteImage(imageUri);
+      deleteImage(imageUri, submitterIdentity);
     } catch (error: unknown) {
       imageCleanupError ??= toStorageError(
         error,

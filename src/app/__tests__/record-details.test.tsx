@@ -52,6 +52,7 @@ const mockRouterPush = router.push as jest.Mock;
 const DETAILS: ScanRecordDetails = {
   authorityReview: null,
   id: RECORD_ID,
+  ownerIdentity: SUBMITTER_ID,
   managedImageUri: `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
   submissionImageUri: `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
   submissionImageMimeType: 'image/jpeg',

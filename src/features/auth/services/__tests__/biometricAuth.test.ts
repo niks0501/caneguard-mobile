@@ -98,7 +98,7 @@ describe('mobile biometric capability and authentication', () => {
     });
   });
 
-  it('allows the native device-credential fallback after a strong biometric check', async () => {
+  it('requires a strong biometric without allowing device-credential fallback', async () => {
     mockAuthenticate.mockResolvedValueOnce({ success: true });
 
     await expect(authenticateWithBiometrics()).resolves.toEqual({ success: true });
@@ -106,8 +106,9 @@ describe('mobile biometric capability and authentication', () => {
       expect.objectContaining({
         biometricsSecurityLevel: 'strong',
         cancelLabel: 'Use password instead',
-        disableDeviceFallback: false,
-        fallbackLabel: 'Use device passcode',
+        disableDeviceFallback: true,
+        promptMessage: 'Unlock CaneGuard',
+        promptSubtitle: 'Use your enrolled strong biometric.',
       }),
     );
   });

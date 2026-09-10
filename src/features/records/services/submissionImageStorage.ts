@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 import { StorageError } from '@/database/errors';
+import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import {
   canReuseSourceAsSubmissionImage,
   MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES,
@@ -53,6 +54,7 @@ const SUBMISSION_IMAGE_MAX_DIMENSIONS = [
 ] as const;
 
 export interface SubmissionImagePreparationInput {
+  ownerIdentity?: string;
   recordId: string;
   sourceHeight: number | null;
   sourceMimeType: string | null;
@@ -153,7 +155,7 @@ async function prepareDerivativeFromManagedSource(
   let preparationSourceUri = input.sourceUri;
   let stagingUri: string | null = null;
 
-  if (!isCanonicalManagedSourceUri(input.sourceUri)) {
+  if (!isCanonicalManagedSourceUri(input)) {
     stagingUri = await copyLegacySourceToCanonical(input, sourceMetadata);
     preparationSourceUri = stagingUri;
   }
@@ -170,19 +172,26 @@ async function prepareDerivativeFromManagedSource(
   }
 }
 
-function isCanonicalManagedSourceUri(uri: string): boolean {
-  const directoryUri = getManagedScanImageDirectory().uri;
+function isCanonicalManagedSourceUri(
+  input: SubmissionImagePreparationInput,
+): boolean {
+  const uri = input.sourceUri;
+  const directoryUri = getManagedScanImageDirectory(input.ownerIdentity).uri;
   const relativePath = uri.startsWith(`${directoryUri}/`)
     ? uri.slice(directoryUri.length + 1)
     : null;
-  return Boolean(relativePath && !relativePath.includes('/') && isManagedScanImageUri(uri));
+  return Boolean(
+    relativePath &&
+      !relativePath.includes('/') &&
+      isManagedScanImageUri(uri),
+  );
 }
 
 async function copyLegacySourceToCanonical(
   input: SubmissionImagePreparationInput,
   sourceMetadata: { extension: string },
 ): Promise<string> {
-  const directory = getManagedScanImageDirectory();
+  const directory = getManagedScanImageDirectory(input.ownerIdentity);
   const staging = new File(
     directory,
     `${input.recordId}.legacy-source.${sourceMetadata.extension || 'img'}`,
@@ -224,7 +233,7 @@ function readPersistedArtifact(
     return null;
   }
 
-  const expectedUri = getSubmissionImageUri(input.recordId);
+  const expectedUri = getSubmissionImageUri(input.recordId, input.ownerIdentity);
   if (uri !== input.sourceUri.trim() && uri !== expectedUri) {
     return null;
   }
@@ -282,7 +291,7 @@ async function generateSubmissionDerivative(
     );
   }
 
-  const destinationUri = getSubmissionImageUri(input.recordId);
+  const destinationUri = getSubmissionImageUri(input.recordId, input.ownerIdentity);
   if (destinationUri === input.sourceUri.trim()) {
     throw new StorageError(
       'IMAGE_PREPARATION_FAILED',
@@ -390,6 +399,9 @@ function isLegacyUnsupportedSource(
 }
 
 function validatePreparationInput(input: SubmissionImagePreparationInput): void {
+  if (input.ownerIdentity !== undefined) {
+    requireOwnerIdentity(input.ownerIdentity);
+  }
   if (!UUID_V4_PATTERN.test(input.recordId)) {
     throw new StorageError(
       'INVALID_SCAN_RECORD',

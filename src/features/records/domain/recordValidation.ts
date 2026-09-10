@@ -13,6 +13,7 @@ import type {
 } from '@/features/detection/types';
 import type { QualityWarning } from '@/features/detection/validation/assessImageQuality';
 import { StorageError } from '@/database/errors';
+import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import type {
   CompletedScanDraft,
   SaveCompletedScanInput,
@@ -145,10 +146,15 @@ export function validateSaveCompletedScanInput(
   input: SaveCompletedScanInput,
 ): void {
   validateCompletedScanDraft({ ...input, sourceUri: input.managedImageUri });
+  requireOwnerIdentity(input.ownerIdentity);
 
   if (
     !input.managedImageUri.trim() ||
-    !isManagedSourceScanImageUriForRecord(input.managedImageUri, input.id)
+    !isManagedSourceScanImageUriForRecord(
+      input.managedImageUri,
+      input.id,
+      input.ownerIdentity,
+    )
   ) {
     invalid('The managed image URI is invalid.');
   }

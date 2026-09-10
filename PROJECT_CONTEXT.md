@@ -114,19 +114,30 @@ Authentication lives under `src/features/auth/`.
 The mobile client authenticates against the CaneGuard API.
 Only users returned with the `field_reporter` role are accepted for mobile synchronization.
 
-Mobile bearer sessions have no automatic server expiry (`expires_at` is `null` for newly issued login and enrollment sessions).
-The client does not refresh or extend sessions, including when a protected session is unlocked biometrically.
-Sessions remain valid until explicit logout, server-side revocation, or an explicitly recorded legacy expiry.
-A fresh password login is required after an explicit expiry or a process restart without biometric unlock.
+Mobile bearer sessions receive a finite local safety expiry. When the API returns
+`expires_at: null`, the client applies the 30-day `LOCAL_SESSION_MAX_AGE_MS`
+policy in `mobileAuthApi.ts`; the server should still issue and enforce an
+explicit expiry/revocation policy. The client does not refresh or extend
+sessions, including when a protected session is unlocked biometrically.
+Sessions remain valid until explicit logout, server-side revocation, or the
+local safety expiry. A fresh password login is required after expiry or a
+process restart without biometric unlock.
 
 Password sessions remain in memory only, so removing the app from the recent-apps list cannot silently restore an authenticated session.
-When biometric unlock is enabled, the client stores the session under a separate device-only SecureStore key and requires one explicit strong biometric or device-credential prompt before reading it on each cold start.
-A password fallback updates that protected session without disabling the user's biometric preference, and the prompt is deduplicated to avoid a second SecureStore prompt on Android.
+When biometric unlock is enabled, the client stores the session under a separate
+SecureStore key with `requireAuthentication: true`; the platform therefore
+binds the protected entry to an authentication-backed key where supported. Only
+an enrolled strong biometric is accepted for this credential; a device passcode
+is not a fallback. A password login updates the protected session without
+disabling the biometric preference.
 A non-sensitive login-history marker routes returning users to the password form and is never used as authentication material.
 The client persists a random opaque installation UUID in SecureStore for API device identity; it does not use immutable hardware identifiers.
-Explicit logout with biometrics enabled is a local soft logout: it clears the active session while retaining the biometric-gated credential and bearer token for the next cold-start unlock, so it does not call the server logout endpoint.
-When biometrics are disabled, or when a session expires, is reset, or is rejected authoritatively, the client clears all session and protected biometric entries without deleting local scan or report data.
-The retained token remains server-valid after a biometric-enabled logout until password reset, email or role changes, another server revocation path, or biometric disablement revokes it.
+Explicit logout always attempts server revocation and clears the active session,
+protected credential, and biometric preference. It does not delete local scan or
+report data; Settings provides an explicit owner-scoped **Clear local data**
+action for device handover or retention cleanup. When biometrics are disabled,
+or when a session expires, is reset, or is rejected authoritatively, the client
+also clears all protected entries.
 
 ### Synchronization
 
@@ -171,7 +182,7 @@ and stores the returned remote UUID and successful sync time on Field Report.
 ## Security and data sensitivity
 
 - Authentication uses bearer tokens from the CaneGuard backend.
-- Mobile sessions are persisted with Expo SecureStore using device-only keychain accessibility after first unlock.
+- Password and protected mobile sessions use Expo SecureStore. `keychainAccessible` is an iOS Keychain control; Android protection for the protected session comes from SecureStore `requireAuthentication`/Keystore binding.
 - Only backend users with role `field_reporter` are accepted by the mobile client.
 - `EXPO_PUBLIC_API_BASE_URL` is configuration, not a secret. Never place API credentials or tokens in public Expo environment variables.
 - `EXPO_PUBLIC_QA_MODE=true` enables the QA-only validation that the API URL uses public HTTPS rather than a loopback host.
@@ -300,9 +311,13 @@ Do not run EAS build or submit automatically.
 - Backend synchronization requires a valid `field_reporter` session and a complete local report, including barangay, final coordinates, location source, and managed image.
 - The bundled AI model is decision support, not a diagnostic authority.
 - Current model labels are limited to `healthy`, `mosaic`, and `rust`; do not imply that the model detects additional diseases unless the model contract is intentionally upgraded.
-- The P0 manual-map fallback is online-only. It loads only visible OpenStreetMap tiles with attribution and normal HTTP caching; it does not prefetch or expose offline map downloads.
+- The P0 manual-map fallback is online-only. Direct third-party tile requests are disabled; production must configure a CaneGuard-owned HTTPS tile proxy with attribution and normal HTTP caching. It does not prefetch or expose offline map downloads.
 - Preserve compatibility with existing SQLite data and generated Drizzle migrations.
 - Avoid unnecessary native dependencies when Expo-supported APIs already satisfy the requirement.
+
+See `docs/security/mobile-security-fixes.md` for the owner-scoping, session,
+App Link, release-signing, local-retention, and map-proxy contracts and their
+cross-repository prerequisites.
 
 ## Current priorities
 

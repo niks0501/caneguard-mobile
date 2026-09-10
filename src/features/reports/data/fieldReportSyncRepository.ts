@@ -73,8 +73,9 @@ export async function findFieldReportUploadRecord(
   reportId: string,
   submitterIdentity: string,
 ): Promise<FieldReportUploadRecord> {
-  const report = await findFieldReportById(database, reportId);
-  if (report.submitterIdentity !== submitterIdentity.trim()) {
+  const owner = submitterIdentity.trim();
+  const report = await findFieldReportById(database, reportId, owner);
+  if (report.submitterIdentity !== owner) {
     throw new StorageError(
       'FIELD_REPORT_NOT_FOUND',
       'The Field Report does not belong to the authenticated submitter.',
@@ -86,7 +87,7 @@ export async function findFieldReportUploadRecord(
       'Only a finalized Field Report can be synchronized.',
     );
   }
-  const scanRecord = await findScanRecordById(database, report.scanRecordId);
+  const scanRecord = await findScanRecordById(database, report.scanRecordId, owner);
   return { report, scanRecord };
 }
 
@@ -129,7 +130,9 @@ export async function findFieldReportSyncCandidates(
       )
       .orderBy(asc(fieldReports.submittedAt), asc(fieldReports.createdAt))
       .limit(normalizedLimit);
-    return Promise.all(rows.map(({ id }) => findFieldReportById(database, id)));
+    return Promise.all(
+      rows.map(({ id }) => findFieldReportById(database, id, submitterIdentity)),
+    );
   } catch (error: unknown) {
     throw toStorageError(
       error,

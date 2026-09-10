@@ -10,6 +10,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
 
+import { LEGACY_UNASSIGNED_OWNER_IDENTITY } from '@/database/ownerIdentity';
 import type { ChecklistConsistency } from '@/features/detection/checklist/checklistConsistency';
 import type { ReportedSeverity, ScanSourceType } from '@/features/detection/types';
 
@@ -72,6 +73,9 @@ export const scanRecords = sqliteTable(
   'scan_records',
   {
     id: text('id').primaryKey(),
+    ownerIdentity: text('owner_identity')
+      .notNull()
+      .default(LEGACY_UNASSIGNED_OWNER_IDENTITY),
     managedImageUri: text('managed_image_uri').notNull(),
     imageMimeType: text('image_mime_type'),
     imageSizeBytes: integer('image_size_bytes'),
@@ -105,6 +109,10 @@ export const scanRecords = sqliteTable(
     updatedAt: text('updated_at').notNull(),
   },
   (table) => [
+    index('scan_records_owner_created_at_idx').on(
+      table.ownerIdentity,
+      table.createdAt,
+    ),
     index('scan_records_created_at_idx').on(table.createdAt),
     index('scan_records_label_created_at_idx').on(table.predictedLabel, table.createdAt),
     index('scan_records_sync_created_at_idx').on(table.syncStatus, table.createdAt),

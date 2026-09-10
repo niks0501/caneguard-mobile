@@ -11,6 +11,7 @@ import {
 import { AppState } from 'react-native';
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
+import { purgeExpiredLocalData } from '@/database/localDataLifecycle';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
   countUnsyncedFieldValidationCompletions,
@@ -343,6 +344,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
     const requestedToken = sessionToken;
     const requestedSubmitterIdentity = submitterIdentity;
     const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
+    void purgeExpiredLocalData(
+      database,
+      requestedSubmitterIdentity,
+    ).catch(() => undefined);
     void Promise.all([
       resetStaleSyncingFieldReports(
         database,

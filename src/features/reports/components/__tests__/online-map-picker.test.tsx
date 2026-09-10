@@ -28,6 +28,23 @@ import {
 const LAYER_OFFSET = MAP_TILE_SIZE;
 
 describe('OnlineMapPicker', () => {
+  const previousApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+
+  beforeEach(() => {
+    process.env.EXPO_PUBLIC_API_BASE_URL = 'https://proxy.example.test';
+    process.env.EXPO_PUBLIC_MAP_TILE_PROXY_URL =
+      'https://proxy.example.test/api/v1/mobile/map-tiles/{z}/{x}/{y}.png';
+  });
+
+  afterEach(() => {
+    if (previousApiBaseUrl === undefined) {
+      delete process.env.EXPO_PUBLIC_API_BASE_URL;
+    } else {
+      process.env.EXPO_PUBLIC_API_BASE_URL = previousApiBaseUrl;
+    }
+    delete process.env.EXPO_PUBLIC_MAP_TILE_PROXY_URL;
+  });
+
   it('keeps selection unavailable when the device is offline', async () => {
     const onSelectionChange = jest.fn();
     await render(

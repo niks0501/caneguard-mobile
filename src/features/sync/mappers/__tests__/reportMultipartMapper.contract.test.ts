@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
+import { getSubmissionImageUri } from '@/features/records/services/scanImageStorage';
 import { mapFieldReportToMultipart } from '@/features/sync/mappers/reportMultipartMapper';
 
 interface CanonicalScalarRules {
@@ -55,8 +56,12 @@ const CANONICAL = JSON.parse(
 const SCAN: ScanRecordDetails = {
   authorityReview: null,
   id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
-  managedImageUri: 'file:///documents/caneguard/scan-images/scan.jpg',
-  submissionImageUri: 'file:///documents/caneguard/scan-images/scan.jpg',
+  ownerIdentity: 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
+  managedImageUri: 'file:///documents/caneguard/scan-images/a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17/2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2.jpg',
+  submissionImageUri: getSubmissionImageUri(
+    '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+    'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
+  ),
   submissionImageMimeType: 'image/jpeg',
   submissionImageSizeBytes: 4096,
   predictedLabel: 'rust',

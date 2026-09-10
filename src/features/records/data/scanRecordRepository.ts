@@ -13,6 +13,7 @@ import {
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
+import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import {
   fieldReports,
   scanClassScores,
@@ -39,22 +40,23 @@ export function createScanRecordRepository(
   database: CaneGuardDatabase,
   submitterIdentity: string,
 ): ScanRecordRepository {
+  const owner = requireOwnerIdentity(submitterIdentity);
   return {
-    insert: (input) => insertScanRecord(database, input),
-    list: (query) => listScanRecords(database, query, submitterIdentity),
-    findById: (id) => findScanRecordById(database, id),
-    deleteById: (id) =>
-      deleteScanRecordById(database, id, submitterIdentity),
-    listManagedImageUris: () => listManagedImageUris(database),
+    insert: (input) => insertScanRecord(database, { ...input, ownerIdentity: owner }),
+    list: (query) => listScanRecords(database, query, owner),
+    findById: (id) => findScanRecordById(database, id, owner),
+    deleteById: (id) => deleteScanRecordById(database, id, owner),
+    listManagedImageUris: () => listManagedImageUris(database, owner),
   };
 }
 
 export async function listScanRecords(
   database: CaneGuardDatabase,
   query: ScanRecordQuery = {},
-  submitterIdentity?: string,
+  submitterIdentity: string,
 ): Promise<ScanRecordListItem[]> {
-  const conditions = buildConditions(query);
+  const owner = requireOwnerIdentity(submitterIdentity);
+  const conditions = [eq(scanRecords.ownerIdentity, owner), ...buildConditions(query)];
   const limit = Math.min(
     Math.max(Math.trunc(query.limit ?? DEFAULT_RECORD_PAGE_SIZE), 1),
     MAX_RECORD_PAGE_SIZE,
@@ -98,12 +100,14 @@ export async function listScanRecords(
 export async function findScanRecordById(
   database: CaneGuardDatabase,
   id: string,
+  submitterIdentity: string,
 ): Promise<ScanRecordDetails> {
+  const owner = requireOwnerIdentity(submitterIdentity);
   try {
     const row = await database
       .select()
       .from(scanRecords)
-      .where(eq(scanRecords.id, id))
+      .where(and(eq(scanRecords.id, id), eq(scanRecords.ownerIdentity, owner)))
       .get();
 
     if (!row) {
@@ -143,6 +147,7 @@ export async function deleteScanRecordById(
   id: string,
   submitterIdentity: string,
 ): Promise<{ managedImageUri: string | null; submissionImageUri?: string | null }> {
+  const owner = requireOwnerIdentity(submitterIdentity);
   try {
     const deleted = database.transaction((transaction) => {
       const row = transaction
@@ -153,7 +158,9 @@ export async function deleteScanRecordById(
         })
         .from(scanRecords)
         .leftJoin(fieldReports, eq(fieldReports.scanRecordId, scanRecords.id))
-        .where(eq(scanRecords.id, id))
+        .where(
+          and(eq(scanRecords.id, id), eq(scanRecords.ownerIdentity, owner)),
+        )
         .get();
 
       if (!row) {
@@ -209,14 +216,17 @@ export async function deleteScanRecordById(
 
 export async function listManagedImageUris(
   database: CaneGuardDatabase,
+  submitterIdentity: string,
 ): Promise<string[]> {
+  const owner = requireOwnerIdentity(submitterIdentity);
   try {
     const rows = await database
       .select({
         managedImageUri: scanRecords.managedImageUri,
         submissionImageUri: scanRecords.submissionImageUri,
       })
-      .from(scanRecords);
+      .from(scanRecords)
+      .where(eq(scanRecords.ownerIdentity, owner));
     return [
       ...new Set(
         rows.flatMap((row) =>

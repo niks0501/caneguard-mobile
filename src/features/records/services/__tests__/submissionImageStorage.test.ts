@@ -23,6 +23,7 @@ const mockFiles = new Map<string, MockFileEntry>();
 const MANAGED_ROOT = 'file:///documents/caneguard/scan-images';
 const SOURCE_URI = `${MANAGED_ROOT}/2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2.jpg`;
 const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+const OWNER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 
 jest.mock('expo-file-system', () => {
   function joinParts(parts: unknown[]): string {
@@ -126,6 +127,7 @@ function seedFile(uri: string, entry: MockFileEntry): void {
 
 function input(overrides: Partial<Parameters<typeof prepareSubmissionImage>[0]> = {}) {
   return {
+    ownerIdentity: OWNER_ID,
     recordId: RECORD_ID,
     sourceHeight: 3000,
     sourceMimeType: 'image/jpeg',
@@ -190,13 +192,13 @@ describe('submission image preparation', () => {
     expect(result.artifact).toEqual({
       mimeType: 'image/jpeg',
       sizeBytes: MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES,
-      uri: getSubmissionImageUri(RECORD_ID),
+      uri: getSubmissionImageUri(RECORD_ID, OWNER_ID),
     });
     expect(result.created).toBe(true);
     expect(result.requiresPersistence).toBe(true);
     expect(mockManipulateAsync).toHaveBeenCalledTimes(2);
     expect(mockFiles.get(SOURCE_URI)).toEqual(sourceBefore);
-    expect(mockFiles.get(getSubmissionImageUri(RECORD_ID))).toEqual({
+    expect(mockFiles.get(getSubmissionImageUri(RECORD_ID, OWNER_ID))).toEqual({
       mimeType: 'image/jpeg',
       size: MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES,
     });
@@ -228,7 +230,7 @@ describe('submission image preparation', () => {
       artifact: {
         mimeType: 'image/jpeg',
         sizeBytes: 4_000_000,
-        uri: getSubmissionImageUri(RECORD_ID),
+        uri: getSubmissionImageUri(RECORD_ID, OWNER_ID),
       },
       created: true,
       requiresPersistence: true,
@@ -294,14 +296,14 @@ describe('submission image preparation', () => {
         artifact: {
           mimeType: 'image/jpeg',
           sizeBytes: 4_000_000,
-          uri: getSubmissionImageUri(RECORD_ID),
+          uri: getSubmissionImageUri(RECORD_ID, OWNER_ID),
         },
         created: true,
         requiresPersistence: true,
       });
       expect(mockManipulateAsync).toHaveBeenCalledTimes(1);
       expect(mockFiles.get(SOURCE_URI)).toEqual(sourceBefore);
-      expect(mockFiles.get(getSubmissionImageUri(RECORD_ID))).toEqual({
+      expect(mockFiles.get(getSubmissionImageUri(RECORD_ID, OWNER_ID))).toEqual({
         mimeType: 'image/jpeg',
         size: 4_000_000,
       });
@@ -349,7 +351,7 @@ describe('submission image preparation', () => {
       artifact: {
         mimeType: 'image/jpeg',
         sizeBytes: 4_000_000,
-        uri: getSubmissionImageUri(RECORD_ID),
+        uri: getSubmissionImageUri(RECORD_ID, OWNER_ID),
       },
       created: true,
       requiresPersistence: true,
@@ -378,7 +380,7 @@ describe('submission image preparation', () => {
   });
 
   it('preserves an existing derivative when legacy repair fails', async () => {
-    const destinationUri = getSubmissionImageUri(RECORD_ID);
+    const destinationUri = getSubmissionImageUri(RECORD_ID, OWNER_ID);
     seedFile(destinationUri, { mimeType: 'image/jpeg', size: 123 });
     mockManipulateAsync.mockRejectedValue(new Error('legacy repair failed'));
 
@@ -400,7 +402,7 @@ describe('submission image preparation', () => {
   });
 
   it('replaces a stale derivative only after a valid candidate is ready', async () => {
-    const destinationUri = getSubmissionImageUri(RECORD_ID);
+    const destinationUri = getSubmissionImageUri(RECORD_ID, OWNER_ID);
     seedFile(destinationUri, { mimeType: 'image/jpeg', size: 123 });
     mockManipulateAsync.mockImplementation(async () => {
       const candidateUri = 'file:///cache/replacement.jpg';
@@ -433,12 +435,12 @@ describe('submission image preparation', () => {
   });
 
   it('recognizes the deterministic derivative as managed storage', () => {
-    expect(isManagedScanImageUri(getSubmissionImageUri(RECORD_ID))).toBe(true);
+    expect(isManagedScanImageUri(getSubmissionImageUri(RECORD_ID, OWNER_ID))).toBe(true);
     expect(deleteManagedScanImage).not.toHaveBeenCalled();
   });
 
   it('uses a deterministic derivative path for the Scan Record', () => {
-    expect(getSubmissionImageUri(RECORD_ID)).toBe(
+    expect(getSubmissionImageUri(RECORD_ID, OWNER_ID)).toBe(
       `${MANAGED_ROOT}/${RECORD_ID}.submission.jpg`,
     );
   });

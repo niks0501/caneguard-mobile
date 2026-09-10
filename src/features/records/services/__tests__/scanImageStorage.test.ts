@@ -56,9 +56,13 @@ jest.mock('expo-file-system', () => {
 
     list() {
       const prefix = `${this.uri}/`;
-      return [...mockFiles.keys()]
+      const files = [...mockFiles.keys()]
         .filter((uri) => uri.startsWith(prefix) && !uri.slice(prefix.length).includes('/'))
         .map((uri) => new MockFile(uri));
+      const directories = [...mockDirectories]
+        .filter((uri) => uri.startsWith(prefix) && !uri.slice(prefix.length).includes('/'))
+        .map((uri) => new MockDirectory(uri));
+      return [...files, ...directories];
     }
   }
 
@@ -128,7 +132,10 @@ jest.mock('expo-file-system', () => {
 
 const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
 const SECOND_RECORD_ID = 'c863a5af-e9ad-44fe-a0dc-73f9d3436cac';
-const MANAGED_ROOT = 'file:///documents/caneguard/scan-images';
+const OWNER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
+const OTHER_OWNER_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
+const BASE_MANAGED_ROOT = 'file:///documents/caneguard/scan-images';
+const MANAGED_ROOT = `${BASE_MANAGED_ROOT}/${OWNER_ID}`;
 const LEGACY_MANAGED_ROOT = 'file:///documents/caneguard';
 
 function seedFile(
@@ -140,6 +147,10 @@ function seedFile(
     size: 2048,
     ...options,
   });
+  const segments = uri.split('/');
+  for (let i = 3; i < segments.length - 1; i += 1) {
+    mockDirectories.add(segments.slice(0, i + 1).join('/'));
+  }
 }
 
 describe('scanImageStorage', () => {
@@ -150,8 +161,8 @@ describe('scanImageStorage', () => {
   });
 
   it('creates the managed documents directory idempotently', () => {
-    expect(ensureManagedScanImageDirectory().uri).toBe(MANAGED_ROOT);
-    expect(() => ensureManagedScanImageDirectory()).not.toThrow();
+    expect(ensureManagedScanImageDirectory(OWNER_ID).uri).toBe(MANAGED_ROOT);
+    expect(() => ensureManagedScanImageDirectory(OWNER_ID)).not.toThrow();
     expect(mockDirectories).toContain(MANAGED_ROOT);
   });
 
@@ -181,6 +192,7 @@ describe('scanImageStorage', () => {
 
     const managed = await copyScanImageToManagedStorage({
       recordId: RECORD_ID,
+      ownerIdentity: OWNER_ID,
       sourceUri,
       sourceFileName,
       sourceType,
@@ -217,6 +229,7 @@ describe('scanImageStorage', () => {
 
     const managed = await copyScanImageToManagedStorage({
       recordId: RECORD_ID,
+      ownerIdentity: OWNER_ID,
       sourceUri,
       sourceType: 'gallery',
       sourceWidth: null,
@@ -231,6 +244,7 @@ describe('scanImageStorage', () => {
     await expect(
       copyScanImageToManagedStorage({
         recordId: RECORD_ID,
+        ownerIdentity: OWNER_ID,
         sourceUri: 'file:///missing.jpg',
         sourceType: 'camera',
         sourceWidth: null,
@@ -246,6 +260,7 @@ describe('scanImageStorage', () => {
     await expect(
       copyScanImageToManagedStorage({
         recordId: 'rust-at-brgy-wawa',
+        ownerIdentity: OWNER_ID,
         sourceUri,
         sourceType: 'camera',
         sourceWidth: 100,
@@ -255,6 +270,7 @@ describe('scanImageStorage', () => {
     await expect(
       copyScanImageToManagedStorage({
         recordId: RECORD_ID,
+        ownerIdentity: OWNER_ID,
         sourceUri,
         sourceType: 'camera',
         sourceWidth: 0,
@@ -273,6 +289,7 @@ describe('scanImageStorage', () => {
     await expect(
       copyScanImageToManagedStorage({
         recordId: RECORD_ID,
+        ownerIdentity: OWNER_ID,
         sourceUri,
         sourceType: 'camera',
         sourceWidth: 100,
@@ -286,30 +303,36 @@ describe('scanImageStorage', () => {
 
     expect(managedImageExists(uri)).toBe(false);
     expect(readManagedImageMetadata(uri)).toBeNull();
-    expect(deleteManagedScanImage(uri)).toEqual({
+    expect(deleteManagedScanImage(uri, OWNER_ID)).toEqual({
       alreadyMissing: true,
       deleted: false,
     });
   });
 
-  it('deletes current and legacy files only within app-managed scan storage', () => {
+  it('deletes only owner-scoped files within app-managed scan storage', () => {
     const managedUri = `${MANAGED_ROOT}/${RECORD_ID}.jpg`;
     const legacyUri = `${LEGACY_MANAGED_ROOT}/${SECOND_RECORD_ID}.heic`;
     seedFile(managedUri);
     seedFile(legacyUri, { mimeType: 'image/heic' });
     seedFile('file:///documents/unrelated.jpg');
 
-    expect(deleteManagedScanImage(managedUri)).toEqual({
+    expect(deleteManagedScanImage(managedUri, OWNER_ID)).toEqual({
       alreadyMissing: false,
       deleted: true,
     });
-    expect(deleteManagedScanImage(legacyUri)).toEqual({
-      alreadyMissing: false,
-      deleted: true,
-    });
-    expect(() => deleteManagedScanImage('file:///documents/unrelated.jpg')).toThrow(
+    expect(() =>
+      deleteManagedScanImage(
+        `${BASE_MANAGED_ROOT}/${OTHER_OWNER_ID}/${RECORD_ID}.jpg`,
+        OWNER_ID,
+      ),
+    ).toThrow(expect.objectContaining({ code: 'IMAGE_DELETE_FAILED' }));
+    expect(() => deleteManagedScanImage(legacyUri, OWNER_ID)).toThrow(
       expect.objectContaining({ code: 'IMAGE_DELETE_FAILED' }),
     );
+    expect(() =>
+      deleteManagedScanImage('file:///documents/unrelated.jpg', OWNER_ID),
+    ).toThrow(expect.objectContaining({ code: 'IMAGE_DELETE_FAILED' }));
+    expect(mockFiles.has(legacyUri)).toBe(true);
     expect(mockFiles.has('file:///documents/unrelated.jpg')).toBe(true);
   });
 
@@ -318,7 +341,7 @@ describe('scanImageStorage', () => {
     const managedUri = `${MANAGED_ROOT}/${RECORD_ID}.jpg`;
     seedFile(managedUri, { deleteFails: true });
 
-    const result = compensateManagedImageCopy(managedUri);
+    const result = compensateManagedImageCopy(managedUri, OWNER_ID);
 
     expect(result.cleanedUp).toBe(false);
     expect(result.error?.code).toBe('IMAGE_DELETE_FAILED');
@@ -333,36 +356,33 @@ describe('scanImageStorage', () => {
     const managedUri = `${MANAGED_ROOT}/${RECORD_ID}.jpg`;
     seedFile(managedUri);
 
-    expect(compensateManagedImageCopy(managedUri)).toEqual({
+    expect(compensateManagedImageCopy(managedUri, OWNER_ID)).toEqual({
       cleanedUp: true,
       error: null,
     });
     expect(mockFiles.has(managedUri)).toBe(false);
   });
 
-  it('finds source and submission orphans across current and legacy layouts', () => {
+  it('finds owner-scoped source and submission orphans', () => {
     const referencedUri = `${MANAGED_ROOT}/${RECORD_ID}.jpg`;
     const referencedSubmissionUri = `${MANAGED_ROOT}/${RECORD_ID}.submission.jpg`;
-    const legacyReferencedUri = `${LEGACY_MANAGED_ROOT}/${RECORD_ID}.heic`;
     const orphanUri = `${MANAGED_ROOT}/${SECOND_RECORD_ID}.png`;
-    const legacyOrphanUri = `${LEGACY_MANAGED_ROOT}/${SECOND_RECORD_ID}.submission.jpg`;
-    const fixedLegacyOrphanUri = `file:///caneguard/scan-images/${SECOND_RECORD_ID}.gif`;
     const retainedBackupUri = `${MANAGED_ROOT}/${SECOND_RECORD_ID}.submission.jpg.backup`;
+    const legacyOrphanUri = `${LEGACY_MANAGED_ROOT}/${SECOND_RECORD_ID}.submission.jpg`;
+    const otherOwnerOrphanUri = `${BASE_MANAGED_ROOT}/${OTHER_OWNER_ID}/${SECOND_RECORD_ID}.jpg`;
     seedFile(referencedUri);
     seedFile(referencedSubmissionUri);
-    seedFile(legacyReferencedUri, { mimeType: 'image/heic' });
     seedFile(orphanUri, { mimeType: 'image/png', size: 512 });
-    seedFile(legacyOrphanUri, { mimeType: 'image/jpeg', size: 256 });
-    seedFile(fixedLegacyOrphanUri, { mimeType: 'image/gif', size: 128 });
     seedFile(retainedBackupUri, { mimeType: 'image/jpeg', size: 64 });
+    seedFile(legacyOrphanUri, { mimeType: 'image/jpeg', size: 256 });
+    seedFile(otherOwnerOrphanUri, { mimeType: 'image/png', size: 128 });
     seedFile(`${MANAGED_ROOT}/not-a-record.tmp`);
 
     expect(
-      findOrphanedManagedImages([
-        referencedUri,
-        referencedSubmissionUri,
-        legacyReferencedUri,
-      ]),
+      findOrphanedManagedImages(
+        [referencedUri, referencedSubmissionUri],
+        OWNER_ID,
+      ),
     ).toEqual([
       {
         managedUri: orphanUri,
@@ -376,18 +396,6 @@ describe('scanImageStorage', () => {
         mimeType: 'image/jpeg',
         sizeBytes: 64,
       },
-      {
-        managedUri: legacyOrphanUri,
-        extension: 'jpg',
-        mimeType: 'image/jpeg',
-        sizeBytes: 256,
-      },
-      {
-        managedUri: fixedLegacyOrphanUri,
-        extension: 'gif',
-        mimeType: 'image/gif',
-        sizeBytes: 128,
-      },
     ]);
   });
 
@@ -399,6 +407,7 @@ describe('scanImageStorage', () => {
     await expect(
       copyScanImageToManagedStorage({
         recordId: RECORD_ID,
+        ownerIdentity: OWNER_ID,
         sourceUri,
         sourceType: 'camera',
         sourceWidth: null,
@@ -418,12 +427,13 @@ describe('scanImageStorage', () => {
     expect(isManagedScanImageUri(legacyCanonicalUri)).toBe(true);
     expect(isManagedScanImageUri(`${MANAGED_ROOT}/rust.jpg`)).toBe(false);
     expect(isManagedScanImageUri(`${MANAGED_ROOT}/nested/${RECORD_ID}.jpg`)).toBe(false);
-    expect(isManagedScanImageUriForRecord(`${MANAGED_ROOT}/${RECORD_ID}.jpg`, RECORD_ID)).toBe(true);
-    expect(isManagedSourceScanImageUriForRecord(`${MANAGED_ROOT}/${RECORD_ID}.submission.jpg`, RECORD_ID)).toBe(false);
-    expect(isManagedScanImageUriForRecord(`${MANAGED_ROOT}/${RECORD_ID}.submission.jpg`, RECORD_ID)).toBe(true);
-    expect(isManagedSourceScanImageUriForRecord(legacyUri, RECORD_ID)).toBe(true);
-    expect(isManagedSourceScanImageUriForRecord(legacyCanonicalUri, RECORD_ID)).toBe(true);
-    expect(isManagedScanImageUriForRecord(`${MANAGED_ROOT}/rust.jpg`, RECORD_ID)).toBe(false);
+    expect(isManagedScanImageUriForRecord(`${MANAGED_ROOT}/${RECORD_ID}.jpg`, RECORD_ID, OWNER_ID)).toBe(true);
+    expect(isManagedSourceScanImageUriForRecord(`${MANAGED_ROOT}/${RECORD_ID}.submission.jpg`, RECORD_ID, OWNER_ID)).toBe(false);
+    expect(isManagedScanImageUriForRecord(`${MANAGED_ROOT}/${RECORD_ID}.submission.jpg`, RECORD_ID, OWNER_ID)).toBe(true);
+    expect(isManagedSourceScanImageUriForRecord(legacyUri, RECORD_ID, OWNER_ID)).toBe(false);
+    expect(isManagedSourceScanImageUriForRecord(legacyCanonicalUri, RECORD_ID, OWNER_ID)).toBe(false);
+    expect(isManagedSourceScanImageUriForRecord(`${MANAGED_ROOT}/${RECORD_ID}.jpg`, RECORD_ID, OTHER_OWNER_ID)).toBe(false);
+    expect(isManagedScanImageUriForRecord(`${MANAGED_ROOT}/rust.jpg`, RECORD_ID, OWNER_ID)).toBe(false);
   });
 
   it('constructs File instances without reading or encoding image bytes', () => {

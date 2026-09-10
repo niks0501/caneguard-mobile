@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
+import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import { fieldReports, scanClassScores, scanRecords } from '@/database/schema';
 import { persistSubmissionImageMetadata } from '@/features/records/data/submissionImageRepository';
 import {
@@ -40,6 +41,7 @@ export async function createOrGetFieldReportDraft(
   input: CreateFieldReportDraftInput,
 ): Promise<FieldReport> {
   validateCreateFieldReportDraftInput(input);
+  const owner = requireOwnerIdentity(input.submitterIdentity);
 
   try {
     return database.transaction((transaction) => {
@@ -50,7 +52,12 @@ export async function createOrGetFieldReportDraft(
           syncStatus: scanRecords.syncStatus,
         })
         .from(scanRecords)
-        .where(eq(scanRecords.id, input.scanRecordId))
+        .where(
+          and(
+            eq(scanRecords.id, input.scanRecordId),
+            eq(scanRecords.ownerIdentity, owner),
+          ),
+        )
         .get();
 
       if (!scan) {
@@ -163,20 +170,36 @@ export async function saveGpsCapture(
   input: SaveGpsCaptureInput,
 ): Promise<FieldReport> {
   validateGpsCaptureInput(input);
+  const owner = requireOwnerIdentity(submitterIdentity);
 
   try {
     return database.transaction((transaction) => {
       const existing = transaction
-        .select({ authoringState: fieldReports.authoringState })
+        .select({
+          authoringState: fieldReports.authoringState,
+          scanRecordId: fieldReports.scanRecordId,
+        })
         .from(fieldReports)
         .where(
           and(
             eq(fieldReports.id, id),
-            eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
+            eq(fieldReports.submitterIdentity, owner),
           ),
         )
         .get();
-      if (!existing) {
+      const scan = existing
+        ? transaction
+            .select({ id: scanRecords.id })
+            .from(scanRecords)
+            .where(
+              and(
+                eq(scanRecords.id, existing.scanRecordId),
+                eq(scanRecords.ownerIdentity, owner),
+              ),
+            )
+            .get()
+        : null;
+      if (!existing || !scan) {
         throw new StorageError('FIELD_REPORT_NOT_FOUND', 'The Field Report does not exist.');
       }
       if (existing.authoringState !== 'draft') {
@@ -237,20 +260,36 @@ export async function saveManualMapLocation(
   input: SaveManualMapLocationInput,
 ): Promise<FieldReport> {
   validateManualMapLocationInput(input);
+  const owner = requireOwnerIdentity(submitterIdentity);
 
   try {
     return database.transaction((transaction) => {
       const existing = transaction
-        .select({ authoringState: fieldReports.authoringState })
+        .select({
+          authoringState: fieldReports.authoringState,
+          scanRecordId: fieldReports.scanRecordId,
+        })
         .from(fieldReports)
         .where(
           and(
             eq(fieldReports.id, id),
-            eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
+            eq(fieldReports.submitterIdentity, owner),
           ),
         )
         .get();
-      if (!existing) {
+      const scan = existing
+        ? transaction
+            .select({ id: scanRecords.id })
+            .from(scanRecords)
+            .where(
+              and(
+                eq(scanRecords.id, existing.scanRecordId),
+                eq(scanRecords.ownerIdentity, owner),
+              ),
+            )
+            .get()
+        : null;
+      if (!existing || !scan) {
         throw new StorageError('FIELD_REPORT_NOT_FOUND', 'The Field Report does not exist.');
       }
       if (existing.authoringState !== 'draft') {
@@ -302,6 +341,7 @@ export async function finalizeFieldReport(
   dependencies: FinalizeFieldReportDependencies = {},
 ): Promise<FinalizeFieldReportResult> {
   const values = normalizeFinalizeFieldReportInput(input);
+  const owner = requireOwnerIdentity(submitterIdentity);
   const imageExists = dependencies.imageExists ?? managedImageExists;
   const prepareImage = dependencies.prepareSubmissionImage ?? prepareSubmissionImage;
   const persistImage =
@@ -315,7 +355,7 @@ export async function finalizeFieldReport(
         .where(
           and(
             eq(fieldReports.id, id),
-            eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
+            eq(fieldReports.submitterIdentity, owner),
           ),
         )
         .get();
@@ -365,7 +405,12 @@ export async function finalizeFieldReport(
           submissionImageUri: scanRecords.submissionImageUri,
         })
         .from(scanRecords)
-        .where(eq(scanRecords.id, existing.scanRecordId))
+        .where(
+          and(
+            eq(scanRecords.id, existing.scanRecordId),
+            eq(scanRecords.ownerIdentity, owner),
+          ),
+        )
         .get();
       const classScores = transaction
         .select({ label: scanClassScores.label, score: scanClassScores.score })
@@ -392,6 +437,7 @@ export async function finalizeFieldReport(
         draftContext.scan,
         draftContext.classScores,
         draftContext.draft.scanRecordId,
+        owner,
         imageExists,
       ),
     );
@@ -413,6 +459,7 @@ export async function finalizeFieldReport(
           toSubmissionPreparationInput(
             draftContext.scan,
             draftContext.draft.scanRecordId,
+            owner,
           ),
         );
       } catch (error: unknown) {
@@ -431,12 +478,17 @@ export async function finalizeFieldReport(
           await persistImage(
             database,
             draftContext.draft.scanRecordId,
+            owner,
             draftContext.scan.managedImageUri,
             preparedImage.artifact,
           );
         } catch (error: unknown) {
           if (preparedImage.created) {
-            cleanupPreparedImage(preparedImage, draftContext.scan.managedImageUri);
+            cleanupPreparedImage(
+              preparedImage,
+              draftContext.scan.managedImageUri,
+              owner,
+            );
           }
           throw error;
         }
@@ -450,7 +502,7 @@ export async function finalizeFieldReport(
         .where(
           and(
             eq(fieldReports.id, id),
-            eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
+            eq(fieldReports.submitterIdentity, owner),
           ),
         )
         .get();
@@ -474,7 +526,12 @@ export async function finalizeFieldReport(
           submissionImageUri: scanRecords.submissionImageUri,
         })
         .from(scanRecords)
-        .where(eq(scanRecords.id, existing.scanRecordId))
+        .where(
+          and(
+            eq(scanRecords.id, existing.scanRecordId),
+            eq(scanRecords.ownerIdentity, owner),
+          ),
+        )
         .get();
       const classScores = transaction
         .select({ label: scanClassScores.label, score: scanClassScores.score })
@@ -495,6 +552,7 @@ export async function finalizeFieldReport(
           scan,
           classScores,
           existing.scanRecordId,
+          owner,
           imageExists,
         ),
       );
@@ -543,8 +601,10 @@ function toSubmissionPreparationInput(
     submissionImageUri: string | null;
   },
   recordId: string,
+  ownerIdentity: string,
 ): SubmissionImagePreparationInput {
   return {
+    ownerIdentity,
     recordId,
     sourceHeight: scan.sourceHeight,
     sourceMimeType: scan.imageMimeType ?? null,
@@ -571,6 +631,7 @@ function toSubmissionEvidence(
   },
   classScores: { label: string; score: number }[],
   recordId: string,
+  ownerIdentity: string,
   imageExists: (uri: string) => boolean,
 ) {
   return {
@@ -585,7 +646,7 @@ function toSubmissionEvidence(
     submissionImageMimeType: scan.submissionImageMimeType,
     submissionImageSizeBytes: scan.submissionImageSizeBytes,
     submissionImageUri: scan.submissionImageUri,
-    expectedSubmissionImageUri: getSubmissionImageUri(recordId),
+    expectedSubmissionImageUri: getSubmissionImageUri(recordId, ownerIdentity),
     submissionImageAvailable:
       Boolean(scan.submissionImageUri) && imageExists(scan.submissionImageUri!),
   };
@@ -594,6 +655,7 @@ function toSubmissionEvidence(
 function cleanupPreparedImage(
   preparedImage: PreparedSubmissionImage,
   sourceUri: string,
+  ownerIdentity: string,
 ): void {
   if (
     preparedImage.artifact.uri === sourceUri ||
@@ -602,7 +664,7 @@ function cleanupPreparedImage(
     return;
   }
   try {
-    deleteManagedScanImage(preparedImage.artifact.uri);
+    deleteManagedScanImage(preparedImage.artifact.uri, ownerIdentity);
   } catch {
     // The database failure remains the primary error.
   }
@@ -611,14 +673,37 @@ function cleanupPreparedImage(
 export async function findFieldReportById(
   database: CaneGuardDatabase,
   id: string,
+  submitterIdentity: string,
 ): Promise<FieldReport> {
+  const owner = requireOwnerIdentity(submitterIdentity);
   try {
     const row = await database
       .select()
       .from(fieldReports)
-      .where(eq(fieldReports.id, id))
+      .where(
+        and(
+          eq(fieldReports.id, id),
+          eq(fieldReports.submitterIdentity, owner),
+        ),
+      )
       .get();
     if (!row) {
+      throw new StorageError(
+        'FIELD_REPORT_NOT_FOUND',
+        'The Field Report does not exist.',
+      );
+    }
+    const scan = await database
+      .select({ id: scanRecords.id })
+      .from(scanRecords)
+      .where(
+        and(
+          eq(scanRecords.id, row.scanRecordId),
+          eq(scanRecords.ownerIdentity, owner),
+        ),
+      )
+      .get();
+    if (!scan) {
       throw new StorageError(
         'FIELD_REPORT_NOT_FOUND',
         'The Field Report does not exist.',
@@ -635,6 +720,7 @@ export async function findFieldReportByScanRecordId(
   scanRecordId: string,
   submitterIdentity: string,
 ): Promise<FieldReport | null> {
+  const owner = requireOwnerIdentity(submitterIdentity);
   try {
     const row = await database
       .select()
@@ -642,11 +728,24 @@ export async function findFieldReportByScanRecordId(
       .where(
         and(
           eq(fieldReports.scanRecordId, scanRecordId),
-          eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
+          eq(fieldReports.submitterIdentity, owner),
         ),
       )
       .get();
-    return row ? toFieldReport(row) : null;
+    if (!row) {
+      return null;
+    }
+    const scan = await database
+      .select({ id: scanRecords.id })
+      .from(scanRecords)
+      .where(
+        and(
+          eq(scanRecords.id, scanRecordId),
+          eq(scanRecords.ownerIdentity, owner),
+        ),
+      )
+      .get();
+    return scan ? toFieldReport(row) : null;
   } catch (error: unknown) {
     throw toStorageError(error, 'QUERY_FAILED', 'Reading the Field Report failed.');
   }
@@ -657,14 +756,23 @@ export async function hasFieldReportOwnedByAnotherSubmitter(
   scanRecordId: string,
   submitterIdentity: string,
 ): Promise<boolean> {
+  const owner = requireOwnerIdentity(submitterIdentity);
   try {
+    const scan = await database
+      .select({ ownerIdentity: scanRecords.ownerIdentity })
+      .from(scanRecords)
+      .where(and(eq(scanRecords.id, scanRecordId), eq(scanRecords.ownerIdentity, owner)))
+      .get();
+    if (!scan) {
+      return false;
+    }
     const row = await database
       .select({ submitterIdentity: fieldReports.submitterIdentity })
       .from(fieldReports)
       .where(eq(fieldReports.scanRecordId, scanRecordId))
       .get();
-    const owner = row?.submitterIdentity?.trim();
-    return Boolean(owner && owner !== submitterIdentity.trim());
+    const reportOwner = row?.submitterIdentity?.trim();
+    return Boolean(row && reportOwner !== owner);
   } catch (error: unknown) {
     throw toStorageError(
       error,
@@ -681,21 +789,37 @@ export async function saveFieldReportDraft(
   input: SaveFieldReportDraftInput,
 ): Promise<FieldReport> {
   const values = normalizeFieldReportDraftInput(input);
+  const owner = requireOwnerIdentity(submitterIdentity);
 
   try {
     return database.transaction((transaction) => {
       const existing = transaction
-        .select({ authoringState: fieldReports.authoringState })
+        .select({
+          authoringState: fieldReports.authoringState,
+          scanRecordId: fieldReports.scanRecordId,
+        })
         .from(fieldReports)
         .where(
           and(
             eq(fieldReports.id, id),
-            eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
+            eq(fieldReports.submitterIdentity, owner),
           ),
         )
         .get();
+      const scan = existing
+        ? transaction
+            .select({ id: scanRecords.id })
+            .from(scanRecords)
+            .where(
+              and(
+                eq(scanRecords.id, existing.scanRecordId),
+                eq(scanRecords.ownerIdentity, owner),
+              ),
+            )
+            .get()
+        : null;
 
-      if (!existing) {
+      if (!existing || !scan) {
         throw new StorageError(
           'FIELD_REPORT_NOT_FOUND',
           'The Field Report does not exist.',

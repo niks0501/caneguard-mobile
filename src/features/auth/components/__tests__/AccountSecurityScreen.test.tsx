@@ -80,7 +80,7 @@ describe('AccountSecurityScreen', () => {
 
     expect(
       screen.getByText(
-        'Server session has no scheduled expiry. It remains valid until logout or server-side revocation.',
+        'Local session safety expiry unavailable; sign in again before continuing.',
       ),
     ).toBeOnTheScreen();
   });

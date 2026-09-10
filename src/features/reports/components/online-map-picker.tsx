@@ -23,6 +23,7 @@ import {
   MAX_MANUAL_MAP_ZOOM,
   MIN_MANUAL_MAP_ZOOM,
   coordinateAtViewportPoint,
+  getConfiguredMapTileUrlTemplate,
   coordinateToViewportPoint,
   getMapTiles,
   moveMapCenter,
@@ -99,6 +100,7 @@ export function OnlineMapPicker({
     loaded: string[];
   }>({ failed: [], loaded: [] });
   const viewportRef = useRef<View>(null);
+  const mapTileUrlTemplate = getConfiguredMapTileUrlTemplate();
   const tiles = useMemo(
     () =>
       getMapTiles(
@@ -106,9 +108,11 @@ export function OnlineMapPicker({
         zoom,
         viewport.width + TILE_OVERSCAN * 2,
         viewport.height + TILE_OVERSCAN * 2,
+        mapTileUrlTemplate,
       ),
-    [center, viewport.height, viewport.width, zoom],
+    [center, mapTileUrlTemplate, viewport.height, viewport.width, zoom],
   );
+  const mapTileSourceConfigured = Boolean(mapTileUrlTemplate);
   const visibleTileKeys = new Set(tiles.map(({ key }) => key));
   const activeLoadState = {
     failed: tileLoadState.failed.filter((key) => visibleTileKeys.has(key)),
@@ -117,6 +121,7 @@ export function OnlineMapPicker({
   const mapLoaded =
     tiles.length > 0 && activeLoadState.loaded.length === tiles.length;
   const mapFailed =
+    mapTileSourceConfigured &&
     isOnline === true &&
     tiles.length > 0 &&
     activeLoadState.failed.length > 0;
@@ -203,7 +208,7 @@ export function OnlineMapPicker({
     setCenter((current) => moveMapCenter(current, zoom, deltaX, deltaY));
   }
 
-  const gesturesEnabled = isOnline === true && mapLoaded;
+  const gesturesEnabled = mapTileSourceConfigured && isOnline === true && mapLoaded;
   const handleGestureCommit = useCallback(
     (nextCenter: MapCoordinate, nextZoom: number) => {
       setCenter(nextCenter);
@@ -227,8 +232,8 @@ export function OnlineMapPicker({
           ref={viewportRef}
           testID="manual-map.viewport"
           accessibilityRole="imagebutton"
-          accessibilityLabel="Online map. Tap to place the report location pin."
-          disabled={isOnline !== true || !mapLoaded}
+          accessibilityLabel="Privacy-preserving manual map. Tap to place the report location pin."
+          disabled={!mapTileSourceConfigured || isOnline !== true || !mapLoaded}
           onLayout={onLayout}
           onPress={onMapPress}
           style={[
@@ -332,7 +337,12 @@ export function OnlineMapPicker({
             </Pressable>
           ) : null}
 
-          {isOnline !== true ? (
+          {!mapTileSourceConfigured ? (
+            <MapOverlay
+              icon="shield"
+              message="Manual map tiles are unavailable until the CaneGuard privacy proxy is configured. Your Draft is unchanged."
+            />
+          ) : isOnline !== true ? (
             <MapOverlay
               icon="wifi-off"
               message="Connect to the internet to load the manual map. Your Draft is unchanged."
@@ -351,23 +361,25 @@ export function OnlineMapPicker({
             </View>
           ) : null}
 
-          <View
-            pointerEvents="none"
-            style={[
-              styles.mapAttribution,
-              fullscreen
-                ? styles.mapAttributionFullscreen
-                : styles.mapAttributionInline,
-              {
-                top: fullscreen ? insets.top + Spacing.sm : undefined,
-                backgroundColor: theme.surfaceElevated,
-              },
-            ]}>
-            <Text
-              style={[styles.mapAttributionText, { color: theme.text }]}>
-              © OpenStreetMap contributors
-            </Text>
-          </View>
+          {mapTileSourceConfigured ? (
+            <View
+              pointerEvents="none"
+              style={[
+                styles.mapAttribution,
+                fullscreen
+                  ? styles.mapAttributionFullscreen
+                  : styles.mapAttributionInline,
+                {
+                  top: fullscreen ? insets.top + Spacing.sm : undefined,
+                  backgroundColor: theme.surfaceElevated,
+                },
+              ]}>
+              <Text
+                style={[styles.mapAttributionText, { color: theme.text }]}>
+                © OpenStreetMap contributors via CaneGuard privacy proxy
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
       </GestureDetector>
 

@@ -2,6 +2,9 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import { StorageError, toStorageError } from '@/database/errors';
 import {
+  requireOwnerIdentity,
+} from '@/database/ownerIdentity';
+import {
   isSupportedPhotoMimeType,
   isUuid,
 } from '@/features/assignments/domain/fieldValidationCompletionValidation';
@@ -15,6 +18,7 @@ const MIME_TO_EXTENSION: Record<string, string> = {
 };
 
 export interface FieldValidationPhotoInput {
+  ownerIdentity: string;
   assignmentId: string;
   completionId: string;
   fileName?: string | null;
@@ -28,8 +32,13 @@ export interface FieldValidationPhotoArtifact {
   uri: string;
 }
 
-export function getFieldValidationPhotoDirectory(): Directory {
-  return new Directory(Paths.document, 'caneguard', PHOTO_DIRECTORY_NAME);
+export function getFieldValidationPhotoDirectory(ownerIdentity: string): Directory {
+  return new Directory(
+    Paths.document,
+    'caneguard',
+    PHOTO_DIRECTORY_NAME,
+    requireOwnerIdentity(ownerIdentity),
+  );
 }
 
 export async function persistFieldValidationPhoto(
@@ -38,7 +47,7 @@ export async function persistFieldValidationPhoto(
   validateInput(input);
   const mimeType = resolveMimeType(input);
   const extension = MIME_TO_EXTENSION[mimeType];
-  const directory = getFieldValidationPhotoDirectory();
+  const directory = getFieldValidationPhotoDirectory(input.ownerIdentity);
   const destination = new File(
     directory,
     `${input.assignmentId}-${input.completionId}.${extension}`,
@@ -65,19 +74,44 @@ export async function persistFieldValidationPhoto(
   }
 }
 
-export function deleteFieldValidationPhoto(uri: string): void {
-  if (!isManagedFieldValidationPhotoUri(uri)) {
+export function deleteFieldValidationPhoto(
+  uri: string,
+  ownerIdentity: string,
+): void {
+  let owner: string;
+  try {
+    owner = requireOwnerIdentity(ownerIdentity);
+  } catch {
+    return;
+  }
+  if (!isManagedFieldValidationPhotoUri(uri, owner)) {
     return;
   }
   removePhoto(uri);
 }
 
-export function isManagedFieldValidationPhotoUri(uri: string): boolean {
-  const directory = getFieldValidationPhotoDirectory().uri;
-  return uri.startsWith(`${directory}/`) && !uri.slice(directory.length + 1).includes('/');
+export function isManagedFieldValidationPhotoUri(
+  uri: string,
+  ownerIdentity: string,
+): boolean {
+  const directory = getFieldValidationPhotoDirectory(ownerIdentity).uri;
+  if (!uri.startsWith(`${directory}/`)) {
+    return false;
+  }
+  const relative = uri.slice(directory.length + 1).split('/');
+  const filename = relative.at(-1);
+  return Boolean(relative.length === 1 && filename && !filename.includes('..'));
 }
 
 function validateInput(input: FieldValidationPhotoInput): void {
+  try {
+    requireOwnerIdentity(input.ownerIdentity);
+  } catch {
+    throw new StorageError(
+      'INVALID_FIELD_VALIDATION_COMPLETION',
+      'The field validation owner identity is invalid.',
+    );
+  }
   if (!isUuid(input.assignmentId) || !isUuid(input.completionId)) {
     throw new StorageError('INVALID_FIELD_VALIDATION_COMPLETION', 'The field validation photo identity is invalid.');
   }

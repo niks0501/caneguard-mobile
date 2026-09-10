@@ -13,6 +13,7 @@ import {
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { toStorageError } from '@/database/errors';
+import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import { fieldReports, scanRecords } from '@/database/schema';
 import type { ReportRepository } from '@/features/records/data/repositoryContracts';
 import { listScanRecords } from '@/features/records/data/scanRecordRepository';
@@ -45,13 +46,14 @@ export async function getLocalReportSummary(
   submitterIdentity: string,
   options: LocalReportOptions = {},
 ): Promise<LocalReportSummary> {
+  const owner = requireOwnerIdentity(submitterIdentity);
   const lowScoreThreshold =
     options.lowScoreThreshold ?? PROTOTYPE_LOW_SCORE_THRESHOLD;
   const recentLimit = Math.min(
     Math.max(Math.trunc(options.recentLimit ?? DEFAULT_RECENT_RECORD_LIMIT), 1),
     25,
   );
-  const where = buildDateCondition(options.dateRange);
+  const where = buildDateCondition(options.dateRange, owner);
 
   if (
     !Number.isFinite(lowScoreThreshold) ||
@@ -89,10 +91,14 @@ export async function getLocalReportSummary(
         .where(where)
         .groupBy(scanRecords.predictedLabel)
         .orderBy(desc(count()), asc(scanRecords.predictedLabel)),
-      listScanRecords(database, {
-        dateRange: options.dateRange,
-        limit: recentLimit,
-      }, submitterIdentity),
+      listScanRecords(
+        database,
+        {
+          dateRange: options.dateRange,
+          limit: recentLimit,
+        },
+        owner,
+      ),
       database
         .select({ count: count() })
         .from(fieldReports)
@@ -123,15 +129,18 @@ export async function getLocalReportSummary(
   }
 }
 
-function buildDateCondition(dateRange?: DateRange): SQL | undefined {
-  const conditions: SQL[] = [];
+function buildDateCondition(
+  dateRange: DateRange | undefined,
+  ownerIdentity: string,
+): SQL {
+  const conditions: SQL[] = [eq(scanRecords.ownerIdentity, ownerIdentity)];
   if (dateRange?.from) {
     conditions.push(gte(scanRecords.createdAt, dateRange.from));
   }
   if (dateRange?.to) {
     conditions.push(lte(scanRecords.createdAt, dateRange.to));
   }
-  return conditions.length ? and(...conditions) : undefined;
+  return and(...conditions)!;
 }
 
 function buildPendingReportCondition(

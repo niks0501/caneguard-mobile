@@ -72,6 +72,7 @@ function openTestDatabase(): { database: CaneGuardDatabase; native: DatabaseSync
     '0005_tricky_the_santerians.sql',
     '0006_curvy_piledriver.sql',
     '0007_familiar_old_lace.sql',
+    '0012_dapper_sumo.sql',
   ]) {
     native.exec(readMigration(migration));
   }
@@ -102,14 +103,15 @@ function insertScan(
   native
     .prepare(`
       INSERT INTO scan_records (
-        id, managed_image_uri, submission_image_uri, submission_image_mime_type,
+        id, owner_identity, managed_image_uri, submission_image_uri, submission_image_mime_type,
         submission_image_size_bytes, image_source_type, predicted_label, confidence,
         checklist_consistency, model_version, preprocess_ms, inference_ms,
         total_ms, source_width, source_height, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .run(
       id,
+      SUBMITTER_ID,
       imageUri,
       imageUri,
       'image/jpeg',

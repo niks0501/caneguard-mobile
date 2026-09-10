@@ -96,7 +96,12 @@ async function goFullscreen() {
 }
 
 describe('ManualMapScreen', () => {
+  const previousApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+
   beforeEach(() => {
+    process.env.EXPO_PUBLIC_API_BASE_URL = 'https://proxy.example.test';
+    process.env.EXPO_PUBLIC_MAP_TILE_PROXY_URL =
+      'https://proxy.example.test/api/v1/mobile/map-tiles/{z}/{x}/{y}.png';
     mockDraftState = {
       data: draft({
         finalLatitude: DEFAULT_MANUAL_MAP_CENTER.latitude,
@@ -109,6 +114,15 @@ describe('ManualMapScreen', () => {
       savingManualLocation: false,
     };
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    if (previousApiBaseUrl === undefined) {
+      delete process.env.EXPO_PUBLIC_API_BASE_URL;
+    } else {
+      process.env.EXPO_PUBLIC_API_BASE_URL = previousApiBaseUrl;
+    }
+    delete process.env.EXPO_PUBLIC_MAP_TILE_PROXY_URL;
   });
 
   it('expands the map to fullscreen and keeps confirm/cancel reachable', async () => {

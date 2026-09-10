@@ -6,13 +6,16 @@
     "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "caneguardmobile",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
     },
     "android": {
       "package": "com.niks0501.caneguard",
+      "allowBackup": false,
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -27,6 +30,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./plugins/withSecurityAndroid",
       "expo-router",
       [
         "expo-image-picker",
@@ -79,7 +83,12 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/b30b22ff-63d8-49e6-ac3c-db27facef0b9"
+      "url": "https://u.expo.dev/b30b22ff-63d8-49e6-ac3c-db27facef0b9",
+      "codeSigningCertificate": "./certs/certificate.pem",
+      "codeSigningMetadata": {
+        "keyid": "main",
+        "alg": "rsa-v1_5-sha256"
+      }
     }
   }
 }

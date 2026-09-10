@@ -19,6 +19,9 @@ interface MobileTokenResponse {
   user?: unknown;
 }
 
+/** Server-issued null expiry receives a finite client safety TTL. */
+export const LOCAL_SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
 export type MobileAuthErrorCode =
   | 'EMAIL_NOT_VERIFIED'
   | 'FORBIDDEN_ROLE'
@@ -78,7 +81,7 @@ export function parseMobileSessionResponse(
 
   return {
     deviceId: normalizeOptionalDeviceId(deviceId),
-    expiresAt,
+    expiresAt: expiresAt === null ? localSessionExpiry() : expiresAt,
     token,
     user: value.user,
   };
@@ -565,6 +568,10 @@ function isFutureIsoDate(value: string): boolean {
 
 function isValidSessionExpiry(value: unknown): value is string | null {
   return value === null || (typeof value === 'string' && isFutureIsoDate(value));
+}
+
+function localSessionExpiry(): string {
+  return new Date(Date.now() + LOCAL_SESSION_MAX_AGE_MS).toISOString();
 }
 
 function normalizeOptionalDeviceId(value: string | undefined): string | undefined {

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
+import { LEGACY_UNASSIGNED_OWNER_IDENTITY } from '@/database/ownerIdentity';
 import migrationBundle from '../../../drizzle/migrations';
 
 const migration0 = readMigration('0000_complex_johnny_blaze.sql');
@@ -16,6 +17,7 @@ const migration8 = readMigration('0008_field_validation_assignments.sql');
 const migration9 = readMigration('0009_scope_field_validation_assignment_cache_by_owner.sql');
 const migration10 = readMigration('0010_numerous_princess_powerful.sql');
 const migration11 = readMigration('0011_tidy_meteorite.sql');
+const migration12 = readMigration('0012_dapper_sumo.sql');
 const migrationJournal = migrationBundle.journal;
 
 function readMigration(filename: string): string {
@@ -44,6 +46,7 @@ function applyLatest(database: DatabaseSync): void {
   database.exec(migration9);
   database.exec(migration10);
   database.exec(migration11);
+  database.exec(migration12);
 }
 
 function insertScanRecord(
@@ -108,6 +111,7 @@ describe('CaneGuard database migrations', () => {
       'scan_records_barangay_created_at_idx',
       'scan_records_created_at_idx',
       'scan_records_label_created_at_idx',
+      'scan_records_owner_created_at_idx',
       'scan_records_remote_id_unique',
       'scan_records_sync_created_at_idx',
     ]);
@@ -173,6 +177,29 @@ describe('CaneGuard database migrations', () => {
     expect(
       database.prepare('SELECT count(*) AS count FROM field_reports').get(),
     ).toEqual({ count: 0 });
+    database.close();
+  });
+
+  it('quarantines pre-owner scan rows instead of assigning them to a future account', () => {
+    const database = openDatabase();
+    database.exec(migration0);
+    database.exec(migration1);
+    insertScanRecord(database);
+    database.exec(migration2);
+    database.exec(migration3);
+    database.exec(migration4);
+    database.exec(migration5);
+    database.exec(migration6);
+    database.exec(migration7);
+    database.exec(migration8);
+    database.exec(migration9);
+    database.exec(migration10);
+    database.exec(migration11);
+    database.exec(migration12);
+
+    expect(
+      database.prepare('SELECT owner_identity FROM scan_records').get(),
+    ).toEqual({ owner_identity: LEGACY_UNASSIGNED_OWNER_IDENTITY });
     database.close();
   });
 
@@ -406,6 +433,7 @@ describe('CaneGuard database migrations', () => {
       '0009_scope_field_validation_assignment_cache_by_owner',
       '0010_numerous_princess_powerful',
       '0011_tidy_meteorite',
+      '0012_dapper_sumo',
     ]);
     expect(Object.keys(migrationBundle.migrations)).toEqual([
       'm0000',
@@ -420,6 +448,7 @@ describe('CaneGuard database migrations', () => {
       'm0009',
       'm0010',
       'm0011',
+      'm0012',
     ]);
     expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
       migration0,
@@ -434,6 +463,7 @@ describe('CaneGuard database migrations', () => {
       migration9,
       migration10,
       migration11,
+      migration12,
     ]);
   });
 });

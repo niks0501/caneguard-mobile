@@ -1,0 +1,2 @@
+ALTER TABLE `scan_records` ADD `owner_identity` text DEFAULT '__legacy_unassigned__' NOT NULL;--> statement-breakpoint
+CREATE INDEX `scan_records_owner_created_at_idx` ON `scan_records` (`owner_identity`,`created_at`);

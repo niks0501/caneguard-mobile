@@ -21,6 +21,7 @@ export interface SaveCompletedScanOptions {
     insertRecord?: typeof insertScanRecord;
     now?: () => Date;
   };
+  ownerIdentity: string;
   recordId: string;
   state: ScanSessionState;
 }
@@ -28,6 +29,7 @@ export interface SaveCompletedScanOptions {
 export async function saveCompletedScan({
   database,
   dependencies,
+  ownerIdentity,
   recordId,
   state,
 }: SaveCompletedScanOptions): Promise<{ id: string }> {
@@ -37,6 +39,7 @@ export async function saveCompletedScan({
   const cleanupImage = dependencies?.cleanupImage ?? compensateManagedImageCopy;
   const draft = createCompletedScanDraft(state, recordId, now());
   const managedImage = await copyImage({
+    ownerIdentity,
     recordId: draft.id,
     sourceUri: draft.sourceUri,
     sourceType: draft.imageSourceType,
@@ -45,10 +48,13 @@ export async function saveCompletedScan({
   });
 
   try {
-    return await insertRecord(database, toPersistenceInput(draft, managedImage));
+    return await insertRecord(
+      database,
+      toPersistenceInput(draft, managedImage, ownerIdentity),
+    );
   } catch (error: unknown) {
     try {
-      cleanupImage(managedImage.managedUri);
+      cleanupImage(managedImage.managedUri, ownerIdentity);
     } catch {
       // The database error is the primary failure; orphan cleanup is best effort.
     }
@@ -63,6 +69,7 @@ export async function saveCompletedScan({
 function toPersistenceInput(
   draft: ReturnType<typeof createCompletedScanDraft>,
   managedImage: ManagedImage,
+  ownerIdentity: string,
 ) {
   const { sourceUri: _sourceUri, ...record } = draft;
   const sourceCanBeSubmitted = canReuseSourceAsSubmissionImage({
@@ -75,6 +82,7 @@ function toPersistenceInput(
 
   return {
     ...record,
+    ownerIdentity,
     managedImageUri: managedImage.managedUri,
     imageMimeType: managedImage.mimeType,
     imageSizeBytes: managedImage.sizeBytes,

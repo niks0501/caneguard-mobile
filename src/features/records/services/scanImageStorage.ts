@@ -1,6 +1,10 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
 import { StorageError, toStorageError } from '@/database/errors';
+import {
+  isSafeOwnerIdentity,
+  requireOwnerIdentity,
+} from '@/database/ownerIdentity';
 import type { ScanSourceType } from '@/features/detection/types';
 
 const UUID_V4_PATTERN =
@@ -33,6 +37,7 @@ const BACKUP_SUFFIX = '.backup';
 const LEGACY_MANAGED_IMAGE_ROOTS = ['file:///caneguard'] as const;
 
 export interface CopyScanImageInput {
+  ownerIdentity: string;
   recordId: string;
   sourceFileName?: string | null;
   sourceHeight: number | null;
@@ -74,21 +79,29 @@ export interface ResolvedImageFormat {
   mimeType: string | null;
 }
 
-export function getManagedScanImageDirectory(): Directory {
-  return new Directory(Paths.document, 'caneguard', 'scan-images');
+export function getManagedScanImageDirectory(ownerIdentity: string): Directory {
+  return new Directory(
+    Paths.document,
+    'caneguard',
+    'scan-images',
+    requireOwnerIdentity(ownerIdentity),
+  );
 }
 
 function getManagedImageRootDirectory(): Directory {
   return new Directory(Paths.document, 'caneguard');
 }
 
-export function ensureManagedScanImageDirectory(): Directory {
-  const directory = getManagedScanImageDirectory();
+export function ensureManagedScanImageDirectory(ownerIdentity: string): Directory {
+  const directory = getManagedScanImageDirectory(ownerIdentity);
   directory.create({ idempotent: true, intermediates: true });
   return directory;
 }
 
-export function getSubmissionImageUri(recordId: string): string {
+export function getSubmissionImageUri(
+  recordId: string,
+  ownerIdentity: string,
+): string {
   if (!UUID_V4_PATTERN.test(recordId)) {
     throw new StorageError(
       'INVALID_SCAN_RECORD',
@@ -97,7 +110,7 @@ export function getSubmissionImageUri(recordId: string): string {
   }
 
   return new File(
-    ensureManagedScanImageDirectory(),
+    ensureManagedScanImageDirectory(ownerIdentity),
     `${recordId}.submission.jpg`,
   ).uri;
 }
@@ -151,9 +164,13 @@ export async function copyScanImageToManagedStorage(
     sourceMimeType: input.sourceMimeType || source.type,
     sourceUri: input.sourceUri,
   });
-  const directory = ensureManagedScanImageDirectory();
+  const directory = ensureManagedScanImageDirectory(input.ownerIdentity);
   const existingRecordImages = listManagedScanImageFiles().filter((file) =>
-    isManagedScanImageUriForRecord(file.uri, input.recordId),
+    isManagedScanImageUriForRecord(
+      file.uri,
+      input.recordId,
+      input.ownerIdentity,
+    ),
   );
   if (existingRecordImages.length > 0) {
     throw new StorageError(
@@ -225,8 +242,11 @@ export function readManagedImageMetadata(uri: string): ManagedImageMetadata | nu
   };
 }
 
-export function deleteManagedScanImage(uri: string): DeleteManagedImageResult {
-  assertManagedScanImageUri(uri);
+export function deleteManagedScanImage(
+  uri: string,
+  ownerIdentity: string,
+): DeleteManagedImageResult {
+  assertManagedScanImageUri(uri, ownerIdentity);
   const file = new File(uri);
 
   if (!file.exists) {
@@ -241,9 +261,12 @@ export function deleteManagedScanImage(uri: string): DeleteManagedImageResult {
   }
 }
 
-export function compensateManagedImageCopy(uri: string): CompensationCleanupResult {
+export function compensateManagedImageCopy(
+  uri: string,
+  ownerIdentity: string,
+): CompensationCleanupResult {
   try {
-    deleteManagedScanImage(uri);
+    deleteManagedScanImage(uri, ownerIdentity);
     return { cleanedUp: true, error: null };
   } catch (error: unknown) {
     const storageError = toStorageError(
@@ -262,15 +285,20 @@ export function compensateManagedImageCopy(uri: string): CompensationCleanupResu
 
 export function findOrphanedManagedImages(
   referencedManagedUris: ReadonlySet<string> | readonly string[],
+  ownerIdentity: string,
 ): ManagedImageMetadata[] {
   const referenced =
     referencedManagedUris instanceof Set
       ? referencedManagedUris
       : new Set(referencedManagedUris);
-  ensureManagedScanImageDirectory();
+  ensureManagedScanImageDirectory(ownerIdentity);
 
   return listManagedScanImageFiles()
-    .filter((file) => !referenced.has(file.uri))
+    .filter(
+      (file) =>
+        isManagedImageOwnedBy(file.uri, ownerIdentity) &&
+        !referenced.has(file.uri),
+    )
     .map((file) => readManagedImageMetadata(file.uri))
     .filter((metadata): metadata is ManagedImageMetadata => metadata !== null);
 }
@@ -278,14 +306,22 @@ export function findOrphanedManagedImages(
 export function isManagedSourceScanImageUriForRecord(
   uri: string,
   recordId: string,
+  ownerIdentity: string,
 ): boolean {
-  return readManagedImageRecordPart(uri) === recordId;
+  return (
+    isManagedImageOwnedBy(uri, ownerIdentity) &&
+    readManagedImageRecordPart(uri) === recordId
+  );
 }
 
 export function isManagedScanImageUriForRecord(
   uri: string,
   recordId: string,
+  ownerIdentity: string,
 ): boolean {
+  if (!isManagedImageOwnedBy(uri, ownerIdentity)) {
+    return false;
+  }
   const recordPart = readManagedImageRecordPart(uri);
   return recordPart === recordId || recordPart === `${recordId}.submission`;
 }
@@ -311,11 +347,15 @@ function isManagedImagePathUnderRoot(uri: string, rootUri: string): boolean {
   }
 
   const pathParts = uri.slice(directoryUri.length).split('/');
+  const isScopedCanonicalPath =
+    pathParts.length === 3 &&
+    pathParts[0] === 'scan-images' &&
+    isSafeOwnerIdentity(pathParts[1]);
   const isCanonicalPath =
     pathParts.length === 2 && pathParts[0] === 'scan-images';
   const isLegacyFlatPath = pathParts.length === 1;
   if (
-    (!isCanonicalPath && !isLegacyFlatPath) ||
+    (!isScopedCanonicalPath && !isCanonicalPath && !isLegacyFlatPath) ||
     pathParts.some((part) => !part || part === '.' || part === '..')
   ) {
     return false;
@@ -347,6 +387,14 @@ function isManagedImageFilename(filename: string): boolean {
 }
 
 function validateCopyInput(input: CopyScanImageInput): void {
+  try {
+    requireOwnerIdentity(input.ownerIdentity);
+  } catch {
+    throw new StorageError(
+      'INVALID_SCAN_RECORD',
+      'The scan record owner identity is invalid.',
+    );
+  }
   if (!UUID_V4_PATTERN.test(input.recordId)) {
     throw new StorageError('INVALID_SCAN_RECORD', 'The scan record ID is not UUIDv4.');
   }
@@ -366,11 +414,17 @@ function validateCopyInput(input: CopyScanImageInput): void {
   }
 }
 
-function assertManagedScanImageUri(uri: string): void {
-  if (!isManagedScanImageUri(uri)) {
+function assertManagedScanImageUri(uri: string, ownerIdentity: string): void {
+  let ownedByCaller: boolean;
+  try {
+    ownedByCaller = isManagedImageOwnedBy(uri, requireOwnerIdentity(ownerIdentity));
+  } catch {
+    ownedByCaller = false;
+  }
+  if (!isManagedScanImageUri(uri) || !ownedByCaller) {
     throw new StorageError(
       'IMAGE_DELETE_FAILED',
-      'Refusing to delete a file outside managed scan-image storage.',
+      'Refusing to delete a file outside the authenticated owner image storage.',
     );
   }
 }
@@ -424,6 +478,29 @@ function normalizeSupportedMimeType(value: string | null | undefined): string | 
   return extension ? EXTENSION_TO_MIME[extension] : null;
 }
 
+function isManagedImageOwnedBy(uri: string, ownerIdentity: string): boolean {
+  const normalizedOwner = requireOwnerIdentity(ownerIdentity);
+  return readManagedImageOwnerPart(uri) === normalizedOwner;
+}
+
+function readManagedImageOwnerPart(uri: string): string | null {
+  if (!isManagedScanImageUri(uri)) {
+    return null;
+  }
+  const roots = [getManagedImageRootDirectory().uri, ...LEGACY_MANAGED_IMAGE_ROOTS];
+  for (const root of roots) {
+    const directoryUri = withTrailingSlash(root);
+    if (!uri.startsWith(directoryUri)) {
+      continue;
+    }
+    const pathParts = uri.slice(directoryUri.length).split('/');
+    if (pathParts.length === 3 && pathParts[0] === 'scan-images') {
+      return pathParts[1];
+    }
+  }
+  return null;
+}
+
 function readManagedImageRecordPart(uri: string): string | null {
   if (!isManagedScanImageUri(uri)) {
     return null;
@@ -441,7 +518,6 @@ function listManagedScanImageFiles(): File[] {
   const files = new Map<string, File>();
   const visitedDirectories = new Set<string>();
   const rootDirectories = [
-    getManagedScanImageDirectory(),
     getManagedImageRootDirectory(),
     ...LEGACY_MANAGED_IMAGE_ROOTS.flatMap((root) => [
       new Directory(root),

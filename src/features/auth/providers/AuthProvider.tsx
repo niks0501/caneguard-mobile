@@ -16,6 +16,7 @@ import {
   enrollMobileDevice as enrollMobileDeviceApi,
   loginMobile,
   logoutMobile,
+  LOCAL_SESSION_MAX_AGE_MS,
   MobileAuthError,
   verifyMobileSession,
 } from '@/features/auth/api/mobileAuthApi';
@@ -46,6 +47,8 @@ import type {
   PasswordChangeInput,
   SessionVerificationStatus,
 } from '@/features/auth/types';
+
+const MAX_SESSION_TIMER_DELAY_MS = 2_147_000_000;
 
 interface AuthContextValue {
   biometricCapability: BiometricCapability | null;
@@ -92,8 +95,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const biometricUnlockRef = useRef<Promise<boolean> | null>(null);
 
   const setCurrentSession = useCallback((nextSession: MobileSession | null) => {
-    sessionRef.current = nextSession;
-    setSession(nextSession);
+    const normalizedSession =
+      nextSession && nextSession.expiresAt === null
+        ? {
+            ...nextSession,
+            expiresAt: new Date(Date.now() + LOCAL_SESSION_MAX_AGE_MS).toISOString(),
+          }
+        : nextSession;
+    sessionRef.current = normalizedSession;
+    setSession(normalizedSession);
   }, []);
 
   const authenticateBiometricOnce = useCallback((): Promise<BiometricAuthResult> => {
@@ -328,17 +338,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     const expiresAt = session?.expiresAt;
-    if (expiresAt === undefined) {
+    if (expiresAt === undefined || expiresAt === null) {
       return;
     }
-    if (expiresAt === null) {
-      return;
-    }
-    const remaining = Date.parse(expiresAt) - Date.now();
-    const timer = setTimeout(() => {
-      void markSessionExpired();
-    }, Number.isFinite(remaining) && remaining > 0 ? remaining : 0);
-    return () => clearTimeout(timer);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleExpiryCheck = () => {
+      const remaining = Date.parse(expiresAt) - Date.now();
+      if (!Number.isFinite(remaining) || remaining <= 0) {
+        void markSessionExpired();
+        return;
+      }
+      timer = setTimeout(() => {
+        if (Date.parse(expiresAt) > Date.now()) {
+          scheduleExpiryCheck();
+        } else {
+          void markSessionExpired();
+        }
+      }, Math.min(remaining, MAX_SESSION_TIMER_DELAY_MS));
+    };
+    scheduleExpiryCheck();
+    return () => {
+      if (timer !== null) {
+        clearTimeout(timer);
+      }
+    };
   }, [markSessionExpired, session?.expiresAt]);
 
   const login = useCallback(
@@ -669,16 +692,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const logout = useCallback(async () => {
     verificationGeneration.current += 1;
-    if (biometricEnabled) {
-      // A biometric-enabled logout is intentionally a local soft logout. The
-      // protected credential remains available behind the next biometric gate.
-      setCurrentSession(null);
-      setStatus('unauthenticated');
-      setSessionVerification('idle');
-      setErrorMessage(null);
-      return { localClearFailed: false, remoteRevocationFailed: false };
-    }
-
+    // Logout is always terminal for this installation: revoke the current
+    // bearer token where possible and remove both password and biometric
+    // credentials. A separate lock/unlock flow can be added later without
+    // changing the meaning of logout.
     const token = sessionRef.current?.token;
     let remoteRevocationFailed = false;
     if (token) {
@@ -716,7 +733,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         : null,
     );
     return { localClearFailed: false, remoteRevocationFailed };
-  }, [biometricEnabled, setCurrentSession]);
+  }, [setCurrentSession]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

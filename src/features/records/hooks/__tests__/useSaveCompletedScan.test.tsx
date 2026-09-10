@@ -16,6 +16,11 @@ jest.mock('expo-crypto', () => ({
 jest.mock('@/database/DatabaseProvider', () => ({
   useCaneGuardDatabase: () => mockDatabase,
 }));
+jest.mock('@/features/auth/hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: { uuid: 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17' },
+  }),
+}));
 jest.mock('@/features/records/services/saveCompletedScan', () => ({
   saveCompletedScan: jest.fn(),
 }));

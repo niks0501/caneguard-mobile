@@ -4,10 +4,11 @@ import { useRef, useState } from 'react';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import {
   getStorageErrorMessage,
+  StorageError,
   toStorageError,
-  type StorageError,
 } from '@/database/errors';
 import type { ScanSessionState } from '@/features/detection/types';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { saveCompletedScan } from '@/features/records/services/saveCompletedScan';
 
 export type SaveRecordStatus = 'ready' | 'saving' | 'saved' | 'failed';
@@ -28,6 +29,7 @@ const INITIAL_STATE: SaveRecordState = {
 
 export function useSaveCompletedScan(state: ScanSessionState) {
   const database = useCaneGuardDatabase();
+  const { user } = useAuth();
   const [saveState, setSaveState] = useState<SaveRecordState>(INITIAL_STATE);
   const recordId = useRef<string | null>(null);
   const inFlight = useRef<Promise<{ id: string }> | null>(null);
@@ -45,8 +47,23 @@ export function useSaveCompletedScan(state: ScanSessionState) {
       status: 'saving',
     });
 
+    if (!user) {
+      const error = new StorageError(
+        'INVALID_SCAN_RECORD',
+        'Sign in before saving a scan record.',
+      );
+      setSaveState({
+        error,
+        errorMessage: getStorageErrorMessage(error),
+        recordId: recordId.current,
+        status: 'failed',
+      });
+      return null;
+    }
+
     const operation = saveCompletedScan({
       database,
+      ownerIdentity: user.uuid,
       state,
       recordId: recordId.current,
     });

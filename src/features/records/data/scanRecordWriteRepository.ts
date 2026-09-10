@@ -1,5 +1,6 @@
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
+import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import {
   scanClassScores,
   scanQualityWarnings,
@@ -33,6 +34,7 @@ export async function insertScanRecord(
         .insert(scanRecords)
         .values({
           id: input.id,
+          ownerIdentity: requireOwnerIdentity(input.ownerIdentity),
           managedImageUri: input.managedImageUri,
           imageMimeType: input.imageMimeType,
           imageSizeBytes: input.imageSizeBytes,

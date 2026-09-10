@@ -10,12 +10,14 @@ const LOGIN_HISTORY_KEY = 'caneguard.mobile.login-history.v1';
 const STORE_OPTIONS: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
 };
-// AuthProvider performs the single explicit biometric or device-credential
-// gate before protected session restore and biometric enablement. SecureStore's
-// requireAuthentication option would start a second Android prompt and cannot
-// share the device-credential fallback from expo-local-authentication.
+// `requireAuthentication` makes Android use an authentication-bound Keystore
+// key and makes iOS use an authentication-gated Keychain item. The explicit
+// LocalAuthentication prompt remains as a capability/user-confirmation check;
+// SecureStore is the final OS-enforced gate for the credential itself.
 const PROTECTED_STORE_OPTIONS: SecureStore.SecureStoreOptions = {
   ...STORE_OPTIONS,
+  authenticationPrompt: 'Unlock CaneGuard',
+  requireAuthentication: true,
 };
 
 export class StoredSessionExpiredError extends Error {
@@ -197,7 +199,11 @@ async function parseStoredSession(stored: string): Promise<MobileSession | null>
     return null;
   }
 
-  if (value.expiresAt !== null && !isFutureIsoDate(value.expiresAt)) {
+  if (value.expiresAt === null) {
+    await clearMobileSessionBestEffort();
+    throw new StoredSessionExpiredError(value.token);
+  }
+  if (!isFutureIsoDate(value.expiresAt)) {
     await deleteBestEffort(PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS);
     await deleteBestEffort(BIOMETRIC_ENABLED_KEY, STORE_OPTIONS);
     throw new StoredSessionExpiredError(value.token);
@@ -223,7 +229,8 @@ function isEligibleStoredSession(value: unknown): value is MobileSession {
 function assertPersistableSession(session: MobileSession): void {
   if (
     !isEligibleStoredSession(session) ||
-    (session.expiresAt !== null && !isFutureIsoDate(session.expiresAt))
+    session.expiresAt === null ||
+    !isFutureIsoDate(session.expiresAt)
   ) {
     throw new SecureSessionStoreError(
       'Only an unexpired server session can be stored securely.',

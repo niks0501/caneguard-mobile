@@ -109,6 +109,7 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       const gps = await captureGpsLocation(expoForegroundLocationClient);
       const photo = input.freshPhoto
         ? await persistFieldValidationPhoto({
+            ownerIdentity: session.user.uuid,
             assignmentId: state.assignment.id,
             completionId,
             fileName: input.freshPhoto.fileName,
@@ -154,7 +155,9 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       await refresh();
       return saved;
     } catch (error: unknown) {
-      if (photoUri && !completionSaved) deleteFieldValidationPhoto(photoUri);
+      if (photoUri && !completionSaved) {
+        deleteFieldValidationPhoto(photoUri, session.user.uuid);
+      }
       const message = getStorageErrorMessage(toStorageError(error, 'UPDATE_FAILED', 'The field validation evidence could not be saved.'));
       if (mounted.current) setState((current) => ({ ...current, errorMessage: message, saving: false }));
       return null;

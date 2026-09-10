@@ -42,6 +42,7 @@ export interface StoredClassScore {
 }
 
 export interface ScanRecordDetails extends ScanRecordListItem {
+  ownerIdentity: string;
   checklistConsistency: ChecklistConsistency;
   classScores: StoredClassScore[];
   imageMimeType: string | null;
@@ -106,6 +107,7 @@ export interface CompletedScanDraft {
 
 export interface SaveCompletedScanInput
   extends Omit<CompletedScanDraft, 'sourceUri'> {
+  ownerIdentity: string;
   imageMimeType: string | null;
   imageSizeBytes: number | null;
   managedImageUri: string;

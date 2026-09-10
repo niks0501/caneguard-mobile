@@ -111,7 +111,7 @@ export function useFieldReportForScan(scanRecordId: string | null) {
         loading: false,
       });
     }
-  }, [database, isCurrentInput, scanRecordId, user]);
+  }, [database, isCurrentInput, scanRecordId, submitterIdentity, user]);
 
   useFocusEffect(
     useCallback(() => {

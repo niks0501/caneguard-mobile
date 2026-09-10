@@ -324,7 +324,7 @@ function formatExpiry(expiresAt: string | null | undefined): string {
   if (!Number.isFinite(timestamp)) {
     return 'Session expiry is unavailable. Sign in again to establish a server session.';
   }
-  return `Server session expires ${new Date(timestamp).toLocaleString()}. Biometric unlock does not extend it.`;
+  return `Session expires ${new Date(timestamp).toLocaleString()}. Biometric unlock does not extend it.`;
 }
 
 const styles = StyleSheet.create({

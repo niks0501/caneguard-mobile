@@ -2,7 +2,6 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import { StorageError, toStorageError } from '@/database/errors';
 import {
-  isSafeOwnerIdentity,
   requireOwnerIdentity,
 } from '@/database/ownerIdentity';
 import {
@@ -33,15 +32,13 @@ export interface FieldValidationPhotoArtifact {
   uri: string;
 }
 
-export function getFieldValidationPhotoDirectory(ownerIdentity?: string): Directory {
-  return ownerIdentity === undefined
-    ? new Directory(Paths.document, 'caneguard', PHOTO_DIRECTORY_NAME)
-    : new Directory(
-        Paths.document,
-        'caneguard',
-        PHOTO_DIRECTORY_NAME,
-        requireOwnerIdentity(ownerIdentity),
-      );
+export function getFieldValidationPhotoDirectory(ownerIdentity: string): Directory {
+  return new Directory(
+    Paths.document,
+    'caneguard',
+    PHOTO_DIRECTORY_NAME,
+    requireOwnerIdentity(ownerIdentity),
+  );
 }
 
 export async function persistFieldValidationPhoto(
@@ -95,25 +92,15 @@ export function deleteFieldValidationPhoto(
 
 export function isManagedFieldValidationPhotoUri(
   uri: string,
-  ownerIdentity?: string,
+  ownerIdentity: string,
 ): boolean {
-  const directory = getFieldValidationPhotoDirectory().uri;
+  const directory = getFieldValidationPhotoDirectory(ownerIdentity).uri;
   if (!uri.startsWith(`${directory}/`)) {
     return false;
   }
   const relative = uri.slice(directory.length + 1).split('/');
   const filename = relative.at(-1);
-  const normalizedOwner =
-    ownerIdentity === undefined ? null : requireOwnerIdentity(ownerIdentity);
-  const scoped =
-    relative.length === 2 &&
-    isSafeOwnerIdentity(relative[0]) &&
-    (!normalizedOwner || relative[0] === normalizedOwner) &&
-    filename;
-  // Unscoped legacy files are accepted for read-only validation, but an
-  // owner-scoped deletion never treats them as belonging to that owner.
-  const legacy = !normalizedOwner && relative.length === 1 && filename;
-  return Boolean((scoped || legacy) && filename && !filename.includes('..'));
+  return Boolean(relative.length === 1 && filename && !filename.includes('..'));
 }
 
 function validateInput(input: FieldValidationPhotoInput): void {

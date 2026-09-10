@@ -79,22 +79,20 @@ export interface ResolvedImageFormat {
   mimeType: string | null;
 }
 
-export function getManagedScanImageDirectory(ownerIdentity?: string): Directory {
-  return ownerIdentity === undefined
-    ? new Directory(Paths.document, 'caneguard', 'scan-images')
-    : new Directory(
-        Paths.document,
-        'caneguard',
-        'scan-images',
-        requireOwnerIdentity(ownerIdentity),
-      );
+export function getManagedScanImageDirectory(ownerIdentity: string): Directory {
+  return new Directory(
+    Paths.document,
+    'caneguard',
+    'scan-images',
+    requireOwnerIdentity(ownerIdentity),
+  );
 }
 
 function getManagedImageRootDirectory(): Directory {
   return new Directory(Paths.document, 'caneguard');
 }
 
-export function ensureManagedScanImageDirectory(ownerIdentity?: string): Directory {
+export function ensureManagedScanImageDirectory(ownerIdentity: string): Directory {
   const directory = getManagedScanImageDirectory(ownerIdentity);
   directory.create({ idempotent: true, intermediates: true });
   return directory;
@@ -102,7 +100,7 @@ export function ensureManagedScanImageDirectory(ownerIdentity?: string): Directo
 
 export function getSubmissionImageUri(
   recordId: string,
-  ownerIdentity?: string,
+  ownerIdentity: string,
 ): string {
   if (!UUID_V4_PATTERN.test(recordId)) {
     throw new StorageError(
@@ -246,7 +244,7 @@ export function readManagedImageMetadata(uri: string): ManagedImageMetadata | nu
 
 export function deleteManagedScanImage(
   uri: string,
-  ownerIdentity?: string,
+  ownerIdentity: string,
 ): DeleteManagedImageResult {
   assertManagedScanImageUri(uri, ownerIdentity);
   const file = new File(uri);
@@ -265,7 +263,7 @@ export function deleteManagedScanImage(
 
 export function compensateManagedImageCopy(
   uri: string,
-  ownerIdentity?: string,
+  ownerIdentity: string,
 ): CompensationCleanupResult {
   try {
     deleteManagedScanImage(uri, ownerIdentity);
@@ -287,18 +285,18 @@ export function compensateManagedImageCopy(
 
 export function findOrphanedManagedImages(
   referencedManagedUris: ReadonlySet<string> | readonly string[],
-  ownerIdentity?: string,
+  ownerIdentity: string,
 ): ManagedImageMetadata[] {
   const referenced =
     referencedManagedUris instanceof Set
       ? referencedManagedUris
       : new Set(referencedManagedUris);
-  ensureManagedScanImageDirectory();
+  ensureManagedScanImageDirectory(ownerIdentity);
 
   return listManagedScanImageFiles()
     .filter(
       (file) =>
-        (!ownerIdentity || isManagedImageOwnedBy(file.uri, ownerIdentity)) &&
+        isManagedImageOwnedBy(file.uri, ownerIdentity) &&
         !referenced.has(file.uri),
     )
     .map((file) => readManagedImageMetadata(file.uri))
@@ -308,7 +306,7 @@ export function findOrphanedManagedImages(
 export function isManagedSourceScanImageUriForRecord(
   uri: string,
   recordId: string,
-  ownerIdentity?: string,
+  ownerIdentity: string,
 ): boolean {
   return (
     isManagedImageOwnedBy(uri, ownerIdentity) &&
@@ -319,7 +317,7 @@ export function isManagedSourceScanImageUriForRecord(
 export function isManagedScanImageUriForRecord(
   uri: string,
   recordId: string,
-  ownerIdentity?: string,
+  ownerIdentity: string,
 ): boolean {
   if (!isManagedImageOwnedBy(uri, ownerIdentity)) {
     return false;
@@ -416,17 +414,12 @@ function validateCopyInput(input: CopyScanImageInput): void {
   }
 }
 
-function assertManagedScanImageUri(
-  uri: string,
-  ownerIdentity?: string,
-): void {
-  let ownedByCaller = true;
-  if (ownerIdentity !== undefined) {
-    try {
-      ownedByCaller = isManagedImageOwnedBy(uri, requireOwnerIdentity(ownerIdentity));
-    } catch {
-      ownedByCaller = false;
-    }
+function assertManagedScanImageUri(uri: string, ownerIdentity: string): void {
+  let ownedByCaller: boolean;
+  try {
+    ownedByCaller = isManagedImageOwnedBy(uri, requireOwnerIdentity(ownerIdentity));
+  } catch {
+    ownedByCaller = false;
   }
   if (!isManagedScanImageUri(uri) || !ownedByCaller) {
     throw new StorageError(
@@ -485,13 +478,7 @@ function normalizeSupportedMimeType(value: string | null | undefined): string | 
   return extension ? EXTENSION_TO_MIME[extension] : null;
 }
 
-function isManagedImageOwnedBy(
-  uri: string,
-  ownerIdentity?: string,
-): boolean {
-  if (ownerIdentity === undefined) {
-    return true;
-  }
+function isManagedImageOwnedBy(uri: string, ownerIdentity: string): boolean {
   const normalizedOwner = requireOwnerIdentity(ownerIdentity);
   return readManagedImageOwnerPart(uri) === normalizedOwner;
 }
@@ -531,7 +518,6 @@ function listManagedScanImageFiles(): File[] {
   const files = new Map<string, File>();
   const visitedDirectories = new Set<string>();
   const rootDirectories = [
-    getManagedScanImageDirectory(),
     getManagedImageRootDirectory(),
     ...LEGACY_MANAGED_IMAGE_ROOTS.flatMap((root) => [
       new Directory(root),

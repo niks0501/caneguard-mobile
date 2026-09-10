@@ -54,7 +54,7 @@ const SUBMISSION_IMAGE_MAX_DIMENSIONS = [
 ] as const;
 
 export interface SubmissionImagePreparationInput {
-  ownerIdentity?: string;
+  ownerIdentity: string;
   recordId: string;
   sourceHeight: number | null;
   sourceMimeType: string | null;
@@ -399,9 +399,7 @@ function isLegacyUnsupportedSource(
 }
 
 function validatePreparationInput(input: SubmissionImagePreparationInput): void {
-  if (input.ownerIdentity !== undefined) {
-    requireOwnerIdentity(input.ownerIdentity);
-  }
+  requireOwnerIdentity(input.ownerIdentity);
   if (!UUID_V4_PATTERN.test(input.recordId)) {
     throw new StorageError(
       'INVALID_SCAN_RECORD',

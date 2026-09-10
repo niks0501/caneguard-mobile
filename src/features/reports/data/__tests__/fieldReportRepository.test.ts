@@ -10,6 +10,7 @@ import { drizzle } from 'drizzle-orm/expo-sqlite';
 import type { SQLiteDatabase, SQLiteStatement } from 'expo-sqlite';
 
 import type { CaneGuardDatabase } from '@/database/database';
+import { LEGACY_UNASSIGNED_OWNER_IDENTITY } from '@/database/ownerIdentity';
 import { StorageError } from '@/database/errors';
 import * as schema from '@/database/schema';
 import { getSubmissionImageUri } from '@/features/records/services/scanImageStorage';
@@ -791,6 +792,40 @@ describe('Field Report draft repository', () => {
     expect(native.prepare('SELECT sync_status FROM field_reports').get()).toEqual({
       sync_status: 'local_only',
     });
+    native.close();
+  });
+
+  it('does not queue a report whose scan was quarantined during owner migration', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveManualMapLocation(database, REPORT_ID, SUBMITTER_ID, {
+      latitude: 14.071,
+      longitude: 120.635,
+      selectedAt: '2026-08-10T02:00:00.000Z',
+      updatedAt: '2026-08-10T02:00:01.000Z',
+    });
+    await finalizeFieldReport(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      {
+        farmerOrFarmOwnerName: 'Maria Santos',
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
+        barangay: 'Lumbangan',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        updatedAt: '2026-08-10T03:00:00.000Z',
+      },
+      IMAGE_EXISTS,
+    );
+    native
+      .prepare('UPDATE scan_records SET owner_identity = ? WHERE id = ?')
+      .run(LEGACY_UNASSIGNED_OWNER_IDENTITY, SCAN_ID);
+
+    await expect(
+      findFieldReportSyncCandidates(database, SUBMITTER_ID, 10),
+    ).resolves.toEqual([]);
     native.close();
   });
 

@@ -1,34 +1,28 @@
 # Project Verification Commands
 
-Scaffold template — copy this into your project root and fill in the commands that exist.
+## Fast checks
 
-## React / Vite / Next.js
-- install: `npm install`
 - lint: `npm run lint`
-- typecheck: `npm run typecheck`
-- test: `npm test`
-- build: `npm run build`
+- typecheck/static analysis: `npm run typecheck`
+- focused test: `npm test -- --runInBand <test-file>`
+- agent-facing fast gate: `npm run verify:fast`
 
-## Laravel
-- install: `composer install && npm install`
-- lint: `./vendor/bin/pint --test`
-- test: `php artisan test`
-- build: `npm run build`
+`verify:fast` composes lint, TypeScript, and the existing Jest/jest-expo suite with configured React Native Testing Library coverage. It does not start Metro, an emulator, Agent Device, or any E2E flow.
 
-## Python / Django
-- install: `pip install -r requirements.txt`
-- lint: `ruff check .`
-- typecheck: `mypy .`
-- test: `pytest`
-- build: (none)
+## Broader checks
 
-## Go
-- install: `go mod tidy`
-- lint: `golangci-lint run`
-- test: `go test ./...`
-- build: `go build ./...`
+- test suite: `npm test`
+- coverage: `npm run test:coverage`
+- database schema: `npm run db:check`
+- E2E: `npm run e2e` (separate escalated native/device gate)
 
-## Rule
-- Run only commands that actually exist in package.json, composer.json, requirements.txt, go.mod, or project scripts.
-- Never invent long-running E2E checks unless explicitly requested.
-- Prefer `npm run` scripts over global tools when both exist.
+## Manual verification
+
+Native-boundary behavior such as biometrics, image picker, permissions, secure storage, notifications, TFLite, and device persistence uses the existing mock/abstraction tests for ordinary verification. Use a small representative native/device check only when the E2E decision gate justifies it.
+
+## Rules
+
+- Run targeted tests before `npm run verify:fast`.
+- Do not run E2E as part of `verify:fast`.
+- Run only commands that actually exist in `package.json` or project scripts.
+- Prefer deterministic emulator/ADB mechanisms over repeated attempts to fight native dialogs.

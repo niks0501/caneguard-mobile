@@ -72,6 +72,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
+    "verify:fast": "npm run lint && npm run typecheck && npm run test:coverage -- --runInBand",
     "qa:config": "node ./scripts/validate-qa-env.js --config-only",
     "qa:preflight": "node ./scripts/validate-qa-env.js --require-qa",
     "qa:export": "node ./scripts/qa-export.js",

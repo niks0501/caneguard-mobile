@@ -12,6 +12,7 @@ describe('diseaseCatalog', () => {
           displayName: expect.any(String),
           shortDescription: expect.any(String),
           resultMessage: expect.any(String),
+          decisionSupportWording: expect.any(String),
           icon: expect.any(String),
           themeToken: {
             foreground: expect.any(String),
@@ -20,6 +21,11 @@ describe('diseaseCatalog', () => {
         }),
       );
     }
+  });
+
+  it('uses observational, non-diagnostic wording for Smut', () => {
+    expect(diseaseCatalog.smut.shortDescription).toMatch(/whip-like/i);
+    expect(diseaseCatalog.smut.decisionSupportWording).toMatch(/does not|not.*confirmation/i);
   });
 
   it('uses non-disease wording for the healthy result', () => {

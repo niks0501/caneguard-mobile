@@ -14,6 +14,7 @@ import m0009 from './0009_scope_field_validation_assignment_cache_by_owner.sql';
 import m0010 from './0010_numerous_princess_powerful.sql';
 import m0011 from './0011_tidy_meteorite.sql';
 import m0012 from './0012_dapper_sumo.sql';
+import m0013 from './0013_v1_local_scan_migration.sql';
 
 export default {
   journal,
@@ -31,5 +32,6 @@ export default {
     m0010,
     m0011,
     m0012,
+    m0013,
   },
 };

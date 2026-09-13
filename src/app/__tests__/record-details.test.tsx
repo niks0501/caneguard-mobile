@@ -69,6 +69,7 @@ const DETAILS: ScanRecordDetails = {
   sourceHeight: 900,
   checklistConsistency: 'consistent',
   reportedSeverity: 'Moderate',
+  decisionSupportWording: 'Possible result only. This output does not confirm a disease.',
   modelVersion: 'v0.1-baseline',
   preprocessMs: 4.25,
   inferenceMs: 8.5,

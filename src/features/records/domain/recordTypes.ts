@@ -45,6 +45,7 @@ export interface ScanRecordDetails extends ScanRecordListItem {
   ownerIdentity: string;
   checklistConsistency: ChecklistConsistency;
   classScores: StoredClassScore[];
+  decisionSupportWording: string;
   imageMimeType: string | null;
   imageSizeBytes: number | null;
   imageSourceType: ScanSourceType;
@@ -89,6 +90,7 @@ export interface CompletedScanDraft {
   classScores: ClassScore[];
   confidence: number;
   createdAt: string;
+  decisionSupportWording: string;
   id: string;
   imageSourceType: ScanSourceType;
   inferenceMs: number;

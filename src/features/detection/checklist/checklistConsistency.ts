@@ -1,10 +1,9 @@
-import type { ModelLabel } from '@/features/detection/constants/modelContract';
+import {
+  MODEL_LABELS,
+  type ModelLabel,
+} from '@/features/detection/constants/modelContract';
 
-const CHECKLIST_MODEL_LABELS: readonly ModelLabel[] = [
-  'healthy',
-  'mosaic',
-  'rust',
-];
+const CHECKLIST_MODEL_LABELS: readonly ModelLabel[] = MODEL_LABELS;
 
 const MOSAIC_OBSERVATION = {
   id: 'mosaic',
@@ -21,9 +20,14 @@ const YELLOW_MIDRIB_OBSERVATION = {
   label: 'Bright yellow midrib on lower or older leaves, or yellowing spreading outward from the midrib',
 } as const;
 
+const SMUT_OBSERVATION = {
+  id: 'smut',
+  label: 'Dark, whip-like growth emerging from the central shoot or stalk',
+} as const;
+
 const NO_SUPPORTED_PATTERN_OBSERVATION = {
   id: 'none',
-  label: 'No visible symptom from Mosaic or Rust',
+  label: 'No visible symptom from Mosaic, Rust, or Smut',
 } as const;
 
 const SOMETHING_ELSE_OBSERVATION = {
@@ -47,12 +51,15 @@ const UNABLE_TO_TELL_OBSERVATION = {
  * - APS Plant Health Progress sugarcane disease profile,
  *   DOI 10.1094/PHP-02-24-0013-DG.
  * - UF/IFAS EDIS SS-AGR-256, Sugarcane Yellow Leaf Disease.
+ * - UF/IFAS EDIS PI207, Florida Crop/Pest Profile: Sugarcane, and
+ *   UF/IFAS EDIS SC014, Sugarcane Smut.
  * These sources guide neutral pattern descriptions only. A field observation
  * is not diagnostic proof and must remain separate from model evidence.
  */
 export const CHECKLIST_OBSERVATIONS = [
   MOSAIC_OBSERVATION,
   RUST_OBSERVATION,
+  SMUT_OBSERVATION,
   YELLOW_MIDRIB_OBSERVATION,
   NO_SUPPORTED_PATTERN_OBSERVATION,
   SOMETHING_ELSE_OBSERVATION,
@@ -73,6 +80,7 @@ export const GUIDED_VALIDATION_QUESTIONS = [
     options: [
       MOSAIC_OBSERVATION,
       RUST_OBSERVATION,
+      SMUT_OBSERVATION,
       YELLOW_MIDRIB_OBSERVATION,
       NO_SUPPORTED_PATTERN_OBSERVATION,
       SOMETHING_ELSE_OBSERVATION,

@@ -85,6 +85,7 @@ export function mapScanRecordDetails(
     checklistConsistency: row.checklistConsistency,
     reportedSeverity: row.reportedSeverity,
     modelVersion: row.modelVersion,
+    decisionSupportWording: row.decisionSupportWording,
     preprocessMs: row.preprocessMs,
     inferenceMs: row.inferenceMs,
     totalMs: row.totalMs,

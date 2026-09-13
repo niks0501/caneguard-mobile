@@ -25,13 +25,13 @@ type QuickAction = {
   onPress: () => void;
 };
 
-type ReferenceTone = 'healthy' | 'mosaic' | 'rust';
+type ReferenceTone = 'healthy' | 'mosaic' | 'rust' | 'smut';
 
 type ReferenceClass = {
-  name: 'Healthy' | 'Mosaic' | 'Rust';
+  name: 'Healthy' | 'Mosaic' | 'Rust' | 'Smut';
   tone: ReferenceTone;
   description: string;
-  image: number;
+  image?: number;
 };
 
 export const REFERENCE_CLASSES: readonly ReferenceClass[] = [
@@ -52,6 +52,11 @@ export const REFERENCE_CLASSES: readonly ReferenceClass[] = [
     tone: 'rust',
     description: 'Orange-brown spots or pustules',
     image: require('../../assets/images/sugarcane-diseases/reference_rust.jpg'),
+  },
+  {
+    name: 'Smut',
+    tone: 'smut',
+    description: 'Dark, whip-like growth emerging from the central shoot or stalk',
   },
 ];
 
@@ -148,10 +153,10 @@ export default function HomeScreen() {
 
               <View style={styles.referenceHeading}>
                 <SectionTitle label="DISEASE REFERENCE" />
-                <Text style={[styles.referenceNote, { color: theme.textSecondary }]}>Education only · supplied photos</Text>
+                <Text style={[styles.referenceNote, { color: theme.textSecondary }]}>Education only · supplied photos and validated pattern descriptions</Text>
               </View>
               <Text style={[styles.referenceIntro, { color: theme.textSecondary }]}>
-                Healthy, Mosaic, and Rust are the current supported reference classes. Reference photos are supplied locally; source and license evidence still needs to be recorded before final gallery acceptance.
+                These are observational references for the four Model V1 classes. They support decision-making only and do not confirm a disease.
               </Text>
               <View style={styles.referenceList}>
                 {REFERENCE_CLASSES.map((reference) => (
@@ -229,12 +234,20 @@ function ReferenceCard({ reference }: { reference: ReferenceClass }) {
         styles.referenceCard,
         { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
       ]}>
-      <Image
-        accessibilityLabel={`${reference.name} reference photo`}
-        source={reference.image}
-        resizeMode="cover"
-        style={styles.referenceImage}
-      />
+      {reference.image ? (
+        <Image
+          accessibilityLabel={`${reference.name} reference photo`}
+          source={reference.image}
+          resizeMode="cover"
+          style={styles.referenceImage}
+        />
+      ) : (
+        <View
+          accessibilityLabel={`${reference.name} reference pattern`}
+          style={[styles.referencePlaceholder, { backgroundColor: theme.surfaceMuted }]}>
+          <Feather name="eye" size={28} color={toneColor} />
+        </View>
+      )}
       <View style={styles.referenceCopy}>
         <View style={styles.referenceTitleRow}>
           <View style={[styles.referenceDot, { backgroundColor: toneColor }]} />
@@ -243,7 +256,11 @@ function ReferenceCard({ reference }: { reference: ReferenceClass }) {
         <Text style={[styles.referenceDescription, { color: theme.textSecondary }]}>
           {reference.description}
         </Text>
-        <Text style={[styles.referenceStatus, { color: theme.textSecondary }]}>Photo supplied · license evidence pending</Text>
+        <Text style={[styles.referenceStatus, { color: theme.textSecondary }]}>
+          {reference.image
+            ? 'Photo supplied · license evidence pending'
+            : 'Pattern description only · observational reference'}
+        </Text>
       </View>
     </View>
   );
@@ -325,6 +342,13 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: Radius.lg,
+  },
+  referencePlaceholder: {
+    width: 96,
+    height: 96,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   referenceCopy: { flex: 1, minHeight: 96, justifyContent: 'center', gap: Spacing.xs },
   referenceTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },

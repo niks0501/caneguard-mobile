@@ -2,6 +2,7 @@ import {
   CHECKLIST_OBSERVATIONS,
   getChecklistConsistency,
 } from '@/features/detection/checklist/checklistConsistency';
+import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import {
   LEGACY_MODEL_LABELS,
   LEGACY_MODEL_VERSION,
@@ -76,6 +77,9 @@ export function createCompletedScanDraft(
       state.result.predictedLabel,
       state.selectedSymptoms,
     ),
+    decisionSupportWording:
+      state.result.decisionSupportWording ??
+      diseaseCatalog[state.result.predictedLabel].decisionSupportWording,
     reportedSeverity: state.reportedSeverity,
     qualityWarnings: [...(state.qualityAssessment?.warnings ?? [])],
     // The scan-session barangay capture path was removed; the legacy scan
@@ -116,6 +120,9 @@ export function validateCompletedScanDraft(draft: CompletedScanDraft): void {
 
   if (!draft.modelVersion.trim()) {
     invalid('The model version is required.');
+  }
+  if (!draft.decisionSupportWording.trim()) {
+    invalid('Decision-support wording is required.');
   }
   if (draft.barangay.trim().length > 120) {
     invalid('The legacy scan barangay is too long.');

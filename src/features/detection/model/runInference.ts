@@ -1,3 +1,4 @@
+import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import {
   MODEL_INPUT,
   MODEL_VERSION,
@@ -75,5 +76,7 @@ export async function runInference(
       totalMs: preprocessMs + inferenceMs,
     },
     modelVersion: MODEL_VERSION,
+    decisionSupportWording:
+      diseaseCatalog[mappedOutput.predictedLabel].decisionSupportWording,
   };
 }

@@ -133,6 +133,7 @@ const mockScan: ScanRecordDetails = {
   sourceHeight: 900,
   checklistConsistency: 'consistent',
   reportedSeverity: null,
+  decisionSupportWording: 'Possible result only. This output does not confirm a disease.',
   modelVersion: 'v0.1-baseline',
   preprocessMs: 4,
   inferenceMs: 8,

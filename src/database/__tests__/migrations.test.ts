@@ -18,6 +18,7 @@ const migration9 = readMigration('0009_scope_field_validation_assignment_cache_b
 const migration10 = readMigration('0010_numerous_princess_powerful.sql');
 const migration11 = readMigration('0011_tidy_meteorite.sql');
 const migration12 = readMigration('0012_dapper_sumo.sql');
+const migration13 = readMigration('0013_v1_local_scan_migration.sql');
 const migrationJournal = migrationBundle.journal;
 
 function readMigration(filename: string): string {
@@ -47,6 +48,7 @@ function applyLatest(database: DatabaseSync): void {
   database.exec(migration10);
   database.exec(migration11);
   database.exec(migration12);
+  database.exec(migration13);
 }
 
 function insertScanRecord(
@@ -200,6 +202,67 @@ describe('CaneGuard database migrations', () => {
     expect(
       database.prepare('SELECT owner_identity FROM scan_records').get(),
     ).toEqual({ owner_identity: LEGACY_UNASSIGNED_OWNER_IDENTITY });
+    database.close();
+  });
+
+  it('removes unsynchronized V0 scans and local reports while preserving synchronized server evidence', () => {
+    const database = openDatabase();
+    database.exec(migration0);
+    database.exec(migration1);
+    database.exec(migration2);
+    database.exec(migration3);
+    database.exec(migration4);
+    database.exec(migration5);
+    database.exec(migration6);
+    database.exec(migration7);
+    database.exec(migration8);
+    database.exec(migration9);
+    database.exec(migration10);
+    database.exec(migration11);
+    database.exec(migration12);
+
+    const scanIds = {
+      scanOnly: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+      draft: 'c863a5af-e9ad-44fe-a0dc-73f9d3436cac',
+      pending: '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+      failed: 'd4f6c5e6-9c02-4d4e-8e8b-42e0c85df0fb',
+      synchronized: '51214146-7439-48e0-aef4-d0e003f194b4',
+    } as const;
+    for (const id of Object.values(scanIds)) {
+      insertScanRecord(database, id);
+    }
+    const timestamp = '2026-08-10T01:00:00.000Z';
+    const report = database.prepare(`
+      INSERT INTO field_reports (
+        id, scan_record_id, authoring_state, observed_at, sync_status,
+        remote_id, last_synced_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    report.run('report-draft', scanIds.draft, 'draft', timestamp, 'local_only', null, null, timestamp, timestamp);
+    report.run('report-pending', scanIds.pending, 'finalized', timestamp, 'pending', null, null, timestamp, timestamp);
+    report.run('report-failed', scanIds.failed, 'finalized', timestamp, 'failed', null, null, timestamp, timestamp);
+    report.run('report-synced', scanIds.synchronized, 'finalized', timestamp, 'synced', 'remote-84', timestamp, timestamp, timestamp);
+
+    database.exec(migration13);
+
+    expect(
+      database.prepare('SELECT id FROM scan_records ORDER BY id').all(),
+    ).toEqual([{ id: scanIds.synchronized }]);
+    expect(
+      database.prepare('SELECT id, scan_record_id, sync_status, remote_id FROM field_reports').all(),
+    ).toEqual([
+      {
+        id: 'report-synced',
+        scan_record_id: scanIds.synchronized,
+        sync_status: 'synced',
+        remote_id: 'remote-84',
+      },
+    ]);
+    expect(
+      database.prepare('SELECT decision_support_wording FROM scan_records').get(),
+    ).toEqual({
+      decision_support_wording: 'Possible result only. This output does not confirm a disease.',
+    });
     database.close();
   });
 
@@ -434,6 +497,7 @@ describe('CaneGuard database migrations', () => {
       '0010_numerous_princess_powerful',
       '0011_tidy_meteorite',
       '0012_dapper_sumo',
+      '0013_v1_local_scan_migration',
     ]);
     expect(Object.keys(migrationBundle.migrations)).toEqual([
       'm0000',
@@ -449,6 +513,7 @@ describe('CaneGuard database migrations', () => {
       'm0010',
       'm0011',
       'm0012',
+      'm0013',
     ]);
     expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
       migration0,
@@ -464,6 +529,7 @@ describe('CaneGuard database migrations', () => {
       migration10,
       migration11,
       migration12,
+      migration13,
     ]);
   });
 });

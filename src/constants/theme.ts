@@ -44,8 +44,6 @@ export const Colors = {
     infoBg: '#E3F2FD',
     healthy: '#2E7D32',
     healthyBg: '#E8F5E9',
-    downyMildew: '#1E88E5',
-    downyMildewBg: '#E3F2FD',
     smut: '#7B2CBF',
     smutBg: '#F3E8FF',
     mosaic: '#F9A825',
@@ -81,8 +79,6 @@ export const Colors = {
     infoBg: '#173049',
     healthy: '#72B77B',
     healthyBg: '#17351C',
-    downyMildew: '#74A9D9',
-    downyMildewBg: '#173049',
     smut: '#B890E8',
     smutBg: '#2E1C45',
     mosaic: '#EFD061',
@@ -166,7 +162,6 @@ export const Shadows = {
 
 export const DiseaseTokens = {
   healthy: { label: 'Healthy Sugarcane', color: Colors.light.healthy, background: Colors.light.healthyBg },
-  downyMildew: { label: 'Downy Mildew', color: Colors.light.downyMildew, background: Colors.light.downyMildewBg },
   smut: { label: 'Sugarcane Smut', color: Colors.light.smut, background: Colors.light.smutBg },
   mosaic: { label: 'Sugarcane Mosaic Disease', color: Colors.light.mosaic, background: Colors.light.mosaicBg },
   rust: { label: 'Sugarcane Rust', color: Colors.light.rust, background: Colors.light.rustBg },

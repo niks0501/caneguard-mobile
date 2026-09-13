@@ -27,6 +27,10 @@ import {
   MODEL_VERSION,
   type ModelLabel,
 } from '@/features/detection/constants/modelContract';
+import {
+  V1_CONFIDENCE_CAUTION_THRESHOLD,
+  isBelowV1ConfidenceCautionThreshold,
+} from '@/features/detection/constants/confidenceCaution';
 import { useScanSession } from '@/features/detection/context/useScanSession';
 import {
   getSessionStateErrorMessage,
@@ -35,8 +39,6 @@ import {
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import { useSaveCompletedScan } from '@/features/records/hooks/useSaveCompletedScan';
 import { useTheme } from '@/hooks/use-theme';
-
-const PROTOTYPE_LOW_SCORE_THRESHOLD = 0.5;
 
 const CONSISTENCY_PRESENTATION: Record<
   ChecklistConsistency,
@@ -171,7 +173,7 @@ export default function AnalysisResultScreen() {
   const consistencyPresentation = CONSISTENCY_PRESENTATION[consistency];
   const diseaseColor = theme[metadata.themeToken.foreground];
   const diseaseBackground = theme[metadata.themeToken.background];
-  const isLowScore = result.confidence < PROTOTYPE_LOW_SCORE_THRESHOLD;
+  const isLowScore = isBelowV1ConfidenceCautionThreshold(result.confidence);
   const resultTitle =
     result.predictedLabel === 'healthy'
       ? metadata.displayName
@@ -209,6 +211,11 @@ export default function AnalysisResultScreen() {
               </Text>
               <Text style={[styles.description, { color: theme.textSecondary }]}>
                 {metadata.shortDescription}
+              </Text>
+              <Text
+                testID="scan.decision-support-wording"
+                style={[styles.advisory, { color: theme.textSecondary }]}>
+                {result.decisionSupportWording ?? metadata.decisionSupportWording}
               </Text>
               <View style={[styles.confidence, { backgroundColor: diseaseBackground }]}>
                 <Text style={[styles.confidenceLabel, { color: theme.textSecondary }]}>
@@ -302,8 +309,7 @@ export default function AnalysisResultScreen() {
                 ]}>
                 <Feather name="alert-triangle" size={20} color={theme.warning} />
                 <Text style={[styles.cautionText, { color: theme.text }]}>
-                  Prototype caution: the highest class score is below 50%. This
-                  presentation rule is not a calibrated reliability threshold.
+                  Confidence caution: this result is below the V1 caution threshold of {formatThreshold(V1_CONFIDENCE_CAUTION_THRESHOLD)}. You can still save or report it; consider retaking the image or consulting an agricultural expert.
                 </Text>
               </View>
             ) : null}
@@ -465,6 +471,10 @@ function formatPercentage(score: number) {
   return `${Math.round(score * 100)}%`;
 }
 
+function formatThreshold(score: number) {
+  return `${(score * 100).toFixed(1)}%`;
+}
+
 function SectionCard({
   title,
   children,
@@ -530,6 +540,7 @@ const styles = StyleSheet.create({
   diseaseName: { ...Typography.title, fontWeight: '800' },
   resultMessage: { ...Typography.body, fontWeight: '700' },
   description: { ...Typography.bodySmall },
+  advisory: { ...Typography.bodySmall, fontWeight: '700' },
   confidence: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.xs },
   confidenceLabel: { ...Typography.caption, fontWeight: '800' },
   confidenceValue: { ...Typography.title, fontWeight: '800' },

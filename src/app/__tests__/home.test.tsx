@@ -88,8 +88,9 @@ describe('HomeScreen', () => {
     expect(screen.getByText('Healthy')).toBeOnTheScreen();
     expect(screen.getByText('Mosaic')).toBeOnTheScreen();
     expect(screen.getByText('Rust')).toBeOnTheScreen();
-    expect(screen.queryByText(/Downy Mildew|Smut/i)).not.toBeOnTheScreen();
-    expect(screen.getByText(/Reference photos are supplied locally/)).toBeOnTheScreen();
+    expect(screen.getByText('Smut')).toBeOnTheScreen();
+    expect(screen.queryByText(/Downy Mildew/i)).not.toBeOnTheScreen();
+    expect(screen.getByText(/observational references for the four Model V1 classes/)).toBeOnTheScreen();
     expect(screen.getByLabelText('Healthy reference photo')).toHaveProp(
       'source',
       require('../../../assets/images/sugarcane-diseases/reference_healthy.jpg'),
@@ -102,6 +103,7 @@ describe('HomeScreen', () => {
       'source',
       require('../../../assets/images/sugarcane-diseases/reference_rust.jpg'),
     );
+    expect(screen.getByLabelText('Smut reference pattern')).toBeOnTheScreen();
   });
 
   it('keeps the live sync row linked to Activity without adding a sync shortcut', async () => {

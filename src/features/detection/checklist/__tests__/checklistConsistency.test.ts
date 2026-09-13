@@ -25,6 +25,10 @@ const MATRIX: MatrixCase[] = [
   ['rust', 'inconsistent', ['mosaic']],
   ['rust', 'not-applicable', ['mosaic', 'rust']],
   ['rust', 'not-enough-information', []],
+  ['smut', 'consistent', ['smut']],
+  ['smut', 'inconsistent', ['rust']],
+  ['smut', 'not-applicable', ['smut', 'rust']],
+  ['smut', 'not-enough-information', []],
 ];
 
 describe('getChecklistConsistency', () => {
@@ -38,6 +42,7 @@ describe('getChecklistConsistency', () => {
       expect(questions[0].options.map(({ id }) => id)).toEqual([
         'mosaic',
         'rust',
+        'smut',
         'yellow-midrib',
         'none',
         'something-else',
@@ -45,10 +50,11 @@ describe('getChecklistConsistency', () => {
       ]);
     },
   );
-  it('does not compare a Model V1 smut result with the Model V0 checklist', () => {
-    expect(getGuidedValidationQuestions('smut')).toEqual([]);
-    expect(getChecklistConsistency('smut', ['mosaic'])).toBe('not-applicable');
-    expect(getChecklistConsistency('smut', [])).toBe('not-applicable');
+  it('compares Smut with an independent observational Smut option', () => {
+    expect(getGuidedValidationQuestions('smut')).toHaveLength(1);
+    expect(getChecklistConsistency('smut', ['smut'])).toBe('consistent');
+    expect(getChecklistConsistency('smut', ['mosaic'])).toBe('inconsistent');
+    expect(getChecklistConsistency('smut', [])).toBe('not-enough-information');
   });
 
   it.each(MATRIX)(

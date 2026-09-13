@@ -33,9 +33,17 @@ export function calculateAspectPreservingResize(
   const scale = Math.min(TARGET_WIDTH / sourceWidth, TARGET_HEIGHT / sourceHeight);
 
   return {
-    width: Math.max(1, Math.min(TARGET_WIDTH, Math.round(sourceWidth * scale))),
-    height: Math.max(1, Math.min(TARGET_HEIGHT, Math.round(sourceHeight * scale))),
+    width: Math.max(1, Math.min(TARGET_WIDTH, roundTiesToEven(sourceWidth * scale))),
+    height: Math.max(1, Math.min(TARGET_HEIGHT, roundTiesToEven(sourceHeight * scale))),
   };
+}
+
+function roundTiesToEven(value: number): number {
+  const lower = Math.floor(value);
+  const fraction = value - lower;
+  if (fraction < 0.5) return lower;
+  if (fraction > 0.5) return lower + 1;
+  return lower % 2 === 0 ? lower : lower + 1;
 }
 
 export function createLetterboxGeometry(

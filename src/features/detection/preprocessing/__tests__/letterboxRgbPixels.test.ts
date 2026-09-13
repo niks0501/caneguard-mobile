@@ -14,6 +14,7 @@ describe('letterbox preprocessing geometry', () => {
   it.each([
     [3000, 4000, { width: 168, height: 224 }],
     [1589, 2116, { width: 168, height: 224 }],
+    [504, 512, { width: 220, height: 224 }],
     [448, 800, { width: 125, height: 224 }],
     [224, 224, { width: 224, height: 224 }],
   ])('fits %s × %s without stretching', (width, height, expected) => {

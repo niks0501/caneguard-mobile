@@ -1680,15 +1680,15 @@
     "semantic_hash": ""
   },
   "src/features/detection/preprocessing/__tests__/letterboxRgbPixels.test.ts": {
-    "mtime": 1789307007.2790349,
-    "seen": 1789307932.5356894,
-    "ast_hash": "a6e1d706086540892a902c924445eede",
+    "mtime": 1789309254.5171192,
+    "seen": 1789309262.119864,
+    "ast_hash": "e3fb8f3f0abac67bb53a61b8c08da319",
     "semantic_hash": ""
   },
   "src/features/detection/preprocessing/letterboxRgbPixels.ts": {
-    "mtime": 1789307007.2790349,
-    "seen": 1789307932.5356932,
-    "ast_hash": "86304e1791f9448ea86602b17b774ba5",
+    "mtime": 1789309249.5333323,
+    "seen": 1789309262.1198688,
+    "ast_hash": "2d82f57e1cb64e91a23aae76b417df0c",
     "semantic_hash": ""
   }
 }

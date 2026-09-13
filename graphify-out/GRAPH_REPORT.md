@@ -1,16 +1,16 @@
 # Graph Report - 01M2DG4BRS96HKRJQ2B9TYZAJ5  (2026-09-13)
 
 ## Corpus Check
-- 282 files · ~134,726 words
+- 282 files · ~134,776 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1841 nodes · 5384 edges · 78 communities (75 shown, 3 thin omitted)
+- 1842 nodes · 5386 edges · 69 communities (65 shown, 4 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 54 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `bd3b13c8`
+- Built from commit: `42c1b825`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -18,80 +18,71 @@
 - mobileAuthApi.ts
 - reportMultipartMapper.ts
 - useTheme
-- fieldReportReviewRepository.ts
+- mobileReportStatusesApi.ts
 - global.d.ts
 - StorageError
 - Q: Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md
-- fieldValidationPhotoStorage.ts
+- localDataLifecycle.test.ts
 - mobileNotificationsApi.ts
-- CaneGuardDatabase
+- scanRecordRepository.ts
 - preprocessImage.ts
 - AuthProvider.test.tsx
 - recordValidation.ts
 - ActivityScreen.tsx
-- fieldReportValidation.ts
+- fieldReportRepository.ts
 - checklistConsistency.ts
 - Q: How should Phase 5 TFLite inference connect the existing preprocessing contract, model constants and detection UI, and what comparable tests and runtime APIs already exist?
-- fieldReportSyncRepository.ts
+- SyncProvider.tsx
 - migrations.test.ts
 - scanImageStorage.ts
-- validateModelContract.ts
+- apiClient.ts
 - recordTypes.ts
 - fieldValidationCompletionValidation.ts
 - submissionImageStorage.ts
-- scan.test.tsx
-- Typography
+- model-debug.tsx
+- ComponentTokens
 - schema.ts
-- _layout.tsx
+- useAuth
 - referenceDataTypes.ts
 - readPickerOutcome.ts
-- inferenceErrors.ts
+- Spacing
 - online-map-picker.tsx
 - AuthProvider.tsx
 - fieldValidationCompletionRepository.ts
-- notificationCacheRepository.ts
-- scanRecordRepository.ts
+- possibleMatchRepository.test.ts
+- mobileFieldValidationAssignmentsApi.test.ts
 - field-report.tsx
-- syncPendingFieldReports.ts
-- reportRepository.ts
+- syncErrors.ts
+- repositoryContracts.ts
 - possibleMatch.ts
-- analysis-result.tsx
+- scan.tsx
 - useCaneGuardModel.tsx
 - record-details.tsx
 - activity.test.tsx
-- fieldValidationPhotoStorage.test.ts
-- diseaseCatalog.ts
+- mobileReportStatusesApi.test.ts
 - biometricAuth.ts
 - deviceIdentity.ts
-- saveCompletedScan.ts
 - assessImageQuality.ts
-- useMobileNotifications.ts
-- Spacing
+- analysis-result.tsx
 - analysis-result.test.tsx
 - theme.ts
-- symptom-checklist.test.tsx
+- detection/types.ts
 - runInference.ts
 - mobileFieldValidationAssignmentsApi.ts
 - syncFieldValidationCompletion.ts
 - MockFile
-- toStorageError
-- assignmentCacheRepository.ts
+- useFieldValidationAssignment.ts
+- useFieldValidationAssignments.ts
 - modelContract.ts
-- field-validation.tsx
-- fieldReportRepository.ts
+- toStorageError
 - reportReviewTypes.ts
 - home.tsx
-- useAuth.ts
-- syncErrors.ts
-- records.test.tsx
-- saveCompletedScan.test.ts
+- Typography
+- FieldReportSyncRepository
+- ScanRecordListItem
 - useCaneGuardModel.web.tsx
-- auth-bootstrap.test.tsx
-- notificationCacheRepository.test.ts
-- image-preview.test.tsx
 - MockFile
-- phase1LifecycleAcceptance.test.ts
-- detection/types.ts
+- mobileNotificationsApi.test.ts
 
 ## God Nodes (most connected - your core abstractions)
 1. `useTheme()` - 133 edges
@@ -114,193 +105,185 @@
   src/app/field-report.tsx → src/hooks/use-theme.ts
 - `EvidenceRow()` --calls--> `useTheme()`  [EXTRACTED]
   src/app/field-report.tsx → src/hooks/use-theme.ts
-- `EvidenceForm()` --calls--> `useTheme()`  [EXTRACTED]
-  src/app/field-validation.tsx → src/hooks/use-theme.ts
+- `SectionTitle()` --calls--> `useTheme()`  [EXTRACTED]
+  src/app/home.tsx → src/hooks/use-theme.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (78 total, 3 thin omitted)
+## Communities (69 total, 4 thin omitted)
 
 ### Community 0 - "mobileAuthApi.ts"
 Cohesion: 0.09
 Nodes (43): ForgotPasswordScreen(), RegisterScreen(), readParam(), ResetPasswordScreen(), AUTH_ERROR_MESSAGES, authError(), AuthRequestKind, changeEmail() (+35 more)
 
 ### Community 1 - "reportMultipartMapper.ts"
-Cohesion: 0.06
-Nodes (63): LEGACY_MODEL_VERSION, readPersistedArtifact(), isValidSubmissionImageMetadata(), MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES, MOBILE_REPORT_UPLOAD_V1_IMAGE_MIME_TYPES, MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES, normalizeMobileReportImageMimeType(), appendMismatchReported() (+55 more)
+Cohesion: 0.07
+Nodes (56): MOBILE_REPORT_UPLOAD_V1_IMAGE_MIME_TYPES, appendMismatchReported(), appendNumber(), appendOptionalText(), IMAGE_SOURCE_TYPES, invalid(), isIntegerInRange(), isOneOf() (+48 more)
 
 ### Community 2 - "useTheme"
-Cohesion: 0.08
-Nodes (33): MetadataRow(), styles, DebugRow(), DebugRun, Fixture, FIXTURES, styles, DisabledRow() (+25 more)
+Cohesion: 0.10
+Nodes (29): AssignmentSummary(), CompletionStatus(), EvidenceForm(), FieldValidationScreen(), formatTimestamp(), Row(), styles, DisabledRow() (+21 more)
 
-### Community 3 - "fieldReportReviewRepository.ts"
-Cohesion: 0.11
-Nodes (26): ApplyAuthorityReviewResult, applyAuthorityReviewUpdates(), findLastAuthorityReviewFetchedAt(), findLatestAuthorityReviewUpdatedAt(), hasStaleAuthorityReviewCache(), isAtLeastAsNew(), createStatementAdapter(), openTestDatabase() (+18 more)
+### Community 3 - "mobileReportStatusesApi.ts"
+Cohesion: 0.08
+Nodes (45): assertContinuationCheckpoint(), assertUniqueIdentities(), buildInitialPath(), fetchAllMobileReportStatuses(), isAbortError(), isRecord(), mapApiError(), MobileReportStatusesResult (+37 more)
 
 ### Community 5 - "StorageError"
-Cohesion: 0.12
-Nodes (23): CANEGUARD_DATABASE_FILENAME, CaneGuardDatabaseResources, clearCaneGuardDatabaseResourcesForRetry(), createCaneGuardDatabaseResources(), getCaneGuardDatabaseResources(), CaneGuardDatabaseProvider(), DatabaseConnectionAttempt(), DatabaseContext (+15 more)
+Cohesion: 0.08
+Nodes (41): CANEGUARD_DATABASE_FILENAME, CaneGuardDatabase, CaneGuardDatabaseResources, clearCaneGuardDatabaseResourcesForRetry(), createCaneGuardDatabaseResources(), getCaneGuardDatabaseResources(), CaneGuardDatabaseProvider(), DatabaseConnectionAttempt() (+33 more)
 
 ### Community 6 - "Q: Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md"
 Cohesion: 0.40
 Nodes (4): Answer, Outcome, Q: Phase 5 is working. Let's proceed with the next phase, @docs/model-v0-integration-plan/06-symptom-validation-and-result-ui.md, Source Nodes
 
-### Community 7 - "fieldValidationPhotoStorage.ts"
-Cohesion: 0.13
-Nodes (15): createStatementAdapter(), insertCompletion(), MIGRATIONS, openTestDatabase(), readMigration(), deleteFieldValidationPhoto(), FieldValidationPhotoArtifact, FieldValidationPhotoInput (+7 more)
+### Community 7 - "localDataLifecycle.test.ts"
+Cohesion: 0.08
+Nodes (15): createStatementAdapter(), insertCompletion(), insertScan(), MIGRATIONS, openTestDatabase(), readMigration(), deleteFieldValidationPhoto(), getFieldValidationPhotoDirectory() (+7 more)
 
 ### Community 8 - "mobileNotificationsApi.ts"
-Cohesion: 0.18
-Nodes (22): assertContinuationCheckpoint(), assertUniqueIdentities(), buildInitialPath(), fetchAllMobileNotifications(), isAbortError(), isRecord(), malformed(), mapApiError() (+14 more)
+Cohesion: 0.07
+Nodes (53): assertContinuationCheckpoint(), assertUniqueIdentities(), buildInitialPath(), fetchAllMobileNotifications(), isAbortError(), isRecord(), malformed(), mapApiError() (+45 more)
 
-### Community 10 - "CaneGuardDatabase"
-Cohesion: 0.12
-Nodes (21): CaneGuardDatabase, cleanupImages(), clearLocalDataForOwner(), ImageCleanupTargets, LOCAL_DATA_RETENTION_DAYS, purgeExpiredLocalData(), readCleanupTargets(), fieldReports (+13 more)
+### Community 10 - "scanRecordRepository.ts"
+Cohesion: 0.08
+Nodes (42): cleanupImages(), clearLocalDataForOwner(), ImageCleanupTargets, LOCAL_DATA_RETENTION_DAYS, LocalDataCleanupResult, purgeExpiredLocalData(), readCleanupTargets(), LEGACY_UNASSIGNED_OWNER_IDENTITY (+34 more)
 
 ### Community 11 - "preprocessImage.ts"
 Cohesion: 0.13
-Nodes (25): createInputTensor(), InputTensor, DecodedJpeg, decodeJpeg(), calculateAspectPreservingResize(), createLetterboxGeometry(), LetterboxGeometry, letterboxRgbPixels() (+17 more)
+Nodes (25): createInputTensor(), InputTensor, DecodedJpeg, decodeJpeg(), calculateAspectPreservingResize(), createLetterboxGeometry(), letterboxRgbPixels(), roundTiesToEven() (+17 more)
 
 ### Community 12 - "AuthProvider.test.tsx"
-Cohesion: 0.13
-Nodes (27): AuthProvider(), AuthenticatedHomeRoute(), SESSION, SESSION, assertPersistableSession(), BiometricSessionError, BiometricSessionErrorCode, clearLegacyMobileSession() (+19 more)
+Cohesion: 0.14
+Nodes (26): AuthProvider(), SESSION, SESSION, assertPersistableSession(), BiometricSessionError, BiometricSessionErrorCode, clearLegacyMobileSession(), clearMobileSession() (+18 more)
 
 ### Community 13 - "recordValidation.ts"
-Cohesion: 0.33
-Nodes (13): getChecklistConsistency(), createCompletedScanDraft(), invalid(), QUALITY_WARNINGS, REPORTED_SEVERITIES, SYMPTOM_KEYS, validateClassScores(), validateCompletedScanDraft() (+5 more)
+Cohesion: 0.27
+Nodes (15): getChecklistConsistency(), LEGACY_MODEL_LABELS, LEGACY_MODEL_VERSION, createCompletedScanDraft(), invalid(), QUALITY_WARNINGS, REPORTED_SEVERITIES, SYMPTOM_KEYS (+7 more)
 
 ### Community 14 - "ActivityScreen.tsx"
 Cohesion: 0.14
 Nodes (17): ActivityScreen(), formatActivityCount(), getEmptyMessage(), getEmptyTitle(), matchesSearch(), openNotification(), StateCard(), styles (+9 more)
 
-### Community 15 - "fieldReportValidation.ts"
-Cohesion: 0.07
-Nodes (50): DETAILS, mockDatabase, mockDeleteScanRecord, mockRefresh, mockRouterPush, mockRouterReplace, mockUseLocalSearchParams, FieldReportAuthoringState (+42 more)
+### Community 15 - "fieldReportRepository.ts"
+Cohesion: 0.12
+Nodes (38): FieldReportAuthoringState, GpsCaptureOutcome, MobileUserRole, toSubmissionEvidence(), toSubmissionPreparationInput(), FieldReportUploadRecord, CreateFieldReportDraftInput, FIELD_REPORT_SUBMISSION_REQUIREMENTS (+30 more)
 
 ### Community 16 - "checklistConsistency.ts"
-Cohesion: 0.12
-Nodes (14): CHECKLIST_MODEL_LABELS, CHECKLIST_OBSERVATIONS, ChecklistObservation, GUIDED_VALIDATION_MAX_QUESTIONS, GUIDED_VALIDATION_QUESTIONS, GuidedValidationQuestion, MOSAIC_OBSERVATION, NO_SUPPORTED_PATTERN_OBSERVATION (+6 more)
+Cohesion: 0.14
+Nodes (13): CHECKLIST_MODEL_LABELS, ChecklistObservation, ChecklistObservationId, GUIDED_VALIDATION_MAX_QUESTIONS, GuidedValidationQuestion, MOSAIC_OBSERVATION, NO_SUPPORTED_PATTERN_OBSERVATION, RUST_OBSERVATION (+5 more)
 
 ### Community 17 - "Q: How should Phase 5 TFLite inference connect the existing preprocessing contract, model constants and detection UI, and what comparable tests and runtime APIs already exist?"
 Cohesion: 0.40
 Nodes (4): Answer, Outcome, Q: How should Phase 5 TFLite inference connect the existing preprocessing contract, model constants and detection UI, and what comparable tests and runtime APIs already exist?, Source Nodes
 
-### Community 18 - "fieldReportSyncRepository.ts"
-Cohesion: 0.12
-Nodes (30): syncPendingFieldValidationCompletions(), findFieldReportById(), countUnsyncedFieldReports(), createFieldReportSyncRepository(), findFieldReportSyncCandidates(), findFieldReportUploadRecord(), findLastSuccessfulFieldReportSyncAt(), FindSyncCandidatesOptions (+22 more)
+### Community 18 - "SyncProvider.tsx"
+Cohesion: 0.15
+Nodes (24): findLastSuccessfulFieldValidationCompletionSyncAt(), resetStaleSyncingFieldValidationCompletions(), syncPendingFieldValidationCompletions(), countUnsyncedFieldReports(), createFieldReportSyncRepository(), findLastSuccessfulFieldReportSyncAt(), markFieldReportFailed(), markFieldReportPending() (+16 more)
 
 ### Community 19 - "migrations.test.ts"
-Cohesion: 0.10
-Nodes (14): LEGACY_UNASSIGNED_OWNER_IDENTITY, migration0, migration1, migration10, migration11, migration12, migration2, migration3 (+6 more)
+Cohesion: 0.11
+Nodes (13): migration0, migration1, migration10, migration11, migration12, migration2, migration3, migration4 (+5 more)
 
 ### Community 20 - "scanImageStorage.ts"
-Cohesion: 0.11
-Nodes (38): isSafeOwnerIdentity(), useStorageDiagnostics(), assertManagedScanImageUri(), collectManagedScanImageFiles(), CompensationCleanupResult, CopyScanImageInput, copyScanImageToManagedStorage(), DeleteManagedImageResult (+30 more)
+Cohesion: 0.09
+Nodes (44): isSafeOwnerIdentity(), useStorageDiagnostics(), ScanSourceType, SaveCompletedScanOptions, assertManagedScanImageUri(), collectManagedScanImageFiles(), compensateManagedImageCopy(), CompensationCleanupResult (+36 more)
 
-### Community 21 - "validateModelContract.ts"
-Cohesion: 0.43
-Nodes (4): ModelMetadata, tensorMatches(), TensorMetadata, validateModelContract()
+### Community 21 - "apiClient.ts"
+Cohesion: 0.20
+Nodes (17): ApiHttpError, apiRequest(), buildRequestUrl(), createAbortError(), DEFAULT_API_TIMEOUT_MS, initializeCsrf(), normalizePath(), parseRetryAfter() (+9 more)
 
 ### Community 22 - "recordTypes.ts"
-Cohesion: 0.18
-Nodes (16): SyncStatus, ChecklistConsistency, ModelLabel, ClassScore, ReportedSeverity, ScanSourceType, QualityWarning, ScanRecordRepository (+8 more)
+Cohesion: 0.40
+Nodes (9): ChecklistConsistency, ModelLabel, ClassScore, ReportedSeverity, QualityWarning, CompletedScanDraft, DEFAULT_RECORD_PAGE_SIZE, RecordsByLabel (+1 more)
 
 ### Community 23 - "fieldValidationCompletionValidation.ts"
-Cohesion: 0.27
-Nodes (12): FIELD_VALIDATION_GPS_OUTCOMES, FIELD_VALIDATION_TEXT_MAX_LENGTH, invalid(), isGpsOutcome(), isSupportedPhotoMimeType(), isUuid(), normalizeFieldValidationText(), validateFieldValidationCompletionInput() (+4 more)
+Cohesion: 0.19
+Nodes (18): FIELD_VALIDATION_GPS_OUTCOMES, invalid(), isGpsOutcome(), isSupportedPhotoMimeType(), isUuid(), normalizeFieldValidationText(), validateFieldValidationCompletionInput(), validateRequiredText() (+10 more)
 
 ### Community 24 - "submissionImageStorage.ts"
-Cohesion: 0.09
-Nodes (30): insertScan(), persistSubmissionImageMetadata(), getManagedScanImageDirectory(), getSubmissionImageUri(), copyLegacySourceToCanonical(), generateSubmissionDerivative(), getDimensionCandidates(), isCanonicalManagedSourceUri() (+22 more)
-
-### Community 25 - "scan.test.tsx"
-Cohesion: 0.17
-Nodes (10): mockDispatch, mockGetPendingResult, mockLaunchCamera, mockLaunchImageLibrary, mockRequestCameraPermission, mockRouterPush, renderScan(), ScanHarness() (+2 more)
-
-### Community 26 - "Typography"
 Cohesion: 0.10
-Nodes (25): DiseaseBadge(), DiseaseBadgeProps, styles, DiseasePill(), DiseasePillProps, DiseasePillVariant, styles, VARIANT_MAP (+17 more)
+Nodes (36): persistSubmissionImageMetadata(), toPersistenceInput(), getManagedScanImageDirectory(), getSubmissionImageUri(), copyLegacySourceToCanonical(), generateSubmissionDerivative(), getDimensionCandidates(), isCanonicalManagedSourceUri() (+28 more)
+
+### Community 25 - "model-debug.tsx"
+Cohesion: 0.16
+Nodes (13): DebugRow(), DebugRun, Fixture, FIXTURES, formatNumber(), formatScore(), ModelDebugRoute(), ModelDebugScreen() (+5 more)
+
+### Community 26 - "ComponentTokens"
+Cohesion: 0.16
+Nodes (13): AppCardProps, styles, DiseasePill(), DiseasePillProps, DiseasePillVariant, styles, VARIANT_MAP, ComponentTokens (+5 more)
 
 ### Community 27 - "schema.ts"
-Cohesion: 0.10
-Nodes (22): FIELD_REPORT_AUTHORING_STATES, FIELD_REPORT_LOCATION_SOURCES, FieldReportRow, FieldValidationAssignmentRow, FieldValidationCompletionRow, fieldValidationCompletions, GPS_CAPTURE_OUTCOMES, MobileNotificationRow (+14 more)
+Cohesion: 0.09
+Nodes (24): FIELD_REPORT_AUTHORING_STATES, FIELD_REPORT_LOCATION_SOURCES, FieldReportRow, FieldValidationAssignmentRow, fieldValidationAssignments, FieldValidationCompletionRow, fieldValidationCompletions, GPS_CAPTURE_OUTCOMES (+16 more)
 
-### Community 28 - "_layout.tsx"
-Cohesion: 0.16
-Nodes (9): AppNavigator(), styles, ScanSessionProvider(), isThemeScheme(), ThemePreferenceContext, ThemePreferenceContextValue, ThemePreferenceProvider(), restoreThemePreference() (+1 more)
+### Community 28 - "useAuth"
+Cohesion: 0.06
+Nodes (29): AppNavigator(), styles, LoginScreen(), fetchMock, mockReplace, mockUseAuth, mockUseAuth, DETAILS (+21 more)
 
 ### Community 29 - "referenceDataTypes.ts"
-Cohesion: 0.13
-Nodes (27): ReferenceDataState, useLocationReferenceData(), NASUGBU_BARANGAYS, SEED_DEFAULT_REGION, SEED_LOCATION_REFERENCE_DATA, fetchLocationReferenceData(), FetchLocationReferenceOptions, LOCATION_REFERENCE_PATH (+19 more)
+Cohesion: 0.11
+Nodes (31): apiBaseUrl, parseApiBaseUrl(), parseConfiguredApiBaseUrl(), parseQaApiBaseUrl(), ReferenceDataState, useLocationReferenceData(), NASUGBU_BARANGAYS, SEED_DEFAULT_REGION (+23 more)
 
 ### Community 30 - "readPickerOutcome.ts"
 Cohesion: 0.23
 Nodes (11): EXTENSION_TO_FORMAT, hasSupportedImageFormat(), ImageFormatEvidence, MIME_TO_FORMAT, normalizeMimeType(), PickerOutcome, readExtension(), readExtensionFormat() (+3 more)
 
-### Community 31 - "inferenceErrors.ts"
-Cohesion: 0.19
-Nodes (9): ImagePreviewScreen(), getSessionStateErrorMessage(), SessionStateError, SessionStateErrorCode, DetectionError, DetectionErrorStage, getInferenceErrorMessage(), getInferenceStage() (+1 more)
+### Community 31 - "Spacing"
+Cohesion: 0.22
+Nodes (8): styles, SummaryTile(), SummaryTileProps, Spacing, BarangayOption(), BarangayPicker(), filterBarangayOptions(), styles
 
 ### Community 32 - "online-map-picker.tsx"
 Cohesion: 0.12
 Nodes (34): draft(), mockRefresh, mockSaveManualLocation, clampZoom(), MapControl(), MapOverlay(), OnlineMapPicker(), onMapPress() (+26 more)
 
 ### Community 33 - "AuthProvider.tsx"
-Cohesion: 0.12
-Nodes (26): LOCAL_SESSION_MAX_AGE_MS, AuthContext, AuthContextValue, getAuthErrorMessage(), isAuthoritativeSessionRejection(), isBiometricSessionError(), isNamedError(), isStoredSessionExpiredError() (+18 more)
+Cohesion: 0.13
+Nodes (25): LOCAL_SESSION_MAX_AGE_MS, AuthContextValue, getAuthErrorMessage(), isAuthoritativeSessionRejection(), isBiometricSessionError(), isNamedError(), isStoredSessionExpiredError(), shouldDisableBiometricUnlock() (+17 more)
 
 ### Community 34 - "fieldValidationCompletionRepository.ts"
-Cohesion: 0.23
-Nodes (19): countUnsyncedFieldValidationCompletions(), createFieldValidationCompletionSyncRepository(), findFieldValidationCompletion(), findFieldValidationCompletionById(), findFieldValidationCompletionSyncCandidates(), findLastSuccessfulFieldValidationCompletionSyncAt(), markFieldValidationCompletionFailed(), markFieldValidationCompletionPending() (+11 more)
+Cohesion: 0.17
+Nodes (20): countUnsyncedFieldValidationCompletions(), createFieldValidationCompletionSyncRepository(), findFieldValidationCompletion(), findFieldValidationCompletionById(), findFieldValidationCompletionSyncCandidates(), markFieldValidationCompletionFailed(), markFieldValidationCompletionPending(), markFieldValidationCompletionSynced() (+12 more)
 
-### Community 35 - "notificationCacheRepository.ts"
-Cohesion: 0.16
-Nodes (18): mobileNotifications, listCachedMobileNotifications(), replaceCachedMobileNotifications(), requireOwner(), toNotification(), toRow(), MobileNotification, MobileNotificationsState (+10 more)
+### Community 35 - "possibleMatchRepository.test.ts"
+Cohesion: 0.28
+Nodes (4): createStatementAdapter(), insertScan(), openTestDatabase(), readMigration()
 
-### Community 36 - "scanRecordRepository.ts"
-Cohesion: 0.19
-Nodes (12): scanClassScores, scanQualityWarnings, scanRecords, scanSymptoms, StorageDiagnostics, buildConditions(), buildFieldReportJoinCondition(), isDuplicateRecordError() (+4 more)
+### Community 36 - "mobileFieldValidationAssignmentsApi.test.ts"
+Cohesion: 0.32
+Nodes (3): MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE, request, request
 
 ### Community 37 - "field-report.tsx"
-Cohesion: 0.11
-Nodes (25): AuthorityReviewSection(), AutomaticSummaryCard(), canUseManualMap(), DraftFields(), EvidenceRow(), FieldReportFormValues, FinalizedReportSummary(), FinalizeFieldReportFormValues (+17 more)
-
-### Community 38 - "syncPendingFieldReports.ts"
 Cohesion: 0.13
-Nodes (19): FIELD_VALIDATION_SYNC_RETRY_COOLDOWN_MS, FieldValidationCompletionSyncResult, syncFieldValidationCompletion(), ActiveRun, activeRuns, DatabaseRunState, executeBatch(), FieldValidationCompletionSyncBatchResult (+11 more)
+Nodes (22): AuthorityReviewSection(), AutomaticSummaryCard(), canUseManualMap(), DraftFields(), EvidenceRow(), FieldReportFormValues, FinalizedReportSummary(), FinalizeFieldReportFormValues (+14 more)
 
-### Community 39 - "reportRepository.ts"
-Cohesion: 0.17
-Nodes (15): ReportRepository, DateRange, LocalReportSummary, buildDateCondition(), buildPendingReportCondition(), createReportRepository(), DEFAULT_RECENT_RECORD_LIMIT, getLocalReportSummary() (+7 more)
+### Community 38 - "syncErrors.ts"
+Cohesion: 0.09
+Nodes (33): FIELD_VALIDATION_SYNC_RETRY_COOLDOWN_MS, FieldValidationCompletionSyncResult, syncFieldValidationCompletion(), ActiveRun, activeRuns, DatabaseRunState, executeBatch(), FieldValidationCompletionSyncBatchResult (+25 more)
+
+### Community 39 - "repositoryContracts.ts"
+Cohesion: 0.19
+Nodes (8): ReportRepository, ScanRecordRepository, ScanRecordWriteRepository, DateRange, LocalReportSummary, SaveCompletedScanInput, LocalReportOptions, LocalReportState
 
 ### Community 40 - "possibleMatch.ts"
 Cohesion: 0.07
-Nodes (43): FormValues, mockCaptureLocation, mockFinalize, mockPossibleRecentMatchState, mockReferenceDataRefresh, mockRefresh, mockRetryReport, mockSave (+35 more)
+Nodes (42): FormValues, mockCaptureLocation, mockFinalize, mockPossibleRecentMatchState, mockReferenceDataRefresh, mockRefresh, mockRetryReport, mockSave (+34 more)
 
-### Community 41 - "analysis-result.tsx"
-Cohesion: 0.15
-Nodes (17): AnalysisResultScreen(), CONSISTENCY_PRESENTATION, DetailRow(), formatPercentage(), ScoreRow(), SectionCard(), styles, ActiveOperation (+9 more)
+### Community 41 - "scan.tsx"
+Cohesion: 0.11
+Nodes (19): ActiveOperation, clearPendingSource(), IMAGE_PICKER_OPTIONS, rememberPendingSource(), ScanScreen(), styles, takePendingSource(), BottomNav() (+11 more)
 
 ### Community 42 - "useCaneGuardModel.tsx"
-Cohesion: 0.08
-Nodes (26): formatNumber(), formatScore(), ModelDebugRoute(), ModelDebugScreen(), ModelSmokeTestScreen(), mockModelRun, mockPreprocessImage, mockRunInference (+18 more)
+Cohesion: 0.09
+Nodes (22): ModelSmokeTestScreen(), mockPreprocessImage, mockRun, mockRunInference, mockUseCaneGuardModel, mockAsset, mockAssetDownloadAsync, mockLoadTensorflowModel (+14 more)
 
 ### Community 43 - "record-details.tsx"
-Cohesion: 0.19
-Nodes (15): CenteredState(), CONSISTENCY_LABELS, DetailRow(), formatClassLabel(), formatDuration(), formatSavedAt(), getFieldReportAction(), getObservationLabel() (+7 more)
+Cohesion: 0.14
+Nodes (21): CenteredState(), CONSISTENCY_LABELS, DetailRow(), formatClassLabel(), formatDuration(), formatSavedAt(), getFieldReportAction(), getObservationLabel() (+13 more)
 
 ### Community 44 - "activity.test.tsx"
 Cohesion: 0.14
 Nodes (12): ASSIGNMENT, mockAssignmentsState, mockLoadMore, mockNotificationsState, mockRecordsState, mockRefresh, mockRefreshAssignments, mockRefreshNotifications (+4 more)
-
-### Community 45 - "fieldValidationPhotoStorage.test.ts"
-Cohesion: 0.16
-Nodes (6): joinParts(), mockDirectories, MockDirectory, MockFile, MockFileEntry, mockFiles
-
-### Community 46 - "diseaseCatalog.ts"
-Cohesion: 0.50
-Nodes (3): diseaseCatalog, DiseaseCatalogEntry, DiseaseThemeToken
 
 ### Community 47 - "biometricAuth.ts"
 Cohesion: 0.39
@@ -310,69 +293,57 @@ Nodes (7): authenticateWithBiometrics(), getBiometricCapability(), mapAuthentica
 Cohesion: 0.52
 Nodes (4): DEVICE_ID_OPTIONS, DeviceIdentityError, getOrCreateMobileDeviceId(), isOpaqueDeviceId()
 
-### Community 49 - "saveCompletedScan.ts"
-Cohesion: 0.19
-Nodes (11): mockDatabase, mockRandomUUID, mockSaveCompletedScan, INITIAL_STATE, SaveRecordState, SaveRecordStatus, saveCompletedScan(), SaveCompletedScanOptions (+3 more)
-
 ### Community 50 - "assessImageQuality.ts"
 Cohesion: 0.33
 Nodes (3): ImageQualitySourceDimensions, QUALITY_WARNING_MESSAGES, PROTOTYPE_IMAGE_QUALITY_THRESHOLDS
 
-### Community 51 - "useMobileNotifications.ts"
-Cohesion: 0.23
-Nodes (9): MobileAttentionLifecycle(), CACHED, database, listCache, markSessionExpired, Probe(), refreshService, useMobileNotifications() (+1 more)
-
-### Community 52 - "Spacing"
-Cohesion: 0.09
-Nodes (23): styles, SymptomChecklistScreen(), BottomNav(), BottomNavProps, NAV_ITEMS, NavItem, NavTab, styles (+15 more)
+### Community 52 - "analysis-result.tsx"
+Cohesion: 0.10
+Nodes (27): AnalysisResultScreen(), CONSISTENCY_PRESENTATION, DetailRow(), formatPercentage(), ScoreRow(), SectionCard(), styles, ImagePreviewScreen() (+19 more)
 
 ### Community 53 - "analysis-result.test.tsx"
 Cohesion: 0.17
 Nodes (11): createCompletedState(), createResult(), MATRIX, MatrixCase, mockDispatch, mockRouterBack, mockRouterPush, mockRouterReplace (+3 more)
 
 ### Community 54 - "theme.ts"
-Cohesion: 0.11
-Nodes (18): InputRow(), InputRowProps, LoginScreen(), styles, mockUseAuth, styles, ThemedText(), ThemedTextProps (+10 more)
+Cohesion: 0.10
+Nodes (21): InputRow(), InputRowProps, styles, styles, ThemedText(), ThemedTextProps, ThemedView(), ThemedViewProps (+13 more)
 
-### Community 55 - "symptom-checklist.test.tsx"
-Cohesion: 0.21
-Nodes (10): completedResult, completedState, mockDispatch, mockRouterPush, mockRouterReplace, smutState, ScanSessionContext, ScanSessionContextValue (+2 more)
+### Community 55 - "detection/types.ts"
+Cohesion: 0.06
+Nodes (45): mockDispatch, mockModelRun, mockPreprocessImage, mockRouterPush, mockRouterReplace, mockRunInference, mockUseCaneGuardModel, renderPreview() (+37 more)
 
 ### Community 56 - "runInference.ts"
-Cohesion: 0.20
-Nodes (8): asInferenceError(), InferenceError, normalizeScores(), PostprocessedOutput, postprocessOutput(), InferenceRunner, runInference(), softmax()
+Cohesion: 0.14
+Nodes (14): DetectionError, DetectionErrorStage, asInferenceError(), getInferenceErrorMessage(), getInferenceStage(), InferenceError, InferenceErrorCode, normalizeScores() (+6 more)
 
 ### Community 57 - "mobileFieldValidationAssignmentsApi.ts"
-Cohesion: 0.05
-Nodes (72): apiBaseUrl, parseApiBaseUrl(), parseConfiguredApiBaseUrl(), parseQaApiBaseUrl(), MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE, assertContinuationCheckpoint(), assertUniqueIdentities(), buildInitialPath() (+64 more)
+Cohesion: 0.20
+Nodes (26): assertContinuationCheckpoint(), assertUniqueIdentities(), buildInitialPath(), fetchAllMobileFieldValidationAssignments(), isAbortError(), isRecord(), malformed(), mapApiError() (+18 more)
 
 ### Community 58 - "syncFieldValidationCompletion.ts"
 Cohesion: 0.09
-Nodes (21): FieldValidationGpsOutcome, readRemoteId(), uploadMobileFieldValidationCompletion(), appendNumber(), FieldValidationCompletionMapperDependencies, GPS_OUTCOMES, invalid(), mapFieldValidationCompletionToMultipart() (+13 more)
+Nodes (20): FieldValidationGpsOutcome, readRemoteId(), uploadMobileFieldValidationCompletion(), appendNumber(), FieldValidationCompletionMapperDependencies, GPS_OUTCOMES, invalid(), mapFieldValidationCompletionToMultipart() (+12 more)
 
 ### Community 59 - "MockFile"
 Cohesion: 0.14
 Nodes (3): joinParts(), MockDirectory, MockFile
 
-### Community 60 - "toStorageError"
-Cohesion: 0.18
-Nodes (24): FieldReportScreen(), complete, state, useCaneGuardDatabase(), getStorageErrorMessage(), toStorageError(), CompleteFieldValidationInput, useFieldValidationAssignment() (+16 more)
+### Community 60 - "useFieldValidationAssignment.ts"
+Cohesion: 0.12
+Nodes (20): complete, state, findCachedFieldValidationAssignment(), markCachedFieldValidationAssignmentCompleted(), markCachedFieldValidationAssignmentInProgress(), replaceCachedFieldValidationAssignments(), requireOwner(), toAssignment() (+12 more)
 
-### Community 61 - "assignmentCacheRepository.ts"
-Cohesion: 0.13
-Nodes (23): fieldValidationAssignments, FieldValidationAssignmentState, findCachedFieldValidationAssignment(), listCachedFieldValidationAssignments(), markCachedFieldValidationAssignmentCompleted(), markCachedFieldValidationAssignmentInProgress(), replaceCachedFieldValidationAssignments(), requireOwner() (+15 more)
+### Community 61 - "useFieldValidationAssignments.ts"
+Cohesion: 0.16
+Nodes (17): FieldValidationAssignmentState, MobileFieldValidationAssignmentsResult, listCachedFieldValidationAssignments(), ASSIGNMENT, createStatementAdapter(), openTestDatabase(), readMigration(), FieldValidationAssignment (+9 more)
 
 ### Community 62 - "modelContract.ts"
-Cohesion: 0.12
-Nodes (27): DevelopmentModelSmokeTestScreen(), HEALTHY_FIXTURE, HEALTHY_FIXTURE_DIMENSIONS, MetadataRow(), SmokeVerification, styles, IconSize, MODEL_FILENAME (+19 more)
-
-### Community 63 - "field-validation.tsx"
-Cohesion: 0.32
-Nodes (7): AssignmentSummary(), CompletionStatus(), EvidenceForm(), FieldValidationScreen(), formatTimestamp(), Row(), styles
-
-### Community 64 - "fieldReportRepository.ts"
 Cohesion: 0.10
-Nodes (30): requireOwnerIdentity(), cleanupPreparedImage(), createOrGetFieldReportDraft(), finalizeFieldReport(), findFieldReportByScanRecordId(), hasFieldReportOwnedByAnotherSubmitter(), saveFieldReportDraft(), saveGpsCapture() (+22 more)
+Nodes (31): DevelopmentModelSmokeTestScreen(), HEALTHY_FIXTURE, HEALTHY_FIXTURE_DIMENSIONS, MetadataRow(), SmokeVerification, styles, IconSize, diseaseCatalog (+23 more)
+
+### Community 64 - "toStorageError"
+Cohesion: 0.11
+Nodes (30): toStorageError(), createOrGetFieldReportDraft(), finalizeFieldReport(), findFieldReportById(), findFieldReportByScanRecordId(), hasFieldReportOwnedByAnotherSubmitter(), saveFieldReportDraft(), saveGpsCapture() (+22 more)
 
 ### Community 65 - "reportReviewTypes.ts"
 Cohesion: 0.21
@@ -380,58 +351,38 @@ Nodes (11): FIELD_VALIDATION_ASSIGNMENT_STATES, contract, LifecycleContract, AUT
 
 ### Community 66 - "home.tsx"
 Cohesion: 0.10
-Nodes (22): HomeScreen(), QuickAction, QuickActionCard(), REFERENCE_CLASSES, ReferenceCard(), ReferenceClass, ReferenceTone, SectionTitle() (+14 more)
+Nodes (23): FieldReportScreen(), HomeScreen(), QuickAction, QuickActionCard(), REFERENCE_CLASSES, ReferenceCard(), ReferenceClass, ReferenceTone (+15 more)
 
-### Community 67 - "useAuth.ts"
-Cohesion: 0.08
-Nodes (31): styles, SplashScreen(), styles, styles, ResetParams, styles, mockReplace, mockUseAuth (+23 more)
-
-### Community 68 - "syncErrors.ts"
+### Community 67 - "Typography"
 Cohesion: 0.09
-Nodes (14): FieldReportSyncRepository, AUTO_RETRYABLE_SYNC_ERROR_CODES, isAbortError(), SYNC_ERROR_CODES, SyncErrorCode, toSyncError(), RETRY_DELAYS_MS, syncFieldReport() (+6 more)
+Nodes (28): styles, SplashScreen(), styles, styles, ResetParams, styles, hasVerificationParams(), readParam() (+20 more)
 
-### Community 69 - "records.test.tsx"
-Cohesion: 0.25
-Nodes (6): mockLoadMore, mockRecordsState, mockRefresh, mockRouterPush, mockUsePaginatedScanRecords, RECORD
-
-### Community 70 - "saveCompletedScan.test.ts"
-Cohesion: 0.33
-Nodes (4): ManagedImage, MANAGED_IMAGE, NOW, save()
+### Community 69 - "ScanRecordListItem"
+Cohesion: 0.15
+Nodes (11): mockLoadMore, mockRecordsState, mockRefresh, mockRouterPush, mockUsePaginatedScanRecords, RECORD, SyncStatus, ScanRecordListItem (+3 more)
 
 ### Community 71 - "useCaneGuardModel.web.tsx"
 Cohesion: 0.29
 Nodes (4): CaneGuardModelContext, CaneGuardModelController, ModelRun, WEB_MODEL_ERROR
 
-### Community 73 - "notificationCacheRepository.test.ts"
-Cohesion: 0.28
-Nodes (6): MobileNotificationsResult, createStatementAdapter(), NOTIFICATION, openTestDatabase(), readMigration(), MobileNotificationUpdate
-
-### Community 74 - "image-preview.test.tsx"
-Cohesion: 0.18
-Nodes (13): mockDispatch, mockModelRun, mockPreprocessImage, mockRouterPush, mockRouterReplace, mockRunInference, mockUseCaneGuardModel, renderPreview() (+5 more)
-
-### Community 79 - "phase1LifecycleAcceptance.test.ts"
-Cohesion: 0.24
-Nodes (5): createStatementAdapter(), prepareSync(), request, MOBILE_NOTIFICATIONS_V1_FIXTURE, request
-
-### Community 80 - "detection/types.ts"
-Cohesion: 0.24
-Nodes (8): ChecklistObservationId, completedResult, DetectionResult, InferenceTimings, ScanSessionState, ScanSessionStatus, ImageQualityAssessment, NOW
+### Community 79 - "mobileNotificationsApi.test.ts"
+Cohesion: 0.32
+Nodes (3): MOBILE_NOTIFICATIONS_V1_FIXTURE, request, request
 
 ## Knowledge Gaps
 - **468 isolated node(s):** `mockRefresh`, `mockLoadMore`, `mockRecordsState`, `mockRefreshAssignments`, `mockAssignmentsState` (+463 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **3 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **4 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `useTheme()` connect `useTheme` to `mobileAuthApi.ts`, `online-map-picker.tsx`, `home.tsx`, `useAuth.ts`, `field-report.tsx`, `StorageError`, `analysis-result.tsx`, `useCaneGuardModel.tsx`, `record-details.tsx`, `inferenceErrors.ts`, `ActivityScreen.tsx`, `Spacing`, `theme.ts`, `Typography`, `toStorageError`, `modelContract.ts`, `field-validation.tsx`?**
-  _High betweenness centrality (0.100) - this node is a cross-community bridge._
-- **Why does `useAuth()` connect `toStorageError` to `mobileAuthApi.ts`, `useTheme`, `fieldReportReviewRepository.ts`, `AuthProvider.test.tsx`, `fieldReportValidation.ts`, `fieldReportSyncRepository.ts`, `scanImageStorage.ts`, `_layout.tsx`, `scanRecordRepository.ts`, `field-report.tsx`, `reportRepository.ts`, `possibleMatch.ts`, `record-details.tsx`, `saveCompletedScan.ts`, `useMobileNotifications.ts`, `theme.ts`, `fieldReportRepository.ts`, `home.tsx`, `useAuth.ts`, `auth-bootstrap.test.tsx`?**
-  _High betweenness centrality (0.060) - this node is a cross-community bridge._
-- **Why does `StorageError` connect `StorageError` to `fieldReportReviewRepository.ts`, `fieldValidationPhotoStorage.ts`, `CaneGuardDatabase`, `recordValidation.ts`, `fieldReportValidation.ts`, `fieldReportSyncRepository.ts`, `migrations.test.ts`, `scanImageStorage.ts`, `fieldValidationCompletionValidation.ts`, `submissionImageStorage.ts`, `fieldValidationCompletionRepository.ts`, `notificationCacheRepository.ts`, `scanRecordRepository.ts`, `saveCompletedScan.ts`, `toStorageError`, `assignmentCacheRepository.ts`, `fieldReportRepository.ts`, `saveCompletedScan.test.ts`, `detection/types.ts`?**
-  _High betweenness centrality (0.057) - this node is a cross-community bridge._
+- **Why does `useTheme()` connect `useTheme` to `mobileAuthApi.ts`, `online-map-picker.tsx`, `home.tsx`, `Typography`, `field-report.tsx`, `StorageError`, `scan.tsx`, `record-details.tsx`, `ActivityScreen.tsx`, `analysis-result.tsx`, `theme.ts`, `model-debug.tsx`, `ComponentTokens`, `useAuth`, `modelContract.ts`, `Spacing`?**
+  _High betweenness centrality (0.098) - this node is a cross-community bridge._
+- **Why does `StorageError` connect `StorageError` to `toStorageError`, `fieldValidationCompletionRepository.ts`, `mobileReportStatusesApi.ts`, `mobileNotificationsApi.ts`, `scanRecordRepository.ts`, `recordValidation.ts`, `fieldReportRepository.ts`, `scanImageStorage.ts`, `detection/types.ts`, `fieldValidationCompletionValidation.ts`, `submissionImageStorage.ts`, `useFieldValidationAssignment.ts`?**
+  _High betweenness centrality (0.073) - this node is a cross-community bridge._
+- **Why does `useAuth()` connect `useAuth` to `mobileAuthApi.ts`, `toStorageError`, `home.tsx`, `Typography`, `useTheme`, `field-report.tsx`, `StorageError`, `mobileReportStatusesApi.ts`, `mobileNotificationsApi.ts`, `possibleMatch.ts`, `scanRecordRepository.ts`, `record-details.tsx`, `AuthProvider.test.tsx`, `SyncProvider.tsx`, `scanImageStorage.ts`, `theme.ts`, `useFieldValidationAssignment.ts`, `useFieldValidationAssignments.ts`?**
+  _High betweenness centrality (0.059) - this node is a cross-community bridge._
 - **Are the 3 inferred relationships involving `useAuth()` (e.g. with `index.test.tsx` and `login.test.tsx`) actually correct?**
   _`useAuth()` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `mockRefresh`, `mockLoadMore`, `mockRecordsState` to the rest of the system?**
@@ -439,4 +390,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `mobileAuthApi.ts` be split into smaller, more focused modules?**
   _Cohesion score 0.09361393323657474 - nodes in this community are weakly interconnected._
 - **Should `reportMultipartMapper.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.06095481670929241 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06885245901639345 - nodes in this community are weakly interconnected._

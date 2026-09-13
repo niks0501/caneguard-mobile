@@ -46,11 +46,9 @@ class ArtifactError(RuntimeError):
 
 @dataclass(frozen=True)
 class OOFRow:
-    image_id: str
     true_index: int
     predicted_index: int
     probabilities: tuple[float, ...]
-    source_file: str
 
     @property
     def is_error(self) -> bool:
@@ -243,11 +241,9 @@ def read_oof_rows(handoff: Path) -> tuple[list[OOFRow], list[dict[str, Any]]]:
                         )
                     file_rows.append(
                         OOFRow(
-                            image_id=image_id,
                             true_index=true_index,
                             predicted_index=predicted_index,
                             probabilities=probabilities,
-                            source_file=relative_to_handoff(path, handoff),
                         )
                     )
                     seen_ids.add(image_id)

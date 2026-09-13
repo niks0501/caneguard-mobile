@@ -28,6 +28,8 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+# Expo Updates requires the public signing certificate in source control.
+!certs/certificate.pem
 
 # local env files
 .env*.local

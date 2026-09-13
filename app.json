@@ -3,7 +3,7 @@
     "name": "caneguard-mobile",
     "owner":"caneguard",
     "slug": "caneguard-mobile",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
@@ -86,7 +86,7 @@
       "url": "https://u.expo.dev/b30b22ff-63d8-49e6-ac3c-db27facef0b9",
       "codeSigningCertificate": "./certs/certificate.pem",
       "codeSigningMetadata": {
-        "keyid": "main",
+        "keyid": "caneguard-v1-20260913",
         "alg": "rsa-v1_5-sha256"
       }
     }

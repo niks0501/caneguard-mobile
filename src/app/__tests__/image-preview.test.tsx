@@ -47,6 +47,12 @@ const successfulPreprocessingResult = {
   minValue: 0,
   maxValue: 255,
   meanValue: 116,
+  letterbox: {
+    resizedWidth: 224,
+    resizedHeight: 126,
+    paddingLeft: 0,
+    paddingTop: 49,
+  },
   qualityAssessment: {
     warnings: [],
     meanLuminance: 118,
@@ -61,13 +67,14 @@ const successfulInferenceResult = {
     { label: 'rust' as const, score: 0.8 },
     { label: 'mosaic' as const, score: 0.15 },
     { label: 'healthy' as const, score: 0.05 },
+    { label: 'smut' as const, score: 0 },
   ],
   timings: {
     preprocessMs: 42,
     inferenceMs: 18,
     totalMs: 60,
   },
-  modelVersion: 'v0.1-baseline',
+  modelVersion: 'v1.0-mobilenetv2',
 };
 
 const selectedState: ScanSessionState = {

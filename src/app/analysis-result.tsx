@@ -24,6 +24,7 @@ import {
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import {
   MODEL_LABELS,
+  MODEL_VERSION,
   type ModelLabel,
 } from '@/features/detection/constants/modelContract';
 import { useScanSession } from '@/features/detection/context/useScanSession';
@@ -195,7 +196,7 @@ export default function AnalysisResultScreen() {
               <View style={[styles.diseasePill, { backgroundColor: diseaseBackground }]}>
                 <Feather name={metadata.icon} size={16} color={diseaseColor} />
                 <Text style={[styles.diseasePillText, { color: diseaseColor }]}>
-                  Model v0
+                  {MODEL_VERSION}
                 </Text>
               </View>
               <Text
@@ -419,7 +420,7 @@ export default function AnalysisResultScreen() {
             </View>
 
             <DisclosureSection testID="scan.technical-details" title="Technical details">
-              <SectionCard title="All Model v0 class scores">
+              <SectionCard title="All Model V1 class scores">
                 {MODEL_LABELS.map((label) => (
                   <ScoreRow
                     key={label}

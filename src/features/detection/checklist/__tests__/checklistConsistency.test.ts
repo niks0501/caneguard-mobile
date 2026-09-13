@@ -45,6 +45,12 @@ describe('getChecklistConsistency', () => {
       ]);
     },
   );
+  it('does not compare a Model V1 smut result with the Model V0 checklist', () => {
+    expect(getGuidedValidationQuestions('smut')).toEqual([]);
+    expect(getChecklistConsistency('smut', ['mosaic'])).toBe('not-applicable');
+    expect(getChecklistConsistency('smut', [])).toBe('not-applicable');
+  });
+
   it.each(MATRIX)(
     'returns %s / %s for observations %j',
     (predictedLabel, expected, observations) => {

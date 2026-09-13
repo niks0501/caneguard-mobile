@@ -58,12 +58,15 @@ cannot be completed in this repository.
 
 - `SYSTEM_ALERT_WINDOW` is blocked and the Android security plugin forces
   `android:allowBackup="false"`.
-- Expo Updates has code-signing metadata and a configured certificate path at
-  `certs/certificate.pem`. The certificate is deliberately not fabricated or
-  committed by this worker. Production EAS builds fail the deterministic
-  security-config check until the public certificate is supplied at that path
-  and the matching private signing key is configured in the EAS Update
-  service.
+- Expo Updates has code-signing metadata with key id
+  `caneguard-v1-20260913` and a configured public certificate at
+  `certs/certificate.pem`. The replacement public certificate is committed;
+  its private counterpart must remain only at
+  `~/.config/caneguard/updates/private-key.pem`, with a mode-0700 parent
+  directory and mode-0600 key, and must never be committed or printed. This
+  change only creates and installs a local development build; do not publish
+  an EAS Update or create a preview/production distribution without explicit
+  release authorization.
 
 ## Map-tile privacy (#75)
 

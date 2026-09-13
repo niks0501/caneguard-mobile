@@ -165,7 +165,7 @@ describe('AnalysisResultScreen', () => {
     expect(screen.queryByText('Mild')).not.toBeOnTheScreen();
     expect(screen.queryByText('Moderate')).not.toBeOnTheScreen();
     expect(screen.queryByText('Severe')).not.toBeOnTheScreen();
-    expect(screen.getByText('v0.1-baseline')).toBeOnTheScreen();
+    expect(screen.getByText('v1.0-mobilenetv2')).toBeOnTheScreen();
     expect(screen.getByText('60 ms')).toBeOnTheScreen();
     expect(result.confidence).toBe(0.78);
     expect(screen.queryByText('Downy Mildew')).not.toBeOnTheScreen();

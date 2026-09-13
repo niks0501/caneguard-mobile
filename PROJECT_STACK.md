@@ -85,11 +85,12 @@ Source of truth:
 
 Current contract:
 
-- model version: `v0.1-baseline`;
+- model version: `v1.0-mobilenetv2`;
 - input: float32 `[1, 224, 224, 3]`;
-- RGB / NHWC;
-- labels: `healthy`, `mosaic`, `rust`;
-- output: probability vector for those labels.
+- RGB / NHWC with aspect-ratio-preserving bilinear letterbox and `127.5` padding;
+- labels, in fixed output order: `healthy`, `mosaic`, `rust`, `smut`;
+- raw mobile input values `0..255` (the model internally rescales);
+- output: float32 `[1, 4]` softmax probability vector.
 
 When changing the model artifact, preprocessing, tensor interpretation, labels, or postprocessing:
 

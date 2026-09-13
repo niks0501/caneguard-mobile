@@ -188,11 +188,11 @@ Start the Android Studio emulator and follow the Android connectivity steps belo
 
 ```bash
 cd "<WORKSPACE>/caneguard-mobile"
-eas build --platform android --profile development
+eas build --platform android --profile development --local
 adb install <APK_PATH>
 ```
 
-`<APK_PATH>` is the path to the APK downloaded from the completed EAS build.
+`<APK_PATH>` is the path to the APK reported by the completed local build.
 Do not run an EAS build as part of every-day startup.
 
 ## Coordinated QA Mobile candidates

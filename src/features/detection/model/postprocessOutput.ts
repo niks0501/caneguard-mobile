@@ -49,7 +49,7 @@ export function postprocessOutput(outputBuffer: ArrayBuffer): PostprocessedOutpu
   if (MODEL_OUTPUT.dataType !== 'float32') {
     throw new InferenceError(
       'OUTPUT_VALUE_INVALID',
-      `Unsupported Model v0 output type: ${MODEL_OUTPUT.dataType}.`,
+      `Unsupported Model V1 output type: ${MODEL_OUTPUT.dataType}.`,
     );
   }
 
@@ -73,7 +73,7 @@ export function postprocessOutput(outputBuffer: ArrayBuffer): PostprocessedOutpu
     if (!label) {
       throw new InferenceError(
         'LABEL_MAPPING_FAILED',
-        `No Model v0 label exists for output index ${index}.`,
+        `No Model V1 label exists for output index ${index}.`,
       );
     }
 
@@ -87,7 +87,7 @@ export function postprocessOutput(outputBuffer: ArrayBuffer): PostprocessedOutpu
   if (!topScore) {
     throw new InferenceError(
       'LABEL_MAPPING_FAILED',
-      'The output tensor did not map to any Model v0 label.',
+      'The output tensor did not map to any Model V1 label.',
     );
   }
 

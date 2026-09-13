@@ -244,11 +244,13 @@ A successful report upload must return a remote identity UUID.
 
 Current bundled model:
 
-- Version: `v0.1-baseline`
-- File: `assets/models/caneguard_leaf_v0_1_baseline.tflite`
-- Labels: `healthy`, `mosaic`, `rust`
-- Input: float32 `[1, 224, 224, 3]`, RGB/NHWC
-- Output: float32 probabilities for the three supported labels
+- Version: `v1.0-mobilenetv2`
+- File: `assets/models/caneguard_v1_mobilenetv2_float32.tflite`
+- SHA-256: `9ebad12450866b47abc94ffb6b820048c1759e3f3e728a71775af42a0541bae7`
+- Labels, in fixed output order: `healthy`, `mosaic`, `rust`, `smut`
+- Input: float32 `[1, 224, 224, 3]`, RGB/NHWC, aspect-ratio-preserving bilinear letterbox with padding `127.5`
+- Mobile input values remain raw `0..255`; the model internally applies `x / 127.5 - 1.0`
+- Output: float32 `[1, 4]` softmax probabilities
 
 Treat `modelContract.ts`, the bundled artifact, labels, parity fixtures, preprocessing, and model tests as one compatibility surface.
 
@@ -310,7 +312,7 @@ Do not run EAS build or submit automatically.
 - Synchronization must tolerate unavailable networks and preserve retryable local state.
 - Backend synchronization requires a valid `field_reporter` session and a complete local report, including barangay, final coordinates, location source, and managed image.
 - The bundled AI model is decision support, not a diagnostic authority.
-- Current model labels are limited to `healthy`, `mosaic`, and `rust`; do not imply that the model detects additional diseases unless the model contract is intentionally upgraded.
+- The current bundled Model V1 contract supports `healthy`, `mosaic`, `rust`, and `smut`; legacy V0 records and the stable report-upload contract remain three-class.
 - The P0 manual-map fallback is online-only. Direct third-party tile requests are disabled; production must configure a CaneGuard-owned HTTPS tile proxy with attribution and normal HTTP caching. It does not prefetch or expose offline map downloads.
 - Preserve compatibility with existing SQLite data and generated Drizzle migrations.
 - Avoid unnecessary native dependencies when Expo-supported APIs already satisfy the requirement.
@@ -329,7 +331,7 @@ cross-repository prerequisites.
 
 ## Known debt or limitations
 
-- The current model supports only three output classes: `healthy`, `mosaic`, and `rust`.
+- The current bundled model supports four output classes: `healthy`, `mosaic`, `rust`, and `smut`; legacy V0 records and the stable report-upload contract remain three-class.
 - Native TFLite behavior cannot be fully validated by unit tests or Expo Go; a compatible development build and physical-device testing remain necessary.
 - iOS and static-web configurations exist, but the repository evidence is primarily Android-focused.
 - Mobile/backend synchronization is tightly coupled to the current multipart field names and response identity shape; backend contract changes require coordinated mobile updates.

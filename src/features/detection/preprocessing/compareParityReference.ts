@@ -1,16 +1,16 @@
-import parityReference from '../../../../docs/model-v0/parity-reference.json';
+import qaExpectedOutputs from '../../../../qa/expected-v1-outputs.json';
 
 import {
+  MODEL_INPUT,
   MODEL_LABELS,
   MODEL_SHA256,
 } from '@/features/detection/constants/modelContract';
+import {
+  compareV1QaOutput,
+  getV1QaExpectedOutput,
+  type V1QaFixtureId,
+} from '@/features/detection/model/v1Qa';
 import type { PreprocessingResult } from '@/features/detection/preprocessing/preprocessImage';
-
-interface NumericComparison {
-  actual: number;
-  expected: number;
-  absoluteDelta: number;
-}
 
 export interface PreprocessingParityComparison {
   modelShaMatches: boolean;
@@ -19,79 +19,78 @@ export interface PreprocessingParityComparison {
   elementCountMatches: boolean;
   byteLengthMatches: boolean;
   classOrderMatches: boolean;
-  statistics: {
-    min: NumericComparison;
-    max: NumericComparison;
-    mean: NumericComparison;
-  };
-  first20Actual: number[];
-  first20Expected: number[];
-  first20AbsoluteDeltas: number[];
-  first20MaxAbsoluteDelta: number;
+  resizePolicyMatches: boolean;
+  interpolationMatches: boolean;
+  letterboxValueMatches: boolean;
+  mobileNormalizationMatches: boolean;
+  letterbox: PreprocessingResult['letterbox'];
 }
 
 export interface ModelOutputParityComparison {
+  fixtureId: V1QaFixtureId;
   modelShaMatches: boolean;
   classOrderMatches: boolean;
   outputLengthMatches: boolean;
-  values: NumericComparison[];
+  values: {
+    actual: number;
+    expected: number;
+    absoluteDelta: number;
+  }[];
   maxAbsoluteDelta: number;
   topIndexMatches: boolean;
   topLabelMatches: boolean;
 }
 
-function compareNumber(actual: number, expected: number): NumericComparison {
-  return {
-    actual,
-    expected,
-    absoluteDelta: Math.abs(actual - expected),
-  };
-}
-
 export function comparePreprocessingToParity(
   result: PreprocessingResult,
 ): PreprocessingParityComparison {
-  const expectedShape = parityReference.input.shape;
-  const first20Actual = Array.from(new Float32Array(result.inputBuffer, 0, 20));
-  const first20Expected = parityReference.input.first_20_values;
-  const first20AbsoluteDeltas = first20Actual.map((value, index) =>
-    Math.abs(value - first20Expected[index]),
+  const expected = qaExpectedOutputs.preprocessing_contract;
+  const expectedElementCount = MODEL_INPUT.shape.reduce<number>(
+    (product, dimension) => product * dimension,
+    1,
   );
 
   return {
-    modelShaMatches: parityReference.model.sha256 === MODEL_SHA256,
+    modelShaMatches: qaExpectedOutputs.model_sha256 === MODEL_SHA256,
     shapeMatches:
-      expectedShape[0] === 1 &&
-      expectedShape[1] === result.height &&
-      expectedShape[2] === result.width &&
-      expectedShape[3] === result.channels,
-    dataTypeMatches: parityReference.input.dtype === result.dataType,
+      MODEL_INPUT.shape[0] === 1 &&
+      MODEL_INPUT.shape[1] === result.height &&
+      MODEL_INPUT.shape[2] === result.width &&
+      MODEL_INPUT.shape[3] === result.channels,
+    dataTypeMatches: expected.dtype === result.dataType,
     elementCountMatches:
-      parityReference.input.element_count ===
-      result.width * result.height * result.channels,
-    byteLengthMatches: parityReference.input.byte_length === result.inputBuffer.byteLength,
+      expectedElementCount === result.width * result.height * result.channels,
+    byteLengthMatches:
+      expectedElementCount * Float32Array.BYTES_PER_ELEMENT ===
+      result.inputBuffer.byteLength,
     classOrderMatches:
-      parityReference.output.label_order.length === MODEL_LABELS.length &&
-      parityReference.output.label_order.every((label, index) => label === MODEL_LABELS[index]),
-    statistics: {
-      min: compareNumber(result.minValue, parityReference.input.min),
-      max: compareNumber(result.maxValue, parityReference.input.max),
-      mean: compareNumber(result.meanValue, parityReference.input.mean),
-    },
-    first20Actual,
-    first20Expected,
-    first20AbsoluteDeltas,
-    first20MaxAbsoluteDelta: Math.max(...first20AbsoluteDeltas),
+      qaExpectedOutputs.class_order.length === MODEL_LABELS.length &&
+      qaExpectedOutputs.class_order.every(
+        (label, index) => label === MODEL_LABELS[index],
+      ),
+    resizePolicyMatches:
+      expected.resize === 'aspect-ratio-preserving letterbox' &&
+      MODEL_INPUT.resizePolicy === 'letterbox',
+    interpolationMatches: expected.resize_interpolation === MODEL_INPUT.interpolation,
+    letterboxValueMatches: expected.letterbox_value === MODEL_INPUT.letterboxValue,
+    mobileNormalizationMatches:
+      expected.normalization.startsWith('NONE in Android') &&
+      MODEL_INPUT.mobileNormalization === 'none',
+    letterbox: result.letterbox,
   };
 }
 
 export function compareModelOutputToParity(
   modelOutput: readonly number[],
+  fixtureId: V1QaFixtureId = 'healthy',
 ): ModelOutputParityComparison {
-  const expectedOutput = parityReference.output.raw_probabilities;
-  const values = expectedOutput.map((expectedValue, index) =>
-    compareNumber(modelOutput[index] ?? Number.NaN, expectedValue),
-  );
+  const comparison = compareV1QaOutput(fixtureId, modelOutput);
+  const expected = getV1QaExpectedOutput(fixtureId);
+  const values = comparison.scoreDeltas.map(({ actual, expected: expectedScore, absoluteDelta }) => ({
+    actual,
+    expected: expectedScore,
+    absoluteDelta,
+  }));
   const topIndex = modelOutput.length
     ? modelOutput.reduce(
         (bestIndex, value, index, valuesToCompare) =>
@@ -99,19 +98,22 @@ export function compareModelOutputToParity(
         0,
       )
     : -1;
-  const absoluteDeltas = values.map((comparison) => comparison.absoluteDelta);
 
   return {
-    modelShaMatches: parityReference.model.sha256 === MODEL_SHA256,
+    fixtureId,
+    modelShaMatches: qaExpectedOutputs.model_sha256 === MODEL_SHA256,
     classOrderMatches:
-      parityReference.output.label_order.length === MODEL_LABELS.length &&
-      parityReference.output.label_order.every((label, index) => label === MODEL_LABELS[index]),
-    outputLengthMatches: modelOutput.length === expectedOutput.length,
+      qaExpectedOutputs.class_order.length === MODEL_LABELS.length &&
+      qaExpectedOutputs.class_order.every(
+        (label, index) => label === MODEL_LABELS[index],
+      ),
+    outputLengthMatches: modelOutput.length === MODEL_LABELS.length,
     values,
-    maxAbsoluteDelta: absoluteDeltas.every(Number.isFinite)
-      ? Math.max(...absoluteDeltas)
+    maxAbsoluteDelta: values.every(({ absoluteDelta }) => Number.isFinite(absoluteDelta))
+      ? Math.max(...values.map(({ absoluteDelta }) => absoluteDelta))
       : Number.POSITIVE_INFINITY,
-    topIndexMatches: topIndex === parityReference.output.top_index,
-    topLabelMatches: MODEL_LABELS[topIndex] === parityReference.output.top_label,
+    topIndexMatches:
+      topIndex >= 0 && MODEL_LABELS[topIndex] === expected.expectedTop1Class,
+    topLabelMatches: comparison.top1Matches,
   };
 }

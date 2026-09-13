@@ -1,5 +1,5 @@
 import { StorageError } from '@/database/errors';
-import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
+import { LEGACY_MODEL_LABELS } from '@/features/detection/constants/modelContract';
 import { isValidSubmissionImageMetadata } from '@/features/sync/constants/mobileReportUploadContract';
 import type {
   CreateFieldReportDraftInput,
@@ -23,6 +23,29 @@ const MAX_FIELD_NOTES_LENGTH = 120;
 const MAX_REPORTER_SUSPECTED_CONDITION_LENGTH = 120;
 const MAX_REPORTER_OBSERVATION_TEXT_LENGTH = 1_000;
 const MAX_AFFECTED_AREA_HECTARES = 10_000;
+function hasCompleteClassScores(
+  scores: FieldReportSubmissionEvidence['classScores'],
+): boolean {
+  if (
+    scores.length !== LEGACY_MODEL_LABELS.length ||
+    new Set(scores.map(({ label }) => label)).size !== LEGACY_MODEL_LABELS.length
+  ) {
+    return false;
+  }
+
+  return (
+    scores.every(
+      ({ label, score }) =>
+        LEGACY_MODEL_LABELS.some((supportedLabel) => supportedLabel === label) &&
+        Number.isFinite(score) &&
+        score >= 0 &&
+        score <= 1,
+    ) &&
+    LEGACY_MODEL_LABELS.every((supportedLabel) =>
+      scores.some(({ label }) => label === supportedLabel),
+    )
+  );
+}
 
 export function validateCreateFieldReportDraftInput(
   input: CreateFieldReportDraftInput,
@@ -141,7 +164,7 @@ export function getMissingSubmissionRequirements(
   }
   if (
     !evidence.predictedLabel ||
-    !MODEL_LABELS.some((label) => label === evidence.predictedLabel)
+    !LEGACY_MODEL_LABELS.some((label) => label === evidence.predictedLabel)
   ) {
     missing.push('ai_supported_result');
   }
@@ -153,22 +176,7 @@ export function getMissingSubmissionRequirements(
   ) {
     missing.push('confidence');
   }
-  if (
-    evidence.classScores.length !== MODEL_LABELS.length ||
-    new Set(evidence.classScores.map(({ label }) => label)).size !==
-      MODEL_LABELS.length ||
-    evidence.classScores.some(
-      ({ label, score }) =>
-        !MODEL_LABELS.some((modelLabel) => modelLabel === label) ||
-        !Number.isFinite(score) ||
-        score < 0 ||
-        score > 1,
-    ) ||
-    MODEL_LABELS.some(
-      (modelLabel) =>
-        !evidence.classScores.some(({ label }) => label === modelLabel),
-    )
-  ) {
+  if (!hasCompleteClassScores(evidence.classScores)) {
     missing.push('class_scores');
   }
   if (!evidence.checklistConsistency?.trim()) missing.push('symptom_checklist');

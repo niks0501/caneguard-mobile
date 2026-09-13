@@ -19,7 +19,7 @@ export type CaneGuardModelController = {
 
 const WEB_MODEL_ERROR = new InferenceError(
   'MODEL_LOAD_FAILED',
-  'The native Model v0 runtime is available in the Android development build, not the web bundle.',
+  'The native Model V1 runtime is available in the Android development build, not the web bundle.',
 );
 
 const CaneGuardModelContext = createContext<CaneGuardModelController | null>(null);

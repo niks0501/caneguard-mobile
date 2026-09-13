@@ -3,6 +3,8 @@ import {
   getChecklistConsistency,
 } from '@/features/detection/checklist/checklistConsistency';
 import {
+  LEGACY_MODEL_LABELS,
+  LEGACY_MODEL_VERSION,
   MODEL_LABELS,
   type ModelLabel,
 } from '@/features/detection/constants/modelContract';
@@ -105,7 +107,7 @@ export function validateCompletedScanDraft(draft: CompletedScanDraft): void {
     invalid('The predicted model label is unsupported.');
   }
   validateProbability(draft.confidence, 'confidence');
-  validateClassScores(draft.classScores);
+  validateClassScores(draft.classScores, draft.modelVersion);
   validateRequiredDimension(draft.sourceWidth);
   validateRequiredDimension(draft.sourceHeight);
   validateNonNegativeFinite(draft.preprocessMs, 'preprocessing timing');
@@ -185,21 +187,29 @@ export function validateSaveCompletedScanInput(
   }
 }
 
-function validateClassScores(scores: readonly ClassScore[]): void {
-  if (scores.length !== MODEL_LABELS.length) {
+function validateClassScores(
+  scores: readonly ClassScore[],
+  modelVersion: string,
+): void {
+  // Keep historical V0 rows readable without weakening the V1 runtime
+  // contract. New inference results always carry all four V1 scores.
+  const supportedLabels =
+    modelVersion === LEGACY_MODEL_VERSION ? LEGACY_MODEL_LABELS : MODEL_LABELS;
+
+  if (scores.length !== supportedLabels.length) {
     invalid('Every model class score is required.');
   }
 
   const labels = new Set<ModelLabel>();
   for (const score of scores) {
-    if (!MODEL_LABELS.includes(score.label) || labels.has(score.label)) {
+    if (!supportedLabels.includes(score.label) || labels.has(score.label)) {
       invalid('Model class score labels are invalid.');
     }
     labels.add(score.label);
     validateProbability(score.score, 'class score');
   }
 
-  if (MODEL_LABELS.some((label) => !labels.has(label))) {
+  if (supportedLabels.some((label) => !labels.has(label))) {
     invalid('Every model class score is required.');
   }
 }

@@ -7,6 +7,7 @@ import {
 import type {
   FieldValidationAssignmentUpdate,
 } from '@/features/assignments/domain/assignmentTypes';
+import { LEGACY_MODEL_LABELS } from '@/features/detection/constants/modelContract';
 
 const ASSIGNMENT_PATH = '/api/v1/mobile/assignments';
 const PAGE_SIZE = 100;
@@ -192,11 +193,11 @@ function parseAssignment(value: unknown): FieldValidationAssignmentUpdate {
       capturedAt: requireTimestamp(rawCase.captured_at, 'case.captured_at'),
       observedAt: optionalTimestamp(rawCase.observed_at, 'case.observed_at'),
       submittedAt: requireTimestamp(rawCase.submitted_at, 'case.submitted_at'),
-      predictedLabel: requireEnum(rawCase.predicted_label, 'case.predicted_label', [
-        'healthy',
-        'mosaic',
-        'rust',
-      ]),
+      predictedLabel: requireEnum(
+        rawCase.predicted_label,
+        'case.predicted_label',
+        LEGACY_MODEL_LABELS,
+      ),
       confidence: requireNumber(rawCase.confidence, 'case.confidence', 0, 1),
     },
   };

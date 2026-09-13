@@ -31,6 +31,7 @@ export default function SymptomChecklistScreen() {
   const isLastQuestion =
     currentQuestionIndex >= guidedQuestions.length - 1;
   const hasSelectedObservation = selectedSymptoms.size > 0;
+  const canContinue = currentQuestion ? hasSelectedObservation : true;
 
   const selectObservation = (observation: ChecklistObservationId) =>
     setSelectedSymptoms((current) => {
@@ -45,7 +46,12 @@ export default function SymptomChecklistScreen() {
     });
 
   const continueToResult = () => {
-    if (!currentQuestion || !hasSelectedObservation) {
+    if (!currentQuestion) {
+      dispatch({ type: 'SET_SYMPTOMS', payload: [] });
+      router.push('/analysis-result');
+      return;
+    }
+    if (!hasSelectedObservation) {
       return;
     }
     if (!isLastQuestion) {
@@ -154,7 +160,7 @@ export default function SymptomChecklistScreen() {
             <AppButton
               testID="scan.continue-to-result"
               onPress={continueToResult}
-              disabled={!currentQuestion || !hasSelectedObservation}
+              disabled={!canContinue}
               leadingIcon="check-circle"
               trailingIcon="arrow-right"
               accessibilityLabel={
@@ -162,11 +168,11 @@ export default function SymptomChecklistScreen() {
                   ? 'Continue to analysis result'
                   : 'Continue to next observation'
               }>
-              {isLastQuestion
-                ? hasSelectedObservation
-                  ? 'Continue'
-                  : 'Choose an observation'
-                : 'Next observation'}
+              {currentQuestion && !isLastQuestion
+                ? 'Next observation'
+                : currentQuestion && !hasSelectedObservation
+                  ? 'Choose an observation'
+                  : 'Continue'}
             </AppButton>
           </View>
         </ScrollView>

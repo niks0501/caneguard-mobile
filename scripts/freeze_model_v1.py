@@ -38,6 +38,7 @@ OOF_HEADER = (
     "prob_smut",
 )
 EXPECTED_SOURCE_ROW_COUNT = 567
+PROBABILITY_SUM_TOLERANCE = 1e-6
 
 
 class ArtifactError(RuntimeError):
@@ -57,6 +58,22 @@ class OOFRow:
     @property
     def max_softmax(self) -> float:
         return max(self.probabilities)
+
+
+def validate_probability_vector(
+    probabilities: tuple[float, ...] | list[float], location: str
+) -> None:
+    if (
+        len(probabilities) != len(CLASS_ORDER)
+        or any(not math.isfinite(value) or not 0 <= value <= 1 for value in probabilities)
+        or not math.isclose(
+            sum(probabilities),
+            1.0,
+            rel_tol=PROBABILITY_SUM_TOLERANCE,
+            abs_tol=PROBABILITY_SUM_TOLERANCE,
+        )
+    ):
+        raise ArtifactError(f"invalid probability in {location}: {probabilities!r}")
 
 
 def sha256_file(path: Path) -> str:
@@ -231,10 +248,9 @@ def read_oof_rows(handoff: Path) -> tuple[list[OOFRow], list[dict[str, Any]]]:
                         raise ArtifactError(
                             f"predicted class/index mismatch in {path}:{line_number}"
                         )
-                    if any(not math.isfinite(value) or not 0 <= value <= 1 for value in probabilities):
-                        raise ArtifactError(
-                            f"invalid probability in {path}:{line_number}: {probabilities!r}"
-                        )
+                    validate_probability_vector(
+                        probabilities, f"{path}:{line_number}"
+                    )
                     if max(range(len(probabilities)), key=probabilities.__getitem__) != predicted_index:
                         raise ArtifactError(
                             f"predicted class/probability mismatch in {path}:{line_number}"
@@ -470,10 +486,7 @@ def run_qa_fixtures(
             probabilities = interpreter.get_tensor(output_detail["index"])[0].astype(float).tolist()
         except (RuntimeError, ValueError) as error:
             raise ArtifactError(f"inference failed for QA fixture {path}: {error}") from error
-        if len(probabilities) != len(CLASS_ORDER) or any(
-            not math.isfinite(value) or not 0 <= value <= 1 for value in probabilities
-        ):
-            raise ArtifactError(f"invalid QA output for {path}: {probabilities!r}")
+        validate_probability_vector(probabilities, str(path))
         top_index = max(range(len(probabilities)), key=probabilities.__getitem__)
         fixtures.append(
             {

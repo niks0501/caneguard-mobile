@@ -1,0 +1,90 @@
+{
+  "artifact": "CaneGuard Model V1 QA expected outputs",
+  "model_sha256": "9ebad12450866b47abc94ffb6b820048c1759e3f3e728a71775af42a0541bae7",
+  "model": {
+    "file": "model/CaneGuard_V1_MobileNetV2_float32.tflite",
+    "sha256": "9ebad12450866b47abc94ffb6b820048c1759e3f3e728a71775af42a0541bae7",
+    "precision": "float32"
+  },
+  "class_order": [
+    "healthy",
+    "mosaic",
+    "rust",
+    "smut"
+  ],
+  "preprocessing_contract": {
+    "input_shape": [
+      1,
+      224,
+      224,
+      3
+    ],
+    "dtype": "float32",
+    "channel_order": "RGB",
+    "pixel_range_before_model": [
+      0.0,
+      255.0
+    ],
+    "resize": "aspect-ratio-preserving letterbox",
+    "resize_interpolation": "bilinear",
+    "letterbox_value": 127.5,
+    "normalization": "NONE in Android. Model internally rescales x / 127.5 - 1.0."
+  },
+  "qa_runner": {
+    "interpreter": "tflite_runtime.interpreter.Interpreter",
+    "image_decoder": "Pillow",
+    "resize_implementation": "Pillow Image.Resampling.BILINEAR with centered letterbox",
+    "exif_orientation": "Pillow ImageOps.exif_transpose",
+    "letterbox_array_value": 127.5
+  },
+  "fixtures": [
+    {
+      "fixture_id": "healthy",
+      "file": "qa/healthy.jpg",
+      "source_sha256": "ad39d1151324edb95ef31bd4d05f11e3a55c8cffa2f658d420878afb29f92d43",
+      "expected_top1_class": "healthy",
+      "probabilities": {
+        "healthy": 0.9999984502792358,
+        "mosaic": 1.1242434538871748e-06,
+        "rust": 3.297952559933037e-07,
+        "smut": 7.9567350041998e-08
+      }
+    },
+    {
+      "fixture_id": "mosaic",
+      "file": "qa/mosaic.jpg",
+      "source_sha256": "78246cb2aa94c2528ae23aa125289956668aef533405e446d9942f072c52f499",
+      "expected_top1_class": "mosaic",
+      "probabilities": {
+        "healthy": 0.00024992856197059155,
+        "mosaic": 0.9983848333358765,
+        "rust": 0.0013558861101046205,
+        "smut": 9.406854587723501e-06
+      }
+    },
+    {
+      "fixture_id": "rust",
+      "file": "qa/rust.jpg",
+      "source_sha256": "851bdc7a30691c06a5e353ce1c6e03d08dad05dda717d974fa3fad1ac697faaa",
+      "expected_top1_class": "rust",
+      "probabilities": {
+        "healthy": 0.06306423991918564,
+        "mosaic": 5.633467594634567e-07,
+        "rust": 0.9369164109230042,
+        "smut": 1.8770771930576302e-05
+      }
+    },
+    {
+      "fixture_id": "smut",
+      "file": "qa/smut.jpg",
+      "source_sha256": "0d278ac9b50f779992f0f6d98cb41511a274e58a5a4699cdfe8a802ab02e9024",
+      "expected_top1_class": "smut",
+      "probabilities": {
+        "healthy": 3.908481085090898e-05,
+        "mosaic": 3.8997350487735005e-11,
+        "rust": 2.0141062123002484e-05,
+        "smut": 0.9999407529830933
+      }
+    }
+  ]
+}

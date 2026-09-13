@@ -348,6 +348,46 @@ def derive_threshold(rows: list[OOFRow], source_files: list[dict[str, Any]], mod
     }
 
 
+def verify_existing_source_files(
+    path: Path, expected: list[dict[str, Any]]
+) -> None:
+    if not path.exists():
+        return
+    existing = read_json(path)
+    if existing.get("source_files") != expected:
+        raise ArtifactError(f"existing source identities differ: {path}")
+
+
+def verify_existing_fixture_sources(
+    path: Path, expected_fixtures: list[dict[str, Any]]
+) -> None:
+    if not path.exists():
+        return
+    existing = read_json(path)
+    existing_fixtures = existing.get("fixtures")
+    if not isinstance(existing_fixtures, list):
+        raise ArtifactError(f"existing source identities differ: {path}")
+    expected = [
+        {
+            "fixture_id": fixture["fixture_id"],
+            "file": fixture["file"],
+            "source_sha256": fixture["source_sha256"],
+        }
+        for fixture in expected_fixtures
+    ]
+    actual = [
+        {
+            "fixture_id": fixture.get("fixture_id"),
+            "file": fixture.get("file"),
+            "source_sha256": fixture.get("source_sha256"),
+        }
+        for fixture in existing_fixtures
+        if isinstance(fixture, dict)
+    ]
+    if actual != expected or len(actual) != len(existing_fixtures):
+        raise ArtifactError(f"existing source identities differ: {path}")
+
+
 def preprocessing_contract(contract: dict[str, Any]) -> dict[str, Any]:
     input_contract = contract["input"]
     return {
@@ -530,11 +570,15 @@ def main() -> int:
         if output_dir == handoff or output_dir.is_relative_to(handoff):
             raise ArtifactError("output directory must not be the read-only handoff directory")
         model_path, contract, model_sha256 = verify_model_and_contract(handoff)
+        threshold_path = output_dir / "threshold" / "v1-confidence-caution-threshold.json"
+        qa_path = output_dir / "qa" / "expected-v1-outputs.json"
         rows, source_files = read_oof_rows(handoff)
+        verify_existing_source_files(threshold_path, source_files)
         threshold = derive_threshold(rows, source_files, model_sha256)
         qa = run_qa_fixtures(handoff, model_path, contract, model_sha256)
-        write_json(output_dir / "threshold" / "v1-confidence-caution-threshold.json", threshold)
-        write_json(output_dir / "qa" / "expected-v1-outputs.json", qa)
+        verify_existing_fixture_sources(qa_path, qa["fixtures"])
+        write_json(threshold_path, threshold)
+        write_json(qa_path, qa)
     except ArtifactError as error:
         print(f"blocked: {error}", file=sys.stderr)
         return 2

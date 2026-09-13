@@ -1,0 +1,58 @@
+{
+  "artifact": "CaneGuard Model V1 confidence caution threshold",
+  "model_sha256": "9ebad12450866b47abc94ffb6b820048c1759e3f3e728a71775af42a0541bae7",
+  "class_order": [
+    "healthy",
+    "mosaic",
+    "rust",
+    "smut"
+  ],
+  "threshold": 0.5516103,
+  "f1": 0.40625,
+  "precision": 0.3939393939393939,
+  "recall": 0.41935483870967744,
+  "confusion_counts": {
+    "true_positive": 13,
+    "false_positive": 20,
+    "true_negative": 516,
+    "false_negative": 18
+  },
+  "warned_sample_count": 33,
+  "warned_sample_rate": 0.0582010582010582,
+  "source_row_count": 567,
+  "selection_rule": {
+    "positive_event": "predicted_index != true_index",
+    "score": "max(prob_healthy, prob_mosaic, prob_rust, prob_smut)",
+    "candidate_thresholds": "0.0, each distinct observed max-Softmax score, and 1.0",
+    "warning_rule": "warn when max-Softmax score < threshold",
+    "optimization": "maximize F1 for incorrect-prediction detection; ties prefer higher error recall, then higher threshold",
+    "holdout_tuning": "not used"
+  },
+  "source_files": [
+    {
+      "path": "training/fold1_validation_predictions.csv",
+      "sha256": "493e1e8a2e71e20b7de0e79aecbc07df1396bf24b2868b4acb21cd813ff954a8",
+      "row_count": 113
+    },
+    {
+      "path": "training/fold2_validation_predictions.csv",
+      "sha256": "f7a47e95e9de70f704b60f78f398d5ddda1d5fb9ebe38c74df280a5e011d21b5",
+      "row_count": 113
+    },
+    {
+      "path": "training/fold3_validation_predictions.csv",
+      "sha256": "2e2b49a22748577781372023404f9d3289c4a0d71a0163fcf096d453ca8b4299",
+      "row_count": 115
+    },
+    {
+      "path": "training/fold4_validation_predictions.csv",
+      "sha256": "3d576f538292dad4ce317fb056c44b1b79c7f5d36a7916170dca7fea1d793572",
+      "row_count": 113
+    },
+    {
+      "path": "training/fold5_validation_predictions.csv",
+      "sha256": "fe4eb67e36594f311c10089120e8c83b1e3b813454cfb6c88f138a9d4d4faed5",
+      "row_count": 113
+    }
+  ]
+}

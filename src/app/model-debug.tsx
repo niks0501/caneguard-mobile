@@ -18,6 +18,7 @@ import {
   MODEL_LABELS,
   MODEL_VERSION,
 } from '@/features/detection/constants/modelContract';
+import { compareV1QaOutput } from '@/features/detection/model/v1Qa';
 import { runInference } from '@/features/detection/model/runInference';
 import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
 import {
@@ -28,7 +29,7 @@ import type { DetectionResult } from '@/features/detection/types';
 import { useTheme } from '@/hooks/use-theme';
 
 type Fixture = {
-  id: 'healthy' | 'mosaic' | 'rust' | 'parity';
+  id: 'healthy' | 'mosaic' | 'rust' | 'smut';
   buttonLabel: string;
   asset: number;
   width: number;
@@ -38,31 +39,31 @@ type Fixture = {
 const FIXTURES: readonly Fixture[] = [
   {
     id: 'healthy',
-    buttonLabel: 'Run Healthy Fixture',
-    asset: require('../../assets/model-fixtures/healthy-reference.png') as number,
-    width: 1536,
-    height: 1024,
+    buttonLabel: 'Run Healthy QA Fixture',
+    asset: require('../../assets/model-fixtures/v1-healthy.jpg') as number,
+    width: 3000,
+    height: 4000,
   },
   {
     id: 'mosaic',
-    buttonLabel: 'Run Mosaic Fixture',
-    asset: require('../../assets/images/sugarcane-diseases/reference_mosaic.jpg') as number,
-    width: 4864,
-    height: 3648,
+    buttonLabel: 'Run Mosaic QA Fixture',
+    asset: require('../../assets/model-fixtures/v1-mosaic.jpg') as number,
+    width: 1589,
+    height: 2116,
   },
   {
     id: 'rust',
-    buttonLabel: 'Run Rust Fixture',
-    asset: require('../../assets/images/sugarcane-diseases/reference_rust.jpg') as number,
-    width: 448,
-    height: 800,
+    buttonLabel: 'Run Rust QA Fixture',
+    asset: require('../../assets/model-fixtures/v1-rust.jpg') as number,
+    width: 1454,
+    height: 1936,
   },
   {
-    id: 'parity',
-    buttonLabel: 'Run Parity Reference',
-    asset: require('../../assets/model-fixtures/parity-reference.jpg') as number,
-    width: 1040,
-    height: 780,
+    id: 'smut',
+    buttonLabel: 'Run Smut QA Fixture',
+    asset: require('../../assets/model-fixtures/v1-smut.jpg') as number,
+    width: 3000,
+    height: 4000,
   },
 ];
 
@@ -71,6 +72,7 @@ type DebugRun = {
   preprocessing: PreprocessingResult;
   result: DetectionResult;
   rawOutput: number[];
+  parity: ReturnType<typeof compareV1QaOutput>;
 };
 
 export default function ModelDebugRoute() {
@@ -124,6 +126,7 @@ function ModelDebugScreen() {
         preprocessing,
         result,
         rawOutput,
+        parity: compareV1QaOutput(fixture.id, rawOutput),
       });
     } catch (error) {
       setDebugRun(null);
@@ -145,7 +148,7 @@ function ModelDebugScreen() {
 
   return (
     <ScreenContainer contentStyle={styles.screen}>
-      <ScreenHeader title="Model v0 debug" />
+      <ScreenHeader title="Model V1 debug" />
 
       <AppCard style={styles.card}>
         <View style={styles.sectionHeading}>
@@ -175,7 +178,7 @@ function ModelDebugScreen() {
           Bundled fixtures
         </Text>
         <Text style={[styles.helper, { color: theme.textSecondary }]}>
-          Each button runs preprocessing and the on-device model once.
+          Each button runs the exact QA fixture through preprocessing and the on-device model once.
         </Text>
         <View style={styles.fixtureButtons}>
           {FIXTURES.map((fixture) => (
@@ -225,6 +228,14 @@ function ModelDebugScreen() {
           }
         />
         <DebugRow
+          label="Letterbox geometry"
+          value={
+            debugRun
+              ? `${debugRun.preprocessing.letterbox.resizedWidth} × ${debugRun.preprocessing.letterbox.resizedHeight}; pad left/top ${debugRun.preprocessing.letterbox.paddingLeft}/${debugRun.preprocessing.letterbox.paddingTop}`
+              : 'Unavailable'
+          }
+        />
+        <DebugRow
           label="Input byte length"
           value={
             debugRun
@@ -259,6 +270,30 @@ function ModelDebugScreen() {
               ? `${debugRun.result.predictedLabel} (${formatScore(debugRun.result.confidence)})`
               : 'Unavailable'
           }
+        />
+        <DebugRow
+          label="Expected QA top-1"
+          value={debugRun ? debugRun.parity.expectedTop1Class : 'Unavailable'}
+        />
+        <DebugRow
+          label="Actual QA top-1"
+          value={debugRun ? debugRun.parity.actualTop1Class ?? 'Unavailable' : 'Unavailable'}
+          danger={Boolean(debugRun && !debugRun.parity.top1Matches)}
+        />
+        <DebugRow
+          label="QA score deltas (absolute)"
+          value={
+            debugRun
+              ? debugRun.parity.scoreDeltas
+                  .map(({ label, absoluteDelta }) => `${label}: ${formatScore(absoluteDelta)}`)
+                  .join(' · ')
+              : 'Unavailable'
+          }
+        />
+        <DebugRow
+          label="QA top-1 parity"
+          value={debugRun ? (debugRun.parity.top1Matches ? 'PASS' : 'MISMATCH') : 'Unavailable'}
+          danger={Boolean(debugRun && !debugRun.parity.top1Matches)}
         />
         <DebugRow
           label="Preprocessing time"

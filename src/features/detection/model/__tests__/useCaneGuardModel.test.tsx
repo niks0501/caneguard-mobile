@@ -23,7 +23,7 @@ const mockAsset: {
   localUri: string | null;
   downloadAsync: jest.Mock;
 } = {
-  localUri: 'file:///cached/caneguard_leaf_v0_1_baseline.tflite',
+  localUri: 'file:///cached/caneguard_v1_mobilenetv2_float32.tflite',
   downloadAsync: mockAssetDownloadAsync,
 };
 
@@ -37,7 +37,7 @@ jest.mock('react-native-fast-tflite', () => ({
   loadTensorflowModel: (...args: unknown[]) => mockLoadTensorflowModel(...args),
 }));
 
-const MODEL_LOCAL_URI = 'file:///cached/caneguard_leaf_v0_1_baseline.tflite';
+const MODEL_LOCAL_URI = 'file:///cached/caneguard_v1_mobilenetv2_float32.tflite';
 
 function createLoadedModel(
   inputShape: number[] = [...MODEL_INPUT.shape],
@@ -171,7 +171,7 @@ describe('CaneGuardModelProvider', () => {
 
     expect(
       await screen.findByText(
-        /error: Model input does not match the Model v0 contract/,
+        /error: Model input does not match the Model V1 contract/,
       ),
     ).toBeOnTheScreen();
   });
@@ -187,7 +187,7 @@ describe('CaneGuardModelProvider', () => {
 
     expect(
       await screen.findByText(
-        'error: The native runtime could not load the bundled Model v0 asset.',
+        'error: The native runtime could not load the bundled Model V1 asset.',
       ),
     ).toBeOnTheScreen();
   });
@@ -203,7 +203,7 @@ describe('CaneGuardModelProvider', () => {
 
     expect(
       await screen.findByText(
-        'error: The native runtime could not load the bundled Model v0 asset.',
+        'error: The native runtime could not load the bundled Model V1 asset.',
       ),
     ).toBeOnTheScreen();
     expect(mockLoadTensorflowModel).not.toHaveBeenCalled();

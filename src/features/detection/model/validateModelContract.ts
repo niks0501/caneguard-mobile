@@ -31,14 +31,14 @@ export function validateModelContract(model: ModelMetadata): InferenceError | nu
   if (model.inputs.length !== 1 || !tensorMatches(model.inputs[0], MODEL_INPUT)) {
     return new InferenceError(
       'MODEL_CONTRACT_MISMATCH',
-      `Model input does not match the Model v0 contract. Received: ${JSON.stringify(model.inputs)}`,
+      `Model input does not match the Model V1 contract. Received: ${JSON.stringify(model.inputs)}`,
     );
   }
 
   if (model.outputs.length !== 1 || !tensorMatches(model.outputs[0], MODEL_OUTPUT)) {
     return new InferenceError(
       'MODEL_CONTRACT_MISMATCH',
-      `Model output does not match the Model v0 contract. Received: ${JSON.stringify(model.outputs)}`,
+      `Model output does not match the Model V1 contract. Received: ${JSON.stringify(model.outputs)}`,
     );
   }
 

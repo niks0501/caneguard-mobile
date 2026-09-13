@@ -23,6 +23,8 @@ const IMAGE_SOURCE_TYPES = ['camera', 'gallery'] as const;
 const REPORTED_SEVERITIES = ['Mild', 'Moderate', 'Severe'] as const;
 const LOCATION_SOURCES = ['gps', 'manual_map'] as const;
 const SYMPTOM_KEYS = CHECKLIST_OBSERVATIONS.map(({ id }) => id);
+const LEGACY_MODEL_VERSION = 'v0.1-baseline';
+const LEGACY_MODEL_LABELS = ['healthy', 'mosaic', 'rust'] as const;
 const QUALITY_WARNING_KEYS = [
   'low-resolution',
   'too-dark',
@@ -84,7 +86,7 @@ export function mapFieldReportToMultipart(
     report.reporterObservationText,
   );
 
-  for (const label of MODEL_LABELS) {
+  for (const label of getClassScoreLabels(scanRecord.modelVersion)) {
     const score = scanRecord.classScores.find((item) => item.label === label);
     if (!score) {
       invalid('Every supported class score is required.');
@@ -208,7 +210,7 @@ function validateReport(
     invalid('The predicted label is unsupported.');
   }
   validateProbability(record.confidence, 'confidence');
-  validateClassScores(record.classScores);
+  validateClassScores(record.classScores, record.modelVersion);
   validateSymptoms(record.symptoms);
   validateRequiredText(
     record.checklistConsistency,
@@ -298,21 +300,27 @@ function validateMismatchFields(
   );
 }
 
+function getClassScoreLabels(modelVersion: string): readonly string[] {
+  return modelVersion === LEGACY_MODEL_VERSION ? LEGACY_MODEL_LABELS : MODEL_LABELS;
+}
+
 function validateClassScores(
   scores: ScanRecordDetails['classScores'],
+  modelVersion: string,
 ): void {
-  if (!Array.isArray(scores) || scores.length !== MODEL_LABELS.length) {
+  const supportedLabels = getClassScoreLabels(modelVersion);
+  if (!Array.isArray(scores) || scores.length !== supportedLabels.length) {
     invalid('Every supported class score is required.');
   }
   const labels = new Set<string>();
   for (const score of scores) {
-    if (!isOneOf(score?.label, MODEL_LABELS) || labels.has(score.label)) {
+    if (!isOneOf(score?.label, supportedLabels) || labels.has(score.label)) {
       invalid('The class score labels are unsupported.');
     }
     labels.add(score.label);
     validateProbability(score.score, 'class score');
   }
-  if (MODEL_LABELS.some((label) => !labels.has(label))) {
+  if (supportedLabels.some((label) => !labels.has(label))) {
     invalid('Every supported class score is required.');
   }
 }

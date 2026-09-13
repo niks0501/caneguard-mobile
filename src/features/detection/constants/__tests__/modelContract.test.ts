@@ -11,12 +11,12 @@ import {
   MODEL_VERSION,
 } from '@/features/detection/constants/modelContract';
 
-describe('Model v0 contract', () => {
+describe('Model V1 contract', () => {
   it('keeps the supported labels in the same order as the bundled label file', () => {
     const labelsPath = join(process.cwd(), 'assets/models/labels.txt');
     const bundledLabels = readFileSync(labelsPath, 'utf8').trim().split(/\r?\n/);
 
-    expect(MODEL_LABELS).toEqual(['healthy', 'mosaic', 'rust']);
+    expect(MODEL_LABELS).toEqual(['healthy', 'mosaic', 'rust', 'smut']);
     expect(bundledLabels).toEqual([...MODEL_LABELS]);
   });
 
@@ -24,20 +24,21 @@ describe('Model v0 contract', () => {
     const modelPath = join(process.cwd(), 'assets/models', MODEL_FILENAME);
     const modelBytes = readFileSync(modelPath);
 
-    expect(MODEL_VERSION).toBe('v0.1-baseline');
-    expect(statSync(modelPath).size).toBe(2_512_848);
+    expect(MODEL_VERSION).toBe('v1.0-mobilenetv2');
+    expect(statSync(modelPath).size).toBe(8_887_704);
     expect(createHash('sha256').update(modelBytes).digest('hex')).toBe(MODEL_SHA256);
   });
 
-  it('defines one RGB-sized float input and one three-class probability output', () => {
+  it('defines one RGB-sized float input and one four-class probability output', () => {
     expect(MODEL_INPUT).toEqual({
-      name: 'serving_default_sugarcane_image:0',
+      name: 'serving_default_image:0',
       shape: [1, 224, 224, 3],
       dataType: 'float32',
       layout: 'NHWC',
       colorOrder: 'RGB',
-      resizePolicy: 'stretch',
+      resizePolicy: 'letterbox',
       interpolation: 'bilinear',
+      letterboxValue: 127.5,
       mobileValueRange: [0, 255],
       mobileNormalization: 'none',
       embeddedNormalization: 'x / 127.5 - 1',

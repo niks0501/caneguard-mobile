@@ -20,7 +20,7 @@ import { validateModelContract } from '@/features/detection/model/validateModelC
 
 // Metro resolves bundled non-code assets through a static require.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const MODEL_ASSET = require('../../../../assets/models/caneguard_leaf_v0_1_baseline.tflite') as number;
+const MODEL_ASSET = require('../../../../assets/models/caneguard_v1_mobilenetv2_float32.tflite') as number;
 const CPU_DELEGATES: TensorflowModelDelegate[] = [];
 
 /**
@@ -128,7 +128,7 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
       if (!loadedModel) {
         throw new InferenceError(
           'MODEL_NOT_READY',
-          'The Model v0 TensorFlow Lite runtime is not loaded.',
+          'The Model V1 TensorFlow Lite runtime is not loaded.',
         );
       }
 
@@ -153,7 +153,7 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
         run,
         error: new InferenceError(
           'MODEL_LOAD_FAILED',
-          'The native runtime could not load the bundled Model v0 asset.',
+          'The native runtime could not load the bundled Model V1 asset.',
           nativeModel.error,
         ),
       };

@@ -1,22 +1,23 @@
-export const MODEL_VERSION = 'v0.1-baseline' as const;
+export const MODEL_VERSION = 'v1.0-mobilenetv2' as const;
 
-export const MODEL_FILENAME = 'caneguard_leaf_v0_1_baseline.tflite' as const;
+export const MODEL_FILENAME = 'caneguard_v1_mobilenetv2_float32.tflite' as const;
 
 export const MODEL_SHA256 =
-  '64338596b5cb41ec8672275c80cdc4c607a18b6c378301cac856b64daace2a0e' as const;
+  '9ebad12450866b47abc94ffb6b820048c1759e3f3e728a71775af42a0541bae7' as const;
 
-export const MODEL_LABELS = ['healthy', 'mosaic', 'rust'] as const;
+export const MODEL_LABELS = ['healthy', 'mosaic', 'rust', 'smut'] as const;
 
 export type ModelLabel = (typeof MODEL_LABELS)[number];
 
 export const MODEL_INPUT = {
-  name: 'serving_default_sugarcane_image:0',
+  name: 'serving_default_image:0',
   shape: [1, 224, 224, 3],
   dataType: 'float32',
   layout: 'NHWC',
   colorOrder: 'RGB',
-  resizePolicy: 'stretch',
+  resizePolicy: 'letterbox',
   interpolation: 'bilinear',
+  letterboxValue: 127.5,
   mobileValueRange: [0, 255],
   mobileNormalization: 'none',
   embeddedNormalization: 'x / 127.5 - 1',

@@ -2,7 +2,7 @@ import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 
 describe('diseaseCatalog', () => {
-  it('defines one complete metadata entry for every Model v0 label', () => {
+  it('defines one complete metadata entry for every Model V1 label', () => {
     expect(Object.keys(diseaseCatalog)).toEqual(MODEL_LABELS);
 
     for (const label of MODEL_LABELS) {

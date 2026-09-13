@@ -190,11 +190,17 @@ export function getResultLabel(label: string): string {
   if (label === 'rust') {
     return 'Possible result: Rust';
   }
+  if (label === 'smut') {
+    return 'Possible result: Smut';
+  }
   return `Stored model result: ${label}`;
 }
 
 function toPillVariant(label: string): DiseasePillVariant {
-  return label === 'healthy' || label === 'mosaic' || label === 'rust'
+  return label === 'healthy' ||
+    label === 'mosaic' ||
+    label === 'rust' ||
+    label === 'smut'
     ? label
     : 'unclear';
 }

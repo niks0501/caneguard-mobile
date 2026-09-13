@@ -103,7 +103,10 @@ function formatDate(value: string): string {
 }
 
 function toPillVariant(label: string): DiseasePillVariant {
-  return label === 'healthy' || label === 'mosaic' || label === 'rust'
+  return label === 'healthy' ||
+    label === 'mosaic' ||
+    label === 'rust' ||
+    label === 'smut'
     ? label
     : 'unclear';
 }

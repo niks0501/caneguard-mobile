@@ -62,7 +62,7 @@ export function getInferenceErrorMessage(error: unknown): string {
     case 'MODEL_LOAD_FAILED':
       return 'The on-device model could not load. Restart the app. If the problem continues, rebuild the development app.';
     case 'MODEL_CONTRACT_MISMATCH':
-      return 'This app and the bundled model are not compatible. Rebuild the app with the expected Model v0 asset.';
+      return 'This app and the bundled model are not compatible. Rebuild the app with the expected Model V1 asset.';
     case 'INPUT_BUFFER_MISMATCH':
       return 'The prepared image is not compatible with the model input. Replace the image or rebuild the app if the problem continues.';
     case 'MODEL_RUN_FAILED':

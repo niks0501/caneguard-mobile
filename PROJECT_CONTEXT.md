@@ -244,11 +244,13 @@ A successful report upload must return a remote identity UUID.
 
 Current bundled model:
 
-- Version: `v0.1-baseline`
-- File: `assets/models/caneguard_leaf_v0_1_baseline.tflite`
-- Labels: `healthy`, `mosaic`, `rust`
-- Input: float32 `[1, 224, 224, 3]`, RGB/NHWC
-- Output: float32 probabilities for the three supported labels
+- Version: `v1.0-mobilenetv2`
+- File: `assets/models/caneguard_v1_mobilenetv2_float32.tflite`
+- SHA-256: `9ebad12450866b47abc94ffb6b820048c1759e3f3e728a71775af42a0541bae7`
+- Labels, in fixed output order: `healthy`, `mosaic`, `rust`, `smut`
+- Input: float32 `[1, 224, 224, 3]`, RGB/NHWC, aspect-ratio-preserving bilinear letterbox with padding `127.5`
+- Mobile input values remain raw `0..255`; the model internally applies `x / 127.5 - 1.0`
+- Output: float32 `[1, 4]` softmax probabilities
 
 Treat `modelContract.ts`, the bundled artifact, labels, parity fixtures, preprocessing, and model tests as one compatibility surface.
 

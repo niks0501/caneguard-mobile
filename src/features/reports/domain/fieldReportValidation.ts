@@ -23,6 +23,33 @@ const MAX_FIELD_NOTES_LENGTH = 120;
 const MAX_REPORTER_SUSPECTED_CONDITION_LENGTH = 120;
 const MAX_REPORTER_OBSERVATION_TEXT_LENGTH = 1_000;
 const MAX_AFFECTED_AREA_HECTARES = 10_000;
+const LEGACY_MODEL_LABELS = ['healthy', 'mosaic', 'rust'] as const;
+
+function hasCompleteClassScores(
+  scores: FieldReportSubmissionEvidence['classScores'],
+): boolean {
+  return [LEGACY_MODEL_LABELS, MODEL_LABELS].some((supportedLabels) => {
+    if (
+      scores.length !== supportedLabels.length ||
+      new Set(scores.map(({ label }) => label)).size !== supportedLabels.length
+    ) {
+      return false;
+    }
+
+    return (
+      scores.every(
+        ({ label, score }) =>
+          supportedLabels.some((supportedLabel) => supportedLabel === label) &&
+          Number.isFinite(score) &&
+          score >= 0 &&
+          score <= 1,
+      ) &&
+      supportedLabels.every((supportedLabel) =>
+        scores.some(({ label }) => label === supportedLabel),
+      )
+    );
+  });
+}
 
 export function validateCreateFieldReportDraftInput(
   input: CreateFieldReportDraftInput,
@@ -153,22 +180,7 @@ export function getMissingSubmissionRequirements(
   ) {
     missing.push('confidence');
   }
-  if (
-    evidence.classScores.length !== MODEL_LABELS.length ||
-    new Set(evidence.classScores.map(({ label }) => label)).size !==
-      MODEL_LABELS.length ||
-    evidence.classScores.some(
-      ({ label, score }) =>
-        !MODEL_LABELS.some((modelLabel) => modelLabel === label) ||
-        !Number.isFinite(score) ||
-        score < 0 ||
-        score > 1,
-    ) ||
-    MODEL_LABELS.some(
-      (modelLabel) =>
-        !evidence.classScores.some(({ label }) => label === modelLabel),
-    )
-  ) {
+  if (!hasCompleteClassScores(evidence.classScores)) {
     missing.push('class_scores');
   }
   if (!evidence.checklistConsistency?.trim()) missing.push('symptom_checklist');

@@ -1,8 +1,8 @@
 import type { ModelLabel } from '@/features/detection/constants/modelContract';
 
 export type DiseaseThemeToken = {
-  foreground: 'healthy' | 'mosaic' | 'rust';
-  background: 'healthyBg' | 'mosaicBg' | 'rustBg';
+  foreground: 'healthy' | 'mosaic' | 'rust' | 'smut';
+  background: 'healthyBg' | 'mosaicBg' | 'rustBg' | 'smutBg';
 };
 
 export type DiseaseCatalogEntry = {
@@ -10,7 +10,7 @@ export type DiseaseCatalogEntry = {
   displayName: string;
   shortDescription: string;
   resultMessage: string;
-  icon: 'check-circle' | 'grid' | 'sun';
+  icon: 'check-circle' | 'grid' | 'sun' | 'alert-triangle';
   themeToken: DiseaseThemeToken;
 };
 
@@ -52,6 +52,19 @@ export const diseaseCatalog: Record<ModelLabel, DiseaseCatalogEntry> = {
     themeToken: {
       foreground: 'rust',
       background: 'rustBg',
+    },
+  },
+  smut: {
+    label: 'smut',
+    displayName: 'Smut',
+    shortDescription:
+      'The model assigned its highest score to Smut based on the submitted image.',
+    resultMessage:
+      'The model assigned its highest score to Smut based on the submitted image.',
+    icon: 'alert-triangle',
+    themeToken: {
+      foreground: 'smut',
+      background: 'smutBg',
     },
   },
 };

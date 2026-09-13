@@ -28,7 +28,7 @@ function createMetadata(overrides: Partial<ModelMetadata> = {}): ModelMetadata {
 }
 
 describe('validateModelContract', () => {
-  it('accepts the exact Model v0 tensor metadata', () => {
+  it('accepts the exact Model V1 tensor metadata', () => {
     expect(validateModelContract(createMetadata())).toBeNull();
   });
 
@@ -66,7 +66,7 @@ describe('validateModelContract', () => {
     ],
     [
       'wrong output shape',
-      [{ name: MODEL_OUTPUT.name, dataType: MODEL_OUTPUT.dataType, shape: [1, 4] }],
+      [{ name: MODEL_OUTPUT.name, dataType: MODEL_OUTPUT.dataType, shape: [1, 3] }],
     ],
   ])('rejects a %s', (_caseName, outputs) => {
     expect(validateModelContract(createMetadata({ outputs }))).toEqual(

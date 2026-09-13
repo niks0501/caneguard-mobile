@@ -4,6 +4,8 @@ const path = require('node:path');
 const appConfig = JSON.parse(
   fs.readFileSync(path.join(__dirname, '..', 'app.json'), 'utf8'),
 ).expo;
+const EXPECTED_CODE_SIGNING_KEY_ID = 'caneguard-v1-20260913';
+
 const releaseRequired =
   process.argv.includes('--release') ||
   (process.argv.includes('--eas') && process.env.EAS_BUILD_PROFILE === 'production');
@@ -23,7 +25,7 @@ if (
   typeof updates.codeSigningCertificate !== 'string' ||
   !updates.codeSigningCertificate.trim() ||
   !metadata ||
-  metadata.keyid !== 'main' ||
+  metadata.keyid !== EXPECTED_CODE_SIGNING_KEY_ID ||
   metadata.alg !== 'rsa-v1_5-sha256'
 ) {
   fail('Expo Updates code-signing certificate and metadata are incomplete.');

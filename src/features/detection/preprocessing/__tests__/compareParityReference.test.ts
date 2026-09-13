@@ -1,34 +1,38 @@
-import parityReference from '../../../../../docs/model-v0/parity-reference.json';
-
 import {
   compareModelOutputToParity,
   comparePreprocessingToParity,
 } from '@/features/detection/preprocessing/compareParityReference';
 import type { PreprocessingResult } from '@/features/detection/preprocessing/preprocessImage';
 
-describe('parity-reference comparison', () => {
-  it('compares preprocessing metadata, statistics, and first values', () => {
-    const tensor = new Float32Array(parityReference.input.element_count);
-    tensor.set(parityReference.input.first_20_values);
-    const result: PreprocessingResult = {
-      processedUri: 'file:///parity-processed.jpg',
-      inputBuffer: tensor.buffer,
-      width: 224,
-      height: 224,
-      channels: 3,
-      dataType: 'float32',
-      minValue: parityReference.input.min,
-      maxValue: parityReference.input.max,
-      meanValue: parityReference.input.mean,
-      qualityAssessment: {
-        warnings: [],
-        meanLuminance: 120,
-        luminanceStandardDeviation: 40,
-      },
-      preprocessMs: 1,
-    };
+function createPreprocessingResult(): PreprocessingResult {
+  return {
+    processedUri: 'file:///v1-healthy.jpg',
+    inputBuffer: new ArrayBuffer(602_112),
+    width: 224,
+    height: 224,
+    channels: 3,
+    dataType: 'float32',
+    minValue: 0,
+    maxValue: 255,
+    meanValue: 127.5,
+    letterbox: {
+      resizedWidth: 168,
+      resizedHeight: 224,
+      paddingLeft: 28,
+      paddingTop: 0,
+    },
+    qualityAssessment: {
+      warnings: [],
+      meanLuminance: 120,
+      luminanceStandardDeviation: 40,
+    },
+    preprocessMs: 1,
+  };
+}
 
-    const comparison = comparePreprocessingToParity(result);
+describe('Model V1 parity comparison', () => {
+  it('compares the V1 preprocessing contract and letterbox geometry', () => {
+    const comparison = comparePreprocessingToParity(createPreprocessingResult());
 
     expect(comparison).toMatchObject({
       modelShaMatches: true,
@@ -37,26 +41,36 @@ describe('parity-reference comparison', () => {
       elementCountMatches: true,
       byteLengthMatches: true,
       classOrderMatches: true,
-      first20MaxAbsoluteDelta: 0,
+      resizePolicyMatches: true,
+      interpolationMatches: true,
+      letterboxValueMatches: true,
+      mobileNormalizationMatches: true,
+      letterbox: {
+        resizedWidth: 168,
+        resizedHeight: 224,
+        paddingLeft: 28,
+        paddingTop: 0,
+      },
     });
-    expect(comparison.statistics.min.absoluteDelta).toBe(0);
-    expect(comparison.statistics.max.absoluteDelta).toBe(0);
-    expect(comparison.statistics.mean.absoluteDelta).toBe(0);
   });
 
-  it('compares class order and raw model probabilities without another softmax', () => {
-    const comparison = compareModelOutputToParity(
-      parityReference.output.raw_probabilities,
-    );
+  it('compares four-class model probabilities without another softmax', () => {
+    const comparison = compareModelOutputToParity([
+      0.9999984502792358,
+      1.1242434538871748e-6,
+      3.297952559933037e-7,
+      7.9567350041998e-8,
+    ]);
 
     expect(comparison).toMatchObject({
+      fixtureId: 'healthy',
       modelShaMatches: true,
       classOrderMatches: true,
       outputLengthMatches: true,
-      maxAbsoluteDelta: 0,
       topIndexMatches: true,
       topLabelMatches: true,
     });
-    expect(comparison.values).toHaveLength(3);
+    expect(comparison.values).toHaveLength(4);
+    expect(comparison.maxAbsoluteDelta).toBe(0);
   });
 });

@@ -17,7 +17,7 @@ function float32Buffer(values: readonly number[]): ArrayBuffer {
   return Float32Array.from(values).buffer as ArrayBuffer;
 }
 
-function createRunner(output = float32Buffer([0.1, 0.2, 0.7])) {
+function createRunner(output = float32Buffer([0.1, 0.1, 0.2, 0.6])) {
   return {
     run: jest.fn().mockResolvedValue([output]),
   } satisfies InferenceRunner;
@@ -33,25 +33,27 @@ describe('runInference', () => {
     await expect(
       runInference(runner, input, 40, clock, observeRawOutput),
     ).resolves.toEqual({
-      predictedLabel: 'rust',
-      confidence: expect.closeTo(0.7),
+      predictedLabel: 'smut',
+      confidence: expect.closeTo(0.6),
       scores: [
-        { label: 'rust', score: expect.closeTo(0.7) },
-        { label: 'mosaic', score: expect.closeTo(0.2) },
+        { label: 'smut', score: expect.closeTo(0.6) },
+        { label: 'rust', score: expect.closeTo(0.2) },
         { label: 'healthy', score: expect.closeTo(0.1) },
+        { label: 'mosaic', score: expect.closeTo(0.1) },
       ],
       timings: {
         preprocessMs: 40,
         inferenceMs: 25,
         totalMs: 65,
       },
-      modelVersion: 'v0.1-baseline',
+      modelVersion: 'v1.0-mobilenetv2',
     });
     expect(runner.run).toHaveBeenCalledWith([input]);
     expect(observeRawOutput).toHaveBeenCalledWith([
       expect.closeTo(0.1),
+      expect.closeTo(0.1),
       expect.closeTo(0.2),
-      expect.closeTo(0.7),
+      expect.closeTo(0.6),
     ]);
   });
 
@@ -90,7 +92,7 @@ describe('runInference', () => {
     ['missing output', [], 'OUTPUT_TENSOR_MISSING'],
     [
       'unexpected output count',
-      [float32Buffer([0.1, 0.2, 0.7]), float32Buffer([1])],
+      [float32Buffer([0.1, 0.1, 0.2, 0.6]), float32Buffer([1])],
       'OUTPUT_SIZE_MISMATCH',
     ],
   ])('rejects %s', async (_caseName, outputs, code) => {
@@ -104,7 +106,7 @@ describe('runInference', () => {
   });
 
   it('returns stable results over ten consecutive runs', async () => {
-    const runner = createRunner(float32Buffer([0.05, 0.15, 0.8]));
+    const runner = createRunner(float32Buffer([0.05, 0.05, 0.15, 0.75]));
     const results: DetectionResult[] = [];
 
     for (let index = 0; index < 10; index += 1) {
@@ -122,7 +124,7 @@ describe('runInference', () => {
     expect(
       results.every(
         (result) =>
-          result.predictedLabel === 'rust' &&
+          result.predictedLabel === 'smut' &&
           Math.abs(result.confidence - results[0].confidence) < Number.EPSILON,
       ),
     ).toBe(true);

@@ -221,7 +221,13 @@ For JS/TS-only changes that do not alter the native runtime, reuse the existing 
 Expo Go is not the authoritative runtime for TFLite/native-module verification.
 
 For flow authoring, inspect the current screen or hierarchy when useful before choosing selectors.
-Start with the smallest focused flow and run `agent-device replay <script>`.
+For newly implemented or changed device behavior, verify the path interactively first with Agent Device.
+Open the app, inspect the live UI, act, re-inspect, diagnose failures in place, and continue from the current session when safe.
+Do not author the durable `.ad` script until the path succeeds interactively.
+
+Once the behavior is stable, create or update the smallest justified `.ad` regression flow and replay it once to prove deterministic coverage.
+If a relevant checked-in `.ad` flow already exists, replay it as regression evidence and use interactive diagnosis when it diverges.
+
 Preserve the first failure, diagnose the smallest failing interaction from the structured divergence report, make one evidence-backed change, and rerun the focused flow.
 Broaden to full E2E only when the task or an acceptance gate requires it.
 Do not add automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns around Agent Device.

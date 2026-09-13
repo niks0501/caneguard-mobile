@@ -290,6 +290,26 @@ describe('getMissingSubmissionRequirements', () => {
     expect(missing).not.toContain('farmer_or_farm_owner_name');
   });
 
+  it('does not treat four-class Model V1 evidence as upload-ready for the stable contract', () => {
+    const missing = getMissingSubmissionRequirements(
+      draft(),
+      {
+        ...evidence(),
+        predictedLabel: 'smut',
+        classScores: [
+          { label: 'healthy', score: 0.01 },
+          { label: 'mosaic', score: 0.01 },
+          { label: 'rust', score: 0.01 },
+          { label: 'smut', score: 0.97 },
+        ],
+      },
+    );
+
+    expect(missing).toEqual(
+      expect.arrayContaining(['ai_supported_result', 'class_scores']),
+    );
+  });
+
   it('requires affected area and portion at finalization', () => {
     const missing = getMissingSubmissionRequirements(
       draft({ affectedAreaHectares: null, affectedPortionPercent: null }),

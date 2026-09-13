@@ -1,7 +1,10 @@
-import {
-  MODEL_LABELS,
-  type ModelLabel,
-} from '@/features/detection/constants/modelContract';
+import type { ModelLabel } from '@/features/detection/constants/modelContract';
+
+const CHECKLIST_MODEL_LABELS: readonly ModelLabel[] = [
+  'healthy',
+  'mosaic',
+  'rust',
+];
 
 const MOSAIC_OBSERVATION = {
   id: 'mosaic',
@@ -66,7 +69,7 @@ export const GUIDED_VALIDATION_QUESTIONS = [
     prompt: 'What visible pattern, if any, best describes the area you are checking?',
     helperText:
       'Choose the closest description. This is your observation and does not change the AI result.',
-    relevantModelLabels: MODEL_LABELS,
+    relevantModelLabels: CHECKLIST_MODEL_LABELS,
     options: [
       MOSAIC_OBSERVATION,
       RUST_OBSERVATION,
@@ -101,6 +104,10 @@ export function getChecklistConsistency(
   predictedLabel: ModelLabel,
   selectedObservations: readonly ChecklistObservationId[],
 ): ChecklistConsistency {
+  if (!CHECKLIST_MODEL_LABELS.includes(predictedLabel)) {
+    return 'not-applicable';
+  }
+
   const observations = new Set(selectedObservations);
 
   if (observations.size === 0 || observations.has('unable-to-tell')) {

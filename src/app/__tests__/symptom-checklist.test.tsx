@@ -44,6 +44,21 @@ const completedState: ScanSessionState = {
   result: completedResult,
 };
 
+const smutState: ScanSessionState = {
+  ...completedState,
+  result: {
+    ...completedResult,
+    predictedLabel: 'smut',
+    scores: [
+      { label: 'healthy', score: 0.01 },
+      { label: 'mosaic', score: 0.01 },
+      { label: 'rust', score: 0.01 },
+      { label: 'smut', score: 0.97 },
+    ],
+    modelVersion: 'v1.0-mobilenetv2',
+  },
+};
+
 async function renderChecklist(state: ScanSessionState = completedState) {
   return render(
     <ScanSessionContext.Provider value={{ state, dispatch: mockDispatch }}>
@@ -80,6 +95,21 @@ describe('SymptomChecklistScreen', () => {
     expect(screen.queryByText('Severe')).not.toBeOnTheScreen();
     expect(screen.queryByText('Black whip-like growth')).not.toBeOnTheScreen();
     expect(screen.queryByText('Drying young shoot')).not.toBeOnTheScreen();
+  });
+
+  it('bypasses the Model V0 checklist for a Model V1 smut result', async () => {
+    await renderChecklist(smutState);
+
+    expect(screen.getByText(/Guided observations are unavailable/)).toBeOnTheScreen();
+    expect(screen.getByLabelText('Continue to analysis result')).not.toBeDisabled();
+
+    await fireEvent.press(screen.getByLabelText('Continue to analysis result'));
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'SET_SYMPTOMS',
+      payload: [],
+    });
+    expect(mockRouterPush).toHaveBeenCalledWith('/analysis-result');
   });
 
   it('stores the selected observation without changing model evidence or severity', async () => {

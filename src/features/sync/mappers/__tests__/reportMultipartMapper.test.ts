@@ -70,6 +70,22 @@ describe('Field Report multipart mapper', () => {
     });
   }
 
+  it('does not send Model V1 evidence through the stable three-class upload contract', () => {
+    expect(() =>
+      map(REPORT, {
+        ...SCAN,
+        modelVersion: 'v1.0-mobilenetv2',
+        predictedLabel: 'smut',
+        classScores: [
+          { label: 'healthy', score: 0.01 },
+          { label: 'mosaic', score: 0.01 },
+          { label: 'rust', score: 0.01 },
+          { label: 'smut', score: 0.97 },
+        ],
+      }),
+    ).toThrow(expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }));
+  });
+
   it('uploads the persisted submission artifact instead of the preserved source path', () => {
     const createImageFile = jest.fn(
       () => ({ name: 'submission.jpg', type: 'image/jpeg', size: 4096 }) as unknown as Blob,

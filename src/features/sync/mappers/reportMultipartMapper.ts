@@ -1,7 +1,6 @@
 import { File } from 'expo-file-system';
 
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
-import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import {
   getSubmissionImageUri,
@@ -86,7 +85,7 @@ export function mapFieldReportToMultipart(
     report.reporterObservationText,
   );
 
-  for (const label of getClassScoreLabels(scanRecord.modelVersion)) {
+  for (const label of LEGACY_MODEL_LABELS) {
     const score = scanRecord.classScores.find((item) => item.label === label);
     if (!score) {
       invalid('Every supported class score is required.');
@@ -203,14 +202,22 @@ function validateReport(
     invalid('GPS accuracy is only valid for GPS locations.');
   }
 
+  validateRequiredText(
+    record.modelVersion,
+    'Model version',
+    MAX_MODEL_VERSION_LENGTH,
+  );
+  if (record.modelVersion !== LEGACY_MODEL_VERSION) {
+    invalid('The mobile report upload contract does not support this model version.');
+  }
   if (!isOneOf(record.imageSourceType, IMAGE_SOURCE_TYPES)) {
     invalid('The image source type is unsupported.');
   }
-  if (!isOneOf(record.predictedLabel, MODEL_LABELS)) {
+  if (!isOneOf(record.predictedLabel, LEGACY_MODEL_LABELS)) {
     invalid('The predicted label is unsupported.');
   }
   validateProbability(record.confidence, 'confidence');
-  validateClassScores(record.classScores, record.modelVersion);
+  validateClassScores(record.classScores);
   validateSymptoms(record.symptoms);
   validateRequiredText(
     record.checklistConsistency,
@@ -227,11 +234,6 @@ function validateReport(
   validateQualityWarnings(record.qualityWarnings);
   validateRequiredInteger(record.sourceWidth, 1, MAX_SOURCE_DIMENSION, 'Source width');
   validateRequiredInteger(record.sourceHeight, 1, MAX_SOURCE_DIMENSION, 'Source height');
-  validateRequiredText(
-    record.modelVersion,
-    'Model version',
-    MAX_MODEL_VERSION_LENGTH,
-  );
   validateNumber(record.preprocessMs, 0, MAX_TIMING_MS, 'Preprocessing timing');
   validateNumber(record.inferenceMs, 0, MAX_TIMING_MS, 'Inference timing');
   validateNumber(record.totalMs, 0, MAX_TIMING_MS, 'Total timing');
@@ -300,27 +302,21 @@ function validateMismatchFields(
   );
 }
 
-function getClassScoreLabels(modelVersion: string): readonly string[] {
-  return modelVersion === LEGACY_MODEL_VERSION ? LEGACY_MODEL_LABELS : MODEL_LABELS;
-}
-
 function validateClassScores(
   scores: ScanRecordDetails['classScores'],
-  modelVersion: string,
 ): void {
-  const supportedLabels = getClassScoreLabels(modelVersion);
-  if (!Array.isArray(scores) || scores.length !== supportedLabels.length) {
+  if (!Array.isArray(scores) || scores.length !== LEGACY_MODEL_LABELS.length) {
     invalid('Every supported class score is required.');
   }
   const labels = new Set<string>();
   for (const score of scores) {
-    if (!isOneOf(score?.label, supportedLabels) || labels.has(score.label)) {
+    if (!isOneOf(score?.label, LEGACY_MODEL_LABELS) || labels.has(score.label)) {
       invalid('The class score labels are unsupported.');
     }
     labels.add(score.label);
     validateProbability(score.score, 'class score');
   }
-  if (supportedLabels.some((label) => !labels.has(label))) {
+  if (LEGACY_MODEL_LABELS.some((label) => !labels.has(label))) {
     invalid('Every supported class score is required.');
   }
 }

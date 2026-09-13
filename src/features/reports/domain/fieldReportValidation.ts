@@ -1,5 +1,4 @@
 import { StorageError } from '@/database/errors';
-import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 import { isValidSubmissionImageMetadata } from '@/features/sync/constants/mobileReportUploadContract';
 import type {
   CreateFieldReportDraftInput,
@@ -28,27 +27,25 @@ const LEGACY_MODEL_LABELS = ['healthy', 'mosaic', 'rust'] as const;
 function hasCompleteClassScores(
   scores: FieldReportSubmissionEvidence['classScores'],
 ): boolean {
-  return [LEGACY_MODEL_LABELS, MODEL_LABELS].some((supportedLabels) => {
-    if (
-      scores.length !== supportedLabels.length ||
-      new Set(scores.map(({ label }) => label)).size !== supportedLabels.length
-    ) {
-      return false;
-    }
+  if (
+    scores.length !== LEGACY_MODEL_LABELS.length ||
+    new Set(scores.map(({ label }) => label)).size !== LEGACY_MODEL_LABELS.length
+  ) {
+    return false;
+  }
 
-    return (
-      scores.every(
-        ({ label, score }) =>
-          supportedLabels.some((supportedLabel) => supportedLabel === label) &&
-          Number.isFinite(score) &&
-          score >= 0 &&
-          score <= 1,
-      ) &&
-      supportedLabels.every((supportedLabel) =>
-        scores.some(({ label }) => label === supportedLabel),
-      )
-    );
-  });
+  return (
+    scores.every(
+      ({ label, score }) =>
+        LEGACY_MODEL_LABELS.some((supportedLabel) => supportedLabel === label) &&
+        Number.isFinite(score) &&
+        score >= 0 &&
+        score <= 1,
+    ) &&
+    LEGACY_MODEL_LABELS.every((supportedLabel) =>
+      scores.some(({ label }) => label === supportedLabel),
+    )
+  );
 }
 
 export function validateCreateFieldReportDraftInput(
@@ -168,7 +165,7 @@ export function getMissingSubmissionRequirements(
   }
   if (
     !evidence.predictedLabel ||
-    !MODEL_LABELS.some((label) => label === evidence.predictedLabel)
+    !LEGACY_MODEL_LABELS.some((label) => label === evidence.predictedLabel)
   ) {
     missing.push('ai_supported_result');
   }

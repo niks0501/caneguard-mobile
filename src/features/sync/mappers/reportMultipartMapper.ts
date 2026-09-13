@@ -1,6 +1,10 @@
 import { File } from 'expo-file-system';
 
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
+import {
+  LEGACY_MODEL_LABELS,
+  LEGACY_MODEL_VERSION,
+} from '@/features/detection/constants/modelContract';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import {
   getSubmissionImageUri,
@@ -22,8 +26,6 @@ const IMAGE_SOURCE_TYPES = ['camera', 'gallery'] as const;
 const REPORTED_SEVERITIES = ['Mild', 'Moderate', 'Severe'] as const;
 const LOCATION_SOURCES = ['gps', 'manual_map'] as const;
 const SYMPTOM_KEYS = CHECKLIST_OBSERVATIONS.map(({ id }) => id);
-const LEGACY_MODEL_VERSION = 'v0.1-baseline';
-const LEGACY_MODEL_LABELS = ['healthy', 'mosaic', 'rust'] as const;
 const QUALITY_WARNING_KEYS = [
   'low-resolution',
   'too-dark',

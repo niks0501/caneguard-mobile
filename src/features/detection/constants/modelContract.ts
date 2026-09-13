@@ -9,6 +9,14 @@ export const MODEL_LABELS = ['healthy', 'mosaic', 'rust', 'smut'] as const;
 
 export type ModelLabel = (typeof MODEL_LABELS)[number];
 
+export const LEGACY_MODEL_VERSION = 'v0.1-baseline' as const;
+
+export const LEGACY_MODEL_LABELS: readonly ModelLabel[] = [
+  'healthy',
+  'mosaic',
+  'rust',
+];
+
 export const MODEL_INPUT = {
   name: 'serving_default_image:0',
   shape: [1, 224, 224, 3],

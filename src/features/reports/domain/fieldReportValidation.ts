@@ -1,4 +1,5 @@
 import { StorageError } from '@/database/errors';
+import { LEGACY_MODEL_LABELS } from '@/features/detection/constants/modelContract';
 import { isValidSubmissionImageMetadata } from '@/features/sync/constants/mobileReportUploadContract';
 import type {
   CreateFieldReportDraftInput,
@@ -22,8 +23,6 @@ const MAX_FIELD_NOTES_LENGTH = 120;
 const MAX_REPORTER_SUSPECTED_CONDITION_LENGTH = 120;
 const MAX_REPORTER_OBSERVATION_TEXT_LENGTH = 1_000;
 const MAX_AFFECTED_AREA_HECTARES = 10_000;
-const LEGACY_MODEL_LABELS = ['healthy', 'mosaic', 'rust'] as const;
-
 function hasCompleteClassScores(
   scores: FieldReportSubmissionEvidence['classScores'],
 ): boolean {

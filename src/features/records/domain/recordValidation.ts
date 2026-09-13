@@ -3,6 +3,8 @@ import {
   getChecklistConsistency,
 } from '@/features/detection/checklist/checklistConsistency';
 import {
+  LEGACY_MODEL_LABELS,
+  LEGACY_MODEL_VERSION,
   MODEL_LABELS,
   type ModelLabel,
 } from '@/features/detection/constants/modelContract';
@@ -38,12 +40,6 @@ const QUALITY_WARNINGS: readonly QualityWarning[] = [
 const SYMPTOM_KEYS: readonly string[] = CHECKLIST_OBSERVATIONS.map(
   (observation) => observation.id,
 );
-const LEGACY_MODEL_VERSION = 'v0.1-baseline';
-const LEGACY_MODEL_LABELS: readonly ModelLabel[] = [
-  'healthy',
-  'mosaic',
-  'rust',
-];
 
 export function createCompletedScanDraft(
   state: ScanSessionState,

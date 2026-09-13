@@ -40,6 +40,24 @@ describe('mobile field validation assignment API', () => {
     });
   });
 
+  it('rejects a V1-only predicted label from the stable assignment contract', async () => {
+    request.mockResolvedValueOnce(
+      page([
+        {
+          ...MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE.data[0],
+          case: {
+            ...MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE.data[0].case,
+            predicted_label: 'smut',
+          },
+        },
+      ]),
+    );
+
+    await expect(
+      fetchAllMobileFieldValidationAssignments({ token: 'secure-token' }),
+    ).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' });
+  });
+
   it('follows pagination with one stable checkpoint and rejects duplicates', async () => {
     const next = `http://127.0.0.1:8000/api/v1/mobile/assignments?cursor=next&sync_before=${encodeURIComponent(CHECKPOINT)}`;
     const second = {

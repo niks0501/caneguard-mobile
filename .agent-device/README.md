@@ -66,8 +66,11 @@ shell-out. Flows that need staged media or a known location-permission state
 rely on `scripts/ad-flow-env.sh`, run before the flow or suite:
 
 ```bash
-scripts/ad-flow-env.sh preflight          # device check, reverse mappings, grant location, stage fixture
-scripts/ad-flow-env.sh stage-media        # push + media-scan assets/model-fixtures/parity-reference.jpg
+scripts/ad-flow-env.sh preflight          # device check, reverse mappings, grant location, stage legacy fixture
+scripts/ad-flow-env.sh preflight-v1       # same checks, then stage all four fixed Model V1 fixtures
+scripts/ad-flow-env.sh stage-media        # push + media-scan one fixture (optional device filename)
+scripts/ad-flow-env.sh stage-v1-fixture smut  # stage one V1 fixture; removes only controlled V1 copies
+scripts/ad-flow-env.sh stage-v1-fixtures # stage healthy, mosaic, rust, and smut together
 scripts/ad-flow-env.sh grant-permissions  # pm grant fine/coarse location
 scripts/ad-flow-env.sh revoke-permissions # revoke + force-deny location (no system dialog)
 scripts/ad-flow-env.sh connect-metro      # connect the dev client to http://127.0.0.1:8081 and close the setup session
@@ -78,12 +81,23 @@ scripts/ad-flow-env.sh reset-app          # clear app data and establish the Met
 state-preserving or mid-suite Metro reconnects, connect Metro directly without
 this helper.
 
-`preflight` stages the shared Rust fixture and grants location permissions.
+`preflight` remains compatible with the legacy parity-reference flows: it
+stages the shared Rust fixture and grants location permissions.
+`preflight-v1` stages all four fixed handoff fixtures after checking their
+SHA-256 identities against `qa/expected-v1-outputs.json`. The source is the
+read-only handoff directory (`$HOME/projects/CaneGuard-V1-Integration-Handoff/qa`)
+when present, otherwise the identical tracked copies under
+`assets/model-fixtures/v1-*.jpg` are used. `stage-v1-fixture <class>` removes
+only the helper's controlled `caneguard-v1-*.jpg` media and stages one class;
+use that form before the gallery flow so the Android system picker has exactly
+one controlled candidate. `stage-v1-fixtures` keeps all four candidates for
+host/debug flows. No command clears app data, resets an AVD, or removes
+unrelated user media.
 Flows that need location denied run `revoke-permissions` first (or the suite
 runner notes it in the flow's evidence record).
-`stage-media` removes only prior copies of the controlled fixture before
-staging it, because Android's picker copies selected images into Pictures.
-Run it before each scan flow or isolated scan-flow segment.
+`stage-media` removes only prior copies of the selected controlled fixture
+before staging it, because Android's picker copies selected images into
+Pictures. Run it before each scan flow or isolated scan-flow segment.
 Scripts whose Maestro originals started with `launchApp clearState` assume
 `reset-app` ran first; scripts that preserve state assume the app is already
 signed in as documented per flow group.

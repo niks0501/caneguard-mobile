@@ -18,7 +18,7 @@ const SCAN: ScanRecordDetails = {
   syncStatus: 'local_only', createdAt: '2026-07-25T05:30:00.000Z',
   imageMimeType: 'image/jpeg', imageSizeBytes: 4096, imageSourceType: 'camera',
   sourceWidth: 1200, sourceHeight: 900, checklistConsistency: 'consistent',
-  reportedSeverity: 'Moderate', modelVersion: 'v0.1-baseline', preprocessMs: 4.25,
+  reportedSeverity: 'Moderate', decisionSupportWording: 'Possible result only. This output does not confirm a disease.', modelVersion: 'v0.1-baseline', preprocessMs: 4.25,
   inferenceMs: 8.5, totalMs: 12.75, remoteId: null,
   updatedAt: '2026-07-25T05:30:00.000Z', syncAttemptCount: 0,
   lastSyncErrorCode: null, lastSyncAttemptAt: null, lastSyncedAt: null,

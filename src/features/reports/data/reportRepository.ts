@@ -14,6 +14,7 @@ import {
 import type { CaneGuardDatabase } from '@/database/database';
 import { toStorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
+import { V1_CONFIDENCE_CAUTION_THRESHOLD } from '@/features/detection/constants/confidenceCaution';
 import { fieldReports, scanRecords } from '@/database/schema';
 import type { ReportRepository } from '@/features/records/data/repositoryContracts';
 import { listScanRecords } from '@/features/records/data/scanRecordRepository';
@@ -22,7 +23,6 @@ import type {
   LocalReportSummary,
 } from '@/features/records/domain/recordTypes';
 
-export const PROTOTYPE_LOW_SCORE_THRESHOLD = 0.5;
 export const DEFAULT_RECENT_RECORD_LIMIT = 3;
 
 export interface LocalReportOptions {
@@ -48,7 +48,7 @@ export async function getLocalReportSummary(
 ): Promise<LocalReportSummary> {
   const owner = requireOwnerIdentity(submitterIdentity);
   const lowScoreThreshold =
-    options.lowScoreThreshold ?? PROTOTYPE_LOW_SCORE_THRESHOLD;
+    options.lowScoreThreshold ?? V1_CONFIDENCE_CAUTION_THRESHOLD;
   const recentLimit = Math.min(
     Math.max(Math.trunc(options.recentLimit ?? DEFAULT_RECENT_RECORD_LIMIT), 1),
     25,

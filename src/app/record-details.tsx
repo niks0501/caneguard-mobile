@@ -306,6 +306,7 @@ export default function RecordDetailsScreen() {
                   ))}
                 </Section>
                 <Section title="Saved analysis details">
+                  <DetailRow label="Decision support" value={record.data.decisionSupportWording} />
                   <DetailRow label="Model version" value={record.data.modelVersion} />
                   <DetailRow
                     label="Preprocessing"

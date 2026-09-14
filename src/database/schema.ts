@@ -93,6 +93,7 @@ export const scanRecords = sqliteTable(
     reportedSeverity: text('reported_severity').$type<ReportedSeverity>(),
     barangay: text('barangay'),
     modelVersion: text('model_version').notNull(),
+    decisionSupportWording: text('decision_support_wording').notNull(),
     preprocessMs: real('preprocess_ms').notNull(),
     inferenceMs: real('inference_ms').notNull(),
     totalMs: real('total_ms').notNull(),

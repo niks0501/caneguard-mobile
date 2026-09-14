@@ -1,3 +1,4 @@
+import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import { MODEL_INPUT } from '@/features/detection/constants/modelContract';
 import { InferenceError } from '@/features/detection/model/inferenceErrors';
 import {
@@ -47,6 +48,7 @@ describe('runInference', () => {
         totalMs: 65,
       },
       modelVersion: 'v1.0-mobilenetv2',
+      decisionSupportWording: diseaseCatalog.smut.decisionSupportWording,
     });
     expect(runner.run).toHaveBeenCalledWith([input]);
     expect(observeRawOutput).toHaveBeenCalledWith([

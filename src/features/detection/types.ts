@@ -37,6 +37,8 @@ export interface DetectionResult {
   scores: ClassScore[];
   timings: InferenceTimings;
   modelVersion: string;
+  /** Snapshot of the decision-support wording shown for this result. */
+  decisionSupportWording?: string;
 }
 
 export interface ScanSessionState {

@@ -27,13 +27,14 @@ const completedResult: DetectionResult = {
     { label: 'healthy', score: 0.08 },
     { label: 'mosaic', score: 0.78 },
     { label: 'rust', score: 0.14 },
+    { label: 'smut', score: 0 },
   ],
   timings: {
     preprocessMs: 40,
     inferenceMs: 20,
     totalMs: 60,
   },
-  modelVersion: 'v0.1-baseline',
+  modelVersion: 'v1.0-mobilenetv2',
 };
 
 const completedState: ScanSessionState = {
@@ -86,7 +87,7 @@ describe('SymptomChecklistScreen', () => {
     for (const observation of CHECKLIST_OBSERVATIONS) {
       expect(screen.getByText(observation.label)).toBeOnTheScreen();
     }
-    expect(GUIDED_VALIDATION_QUESTIONS[0].options).toHaveLength(6);
+    expect(GUIDED_VALIDATION_QUESTIONS[0].options).toHaveLength(7);
     expect(screen.getByText('Something else')).toBeOnTheScreen();
     expect(screen.getByText('Unable to tell')).toBeOnTheScreen();
     expect(screen.queryByText('Reported severity (optional)')).not.toBeOnTheScreen();
@@ -97,17 +98,16 @@ describe('SymptomChecklistScreen', () => {
     expect(screen.queryByText('Drying young shoot')).not.toBeOnTheScreen();
   });
 
-  it('bypasses the Model V0 checklist for a Model V1 smut result', async () => {
+  it('offers an independent observational option for a Model V1 Smut result', async () => {
     await renderChecklist(smutState);
 
-    expect(screen.getByText(/Guided observations are unavailable/)).toBeOnTheScreen();
-    expect(screen.getByLabelText('Continue to analysis result')).not.toBeDisabled();
-
+    expect(screen.getByText('Dark, whip-like growth emerging from the central shoot or stalk')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('Dark, whip-like growth emerging from the central shoot or stalk'));
     await fireEvent.press(screen.getByLabelText('Continue to analysis result'));
 
     expect(mockDispatch).toHaveBeenCalledWith({
       type: 'SET_SYMPTOMS',
-      payload: [],
+      payload: ['smut'],
     });
     expect(mockRouterPush).toHaveBeenCalledWith('/analysis-result');
   });

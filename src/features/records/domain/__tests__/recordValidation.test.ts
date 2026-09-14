@@ -59,6 +59,7 @@ describe('completed scan record validation', () => {
       confidence: 0.82,
       symptoms: ['rust'],
       checklistConsistency: 'consistent',
+      decisionSupportWording: expect.stringContaining('does not confirm'),
       reportedSeverity: 'Moderate',
       qualityWarnings: ['too-dark'],
       barangay: '',
@@ -74,6 +75,32 @@ describe('completed scan record validation', () => {
       { label: 'mosaic', score: 0.13 },
       { label: 'rust', score: 0.82 },
     ]);
+  });
+
+  it('preserves all four V1 scores and Smut decision-support wording', () => {
+    const draft = createCompletedScanDraft(
+      completedState({
+        selectedSymptoms: ['smut'],
+        result: {
+          predictedLabel: 'smut',
+          confidence: 0.91,
+          scores: [
+            { label: 'healthy', score: 0.02 },
+            { label: 'mosaic', score: 0.01 },
+            { label: 'rust', score: 0.06 },
+            { label: 'smut', score: 0.91 },
+          ],
+          timings: { preprocessMs: 3, inferenceMs: 7, totalMs: 10 },
+          modelVersion: 'v1.0-mobilenetv2',
+        },
+      }),
+      RECORD_ID,
+      NOW,
+    );
+
+    expect(draft.classScores).toHaveLength(4);
+    expect(draft.classScores).toContainEqual({ label: 'smut', score: 0.91 });
+    expect(draft.decisionSupportWording).toMatch(/whip-like|confirmation/i);
   });
 
   it.each([

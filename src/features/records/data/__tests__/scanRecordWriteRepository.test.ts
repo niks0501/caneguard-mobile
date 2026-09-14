@@ -55,6 +55,7 @@ function openTestDatabase(): {
   native.exec(readMigration('0006_curvy_piledriver.sql'));
   native.exec(readMigration('0007_familiar_old_lace.sql'));
   native.exec(readMigration('0012_dapper_sumo.sql'));
+  native.exec(readMigration('0013_v1_local_scan_migration.sql'));
   const client = {
     prepareSync(sql: string) {
       return createStatementAdapter(native.prepare(sql));
@@ -111,13 +112,15 @@ function validInput(
       { label: 'healthy', score: 0.05 },
       { label: 'mosaic', score: 0.13 },
       { label: 'rust', score: 0.82 },
+      { label: 'smut', score: 0 },
     ],
     symptoms: ['rust'],
     checklistConsistency: 'consistent',
     reportedSeverity: 'Moderate',
     qualityWarnings: ['too-dark'],
     barangay: 'Wawa',
-    modelVersion: 'v0.1-baseline',
+    decisionSupportWording: 'Possible result only. This output does not confirm a disease.',
+    modelVersion: 'v1.0-mobilenetv2',
     preprocessMs: 4.25,
     inferenceMs: 8.5,
     totalMs: 12.75,
@@ -153,6 +156,11 @@ describe('scan record write repository', () => {
       created_at: '2026-07-25T05:30:00.000Z',
     });
     expect(
+      native.prepare('SELECT decision_support_wording FROM scan_records WHERE id = ?').get(RECORD_ID),
+    ).toEqual({
+      decision_support_wording: 'Possible result only. This output does not confirm a disease.',
+    });
+    expect(
       native
         .prepare(
           'SELECT label, score FROM scan_class_scores WHERE scan_record_id = ? ORDER BY label',
@@ -162,6 +170,7 @@ describe('scan record write repository', () => {
       { label: 'healthy', score: 0.05 },
       { label: 'mosaic', score: 0.13 },
       { label: 'rust', score: 0.82 },
+      { label: 'smut', score: 0 },
     ]);
     expect(
       native
@@ -452,6 +461,7 @@ describe('scan record write repository', () => {
         { label: 'healthy', score: 0.05 },
         { label: 'mosaic', score: 0.13 },
         { label: 'rust', score: 0.82 },
+        { label: 'smut', score: 0 },
       ],
       symptoms: ['rust'],
       qualityWarnings: ['too-dark'],

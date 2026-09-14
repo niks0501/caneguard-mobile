@@ -50,6 +50,7 @@ export async function insertScanRecord(
           reportedSeverity: input.reportedSeverity,
           barangay: input.barangay,
           modelVersion: input.modelVersion,
+          decisionSupportWording: input.decisionSupportWording,
           preprocessMs: input.preprocessMs,
           inferenceMs: input.inferenceMs,
           totalMs: input.totalMs,

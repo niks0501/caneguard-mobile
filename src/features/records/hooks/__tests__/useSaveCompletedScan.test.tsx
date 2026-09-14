@@ -42,9 +42,10 @@ function completedState(): ScanSessionState {
         { label: 'healthy', score: 0.1 },
         { label: 'mosaic', score: 0.1 },
         { label: 'rust', score: 0.8 },
+        { label: 'smut', score: 0 },
       ],
       timings: { preprocessMs: 2, inferenceMs: 5, totalMs: 7 },
-      modelVersion: 'v0.1-baseline',
+      modelVersion: 'v1.0-mobilenetv2',
     },
   };
 }

@@ -60,6 +60,10 @@ const MATRIX: MatrixCase[] = [
   ['rust', 'inconsistent', ['mosaic']],
   ['rust', 'not-applicable', ['mosaic', 'rust']],
   ['rust', 'not-enough-information', []],
+  ['smut', 'consistent', ['smut']],
+  ['smut', 'inconsistent', ['rust']],
+  ['smut', 'not-applicable', ['smut', 'rust']],
+  ['smut', 'not-enough-information', []],
 ];
 
 function createResult(
@@ -73,13 +77,14 @@ function createResult(
       { label: 'healthy', score: predictedLabel === 'healthy' ? confidence : 0.08 },
       { label: 'mosaic', score: predictedLabel === 'mosaic' ? confidence : 0.14 },
       { label: 'rust', score: predictedLabel === 'rust' ? confidence : 0.08 },
+      { label: 'smut', score: predictedLabel === 'smut' ? confidence : 0.02 },
     ],
     timings: {
       preprocessMs: 40,
       inferenceMs: 20,
       totalMs: 60,
     },
-    modelVersion: 'v0.1-baseline',
+    modelVersion: 'v1.0-mobilenetv2',
   };
 }
 
@@ -129,7 +134,7 @@ describe('AnalysisResultScreen', () => {
         screen.getByText(
           predictedLabel === 'healthy'
             ? 'No supported disease detected'
-            : `Possible result: ${predictedLabel === 'mosaic' ? 'Mosaic' : 'Rust'}`,
+            : `Possible result: ${predictedLabel === 'mosaic' ? 'Mosaic' : predictedLabel === 'rust' ? 'Rust' : 'Smut'}`,
         ),
       ).toBeOnTheScreen();
     },
@@ -161,17 +166,18 @@ describe('AnalysisResultScreen', () => {
     expect(screen.getByLabelText('Healthy score 8%')).toBeOnTheScreen();
     expect(screen.getByLabelText('Mosaic score 14%')).toBeOnTheScreen();
     expect(screen.getByLabelText('Rust score 78%')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Smut score 2%')).toBeOnTheScreen();
     expect(screen.queryByText('Reported severity')).not.toBeOnTheScreen();
     expect(screen.queryByText('Mild')).not.toBeOnTheScreen();
     expect(screen.queryByText('Moderate')).not.toBeOnTheScreen();
     expect(screen.queryByText('Severe')).not.toBeOnTheScreen();
-    expect(screen.getByText('v1.0-mobilenetv2')).toBeOnTheScreen();
+    expect(screen.getAllByText('v1.0-mobilenetv2').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('60 ms')).toBeOnTheScreen();
     expect(result.confidence).toBe(0.78);
     expect(screen.queryByText('Downy Mildew')).not.toBeOnTheScreen();
   });
 
-  it('labels the uncalibrated low-score caution as a prototype rule', async () => {
+  it('uses the frozen V1 low-confidence caution without blocking outcomes', async () => {
     await renderResult(
       createCompletedState('mosaic', ['mosaic'], {
         result: createResult('mosaic', 0.42),
@@ -180,7 +186,7 @@ describe('AnalysisResultScreen', () => {
 
     expect(
       screen.getByText(
-        'Prototype caution: the highest class score is below 50%. This presentation rule is not a calibrated reliability threshold.',
+        'Confidence caution: this result is below the V1 caution threshold of 55.2%. You can still save or report it; consider retaking the image or consulting an agricultural expert.',
       ),
     ).toBeOnTheScreen();
   });

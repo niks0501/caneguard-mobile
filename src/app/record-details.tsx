@@ -382,7 +382,7 @@ export default function RecordDetailsScreen() {
                 ]}>
                 <Feather name="info" size={19} color={theme.info} />
                 <Text style={[styles.disclaimerText, { color: theme.text }]}>
-                  This stored output is AI-supported decision support only. It
+                  This stored Possible Condition is decision support only. It
                   does not confirm a disease.
                 </Text>
               </View>

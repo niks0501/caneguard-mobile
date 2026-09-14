@@ -516,7 +516,7 @@ function authError(
 
 const AUTH_ERROR_MESSAGES: Record<MobileAuthErrorCode, string> = {
   EMAIL_NOT_VERIFIED: 'Verify your email address before using Mobile.',
-  FORBIDDEN_ROLE: 'Only field-reporter accounts can use mobile synchronization.',
+  FORBIDDEN_ROLE: 'Only Field Inspector accounts can use mobile synchronization.',
   INVALID_CREDENTIALS: 'The email or password is incorrect.',
   INVALID_RESET_TOKEN:
     'This recovery link is invalid, expired, or already used. Request a new link.',

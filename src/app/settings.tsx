@@ -154,7 +154,7 @@ export default function SettingsScreen() {
                 { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
               ]}>
               <DisabledRow label="Sync Alerts" />
-              <DisabledRow label="MAO Advisories" />
+              <DisabledRow label="Office Advisories" />
             </View>
 
             <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>ACCOUNT & SECURITY</Text>
@@ -167,7 +167,7 @@ export default function SettingsScreen() {
               <View style={[styles.menuRow, { borderBottomColor: theme.divider }]}>
                 <View style={styles.toggleCopy}>
                   <Text style={[styles.menuLabel, { color: theme.text }]}>
-                    {user?.name ?? 'Field reporter'}
+                    {user?.name ?? 'Field Inspector'}
                   </Text>
                   <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>
                     {user?.email ?? 'Authenticated mobile account'}

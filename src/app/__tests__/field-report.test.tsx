@@ -293,9 +293,9 @@ describe('FieldReportScreen', () => {
       'Farmer, farm name, or local farm ID',
     );
     expect(screen.getByTestId('field-report.submitter')).toHaveTextContent(
-      'Ana Reyes · Field reporter',
+      'Ana Reyes · Field Inspector',
     );
-    expect(screen.getByText('Possible result: Rust · 82% confidence')).toBeOnTheScreen();
+    expect(screen.getByText('Possible Condition: Rust · 82% confidence')).toBeOnTheScreen();
     expect(screen.getByText('Raised rust-colored or orange-brown spots or pustules, mainly on the leaf underside')).toBeOnTheScreen();
 
     await act(async () => {
@@ -403,7 +403,7 @@ describe('FieldReportScreen', () => {
       /RSSI can be reported as a field concern, but the current Model V1 does not detect RSSI\./,
     );
     expect(screen.getByLabelText('Other observed or suspected concern (free text)')).toBeOnTheScreen();
-    expect(screen.getByText('Possible result: Rust · 82% confidence')).toBeOnTheScreen();
+    expect(screen.getByText('Possible Condition: Rust · 82% confidence')).toBeOnTheScreen();
     expect(screen.getByText('healthy: 8% · mosaic: 10% · rust: 82%')).toBeOnTheScreen();
 
     await act(async () => {
@@ -457,7 +457,7 @@ describe('FieldReportScreen', () => {
     });
     await act(async () => {
       fireEvent.press(
-        screen.getByLabelText('The possible result matches what I see'),
+        screen.getByLabelText('The Possible Condition matches what I see'),
       );
     });
     await act(async () => {

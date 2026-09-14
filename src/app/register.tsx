@@ -96,7 +96,7 @@ export default function RegisterScreen() {
             { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
           ]}>
           <Text style={[styles.messageTitle, { color: theme.primaryDark }]}>Check your email</Text>
-          <Text style={[styles.statusMessage, { color: theme.text }]}>We created your field-reporter account. Verify {registeredEmail} before signing in.</Text>
+          <Text style={[styles.statusMessage, { color: theme.text }]}>We created your Field Inspector account. Verify {registeredEmail} before signing in.</Text>
           <Text style={[styles.statusMessage, { color: theme.textSecondary }]}>The verification link opens the secure CaneGuard account-verification page.</Text>
           {resendMessage ? (
             <Text accessibilityLiveRegion="polite" style={[styles.statusMessage, { color: theme.primaryDark }]}>{resendMessage}</Text>

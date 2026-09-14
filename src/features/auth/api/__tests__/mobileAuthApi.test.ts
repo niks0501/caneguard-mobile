@@ -129,7 +129,7 @@ describe('mobile authentication API', () => {
     fetchMock.mockResolvedValueOnce(response(403, { code: 'FORBIDDEN' }));
     await expect(verifyMobileSession('test-session-value')).rejects.toMatchObject({
       code: 'FORBIDDEN_ROLE',
-      message: 'Only field-reporter accounts can use mobile synchronization.',
+      message: 'Only Field Inspector accounts can use mobile synchronization.',
     });
   });
 

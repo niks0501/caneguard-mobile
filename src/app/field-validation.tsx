@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
+import { getResultLabel } from '@/components/ui/RecordCard';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { TextField } from '@/components/ui/TextField';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
@@ -123,7 +124,7 @@ function AssignmentSummary({ assignment, completion }: { assignment: FieldValida
       <View style={styles.heading}><Feather name="clipboard" size={20} color={theme.primary} /><Text style={[styles.title, { color: theme.text }]}>Validation assignment</Text></View>
       <Row label="Case" value={assignment.referenceCode} />
       <Row label="Location" value={[assignment.case.barangay, assignment.case.municipality, assignment.case.province].filter(Boolean).join(', ')} />
-      <Row label="Possible result" value={`${assignment.case.predictedLabel} · ${Math.round(assignment.case.confidence * 100)}% confidence`} />
+      <Row label="Possible Condition" value={`${getResultLabel(assignment.case.predictedLabel)} · ${Math.round(assignment.case.confidence * 100)}% confidence`} />
       <Row label="Submitted by" value={assignment.submitter.name} />
       <Row label="Target visit" value={assignment.targetVisitDate ?? 'No target date'} />
       {assignment.submitterIsAssignee ? <Text style={[styles.samePerson, { color: theme.warning }]}>You submitted this case and are its validator.</Text> : null}

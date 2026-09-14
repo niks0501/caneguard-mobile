@@ -228,7 +228,7 @@ describe('ActivityScreen', () => {
     await render(<ActivityScreen />);
 
     await fireEvent.press(
-      screen.getByLabelText(/Open Possible result: Rust report saved/),
+      screen.getByLabelText(/Open Possible Condition: Rust report saved/),
     );
 
     expect(mockRouterPush).toHaveBeenCalledWith({
@@ -243,7 +243,7 @@ describe('ActivityScreen', () => {
     const latest = screen.getByTestId('activity.latest-record');
     expect(latest).toBeOnTheScreen();
     expect(latest.props.accessibilityLabel).toMatch(
-      /Open Possible result: Rust report saved/,
+      /Open Possible Condition: Rust report saved/,
     );
     expect(screen.queryByTestId(`activity.item.${REPORT.id}`)).not.toBeOnTheScreen();
     expect(screen.getByTestId(`activity.item.${SCAN.id}`)).toBeOnTheScreen();
@@ -258,7 +258,7 @@ describe('ActivityScreen', () => {
     const latest = screen.getByTestId('activity.latest-record');
     expect(latest).toBeOnTheScreen();
     expect(latest.props.accessibilityLabel).toMatch(
-      /Open Possible result: Mosaic scan saved/,
+      /Open Possible Condition: Mosaic scan saved/,
     );
     expect(screen.queryByTestId(`activity.item.${SCAN.id}`)).not.toBeOnTheScreen();
   });

@@ -412,7 +412,7 @@ function AutomaticSummaryCard({
           { backgroundColor: theme.infoBg, borderColor: theme.info },
         ]}>
         <Text style={[styles.minimumRequirementsTitle, { color: theme.text }]}>
-          Confirm four reporter details
+          Confirm four report details
         </Text>
         <Text style={[styles.helpText, { color: theme.textSecondary }]}>
           The only details you need to provide are a farmer or farm reference,
@@ -432,7 +432,7 @@ function AutomaticSummaryCard({
         <>
           <View style={styles.summaryRows}>
             <Text style={[styles.automaticLabel, { color: theme.textSecondary }]}>
-              AI-supported result
+              Possible Condition
             </Text>
             <Text style={[styles.automaticValue, { color: theme.text }]}>
               {getResultLabel(record.predictedLabel)} ·{' '}
@@ -472,10 +472,10 @@ function AutomaticSummaryCard({
       </View>
       <View style={styles.summaryRows}>
         <Text style={[styles.automaticLabel, { color: theme.textSecondary }]}>
-          Reporter
+          Field Inspector
         </Text>
         <Text testID="field-report.submitter" style={[styles.automaticValue, { color: theme.text }]}>
-          {reporterName ?? 'Authenticated field reporter'} · Field reporter
+          {reporterName ?? 'Authenticated Field Inspector'} · Field Inspector
         </Text>
       </View>
       <View style={styles.summaryRows}>
@@ -982,7 +982,7 @@ function InheritedScanEvidence({
             contentFit="cover"
             style={styles.evidenceImage}
           />
-          <EvidenceRow label="AI-supported result" value={getResultLabel(record.predictedLabel)} />
+          <EvidenceRow label="Possible Condition" value={getResultLabel(record.predictedLabel)} />
           <EvidenceRow label="Confidence" value={`${Math.round(record.confidence * 100)}%`} />
           <EvidenceRow
             label="Class scores"
@@ -1053,11 +1053,11 @@ function ReporterMismatchSection({
         <Feather name="message-circle" size={20} color={theme.warning} />
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Reporter observation</Text>
       </View>
-      <Text style={[styles.helpText, { color: theme.textSecondary }]}>The possible result is decision-support only. Tell us if it does not match what you see; your observation will be sent separately for authority review.</Text>
+      <Text style={[styles.helpText, { color: theme.textSecondary }]}>The Possible Condition is decision-support only. Tell us if it does not match what you see; your observation will be sent separately for office review.</Text>
       <View style={styles.mismatchOptions}>
         <Pressable
           accessibilityRole="radio"
-          accessibilityLabel="The possible result matches what I see"
+          accessibilityLabel="The Possible Condition matches what I see"
           accessibilityState={{ selected: mismatchReported === false }}
           onPress={() => onMismatchReportedChange(false)}
           style={({ pressed }) => [
@@ -1071,12 +1071,12 @@ function ReporterMismatchSection({
             size={20}
             color={mismatchReported === false ? theme.primary : theme.textSecondary}
           />
-          <Text style={[styles.mismatchOptionText, { color: theme.text }]}>The possible result matches what I see</Text>
+          <Text style={[styles.mismatchOptionText, { color: theme.text }]}>The Possible Condition matches what I see</Text>
         </Pressable>
         <Pressable
           testID="field-report.mismatch-toggle"
           accessibilityRole="radio"
-          accessibilityLabel="The AI result does not match what I see"
+          accessibilityLabel="The Possible Condition does not match what I see"
           accessibilityState={{ selected: mismatchReported === true }}
           onPress={() => onMismatchReportedChange(true)}
           style={({ pressed }) => [
@@ -1091,7 +1091,7 @@ function ReporterMismatchSection({
             size={20}
             color={theme.warning}
           />
-          <Text style={[styles.mismatchOptionText, { color: theme.text }]}>The AI result does not match what I see</Text>
+          <Text style={[styles.mismatchOptionText, { color: theme.text }]}>The Possible Condition does not match what I see</Text>
         </Pressable>
       </View>
       {mismatchReported === true ? (
@@ -1350,13 +1350,13 @@ const SUBMISSION_REQUIREMENT_LABELS: Record<
   original_scan_image: 'Original scan image',
   submission_image: 'Upload-ready submission image',
   source_image_dimensions: 'Original scan image dimensions',
-  ai_supported_result: 'AI-supported result',
+  ai_supported_result: 'Possible Condition',
   confidence: 'Confidence score',
   class_scores: 'Class scores',
   symptom_checklist: 'Symptom checklist evidence',
   farmer_or_farm_owner_name: 'Farmer or farm reference',
   submitter_identity: 'Authenticated submitter identity',
-  submitter_role: 'Field reporter role',
+  submitter_role: 'Field Inspector role',
   province: 'Province',
   municipality: 'Municipality',
   barangay: 'Barangay',

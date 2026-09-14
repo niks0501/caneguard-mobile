@@ -75,7 +75,7 @@ export const GUIDED_VALIDATION_QUESTIONS = [
     id: 'visible-pattern',
     prompt: 'What visible pattern, if any, best describes the area you are checking?',
     helperText:
-      'Choose the closest description. This is your observation and does not change the AI result.',
+      'Choose the closest description. This is your observation and does not change the Possible Condition.',
     relevantModelLabels: CHECKLIST_MODEL_LABELS,
     options: [
       MOSAIC_OBSERVATION,

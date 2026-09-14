@@ -10,10 +10,10 @@ type DiseasePillProps = {
 };
 
 const VARIANT_MAP: Record<DiseasePillVariant, { label: string; colorKey: ThemeColor; backgroundKey: ThemeColor }> = {
-  smut: { label: 'Possible Smut', colorKey: 'smut', backgroundKey: 'smutBg' },
-  rust: { label: 'Possible Rust', colorKey: 'rust', backgroundKey: 'rustBg' },
-  mosaic: { label: 'Possible Mosaic', colorKey: 'mosaic', backgroundKey: 'mosaicBg' },
-  healthy: { label: 'Healthy', colorKey: 'healthy', backgroundKey: 'healthyBg' },
+  smut: { label: 'Possible Condition: Smut', colorKey: 'smut', backgroundKey: 'smutBg' },
+  rust: { label: 'Possible Condition: Rust', colorKey: 'rust', backgroundKey: 'rustBg' },
+  mosaic: { label: 'Possible Condition: Mosaic', colorKey: 'mosaic', backgroundKey: 'mosaicBg' },
+  healthy: { label: 'Possible Condition: No supported disease detected', colorKey: 'healthy', backgroundKey: 'healthyBg' },
   unclear: { label: 'Unclear', colorKey: 'unclear', backgroundKey: 'unclearBg' },
 };
 

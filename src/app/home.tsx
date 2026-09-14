@@ -106,7 +106,7 @@ export default function HomeScreen() {
                 <View style={styles.heroTop}>
                   <View style={styles.greetingBlock}>
                     <Text style={[styles.greeting, { color: theme.textSecondary }]}>Magandang umaga,</Text>
-                    <Text style={[styles.name, { color: theme.primaryDark }]}>{user?.name ?? 'Field reporter'}</Text>
+                    <Text style={[styles.name, { color: theme.primaryDark }]}>{user?.name ?? 'Field Inspector'}</Text>
                   </View>
                   <View style={styles.heroActions}>
                     <View style={[styles.online, { backgroundColor: connectionBadge.backgroundColor }]}>

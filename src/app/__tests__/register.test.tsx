@@ -58,7 +58,7 @@ describe('RegisterScreen', () => {
       name: 'Maria Santos',
       password: 'a-long-enough-passphrase',
     });
-    expect(screen.getByText('We created your field-reporter account. Verify maria@example.test before signing in.')).toBeOnTheScreen();
+    expect(screen.getByText('We created your Field Inspector account. Verify maria@example.test before signing in.')).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByTestId('register.resend-verification'));
     await waitFor(() => expect(screen.getByText('If the address is eligible, a verification link will be sent.')).toBeOnTheScreen());

@@ -130,7 +130,7 @@ export function AccountSecurityScreen() {
       </View>
 
       <View style={[styles.identityCard, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-        <Text style={[styles.identityName, { color: theme.primaryDark }]}>{session?.user.name ?? 'Field reporter'}</Text>
+        <Text style={[styles.identityName, { color: theme.primaryDark }]}>{session?.user.name ?? 'Field Inspector'}</Text>
         <Text style={[styles.identityEmail, { color: theme.textSecondary }]}>{session?.user.email ?? 'Authenticated mobile account'}</Text>
         <Text style={[styles.identityExpiry, { color: theme.textSecondary }]}>{formatExpiry(session?.expiresAt)}</Text>
       </View>

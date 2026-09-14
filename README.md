@@ -379,15 +379,15 @@ npm run e2e:doctor
 ```
 
 Run the checked-in flows only after the doctor and runtime prerequisites pass.
-Start with the smallest focused flow using plain Agent Device:
+For newly implemented or changed behavior, follow the [Agent Device workspace guide](.agent-device/README.md) and complete Mode A interactive verification before creating or updating a durable `.ad` flow. After the path succeeds, replay the smallest justified flow once for deterministic coverage.
+For an existing regression or acceptance flow, use focused Mode B replay:
 
 ```bash
 cd "<WORKSPACE>/caneguard-mobile"
 agent-device replay .agent-device/flows/p0/00-baseline-scan.ad
 ```
 
-The equivalent project action is `npm run e2e:flow -- .agent-device/flows/<flow>.ad`.
-Preserve the first failure and its evidence, diagnose the smallest failing interaction from the structured divergence report, make one evidence-backed change, and rerun the focused flow.
+The equivalent project action is `npm run e2e:flow -- .agent-device/flows/<flow>.ad`. Preserve the first failure and its evidence; the workspace guide owns the divergence-diagnosis and guarded-resume procedure.
 Run broader or full E2E with `npm run e2e` only when the task or an acceptance gate requires it.
 Do not add automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns around Agent Device.
 A failed replay command proves that the command failed; it does not by itself prove an application defect.

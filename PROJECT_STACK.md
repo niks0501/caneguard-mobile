@@ -228,7 +228,7 @@ Do not author the durable `.ad` script until the path succeeds interactively.
 Once the behavior is stable, create or update the smallest justified `.ad` regression flow and replay it once to prove deterministic coverage.
 If a relevant checked-in `.ad` flow already exists, replay it as regression evidence and use interactive diagnosis when it diverges.
 
-Preserve the first failure, diagnose the smallest failing interaction from the structured divergence report, make one evidence-backed change, and rerun the focused flow.
+For Mode B, preserve the first failure, diagnose the smallest failing interaction from the structured divergence report, make one evidence-backed change, and rerun the focused flow.
 Broaden to full E2E only when the task or an acceptance gate requires it.
 Do not add automatic retries, rebuilds, emulator wipes, ADB or Metro recovery, or blind reruns around Agent Device.
 A failed replay command is evidence that the command failed, not proof of an application defect.

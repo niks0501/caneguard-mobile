@@ -7,6 +7,9 @@ import type {
 import type { MobileUserRole } from '@/features/auth/types';
 import type { AuthorityReviewSnapshot } from '@/features/reports/domain/reportReviewTypes';
 
+/** Stable reporter-observation value used by the RSSI quick choice. */
+export const REPORTER_OBSERVED_CONCERN_RSSI = 'RSSI' as const;
+
 export interface FieldReport {
   affectedAreaHectares: number | null;
   affectedPortionPercent: number | null;

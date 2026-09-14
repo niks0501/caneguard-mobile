@@ -160,6 +160,21 @@ describe('normalizeFieldReportDraftInput', () => {
     ).toThrow(expect.objectContaining({ code: 'INVALID_FIELD_REPORT' }));
   });
 
+  it('normalizes RSSI as a reporter concern without treating it as model evidence', () => {
+    expect(
+      normalizeFieldReportDraftInput({
+        mismatchReported: true,
+        reporterSuspectedCondition: ' RSSI ',
+        reporterObservationText: '  Signal concern observed. ',
+        updatedAt: NOW,
+      }),
+    ).toMatchObject({
+      mismatchReported: true,
+      reporterSuspectedCondition: 'RSSI',
+      reporterObservationText: 'Signal concern observed.',
+    });
+  });
+
   it('validates the affected area range and portion range', () => {
     expect(
       normalizeFieldReportDraftInput({

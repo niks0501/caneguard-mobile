@@ -35,9 +35,10 @@ import { PossibleRecentMatchWarning } from '@/features/reports/components/Possib
 import { RegionPicker } from '@/features/reports/components/RegionPicker';
 import { formatDecimalInput, parseDecimalInput } from '@/features/reports/domain/decimalInput';
 import type { PossibleMatchLookupInput } from '@/features/reports/domain/possibleMatch';
-import type {
-  FieldReport,
-  FieldReportSubmissionRequirement,
+import {
+  REPORTER_OBSERVED_CONCERN_RSSI,
+  type FieldReport,
+  type FieldReportSubmissionRequirement,
 } from '@/features/reports/domain/fieldReportTypes';
 import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
 import { usePossibleRecentMatch } from '@/features/reports/hooks/usePossibleRecentMatch';
@@ -1095,26 +1096,72 @@ function ReporterMismatchSection({
       </View>
       {mismatchReported === true ? (
         <View style={styles.mismatchFields}>
+          <View
+            testID="field-report.rssi-concern-choice"
+            style={[styles.rssiChoice, { backgroundColor: theme.infoBg, borderColor: theme.info }]}
+          >
+            <Text style={[styles.rssiChoiceTitle, { color: theme.text }]}>Quick concern</Text>
+            <Pressable
+              accessibilityRole="radio"
+              accessibilityLabel="Report RSSI as a field concern"
+              accessibilityState={{
+                selected:
+                  reporterSuspectedCondition.trim().toUpperCase() ===
+                  REPORTER_OBSERVED_CONCERN_RSSI,
+              }}
+              onPress={() =>
+                onReporterSuspectedConditionChange(REPORTER_OBSERVED_CONCERN_RSSI)
+              }
+              style={({ pressed }) => [
+                styles.mismatchOption,
+                {
+                  borderColor:
+                    reporterSuspectedCondition.trim().toUpperCase() ===
+                    REPORTER_OBSERVED_CONCERN_RSSI
+                      ? theme.info
+                      : theme.border,
+                },
+                reporterSuspectedCondition.trim().toUpperCase() ===
+                  REPORTER_OBSERVED_CONCERN_RSSI && { backgroundColor: theme.backgroundSelected },
+                pressed && styles.pressed,
+              ]}>
+              <Feather
+                name={
+                  reporterSuspectedCondition.trim().toUpperCase() ===
+                  REPORTER_OBSERVED_CONCERN_RSSI
+                    ? 'check-circle'
+                    : 'radio'
+                }
+                size={20}
+                color={theme.info}
+              />
+              <View style={styles.rssiChoiceCopy}>
+                <Text style={[styles.mismatchOptionText, { color: theme.text }]}>RSSI</Text>
+                <Text style={[styles.helpText, { color: theme.textSecondary }]}>Field concern only · not detected by current Model V1</Text>
+              </View>
+            </Pressable>
+            <Text testID="field-report.rssi-not-model-copy" style={[styles.helpText, { color: theme.textSecondary }]}>RSSI can be reported as a field concern, but the current Model V1 does not detect RSSI. It remains separate from the Possible Condition.</Text>
+          </View>
           <TextField
             testID="field-report.reporter-observation-input"
             label="What do you see?"
             value={reporterObservationText}
             onChangeText={onReporterObservationTextChange}
-            placeholder="Optional"
+            placeholder="Describe the field concern (optional)"
             maxLength={1_000}
             multiline
             autoCapitalize="sentences"
           />
           <TextField
             testID="field-report.reporter-condition-input"
-            label="Suspected condition, if known"
+            label="Other observed or suspected concern (free text)"
             value={reporterSuspectedCondition}
             onChangeText={onReporterSuspectedConditionChange}
-            placeholder="Optional"
+            placeholder="Optional, if not using RSSI"
             maxLength={120}
             autoCapitalize="sentences"
           />
-          <Text style={[styles.helpText, { color: theme.textSecondary }]}>Both fields are optional and do not block finalization.</Text>
+          <Text style={[styles.helpText, { color: theme.textSecondary }]}>Choose RSSI above or enter another concern as free text. Both fields are optional and do not block finalization.</Text>
         </View>
       ) : null}
     </View>
@@ -1408,6 +1455,14 @@ const styles = StyleSheet.create({
   mismatchOptionLast: { borderWidth: 2 },
   mismatchOptionText: { ...Typography.bodySmall, fontWeight: '700', flex: 1 },
   mismatchFields: { gap: Spacing.md },
+  rssiChoice: {
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  rssiChoiceTitle: { ...Typography.caption, fontWeight: '800' },
+  rssiChoiceCopy: { flex: 1, gap: Spacing.xs },
   mismatchMarker: {
     borderWidth: 1,
     borderRadius: Radius.md,

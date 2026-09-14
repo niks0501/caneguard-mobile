@@ -215,18 +215,20 @@ Current mobile endpoints:
 - `POST /api/v1/auth/password`
 - `PATCH /api/v1/auth/email`
 - `POST /api/v1/auth/biometric/disable`
-- `POST /api/v1/mobile/reports`
+- `POST /api/v2/mobile/reports`
+- `GET /api/v2/mobile/reports/possible-matches`
+- `GET /api/v2/mobile/reports/statuses`
 - `GET /api/v1/mobile/assignments`
 - `POST /api/v1/mobile/assignments/{assignment}/completion`
 - `GET /api/v1/mobile/notifications`
 
 Authentication expects bearer tokens.
 
-The mobile report endpoint accepts multipart form data including the stable
+The Model V1 mobile report endpoint accepts multipart form data including the stable
 Field Report client UUID, referenced Scan Record UUID/evidence, required P0
 report context, final coordinates and provenance, observation time, capture time,
 model evidence, and the persisted submission image. The local submission timestamp
-is retained for mobile finalization and synchronization state but is not a v1
+is retained for mobile finalization and synchronization state but is not a v2
 multipart field. Manual-map uploads omit GPS accuracy. The
 authenticated submitter is derived from the bearer session rather than trusted
 from client-claimed identity/role fields.

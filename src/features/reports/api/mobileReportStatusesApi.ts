@@ -2,7 +2,7 @@ import { apiBaseUrl } from '@/config/env';
 import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
 import type { AuthorityReviewStatusUpdate } from '@/features/reports/domain/reportReviewTypes';
 
-const STATUS_PATH = '/api/v1/mobile/reports/statuses';
+const STATUS_PATH = '/api/v2/mobile/reports/statuses';
 const PAGE_SIZE = 100;
 const MAX_PAGES = 500;
 const MAX_FEEDBACK_LENGTH = 1_000;

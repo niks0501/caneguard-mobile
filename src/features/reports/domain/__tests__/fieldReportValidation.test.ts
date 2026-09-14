@@ -65,6 +65,7 @@ function evidence(): FieldReportSubmissionEvidence {
       { label: 'healthy', score: 0.1 },
       { label: 'mosaic', score: 0.1 },
       { label: 'rust', score: 0.8 },
+      { label: 'smut', score: 0 },
     ],
     confidence: 0.8,
     managedImageUri: 'file:///caneguard/scan-images/scan.jpg',
@@ -290,7 +291,7 @@ describe('getMissingSubmissionRequirements', () => {
     expect(missing).not.toContain('farmer_or_farm_owner_name');
   });
 
-  it('does not treat four-class Model V1 evidence as upload-ready for the stable contract', () => {
+  it('treats four-class Model V1 Smut evidence as upload-ready', () => {
     const missing = getMissingSubmissionRequirements(
       draft(),
       {
@@ -305,7 +306,7 @@ describe('getMissingSubmissionRequirements', () => {
       },
     );
 
-    expect(missing).toEqual(
+    expect(missing).not.toEqual(
       expect.arrayContaining(['ai_supported_result', 'class_scores']),
     );
   });

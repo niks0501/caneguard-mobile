@@ -1,5 +1,5 @@
 import { StorageError } from '@/database/errors';
-import { LEGACY_MODEL_LABELS } from '@/features/detection/constants/modelContract';
+import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 import { isValidSubmissionImageMetadata } from '@/features/sync/constants/mobileReportUploadContract';
 import type {
   CreateFieldReportDraftInput,
@@ -27,8 +27,8 @@ function hasCompleteClassScores(
   scores: FieldReportSubmissionEvidence['classScores'],
 ): boolean {
   if (
-    scores.length !== LEGACY_MODEL_LABELS.length ||
-    new Set(scores.map(({ label }) => label)).size !== LEGACY_MODEL_LABELS.length
+    scores.length !== MODEL_LABELS.length ||
+    new Set(scores.map(({ label }) => label)).size !== MODEL_LABELS.length
   ) {
     return false;
   }
@@ -36,12 +36,12 @@ function hasCompleteClassScores(
   return (
     scores.every(
       ({ label, score }) =>
-        LEGACY_MODEL_LABELS.some((supportedLabel) => supportedLabel === label) &&
+        MODEL_LABELS.some((supportedLabel) => supportedLabel === label) &&
         Number.isFinite(score) &&
         score >= 0 &&
         score <= 1,
     ) &&
-    LEGACY_MODEL_LABELS.every((supportedLabel) =>
+    MODEL_LABELS.every((supportedLabel) =>
       scores.some(({ label }) => label === supportedLabel),
     )
   );
@@ -164,7 +164,7 @@ export function getMissingSubmissionRequirements(
   }
   if (
     !evidence.predictedLabel ||
-    !LEGACY_MODEL_LABELS.some((label) => label === evidence.predictedLabel)
+    !MODEL_LABELS.some((label) => label === evidence.predictedLabel)
   ) {
     missing.push('ai_supported_result');
   }

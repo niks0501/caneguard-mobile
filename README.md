@@ -43,7 +43,7 @@ Synchronization runs after save, at startup, on app resume, after connectivity r
 Failed uploads preserve the local report and image for retry.
 Only an authenticated `field_reporter` session can synchronize mobile reports.
 
-The mobile upload endpoint is `POST /api/v1/mobile/reports`.
+The Model V1 mobile upload endpoint is `POST /api/v2/mobile/reports`; possible-match and status reads use the corresponding `/api/v2/mobile/reports/...` routes.
 The Web/API review flow uses the same remote report identity and exposes the resulting review status back to Mobile.
 The image roles and multipart compatibility contract remain owned by the Web/API repository, so this README keeps those details brief and links to the authoritative documents below.
 
@@ -429,5 +429,5 @@ If migrations fail, confirm the MySQL service, database names, `caneguard_app` g
 - [Mobile Agent Device workspace guide](.agent-device/README.md) for the Android Studio emulator, Windows-hosted ADB server, flow behavior, and evidence handling.
 - [Mobile project context](PROJECT_CONTEXT.md) for architecture and external contracts.
 - [Mobile project stack](PROJECT_STACK.md) for native-runtime compatibility and verification rules.
-- [Mobile upload contract mirror](references/mobile-report-upload-v1.json) for the concise machine-readable producer boundary.
+- [Mobile upload contract mirror](references/mobile-report-upload-v2.json) for the concise machine-readable producer boundary.
 - [P0-07 synchronization design](docs/features/caneGuard-p0-implementation-phases/P0-07-Field-Report-Synchronization-and-API.md) for advanced sync and API details.

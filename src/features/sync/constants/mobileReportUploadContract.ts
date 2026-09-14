@@ -1,6 +1,6 @@
 /**
  * Client-side image boundaries mirrored from the canonical
- * mobile-report-upload-v1 contract in caneguard-web.
+ * mobile-report-upload-v2 contract in caneguard-web.
  */
 export const MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 export const MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES = 9 * 1024 * 1024;

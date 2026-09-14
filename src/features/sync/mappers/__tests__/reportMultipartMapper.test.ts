@@ -18,13 +18,13 @@ const SCAN: ScanRecordDetails = {
   syncStatus: 'local_only', createdAt: '2026-07-25T05:30:00.000Z',
   imageMimeType: 'image/jpeg', imageSizeBytes: 4096, imageSourceType: 'camera',
   sourceWidth: 1200, sourceHeight: 900, checklistConsistency: 'consistent',
-  reportedSeverity: 'Moderate', decisionSupportWording: 'Possible result only. This output does not confirm a disease.', modelVersion: 'v0.1-baseline', preprocessMs: 4.25,
+  reportedSeverity: 'Moderate', decisionSupportWording: 'Possible result only. This output does not confirm a disease.', modelVersion: 'v1.0-mobilenetv2', preprocessMs: 4.25,
   inferenceMs: 8.5, totalMs: 12.75, remoteId: null,
   updatedAt: '2026-07-25T05:30:00.000Z', syncAttemptCount: 0,
   lastSyncErrorCode: null, lastSyncAttemptAt: null, lastSyncedAt: null,
   classScores: [
     { label: 'healthy', score: 0.05 }, { label: 'mosaic', score: 0.13 },
-    { label: 'rust', score: 0.82 },
+    { label: 'rust', score: 0.82 }, { label: 'smut', score: 0 },
   ],
   symptoms: ['rust'], qualityWarnings: ['too-dark'],
 };
@@ -70,11 +70,10 @@ describe('Field Report multipart mapper', () => {
     });
   }
 
-  it('does not send Model V1 evidence through the stable three-class upload contract', () => {
-    expect(() =>
+  it('sends Model V1 Smut evidence through the four-class V2 upload contract', () => {
+    const parts = (
       map(REPORT, {
         ...SCAN,
-        modelVersion: 'v1.0-mobilenetv2',
         predictedLabel: 'smut',
         classScores: [
           { label: 'healthy', score: 0.01 },
@@ -82,8 +81,12 @@ describe('Field Report multipart mapper', () => {
           { label: 'rust', score: 0.01 },
           { label: 'smut', score: 0.97 },
         ],
-      }),
-    ).toThrow(expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }));
+      }) as unknown as { _parts: [string, unknown][] }
+    )._parts;
+    const values = new Map(parts);
+    expect(values.get('predicted_label')).toBe('smut');
+    expect(values.get('model_version')).toBe('v1.0-mobilenetv2');
+    expect(values.get('class_scores[smut]')).toBe('0.97');
   });
 
   it('uploads the persisted submission artifact instead of the preserved source path', () => {

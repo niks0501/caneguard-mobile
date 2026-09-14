@@ -121,7 +121,7 @@ function insertScan(
       'rust',
       0.8,
       'consistent',
-      'v0.1-baseline',
+      'v1.0-mobilenetv2',
       5,
       8,
       13,
@@ -171,6 +171,7 @@ function insertCompleteClassScores(native: DatabaseSync): void {
   insert.run(CURRENT_SCAN_ID, 'healthy', 0.1);
   insert.run(CURRENT_SCAN_ID, 'mosaic', 0.1);
   insert.run(CURRENT_SCAN_ID, 'rust', 0.8);
+  insert.run(CURRENT_SCAN_ID, 'smut', 0);
 }
 
 function lookupInput(

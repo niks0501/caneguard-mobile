@@ -40,7 +40,7 @@ describe('mobile field validation assignment API', () => {
     });
   });
 
-  it('rejects a V1-only predicted label from the stable assignment contract', async () => {
+  it('accepts a Smut Model V1 prediction in the assignment contract', async () => {
     request.mockResolvedValueOnce(
       page([
         {
@@ -55,7 +55,11 @@ describe('mobile field validation assignment API', () => {
 
     await expect(
       fetchAllMobileFieldValidationAssignments({ token: 'secure-token' }),
-    ).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' });
+    ).resolves.toMatchObject({
+      assignments: [expect.objectContaining({
+        case: expect.objectContaining({ predictedLabel: 'smut' }),
+      })],
+    });
   });
 
   it('follows pagination with one stable checkpoint and rejects duplicates', async () => {

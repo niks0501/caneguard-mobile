@@ -7,7 +7,7 @@
 
 ## Decision
 
-CaneGuard Mobile consumes the existing owner-scoped `GET /api/v1/mobile/reports/statuses` feed and stores one nullable, server-owned current authority-review snapshot on each local Field Report. The snapshot is a cache of server state; it is never a replacement for authoring or delivery state and it cannot mutate the report submission.
+CaneGuard Mobile consumes the existing owner-scoped `GET /api/v2/mobile/reports/statuses` feed and stores one nullable, server-owned current authority-review snapshot on each local Field Report. The snapshot is a cache of server state; it is never a replacement for authoring or delivery state and it cannot mutate the report submission.
 
 The captain authorized starting P1 while P0 physical testing continues. This ADR does not change, replace, or weaken any P0 evidence, gate, payload-retention work, or synchronization contract.
 
@@ -23,10 +23,10 @@ Field Reports retain three independent axes:
 
 ## Wire contract
 
-The mobile client uses the established v1 endpoint with the authenticated Field Reporter bearer token and the existing `report:status` capability:
+The mobile client uses the established v2 endpoint with the authenticated Field Reporter bearer token and the existing `report:status` capability:
 
 ```text
-GET /api/v1/mobile/reports/statuses
+GET /api/v2/mobile/reports/statuses
   ?per_page=100
   [&updated_after=<ISO-8601 server update boundary>]
 ```
@@ -46,7 +46,7 @@ Each paginated response is validated before any local write. The consumed page e
       "updated_at": "2026-08-13T12:00:00.000Z"
     }
   ],
-  "links": { "next": "https://api.example.test/api/v1/mobile/reports/statuses?..." },
+  "links": { "next": "https://api.example.test/api/v2/mobile/reports/statuses?..." }
   "meta": { "sync_before": "2026-08-13T12:05:00.000Z" }
 }
 ```

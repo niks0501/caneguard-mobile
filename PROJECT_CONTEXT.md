@@ -215,18 +215,19 @@ Current mobile endpoints:
 - `POST /api/v1/auth/password`
 - `PATCH /api/v1/auth/email`
 - `POST /api/v1/auth/biometric/disable`
-- `POST /api/v1/mobile/reports`
+- `POST /api/v2/mobile/reports`
+- `GET /api/v2/mobile/reports/statuses`
 - `GET /api/v1/mobile/assignments`
 - `POST /api/v1/mobile/assignments/{assignment}/completion`
 - `GET /api/v1/mobile/notifications`
 
 Authentication expects bearer tokens.
 
-The mobile report endpoint accepts multipart form data including the stable
+The Model V1 mobile report endpoint accepts multipart form data including the stable
 Field Report client UUID, referenced Scan Record UUID/evidence, required P0
 report context, final coordinates and provenance, observation time, capture time,
 model evidence, and the persisted submission image. The local submission timestamp
-is retained for mobile finalization and synchronization state but is not a v1
+is retained for mobile finalization and synchronization state but is not a v2
 multipart field. Manual-map uploads omit GPS accuracy. The
 authenticated submitter is derived from the bearer session rather than trusted
 from client-claimed identity/role fields.
@@ -312,7 +313,7 @@ Do not run EAS build or submit automatically.
 - Synchronization must tolerate unavailable networks and preserve retryable local state.
 - Backend synchronization requires a valid `field_reporter` session and a complete local report, including barangay, final coordinates, location source, and managed image.
 - The bundled AI model is decision support, not a diagnostic authority.
-- The current bundled Model V1 contract supports `healthy`, `mosaic`, `rust`, and `smut`; legacy V0 records and the stable report-upload contract remain three-class.
+- The current bundled Model V1 contract and stable V2 report-upload contract support `healthy`, `mosaic`, `rust`, and `smut`; legacy V0 records and the legacy V1 report-upload contract remain three-class.
 - The P0 manual-map fallback is online-only. Direct third-party tile requests are disabled; production must configure a CaneGuard-owned HTTPS tile proxy with attribution and normal HTTP caching. It does not prefetch or expose offline map downloads.
 - Preserve compatibility with existing SQLite data and generated Drizzle migrations.
 - Avoid unnecessary native dependencies when Expo-supported APIs already satisfy the requirement.
@@ -331,7 +332,7 @@ cross-repository prerequisites.
 
 ## Known debt or limitations
 
-- The current bundled model supports four output classes: `healthy`, `mosaic`, `rust`, and `smut`; legacy V0 records and the stable report-upload contract remain three-class.
+- Legacy V0 records retain three-class compatibility; see the Constraints section for the authoritative current Model V1 and V2 report-upload class boundary.
 - Native TFLite behavior cannot be fully validated by unit tests or Expo Go; a compatible development build and physical-device testing remain necessary.
 - iOS and static-web configurations exist, but the repository evidence is primarily Android-focused.
 - Mobile/backend synchronization is tightly coupled to the current multipart field names and response identity shape; backend contract changes require coordinated mobile updates.

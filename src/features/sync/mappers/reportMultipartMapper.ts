@@ -2,8 +2,8 @@ import { File } from 'expo-file-system';
 
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import {
-  LEGACY_MODEL_LABELS,
-  LEGACY_MODEL_VERSION,
+  MODEL_LABELS,
+  MODEL_VERSION,
 } from '@/features/detection/constants/modelContract';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import {
@@ -87,7 +87,7 @@ export function mapFieldReportToMultipart(
     report.reporterObservationText,
   );
 
-  for (const label of LEGACY_MODEL_LABELS) {
+  for (const label of MODEL_LABELS) {
     const score = scanRecord.classScores.find((item) => item.label === label);
     if (!score) {
       invalid('Every supported class score is required.');
@@ -209,13 +209,13 @@ function validateReport(
     'Model version',
     MAX_MODEL_VERSION_LENGTH,
   );
-  if (record.modelVersion !== LEGACY_MODEL_VERSION) {
+  if (record.modelVersion !== MODEL_VERSION) {
     invalid('The mobile report upload contract does not support this model version.');
   }
   if (!isOneOf(record.imageSourceType, IMAGE_SOURCE_TYPES)) {
     invalid('The image source type is unsupported.');
   }
-  if (!isOneOf(record.predictedLabel, LEGACY_MODEL_LABELS)) {
+  if (!isOneOf(record.predictedLabel, MODEL_LABELS)) {
     invalid('The predicted label is unsupported.');
   }
   validateProbability(record.confidence, 'confidence');
@@ -307,18 +307,18 @@ function validateMismatchFields(
 function validateClassScores(
   scores: ScanRecordDetails['classScores'],
 ): void {
-  if (!Array.isArray(scores) || scores.length !== LEGACY_MODEL_LABELS.length) {
+  if (!Array.isArray(scores) || scores.length !== MODEL_LABELS.length) {
     invalid('Every supported class score is required.');
   }
   const labels = new Set<string>();
   for (const score of scores) {
-    if (!isOneOf(score?.label, LEGACY_MODEL_LABELS) || labels.has(score.label)) {
+    if (!isOneOf(score?.label, MODEL_LABELS) || labels.has(score.label)) {
       invalid('The class score labels are unsupported.');
     }
     labels.add(score.label);
     validateProbability(score.score, 'class score');
   }
-  if (LEGACY_MODEL_LABELS.some((label) => !labels.has(label))) {
+  if (MODEL_LABELS.some((label) => !labels.has(label))) {
     invalid('Every supported class score is required.');
   }
 }

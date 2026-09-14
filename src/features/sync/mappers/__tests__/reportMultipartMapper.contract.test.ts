@@ -48,7 +48,7 @@ type MultipartPart = [string, unknown];
 
 const CANONICAL = JSON.parse(
   readFileSync(
-    resolve(__dirname, '../../../../../references/mobile-report-upload-v1.json'),
+    resolve(__dirname, '../../../../../references/mobile-report-upload-v2.json'),
     'utf8',
   ),
 ) as CanonicalContract;
@@ -77,7 +77,7 @@ const SCAN: ScanRecordDetails = {
   checklistConsistency: 'consistent',
   reportedSeverity: 'Moderate',
   decisionSupportWording: 'Possible result only. This output does not confirm a disease.',
-  modelVersion: 'v0.1-baseline',
+  modelVersion: 'v1.0-mobilenetv2',
   preprocessMs: 4.25,
   inferenceMs: 8.5,
   totalMs: 12.75,
@@ -91,6 +91,7 @@ const SCAN: ScanRecordDetails = {
     { label: 'healthy', score: 0.05 },
     { label: 'mosaic', score: 0.13 },
     { label: 'rust', score: 0.82 },
+    { label: 'smut', score: 0 },
   ],
   symptoms: ['rust'],
   qualityWarnings: ['too-dark'],
@@ -157,29 +158,29 @@ afterAll(() => {
   global.FormData = OriginalFormData;
 });
 
-describe('mobile-report-upload-v1 producer contract', () => {
+describe('mobile-report-upload-v2 producer contract', () => {
   it('proves a complete mobile payload is inside the canonical artifact', () => {
-    expect(CANONICAL.contract).toBe('mobile-report-upload-v1');
-    expect(CANONICAL.version).toBe(1);
-    expectCanonicalV1(map());
+    expect(CANONICAL.contract).toBe('mobile-report-upload-v2');
+    expect(CANONICAL.version).toBe(2);
+    expectCanonicalV2(map());
   });
 
   it('rejects undeclared names and missing required fields using the canonical artifact', () => {
     const form = map() as unknown as TestFormData;
     form.append('submitted_at', REPORT.submittedAt);
     expect(() =>
-      expectCanonicalV1(form as unknown as FormData),
+      expectCanonicalV2(form as unknown as FormData),
     ).toThrow(/submitted_at/i);
 
     const withoutImage = formFromParts(
       parts(map()).filter(([name]) => name !== 'image'),
     );
-    expect(() => expectCanonicalV1(withoutImage)).toThrow(/required|Received:\s+0/i);
+    expect(() => expectCanonicalV2(withoutImage)).toThrow(/required|Received:\s+0/i);
 
     const withoutSymptoms = formFromParts(
       parts(map()).filter(([name]) => name !== 'symptom_keys[]'),
     );
-    expect(() => expectCanonicalV1(withoutSymptoms)).toThrow();
+    expect(() => expectCanonicalV2(withoutSymptoms)).toThrow();
   });
 
   it.each([
@@ -189,14 +190,14 @@ describe('mobile-report-upload-v1 producer contract', () => {
     ['unsupported predicted label enum', { scan: { predictedLabel: 'blight' } }],
     ['unsupported reported severity enum', { scan: { reportedSeverity: 'Critical' } }],
     ['invalid mismatch boolean value', { report: { mismatchReported: 'yes' } }],
-    ['unsupported class score key', { scan: { classScores: [{ label: 'blight', score: 0.1 }, { label: 'mosaic', score: 0.1 }, { label: 'rust', score: 0.8 }] } }],
+    ['unsupported class score key', { scan: { classScores: [{ label: 'blight', score: 0.1 }, { label: 'mosaic', score: 0.1 }, { label: 'rust', score: 0.8 }, { label: 'smut', score: 0 }] } }],
     ['unsupported symptom array value', { scan: { symptoms: ['blight'] } }],
     ['duplicate symptom array value', { scan: { symptoms: ['rust', 'rust'] } }],
     ['empty required symptom array', { scan: { symptoms: [] } }],
     ['unsupported quality warning array value', { scan: { qualityWarnings: ['blurry'] } }],
     ['duplicate quality warning array value', { scan: { qualityWarnings: ['too-dark', 'too-dark'] } }],
     ['confidence above one', { scan: { confidence: 1.01 } }],
-    ['class score below zero', { scan: { classScores: [{ label: 'healthy', score: -0.01 }, { label: 'mosaic', score: 0.1 }, { label: 'rust', score: 0.9 }] } }],
+    ['class score below zero', { scan: { classScores: [{ label: 'healthy', score: -0.01 }, { label: 'mosaic', score: 0.1 }, { label: 'rust', score: 0.9 }, { label: 'smut', score: 0 }] } }],
     ['source width above canonical maximum', { scan: { sourceWidth: 50_001 } }],
     ['source height below canonical minimum', { scan: { sourceHeight: 0 } }],
     ['processing timing above canonical maximum', { scan: { totalMs: 1_000_000_000 } }],
@@ -262,6 +263,7 @@ describe('mobile-report-upload-v1 producer contract', () => {
         { label: 'healthy', score: 0 },
         { label: 'mosaic', score: 1 },
         { label: 'rust', score: 0.5 },
+        { label: 'smut', score: 0.25 },
       ],
       symptoms: [
         'mosaic',
@@ -277,16 +279,16 @@ describe('mobile-report-upload-v1 producer contract', () => {
       totalMs: 999_999_999,
     };
 
-    expectCanonicalV1(map(boundaryReport, boundaryScan));
+    expectCanonicalV2(map(boundaryReport, boundaryScan));
   });
 
-  it('documents the intentionally stricter mobile subset of widened v1 fields', () => {
-    const fieldNotesAtV1Maximum = replacePart(
+  it('documents the intentionally stricter mobile subset of widened v2 fields', () => {
+    const fieldNotesAtV2Maximum = replacePart(
       map({ fieldNotes: 'x'.repeat(120) }),
       'field_notes',
       'x'.repeat(5_000),
     );
-    expectCanonicalV1(fieldNotesAtV1Maximum);
+    expectCanonicalV2(fieldNotesAtV2Maximum);
     expect(() => map({ fieldNotes: 'x'.repeat(5_000) })).toThrow(
       expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }),
     );
@@ -296,7 +298,7 @@ describe('mobile-report-upload-v1 producer contract', () => {
       'affected_area_hectares',
       '10001',
     );
-    expectCanonicalV1(affectedAreaAboveMobileCeiling);
+    expectCanonicalV2(affectedAreaAboveMobileCeiling);
     expect(() => map({ affectedAreaHectares: 10_001 })).toThrow(
       expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }),
     );
@@ -309,7 +311,7 @@ describe('mobile-report-upload-v1 producer contract', () => {
     ['non-integer persisted image size', { submissionImageSizeBytes: 4096.5 }, undefined],
     ['missing persisted image URI', { submissionImageUri: null }, undefined],
     ['uploaded file MIME mismatch', {}, { type: 'image/png', size: 4096 }],
-    ['uploaded file non-v1 MIME type', {}, { type: 'image/jpg', size: 4096 }],
+    ['uploaded file non-v2 MIME type', {}, { type: 'image/jpg', size: 4096 }],
     ['uploaded file size mismatch', {}, { type: 'image/jpeg', size: 4097 }],
     ['uploaded file over canonical maximum', {}, { type: 'image/jpeg', size: 10 * 1024 * 1024 + 1 }],
   ] as const)('rejects invalid image metadata: %s', (_name, scan, file) => {
@@ -364,7 +366,7 @@ function replacePart(form: FormData, name: string, value: unknown): FormData {
   );
 }
 
-function expectCanonicalV1(form: FormData): void {
+function expectCanonicalV2(form: FormData): void {
   const formParts = parts(form);
   const undeclared = formParts
     .map(([name]) => name)

@@ -107,7 +107,7 @@ function openTestDatabase(): {
       'rust',
       0.8,
       'consistent',
-      'v0.1-baseline',
+      'v1.0-mobilenetv2',
       5,
       8,
       13,
@@ -136,6 +136,7 @@ function insertCompleteClassScores(native: DatabaseSync): void {
   insert.run(SCAN_ID, 'healthy', 0.1);
   insert.run(SCAN_ID, 'mosaic', 0.1);
   insert.run(SCAN_ID, 'rust', 0.8);
+  insert.run(SCAN_ID, 'smut', 0);
 }
 
 function createStatementAdapter(statement: StatementSync): SQLiteStatement {
@@ -977,7 +978,7 @@ describe('Field Report draft repository', () => {
       managed_image_uri: `file:///caneguard/scan-images/${SCAN_ID}.jpg`,
     });
     expect(native.prepare('SELECT count(*) AS count FROM scan_class_scores').get()).toEqual({
-      count: 3,
+      count: 4,
     });
     native.close();
   });

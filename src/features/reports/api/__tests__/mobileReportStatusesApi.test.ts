@@ -1,5 +1,5 @@
 import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
-import { MOBILE_REPORT_STATUSES_V1_FIXTURE } from '@/features/reports/api/__fixtures__/mobileReportStatusesV1';
+import { MOBILE_REPORT_STATUSES_V2_FIXTURE } from '@/features/reports/api/__fixtures__/mobileReportStatusesV2';
 import {
   fetchAllMobileReportStatuses,
   ReportStatusesApiError,
@@ -49,8 +49,8 @@ describe('mobile report statuses API', () => {
     request.mockReset();
   });
 
-  it('reads the canonical sync.before checkpoint from the v1 envelope', async () => {
-    request.mockResolvedValueOnce(MOBILE_REPORT_STATUSES_V1_FIXTURE);
+  it('reads the canonical sync.before checkpoint from the v2 envelope', async () => {
+    request.mockResolvedValueOnce(MOBILE_REPORT_STATUSES_V2_FIXTURE);
 
     await expect(
       fetchAllMobileReportStatuses({ token: 'secure-token' }),
@@ -67,7 +67,7 @@ describe('mobile report statuses API', () => {
   });
 
   it('follows every cursor page with one server checkpoint and preserves unknown statuses', async () => {
-    const next = `http://127.0.0.1:8000/api/v1/mobile/reports/statuses?cursor=next&sync_before=${encodeURIComponent(CHECKPOINT)}`;
+    const next = `http://127.0.0.1:8000/api/v2/mobile/reports/statuses?cursor=next&sync_before=${encodeURIComponent(CHECKPOINT)}`;
     request
       .mockResolvedValueOnce(page([item({ review_status: 'future_state' })], next))
       .mockResolvedValueOnce(page([
@@ -105,14 +105,14 @@ describe('mobile report statuses API', () => {
     );
     expect(request).toHaveBeenNthCalledWith(
       2,
-      '/api/v1/mobile/reports/statuses?cursor=next&sync_before=' + encodeURIComponent(CHECKPOINT),
+      '/api/v2/mobile/reports/statuses?cursor=next&sync_before=' + encodeURIComponent(CHECKPOINT),
       expect.objectContaining({ token: 'secure-token' }),
     );
   });
 
   it('rejects a cross-origin or path-boundary continuation before sending it', async () => {
     request.mockResolvedValueOnce(
-      page([], 'https://evil.example.test/api/v1/mobile/reports/statuses?cursor=steal'),
+      page([], 'https://evil.example.test/api/v2/mobile/reports/statuses?cursor=steal'),
     );
 
     await expect(fetchAllMobileReportStatuses({ token: 'secure-token' })).rejects.toMatchObject<Partial<ReportStatusesApiError>>({
@@ -123,7 +123,7 @@ describe('mobile report statuses API', () => {
 
   it('rejects a same-origin continuation outside the status endpoint', async () => {
     request.mockResolvedValueOnce(
-      page([], 'http://127.0.0.1:8000/api/v1/mobile/reports/other?cursor=steal'),
+      page([], 'http://127.0.0.1:8000/api/v2/mobile/reports/other?cursor=steal'),
     );
 
     await expect(fetchAllMobileReportStatuses({ token: 'secure-token' })).rejects.toMatchObject({
@@ -133,7 +133,7 @@ describe('mobile report statuses API', () => {
   });
 
   it('rejects a changed server checkpoint', async () => {
-    const next = `http://127.0.0.1:8000/api/v1/mobile/reports/statuses?cursor=next&sync_before=${encodeURIComponent(CHECKPOINT)}`;
+    const next = `http://127.0.0.1:8000/api/v2/mobile/reports/statuses?cursor=next&sync_before=${encodeURIComponent(CHECKPOINT)}`;
     request
       .mockResolvedValueOnce(page([], next))
       .mockResolvedValueOnce(page([], null, '2026-08-13T12:06:00.000Z'));
@@ -193,7 +193,7 @@ describe('mobile report statuses API', () => {
   });
 
   it('rejects a later malformed page without returning earlier valid items', async () => {
-    const next = `http://127.0.0.1:8000/api/v1/mobile/reports/statuses?cursor=later&sync_before=${encodeURIComponent(CHECKPOINT)}`;
+    const next = `http://127.0.0.1:8000/api/v2/mobile/reports/statuses?cursor=later&sync_before=${encodeURIComponent(CHECKPOINT)}`;
     request
       .mockResolvedValueOnce(page([item()], next))
       .mockResolvedValueOnce(page([{ uuid: 'remote-2' }]));

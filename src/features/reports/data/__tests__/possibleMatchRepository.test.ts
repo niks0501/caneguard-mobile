@@ -121,7 +121,7 @@ function insertScan(
       'rust',
       0.8,
       'consistent',
-      'v0.1-baseline',
+      'v1.0-mobilenetv2',
       5,
       8,
       13,
@@ -171,6 +171,7 @@ function insertCompleteClassScores(native: DatabaseSync): void {
   insert.run(CURRENT_SCAN_ID, 'healthy', 0.1);
   insert.run(CURRENT_SCAN_ID, 'mosaic', 0.1);
   insert.run(CURRENT_SCAN_ID, 'rust', 0.8);
+  insert.run(CURRENT_SCAN_ID, 'smut', 0);
 }
 
 function lookupInput(
@@ -203,6 +204,27 @@ describe('possible match repository', () => {
       reportId: CANDIDATE_REPORT_ID,
       scanRecordId: CANDIDATE_SCAN_ID,
       predictedLabel: 'rust',
+      distanceMeters: 0,
+    });
+    native.close();
+  });
+
+  it('finds a Smut match from the local finalized reports', async () => {
+    const { database, native } = openTestDatabase();
+    insertCandidateReport(native);
+    native
+      .prepare('UPDATE scan_records SET predicted_label = ? WHERE id = ?')
+      .run('smut', CANDIDATE_SCAN_ID);
+
+    await expect(
+      findPossibleRecentMatch(
+        database,
+        SUBMITTER_ID,
+        lookupInput({ predictedLabel: 'smut' }),
+      ),
+    ).resolves.toMatchObject({
+      reportId: CANDIDATE_REPORT_ID,
+      predictedLabel: 'smut',
       distanceMeters: 0,
     });
     native.close();

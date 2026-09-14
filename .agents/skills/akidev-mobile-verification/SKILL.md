@@ -101,7 +101,14 @@ Inspect the actual diff and dependency metadata, and consult official dependency
 ### Runtime usable
 
 Run device E2E only when the relevant app is installed on the target device, the installed development build contains the required native capabilities, Metro/backend prerequisites are available, and the script is meaningful for the claim.
-Run a focused `.ad` script first, preserve the first failure, diagnose the smallest failing interaction, make one evidence-backed change, and rerun the focused script.
+For newly implemented or changed behavior, use Mode A first.
+Do not create, modify, or repeatedly replay a `.ad` script while discovering the working application path.
+Diagnose and repair the implementation in the live session and continue from the current state when safe.
+After the behavior succeeds interactively, promote the verified journey to Mode B only when durable regression/E2E coverage is justified.
+
+If a relevant checked-in `.ad` regression already exists, Mode B replay may be run first as regression evidence.
+If it diverges, use interactive diagnosis as needed, repair the actual cause, then rerun or guarded-resume the existing flow.
+
 Run the broader suite through `npm run e2e` only when the task or an acceptance gate requires it.
 
 ### Runtime stale, unknown, or rebuild required

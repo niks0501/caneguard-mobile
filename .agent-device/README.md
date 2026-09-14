@@ -135,19 +135,30 @@ npm run e2e:flow -- .agent-device/flows/<flow>.ad         # one focused flow
 npm run e2e                                               # all flows under .agent-device/flows
 ```
 
-Plain `agent-device replay <script>` is the normal focused path and the
-project action is its package-script form. Use this evidence-driven
-progression:
+### New or changed behavior — Mode A interactive verification
 
-1. Run the focused script with `agent-device replay <script>`.
-2. Preserve the exact command, first failing interaction, device/build
-   identity, logs, screenshots, and artifacts.
-3. Diagnose the smallest failing interaction from the structured divergence
-   report (step, file, line, ranked selector suggestions).
-4. Make one evidence-backed change.
-5. Rerun the focused script.
-6. Run broader or full E2E with `npm run e2e` only when the task or an
-   acceptance gate requires it.
+For newly implemented or changed behavior, verify the path interactively first
+with Agent Device. Open the app, inspect the live UI, act, re-inspect from the
+current state, diagnose failures in place, and continue from the current
+session when safe. Do not create, modify, or repeatedly replay a `.ad` script
+while discovering the working application path.
+
+After the behavior succeeds interactively, create or update the smallest
+justified `.ad` regression flow and replay it once to prove deterministic Mode B
+coverage.
+
+### Existing regression/acceptance flow — Mode B deterministic replay
+
+For an existing checked-in regression or acceptance flow, plain
+`agent-device replay <script>` is the normal focused Mode B path and the
+project action is its package-script form. If it diverges, preserve the exact
+first failing interaction, device/build identity, logs, screenshots, and
+artifacts; diagnose the smallest failing interaction from the structured
+divergence report (step, file, line, ranked selector suggestions), make one
+evidence-backed change, and rerun or guarded-resume the focused script.
+
+Run broader or full E2E with `npm run e2e` only when the task or an acceptance
+gate requires it.
 
 A failed replay command proves that the command failed; it does not by itself
 prove an application defect. Do not add automatic retries, rebuilds, emulator

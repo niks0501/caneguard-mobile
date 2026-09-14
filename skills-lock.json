@@ -7,6 +7,12 @@
       "skillPath": "skills/agent-device/SKILL.md",
       "computedHash": "0a673fe5ec24469f6ad35596cdf40f9d33076b78d0a929742d9e1de83f97d231"
     },
+    "android-emulator": {
+      "source": "callstack/agent-device",
+      "sourceType": "github",
+      "skillPath": "skills/android-emulator/SKILL.md",
+      "computedHash": "20b3ca719cceeb25a7442f167f5ae60a816e03cd2b05dc3574cdd9d9056e8dac"
+    },
     "awesome-design-md": {
       "source": "bighardperson/computer-science-skills-collection",
       "sourceType": "github",

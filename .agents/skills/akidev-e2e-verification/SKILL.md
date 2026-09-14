@@ -37,10 +37,12 @@ npm run e2e
 
 Run relevant lint, typecheck, unit, and integration checks before interpreting mobile results.
 Use the project's native-build freshness guidance before treating a device result as an app result.
-Plain `agent-device replay <script>` is the normal focused path, and the project flow action is its package-script form.
+For an existing checked-in regression or acceptance flow, plain `agent-device replay <script>` is the normal focused Mode B path, and the project flow action is its package-script form.
+For newly implemented or materially changed behavior whose successful path is not yet established, route to `akidev-mobile-verification` Mode A first.
+Do not use this skill as the default discovery loop for a fresh feature.
 `npm run e2e` runs the deterministic `.ad` suite under `.agent-device/flows/`, and `npm run e2e:doctor` delegates to `agent-device doctor` for device/toolchain readiness.
 
-Use this focused-to-broad progression:
+For existing or newly promoted Mode B flows, use this focused-to-broad progression:
 
 1. Run the focused script with `agent-device replay <script>`.
 2. Preserve the exact failing interaction, device/build identity, logs, screenshots, and other artifacts.

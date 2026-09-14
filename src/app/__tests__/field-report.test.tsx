@@ -392,6 +392,56 @@ describe('FieldReportScreen', () => {
     );
   });
 
+  it('offers RSSI as a field concern and keeps it separate from Model V1 evidence', async () => {
+    await render(<FieldReportScreen />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-report.mismatch-toggle'));
+    });
+
+    expect(screen.getByTestId('field-report.rssi-not-model-copy')).toHaveTextContent(
+      /RSSI can be reported as a field concern, but the current Model V1 does not detect RSSI\./,
+    );
+    expect(screen.getByLabelText('Other observed or suspected concern (free text)')).toBeOnTheScreen();
+    expect(screen.getByText('Possible result: Rust · 82% confidence')).toBeOnTheScreen();
+    expect(screen.getByText('healthy: 8% · mosaic: 10% · rust: 82%')).toBeOnTheScreen();
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Report RSSI as a field concern'));
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.reporter-observation-input'),
+        'Leaves show suspected rust-like symptoms and RSSI concern in the field.',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '0.5');
+    });
+    await act(async () => {
+      fireEvent.changeText(screen.getByTestId('field-report.affected-portion-input'), '30');
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+    });
+
+    expect(mockFinalize).toHaveBeenCalledWith(
+      expectFormValues({
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
+        mismatchReported: true,
+        reporterSuspectedCondition: 'RSSI',
+        reporterObservationText: 'Leaves show suspected rust-like symptoms and RSSI concern in the field.',
+      }),
+    );
+    expect(mockScan.predictedLabel).toBe('rust');
+    expect(mockScan.classScores).toEqual([
+      { label: 'healthy', score: 0.08 },
+      { label: 'mosaic', score: 0.1 },
+      { label: 'rust', score: 0.82 },
+    ]);
+  });
+
   it('stores an explicit no-mismatch answer and hides optional observations', async () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);

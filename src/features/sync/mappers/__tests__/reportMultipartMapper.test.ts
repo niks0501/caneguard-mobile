@@ -187,6 +187,30 @@ describe('Field Report multipart mapper', () => {
     expect(parts).toContainEqual(['symptom_keys[]', 'rust']);
   });
 
+  it('carries RSSI as reporter-observed evidence without adding an AI class', () => {
+    const parts = (
+      map({
+        ...REPORT,
+        mismatchReported: true,
+        reporterSuspectedCondition: 'RSSI',
+        reporterObservationText: 'RSSI concern observed near the field edge.',
+      }) as unknown as { _parts: [string, unknown][] }
+    )._parts;
+    const values = new Map(parts);
+
+    expect(values.get('reporter_suspected_condition')).toBe('RSSI');
+    expect(values.get('reporter_observation_text')).toBe(
+      'RSSI concern observed near the field edge.',
+    );
+    expect(values.get('predicted_label')).toBe('rust');
+    expect(values.get('model_version')).toBe('v1.0-mobilenetv2');
+    expect(values.get('class_scores[healthy]')).toBe('0.05');
+    expect(values.get('class_scores[mosaic]')).toBe('0.13');
+    expect(values.get('class_scores[rust]')).toBe('0.82');
+    expect(values.get('class_scores[smut]')).toBe('0');
+    expect(parts.some(([name]) => name === 'class_scores[RSSI]')).toBe(false);
+  });
+
   it('emits an explicit no-mismatch answer and omits empty optional text', () => {
     const parts = (
       map({

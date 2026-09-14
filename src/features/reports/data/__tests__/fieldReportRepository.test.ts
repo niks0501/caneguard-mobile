@@ -1054,7 +1054,7 @@ describe('Field Report draft repository', () => {
 });
 
 describe('P2-01 smart field report fields', () => {
-  it('persists and reloads the new draft fields and region selection', async () => {
+  it('persists and reloads draft fields, region selection, and RSSI reporter observation', async () => {
     const { database, native } = openTestDatabase();
     await createOrGetFieldReportDraft(database, createDraftInput());
 
@@ -1069,6 +1069,9 @@ describe('P2-01 smart field report fields', () => {
       cropAge: '~3 months',
       caneClass: 'Plant cane',
       fieldNotes: 'Near the river',
+      mismatchReported: true,
+      reporterSuspectedCondition: 'RSSI',
+      reporterObservationText: 'Radio signal concern noted in the field.',
       updatedAt: '2026-08-10T01:05:00.000Z',
     });
     const reopened = await findFieldReportById(database, REPORT_ID, SUBMITTER_ID);
@@ -1083,6 +1086,9 @@ describe('P2-01 smart field report fields', () => {
       cropAge: '~3 months',
       caneClass: 'Plant cane',
       fieldNotes: 'Near the river',
+      mismatchReported: true,
+      reporterSuspectedCondition: 'RSSI',
+      reporterObservationText: 'Radio signal concern noted in the field.',
     });
     expect(reopened).toEqual(saved);
     native.close();

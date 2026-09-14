@@ -7,7 +7,7 @@ import {
 import type {
   FieldValidationAssignmentUpdate,
 } from '@/features/assignments/domain/assignmentTypes';
-import { LEGACY_MODEL_LABELS } from '@/features/detection/constants/modelContract';
+import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 
 const ASSIGNMENT_PATH = '/api/v1/mobile/assignments';
 const PAGE_SIZE = 100;
@@ -196,7 +196,7 @@ function parseAssignment(value: unknown): FieldValidationAssignmentUpdate {
       predictedLabel: requireEnum(
         rawCase.predicted_label,
         'case.predicted_label',
-        LEGACY_MODEL_LABELS,
+        MODEL_LABELS,
       ),
       confidence: requireNumber(rawCase.confidence, 'case.confidence', 0, 1),
     },

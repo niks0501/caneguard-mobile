@@ -277,9 +277,9 @@ describe('RecordDetailsScreen', () => {
 
     await fireEvent.press(screen.getByLabelText('Show Technical details'));
     expect(useScanRecordDetails).toHaveBeenCalledWith(RECORD_ID);
-    expect(screen.getByText('Possible result: Rust')).toBeOnTheScreen();
+    expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
     expect(screen.getByTestId('records.result-title')).toHaveTextContent(
-      'Possible result: Rust',
+      'Possible Condition: Rust',
     );
     expect(screen.getByText('82% AI confidence')).toBeOnTheScreen();
     expect(screen.getByText('Checklist consistent')).toBeOnTheScreen();
@@ -308,7 +308,7 @@ describe('RecordDetailsScreen', () => {
         'Saved image unavailable; record metadata remains available',
       ),
     ).toBeOnTheScreen();
-    expect(screen.getByText('Possible result: Rust')).toBeOnTheScreen();
+    expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
   });
 
   it('requires confirmation and deletes before returning to records', async () => {

@@ -55,7 +55,7 @@ export function validateCreateFieldReportDraftInput(
   validateUtcTimestamp(input.createdAt);
   validateSubmitterIdentity(input.submitterIdentity);
   if (input.submitterRole !== 'field_reporter') {
-    invalid('The authenticated user is not a field reporter.');
+    invalid('The authenticated user is not a Field Inspector.');
   }
   if (input.province !== undefined) {
     validateRegionText(input.province, 'province');

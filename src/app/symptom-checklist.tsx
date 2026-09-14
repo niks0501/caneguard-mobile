@@ -117,7 +117,7 @@ export default function SymptomChecklistScreen() {
                 <Feather name="eye" size={20} color={theme.accentDark} />
               </View>
               <Text style={[styles.introText, { color: theme.textSecondary }]}>
-                Add a short visual observation before reviewing the AI-assisted result.
+                Add a short visual observation before reviewing the Possible Condition.
                 Your answer is stored separately and never changes model scores.
               </Text>
             </View>
@@ -154,7 +154,7 @@ export default function SymptomChecklistScreen() {
             ) : (
               <Text style={[styles.helperText, { color: theme.textSecondary }]}>
                 Guided observations are unavailable for this model context. You can
-                still review the AI-assisted result.
+                still review the Possible Condition.
               </Text>
             )}
             <AppButton

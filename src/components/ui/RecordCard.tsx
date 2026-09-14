@@ -182,18 +182,18 @@ export function getSyncPresentation(
 
 export function getResultLabel(label: string): string {
   if (label === 'healthy') {
-    return 'No supported disease detected';
+    return 'Possible Condition: No supported disease detected';
   }
   if (label === 'mosaic') {
-    return 'Possible result: Mosaic';
+    return 'Possible Condition: Mosaic';
   }
   if (label === 'rust') {
-    return 'Possible result: Rust';
+    return 'Possible Condition: Rust';
   }
   if (label === 'smut') {
-    return 'Possible result: Smut';
+    return 'Possible Condition: Smut';
   }
-  return `Stored model result: ${label}`;
+  return `Stored Possible Condition: ${label}`;
 }
 
 function toPillVariant(label: string): DiseasePillVariant {

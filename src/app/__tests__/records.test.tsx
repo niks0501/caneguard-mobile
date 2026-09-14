@@ -102,7 +102,7 @@ describe('legacy records route', () => {
     expect(screen.getByText('Waiting to sync')).toBeOnTheScreen();
 
     await fireEvent.press(
-      screen.getByLabelText(/Open Possible result: Rust scan saved/),
+      screen.getByLabelText(/Open Possible Condition: Rust scan saved/),
     );
     expect(mockRouterPush).toHaveBeenCalledWith({
       pathname: '/record-details',

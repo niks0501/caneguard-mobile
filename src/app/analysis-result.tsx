@@ -52,7 +52,7 @@ const CONSISTENCY_PRESENTATION: Record<
 > = {
   consistent: {
     title: 'Checklist consistent',
-    message: 'The selected observations are consistent with the model result.',
+    message: 'The selected observations are consistent with the Possible Condition.',
     icon: 'check-circle',
     foreground: 'success',
     background: 'successBg',
@@ -60,7 +60,7 @@ const CONSISTENCY_PRESENTATION: Record<
   inconsistent: {
     title: 'Checklist inconsistent',
     message:
-      'The selected observation differs from the model result. Both remain separate evidence, and this scan can still be reported to the office.',
+      'The selected observation differs from the Possible Condition. Both remain separate evidence, and this scan can still be reported to the office.',
     icon: 'alert-triangle',
     foreground: 'danger',
     background: 'dangerBg',
@@ -68,7 +68,7 @@ const CONSISTENCY_PRESENTATION: Record<
   'not-applicable': {
     title: 'Checklist cannot be compared',
     message:
-      'The selected observations point to more than one supported class, so they cannot be compared as one result.',
+      'The selected observations point to more than one supported class, so they cannot be compared with one Possible Condition.',
     icon: 'help-circle',
     foreground: 'warning',
     background: 'warningBg',
@@ -174,10 +174,7 @@ export default function AnalysisResultScreen() {
   const diseaseColor = theme[metadata.themeToken.foreground];
   const diseaseBackground = theme[metadata.themeToken.background];
   const isLowScore = isBelowV1ConfidenceCautionThreshold(result.confidence);
-  const resultTitle =
-    result.predictedLabel === 'healthy'
-      ? metadata.displayName
-      : `Possible result: ${metadata.displayName}`;
+  const resultTitle = `Possible Condition: ${metadata.displayName}`;
 
   return (
     <SafeAreaView

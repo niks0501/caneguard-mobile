@@ -29,7 +29,7 @@ export function PossibleRecentMatchWarning({
         <Text style={[styles.message, { color: theme.text }]}>
           This new case resembles a recent report observed{' '}
           {formatTimestamp(match.observedAt)} about {distance} m away, with the
-          same AI-supported result and field reference.
+          same Possible Condition and field reference.
         </Text>
         <Text style={[styles.message, { color: theme.textSecondary }]}>
           This is only a possible match, not a duplicate decision. You can

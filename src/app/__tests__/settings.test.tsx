@@ -29,7 +29,7 @@ describe('SettingsScreen', () => {
       'Text Size',
       'High Contrast Mode',
       'Sync Alerts',
-      'MAO Advisories',
+      'Office Advisories',
     ]) {
       const row = screen.getByLabelText(`${label}: Coming later`);
       expect(row).toBeDisabled();

@@ -132,9 +132,7 @@ describe('AnalysisResultScreen', () => {
       expect(screen.getByText(STATUS_TITLES[expectedStatus])).toBeOnTheScreen();
       expect(
         screen.getByText(
-          predictedLabel === 'healthy'
-            ? 'No supported disease detected'
-            : `Possible result: ${predictedLabel === 'mosaic' ? 'Mosaic' : predictedLabel === 'rust' ? 'Rust' : 'Smut'}`,
+          `Possible Condition: ${predictedLabel === 'healthy' ? 'No supported disease detected' : predictedLabel === 'mosaic' ? 'Mosaic' : predictedLabel === 'rust' ? 'Rust' : 'Smut'}`
         ),
       ).toBeOnTheScreen();
     },
@@ -151,7 +149,7 @@ describe('AnalysisResultScreen', () => {
 
     expect(screen.getByTestId('scan.result-screen')).toBeOnTheScreen();
     expect(screen.getByTestId('scan.result-title')).toHaveTextContent(
-      'Possible result: Rust',
+      'Possible Condition: Rust',
     );
     expect(screen.queryByTestId('scan.barangay-input')).not.toBeOnTheScreen();
     expect(screen.getByTestId('scan.report-to-office')).toBeOnTheScreen();
@@ -160,7 +158,7 @@ describe('AnalysisResultScreen', () => {
     expect(
       screen.getByLabelText('Selected sugarcane image used for analysis'),
     ).toHaveProp('source', { uri: 'file:///result-leaf.jpg' });
-    expect(screen.getByText('Possible result: Rust')).toBeOnTheScreen();
+    expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
     expect(screen.getByLabelText('AI confidence 78%')).toBeOnTheScreen();
     await fireEvent.press(screen.getByLabelText('Show Technical details'));
     expect(screen.getByLabelText('Healthy score 8%')).toBeOnTheScreen();
@@ -377,7 +375,7 @@ describe('AnalysisResultScreen', () => {
 
     await renderResult(createCompletedState('rust', ['rust']));
 
-    expect(screen.getByText('Possible result: Rust')).toBeOnTheScreen();
+    expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
     expect(screen.getByText('Choose another action')).toBeOnTheScreen();
     await fireEvent.press(
       screen.getByLabelText('Retry and keep this scan only'),
@@ -394,7 +392,7 @@ describe('AnalysisResultScreen', () => {
     expect(screen.getByText('Checklist inconsistent')).toBeOnTheScreen();
     expect(
       screen.getByText(
-        'The selected observation differs from the model result. Both remain separate evidence, and this scan can still be reported to the office.',
+        'The selected observation differs from the Possible Condition. Both remain separate evidence, and this scan can still be reported to the office.',
       ),
     ).toBeOnTheScreen();
     expect(screen.getByLabelText('Report this scan to the office')).toBeEnabled();

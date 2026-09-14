@@ -24,7 +24,7 @@ export const diseaseCatalog: Record<ModelLabel, DiseaseCatalogEntry> = {
     resultMessage:
       'The model assigned its highest score to Healthy based on the submitted image.',
     decisionSupportWording:
-      'Possible result only. The model did not assign its highest score to Mosaic, Rust, or Smut. This output does not confirm a disease.',
+      'Possible Condition only. The model did not assign its highest score to Mosaic, Rust, or Smut. This output does not confirm a disease.',
     icon: 'check-circle',
     themeToken: {
       foreground: 'healthy',
@@ -39,7 +39,7 @@ export const diseaseCatalog: Record<ModelLabel, DiseaseCatalogEntry> = {
     resultMessage:
       'The model assigned its highest score to Mosaic based on the submitted image.',
     decisionSupportWording:
-      'Possible result only. Mosaic may appear as irregular light and dark discoloration or mottling. This output does not confirm a disease.',
+      'Possible Condition only. Mosaic may appear as irregular light and dark discoloration or mottling. This output does not confirm a disease.',
     icon: 'grid',
     themeToken: {
       foreground: 'mosaic',
@@ -54,7 +54,7 @@ export const diseaseCatalog: Record<ModelLabel, DiseaseCatalogEntry> = {
     resultMessage:
       'The model assigned its highest score to Rust based on the submitted image.',
     decisionSupportWording:
-      'Possible result only. Rust may appear as orange-brown or rust-colored spots or pustules. This output does not confirm a disease.',
+      'Possible Condition only. Rust may appear as orange-brown or rust-colored spots or pustules. This output does not confirm a disease.',
     icon: 'sun',
     themeToken: {
       foreground: 'rust',
@@ -69,7 +69,7 @@ export const diseaseCatalog: Record<ModelLabel, DiseaseCatalogEntry> = {
     resultMessage:
       'The model assigned its highest score to Smut based on the submitted image.',
     decisionSupportWording:
-      'Possible result only. Look for a dark, whip-like growth emerging from the central shoot or stalk, but do not treat this observation or the model output as confirmation.',
+      'Possible Condition only. Look for a dark, whip-like growth emerging from the central shoot or stalk, but do not treat this observation or the model output as confirmation.',
     icon: 'alert-triangle',
     themeToken: {
       foreground: 'smut',

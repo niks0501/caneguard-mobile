@@ -43,7 +43,7 @@ Synchronization runs after save, at startup, on app resume, after connectivity r
 Failed uploads preserve the local report and image for retry.
 Only an authenticated `field_reporter` session can synchronize mobile reports.
 
-The Model V1 mobile upload endpoint is `POST /api/v2/mobile/reports`; possible-match and status reads use the corresponding `/api/v2/mobile/reports/...` routes.
+The Model V1 mobile upload endpoint is `POST /api/v2/mobile/reports`. Possible-match lookup remains local-first for offline use; status reads use `GET /api/v2/mobile/reports/statuses`.
 The Web/API review flow uses the same remote report identity and exposes the resulting review status back to Mobile.
 The image roles and multipart compatibility contract remain owned by the Web/API repository, so this README keeps those details brief and links to the authoritative documents below.
 

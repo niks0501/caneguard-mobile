@@ -216,7 +216,6 @@ Current mobile endpoints:
 - `PATCH /api/v1/auth/email`
 - `POST /api/v1/auth/biometric/disable`
 - `POST /api/v2/mobile/reports`
-- `GET /api/v2/mobile/reports/possible-matches`
 - `GET /api/v2/mobile/reports/statuses`
 - `GET /api/v1/mobile/assignments`
 - `POST /api/v1/mobile/assignments/{assignment}/completion`

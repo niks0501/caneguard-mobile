@@ -209,6 +209,27 @@ describe('possible match repository', () => {
     native.close();
   });
 
+  it('finds a Smut match from the local finalized reports', async () => {
+    const { database, native } = openTestDatabase();
+    insertCandidateReport(native);
+    native
+      .prepare('UPDATE scan_records SET predicted_label = ? WHERE id = ?')
+      .run('smut', CANDIDATE_SCAN_ID);
+
+    await expect(
+      findPossibleRecentMatch(
+        database,
+        SUBMITTER_ID,
+        lookupInput({ predictedLabel: 'smut' }),
+      ),
+    ).resolves.toMatchObject({
+      reportId: CANDIDATE_REPORT_ID,
+      predictedLabel: 'smut',
+      distanceMeters: 0,
+    });
+    native.close();
+  });
+
   it('does not flag a same-location and same-condition report for a different farm reference', async () => {
     const { database, native } = openTestDatabase();
     insertCandidateReport(native, 'North Block Farm 12');

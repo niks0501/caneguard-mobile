@@ -163,14 +163,31 @@ function ModelDebugScreen() {
             Runtime contract
           </Text>
         </View>
-        <DebugRow label="Load state" value={modelState.state} />
-        <DebugRow label="Model version" value={MODEL_VERSION} />
-        <DebugRow label="Label order" value={MODEL_LABELS.join(' → ')} />
+        <DebugRow
+          label="Load state"
+          value={modelState.state}
+          testID="model-debug.load-state"
+        />
+        <DebugRow
+          label="Model version"
+          value={MODEL_VERSION}
+          testID="model-debug.model-version"
+        />
+        <DebugRow
+          label="Label order"
+          value={MODEL_LABELS.join(' → ')}
+          testID="model-debug.label-order"
+        />
         <DebugRow
           label="Expected input"
           value={MODEL_INPUT.shape.join(' × ')}
+          testID="model-debug.input-shape"
         />
-        <DebugRow label="Input tensor type" value={MODEL_INPUT.dataType} />
+        <DebugRow
+          label="Input tensor type"
+          value={MODEL_INPUT.dataType}
+          testID="model-debug.input-type"
+        />
       </AppCard>
 
       <AppCard style={styles.card}>
@@ -184,6 +201,7 @@ function ModelDebugScreen() {
           {FIXTURES.map((fixture) => (
             <AppButton
               key={fixture.id}
+              testID={`model-debug.run-${fixture.id}`}
               variant="secondary"
               disabled={
                 activeFixtureId !== null || modelState.state !== 'loaded'
@@ -218,6 +236,7 @@ function ModelDebugScreen() {
         <DebugRow
           label="Fixture"
           value={debugRun?.fixtureId ?? 'Not run'}
+          testID="model-debug.last-fixture"
         />
         <DebugRow
           label="Preprocess min / max / mean"
@@ -278,6 +297,7 @@ function ModelDebugScreen() {
         <DebugRow
           label="Actual QA top-1"
           value={debugRun ? debugRun.parity.actualTop1Class ?? 'Unavailable' : 'Unavailable'}
+          testID="model-debug.actual-top1"
           danger={Boolean(debugRun && !debugRun.parity.top1Matches)}
         />
         <DebugRow
@@ -293,6 +313,7 @@ function ModelDebugScreen() {
         <DebugRow
           label="QA top-1 parity"
           value={debugRun ? (debugRun.parity.top1Matches ? 'PASS' : 'MISMATCH') : 'Unavailable'}
+          testID="model-debug.qa-top1-parity"
           danger={Boolean(debugRun && !debugRun.parity.top1Matches)}
         />
         <DebugRow
@@ -324,10 +345,12 @@ function ModelDebugScreen() {
 function DebugRow({
   label,
   value,
+  testID,
   danger = false,
 }: {
   label: string;
   value: string;
+  testID?: string;
   danger?: boolean;
 }) {
   const theme = useTheme();
@@ -338,6 +361,7 @@ function DebugRow({
         {label}
       </Text>
       <Text
+        testID={testID}
         selectable
         style={[
           styles.debugValue,

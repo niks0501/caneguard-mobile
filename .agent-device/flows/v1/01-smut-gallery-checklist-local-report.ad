@@ -1,0 +1,54 @@
+context platform=android timeout=900000
+
+# INTENT: Select the single staged Smut QA fixture through the supported gallery
+# handoff, render the four-class Model V1 Smut result, record the matching
+# observation, save locally, and create (but do not submit) a Field Report.
+# Preflow: scripts/ad-flow-env.sh stage-v1-fixture smut
+# (one controlled fixture is staged so the system picker has one deterministic
+# candidate). AUTH_EMAIL / AUTH_PASSWORD are private disposable credentials.
+
+open "com.niks0501.caneguard" --relaunch --platform android --test-ime
+wait "label=\"Welcome back\"" 120000
+fill "id=auth.email-input" "${AUTH_EMAIL}"
+fill "id=auth.password-input" "${AUTH_PASSWORD}"
+click "id=auth.login-submit"
+wait "id=home.screen" 120000
+click "role=button label=\"Start Scan\""
+wait "id=scan.screen" 30000
+click "id=scan.choose-gallery"
+wait stable 2000 15000
+# Android owns this picker. The preflow removes only prior controlled V1 media
+# and stages one named fixture; do not replace this with coordinate tapping.
+find "Photo taken on" click --first
+wait "id=scan.preview-screen" 30000
+is visible "label=\"Selected sugarcane image from gallery\""
+click "id=scan.analyze-image"
+wait "id=scan.symptom-checklist-screen" 120000
+is visible "id=scan.guided-question"
+is visible "id=scan.symptom-smut"
+click "id=scan.symptom-smut"
+click "id=scan.continue-to-result"
+wait "id=scan.result-screen" 30000
+wait "label=\"Possible result: Smut\"" 30000
+is visible "label=\"AI confidence 100%\""
+is visible "text=v1.0-mobilenetv2"
+scroll down 1 --settle
+wait "id=scan.checklist-consistency" 10000
+is visible "label=\"Checklist consistent\""
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/v1-smut-result.png"
+scroll down 1 --settle
+wait "id=scan.keep-as-scan-only" 10000
+click "id=scan.keep-as-scan-only"
+wait "id=scan.record-saved" 30000
+scroll down 1 --settle
+wait "id=scan.open-saved-record" 10000
+click "id=scan.open-saved-record"
+wait "id=records.details-screen" 30000
+wait "label=\"Possible result: Smut\"" 30000
+is visible "label=\"Local only\""
+is visible "text=Dark, whip-like growth emerging from the central shoot or stalk"
+click "label=\"Create Field Report draft\""
+wait "id=field-report.screen" 30000
+wait "id=field-report.minimum-requirements" 30000
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/v1-smut-local-report.png"
+close

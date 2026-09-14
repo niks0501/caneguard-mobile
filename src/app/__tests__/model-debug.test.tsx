@@ -88,10 +88,18 @@ describe('ModelDebugRoute', () => {
   it('shows the model contract and runs a bundled fixture with one tap', async () => {
     await render(<ModelDebugRoute />);
 
-    expect(screen.getByText('loaded')).toBeOnTheScreen();
-    expect(screen.getByText('healthy → mosaic → rust → smut')).toBeOnTheScreen();
-    expect(screen.getByText('1 × 224 × 224 × 3')).toBeOnTheScreen();
-    expect(screen.getByText('float32')).toBeOnTheScreen();
+    expect(screen.getByTestId('model-debug.load-state')).toHaveTextContent('loaded');
+    expect(screen.getByTestId('model-debug.model-version')).toHaveTextContent(
+      'v1.0-mobilenetv2',
+    );
+    expect(screen.getByTestId('model-debug.label-order')).toHaveTextContent(
+      'healthy → mosaic → rust → smut',
+    );
+    expect(screen.getByTestId('model-debug.input-shape')).toHaveTextContent(
+      '1 × 224 × 224 × 3',
+    );
+    expect(screen.getByTestId('model-debug.input-type')).toHaveTextContent('float32');
+    expect(screen.getByTestId('model-debug.run-smut')).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByLabelText('Run Healthy QA Fixture'));
 
@@ -104,6 +112,9 @@ describe('ModelDebugRoute', () => {
       expect(screen.getByText('[0.700000, 0.200000, 0.090000, 0.010000]')).toBeOnTheScreen();
     });
 
+    expect(screen.getByTestId('model-debug.last-fixture')).toHaveTextContent('healthy');
+    expect(screen.getByTestId('model-debug.actual-top1')).toHaveTextContent('healthy');
+    expect(screen.getByTestId('model-debug.qa-top1-parity')).toHaveTextContent('PASS');
     expect(screen.getByText('healthy (0.700000)')).toBeOnTheScreen();
     expect(screen.getByText('602112')).toBeOnTheScreen();
     expect(screen.getByText('42 ms')).toBeOnTheScreen();

@@ -1,0 +1,47 @@
+context platform=android timeout=900000
+
+# INTENT: Verify the development-only Model V1 runtime contract and all four
+# frozen QA fixture top-1 outputs without crossing a native picker boundary.
+# Preflow: Metro-connected development client and an authenticated field
+# reporter. No QA media staging is needed; the debug route uses bundled copies
+# whose hashes match qa/expected-v1-outputs.json.
+
+open "com.niks0501.caneguard" --relaunch --platform android --test-ime
+wait "label=\"Welcome back\"" 120000
+fill "id=auth.email-input" "${AUTH_EMAIL}"
+fill "id=auth.password-input" "${AUTH_PASSWORD}"
+click "id=auth.login-submit"
+wait "id=home.screen" 120000
+open "com.niks0501.caneguard" "caneguardmobile:///model-debug" --platform android
+wait "id=model-debug.load-state" 120000
+is text "id=model-debug.load-state" "loaded"
+is text "id=model-debug.model-version" "v1.0-mobilenetv2"
+is text "id=model-debug.label-order" "healthy → mosaic → rust → smut"
+is text "id=model-debug.input-shape" "1 × 224 × 224 × 3"
+is text "id=model-debug.input-type" "float32"
+
+click "id=model-debug.run-healthy"
+wait stable 3000 120000
+is text "id=model-debug.last-fixture" "healthy"
+is text "id=model-debug.actual-top1" "healthy"
+is text "id=model-debug.qa-top1-parity" "PASS"
+
+click "id=model-debug.run-mosaic"
+wait stable 3000 120000
+is text "id=model-debug.last-fixture" "mosaic"
+is text "id=model-debug.actual-top1" "mosaic"
+is text "id=model-debug.qa-top1-parity" "PASS"
+
+click "id=model-debug.run-rust"
+wait stable 3000 120000
+is text "id=model-debug.last-fixture" "rust"
+is text "id=model-debug.actual-top1" "rust"
+is text "id=model-debug.qa-top1-parity" "PASS"
+
+click "id=model-debug.run-smut"
+wait stable 3000 120000
+is text "id=model-debug.last-fixture" "smut"
+is text "id=model-debug.actual-top1" "smut"
+is text "id=model-debug.qa-top1-parity" "PASS"
+screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/v1-model-runtime-and-qa.png"
+close

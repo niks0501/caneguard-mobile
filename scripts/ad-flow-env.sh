@@ -13,7 +13,10 @@
 #
 # Usage:
 #   scripts/ad-flow-env.sh preflight
-#   scripts/ad-flow-env.sh stage-media [file]
+#   scripts/ad-flow-env.sh preflight-v1
+#   scripts/ad-flow-env.sh stage-media [file] [device-name]
+#   scripts/ad-flow-env.sh stage-v1-fixture smut
+#   scripts/ad-flow-env.sh stage-v1-fixtures
 #   scripts/ad-flow-env.sh grant-permissions
 #   scripts/ad-flow-env.sh revoke-permissions
 #   scripts/ad-flow-env.sh connect-metro
@@ -29,6 +32,9 @@ set -euo pipefail
 APP_PACKAGE="${AD_APP_PACKAGE:-com.niks0501.caneguard}"
 FIXTURE="${AD_FIXTURE:-assets/model-fixtures/parity-reference.jpg}"
 DEVICE_DIR="${AD_DEVICE_MEDIA_DIR:-/sdcard/Download}"
+V1_FIXTURE_DIR="${AD_V1_FIXTURE_DIR:-assets/model-fixtures}"
+V1_HANDOFF_QA_DIR="${AD_V1_HANDOFF_QA_DIR:-$HOME/projects/CaneGuard-V1-Integration-Handoff/qa}"
+V1_FIXTURE_PREFIX="caneguard-v1"
 
 need_adb() {
   command -v adb >/dev/null 2>&1 || {
@@ -40,12 +46,11 @@ need_adb() {
 stage-media() {
   need_adb
   local src="${1:-$FIXTURE}"
-  local name
+  local name="${2:-$(basename "${1:-$FIXTURE}")}"
   if [ ! -f "$src" ]; then
     echo "ad-flow-env: fixture not found: $src" >&2
     exit 1
   fi
-  name="$(basename "$src")"
   # Android's system picker copies selected fixtures into Pictures. Remove
   # only prior copies of this controlled fixture so the flow's semantic
   # picker target remains unique across repeated checks.
@@ -64,6 +69,74 @@ stage-media() {
     exit 1
   fi
   echo "ad-flow-env: staged $src -> $DEVICE_DIR/$name"
+}
+
+v1_fixture_source() {
+  local fixture="$1"
+  local handoff="$V1_HANDOFF_QA_DIR/${fixture}.jpg"
+  local tracked="$V1_FIXTURE_DIR/v1-${fixture}.jpg"
+  local source
+
+  case "$fixture" in
+    healthy|mosaic|rust|smut)
+      source="$handoff"
+      [ -f "$source" ] || source="$tracked"
+      ;;
+    *)
+      echo "ad-flow-env: unknown V1 fixture '$fixture' (expected healthy, mosaic, rust, or smut)" >&2
+      exit 64
+      ;;
+  esac
+
+  if [ ! -f "$source" ]; then
+    echo "ad-flow-env: V1 fixture not found: $handoff or $tracked" >&2
+    exit 1
+  fi
+
+  local expected actual
+  case "$fixture" in
+    healthy) expected="ad39d1151324edb95ef31bd4d05f11e3a55c8cffa2f658d420878afb29f92d43" ;;
+    mosaic) expected="78246cb2aa94c2528ae23aa125289956668aef533405e446d9942f072c52f499" ;;
+    rust) expected="851bdc7a30691c06a5e353ce1c6e03d08dad05dda717d974fa3fad1ac697faaa" ;;
+    smut) expected="0d278ac9b50f779992f0f6d98cb41511a274e58a5a4699cdfe8a802ab02e9024" ;;
+  esac
+  actual="$(sha256sum "$source" | awk '{print $1}')"
+  if [ "$actual" != "$expected" ]; then
+    echo "ad-flow-env: V1 fixture hash mismatch for $fixture" >&2
+    echo "ad-flow-env: expected $expected, got $actual" >&2
+    exit 1
+  fi
+  printf '%s\n' "$source"
+}
+
+clear-v1-fixtures() {
+  need_adb
+  # Only remove the helper's own names. Never clear Pictures, app data, or
+  # unrelated user media as part of a flow precondition.
+  adb shell "rm -f $DEVICE_DIR/${V1_FIXTURE_PREFIX}-*.jpg /sdcard/Pictures/${V1_FIXTURE_PREFIX}-*.jpg"
+  adb shell content delete --uri content://media/external/images/media \
+    --where "_display_name LIKE '${V1_FIXTURE_PREFIX}-%'" >/dev/null 2>&1 || true
+}
+
+stage-v1-fixture() {
+  local fixture="${1:-}"
+  if [ -z "$fixture" ]; then
+    echo "usage: $0 stage-v1-fixture {healthy|mosaic|rust|smut}" >&2
+    exit 64
+  fi
+  local source
+  source="$(v1_fixture_source "$fixture")"
+  clear-v1-fixtures
+  stage-media "$source" "${V1_FIXTURE_PREFIX}-${fixture}.jpg"
+}
+
+stage-v1-fixtures() {
+  clear-v1-fixtures
+  local fixture source
+  for fixture in healthy mosaic rust smut; do
+    source="$(v1_fixture_source "$fixture")"
+    stage-media "$source" "${V1_FIXTURE_PREFIX}-${fixture}.jpg"
+  done
 }
 
 grant-permissions() {
@@ -126,13 +199,33 @@ preflight() {
   stage-media "$FIXTURE"
 }
 
+preflight-v1() {
+  need_adb
+  adb devices -l
+  adb reverse tcp:8081 tcp:8081
+  adb reverse tcp:8000 tcp:8000
+  adb reverse --list
+  grant-permissions
+  stage-v1-fixtures
+}
+
 case "${1:-}" in
   preflight)
     preflight
     ;;
+  preflight-v1)
+    preflight-v1
+    ;;
   stage-media)
     shift
-    stage-media "${1:-}"
+    stage-media "${1:-}" "${2:-}"
+    ;;
+  stage-v1-fixture)
+    shift
+    stage-v1-fixture "${1:-}"
+    ;;
+  stage-v1-fixtures)
+    stage-v1-fixtures
     ;;
   grant-permissions)
     grant-permissions
@@ -147,7 +240,7 @@ case "${1:-}" in
     reset-app
     ;;
   *)
-    echo "usage: $0 {preflight|stage-media [file]|grant-permissions|revoke-permissions|connect-metro|reset-app}" >&2
+    echo "usage: $0 {preflight|preflight-v1|stage-media [file] [device-name]|stage-v1-fixture {healthy|mosaic|rust|smut}|stage-v1-fixtures|grant-permissions|revoke-permissions|connect-metro|reset-app}" >&2
     exit 64
     ;;
 esac

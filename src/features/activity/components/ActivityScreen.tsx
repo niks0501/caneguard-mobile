@@ -113,19 +113,23 @@ export default function ActivityScreen() {
     syncErrorMessage: sync.errorMessage,
     today: new Date().toISOString().slice(0, 10),
   });
+  const buildRefreshTargets = (): RefreshAllTarget[] => {
+    const targets: RefreshAllTarget[] = [
+      { key: 'notifications', run: () => notifications.refresh() },
+      { key: 'officeReview', run: () => authorityStatus.refresh() },
+      { key: 'assignments', run: () => assignments.refresh() },
+      { key: 'records', run: () => records.refresh() },
+    ];
+    if (sync.isOnline === true) {
+      targets.unshift({
+        key: 'sync',
+        run: async () => void (await sync.syncNow('manual')),
+      });
+    }
+    return targets;
+  };
   const { refreshAll, refreshing: refreshingAll, result: refreshAllResult } =
-    useRefreshAll((): RefreshAllTarget[] => {
-      const targets: RefreshAllTarget[] = [
-        { key: 'notifications', run: () => notifications.refresh() },
-        { key: 'officeReview', run: () => authorityStatus.refresh() },
-        { key: 'assignments', run: () => assignments.refresh() },
-        { key: 'records', run: () => records.refresh() },
-      ];
-      if (sync.isOnline === true) {
-        targets.unshift({ key: 'sync', run: async () => void (await sync.syncNow('manual')) });
-      }
-      return targets;
-    });
+    useRefreshAll();
   const refreshMessage = describeRefreshAllResult(refreshAllResult);
   const subsystemErrors = [
     authorityStatus.errorMessage,
@@ -244,7 +248,7 @@ export default function ActivityScreen() {
                   <SyncStatusPanel showAction={false} />
                   <AppButton
                     testID="activity.refresh-all"
-                    onPress={() => void refreshAll()}
+                    onPress={() => void refreshAll(buildRefreshTargets())}
                     disabled={refreshingAll}
                     variant="secondary"
                     leadingIcon="refresh-cw"

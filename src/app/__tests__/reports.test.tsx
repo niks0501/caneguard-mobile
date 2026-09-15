@@ -24,6 +24,9 @@ jest.mock('@/features/assignments/hooks/useFieldValidationAssignments', () => ({
     sessionKey: 'test-session',
   }),
 }));
+jest.mock('@/features/notifications/hooks/useNotificationDestinations', () => ({
+  useNotificationDestinations: () => new Map(),
+}));
 jest.mock('@/features/notifications/hooks/useMobileNotifications', () => ({
   useMobileNotifications: () => ({
     capabilityUnavailable: false,

@@ -39,7 +39,6 @@ export function useNotificationDestinations(
     let cancelled = false;
 
     if (!ownerIdentity) {
-      setDestinations(new Map());
       return () => {
         cancelled = true;
       };
@@ -75,5 +74,7 @@ export function useNotificationDestinations(
     };
   }, [database, identityKey, ownerIdentity]);
 
-  return destinations;
+  return ownerIdentity ? destinations : EMPTY_DESTINATIONS;
 }
+
+const EMPTY_DESTINATIONS: Map<string, NotificationDestination> = new Map();

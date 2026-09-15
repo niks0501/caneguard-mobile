@@ -33,10 +33,32 @@ export const FIELD_REPORT_AUTHORING_STATES = [
 export type FieldReportAuthoringState =
   (typeof FIELD_REPORT_AUTHORING_STATES)[number];
 
-export const FIELD_REPORT_LOCATION_SOURCES = ['gps', 'manual_map'] as const;
+export const FIELD_REPORT_LOCATION_SOURCES = [
+  'gps',
+  'manual_map',
+  'unavailable',
+] as const;
 
 export type FieldReportLocationSource =
   (typeof FIELD_REPORT_LOCATION_SOURCES)[number];
+
+/** D-02: why an inspector submitted without an exact coordinate. */
+export const LOCATION_UNAVAILABLE_REASONS = [
+  'permission_denied',
+  'services_unavailable',
+  'low_accuracy',
+  'offline_no_map',
+  'other',
+] as const;
+
+export type LocationUnavailableReason =
+  (typeof LOCATION_UNAVAILABLE_REASONS)[number];
+
+/** D-01: whether a reported measurement was actually taken. */
+export const MEASUREMENT_PROVENANCES = ['measured', 'not_measured'] as const;
+
+export type MeasurementProvenance =
+  (typeof MEASUREMENT_PROVENANCES)[number];
 
 export const GPS_CAPTURE_OUTCOMES = [
   'resolved',
@@ -389,7 +411,11 @@ export const fieldReports = sqliteTable(
     cropAge: text('crop_age'),
     caneClass: text('cane_class'),
     affectedAreaHectares: real('affected_area_hectares'),
+    affectedAreaMeasurement: text('affected_area_measurement')
+      .$type<MeasurementProvenance>(),
     affectedPortionPercent: real('affected_portion_percent'),
+    affectedPortionMeasurement: text('affected_portion_measurement')
+      .$type<MeasurementProvenance>(),
     fieldNotes: text('field_notes'),
     mismatchReported: integer('mismatch_reported', { mode: 'boolean' }),
     reporterSuspectedCondition: text('reporter_suspected_condition'),
@@ -399,6 +425,8 @@ export const fieldReports = sqliteTable(
     finalLatitude: real('final_latitude'),
     finalLongitude: real('final_longitude'),
     locationSource: text('location_source').$type<FieldReportLocationSource>(),
+    locationUnavailableReason: text('location_unavailable_reason')
+      .$type<LocationUnavailableReason>(),
     gpsAccuracy: real('gps_accuracy'),
     gpsAttemptLatitude: real('gps_attempt_latitude'),
     gpsAttemptLongitude: real('gps_attempt_longitude'),
@@ -471,6 +499,12 @@ export const fieldReports = sqliteTable(
         ${table.finalLatitude} between -90 and 90 and
         ${table.finalLongitude} between -180 and 180 and
         ${table.gpsAccuracy} is null
+      ) or (
+        ${table.locationSource} = 'unavailable' and
+        ${table.finalLatitude} is null and
+        ${table.finalLongitude} is null and
+        ${table.gpsAccuracy} is null and
+        ${table.locationUnavailableReason} is not null
       )`,
     ),
     check(
@@ -494,6 +528,27 @@ export const fieldReports = sqliteTable(
     check(
       'field_reports_affected_area_check',
       sql`${table.affectedAreaHectares} is null or ${table.affectedAreaHectares} > 0`,
+    ),
+    check(
+      'field_reports_affected_area_measurement_check',
+      sql`(
+        ${table.affectedAreaMeasurement} = 'measured' and ${table.affectedAreaHectares} is not null
+      ) or (
+        ${table.affectedAreaMeasurement} = 'not_measured' and ${table.affectedAreaHectares} is null
+      ) or (
+        /* Legacy rows written before D-01 carry no explicit provenance. */
+        ${table.affectedAreaMeasurement} is null
+      )`,
+    ),
+    check(
+      'field_reports_affected_portion_measurement_check',
+      sql`(
+        ${table.affectedPortionMeasurement} = 'measured' and ${table.affectedPortionPercent} is not null
+      ) or (
+        ${table.affectedPortionMeasurement} = 'not_measured' and ${table.affectedPortionPercent} is null
+      ) or (
+        ${table.affectedPortionMeasurement} is null
+      )`,
     ),
     check(
       'field_reports_affected_portion_check',

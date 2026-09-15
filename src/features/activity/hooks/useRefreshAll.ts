@@ -7,24 +7,21 @@ import {
 } from '@/features/activity/domain/refreshAll';
 
 /**
- * One Refresh all scope for the Activity screen. Targets are read through a ref
- * so the returned callback stays stable across renders and a second press while
- * a refresh is in flight is ignored.
+ * One Refresh all scope for the Activity screen. The caller passes the eligible
+ * subsystems at press time, and a second press while a refresh is in flight is
+ * ignored.
  */
-export function useRefreshAll(buildTargets: () => RefreshAllTarget[]) {
+export function useRefreshAll() {
   const [refreshing, setRefreshing] = useState(false);
   const [result, setResult] = useState<RefreshAllResult | null>(null);
   const inFlight = useRef(false);
-  const buildTargetsRef = useRef(buildTargets);
 
-  buildTargetsRef.current = buildTargets;
-
-  const refreshAll = useCallback(async () => {
+  const refreshAll = useCallback(async (targets: RefreshAllTarget[]) => {
     if (inFlight.current) return;
     inFlight.current = true;
     setRefreshing(true);
     try {
-      setResult(await runRefreshAll(buildTargetsRef.current()));
+      setResult(await runRefreshAll(targets));
     } finally {
       inFlight.current = false;
       setRefreshing(false);

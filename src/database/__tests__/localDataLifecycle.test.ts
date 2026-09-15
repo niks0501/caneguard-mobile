@@ -39,6 +39,7 @@ const MIGRATIONS = [
   '0011_tidy_meteorite.sql',
   '0012_dapper_sumo.sql',
   '0013_v1_local_scan_migration.sql',
+    '0014_safe_songbird.sql',
 ] as const;
 
 function readMigration(filename: string): string {

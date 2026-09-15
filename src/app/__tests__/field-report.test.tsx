@@ -18,7 +18,9 @@ const REPORT_ID = '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e';
 
 interface FormValues {
   affectedAreaHectares?: number | null;
+  affectedAreaMeasurement?: 'measured' | 'not_measured';
   affectedPortionPercent?: number | null;
+  affectedPortionMeasurement?: 'measured' | 'not_measured';
   barangay: string;
   caneClass?: string;
   cropAge?: string;
@@ -38,6 +40,7 @@ const mockFinalize = jest.fn<Promise<FieldReport | null>, [FormValues]>(
   async () => null,
 );
 const mockSaveManualLocation = jest.fn(async () => null);
+const mockMarkLocationUnavailable = jest.fn(async () => null);
 const mockRefresh = jest.fn(async () => undefined);
 let mockAuthorityError: string | null = null;
 const mockRetryReport = jest.fn(async () => null);
@@ -64,6 +67,8 @@ let mockDraftState: {
   saved: boolean;
   saving: boolean;
   savingManualLocation: boolean;
+  markLocationUnavailable: typeof mockMarkLocationUnavailable;
+  markingLocationUnavailable: boolean;
   submissionIssues: FieldReportSubmissionRequirement[];
 };
 
@@ -189,7 +194,9 @@ function draft(overrides: Partial<FieldReport> = {}): FieldReport {
     municipality: 'Nasugbu',
     barangay: null,
     affectedAreaHectares: null,
+    affectedAreaMeasurement: 'not_measured',
     affectedPortionPercent: null,
+    affectedPortionMeasurement: 'not_measured',
     sugarcaneVariety: null,
     cropAge: null,
     caneClass: null,
@@ -200,6 +207,7 @@ function draft(overrides: Partial<FieldReport> = {}): FieldReport {
     finalLatitude: null,
     finalLongitude: null,
     locationSource: null,
+    locationUnavailableReason: null,
     lastSyncAttemptAt: null,
     lastSyncErrorCode: null,
     lastSyncedAt: null,
@@ -227,7 +235,9 @@ function draft(overrides: Partial<FieldReport> = {}): FieldReport {
 function expectFormValues(values: Partial<FormValues> = {}): FormValues {
   const base: FormValues = {
     affectedAreaHectares: null,
+    affectedAreaMeasurement: 'not_measured',
     affectedPortionPercent: null,
+    affectedPortionMeasurement: 'not_measured',
     barangay: '',
     caneClass: '',
     cropAge: '',
@@ -269,6 +279,8 @@ describe('FieldReportScreen', () => {
       saved: false,
       saving: false,
       savingManualLocation: false,
+      markLocationUnavailable: mockMarkLocationUnavailable,
+      markingLocationUnavailable: false,
       submissionIssues: [],
     };
   });
@@ -284,8 +296,8 @@ describe('FieldReportScreen', () => {
     ).toBeOnTheScreen();
     expect(screen.getByTestId('field-report.summary')).toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.possible-match-warning')).not.toBeOnTheScreen();
-    expect(screen.getByTestId('field-report.minimum-requirements')).toHaveTextContent(
-      /The only details you need to provide are a farmer or farm reference, barangay, affected area, and estimated affected portion\./,
+    expect(screen.getByTestId('field-report.ready-to-submit')).toHaveTextContent(
+      /Ready to submit/,
     );
     expect(screen.getByText('Nasugbu, Batangas')).toBeOnTheScreen();
     expect(screen.getByLabelText('Farmer or farm reference')).toHaveProp(
@@ -341,7 +353,9 @@ describe('FieldReportScreen', () => {
       expectFormValues({
         farmerOrFarmOwnerName: 'North Block Farm 12',
         affectedAreaHectares: 0.5,
+        affectedAreaMeasurement: 'measured',
         affectedPortionPercent: 30,
+        affectedPortionMeasurement: 'measured',
       }),
     );
   });
@@ -384,7 +398,9 @@ describe('FieldReportScreen', () => {
     expect(mockFinalize).toHaveBeenCalledWith(
       expectFormValues({
         affectedAreaHectares: 0.5,
+        affectedAreaMeasurement: 'measured',
         affectedPortionPercent: 30,
+        affectedPortionMeasurement: 'measured',
         mismatchReported: null,
         reporterSuspectedCondition: 'RSSI',
         reporterObservationText: 'Leaves show suspected rust-like symptoms and RSSI concern in the field.',
@@ -504,7 +520,9 @@ describe('FieldReportScreen', () => {
     expect(mockFinalize).toHaveBeenCalledWith(
       expectFormValues({
         affectedAreaHectares: 0.5,
+        affectedAreaMeasurement: 'measured',
         affectedPortionPercent: 30,
+        affectedPortionMeasurement: 'measured',
         mismatchReported: true,
         reporterObservationText: 'Long whip-like growth near the stalk.',
         reporterSuspectedCondition: 'Local field observation',
@@ -759,7 +777,9 @@ describe('FieldReportScreen', () => {
     expect(mockSave).toHaveBeenCalledWith(
       expectFormValues({
         affectedAreaHectares: 0.5,
+        affectedAreaMeasurement: 'measured',
         affectedPortionPercent: 30,
+        affectedPortionMeasurement: 'measured',
       }),
     );
   });
@@ -819,24 +839,57 @@ describe('FieldReportScreen', () => {
     expect(mockFinalize).toHaveBeenCalledWith(
       expectFormValues({
         affectedAreaHectares: 1.25,
+        affectedAreaMeasurement: 'measured',
         affectedPortionPercent: 40,
+        affectedPortionMeasurement: 'measured',
         barangay: 'Wawa',
         farmerOrFarmOwnerName: 'Maria Santos',
       }),
     );
   });
 
-  it('requires affected numbers before finalizing', async () => {
+  it('requires an explicit measured or not-measured decision before finalizing', async () => {
     await render(<FieldReportScreen />);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
 
     expect(mockFinalize).not.toHaveBeenCalled();
-    expect(screen.getByText('Affected area is required to finalize.')).toBeOnTheScreen();
     expect(
-      screen.getByText('Estimated affected portion is required to finalize.'),
+      screen.getByText('Enter the affected area, or mark it as Not measured.'),
     ).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Enter the estimated affected portion, or mark it as Not measured.',
+      ),
+    ).toBeOnTheScreen();
+  });
+
+  it('finalizes with explicit not-measured provenance instead of a guessed number', async () => {
+    mockFinalize.mockResolvedValueOnce(
+      draft({ authoringState: 'finalized', syncStatus: 'pending' }),
+    );
+
+    await render(<FieldReportScreen />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Affected area: Not measured'));
+      fireEvent.press(
+        screen.getByLabelText('Estimated affected portion: Not measured'),
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+    });
+
+    expect(mockFinalize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured',
+        affectedPortionPercent: null,
+        affectedPortionMeasurement: 'not_measured',
+      }),
+    );
   });
 
   it('shows a possible recent match without blocking a new submission', async () => {
@@ -878,7 +931,9 @@ describe('FieldReportScreen', () => {
     expect(mockFinalize).toHaveBeenCalledWith(
       expectFormValues({
         affectedAreaHectares: 0.5,
+        affectedAreaMeasurement: 'measured',
         affectedPortionPercent: 30,
+        affectedPortionMeasurement: 'measured',
       }),
     );
     expect(mockSyncNow).toHaveBeenCalledWith('after-save');
@@ -938,7 +993,9 @@ describe('FieldReportScreen', () => {
     expect(mockFinalize).toHaveBeenCalledWith(
       expectFormValues({
         affectedAreaHectares: 0.5,
+        affectedAreaMeasurement: 'measured',
         affectedPortionPercent: 30,
+        affectedPortionMeasurement: 'measured',
       }),
     );
     expect(mockSyncNow).not.toHaveBeenCalled();
@@ -983,7 +1040,9 @@ describe('FieldReportScreen', () => {
         barangay: 'Lumbangan',
         farmerOrFarmOwnerName: 'Maria Santos',
         affectedAreaHectares: 0.5,
+        affectedAreaMeasurement: 'measured',
         affectedPortionPercent: 30,
+        affectedPortionMeasurement: 'measured',
         finalLatitude: 14.0667,
         finalLongitude: 120.6319,
         gpsAccuracy: 4.2,
@@ -1159,7 +1218,9 @@ describe('FieldReportScreen', () => {
       data: draft({
         farmerOrFarmOwnerName: 'Maria Santos',
         affectedAreaHectares: 0.5,
+        affectedAreaMeasurement: 'measured',
         affectedPortionPercent: 30,
+        affectedPortionMeasurement: 'measured',
         updatedAt: '2026-08-10T01:05:00.000Z',
       }),
       saved: true,
@@ -1230,4 +1291,79 @@ describe('FieldReportScreen', () => {
       }),
     );
   });
+  it('lists every real blocker in one Ready to submit checklist', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured',
+        affectedPortionPercent: null,
+        affectedPortionMeasurement: 'not_measured',
+        barangay: null,
+        farmerOrFarmOwnerName: null,
+        finalLatitude: null,
+        finalLongitude: null,
+        gpsAccuracy: null,
+        locationSource: null,
+        locationUnavailableReason: null,
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    const checklist = screen.getByTestId('field-report.ready-to-submit');
+    expect(checklist).toHaveTextContent(/requirements still block finalizing/);
+    expect(screen.getByTestId('field-report.ready.farmer_or_farm_owner_name')).toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.ready.barangay')).toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.ready.final_coordinates')).toBeOnTheScreen();
+    // D-01 removes the measurement blockers once they are explicitly declared.
+    expect(screen.queryByTestId('field-report.ready.affected_area_hectares')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('field-report.ready.affected_portion_percent')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.ready.complete-count')).toBeOnTheScreen();
+  });
+
+  it('records an unavailable location with a reason instead of forcing coordinates', async () => {
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('I cannot capture a location'));
+    });
+
+    expect(screen.getByTestId('field-report.mark-location-unavailable')).toBeDisabled();
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByLabelText('Offline, so the online map could not be used'),
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Send without an exact location'));
+    });
+
+    expect(mockMarkLocationUnavailable).toHaveBeenCalledWith('offline_no_map');
+  });
+
+  it('shows the recorded unavailable location with its reason', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        finalLatitude: null,
+        finalLongitude: null,
+        gpsAccuracy: null,
+        locationSource: 'unavailable',
+        locationUnavailableReason: 'low_accuracy',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    expect(screen.getByTestId('field-report.location-unavailable')).toHaveTextContent(
+      /GPS never reached a usable accuracy/,
+    );
+    expect(screen.getByLabelText('Capture a location instead')).toBeOnTheScreen();
+  });
+
 });

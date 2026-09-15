@@ -3,7 +3,13 @@ import { and, eq } from 'drizzle-orm';
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
-import { fieldReports, scanClassScores, scanRecords } from '@/database/schema';
+import {
+  fieldReports,
+  scanClassScores,
+  scanRecords,
+  LOCATION_UNAVAILABLE_REASONS,
+  type LocationUnavailableReason,
+} from '@/database/schema';
 import { persistSubmissionImageMetadata } from '@/features/records/data/submissionImageRepository';
 import {
   prepareSubmissionImage,
@@ -31,6 +37,7 @@ import {
   getMissingSubmissionRequirements,
   normalizeFinalizeFieldReportInput,
   normalizeFieldReportDraftInput,
+  resolveMeasurementProvenance,
   validateGpsCaptureInput,
   validateCreateFieldReportDraftInput,
   validateManualMapLocationInput,
@@ -325,6 +332,106 @@ export async function saveManualMapLocation(
   } catch (error: unknown) {
     throw toStorageError(error, 'UPDATE_FAILED', 'Saving the manual location failed.');
   }
+}
+
+/**
+ * D-02: record that the inspector finished the Draft without an exact
+ * coordinate. Barangay and every other required detail stay mandatory; only the
+ * coordinate requirement is replaced by an explicit, bounded reason.
+ */
+export async function setLocationUnavailable(
+  database: CaneGuardDatabase,
+  id: string,
+  submitterIdentity: string,
+  input: { reason: LocationUnavailableReason; updatedAt: string },
+): Promise<FieldReport> {
+  const owner = requireOwnerIdentity(submitterIdentity);
+  if (!isValidUtcTimestampValue(input.updatedAt)) {
+    throw new StorageError('INVALID_FIELD_REPORT', 'A draft timestamp is invalid.');
+  }
+  if (!LOCATION_UNAVAILABLE_REASONS.includes(input.reason)) {
+    throw new StorageError(
+      'INVALID_FIELD_REPORT',
+      'Choose why the location is unavailable.',
+    );
+  }
+
+  try {
+    return database.transaction((transaction) => {
+      const existing = transaction
+        .select({
+          authoringState: fieldReports.authoringState,
+          scanRecordId: fieldReports.scanRecordId,
+        })
+        .from(fieldReports)
+        .where(
+          and(
+            eq(fieldReports.id, id),
+            eq(fieldReports.submitterIdentity, owner),
+          ),
+        )
+        .get();
+      const scan = existing
+        ? transaction
+            .select({ id: scanRecords.id })
+            .from(scanRecords)
+            .where(
+              and(
+                eq(scanRecords.id, existing.scanRecordId),
+                eq(scanRecords.ownerIdentity, owner),
+              ),
+            )
+            .get()
+        : null;
+      if (!existing || !scan) {
+        throw new StorageError('FIELD_REPORT_NOT_FOUND', 'The Field Report does not exist.');
+      }
+      if (existing.authoringState !== 'draft') {
+        throw new StorageError(
+          'UPDATE_FAILED',
+          'Only a Draft Field Report can record an unavailable location.',
+        );
+      }
+
+      transaction
+        .update(fieldReports)
+        .set({
+          finalLatitude: null,
+          finalLongitude: null,
+          gpsAccuracy: null,
+          locationSource: 'unavailable',
+          locationUnavailableReason: input.reason,
+          manualLocationSelectedAt: null,
+          updatedAt: input.updatedAt,
+        })
+        .where(and(eq(fieldReports.id, id), eq(fieldReports.authoringState, 'draft')))
+        .run();
+
+      const saved = transaction
+        .select()
+        .from(fieldReports)
+        .where(eq(fieldReports.id, id))
+        .get();
+      if (!saved) {
+        throw new StorageError(
+          'UPDATE_FAILED',
+          'The unavailable location could not be reloaded.',
+        );
+      }
+      return toFieldReport(saved);
+    });
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'UPDATE_FAILED',
+      'Recording the unavailable location failed.',
+    );
+  }
+}
+
+function isValidUtcTimestampValue(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)
+    && !Number.isNaN(Date.parse(value));
 }
 
 export interface FinalizeFieldReportDependencies {
@@ -940,7 +1047,14 @@ function toFieldReport(row: typeof fieldReports.$inferSelect): FieldReport {
     cropAge: row.cropAge,
     caneClass: row.caneClass,
     affectedAreaHectares: row.affectedAreaHectares,
+    affectedAreaMeasurement:
+      row.affectedAreaMeasurement ??
+      resolveMeasurementProvenance(row.affectedAreaHectares),
     affectedPortionPercent: row.affectedPortionPercent,
+    affectedPortionMeasurement:
+      row.affectedPortionMeasurement ??
+      resolveMeasurementProvenance(row.affectedPortionPercent),
+    locationUnavailableReason: row.locationUnavailableReason,
     fieldNotes: row.fieldNotes,
     mismatchReported: row.mismatchReported,
     reporterObservationText: row.reporterObservationText,

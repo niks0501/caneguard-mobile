@@ -23,7 +23,9 @@ function draft(overrides: Partial<FieldReport> = {}): FieldReport {
     municipality: 'Nasugbu',
     barangay: 'Wawa',
     affectedAreaHectares: 0.5,
+    affectedAreaMeasurement: 'measured',
     affectedPortionPercent: 30,
+    affectedPortionMeasurement: 'measured',
     sugarcaneVariety: null,
     cropAge: null,
     caneClass: null,
@@ -34,6 +36,7 @@ function draft(overrides: Partial<FieldReport> = {}): FieldReport {
     finalLatitude: 14.0667,
     finalLongitude: 120.6319,
     locationSource: 'gps',
+    locationUnavailableReason: null,
     gpsAccuracy: 4.2,
     lastSyncAttemptAt: null,
     lastSyncErrorCode: null,
@@ -335,6 +338,144 @@ describe('getMissingSubmissionRequirements', () => {
     expect(missing).toEqual(
       expect.arrayContaining(['affected_area_hectares', 'affected_portion_percent']),
     );
+  });
+
+  it('D-01 accepts an explicit not-measured declaration independently per value', () => {
+    const missing = getMissingSubmissionRequirements(
+      draft({
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured',
+        affectedPortionPercent: null,
+        affectedPortionMeasurement: 'not_measured',
+      }),
+      evidence(),
+    );
+
+    expect(missing).not.toContain('affected_area_hectares');
+    expect(missing).not.toContain('affected_portion_percent');
+
+    // Measured provenance still requires the number it claims.
+    const inconsistent = getMissingSubmissionRequirements(
+      draft({ affectedAreaHectares: null, affectedAreaMeasurement: 'measured' }),
+      evidence(),
+    );
+    expect(inconsistent).toContain('affected_area_hectares');
+  });
+
+  it('D-02 accepts barangay plus an unavailable-location reason instead of coordinates', () => {
+    const missing = getMissingSubmissionRequirements(
+      draft({
+        locationSource: 'unavailable',
+        locationUnavailableReason: 'offline_no_map',
+        finalLatitude: null,
+        finalLongitude: null,
+        gpsAccuracy: null,
+      }),
+      evidence(),
+    );
+
+    expect(missing).not.toContain('final_coordinates');
+    expect(missing).not.toContain('location_source');
+    expect(missing).not.toContain('location_unavailable_reason');
+    expect(missing).not.toContain('gps_accuracy');
+  });
+
+  it('D-02 still blocks an unavailable location without a reason, barangay, or with coordinates', () => {
+    const noReason = getMissingSubmissionRequirements(
+      draft({
+        locationSource: 'unavailable',
+        locationUnavailableReason: null,
+        finalLatitude: null,
+        finalLongitude: null,
+        gpsAccuracy: null,
+      }),
+      evidence(),
+    );
+    expect(noReason).toContain('location_unavailable_reason');
+
+    const withCoordinates = getMissingSubmissionRequirements(
+      draft({
+        locationSource: 'unavailable',
+        locationUnavailableReason: 'other',
+        finalLatitude: 14.05,
+        finalLongitude: 120.9,
+        gpsAccuracy: null,
+      }),
+      evidence(),
+    );
+    expect(withCoordinates).toContain('final_coordinates');
+
+    const noBarangay = getMissingSubmissionRequirements(
+      draft({
+        barangay: null,
+        locationSource: 'unavailable',
+        locationUnavailableReason: 'other',
+        finalLatitude: null,
+        finalLongitude: null,
+        gpsAccuracy: null,
+      }),
+      evidence(),
+    );
+    expect(noBarangay).toContain('barangay');
+  });
+
+  it('D-01 keeps the value and its provenance coherent at finalization', () => {
+    expect(
+      normalizeFinalizeFieldReportInput({
+        affectedAreaHectares: 2.5,
+        affectedPortionMeasurement: 'not_measured',
+        affectedPortionPercent: null,
+        barangay: 'Wawa',
+        farmerOrFarmOwnerName: 'Maria Santos',
+        submittedAt: NOW,
+        updatedAt: NOW,
+      }),
+    ).toMatchObject({
+      affectedAreaHectares: 2.5,
+      affectedAreaMeasurement: 'measured',
+      affectedPortionPercent: null,
+      affectedPortionMeasurement: 'not_measured',
+    });
+
+    expect(() =>
+      normalizeFinalizeFieldReportInput({
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'measured',
+        affectedPortionPercent: 30,
+        barangay: 'Wawa',
+        farmerOrFarmOwnerName: 'Maria Santos',
+        submittedAt: NOW,
+        updatedAt: NOW,
+      }),
+    ).toThrow(StorageError);
+
+    expect(() =>
+      normalizeFinalizeFieldReportInput({
+        affectedAreaHectares: 2.5,
+        affectedAreaMeasurement: 'not_measured',
+        affectedPortionPercent: 30,
+        barangay: 'Wawa',
+        farmerOrFarmOwnerName: 'Maria Santos',
+        submittedAt: NOW,
+        updatedAt: NOW,
+      }),
+    ).toThrow(StorageError);
+  });
+
+  it('normalizes an explicit unavailable-location reason and rejects an unknown one', () => {
+    expect(
+      normalizeFieldReportDraftInput({
+        locationUnavailableReason: 'low_accuracy',
+        updatedAt: NOW,
+      }),
+    ).toMatchObject({ locationUnavailableReason: 'low_accuracy' });
+
+    expect(() =>
+      normalizeFieldReportDraftInput({
+        locationUnavailableReason: 'because' as never,
+        updatedAt: NOW,
+      }),
+    ).toThrow(StorageError);
   });
 
   it('accepts any non-empty province and municipality instead of hardcoded values', () => {

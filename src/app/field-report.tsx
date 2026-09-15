@@ -36,16 +36,26 @@ import { RegionPicker } from '@/features/reports/components/RegionPicker';
 import { formatDecimalInput, parseDecimalInput } from '@/features/reports/domain/decimalInput';
 import type { PossibleMatchLookupInput } from '@/features/reports/domain/possibleMatch';
 import {
+  LOCATION_UNAVAILABLE_REASON_LABELS,
   REPORTER_OBSERVED_CONCERN_RSSI,
   type FieldReport,
   type FieldReportSubmissionRequirement,
+  type LocationUnavailableReason,
+  type MeasurementProvenance,
 } from '@/features/reports/domain/fieldReportTypes';
+import {
+  getMissingSubmissionRequirements,
+} from '@/features/reports/domain/fieldReportValidation';
 import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
 import { usePossibleRecentMatch } from '@/features/reports/hooks/usePossibleRecentMatch';
 import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
 import { useLocationReferenceData } from '@/features/reports/hooks/useLocationReferenceData';
 import type { ReferenceRegion } from '@/features/reports/referenceData/referenceDataTypes';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
+import {
+  getSubmissionImageUri,
+  managedImageExists,
+} from '@/features/records/services/scanImageStorage';
 import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
@@ -97,7 +107,9 @@ function concernValueForChoice(
 
 interface FieldReportFormValues {
   affectedAreaHectares?: number | null;
+  affectedAreaMeasurement?: MeasurementProvenance;
   affectedPortionPercent?: number | null;
+  affectedPortionMeasurement?: MeasurementProvenance;
   barangay: string;
   caneClass?: string;
   cropAge?: string;
@@ -112,8 +124,10 @@ interface FieldReportFormValues {
 }
 
 type FinalizeFieldReportFormValues = FieldReportFormValues & {
-  affectedAreaHectares: number;
-  affectedPortionPercent: number;
+  affectedAreaHectares: number | null;
+  affectedAreaMeasurement: MeasurementProvenance;
+  affectedPortionPercent: number | null;
+  affectedPortionMeasurement: MeasurementProvenance;
 };
 
 export default function FieldReportScreen() {
@@ -339,8 +353,13 @@ export default function FieldReportScreen() {
                     capturing={report.capturingLocation}
                     isOnline={sync.isOnline}
                     locationServicesDisabled={report.locationServicesDisabled}
+                    markingUnavailable={report.markingLocationUnavailable}
                     saveInProgress={report.saving || report.finalizing}
                     onCapture={() => void report.captureLocation()}
+                    onClearUnavailable={() => void report.clearLocationUnavailable()}
+                    onMarkUnavailable={(reason) =>
+                      void report.markLocationUnavailable(reason)
+                    }
                     onOpenLocationSettings={openDeviceLocationSettings}
                     onOpenMap={() =>
                       router.push(
@@ -468,21 +487,6 @@ function AutomaticSummaryCard({
         Everything below is inherited from the completed scan and cannot be
         edited here.
       </Text>
-      <View
-        testID="field-report.minimum-requirements"
-        style={[
-          styles.minimumRequirements,
-          { backgroundColor: theme.infoBg, borderColor: theme.info },
-        ]}>
-        <Text style={[styles.minimumRequirementsTitle, { color: theme.text }]}>
-          Confirm four report details
-        </Text>
-        <Text style={[styles.helpText, { color: theme.textSecondary }]}>
-          The only details you need to provide are a farmer or farm reference,
-          barangay, affected area, and estimated affected portion. GPS is
-          attempted automatically; use the online map only when needed.
-        </Text>
-      </View>
       {record ? (
         <ExpoImage
           source={{ uri: record.managedImageUri }}
@@ -601,6 +605,29 @@ function DraftFields({
       ? ''
       : formatDecimalInput(fieldReport.affectedPortionPercent),
   );
+  // D-01: the inspector states whether a value was measured. A stored Draft
+  // value preselects Measured; an empty Draft starts undecided so finalization
+  // asks for the decision explicitly instead of assuming it.
+  const [affectedAreaChoice, setAffectedAreaChoice] =
+    useState<MeasurementProvenance | null>(
+      fieldReport.affectedAreaMeasurementExplicit === true
+        ? fieldReport.affectedAreaMeasurement
+        : fieldReport.affectedAreaMeasurementExplicit === false
+          ? null
+          : fieldReport.affectedAreaHectares !== null
+            ? 'measured'
+            : null,
+    );
+  const [affectedPortionChoice, setAffectedPortionChoice] =
+    useState<MeasurementProvenance | null>(
+      fieldReport.affectedPortionMeasurementExplicit === true
+        ? fieldReport.affectedPortionMeasurement
+        : fieldReport.affectedPortionMeasurementExplicit === false
+          ? null
+          : fieldReport.affectedPortionPercent !== null
+            ? 'measured'
+            : null,
+    );
   const [variety, setVariety] = useState(fieldReport.sugarcaneVariety ?? '');
   const [cropAge, setCropAge] = useState(fieldReport.cropAge ?? '');
   const [caneClass, setCaneClass] = useState(fieldReport.caneClass ?? '');
@@ -654,29 +681,53 @@ function DraftFields({
     requireAffectedNumbers: boolean,
   ): FieldReportFormValues | null => {
     const errors: { affectedArea?: string; affectedPortion?: string } = {};
-    const affectedArea =
-      affectedAreaText.trim() === '' ? null : parseDecimalInput(affectedAreaText);
-    const affectedPortion =
-      affectedPortionText.trim() === '' ? null : parseDecimalInput(affectedPortionText);
+    const areaNotMeasured = affectedAreaChoice === 'not_measured';
+    const portionNotMeasured = affectedPortionChoice === 'not_measured';
+    const affectedArea = areaNotMeasured
+      ? null
+      : affectedAreaText.trim() === ''
+        ? null
+        : parseDecimalInput(affectedAreaText);
+    const affectedPortion = portionNotMeasured
+      ? null
+      : affectedPortionText.trim() === ''
+        ? null
+        : parseDecimalInput(affectedPortionText);
+    const areaMeasurement: MeasurementProvenance =
+      affectedAreaChoice ?? (affectedArea === null ? 'not_measured' : 'measured');
+    const portionMeasurement: MeasurementProvenance =
+      affectedPortionChoice ??
+      (affectedPortion === null ? 'not_measured' : 'measured');
 
-    if (affectedArea !== null) {
-      if (affectedArea <= 0 || affectedArea > MAX_AFFECTED_AREA_HECTARES) {
-        errors.affectedArea = `Enter an area greater than 0 and at most ${MAX_AFFECTED_AREA_HECTARES} hectares.`;
+    if (!areaNotMeasured) {
+      if (affectedArea !== null) {
+        if (affectedArea <= 0 || affectedArea > MAX_AFFECTED_AREA_HECTARES) {
+          errors.affectedArea = `Enter an area greater than 0 and at most ${MAX_AFFECTED_AREA_HECTARES} hectares.`;
+        }
+      } else if (affectedAreaText.trim() !== '') {
+        errors.affectedArea = 'Enter the affected area as a number, for example 0.5.';
+      } else if (requireAffectedNumbers && affectedAreaChoice === null) {
+        errors.affectedArea =
+          'Enter the affected area, or mark it as Not measured.';
+      } else if (requireAffectedNumbers) {
+        errors.affectedArea = 'Enter the affected area as a number, for example 0.5.';
       }
-    } else if (affectedAreaText.trim() !== '') {
-      errors.affectedArea = 'Enter the affected area as a number, for example 0.5.';
-    } else if (requireAffectedNumbers) {
-      errors.affectedArea = 'Affected area is required to finalize.';
     }
 
-    if (affectedPortion !== null) {
-      if (affectedPortion < 0 || affectedPortion > 100) {
-        errors.affectedPortion = 'Enter an estimated affected portion between 0 and 100 percent.';
+    if (!portionNotMeasured) {
+      if (affectedPortion !== null) {
+        if (affectedPortion < 0 || affectedPortion > 100) {
+          errors.affectedPortion = 'Enter an estimated affected portion between 0 and 100 percent.';
+        }
+      } else if (affectedPortionText.trim() !== '') {
+        errors.affectedPortion = 'Enter the affected portion as a number, for example 30.';
+      } else if (requireAffectedNumbers && affectedPortionChoice === null) {
+        errors.affectedPortion =
+          'Enter the estimated affected portion, or mark it as Not measured.';
+      } else if (requireAffectedNumbers) {
+        errors.affectedPortion =
+          'Enter the affected portion as a number, for example 30.';
       }
-    } else if (affectedPortionText.trim() !== '') {
-      errors.affectedPortion = 'Enter the affected portion as a number, for example 30.';
-    } else if (requireAffectedNumbers) {
-      errors.affectedPortion = 'Estimated affected portion is required to finalize.';
     }
 
     if (errors.affectedArea || errors.affectedPortion) {
@@ -686,7 +737,9 @@ function DraftFields({
     setFieldErrors({});
     return {
       affectedAreaHectares: affectedArea,
+      affectedAreaMeasurement: areaMeasurement,
       affectedPortionPercent: affectedPortion,
+      affectedPortionMeasurement: portionMeasurement,
       barangay,
       farmerOrFarmOwnerName: farmerName,
       province,
@@ -713,8 +766,11 @@ function DraftFields({
     if (values) {
       onFinalize({
         ...values,
-        affectedAreaHectares: values.affectedAreaHectares!,
-        affectedPortionPercent: values.affectedPortionPercent!,
+        affectedAreaHectares: values.affectedAreaHectares ?? null,
+        affectedAreaMeasurement: values.affectedAreaMeasurement ?? 'not_measured',
+        affectedPortionPercent: values.affectedPortionPercent ?? null,
+        affectedPortionMeasurement:
+          values.affectedPortionMeasurement ?? 'not_measured',
       });
     }
   };
@@ -755,9 +811,27 @@ function DraftFields({
               testID="field-report.affected-area-input"
               label="Affected area (hectares)"
               value={affectedAreaText}
-              onChangeText={setAffectedAreaText}
+              onChangeText={(value) => {
+                setAffectedAreaText(value);
+                if (value.trim() !== '') {
+                  setAffectedAreaChoice('measured');
+                }
+              }}
               placeholder="0.5"
               keyboardType="decimal-pad"
+              editable={affectedAreaChoice !== 'not_measured'}
+            />
+            <MeasurementChoice
+              testID="field-report.affected-area-measurement"
+              label="Affected area"
+              choice={affectedAreaChoice}
+              onChoose={(choice) => {
+                setAffectedAreaChoice(choice);
+                if (choice === 'not_measured') {
+                  setAffectedAreaText('');
+                }
+                setFieldErrors((current) => ({ ...current, affectedArea: undefined }));
+              }}
             />
             {fieldErrors.affectedArea ? (
               <Text style={[styles.fieldError, { color: theme.danger }]}>
@@ -770,9 +844,27 @@ function DraftFields({
               testID="field-report.affected-portion-input"
               label="Estimated affected portion (%)"
               value={affectedPortionText}
-              onChangeText={setAffectedPortionText}
+              onChangeText={(value) => {
+                setAffectedPortionText(value);
+                if (value.trim() !== '') {
+                  setAffectedPortionChoice('measured');
+                }
+              }}
               placeholder="30"
               keyboardType="decimal-pad"
+              editable={affectedPortionChoice !== 'not_measured'}
+            />
+            <MeasurementChoice
+              testID="field-report.affected-portion-measurement"
+              label="Estimated affected portion"
+              choice={affectedPortionChoice}
+              onChoose={(choice) => {
+                setAffectedPortionChoice(choice);
+                if (choice === 'not_measured') {
+                  setAffectedPortionText('');
+                }
+                setFieldErrors((current) => ({ ...current, affectedPortion: undefined }));
+              }}
             />
             {fieldErrors.affectedPortion ? (
               <Text style={[styles.fieldError, { color: theme.danger }]}>
@@ -782,8 +874,8 @@ function DraftFields({
           </View>
         </View>
         <Text style={[styles.helpText, { color: theme.textSecondary }]}>
-          Affected area and estimated affected portion are required before
-          finalizing. Both accept decimals (0.5 or 0,5).
+          Enter a measurement, or mark it Not measured when the field cannot be
+          estimated. Guessing is not required. Decimals are accepted (0.5 or 0,5).
         </Text>
         <RegionPicker
           province={province}
@@ -867,6 +959,32 @@ function DraftFields({
       {possibleRecentMatch.match ? (
         <PossibleRecentMatchWarning match={possibleRecentMatch.match} />
       ) : null}
+      <ReadyToSubmitChecklist
+        fieldReport={{
+          ...fieldReport,
+          farmerOrFarmOwnerName: farmerName.trim() || null,
+          barangay: barangay.trim() || null,
+          province: province.trim(),
+          municipality: municipality.trim(),
+          affectedAreaHectares: previewMeasurementValue(
+            affectedAreaText,
+            affectedAreaChoice,
+          ),
+          affectedAreaMeasurement:
+            affectedAreaChoice ?? fieldReport.affectedAreaMeasurement,
+          affectedPortionPercent: previewMeasurementValue(
+            affectedPortionText,
+            affectedPortionChoice,
+          ),
+          affectedPortionMeasurement:
+            affectedPortionChoice ?? fieldReport.affectedPortionMeasurement,
+        }}
+        measurementPreview={{
+          affectedAreaMeasurement: affectedAreaChoice,
+          affectedPortionMeasurement: affectedPortionChoice,
+        }}
+        record={record}
+      />
       <AppButton
         testID="field-report.finalize"
         onPress={handleFinalize}
@@ -882,24 +1000,36 @@ function DraftFields({
 function LocationCapture({
   capturing,
   fieldReport,
+  isOnline,
   locationServicesDisabled,
+  markingUnavailable,
   onCapture,
+  onClearUnavailable,
+  onMarkUnavailable,
   onOpenLocationSettings,
   onOpenMap,
   saveInProgress,
-  isOnline,
 }: {
   capturing: boolean;
   fieldReport: FieldReport;
+  isOnline: boolean | null;
   locationServicesDisabled: boolean;
+  markingUnavailable: boolean;
   onCapture: () => void;
+  onClearUnavailable: () => void;
+  onMarkUnavailable: (reason: LocationUnavailableReason) => void;
   onOpenLocationSettings: () => void;
   onOpenMap: () => void;
   saveInProgress: boolean;
-  isOnline: boolean | null;
 }) {
   const theme = useTheme();
   const presentation = getGpsPresentation(fieldReport);
+  const [unavailableReason, setUnavailableReason] =
+    useState<LocationUnavailableReason | null>(null);
+  const [showUnavailable, setShowUnavailable] = useState(
+    fieldReport.locationSource === 'unavailable',
+  );
+  const locationUnavailable = fieldReport.locationSource === 'unavailable';
 
   return (
     <View
@@ -985,6 +1115,111 @@ function LocationCapture({
       <Text style={[styles.helpText, { color: theme.textSecondary }]}>
         CaneGuard requests one foreground reading only. A reading above the preferred 5 m quality target is retained as attempt evidence but does not become the final report location.
       </Text>
+
+      <View style={[styles.locationDivider, { borderTopColor: theme.divider }]} />
+
+      {locationUnavailable ? (
+        <View
+          testID="field-report.location-unavailable"
+          style={[
+            styles.unavailableCard,
+            { backgroundColor: theme.warningBg, borderColor: theme.warning },
+          ]}>
+          <View style={styles.unavailableHeading}>
+            <Feather name="map-pin" size={18} color={theme.warning} />
+            <Text style={[styles.validationTitle, { color: theme.warning }]}>
+              Sending without an exact location
+            </Text>
+          </View>
+          <Text style={[styles.statusMessage, { color: theme.text }]}>
+            {fieldReport.locationUnavailableReason
+              ? LOCATION_UNAVAILABLE_REASON_LABELS[
+                  fieldReport.locationUnavailableReason
+                ]
+              : 'No reason recorded yet.'}{' '}
+            Barangay {fieldReport.barangay ?? ''} still identifies this case.
+          </Text>
+          <AppButton
+            testID="field-report.change-location"
+            accessibilityLabel="Capture a location instead"
+            onPress={() => {
+              setShowUnavailable(false);
+              setUnavailableReason(null);
+              onClearUnavailable();
+            }}
+            leadingIcon="crosshair"
+            variant="secondary">
+            Capture a Location Instead
+          </AppButton>
+        </View>
+      ) : showUnavailable ? (
+        <View testID="field-report.location-unavailable-picker" style={styles.unavailablePicker}>
+          <Text style={[styles.helpText, { color: theme.textSecondary }]}>
+            If no source works, record why. The report is sent with the barangay
+            and an explicit unavailable-location reason instead of coordinates.
+          </Text>
+          <View style={styles.reasonList}>
+            {(Object.keys(LOCATION_UNAVAILABLE_REASON_LABELS) as LocationUnavailableReason[]).map(
+              (reason) => {
+                const selected = unavailableReason === reason;
+                return (
+                  <Pressable
+                    key={reason}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={LOCATION_UNAVAILABLE_REASON_LABELS[reason]}
+                    testID={`field-report.location-reason.${reason}`}
+                    onPress={() => setUnavailableReason(reason)}
+                    style={({ pressed }) => [
+                      styles.reasonOption,
+                      {
+                        backgroundColor: selected
+                          ? theme.warningBg
+                          : theme.surfaceMuted,
+                        borderColor: selected ? theme.warning : theme.border,
+                      },
+                      pressed && styles.pressed,
+                    ]}>
+                    <Feather
+                      name={selected ? 'check-circle' : 'circle'}
+                      size={16}
+                      color={selected ? theme.warning : theme.textSecondary}
+                    />
+                    <Text style={[styles.statusMessage, { color: theme.text }]}>
+                      {LOCATION_UNAVAILABLE_REASON_LABELS[reason]}
+                    </Text>
+                  </Pressable>
+                );
+              },
+            )}
+          </View>
+          <AppButton
+            testID="field-report.mark-location-unavailable"
+            accessibilityLabel="Send without an exact location"
+            onPress={() => {
+              if (unavailableReason) {
+                onMarkUnavailable(unavailableReason);
+              }
+            }}
+            disabled={!unavailableReason || markingUnavailable || saveInProgress}
+            variant="secondary"
+            leadingIcon="map-pin">
+            {markingUnavailable
+              ? 'Recording...'
+              : 'Send Without Exact Location'}
+          </AppButton>
+        </View>
+      ) : (
+        <AppButton
+          testID="field-report.open-location-unavailable"
+          accessibilityLabel="I cannot capture a location"
+          onPress={() => setShowUnavailable(true)}
+          disabled={capturing || saveInProgress}
+          variant="text"
+          leadingIcon="help-circle">
+          I Cannot Capture a Location
+        </AppButton>
+      )}
     </View>
   );
 }
@@ -1272,6 +1507,14 @@ function getGpsPresentation(fieldReport: FieldReport): {
   actionLabel: string;
   message: string;
 } {
+  if (fieldReport.locationSource === 'unavailable') {
+    return {
+      actionLabel: 'Retry GPS Location',
+      message: fieldReport.locationUnavailableReason
+        ? `Location unavailable: ${LOCATION_UNAVAILABLE_REASON_LABELS[fieldReport.locationUnavailableReason]}. You can retry GPS or choose an online map when available.`
+        : 'Location unavailable. You can retry GPS or choose an online map when available.',
+    };
+  }
   if (
     fieldReport.locationSource === 'manual_map' &&
     fieldReport.finalLatitude !== null &&
@@ -1332,9 +1575,39 @@ function canUseManualMap(fieldReport: FieldReport): boolean {
   return (
     fieldReport.locationSource === 'manual_map' ||
     (fieldReport.locationSource === null &&
-      fieldReport.gpsCaptureOutcome !== null &&
       fieldReport.gpsCaptureOutcome !== 'resolved')
   );
+}
+
+function formatMeasurementSummary(
+  value: number | null,
+  provenance: MeasurementProvenance,
+  unit: string,
+): string {
+  if (provenance === 'not_measured') {
+    return 'Not measured';
+  }
+  if (value === null) {
+    return 'Not provided';
+  }
+  return unit === '%' ? `${value}%` : `${value} ${unit}`;
+}
+
+function formatLocationSummary(fieldReport: FieldReport): string {
+  if (fieldReport.locationSource === 'unavailable') {
+    return 'Unavailable';
+  }
+  if (fieldReport.locationSource === 'manual_map') {
+    return 'Manual map';
+  }
+  return fieldReport.locationSource === 'gps' ? 'GPS' : 'Not provided';
+}
+
+function previewMeasurementValue(
+  value: string,
+  choice: MeasurementProvenance | null,
+): number | null {
+  return choice === 'not_measured' ? null : parseDecimalInput(value);
 }
 
 function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
@@ -1345,9 +1618,32 @@ function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
       style={[styles.formCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
       <EvidenceRow label="Farmer or farm reference" value={fieldReport.farmerOrFarmOwnerName ?? 'Not provided'} />
       <EvidenceRow label="Area" value={`${fieldReport.barangay ?? 'Not provided'}, ${fieldReport.municipality}, ${fieldReport.province}`} />
-      <EvidenceRow label="Affected area" value={fieldReport.affectedAreaHectares === null ? 'Not provided' : `${fieldReport.affectedAreaHectares} ha`} />
-      <EvidenceRow label="Estimated affected portion" value={fieldReport.affectedPortionPercent === null ? 'Not provided' : `${fieldReport.affectedPortionPercent}%`} />
-      <EvidenceRow label="Location source" value={fieldReport.locationSource === 'manual_map' ? 'Manual map' : 'GPS'} />
+      <EvidenceRow
+        label="Affected area"
+        value={formatMeasurementSummary(
+          fieldReport.affectedAreaHectares,
+          fieldReport.affectedAreaMeasurement,
+          'ha',
+        )}
+      />
+      <EvidenceRow
+        label="Estimated affected portion"
+        value={formatMeasurementSummary(
+          fieldReport.affectedPortionPercent,
+          fieldReport.affectedPortionMeasurement,
+          '%',
+        )}
+      />
+      <EvidenceRow
+        label="Location source"
+        value={formatLocationSummary(fieldReport)}
+      />
+      {fieldReport.locationSource === 'unavailable' && fieldReport.locationUnavailableReason ? (
+        <EvidenceRow
+          label="Location unavailable reason"
+          value={LOCATION_UNAVAILABLE_REASON_LABELS[fieldReport.locationUnavailableReason]}
+        />
+      ) : null}
       {fieldReport.manualLocationSelectedAt ? (
         <EvidenceRow label="Manual location selected" value={formatTimestamp(fieldReport.manualLocationSelectedAt)} />
       ) : null}
@@ -1433,6 +1729,217 @@ function AuthorityReviewSection({
   );
 }
 
+/**
+ * D-01: an explicit measured / not measured decision. "Not measured" is a
+ * first-class answer, so the inspector never has to invent a number.
+ */
+function MeasurementChoice({
+  choice,
+  label,
+  onChoose,
+  testID,
+}: {
+  choice: MeasurementProvenance | null;
+  label: string;
+  onChoose: (choice: MeasurementProvenance) => void;
+  testID: string;
+}) {
+  const theme = useTheme();
+  const options: { key: MeasurementProvenance; label: string }[] = [
+    { key: 'measured', label: 'Measured' },
+    { key: 'not_measured', label: 'Not measured' },
+  ];
+
+  return (
+    <View
+      accessibilityRole="radiogroup"
+      accessibilityLabel={`${label} measurement`}
+      testID={testID}
+      style={styles.measurementRow}>
+      {options.map((option) => {
+        const selected = choice === option.key;
+        return (
+          <Pressable
+            key={option.label}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            accessibilityLabel={`${label}: ${option.label}`}
+            onPress={() => onChoose(option.key)}
+            style={({ pressed }) => [
+              styles.measurementOption,
+              {
+                backgroundColor: selected ? theme.primary : theme.surfaceMuted,
+                borderColor: selected ? theme.primary : theme.border,
+              },
+              pressed && styles.pressed,
+            ]}>
+            <Text
+              style={[
+                styles.measurementOptionText,
+                { color: selected ? theme.background : theme.primaryDark },
+              ]}>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/**
+ * One truthful readiness checklist. Every row is derived from the same domain
+ * requirement list the finalization gate uses, so the interface can never sound
+ * simpler than the real blockers.
+ */
+function ReadyToSubmitChecklist({
+  fieldReport,
+  measurementPreview,
+  record,
+}: {
+  fieldReport: FieldReport;
+  measurementPreview: {
+    affectedAreaMeasurement: MeasurementProvenance | null;
+    affectedPortionMeasurement: MeasurementProvenance | null;
+  };
+  record: ScanRecordDetails | null;
+}) {
+  const theme = useTheme();
+  const managedImageUri = record?.managedImageUri ?? null;
+  const submissionImageUri = record?.submissionImageUri ?? null;
+  const expectedSubmissionImageUri =
+    fieldReport.submitterIdentity
+      ? getSubmissionImageUri(fieldReport.scanRecordId, fieldReport.submitterIdentity)
+      : null;
+  const missing = new Set(
+    getMissingSubmissionRequirements(
+      fieldReport,
+      {
+        checklistConsistency: record?.checklistConsistency ?? null,
+        classScores: record?.classScores ?? [],
+        confidence: record?.confidence ?? null,
+        managedImageUri,
+        managedImageAvailable: Boolean(managedImageUri && managedImageExists(managedImageUri)),
+        predictedLabel: record?.predictedLabel ?? null,
+        sourceHeight: record?.sourceHeight ?? null,
+        sourceWidth: record?.sourceWidth ?? null,
+        submissionImageAvailable: Boolean(
+          submissionImageUri && managedImageExists(submissionImageUri),
+        ),
+        expectedSubmissionImageUri,
+        submissionImageMimeType: record?.submissionImageMimeType ?? null,
+        submissionImageSizeBytes: record?.submissionImageSizeBytes ?? null,
+        submissionImageUri,
+      },
+      measurementPreview,
+    ),
+  );
+  const groups: { label: string; requirements: FieldReportSubmissionRequirement[] }[] = [
+    {
+      label: 'Report details',
+      requirements: [
+        'farmer_or_farm_owner_name',
+        'barangay',
+        'affected_area_hectares',
+        'affected_portion_percent',
+      ],
+    },
+    {
+      label: 'Location',
+      requirements: [
+        'final_coordinates',
+        'location_source',
+        'location_unavailable_reason',
+        'gps_accuracy',
+      ],
+    },
+    {
+      label: 'Automatic evidence',
+      requirements: [
+        'original_scan_image',
+        'submission_image',
+        'source_image_dimensions',
+        'ai_supported_result',
+        'confidence',
+        'class_scores',
+        'symptom_checklist',
+        'submitter_identity',
+        'submitter_role',
+        'province',
+        'municipality',
+        'observation_time',
+      ],
+    },
+  ];
+  const total = groups.reduce(
+    (count, group) => count + group.requirements.length,
+    0,
+  );
+  const blocking = groups
+    .map((group) => ({
+      ...group,
+      missing: group.requirements.filter((requirement) => missing.has(requirement)),
+    }))
+    .filter((group) => group.missing.length > 0);
+  const ready = blocking.length === 0;
+  const completeCount = total - missing.size;
+
+  return (
+    <View
+      testID="field-report.ready-to-submit"
+      style={[
+        styles.formCard,
+        {
+          backgroundColor: theme.surfaceElevated,
+          borderColor: ready ? theme.success : theme.border,
+        },
+      ]}>
+      <View style={styles.sectionHeading}>
+        <Feather
+          name={ready ? 'check-circle' : 'list'}
+          size={20}
+          color={ready ? theme.success : theme.primary}
+        />
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>
+          Ready to submit
+        </Text>
+      </View>
+      <Text
+        accessibilityLiveRegion="polite"
+        style={[styles.helpText, { color: theme.textSecondary }]}>
+        {ready
+          ? 'Every requirement is complete. You can finalize this report.'
+          : `${missing.size} of ${total} requirements still block finalizing.`}
+      </Text>
+      {blocking.map((group) => (
+        <View key={group.label} style={styles.readinessGroup}>
+          <Text style={[styles.readinessGroupTitle, { color: theme.textSecondary }]}>
+            {group.label}
+          </Text>
+          {group.missing.map((requirement) => (
+            <View
+              key={requirement}
+              testID={`field-report.ready.${requirement}`}
+              style={styles.readinessRow}>
+              <Feather name="circle" size={16} color={theme.warning} />
+              <Text style={[styles.statusMessage, { color: theme.text }]}>
+                {SUBMISSION_REQUIREMENT_LABELS[requirement]}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ))}
+      {!ready && completeCount > 0 ? (
+        <Text
+          testID="field-report.ready.complete-count"
+          style={[styles.helpText, { color: theme.textSecondary }]}>
+          {completeCount} other {completeCount === 1 ? 'requirement is' : 'requirements are'} already complete.
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 const SUBMISSION_REQUIREMENT_LABELS: Record<
   FieldReportSubmissionRequirement,
   string
@@ -1454,6 +1961,7 @@ const SUBMISSION_REQUIREMENT_LABELS: Record<
   affected_portion_percent: 'Estimated affected portion (%)',
   final_coordinates: 'Final coordinates',
   location_source: 'GPS or manual-map location source',
+  location_unavailable_reason: 'Reason the location is unavailable',
   gps_accuracy: 'Device-reported GPS accuracy',
   observation_time: 'Observation time',
 };
@@ -1515,6 +2023,39 @@ const styles = StyleSheet.create({
   },
   numericRow: { flexDirection: 'row', gap: Spacing.md },
   numericField: { flex: 1, gap: Spacing.xs },
+  measurementRow: { flexDirection: 'row', gap: Spacing.xs },
+  measurementOption: {
+    flex: 1,
+    minHeight: 36,
+    borderWidth: 1,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
+  measurementOptionText: { ...Typography.caption, fontWeight: '800' },
+  locationDivider: { borderTopWidth: 1, marginVertical: Spacing.xs },
+  unavailableCard: {
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  unavailableHeading: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  unavailablePicker: { gap: Spacing.sm },
+  reasonList: { gap: Spacing.xs },
+  reasonOption: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  readinessGroup: { gap: Spacing.xs },
+  readinessGroupTitle: { ...Typography.label, letterSpacing: 0.8 },
+  readinessRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   fieldError: { ...Typography.caption, fontWeight: '700' },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   sectionTitle: { ...Typography.subheading, fontWeight: '800' },

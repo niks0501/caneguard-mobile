@@ -44,6 +44,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
     '0011_tidy_meteorite.sql',
     '0012_dapper_sumo.sql',
     '0013_v1_local_scan_migration.sql',
+    '0014_safe_songbird.sql',
   ]) native.exec(migration(filename));
   return { database: createDatabase(native), native };
 }

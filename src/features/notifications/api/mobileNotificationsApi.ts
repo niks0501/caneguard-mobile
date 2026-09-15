@@ -106,6 +106,86 @@ async function requestPage(
   }
 }
 
+export interface MobileNotificationReadResult {
+  notification: MobileNotificationUpdate;
+  unreadCount: number | null;
+}
+
+export interface MobileNotificationsReadAllResult {
+  markedCount: number;
+  unreadCount: number;
+}
+
+/**
+ * Mark one owner-scoped notification as read. The server returns the updated
+ * item so the local cache never guesses at the acknowledgment state.
+ */
+export async function markMobileNotificationRead(options: {
+  id: string;
+  token: string;
+}): Promise<MobileNotificationReadResult> {
+  let body: unknown;
+  try {
+    body = await apiRequest<unknown>(
+      `${NOTIFICATION_PATH}/${encodeURIComponent(options.id)}/read`,
+      { method: 'PATCH', token: options.token, timeoutMs: 20_000 },
+    );
+  } catch (error: unknown) {
+    throw mapApiError(error);
+  }
+
+  try {
+    if (!isRecord(body) || !isRecord(body.data)) throw malformed('data');
+    return {
+      notification: parseNotification(body.data),
+      unreadCount: optionalCount(body.meta, 'unread_count'),
+    };
+  } catch (error: unknown) {
+    if (error instanceof MobileNotificationsApiError) throw error;
+    throw new MobileNotificationsApiError(
+      'MALFORMED_RESPONSE',
+      'The notification read response was invalid.',
+    );
+  }
+}
+
+/** Mark every unread notification owned by the signed-in inspector as read. */
+export async function markAllMobileNotificationsRead(options: {
+  token: string;
+}): Promise<MobileNotificationsReadAllResult> {
+  let body: unknown;
+  try {
+    body = await apiRequest<unknown>(`${NOTIFICATION_PATH}/read-all`, {
+      method: 'POST',
+      token: options.token,
+      timeoutMs: 20_000,
+    });
+  } catch (error: unknown) {
+    throw mapApiError(error);
+  }
+
+  if (!isRecord(body) || !isRecord(body.meta)) throw malformed('meta');
+  return {
+    markedCount: requireCount(body.meta.marked_count, 'meta.marked_count'),
+    unreadCount: requireCount(body.meta.unread_count, 'meta.unread_count'),
+  };
+}
+
+function requireCount(value: unknown, field: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    throw malformed(field);
+  }
+  return value;
+}
+
+function optionalCount(container: unknown, field: string): number | null {
+  if (container === undefined) return null;
+  if (!isRecord(container)) throw malformed('meta');
+  const value = container[field];
+  if (value === undefined || value === null) return null;
+  return requireCount(value, `meta.${field}`);
+}
+
 function parsePage(body: unknown): {
   nextPath: string | null;
   syncBefore: string;

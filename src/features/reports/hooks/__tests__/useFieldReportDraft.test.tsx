@@ -3,6 +3,7 @@ import { randomUUID } from 'expo-crypto';
 
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
+  clearLocationUnavailable,
   createOrGetFieldReportDraft,
   finalizeFieldReport,
   findFieldReportByScanRecordId,
@@ -43,6 +44,7 @@ jest.mock('@/features/reports/data/fieldReportRepository', () => ({
   findFieldReportByScanRecordId: jest.fn(),
   finalizeFieldReport: jest.fn(),
   hasFieldReportOwnedByAnotherSubmitter: jest.fn(),
+  clearLocationUnavailable: jest.fn(),
   saveFieldReportDraft: jest.fn(),
   saveGpsCapture: jest.fn(),
   saveManualMapLocation: jest.fn(),
@@ -63,6 +65,7 @@ const mockCreateOrGetFieldReportDraft = jest.mocked(createOrGetFieldReportDraft)
 const mockFinalizeFieldReport = jest.mocked(finalizeFieldReport);
 const mockFindFieldReportByScanRecordId = jest.mocked(findFieldReportByScanRecordId);
 const mockSaveFieldReportDraft = jest.mocked(saveFieldReportDraft);
+const mockClearLocationUnavailable = jest.mocked(clearLocationUnavailable);
 const mockSaveGpsCapture = jest.mocked(saveGpsCapture);
 
 function createdReport(
@@ -80,7 +83,9 @@ function createdReport(
     municipality: 'Nasugbu',
     barangay: null,
     affectedAreaHectares: null,
+    affectedAreaMeasurement: 'not_measured',
     affectedPortionPercent: null,
+    affectedPortionMeasurement: 'not_measured',
     caneClass: null,
     cropAge: null,
     fieldNotes: null,
@@ -91,6 +96,7 @@ function createdReport(
     finalLatitude: null,
     finalLongitude: null,
     locationSource: null,
+    locationUnavailableReason: null,
     lastSyncAttemptAt: null,
     lastSyncErrorCode: null,
     lastSyncedAt: null,
@@ -135,6 +141,7 @@ describe('useFieldReportDraft', () => {
     mockSaveGpsCapture.mockImplementation(async (_database, id) =>
       createdReport(id, id === REPORT_A ? SCAN_A : SCAN_B),
     );
+    mockClearLocationUnavailable.mockResolvedValue(createdReport(REPORT_A, SCAN_A));
     mockCaptureGpsLocation.mockResolvedValue({
       capturedAt: '2026-08-10T01:02:00.000Z',
       outcome: 'permission_denied',
@@ -343,6 +350,36 @@ describe('useFieldReportDraft', () => {
       await result.current.captureLocation();
     });
     expect(result.current.locationServicesDisabled).toBe(false);
+  });
+
+  it('clears unavailable provenance through the draft action', async () => {
+    mockFindFieldReportByScanRecordId.mockResolvedValue(
+      createdReport(REPORT_A, SCAN_A, {
+        locationSource: 'unavailable',
+        locationUnavailableReason: 'offline_no_map',
+      }),
+    );
+    mockClearLocationUnavailable.mockResolvedValue(
+      createdReport(REPORT_A, SCAN_A, {
+        locationSource: null,
+        locationUnavailableReason: null,
+      }),
+    );
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+    await waitFor(() => expect(result.current.data?.locationSource).toBe('unavailable'));
+
+    await act(async () => {
+      await result.current.clearLocationUnavailable();
+    });
+
+    expect(mockClearLocationUnavailable).toHaveBeenCalledWith(
+      DATABASE,
+      REPORT_A,
+      SUBMITTER_ID,
+      expect.objectContaining({ updatedAt: expect.any(String) }),
+    );
+    expect(result.current.data?.locationSource).toBeNull();
   });
 
   it('blocks Draft saves while finalization is in flight', async () => {

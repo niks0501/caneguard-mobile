@@ -2,17 +2,50 @@ import type {
   FieldReportAuthoringState,
   FieldReportLocationSource,
   GpsCaptureOutcome,
+  LocationUnavailableReason,
+  MeasurementProvenance,
   SyncStatus,
 } from '@/database/schema';
 import type { MobileUserRole } from '@/features/auth/types';
 import type { AuthorityReviewSnapshot } from '@/features/reports/domain/reportReviewTypes';
 
+export type {
+  LocationUnavailableReason,
+  MeasurementProvenance,
+} from '@/database/schema';
+
 /** Stable reporter-observation value used by the RSSI quick choice. */
 export const REPORTER_OBSERVED_CONCERN_RSSI = 'RSSI' as const;
 
+/**
+ * D-02: bounded reasons an inspector may submit without an exact coordinate.
+ * Barangay stays mandatory, so the report still locates the case.
+ */
+export const LOCATION_UNAVAILABLE_REASON_LABELS: Record<
+  LocationUnavailableReason,
+  string
+> = {
+  permission_denied: 'Location permission was denied',
+  services_unavailable: 'Device location services were unavailable',
+  low_accuracy: 'GPS never reached a usable accuracy',
+  offline_no_map: 'Offline, so the online map could not be used',
+  other: 'Another reason',
+};
+
 export interface FieldReport {
   affectedAreaHectares: number | null;
+  /**
+   * D-01: resolved provenance. A row written before provenance existed reads as
+   * measured when a value is stored and not measured when it is empty.
+   */
+  affectedAreaMeasurement: MeasurementProvenance;
+  /** False only for legacy rows that predate the explicit D-01 choice. */
+  affectedAreaMeasurementExplicit?: boolean;
   affectedPortionPercent: number | null;
+  affectedPortionMeasurement: MeasurementProvenance;
+  /** False only for legacy rows that predate the explicit D-01 choice. */
+  affectedPortionMeasurementExplicit?: boolean;
+  locationUnavailableReason: LocationUnavailableReason | null;
   authorityReview: AuthorityReviewSnapshot | null;
   authoringState: FieldReportAuthoringState;
   barangay: string | null;
@@ -66,7 +99,10 @@ export interface CreateFieldReportDraftInput {
 
 export interface SaveFieldReportDraftInput {
   affectedAreaHectares?: number | null;
+  affectedAreaMeasurement?: MeasurementProvenance;
   affectedPortionPercent?: number | null;
+  affectedPortionMeasurement?: MeasurementProvenance;
+  locationUnavailableReason?: LocationUnavailableReason | null;
   barangay?: string;
   caneClass?: string;
   cropAge?: string;
@@ -90,8 +126,14 @@ export interface SaveManualMapLocationInput {
 }
 
 export interface FinalizeFieldReportInput {
-  affectedAreaHectares: number;
-  affectedPortionPercent: number;
+  affectedAreaHectares: number | null;
+  /**
+   * D-01: optional on the wire so existing callers keep working; when omitted,
+   * a number reads as measured and an empty value reads as not measured.
+   */
+  affectedAreaMeasurement?: MeasurementProvenance;
+  affectedPortionPercent: number | null;
+  affectedPortionMeasurement?: MeasurementProvenance;
   barangay: string;
   caneClass?: string;
   cropAge?: string;
@@ -124,6 +166,7 @@ export const FIELD_REPORT_SUBMISSION_REQUIREMENTS = [
   'affected_portion_percent',
   'final_coordinates',
   'location_source',
+  'location_unavailable_reason',
   'gps_accuracy',
   'observation_time',
 ] as const;

@@ -1,3 +1,7 @@
+import type {
+  LocationUnavailableReason,
+  MeasurementProvenance,
+} from '@/database/schema';
 import { StorageError } from '@/database/errors';
 import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 import { isValidSubmissionImageMetadata } from '@/features/sync/constants/mobileReportUploadContract';
@@ -96,8 +100,10 @@ export function validateManualMapLocationInput(
 export function normalizeFinalizeFieldReportInput(
   input: FinalizeFieldReportInput,
 ): {
-  affectedAreaHectares: number;
-  affectedPortionPercent: number;
+  affectedAreaHectares: number | null;
+  affectedAreaMeasurement: MeasurementProvenance;
+  affectedPortionPercent: number | null;
+  affectedPortionMeasurement: MeasurementProvenance;
   barangay: string | null;
   caneClass: string | null;
   cropAge: string | null;
@@ -112,11 +118,23 @@ export function normalizeFinalizeFieldReportInput(
 } {
   validateUtcTimestamp(input.submittedAt);
   const values = normalizeFieldReportDraftInput(input);
-  validateAffectedAreaHectares(input.affectedAreaHectares);
-  validateAffectedPortionPercent(input.affectedPortionPercent);
+  const areaMeasurement = validateMeasurementPairing(
+    input.affectedAreaMeasurement ??
+      resolveMeasurementProvenance(input.affectedAreaHectares),
+    input.affectedAreaHectares,
+    validateAffectedAreaHectares,
+  );
+  const portionMeasurement = validateMeasurementPairing(
+    input.affectedPortionMeasurement ??
+      resolveMeasurementProvenance(input.affectedPortionPercent),
+    input.affectedPortionPercent,
+    validateAffectedPortionPercent,
+  );
   return {
     affectedAreaHectares: input.affectedAreaHectares,
+    affectedAreaMeasurement: areaMeasurement,
     affectedPortionPercent: input.affectedPortionPercent,
+    affectedPortionMeasurement: portionMeasurement,
     barangay: values.barangay ?? null,
     caneClass: values.caneClass ?? null,
     cropAge: values.cropAge ?? null,
@@ -131,9 +149,42 @@ export function normalizeFinalizeFieldReportInput(
   };
 }
 
+/**
+ * D-01: a value is either measured with a number, or explicitly not measured and
+ * empty. Provenance and value can never disagree once this returns.
+ */
+export function validateMeasurementPairing(
+  measurement: MeasurementProvenance,
+  value: number | null,
+  validateValue: (value: number) => void,
+): MeasurementProvenance {
+  if (measurement !== 'measured' && measurement !== 'not_measured') {
+    invalid('Report whether the value was measured or not measured.');
+  }
+  if (measurement === 'measured') {
+    if (value === null) {
+      invalid('A measured value needs a number.');
+    }
+    validateValue(value);
+    return 'measured';
+  }
+  if (value !== null) {
+    invalid('A value cannot be provided when it was not measured.');
+  }
+  return 'not_measured';
+}
+
+export interface SubmissionRequirementPreview {
+  /** Null means the editor has not selected a D-01 answer yet. */
+  affectedAreaMeasurement?: MeasurementProvenance | null;
+  /** Null means the editor has not selected a D-01 answer yet. */
+  affectedPortionMeasurement?: MeasurementProvenance | null;
+}
+
 export function getMissingSubmissionRequirements(
   report: FieldReport,
   evidence: FieldReportSubmissionEvidence,
+  preview?: SubmissionRequirementPreview,
 ): FieldReportSubmissionRequirement[] {
   const missing: FieldReportSubmissionRequirement[] = [];
   if (!evidence.managedImageUri?.trim() || !evidence.managedImageAvailable) {
@@ -188,29 +239,61 @@ export function getMissingSubmissionRequirements(
   if (!report.province.trim()) missing.push('province');
   if (!report.municipality.trim()) missing.push('municipality');
   if (!report.barangay?.trim()) missing.push('barangay');
-  if (report.affectedAreaHectares === null) {
+  const areaMeasurement =
+    preview && 'affectedAreaMeasurement' in preview
+      ? preview.affectedAreaMeasurement
+      : report.affectedAreaMeasurement;
+  if (
+    areaMeasurement === null ||
+    areaMeasurement === undefined ||
+    (areaMeasurement === 'measured' && report.affectedAreaHectares === null) ||
+    (areaMeasurement === 'not_measured' && report.affectedAreaHectares !== null)
+  ) {
     missing.push('affected_area_hectares');
   }
-  if (report.affectedPortionPercent === null) {
+  const portionMeasurement =
+    preview && 'affectedPortionMeasurement' in preview
+      ? preview.affectedPortionMeasurement
+      : report.affectedPortionMeasurement;
+  if (
+    portionMeasurement === null ||
+    portionMeasurement === undefined ||
+    (portionMeasurement === 'measured' && report.affectedPortionPercent === null) ||
+    (portionMeasurement === 'not_measured' && report.affectedPortionPercent !== null)
+  ) {
     missing.push('affected_portion_percent');
   }
 
-  const coordinatesValid =
-    report.finalLatitude !== null &&
-    report.finalLongitude !== null &&
-    coordinatesAreValid(report.finalLatitude, report.finalLongitude);
-  if (!coordinatesValid) missing.push('final_coordinates');
-  if (report.locationSource !== 'gps' && report.locationSource !== 'manual_map') {
-    missing.push('location_source');
-  }
-  if (
-    (report.locationSource === 'gps' &&
-      (report.gpsAccuracy === null ||
-        !Number.isFinite(report.gpsAccuracy) ||
-        report.gpsAccuracy < 0)) ||
-    (report.locationSource === 'manual_map' && report.gpsAccuracy !== null)
-  ) {
-    missing.push('gps_accuracy');
+  if (report.locationSource === 'unavailable') {
+    // D-02: a deliberately unlocated report still needs a bounded reason and
+    // must not carry fabricated coordinates.
+    if (!report.locationUnavailableReason) {
+      missing.push('location_unavailable_reason');
+    }
+    if (report.finalLatitude !== null || report.finalLongitude !== null) {
+      missing.push('final_coordinates');
+    }
+    if (report.gpsAccuracy !== null) {
+      missing.push('gps_accuracy');
+    }
+  } else {
+    const coordinatesValid =
+      report.finalLatitude !== null &&
+      report.finalLongitude !== null &&
+      coordinatesAreValid(report.finalLatitude, report.finalLongitude);
+    if (!coordinatesValid) missing.push('final_coordinates');
+    if (report.locationSource !== 'gps' && report.locationSource !== 'manual_map') {
+      missing.push('location_source');
+    }
+    if (
+      (report.locationSource === 'gps' &&
+        (report.gpsAccuracy === null ||
+          !Number.isFinite(report.gpsAccuracy) ||
+          report.gpsAccuracy < 0)) ||
+      (report.locationSource === 'manual_map' && report.gpsAccuracy !== null)
+    ) {
+      missing.push('gps_accuracy');
+    }
   }
   if (!isValidUtcTimestamp(report.observedAt)) missing.push('observation_time');
   return missing;
@@ -220,7 +303,10 @@ export function normalizeFieldReportDraftInput(
   input: SaveFieldReportDraftInput,
 ): {
   affectedAreaHectares?: number | null;
+  affectedAreaMeasurement?: MeasurementProvenance;
   affectedPortionPercent?: number | null;
+  affectedPortionMeasurement?: MeasurementProvenance;
+  locationUnavailableReason?: LocationUnavailableReason | null;
   barangay?: string | null;
   caneClass?: string | null;
   cropAge?: string | null;
@@ -312,6 +398,12 @@ export function normalizeFieldReportDraftInput(
           affectedAreaHectares: normalizeOptionalAffectedArea(
             input.affectedAreaHectares,
           ),
+          // D-01: an explicit measurement decision always wins; otherwise the
+          // presence of a number is what makes the value measured.
+          affectedAreaMeasurement:
+            input.affectedAreaMeasurement === undefined
+              ? resolveMeasurementProvenance(input.affectedAreaHectares)
+              : normalizeMeasurementProvenance(input.affectedAreaMeasurement),
         }),
     ...(input.affectedPortionPercent === undefined
       ? {}
@@ -319,8 +411,58 @@ export function normalizeFieldReportDraftInput(
           affectedPortionPercent: normalizeOptionalAffectedPortion(
             input.affectedPortionPercent,
           ),
+          affectedPortionMeasurement:
+            input.affectedPortionMeasurement === undefined
+              ? resolveMeasurementProvenance(input.affectedPortionPercent)
+              : normalizeMeasurementProvenance(
+                  input.affectedPortionMeasurement,
+                ),
+        }),
+    ...(input.locationUnavailableReason === undefined
+      ? {}
+      : {
+          locationUnavailableReason: normalizeLocationUnavailableReason(
+            input.locationUnavailableReason,
+          ),
         }),
   };
+}
+
+/**
+ * D-01 default: a stored number reads as measured and an empty value reads as
+ * explicitly not measured once the inspector finalizes.
+ */
+export function resolveMeasurementProvenance(
+  value: number | null | undefined,
+): MeasurementProvenance {
+  return value === null || value === undefined ? 'not_measured' : 'measured';
+}
+
+function normalizeMeasurementProvenance(
+  value: MeasurementProvenance,
+): MeasurementProvenance {
+  if (value !== 'measured' && value !== 'not_measured') {
+    invalid('Report whether the value was measured or not measured.');
+  }
+  return value;
+}
+
+function normalizeLocationUnavailableReason(
+  value: LocationUnavailableReason | null,
+): LocationUnavailableReason | null {
+  if (value === null) {
+    return null;
+  }
+  if (
+    value !== 'permission_denied' &&
+    value !== 'services_unavailable' &&
+    value !== 'low_accuracy' &&
+    value !== 'offline_no_map' &&
+    value !== 'other'
+  ) {
+    invalid('Choose why the location is unavailable.');
+  }
+  return value;
 }
 
 function normalizeOptionalText(

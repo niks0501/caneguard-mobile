@@ -6,9 +6,10 @@ import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
+import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
 
-const mockRefresh = jest.fn(async () => undefined);
-const mockLoadMore = jest.fn(async () => undefined);
+const mockRefresh = jest.fn(async () => true);
+const mockLoadMore = jest.fn(async () => true);
 let mockRecordsState: ReturnType<typeof usePaginatedScanRecords> = {
   data: [],
   errorMessage: null,
@@ -22,7 +23,7 @@ let mockRecordsState: ReturnType<typeof usePaginatedScanRecords> = {
 jest.mock('@/features/records/hooks/useRecords', () => ({
   usePaginatedScanRecords: jest.fn(() => mockRecordsState),
 }));
-const mockRefreshAssignments = jest.fn(async () => undefined);
+const mockRefreshAssignments = jest.fn(async () => true);
 let mockAssignmentsState: ReturnType<typeof useFieldValidationAssignments> = {
   assignments: [],
   capabilityUnavailable: false,
@@ -35,12 +36,17 @@ let mockAssignmentsState: ReturnType<typeof useFieldValidationAssignments> = {
 jest.mock('@/features/assignments/hooks/useFieldValidationAssignments', () => ({
   useFieldValidationAssignments: jest.fn(() => mockAssignmentsState),
 }));
-const mockRefreshNotifications = jest.fn(async () => undefined);
+const mockRefreshNotifications = jest.fn(async () => true);
+const mockMarkRead = jest.fn(async () => undefined);
+const mockMarkAllRead = jest.fn(async () => undefined);
 let mockNotificationsState: ReturnType<typeof useMobileNotifications> = {
   capabilityUnavailable: false,
   errorMessage: null,
   lastSuccessfulAt: null,
+  markAllRead: mockMarkAllRead,
+  markRead: mockMarkRead,
   notifications: [],
+  readActionError: null,
   refreshing: false,
   refresh: mockRefreshNotifications,
   sessionKey: 'session-1',
@@ -48,6 +54,10 @@ let mockNotificationsState: ReturnType<typeof useMobileNotifications> = {
 };
 jest.mock('@/features/notifications/hooks/useMobileNotifications', () => ({
   useMobileNotifications: jest.fn(() => mockNotificationsState),
+}));
+let mockDestinations = new Map<string, NotificationDestination>();
+jest.mock('@/features/notifications/hooks/useNotificationDestinations', () => ({
+  useNotificationDestinations: jest.fn(() => mockDestinations),
 }));
 jest.mock('@/features/reports/hooks/useAuthorityReviewStatus', () => ({
   useAuthorityReviewStatus: () => ({
@@ -66,7 +76,7 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
     isSyncing: false,
     lastSuccessfulSyncAt: null,
     pendingCount: 0,
-    syncNow: jest.fn(async () => null),
+    syncNow: jest.fn(async () => ({ failed: 0, authRequired: false } as never)),
   }),
 }));
 
@@ -120,9 +130,25 @@ const REPORT: ScanRecordListItem = {
   syncStatus: 'synced',
 };
 
+const NOTIFICATION = {
+  id: '4e04321c-a879-423f-875d-4cdce5e028a6',
+  ownerIdentity: 'session-1',
+  eventType: 'office_review_completed',
+  title: 'Office review completed',
+  message: 'CG-2026-0001 was reviewed by the office.',
+  caseUuid: '7e8c2e48-a2d4-4aca-9a50-9ca460fd7a7f',
+  referenceCode: 'CG-2026-0001',
+  assignmentUuid: null,
+  isRead: false,
+  readAt: null,
+  createdAt: '2026-08-13T12:00:00.000Z',
+  cachedAt: '2026-08-13T12:05:00.000Z',
+};
+
 describe('ActivityScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockDestinations = new Map();
     mockAssignmentsState = {
       ...mockAssignmentsState,
       assignments: [ASSIGNMENT],
@@ -161,31 +187,100 @@ describe('ActivityScreen', () => {
     );
   });
 
-  it('shows cached attention items and offers a manual refresh', async () => {
+  it('keeps office updates behind a dedicated toggle instead of inline on screen', async () => {
     mockNotificationsState = {
       ...mockNotificationsState,
-      notifications: [{
-        id: '4e04321c-a879-423f-875d-4cdce5e028a6',
-        ownerIdentity: 'session-1',
-        eventType: 'field_validation_assigned',
-        title: 'Field validation assigned',
-        message: 'CG-2026-0001 was assigned to you.',
-        caseUuid: '7e8c2e48-a2d4-4aca-9a50-9ca460fd7a7f',
-        referenceCode: 'CG-2026-0001',
-        assignmentUuid: ASSIGNMENT.id,
-        isRead: false,
-        readAt: null,
-        createdAt: '2026-08-13T12:00:00.000Z',
-        cachedAt: '2026-08-13T12:05:00.000Z',
-      }],
+      notifications: [NOTIFICATION],
       unreadCount: 1,
+    };
+    mockDestinations = new Map([
+      [NOTIFICATION.id, { kind: 'assignment', assignmentId: ASSIGNMENT.id }],
+    ]);
+    await render(<ActivityScreen />);
+
+    expect(screen.queryByTestId('activity.notifications')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('activity.needs-attention')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('activity.notifications-toggle'));
+
+    expect(screen.getByTestId('activity.notifications')).toBeOnTheScreen();
+    expect(screen.getByText('Office updates')).toBeOnTheScreen();
+    expect(screen.getByText('1 unread item from the office.')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Mark all office updates as read'));
+    expect(mockMarkAllRead).toHaveBeenCalledTimes(1);
+
+    await fireEvent.press(screen.getByTestId('activity.notifications-toggle'));
+    expect(screen.queryByTestId('activity.notifications')).not.toBeOnTheScreen();
+  });
+
+  it('acknowledges an unread update without blocking its destination', async () => {
+    mockNotificationsState = {
+      ...mockNotificationsState,
+      notifications: [NOTIFICATION],
+      unreadCount: 1,
+    };
+    mockDestinations = new Map([
+      [NOTIFICATION.id, { kind: 'field_report', scanRecordId: SCAN.id }],
+    ]);
+    await render(<ActivityScreen />);
+
+    await fireEvent.press(screen.getByTestId(`activity.attention.notification-${NOTIFICATION.id}`));
+
+    expect(mockMarkRead).toHaveBeenCalledWith(NOTIFICATION.id);
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/field-report',
+      params: { scanRecordId: SCAN.id },
+    });
+  });
+
+  it('runs one Refresh all scope that covers every eligible subsystem once', async () => {
+    await render(<ActivityScreen />);
+
+    expect(screen.queryByLabelText('Refresh notifications')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Refresh office review updates')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Refresh field assignments')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Sync reports now')).not.toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('activity.refresh-all'));
+
+    expect(mockRefreshNotifications).toHaveBeenCalledTimes(1);
+    expect(mockRefreshAssignments).toHaveBeenCalledTimes(1);
+    expect(mockRefresh).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Everything is up to date.')).toBeOnTheScreen();
+  });
+
+  it('surfaces cached refresh failures in the aggregate result', async () => {
+    mockRefreshNotifications.mockResolvedValue(false);
+    mockRefreshAssignments.mockResolvedValue(false);
+    mockRefresh.mockResolvedValue(false);
+
+    await render(<ActivityScreen />);
+    await fireEvent.press(screen.getByTestId('activity.refresh-all'));
+
+    expect(screen.getByText(/Couldn.t refresh/)).toBeOnTheScreen();
+    expect(screen.getByText(/Saved content is still available/)).toBeOnTheScreen();
+  });
+
+  it('caps Needs Attention detail rows at three with expansion for the rest', async () => {
+    mockAssignmentsState = {
+      ...mockAssignmentsState,
+      assignments: Array.from({ length: 5 }, (_, index) => ({
+        ...ASSIGNMENT,
+        id: `assignment-${index}`,
+        referenceCode: `CG-2026-000${index}`,
+      })),
     };
     await render(<ActivityScreen />);
 
-    expect(screen.getByText('Attention items')).toBeOnTheScreen();
-    expect(screen.getByText('1 unread item from the office.')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByLabelText('Refresh notifications'));
-    expect(mockRefreshNotifications).toHaveBeenCalled();
+    expect(screen.getByLabelText('5 attention items')).toBeOnTheScreen();
+    expect(screen.getByText('Show all 5')).toBeOnTheScreen();
+    expect(screen.getAllByTestId(/^activity\.attention\.assignment-/)).toHaveLength(3);
+
+    await fireEvent.press(screen.getByLabelText('Show all 5 attention items'));
+    expect(screen.getAllByTestId(/^activity\.attention\.assignment-/)).toHaveLength(5);
+    await fireEvent.press(screen.getByLabelText('Show fewer attention items'));
+    expect(screen.getAllByTestId(/^activity\.attention\.assignment-/)).toHaveLength(3);
   });
 
   it('opens a cached assignment in the field validation flow', async () => {

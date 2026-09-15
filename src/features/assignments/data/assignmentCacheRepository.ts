@@ -7,6 +7,7 @@ import type {
   FieldValidationAssignment,
   FieldValidationAssignmentUpdate,
 } from '@/features/assignments/domain/assignmentTypes';
+import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 export async function listCachedFieldValidationAssignments(
   database: CaneGuardDatabase,
@@ -134,6 +135,7 @@ export async function replaceCachedFieldValidationAssignments(
           .run();
       }
     });
+    emitSyncRecordsChanged();
   } catch (error: unknown) {
     throw toStorageError(
       error,

@@ -1,16 +1,19 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { ReactNode } from 'react';
 
 import { Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type BrandedScreenHeaderProps = {
+  action?: ReactNode;
+  subtitle?: string;
   title: string;
   showBack?: boolean;
 };
 
-export function BrandedScreenHeader({ title, showBack = true }: BrandedScreenHeaderProps) {
+export function BrandedScreenHeader({ action, showBack = true, subtitle, title }: BrandedScreenHeaderProps) {
   const theme = useTheme();
 
   return (
@@ -28,7 +31,11 @@ export function BrandedScreenHeader({ title, showBack = true }: BrandedScreenHea
             </Pressable>
           ) : null}
           <Text accessibilityRole="header" style={[styles.title, { color: theme.primaryDark }]}>{title}</Text>
+          {action}
         </View>
+        {subtitle ? (
+          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{subtitle}</Text>
+        ) : null}
       </View>
     </View>
   );
@@ -69,6 +76,10 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
     fontWeight: '800',
+  },
+  subtitle: {
+    ...Typography.caption,
+    marginTop: Spacing.xs,
   },
   pressed: {
     opacity: 0.7,

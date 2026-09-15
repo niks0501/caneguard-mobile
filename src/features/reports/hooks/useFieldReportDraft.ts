@@ -2,9 +2,14 @@ import { randomUUID } from 'expo-crypto';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import type {
+  LocationUnavailableReason,
+  MeasurementProvenance,
+} from '@/database/schema';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import {
+  clearLocationUnavailable,
   createOrGetFieldReportDraft,
   finalizeFieldReport,
   findFieldReportByScanRecordId,
@@ -12,6 +17,7 @@ import {
   saveGpsCapture,
   saveFieldReportDraft,
   saveManualMapLocation,
+  setLocationUnavailable,
 } from '@/features/reports/data/fieldReportRepository';
 import type {
   FieldReport,
@@ -525,10 +531,133 @@ export function useFieldReportDraft(
     ],
   );
 
+  const clearUnavailableLocation = useCallback(
+    async (): Promise<FieldReport | null> => {
+      if (
+        !state.data ||
+        !hasCurrentReport ||
+        !user ||
+        savingManualLocation ||
+        capturingLocation ||
+        finalizing ||
+        finalizeInFlight.current ||
+        saveInFlight.current
+      ) {
+        return null;
+      }
+
+      setSavingManualLocation(true);
+      setSaved(false);
+      setSubmissionIssues([]);
+      setState((current) => ({ ...current, errorMessage: null }));
+      try {
+        const data = await clearLocationUnavailable(
+          database,
+          state.data.id,
+          user.uuid,
+          { updatedAt: new Date().toISOString() },
+        );
+        if (!isCurrentInput()) {
+          return null;
+        }
+        setState({ data, errorMessage: null, loading: false });
+        setSaved(true);
+        return data;
+      } catch (error: unknown) {
+        const storageError = toStorageError(
+          error,
+          'UPDATE_FAILED',
+          'Changing the report location failed.',
+        );
+        if (isCurrentInput()) {
+          setState((current) => ({
+            ...current,
+            errorMessage: getStorageErrorMessage(storageError),
+          }));
+        }
+        return null;
+      } finally {
+        setSavingManualLocation(false);
+      }
+    },
+    [
+      capturingLocation,
+      database,
+      finalizing,
+      hasCurrentReport,
+      isCurrentInput,
+      savingManualLocation,
+      state.data,
+      user,
+    ],
+  );
+
+  const markLocationUnavailable = useCallback(
+    async (reason: LocationUnavailableReason): Promise<FieldReport | null> => {
+      if (
+        !state.data ||
+        !hasCurrentReport ||
+        !user ||
+        savingManualLocation ||
+        capturingLocation ||
+        finalizing ||
+        finalizeInFlight.current ||
+        saveInFlight.current
+      ) {
+        return null;
+      }
+
+      setSavingManualLocation(true);
+      setSaved(false);
+      setSubmissionIssues([]);
+      setState((current) => ({ ...current, errorMessage: null }));
+      try {
+        const data = await setLocationUnavailable(database, state.data.id, user.uuid, {
+          reason,
+          updatedAt: new Date().toISOString(),
+        });
+        if (!isCurrentInput()) {
+          return null;
+        }
+        setState({ data, errorMessage: null, loading: false });
+        setSaved(true);
+        return data;
+      } catch (error: unknown) {
+        const storageError = toStorageError(
+          error,
+          'UPDATE_FAILED',
+          'Recording the unavailable location failed.',
+        );
+        if (isCurrentInput()) {
+          setState((current) => ({
+            ...current,
+            errorMessage: getStorageErrorMessage(storageError),
+          }));
+        }
+        return null;
+      } finally {
+        setSavingManualLocation(false);
+      }
+    },
+    [
+      capturingLocation,
+      database,
+      finalizing,
+      hasCurrentReport,
+      isCurrentInput,
+      savingManualLocation,
+      state.data,
+      user,
+    ],
+  );
+
   const finalize = useCallback(
+
     async (values: {
-      affectedAreaHectares: number;
-      affectedPortionPercent: number;
+      affectedAreaHectares: number | null;
+      affectedAreaMeasurement?: MeasurementProvenance;
+      affectedPortionPercent: number | null;
+      affectedPortionMeasurement?: MeasurementProvenance;
       barangay: string;
       caneClass?: string;
       cropAge?: string;
@@ -619,10 +748,15 @@ export function useFieldReportDraft(
     ...visibleState,
     captureLocation,
     capturingLocation: hasCurrentReport ? capturingLocation : false,
+    clearLocationUnavailable: clearUnavailableLocation,
     finalize,
     finalizing: hasCurrentReport ? finalizing : false,
     locationServicesDisabled: hasCurrentReport
       ? locationServicesDisabled
+      : false,
+    markLocationUnavailable,
+    markingLocationUnavailable: hasCurrentReport
+      ? savingManualLocation
       : false,
     refresh,
     save,

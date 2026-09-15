@@ -24,7 +24,14 @@ const UUID_V4_PATTERN =
 const UTC_ISO_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const IMAGE_SOURCE_TYPES = ['camera', 'gallery'] as const;
 const REPORTED_SEVERITIES = ['Mild', 'Moderate', 'Severe'] as const;
-const LOCATION_SOURCES = ['gps', 'manual_map'] as const;
+const LOCATION_SOURCES = ['gps', 'manual_map', 'unavailable'] as const;
+const LOCATION_UNAVAILABLE_REASONS = [
+  'permission_denied',
+  'services_unavailable',
+  'low_accuracy',
+  'offline_no_map',
+  'other',
+] as const;
 const SYMPTOM_KEYS = CHECKLIST_OBSERVATIONS.map(({ id }) => id);
 const QUALITY_WARNING_KEYS = [
   'low-resolution',
@@ -112,11 +119,21 @@ export function mapFieldReportToMultipart(
   appendOptionalText(form, 'crop_age', report.cropAge);
   appendOptionalText(form, 'cane_class', report.caneClass);
   appendNumber(form, 'affected_area_hectares', report.affectedAreaHectares);
+  // D-01: the server stores explicit provenance, so the client never leaves the
+  // measurement decision to be inferred from a blank field.
+  form.append('affected_area_measurement', report.affectedAreaMeasurement);
   appendNumber(form, 'affected_portion_percent', report.affectedPortionPercent);
+  form.append('affected_portion_measurement', report.affectedPortionMeasurement);
   appendOptionalText(form, 'field_notes', report.fieldNotes);
   appendNumber(form, 'final_latitude', report.finalLatitude);
   appendNumber(form, 'final_longitude', report.finalLongitude);
   form.append('location_source', report.locationSource!);
+  if (report.locationSource === 'unavailable') {
+    form.append(
+      'location_unavailable_reason',
+      report.locationUnavailableReason!,
+    );
+  }
   if (report.locationSource === 'gps') {
     appendNumber(form, 'gps_accuracy', report.gpsAccuracy);
   }
@@ -183,6 +200,8 @@ function validateReport(
     MAX_FARMER_NAME_LENGTH,
   );
   validateRequiredText(report.barangay, 'Barangay', MAX_REGION_TEXT_LENGTH);
+  validateMeasurement('affected_area_measurement', report.affectedAreaMeasurement, report.affectedAreaHectares);
+  validateMeasurement('affected_portion_measurement', report.affectedPortionMeasurement, report.affectedPortionPercent);
   validateOptionalText(report.province, 'Province', MAX_REGION_TEXT_LENGTH);
   validateOptionalText(report.municipality, 'Municipality', MAX_REGION_TEXT_LENGTH);
   validateMismatchFields(report);
@@ -193,15 +212,29 @@ function validateReport(
   validateRequiredUtcTimestamp(report.observedAt, 'Observation time');
   validateRequiredUtcTimestamp(report.submittedAt, 'Submission time');
 
-  validateRequiredNumber(report.finalLatitude, -90, 90, 'Final latitude');
-  validateRequiredNumber(report.finalLongitude, -180, 180, 'Final longitude');
   if (!isOneOf(report.locationSource, LOCATION_SOURCES)) {
     invalid('Valid location provenance is required.');
   }
-  if (report.locationSource === 'gps') {
-    validateRequiredNumber(report.gpsAccuracy, 0, undefined, 'GPS accuracy');
-  } else if (report.gpsAccuracy !== null) {
-    invalid('GPS accuracy is only valid for GPS locations.');
+  if (report.locationSource === 'unavailable') {
+    // D-02: barangay plus an explicit reason replaces the coordinate
+    // requirement; fabricated coordinates are rejected.
+    if (!isOneOf(report.locationUnavailableReason, LOCATION_UNAVAILABLE_REASONS)) {
+      invalid('A reason is required when the location is unavailable.');
+    }
+    if (report.finalLatitude !== null || report.finalLongitude !== null) {
+      invalid('Unavailable locations cannot carry coordinates.');
+    }
+    if (report.gpsAccuracy !== null) {
+      invalid('Unavailable locations cannot carry GPS accuracy.');
+    }
+  } else {
+    validateRequiredNumber(report.finalLatitude, -90, 90, 'Final latitude');
+    validateRequiredNumber(report.finalLongitude, -180, 180, 'Final longitude');
+    if (report.locationSource === 'gps') {
+      validateRequiredNumber(report.gpsAccuracy, 0, undefined, 'GPS accuracy');
+    } else if (report.gpsAccuracy !== null) {
+      invalid('GPS accuracy is only valid for GPS locations.');
+    }
   }
 
   validateRequiredText(
@@ -348,6 +381,23 @@ function validateQualityWarnings(
       invalid('The quality warnings are unsupported or duplicated.');
     }
     values.add(warning);
+  }
+}
+
+function validateMeasurement(
+  field: string,
+  measurement: string,
+  value: number | null,
+): void {
+  if (measurement === 'measured') {
+    if (value === null) invalid(`${field} needs a numeric value.`);
+    return;
+  }
+  if (measurement !== 'not_measured') {
+    invalid(`${field} must be measured or not_measured.`);
+  }
+  if (value !== null) {
+    invalid(`${field} cannot carry a value when it was not measured.`);
   }
 }
 

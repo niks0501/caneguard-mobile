@@ -15,9 +15,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AssignmentCard } from '@/features/activity/components/AssignmentCard';
+import { NeedsAttentionPanel } from '@/features/activity/components/NeedsAttentionPanel';
+import {
+  buildNeedsAttention,
+  type NeedsAttentionItem,
+} from '@/features/activity/domain/needsAttention';
+import {
+  describeRefreshAllResult,
+  type RefreshAllTarget,
+} from '@/features/activity/domain/refreshAll';
+import { useRefreshAll } from '@/features/activity/hooks/useRefreshAll';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import { NotificationInbox } from '@/features/notifications/components/NotificationInbox';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
+import { useNotificationDestinations } from '@/features/notifications/hooks/useNotificationDestinations';
+import { notificationDestinationRoute } from '@/features/notifications/services/resolveNotificationDestination';
 import { RecordCard } from '@/components/ui/RecordCard';
 import { AppButton } from '@/components/ui/AppButton';
 import { BottomNav } from '@/components/ui/BottomNav';
@@ -40,6 +52,7 @@ import { DEFAULT_RECORD_PAGE_SIZE } from '@/features/records/domain/recordTypes'
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
 import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
+import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ActivityScreen() {
@@ -47,6 +60,8 @@ export default function ActivityScreen() {
   const [activeFilter, setActiveFilter] = useState<CurrentActivityFilter>('all');
   const [searchInput, setSearchInput] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [attentionExpanded, setAttentionExpanded] = useState(false);
   const hasFieldReport =
     activeFilter === 'reports'
       ? true
@@ -63,6 +78,8 @@ export default function ActivityScreen() {
   const authorityStatus = useAuthorityReviewStatus(activeFilter !== 'assignments');
   const assignments = useFieldValidationAssignments();
   const notifications = useMobileNotifications();
+  const destinations = useNotificationDestinations(notifications.notifications);
+  const sync = useSync();
   const visibleAssignments =
     activeFilter === 'all' || activeFilter === 'assignments'
       ? assignments.assignments.filter((assignment) => matchesSearch(assignment, submittedSearch))
@@ -88,6 +105,39 @@ export default function ActivityScreen() {
   const hasFilters = activeFilter !== 'all' || Boolean(submittedSearch);
   const latestVisibleRecordId = timeline.find((item) => item.kind === 'record')?.id;
   const activityCount = timeline.length;
+  const attention = buildNeedsAttention({
+    assignments: assignments.assignments,
+    destinations,
+    notifications: notifications.notifications,
+    pendingUploadCount: sync.pendingCount,
+    syncErrorMessage: sync.errorMessage,
+    today: new Date().toISOString().slice(0, 10),
+  });
+  const buildRefreshTargets = (): RefreshAllTarget[] => {
+    const targets: RefreshAllTarget[] = [
+      { key: 'notifications', run: () => notifications.refresh() },
+      { key: 'officeReview', run: () => authorityStatus.refresh() },
+      { key: 'assignments', run: () => assignments.refresh() },
+      { key: 'records', run: () => records.refresh() },
+    ];
+    if (sync.isOnline === true) {
+      targets.unshift({
+        key: 'sync',
+        run: async () => {
+          const result = await sync.syncNow('manual');
+          return Boolean(result && !result.authRequired && result.failed === 0);
+        },
+      });
+    }
+    return targets;
+  };
+  const { refreshAll, refreshing: refreshingAll, result: refreshAllResult } =
+    useRefreshAll();
+  const refreshMessage = describeRefreshAllResult(refreshAllResult);
+  const subsystemErrors = [
+    authorityStatus.errorMessage,
+    assignments.errorMessage,
+  ].filter((message): message is string => Boolean(message));
 
   const submitSearch = () => {
     setSubmittedSearch(searchInput.trim());
@@ -99,13 +149,74 @@ export default function ActivityScreen() {
     setSubmittedSearch('');
   };
 
+  const openNotification = (notification: MobileNotification) => {
+    const destination = destinations.get(notification.id);
+    if (!destination || destination.kind === 'unavailable') return;
+    // Acknowledgment is best effort: a failed read mutation never blocks the
+    // inspector from opening the destination.
+    void notifications.markRead(notification.id);
+    const route = notificationDestinationRoute(destination);
+    setNotificationsOpen(false);
+    if (route) {
+      router.push(route as never);
+    }
+  };
+
+  const openAttentionItem = (item: NeedsAttentionItem) => {
+    if (!item.destination) return;
+    const route = notificationDestinationRoute(item.destination);
+    if (!route) return;
+    if (item.kind === 'notification') {
+      const notificationId = item.id.replace(/^notification-/, '');
+      void notifications.markRead(notificationId);
+    }
+    router.push(route as never);
+  };
+
   return (
     <SafeAreaView
       testID="activity.screen"
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Activity" showBack={false} />
+        <BrandedScreenHeader
+          title="Activity"
+          showBack={false}
+          subtitle="One place for your field work. Reports and scans stay on this device."
+          action={
+            <Pressable
+              testID="activity.notifications-toggle"
+              accessibilityRole="button"
+              accessibilityLabel={
+                notificationsOpen ? 'Hide office updates' : 'Show office updates'
+              }
+              accessibilityState={{ expanded: notificationsOpen }}
+              onPress={() => setNotificationsOpen((value) => !value)}
+              style={({ pressed }) => [
+                styles.bell,
+                {
+                  backgroundColor: notificationsOpen
+                    ? theme.primary
+                    : theme.surfaceElevated,
+                  borderColor: notificationsOpen ? theme.primary : theme.border,
+                },
+                pressed && styles.pressed,
+              ]}>
+              <Feather
+                name="bell"
+                size={21}
+                color={notificationsOpen ? theme.background : theme.primaryDark}
+              />
+              {notifications.unreadCount > 0 ? (
+                <View style={[styles.badge, { backgroundColor: theme.danger }]}>
+                  <Text style={[styles.badgeText, { color: theme.background }]}>
+                    {notifications.unreadCount > 9 ? '9+' : notifications.unreadCount}
+                  </Text>
+                </View>
+              ) : null}
+            </Pressable>
+          }
+        />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardAvoiding}>
@@ -114,100 +225,56 @@ export default function ActivityScreen() {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.scrollContent}>
             <View style={styles.content}>
-              <View
-                style={[
-                  styles.intro,
-                  {
-                    backgroundColor: theme.surfaceMuted,
-                    borderColor: theme.border,
-                  },
-                ]}>
-                <View style={[styles.introIcon, { backgroundColor: theme.surfaceElevated }]}>
-                  <Feather name="activity" size={20} color={theme.primary} />
-                </View>
-                <Text style={[styles.introText, { color: theme.textSecondary }]}>
-                  One place for your field work. Reports and scan-only observations stay available on this device.
-                </Text>
-              </View>
-
-              {activeFilter !== 'scans' ? <SyncStatusPanel /> : null}
-
               {activeFilter !== 'scans' ? (
+                <NeedsAttentionPanel
+                  expanded={attentionExpanded}
+                  onOpenItem={openAttentionItem}
+                  onToggleExpanded={() => setAttentionExpanded((value) => !value)}
+                  summary={attention}
+                />
+              ) : null}
+
+              {activeFilter !== 'scans' && notificationsOpen ? (
                 <NotificationInbox
+                  destinations={destinations}
                   errorMessage={notifications.errorMessage}
                   notifications={notifications.notifications}
-                  onNotificationPress={(notification) => openNotification(notification)}
-                  onRefresh={() => void notifications.refresh()}
-                  refreshing={notifications.refreshing}
+                  onMarkAllRead={() => void notifications.markAllRead()}
+                  onNotificationPress={openNotification}
+                  readActionError={notifications.readActionError}
                   unreadCount={notifications.unreadCount}
                 />
               ) : null}
 
               {activeFilter !== 'scans' ? (
-                <View
-                  testID="activity.authority-status-refresh"
-                  style={[
-                    styles.authorityRefresh,
-                    {
-                      backgroundColor: theme.surfaceMuted,
-                      borderColor: theme.border,
-                    },
-                  ]}>
-                  <View style={styles.authorityRefreshCopy}>
-                    <Text style={[styles.authorityRefreshTitle, { color: theme.primaryDark }]}>
-                      Office review updates
-                    </Text>
-                    <Text style={[styles.authorityRefreshMessage, { color: theme.textSecondary }]}>
-                      Synchronized reports show the latest review status when available.
-                    </Text>
-                    {authorityStatus.errorMessage ? (
-                      <Text
-                        accessibilityLiveRegion="assertive"
-                        style={[styles.authorityRefreshMessage, { color: theme.danger }]}>
-                        {authorityStatus.errorMessage}
-                      </Text>
-                    ) : null}
-                  </View>
+                <View testID="activity.refresh-scope" style={styles.refreshScope}>
+                  <SyncStatusPanel showAction={false} />
                   <AppButton
-                    onPress={() => void authorityStatus.refresh()}
-                    disabled={authorityStatus.refreshing}
+                    testID="activity.refresh-all"
+                    onPress={() => void refreshAll(buildRefreshTargets())}
+                    disabled={refreshingAll}
                     variant="secondary"
                     leadingIcon="refresh-cw"
                     accessibilityLabel={
-                      authorityStatus.refreshing
-                        ? 'Refreshing office review updates'
-                        : 'Refresh office review updates'
+                      refreshingAll ? 'Refreshing all activity' : 'Refresh all activity'
                     }>
-                    {authorityStatus.refreshing ? 'Refreshing...' : 'Refresh status'}
+                    {refreshingAll ? 'Refreshing...' : 'Refresh all'}
                   </AppButton>
-                </View>
-              ) : null}
-
-              {activeFilter !== 'scans' ? (
-                <View
-                  testID="activity.assignment-refresh"
-                  style={[
-                    styles.authorityRefresh,
-                    {
-                      backgroundColor: theme.surfaceMuted,
-                      borderColor: theme.border,
-                    },
-                  ]}>
-                  <View style={styles.authorityRefreshCopy}>
-                    <Text style={[styles.authorityRefreshTitle, { color: theme.primaryDark }]}>Field assignments</Text>
-                    <Text style={[styles.authorityRefreshMessage, { color: theme.textSecondary }]}>Assignments are refreshed from the server and kept on this device for field work.</Text>
-                    {assignments.errorMessage ? (
-                      <Text accessibilityLiveRegion="assertive" style={[styles.authorityRefreshMessage, { color: theme.danger }]}>{assignments.errorMessage}</Text>
-                    ) : null}
-                  </View>
-                  <AppButton
-                    onPress={() => void assignments.refresh()}
-                    disabled={assignments.refreshing}
-                    variant="secondary"
-                    leadingIcon="refresh-cw"
-                    accessibilityLabel={assignments.refreshing ? 'Refreshing field assignments' : 'Refresh field assignments'}>
-                    {assignments.refreshing ? 'Refreshing...' : 'Refresh assignments'}
-                  </AppButton>
+                  {refreshMessage ? (
+                    <Text
+                      accessibilityLiveRegion="polite"
+                      style={[styles.refreshMessage, { color: theme.textSecondary }]}>
+                      {refreshMessage}
+                    </Text>
+                  ) : null}
+                  {subsystemErrors.map((message) => (
+                    <Text
+                      key={message}
+                      accessibilityLiveRegion="assertive"
+                      style={[styles.refreshMessage, { color: theme.danger }]}>
+                      {message}
+                    </Text>
+                  ))}
                 </View>
               ) : null}
 
@@ -390,15 +457,6 @@ export default function ActivityScreen() {
   );
 }
 
-function openNotification(notification: MobileNotification): void {
-  if (notification.assignmentUuid) {
-    router.push({
-      pathname: '/field-validation',
-      params: { assignmentId: notification.assignmentUuid },
-    } as never);
-  }
-}
-
 function formatActivityCount(
   count: number,
   filter: CurrentActivityFilter,
@@ -499,34 +557,31 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: Layout.mobileMaxWidth,
     paddingHorizontal: ComponentTokens.screen.horizontalPadding,
-    paddingVertical: Spacing.xl,
+    paddingVertical: Spacing.lg,
     gap: Spacing.lg,
   },
-  intro: {
+  bell: {
+    width: 44,
+    height: 44,
     borderWidth: 1,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-  },
-  introIcon: {
-    width: 34,
-    height: 34,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  introText: { ...Typography.bodySmall, flex: 1 },
-  authorityRefresh: {
-    borderWidth: 1,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    gap: Spacing.sm,
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 20,
+    height: 20,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
-  authorityRefreshCopy: { gap: Spacing.xs },
-  authorityRefreshTitle: { ...Typography.bodySmall, fontWeight: '800' },
-  authorityRefreshMessage: { ...Typography.caption },
+  badgeText: { ...Typography.caption, fontSize: 11, fontWeight: '800' },
+  refreshScope: { gap: Spacing.sm },
+  refreshMessage: { ...Typography.caption },
   searchRow: { flexDirection: 'row', gap: Spacing.sm },
   search: {
     minHeight: 54,

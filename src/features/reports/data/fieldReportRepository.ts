@@ -3,7 +3,13 @@ import { and, eq } from 'drizzle-orm';
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
-import { fieldReports, scanClassScores, scanRecords } from '@/database/schema';
+import {
+  fieldReports,
+  scanClassScores,
+  scanRecords,
+  LOCATION_UNAVAILABLE_REASONS,
+  type LocationUnavailableReason,
+} from '@/database/schema';
 import { persistSubmissionImageMetadata } from '@/features/records/data/submissionImageRepository';
 import {
   prepareSubmissionImage,
@@ -31,6 +37,7 @@ import {
   getMissingSubmissionRequirements,
   normalizeFinalizeFieldReportInput,
   normalizeFieldReportDraftInput,
+  resolveMeasurementProvenance,
   validateGpsCaptureInput,
   validateCreateFieldReportDraftInput,
   validateManualMapLocationInput,
@@ -222,6 +229,7 @@ export async function saveGpsCapture(
               finalLongitude: input.longitude,
               gpsAccuracy: input.accuracy,
               locationSource: 'gps' as const,
+              locationUnavailableReason: null,
               manualLocationSelectedAt: null,
             }
           : {};
@@ -306,6 +314,7 @@ export async function saveManualMapLocation(
           finalLongitude: input.longitude,
           gpsAccuracy: null,
           locationSource: 'manual_map',
+          locationUnavailableReason: null,
           manualLocationSelectedAt: input.selectedAt,
           updatedAt: input.updatedAt,
         })
@@ -325,6 +334,166 @@ export async function saveManualMapLocation(
   } catch (error: unknown) {
     throw toStorageError(error, 'UPDATE_FAILED', 'Saving the manual location failed.');
   }
+}
+
+/**
+ * D-02: record that the inspector finished the Draft without an exact
+ * coordinate. Barangay and every other required detail stay mandatory; only the
+ * coordinate requirement is replaced by an explicit, bounded reason.
+ */
+export async function clearLocationUnavailable(
+  database: CaneGuardDatabase,
+  id: string,
+  submitterIdentity: string,
+  input: { updatedAt: string },
+): Promise<FieldReport> {
+  const owner = requireOwnerIdentity(submitterIdentity);
+  if (!isValidUtcTimestampValue(input.updatedAt)) {
+    throw new StorageError('INVALID_FIELD_REPORT', 'A draft timestamp is invalid.');
+  }
+
+  try {
+    return database.transaction((transaction) => {
+      const existing = transaction
+        .select({ authoringState: fieldReports.authoringState, scanRecordId: fieldReports.scanRecordId })
+        .from(fieldReports)
+        .where(and(eq(fieldReports.id, id), eq(fieldReports.submitterIdentity, owner)))
+        .get();
+      const scan = existing
+        ? transaction
+            .select({ id: scanRecords.id })
+            .from(scanRecords)
+            .where(and(eq(scanRecords.id, existing.scanRecordId), eq(scanRecords.ownerIdentity, owner)))
+            .get()
+        : null;
+      if (!existing || !scan) {
+        throw new StorageError('FIELD_REPORT_NOT_FOUND', 'The Field Report does not exist.');
+      }
+      if (existing.authoringState !== 'draft') {
+        throw new StorageError('UPDATE_FAILED', 'Only a Draft Field Report can change its location.');
+      }
+
+      transaction
+        .update(fieldReports)
+        .set({
+          finalLatitude: null,
+          finalLongitude: null,
+          gpsAccuracy: null,
+          locationSource: null,
+          locationUnavailableReason: null,
+          updatedAt: input.updatedAt,
+        })
+        .where(and(eq(fieldReports.id, id), eq(fieldReports.authoringState, 'draft')))
+        .run();
+
+      const saved = transaction.select().from(fieldReports).where(eq(fieldReports.id, id)).get();
+      if (!saved) {
+        throw new StorageError('UPDATE_FAILED', 'The location could not be reloaded.');
+      }
+      return toFieldReport(saved);
+    });
+  } catch (error: unknown) {
+    throw toStorageError(error, 'UPDATE_FAILED', 'Changing the report location failed.');
+  }
+}
+
+export async function setLocationUnavailable(
+  database: CaneGuardDatabase,
+  id: string,
+  submitterIdentity: string,
+  input: { reason: LocationUnavailableReason; updatedAt: string },
+): Promise<FieldReport> {
+  const owner = requireOwnerIdentity(submitterIdentity);
+  if (!isValidUtcTimestampValue(input.updatedAt)) {
+    throw new StorageError('INVALID_FIELD_REPORT', 'A draft timestamp is invalid.');
+  }
+  if (!LOCATION_UNAVAILABLE_REASONS.includes(input.reason)) {
+    throw new StorageError(
+      'INVALID_FIELD_REPORT',
+      'Choose why the location is unavailable.',
+    );
+  }
+
+  try {
+    return database.transaction((transaction) => {
+      const existing = transaction
+        .select({
+          authoringState: fieldReports.authoringState,
+          scanRecordId: fieldReports.scanRecordId,
+        })
+        .from(fieldReports)
+        .where(
+          and(
+            eq(fieldReports.id, id),
+            eq(fieldReports.submitterIdentity, owner),
+          ),
+        )
+        .get();
+      const scan = existing
+        ? transaction
+            .select({ id: scanRecords.id })
+            .from(scanRecords)
+            .where(
+              and(
+                eq(scanRecords.id, existing.scanRecordId),
+                eq(scanRecords.ownerIdentity, owner),
+              ),
+            )
+            .get()
+        : null;
+      if (!existing || !scan) {
+        throw new StorageError('FIELD_REPORT_NOT_FOUND', 'The Field Report does not exist.');
+      }
+      if (existing.authoringState !== 'draft') {
+        throw new StorageError(
+          'UPDATE_FAILED',
+          'Only a Draft Field Report can record an unavailable location.',
+        );
+      }
+
+      transaction
+        .update(fieldReports)
+        .set({
+          finalLatitude: null,
+          finalLongitude: null,
+          gpsAccuracy: null,
+          locationSource: 'unavailable',
+          locationUnavailableReason: input.reason,
+          // An explicit unavailable choice supersedes any earlier successful
+          // GPS outcome while retaining the attempt coordinates as evidence.
+          gpsCaptureOutcome: 'unavailable',
+          gpsOutcomeRecordedAt: input.updatedAt,
+          manualLocationSelectedAt: null,
+          updatedAt: input.updatedAt,
+        })
+        .where(and(eq(fieldReports.id, id), eq(fieldReports.authoringState, 'draft')))
+        .run();
+
+      const saved = transaction
+        .select()
+        .from(fieldReports)
+        .where(eq(fieldReports.id, id))
+        .get();
+      if (!saved) {
+        throw new StorageError(
+          'UPDATE_FAILED',
+          'The unavailable location could not be reloaded.',
+        );
+      }
+      return toFieldReport(saved);
+    });
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'UPDATE_FAILED',
+      'Recording the unavailable location failed.',
+    );
+  }
+}
+
+function isValidUtcTimestampValue(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)
+    && !Number.isNaN(Date.parse(value));
 }
 
 export interface FinalizeFieldReportDependencies {
@@ -370,7 +539,9 @@ export async function finalizeFieldReport(
         .update(fieldReports)
         .set({
           affectedAreaHectares: values.affectedAreaHectares,
+          affectedAreaMeasurement: values.affectedAreaMeasurement,
           affectedPortionPercent: values.affectedPortionPercent,
+          affectedPortionMeasurement: values.affectedPortionMeasurement,
           barangay: values.barangay,
           caneClass: values.caneClass,
           cropAge: values.cropAge,
@@ -751,6 +922,59 @@ export async function findFieldReportByScanRecordId(
   }
 }
 
+export async function findScanRecordIdForCase(
+  database: CaneGuardDatabase,
+  submitterIdentity: string,
+  identity: { caseUuid: string | null; referenceCode: string | null },
+): Promise<string | null> {
+  const owner = requireOwnerIdentity(submitterIdentity);
+  const caseUuid = identity.caseUuid?.trim() || null;
+  const referenceCode = identity.referenceCode?.trim() || null;
+  if (!caseUuid && !referenceCode) {
+    return null;
+  }
+
+  try {
+    const ownedScanRecord = and(
+      eq(scanRecords.id, fieldReports.scanRecordId),
+      eq(scanRecords.ownerIdentity, owner),
+      eq(fieldReports.submitterIdentity, owner),
+    );
+
+    if (caseUuid) {
+      const byRemoteId = await database
+        .select({ scanRecordId: fieldReports.scanRecordId })
+        .from(fieldReports)
+        .innerJoin(scanRecords, ownedScanRecord)
+        .where(eq(fieldReports.remoteId, caseUuid))
+        .get();
+      if (byRemoteId) {
+        return byRemoteId.scanRecordId;
+      }
+    }
+
+    if (referenceCode) {
+      const byReference = await database
+        .select({ scanRecordId: fieldReports.scanRecordId })
+        .from(fieldReports)
+        .innerJoin(scanRecords, ownedScanRecord)
+        .where(eq(fieldReports.authorityReferenceCode, referenceCode))
+        .get();
+      if (byReference) {
+        return byReference.scanRecordId;
+      }
+    }
+
+    return null;
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'QUERY_FAILED',
+      'Resolving the notification destination failed.',
+    );
+  }
+}
+
 export async function hasFieldReportOwnedByAnotherSubmitter(
   database: CaneGuardDatabase,
   scanRecordId: string,
@@ -887,7 +1111,16 @@ function toFieldReport(row: typeof fieldReports.$inferSelect): FieldReport {
     cropAge: row.cropAge,
     caneClass: row.caneClass,
     affectedAreaHectares: row.affectedAreaHectares,
+    affectedAreaMeasurement:
+      row.affectedAreaMeasurement ??
+      resolveMeasurementProvenance(row.affectedAreaHectares),
+    affectedAreaMeasurementExplicit: row.affectedAreaMeasurement !== null,
     affectedPortionPercent: row.affectedPortionPercent,
+    affectedPortionMeasurement:
+      row.affectedPortionMeasurement ??
+      resolveMeasurementProvenance(row.affectedPortionPercent),
+    affectedPortionMeasurementExplicit: row.affectedPortionMeasurement !== null,
+    locationUnavailableReason: row.locationUnavailableReason,
     fieldNotes: row.fieldNotes,
     mismatchReported: row.mismatchReported,
     reporterObservationText: row.reporterObservationText,

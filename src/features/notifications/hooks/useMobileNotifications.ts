@@ -6,9 +6,15 @@ import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
+  markAllMobileNotificationsRead,
+  markMobileNotificationRead,
   MobileNotificationsApiError,
 } from '@/features/notifications/api/mobileNotificationsApi';
-import { listCachedMobileNotifications } from '@/features/notifications/data/notificationCacheRepository';
+import {
+  listCachedMobileNotifications,
+  markAllCachedMobileNotificationsRead,
+  markCachedMobileNotificationRead,
+} from '@/features/notifications/data/notificationCacheRepository';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 import { refreshMobileNotifications } from '@/features/notifications/services/refreshMobileNotifications';
 
@@ -17,6 +23,7 @@ interface MobileNotificationsState {
   errorMessage: string | null;
   lastSuccessfulAt: string | null;
   notifications: MobileNotification[];
+  readActionError: string | null;
   refreshing: boolean;
   sessionKey: string | null;
 }
@@ -29,6 +36,7 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
     errorMessage: null,
     lastSuccessfulAt: null,
     notifications: [],
+    readActionError: null,
     refreshing: false,
     sessionKey: null,
   });
@@ -48,9 +56,9 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
     [],
   );
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<boolean> => {
     const requestedSession = session;
-    if (!enabled || authStatus !== 'authenticated' || !requestedSession) return;
+    if (!enabled || authStatus !== 'authenticated' || !requestedSession) return false;
 
     setState((current) => ({
       ...current,
@@ -77,23 +85,25 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
         ownerIdentity: requestedSession.user.uuid,
         token: requestedSession.token,
       });
-      if (!isCurrentSession(requestedSession)) return;
+      if (!isCurrentSession(requestedSession)) return false;
       setState({
         capabilityUnavailable: false,
         errorMessage: null,
         lastSuccessfulAt: result.fetchedAt,
         notifications: result.notifications,
+        readActionError: null,
         refreshing: false,
         sessionKey,
       });
+      return true;
     } catch (error: unknown) {
-      if (!isCurrentSession(requestedSession)) return;
+      if (!isCurrentSession(requestedSession)) return false;
       if (
         error instanceof MobileNotificationsApiError &&
         error.code === 'AUTH_REQUIRED'
       ) {
         await markSessionExpired();
-        return;
+        return false;
       }
       const capabilityUnavailable =
         error instanceof MobileNotificationsApiError &&
@@ -116,6 +126,7 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
               : "Couldn't refresh notifications.",
         refreshing: false,
       }));
+      return false;
     }
   }, [authStatus, database, enabled, isCurrentSession, markSessionExpired, session, sessionKey]);
 
@@ -139,6 +150,88 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
     };
   }, [refresh]);
 
+  const markRead = useCallback(
+    async (notificationId: string) => {
+      const requestedSession = session;
+      if (!enabled || authStatus !== 'authenticated' || !requestedSession) return;
+
+      try {
+        const result = await markMobileNotificationRead({
+          id: notificationId,
+          token: requestedSession.token,
+        });
+        if (!isCurrentSession(requestedSession)) return;
+        const readAt = result.notification.readAt ?? new Date().toISOString();
+        await markCachedMobileNotificationRead(
+          database,
+          requestedSession.user.uuid,
+          notificationId,
+          readAt,
+        );
+        setState((current) => ({
+          ...current,
+          readActionError: null,
+          notifications: current.notifications.map((notification) =>
+            notification.id === notificationId
+              ? { ...notification, isRead: true, readAt }
+              : notification,
+          ),
+        }));
+      } catch (error: unknown) {
+        if (!isCurrentSession(requestedSession)) return;
+        if (
+          error instanceof MobileNotificationsApiError &&
+          error.code === 'AUTH_REQUIRED'
+        ) {
+          await markSessionExpired();
+          return;
+        }
+        setState((current) => ({
+          ...current,
+          readActionError:
+            "Couldn't mark this update as read. It is still unread.",
+        }));
+      }
+    },
+    [authStatus, database, enabled, isCurrentSession, markSessionExpired, session],
+  );
+
+  const markAllRead = useCallback(async () => {
+    const requestedSession = session;
+    if (!enabled || authStatus !== 'authenticated' || !requestedSession) return;
+
+    try {
+      await markAllMobileNotificationsRead({ token: requestedSession.token });
+      if (!isCurrentSession(requestedSession)) return;
+      const readAt = new Date().toISOString();
+      await markAllCachedMobileNotificationsRead(
+        database,
+        requestedSession.user.uuid,
+        readAt,
+      );
+      setState((current) => ({
+        ...current,
+        readActionError: null,
+        notifications: current.notifications.map((notification) =>
+          notification.isRead ? notification : { ...notification, isRead: true, readAt },
+        ),
+      }));
+    } catch (error: unknown) {
+      if (!isCurrentSession(requestedSession)) return;
+      if (
+        error instanceof MobileNotificationsApiError &&
+        error.code === 'AUTH_REQUIRED'
+      ) {
+        await markSessionExpired();
+        return;
+      }
+      setState((current) => ({
+        ...current,
+        readActionError: "Couldn't mark every update as read. Unread items remain.",
+      }));
+    }
+  }, [authStatus, database, enabled, isCurrentSession, markSessionExpired, session]);
+
   const visibleState = state.sessionKey === sessionKey
     ? state
     : {
@@ -146,12 +239,15 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
         errorMessage: null,
         lastSuccessfulAt: null,
         notifications: [],
+        readActionError: null,
         refreshing: false,
         sessionKey,
       };
 
   return {
     ...visibleState,
+    markAllRead,
+    markRead,
     refresh,
     unreadCount: visibleState.notifications.filter((notification) => !notification.isRead).length,
   };

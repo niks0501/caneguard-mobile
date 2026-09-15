@@ -35,6 +35,8 @@ const REPORT: FieldReport = {
   authoringState: 'finalized', farmerOrFarmOwnerName: 'Maria Santos',
   province: 'Batangas', municipality: 'Nasugbu', barangay: 'Wawa',
   affectedAreaHectares: null, affectedPortionPercent: null,
+  affectedAreaMeasurement: 'not_measured', affectedPortionMeasurement: 'not_measured',
+  locationUnavailableReason: null,
   sugarcaneVariety: null, cropAge: null, caneClass: null, fieldNotes: null,
   mismatchReported: null, reporterObservationText: null, reporterSuspectedCondition: null,
   submitterIdentity: 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
@@ -256,7 +258,9 @@ describe('Field Report multipart mapper', () => {
         cropAge: '6 months',
         caneClass: 'Ratoon',
         affectedAreaHectares: 2.5,
+        affectedAreaMeasurement: 'measured',
         affectedPortionPercent: 40,
+        affectedPortionMeasurement: 'measured',
         fieldNotes: 'Wet patches near the river side.',
       }) as unknown as { _parts: [string, unknown][] })._parts,
     );
@@ -329,4 +333,71 @@ describe('Field Report multipart mapper', () => {
       expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }),
     );
   });
+  it('sends explicit measurement provenance instead of leaving it to inference', () => {
+    const values = new Map(
+      (map({
+        ...REPORT,
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured',
+        affectedPortionPercent: 40,
+        affectedPortionMeasurement: 'measured',
+      }) as unknown as { _parts: [string, unknown][] })._parts,
+    );
+
+    expect(values.has('affected_area_hectares')).toBe(false);
+    expect(values.get('affected_area_measurement')).toBe('not_measured');
+    expect(values.get('affected_portion_percent')).toBe('40');
+    expect(values.get('affected_portion_measurement')).toBe('measured');
+  });
+
+  it('rejects a value whose provenance says it was not measured', () => {
+    expect(() =>
+      map({
+        ...REPORT,
+        affectedAreaHectares: 2.5,
+        affectedAreaMeasurement: 'not_measured',
+      }),
+    ).toThrow(expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }));
+  });
+
+  it('sends an unavailable location with its reason and no coordinates', () => {
+    const values = new Map(
+      (map({
+        ...REPORT,
+        finalLatitude: null,
+        finalLongitude: null,
+        gpsAccuracy: null,
+        locationSource: 'unavailable',
+        locationUnavailableReason: 'offline_no_map',
+      }) as unknown as { _parts: [string, unknown][] })._parts,
+    );
+
+    expect(values.get('location_source')).toBe('unavailable');
+    expect(values.get('location_unavailable_reason')).toBe('offline_no_map');
+    expect(values.has('final_latitude')).toBe(false);
+    expect(values.has('final_longitude')).toBe(false);
+    expect(values.has('gps_accuracy')).toBe(false);
+  });
+
+  it('rejects an unavailable location that still claims coordinates', () => {
+    expect(() =>
+      map({
+        ...REPORT,
+        locationSource: 'unavailable',
+        locationUnavailableReason: 'offline_no_map',
+      }),
+    ).toThrow(expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }));
+
+    expect(() =>
+      map({
+        ...REPORT,
+        finalLatitude: null,
+        finalLongitude: null,
+        gpsAccuracy: null,
+        locationSource: 'unavailable',
+        locationUnavailableReason: null,
+      }),
+    ).toThrow(expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }));
+  });
+
 });

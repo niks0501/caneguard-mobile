@@ -5,8 +5,8 @@ import RecordsScreen from '@/app/records';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
 
-const mockRefresh = jest.fn(async () => undefined);
-const mockLoadMore = jest.fn(async () => undefined);
+const mockRefresh = jest.fn(async () => true);
+const mockLoadMore = jest.fn(async () => true);
 let mockRecordsState: ReturnType<typeof usePaginatedScanRecords> = {
   data: [],
   errorMessage: null,
@@ -36,12 +36,18 @@ jest.mock('@/features/notifications/hooks/useMobileNotifications', () => ({
     capabilityUnavailable: false,
     errorMessage: null,
     lastSuccessfulAt: null,
+    markAllRead: jest.fn(async () => undefined),
+    markRead: jest.fn(async () => undefined),
     notifications: [],
+    readActionError: null,
     refreshing: false,
     refresh: jest.fn(async () => undefined),
     sessionKey: 'test-session',
     unreadCount: 0,
   }),
+}));
+jest.mock('@/features/notifications/hooks/useNotificationDestinations', () => ({
+  useNotificationDestinations: () => new Map(),
 }));
 jest.mock('@/features/reports/hooks/useAuthorityReviewStatus', () => ({
   useAuthorityReviewStatus: () => ({

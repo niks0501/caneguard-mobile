@@ -107,7 +107,10 @@ const REPORT: FieldReport = {
   municipality: 'Nasugbu',
   barangay: 'Wawa',
   affectedAreaHectares: null,
+  affectedAreaMeasurement: 'not_measured',
   affectedPortionPercent: null,
+  affectedPortionMeasurement: 'not_measured',
+  locationUnavailableReason: null,
   sugarcaneVariety: null,
   cropAge: null,
   caneClass: null,
@@ -362,6 +365,23 @@ function map(
   imageExists: (() => boolean) | undefined = undefined,
 ): FormData {
   const report = { ...REPORT, ...reportOverrides } as FieldReport;
+  // D-01 keeps value and provenance coherent, so an override that only changes a
+  // number also states that it was measured.
+  for (const [valueField, measurementField] of [
+    ['affectedAreaHectares', 'affectedAreaMeasurement'],
+    ['affectedPortionPercent', 'affectedPortionMeasurement'],
+  ] as const) {
+    if (
+      reportOverrides &&
+      valueField in reportOverrides &&
+      !(measurementField in reportOverrides)
+    ) {
+      report[measurementField] =
+        report[valueField] === null || report[valueField] === undefined
+          ? 'not_measured'
+          : 'measured';
+    }
+  }
   const scanRecord = { ...SCAN, ...scanOverrides } as ScanRecordDetails;
   return mapFieldReportToMultipart(
     { report, scanRecord },

@@ -210,7 +210,7 @@ export function usePaginatedScanRecords(
     Math.max(Math.trunc(pageSize), 1),
     MAX_RECORD_PAGE_SIZE,
   );
-  const loadMoreInFlight = useRef<Promise<void> | null>(null);
+  const loadMoreInFlight = useRef<Promise<boolean> | null>(null);
   const requestId = useRef(0);
   const [dataOwnerIdentity, setDataOwnerIdentity] = useState<string | null>(null);
   const [state, setState] = useState<PaginatedQueryState>({
@@ -222,7 +222,7 @@ export function usePaginatedScanRecords(
   });
 
   const loadPage = useCallback(
-    async (offset: number, append: boolean) => {
+    async (offset: number, append: boolean): Promise<boolean> => {
       const currentRequestId = ++requestId.current;
       if (!submitterIdentity) {
         setDataOwnerIdentity(null);
@@ -233,7 +233,7 @@ export function usePaginatedScanRecords(
           loading: false,
           loadingMore: false,
         });
-        return;
+        return false;
       }
       setState((current) => ({
         ...current,
@@ -263,7 +263,7 @@ export function usePaginatedScanRecords(
         }, submitterIdentity);
 
         if (requestId.current !== currentRequestId) {
-          return;
+          return false;
         }
         setDataOwnerIdentity(submitterIdentity);
 
@@ -274,9 +274,10 @@ export function usePaginatedScanRecords(
           loading: false,
           loadingMore: false,
         }));
+        return true;
       } catch (error: unknown) {
         if (requestId.current !== currentRequestId) {
-          return;
+          return false;
         }
 
         const storageError = toStorageError(
@@ -291,6 +292,7 @@ export function usePaginatedScanRecords(
           loading: false,
           loadingMore: false,
         }));
+        return false;
       }
     },
     [
@@ -319,9 +321,9 @@ export function usePaginatedScanRecords(
       return loadMoreInFlight.current;
     }
     if (state.loading || state.loadingMore || !state.hasMore) {
-      return Promise.resolve();
+      return Promise.resolve(false);
     }
-    const request: Promise<void> = loadPage(state.data.length, true).finally(() => {
+    const request: Promise<boolean> = loadPage(state.data.length, true).finally(() => {
       if (loadMoreInFlight.current === request) {
         loadMoreInFlight.current = null;
       }

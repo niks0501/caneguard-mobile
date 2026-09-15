@@ -24,7 +24,6 @@ import {
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import {
   MODEL_LABELS,
-  MODEL_VERSION,
   type ModelLabel,
 } from '@/features/detection/constants/modelContract';
 import {
@@ -191,11 +190,13 @@ export default function AnalysisResultScreen() {
               accessibilityLabel="Selected sugarcane image used for analysis"
               style={[styles.resultImage, { borderColor: theme.border }]}
             />
-            <View style={[styles.resultCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
+            <View
+              testID="scan.decision-card"
+              style={[styles.resultCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
               <View style={[styles.diseasePill, { backgroundColor: diseaseBackground }]}>
                 <Feather name={metadata.icon} size={16} color={diseaseColor} />
                 <Text style={[styles.diseasePillText, { color: diseaseColor }]}>
-                  {MODEL_VERSION}
+                  AI screening result
                 </Text>
               </View>
               <Text
@@ -203,113 +204,30 @@ export default function AnalysisResultScreen() {
                 style={[styles.diseaseName, { color: theme.primaryDark }]}>
                 {resultTitle}
               </Text>
-              <Text style={[styles.resultMessage, { color: theme.text }]}>
-                {metadata.resultMessage}
-              </Text>
-              <Text style={[styles.description, { color: theme.textSecondary }]}>
-                {metadata.shortDescription}
-              </Text>
               <Text
                 testID="scan.decision-support-wording"
                 style={[styles.advisory, { color: theme.textSecondary }]}>
                 {result.decisionSupportWording ?? metadata.decisionSupportWording}
               </Text>
-              <View style={[styles.confidence, { backgroundColor: diseaseBackground }]}>
-                <Text style={[styles.confidenceLabel, { color: theme.textSecondary }]}>
-                  AI confidence
-                </Text>
-                <Text
-                  accessibilityLabel={`AI confidence ${formatPercentage(result.confidence)}`}
-                  style={[styles.confidenceValue, { color: diseaseColor }]}>
-                  {formatPercentage(result.confidence)}
-                </Text>
-              </View>
-            </View>
-
-            {state.qualityAssessment?.warnings.length ? (
-              <View
-                accessibilityRole="alert"
-                style={[
-                  styles.qualityCard,
-                  {
-                    backgroundColor: theme.warningBg,
-                    borderColor: theme.warning,
-                  },
-                ]}>
-                <Feather name="camera" size={22} color={theme.warning} />
-                <View style={styles.qualityCopy}>
-                  <Text style={[styles.qualityTitle, { color: theme.warning }]}>
-                    Image quality notice
-                  </Text>
-                  <Text style={[styles.qualityIndependence, { color: theme.text }]}>
-                    These input warnings did not change the model scores.
-                  </Text>
-                  {state.qualityAssessment.warnings.map((warning) => (
-                    <View key={warning} style={styles.qualityWarning}>
-                      <View
-                        style={[
-                          styles.qualityBullet,
-                          { backgroundColor: theme.warning },
-                        ]}
-                      />
-                      <Text
-                        style={[
-                          styles.qualityWarningText,
-                          { color: theme.textSecondary },
-                        ]}>
-                        {getQualityWarningMessage(warning)}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ) : null}
-
-            <View
-              testID="scan.checklist-consistency"
-              accessibilityRole={consistency === 'inconsistent' ? 'alert' : undefined}
-              style={[
-                styles.consistencyCard,
-                {
-                  backgroundColor: theme[consistencyPresentation.background],
-                  borderColor: theme[consistencyPresentation.foreground],
-                },
-              ]}>
-              <Feather
-                name={consistencyPresentation.icon}
-                size={22}
-                color={theme[consistencyPresentation.foreground]}
-              />
-              <View style={styles.consistencyCopy}>
-                <Text
+              {isLowScore ? (
+                <View
+                  accessibilityRole="alert"
+                  testID="scan.low-confidence-guidance"
                   style={[
-                    styles.consistencyTitle,
-                    { color: theme[consistencyPresentation.foreground] },
+                    styles.caution,
+                    {
+                      backgroundColor: theme.warningBg,
+                      borderColor: theme.warning,
+                    },
                   ]}>
-                  {consistencyPresentation.title}
-                </Text>
-                <Text style={[styles.consistencyMessage, { color: theme.text }]}>
-                  {consistencyPresentation.message}
-                </Text>
-              </View>
+                  <Feather name="alert-triangle" size={20} color={theme.warning} />
+                  <Text style={[styles.cautionText, { color: theme.text }]}>
+                    This result is not conclusive. You can still report it, keep it
+                    as a scan, or scan again for a clearer image.
+                  </Text>
+                </View>
+              ) : null}
             </View>
-
-            {isLowScore ? (
-              <View
-                accessibilityRole="alert"
-                style={[
-                  styles.caution,
-                  {
-                    backgroundColor: theme.warningBg,
-                    borderColor: theme.warning,
-                  },
-                ]}>
-                <Feather name="alert-triangle" size={20} color={theme.warning} />
-                <Text style={[styles.cautionText, { color: theme.text }]}>
-                  Confidence caution: this result is below the V1 caution threshold of {formatThreshold(V1_CONFIDENCE_CAUTION_THRESHOLD)}. You can still save or report it; consider retaking the image or consulting an agricultural expert.
-                </Text>
-              </View>
-            ) : null}
 
             <View
               testID="scan.outcome-panel"
@@ -404,6 +322,15 @@ export default function AnalysisResultScreen() {
                       ? 'Retry and Keep as Scan Only'
                       : 'Keep as Scan Only'}
                 </AppButton>
+                <AppButton
+                  testID="scan.new-scan"
+                  onPress={startNewScan}
+                  disabled={saveRecord.status === 'saving'}
+                  leadingIcon="refresh-cw"
+                  variant="secondary"
+                  accessibilityLabel="Scan again with a new image">
+                  Scan Again
+                </AppButton>
                 {saveRecord.status === 'saved' && saveRecord.recordId ? (
                   <AppButton
                     testID="scan.open-saved-record"
@@ -422,6 +349,97 @@ export default function AnalysisResultScreen() {
               </View>
             </View>
 
+            <DisclosureSection testID="scan.why-this-result" title="Why this result?">
+              <SectionCard title="What the model found">
+                <Text style={[styles.resultMessage, { color: theme.text }]}>
+                  {metadata.resultMessage}
+                </Text>
+                <Text style={[styles.description, { color: theme.textSecondary }]}>
+                  {metadata.shortDescription}
+                </Text>
+              </SectionCard>
+
+              <SectionCard title="AI confidence">
+                <Text style={[styles.confidenceLabel, { color: theme.textSecondary }]}>
+                  Exact model confidence for this image
+                </Text>
+                <Text
+                  testID="scan.confidence"
+                  accessibilityLabel={`AI confidence ${formatPercentage(result.confidence)}`}
+                  style={[styles.confidenceValue, { color: theme.primaryDark }]}>
+                  {formatPercentage(result.confidence)}
+                </Text>
+              </SectionCard>
+
+              <View
+                testID="scan.checklist-consistency"
+                accessibilityRole={consistency === 'inconsistent' ? 'alert' : undefined}
+                style={[
+                  styles.consistencyCard,
+                  {
+                    backgroundColor: theme[consistencyPresentation.background],
+                    borderColor: theme[consistencyPresentation.foreground],
+                  },
+                ]}>
+                <Feather
+                  name={consistencyPresentation.icon}
+                  size={22}
+                  color={theme[consistencyPresentation.foreground]}
+                />
+                <View style={styles.consistencyCopy}>
+                  <Text
+                    style={[
+                      styles.consistencyTitle,
+                      { color: theme[consistencyPresentation.foreground] },
+                    ]}>
+                    {consistencyPresentation.title}
+                  </Text>
+                  <Text style={[styles.consistencyMessage, { color: theme.text }]}>
+                    {consistencyPresentation.message}
+                  </Text>
+                </View>
+              </View>
+
+              {state.qualityAssessment?.warnings.length ? (
+                <View
+                  accessibilityRole="alert"
+                  style={[
+                    styles.qualityCard,
+                    {
+                      backgroundColor: theme.warningBg,
+                      borderColor: theme.warning,
+                    },
+                  ]}>
+                  <Feather name="camera" size={22} color={theme.warning} />
+                  <View style={styles.qualityCopy}>
+                    <Text style={[styles.qualityTitle, { color: theme.warning }]}>
+                      Image quality notice
+                    </Text>
+                    <Text style={[styles.qualityIndependence, { color: theme.text }]}>
+                      These input warnings did not change the model scores.
+                    </Text>
+                    {state.qualityAssessment.warnings.map((warning) => (
+                      <View key={warning} style={styles.qualityWarning}>
+                        <View
+                          style={[
+                            styles.qualityBullet,
+                            { backgroundColor: theme.warning },
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.qualityWarningText,
+                            { color: theme.textSecondary },
+                          ]}>
+                          {getQualityWarningMessage(warning)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+            </DisclosureSection>
+
             <DisclosureSection testID="scan.technical-details" title="Technical details">
               <SectionCard title="All Model V1 class scores">
                 {MODEL_LABELS.map((label) => (
@@ -438,6 +456,10 @@ export default function AnalysisResultScreen() {
                   label="Processing time"
                   value={`${Math.round(result.timings.totalMs)} ms`}
                 />
+                <DetailRow
+                  label="V1 caution threshold"
+                  value={formatThreshold(V1_CONFIDENCE_CAUTION_THRESHOLD)}
+                />
               </SectionCard>
             </DisclosureSection>
 
@@ -449,14 +471,6 @@ export default function AnalysisResultScreen() {
                 result is unclear or symptoms do not match.
               </Text>
             </View>
-            <AppButton
-              testID="scan.new-scan"
-              onPress={startNewScan}
-              disabled={saveRecord.status === 'saving'}
-              leadingIcon="refresh-cw"
-              accessibilityLabel="Clear result and start a new scan">
-              New Scan
-            </AppButton>
           </View>
         </ScrollView>
       </View>
@@ -538,7 +552,6 @@ const styles = StyleSheet.create({
   resultMessage: { ...Typography.body, fontWeight: '700' },
   description: { ...Typography.bodySmall },
   advisory: { ...Typography.bodySmall, fontWeight: '700' },
-  confidence: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.xs },
   confidenceLabel: { ...Typography.caption, fontWeight: '800' },
   confidenceValue: { ...Typography.title, fontWeight: '800' },
   sectionCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },

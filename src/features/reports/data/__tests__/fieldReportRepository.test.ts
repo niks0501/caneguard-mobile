@@ -15,14 +15,17 @@ import { StorageError } from '@/database/errors';
 import * as schema from '@/database/schema';
 import { getSubmissionImageUri } from '@/features/records/services/scanImageStorage';
 import {
+  clearLocationUnavailable,
   createOrGetFieldReportDraft,
   finalizeFieldReport,
   findFieldReportById,
   findFieldReportByScanRecordId,
+  findScanRecordIdForCase,
   hasFieldReportOwnedByAnotherSubmitter,
   saveGpsCapture,
   saveFieldReportDraft,
   saveManualMapLocation,
+  setLocationUnavailable,
 } from '@/features/reports/data/fieldReportRepository';
 import {
   countUnsyncedFieldReports,
@@ -88,6 +91,7 @@ function openTestDatabase(): {
     '0007_familiar_old_lace.sql',
     '0012_dapper_sumo.sql',
     '0013_v1_local_scan_migration.sql',
+    '0014_safe_songbird.sql',
   ]) {
     native.exec(readMigration(migration));
   }
@@ -741,6 +745,168 @@ describe('Field Report draft repository', () => {
     native.close();
   });
 
+  it('direct finalization replaces stale measurement values and reloads explicit provenance', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
+      affectedAreaHectares: 1.5,
+      affectedAreaMeasurement: 'measured',
+      affectedPortionPercent: 45,
+      affectedPortionMeasurement: 'measured',
+      barangay: 'Wawa',
+      farmerOrFarmOwnerName: 'Maria Santos',
+      updatedAt: '2026-08-10T01:05:00.000Z',
+    });
+    await saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
+      accuracy: 4.2,
+      capturedAt: '2026-08-10T01:04:00.000Z',
+      latitude: 14.0667,
+      longitude: 120.6319,
+      outcome: 'resolved',
+      updatedAt: '2026-08-10T01:04:01.000Z',
+    });
+
+    const result = await finalizeFieldReport(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      {
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured',
+        affectedPortionPercent: null,
+        affectedPortionMeasurement: 'not_measured',
+        barangay: 'Wawa',
+        farmerOrFarmOwnerName: 'Maria Santos',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        updatedAt: '2026-08-10T03:00:00.000Z',
+      },
+      IMAGE_EXISTS,
+    );
+
+    expect(result).toMatchObject({
+      status: 'finalized',
+      report: {
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured',
+        affectedAreaMeasurementExplicit: true,
+        affectedPortionPercent: null,
+        affectedPortionMeasurement: 'not_measured',
+        affectedPortionMeasurementExplicit: true,
+      },
+    });
+    expect(
+      native.prepare(
+        'SELECT affected_area_hectares, affected_area_measurement, affected_portion_percent, affected_portion_measurement FROM field_reports',
+      ).get(),
+    ).toEqual({
+      affected_area_hectares: null,
+      affected_area_measurement: 'not_measured',
+      affected_portion_percent: null,
+      affected_portion_measurement: 'not_measured',
+    });
+    await expect(findFieldReportById(database, REPORT_ID, SUBMITTER_ID)).resolves.toMatchObject({
+      affectedAreaHectares: null,
+      affectedAreaMeasurement: 'not_measured',
+      affectedAreaMeasurementExplicit: true,
+      affectedPortionPercent: null,
+      affectedPortionMeasurement: 'not_measured',
+      affectedPortionMeasurementExplicit: true,
+    });
+    native.close();
+  });
+
+  it('direct finalization replaces explicit not-measured values with measured values', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
+      affectedAreaHectares: null,
+      affectedAreaMeasurement: 'not_measured',
+      affectedPortionPercent: null,
+      affectedPortionMeasurement: 'not_measured',
+      barangay: 'Wawa',
+      farmerOrFarmOwnerName: 'Maria Santos',
+      updatedAt: '2026-08-10T01:05:00.000Z',
+    });
+    await saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
+      accuracy: 4.2,
+      capturedAt: '2026-08-10T01:04:00.000Z',
+      latitude: 14.0667,
+      longitude: 120.6319,
+      outcome: 'resolved',
+      updatedAt: '2026-08-10T01:04:01.000Z',
+    });
+
+    await expect(
+      finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        {
+          affectedAreaHectares: 2.5,
+          affectedAreaMeasurement: 'measured',
+          affectedPortionPercent: 60,
+          affectedPortionMeasurement: 'measured',
+          barangay: 'Wawa',
+          farmerOrFarmOwnerName: 'Maria Santos',
+          submittedAt: '2026-08-10T03:00:00.000Z',
+          updatedAt: '2026-08-10T03:00:00.000Z',
+        },
+        IMAGE_EXISTS,
+      ),
+    ).resolves.toMatchObject({
+      status: 'finalized',
+      report: {
+        affectedAreaHectares: 2.5,
+        affectedAreaMeasurement: 'measured',
+        affectedPortionPercent: 60,
+        affectedPortionMeasurement: 'measured',
+      },
+    });
+    native.close();
+  });
+
+  it('finalizes an explicit not-measured report without a prior draft save', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
+      accuracy: 4.2,
+      capturedAt: '2026-08-10T01:04:00.000Z',
+      latitude: 14.0667,
+      longitude: 120.6319,
+      outcome: 'resolved',
+      updatedAt: '2026-08-10T01:04:01.000Z',
+    });
+
+    await expect(
+      finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        {
+          affectedAreaHectares: null,
+          affectedAreaMeasurement: 'not_measured',
+          affectedPortionPercent: null,
+          affectedPortionMeasurement: 'not_measured',
+          barangay: 'Wawa',
+          farmerOrFarmOwnerName: 'Maria Santos',
+          submittedAt: '2026-08-10T03:00:00.000Z',
+          updatedAt: '2026-08-10T03:00:00.000Z',
+        },
+        IMAGE_EXISTS,
+      ),
+    ).resolves.toMatchObject({
+      status: 'finalized',
+      report: {
+        affectedAreaMeasurement: 'not_measured',
+        affectedPortionMeasurement: 'not_measured',
+      },
+    });
+    native.close();
+  });
+
   it('finalizes a manual-map-complete report with null GPS accuracy', async () => {
     const { database, native } = openTestDatabase();
     insertCompleteClassScores(native);
@@ -1242,4 +1408,226 @@ describe('P2-01 smart field report fields', () => {
     }
     native.close();
   });
+describe('findScanRecordIdForCase', () => {
+  const CASE_UUID = '7e8c2e48-a2d4-4aca-9a50-9ca460fd7a7f';
+  const REFERENCE = 'CG-2026-0001';
+
+  async function seed(database: CaneGuardDatabase, native: DatabaseSync) {
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    native
+      .prepare(
+        'UPDATE field_reports SET remote_id = ?, authority_reference_code = ? WHERE id = ?',
+      )
+      .run(CASE_UUID, REFERENCE, REPORT_ID);
+  }
+
+  it('resolves an owner-scoped local report by case UUID', async () => {
+    const { database, native } = openTestDatabase();
+    await seed(database, native);
+
+    await expect(
+      findScanRecordIdForCase(database, SUBMITTER_ID, {
+        caseUuid: CASE_UUID,
+        referenceCode: null,
+      }),
+    ).resolves.toBe(SCAN_ID);
+    native.close();
+  });
+
+  it('falls back to the authority reference code when the case UUID is unknown', async () => {
+    const { database, native } = openTestDatabase();
+    await seed(database, native);
+
+    await expect(
+      findScanRecordIdForCase(database, SUBMITTER_ID, {
+        caseUuid: '1f0dc1a4-09a0-4d2a-a11a-7f4b19c5f001',
+        referenceCode: REFERENCE,
+      }),
+    ).resolves.toBe(SCAN_ID);
+    native.close();
+  });
+
+  it('still resolves by reference when the stored case UUID changed', async () => {
+    const { database, native } = openTestDatabase();
+    await seed(database, native);
+    native
+      .prepare('UPDATE field_reports SET remote_id = ? WHERE id = ?')
+      .run('1f0dc1a4-09a0-4d2a-a11a-7f4b19c5f001', REPORT_ID);
+
+    await expect(
+      findScanRecordIdForCase(database, SUBMITTER_ID, {
+        caseUuid: CASE_UUID,
+        referenceCode: REFERENCE,
+      }),
+    ).resolves.toBe(SCAN_ID);
+    native.close();
+  });
+
+  it('never resolves another owner\u2019s report', async () => {
+    const { database, native } = openTestDatabase();
+    await seed(database, native);
+
+    await expect(
+      findScanRecordIdForCase(database, OTHER_SUBMITTER_ID, {
+        caseUuid: CASE_UUID,
+        referenceCode: REFERENCE,
+      }),
+    ).resolves.toBeNull();
+    native.close();
+  });
+
+  it('returns null when the notification carries no case identity', async () => {
+    const { database, native } = openTestDatabase();
+
+    await expect(
+      findScanRecordIdForCase(database, SUBMITTER_ID, {
+        caseUuid: null,
+        referenceCode: '   ',
+      }),
+    ).resolves.toBeNull();
+    native.close();
+  });
+});
+
+  it('records an unavailable location with a bounded reason and no coordinates', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+
+    const saved = await setLocationUnavailable(database, REPORT_ID, SUBMITTER_ID, {
+      reason: 'offline_no_map',
+      updatedAt: '2026-08-10T01:10:00.000Z',
+    });
+
+    expect(saved).toMatchObject({
+      id: REPORT_ID,
+      locationSource: 'unavailable',
+      locationUnavailableReason: 'offline_no_map',
+      gpsCaptureOutcome: 'unavailable',
+      finalLatitude: null,
+      finalLongitude: null,
+      gpsAccuracy: null,
+    });
+    native.close();
+  });
+
+  it('clears unavailable provenance so a draft can recover with GPS or a manual map', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await setLocationUnavailable(database, REPORT_ID, SUBMITTER_ID, {
+      reason: 'offline_no_map',
+      updatedAt: '2026-08-10T01:10:00.000Z',
+    });
+
+    await expect(
+      clearLocationUnavailable(database, REPORT_ID, SUBMITTER_ID, {
+        updatedAt: '2026-08-10T01:11:00.000Z',
+      }),
+    ).resolves.toMatchObject({
+      authoringState: 'draft',
+      finalLatitude: null,
+      finalLongitude: null,
+      locationSource: null,
+      locationUnavailableReason: null,
+      gpsCaptureOutcome: 'unavailable',
+    });
+    native.close();
+  });
+
+  it('rejects an unavailable location for another owner or a finalized report', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+
+    await expect(
+      setLocationUnavailable(database, REPORT_ID, OTHER_SUBMITTER_ID, {
+        reason: 'other',
+        updatedAt: '2026-08-10T01:10:00.000Z',
+      }),
+    ).rejects.toMatchObject({ code: 'FIELD_REPORT_NOT_FOUND' });
+
+    await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
+      affectedAreaHectares: 1,
+      affectedPortionPercent: 20,
+      barangay: 'Wawa',
+      farmerOrFarmOwnerName: 'Maria Santos',
+      updatedAt: '2026-08-10T01:05:00.000Z',
+    });
+    await setLocationUnavailable(database, REPORT_ID, SUBMITTER_ID, {
+      reason: 'permission_denied',
+      updatedAt: '2026-08-10T01:06:00.000Z',
+    });
+    insertCompleteClassScores(native);
+    await expect(
+      finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        {
+          affectedAreaHectares: 1,
+          affectedPortionPercent: 20,
+          barangay: 'Wawa',
+          farmerOrFarmOwnerName: 'Maria Santos',
+          submittedAt: '2026-08-10T02:00:00.000Z',
+          updatedAt: '2026-08-10T02:00:00.000Z',
+        },
+        IMAGE_EXISTS,
+      ),
+    ).resolves.toMatchObject({ status: 'finalized' });
+
+    await expect(
+      setLocationUnavailable(database, REPORT_ID, SUBMITTER_ID, {
+        reason: 'other',
+        updatedAt: '2026-08-10T02:10:00.000Z',
+      }),
+    ).rejects.toMatchObject({ code: 'UPDATE_FAILED' });
+    native.close();
+  });
+
+  it('finalizes and uploads a deliberately unlocated report with barangay provenance', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
+      affectedAreaHectares: null,
+      affectedAreaMeasurement: 'not_measured',
+      affectedPortionPercent: null,
+      affectedPortionMeasurement: 'not_measured',
+      barangay: 'Wawa',
+      updatedAt: '2026-08-10T01:05:00.000Z',
+    });
+    await setLocationUnavailable(database, REPORT_ID, SUBMITTER_ID, {
+      reason: 'low_accuracy',
+      updatedAt: '2026-08-10T01:06:00.000Z',
+    });
+    insertCompleteClassScores(native);
+
+    const result = await finalizeFieldReport(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      {
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured',
+        affectedPortionPercent: null,
+        affectedPortionMeasurement: 'not_measured',
+        barangay: 'Wawa',
+        farmerOrFarmOwnerName: 'Maria Santos',
+        submittedAt: '2026-08-10T02:00:00.000Z',
+        updatedAt: '2026-08-10T02:00:00.000Z',
+      },
+      IMAGE_EXISTS,
+    );
+
+    expect(result.status).toBe('finalized');
+    expect(result.report).toMatchObject({
+      authoringState: 'finalized',
+      locationSource: 'unavailable',
+      locationUnavailableReason: 'low_accuracy',
+      affectedAreaMeasurement: 'not_measured',
+      affectedPortionMeasurement: 'not_measured',
+      finalLatitude: null,
+      finalLongitude: null,
+    });
+    expect(result.report.submittedAt).toBe('2026-08-10T02:00:00.000Z');
+    native.close();
+  });
+
 });

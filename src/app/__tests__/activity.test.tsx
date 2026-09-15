@@ -8,8 +8,8 @@ import { useMobileNotifications } from '@/features/notifications/hooks/useMobile
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
 import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
 
-const mockRefresh = jest.fn(async () => undefined);
-const mockLoadMore = jest.fn(async () => undefined);
+const mockRefresh = jest.fn(async () => true);
+const mockLoadMore = jest.fn(async () => true);
 let mockRecordsState: ReturnType<typeof usePaginatedScanRecords> = {
   data: [],
   errorMessage: null,
@@ -23,7 +23,7 @@ let mockRecordsState: ReturnType<typeof usePaginatedScanRecords> = {
 jest.mock('@/features/records/hooks/useRecords', () => ({
   usePaginatedScanRecords: jest.fn(() => mockRecordsState),
 }));
-const mockRefreshAssignments = jest.fn(async () => undefined);
+const mockRefreshAssignments = jest.fn(async () => true);
 let mockAssignmentsState: ReturnType<typeof useFieldValidationAssignments> = {
   assignments: [],
   capabilityUnavailable: false,
@@ -36,7 +36,7 @@ let mockAssignmentsState: ReturnType<typeof useFieldValidationAssignments> = {
 jest.mock('@/features/assignments/hooks/useFieldValidationAssignments', () => ({
   useFieldValidationAssignments: jest.fn(() => mockAssignmentsState),
 }));
-const mockRefreshNotifications = jest.fn(async () => undefined);
+const mockRefreshNotifications = jest.fn(async () => true);
 const mockMarkRead = jest.fn(async () => undefined);
 const mockMarkAllRead = jest.fn(async () => undefined);
 let mockNotificationsState: ReturnType<typeof useMobileNotifications> = {
@@ -76,7 +76,7 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
     isSyncing: false,
     lastSuccessfulSyncAt: null,
     pendingCount: 0,
-    syncNow: jest.fn(async () => null),
+    syncNow: jest.fn(async () => ({ failed: 0, authRequired: false } as never)),
   }),
 }));
 
@@ -248,6 +248,18 @@ describe('ActivityScreen', () => {
     expect(mockRefreshAssignments).toHaveBeenCalledTimes(1);
     expect(mockRefresh).toHaveBeenCalledTimes(2);
     expect(screen.getByText('Everything is up to date.')).toBeOnTheScreen();
+  });
+
+  it('surfaces cached refresh failures in the aggregate result', async () => {
+    mockRefreshNotifications.mockResolvedValue(false);
+    mockRefreshAssignments.mockResolvedValue(false);
+    mockRefresh.mockResolvedValue(false);
+
+    await render(<ActivityScreen />);
+    await fireEvent.press(screen.getByTestId('activity.refresh-all'));
+
+    expect(screen.getByText(/Couldn.t refresh/)).toBeOnTheScreen();
+    expect(screen.getByText(/Saved content is still available/)).toBeOnTheScreen();
   });
 
   it('caps Needs Attention detail rows at three with expansion for the rest', async () => {

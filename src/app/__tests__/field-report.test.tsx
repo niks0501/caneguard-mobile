@@ -41,6 +41,7 @@ const mockFinalize = jest.fn<Promise<FieldReport | null>, [FormValues]>(
 );
 const mockSaveManualLocation = jest.fn(async () => null);
 const mockMarkLocationUnavailable = jest.fn(async () => null);
+const mockClearLocationUnavailable = jest.fn(async () => null);
 const mockRefresh = jest.fn(async () => undefined);
 let mockAuthorityError: string | null = null;
 const mockRetryReport = jest.fn(async () => null);
@@ -68,6 +69,7 @@ let mockDraftState: {
   saving: boolean;
   savingManualLocation: boolean;
   markLocationUnavailable: typeof mockMarkLocationUnavailable;
+  clearLocationUnavailable: typeof mockClearLocationUnavailable;
   markingLocationUnavailable: boolean;
   submissionIssues: FieldReportSubmissionRequirement[];
 };
@@ -280,6 +282,7 @@ describe('FieldReportScreen', () => {
       saving: false,
       savingManualLocation: false,
       markLocationUnavailable: mockMarkLocationUnavailable,
+      clearLocationUnavailable: mockClearLocationUnavailable,
       markingLocationUnavailable: false,
       submissionIssues: [],
     };
@@ -892,6 +895,27 @@ describe('FieldReportScreen', () => {
     );
   });
 
+  it('restores explicit not-measured choices when reopening a draft', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        affectedAreaMeasurement: 'not_measured',
+        affectedAreaMeasurementExplicit: true,
+        affectedPortionMeasurement: 'not_measured',
+        affectedPortionMeasurementExplicit: true,
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+
+    expect(
+      screen.getByLabelText('Affected area: Not measured'),
+    ).toHaveProp('accessibilityState', { selected: true });
+    expect(
+      screen.getByLabelText('Estimated affected portion: Not measured'),
+    ).toHaveProp('accessibilityState', { selected: true });
+  });
+
   it('shows a possible recent match without blocking a new submission', async () => {
     mockPossibleRecentMatchState = {
       match: possibleRecentMatch,
@@ -1299,6 +1323,8 @@ describe('FieldReportScreen', () => {
         affectedAreaMeasurement: 'not_measured',
         affectedPortionPercent: null,
         affectedPortionMeasurement: 'not_measured',
+        affectedAreaMeasurementExplicit: true,
+        affectedPortionMeasurementExplicit: true,
         barangay: null,
         farmerOrFarmOwnerName: null,
         finalLatitude: null,
@@ -1343,6 +1369,21 @@ describe('FieldReportScreen', () => {
     });
 
     expect(mockMarkLocationUnavailable).toHaveBeenCalledWith('offline_no_map');
+  });
+
+  it('can recover from unavailable provenance into location capture', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        locationSource: 'unavailable',
+        locationUnavailableReason: 'offline_no_map',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await fireEvent.press(screen.getByLabelText('Capture a location instead'));
+
+    expect(mockClearLocationUnavailable).toHaveBeenCalledTimes(1);
   });
 
   it('shows the recorded unavailable location with its reason', async () => {

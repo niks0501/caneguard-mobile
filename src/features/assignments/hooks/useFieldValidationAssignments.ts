@@ -48,9 +48,9 @@ export function useFieldValidationAssignments(enabled = true) {
     [],
   );
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<boolean> => {
     const requestedSession = session;
-    if (!enabled || authStatus !== 'authenticated' || !requestedSession) return;
+    if (!enabled || authStatus !== 'authenticated' || !requestedSession) return false;
 
     setState((current) => ({
       ...current,
@@ -81,7 +81,7 @@ export function useFieldValidationAssignments(enabled = true) {
         ownerIdentity: requestedSession.user.uuid,
         token: requestedSession.token,
       });
-      if (!isCurrentSession(requestedSession)) return;
+      if (!isCurrentSession(requestedSession)) return false;
       setState({
         assignments: result.assignments,
         capabilityUnavailable: false,
@@ -90,14 +90,15 @@ export function useFieldValidationAssignments(enabled = true) {
         refreshing: false,
         sessionKey,
       });
+      return true;
     } catch (error: unknown) {
-      if (!isCurrentSession(requestedSession)) return;
+      if (!isCurrentSession(requestedSession)) return false;
       if (
         error instanceof MobileFieldValidationAssignmentsApiError &&
         error.code === 'AUTH_REQUIRED'
       ) {
         await markSessionExpired();
-        return;
+        return false;
       }
       const capabilityUnavailable =
         error instanceof MobileFieldValidationAssignmentsApiError &&
@@ -120,6 +121,7 @@ export function useFieldValidationAssignments(enabled = true) {
               : "Couldn't refresh field validation assignments.",
         refreshing: false,
       }));
+      return false;
     }
   }, [authStatus, database, enabled, isCurrentSession, markSessionExpired, session, sessionKey]);
 

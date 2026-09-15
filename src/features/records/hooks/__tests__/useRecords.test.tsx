@@ -134,8 +134,8 @@ describe('usePaginatedScanRecords', () => {
     });
     await waitFor(() => expect(result.current.data).toHaveLength(2));
 
-    let firstRequest: Promise<void> | undefined;
-    let secondRequest: Promise<void> | undefined;
+    let firstRequest: Promise<boolean> | undefined;
+    let secondRequest: Promise<boolean> | undefined;
     await act(async () => {
       firstRequest = result.current.loadMore();
       secondRequest = result.current.loadMore();

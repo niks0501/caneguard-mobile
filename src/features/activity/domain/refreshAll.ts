@@ -1,6 +1,7 @@
 export interface RefreshAllTarget {
   /** Subsystem label used to report a partial failure. */
   key: string;
+  /** Resolve true/undefined for success; resolve false when the subsystem kept cached data after a failure. */
   run: () => Promise<unknown>;
 }
 
@@ -20,19 +21,21 @@ export async function runRefreshAll(
   targets: RefreshAllTarget[],
 ): Promise<RefreshAllResult> {
   const settled = await Promise.allSettled(
-    targets.map(async (target) => {
-      await target.run();
-      return target.key;
-    }),
+    targets.map(async (target) => ({
+      key: target.key,
+      ok: (await target.run()) !== false,
+    })),
   );
 
   const result: RefreshAllResult = { failed: [], succeeded: [] };
   settled.forEach((outcome, index) => {
     const key = targets[index]?.key ?? 'unknown';
-    if (outcome.status === 'fulfilled') {
+    if (outcome.status === 'fulfilled' && outcome.value.ok) {
       result.succeeded.push(key);
     } else {
-      result.failed.push(key);
+      result.failed.push(
+        outcome.status === 'fulfilled' ? outcome.value.key : key,
+      );
     }
   });
   return result;

@@ -48,10 +48,10 @@ export function useAuthorityReviewStatus(enabled = true) {
     [],
   );
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<boolean> => {
     const requestedSession = session;
     if (!enabled || authStatus !== 'authenticated' || !requestedSession) {
-      return;
+      return false;
     }
 
     setState((current) => ({
@@ -67,7 +67,7 @@ export function useAuthorityReviewStatus(enabled = true) {
         token: requestedSession.token,
       });
       if (!isCurrentSession(requestedSession)) {
-        return;
+        return false;
       }
       setState({
         capabilityUnavailable: false,
@@ -76,16 +76,17 @@ export function useAuthorityReviewStatus(enabled = true) {
         refreshing: false,
         sessionKey,
       });
+      return true;
     } catch (error: unknown) {
       if (!isCurrentSession(requestedSession)) {
-        return;
+        return false;
       }
       if (
         error instanceof ReportStatusesApiError &&
         error.code === 'AUTH_REQUIRED'
       ) {
         await markSessionExpired();
-        return;
+        return false;
       }
       const capabilityUnavailable =
         error instanceof ReportStatusesApiError &&
@@ -100,6 +101,7 @@ export function useAuthorityReviewStatus(enabled = true) {
             : 'Couldn’t refresh authority review status. Your saved report and synchronization status are unchanged.',
         refreshing: false,
       }));
+      return false;
     }
   }, [
     authStatus,

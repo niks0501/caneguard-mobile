@@ -123,7 +123,10 @@ export default function ActivityScreen() {
     if (sync.isOnline === true) {
       targets.unshift({
         key: 'sync',
-        run: async () => void (await sync.syncNow('manual')),
+        run: async () => {
+          const result = await sync.syncNow('manual');
+          return Boolean(result && !result.authRequired && result.failed === 0);
+        },
       });
     }
     return targets;

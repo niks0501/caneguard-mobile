@@ -56,9 +56,9 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
     [],
   );
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<boolean> => {
     const requestedSession = session;
-    if (!enabled || authStatus !== 'authenticated' || !requestedSession) return;
+    if (!enabled || authStatus !== 'authenticated' || !requestedSession) return false;
 
     setState((current) => ({
       ...current,
@@ -85,7 +85,7 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
         ownerIdentity: requestedSession.user.uuid,
         token: requestedSession.token,
       });
-      if (!isCurrentSession(requestedSession)) return;
+      if (!isCurrentSession(requestedSession)) return false;
       setState({
         capabilityUnavailable: false,
         errorMessage: null,
@@ -95,14 +95,15 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
         refreshing: false,
         sessionKey,
       });
+      return true;
     } catch (error: unknown) {
-      if (!isCurrentSession(requestedSession)) return;
+      if (!isCurrentSession(requestedSession)) return false;
       if (
         error instanceof MobileNotificationsApiError &&
         error.code === 'AUTH_REQUIRED'
       ) {
         await markSessionExpired();
-        return;
+        return false;
       }
       const capabilityUnavailable =
         error instanceof MobileNotificationsApiError &&
@@ -125,6 +126,7 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
               : "Couldn't refresh notifications.",
         refreshing: false,
       }));
+      return false;
     }
   }, [authStatus, database, enabled, isCurrentSession, markSessionExpired, session, sessionKey]);
 

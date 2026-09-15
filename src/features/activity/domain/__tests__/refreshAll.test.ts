@@ -25,6 +25,16 @@ describe('runRefreshAll', () => {
     expect(result.failed).toEqual([]);
   });
 
+  it('treats an explicit false result as a failed refresh', async () => {
+    const result = await runRefreshAll([
+      { key: 'notifications', run: async () => false },
+      { key: 'assignments', run: async () => true },
+    ]);
+
+    expect(result.failed).toEqual(['notifications']);
+    expect(result.succeeded).toEqual(['assignments']);
+  });
+
   it('keeps other subsystems running when one rejects', async () => {
     let secondaryRan = false;
     const result = await runRefreshAll([

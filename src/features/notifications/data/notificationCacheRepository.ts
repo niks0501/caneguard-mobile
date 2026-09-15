@@ -8,6 +8,9 @@ import type {
   MobileNotificationUpdate,
 } from '@/features/notifications/domain/notificationTypes';
 
+type ConfirmedReadMap = Map<string, Map<string, string>>;
+const confirmedReads = new WeakMap<CaneGuardDatabase, ConfirmedReadMap>();
+
 export async function listCachedMobileNotifications(
   database: CaneGuardDatabase,
   ownerIdentity: string,
@@ -54,7 +57,7 @@ export async function replaceCachedMobileNotifications(
       for (const update of updates) {
         transaction
           .insert(mobileNotifications)
-          .values(toRow(update, owner, cachedAt))
+          .values(toRow(applyConfirmedRead(database, owner, update), owner, cachedAt))
           .run();
       }
     });
@@ -81,6 +84,11 @@ export async function markCachedMobileNotificationRead(
   if (!readAt || Number.isNaN(Date.parse(readAt))) {
     throw new StorageError('UPDATE_FAILED', 'The notification read timestamp is invalid.');
   }
+
+  // The API mutation is confirmed before this helper runs. Record the
+  // tombstone before yielding to SQLite so an older in-flight feed GET cannot
+  // restore this notification as unread.
+  rememberConfirmedRead(database, owner, notificationId, readAt);
 
   try {
     const result = await database
@@ -114,6 +122,19 @@ export async function markAllCachedMobileNotificationsRead(
   }
 
   try {
+    const unreadRows = await database
+      .select({ id: mobileNotifications.id })
+      .from(mobileNotifications)
+      .where(
+        and(
+          eq(mobileNotifications.ownerIdentity, owner),
+          eq(mobileNotifications.isRead, false),
+        ),
+      );
+    for (const row of unreadRows) {
+      rememberConfirmedRead(database, owner, row.id, readAt);
+    }
+
     const result = await database
       .update(mobileNotifications)
       .set({ isRead: true, readAt })
@@ -131,6 +152,34 @@ export async function markAllCachedMobileNotificationsRead(
       'Updating cached notifications failed.',
     );
   }
+}
+
+function applyConfirmedRead(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  update: MobileNotificationUpdate,
+): MobileNotificationUpdate {
+  const readAt = confirmedReads.get(database)?.get(ownerIdentity)?.get(update.id);
+  return readAt ? { ...update, isRead: true, readAt } : update;
+}
+
+function rememberConfirmedRead(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  notificationId: string,
+  readAt: string,
+): void {
+  let owners = confirmedReads.get(database);
+  if (!owners) {
+    owners = new Map();
+    confirmedReads.set(database, owners);
+  }
+  let notifications = owners.get(ownerIdentity);
+  if (!notifications) {
+    notifications = new Map();
+    owners.set(ownerIdentity, notifications);
+  }
+  notifications.set(notificationId, readAt);
 }
 
 function toRow(

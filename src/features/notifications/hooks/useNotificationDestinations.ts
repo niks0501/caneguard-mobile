@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useSyncRecordsRevision } from '@/features/sync/hooks/useSyncRecordsRevision';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 import {
   resolveNotificationDestination,
@@ -20,6 +21,10 @@ export function useNotificationDestinations(
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
   const ownerIdentity = user?.uuid ?? null;
+  // Assignment and Field Report cache writes emit this revision, including
+  // deletion and post-sync changes. Re-resolve so a chevron never outlives the
+  // local row that makes its route actionable.
+  const localDataRevision = useSyncRecordsRevision();
   const [destinations, setDestinations] = useState<
     Map<string, NotificationDestination>
   >(() => new Map());
@@ -72,7 +77,7 @@ export function useNotificationDestinations(
     return () => {
       cancelled = true;
     };
-  }, [database, identityKey, ownerIdentity]);
+  }, [database, identityKey, localDataRevision, ownerIdentity]);
 
   return ownerIdentity ? destinations : EMPTY_DESTINATIONS;
 }

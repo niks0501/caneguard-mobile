@@ -5,8 +5,8 @@ import RecordsScreen from '@/app/records';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
 
-const mockRefresh = jest.fn(async () => undefined);
-const mockLoadMore = jest.fn(async () => undefined);
+const mockRefresh = jest.fn(async () => true);
+const mockLoadMore = jest.fn(async () => true);
 let mockRecordsState: ReturnType<typeof usePaginatedScanRecords> = {
   data: [],
   errorMessage: null,

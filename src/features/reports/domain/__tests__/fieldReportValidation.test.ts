@@ -419,6 +419,25 @@ describe('getMissingSubmissionRequirements', () => {
     expect(noBarangay).toContain('barangay');
   });
 
+  it('uses live measurement choices when previewing submission requirements', () => {
+    const missing = getMissingSubmissionRequirements(
+      draft({
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: null,
+        affectedAreaMeasurement: 'measured',
+        affectedPortionMeasurement: 'measured',
+      }),
+      evidence(),
+      {
+        affectedAreaMeasurement: null,
+        affectedPortionMeasurement: 'not_measured',
+      },
+    );
+
+    expect(missing).toContain('affected_area_hectares');
+    expect(missing).not.toContain('affected_portion_percent');
+  });
+
   it('D-01 keeps the value and its provenance coherent at finalization', () => {
     expect(
       normalizeFinalizeFieldReportInput({

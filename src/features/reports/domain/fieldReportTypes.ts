@@ -39,8 +39,12 @@ export interface FieldReport {
    * measured when a value is stored and not measured when it is empty.
    */
   affectedAreaMeasurement: MeasurementProvenance;
+  /** False only for legacy rows that predate the explicit D-01 choice. */
+  affectedAreaMeasurementExplicit?: boolean;
   affectedPortionPercent: number | null;
   affectedPortionMeasurement: MeasurementProvenance;
+  /** False only for legacy rows that predate the explicit D-01 choice. */
+  affectedPortionMeasurementExplicit?: boolean;
   locationUnavailableReason: LocationUnavailableReason | null;
   authorityReview: AuthorityReviewSnapshot | null;
   authoringState: FieldReportAuthoringState;

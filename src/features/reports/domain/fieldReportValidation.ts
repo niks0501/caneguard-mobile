@@ -174,9 +174,17 @@ export function validateMeasurementPairing(
   return 'not_measured';
 }
 
+export interface SubmissionRequirementPreview {
+  /** Null means the editor has not selected a D-01 answer yet. */
+  affectedAreaMeasurement?: MeasurementProvenance | null;
+  /** Null means the editor has not selected a D-01 answer yet. */
+  affectedPortionMeasurement?: MeasurementProvenance | null;
+}
+
 export function getMissingSubmissionRequirements(
   report: FieldReport,
   evidence: FieldReportSubmissionEvidence,
+  preview?: SubmissionRequirementPreview,
 ): FieldReportSubmissionRequirement[] {
   const missing: FieldReportSubmissionRequirement[] = [];
   if (!evidence.managedImageUri?.trim() || !evidence.managedImageAvailable) {
@@ -231,10 +239,28 @@ export function getMissingSubmissionRequirements(
   if (!report.province.trim()) missing.push('province');
   if (!report.municipality.trim()) missing.push('municipality');
   if (!report.barangay?.trim()) missing.push('barangay');
-  if (report.affectedAreaMeasurement === 'measured' && report.affectedAreaHectares === null) {
+  const areaMeasurement =
+    preview && 'affectedAreaMeasurement' in preview
+      ? preview.affectedAreaMeasurement
+      : report.affectedAreaMeasurement;
+  if (
+    areaMeasurement === null ||
+    areaMeasurement === undefined ||
+    (areaMeasurement === 'measured' && report.affectedAreaHectares === null) ||
+    (areaMeasurement === 'not_measured' && report.affectedAreaHectares !== null)
+  ) {
     missing.push('affected_area_hectares');
   }
-  if (report.affectedPortionMeasurement === 'measured' && report.affectedPortionPercent === null) {
+  const portionMeasurement =
+    preview && 'affectedPortionMeasurement' in preview
+      ? preview.affectedPortionMeasurement
+      : report.affectedPortionMeasurement;
+  if (
+    portionMeasurement === null ||
+    portionMeasurement === undefined ||
+    (portionMeasurement === 'measured' && report.affectedPortionPercent === null) ||
+    (portionMeasurement === 'not_measured' && report.affectedPortionPercent !== null)
+  ) {
     missing.push('affected_portion_percent');
   }
 

@@ -229,6 +229,7 @@ export async function saveGpsCapture(
               finalLongitude: input.longitude,
               gpsAccuracy: input.accuracy,
               locationSource: 'gps' as const,
+              locationUnavailableReason: null,
               manualLocationSelectedAt: null,
             }
           : {};
@@ -313,6 +314,7 @@ export async function saveManualMapLocation(
           finalLongitude: input.longitude,
           gpsAccuracy: null,
           locationSource: 'manual_map',
+          locationUnavailableReason: null,
           manualLocationSelectedAt: input.selectedAt,
           updatedAt: input.updatedAt,
         })
@@ -339,6 +341,62 @@ export async function saveManualMapLocation(
  * coordinate. Barangay and every other required detail stay mandatory; only the
  * coordinate requirement is replaced by an explicit, bounded reason.
  */
+export async function clearLocationUnavailable(
+  database: CaneGuardDatabase,
+  id: string,
+  submitterIdentity: string,
+  input: { updatedAt: string },
+): Promise<FieldReport> {
+  const owner = requireOwnerIdentity(submitterIdentity);
+  if (!isValidUtcTimestampValue(input.updatedAt)) {
+    throw new StorageError('INVALID_FIELD_REPORT', 'A draft timestamp is invalid.');
+  }
+
+  try {
+    return database.transaction((transaction) => {
+      const existing = transaction
+        .select({ authoringState: fieldReports.authoringState, scanRecordId: fieldReports.scanRecordId })
+        .from(fieldReports)
+        .where(and(eq(fieldReports.id, id), eq(fieldReports.submitterIdentity, owner)))
+        .get();
+      const scan = existing
+        ? transaction
+            .select({ id: scanRecords.id })
+            .from(scanRecords)
+            .where(and(eq(scanRecords.id, existing.scanRecordId), eq(scanRecords.ownerIdentity, owner)))
+            .get()
+        : null;
+      if (!existing || !scan) {
+        throw new StorageError('FIELD_REPORT_NOT_FOUND', 'The Field Report does not exist.');
+      }
+      if (existing.authoringState !== 'draft') {
+        throw new StorageError('UPDATE_FAILED', 'Only a Draft Field Report can change its location.');
+      }
+
+      transaction
+        .update(fieldReports)
+        .set({
+          finalLatitude: null,
+          finalLongitude: null,
+          gpsAccuracy: null,
+          locationSource: null,
+          locationUnavailableReason: null,
+          updatedAt: input.updatedAt,
+        })
+        .where(and(eq(fieldReports.id, id), eq(fieldReports.authoringState, 'draft')))
+        .run();
+
+      const saved = transaction.select().from(fieldReports).where(eq(fieldReports.id, id)).get();
+      if (!saved) {
+        throw new StorageError('UPDATE_FAILED', 'The location could not be reloaded.');
+      }
+      return toFieldReport(saved);
+    });
+  } catch (error: unknown) {
+    throw toStorageError(error, 'UPDATE_FAILED', 'Changing the report location failed.');
+  }
+}
+
 export async function setLocationUnavailable(
   database: CaneGuardDatabase,
   id: string,
@@ -401,6 +459,10 @@ export async function setLocationUnavailable(
           gpsAccuracy: null,
           locationSource: 'unavailable',
           locationUnavailableReason: input.reason,
+          // An explicit unavailable choice supersedes any earlier successful
+          // GPS outcome while retaining the attempt coordinates as evidence.
+          gpsCaptureOutcome: 'unavailable',
+          gpsOutcomeRecordedAt: input.updatedAt,
           manualLocationSelectedAt: null,
           updatedAt: input.updatedAt,
         })
@@ -477,7 +539,9 @@ export async function finalizeFieldReport(
         .update(fieldReports)
         .set({
           affectedAreaHectares: values.affectedAreaHectares,
+          affectedAreaMeasurement: values.affectedAreaMeasurement,
           affectedPortionPercent: values.affectedPortionPercent,
+          affectedPortionMeasurement: values.affectedPortionMeasurement,
           barangay: values.barangay,
           caneClass: values.caneClass,
           cropAge: values.cropAge,
@@ -1050,10 +1114,12 @@ function toFieldReport(row: typeof fieldReports.$inferSelect): FieldReport {
     affectedAreaMeasurement:
       row.affectedAreaMeasurement ??
       resolveMeasurementProvenance(row.affectedAreaHectares),
+    affectedAreaMeasurementExplicit: row.affectedAreaMeasurement !== null,
     affectedPortionPercent: row.affectedPortionPercent,
     affectedPortionMeasurement:
       row.affectedPortionMeasurement ??
       resolveMeasurementProvenance(row.affectedPortionPercent),
+    affectedPortionMeasurementExplicit: row.affectedPortionMeasurement !== null,
     locationUnavailableReason: row.locationUnavailableReason,
     fieldNotes: row.fieldNotes,
     mismatchReported: row.mismatchReported,

@@ -43,13 +43,19 @@ import {
   type LocationUnavailableReason,
   type MeasurementProvenance,
 } from '@/features/reports/domain/fieldReportTypes';
-import { getMissingSubmissionRequirements } from '@/features/reports/domain/fieldReportValidation';
+import {
+  getMissingSubmissionRequirements,
+} from '@/features/reports/domain/fieldReportValidation';
 import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
 import { usePossibleRecentMatch } from '@/features/reports/hooks/usePossibleRecentMatch';
 import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
 import { useLocationReferenceData } from '@/features/reports/hooks/useLocationReferenceData';
 import type { ReferenceRegion } from '@/features/reports/referenceData/referenceDataTypes';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
+import {
+  getSubmissionImageUri,
+  managedImageExists,
+} from '@/features/records/services/scanImageStorage';
 import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
@@ -350,6 +356,7 @@ export default function FieldReportScreen() {
                     markingUnavailable={report.markingLocationUnavailable}
                     saveInProgress={report.saving || report.finalizing}
                     onCapture={() => void report.captureLocation()}
+                    onClearUnavailable={() => void report.clearLocationUnavailable()}
                     onMarkUnavailable={(reason) =>
                       void report.markLocationUnavailable(reason)
                     }
@@ -603,11 +610,23 @@ function DraftFields({
   // asks for the decision explicitly instead of assuming it.
   const [affectedAreaChoice, setAffectedAreaChoice] =
     useState<MeasurementProvenance | null>(
-      fieldReport.affectedAreaHectares !== null ? 'measured' : null,
+      fieldReport.affectedAreaMeasurementExplicit === true
+        ? fieldReport.affectedAreaMeasurement
+        : fieldReport.affectedAreaMeasurementExplicit === false
+          ? null
+          : fieldReport.affectedAreaHectares !== null
+            ? 'measured'
+            : null,
     );
   const [affectedPortionChoice, setAffectedPortionChoice] =
     useState<MeasurementProvenance | null>(
-      fieldReport.affectedPortionPercent !== null ? 'measured' : null,
+      fieldReport.affectedPortionMeasurementExplicit === true
+        ? fieldReport.affectedPortionMeasurement
+        : fieldReport.affectedPortionMeasurementExplicit === false
+          ? null
+          : fieldReport.affectedPortionPercent !== null
+            ? 'measured'
+            : null,
     );
   const [variety, setVariety] = useState(fieldReport.sugarcaneVariety ?? '');
   const [cropAge, setCropAge] = useState(fieldReport.cropAge ?? '');
@@ -940,7 +959,32 @@ function DraftFields({
       {possibleRecentMatch.match ? (
         <PossibleRecentMatchWarning match={possibleRecentMatch.match} />
       ) : null}
-      <ReadyToSubmitChecklist fieldReport={fieldReport} record={record} />
+      <ReadyToSubmitChecklist
+        fieldReport={{
+          ...fieldReport,
+          farmerOrFarmOwnerName: farmerName.trim() || null,
+          barangay: barangay.trim() || null,
+          province: province.trim(),
+          municipality: municipality.trim(),
+          affectedAreaHectares: previewMeasurementValue(
+            affectedAreaText,
+            affectedAreaChoice,
+          ),
+          affectedAreaMeasurement:
+            affectedAreaChoice ?? fieldReport.affectedAreaMeasurement,
+          affectedPortionPercent: previewMeasurementValue(
+            affectedPortionText,
+            affectedPortionChoice,
+          ),
+          affectedPortionMeasurement:
+            affectedPortionChoice ?? fieldReport.affectedPortionMeasurement,
+        }}
+        measurementPreview={{
+          affectedAreaMeasurement: affectedAreaChoice,
+          affectedPortionMeasurement: affectedPortionChoice,
+        }}
+        record={record}
+      />
       <AppButton
         testID="field-report.finalize"
         onPress={handleFinalize}
@@ -960,6 +1004,7 @@ function LocationCapture({
   locationServicesDisabled,
   markingUnavailable,
   onCapture,
+  onClearUnavailable,
   onMarkUnavailable,
   onOpenLocationSettings,
   onOpenMap,
@@ -971,6 +1016,7 @@ function LocationCapture({
   locationServicesDisabled: boolean;
   markingUnavailable: boolean;
   onCapture: () => void;
+  onClearUnavailable: () => void;
   onMarkUnavailable: (reason: LocationUnavailableReason) => void;
   onOpenLocationSettings: () => void;
   onOpenMap: () => void;
@@ -1099,6 +1145,7 @@ function LocationCapture({
             onPress={() => {
               setShowUnavailable(false);
               setUnavailableReason(null);
+              onClearUnavailable();
             }}
             leadingIcon="crosshair"
             variant="secondary">
@@ -1460,6 +1507,14 @@ function getGpsPresentation(fieldReport: FieldReport): {
   actionLabel: string;
   message: string;
 } {
+  if (fieldReport.locationSource === 'unavailable') {
+    return {
+      actionLabel: 'Retry GPS Location',
+      message: fieldReport.locationUnavailableReason
+        ? `Location unavailable: ${LOCATION_UNAVAILABLE_REASON_LABELS[fieldReport.locationUnavailableReason]}. You can retry GPS or choose an online map when available.`
+        : 'Location unavailable. You can retry GPS or choose an online map when available.',
+    };
+  }
   if (
     fieldReport.locationSource === 'manual_map' &&
     fieldReport.finalLatitude !== null &&
@@ -1520,9 +1575,39 @@ function canUseManualMap(fieldReport: FieldReport): boolean {
   return (
     fieldReport.locationSource === 'manual_map' ||
     (fieldReport.locationSource === null &&
-      fieldReport.gpsCaptureOutcome !== null &&
       fieldReport.gpsCaptureOutcome !== 'resolved')
   );
+}
+
+function formatMeasurementSummary(
+  value: number | null,
+  provenance: MeasurementProvenance,
+  unit: string,
+): string {
+  if (provenance === 'not_measured') {
+    return 'Not measured';
+  }
+  if (value === null) {
+    return 'Not provided';
+  }
+  return unit === '%' ? `${value}%` : `${value} ${unit}`;
+}
+
+function formatLocationSummary(fieldReport: FieldReport): string {
+  if (fieldReport.locationSource === 'unavailable') {
+    return 'Unavailable';
+  }
+  if (fieldReport.locationSource === 'manual_map') {
+    return 'Manual map';
+  }
+  return fieldReport.locationSource === 'gps' ? 'GPS' : 'Not provided';
+}
+
+function previewMeasurementValue(
+  value: string,
+  choice: MeasurementProvenance | null,
+): number | null {
+  return choice === 'not_measured' ? null : parseDecimalInput(value);
 }
 
 function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
@@ -1533,9 +1618,32 @@ function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
       style={[styles.formCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
       <EvidenceRow label="Farmer or farm reference" value={fieldReport.farmerOrFarmOwnerName ?? 'Not provided'} />
       <EvidenceRow label="Area" value={`${fieldReport.barangay ?? 'Not provided'}, ${fieldReport.municipality}, ${fieldReport.province}`} />
-      <EvidenceRow label="Affected area" value={fieldReport.affectedAreaHectares === null ? 'Not provided' : `${fieldReport.affectedAreaHectares} ha`} />
-      <EvidenceRow label="Estimated affected portion" value={fieldReport.affectedPortionPercent === null ? 'Not provided' : `${fieldReport.affectedPortionPercent}%`} />
-      <EvidenceRow label="Location source" value={fieldReport.locationSource === 'manual_map' ? 'Manual map' : 'GPS'} />
+      <EvidenceRow
+        label="Affected area"
+        value={formatMeasurementSummary(
+          fieldReport.affectedAreaHectares,
+          fieldReport.affectedAreaMeasurement,
+          'ha',
+        )}
+      />
+      <EvidenceRow
+        label="Estimated affected portion"
+        value={formatMeasurementSummary(
+          fieldReport.affectedPortionPercent,
+          fieldReport.affectedPortionMeasurement,
+          '%',
+        )}
+      />
+      <EvidenceRow
+        label="Location source"
+        value={formatLocationSummary(fieldReport)}
+      />
+      {fieldReport.locationSource === 'unavailable' && fieldReport.locationUnavailableReason ? (
+        <EvidenceRow
+          label="Location unavailable reason"
+          value={LOCATION_UNAVAILABLE_REASON_LABELS[fieldReport.locationUnavailableReason]}
+        />
+      ) : null}
       {fieldReport.manualLocationSelectedAt ? (
         <EvidenceRow label="Manual location selected" value={formatTimestamp(fieldReport.manualLocationSelectedAt)} />
       ) : null}
@@ -1686,27 +1794,45 @@ function MeasurementChoice({
  */
 function ReadyToSubmitChecklist({
   fieldReport,
+  measurementPreview,
   record,
 }: {
   fieldReport: FieldReport;
+  measurementPreview: {
+    affectedAreaMeasurement: MeasurementProvenance | null;
+    affectedPortionMeasurement: MeasurementProvenance | null;
+  };
   record: ScanRecordDetails | null;
 }) {
   const theme = useTheme();
+  const managedImageUri = record?.managedImageUri ?? null;
+  const submissionImageUri = record?.submissionImageUri ?? null;
+  const expectedSubmissionImageUri =
+    fieldReport.submitterIdentity
+      ? getSubmissionImageUri(fieldReport.scanRecordId, fieldReport.submitterIdentity)
+      : null;
   const missing = new Set(
-    getMissingSubmissionRequirements(fieldReport, {
-      checklistConsistency: record?.checklistConsistency ?? null,
-      classScores: record?.classScores ?? [],
-      confidence: record?.confidence ?? null,
-      managedImageUri: record?.managedImageUri ?? null,
-      managedImageAvailable: Boolean(record?.managedImageUri),
-      predictedLabel: record?.predictedLabel ?? null,
-      sourceHeight: record?.sourceHeight ?? null,
-      sourceWidth: record?.sourceWidth ?? null,
-      submissionImageAvailable: Boolean(record?.submissionImageUri),
-      submissionImageMimeType: record?.submissionImageMimeType ?? null,
-      submissionImageSizeBytes: record?.submissionImageSizeBytes ?? null,
-      submissionImageUri: record?.submissionImageUri ?? null,
-    }),
+    getMissingSubmissionRequirements(
+      fieldReport,
+      {
+        checklistConsistency: record?.checklistConsistency ?? null,
+        classScores: record?.classScores ?? [],
+        confidence: record?.confidence ?? null,
+        managedImageUri,
+        managedImageAvailable: Boolean(managedImageUri && managedImageExists(managedImageUri)),
+        predictedLabel: record?.predictedLabel ?? null,
+        sourceHeight: record?.sourceHeight ?? null,
+        sourceWidth: record?.sourceWidth ?? null,
+        submissionImageAvailable: Boolean(
+          submissionImageUri && managedImageExists(submissionImageUri),
+        ),
+        expectedSubmissionImageUri,
+        submissionImageMimeType: record?.submissionImageMimeType ?? null,
+        submissionImageSizeBytes: record?.submissionImageSizeBytes ?? null,
+        submissionImageUri,
+      },
+      measurementPreview,
+    ),
   );
   const groups: { label: string; requirements: FieldReportSubmissionRequirement[] }[] = [
     {

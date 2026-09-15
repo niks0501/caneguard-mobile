@@ -19,6 +19,7 @@ import {
   finalizeFieldReport,
   findFieldReportById,
   findFieldReportByScanRecordId,
+  findScanRecordIdForCase,
   hasFieldReportOwnedByAnotherSubmitter,
   saveGpsCapture,
   saveFieldReportDraft,
@@ -1242,4 +1243,85 @@ describe('P2-01 smart field report fields', () => {
     }
     native.close();
   });
+describe('findScanRecordIdForCase', () => {
+  const CASE_UUID = '7e8c2e48-a2d4-4aca-9a50-9ca460fd7a7f';
+  const REFERENCE = 'CG-2026-0001';
+
+  async function seed(database: CaneGuardDatabase, native: DatabaseSync) {
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    native
+      .prepare(
+        'UPDATE field_reports SET remote_id = ?, authority_reference_code = ? WHERE id = ?',
+      )
+      .run(CASE_UUID, REFERENCE, REPORT_ID);
+  }
+
+  it('resolves an owner-scoped local report by case UUID', async () => {
+    const { database, native } = openTestDatabase();
+    await seed(database, native);
+
+    await expect(
+      findScanRecordIdForCase(database, SUBMITTER_ID, {
+        caseUuid: CASE_UUID,
+        referenceCode: null,
+      }),
+    ).resolves.toBe(SCAN_ID);
+    native.close();
+  });
+
+  it('falls back to the authority reference code when the case UUID is unknown', async () => {
+    const { database, native } = openTestDatabase();
+    await seed(database, native);
+
+    await expect(
+      findScanRecordIdForCase(database, SUBMITTER_ID, {
+        caseUuid: '1f0dc1a4-09a0-4d2a-a11a-7f4b19c5f001',
+        referenceCode: REFERENCE,
+      }),
+    ).resolves.toBe(SCAN_ID);
+    native.close();
+  });
+
+  it('still resolves by reference when the stored case UUID changed', async () => {
+    const { database, native } = openTestDatabase();
+    await seed(database, native);
+    native
+      .prepare('UPDATE field_reports SET remote_id = ? WHERE id = ?')
+      .run('1f0dc1a4-09a0-4d2a-a11a-7f4b19c5f001', REPORT_ID);
+
+    await expect(
+      findScanRecordIdForCase(database, SUBMITTER_ID, {
+        caseUuid: CASE_UUID,
+        referenceCode: REFERENCE,
+      }),
+    ).resolves.toBe(SCAN_ID);
+    native.close();
+  });
+
+  it('never resolves another owner\u2019s report', async () => {
+    const { database, native } = openTestDatabase();
+    await seed(database, native);
+
+    await expect(
+      findScanRecordIdForCase(database, OTHER_SUBMITTER_ID, {
+        caseUuid: CASE_UUID,
+        referenceCode: REFERENCE,
+      }),
+    ).resolves.toBeNull();
+    native.close();
+  });
+
+  it('returns null when the notification carries no case identity', async () => {
+    const { database, native } = openTestDatabase();
+
+    await expect(
+      findScanRecordIdForCase(database, SUBMITTER_ID, {
+        caseUuid: null,
+        referenceCode: '   ',
+      }),
+    ).resolves.toBeNull();
+    native.close();
+  });
+});
+
 });

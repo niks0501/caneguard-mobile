@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
@@ -58,6 +58,72 @@ export async function replaceCachedMobileNotifications(
           .run();
       }
     });
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'UPDATE_FAILED',
+      'Updating cached notifications failed.',
+    );
+  }
+}
+
+/**
+ * Apply a confirmed server acknowledgment to one owner-scoped cached row.
+ * Returns true only when the row belonged to this owner and was updated.
+ */
+export async function markCachedMobileNotificationRead(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  notificationId: string,
+  readAt: string,
+): Promise<boolean> {
+  const owner = requireOwner(ownerIdentity);
+  if (!readAt || Number.isNaN(Date.parse(readAt))) {
+    throw new StorageError('UPDATE_FAILED', 'The notification read timestamp is invalid.');
+  }
+
+  try {
+    const result = await database
+      .update(mobileNotifications)
+      .set({ isRead: true, readAt })
+      .where(
+        and(
+          eq(mobileNotifications.ownerIdentity, owner),
+          eq(mobileNotifications.id, notificationId),
+        ),
+      );
+    return result.changes > 0;
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'UPDATE_FAILED',
+      'Updating the cached notification failed.',
+    );
+  }
+}
+
+/** Mark every unread cached row for one owner as read; returns rows changed. */
+export async function markAllCachedMobileNotificationsRead(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  readAt: string,
+): Promise<number> {
+  const owner = requireOwner(ownerIdentity);
+  if (!readAt || Number.isNaN(Date.parse(readAt))) {
+    throw new StorageError('UPDATE_FAILED', 'The notification read timestamp is invalid.');
+  }
+
+  try {
+    const result = await database
+      .update(mobileNotifications)
+      .set({ isRead: true, readAt })
+      .where(
+        and(
+          eq(mobileNotifications.ownerIdentity, owner),
+          eq(mobileNotifications.isRead, false),
+        ),
+      );
+    return result.changes;
   } catch (error: unknown) {
     throw toStorageError(
       error,

@@ -8,6 +8,8 @@ import type { CaneGuardDatabase } from '@/database/database';
 import * as schema from '@/database/schema';
 import {
   listCachedMobileNotifications,
+  markAllCachedMobileNotificationsRead,
+  markCachedMobileNotificationRead,
   replaceCachedMobileNotifications,
 } from '@/features/notifications/data/notificationCacheRepository';
 import type { MobileNotificationUpdate } from '@/features/notifications/domain/notificationTypes';
@@ -92,6 +94,59 @@ describe('mobile notification cache', () => {
 
     await expect(listCachedMobileNotifications(database, 'owner-1')).resolves.toEqual([]);
     await expect(listCachedMobileNotifications(database, 'owner-2')).resolves.toHaveLength(1);
+    native.close();
+  });
+  it('marks one owner-scoped notification as read and refuses another owner', async () => {
+    const { database, native } = openTestDatabase();
+    const otherId = '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f';
+    await replaceCachedMobileNotifications(database, 'owner-1', [NOTIFICATION], '2026-08-13T12:05:00.000Z');
+    await replaceCachedMobileNotifications(database, 'owner-2', [{ ...NOTIFICATION, id: otherId }], '2026-08-13T12:06:00.000Z');
+
+    await expect(
+      markCachedMobileNotificationRead(database, 'owner-1', otherId, '2026-08-13T12:10:00.000Z'),
+    ).resolves.toBe(false);
+    await expect(
+      markCachedMobileNotificationRead(database, 'owner-2', otherId, '2026-08-13T12:10:00.000Z'),
+    ).resolves.toBe(true);
+
+    const ownerOne = await listCachedMobileNotifications(database, 'owner-1');
+    const ownerTwo = await listCachedMobileNotifications(database, 'owner-2');
+    expect(ownerOne[0]).toMatchObject({ isRead: false, readAt: null });
+    expect(ownerTwo[0]).toMatchObject({
+      isRead: true,
+      readAt: '2026-08-13T12:10:00.000Z',
+    });
+    native.close();
+  });
+
+  it('marks every unread row for one owner and leaves read rows untouched', async () => {
+    const { database, native } = openTestDatabase();
+    const second = { ...NOTIFICATION, id: '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f' };
+    await replaceCachedMobileNotifications(database, 'owner-1', [NOTIFICATION, second], '2026-08-13T12:05:00.000Z');
+    await markCachedMobileNotificationRead(database, 'owner-1', NOTIFICATION.id, '2026-08-13T12:08:00.000Z');
+
+    await expect(
+      markAllCachedMobileNotificationsRead(database, 'owner-1', '2026-08-13T12:12:00.000Z'),
+    ).resolves.toBe(1);
+
+    const rows = await listCachedMobileNotifications(database, 'owner-1');
+    expect(rows.every((row) => row.isRead)).toBe(true);
+    expect(rows.find((row) => row.id === NOTIFICATION.id)?.readAt).toBe(
+      '2026-08-13T12:08:00.000Z',
+    );
+    await expect(
+      markAllCachedMobileNotificationsRead(database, 'owner-1', '2026-08-13T12:13:00.000Z'),
+    ).resolves.toBe(0);
+    native.close();
+  });
+
+  it('rejects an invalid read timestamp', async () => {
+    const { database, native } = openTestDatabase();
+    await replaceCachedMobileNotifications(database, 'owner-1', [NOTIFICATION], '2026-08-13T12:05:00.000Z');
+
+    await expect(
+      markCachedMobileNotificationRead(database, 'owner-1', NOTIFICATION.id, 'not-a-date'),
+    ).rejects.toMatchObject({ code: 'UPDATE_FAILED' });
     native.close();
   });
 });

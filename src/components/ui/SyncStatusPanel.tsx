@@ -6,7 +6,7 @@ import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
 
-export function SyncStatusPanel() {
+export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } = {}) {
   const theme = useTheme();
   const sync = useSync();
   const apiUnavailable =
@@ -65,18 +65,20 @@ export function SyncStatusPanel() {
           {sync.errorMessage}
         </Text>
       ) : null}
-      <AppButton
-        variant="secondary"
-        onPress={() => void sync.syncNow('manual')}
-        disabled={
-          sync.isSyncing || sync.isOnline !== true || sync.pendingCount === 0
-        }
-        leadingIcon="refresh-cw"
-        accessibilityLabel={
-          sync.isSyncing ? 'Synchronizing pending reports' : 'Sync reports now'
-        }>
-        {sync.isSyncing ? 'Syncing...' : 'Sync Now'}
-      </AppButton>
+      {showAction ? (
+        <AppButton
+          variant="secondary"
+          onPress={() => void sync.syncNow('manual')}
+          disabled={
+            sync.isSyncing || sync.isOnline !== true || sync.pendingCount === 0
+          }
+          leadingIcon="refresh-cw"
+          accessibilityLabel={
+            sync.isSyncing ? 'Synchronizing pending reports' : 'Sync reports now'
+          }>
+          {sync.isSyncing ? 'Syncing...' : 'Sync Now'}
+        </AppButton>
+      ) : null}
     </View>
   );
 }

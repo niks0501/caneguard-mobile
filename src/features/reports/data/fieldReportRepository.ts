@@ -751,6 +751,59 @@ export async function findFieldReportByScanRecordId(
   }
 }
 
+export async function findScanRecordIdForCase(
+  database: CaneGuardDatabase,
+  submitterIdentity: string,
+  identity: { caseUuid: string | null; referenceCode: string | null },
+): Promise<string | null> {
+  const owner = requireOwnerIdentity(submitterIdentity);
+  const caseUuid = identity.caseUuid?.trim() || null;
+  const referenceCode = identity.referenceCode?.trim() || null;
+  if (!caseUuid && !referenceCode) {
+    return null;
+  }
+
+  try {
+    const ownedScanRecord = and(
+      eq(scanRecords.id, fieldReports.scanRecordId),
+      eq(scanRecords.ownerIdentity, owner),
+      eq(fieldReports.submitterIdentity, owner),
+    );
+
+    if (caseUuid) {
+      const byRemoteId = await database
+        .select({ scanRecordId: fieldReports.scanRecordId })
+        .from(fieldReports)
+        .innerJoin(scanRecords, ownedScanRecord)
+        .where(eq(fieldReports.remoteId, caseUuid))
+        .get();
+      if (byRemoteId) {
+        return byRemoteId.scanRecordId;
+      }
+    }
+
+    if (referenceCode) {
+      const byReference = await database
+        .select({ scanRecordId: fieldReports.scanRecordId })
+        .from(fieldReports)
+        .innerJoin(scanRecords, ownedScanRecord)
+        .where(eq(fieldReports.authorityReferenceCode, referenceCode))
+        .get();
+      if (byReference) {
+        return byReference.scanRecordId;
+      }
+    }
+
+    return null;
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'QUERY_FAILED',
+      'Resolving the notification destination failed.',
+    );
+  }
+}
+
 export async function hasFieldReportOwnedByAnotherSubmitter(
   database: CaneGuardDatabase,
   scanRecordId: string,

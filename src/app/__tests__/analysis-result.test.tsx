@@ -112,6 +112,20 @@ async function renderResult(state: ScanSessionState) {
   );
 }
 
+
+function collectTestIds(node: unknown, collected: string[] = []): string[] {
+  if (Array.isArray(node)) {
+    node.forEach((child) => collectTestIds(child, collected));
+    return collected;
+  }
+  if (!node || typeof node !== 'object') return collected;
+  const record = node as { props?: Record<string, unknown>; children?: unknown };
+  const testID = record.props?.testID;
+  if (typeof testID === 'string') collected.push(testID);
+  collectTestIds(record.children, collected);
+  return collected;
+}
+
 describe('AnalysisResultScreen', () => {
   beforeEach(() => {
     mockSaveRecord.mockReset();
@@ -128,6 +142,8 @@ describe('AnalysisResultScreen', () => {
     'renders the %s result with %s checklist status',
     async (predictedLabel, expectedStatus, selectedSymptoms) => {
       await renderResult(createCompletedState(predictedLabel, selectedSymptoms));
+
+      await fireEvent.press(screen.getByLabelText('Show Why this result?'));
 
       expect(screen.getByText(STATUS_TITLES[expectedStatus])).toBeOnTheScreen();
       expect(
@@ -159,6 +175,8 @@ describe('AnalysisResultScreen', () => {
       screen.getByLabelText('Selected sugarcane image used for analysis'),
     ).toHaveProp('source', { uri: 'file:///result-leaf.jpg' });
     expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('AI confidence 78%')).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Show Why this result?'));
     expect(screen.getByLabelText('AI confidence 78%')).toBeOnTheScreen();
     await fireEvent.press(screen.getByLabelText('Show Technical details'));
     expect(screen.getByLabelText('Healthy score 8%')).toBeOnTheScreen();
@@ -184,9 +202,15 @@ describe('AnalysisResultScreen', () => {
 
     expect(
       screen.getByText(
-        'Confidence caution: this result is below the V1 caution threshold of 55.2%. You can still save or report it; consider retaking the image or consulting an agricultural expert.',
+        'This result is not conclusive. You can still report it, keep it as a scan, or scan again for a clearer image.',
       ),
     ).toBeOnTheScreen();
+    expect(
+      screen.queryByText(/55\.2%/),
+    ).not.toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Show Technical details'));
+    expect(screen.getByText('55.2%')).toBeOnTheScreen();
   });
 
   it('shows image quality warnings without changing model confidence', async () => {
@@ -202,6 +226,9 @@ describe('AnalysisResultScreen', () => {
         },
       }),
     );
+
+    expect(screen.queryByText('Image quality notice')).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Show Why this result?'));
 
     expect(screen.getByText('Image quality notice')).toBeOnTheScreen();
     expect(
@@ -235,7 +262,7 @@ describe('AnalysisResultScreen', () => {
     );
 
     await fireEvent.press(
-      screen.getByLabelText('Clear result and start a new scan'),
+      screen.getByLabelText('Scan again with a new image'),
     );
 
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
@@ -337,7 +364,7 @@ describe('AnalysisResultScreen', () => {
     expect(screen.getByLabelText('Report this scan to the office')).toBeDisabled();
     expect(screen.getByLabelText('Keep this scan only on the device')).toBeDisabled();
     expect(
-      screen.getByLabelText('Clear result and start a new scan'),
+      screen.getByLabelText('Scan again with a new image'),
     ).toBeDisabled();
   });
 
@@ -388,6 +415,9 @@ describe('AnalysisResultScreen', () => {
 
     await renderResult(createCompletedState('mosaic', ['something-else']));
 
+    expect(screen.queryByTestId('scan.checklist-consistency')).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Show Why this result?'));
+
     expect(screen.getByTestId('scan.checklist-consistency')).toBeOnTheScreen();
     expect(screen.getByText('Checklist inconsistent')).toBeOnTheScreen();
     expect(
@@ -404,4 +434,34 @@ describe('AnalysisResultScreen', () => {
       params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
     });
   });
+  it('places the three decisions before every explanation disclosure', async () => {
+    await renderResult(createCompletedState('rust', ['rust'], {
+      qualityAssessment: {
+        warnings: ['low-resolution'],
+        meanLuminance: 30,
+        luminanceStandardDeviation: 28,
+      },
+      result: createResult('rust', 0.42),
+    }));
+
+    const order = collectTestIds(screen.toJSON());
+    const reportIndex = order.indexOf('scan.report-to-office');
+    const keepIndex = order.indexOf('scan.keep-as-scan-only');
+    const scanAgainIndex = order.indexOf('scan.new-scan');
+    const whyIndex = order.indexOf('scan.why-this-result');
+    const technicalIndex = order.indexOf('scan.technical-details');
+
+    expect(reportIndex).toBeGreaterThan(-1);
+    expect(keepIndex).toBeGreaterThan(reportIndex);
+    expect(scanAgainIndex).toBeGreaterThan(keepIndex);
+    expect(whyIndex).toBeGreaterThan(scanAgainIndex);
+    expect(technicalIndex).toBeGreaterThan(whyIndex);
+
+    expect(screen.queryByText('Image quality notice')).not.toBeOnTheScreen();
+    expect(screen.queryByText('v1.0-mobilenetv2')).not.toBeOnTheScreen();
+    expect(screen.queryByText('55.2%')).not.toBeOnTheScreen();
+    expect(screen.getByLabelText('Report this scan to the office')).toBeEnabled();
+    expect(screen.getByLabelText('Keep this scan only on the device')).toBeEnabled();
+  });
+
 });

@@ -211,6 +211,27 @@ describe('Field Report multipart mapper', () => {
     expect(parts.some(([name]) => name === 'class_scores[RSSI]')).toBe(false);
   });
 
+  it('carries an RSSI concern alongside an explicit Possible Condition match', () => {
+    const parts = (
+      map({
+        ...REPORT,
+        mismatchReported: false,
+        reporterSuspectedCondition: 'RSSI',
+        reporterObservationText: 'RSSI concern observed while the Possible Condition still matched.',
+      }) as unknown as { _parts: [string, unknown][] }
+    )._parts;
+    const values = new Map(parts);
+
+    // A visible-field concern no longer requires declaring the AI result wrong.
+    expect(values.get('mismatch_reported')).toBe('0');
+    expect(values.get('reporter_suspected_condition')).toBe('RSSI');
+    expect(values.get('reporter_observation_text')).toBe(
+      'RSSI concern observed while the Possible Condition still matched.',
+    );
+    expect(values.get('predicted_label')).toBe('rust');
+    expect(parts.some(([name]) => name === 'class_scores[RSSI]')).toBe(false);
+  });
+
   it('emits an explicit no-mismatch answer and omits empty optional text', () => {
     const parts = (
       map({

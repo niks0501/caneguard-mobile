@@ -180,6 +180,19 @@ describe('mobile-report-upload-v2 producer contract', () => {
     ).toHaveLength(4);
   });
 
+  it('accepts an RSSI reporter concern that agrees with the Possible Condition', () => {
+    const form = map({
+      mismatchReported: false,
+      reporterSuspectedCondition: 'RSSI',
+      reporterObservationText: 'RSSI concern was observed in the field.',
+    });
+
+    expectCanonicalV2(form);
+    expect(scalarValue(parts(form), 'mismatch_reported')).toBe('0');
+    expect(scalarValue(parts(form), 'reporter_suspected_condition')).toBe('RSSI');
+    expect(scalarValue(parts(form), 'predicted_label')).toBe('rust');
+  });
+
   it('rejects undeclared names and missing required fields using the canonical artifact', () => {
     const form = map() as unknown as TestFormData;
     form.append('submitted_at', REPORT.submittedAt);

@@ -67,4 +67,33 @@ describe('FieldValidationScreen', () => {
       freshPhoto: null,
     });
   });
+
+  it('leads with visit context and fresh observation before submitted AI evidence', async () => {
+    await render(<FieldValidationScreen />);
+
+    // Farmers, location, and the fresh human entry fields are all reachable
+    // before any Possible Condition or confidence is shown.
+    expect(screen.getByText('Visit context')).toBeOnTheScreen();
+    expect(screen.getByText('Juan Dela Cruz')).toBeOnTheScreen();
+    expect(screen.getByText('Mabini, Nasugbu, Batangas')).toBeOnTheScreen();
+    expect(screen.getByTestId('field-validation.observation-input')).toBeOnTheScreen();
+    expect(screen.queryByText('Possible Condition: Rust')).not.toBeOnTheScreen();
+    expect(screen.queryByText('93%')).not.toBeOnTheScreen();
+
+    const tree = JSON.stringify(screen.toJSON());
+    const order = [
+      'field-validation.assignment-summary',
+      'field-validation.observation-input',
+      'field-validation.finding-input',
+      'field-validation.action-input',
+      'field-validation.submitted-evidence',
+      'field-validation.complete',
+    ];
+    expect([...order].sort((a, b) => tree.indexOf(a) - tree.indexOf(b))).toEqual(order);
+
+    // The submitted AI evidence stays available behind an explicit disclosure.
+    await fireEvent.press(screen.getByLabelText('Show Submitted case evidence'));
+    expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
+    expect(screen.getByText('93%')).toBeOnTheScreen();
+  });
 });

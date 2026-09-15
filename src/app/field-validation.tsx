@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { getResultLabel } from '@/components/ui/RecordCard';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
+import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { TextField } from '@/components/ui/TextField';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
@@ -90,7 +91,7 @@ export default function FieldValidationScreen() {
         ) : state.assignment ? (
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
             <View style={styles.content}>
-              <AssignmentSummary assignment={state.assignment} completion={state.completion} />
+              <VisitContext assignment={state.assignment} completion={state.completion} />
               {state.completion ? (
                 <CompletionStatus completion={state.completion} onRetry={() => void state.retry()} />
               ) : (
@@ -99,12 +100,19 @@ export default function FieldValidationScreen() {
                   finding={finding}
                   action={action}
                   photo={photo}
-                  saving={state.saving}
-                  fieldError={fieldError ?? state.errorMessage}
                   onObservationChange={setObservation}
                   onFindingChange={setFinding}
                   onActionChange={setAction}
                   onCapturePhoto={() => void capturePhoto()}
+                />
+              )}
+              {/* Submitted AI evidence stays reachable but never leads the visit,
+                  so the inspector records a fresh observation first. */}
+              <SubmittedCaseEvidence assignment={state.assignment} />
+              {state.completion ? null : (
+                <CompletionActions
+                  saving={state.saving}
+                  fieldError={fieldError ?? state.errorMessage}
                   onSubmit={() => void submit()}
                 />
               )}
@@ -117,40 +125,62 @@ export default function FieldValidationScreen() {
   );
 }
 
-function AssignmentSummary({ assignment, completion }: { assignment: FieldValidationAssignment; completion: FieldValidationCompletion | null }) {
+// testID is kept from the shipped assignment screen because the deterministic
+// .agent-device flows use it as the field-validation screen-loaded marker.
+function VisitContext({ assignment, completion }: { assignment: FieldValidationAssignment; completion: FieldValidationCompletion | null }) {
   const theme = useTheme();
   return (
     <View testID="field-validation.assignment-summary" style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
-      <View style={styles.heading}><Feather name="clipboard" size={20} color={theme.primary} /><Text style={[styles.title, { color: theme.text }]}>Validation assignment</Text></View>
-      <Row label="Case" value={assignment.referenceCode} />
+      <View style={styles.heading}><Feather name="clipboard" size={20} color={theme.primary} /><Text style={[styles.title, { color: theme.text }]}>Visit context</Text></View>
+      <Row label="Farm or farmer" value={assignment.case.farmerOrFarmOwnerName ?? ''} />
       <Row label="Location" value={[assignment.case.barangay, assignment.case.municipality, assignment.case.province].filter(Boolean).join(', ')} />
-      <Row label="Possible Condition" value={`${getResultLabel(assignment.case.predictedLabel)} · ${Math.round(assignment.case.confidence * 100)}% confidence`} />
-      <Row label="Submitted by" value={assignment.submitter.name} />
+      <Row label="Case" value={assignment.referenceCode} />
       <Row label="Target visit" value={assignment.targetVisitDate ?? 'No target date'} />
+      <Row label="Submitted by" value={assignment.submitter.name} />
       {assignment.submitterIsAssignee ? <Text style={[styles.samePerson, { color: theme.warning }]}>You submitted this case and are its validator.</Text> : null}
       {completion ? <Row label="Visit time" value={formatTimestamp(completion.visitedAt)} /> : null}
     </View>
   );
 }
 
+function SubmittedCaseEvidence({ assignment }: { assignment: FieldValidationAssignment }) {
+  const theme = useTheme();
+  return (
+    <DisclosureSection testID="field-validation.submitted-evidence" title="Submitted case evidence">
+      <Text style={[styles.help, { color: theme.textSecondary }]}>Recorded before this visit and submitted by the reporter. It is decision-support only, cannot be changed here, and is kept separate from your field evidence.</Text>
+      <Row label="Possible Condition" value={getResultLabel(assignment.case.predictedLabel)} />
+      <Row label="Confidence" value={`${Math.round(assignment.case.confidence * 100)}%`} />
+    </DisclosureSection>
+  );
+}
+
+function CompletionActions({ saving, fieldError, onSubmit }: { fieldError: string | null; onSubmit: () => void; saving: boolean }) {
+  const theme = useTheme();
+  return (
+    <View testID="field-validation.actions" style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
+      <Text style={[styles.help, { color: theme.textSecondary }]}>Completing this visit saves your field evidence. It does not verify or close the case.</Text>
+      {fieldError ? <Text testID="field-validation.error" accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>{fieldError}</Text> : null}
+      <AppButton testID="field-validation.complete" onPress={onSubmit} disabled={saving} leadingIcon="check-circle">{saving ? 'Saving validation...' : 'Complete field validation'}</AppButton>
+    </View>
+  );
+}
+
 function EvidenceForm({
-  observation, finding, action, photo, saving, fieldError, onObservationChange, onFindingChange, onActionChange, onCapturePhoto, onSubmit,
+  observation, finding, action, photo, onObservationChange, onFindingChange, onActionChange, onCapturePhoto,
 }: {
-  observation: string; finding: string; action: string; photo: ImagePicker.ImagePickerAsset | null; saving: boolean; fieldError: string | null;
-  onObservationChange: (value: string) => void; onFindingChange: (value: string) => void; onActionChange: (value: string) => void; onCapturePhoto: () => void; onSubmit: () => void;
+  observation: string; finding: string; action: string; photo: ImagePicker.ImagePickerAsset | null;
+  onObservationChange: (value: string) => void; onFindingChange: (value: string) => void; onActionChange: (value: string) => void; onCapturePhoto: () => void;
 }) {
   const theme = useTheme();
   return (
     <View testID="field-validation.form" style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
-      <View style={styles.heading}><Feather name="edit-3" size={20} color={theme.primary} /><Text style={[styles.title, { color: theme.text }]}>Complete the visit</Text></View>
-      <Text style={[styles.help, { color: theme.textSecondary }]}>Record what you observed, your field finding, and the action taken. These are separate field evidence for office review.</Text>
+      <View style={styles.heading}><Feather name="edit-3" size={20} color={theme.primary} /><Text style={[styles.title, { color: theme.text }]}>What do you observe?</Text></View>
+      <Text style={[styles.help, { color: theme.textSecondary }]}>Record your own observation, field finding, and the action taken. These are stored as field evidence, separate from the submitted case evidence.</Text>
       <TextField testID="field-validation.observation-input" label="Fresh field observation" value={observation} onChangeText={onObservationChange} placeholder="What did you see during this visit?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
       <TextField testID="field-validation.finding-input" label="Field finding or evidence" value={finding} onChangeText={onFindingChange} placeholder="Describe the field finding needed by the office." maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
       <TextField testID="field-validation.action-input" label="Action taken" value={action} onChangeText={onActionChange} placeholder="What action or guidance was provided?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
       {photo ? <ExpoImage source={{ uri: photo.uri }} accessibilityLabel="Fresh field validation photo" contentFit="cover" style={styles.photo} /> : null}
       <AppButton testID="field-validation.capture-photo" onPress={onCapturePhoto} leadingIcon="camera" variant="secondary">{photo ? 'Replace fresh photo' : 'Add fresh field photo (recommended)'}</AppButton>
-      {fieldError ? <Text testID="field-validation.error" accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>{fieldError}</Text> : null}
-      <AppButton testID="field-validation.complete" onPress={onSubmit} disabled={saving} leadingIcon="check-circle">{saving ? 'Saving validation...' : 'Complete field validation'}</AppButton>
     </View>
   );
 }

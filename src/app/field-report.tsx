@@ -52,6 +52,49 @@ import { useTheme } from '@/hooks/use-theme';
 
 const MAX_AFFECTED_AREA_HECTARES = 10_000;
 
+/**
+ * The three states of the reporter's own concern. It is deliberately separate
+ * from whether the Possible Condition matches what the reporter observed.
+ */
+type ReporterConcernChoice = 'none' | 'rssi' | 'other';
+
+const REPORTER_CONCERN_OPTIONS: {
+  choice: ReporterConcernChoice;
+  hint?: string;
+  label: string;
+}[] = [
+  { choice: 'none', label: 'None' },
+  {
+    choice: 'rssi',
+    hint: 'Field concern only · not detected by current Model V1',
+    label: 'RSSI',
+  },
+  { choice: 'other', label: 'Other' },
+];
+
+function getReporterConcernChoice(value: string): ReporterConcernChoice {
+  const normalized = value.trim().toUpperCase();
+  if (!normalized) {
+    return 'none';
+  }
+  return normalized === REPORTER_OBSERVED_CONCERN_RSSI ? 'rssi' : 'other';
+}
+
+function concernValueForChoice(
+  choice: ReporterConcernChoice,
+  currentValue: string,
+): string {
+  if (choice === 'none') {
+    return '';
+  }
+  if (choice === 'rssi') {
+    return REPORTER_OBSERVED_CONCERN_RSSI;
+  }
+  return currentValue.trim().toUpperCase() === REPORTER_OBSERVED_CONCERN_RSSI
+    ? ''
+    : currentValue;
+}
+
 interface FieldReportFormValues {
   affectedAreaHectares?: number | null;
   affectedPortionPercent?: number | null;
@@ -103,6 +146,9 @@ export default function FieldReportScreen() {
   const [mismatchDraft, setMismatchDraft] = useState(() => ({
     reportId: report.data?.id ?? null,
     mismatchReported: report.data?.mismatchReported ?? null,
+    reporterConcernChoice: getReporterConcernChoice(
+      report.data?.reporterSuspectedCondition ?? '',
+    ),
     reporterObservationText: report.data?.reporterObservationText ?? '',
     reporterSuspectedCondition: report.data?.reporterSuspectedCondition ?? '',
   }));
@@ -116,17 +162,37 @@ export default function FieldReportScreen() {
     setMismatchDraft({
       reportId: report.data.id,
       mismatchReported: report.data.mismatchReported,
+      reporterConcernChoice: getReporterConcernChoice(
+        report.data.reporterSuspectedCondition ?? '',
+      ),
       reporterObservationText: report.data.reporterObservationText ?? '',
       reporterSuspectedCondition: report.data.reporterSuspectedCondition ?? '',
     });
   }, [mismatchDraft.reportId, report.data]);
 
   const handleMismatchReportedChange = (value: boolean) => {
+    // Agreement with the Possible Condition is its own answer. The reporter's
+    // observation and concern are reported independently and are never cleared
+    // or hidden by this choice.
+    setMismatchDraft((current) => ({ ...current, mismatchReported: value }));
+  };
+
+  const handleReporterConcernChoiceChange = (choice: ReporterConcernChoice) => {
     setMismatchDraft((current) => ({
       ...current,
-      mismatchReported: value,
-      reporterObservationText: value ? current.reporterObservationText : '',
-      reporterSuspectedCondition: value ? current.reporterSuspectedCondition : '',
+      reporterConcernChoice: choice,
+      reporterSuspectedCondition: concernValueForChoice(
+        choice,
+        current.reporterSuspectedCondition,
+      ),
+    }));
+  };
+
+  const handleReporterConcernTextChange = (value: string) => {
+    setMismatchDraft((current) => ({
+      ...current,
+      reporterConcernChoice: 'other',
+      reporterSuspectedCondition: value,
     }));
   };
 
@@ -325,19 +391,16 @@ export default function FieldReportScreen() {
                 onRetry={() => void record.refresh()}
                 editable={report.data.authoringState === 'draft'}
                 mismatchReported={mismatchDraft.mismatchReported}
+                reporterConcernChoice={mismatchDraft.reporterConcernChoice}
                 reporterObservationText={mismatchDraft.reporterObservationText}
                 reporterSuspectedCondition={mismatchDraft.reporterSuspectedCondition}
                 onMismatchReportedChange={handleMismatchReportedChange}
+                onReporterConcernChoiceChange={handleReporterConcernChoiceChange}
+                onReporterConcernTextChange={handleReporterConcernTextChange}
                 onReporterObservationTextChange={(value) =>
                   setMismatchDraft((current) => ({
                     ...current,
                     reporterObservationText: value,
-                  }))
-                }
-                onReporterSuspectedConditionChange={(value) =>
-                  setMismatchDraft((current) => ({
-                    ...current,
-                    reporterSuspectedCondition: value,
                   }))
                 }
               />
@@ -932,10 +995,12 @@ function InheritedScanEvidence({
   loading,
   mismatchReported,
   onMismatchReportedChange,
+  onReporterConcernChoiceChange,
+  onReporterConcernTextChange,
   onReporterObservationTextChange,
-  onReporterSuspectedConditionChange,
   onRetry,
   record,
+  reporterConcernChoice,
   reporterObservationText,
   reporterSuspectedCondition,
 }: {
@@ -944,10 +1009,12 @@ function InheritedScanEvidence({
   loading: boolean;
   mismatchReported: boolean | null;
   onMismatchReportedChange: (value: boolean) => void;
+  onReporterConcernChoiceChange: (value: ReporterConcernChoice) => void;
+  onReporterConcernTextChange: (value: string) => void;
   onReporterObservationTextChange: (value: string) => void;
-  onReporterSuspectedConditionChange: (value: string) => void;
   onRetry: () => void;
   record: ScanRecordDetails | null;
+  reporterConcernChoice: ReporterConcernChoice;
   reporterObservationText: string;
   reporterSuspectedCondition: string;
 }) {
@@ -992,12 +1059,14 @@ function InheritedScanEvidence({
             label="Symptom checklist"
             value={record.symptoms.length ? record.symptoms.join(', ') : 'No symptoms selected'}
           />
-          <ReporterMismatchSection
+          <ReporterObservationSection
             editable={editable}
             mismatchReported={mismatchReported}
             onMismatchReportedChange={onMismatchReportedChange}
+            onReporterConcernChoiceChange={onReporterConcernChoiceChange}
+            onReporterConcernTextChange={onReporterConcernTextChange}
             onReporterObservationTextChange={onReporterObservationTextChange}
-            onReporterSuspectedConditionChange={onReporterSuspectedConditionChange}
+            reporterConcernChoice={reporterConcernChoice}
             reporterObservationText={reporterObservationText}
             reporterSuspectedCondition={reporterSuspectedCondition}
           />
@@ -1007,163 +1076,184 @@ function InheritedScanEvidence({
   );
 }
 
-function ReporterMismatchSection({
+function getConcernOptionLabel(choice: ReporterConcernChoice): string {
+  if (choice === 'none') {
+    return 'No observed or suspected concern';
+  }
+  return choice === 'rssi'
+    ? 'Report RSSI as a field concern'
+    : 'Report another observed or suspected concern';
+}
+
+function getAgreementLabel(value: boolean | null): string {
+  if (value === null) {
+    return 'Not answered';
+  }
+  return value
+    ? 'Reporter said it does not match what they observed'
+    : 'Reporter said it matches what they observed';
+}
+
+function ReporterObservationSection({
   editable,
   mismatchReported,
   onMismatchReportedChange,
+  onReporterConcernChoiceChange,
+  onReporterConcernTextChange,
   onReporterObservationTextChange,
-  onReporterSuspectedConditionChange,
+  reporterConcernChoice,
   reporterObservationText,
   reporterSuspectedCondition,
 }: {
   editable: boolean;
   mismatchReported: boolean | null;
   onMismatchReportedChange: (value: boolean) => void;
+  onReporterConcernChoiceChange: (value: ReporterConcernChoice) => void;
+  onReporterConcernTextChange: (value: string) => void;
   onReporterObservationTextChange: (value: string) => void;
-  onReporterSuspectedConditionChange: (value: string) => void;
+  reporterConcernChoice: ReporterConcernChoice;
   reporterObservationText: string;
   reporterSuspectedCondition: string;
 }) {
   const theme = useTheme();
 
   if (!editable) {
-    return mismatchReported === true ? (
+    const concern = reporterSuspectedCondition.trim();
+    const observation = reporterObservationText.trim();
+    if (!concern && !observation && mismatchReported === null) {
+      return null;
+    }
+    return (
       <View
-        testID="field-report.mismatch-marker"
-        style={[styles.mismatchMarker, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
-        <Feather name="alert-triangle" size={18} color={theme.warning} />
-        <View style={styles.mismatchCopy}>
-          <Text style={[styles.mismatchTitle, { color: theme.text }]}>Reporter flagged an AI mismatch</Text>
-          {reporterSuspectedCondition ? (
-            <EvidenceRow label="Suspected condition, if known" value={reporterSuspectedCondition} />
-          ) : null}
-          {reporterObservationText ? (
-            <EvidenceRow label="What do you see?" value={reporterObservationText} />
-          ) : null}
+        testID="field-report.observation-summary"
+        style={[styles.mismatchSection, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+        <View style={styles.sectionHeading}>
+          <Feather name="message-circle" size={20} color={theme.primary} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Reporter observation</Text>
         </View>
+        <EvidenceRow label="What do you see?" value={observation || 'Not recorded'} />
+        <EvidenceRow label="Observed or suspected concern" value={concern || 'None reported'} />
+        <EvidenceRow label="Possible Condition agreement" value={getAgreementLabel(mismatchReported)} />
       </View>
-    ) : null;
+    );
   }
 
   return (
     <View
-      testID="field-report.mismatch-section"
+      testID="field-report.observation-section"
       style={[styles.mismatchSection, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
       <View style={styles.sectionHeading}>
         <Feather name="message-circle" size={20} color={theme.warning} />
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Reporter observation</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Your field observation</Text>
       </View>
-      <Text style={[styles.helpText, { color: theme.textSecondary }]}>The Possible Condition is decision-support only. Tell us if it does not match what you see; your observation will be sent separately for office review.</Text>
-      <View style={styles.mismatchOptions}>
-        <Pressable
-          accessibilityRole="radio"
-          accessibilityLabel="The Possible Condition matches what I see"
-          accessibilityState={{ selected: mismatchReported === false }}
-          onPress={() => onMismatchReportedChange(false)}
-          style={({ pressed }) => [
-            styles.mismatchOption,
-            { borderColor: mismatchReported === false ? theme.primary : theme.border },
-            mismatchReported === false && { backgroundColor: theme.backgroundSelected },
-            pressed && styles.pressed,
-          ]}>
-          <Feather
-            name={mismatchReported === false ? 'check-circle' : 'circle'}
-            size={20}
-            color={mismatchReported === false ? theme.primary : theme.textSecondary}
-          />
-          <Text style={[styles.mismatchOptionText, { color: theme.text }]}>The Possible Condition matches what I see</Text>
-        </Pressable>
-        <Pressable
-          testID="field-report.mismatch-toggle"
-          accessibilityRole="radio"
-          accessibilityLabel="The Possible Condition does not match what I see"
-          accessibilityState={{ selected: mismatchReported === true }}
-          onPress={() => onMismatchReportedChange(true)}
-          style={({ pressed }) => [
-            styles.mismatchOption,
-            styles.mismatchOptionLast,
-            { borderColor: mismatchReported === true ? theme.warning : theme.warning },
-            mismatchReported === true && { backgroundColor: theme.warningBg },
-            pressed && styles.pressed,
-          ]}>
-          <Feather
-            name={mismatchReported === true ? 'check-circle' : 'alert-circle'}
-            size={20}
-            color={theme.warning}
-          />
-          <Text style={[styles.mismatchOptionText, { color: theme.text }]}>The Possible Condition does not match what I see</Text>
-        </Pressable>
-      </View>
-      {mismatchReported === true ? (
-        <View style={styles.mismatchFields}>
-          <View
-            testID="field-report.rssi-concern-choice"
-            style={[styles.rssiChoice, { backgroundColor: theme.infoBg, borderColor: theme.info }]}
-          >
-            <Text style={[styles.rssiChoiceTitle, { color: theme.text }]}>Quick concern</Text>
-            <Pressable
-              accessibilityRole="radio"
-              accessibilityLabel="Report RSSI as a field concern"
-              accessibilityState={{
-                selected:
-                  reporterSuspectedCondition.trim().toUpperCase() ===
-                  REPORTER_OBSERVED_CONCERN_RSSI,
-              }}
-              onPress={() =>
-                onReporterSuspectedConditionChange(REPORTER_OBSERVED_CONCERN_RSSI)
-              }
-              style={({ pressed }) => [
-                styles.mismatchOption,
-                {
-                  borderColor:
-                    reporterSuspectedCondition.trim().toUpperCase() ===
-                    REPORTER_OBSERVED_CONCERN_RSSI
-                      ? theme.info
-                      : theme.border,
-                },
-                reporterSuspectedCondition.trim().toUpperCase() ===
-                  REPORTER_OBSERVED_CONCERN_RSSI && { backgroundColor: theme.backgroundSelected },
-                pressed && styles.pressed,
-              ]}>
-              <Feather
-                name={
-                  reporterSuspectedCondition.trim().toUpperCase() ===
-                  REPORTER_OBSERVED_CONCERN_RSSI
-                    ? 'check-circle'
-                    : 'radio'
-                }
-                size={20}
-                color={theme.info}
-              />
-              <View style={styles.rssiChoiceCopy}>
-                <Text style={[styles.mismatchOptionText, { color: theme.text }]}>RSSI</Text>
-                <Text style={[styles.helpText, { color: theme.textSecondary }]}>Field concern only · not detected by current Model V1</Text>
-              </View>
-            </Pressable>
-            <Text testID="field-report.rssi-not-model-copy" style={[styles.helpText, { color: theme.textSecondary }]}>RSSI can be reported as a field concern, but the current Model V1 does not detect RSSI. It remains separate from the Possible Condition.</Text>
-          </View>
-          <TextField
-            testID="field-report.reporter-observation-input"
-            label="What do you see?"
-            value={reporterObservationText}
-            onChangeText={onReporterObservationTextChange}
-            placeholder="Describe the field concern (optional)"
-            maxLength={1_000}
-            multiline
-            autoCapitalize="sentences"
-          />
+      <Text style={[styles.helpText, { color: theme.textSecondary }]}>Your observation and concern are recorded separately from the Possible Condition, which is decision-support only.</Text>
+
+      <TextField
+        testID="field-report.reporter-observation-input"
+        label="What do you observe?"
+        value={reporterObservationText}
+        onChangeText={onReporterObservationTextChange}
+        placeholder="Describe what you see in the field (optional)"
+        maxLength={1_000}
+        multiline
+        autoCapitalize="sentences"
+      />
+
+      <View testID="field-report.concern-group" style={styles.concernGroup}>
+        <Text style={[styles.fieldGroupLabel, { color: theme.text }]}>Observed or suspected concern</Text>
+        <Text style={[styles.helpText, { color: theme.textSecondary }]}>Report a concern on its own. Choosing one does not say the Possible Condition is wrong, and it is sent separately for office review.</Text>
+        <View style={styles.mismatchOptions}>
+          {REPORTER_CONCERN_OPTIONS.map((option) => {
+            const selected = reporterConcernChoice === option.choice;
+            const accent = option.choice === 'rssi' ? theme.info : theme.primary;
+            return (
+              <Pressable
+                key={option.choice}
+                testID={`field-report.concern-option-${option.choice}`}
+                accessibilityRole="radio"
+                accessibilityLabel={getConcernOptionLabel(option.choice)}
+                accessibilityState={{ selected }}
+                onPress={() => onReporterConcernChoiceChange(option.choice)}
+                style={({ pressed }) => [
+                  styles.mismatchOption,
+                  { borderColor: selected ? accent : theme.border },
+                  selected && { backgroundColor: theme.backgroundSelected },
+                  pressed && styles.pressed,
+                ]}>
+                <Feather
+                  name={selected ? 'check-circle' : 'circle'}
+                  size={20}
+                  color={selected ? accent : theme.textSecondary}
+                />
+                <View style={styles.rssiChoiceCopy}>
+                  <Text style={[styles.mismatchOptionText, { color: theme.text }]}>{option.label}</Text>
+                  {option.hint ? (
+                    <Text style={[styles.helpText, { color: theme.textSecondary }]}>{option.hint}</Text>
+                  ) : null}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+        {reporterConcernChoice === 'other' ? (
           <TextField
             testID="field-report.reporter-condition-input"
             label="Other observed or suspected concern (free text)"
             value={reporterSuspectedCondition}
-            onChangeText={onReporterSuspectedConditionChange}
-            placeholder="Optional, if not using RSSI"
+            onChangeText={onReporterConcernTextChange}
+            placeholder="Describe the concern you observed"
             maxLength={120}
             autoCapitalize="sentences"
           />
-          <Text style={[styles.helpText, { color: theme.textSecondary }]}>Choose RSSI above or enter another concern as free text. Both fields are optional and do not block finalization.</Text>
+        ) : null}
+        {reporterConcernChoice === 'rssi' ? (
+          <Text testID="field-report.rssi-not-model-copy" style={[styles.helpText, { color: theme.textSecondary }]}>RSSI can be reported as a field concern, but the current Model V1 does not detect RSSI. It remains separate from the Possible Condition.</Text>
+        ) : null}
+        <Text style={[styles.helpText, { color: theme.textSecondary }]}>Optional. Reporting a concern never blocks finalization.</Text>
+      </View>
+
+      <View testID="field-report.agreement-group" style={styles.concernGroup}>
+        <Text style={[styles.fieldGroupLabel, { color: theme.text }]}>Does the Possible Condition match what you observe?</Text>
+        <View style={styles.mismatchOptions}>
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityLabel="The Possible Condition matches what I see"
+            accessibilityState={{ selected: mismatchReported === false }}
+            onPress={() => onMismatchReportedChange(false)}
+            style={({ pressed }) => [
+              styles.mismatchOption,
+              { borderColor: mismatchReported === false ? theme.primary : theme.border },
+              mismatchReported === false && { backgroundColor: theme.backgroundSelected },
+              pressed && styles.pressed,
+            ]}>
+            <Feather
+              name={mismatchReported === false ? 'check-circle' : 'circle'}
+              size={20}
+              color={mismatchReported === false ? theme.primary : theme.textSecondary}
+            />
+            <Text style={[styles.mismatchOptionText, { color: theme.text }]}>The Possible Condition matches what I see</Text>
+          </Pressable>
+          <Pressable
+            testID="field-report.mismatch-toggle"
+            accessibilityRole="radio"
+            accessibilityLabel="The Possible Condition does not match what I see"
+            accessibilityState={{ selected: mismatchReported === true }}
+            onPress={() => onMismatchReportedChange(true)}
+            style={({ pressed }) => [
+              styles.mismatchOption,
+              { borderColor: theme.warning },
+              mismatchReported === true && { backgroundColor: theme.warningBg },
+              pressed && styles.pressed,
+            ]}>
+            <Feather
+              name={mismatchReported === true ? 'check-circle' : 'alert-circle'}
+              size={20}
+              color={theme.warning}
+            />
+            <Text style={[styles.mismatchOptionText, { color: theme.text }]}>The Possible Condition does not match what I see</Text>
+          </Pressable>
         </View>
-      ) : null}
+      </View>
     </View>
   );
 }
@@ -1452,27 +1542,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  mismatchOptionLast: { borderWidth: 2 },
   mismatchOptionText: { ...Typography.bodySmall, fontWeight: '700', flex: 1 },
-  mismatchFields: { gap: Spacing.md },
-  rssiChoice: {
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-  },
-  rssiChoiceTitle: { ...Typography.caption, fontWeight: '800' },
+  concernGroup: { gap: Spacing.sm },
+  fieldGroupLabel: { ...Typography.bodySmall, fontWeight: '800' },
   rssiChoiceCopy: { flex: 1, gap: Spacing.xs },
-  mismatchMarker: {
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-  },
-  mismatchCopy: { flex: 1, gap: Spacing.sm },
-  mismatchTitle: { ...Typography.bodySmall, fontWeight: '800' },
   pressed: { opacity: 0.74 },
   error: { ...Typography.bodySmall, fontWeight: '700' },
   saved: { ...Typography.bodySmall, fontWeight: '800', textAlign: 'center' },

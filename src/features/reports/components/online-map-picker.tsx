@@ -71,6 +71,7 @@ export function viewportPointFromPressEvent(
 }
 
 export function OnlineMapPicker({
+  authToken,
   blocksScrollGesture,
   fullscreen = false,
   initialCenter,
@@ -78,6 +79,7 @@ export function OnlineMapPicker({
   onSelectionChange,
   onToggleFullscreen,
 }: {
+  authToken?: string | null;
   blocksScrollGesture?: GestureType;
   fullscreen?: boolean;
   initialCenter: MapCoordinate;
@@ -257,7 +259,12 @@ export function OnlineMapPicker({
                     testID="manual-map.tile"
                     pointerEvents="none"
                     source={{
-                      headers: { 'User-Agent': 'CaneGuard-Mobile/1.0' },
+                      headers: {
+                        'User-Agent': 'CaneGuard-Mobile/1.0',
+                        ...(authToken
+                          ? { Authorization: `Bearer ${authToken}` }
+                          : {}),
+                      },
                       uri: tile.url,
                     }}
                     cachePolicy="disk"

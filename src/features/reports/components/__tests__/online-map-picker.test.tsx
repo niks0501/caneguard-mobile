@@ -61,6 +61,25 @@ describe('OnlineMapPicker', () => {
     expect(onSelectionChange).not.toHaveBeenCalled();
   });
 
+  it('attaches the mobile bearer token to privacy-proxy tile requests', async () => {
+    await render(
+      <OnlineMapPicker
+        authToken="test-session-token"
+        initialCenter={DEFAULT_MANUAL_MAP_CENTER}
+        isOnline={true}
+        onSelectionChange={jest.fn()}
+      />,
+    );
+    await act(async () => undefined);
+
+    expect(
+      screen.getAllByTestId('manual-map.tile')[0].props.source.headers,
+    ).toEqual({
+      Authorization: 'Bearer test-session-token',
+      'User-Agent': 'CaneGuard-Mobile/1.0',
+    });
+  });
+
   it('selects coordinates only after an online tile loads', async () => {
     const onSelectionChange = jest.fn();
     await render(

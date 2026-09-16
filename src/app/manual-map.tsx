@@ -6,6 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { OnlineMapPicker } from '@/features/reports/components/online-map-picker';
 import {
@@ -26,6 +27,7 @@ export default function ManualMapScreen() {
   const reportId = firstParam(params.reportId);
   const scanRecordId = firstParam(params.scanRecordId);
   const report = useFieldReportDraft(scanRecordId, false);
+  const { session } = useAuth();
   const { isOnline } = useSync();
   const [selection, setSelection] = useState<MapCoordinate | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -117,6 +119,7 @@ export default function ManualMapScreen() {
                   </Text>
                 ) : null}
                 <OnlineMapPicker
+                  authToken={session?.token}
                   blocksScrollGesture={scrollNativeGesture}
                   fullscreen={isFullscreen}
                   initialCenter={initialCenter}

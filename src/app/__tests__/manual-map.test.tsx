@@ -29,6 +29,9 @@ jest.mock('@/features/reports/hooks/useFieldReportDraft', () => ({
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({ isOnline: true, isSyncing: false }),
 }));
+jest.mock('@/features/auth/hooks/useAuth', () => ({
+  useAuth: () => ({ session: { token: 'test-session-token' } }),
+}));
 jest.mocked(useLocalSearchParams).mockReturnValue({
   reportId: REPORT_ID,
   scanRecordId: SCAN_ID,

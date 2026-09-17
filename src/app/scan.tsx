@@ -236,7 +236,7 @@ export default function ScanScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Scan Sugarcane" />
+        <BrandedScreenHeader title="Scan sugarcane" />
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}>
@@ -384,7 +384,7 @@ export default function ScanScreen() {
                 'Capture the affected leaf, stalk, or shoot',
               ].map((item) => (
                 <View key={item} style={styles.guideRow}>
-                  <View style={[styles.bullet, { backgroundColor: theme.accentDark }]} />
+                  <View style={[styles.bullet, { backgroundColor: theme.primaryLight }]} />
                   <Text style={[styles.guideText, { color: theme.textSecondary }]}>{item}</Text>
                 </View>
               ))}
@@ -395,7 +395,7 @@ export default function ScanScreen() {
                 styles.disclaimer,
                 { backgroundColor: theme.warningBg, borderColor: theme.accent },
               ]}>
-              <Feather name="info" size={18} color={theme.accentDark} />
+              <Feather name="info" size={18} color={theme.guideIcon} />
               <Text style={[styles.disclaimerText, { color: theme.text }]}>
                 This result is for decision support only and should not replace expert validation.
               </Text>

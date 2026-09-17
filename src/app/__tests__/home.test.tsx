@@ -81,7 +81,7 @@ describe('HomeScreen', () => {
     expect(screen.getByText('Server unavailable')).toBeOnTheScreen();
   });
 
-  it('shows only the supported education reference classes', async () => {
+  it('shows only the supported education reference classes and links to full guide', async () => {
     await render(<HomeScreen />);
 
     expect(screen.getByText('DISEASE REFERENCE')).toBeOnTheScreen();
@@ -91,19 +91,9 @@ describe('HomeScreen', () => {
     expect(screen.getByText('Smut')).toBeOnTheScreen();
     expect(screen.queryByText(/Downy Mildew/i)).not.toBeOnTheScreen();
     expect(screen.getByText(/observational references for the four Model V1 classes/)).toBeOnTheScreen();
-    expect(screen.getByLabelText('Healthy reference photo')).toHaveProp(
-      'source',
-      require('../../../assets/images/sugarcane-diseases/reference_healthy.jpg'),
-    );
-    expect(screen.getByLabelText('Mosaic reference photo')).toHaveProp(
-      'source',
-      require('../../../assets/images/sugarcane-diseases/reference_mosaic.jpg'),
-    );
-    expect(screen.getByLabelText('Rust reference photo')).toHaveProp(
-      'source',
-      require('../../../assets/images/sugarcane-diseases/reference_rust.jpg'),
-    );
-    expect(screen.getByLabelText('Smut reference pattern')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('home.disease-reference'));
+    expect(mockRouterPush).toHaveBeenCalledWith('/disease-reference');
   });
 
   it('keeps the live sync row linked to Activity without adding a sync shortcut', async () => {

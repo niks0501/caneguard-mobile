@@ -1,17 +1,18 @@
 import { Feather } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomNav } from '@/components/ui/BottomNav';
+import { Pill } from '@/components/ui/Pill';
 import { SyncStatusRow } from '@/components/ui/SyncStatusRow';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useSync } from '@/features/sync/hooks/useSync';
 import {
   ComponentTokens,
-  Fonts,
   Layout,
   Radius,
+  Shadows,
   Spacing,
   Typography,
 } from '@/constants/theme';
@@ -151,18 +152,37 @@ export default function HomeScreen() {
                 onPress={() => router.push('/activity' as Href)}
               />
 
-              <View style={styles.referenceHeading}>
-                <SectionTitle label="DISEASE REFERENCE" />
-                <Text style={[styles.referenceNote, { color: theme.textSecondary }]}>Visual guide · field symptoms and pattern descriptions</Text>
-              </View>
-              <Text style={[styles.referenceIntro, { color: theme.textSecondary }]}>
-                These are observational references for the four Model V1 classes. They support decision-making only and do not confirm a disease.
-              </Text>
-              <View style={styles.referenceList}>
-                {REFERENCE_CLASSES.map((reference) => (
-                  <ReferenceCard key={reference.name} reference={reference} />
-                ))}
-              </View>
+              <Pressable
+                testID="home.disease-reference"
+                accessibilityRole="button"
+                accessibilityLabel="Open disease reference guide"
+                onPress={() => router.push('/disease-reference')}
+                style={({ pressed }) => [pressed && styles.pressed]}>
+                <View
+                  style={[
+                    styles.referenceEntryCard,
+                    { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+                  ]}>
+                  <View style={styles.referenceEntryTop}>
+                    <View style={styles.referenceHeading}>
+                      <SectionTitle label="DISEASE REFERENCE" />
+                      <Text style={[styles.referenceEntryTitle, { color: theme.primaryDark }]}>
+                        Field symptom guide
+                      </Text>
+                    </View>
+                    <Feather name="arrow-right" size={20} color={theme.primary} />
+                  </View>
+                  <Text style={[styles.referenceIntro, { color: theme.textSecondary }]}>
+                    These are observational references for the four Model V1 classes. They support decision-making only and do not confirm a disease.
+                  </Text>
+                  <View style={styles.referencePillsRow}>
+                    <Pill label="Healthy" variant="healthy" />
+                    <Pill label="Mosaic" variant="mosaic" />
+                    <Pill label="Rust" variant="rust" />
+                    <Pill label="Smut" variant="smut" />
+                  </View>
+                </View>
+              </Pressable>
             </View>
           </View>
         </ScrollView>
@@ -223,48 +243,6 @@ function QuickActionCard({ action }: { action: QuickAction }) {
   );
 }
 
-function ReferenceCard({ reference }: { reference: ReferenceClass }) {
-  const theme = useTheme();
-  const toneColor = theme[reference.tone];
-
-  return (
-    <View
-      accessibilityLabel={`${reference.name} reference card`}
-      style={[
-        styles.referenceCard,
-        { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
-      ]}>
-      {reference.image ? (
-        <Image
-          accessibilityLabel={`${reference.name} reference photo`}
-          source={reference.image}
-          resizeMode="cover"
-          style={styles.referenceImage}
-        />
-      ) : (
-        <View
-          accessibilityLabel={`${reference.name} reference pattern`}
-          style={[styles.referencePlaceholder, { backgroundColor: theme.surfaceMuted }]}>
-          <Feather name="eye" size={28} color={toneColor} />
-        </View>
-      )}
-      <View style={styles.referenceCopy}>
-        <View style={styles.referenceTitleRow}>
-          <View style={[styles.referenceDot, { backgroundColor: toneColor }]} />
-          <Text style={[styles.referenceName, { color: theme.primaryDark }]}>{reference.name}</Text>
-        </View>
-        <Text style={[styles.referenceDescription, { color: theme.textSecondary }]}>
-          {reference.description}
-        </Text>
-        <Text style={[styles.referenceStatus, { color: theme.textSecondary }]}>
-          {reference.image
-            ? 'Field reference photo'
-            : 'Observational pattern'}
-        </Text>
-      </View>
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
@@ -292,7 +270,7 @@ const styles = StyleSheet.create({
   },
   greetingBlock: { flexGrow: 1, flexShrink: 1, minWidth: 150, gap: Spacing.xs },
   greeting: { ...Typography.bodySmall },
-  name: { ...Typography.title, fontFamily: Fonts?.serif, fontWeight: '700' },
+  name: { ...Typography.title, fontWeight: '700' },
   heroActions: { flexDirection: 'row', flexShrink: 0, alignItems: 'center', gap: Spacing.sm },
   online: {
     minHeight: 30,
@@ -304,7 +282,7 @@ const styles = StyleSheet.create({
   },
   onlineDot: { width: 6, height: 6, borderRadius: Radius.full },
   onlineText: { ...Typography.caption, fontWeight: '800' },
-  profile: { width: 42, height: 42, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  profile: { width: 48, height: 48, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   content: {
     paddingHorizontal: ComponentTokens.screen.horizontalPadding,
     paddingTop: Spacing.xl,
@@ -326,35 +304,27 @@ const styles = StyleSheet.create({
   quickTitle: { ...Typography.bodySmall, fontWeight: '800' },
   quickBody: { ...Typography.caption },
   referenceHeading: { gap: Spacing.xs },
-  referenceNote: { ...Typography.caption },
-  referenceIntro: { ...Typography.bodySmall },
-  referenceList: { gap: Spacing.sm },
-  referenceCard: {
-    minHeight: 122,
+  referenceEntryCard: {
     borderWidth: 1,
     borderRadius: Radius.xl,
-    padding: Spacing.sm,
+    padding: Spacing.lg,
+    gap: Spacing.sm,
+    ...Shadows.sm,
+  },
+  referenceEntryTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
   },
-  referenceImage: {
-    width: 96,
-    height: 96,
-    borderRadius: Radius.lg,
+  referenceEntryTitle: { ...Typography.subheading, fontWeight: '700' },
+  referencePillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
   },
-  referencePlaceholder: {
-    width: 96,
-    height: 96,
-    borderRadius: Radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  referenceCopy: { flex: 1, minHeight: 96, justifyContent: 'center', gap: Spacing.xs },
-  referenceTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  referenceDot: { width: 7, height: 7, borderRadius: Radius.full },
-  referenceName: { ...Typography.bodySmall, fontWeight: '800' },
-  referenceDescription: { ...Typography.caption },
-  referenceStatus: { ...Typography.caption, fontStyle: 'italic' },
+  referenceNote: { ...Typography.caption },
+  referenceIntro: { ...Typography.bodySmall },
   pressed: { opacity: 0.74 },
 });

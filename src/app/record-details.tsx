@@ -14,7 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
+import { Row } from '@/components/ui/Row';
 import {
   getResultLabel,
   getSyncPresentation,
@@ -63,6 +65,7 @@ export default function RecordDetailsScreen() {
   const [imageUnavailable, setImageUnavailable] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   const synchronizationMetadata = fieldReport.data ?? record.data;
@@ -92,15 +95,23 @@ export default function RecordDetailsScreen() {
   };
 
   const confirmDelete = () => {
+    setShowDeleteConfirm(true);
     Alert.alert(
       'Delete local record?',
       'This removes the scan, its saved image, and any associated Field Report from this device. This action cannot be undone.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => setShowDeleteConfirm(false),
+        },
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => void performDelete(),
+          onPress: () => {
+            setShowDeleteConfirm(false);
+            void performDelete();
+          },
         },
       ],
     );
@@ -139,7 +150,7 @@ export default function RecordDetailsScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Saved Record" />
+        <BrandedScreenHeader title="Saved record" />
         {record.loading ? (
           <CenteredState
             icon="loader"
@@ -219,7 +230,7 @@ export default function RecordDetailsScreen() {
                 />
               </View>
 
-              <Section title="Field Report">
+              <Section title="Field report">
                 <Text style={[styles.reportMessage, { color: theme.textSecondary }]}>
                   {getFieldReportAction(
                     fieldReport.data,
@@ -394,6 +405,20 @@ export default function RecordDetailsScreen() {
                   {deleteError}
                 </Text>
               ) : null}
+              <ConfirmDialog
+                visible={showDeleteConfirm}
+                title="Delete local record?"
+                message="This removes the scan, its saved image, and any associated Field Report from this device. This action cannot be undone."
+                confirmLabel="Delete"
+                cancelLabel="Cancel"
+                destructive
+                onConfirm={() => {
+                  setShowDeleteConfirm(false);
+                  void performDelete();
+                }}
+                onCancel={() => setShowDeleteConfirm(false)}
+                testID="records.confirm-delete"
+              />
               <AppButton
                 onPress={confirmDelete}
                 disabled={deleting}
@@ -571,16 +596,13 @@ function DetailRow({
   value: string;
   valueTestID?: string;
 }) {
-  const theme = useTheme();
   return (
-    <View style={[styles.row, { borderBottomColor: theme.divider }]}>
-      <Text style={[styles.rowLabel, { color: theme.textSecondary }]}>
-        {label}
-      </Text>
-      <Text testID={valueTestID} style={[styles.rowValue, { color: theme.text }]}>
-        {value}
-      </Text>
-    </View>
+    <Row
+      label={label}
+      value={value}
+      valueTestID={valueTestID}
+      withDivider
+    />
   );
 }
 

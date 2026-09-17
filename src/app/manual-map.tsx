@@ -55,7 +55,7 @@ export default function ManualMapScreen() {
       edges={isFullscreen ? [] : ['top', 'bottom']}>
       <View style={styles.root}>
         {!isFullscreen ? (
-          <BrandedScreenHeader title="Pin Report Location" />
+          <BrandedScreenHeader title="Pin report location" />
         ) : null}
         {report.loading && !report.data ? (
           <View style={styles.centered}>

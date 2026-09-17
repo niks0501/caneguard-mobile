@@ -20,6 +20,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { getResultLabel, getSyncPresentation } from '@/components/ui/RecordCard';
+import { Row } from '@/components/ui/Row';
 import { TextField } from '@/components/ui/TextField';
 import {
   ComponentTokens,
@@ -1768,13 +1769,7 @@ function ReporterObservationSection({
 }
 
 function EvidenceRow({ label, value }: { label: string; value: string }) {
-  const theme = useTheme();
-  return (
-    <View style={styles.evidenceRow}>
-      <Text style={[styles.automaticLabel, { color: theme.textSecondary }]}>{label}</Text>
-      <Text style={[styles.evidenceValue, { color: theme.text }]}>{value}</Text>
-    </View>
-  );
+  return <Row label={label} value={value} />;
 }
 
 function getGpsPresentation(fieldReport: FieldReport): {

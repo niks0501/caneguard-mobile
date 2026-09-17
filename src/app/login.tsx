@@ -5,7 +5,7 @@ import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleShee
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
-import { Fonts, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
+import { Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -147,19 +147,19 @@ const styles = StyleSheet.create({
   hero: { height: 190, justifyContent: 'center', paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, borderBottomWidth: 1 },
   brandRow: { maxWidth: '62%', flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, zIndex: 1 },
   logo: { width: 54, height: 54 },
-  brand: { ...Typography.heading, flexShrink: 1, fontFamily: Fonts?.serif },
+  brand: { ...Typography.heading, flexShrink: 1 },
   content: { flex: 1, paddingHorizontal: Spacing.xl, paddingTop: Spacing['2xl'], gap: Spacing['3xl'] },
   intro: { gap: Spacing.sm },
-  title: { ...Typography.display, fontFamily: Fonts?.serif, fontWeight: '700' },
+  title: { ...Typography.display, fontWeight: '700' },
   subtitle: { ...Typography.bodySmall },
   form: { gap: Spacing.md },
   input: { minHeight: 62, paddingHorizontal: Spacing.lg, borderWidth: 1, borderRadius: Radius.lg, flexDirection: 'row', alignItems: 'center', gap: Spacing.md, ...Shadows.sm },
   inputCopy: { flex: 1 },
   inputText: { ...Typography.body, minHeight: 44, paddingVertical: Spacing.sm },
   error: { ...Typography.bodySmall, fontWeight: '700' },
-  trailingButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  trailingButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   signupRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  signupButton: { minHeight: 44, flexShrink: 1, alignItems: 'center', justifyContent: 'center' },
+  signupButton: { minHeight: 48, flexShrink: 1, alignItems: 'center', justifyContent: 'center' },
   rule: { height: 1, flex: 1 },
   signup: { ...Typography.bodySmall, fontWeight: '800' },
   footer: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg, alignItems: 'center', gap: Spacing.sm },

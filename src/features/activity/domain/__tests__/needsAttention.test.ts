@@ -68,6 +68,8 @@ function build(overrides: {
   destinations?: Map<string, NotificationDestination>;
   notifications?: MobileNotification[];
   pendingUploadCount?: number;
+  pendingReportsCount?: number;
+  pendingCompletionsCount?: number;
   syncErrorMessage?: string | null;
 }) {
   return buildNeedsAttention({
@@ -75,6 +77,8 @@ function build(overrides: {
     destinations: overrides.destinations ?? new Map(),
     notifications: overrides.notifications ?? [],
     pendingUploadCount: overrides.pendingUploadCount ?? 0,
+    pendingReportsCount: overrides.pendingReportsCount,
+    pendingCompletionsCount: overrides.pendingCompletionsCount,
     syncErrorMessage: overrides.syncErrorMessage ?? null,
     today: TODAY,
   });
@@ -172,6 +176,22 @@ describe('buildNeedsAttention', () => {
     const pending = build({ pendingUploadCount: 3, syncErrorMessage: null });
     expect(pending.items[0].title).toBe('3 reports need synchronization');
     expect(pending.items[0].meta).toBe('Waiting to upload');
+
+    const visitsOnly = build({
+      pendingUploadCount: 1,
+      pendingReportsCount: 0,
+      pendingCompletionsCount: 1,
+      syncErrorMessage: null,
+    });
+    expect(visitsOnly.items[0].title).toBe('1 field visit needs synchronization');
+
+    const mixed = build({
+      pendingUploadCount: 2,
+      pendingReportsCount: 1,
+      pendingCompletionsCount: 1,
+      syncErrorMessage: null,
+    });
+    expect(mixed.items[0].title).toBe('2 items need synchronization');
   });
 
   it('reports every item while exposing how many rows collapse', () => {

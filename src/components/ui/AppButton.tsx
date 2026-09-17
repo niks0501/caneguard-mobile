@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } fro
 import { ComponentTokens, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-type AppButtonVariant = 'primary' | 'secondary' | 'text';
+type AppButtonVariant = 'primary' | 'secondary' | 'text' | 'danger';
 
 type AppButtonProps = {
   children: ReactNode;
@@ -33,6 +33,7 @@ export function AppButton({
   const theme = useTheme();
   const isPrimary = variant === 'primary';
   const isText = variant === 'text';
+  const isDanger = variant === 'danger';
 
   return (
     <Pressable
@@ -50,23 +51,41 @@ export function AppButton({
           borderColor: disabled ? theme.divider : theme.border,
           borderWidth: 1,
         },
+        isDanger && {
+          backgroundColor: disabled ? theme.surfaceMuted : theme.dangerBg,
+          borderColor: disabled ? theme.divider : theme.danger,
+          borderWidth: 1,
+        },
         isText && styles.textButton,
         pressed && !disabled && styles.pressed,
         disabled && styles.disabled,
         style,
       ]}>
       <View style={styles.content}>
-        {leadingIcon ? <Feather name={leadingIcon} size={18} color={isPrimary ? theme.background : theme.primaryDark} /> : null}
+        {leadingIcon ? (
+          <Feather
+            name={leadingIcon}
+            size={18}
+            color={isPrimary ? theme.background : isDanger ? theme.danger : theme.primaryDark}
+          />
+        ) : null}
         <Text
           style={[
             styles.label,
             { color: isPrimary ? theme.background : theme.primaryDark },
+            isDanger && { color: disabled ? theme.textSecondary : theme.danger },
             isText && { color: disabled ? theme.textSecondary : theme.primary },
             disabled && { color: theme.textSecondary },
           ]}>
           {children}
         </Text>
-        {trailingIcon ? <Feather name={trailingIcon} size={18} color={isPrimary ? theme.background : theme.primaryDark} /> : null}
+        {trailingIcon ? (
+          <Feather
+            name={trailingIcon}
+            size={18}
+            color={isPrimary ? theme.background : isDanger ? theme.danger : theme.primaryDark}
+          />
+        ) : null}
       </View>
     </Pressable>
   );

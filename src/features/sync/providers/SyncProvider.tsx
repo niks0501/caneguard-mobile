@@ -45,6 +45,8 @@ interface SyncContextValue {
   isSyncing: boolean;
   lastSuccessfulSyncAt: string | null;
   pendingCount: number;
+  pendingReportsCount: number;
+  pendingCompletionsCount: number;
   retryReport: (reportId: string) => Promise<SyncBatchResult | null>;
   retryFieldValidationCompletion: (completionId: string) => Promise<SyncBatchResult | null>;
   syncNow: (source?: SyncTriggerSource) => Promise<SyncBatchResult | null>;
@@ -72,6 +74,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
     sessionKey: null,
   });
   const [pendingCount, setPendingCount] = useState(0);
+  const [pendingReportsCount, setPendingReportsCount] = useState(0);
+  const [pendingCompletionsCount, setPendingCompletionsCount] = useState(0);
   const [lastSuccessfulSyncAt, setLastSuccessfulSyncAt] = useState<string | null>(
     null,
   );
@@ -141,6 +145,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
         )
       ) {
         setPendingCount(0);
+        setPendingReportsCount(0);
+        setPendingCompletionsCount(0);
         setLastSuccessfulSyncAt(null);
       }
       return;
@@ -163,6 +169,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
       )
     ) {
       setPendingCount(reportCount + completionCount);
+      setPendingReportsCount(reportCount);
+      setPendingCompletionsCount(completionCount);
       setLastSuccessfulSyncAt(lastSyncedAt);
     }
   }, [database, sessionToken, submitterIdentity]);
@@ -466,6 +474,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
         syncState.sessionKey === sessionKey ? syncState.isSyncing : false,
       lastSuccessfulSyncAt,
       pendingCount,
+      pendingReportsCount,
+      pendingCompletionsCount,
       retryFieldValidationCompletion,
       retryReport,
       syncNow,
@@ -474,6 +484,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
       isOnline,
       lastSuccessfulSyncAt,
       pendingCount,
+      pendingReportsCount,
+      pendingCompletionsCount,
       retryFieldValidationCompletion,
       retryReport,
       sessionKey,

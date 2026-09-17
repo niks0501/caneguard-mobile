@@ -6,7 +6,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
-import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ComponentTokens, Layout, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { clearLocalDataForOwner } from '@/database/localDataLifecycle';
@@ -118,7 +118,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
       <View style={styles.root}>
-        <ScreenHeader title="Settings" />
+        <BrandedScreenHeader title="Settings" variant="plain" />
 
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -132,8 +132,6 @@ export default function SettingsScreen() {
                 styles.card,
                 { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
               ]}>
-              <DisabledRow label="Language / Wika" />
-              <DisabledRow label="Text Size" />
               <ToggleRow
                 label="Dark Mode"
                 description="Use a darker appearance throughout CaneGuard"

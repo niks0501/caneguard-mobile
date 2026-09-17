@@ -49,7 +49,7 @@ export function AssignmentCard({
         </View>
         <DiseasePill variant={variant} />
       </View>
-      <View style={styles.details}>
+      <View style={[styles.details, { borderTopColor: theme.divider }]}>
         <Detail label="Visit" value={target} theme={theme} />
         <Detail label="Submitted by" value={assignment.submitter.name} theme={theme} />
         <Detail label="Status" value={stateLabel(assignment.fieldValidationState)} theme={theme} />
@@ -137,7 +137,6 @@ const styles = StyleSheet.create({
   location: { ...Typography.bodySmall },
   details: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.08)',
     paddingTop: Spacing.sm,
     gap: Spacing.sm,
   },

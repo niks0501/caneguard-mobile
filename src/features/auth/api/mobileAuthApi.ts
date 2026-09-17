@@ -515,8 +515,8 @@ function authError(
 }
 
 const AUTH_ERROR_MESSAGES: Record<MobileAuthErrorCode, string> = {
-  EMAIL_NOT_VERIFIED: 'Verify your email address before using Mobile.',
-  FORBIDDEN_ROLE: 'Only Field Inspector accounts can use mobile synchronization.',
+  EMAIL_NOT_VERIFIED: 'Verify your email address before signing in to CaneGuard.',
+  FORBIDDEN_ROLE: 'Only Field Inspector accounts can sign in to CaneGuard Mobile.',
   INVALID_CREDENTIALS: 'The email or password is incorrect.',
   INVALID_RESET_TOKEN:
     'This recovery link is invalid, expired, or already used. Request a new link.',
@@ -525,7 +525,7 @@ const AUTH_ERROR_MESSAGES: Record<MobileAuthErrorCode, string> = {
     'This email-verification link is invalid or expired. Request a new link.',
   RATE_LIMITED: 'Too many requests. Wait a moment and try again.',
   SERVER_UNAVAILABLE:
-    'CaneGuard could not reach the server. Check the API connection and try again.',
+    'CaneGuard could not reach the server. Please check your connection and try again.',
   SESSION_EXPIRED: 'Your CaneGuard session is no longer valid.',
   STEP_UP_REQUIRED: 'Enter your current password to continue.',
   VALIDATION_ERROR: 'Check the highlighted fields and try again.',

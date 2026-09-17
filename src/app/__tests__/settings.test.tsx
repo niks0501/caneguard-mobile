@@ -25,8 +25,6 @@ describe('SettingsScreen', () => {
     await render(<SettingsScreen />);
 
     for (const label of [
-      'Language / Wika',
-      'Text Size',
       'High Contrast Mode',
       'Sync Alerts',
       'Office Advisories',
@@ -36,7 +34,7 @@ describe('SettingsScreen', () => {
       expect(row).toHaveProp('accessibilityState', { disabled: true });
     }
 
-    expect(screen.getAllByText('Coming later')).toHaveLength(5);
+    expect(screen.getAllByText('Coming later')).toHaveLength(3);
   });
 
   it('keeps Dark Mode as the available display setting', async () => {

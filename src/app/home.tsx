@@ -105,7 +105,7 @@ export default function HomeScreen() {
               <View style={styles.heroContent}>
                 <View style={styles.heroTop}>
                   <View style={styles.greetingBlock}>
-                    <Text style={[styles.greeting, { color: theme.textSecondary }]}>Magandang umaga,</Text>
+                    <Text style={[styles.greeting, { color: theme.textSecondary }]}>Welcome back,</Text>
                     <Text style={[styles.name, { color: theme.primaryDark }]}>{user?.name ?? 'Field Inspector'}</Text>
                   </View>
                   <View style={styles.heroActions}>
@@ -153,7 +153,7 @@ export default function HomeScreen() {
 
               <View style={styles.referenceHeading}>
                 <SectionTitle label="DISEASE REFERENCE" />
-                <Text style={[styles.referenceNote, { color: theme.textSecondary }]}>Education only · supplied photos and validated pattern descriptions</Text>
+                <Text style={[styles.referenceNote, { color: theme.textSecondary }]}>Visual guide · field symptoms and pattern descriptions</Text>
               </View>
               <Text style={[styles.referenceIntro, { color: theme.textSecondary }]}>
                 These are observational references for the four Model V1 classes. They support decision-making only and do not confirm a disease.
@@ -258,8 +258,8 @@ function ReferenceCard({ reference }: { reference: ReferenceClass }) {
         </Text>
         <Text style={[styles.referenceStatus, { color: theme.textSecondary }]}>
           {reference.image
-            ? 'Photo supplied · license evidence pending'
-            : 'Pattern description only · observational reference'}
+            ? 'Field reference photo'
+            : 'Observational pattern'}
         </Text>
       </View>
     </View>

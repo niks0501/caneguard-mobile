@@ -11,8 +11,8 @@ const base = {
   text: '#1F2A21',
   muted: '#6B7280',
   border: '#DDE5DE',
-  success: '#3A7D44',
-  warning: '#C97B2E',
+  success: '#2E6D38',
+  warning: '#9C4B00',
   danger: '#B94040',
   info: '#2E6FA3',
 } as const;
@@ -27,6 +27,7 @@ export const Colors = {
     primary: base.primary,
     primaryDark: base.primaryDark,
     primaryLight: base.primaryLight,
+    onPrimary: '#FFFFFF',
     accent: base.accent,
     accentDark: base.accentDark,
     surface: '#F7F9F7',
@@ -46,7 +47,7 @@ export const Colors = {
     healthyBg: '#E8F5E9',
     smut: '#7B2CBF',
     smutBg: '#F3E8FF',
-    mosaic: '#F9A825',
+    mosaic: '#B26A00',
     mosaicBg: '#FFF8E1',
     rust: '#D35400',
     rustBg: '#FBE9E7',
@@ -62,6 +63,7 @@ export const Colors = {
     primary: '#91B79A',
     primaryDark: '#B9D0BE',
     primaryLight: '#6E8B74',
+    onPrimary: '#101711',
     accent: '#D6CC99',
     accentDark: '#B8AD73',
     surface: '#172018',
@@ -116,13 +118,6 @@ export const Typography = {
 
 export const Spacing = {
   none: 0,
-  half: 2,
-  one: 4,
-  two: 8,
-  three: 16,
-  four: 24,
-  five: 32,
-  six: 64,
   xs: 4,
   sm: 8,
   md: 12,
@@ -142,12 +137,10 @@ export const Radius = {
   md: 12,
   lg: 16,
   xl: 20,
-  '2xl': 24,
   full: 999,
 } as const;
 
 export const Shadows = {
-  none: {},
   sm: Platform.select({
     ios: { shadowColor: base.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 12 },
     android: { elevation: 2 },
@@ -158,14 +151,6 @@ export const Shadows = {
     android: { elevation: 4 },
     default: {},
   }),
-} as const;
-
-export const DiseaseTokens = {
-  healthy: { label: 'Healthy Sugarcane', color: Colors.light.healthy, background: Colors.light.healthyBg },
-  smut: { label: 'Sugarcane Smut', color: Colors.light.smut, background: Colors.light.smutBg },
-  mosaic: { label: 'Sugarcane Mosaic Disease', color: Colors.light.mosaic, background: Colors.light.mosaicBg },
-  rust: { label: 'Sugarcane Rust', color: Colors.light.rust, background: Colors.light.rustBg },
-  unclear: { label: 'Unclear Result', color: Colors.light.unclear, background: Colors.light.unclearBg },
 } as const;
 
 export const ComponentTokens = {
@@ -188,9 +173,5 @@ export const IconSize = {
 export const Layout = {
   maxContentWidth: 800,
   mobileMaxWidth: 430,
-  headerHeight: 56,
   bottomNavHeight: 64,
 } as const;
-
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = Layout.maxContentWidth;

@@ -16,7 +16,18 @@ export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
   const { sessionVerification } = useAuth();
   const sync = useSync();
   const hasPendingReports = sync.pendingCount > 0;
-  const pendingSummary = `${sync.pendingCount} ${sync.pendingCount === 1 ? 'report' : 'reports'} awaiting sync`;
+  const reportsCount = (sync as any).pendingReportsCount ?? sync.pendingCount;
+  const completionsCount = (sync as any).pendingCompletionsCount ?? 0;
+  const formatPendingSummary = () => {
+    if (reportsCount > 0 && completionsCount > 0) {
+      return `${reportsCount} ${reportsCount === 1 ? 'report' : 'reports'}, ${completionsCount} ${completionsCount === 1 ? 'visit' : 'visits'} awaiting sync`;
+    }
+    if (completionsCount > 0 && reportsCount === 0) {
+      return `${completionsCount} ${completionsCount === 1 ? 'visit' : 'visits'} awaiting sync`;
+    }
+    return `${sync.pendingCount} ${sync.pendingCount === 1 ? 'report' : 'reports'} awaiting sync`;
+  };
+  const pendingSummary = formatPendingSummary();
   const apiUnavailable =
     sessionVerification === 'unavailable' ||
     (sync.isOnline === true && sync.apiReachability === 'unavailable');

@@ -129,7 +129,7 @@ describe('mobile authentication API', () => {
     fetchMock.mockResolvedValueOnce(response(403, { code: 'FORBIDDEN' }));
     await expect(verifyMobileSession('test-session-value')).rejects.toMatchObject({
       code: 'FORBIDDEN_ROLE',
-      message: 'Only Field Inspector accounts can use mobile synchronization.',
+      message: 'Only Field Inspector accounts can sign in to CaneGuard Mobile.',
     });
   });
 
@@ -160,7 +160,7 @@ describe('mobile authentication API', () => {
       }),
     ).rejects.toMatchObject({
       code: 'EMAIL_NOT_VERIFIED',
-      message: 'Verify your email address before using Mobile.',
+      message: 'Verify your email address before signing in to CaneGuard.',
     });
   });
 

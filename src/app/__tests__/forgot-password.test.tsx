@@ -108,7 +108,7 @@ describe('ForgotPasswordScreen', () => {
     mockRequestPasswordReset.mockRejectedValueOnce(
       new MobileAuthError(
         'SERVER_UNAVAILABLE',
-        'CaneGuard could not reach the server. Check the API connection and try again.',
+        'CaneGuard could not reach the server. Please check your connection and try again.',
       ),
     );
 
@@ -121,7 +121,7 @@ describe('ForgotPasswordScreen', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('forgot-password.error')).toHaveTextContent(
-        'CaneGuard could not reach the server. Check the API connection and try again.',
+        'CaneGuard could not reach the server. Please check your connection and try again.',
       ),
     );
   });

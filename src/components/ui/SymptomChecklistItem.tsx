@@ -49,7 +49,7 @@ export function SymptomChecklistItem({
             ? <View style={[styles.radioDot, { backgroundColor: theme.primary }]} />
             : null
           : selected
-            ? <Text style={styles.checkmark}>{'✓'}</Text>
+            ? <Text style={[styles.checkmark, { color: theme.onPrimary }]}>{'✓'}</Text>
             : null}
       </View>
       <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   checkbox: {
     width: 24,
     height: 24,
-    borderRadius: 6,
+    borderRadius: Radius.xs,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -84,8 +84,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
   },
   checkmark: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    ...Typography.bodySmall,
     fontWeight: '800',
   },
   label: {

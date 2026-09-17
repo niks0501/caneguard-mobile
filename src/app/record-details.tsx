@@ -397,7 +397,7 @@ export default function RecordDetailsScreen() {
               <AppButton
                 onPress={confirmDelete}
                 disabled={deleting}
-                variant="secondary"
+                variant="danger"
                 leadingIcon="trash-2"
                 accessibilityLabel="Delete this local record and saved image">
                 {deleting ? 'Deleting...' : 'Delete Local Record'}

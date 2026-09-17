@@ -37,7 +37,7 @@ export function NeedsAttentionPanel({
   return (
     <View testID="activity.needs-attention" style={styles.container}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.primaryDark }]}>Needs Attention</Text>
+        <Text style={[styles.title, { color: theme.primaryDark }]}>Needs attention</Text>
         {summary.total > 0 ? (
           <View style={[styles.count, { backgroundColor: theme.primary }]}>
             <Text
@@ -155,10 +155,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  copy: { flex: 1, gap: 2 },
+  copy: { flex: 1, gap: Spacing.xs },
   itemTitle: { ...Typography.bodySmall, fontWeight: '800' },
   itemMessage: { ...Typography.caption },
-  itemMeta: { ...Typography.caption, fontSize: 11, fontWeight: '700' },
+  itemMeta: { ...Typography.caption, fontWeight: '700' },
   more: {
     minHeight: 44,
     flexDirection: 'row',

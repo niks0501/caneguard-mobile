@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   hero: { height: 190, justifyContent: 'center', paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, borderBottomWidth: 1 },
   brandRow: { maxWidth: '62%', flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, zIndex: 1 },
   logo: { width: 54, height: 54 },
-  brand: { ...Typography.subheading, flexShrink: 1, fontFamily: Fonts?.serif, fontSize: 25 },
+  brand: { ...Typography.heading, flexShrink: 1, fontFamily: Fonts?.serif },
   content: { flex: 1, paddingHorizontal: Spacing.xl, paddingTop: Spacing['2xl'], gap: Spacing['3xl'] },
   intro: { gap: Spacing.sm },
   title: { ...Typography.display, fontFamily: Fonts?.serif, fontWeight: '700' },

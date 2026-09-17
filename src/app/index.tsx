@@ -54,11 +54,12 @@ const styles = StyleSheet.create({
   },
   brandWrap: {
     alignItems: 'center',
-    gap: Spacing.none,
+    gap: Spacing.sm,
   },
   logo: {
-    width: 500,
-    height: 500,
+    width: '100%',
+    maxWidth: 280,
+    aspectRatio: 677 / 369,
   },
   appName: {
     ...Typography.title,
@@ -69,6 +70,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   actions: {
-    gap: Spacing.none,
+    gap: Spacing.sm,
   },
 });

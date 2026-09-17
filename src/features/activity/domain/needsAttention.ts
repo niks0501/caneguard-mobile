@@ -33,6 +33,8 @@ export function buildNeedsAttention(input: {
   destinations: Map<string, NotificationDestination>;
   notifications: MobileNotification[];
   pendingUploadCount: number;
+  pendingReportsCount?: number;
+  pendingCompletionsCount?: number;
   syncErrorMessage: string | null;
   today: string;
 }): NeedsAttentionSummary {
@@ -103,12 +105,22 @@ function assignmentItems(input: {
 
 function uploadItems(input: {
   pendingUploadCount: number;
+  pendingReportsCount?: number;
+  pendingCompletionsCount?: number;
   syncErrorMessage: string | null;
 }): NeedsAttentionItem[] {
   if (input.pendingUploadCount <= 0) {
     return [];
   }
   const failed = Boolean(input.syncErrorMessage);
+  const reportsCount = input.pendingReportsCount ?? input.pendingUploadCount;
+  const completionsCount = input.pendingCompletionsCount ?? 0;
+  let nounPhrase = `${input.pendingUploadCount} ${input.pendingUploadCount === 1 ? 'report needs' : 'reports need'}`;
+  if (completionsCount > 0 && reportsCount === 0) {
+    nounPhrase = `${completionsCount} ${completionsCount === 1 ? 'field visit needs' : 'field visits need'}`;
+  } else if (completionsCount > 0 && reportsCount > 0) {
+    nounPhrase = `${input.pendingUploadCount} ${input.pendingUploadCount === 1 ? 'item needs' : 'items need'}`;
+  }
   return [
     {
       destination: null,
@@ -116,12 +128,12 @@ function uploadItems(input: {
       kind: 'upload',
       message: failed
         ? input.syncErrorMessage ??
-          'Some reports could not be uploaded yet. They stay saved on this device.'
-        : 'Reports saved on this device are waiting to be uploaded.',
+          'Some items could not be uploaded yet. They stay saved on this device.'
+        : completionsCount > 0 && reportsCount === 0
+          ? 'Completed field visits saved on this device are waiting to be uploaded.'
+          : 'Reports saved on this device are waiting to be uploaded.',
       meta: failed ? 'Upload problem' : 'Waiting to upload',
-      title: `${input.pendingUploadCount} ${
-        input.pendingUploadCount === 1 ? 'report needs' : 'reports need'
-      } synchronization`,
+      title: `${nounPhrase} synchronization`,
     },
   ];
 }

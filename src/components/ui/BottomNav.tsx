@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ComponentTokens, Layout, Radius, Spacing } from '@/constants/theme';
+import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type NavTab = 'home' | 'scan' | 'activity';
@@ -31,7 +31,7 @@ export function BottomNav({ activeTab }: BottomNavProps) {
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.row, { backgroundColor: theme.surfaceElevated, paddingBottom: Math.max(Spacing.sm, insets.bottom) }]}>
+      <View style={[styles.row, { backgroundColor: theme.surfaceElevated, borderTopColor: theme.divider, paddingBottom: Math.max(Spacing.sm, insets.bottom) }]}>
         {NAV_ITEMS.map((item) => {
           const active = item.key === activeTab;
 
@@ -103,8 +103,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   label: {
-    fontSize: 10,
-    lineHeight: 12,
+    ...Typography.caption,
+    lineHeight: 14,
     fontWeight: '700',
     textAlign: 'center',
   },

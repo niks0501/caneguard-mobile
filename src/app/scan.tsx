@@ -8,6 +8,7 @@ import { Linking, Platform, ScrollView, StyleSheet, Text, View } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
+import { BottomNav } from '@/components/ui/BottomNav';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ComponentTokens, Layout, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useScanSession } from '@/features/detection/context/useScanSession';
@@ -226,13 +227,8 @@ export default function ScanScreen() {
   };
 
   const isBusy = activeOperation !== null;
-  const primaryLabel =
-    activeOperation === 'gallery'
-      ? 'Opening gallery…'
-      : state.sourceUri
-        ? 'Replace Image'
-        : 'Upload Image';
-  const cameraLabel = activeOperation === 'camera' ? 'Opening camera…' : 'Capture Photo';
+  const cameraLabel = activeOperation === 'camera' ? 'Opening camera…' : 'Take photo';
+  const galleryLabel = activeOperation === 'gallery' ? 'Opening gallery…' : 'Choose from device';
 
   return (
     <SafeAreaView
@@ -303,7 +299,7 @@ export default function ScanScreen() {
                       Image selected
                     </Text>
                     <Text style={[styles.uploadText, { color: theme.textSecondary }]}>
-                      Choose another image below or return to its preview.
+                      View the selected image or start a new scan.
                     </Text>
                   </>
                 ) : (
@@ -327,42 +323,46 @@ export default function ScanScreen() {
             </View>
 
             <View style={styles.actions}>
-              <AppButton
-                testID="scan.choose-gallery"
-                onPress={pickFromGallery}
-                disabled={isBusy}
-                leadingIcon="upload"
-                trailingIcon="arrow-right"
-                accessibilityLabel="Choose one image from the gallery">
-                {primaryLabel}
-              </AppButton>
-              <AppButton
-                variant="secondary"
-                onPress={captureWithCamera}
-                disabled={isBusy}
-                leadingIcon="camera"
-                trailingIcon="arrow-right"
-                accessibilityLabel="Capture a photo with the camera">
-                {cameraLabel}
-              </AppButton>
               {state.sourceUri ? (
                 <>
                   <AppButton
-                    variant="secondary"
                     onPress={() => router.push('/image-preview')}
                     disabled={isBusy}
+                    trailingIcon="arrow-right"
                     accessibilityLabel="Return to selected image preview">
                     View Selected Image
                   </AppButton>
                   <AppButton
-                    variant="text"
+                    variant="secondary"
                     onPress={startNewScan}
                     disabled={isBusy}
+                    leadingIcon="rotate-ccw"
                     accessibilityLabel="Clear the current scan and start again">
                     Start New Scan
                   </AppButton>
                 </>
-              ) : null}
+              ) : (
+                <>
+                  <AppButton
+                    onPress={captureWithCamera}
+                    disabled={isBusy}
+                    leadingIcon="camera"
+                    trailingIcon="arrow-right"
+                    accessibilityLabel="Capture a photo with the camera">
+                    {cameraLabel}
+                  </AppButton>
+                  <AppButton
+                    testID="scan.choose-gallery"
+                    variant="secondary"
+                    onPress={pickFromGallery}
+                    disabled={isBusy}
+                    leadingIcon="image"
+                    trailingIcon="arrow-right"
+                    accessibilityLabel="Choose one image from the gallery">
+                    {galleryLabel}
+                  </AppButton>
+                </>
+              )}
             </View>
 
             <View
@@ -372,7 +372,7 @@ export default function ScanScreen() {
               ]}>
               <View style={styles.guideHeading}>
                 <View style={[styles.guideIcon, { backgroundColor: theme.warningBg }]}>
-                  <Feather name="check-circle" size={18} color={theme.accentDark} />
+                  <Feather name="check-circle" size={18} color={theme.warning} />
                 </View>
                 <Text style={[styles.guideTitle, { color: theme.primaryDark }]}>
                   Photo quality guide
@@ -402,6 +402,7 @@ export default function ScanScreen() {
             </View>
           </View>
         </ScrollView>
+        <BottomNav activeTab="scan" />
       </View>
     </SafeAreaView>
   );

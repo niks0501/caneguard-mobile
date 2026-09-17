@@ -161,11 +161,11 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   marker: { width: 7, height: 7, borderRadius: Radius.full, marginTop: 6 },
-  itemCopy: { flex: 1, gap: 2 },
+  itemCopy: { flex: 1, gap: Spacing.xs },
   itemTitleRow: { flexDirection: 'row', gap: Spacing.xs, alignItems: 'center' },
   itemTitle: { ...Typography.caption, fontWeight: '800', flex: 1 },
   unread: { ...Typography.caption, fontWeight: '800' },
   itemMessage: { ...Typography.caption },
-  meta: { ...Typography.caption, fontSize: 11 },
+  meta: { ...Typography.caption },
   pressed: { opacity: 0.72 },
 });

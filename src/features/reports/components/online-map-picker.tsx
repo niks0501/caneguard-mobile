@@ -347,7 +347,7 @@ export function OnlineMapPicker({
           {!mapTileSourceConfigured ? (
             <MapOverlay
               icon="shield"
-              message="Manual map tiles are unavailable until the CaneGuard privacy proxy is configured. Your Draft is unchanged."
+              message="Manual map tiles are temporarily unavailable. Your Draft is unchanged."
             />
           ) : isOnline !== true ? (
             <MapOverlay
@@ -383,7 +383,7 @@ export function OnlineMapPicker({
               ]}>
               <Text
                 style={[styles.mapAttributionText, { color: theme.text }]}>
-                © OpenStreetMap contributors via CaneGuard privacy proxy
+                © OpenStreetMap contributors
               </Text>
             </View>
           ) : null}
@@ -433,8 +433,7 @@ export function OnlineMapPicker({
 
       {!fullscreen ? (
         <Text style={[styles.attribution, { color: theme.textSecondary }]}>
-          Tiles load only for the visible online map. CaneGuard does not
-          prefetch or offer offline map downloads.
+          Tiles load for the visible online map. Use GPS location capture when offline.
         </Text>
       ) : null}
       <Text
@@ -519,7 +518,7 @@ const styles = StyleSheet.create({
   },
   mapFullscreen: {
     ...StyleSheet.absoluteFill,
-    borderRadius: 0,
+    borderRadius: Radius.none,
     borderWidth: 0,
     overflow: 'hidden',
   },
@@ -550,7 +549,7 @@ const styles = StyleSheet.create({
     zIndex: 5,
     borderRadius: Radius.xs,
     paddingHorizontal: Spacing.xs,
-    paddingVertical: 2,
+    paddingVertical: Spacing.xs,
     opacity: 0.88,
   },
   mapAttributionInline: {
@@ -560,7 +559,7 @@ const styles = StyleSheet.create({
   mapAttributionFullscreen: {
     right: Spacing.xs,
   },
-  mapAttributionText: { ...Typography.caption, fontSize: 10 },
+  mapAttributionText: { ...Typography.caption },
   loadingOverlay: {
     position: 'absolute',
     top: 0,

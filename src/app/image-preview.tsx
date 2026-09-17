@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
-import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { useScanSession } from '@/features/detection/context/useScanSession';
 import {
@@ -141,7 +141,7 @@ export default function ImagePreviewScreen() {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
         <View style={styles.root}>
-          <ScreenHeader title="Image Preview" />
+          <BrandedScreenHeader title="Image Preview" />
           <View style={styles.recoveryContent}>
             <AppCard style={styles.recoveryCard}>
               <View style={[styles.recoveryIcon, { backgroundColor: theme.warningBg }]}>
@@ -180,7 +180,7 @@ export default function ImagePreviewScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top']}>
       <View style={styles.root}>
-        <ScreenHeader title="Image Preview" />
+        <BrandedScreenHeader title="Image Preview" />
 
         <ScrollView
           showsVerticalScrollIndicator={false}

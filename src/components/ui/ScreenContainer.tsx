@@ -15,25 +15,47 @@ import { useTheme } from '@/hooks/use-theme';
 
 type ScreenContainerProps = {
   children: ReactNode;
+  header?: ReactNode;
+  footer?: ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
+  scrollable?: boolean;
+  testID?: string;
 };
 
-export function ScreenContainer({ children, contentStyle }: ScreenContainerProps) {
+export function ScreenContainer({
+  children,
+  header,
+  footer,
+  contentStyle,
+  scrollable = true,
+  testID,
+}: ScreenContainerProps) {
   const theme = useTheme();
 
+  const bodyContent = <View style={[styles.content, contentStyle]}>{children}</View>;
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+    <SafeAreaView testID={testID} style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      {header}
       <KeyboardAvoidingView
         testID="screen-container.keyboard-avoiding-view"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoiding}>
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={[styles.scrollContent, { backgroundColor: theme.background }]}
-          style={styles.scrollView}>
-          <View style={[styles.content, contentStyle]}>{children}</View>
-        </ScrollView>
+        {scrollable ? (
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[styles.scrollContent, { backgroundColor: theme.background }]}
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}>
+            {bodyContent}
+          </ScrollView>
+        ) : (
+          <View style={[styles.nonScrollContent, { backgroundColor: theme.background }]}>
+            {bodyContent}
+          </View>
+        )}
       </KeyboardAvoidingView>
+      {footer}
     </SafeAreaView>
   );
 }
@@ -52,11 +74,15 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     alignItems: 'center',
   },
+  nonScrollContent: {
+    flex: 1,
+    alignItems: 'center',
+  },
   content: {
     width: '100%',
-    maxWidth: Layout.mobileMaxWidth,
+    maxWidth: Layout.maxContentWidth,
     flexGrow: 1,
     paddingHorizontal: ComponentTokens.screen.horizontalPadding,
-    paddingVertical: Spacing['2xl'],
+    paddingVertical: Spacing.xl,
   },
 });

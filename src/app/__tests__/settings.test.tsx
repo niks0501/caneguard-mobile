@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import { router } from 'expo-router';
 
 import SettingsScreen from '@/app/settings';
 
@@ -21,28 +22,24 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
 }));
 
 describe('SettingsScreen', () => {
-  it('marks unfinished controls as disabled Coming later rows', async () => {
+  it('presents honest active settings without dead Coming later rows', async () => {
     await render(<SettingsScreen />);
 
-    for (const label of [
-      'High Contrast Mode',
-      'Sync Alerts',
-      'Office Advisories',
-    ]) {
-      const row = screen.getByLabelText(`${label}: Coming later`);
-      expect(row).toBeDisabled();
-      expect(row).toHaveProp('accessibilityState', { disabled: true });
-    }
-
-    expect(screen.getAllByText('Coming later')).toHaveLength(3);
-  });
-
-  it('keeps Dark Mode as the available display setting', async () => {
-    await render(<SettingsScreen />);
+    expect(screen.queryByText('Coming later')).not.toBeOnTheScreen();
+    expect(screen.queryByText('High Contrast Mode')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Sync Alerts')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Office Advisories')).not.toBeOnTheScreen();
 
     const darkMode = screen.getByLabelText('Dark Mode');
     expect(darkMode).toBeEnabled();
-    expect(screen.queryByText('English')).not.toBeOnTheScreen();
-    expect(screen.queryByText('Normal')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('settings.disease-reference')).toBeOnTheScreen();
+    expect(screen.getByText('Account security')).toBeOnTheScreen();
+  });
+
+  it('links to the disease reference guide', async () => {
+    await render(<SettingsScreen />);
+
+    await fireEvent.press(screen.getByTestId('settings.disease-reference'));
+    expect(router.push).toHaveBeenCalledWith('/disease-reference');
   });
 });

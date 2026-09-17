@@ -16,6 +16,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { getResultLabel } from '@/components/ui/RecordCard';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
+import { Row } from '@/components/ui/Row';
 import { TextField } from '@/components/ui/TextField';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
@@ -80,7 +81,7 @@ export default function FieldValidationScreen() {
   return (
     <SafeAreaView testID="field-validation.screen" style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Field Validation" />
+        <BrandedScreenHeader title="Field validation" />
         {state.loading && !state.assignment ? (
           <View style={styles.centered}><ActivityIndicator accessibilityLabel="Opening field validation assignment" color={theme.primary} /></View>
         ) : state.errorMessage && !state.assignment ? (
@@ -200,10 +201,6 @@ function CompletionStatus({ completion, onRetry }: { completion: FieldValidation
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  const theme = useTheme();
-  return <View style={styles.row}><Text style={[styles.rowLabel, { color: theme.textSecondary }]}>{label}</Text><Text style={[styles.rowValue, { color: theme.text }]}>{value || 'Not available'}</Text></View>;
-}
 
 function formatTimestamp(value: string): string {
   return new Date(value).toLocaleString();

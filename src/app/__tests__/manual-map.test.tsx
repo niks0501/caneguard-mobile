@@ -136,7 +136,7 @@ describe('ManualMapScreen', () => {
     await act(async () => undefined);
     await loadMapTiles();
 
-    expect(screen.getByText('Pin Report Location')).toBeOnTheScreen();
+    expect(screen.getByText('Pin report location')).toBeOnTheScreen();
     expect(
       screen.getByLabelText('Expand map to fullscreen'),
     ).toBeOnTheScreen();
@@ -146,7 +146,7 @@ describe('ManualMapScreen', () => {
     // Fullscreen: header and instructions hidden, the map covers the whole
     // device screen (absolutely positioned over the content), and the
     // confirm/cancel flow stays reachable as floating actions.
-    expect(screen.queryByText('Pin Report Location')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Pin report location')).not.toBeOnTheScreen();
     expect(
       screen.queryByText(/Move and zoom the online map/),
     ).not.toBeOnTheScreen();
@@ -163,7 +163,7 @@ describe('ManualMapScreen', () => {
 
     // A clear exit back to the inline view.
     await fireEvent.press(screen.getByTestId('manual-map.fullscreen-toggle'));
-    expect(screen.getByText('Pin Report Location')).toBeOnTheScreen();
+    expect(screen.getByText('Pin report location')).toBeOnTheScreen();
     expect(screen.getByTestId('manual-map.viewport')).not.toHaveStyle({
       position: 'absolute',
     });

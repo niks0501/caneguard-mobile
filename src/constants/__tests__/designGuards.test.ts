@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-import { Colors } from '@/constants/theme';
+import { Colors, Typography } from '@/constants/theme';
 
 function relLuminance(hexColor: string): number {
   const hex = hexColor.replace('#', '');
@@ -94,11 +94,20 @@ describe('Design spine static guards', () => {
       // OnPrimary on primary button/badge
       expect(contrastRatio(palette.onPrimary, palette.primary)).toBeGreaterThanOrEqual(4.5);
 
+      // Guide icon on warning background
+      expect(contrastRatio(palette.guideIcon, palette.warningBg)).toBeGreaterThanOrEqual(4.5);
+
       // Disease state pills
       expect(contrastRatio(palette.healthy, palette.healthyBg)).toBeGreaterThanOrEqual(3.0);
       expect(contrastRatio(palette.smut, palette.smutBg)).toBeGreaterThanOrEqual(3.0);
       expect(contrastRatio(palette.mosaic, palette.mosaicBg)).toBeGreaterThanOrEqual(3.0);
       expect(contrastRatio(palette.rust, palette.rustBg)).toBeGreaterThanOrEqual(3.0);
+    }
+  });
+
+  it('guarantees a 12px floor for all typography scale entries', () => {
+    for (const [key, value] of Object.entries(Typography)) {
+      expect(value.fontSize).toBeGreaterThanOrEqual(12);
     }
   });
 });

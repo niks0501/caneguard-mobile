@@ -34,6 +34,7 @@ import { RecordCard } from '@/components/ui/RecordCard';
 import { AppButton } from '@/components/ui/AppButton';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { SyncStatusPanel } from '@/components/ui/SyncStatusPanel';
 import {
   ComponentTokens,
@@ -534,19 +535,14 @@ function StateCard({
   message: string;
   title: string;
 }) {
-  const theme = useTheme();
   return (
-    <View
-      accessibilityLiveRegion={liveRegion}
-      style={[
-        styles.stateCard,
-        { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-      ]}>
-      <Feather name={icon} size={26} color={theme.primary} />
-      <Text style={[styles.stateTitle, { color: theme.primaryDark }]}>{title}</Text>
-      <Text style={[styles.stateMessage, { color: theme.textSecondary }]}>{message}</Text>
-      <View style={styles.stateAction}>{children}</View>
-    </View>
+    <EmptyState
+      icon={icon}
+      title={title}
+      message={message}
+      liveRegion={liveRegion}>
+      {children}
+    </EmptyState>
   );
 }
 

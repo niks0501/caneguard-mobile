@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
+import { Pill } from '@/components/ui/Pill';
 import {
   ComponentTokens,
   Layout,
@@ -126,7 +127,7 @@ export default function AnalysisResultScreen() {
         style={[styles.safe, { backgroundColor: theme.background }]}
         edges={['top', 'bottom']}>
         <View style={styles.root}>
-          <BrandedScreenHeader title="Analysis Result" />
+          <BrandedScreenHeader title="Analysis result" />
           <View style={styles.recoveryContent}>
             <View
               style={[
@@ -181,7 +182,7 @@ export default function AnalysisResultScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Analysis Result" />
+        <BrandedScreenHeader title="Analysis result" />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
             <ExpoImage
@@ -193,12 +194,11 @@ export default function AnalysisResultScreen() {
             <View
               testID="scan.decision-card"
               style={[styles.resultCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
-              <View style={[styles.diseasePill, { backgroundColor: diseaseBackground }]}>
-                <Feather name={metadata.icon} size={16} color={diseaseColor} />
-                <Text style={[styles.diseasePillText, { color: diseaseColor }]}>
-                  AI screening result
-                </Text>
-              </View>
+              <Pill
+                label="AI screening result"
+                icon={metadata.icon}
+                variant={metadata.themeToken.foreground}
+              />
               <Text
                 testID="scan.result-title"
                 style={[styles.diseaseName, { color: theme.primaryDark }]}>
@@ -330,6 +330,14 @@ export default function AnalysisResultScreen() {
                   variant="secondary"
                   accessibilityLabel="Scan again with a new image">
                   Scan Again
+                </AppButton>
+                <AppButton
+                  testID="scan.view-disease-reference"
+                  onPress={() => router.push('/disease-reference')}
+                  leadingIcon="book-open"
+                  variant="secondary"
+                  accessibilityLabel="Open disease reference for this condition">
+                  Disease Reference
                 </AppButton>
                 {saveRecord.status === 'saved' && saveRecord.recordId ? (
                   <AppButton

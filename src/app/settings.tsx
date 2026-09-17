@@ -14,37 +14,6 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemePreference } from '@/providers/ThemePreferenceProvider';
 
-type DisabledRowProps = {
-  label: string;
-  description?: string;
-};
-
-function DisabledRow({ label, description }: DisabledRowProps) {
-  const theme = useTheme();
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${label}: Coming later`}
-      accessibilityState={{ disabled: true }}
-      disabled
-      onPress={() => undefined}
-      style={[styles.menuRow, styles.disabledRow, { borderBottomColor: theme.divider }]}>
-      <View style={styles.toggleCopy}>
-        <Text style={[styles.menuLabel, { color: theme.textSecondary }]}>{label}</Text>
-        {description ? (
-          <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>
-            {description}
-          </Text>
-        ) : null}
-      </View>
-      <View style={styles.menuValueRow}>
-        <Text style={[styles.menuValue, { color: theme.textSecondary }]}>Coming later</Text>
-        <Feather name="chevron-right" size={18} color={theme.textSecondary} />
-      </View>
-    </Pressable>
-  );
-}
 
 type ToggleRowProps = {
   label: string;
@@ -138,21 +107,32 @@ export default function SettingsScreen() {
                 value={isDarkMode}
                 onToggle={setDarkMode}
               />
-              <DisabledRow
-                label="High Contrast Mode"
-                description="Accessibility display controls are not available yet"
-              />
             </View>
 
-            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>NOTIFICATIONS</Text>
+            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>REFERENCE</Text>
 
             <View
               style={[
                 styles.card,
                 { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
               ]}>
-              <DisabledRow label="Sync Alerts" />
-              <DisabledRow label="Office Advisories" />
+              <Pressable
+                testID="settings.disease-reference"
+                accessibilityRole="button"
+                accessibilityLabel="Disease reference"
+                onPress={() => router.push('/disease-reference')}
+                style={({ pressed }) => [
+                  styles.menuRow,
+                  pressed && styles.pressed,
+                ]}>
+                <View style={styles.toggleCopy}>
+                  <Text style={[styles.menuLabel, { color: theme.text }]}>Disease reference</Text>
+                  <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>
+                    Observational symptom guide and photos for Model V1 classes
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={18} color={theme.textSecondary} />
+              </Pressable>
             </View>
 
             <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>ACCOUNT & SECURITY</Text>

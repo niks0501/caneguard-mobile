@@ -141,7 +141,7 @@ export default function ImagePreviewScreen() {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
         <View style={styles.root}>
-          <BrandedScreenHeader title="Image Preview" />
+          <BrandedScreenHeader title="Image preview" />
           <View style={styles.recoveryContent}>
             <AppCard style={styles.recoveryCard}>
               <View style={[styles.recoveryIcon, { backgroundColor: theme.warningBg }]}>
@@ -180,7 +180,7 @@ export default function ImagePreviewScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Image Preview" />
+        <BrandedScreenHeader title="Image preview" />
 
         <ScrollView
           showsVerticalScrollIndicator={false}

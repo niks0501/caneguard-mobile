@@ -1,6 +1,9 @@
 import { apiBaseUrl } from '@/config/env';
 import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
-import type { MobileNotificationUpdate } from '@/features/notifications/domain/notificationTypes';
+import type {
+  MobileNotificationAdvisory,
+  MobileNotificationUpdate,
+} from '@/features/notifications/domain/notificationTypes';
 
 const NOTIFICATION_PATH = '/api/v1/mobile/notifications';
 const PAGE_SIZE = 100;
@@ -225,9 +228,28 @@ function parseNotification(value: unknown): MobileNotificationUpdate {
     caseUuid: optionalUuid(rawCase.uuid, 'case.uuid'),
     referenceCode: optionalString(rawCase.reference_code, 'case.reference_code'),
     assignmentUuid: optionalUuid(value.assignment_uuid, 'assignment_uuid'),
+    content: nullableString(value.content, 'content'),
+    advisory: parseAdvisory(value.advisory),
     isRead: requireBoolean(value.is_read, 'is_read'),
     readAt: optionalTimestamp(value.read_at, 'read_at'),
     createdAt: optionalTimestamp(value.created_at, 'created_at'),
+  };
+}
+
+function parseAdvisory(value: unknown): MobileNotificationAdvisory | null {
+  if (value === undefined || value === null) return null;
+  if (!isRecord(value)) throw malformed('advisory');
+
+  const status = value.status;
+  if (status !== 'validated') throw malformed('advisory.status');
+
+  return {
+    uuid: requireUuid(value.uuid, 'advisory.uuid'),
+    code: requireString(value.code, 'advisory.code'),
+    title: requireString(value.title, 'advisory.title'),
+    content: requireString(value.content, 'advisory.content'),
+    status,
+    selectedAt: requireTimestamp(value.selected_at, 'advisory.selected_at'),
   };
 }
 
@@ -312,6 +334,11 @@ function optionalString(value: unknown, field: string): string | null {
   if (value === null) return null;
   if (typeof value !== 'string') throw malformed(field);
   return value;
+}
+
+function nullableString(value: unknown, field: string): string | null {
+  if (value === undefined || value === null) return null;
+  return optionalString(value, field);
 }
 
 function requireTimestamp(value: unknown, field: string): string {

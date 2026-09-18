@@ -40,6 +40,15 @@ describe('mobile-notifications-v1 producer contract', () => {
       notifications: [expect.objectContaining({
         id: MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0].id,
         eventType: MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0].event_type,
+        content: MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0].content,
+        advisory: {
+          uuid: MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0].advisory.uuid,
+          code: MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0].advisory.code,
+          title: MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0].advisory.title,
+          content: MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0].advisory.content,
+          status: MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0].advisory.status,
+          selectedAt: MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0].advisory.selected_at,
+        },
       })],
     });
   });

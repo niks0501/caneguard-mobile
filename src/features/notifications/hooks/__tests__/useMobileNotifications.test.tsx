@@ -67,6 +67,8 @@ const CACHED = [{
   caseUuid: null,
   referenceCode: null,
   assignmentUuid: null,
+  content: null,
+  advisory: null,
   isRead: false,
   readAt: null,
   createdAt: '2026-08-13T12:00:00.000Z',

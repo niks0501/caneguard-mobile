@@ -22,6 +22,7 @@ When `graphify-out/graph.json` exists, use Graphify as the first source for unde
 - Read `graphify-out/GRAPH_REPORT.md` only for broad architecture review or when `query`, `path`, and `explain` do not provide enough context.
 - Dirty files under `graphify-out/` are expected after hooks or incremental updates and are not a reason to avoid Graphify. Do not stage, restore, or commit them merely to clean generated dirtiness.
 - After modifying code, run `graphify update .` to keep the graph current.
+- Graphify-generated outputs must always be committed and pushed, especially when an agent updates them.
 - When the user explicitly invokes `/graphify`, follow the installed Graphify skill or instructions before doing anything else.
 
 ## Verification

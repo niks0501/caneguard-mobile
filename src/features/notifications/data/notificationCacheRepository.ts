@@ -215,6 +215,8 @@ function toNotification(
     caseUuid: row.caseUuid,
     referenceCode: row.referenceCode,
     assignmentUuid: row.assignmentUuid,
+    content: null,
+    advisory: null,
     isRead: row.isRead,
     readAt: row.readAt,
     createdAt: row.createdAt,

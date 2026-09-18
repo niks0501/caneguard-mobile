@@ -70,6 +70,8 @@ const NOTIFICATION: MobileNotificationUpdate = {
   caseUuid: '7e8c2e48-a2d4-4aca-9a50-9ca460fd7a7f',
   referenceCode: 'CG-2026-0001',
   assignmentUuid: '3fbd7f77-7d6b-4eb0-a1c7-b673f5a2f39f',
+  content: null,
+  advisory: null,
   isRead: false,
   readAt: null,
   createdAt: '2026-08-13T12:00:00.000Z',

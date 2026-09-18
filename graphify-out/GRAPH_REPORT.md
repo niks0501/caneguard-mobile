@@ -1,7 +1,7 @@
 # Graph Report - caneguard-mobile  (2026-09-18)
 
 ## Corpus Check
-- 299 files · ~151,585 words
+- 299 files · ~151,635 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a2843a99`
+- Built from commit: `e5a11ac3`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

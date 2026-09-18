@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react-native';
 import DiseaseReferenceScreen from '@/app/disease-reference';
 
 describe('DiseaseReferenceScreen', () => {
-  it('renders all four Model V1 reference classes with photos and patterns', async () => {
+  it('renders all four Model V1 reference classes with photos', async () => {
     await render(<DiseaseReferenceScreen />);
 
     expect(screen.getByText('Disease reference')).toBeOnTheScreen();
@@ -26,8 +26,14 @@ describe('DiseaseReferenceScreen', () => {
       'source',
       require('../../../assets/images/sugarcane-diseases/reference_rust.jpg'),
     );
-    expect(screen.getByLabelText('Smut reference pattern')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Smut reference photo')).toHaveProp(
+      'source',
+      require('../../../assets/model-fixtures/v1-smut.jpg'),
+    );
+    expect(screen.queryByLabelText('Smut reference pattern')).not.toBeOnTheScreen();
 
-    expect(screen.getByText(/Dark, whip-like growth emerging/)).toBeOnTheScreen();
+    expect(
+      screen.getAllByText(/dark, whip-like growth emerging/i).length,
+    ).toBeGreaterThan(0);
   });
 });

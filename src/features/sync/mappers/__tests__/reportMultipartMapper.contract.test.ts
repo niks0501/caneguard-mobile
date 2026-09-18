@@ -183,6 +183,25 @@ describe('mobile-report-upload-v2 producer contract', () => {
     ).toHaveLength(4);
   });
 
+  it('accepts a finalized report with unavailable location provenance', () => {
+    const form = map({
+      finalLatitude: null,
+      finalLongitude: null,
+      gpsAccuracy: null,
+      locationSource: 'unavailable',
+      locationUnavailableReason: 'offline_no_map',
+    });
+
+    expectCanonicalV2(form);
+    expect(scalarValue(parts(form), 'location_source')).toBe('unavailable');
+    expect(scalarValue(parts(form), 'location_unavailable_reason')).toBe(
+      'offline_no_map',
+    );
+    expect(scalarValue(parts(form), 'final_latitude')).toBeUndefined();
+    expect(scalarValue(parts(form), 'final_longitude')).toBeUndefined();
+    expect(scalarValue(parts(form), 'gps_accuracy')).toBeUndefined();
+  });
+
   it('accepts an RSSI reporter concern that agrees with the Possible Condition', () => {
     const form = map({
       mismatchReported: false,

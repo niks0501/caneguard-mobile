@@ -380,6 +380,23 @@ describe('getMissingSubmissionRequirements', () => {
     expect(missing).not.toContain('gps_accuracy');
   });
 
+  it('accepts low accuracy GPS location as valid for finalization', () => {
+    const missing = getMissingSubmissionRequirements(
+      draft({
+        locationSource: 'gps',
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        gpsAccuracy: 38,
+        gpsCaptureOutcome: 'low_accuracy',
+      }),
+      evidence(),
+    );
+
+    expect(missing).not.toContain('final_coordinates');
+    expect(missing).not.toContain('location_source');
+    expect(missing).not.toContain('gps_accuracy');
+  });
+
   it('D-02 still blocks an unavailable location without a reason, barangay, or with coordinates', () => {
     const noReason = getMissingSubmissionRequirements(
       draft({

@@ -358,7 +358,7 @@ describe('Field Report draft repository', () => {
     native.close();
   });
 
-  it('retains poor GPS attempt evidence without fabricating a final location', async () => {
+  it('sets final coordinates while retaining poor GPS attempt evidence and outcome', async () => {
     const { database, native } = openTestDatabase();
     await createOrGetFieldReportDraft(database, createDraftInput());
 
@@ -372,10 +372,10 @@ describe('Field Report draft repository', () => {
         updatedAt: '2026-08-10T01:04:01.000Z',
       }),
     ).resolves.toMatchObject({
-      finalLatitude: null,
-      finalLongitude: null,
-      gpsAccuracy: null,
-      locationSource: null,
+      finalLatitude: 14.0667,
+      finalLongitude: 120.6319,
+      gpsAccuracy: 38,
+      locationSource: 'gps',
       gpsAttemptAccuracy: 38,
       gpsCaptureOutcome: 'low_accuracy',
     });

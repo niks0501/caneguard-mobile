@@ -74,7 +74,7 @@ export const STEP_TITLES = [
 const STEP_SHORT_LABELS = [
   'Evidence',
   'Farm',
-  'Observation',
+  'Observe',
   'Location',
   'Review',
 ];
@@ -720,7 +720,11 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                   // 5-Step Stepped Wizard (§6.1, D-5, W-1, W-2, W-3)
                   <>
                     {/* Stepper Navigation Pills */}
-                    <View style={styles.stepPillsContainer}>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.stepPillsContainer}
+                      style={styles.stepPillsScroll}>
                       {STEP_SHORT_LABELS.map((label, index) => {
                         const stepNum = index + 1;
                         const isActive = currentStep === stepNum;
@@ -746,7 +750,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                                 styles.stepPillText,
                                 { color: isActive ? theme.background : theme.text },
                               ]}>
-                              {stepNum}. {label}
+                              {isActive ? `${stepNum}. ${label}` : `${stepNum}`}
                             </Text>
                             {incomplete ? (
                               <View
@@ -759,7 +763,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                           </Pressable>
                         );
                       })}
-                    </View>
+                    </ScrollView>
 
                     {/* Step Title */}
                     <Text
@@ -1382,7 +1386,7 @@ function LocationCapture({
         )
       ) : null}
       <Text style={[styles.helpText, { color: theme.textSecondary }]}>
-        CaneGuard requests one foreground reading only. A reading above the preferred 5 m quality target is retained as attempt evidence but does not become the final report location.
+        CaneGuard requests one foreground reading only. A reading above the preferred 5 m quality target is saved as the report location but can be retried for higher accuracy.
       </Text>
 
       <View style={[styles.locationDivider, { borderTopColor: theme.divider }]} />
@@ -1794,6 +1798,12 @@ function getGpsPresentation(fieldReport: FieldReport): {
       message: 'Final coordinates were selected manually on the online map. They are not presented as GPS-measured.',
     };
   }
+  if (fieldReport.gpsCaptureOutcome === 'low_accuracy') {
+    return {
+      actionLabel: 'Retry GPS Location',
+      message: 'The last GPS reading did not meet the preferred quality target. The Draft and reading were preserved.',
+    };
+  }
   if (
     fieldReport.locationSource === 'gps' &&
     fieldReport.finalLatitude !== null &&
@@ -1811,11 +1821,6 @@ function getGpsPresentation(fieldReport: FieldReport): {
       return {
         actionLabel: 'Refresh GPS Location',
         message: `GPS location resolved with ±${Math.round(fieldReport.gpsAccuracy ?? 0)} m device-reported accuracy.`,
-      };
-    case 'low_accuracy':
-      return {
-        actionLabel: 'Retry GPS Location',
-        message: 'The last GPS reading did not meet the preferred quality target. The Draft and reading were preserved.',
       };
     case 'permission_denied':
       return {
@@ -1843,8 +1848,8 @@ function getGpsPresentation(fieldReport: FieldReport): {
 function canUseManualMap(fieldReport: FieldReport): boolean {
   return (
     fieldReport.locationSource === 'manual_map' ||
-    (fieldReport.locationSource === null &&
-      fieldReport.gpsCaptureOutcome !== 'resolved')
+    fieldReport.locationSource === null ||
+    fieldReport.gpsCaptureOutcome === 'low_accuracy'
   );
 }
 
@@ -2288,23 +2293,27 @@ const styles = StyleSheet.create({
   statusCopy: { flex: 1, gap: Spacing.xs },
   statusTitle: { ...Typography.subheading, fontWeight: '800' },
   statusMessage: { ...Typography.bodySmall },
+  stepPillsScroll: {
+    width: '100%',
+  },
   stepPillsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.xs,
     width: '100%',
+    paddingVertical: 2,
   },
   stepPill: {
-    flex: 1,
     minHeight: 36,
+    minWidth: 36,
     borderRadius: Radius.full,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: Spacing.xs,
-    paddingHorizontal: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
   },
   stepPillText: {
     ...Typography.caption,

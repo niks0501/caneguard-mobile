@@ -223,7 +223,7 @@ export async function saveGpsCapture(
             }
           : {};
       const finalValues =
-        input.outcome === 'resolved'
+        'latitude' in input
           ? {
               finalLatitude: input.latitude,
               finalLongitude: input.longitude,

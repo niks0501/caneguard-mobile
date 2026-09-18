@@ -603,6 +603,39 @@ describe('FieldReportScreen', () => {
     expect(screen.getByLabelText('Retry GPS Location')).toBeOnTheScreen();
   });
 
+  it('does not block finalization on poor GPS accuracy and keeps retry available', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        locationSource: 'gps',
+        gpsAccuracy: 38,
+        gpsAttemptAccuracy: 38,
+        gpsAttemptLatitude: 14.0667,
+        gpsAttemptLongitude: 120.6319,
+        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
+        gpsCaptureOutcome: 'low_accuracy',
+        gpsOutcomeRecordedAt: '2026-08-10T01:04:00.000Z',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    await goToStep(4);
+    expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
+      /did not meet the preferred quality target/,
+    );
+    expect(screen.getByLabelText('Retry GPS Location')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Open online manual map')).toBeOnTheScreen();
+
+    await goToStep(5);
+    expect(screen.queryByTestId('field-report.ready.final_coordinates')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('field-report.ready.location_source')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('field-report.ready.gps_accuracy')).not.toBeOnTheScreen();
+  });
+
   it('prompts to enable location services and opens device settings', async () => {
     const openSettings = jest
       .spyOn(Linking, 'openSettings')
@@ -1527,6 +1560,22 @@ describe('FieldReportScreen', () => {
         'accessibilityLabel',
         'Step 5: Review & submit (incomplete)',
       );
+    });
+
+    it('renders step-aware labels to prevent stepper overflow', async () => {
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+
+      // On Step 1: Step 1 shows full label, others show step number
+      expect(screen.getByTestId('field-report.step-1')).toHaveTextContent('1. Evidence');
+      expect(screen.getByTestId('field-report.step-2')).toHaveTextContent('2');
+      expect(screen.getByTestId('field-report.step-3')).toHaveTextContent('3');
+
+      // Navigate to Step 3: Step 3 shows condensed full label "3. Observe"
+      await goToStep(3);
+      expect(screen.getByTestId('field-report.step-1')).toHaveTextContent('1');
+      expect(screen.getByTestId('field-report.step-3')).toHaveTextContent('3. Observe');
+      expect(screen.getByTestId('field-report.step-4')).toHaveTextContent('4');
     });
 
     it('jumps directly to owning step when tapping a missing requirement on Step 5 (W-3)', async () => {

@@ -36,6 +36,7 @@ const REFERENCE_ITEMS: ReferenceItem[] = [
   {
     key: 'smut',
     name: 'Smut',
+    image: require('../../assets/model-fixtures/v1-smut.jpg'),
     patternDescription: 'Dark, whip-like growth emerging from the central shoot or stalk',
   },
 ];

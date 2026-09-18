@@ -58,6 +58,7 @@ export const REFERENCE_CLASSES: readonly ReferenceClass[] = [
     name: 'Smut',
     tone: 'smut',
     description: 'Dark, whip-like growth emerging from the central shoot or stalk',
+    image: require('../../assets/model-fixtures/v1-smut.jpg'),
   },
 ];
 

@@ -29,8 +29,10 @@ const LAYER_OFFSET = MAP_TILE_SIZE;
 
 describe('OnlineMapPicker', () => {
   const previousApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+  const originalDev = (global as any).__DEV__;
 
   beforeEach(() => {
+    (global as any).__DEV__ = true;
     process.env.EXPO_PUBLIC_API_BASE_URL = 'https://proxy.example.test';
     process.env.EXPO_PUBLIC_MAP_TILE_PROXY_URL =
       'https://proxy.example.test/api/v1/mobile/map-tiles/{z}/{x}/{y}.png';
@@ -43,6 +45,126 @@ describe('OnlineMapPicker', () => {
       process.env.EXPO_PUBLIC_API_BASE_URL = previousApiBaseUrl;
     }
     delete process.env.EXPO_PUBLIC_MAP_TILE_PROXY_URL;
+    (global as any).__DEV__ = originalDev;
+  });
+
+  it('falls back to direct OpenStreetMap tiles in dev when no proxy is configured and allows tap-to-pin', async () => {
+    delete process.env.EXPO_PUBLIC_MAP_TILE_PROXY_URL;
+    process.env.EXPO_PUBLIC_API_BASE_URL = 'http://127.0.0.1:8000';
+    const onSelectionChange = jest.fn();
+
+    await render(
+      <OnlineMapPicker
+        authToken="secret-dev-token"
+        initialCenter={DEFAULT_MANUAL_MAP_CENTER}
+        isOnline={true}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+    await act(async () => undefined);
+
+    const tiles = screen.getAllByTestId('manual-map.tile');
+    expect(tiles.length).toBeGreaterThan(0);
+    expect(tiles[0].props.source.uri).toMatch(
+      /^https:\/\/tile\.openstreetmap\.org\/15\/\d+\/\d+\.png$/,
+    );
+    // Ensure auth token is NOT leaked to third-party OSM
+    expect(tiles[0].props.source.headers.Authorization).toBeUndefined();
+    expect(tiles[0].props.source.headers['User-Agent']).toBe(
+      'CaneGuard-Mobile/1.0',
+    );
+
+    const viewport = screen.getByTestId('manual-map.viewport');
+    await act(async () => {
+      viewport.props.onLayout({
+        nativeEvent: { layout: { height: 360, width: 390, x: 0, y: 0 } },
+      });
+    });
+    for (const tile of tiles) {
+      await act(async () => {
+        tile.props.onLoad();
+      });
+    }
+
+    const loadedViewport = screen.getByTestId('manual-map.viewport');
+    expect(loadedViewport).not.toBeDisabled();
+    await fireEvent(loadedViewport, 'press', {
+      nativeEvent: { locationX: 195, locationY: 180 },
+    });
+
+    expect(onSelectionChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        latitude: expect.closeTo(DEFAULT_MANUAL_MAP_CENTER.latitude, 6),
+        longitude: expect.closeTo(DEFAULT_MANUAL_MAP_CENTER.longitude, 6),
+      }),
+    );
+    expect(screen.getByTestId('manual-map.pin')).toBeOnTheScreen();
+  });
+
+  it('renders unconfigured overlay and keeps picker disabled in production when no proxy is configured', async () => {
+    (global as any).__DEV__ = false;
+    delete process.env.EXPO_PUBLIC_MAP_TILE_PROXY_URL;
+    delete process.env.EXPO_PUBLIC_API_BASE_URL;
+    const onSelectionChange = jest.fn();
+
+    await render(
+      <OnlineMapPicker
+        initialCenter={DEFAULT_MANUAL_MAP_CENTER}
+        isOnline={true}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+    await act(async () => undefined);
+
+    expect(
+      screen.getByText(
+        'Manual map tiles are temporarily unavailable. Your Draft is unchanged.',
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.queryAllByTestId('manual-map.tile')).toHaveLength(0);
+    expect(screen.getByTestId('manual-map.viewport')).toBeDisabled();
+    expect(onSelectionChange).not.toHaveBeenCalled();
+  });
+
+  it('accepts an http localhost proxy in dev and attaches auth token', async () => {
+    process.env.EXPO_PUBLIC_API_BASE_URL = 'http://127.0.0.1:8000';
+    process.env.EXPO_PUBLIC_MAP_TILE_PROXY_URL =
+      'http://127.0.0.1:8000/api/v1/mobile/map-tiles/{z}/{x}/{y}.png';
+    const onSelectionChange = jest.fn();
+
+    await render(
+      <OnlineMapPicker
+        authToken="local-dev-token"
+        initialCenter={DEFAULT_MANUAL_MAP_CENTER}
+        isOnline={true}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+    await act(async () => undefined);
+
+    const tiles = screen.getAllByTestId('manual-map.tile');
+    expect(tiles.length).toBeGreaterThan(0);
+    expect(tiles[0].props.source.uri).toMatch(
+      /^http:\/\/127\.0\.0\.1:8000\/api\/v1\/mobile\/map-tiles\/15\/\d+\/\d+\.png$/,
+    );
+    expect(tiles[0].props.source.headers).toEqual({
+      Authorization: 'Bearer local-dev-token',
+      'User-Agent': 'CaneGuard-Mobile/1.0',
+    });
+
+    const viewport = screen.getByTestId('manual-map.viewport');
+    await act(async () => {
+      viewport.props.onLayout({
+        nativeEvent: { layout: { height: 360, width: 390, x: 0, y: 0 } },
+      });
+    });
+    for (const tile of tiles) {
+      await act(async () => {
+        tile.props.onLoad();
+      });
+    }
+
+    expect(screen.getByTestId('manual-map.viewport')).not.toBeDisabled();
   });
 
   it('keeps selection unavailable when the device is offline', async () => {

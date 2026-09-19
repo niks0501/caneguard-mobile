@@ -8221,7 +8221,7 @@
       "file_type": "code",
       "norm_label": "expectcanonicalv2()",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L436"
+      "source_location": "L440"
     },
     {
       "id": "src_features_sync_mappers_tests_reportmultipartmapper_contract_test_findcanonicalfield",
@@ -8233,7 +8233,7 @@
       "file_type": "code",
       "norm_label": "findcanonicalfield()",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L577"
+      "source_location": "L583"
     },
     {
       "id": "src_features_sync_mappers_tests_reportmultipartmapper_contract_test_formfromparts",
@@ -8245,7 +8245,7 @@
       "file_type": "code",
       "norm_label": "formfromparts()",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L422"
+      "source_location": "L426"
     },
     {
       "id": "src_features_sync_mappers_tests_reportmultipartmapper_contract_test_haseffectivevalue",
@@ -8257,7 +8257,7 @@
       "file_type": "code",
       "norm_label": "haseffectivevalue()",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L609"
+      "source_location": "L615"
     },
     {
       "id": "src_features_sync_mappers_tests_reportmultipartmapper_contract_test_ispartforfield",
@@ -8269,7 +8269,7 @@
       "file_type": "code",
       "norm_label": "ispartforfield()",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L586"
+      "source_location": "L592"
     },
     {
       "id": "src_features_sync_mappers_tests_reportmultipartmapper_contract_test_map",
@@ -8281,7 +8281,7 @@
       "file_type": "code",
       "norm_label": "map()",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L380"
+      "source_location": "L384"
     },
     {
       "id": "src_features_sync_mappers_tests_reportmultipartmapper_contract_test_parts",
@@ -8293,7 +8293,7 @@
       "file_type": "code",
       "norm_label": "parts()",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L418"
+      "source_location": "L422"
     },
     {
       "id": "src_features_sync_mappers_tests_reportmultipartmapper_contract_test_replacepart",
@@ -8305,7 +8305,7 @@
       "file_type": "code",
       "norm_label": "replacepart()",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L428"
+      "source_location": "L432"
     },
     {
       "id": "src_features_sync_mappers_tests_reportmultipartmapper_contract_test_scalarvalue",
@@ -8317,7 +8317,7 @@
       "file_type": "code",
       "norm_label": "scalarvalue()",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L614"
+      "source_location": "L620"
     },
     {
       "id": "src_features_sync_mappers_tests_reportmultipartmapper_contract_test_testformdata_append",
@@ -8341,7 +8341,7 @@
       "file_type": "code",
       "norm_label": "textvalue()",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L619"
+      "source_location": "L625"
     },
     {
       "id": "src_features_sync_mappers_tests_reportmultipartmapper_contract_test_validateconditions",
@@ -8353,7 +8353,7 @@
       "file_type": "code",
       "norm_label": "validateconditions()",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L552"
+      "source_location": "L558"
     },
     {
       "id": "src_features_sync_mappers_tests_reportmultipartmapper_contract_test_validatefield",
@@ -8365,7 +8365,7 @@
       "file_type": "code",
       "norm_label": "validatefield()",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L452"
+      "source_location": "L458"
     },
     {
       "id": "src_features_sync_mappers_tests_reportmultipartmapper_contract_test_validatenestedfield",
@@ -8377,7 +8377,7 @@
       "file_type": "code",
       "norm_label": "validatenestedfield()",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L494"
+      "source_location": "L500"
     },
     {
       "id": "src_features_sync_mappers_tests_reportmultipartmapper_contract_test_validatescalar",
@@ -8389,7 +8389,7 @@
       "file_type": "code",
       "norm_label": "validatescalar()",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L515"
+      "source_location": "L521"
     },
     {
       "id": "src_database_owneridentity_islegacyunassignedowneridentity",
@@ -38015,7 +38015,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L437",
+      "source_location": "L441",
       "weight": 1.0
     },
     {
@@ -38027,7 +38027,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L440",
+      "source_location": "L444",
       "weight": 1.0
     },
     {
@@ -38039,7 +38039,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L445",
+      "source_location": "L451",
       "weight": 1.0
     },
     {
@@ -38051,7 +38051,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L447",
+      "source_location": "L453",
       "weight": 1.0
     },
     {
@@ -38063,7 +38063,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L449",
+      "source_location": "L455",
       "weight": 1.0
     },
     {
@@ -38075,7 +38075,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L579",
+      "source_location": "L585",
       "weight": 1.0
     },
     {
@@ -38087,7 +38087,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L423",
+      "source_location": "L427",
       "weight": 1.0
     },
     {
@@ -38099,7 +38099,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L610",
+      "source_location": "L616",
       "weight": 1.0
     },
     {
@@ -38111,7 +38111,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L405",
+      "source_location": "L409",
       "weight": 1.0
     },
     {
@@ -38123,7 +38123,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L429",
+      "source_location": "L433",
       "weight": 1.0
     },
     {
@@ -38135,7 +38135,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L430",
+      "source_location": "L434",
       "weight": 1.0
     },
     {
@@ -38147,7 +38147,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L616",
+      "source_location": "L622",
       "weight": 1.0
     },
     {
@@ -38159,7 +38159,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L557",
+      "source_location": "L563",
       "weight": 1.0
     },
     {
@@ -38171,7 +38171,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L564",
+      "source_location": "L570",
       "weight": 1.0
     },
     {
@@ -38183,7 +38183,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L474",
+      "source_location": "L480",
       "weight": 1.0
     },
     {
@@ -38195,7 +38195,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L478",
+      "source_location": "L484",
       "weight": 1.0
     },
     {
@@ -38207,7 +38207,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L485",
+      "source_location": "L491",
       "weight": 1.0
     },
     {
@@ -38219,7 +38219,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L502",
+      "source_location": "L508",
       "weight": 1.0
     },
     {
@@ -38231,7 +38231,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L511",
+      "source_location": "L517",
       "weight": 1.0
     },
     {
@@ -88897,7 +88897,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L380",
+      "source_location": "L384",
       "weight": 1.0
     },
     {
@@ -88919,7 +88919,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L418",
+      "source_location": "L422",
       "weight": 1.0
     },
     {
@@ -88930,7 +88930,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L422",
+      "source_location": "L426",
       "weight": 1.0
     },
     {
@@ -88941,7 +88941,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L428",
+      "source_location": "L432",
       "weight": 1.0
     },
     {
@@ -88952,7 +88952,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L436",
+      "source_location": "L440",
       "weight": 1.0
     },
     {
@@ -88963,7 +88963,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L452",
+      "source_location": "L458",
       "weight": 1.0
     },
     {
@@ -88996,7 +88996,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L494",
+      "source_location": "L500",
       "weight": 1.0
     },
     {
@@ -89007,7 +89007,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L515",
+      "source_location": "L521",
       "weight": 1.0
     },
     {
@@ -89018,7 +89018,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L552",
+      "source_location": "L558",
       "weight": 1.0
     },
     {
@@ -89040,7 +89040,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L577",
+      "source_location": "L583",
       "weight": 1.0
     },
     {
@@ -89051,7 +89051,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L586",
+      "source_location": "L592",
       "weight": 1.0
     },
     {
@@ -89062,7 +89062,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L609",
+      "source_location": "L615",
       "weight": 1.0
     },
     {
@@ -89073,7 +89073,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L614",
+      "source_location": "L620",
       "weight": 1.0
     },
     {
@@ -89084,7 +89084,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts",
-      "source_location": "L619",
+      "source_location": "L625",
       "weight": 1.0
     },
     {
@@ -91219,5 +91219,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "a2b66fbe5beef0bc0c20c9e42210266162f2ca2d"
+  "built_at_commit": "93bd6c11a9f6e268e14211b7542e9418576ced5b"
 }

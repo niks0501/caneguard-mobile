@@ -449,7 +449,7 @@ export default function AnalysisResultScreen() {
             </DisclosureSection>
 
             <DisclosureSection testID="scan.technical-details" title="Technical details">
-              <SectionCard title="All Model V1 class scores">
+              <SectionCard title="All condition scores">
                 {MODEL_LABELS.map((label) => (
                   <ScoreRow
                     key={label}

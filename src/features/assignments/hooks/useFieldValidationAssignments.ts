@@ -2,7 +2,7 @@ import { useFocusEffect } from 'expo-router';
 import { AppState, type AppStateStatus } from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
+import { EMPTY_DATABASE, useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
@@ -50,7 +50,15 @@ export function useFieldValidationAssignments(enabled = true) {
 
   const refresh = useCallback(async (): Promise<boolean> => {
     const requestedSession = session;
-    if (!enabled || authStatus !== 'authenticated' || !requestedSession) return false;
+    if (
+      !enabled ||
+      authStatus !== 'authenticated' ||
+      !requestedSession ||
+      !database ||
+      (EMPTY_DATABASE && database === EMPTY_DATABASE)
+    ) {
+      return false;
+    }
 
     setState((current) => ({
       ...current,

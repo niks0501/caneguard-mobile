@@ -128,7 +128,7 @@ export default function SettingsScreen() {
                 <View style={styles.toggleCopy}>
                   <Text style={[styles.menuLabel, { color: theme.text }]}>Disease reference</Text>
                   <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>
-                    Observational symptom guide and photos for Model V1 classes
+                    Observational symptom guide and reference photos
                   </Text>
                 </View>
                 <Feather name="chevron-right" size={18} color={theme.textSecondary} />

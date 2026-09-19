@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
+import { EMPTY_DATABASE, useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useSyncRecordsRevision } from '@/features/sync/hooks/useSyncRecordsRevision';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
@@ -43,7 +43,7 @@ export function useNotificationDestinations(
   useEffect(() => {
     let cancelled = false;
 
-    if (!ownerIdentity) {
+    if (!ownerIdentity || !database || (EMPTY_DATABASE && database === EMPTY_DATABASE)) {
       return () => {
         cancelled = true;
       };

@@ -96,4 +96,52 @@ describe('FieldValidationScreen', () => {
     expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
     expect(screen.getByText('93%')).toBeOnTheScreen();
   });
+
+  it('provides persistent hints with sugarcane examples and supports copy observation into finding', async () => {
+    await render(<FieldValidationScreen />);
+
+    // Updated heading covering all three aspects of the visit
+    expect(screen.getByText('What did you record on this visit?')).toBeOnTheScreen();
+    expect(screen.queryByText('What do you observe?')).not.toBeOnTheScreen();
+
+    // Persistent hints on all three fields
+    expect(
+      screen.getByText(
+        'What you physically saw on this visit. For example: “Orange-brown pustules on the lower leaves of about a fifth of the block.”',
+      ),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Your own assessment of what those observations mean here. For example: “Lesions consistent with Rust; no smut whip seen in the sampled rows.”',
+      ),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'What you actually did or told the farmer. For example: “Advised removal of affected leaves and a follow-up visit in 7 days.”',
+      ),
+    ).toBeOnTheScreen();
+
+    // Copy action disabled initially
+    const copyButton = screen.getByTestId('field-validation.copy-observation');
+    expect(copyButton).toBeOnTheScreen();
+    expect(screen.getByText('Copy observation into finding')).toBeOnTheScreen();
+
+    // Type observation
+    await fireEvent.changeText(
+      screen.getByTestId('field-validation.observation-input'),
+      'Orange-brown pustules observed on lower leaves.',
+    );
+
+    // Press copy
+    await fireEvent.press(copyButton);
+
+    // Finding input receives the observation text
+    expect(screen.getByTestId('field-validation.finding-input')).toHaveProp(
+      'value',
+      'Orange-brown pustules observed on lower leaves.',
+    );
+
+    // Button text updates to reflect replacement
+    expect(screen.getByText('Replace finding with observation')).toBeOnTheScreen();
+  });
 });

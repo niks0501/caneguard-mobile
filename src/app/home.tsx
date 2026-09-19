@@ -4,9 +4,15 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomNav } from '@/components/ui/BottomNav';
-import { Pill } from '@/components/ui/Pill';
+import { Pill, type PillVariant } from '@/components/ui/Pill';
 import { SyncStatusRow } from '@/components/ui/SyncStatusRow';
+import { HomeAttentionCard } from '@/features/activity/components/HomeAttentionCard';
+import type { NeedsAttentionItem } from '@/features/activity/domain/needsAttention';
+import { useHomeAttention } from '@/features/activity/hooks/useHomeAttention';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
+import { referenceMedia } from '@/features/detection/constants/referenceMedia';
+import { notificationDestinationRoute } from '@/features/notifications/services/resolveNotificationDestination';
 import { useSync } from '@/features/sync/hooks/useSync';
 import {
   ComponentTokens,
@@ -26,46 +32,11 @@ type QuickAction = {
   onPress: () => void;
 };
 
-type ReferenceTone = 'healthy' | 'mosaic' | 'rust' | 'smut';
-
-type ReferenceClass = {
-  name: 'Healthy' | 'Mosaic' | 'Rust' | 'Smut';
-  tone: ReferenceTone;
-  description: string;
-  image?: number;
-};
-
-export const REFERENCE_CLASSES: readonly ReferenceClass[] = [
-  {
-    name: 'Healthy',
-    tone: 'healthy',
-    description: 'No visible symptoms',
-    image: require('../../assets/images/sugarcane-diseases/reference_healthy.jpg'),
-  },
-  {
-    name: 'Mosaic',
-    tone: 'mosaic',
-    description: 'Mottling or irregular discoloration',
-    image: require('../../assets/images/sugarcane-diseases/reference_mosaic.jpg'),
-  },
-  {
-    name: 'Rust',
-    tone: 'rust',
-    description: 'Orange-brown spots or pustules',
-    image: require('../../assets/images/sugarcane-diseases/reference_rust.jpg'),
-  },
-  {
-    name: 'Smut',
-    tone: 'smut',
-    description: 'Dark, whip-like growth emerging from the central shoot or stalk',
-    image: require('../../assets/model-fixtures/v1-smut.jpg'),
-  },
-];
-
 export default function HomeScreen() {
   const theme = useTheme();
   const { sessionVerification, user } = useAuth();
   const { apiReachability, isOnline } = useSync();
+  const attention = useHomeAttention();
   const serverUnavailable =
     sessionVerification === 'unavailable' || apiReachability === 'unavailable';
   const connectionBadge = isOnline === false
@@ -92,6 +63,18 @@ export default function HomeScreen() {
       onPress: () => router.push('/activity' as Href),
     },
   ];
+
+  const openAttentionItem = (item: NeedsAttentionItem) => {
+    if (!item.destination) return;
+    const route = notificationDestinationRoute(item.destination);
+    if (!route) return;
+    if (item.kind === 'notification') {
+      // Acknowledgment is best effort: a failed read mutation never blocks the
+      // inspector from opening the destination.
+      void attention.markRead(item.id.replace(/^notification-/, ''));
+    }
+    router.push(route as never);
+  };
 
   return (
     <SafeAreaView
@@ -141,6 +124,13 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.content}>
+              <HomeAttentionCard
+                items={attention.items}
+                onOpenItem={openAttentionItem}
+                onSeeAll={() => router.push('/activity' as Href)}
+                total={attention.total}
+              />
+
               <SectionTitle label="QUICK ACTIONS" />
               <View style={styles.grid}>
                 {actions.map((action) => (
@@ -174,13 +164,16 @@ export default function HomeScreen() {
                     <Feather name="arrow-right" size={20} color={theme.primary} />
                   </View>
                   <Text style={[styles.referenceIntro, { color: theme.textSecondary }]}>
-                    These are observational references for the four Model V1 classes. They support decision-making only and do not confirm a disease.
+                    Observational references for the four sugarcane conditions CaneGuard can check. Decision support only — not a diagnosis.
                   </Text>
                   <View style={styles.referencePillsRow}>
-                    <Pill label="Healthy" variant="healthy" />
-                    <Pill label="Mosaic" variant="mosaic" />
-                    <Pill label="Rust" variant="rust" />
-                    <Pill label="Smut" variant="smut" />
+                    {MODEL_LABELS.map((key) => (
+                      <Pill
+                        key={key}
+                        label={referenceMedia[key].name}
+                        variant={key as PillVariant}
+                      />
+                    ))}
                   </View>
                 </View>
               </Pressable>

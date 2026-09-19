@@ -9,6 +9,7 @@ import { Pill } from '@/components/ui/Pill';
 import { Row } from '@/components/ui/Row';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { Status } from '@/components/ui/Status';
+import { TextField } from '@/components/ui/TextField';
 
 describe('Consolidated UI components', () => {
   describe('Card', () => {
@@ -71,6 +72,41 @@ describe('Consolidated UI components', () => {
       );
       expect(screen.getByText('Status')).toBeOnTheScreen();
       expect(screen.getByTestId('custom-badge')).toBeOnTheScreen();
+    });
+  });
+
+  describe('TextField hints', () => {
+    it('shows a persistent hint and announces it with the input', async () => {
+      await render(
+        <TextField
+          hint="What you physically saw on this visit."
+          label="Fresh field observation"
+          onChangeText={() => undefined}
+          testID="observational-input"
+          value=""
+        />,
+      );
+
+      expect(screen.getByText('What you physically saw on this visit.')).toBeOnTheScreen();
+      expect(screen.getByTestId('observational-input')).toHaveProp(
+        'accessibilityHint',
+        'What you physically saw on this visit.',
+      );
+    });
+
+    it('omits the hint element when no hint is supplied', async () => {
+      await render(
+        <TextField
+          label="Fresh field observation"
+          onChangeText={() => undefined}
+          testID="observational-input"
+          value=""
+        />,
+      );
+
+      expect(
+        screen.getByTestId('observational-input').props.accessibilityHint,
+      ).toBeUndefined();
     });
   });
 

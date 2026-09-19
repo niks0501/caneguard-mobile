@@ -5,6 +5,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -173,13 +174,29 @@ function EvidenceForm({
   onObservationChange: (value: string) => void; onFindingChange: (value: string) => void; onActionChange: (value: string) => void; onCapturePhoto: () => void;
 }) {
   const theme = useTheme();
+  const hasObservation = observation.trim().length > 0;
+  const hasFinding = finding.trim().length > 0;
   return (
     <View testID="field-validation.form" style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
-      <View style={styles.heading}><Feather name="edit-3" size={20} color={theme.primary} /><Text style={[styles.title, { color: theme.text }]}>What do you observe?</Text></View>
-      <Text style={[styles.help, { color: theme.textSecondary }]}>Record your own observation, field finding, and the action taken. These are stored as field evidence, separate from the submitted case evidence.</Text>
-      <TextField testID="field-validation.observation-input" label="Fresh field observation" value={observation} onChangeText={onObservationChange} placeholder="What did you see during this visit?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
-      <TextField testID="field-validation.finding-input" label="Field finding or evidence" value={finding} onChangeText={onFindingChange} placeholder="Describe the field finding needed by the office." maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
-      <TextField testID="field-validation.action-input" label="Action taken" value={action} onChangeText={onActionChange} placeholder="What action or guidance was provided?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
+      <View style={styles.heading}><Feather name="edit-3" size={20} color={theme.primary} /><Text style={[styles.title, { color: theme.text }]}>What did you record on this visit?</Text></View>
+      <Text style={[styles.help, { color: theme.textSecondary }]}>Three separate parts of the same visit: what you saw, what you make of it, and what you did. These are stored as field evidence, separate from the submitted case evidence.</Text>
+      <TextField testID="field-validation.observation-input" label="Fresh field observation" hint="What you physically saw on this visit. For example: “Orange-brown pustules on the lower leaves of about a fifth of the block.”" value={observation} onChangeText={onObservationChange} placeholder="What did you see during this visit?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
+      <TextField testID="field-validation.finding-input" label="Field finding" hint="Your own assessment of what those observations mean here. For example: “Lesions consistent with Rust; no smut whip seen in the sampled rows.”" value={finding} onChangeText={onFindingChange} placeholder="Describe the field finding needed by the office." maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
+      <Pressable
+        testID="field-validation.copy-observation"
+        accessibilityRole="button"
+        accessibilityLabel={hasFinding ? 'Replace the field finding with the fresh field observation' : 'Copy the fresh field observation into the field finding'}
+        accessibilityHint={hasObservation ? undefined : 'Enter a fresh field observation first.'}
+        accessibilityState={{ disabled: !hasObservation }}
+        disabled={!hasObservation}
+        onPress={() => onFindingChange(observation)}
+        style={({ pressed }) => [styles.copyAction, pressed && hasObservation ? styles.pressed : null]}>
+        <Feather name="copy" size={16} color={hasObservation ? theme.primary : theme.textSecondary} />
+        <Text style={[styles.copyActionText, { color: hasObservation ? theme.primary : theme.textSecondary }]}>
+          {hasFinding ? 'Replace finding with observation' : 'Copy observation into finding'}
+        </Text>
+      </Pressable>
+      <TextField testID="field-validation.action-input" label="Action taken" hint="What you actually did or told the farmer. For example: “Advised removal of affected leaves and a follow-up visit in 7 days.”" value={action} onChangeText={onActionChange} placeholder="What action or guidance was provided?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
       {photo ? <ExpoImage source={{ uri: photo.uri }} accessibilityLabel="Fresh field validation photo" contentFit="cover" style={styles.photo} /> : null}
       <AppButton testID="field-validation.capture-photo" onPress={onCapturePhoto} leadingIcon="camera" variant="secondary">{photo ? 'Replace fresh photo' : 'Add fresh field photo (recommended)'}</AppButton>
     </View>
@@ -222,5 +239,14 @@ const styles = StyleSheet.create({
   rowValue: { ...Typography.bodySmall, fontWeight: '700', textAlign: 'right', flex: 1 },
   samePerson: { ...Typography.caption, fontWeight: '800' },
   photo: { width: '100%', height: 220, borderRadius: Radius.md },
+  copyAction: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    alignSelf: 'flex-start',
+  },
+  copyActionText: { ...Typography.caption, fontWeight: '800' },
+  pressed: { opacity: 0.72 },
   error: { ...Typography.bodySmall },
 });

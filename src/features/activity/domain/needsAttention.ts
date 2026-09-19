@@ -21,6 +21,12 @@ export interface NeedsAttentionSummary {
 
 export const NEEDS_ATTENTION_ROW_LIMIT = 3;
 
+/**
+ * Home shows fewer rows than Activity and hands off with a single "See all"
+ * line, so the work-first card never grows into a second inbox.
+ */
+export const HOME_ATTENTION_ROW_LIMIT = 2;
+
 const ACTIVE_ASSIGNMENT_STATES = new Set(['assigned', 'in_progress']);
 
 /**

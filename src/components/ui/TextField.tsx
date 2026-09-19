@@ -9,6 +9,12 @@ type TextFieldProps = {
   value: string;
   onChangeText: (value: string) => void;
   placeholder?: string;
+  /**
+   * Persistent guidance shown under the label and announced with the input.
+   * Use it for field definitions and examples that must survive typing, since
+   * a placeholder disappears as soon as the inspector starts writing.
+   */
+  hint?: string;
   secureTextEntry?: boolean;
   maxLength?: number;
   multiline?: boolean;
@@ -24,6 +30,7 @@ export function TextField({
   value,
   onChangeText,
   placeholder,
+  hint,
   secureTextEntry,
   maxLength,
   multiline = false,
@@ -37,9 +44,15 @@ export function TextField({
 
   return (
     <>
-      <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
+      <Text style={[styles.label, hint ? styles.labelWithHint : null, { color: theme.text }]}>
+        {label}
+      </Text>
+      {hint ? (
+        <Text style={[styles.hint, { color: theme.textSecondary }]}>{hint}</Text>
+      ) : null}
       <TextInput
         accessibilityLabel={label}
+        accessibilityHint={hint}
         testID={testID}
         value={value}
         onChangeText={onChangeText}
@@ -70,6 +83,13 @@ export function TextField({
 const styles = StyleSheet.create({
   label: {
     ...Typography.label,
+    marginBottom: 6,
+  },
+  labelWithHint: {
+    marginBottom: 2,
+  },
+  hint: {
+    ...Typography.caption,
     marginBottom: 6,
   },
   input: {

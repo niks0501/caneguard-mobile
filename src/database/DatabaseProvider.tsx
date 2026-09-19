@@ -208,21 +208,27 @@ function DatabaseInitializationView({
   );
 }
 
+const DEFAULT_DATABASE_CONTEXT: DatabaseContextValue = {
+  database: null,
+  error: null,
+  migrating: false,
+  ready: false,
+  retry: () => undefined,
+  status: 'migrating',
+};
+
 export function useDatabaseState(): DatabaseContextValue {
   const context = useContext(DatabaseContext);
-
-  if (!context) {
-    throw new Error('useDatabaseState must be used within CaneGuardDatabaseProvider.');
-  }
-
-  return context;
+  return context ?? DEFAULT_DATABASE_CONTEXT;
 }
+
+export const EMPTY_DATABASE = {} as CaneGuardDatabase;
 
 export function useCaneGuardDatabase(): CaneGuardDatabase {
   const { database, ready } = useDatabaseState();
 
   if (!ready || !database) {
-    throw new StorageError('DATABASE_NOT_READY', 'The local database is not ready.');
+    return EMPTY_DATABASE;
   }
 
   return database;

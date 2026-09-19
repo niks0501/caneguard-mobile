@@ -21,15 +21,41 @@ export interface MapTile {
   url: string;
 }
 
+export const DEV_MAP_TILE_URL_TEMPLATE =
+  'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+export function isLocalOrLanHostname(hostname: string): boolean {
+  const normalized = hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  return (
+    normalized === 'localhost' ||
+    normalized === '127.0.0.1' ||
+    normalized === '::1' ||
+    /^127(?:\.\d{1,3}){3}$/.test(normalized) ||
+    /^10(?:\.\d{1,3}){3}$/.test(normalized) ||
+    /^192\.168(?:\.\d{1,3}){2}$/.test(normalized) ||
+    /^172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2}$/.test(normalized)
+  );
+}
+
 /**
- * Third-party tile URLs are intentionally disabled by default. Production
- * must provide a CaneGuard-owned API/proxy template such as
- * `https://api.example.test/api/v1/mobile/map-tiles/{z}/{x}/{y}.png`.
+ * Third-party tile URLs are intentionally disabled by default in production.
+ * Production must provide a CaneGuard-owned HTTPS API/proxy template such as
+ * `https://api.example.test/api/v1/mobile/map-tiles/{z}/{x}/{y}.png`
+ * matching `EXPO_PUBLIC_API_BASE_URL`.
+ *
+ * Development exception (`__DEV__`):
+ * 1. An `http:` same-origin localhost/LAN proxy template is accepted.
+ * 2. If no proxy template is configured, falls back to direct OpenStreetMap
+ *    tiles so developers can test the manual map and tap-to-pin without
+ *    running or configuring a local proxy backend.
  */
 export function getConfiguredMapTileUrlTemplate(): string | null {
   const rawTemplate = process.env.EXPO_PUBLIC_MAP_TILE_PROXY_URL?.trim();
   if (!rawTemplate) {
-    return null;
+    // Development fallback: allow direct OpenStreetMap tiles so the manual
+    // map and coordinate pin work out-of-the-box in dev environments.
+    // Production must never make third-party tile requests from the device.
+    return __DEV__ ? DEV_MAP_TILE_URL_TEMPLATE : null;
   }
 
   let tileUrl: URL;
@@ -39,7 +65,6 @@ export function getConfiguredMapTileUrlTemplate(): string | null {
     return null;
   }
   if (
-    tileUrl.protocol !== 'https:' ||
     tileUrl.username ||
     tileUrl.password ||
     tileUrl.hostname === 'tile.openstreetmap.org' ||
@@ -48,6 +73,15 @@ export function getConfiguredMapTileUrlTemplate(): string | null {
       rawTemplate.includes(placeholder),
     )
   ) {
+    return null;
+  }
+
+  const isHttps = tileUrl.protocol === 'https:';
+  const isDevHttp =
+    __DEV__ &&
+    tileUrl.protocol === 'http:' &&
+    isLocalOrLanHostname(tileUrl.hostname);
+  if (!isHttps && !isDevHttp) {
     return null;
   }
 

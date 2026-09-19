@@ -261,7 +261,8 @@ export function OnlineMapPicker({
                     source={{
                       headers: {
                         'User-Agent': 'CaneGuard-Mobile/1.0',
-                        ...(authToken
+                        ...(authToken &&
+                        !tile.url.includes('tile.openstreetmap.org')
                           ? { Authorization: `Bearer ${authToken}` }
                           : {}),
                       },

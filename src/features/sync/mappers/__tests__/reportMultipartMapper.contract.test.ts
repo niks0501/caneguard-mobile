@@ -220,17 +220,21 @@ describe('mobile-report-upload-v2 producer contract', () => {
     form.append('submitted_at', REPORT.submittedAt);
     expect(() =>
       expectCanonicalV2(form as unknown as FormData),
-    ).toThrow(/submitted_at/i);
+    ).toThrow(/undeclared multipart field.*submitted_at/i);
 
     const withoutImage = formFromParts(
       parts(map()).filter(([name]) => name !== 'image'),
     );
-    expect(() => expectCanonicalV2(withoutImage)).toThrow(/required|Received:\s+0/i);
+    expect(() => expectCanonicalV2(withoutImage)).toThrow(
+      /required canonical field "image" is missing/i,
+    );
 
     const withoutSymptoms = formFromParts(
       parts(map()).filter(([name]) => name !== 'symptom_keys[]'),
     );
-    expect(() => expectCanonicalV2(withoutSymptoms)).toThrow();
+    expect(() => expectCanonicalV2(withoutSymptoms)).toThrow(
+      /required canonical field "symptom_keys" is missing/i,
+    );
   });
 
   it.each([
@@ -438,7 +442,9 @@ function expectCanonicalV2(form: FormData): void {
   const undeclared = formParts
     .map(([name]) => name)
     .filter((name) => !findCanonicalField(name));
-  expect(undeclared).toEqual([]);
+  if (undeclared.length > 0) {
+    throw new Error(`Undeclared multipart field(s): ${undeclared.join(', ')}`);
+  }
 
   for (const [fieldName, field] of Object.entries(CANONICAL.fields)) {
     const fieldParts = formParts.filter(([name]) =>
@@ -454,8 +460,8 @@ function validateField(
   field: CanonicalField,
   fieldParts: MultipartPart[],
 ): void {
-  if (field.required) {
-    expect(fieldParts.length).toBeGreaterThan(0);
+  if (field.required && fieldParts.length === 0) {
+    throw new Error(`Required canonical field "${fieldName}" is missing.`);
   }
   if (field.wire_type === 'file') {
     if (fieldParts.length === 0) return;

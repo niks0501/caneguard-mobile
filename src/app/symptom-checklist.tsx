@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SymptomChecklistItem } from '@/components/ui/SymptomChecklistItem';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import {
@@ -63,13 +64,38 @@ export default function SymptomChecklistScreen() {
     router.push('/analysis-result');
   };
 
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  const handleCancel = () => {
+    setShowCancelConfirm(true);
+  };
+
+  const handleKeepDraft = () => {
+    setShowCancelConfirm(false);
+    if (selectedSymptoms.size > 0) {
+      dispatch({ type: 'SET_SYMPTOMS', payload: [...selectedSymptoms] });
+    }
+    router.replace('/home');
+  };
+
+  const handleDiscardDraft = () => {
+    setShowCancelConfirm(false);
+    dispatch({ type: 'RESET_SCAN' });
+    router.replace('/home');
+  };
+
   if (!hasCompletedScan) {
     return (
       <SafeAreaView
         style={[styles.safe, { backgroundColor: theme.background }]}
         edges={['top', 'bottom']}>
         <View style={styles.root}>
-          <BrandedScreenHeader title="Symptoms" />
+          <BrandedScreenHeader
+            title="Symptoms"
+            showClose
+            onClosePress={handleCancel}
+            closeTestID="symptom-checklist.header-close"
+          />
           <View style={styles.recoveryContent}>
             <View
               style={[
@@ -96,6 +122,19 @@ export default function SymptomChecklistScreen() {
               </AppButton>
             </View>
           </View>
+          <ConfirmDialog
+            visible={showCancelConfirm}
+            title="Cancel scan?"
+            message="Do you want to keep your in-progress scan draft or discard it before returning home?"
+            cancelLabel="Keep draft"
+            confirmLabel="Discard draft"
+            destructive
+            overlay
+            onRequestClose={() => setShowCancelConfirm(false)}
+            onCancel={handleKeepDraft}
+            onConfirm={handleDiscardDraft}
+            testID="symptom-checklist.cancel-dialog"
+          />
         </View>
       </SafeAreaView>
     );
@@ -107,7 +146,12 @@ export default function SymptomChecklistScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Guided observations" />
+        <BrandedScreenHeader
+          title="Guided observations"
+          showClose
+          onClosePress={handleCancel}
+          closeTestID="symptom-checklist.header-close"
+        />
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}>
@@ -174,8 +218,29 @@ export default function SymptomChecklistScreen() {
                   ? 'Choose an observation'
                   : 'Continue'}
             </AppButton>
+            <AppButton
+              testID="symptom-checklist.cancel"
+              variant="secondary"
+              onPress={handleCancel}
+              leadingIcon="x"
+              accessibilityLabel="Cancel scan and return home">
+              Cancel Scan
+            </AppButton>
           </View>
         </ScrollView>
+        <ConfirmDialog
+          visible={showCancelConfirm}
+          title="Cancel scan?"
+          message="Do you want to keep your in-progress scan draft or discard it before returning home?"
+          cancelLabel="Keep draft"
+          confirmLabel="Discard draft"
+          destructive
+          overlay
+          onRequestClose={() => setShowCancelConfirm(false)}
+          onCancel={handleKeepDraft}
+          onConfirm={handleDiscardDraft}
+          testID="symptom-checklist.cancel-dialog"
+        />
       </View>
     </SafeAreaView>
   );

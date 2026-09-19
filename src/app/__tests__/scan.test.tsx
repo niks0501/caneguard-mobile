@@ -31,6 +31,7 @@ const mockLaunchCamera = jest.mocked(ImagePicker.launchCameraAsync);
 const mockLaunchImageLibrary = jest.mocked(ImagePicker.launchImageLibraryAsync);
 const mockRequestCameraPermission = jest.mocked(ImagePicker.requestCameraPermissionsAsync);
 const mockRouterPush = router.push as jest.Mock;
+const mockRouterReplace = router.replace as jest.Mock;
 const originalPlatformOS = Platform.OS;
 const supportedImageFormats = [
   ['JPEG', 'image/jpeg', 'leaf.jpeg'],
@@ -432,5 +433,60 @@ describe('ScanScreen', () => {
 
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
     expect(screen.getByText('No image added yet')).toBeOnTheScreen();
+  });
+
+  describe('cancel and return home', () => {
+    it('opens cancel dialog when header close button is pressed', async () => {
+      await renderScan({
+        ...initialScanSessionState,
+        sourceUri: 'file:///selected.jpg',
+        sourceWidth: 800,
+        sourceHeight: 600,
+        sourceType: 'camera',
+        status: 'image-selected',
+      });
+
+      expect(screen.queryByTestId('scan.cancel-dialog')).not.toBeOnTheScreen();
+      await fireEvent.press(screen.getByTestId('scan.header-close'));
+
+      expect(screen.getByTestId('scan.cancel-dialog')).toBeOnTheScreen();
+      expect(screen.getByText('Cancel scan?')).toBeOnTheScreen();
+      expect(screen.getByText('Keep draft')).toBeOnTheScreen();
+      expect(screen.getByText('Discard draft')).toBeOnTheScreen();
+    });
+
+    it('routes home and keeps scan session when Keep draft is selected', async () => {
+      await renderScan({
+        ...initialScanSessionState,
+        sourceUri: 'file:///selected.jpg',
+        sourceWidth: 800,
+        sourceHeight: 600,
+        sourceType: 'camera',
+        status: 'image-selected',
+      });
+
+      await fireEvent.press(screen.getByTestId('scan.header-close'));
+      await fireEvent.press(screen.getByTestId('scan.cancel-dialog.cancel'));
+
+      expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+    });
+
+    it('resets scan session and routes home when Discard draft is selected', async () => {
+      await renderScan({
+        ...initialScanSessionState,
+        sourceUri: 'file:///selected.jpg',
+        sourceWidth: 800,
+        sourceHeight: 600,
+        sourceType: 'camera',
+        status: 'image-selected',
+      });
+
+      await fireEvent.press(screen.getByTestId('scan.header-close'));
+      await fireEvent.press(screen.getByTestId('scan.cancel-dialog.confirm'));
+
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+    });
   });
 });

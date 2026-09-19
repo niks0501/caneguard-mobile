@@ -53,12 +53,14 @@ let mockPossibleRecentMatchState: PossibleRecentMatchState = {
   unavailable: false,
   loading: false,
 };
+const mockDiscardDraft = jest.fn(async () => true);
 let mockDraftState: {
   data: FieldReport | null;
   errorMessage: string | null;
   loading: boolean;
   captureLocation: typeof mockCaptureLocation;
   capturingLocation: boolean;
+  discardDraft?: typeof mockDiscardDraft;
   finalize: typeof mockFinalize;
   finalizing: boolean;
   locationServicesDisabled: boolean;
@@ -278,6 +280,7 @@ describe('FieldReportScreen', () => {
       loading: false,
       captureLocation: mockCaptureLocation,
       capturingLocation: false,
+      discardDraft: mockDiscardDraft,
       finalize: mockFinalize,
       finalizing: false,
       locationServicesDisabled: false,
@@ -1634,6 +1637,66 @@ describe('FieldReportScreen', () => {
         fireEvent.press(screen.getByLabelText('Show Technical details'));
       });
       expect(screen.getByText(REPORT_ID)).toBeOnTheScreen();
+    });
+  });
+
+  describe('cancel and return home', () => {
+    it('opens cancel dialog from header close button', async () => {
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+
+      expect(screen.queryByTestId('field-report.cancel-dialog')).not.toBeOnTheScreen();
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.header-close'));
+      });
+
+      expect(screen.getByTestId('field-report.cancel-dialog')).toBeOnTheScreen();
+      expect(screen.getByText('Cancel field report?')).toBeOnTheScreen();
+      expect(screen.getByText('Keep draft')).toBeOnTheScreen();
+      expect(screen.getByText('Discard draft')).toBeOnTheScreen();
+    });
+
+    it('opens cancel dialog from on-screen Cancel Report button', async () => {
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+
+      expect(screen.queryByTestId('field-report.cancel-dialog')).not.toBeOnTheScreen();
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.cancel'));
+      });
+
+      expect(screen.getByTestId('field-report.cancel-dialog')).toBeOnTheScreen();
+    });
+
+    it('saves draft and routes home when Keep draft is chosen', async () => {
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.cancel'));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.cancel-dialog.cancel'));
+      });
+
+      expect(mockSave).toHaveBeenCalledTimes(1);
+      expect(mockDiscardDraft).not.toHaveBeenCalled();
+      expect(router.replace).toHaveBeenCalledWith('/home');
+    });
+
+    it('discards draft and routes home when Discard draft is chosen', async () => {
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.cancel'));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.cancel-dialog.confirm'));
+      });
+
+      expect(mockDiscardDraft).toHaveBeenCalledTimes(1);
+      expect(router.replace).toHaveBeenCalledWith('/home');
     });
   });
 });

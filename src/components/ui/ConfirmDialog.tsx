@@ -1,9 +1,9 @@
 import { Feather } from '@expo/vector-icons';
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Card } from '@/components/ui/Card';
-import { Radius, Spacing, Typography } from '@/constants/theme';
+import { Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ConfirmDialogProps = {
@@ -17,6 +17,8 @@ export type ConfirmDialogProps = {
   onCancel: () => void;
   testID?: string;
   style?: StyleProp<ViewStyle>;
+  overlay?: boolean;
+  onRequestClose?: () => void;
 };
 
 export function ConfirmDialog({
@@ -26,6 +28,8 @@ export function ConfirmDialog({
   message,
   onCancel,
   onConfirm,
+  onRequestClose,
+  overlay = false,
   style,
   testID = 'confirm-dialog',
   title,
@@ -35,11 +39,12 @@ export function ConfirmDialog({
 
   if (!visible) return null;
 
-  return (
+  const content = (
     <Card
       accessibilityRole="alert"
       style={[
         styles.card,
+        overlay && styles.overlayCard,
         {
           backgroundColor: theme.surfaceElevated,
           borderColor: destructive ? theme.danger : theme.border,
@@ -77,9 +82,37 @@ export function ConfirmDialog({
       </View>
     </Card>
   );
+
+  if (overlay) {
+    return (
+      <View testID={`${testID}.overlay`} style={styles.overlay}>
+        <Pressable
+          accessibilityLabel="Dismiss confirmation"
+          accessibilityRole="button"
+          onPress={onRequestClose}
+          style={StyleSheet.absoluteFill}
+        />
+        {content}
+      </View>
+    );
+  }
+
+  return content;
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+    zIndex: 1000,
+  },
+  overlayCard: {
+    width: '100%',
+    maxWidth: Layout.mobileMaxWidth,
+  },
   card: {
     padding: Spacing.lg,
     borderRadius: Radius.lg,

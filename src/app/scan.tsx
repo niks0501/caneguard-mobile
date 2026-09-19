@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ComponentTokens, Layout, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useScanSession } from '@/features/detection/context/useScanSession';
 import { readPickerOutcome } from '@/features/detection/imagePicker/readPickerOutcome';
@@ -64,6 +65,7 @@ export default function ScanScreen() {
   );
   const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
   const [cameraPermissionBlocked, setCameraPermissionBlocked] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const applyPickerResult = useCallback(
     (
@@ -226,6 +228,21 @@ export default function ScanScreen() {
     setCameraPermissionBlocked(false);
   };
 
+  const handleCancel = () => {
+    setShowCancelConfirm(true);
+  };
+
+  const handleKeepDraft = () => {
+    setShowCancelConfirm(false);
+    router.replace('/home');
+  };
+
+  const handleDiscardDraft = () => {
+    setShowCancelConfirm(false);
+    dispatch({ type: 'RESET_SCAN' });
+    router.replace('/home');
+  };
+
   const isBusy = activeOperation !== null;
   const cameraLabel = activeOperation === 'camera' ? 'Opening camera…' : 'Take photo';
   const galleryLabel = activeOperation === 'gallery' ? 'Opening gallery…' : 'Choose from device';
@@ -236,7 +253,12 @@ export default function ScanScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Scan sugarcane" />
+        <BrandedScreenHeader
+          title="Scan sugarcane"
+          showClose
+          onClosePress={handleCancel}
+          closeTestID="scan.header-close"
+        />
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}>
@@ -403,6 +425,19 @@ export default function ScanScreen() {
           </View>
         </ScrollView>
         <BottomNav activeTab="scan" />
+        <ConfirmDialog
+          visible={showCancelConfirm}
+          title="Cancel scan?"
+          message="Do you want to keep your in-progress scan or discard it before returning home?"
+          cancelLabel="Keep draft"
+          confirmLabel="Discard draft"
+          destructive
+          overlay
+          onRequestClose={() => setShowCancelConfirm(false)}
+          onCancel={handleKeepDraft}
+          onConfirm={handleDiscardDraft}
+          testID="scan.cancel-dialog"
+        />
       </View>
     </SafeAreaView>
   );

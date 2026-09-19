@@ -11,6 +11,7 @@ import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import {
   clearLocationUnavailable,
   createOrGetFieldReportDraft,
+  deleteFieldReportDraft,
   finalizeFieldReport,
   findFieldReportByScanRecordId,
   hasFieldReportOwnedByAnotherSubmitter,
@@ -739,6 +740,21 @@ export function useFieldReportDraft(
     ],
   );
 
+  const discardDraft = useCallback(async (): Promise<boolean> => {
+    if (!state.data || !hasCurrentReport || !user) {
+      return false;
+    }
+    try {
+      await deleteFieldReportDraft(database, state.data.id, user.uuid);
+      if (isCurrentInput()) {
+        setState({ data: null, errorMessage: null, loading: false });
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }, [database, hasCurrentReport, isCurrentInput, state.data, user]);
+
   const visibleState =
     state.data && !hasCurrentReport
       ? { data: null, errorMessage: null, loading: true }
@@ -749,6 +765,7 @@ export function useFieldReportDraft(
     captureLocation,
     capturingLocation: hasCurrentReport ? capturingLocation : false,
     clearLocationUnavailable: clearUnavailableLocation,
+    discardDraft,
     finalize,
     finalizing: hasCurrentReport ? finalizing : false,
     locationServicesDisabled: hasCurrentReport

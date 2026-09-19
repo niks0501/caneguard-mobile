@@ -196,5 +196,24 @@ describe('Consolidated UI components', () => {
       await fireEvent.press(screen.getByTestId('confirm-dialog.confirm'));
       expect(onConfirm).toHaveBeenCalledTimes(1);
     });
+
+    it('renders as an overlay modal and handles backdrop onRequestClose', async () => {
+      const onRequestClose = jest.fn();
+      await render(
+        <ConfirmDialog
+          visible={true}
+          overlay
+          title="Cancel flow?"
+          message="Keep or discard?"
+          onRequestClose={onRequestClose}
+          onConfirm={jest.fn()}
+          onCancel={jest.fn()}
+        />,
+      );
+
+      expect(screen.getByTestId('confirm-dialog')).toBeOnTheScreen();
+      await fireEvent.press(screen.getByLabelText('Dismiss confirmation'));
+      expect(onRequestClose).toHaveBeenCalledTimes(1);
+    });
   });
 });

@@ -464,4 +464,68 @@ describe('AnalysisResultScreen', () => {
     expect(screen.getByLabelText('Keep this scan only on the device')).toBeEnabled();
   });
 
+  describe('cancel and return home', () => {
+    beforeEach(() => {
+      mockRouterReplace.mockReset();
+      mockDispatch.mockReset();
+    });
+
+    it('opens cancel dialog from header close button', async () => {
+      await renderResult(createCompletedState('rust', ['rust']));
+
+      expect(screen.queryByTestId('analysis-result.cancel-dialog')).not.toBeOnTheScreen();
+      await fireEvent.press(screen.getByTestId('analysis-result.header-close'));
+
+      expect(screen.getByTestId('analysis-result.cancel-dialog')).toBeOnTheScreen();
+      expect(screen.getByText('Cancel scan?')).toBeOnTheScreen();
+      expect(screen.getByText('Keep draft')).toBeOnTheScreen();
+      expect(screen.getByText('Discard draft')).toBeOnTheScreen();
+    });
+
+    it('opens cancel dialog from on-screen Cancel button', async () => {
+      await renderResult(createCompletedState('rust', ['rust']));
+
+      expect(screen.queryByTestId('analysis-result.cancel-dialog')).not.toBeOnTheScreen();
+      await fireEvent.press(screen.getByTestId('analysis-result.cancel'));
+
+      expect(screen.getByTestId('analysis-result.cancel-dialog')).toBeOnTheScreen();
+    });
+
+    it('persists scan and routes home when Keep draft is chosen', async () => {
+      mockSaveRecord.mockResolvedValue({ id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' });
+      await renderResult(createCompletedState('rust', ['rust']));
+
+      await fireEvent.press(screen.getByTestId('analysis-result.cancel'));
+      await fireEvent.press(screen.getByTestId('analysis-result.cancel-dialog.cancel'));
+
+      expect(mockSaveRecord).toHaveBeenCalledTimes(1);
+      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+      expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+    });
+
+    it('resets scan session and routes home when Discard draft is chosen', async () => {
+      await renderResult(createCompletedState('rust', ['rust']));
+
+      await fireEvent.press(screen.getByTestId('analysis-result.cancel'));
+      await fireEvent.press(screen.getByTestId('analysis-result.cancel-dialog.confirm'));
+
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+    });
+
+    it('allows canceling from recovery screen when result is missing', async () => {
+      await renderResult({
+        ...initialScanSessionState,
+        status: 'idle',
+        result: null,
+      });
+
+      await fireEvent.press(screen.getByTestId('analysis-result.header-close'));
+      expect(screen.getByTestId('analysis-result.cancel-dialog')).toBeOnTheScreen();
+
+      await fireEvent.press(screen.getByTestId('analysis-result.cancel-dialog.confirm'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+    });
+  });
 });

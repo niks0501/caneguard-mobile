@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
@@ -41,6 +42,7 @@ export default function ImagePreviewScreen() {
   const analysisComplete = state.status === 'completed';
   const preprocessingComplete = Boolean(state.processedUri);
   const isAnalysisActive = isPreprocessing || isRunning || isFinalizing;
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   useEffect(() => {
     isMounted.current = true;
@@ -49,6 +51,21 @@ export default function ImagePreviewScreen() {
       isMounted.current = false;
     };
   }, []);
+
+  const handleCancel = () => {
+    setShowCancelConfirm(true);
+  };
+
+  const handleKeepDraft = () => {
+    setShowCancelConfirm(false);
+    router.replace('/home');
+  };
+
+  const handleDiscardDraft = () => {
+    setShowCancelConfirm(false);
+    dispatch({ type: 'RESET_SCAN' });
+    router.replace('/home');
+  };
 
   const returnToScan = () => {
     router.replace('/scan');
@@ -141,7 +158,12 @@ export default function ImagePreviewScreen() {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
         <View style={styles.root}>
-          <BrandedScreenHeader title="Image preview" />
+          <BrandedScreenHeader
+            title="Image preview"
+            showClose
+            onClosePress={handleCancel}
+            closeTestID="image-preview.header-close"
+          />
           <View style={styles.recoveryContent}>
             <AppCard style={styles.recoveryCard}>
               <View style={[styles.recoveryIcon, { backgroundColor: theme.warningBg }]}>
@@ -180,7 +202,12 @@ export default function ImagePreviewScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Image preview" />
+        <BrandedScreenHeader
+          title="Image preview"
+          showClose
+          onClosePress={handleCancel}
+          closeTestID="image-preview.header-close"
+        />
 
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -367,6 +394,14 @@ export default function ImagePreviewScreen() {
                 </Text>
               ) : null}
               <AppButton
+                testID="image-preview.cancel"
+                variant="secondary"
+                onPress={handleCancel}
+                leadingIcon="x"
+                accessibilityLabel="Cancel scan and return home">
+                Cancel Scan
+              </AppButton>
+              <AppButton
                 variant="text"
                 onPress={startNewScan}
                 accessibilityLabel="Clear this image and start a new scan">
@@ -375,6 +410,19 @@ export default function ImagePreviewScreen() {
             </View>
           </View>
         </ScrollView>
+        <ConfirmDialog
+          visible={showCancelConfirm}
+          title="Cancel scan?"
+          message="Do you want to keep your in-progress scan draft or discard it before returning home?"
+          cancelLabel="Keep draft"
+          confirmLabel="Discard draft"
+          destructive
+          overlay
+          onRequestClose={() => setShowCancelConfirm(false)}
+          onCancel={handleKeepDraft}
+          onConfirm={handleDiscardDraft}
+          testID="image-preview.cancel-dialog"
+        />
       </View>
     </SafeAreaView>
   );

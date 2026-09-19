@@ -1086,6 +1086,59 @@ export async function saveFieldReportDraft(
   }
 }
 
+export async function deleteFieldReportDraft(
+  database: CaneGuardDatabase,
+  id: string,
+  submitterIdentity: string,
+): Promise<void> {
+  const owner = requireOwnerIdentity(submitterIdentity);
+
+  try {
+    database.transaction((transaction) => {
+      const existing = transaction
+        .select({
+          authoringState: fieldReports.authoringState,
+        })
+        .from(fieldReports)
+        .where(
+          and(
+            eq(fieldReports.id, id),
+            eq(fieldReports.submitterIdentity, owner),
+          ),
+        )
+        .get();
+
+      if (!existing) {
+        return;
+      }
+      if (existing.authoringState !== 'draft') {
+        throw new StorageError(
+          'DELETE_FAILED',
+          'Only a Draft Field Report can be discarded.',
+        );
+      }
+
+      transaction
+        .delete(fieldReports)
+        .where(
+          and(
+            eq(fieldReports.id, id),
+            eq(fieldReports.submitterIdentity, owner),
+          ),
+        )
+        .run();
+    });
+
+    emitSyncRecordsChanged();
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'DELETE_FAILED',
+      'Discarding the Field Report draft failed.',
+    );
+  }
+}
+
 function toFieldReport(row: typeof fieldReports.$inferSelect): FieldReport {
   return {
     id: row.id,

@@ -360,4 +360,47 @@ describe('ImagePreviewScreen', () => {
     expect(screen.getByText('Camera')).toBeOnTheScreen();
     expect(screen.getByText('Dimensions unavailable')).toBeOnTheScreen();
   });
+
+  describe('cancel and return home', () => {
+    it('opens cancel dialog from header close button', async () => {
+      await renderPreview(selectedState);
+
+      expect(screen.queryByTestId('image-preview.cancel-dialog')).not.toBeOnTheScreen();
+      await fireEvent.press(screen.getByTestId('image-preview.header-close'));
+
+      expect(screen.getByTestId('image-preview.cancel-dialog')).toBeOnTheScreen();
+      expect(screen.getByText('Cancel scan?')).toBeOnTheScreen();
+      expect(screen.getByText('Keep draft')).toBeOnTheScreen();
+      expect(screen.getByText('Discard draft')).toBeOnTheScreen();
+    });
+
+    it('opens cancel dialog from on-screen Cancel button', async () => {
+      await renderPreview(selectedState);
+
+      expect(screen.queryByTestId('image-preview.cancel-dialog')).not.toBeOnTheScreen();
+      await fireEvent.press(screen.getByTestId('image-preview.cancel'));
+
+      expect(screen.getByTestId('image-preview.cancel-dialog')).toBeOnTheScreen();
+    });
+
+    it('routes home and preserves scan session when Keep draft is chosen', async () => {
+      await renderPreview(selectedState);
+
+      await fireEvent.press(screen.getByTestId('image-preview.cancel'));
+      await fireEvent.press(screen.getByTestId('image-preview.cancel-dialog.cancel'));
+
+      expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+    });
+
+    it('resets scan session and routes home when Discard draft is chosen', async () => {
+      await renderPreview(selectedState);
+
+      await fireEvent.press(screen.getByTestId('image-preview.cancel'));
+      await fireEvent.press(screen.getByTestId('image-preview.cancel-dialog.confirm'));
+
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+    });
+  });
 });

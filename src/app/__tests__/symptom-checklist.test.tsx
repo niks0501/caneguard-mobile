@@ -179,4 +179,55 @@ describe('SymptomChecklistScreen', () => {
 
     expect(mockRouterReplace).toHaveBeenCalledWith('/scan');
   });
+
+  describe('cancel and return home', () => {
+    it('opens cancel dialog from header close button', async () => {
+      await renderChecklist();
+
+      expect(screen.queryByTestId('symptom-checklist.cancel-dialog')).not.toBeOnTheScreen();
+      await fireEvent.press(screen.getByTestId('symptom-checklist.header-close'));
+
+      expect(screen.getByTestId('symptom-checklist.cancel-dialog')).toBeOnTheScreen();
+      expect(screen.getByText('Cancel scan?')).toBeOnTheScreen();
+      expect(screen.getByText('Keep draft')).toBeOnTheScreen();
+      expect(screen.getByText('Discard draft')).toBeOnTheScreen();
+    });
+
+    it('opens cancel dialog from on-screen Cancel button', async () => {
+      await renderChecklist();
+
+      expect(screen.queryByTestId('symptom-checklist.cancel-dialog')).not.toBeOnTheScreen();
+      await fireEvent.press(screen.getByTestId('symptom-checklist.cancel'));
+
+      expect(screen.getByTestId('symptom-checklist.cancel-dialog')).toBeOnTheScreen();
+    });
+
+    it('routes home and preserves scan session when Keep draft is chosen', async () => {
+      await renderChecklist();
+
+      await fireEvent.press(
+        screen.getByText(
+          'Contrasting islands or streaks of normal green among paler green or yellowish leaf areas',
+        ),
+      );
+      await fireEvent.press(screen.getByTestId('symptom-checklist.cancel'));
+      await fireEvent.press(screen.getByTestId('symptom-checklist.cancel-dialog.cancel'));
+
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: 'SET_SYMPTOMS',
+        payload: ['mosaic'],
+      });
+      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+    });
+
+    it('resets scan session and routes home when Discard draft is chosen', async () => {
+      await renderChecklist();
+
+      await fireEvent.press(screen.getByTestId('symptom-checklist.cancel'));
+      await fireEvent.press(screen.getByTestId('symptom-checklist.cancel-dialog.confirm'));
+
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+    });
+  });
 });

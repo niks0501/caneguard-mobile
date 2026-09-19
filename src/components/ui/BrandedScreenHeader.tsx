@@ -13,15 +13,23 @@ export type BrandedScreenHeaderProps = {
   showBack?: boolean;
   variant?: 'hero' | 'plain';
   onBackPress?: () => void;
+  showClose?: boolean;
+  onClosePress?: () => void;
+  closeTestID?: string;
+  closeAccessibilityLabel?: string;
 };
 
 export function BrandedScreenHeader({
   action,
+  closeAccessibilityLabel,
+  closeTestID,
+  onBackPress,
+  onClosePress,
   showBack = true,
+  showClose = false,
   subtitle,
   title,
   variant = 'hero',
-  onBackPress,
 }: BrandedScreenHeaderProps) {
   const theme = useTheme();
 
@@ -56,6 +64,21 @@ export function BrandedScreenHeader({
               {title}
             </Text>
             {action}
+            {showClose ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={closeAccessibilityLabel ?? 'Cancel and return home'}
+                testID={closeTestID ?? 'header.close-button'}
+                hitSlop={8}
+                onPress={onClosePress}
+                style={({ pressed }) => [
+                  styles.plainBackButton,
+                  { borderColor: theme.border, backgroundColor: theme.surfaceElevated },
+                  pressed && styles.pressed,
+                ]}>
+                <Feather name="x" size={20} color={theme.text} />
+              </Pressable>
+            ) : null}
           </View>
           {subtitle ? (
             <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{subtitle}</Text>
@@ -68,7 +91,11 @@ export function BrandedScreenHeader({
   return (
     <View style={[styles.hero, { backgroundColor: theme.backgroundElement, borderBottomColor: theme.divider }]}>
       <View style={styles.content}>
-        <View style={[styles.titleRow, !showBack && styles.titleRowWithoutBack]}>
+        <View
+          style={[
+            styles.titleRow,
+            (!showBack || showClose) && styles.titleRowWithoutBack,
+          ]}>
           {showBack ? (
             <Pressable
               accessibilityRole="button"
@@ -85,6 +112,21 @@ export function BrandedScreenHeader({
           ) : null}
           <Text accessibilityRole="header" style={[styles.title, { color: theme.primaryDark }]}>{title}</Text>
           {action}
+          {showClose ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={closeAccessibilityLabel ?? 'Cancel and return home'}
+              testID={closeTestID ?? 'header.close-button'}
+              hitSlop={8}
+              onPress={onClosePress}
+              style={({ pressed }) => [
+                styles.back,
+                { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+                pressed && styles.pressed,
+              ]}>
+              <Feather name="x" size={24} color={theme.primaryDark} />
+            </Pressable>
+          ) : null}
         </View>
         {subtitle ? (
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{subtitle}</Text>

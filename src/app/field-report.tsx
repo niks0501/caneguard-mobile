@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { getResultLabel, getSyncPresentation } from '@/components/ui/RecordCard';
 import { Row } from '@/components/ui/Row';
@@ -207,6 +208,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
 
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   // Form values in component state so they survive step transitions
   const [loadedReportId, setLoadedReportId] = useState<string | null>(null);
@@ -427,6 +429,37 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     };
   };
 
+  const handleCancel = () => {
+    setShowCancelConfirm(true);
+  };
+
+  const handleKeepDraft = async () => {
+    setShowCancelConfirm(false);
+    if (report.data) {
+      const values = collectValues(false);
+      if (values) {
+        try {
+          await report.save(values);
+        } catch {
+          // Best-effort save before exit
+        }
+      }
+    }
+    router.replace('/home');
+  };
+
+  const handleDiscardDraft = async () => {
+    setShowCancelConfirm(false);
+    if (report.data) {
+      try {
+        await report.discardDraft();
+      } catch {
+        // Best-effort discard before exit
+      }
+    }
+    router.replace('/home');
+  };
+
   const handleSave = () => {
     const values = collectValues(false);
     if (values) {
@@ -607,6 +640,9 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
               ? 'Finalized Field Report'
               : 'Field Report Draft'
           }
+          showClose
+          onClosePress={handleCancel}
+          closeTestID="field-report.header-close"
         />
         {report.loading && !report.data ? (
           <View style={styles.centered}>
@@ -1099,6 +1135,15 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                         }>
                         {report.saving ? 'Saving Draft...' : 'Save Draft'}
                       </AppButton>
+
+                      <AppButton
+                        testID="field-report.cancel"
+                        onPress={handleCancel}
+                        variant="secondary"
+                        leadingIcon="x"
+                        accessibilityLabel="Cancel field report and return home">
+                        Cancel Report
+                      </AppButton>
                     </View>
                   </>
                 )}
@@ -1130,6 +1175,19 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
             </ScrollView>
           </KeyboardAvoidingView>
         ) : null}
+        <ConfirmDialog
+          visible={showCancelConfirm}
+          title="Cancel field report?"
+          message="Do you want to keep your field report as a draft or discard it before returning home?"
+          cancelLabel="Keep draft"
+          confirmLabel="Discard draft"
+          destructive
+          overlay
+          onRequestClose={() => setShowCancelConfirm(false)}
+          onCancel={handleKeepDraft}
+          onConfirm={handleDiscardDraft}
+          testID="field-report.cancel-dialog"
+        />
       </View>
     </SafeAreaView>
   );

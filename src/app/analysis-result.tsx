@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { Pill } from '@/components/ui/Pill';
 import {
@@ -88,6 +89,23 @@ export default function AnalysisResultScreen() {
   const { state, dispatch } = useScanSession();
   const saveRecord = useSaveCompletedScan(state);
   const [openingReport, setOpeningReport] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  const handleCancel = () => {
+    setShowCancelConfirm(true);
+  };
+
+  const handleKeepDraft = () => {
+    setShowCancelConfirm(false);
+    void persistScanForOutcome();
+    router.replace('/home');
+  };
+
+  const handleDiscardDraft = () => {
+    setShowCancelConfirm(false);
+    dispatch({ type: 'RESET_SCAN' });
+    router.replace('/home');
+  };
 
   const startNewScan = () => {
     dispatch({ type: 'RESET_SCAN' });
@@ -127,7 +145,12 @@ export default function AnalysisResultScreen() {
         style={[styles.safe, { backgroundColor: theme.background }]}
         edges={['top', 'bottom']}>
         <View style={styles.root}>
-          <BrandedScreenHeader title="Analysis result" />
+          <BrandedScreenHeader
+            title="Analysis result"
+            showClose
+            onClosePress={handleCancel}
+            closeTestID="analysis-result.header-close"
+          />
           <View style={styles.recoveryContent}>
             <View
               style={[
@@ -159,6 +182,19 @@ export default function AnalysisResultScreen() {
               </AppButton>
             </View>
           </View>
+          <ConfirmDialog
+            visible={showCancelConfirm}
+            title="Cancel scan?"
+            message="Do you want to keep your in-progress scan draft or discard it before returning home?"
+            cancelLabel="Keep draft"
+            confirmLabel="Discard draft"
+            destructive
+            overlay
+            onRequestClose={() => setShowCancelConfirm(false)}
+            onCancel={handleKeepDraft}
+            onConfirm={handleDiscardDraft}
+            testID="analysis-result.cancel-dialog"
+          />
         </View>
       </SafeAreaView>
     );
@@ -182,7 +218,12 @@ export default function AnalysisResultScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Analysis result" />
+        <BrandedScreenHeader
+          title="Analysis result"
+          showClose
+          onClosePress={handleCancel}
+          closeTestID="analysis-result.header-close"
+        />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
             <ExpoImage
@@ -339,6 +380,15 @@ export default function AnalysisResultScreen() {
                   accessibilityLabel="Open disease reference for this condition">
                   Disease Reference
                 </AppButton>
+                <AppButton
+                  testID="analysis-result.cancel"
+                  onPress={handleCancel}
+                  disabled={saveRecord.status === 'saving'}
+                  variant="secondary"
+                  leadingIcon="x"
+                  accessibilityLabel="Cancel scan and return home">
+                  Cancel Scan
+                </AppButton>
                 {saveRecord.status === 'saved' && saveRecord.recordId ? (
                   <AppButton
                     testID="scan.open-saved-record"
@@ -481,6 +531,19 @@ export default function AnalysisResultScreen() {
             </View>
           </View>
         </ScrollView>
+        <ConfirmDialog
+          visible={showCancelConfirm}
+          title="Cancel scan?"
+          message="Do you want to keep your in-progress scan draft or discard it before returning home?"
+          cancelLabel="Keep draft"
+          confirmLabel="Discard draft"
+          destructive
+          overlay
+          onRequestClose={() => setShowCancelConfirm(false)}
+          onCancel={handleKeepDraft}
+          onConfirm={handleDiscardDraft}
+          testID="analysis-result.cancel-dialog"
+        />
       </View>
     </SafeAreaView>
   );

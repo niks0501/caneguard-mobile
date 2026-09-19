@@ -5,6 +5,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
   clearLocationUnavailable,
   createOrGetFieldReportDraft,
+  deleteFieldReportDraft,
   finalizeFieldReport,
   findFieldReportByScanRecordId,
   saveFieldReportDraft,
@@ -41,6 +42,7 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
 }));
 jest.mock('@/features/reports/data/fieldReportRepository', () => ({
   createOrGetFieldReportDraft: jest.fn(),
+  deleteFieldReportDraft: jest.fn(),
   findFieldReportByScanRecordId: jest.fn(),
   finalizeFieldReport: jest.fn(),
   hasFieldReportOwnedByAnotherSubmitter: jest.fn(),
@@ -62,6 +64,7 @@ jest.mock('@/features/sync/hooks/useSyncRecordsRevision', () => ({
 const mockRandomUUID = jest.mocked(randomUUID);
 const mockCaptureGpsLocation = jest.mocked(captureGpsLocation);
 const mockCreateOrGetFieldReportDraft = jest.mocked(createOrGetFieldReportDraft);
+const mockDeleteFieldReportDraft = jest.mocked(deleteFieldReportDraft);
 const mockFinalizeFieldReport = jest.mocked(finalizeFieldReport);
 const mockFindFieldReportByScanRecordId = jest.mocked(findFieldReportByScanRecordId);
 const mockSaveFieldReportDraft = jest.mocked(saveFieldReportDraft);
@@ -539,5 +542,22 @@ describe('useFieldReportDraft automatic location capture (D5)', () => {
         municipality: 'Nasugbu',
       }),
     );
+  });
+
+  it('discards an existing draft and clears hook data state', async () => {
+    mockFindFieldReportByScanRecordId.mockResolvedValue(createdReport(REPORT_A, SCAN_A));
+    mockDeleteFieldReportDraft.mockResolvedValue(undefined);
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+    await waitFor(() => expect(result.current.data?.id).toBe(REPORT_A));
+
+    let discarded: boolean | undefined;
+    await act(async () => {
+      discarded = await result.current.discardDraft();
+    });
+
+    expect(discarded).toBe(true);
+    expect(mockDeleteFieldReportDraft).toHaveBeenCalledWith(DATABASE, REPORT_A, SUBMITTER_ID);
+    expect(result.current.data).toBeNull();
   });
 });

@@ -17,6 +17,7 @@ import { getSubmissionImageUri } from '@/features/records/services/scanImageStor
 import {
   clearLocationUnavailable,
   createOrGetFieldReportDraft,
+  deleteFieldReportDraft,
   finalizeFieldReport,
   findFieldReportById,
   findFieldReportByScanRecordId,
@@ -1630,4 +1631,62 @@ describe('findScanRecordIdForCase', () => {
     native.close();
   });
 
+  describe('deleteFieldReportDraft', () => {
+    it('deletes an existing draft field report and keeps the underlying scan record', async () => {
+      const { database, native } = openTestDatabase();
+      await createOrGetFieldReportDraft(database, createDraftInput());
+      expect(await findFieldReportByScanRecordId(database, SCAN_ID, SUBMITTER_ID)).not.toBeNull();
+
+      await deleteFieldReportDraft(database, REPORT_ID, SUBMITTER_ID);
+
+      expect(await findFieldReportByScanRecordId(database, SCAN_ID, SUBMITTER_ID)).toBeNull();
+      const scanRow = native.prepare('SELECT id FROM scan_records WHERE id = ?').get(SCAN_ID);
+      expect(scanRow).toBeDefined();
+      native.close();
+    });
+
+    it('safely handles deleting a non-existent report without error', async () => {
+      const { database, native } = openTestDatabase();
+      await expect(
+        deleteFieldReportDraft(database, '00000000-0000-0000-0000-000000000000', SUBMITTER_ID),
+      ).resolves.toBeUndefined();
+      native.close();
+    });
+
+    it('rejects deleting a finalized report', async () => {
+      const { database, native } = openTestDatabase();
+      await createOrGetFieldReportDraft(database, createDraftInput());
+      await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
+        affectedAreaHectares: 1,
+        affectedPortionPercent: 20,
+        barangay: 'Wawa',
+        farmerOrFarmOwnerName: 'Maria Santos',
+        updatedAt: '2026-08-10T01:05:00.000Z',
+      });
+      await setLocationUnavailable(database, REPORT_ID, SUBMITTER_ID, {
+        reason: 'permission_denied',
+        updatedAt: '2026-08-10T01:06:00.000Z',
+      });
+      insertCompleteClassScores(native);
+      await finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        {
+          affectedAreaHectares: 1,
+          affectedPortionPercent: 20,
+          barangay: 'Wawa',
+          farmerOrFarmOwnerName: 'Maria Santos',
+          submittedAt: '2026-08-10T02:00:00.000Z',
+          updatedAt: '2026-08-10T02:00:00.000Z',
+        },
+        IMAGE_EXISTS,
+      );
+
+      await expect(
+        deleteFieldReportDraft(database, REPORT_ID, SUBMITTER_ID),
+      ).rejects.toMatchObject({ code: 'DELETE_FAILED' });
+      native.close();
+    });
+  });
 });

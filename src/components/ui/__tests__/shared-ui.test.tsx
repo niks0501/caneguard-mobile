@@ -18,6 +18,26 @@ describe('shared navigation UI', () => {
     expect(screen.getByLabelText('Go back')).toBeOnTheScreen();
   });
 
+  it('renders a close button and triggers onClosePress when showClose is true', async () => {
+    const onClosePress = jest.fn();
+    await render(
+      <BrandedScreenHeader
+        title="Active Flow"
+        showClose
+        onClosePress={onClosePress}
+        closeTestID="test-header-close"
+      />,
+    );
+
+    expect(screen.getByRole('header')).toHaveTextContent('Active Flow');
+    const closeBtn = screen.getByTestId('test-header-close');
+    expect(closeBtn).toBeOnTheScreen();
+    expect(screen.getByLabelText('Cancel and return home')).toBeOnTheScreen();
+
+    await fireEvent.press(closeBtn);
+    expect(onClosePress).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps authority review separate from dominant delivery status', async () => {
     const record: ScanRecordListItem = {
       id: 'record-1',

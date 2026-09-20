@@ -36,8 +36,8 @@ export default function HomeScreen() {
   const theme = useTheme();
   const colorScheme = useColorScheme();
   const logoSource = colorScheme === 'dark'
-    ? require('../../assets/cane_guard_logo_onDark.png')
-    : require('../../assets/cane_guard_logo.png');
+    ? require('../../../assets/cane_guard_logo_onDark.png')
+    : require('../../../assets/cane_guard_logo.png');
   const { sessionVerification, user } = useAuth();
   const { apiReachability, isOnline } = useSync();
   const attention = useHomeAttention();

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { AccountSecurityScreen } from '@/features/auth/components/AccountSecurityScreen';
+import { ToastProvider } from '@/components/ui/Toast';
 
 jest.mock('expo-device', () => ({
   deviceName: 'Test installation',
@@ -88,7 +89,11 @@ describe('AccountSecurityScreen', () => {
   it('routes password changes through the authenticated step-up provider', async () => {
     mockChangePassword.mockResolvedValueOnce(true);
 
-    await render(<AccountSecurityScreen />);
+    await render(
+      <ToastProvider>
+        <AccountSecurityScreen />
+      </ToastProvider>,
+    );
     await fireEvent.changeText(
       screen.getByTestId('account-security.current-password'),
       'current-password',
@@ -105,13 +110,19 @@ describe('AccountSecurityScreen', () => {
         password: 'a-new-password-long',
       }),
     );
+    expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('Password updated');
     expect(router.replace).toHaveBeenCalledWith('/login');
   });
 
   it('routes email changes through a current-password step-up', async () => {
     mockChangeEmail.mockResolvedValueOnce(true);
 
-    await render(<AccountSecurityScreen />);
+    await render(
+      <ToastProvider>
+        <AccountSecurityScreen />
+      </ToastProvider>,
+    );
     await fireEvent.changeText(
       screen.getByTestId('account-security.new-email'),
       'new@example.test',
@@ -128,13 +139,19 @@ describe('AccountSecurityScreen', () => {
         email: 'new@example.test',
       }),
     );
+    expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('Email updated');
     expect(router.replace).toHaveBeenCalledWith('/login');
   });
 
   it('routes new-installation enrollment through its password step-up', async () => {
     mockEnroll.mockResolvedValueOnce(true);
 
-    await render(<AccountSecurityScreen />);
+    await render(
+      <ToastProvider>
+        <AccountSecurityScreen />
+      </ToastProvider>,
+    );
     await fireEvent.changeText(
       screen.getByTestId('account-security.enrollment-password'),
       'current-password',
@@ -147,6 +164,8 @@ describe('AccountSecurityScreen', () => {
         'Test installation',
       ),
     );
+    expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('Device enrolled');
     expect(screen.getByTestId('account-security.success')).toBeOnTheScreen();
   });
 

@@ -17,6 +17,7 @@ import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { Row } from '@/components/ui/Row';
+import { useToast } from '@/components/ui/Toast';
 import {
   getResultLabel,
   getSyncPresentation,
@@ -55,6 +56,7 @@ const CONSISTENCY_LABELS: Record<
 
 export default function RecordDetailsScreen() {
   const theme = useTheme();
+  const { showToast } = useToast();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(params.id) ? params.id[0] : (params.id ?? null);
   const record = useScanRecordDetails(id);
@@ -79,6 +81,7 @@ export default function RecordDetailsScreen() {
     try {
       await sync.retryReport(fieldReport.data.id);
       await fieldReport.refresh();
+      showToast('Sync complete', 'success');
     } catch (error: unknown) {
       setRetryError(
         getStorageErrorMessage(
@@ -89,6 +92,7 @@ export default function RecordDetailsScreen() {
           ),
         ),
       );
+      showToast('Sync failed — will retry', 'error');
     } finally {
       setRetrying(false);
     }
@@ -132,6 +136,7 @@ export default function RecordDetailsScreen() {
           'The database record was removed, but the saved image could not be cleaned up. CaneGuard can identify it for later maintenance.',
         );
       }
+      showToast('Record deleted', 'success');
       router.replace('/activity' as Href);
     } catch (error: unknown) {
       const storageError = toStorageError(
@@ -139,7 +144,9 @@ export default function RecordDetailsScreen() {
         'DELETE_FAILED',
         'Deleting a scan record failed.',
       );
-      setDeleteError(getStorageErrorMessage(storageError));
+      const msg = getStorageErrorMessage(storageError);
+      setDeleteError(msg);
+      showToast('Could not delete record — please try again', 'error');
       setDeleting(false);
     }
   };

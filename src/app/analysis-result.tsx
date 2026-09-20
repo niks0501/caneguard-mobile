@@ -39,6 +39,7 @@ import {
 } from '@/features/detection/context/sessionErrors';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import { useSaveCompletedScan } from '@/features/records/hooks/useSaveCompletedScan';
+import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
 const CONSISTENCY_PRESENTATION: Record<
@@ -86,6 +87,7 @@ const CONSISTENCY_PRESENTATION: Record<
 
 export default function AnalysisResultScreen() {
   const theme = useTheme();
+  const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
   const saveRecord = useSaveCompletedScan(state);
   const [openingReport, setOpeningReport] = useState(false);
@@ -98,12 +100,14 @@ export default function AnalysisResultScreen() {
   const handleKeepDraft = () => {
     setShowCancelConfirm(false);
     void persistScanForOutcome();
+    showToast('Scan saved', 'success');
     router.replace('/home');
   };
 
   const handleDiscardDraft = () => {
     setShowCancelConfirm(false);
     dispatch({ type: 'RESET_SCAN' });
+    showToast('Scan discarded', 'info');
     router.replace('/home');
   };
 
@@ -135,8 +139,13 @@ export default function AnalysisResultScreen() {
     } as unknown as Href);
   };
 
-  const keepAsScanOnly = () => {
-    void persistScanForOutcome();
+  const keepAsScanOnly = async () => {
+    const saved = await persistScanForOutcome();
+    if (saved) {
+      showToast('Scan saved', 'success');
+    } else {
+      showToast('Could not save scan', 'error');
+    }
   };
 
   if (state.status !== 'completed' || !state.result || !state.sourceUri) {

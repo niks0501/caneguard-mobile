@@ -14,6 +14,7 @@ import {
   type TodayVisitBucket,
 } from '@/features/assignments/domain/todayVisits';
 import { useTodayVisits } from '@/features/assignments/hooks/useTodayVisits';
+import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
 const BUCKET_LABELS: Record<TodayVisitBucket, string> = {
@@ -25,11 +26,21 @@ const BUCKET_LABELS: Record<TodayVisitBucket, string> = {
 
 export default function TodayScreen() {
   const theme = useTheme();
+  const { showToast } = useToast();
   const state = useTodayVisits();
   const groups = TODAY_VISIT_BUCKETS.map((bucket) => ({
     bucket,
     visits: state.visits.filter((visit) => bucketForVisit(visit, state.today) === bucket),
   })).filter(({ visits }) => visits.length > 0);
+
+  const handleRefresh = async () => {
+    const success = await state.refresh();
+    if (success) {
+      showToast('Assignments refreshed', 'info');
+    } else {
+      showToast('Refresh failed', 'error');
+    }
+  };
 
   return (
     <SafeAreaView testID="today.screen" style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
@@ -47,7 +58,7 @@ export default function TodayScreen() {
                 icon="clipboard"
                 title="No visits assigned yet"
                 message="Assignments from the office appear here after a refresh.">
-                <AppButton onPress={() => void state.refresh()} leadingIcon="refresh-cw">Refresh assignments</AppButton>
+                <AppButton onPress={() => void handleRefresh()} leadingIcon="refresh-cw">Refresh assignments</AppButton>
               </EmptyState>
             ) : (
               <>

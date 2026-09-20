@@ -49,10 +49,12 @@ import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
 import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
 import { useSync } from '@/features/sync/hooks/useSync';
+import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ActivityScreen() {
   const theme = useTheme();
+  const { showToast } = useToast();
   const [activeFilter, setActiveFilter] = useState<CurrentActivityFilter>('all');
   const [searchInput, setSearchInput] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
@@ -208,7 +210,10 @@ export default function ActivityScreen() {
                   destinations={destinations}
                   errorMessage={notifications.errorMessage}
                   notifications={notifications.notifications}
-                  onMarkAllRead={() => void notifications.markAllRead()}
+                  onMarkAllRead={() => {
+                    void notifications.markAllRead();
+                    showToast('Updates marked as read', 'info');
+                  }}
                   onNotificationPress={openNotification}
                   readActionError={notifications.readActionError}
                   unreadCount={notifications.unreadCount}

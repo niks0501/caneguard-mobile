@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import LoginScreen from '@/app/login';
+import { ToastProvider } from '@/components/ui/Toast';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 
 afterEach(() => {
@@ -81,5 +82,22 @@ describe('LoginScreen biometric fallback', () => {
     const button = screen.getByTestId('auth.biometric-unlock');
     expect(button).toBeDisabled();
     expect(button).toHaveTextContent('Unlocking...');
+  });
+
+  it('displays visible confirmation toast when signing in with biometric unlock', async () => {
+    const unlockWithBiometrics = jest.fn(async () => true);
+    setAuthValue({ biometricEnabled: true, unlockWithBiometrics });
+
+    await render(
+      <ToastProvider>
+        <LoginScreen />
+      </ToastProvider>,
+    );
+
+    await fireEvent.press(screen.getByTestId('auth.biometric-unlock'));
+    await waitFor(() => {
+      expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
+      expect(screen.getByTestId('app-toast')).toHaveTextContent('Signed in');
+    });
   });
 });

@@ -23,6 +23,7 @@ import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { getResultLabel, getSyncPresentation } from '@/components/ui/RecordCard';
 import { Row } from '@/components/ui/Row';
 import { TextField } from '@/components/ui/TextField';
+import { useToast } from '@/components/ui/Toast';
 import {
   ComponentTokens,
   Layout,
@@ -173,6 +174,7 @@ export type FieldReportScreenProps = {
 
 export default function FieldReportScreen({ initialStep: propsInitialStep }: FieldReportScreenProps = {}) {
   const theme = useTheme();
+  const { showToast } = useToast();
   const params = useLocalSearchParams<{ scanRecordId?: string | string[]; step?: string }>();
   const scanRecordId = Array.isArray(params.scanRecordId)
     ? params.scanRecordId[0]
@@ -430,6 +432,10 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   };
 
   const handleCancel = () => {
+    if (report.data?.authoringState === 'finalized') {
+      router.back();
+      return;
+    }
     setShowCancelConfirm(true);
   };
 
@@ -445,6 +451,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
         }
       }
     }
+    showToast('Draft saved', 'success');
     router.replace('/home');
   };
 
@@ -457,13 +464,23 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
         // Best-effort discard before exit
       }
     }
+    showToast('Draft discarded', 'info');
     router.replace('/home');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const values = collectValues(false);
     if (values) {
-      void report.save(values);
+      try {
+        const result = await report.save(values);
+        if (result === null && report.errorMessage) {
+          showToast(report.errorMessage, 'error');
+        } else {
+          showToast('Draft saved', 'success');
+        }
+      } catch {
+        showToast('Saving draft failed — please try again', 'error');
+      }
     }
   };
 
@@ -485,12 +502,24 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   };
 
   const finalizeAndSync = async (values: FinalizeFieldReportFormValues) => {
-    const finalized = await report.finalize(values);
-    if (finalized) {
-      if (sync.isOnline === true) {
-        await sync.syncNow('after-save');
+    try {
+      const finalized = await report.finalize(values);
+      if (finalized) {
+        if (sync.isOnline === true) {
+          await sync.syncNow('after-save');
+          showToast('Report finalized', 'success');
+        } else {
+          showToast('Report finalized — will sync when online', 'success');
+        }
+        await report.refresh();
+      } else {
+        showToast(
+          report.errorMessage || 'Could not finalize report — check required fields',
+          'error',
+        );
       }
-      await report.refresh();
+    } catch {
+      showToast('Could not finalize report — please try again', 'error');
     }
   };
 
@@ -503,6 +532,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     try {
       await sync.retryReport(report.data.id);
       await report.refresh();
+      showToast('Sync complete', 'success');
     } catch (error: unknown) {
       setRetryError(
         getStorageErrorMessage(
@@ -513,8 +543,40 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
           ),
         ),
       );
+      showToast('Sync failed — will retry', 'error');
     } finally {
       setRetrying(false);
+    }
+  };
+
+  const handleLocationCapture = async () => {
+    try {
+      const res = await report.captureLocation();
+      if (res && res.finalLatitude !== null) {
+        showToast('GPS location captured', 'success');
+      } else if (report.errorMessage) {
+        showToast(report.errorMessage, 'error');
+      }
+    } catch {
+      showToast('GPS capture failed — please try again', 'error');
+    }
+  };
+
+  const handleClearUnavailable = async () => {
+    try {
+      await report.clearLocationUnavailable();
+      showToast('Location reset', 'info');
+    } catch {
+      showToast('Could not reset location — please try again', 'error');
+    }
+  };
+
+  const handleMarkUnavailable = async (reason: LocationUnavailableReason) => {
+    try {
+      await report.markLocationUnavailable(reason);
+      showToast('Location marked unavailable', 'info');
+    } catch {
+      showToast('Could not update location — please try again', 'error');
     }
   };
 
@@ -640,7 +702,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
               ? 'Finalized Field Report'
               : 'Field Report Draft'
           }
-          showClose
+          showClose={report.data?.authoringState !== 'finalized'}
           onClosePress={handleCancel}
           closeTestID="field-report.header-close"
         />
@@ -981,10 +1043,10 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                           locationServicesDisabled={report.locationServicesDisabled}
                           markingUnavailable={report.markingLocationUnavailable}
                           saveInProgress={report.saving || report.finalizing}
-                          onCapture={() => void report.captureLocation()}
-                          onClearUnavailable={() => void report.clearLocationUnavailable()}
+                          onCapture={() => void handleLocationCapture()}
+                          onClearUnavailable={() => void handleClearUnavailable()}
                           onMarkUnavailable={(reason) =>
-                            void report.markLocationUnavailable(reason)
+                            void handleMarkUnavailable(reason)
                           }
                           onOpenLocationSettings={openDeviceLocationSettings}
                           onOpenMap={() =>

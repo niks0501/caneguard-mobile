@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import RecordDetailsScreen from '@/app/record-details';
+import { ToastProvider } from '@/components/ui/Toast';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
@@ -318,7 +319,11 @@ describe('RecordDetailsScreen', () => {
   });
 
   it('requires confirmation and deletes before returning to records', async () => {
-    await render(<RecordDetailsScreen />);
+    await render(
+      <ToastProvider>
+        <RecordDetailsScreen />
+      </ToastProvider>,
+    );
     await fireEvent.press(
       screen.getByLabelText('Delete this local record and saved image'),
     );
@@ -340,6 +345,8 @@ describe('RecordDetailsScreen', () => {
       RECORD_ID,
       SUBMITTER_ID,
     );
+    expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('Record deleted');
     expect(mockRouterReplace).toHaveBeenCalledWith('/activity');
   });
 

@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { SyncStatusPanel } from '@/components/ui/SyncStatusPanel';
 import { SyncStatusRow } from '@/components/ui/SyncStatusRow';
+import { ToastProvider } from '@/components/ui/Toast';
 import type { ApiReachability } from '@/features/sync/providers/SyncProvider';
 
 type MockSyncState = {
@@ -76,5 +77,23 @@ describe('sync status UI', () => {
     expect(
       screen.getByText('Network available · CaneGuard status not checked · 0 awaiting upload'),
     ).toBeOnTheScreen();
+  });
+
+  it('displays confirmation toast on successful manual sync', async () => {
+    mockSyncState = {
+      ...mockSyncState,
+      apiReachability: 'available',
+      syncNow: jest.fn(async () => ({ authRequired: false, failed: 0, synced: 1 })),
+    };
+
+    await render(
+      <ToastProvider>
+        <SyncStatusPanel />
+      </ToastProvider>,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Sync reports now' }));
+    expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('Sync complete');
   });
 });

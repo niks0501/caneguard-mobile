@@ -14,10 +14,12 @@ import {
   type ChecklistObservationId,
 } from '@/features/detection/checklist/checklistConsistency';
 import { useScanSession } from '@/features/detection/context/useScanSession';
+import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function SymptomChecklistScreen() {
   const theme = useTheme();
+  const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
   const hasCompletedScan =
     state.status === 'completed' && Boolean(state.result) && Boolean(state.sourceUri);
@@ -75,12 +77,14 @@ export default function SymptomChecklistScreen() {
     if (selectedSymptoms.size > 0) {
       dispatch({ type: 'SET_SYMPTOMS', payload: [...selectedSymptoms] });
     }
+    showToast('Draft kept', 'info');
     router.replace('/home');
   };
 
   const handleDiscardDraft = () => {
     setShowCancelConfirm(false);
     dispatch({ type: 'RESET_SCAN' });
+    showToast('Draft discarded', 'info');
     router.replace('/home');
   };
 

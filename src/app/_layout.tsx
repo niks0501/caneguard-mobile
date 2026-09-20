@@ -15,6 +15,7 @@ import { CaneGuardDatabaseProvider } from '@/database/DatabaseProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { AuthProvider } from '@/features/auth/providers/AuthProvider';
 import { SyncProvider } from '@/features/sync/providers/SyncProvider';
+import { ToastProvider } from '@/components/ui/Toast';
 import {
   ThemePreferenceProvider,
   useThemePreference,
@@ -27,15 +28,17 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.gestureRoot}>
       <ThemePreferenceProvider>
         <AuthProvider>
-          <CaneGuardDatabaseProvider>
-            <ScanSessionProvider>
-              <CaneGuardModelProvider>
-                <SyncProvider>
-                  <AppNavigator />
-                </SyncProvider>
-              </CaneGuardModelProvider>
-            </ScanSessionProvider>
-          </CaneGuardDatabaseProvider>
+          <ToastProvider>
+            <CaneGuardDatabaseProvider>
+              <ScanSessionProvider>
+                <CaneGuardModelProvider>
+                  <SyncProvider>
+                    <AppNavigator />
+                  </SyncProvider>
+                </CaneGuardModelProvider>
+              </ScanSessionProvider>
+            </CaneGuardDatabaseProvider>
+          </ToastProvider>
         </AuthProvider>
       </ThemePreferenceProvider>
     </GestureHandlerRootView>

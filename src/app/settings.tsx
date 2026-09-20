@@ -11,6 +11,7 @@ import { ComponentTokens, Layout, Shadows, Spacing, Typography } from '@/constan
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { clearLocalDataForOwner } from '@/database/localDataLifecycle';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemePreference } from '@/providers/ThemePreferenceProvider';
 
@@ -52,6 +53,7 @@ function ToggleRow({ label, description, value, onToggle }: ToggleRowProps) {
 
 export default function SettingsScreen() {
   const theme = useTheme();
+  const { showToast } = useToast();
   const { isDarkMode, setDarkMode } = useThemePreference();
   const database = useCaneGuardDatabase();
   const { logout, user } = useAuth();
@@ -66,6 +68,11 @@ export default function SettingsScreen() {
     setClearingLocalData(true);
     try {
       const result = await clearLocalDataForOwner(database, user.uuid);
+      if (result.imageCleanupErrors.length > 0) {
+        showToast('Local data cleared with warnings', 'info');
+      } else {
+        showToast('Local data cleared', 'success');
+      }
       Alert.alert(
         result.imageCleanupErrors.length > 0
           ? 'Local data cleared with cleanup warnings'
@@ -75,6 +82,7 @@ export default function SettingsScreen() {
           : 'Saved scans, report drafts, field-validation evidence, and cached account data were removed from this device.',
       );
     } catch {
+      showToast('Could not clear local data', 'error');
       Alert.alert(
         'Could not clear local data',
         'CaneGuard could not remove all local records. Try again before handing this device to another user.',
@@ -188,15 +196,19 @@ export default function SettingsScreen() {
                                 remoteRevocationFailed,
                               }) => {
                               if (localClearFailed) {
+                                showToast('Logout incomplete', 'error');
                                 Alert.alert(
                                   'Logout incomplete',
                                   'CaneGuard could not clear secure session storage. Restart the app and try again.',
                                 );
                               } else if (remoteRevocationFailed) {
+                                showToast('Signed out locally', 'info');
                                 Alert.alert(
                                   'Signed out locally',
                                   'The server could not be reached, so the remote token may remain active until it expires or is revoked later.',
                                 );
+                              } else {
+                                showToast('Signed out', 'info');
                               }
                             });
                           },

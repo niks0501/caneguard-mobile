@@ -15,10 +15,12 @@ import {
 } from '@/features/reports/domain/manualMap';
 import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
 import { useSync } from '@/features/sync/hooks/useSync';
+import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ManualMapScreen() {
   const theme = useTheme();
+  const { showToast } = useToast();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     reportId?: string | string[];
@@ -41,11 +43,20 @@ export default function ManualMapScreen() {
 
   async function confirmLocation() {
     if (!selection || !reportMatches) return;
-    const saved = await report.saveManualLocation(
-      selection.latitude,
-      selection.longitude,
-    );
-    if (saved) router.back();
+    try {
+      const saved = await report.saveManualLocation(
+        selection.latitude,
+        selection.longitude,
+      );
+      if (saved) {
+        showToast('Location saved', 'success');
+        router.back();
+      } else {
+        showToast('Could not save location — please try again', 'error');
+      }
+    } catch {
+      showToast('Could not save location — please try again', 'error');
+    }
   }
 
   return (

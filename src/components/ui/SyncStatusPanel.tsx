@@ -2,13 +2,34 @@ import { Feather } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
+import { useToast } from '@/components/ui/Toast';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
 
 export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } = {}) {
   const theme = useTheme();
+  const { showToast } = useToast();
   const sync = useSync();
+
+  const handleManualSync = async () => {
+    try {
+      const result = await sync.syncNow('manual');
+      if (result && !result.authRequired && result.failed === 0) {
+        showToast('Sync complete', 'success');
+      } else if (result && result.failed > 0) {
+        showToast('Sync failed — will retry', 'error');
+      } else if (result?.authRequired) {
+        showToast('Session expired — please sign in again', 'error');
+      } else if (result === null && sync.errorMessage) {
+        showToast(sync.errorMessage, 'error');
+      } else if (result === null) {
+        showToast('Sync failed — will retry', 'error');
+      }
+    } catch {
+      showToast('Sync failed — will retry', 'error');
+    }
+  };
   const apiUnavailable =
     sync.isOnline === true && sync.apiReachability === 'unavailable';
   const connectionLabel =
@@ -68,7 +89,7 @@ export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } 
       {showAction ? (
         <AppButton
           variant="secondary"
-          onPress={() => void sync.syncNow('manual')}
+          onPress={() => void handleManualSync()}
           disabled={
             sync.isSyncing || sync.isOnline !== true || sync.pendingCount === 0
           }

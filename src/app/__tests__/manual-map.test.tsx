@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import ManualMapScreen from '@/app/manual-map';
+import { ToastProvider } from '@/components/ui/Toast';
 import {
   coordinateAtViewportPoint,
   DEFAULT_MANUAL_MAP_CENTER,
@@ -252,5 +253,23 @@ describe('ManualMapScreen', () => {
       coordinatesText,
     );
     expect(screen.getByTestId('manual-map.pin')).toBeOnTheScreen();
+  });
+
+  it('displays confirmation toast when location is confirmed', async () => {
+    await render(
+      <ToastProvider>
+        <ManualMapScreen />
+      </ToastProvider>,
+    );
+    await act(async () => undefined);
+    await loadMapTiles();
+
+    await fireEvent(screen.getByTestId('manual-map.viewport'), 'press', {
+      nativeEvent: { locationX: 195, locationY: 180 },
+    });
+    await fireEvent.press(screen.getByTestId('manual-map.confirm'));
+
+    expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('Location saved');
   });
 });

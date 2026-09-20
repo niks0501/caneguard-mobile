@@ -15,11 +15,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AssignmentCard } from '@/features/activity/components/AssignmentCard';
-import { NeedsAttentionPanel } from '@/features/activity/components/NeedsAttentionPanel';
-import {
-  buildNeedsAttention,
-  type NeedsAttentionItem,
-} from '@/features/activity/domain/needsAttention';
 import {
   describeRefreshAllResult,
   type RefreshAllTarget,
@@ -49,7 +44,6 @@ import {
   type CurrentActivityFilter,
 } from '@/features/activity/domain/activityTypes';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
-import { getLocalDateKey } from '@/features/assignments/domain/todayVisits';
 import { DEFAULT_RECORD_PAGE_SIZE } from '@/features/records/domain/recordTypes';
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
 import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
@@ -63,7 +57,6 @@ export default function ActivityScreen() {
   const [searchInput, setSearchInput] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [attentionExpanded, setAttentionExpanded] = useState(false);
   const hasFieldReport =
     activeFilter === 'reports'
       ? true
@@ -107,16 +100,6 @@ export default function ActivityScreen() {
   const hasFilters = activeFilter !== 'all' || Boolean(submittedSearch);
   const latestVisibleRecordId = timeline.find((item) => item.kind === 'record')?.id;
   const activityCount = timeline.length;
-  const attention = buildNeedsAttention({
-    assignments: assignments.assignments,
-    destinations,
-    notifications: notifications.notifications,
-    pendingUploadCount: sync.pendingCount,
-    pendingReportsCount: (sync as any).pendingReportsCount,
-    pendingCompletionsCount: (sync as any).pendingCompletionsCount,
-    syncErrorMessage: sync.errorMessage,
-    today: getLocalDateKey(),
-  });
   const buildRefreshTargets = (): RefreshAllTarget[] => {
     const targets: RefreshAllTarget[] = [
       { key: 'notifications', run: () => notifications.refresh() },
@@ -164,17 +147,6 @@ export default function ActivityScreen() {
     if (route) {
       router.push(route as never);
     }
-  };
-
-  const openAttentionItem = (item: NeedsAttentionItem) => {
-    if (!item.destination) return;
-    const route = notificationDestinationRoute(item.destination);
-    if (!route) return;
-    if (item.kind === 'notification') {
-      const notificationId = item.id.replace(/^notification-/, '');
-      void notifications.markRead(notificationId);
-    }
-    router.push(route as never);
   };
 
   return (
@@ -230,15 +202,6 @@ export default function ActivityScreen() {
             contentContainerStyle={styles.scrollContent}>
             <View style={styles.content}>
               <TodayEntry activeVisitCount={assignments.assignments.filter((assignment) => assignment.fieldValidationState === 'assigned' || assignment.fieldValidationState === 'in_progress').length} />
-
-              {activeFilter !== 'scans' ? (
-                <NeedsAttentionPanel
-                  expanded={attentionExpanded}
-                  onOpenItem={openAttentionItem}
-                  onToggleExpanded={() => setAttentionExpanded((value) => !value)}
-                  summary={attention}
-                />
-              ) : null}
 
               {activeFilter !== 'scans' && notificationsOpen ? (
                 <NotificationInbox

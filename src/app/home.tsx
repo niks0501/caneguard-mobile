@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomNav } from '@/components/ui/BottomNav';
@@ -35,6 +35,10 @@ type QuickAction = {
 
 export default function HomeScreen() {
   const theme = useTheme();
+  const colorScheme = useColorScheme();
+  const logoSource = colorScheme === 'dark'
+    ? require('../../assets/cane_guard_logo_onDark.png')
+    : require('../../assets/cane_guard_logo.png');
   const { sessionVerification, user } = useAuth();
   const { apiReachability, isOnline } = useSync();
   const attention = useHomeAttention();
@@ -106,7 +110,7 @@ export default function HomeScreen() {
                     <Image
                       accessible
                       accessibilityLabel="CaneGuard Logo"
-                      source={require('../../assets/cane_guard_logo.png')}
+                      source={logoSource}
                       style={styles.brandMark}
                       resizeMode="contain"
                     />

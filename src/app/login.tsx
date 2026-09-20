@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
@@ -12,6 +12,10 @@ import { useTheme } from '@/hooks/use-theme';
 
 export default function LoginScreen() {
   const theme = useTheme();
+  const colorScheme = useColorScheme();
+  const logoSource = colorScheme === 'dark'
+    ? require('../../assets/cane_guard_logo_onDark.png')
+    : require('../../assets/cane_guard_logo.png');
   const { showToast } = useToast();
   const {
     biometricEnabled,
@@ -58,7 +62,7 @@ export default function LoginScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={[styles.hero, { backgroundColor: theme.backgroundElement, borderBottomColor: theme.divider }]}>
           <View style={styles.brandRow}>
-            <Image source={require('../../assets/cane_guard_logo.png')} style={styles.logo} resizeMode="contain" />
+            <Image source={logoSource} style={styles.logo} resizeMode="contain" />
             <Text style={[styles.brand, { color: theme.primaryDark }]}>CaneGuard</Text>
           </View>
         </View>

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { router } from 'expo-router';
 
 import AnalysisResultScreen from '@/app/analysis-result';
+import { ToastProvider } from '@/components/ui/Toast';
 import type {
   ChecklistConsistency,
   ChecklistObservationId,
@@ -106,9 +107,11 @@ function createCompletedState(
 
 async function renderResult(state: ScanSessionState) {
   return render(
-    <ScanSessionContext.Provider value={{ state, dispatch: mockDispatch }}>
-      <AnalysisResultScreen />
-    </ScanSessionContext.Provider>,
+    <ToastProvider>
+      <ScanSessionContext.Provider value={{ state, dispatch: mockDispatch }}>
+        <AnalysisResultScreen />
+      </ScanSessionContext.Provider>
+    </ToastProvider>,
   );
 }
 
@@ -499,6 +502,8 @@ describe('AnalysisResultScreen', () => {
       await fireEvent.press(screen.getByTestId('analysis-result.cancel-dialog.cancel'));
 
       expect(mockSaveRecord).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
+      expect(screen.getByTestId('app-toast')).toHaveTextContent('Scan saved');
       expect(mockRouterReplace).toHaveBeenCalledWith('/home');
       expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
     });
@@ -510,6 +515,8 @@ describe('AnalysisResultScreen', () => {
       await fireEvent.press(screen.getByTestId('analysis-result.cancel-dialog.confirm'));
 
       expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+      expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
+      expect(screen.getByTestId('app-toast')).toHaveTextContent('Scan discarded');
       expect(mockRouterReplace).toHaveBeenCalledWith('/home');
     });
 

@@ -24,12 +24,14 @@ import { preprocessImage } from '@/features/detection/preprocessing/preprocessIm
 import { getInferenceErrorMessage } from '@/features/detection/model/inferenceErrors';
 import { runInference } from '@/features/detection/model/runInference';
 import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
+import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
 const RESULT_PREPARATION_FEEDBACK_MS = 120;
 
 export default function ImagePreviewScreen() {
   const theme = useTheme();
+  const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
   const modelState = useCaneGuardModel();
   const [isImageLoading, setIsImageLoading] = useState(Boolean(state.sourceUri));
@@ -58,12 +60,14 @@ export default function ImagePreviewScreen() {
 
   const handleKeepDraft = () => {
     setShowCancelConfirm(false);
+    showToast('Draft kept', 'info');
     router.replace('/home');
   };
 
   const handleDiscardDraft = () => {
     setShowCancelConfirm(false);
     dispatch({ type: 'RESET_SCAN' });
+    showToast('Draft discarded', 'info');
     router.replace('/home');
   };
 

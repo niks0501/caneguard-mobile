@@ -27,10 +27,12 @@ import type { FieldValidationFollowUpOutcome } from '@/database/schema';
 import type { FieldValidationCompletion } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 import { FIELD_VALIDATION_TEXT_MAX_LENGTH } from '@/features/assignments/domain/fieldValidationCompletionValidation';
 import { useFieldValidationAssignment } from '@/features/assignments/hooks/useFieldValidationAssignment';
+import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function FieldValidationScreen() {
   const theme = useTheme();
+  const { showToast } = useToast();
   const params = useLocalSearchParams<{ assignmentId?: string | string[] }>();
   const assignmentId = Array.isArray(params.assignmentId) ? params.assignmentId[0] : params.assignmentId ?? null;
   const state = useFieldValidationAssignment(assignmentId);
@@ -46,7 +48,9 @@ export default function FieldValidationScreen() {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        setFieldError('Camera access was not granted. You can complete the visit without a fresh photo.');
+        const msg = 'Camera access was not granted. You can complete the visit without a fresh photo.';
+        setFieldError(msg);
+        showToast('Camera access denied', 'error');
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
@@ -59,33 +63,58 @@ export default function FieldValidationScreen() {
         quality: 1,
         cameraType: ImagePicker.CameraType.back,
       });
-      if (!result.canceled && result.assets[0]) setPhoto(result.assets[0]);
+      if (!result.canceled && result.assets[0]) {
+        setPhoto(result.assets[0]);
+        showToast('Photo attached', 'success');
+      }
     } catch {
-      setFieldError('The camera could not be opened. You can complete the visit without a fresh photo.');
+      const msg = 'The camera could not be opened. You can complete the visit without a fresh photo.';
+      setFieldError(msg);
+      showToast('Camera could not be opened', 'error');
     }
+  };
+
+  const removePhoto = () => {
+    setPhoto(null);
+    showToast('Photo removed', 'info');
   };
 
   const submit = async () => {
     if (!observation.trim() || !finding.trim() || !action.trim()) {
-      setFieldError('Field observation, field finding, and action taken are required.');
+      const msg = 'Field observation, field finding, and action taken are required.';
+      setFieldError(msg);
+      showToast(msg, 'error');
       return;
     }
     if ([observation, finding, action].some((value) => value.trim().length > FIELD_VALIDATION_TEXT_MAX_LENGTH)) {
-      setFieldError('Each validation evidence field must be no more than 2,000 characters.');
+      const msg = 'Each validation evidence field must be no more than 2,000 characters.';
+      setFieldError(msg);
+      showToast(msg, 'error');
       return;
     }
     if (!followUpOutcome) {
-      setFieldError('Choose the follow-up outcome before completing this visit.');
+      const msg = 'Choose the follow-up outcome before completing this visit.';
+      setFieldError(msg);
+      showToast(msg, 'error');
       return;
     }
     setFieldError(null);
-    await state.complete({
-      fieldObservation: observation,
-      fieldFinding: finding,
-      actionTaken: action,
-      followUpOutcome,
-      freshPhoto: photo,
-    });
+    try {
+      const result = await state.complete({
+        fieldObservation: observation,
+        fieldFinding: finding,
+        actionTaken: action,
+        followUpOutcome,
+        freshPhoto: photo,
+      });
+      if (result) {
+        showToast('Visit recorded', 'success');
+      } else {
+        showToast(state.errorMessage || 'Could not save visit — please try again', 'error');
+      }
+    } catch {
+      showToast('Could not save visit — please try again', 'error');
+    }
   };
 
   return (
@@ -124,6 +153,7 @@ export default function FieldValidationScreen() {
                   onActionChange={setAction}
                   onFollowUpOutcomeChange={setFollowUpOutcome}
                   onCapturePhoto={() => void capturePhoto()}
+                  onRemovePhoto={removePhoto}
                 />
               )}
               {/* Submitted AI evidence stays reachable but never leads the visit,
@@ -186,10 +216,10 @@ function CompletionActions({ saving, fieldError, onSubmit }: { fieldError: strin
 }
 
 function EvidenceForm({
-  observation, finding, action, followUpOutcome, previousVisitAt, photo, onObservationChange, onFindingChange, onActionChange, onCapturePhoto, onFollowUpOutcomeChange,
+  observation, finding, action, followUpOutcome, previousVisitAt, photo, onObservationChange, onFindingChange, onActionChange, onCapturePhoto, onRemovePhoto, onFollowUpOutcomeChange,
 }: {
   observation: string; finding: string; action: string; followUpOutcome: FieldValidationFollowUpOutcome | null; previousVisitAt: string | null; photo: ImagePicker.ImagePickerAsset | null;
-  onObservationChange: (value: string) => void; onFindingChange: (value: string) => void; onActionChange: (value: string) => void; onCapturePhoto: () => void; onFollowUpOutcomeChange: (value: FieldValidationFollowUpOutcome) => void;
+  onObservationChange: (value: string) => void; onFindingChange: (value: string) => void; onActionChange: (value: string) => void; onCapturePhoto: () => void; onRemovePhoto: () => void; onFollowUpOutcomeChange: (value: FieldValidationFollowUpOutcome) => void;
 }) {
   const theme = useTheme();
   const hasObservation = observation.trim().length > 0;
@@ -216,7 +246,12 @@ function EvidenceForm({
         </Text>
       </Pressable>
       <TextField testID="field-validation.action-input" label="Action taken" hint="What you actually did or told the farmer. For example: “Advised removal of affected leaves and a follow-up visit in 7 days.”" value={action} onChangeText={onActionChange} placeholder="What action or guidance was provided?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
-      {photo ? <ExpoImage source={{ uri: photo.uri }} accessibilityLabel="Fresh field validation photo" contentFit="cover" style={styles.photo} /> : null}
+      {photo ? (
+        <View style={styles.photoContainer}>
+          <ExpoImage source={{ uri: photo.uri }} accessibilityLabel="Fresh field validation photo" contentFit="cover" style={styles.photo} />
+          <AppButton testID="field-validation.remove-photo" onPress={onRemovePhoto} leadingIcon="trash-2" variant="secondary">Remove photo</AppButton>
+        </View>
+      ) : null}
       <AppButton testID="field-validation.capture-photo" onPress={onCapturePhoto} leadingIcon="camera" variant="secondary">{photo ? 'Replace fresh photo' : 'Add fresh field photo (recommended)'}</AppButton>
     </View>
   );
@@ -224,7 +259,18 @@ function EvidenceForm({
 
 function CompletionStatus({ completion, onRetry }: { completion: FieldValidationCompletion; onRetry: () => void }) {
   const theme = useTheme();
+  const { showToast } = useToast();
   const pending = completion.syncStatus !== 'synced';
+
+  const handleRetry = async () => {
+    try {
+      await onRetry();
+      showToast('Sync requested', 'info');
+    } catch {
+      showToast('Sync failed — will retry', 'error');
+    }
+  };
+
   return (
     <View testID="field-validation.completion-status" style={[styles.card, { backgroundColor: pending ? theme.warningBg : theme.successBg, borderColor: pending ? theme.warning : theme.success }]}>
       <Feather name={pending ? 'clock' : 'check-circle'} size={24} color={pending ? theme.warning : theme.success} />
@@ -232,7 +278,7 @@ function CompletionStatus({ completion, onRetry }: { completion: FieldValidation
       <Text style={[styles.help, { color: theme.textSecondary }]}>{pending ? 'The completed evidence is preserved locally and will retry automatically when connectivity returns.' : 'The office can now review this field evidence. The case remains open and is not automatically verified or closed.'}</Text>
       <Row label="Visit time" value={formatTimestamp(completion.visitedAt)} />
       <Row label="GPS" value={completion.gpsOutcome.replace('_', ' ')} />
-      {pending ? <AppButton testID="field-validation.retry" onPress={onRetry} disabled={completion.syncStatus === 'syncing'} leadingIcon="refresh-cw" variant="secondary">Retry synchronization</AppButton> : null}
+      {pending ? <AppButton testID="field-validation.retry" onPress={() => void handleRetry()} disabled={completion.syncStatus === 'syncing'} leadingIcon="refresh-cw" variant="secondary">Retry synchronization</AppButton> : null}
     </View>
   );
 }
@@ -257,6 +303,7 @@ const styles = StyleSheet.create({
   rowLabel: { ...Typography.caption, flexShrink: 0 },
   rowValue: { ...Typography.bodySmall, fontWeight: '700', textAlign: 'right', flex: 1 },
   samePerson: { ...Typography.caption, fontWeight: '800' },
+  photoContainer: { gap: Spacing.sm },
   photo: { width: '100%', height: 220, borderRadius: Radius.md },
   copyAction: {
     minHeight: 44,

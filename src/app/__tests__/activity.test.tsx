@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import ActivityScreen from '@/app/activity';
+import { ToastProvider } from '@/components/ui/Toast';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
@@ -403,5 +404,35 @@ describe('ActivityScreen', () => {
       { hasFieldReport: undefined, search: undefined },
       25,
     );
+  });
+
+  it('displays confirmation toast when marking all notifications read', async () => {
+    mockNotificationsState = {
+      ...mockNotificationsState,
+      unreadCount: 2,
+      notifications: [
+        {
+          id: 'notif-1',
+          createdAt: '2026-08-10T01:00:00.000Z',
+          kind: 'review_approved',
+          message: 'Approved',
+          title: 'Review update',
+          readAt: null,
+          isRead: false,
+        } as never,
+      ],
+    };
+    await render(
+      <ToastProvider>
+        <ActivityScreen />
+      </ToastProvider>,
+    );
+
+    await fireEvent.press(screen.getByTestId('activity.notifications-toggle'));
+    await fireEvent.press(screen.getByLabelText('Mark all office updates as read'));
+
+    expect(mockMarkAllRead).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('Updates marked as read');
   });
 });

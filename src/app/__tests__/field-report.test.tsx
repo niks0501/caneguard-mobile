@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Linking } from 'react-native';
 
 import FieldReportScreen from '@/app/field-report';
+import { ToastProvider } from '@/components/ui/Toast';
 import type {
   FieldReport,
   FieldReportSubmissionRequirement,
@@ -1697,6 +1698,43 @@ describe('FieldReportScreen', () => {
 
       expect(mockDiscardDraft).toHaveBeenCalledTimes(1);
       expect(router.replace).toHaveBeenCalledWith('/home');
+    });
+
+    it('displays visible confirmation toast when draft is saved with barangay only', async () => {
+      mockDraftState.data = draft({
+        authoringState: 'draft',
+        barangay: 'Wawa',
+        farmerOrFarmOwnerName: null,
+      });
+      await render(
+        <ToastProvider>
+          <FieldReportScreen />
+        </ToastProvider>,
+      );
+      await act(async () => undefined);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.save-draft'));
+      });
+
+      expect(mockSave).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
+      expect(screen.getByTestId('app-toast')).toHaveTextContent('Draft saved');
+    });
+
+    it('hides the header close button when the report is finalized', async () => {
+      mockDraftState.data = draft({
+        authoringState: 'finalized',
+        syncStatus: 'pending',
+      });
+      await render(
+        <ToastProvider>
+          <FieldReportScreen />
+        </ToastProvider>,
+      );
+      await act(async () => undefined);
+
+      expect(screen.queryByTestId('field-report.header-close')).toBeNull();
     });
   });
 });

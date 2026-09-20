@@ -15,6 +15,7 @@ import { ComponentTokens, Layout, Radius, Shadows, Spacing, Typography } from '@
 import { useScanSession } from '@/features/detection/context/useScanSession';
 import { readPickerOutcome } from '@/features/detection/imagePicker/readPickerOutcome';
 import type { ScanSourceType } from '@/features/detection/types';
+import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
 const PENDING_PICKER_SOURCE_KEY = '@caneguard/model-v0/pending-picker-source';
@@ -59,6 +60,7 @@ async function clearPendingSource() {
 
 export default function ScanScreen() {
   const theme = useTheme();
+  const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
   const [activeOperation, setActiveOperation] = useState<ActiveOperation>(
     Platform.OS === 'android' ? 'recovery' : null,
@@ -234,12 +236,14 @@ export default function ScanScreen() {
 
   const handleKeepDraft = () => {
     setShowCancelConfirm(false);
+    showToast('Draft kept', 'info');
     router.replace('/home');
   };
 
   const handleDiscardDraft = () => {
     setShowCancelConfirm(false);
     dispatch({ type: 'RESET_SCAN' });
+    showToast('Draft discarded', 'info');
     router.replace('/home');
   };
 

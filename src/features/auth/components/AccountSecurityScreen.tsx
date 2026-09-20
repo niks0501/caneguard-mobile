@@ -8,6 +8,7 @@ import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { TextField } from '@/components/ui/TextField';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
 const PASSWORD_MIN_LENGTH = 15;
@@ -15,6 +16,7 @@ const PASSWORD_MAX_LENGTH = 128;
 
 export function AccountSecurityScreen() {
   const theme = useTheme();
+  const { showToast } = useToast();
   const {
     biometricCapability,
     biometricEnabled,
@@ -55,6 +57,7 @@ export function AccountSecurityScreen() {
     });
     setBusyAction(null);
     if (changed) {
+      showToast('Password updated', 'success');
       router.replace('/login');
     }
   };
@@ -71,6 +74,7 @@ export function AccountSecurityScreen() {
     });
     setBusyAction(null);
     if (changed) {
+      showToast('Email updated', 'success');
       router.replace('/login');
     }
   };
@@ -88,6 +92,7 @@ export function AccountSecurityScreen() {
     setBusyAction(null);
     if (enrolled) {
       setEnrollmentPassword('');
+      showToast('Device enrolled', 'success');
       setSuccessMessage(
         'This installation is enrolled with a fresh server session. Existing sessions on other device identities are unchanged.',
       );
@@ -103,6 +108,7 @@ export function AccountSecurityScreen() {
     const disabled = await disableBiometric(disablePassword);
     setBusyAction(null);
     if (disabled) {
+      showToast('Biometrics disabled', 'info');
       router.replace('/login');
     }
   };
@@ -116,6 +122,7 @@ export function AccountSecurityScreen() {
     const enabled = await enableBiometricUnlock();
     setBusyAction(null);
     if (enabled) {
+      showToast('Biometrics enabled', 'success');
       setSuccessMessage(
         'Biometric unlock is enabled on this installation. It unlocks the stored session after a cold start and never extends the server expiry.',
       );

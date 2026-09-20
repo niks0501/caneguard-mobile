@@ -6,6 +6,7 @@ import { useReducer } from 'react';
 import { Linking, Platform } from 'react-native';
 
 import ScanScreen from '@/app/scan';
+import { ToastProvider } from '@/components/ui/Toast';
 import { ScanSessionContext } from '@/features/detection/context/ScanSessionProvider';
 import {
   initialScanSessionState,
@@ -92,9 +93,11 @@ async function renderScan(initialState: ScanSessionState = initialScanSessionSta
     );
 
     return (
-      <ScanSessionContext.Provider value={{ state, dispatch }}>
-        <ScanScreen />
-      </ScanSessionContext.Provider>
+      <ToastProvider>
+        <ScanSessionContext.Provider value={{ state, dispatch }}>
+          <ScanScreen />
+        </ScanSessionContext.Provider>
+      </ToastProvider>
     );
   }
 
@@ -469,6 +472,8 @@ describe('ScanScreen', () => {
       await fireEvent.press(screen.getByTestId('scan.cancel-dialog.cancel'));
 
       expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+      expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
+      expect(screen.getByTestId('app-toast')).toHaveTextContent('Draft kept');
       expect(mockRouterReplace).toHaveBeenCalledWith('/home');
     });
 
@@ -486,6 +491,8 @@ describe('ScanScreen', () => {
       await fireEvent.press(screen.getByTestId('scan.cancel-dialog.confirm'));
 
       expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+      expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
+      expect(screen.getByTestId('app-toast')).toHaveTextContent('Draft discarded');
       expect(mockRouterReplace).toHaveBeenCalledWith('/home');
     });
   });

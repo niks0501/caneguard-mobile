@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import FieldValidationScreen from '@/app/field-validation';
+import { ToastProvider } from '@/components/ui/Toast';
 import { useFieldValidationAssignment } from '@/features/assignments/hooks/useFieldValidationAssignment';
 
 jest.mock('expo-router', () => ({
@@ -149,5 +150,23 @@ describe('FieldValidationScreen', () => {
 
     // Button text updates to reflect replacement
     expect(screen.getByText('Replace finding with observation')).toBeOnTheScreen();
+  });
+
+  it('displays confirmation toast when completing visit', async () => {
+    complete.mockResolvedValueOnce({ id: 'comp-1' } as never);
+    await render(
+      <ToastProvider>
+        <FieldValidationScreen />
+      </ToastProvider>,
+    );
+
+    await fireEvent.changeText(screen.getByTestId('field-validation.observation-input'), 'Orange-brown pustules.');
+    await fireEvent.changeText(screen.getByTestId('field-validation.finding-input'), 'Lesions consistent with Rust.');
+    await fireEvent.changeText(screen.getByTestId('field-validation.action-input'), 'Advised farmer.');
+    await fireEvent.press(screen.getByTestId('field-validation.outcome.improved'));
+    await fireEvent.press(screen.getByTestId('field-validation.complete'));
+
+    expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('Visit recorded');
   });
 });

@@ -5,12 +5,14 @@ import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleShee
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
+import { useToast } from '@/components/ui/Toast';
 import { Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function LoginScreen() {
   const theme = useTheme();
+  const { showToast } = useToast();
   const {
     biometricEnabled,
     biometricLoading,
@@ -31,6 +33,18 @@ export default function LoginScreen() {
     const authenticated = await login(email, password);
     setSubmitting(false);
     if (authenticated) {
+      showToast('Signed in', 'success');
+      router.replace('/home');
+    }
+  };
+
+  const handleBiometricUnlock = async () => {
+    if (submitting || biometricLoading) {
+      return;
+    }
+    const authenticated = await unlockWithBiometrics();
+    if (authenticated) {
+      showToast('Signed in', 'success');
       router.replace('/home');
     }
   };
@@ -78,7 +92,7 @@ export default function LoginScreen() {
               <AppButton
                 testID="auth.biometric-unlock"
                 variant="secondary"
-                onPress={() => void unlockWithBiometrics()}
+                onPress={() => void handleBiometricUnlock()}
                 disabled={submitting || biometricLoading}
                 leadingIcon="shield"
                 accessibilityLabel="Unlock with biometrics">

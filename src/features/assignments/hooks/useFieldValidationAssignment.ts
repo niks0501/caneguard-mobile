@@ -7,18 +7,16 @@ import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import {
   findCachedFieldValidationAssignment,
-  listCachedFieldValidationAssignments,
   markCachedFieldValidationAssignmentInProgress,
 } from '@/features/assignments/data/assignmentCacheRepository';
 import {
   findFieldValidationCompletion,
-  listFieldValidationCompletions,
   saveFieldValidationCompletion,
 } from '@/features/assignments/data/fieldValidationCompletionRepository';
 import type { FieldValidationFollowUpOutcome } from '@/database/schema';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
-import type { PreviousVisit } from '@/features/assignments/domain/previousVisit';
-import { selectPreviousVisit } from '@/features/assignments/domain/previousVisit';
+import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
+import { buildMobilePreviousEvidencePhotoUrl } from '@/features/assignments/api/mobileFieldValidationAssignmentsApi';
 import type {
   FieldValidationCompletion,
   SaveFieldValidationCompletionInput,
@@ -47,7 +45,7 @@ interface AssignmentState {
   completion: FieldValidationCompletion | null;
   currentReporterConcern: string | null;
   errorMessage: string | null;
-  previousVisit: PreviousVisit | null;
+  previousVisit: PreviousVisitContext | null;
   loading: boolean;
   saving: boolean;
 }
@@ -78,38 +76,29 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
     }
     setState((current) => ({ ...current, errorMessage: null, loading: true }));
     try {
-      const [assignment, completion, assignments, completions] = await Promise.all([
+      const [assignment, completion] = await Promise.all([
         findCachedFieldValidationAssignment(database, requestedSession.user.uuid, assignmentId),
         findFieldValidationCompletion(database, requestedSession.user.uuid, assignmentId),
-        listCachedFieldValidationAssignments(database, requestedSession.user.uuid),
-        listFieldValidationCompletions(database, requestedSession.user.uuid),
       ]);
       if (sessionRef.current?.token !== requestedSession.token || !mounted.current) return;
       if (!assignment) {
         setState({ assignment: null, completion: null, currentReporterConcern: null, errorMessage: 'This assignment is not downloaded on this device. Refresh Activity while online first.', loading: false, previousVisit: null, saving: false });
         return;
       }
-      const reporterConcerns = new Map<string, string | null>();
-      await Promise.all(assignments.map(async (candidate) => {
-        try {
-          const report = await findFieldReportById(database, candidate.reportClientUuid, requestedSession.user.uuid);
-          reporterConcerns.set(candidate.id, report.reporterSuspectedCondition);
-        } catch {
-          reporterConcerns.set(candidate.id, null);
-        }
-      }));
+      let currentReporterConcern: string | null = null;
+      try {
+        const report = await findFieldReportById(database, assignment.reportClientUuid, requestedSession.user.uuid);
+        currentReporterConcern = report.reporterSuspectedCondition;
+      } catch {
+        currentReporterConcern = null;
+      }
       setState({
         assignment,
         completion,
-        currentReporterConcern: reporterConcerns.get(assignment.id) ?? null,
+        currentReporterConcern,
         errorMessage: null,
         loading: false,
-        previousVisit: selectPreviousVisit({
-          assignments,
-          completions,
-          currentAssignment: assignment,
-          reporterConcerns,
-        }),
+        previousVisit: assignment.previousVisit ?? null,
         saving: false,
       });
     } catch (error: unknown) {
@@ -209,5 +198,15 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
     }
   }, [refresh, state.completion, sync]);
 
-  return { ...state, complete, refresh, retry };
+  return {
+    ...state,
+    complete,
+    photoAccessToken: session?.token ?? null,
+    previousVisitPhotoUrl:
+      state.assignment?.previousVisit?.freshPhotoAvailable
+        ? buildMobilePreviousEvidencePhotoUrl(state.assignment.id)
+        : null,
+    refresh,
+    retry,
+  };
 }

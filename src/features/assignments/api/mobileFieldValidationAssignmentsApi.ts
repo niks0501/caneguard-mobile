@@ -1,5 +1,5 @@
 import { apiBaseUrl } from '@/config/env';
-import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
+import { ApiHttpError, apiRequest, buildApiUrl } from '@/features/shared/api/apiClient';
 import {
   FIELD_VALIDATION_ASSIGNMENT_STATES,
   type FieldValidationAssignmentState,
@@ -7,6 +7,7 @@ import {
 import type {
   FieldValidationAssignmentUpdate,
 } from '@/features/assignments/domain/assignmentTypes';
+import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
 import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 
 const ASSIGNMENT_PATH = '/api/v1/mobile/assignments';
@@ -200,7 +201,41 @@ function parseAssignment(value: unknown): FieldValidationAssignmentUpdate {
       ),
       confidence: requireNumber(rawCase.confidence, 'case.confidence', 0, 1),
     },
+    previousVisit: parsePreviousVisit(value.previous_visit),
   };
+}
+
+function parsePreviousVisit(value: unknown): PreviousVisitContext | null {
+  if (value === undefined || value === null) return null;
+  if (!isRecord(value)) throw malformed('previous_visit');
+  return {
+    referenceCode: requireString(value.reference_code, 'previous_visit.reference_code'),
+    visitedAt: requireTimestamp(value.visited_at, 'previous_visit.visited_at'),
+    reporterSuspectedCondition: optionalString(
+      value.reporter_suspected_condition,
+      'previous_visit.reporter_suspected_condition',
+    ),
+    authorityClassifiedCondition: optionalString(
+      value.authority_classified_condition,
+      'previous_visit.authority_classified_condition',
+    ),
+    actionTaken: requireString(value.action_taken, 'previous_visit.action_taken'),
+    fieldObservation: optionalString(value.field_observation, 'previous_visit.field_observation'),
+    fieldFinding: optionalString(value.field_finding, 'previous_visit.field_finding'),
+    freshPhotoAvailable: requireBoolean(
+      value.fresh_photo_available,
+      'previous_visit.fresh_photo_available',
+    ),
+  };
+}
+
+export function buildMobilePreviousEvidencePhotoPath(assignmentId: string): string {
+  if (!UUID_PATTERN.test(assignmentId)) throw malformed('assignment uuid');
+  return `${ASSIGNMENT_PATH}/${encodeURIComponent(assignmentId)}/previous-evidence-photo`;
+}
+
+export function buildMobilePreviousEvidencePhotoUrl(assignmentId: string): string {
+  return buildApiUrl(buildMobilePreviousEvidencePhotoPath(assignmentId));
 }
 
 function parsePerson(value: unknown, field: string): { uuid: string; name: string } {

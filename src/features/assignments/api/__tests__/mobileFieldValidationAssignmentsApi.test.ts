@@ -1,6 +1,8 @@
 import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
 import { MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE } from '@/features/assignments/api/__fixtures__/mobileFieldValidationAssignmentsV1';
 import {
+  buildMobilePreviousEvidencePhotoPath,
+  buildMobilePreviousEvidencePhotoUrl,
   fetchAllMobileFieldValidationAssignments,
   MobileFieldValidationAssignmentsApiError,
 } from '@/features/assignments/api/mobileFieldValidationAssignmentsApi';
@@ -14,6 +16,7 @@ jest.mock('@/features/shared/api/apiClient', () => ({
     }
   },
   apiRequest: jest.fn(),
+  buildApiUrl: (path: string) => `http://127.0.0.1:8000${path}`,
 }));
 
 const request = jest.mocked(apiRequest);
@@ -36,8 +39,54 @@ describe('mobile field validation assignment API', () => {
         reportUuid: '7e8c2e48-a2d4-4aca-9a50-9ca460fd7a7f',
         submitterIsAssignee: false,
         case: expect.objectContaining({ predictedLabel: 'rust' }),
+        previousVisit: null,
       })],
     });
+  });
+
+  it('parses the optional previous visit block and tolerates a missing block as null', async () => {
+    const previousVisit = {
+      reference_code: 'CG-2026-0000',
+      visited_at: '2026-09-10T08:30:00.000Z',
+      reporter_suspected_condition: 'RSSI',
+      authority_classified_condition: 'RSSI',
+      action_taken: 'Previous action',
+      field_observation: 'Previous observation',
+      field_finding: 'Previous finding',
+      fresh_photo_available: true,
+    };
+    const { previous_visit: _ignored, ...withoutPreviousVisit } = MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE.data[0];
+    request.mockResolvedValueOnce(page([{ ...withoutPreviousVisit, previous_visit: previousVisit }]));
+
+    await expect(fetchAllMobileFieldValidationAssignments({ token: 'secure-token' })).resolves.toMatchObject({
+      assignments: [expect.objectContaining({
+        previousVisit: {
+          referenceCode: 'CG-2026-0000',
+          visitedAt: '2026-09-10T08:30:00.000Z',
+          reporterSuspectedCondition: 'RSSI',
+          authorityClassifiedCondition: 'RSSI',
+          actionTaken: 'Previous action',
+          fieldObservation: 'Previous observation',
+          fieldFinding: 'Previous finding',
+          freshPhotoAvailable: true,
+        },
+      })],
+    });
+
+    request.mockResolvedValueOnce(page([withoutPreviousVisit]));
+    await expect(fetchAllMobileFieldValidationAssignments({ token: 'secure-token' })).resolves.toMatchObject({
+      assignments: [expect.objectContaining({ previousVisit: null })],
+    });
+  });
+
+  it('builds the owner-scoped previous evidence photo route', () => {
+    const assignmentId = '3fbd7f77-7d6b-4eb0-a1c7-b673f5a2f39f';
+    expect(buildMobilePreviousEvidencePhotoPath(assignmentId)).toBe(
+      `/api/v1/mobile/assignments/${assignmentId}/previous-evidence-photo`,
+    );
+    expect(buildMobilePreviousEvidencePhotoUrl(assignmentId)).toBe(
+      `http://127.0.0.1:8000/api/v1/mobile/assignments/${assignmentId}/previous-evidence-photo`,
+    );
   });
 
   it('accepts a Smut Model V1 prediction in the assignment contract', async () => {

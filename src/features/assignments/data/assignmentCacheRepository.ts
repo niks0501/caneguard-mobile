@@ -7,6 +7,7 @@ import type {
   FieldValidationAssignment,
   FieldValidationAssignmentUpdate,
 } from '@/features/assignments/domain/assignmentTypes';
+import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 export async function listCachedFieldValidationAssignments(
@@ -177,6 +178,7 @@ function toRow(
     submittedAt: update.case.submittedAt,
     predictedLabel: update.case.predictedLabel,
     confidence: update.case.confidence,
+    previousVisitJson: update.previousVisit ? JSON.stringify(update.previousVisit) : null,
   };
 }
 
@@ -210,7 +212,19 @@ function toAssignment(
       predictedLabel: row.predictedLabel,
       confidence: row.confidence,
     },
+    previousVisit: parsePreviousVisit(row.previousVisitJson),
   };
+}
+
+function parsePreviousVisit(value: string | null): PreviousVisitContext | null {
+  if (!value) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    return parsed as PreviousVisitContext;
+  } catch {
+    return null;
+  }
 }
 
 function requireOwner(value: string): string {

@@ -1,6 +1,17 @@
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import type { FieldValidationCompletion } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 
+export interface PreviousVisitContext {
+  referenceCode: string;
+  visitedAt: string;
+  reporterSuspectedCondition: string | null;
+  authorityClassifiedCondition: string | null;
+  actionTaken: string;
+  fieldObservation: string | null;
+  fieldFinding: string | null;
+  freshPhotoAvailable: boolean;
+}
+
 export interface PreviousVisit {
   assignment: FieldValidationAssignment;
   completion: FieldValidationCompletion | null;

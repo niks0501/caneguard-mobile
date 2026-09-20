@@ -6,15 +6,19 @@ import type { ReactNode } from 'react';
 import { Pill } from '@/components/ui/Pill';
 import { Row } from '@/components/ui/Row';
 import { Radius, Spacing, Typography } from '@/constants/theme';
-import type { PreviousVisit } from '@/features/assignments/domain/previousVisit';
+import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
 import { useTheme } from '@/hooks/use-theme';
 
 export function PreviousVisitCard({
   currentReporterConcern,
+  photoAccessToken,
   previousVisit,
+  previousVisitPhotoUrl,
 }: {
   currentReporterConcern?: string | null;
-  previousVisit?: PreviousVisit | null;
+  previousVisit?: PreviousVisitContext | null;
+  previousVisitPhotoUrl?: string | null;
+  photoAccessToken?: string | null;
 }) {
   const theme = useTheme();
 
@@ -27,7 +31,11 @@ export function PreviousVisitCard({
         <Text style={[styles.title, { color: theme.text }]}>Previous visit</Text>
       </View>
       {previousVisit ? (
-        <PreviousVisitDetails previousVisit={previousVisit} />
+        <PreviousVisitDetails
+          photoAccessToken={photoAccessToken}
+          previousVisit={previousVisit}
+          previousVisitPhotoUrl={previousVisitPhotoUrl}
+        />
       ) : (
         <View style={styles.empty}>
           <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No previous visit recorded for this farm on this device</Text>
@@ -43,40 +51,51 @@ export function PreviousVisitCard({
   );
 }
 
-function PreviousVisitDetails({ previousVisit }: { previousVisit: PreviousVisit }) {
+function PreviousVisitDetails({
+  photoAccessToken,
+  previousVisit,
+  previousVisitPhotoUrl,
+}: {
+  photoAccessToken?: string | null;
+  previousVisit: PreviousVisitContext;
+  previousVisitPhotoUrl?: string | null;
+}) {
   const theme = useTheme();
-  const completion = previousVisit.completion;
-  const evidence = completion
-    ? [completion.fieldObservation, completion.fieldFinding].filter(Boolean).join(' · ')
+  const evidence = [previousVisit.fieldObservation, previousVisit.fieldFinding]
+    .filter(Boolean)
+    .join(' · ');
+  const photoSource = previousVisit.freshPhotoAvailable && previousVisitPhotoUrl
+    ? {
+        headers: photoAccessToken
+          ? { Authorization: `Bearer ${photoAccessToken}` }
+          : undefined,
+        uri: previousVisitPhotoUrl,
+      }
     : null;
 
   return (
     <View style={styles.details}>
-      <Text style={[styles.source, { color: theme.textSecondary }]}>Previous visit · {formatTimestamp(previousVisit.visitedAt)} · {previousVisit.assignment.referenceCode}</Text>
+      <Text style={[styles.source, { color: theme.textSecondary }]}>Previous visit · {formatTimestamp(previousVisit.visitedAt)} · {previousVisit.referenceCode}</Text>
       <ContextRow
         label="Previous concern"
-        value={previousVisit.reporterConcern ? <Pill label={`${previousVisit.reporterConcern} · reported concern`} variant="warning" /> : <Text style={[styles.fallback, { color: theme.textSecondary }]}>Not reported on this device</Text>}
+        value={previousVisit.reporterSuspectedCondition ? <Pill label={`${previousVisit.reporterSuspectedCondition} · reported concern`} variant="warning" /> : <Text style={[styles.fallback, { color: theme.textSecondary }]}>Not reported</Text>}
       />
       <ContextRow
         label="Last staff classification"
-        value={<Text style={[styles.fallback, { color: theme.textSecondary }]}>Not received on this device</Text>}
+        value={previousVisit.authorityClassifiedCondition ? <Pill label={previousVisit.authorityClassifiedCondition} variant="info" /> : <Text style={[styles.fallback, { color: theme.textSecondary }]}>Not classified</Text>}
       />
       <ContextRow
         label="Last action taken"
-        value={completion?.actionTaken ? <Text style={[styles.value, { color: theme.text }]}>{completion.actionTaken}</Text> : <Text style={[styles.fallback, { color: theme.textSecondary }]}>Not recorded on this device</Text>}
+        value={previousVisit.actionTaken ? <Text style={[styles.value, { color: theme.text }]}>{previousVisit.actionTaken}</Text> : <Text style={[styles.fallback, { color: theme.textSecondary }]}>Not recorded</Text>}
       />
       <ContextRow
         label="Previous field evidence"
         value={
-          completion ? (
-            <View style={styles.evidence}>
-              {evidence ? <Text style={[styles.value, { color: theme.text }]}>{evidence}</Text> : null}
-              {completion.freshPhotoUri ? <ExpoImage accessibilityLabel="Previous field evidence photo" contentFit="cover" source={{ uri: completion.freshPhotoUri }} style={styles.photo} /> : null}
-              {!evidence && !completion.freshPhotoUri ? <Text style={[styles.fallback, { color: theme.textSecondary }]}>No previous evidence on this device</Text> : null}
-            </View>
-          ) : (
-            <Text style={[styles.fallback, { color: theme.textSecondary }]}>No previous evidence on this device</Text>
-          )
+          <View style={styles.evidence}>
+            {evidence ? <Text style={[styles.value, { color: theme.text }]}>{evidence}</Text> : null}
+            {photoSource ? <ExpoImage accessibilityLabel="Previous field evidence photo" contentFit="cover" source={photoSource} style={styles.photo} /> : null}
+            {!evidence && !photoSource ? <Text style={[styles.fallback, { color: theme.textSecondary }]}>No previous evidence</Text> : null}
+          </View>
         }
       />
     </View>

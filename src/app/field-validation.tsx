@@ -105,7 +105,9 @@ export default function FieldValidationScreen() {
               <VisitContext assignment={state.assignment} completion={state.completion} />
               <PreviousVisitCard
                 currentReporterConcern={state.currentReporterConcern}
+                photoAccessToken={state.photoAccessToken}
                 previousVisit={state.previousVisit}
+                previousVisitPhotoUrl={state.previousVisitPhotoUrl}
               />
               {state.completion ? (
                 <CompletionStatus completion={state.completion} onRetry={() => void state.retry()} />

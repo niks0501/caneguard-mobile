@@ -106,7 +106,7 @@ describe('Design spine static guards', () => {
   });
 
   it('guarantees a 12px floor for all typography scale entries', () => {
-    for (const [key, value] of Object.entries(Typography)) {
+    for (const value of Object.values(Typography)) {
       expect(value.fontSize).toBeGreaterThanOrEqual(12);
     }
   });

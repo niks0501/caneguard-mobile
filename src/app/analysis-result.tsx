@@ -207,8 +207,6 @@ export default function AnalysisResultScreen() {
     state.selectedSymptoms,
   );
   const consistencyPresentation = CONSISTENCY_PRESENTATION[consistency];
-  const diseaseColor = theme[metadata.themeToken.foreground];
-  const diseaseBackground = theme[metadata.themeToken.background];
   const isLowScore = isBelowV1ConfidenceCautionThreshold(result.confidence);
   const resultTitle = `Possible Condition: ${metadata.displayName}`;
 

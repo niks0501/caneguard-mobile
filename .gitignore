@@ -75,6 +75,10 @@ example
 # Generated Graphify cache
 graphify-out/cache/
 
+# Volatile Graphify run metadata and dated snapshots; stable reading artifacts remain tracked.
+graphify-out/manifest.json
+graphify-out/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
+
 # Local / generated AI runtime data
 .ai
 

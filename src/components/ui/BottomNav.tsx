@@ -1,39 +1,55 @@
 import { Feather } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-type NavTab = 'home' | 'scan' | 'activity';
+export type NavTab = 'home' | 'scan' | 'activity' | 'today';
+
+type TabNavigationState = {
+  index: number;
+  routes: readonly { key: string; name: string }[];
+};
+
+type TabNavigation = {
+  navigate: (name: string) => void;
+};
 
 export type BottomNavProps = {
-  activeTab: NavTab;
+  /** Kept for isolated presenter tests and legacy embedders. */
+  activeTab?: NavTab;
+  state?: TabNavigationState;
+  navigation?: TabNavigation;
 };
 
 type NavItem = {
   key: NavTab;
   label: string;
   icon: keyof typeof Feather.glyphMap;
-  route: string;
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { key: 'home', label: 'Home', icon: 'home', route: '/home' },
-  { key: 'scan', label: 'Scan', icon: 'camera', route: '/scan' },
-  { key: 'activity', label: 'Activity', icon: 'activity', route: '/activity' },
+  { key: 'home', label: 'Home', icon: 'home' },
+  { key: 'scan', label: 'Scan', icon: 'camera' },
+  { key: 'activity', label: 'Activity', icon: 'activity' },
+  { key: 'today', label: "Today's visits", icon: 'calendar' },
 ];
 
-export function BottomNav({ activeTab }: BottomNavProps) {
+/**
+ * The tab bar is intentionally a presenter. The navigator owns route state
+ * and focus; this component only renders it and dispatches tab navigation.
+ */
+export function BottomNav({ activeTab, state, navigation }: BottomNavProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const selectedRoute = state?.routes[state.index]?.name;
 
   return (
     <View style={styles.wrap}>
       <View style={[styles.row, { backgroundColor: theme.surfaceElevated, borderTopColor: theme.divider, paddingBottom: Math.max(Spacing.sm, insets.bottom) }]}>
         {NAV_ITEMS.map((item) => {
-          const active = item.key === activeTab;
+          const active = selectedRoute ? selectedRoute === item.key : item.key === activeTab;
 
           return (
             <Pressable
@@ -44,7 +60,7 @@ export function BottomNav({ activeTab }: BottomNavProps) {
               accessibilityState={{ selected: active }}
               onPress={() => {
                 if (!active) {
-                  router.push(item.route as any);
+                  navigation?.navigate(item.key);
                 }
               }}
               style={({ pressed }) => [

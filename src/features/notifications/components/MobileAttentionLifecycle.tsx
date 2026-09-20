@@ -11,7 +11,7 @@ export function MobileAttentionLifecycle() {
   const { refresh } = useMobileNotifications(true, false);
 
   useEffect(() => {
-    void refresh();
+    void refresh({ force: false });
   }, [refresh]);
 
   return null;

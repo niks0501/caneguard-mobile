@@ -100,7 +100,7 @@
     "collectCoverageFrom": [
       "src/features/detection/**/*.{ts,tsx}",
       "src/app/model-smoke-test.tsx",
-      "src/app/scan.tsx",
+      "src/app/(tabs)/scan.tsx",
       "src/app/image-preview.tsx",
       "!**/*.d.ts"
     ]

@@ -1,6 +1,4 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { router } from 'expo-router';
-
 import { BottomNav } from '@/components/ui/BottomNav';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { RecordCard } from '@/components/ui/RecordCard';
@@ -74,7 +72,8 @@ describe('shared navigation UI', () => {
   });
 
   it('keeps the operational destinations accessible without analytics or settings tabs', async () => {
-    await render(<BottomNav activeTab="home" />);
+    const navigation = { navigate: jest.fn() };
+    await render(<BottomNav activeTab="home" navigation={navigation} />);
 
     for (const label of ['Home', 'Scan', 'Activity']) {
       expect(screen.getByLabelText(label)).toBeOnTheScreen();
@@ -84,6 +83,6 @@ describe('shared navigation UI', () => {
     }
 
     await fireEvent.press(screen.getByLabelText('Activity'));
-    expect(router.push).toHaveBeenCalledWith('/activity');
+    expect(navigation.navigate).toHaveBeenCalledWith('activity');
   });
 });

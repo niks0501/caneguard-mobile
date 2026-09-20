@@ -10,7 +10,7 @@ import {
 import { hasStaleAuthorityReviewCache } from '@/features/reports/data/fieldReportReviewRepository';
 import { refreshAuthorityReviewStatus } from '@/features/reports/services/refreshAuthorityReviewStatus';
 
-const STALE_AFTER_MS = 5 * 60_000;
+const STALE_AFTER_MS = 45_000;
 
 interface AuthorityReviewStatusState {
   capabilityUnavailable: boolean;
@@ -48,7 +48,7 @@ export function useAuthorityReviewStatus(enabled = true) {
     [],
   );
 
-  const refresh = useCallback(async (): Promise<boolean> => {
+  const refresh = useCallback(async (_options?: { force?: boolean }): Promise<boolean> => {
     const requestedSession = session;
     if (!enabled || authStatus !== 'authenticated' || !requestedSession) {
       return false;
@@ -153,9 +153,9 @@ export function useAuthorityReviewStatus(enabled = true) {
   useFocusEffect(
     useCallback(() => {
       if (enabled) {
-        void refresh();
+        void refreshIfStale();
       }
-    }, [enabled, refresh]),
+    }, [enabled, refreshIfStale]),
   );
 
   useEffect(() => {

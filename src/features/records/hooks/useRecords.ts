@@ -1,7 +1,7 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
+import { EMPTY_DATABASE, useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
@@ -15,6 +15,12 @@ import {
   type ScanRecordQuery,
 } from '@/features/records/domain/recordTypes';
 import { useSyncRecordsRefresh } from '@/features/sync/hooks/useSyncRecordsRevision';
+import {
+  getOwnerMobileDataStore,
+  isFresh,
+  setOwnerTimeline,
+  subscribeOwnerMobileData,
+} from '@/features/mobile-data/data/mobileDataStore';
 
 interface QueryState<T> {
   data: T;
@@ -213,6 +219,27 @@ export function usePaginatedScanRecords(
   const loadMoreInFlight = useRef<Promise<boolean> | null>(null);
   const requestId = useRef(0);
   const [dataOwnerIdentity, setDataOwnerIdentity] = useState<string | null>(null);
+  const ownerStore =
+    submitterIdentity && database !== EMPTY_DATABASE
+      ? getOwnerMobileDataStore(database, submitterIdentity)
+      : null;
+  const [, setStoreRevision] = useState(0);
+  const timelineKey = JSON.stringify({
+    barangay,
+    dateFrom,
+    dateTo,
+    hasFieldReport,
+    normalizedPageSize,
+    predictedLabel,
+    search,
+    syncStatus,
+  });
+
+  useEffect(() => {
+    if (!ownerStore) return;
+    return subscribeOwnerMobileData(ownerStore, () => setStoreRevision((value) => value + 1));
+  }, [ownerStore]);
+
   const [state, setState] = useState<PaginatedQueryState>({
     data: [],
     errorMessage: null,
@@ -222,7 +249,7 @@ export function usePaginatedScanRecords(
   });
 
   const loadPage = useCallback(
-    async (offset: number, append: boolean): Promise<boolean> => {
+    async (offset: number, append: boolean, force = false): Promise<boolean> => {
       const currentRequestId = ++requestId.current;
       if (!submitterIdentity) {
         setDataOwnerIdentity(null);
@@ -235,6 +262,19 @@ export function usePaginatedScanRecords(
         });
         return false;
       }
+      const cached = ownerStore?.timeline.get(timelineKey);
+      if (!append && !force && isFresh(cached)) {
+        setDataOwnerIdentity(submitterIdentity);
+        setState({
+          data: cached?.data ?? [],
+          errorMessage: null,
+          hasMore: cached?.hasMore ?? false,
+          loading: false,
+          loadingMore: false,
+        });
+        return true;
+      }
+
       setState((current) => ({
         ...current,
         data: append ? current.data : [],
@@ -267,13 +307,18 @@ export function usePaginatedScanRecords(
         }
         setDataOwnerIdentity(submitterIdentity);
 
-        setState((current) => ({
-          data: append ? [...current.data, ...page] : page,
+        const nextData = append ? [...(ownerStore?.timeline.get(timelineKey)?.data ?? []), ...page] : page;
+        const hasMore = page.length === normalizedPageSize;
+        if (ownerStore) {
+          setOwnerTimeline(ownerStore, timelineKey, nextData, hasMore);
+        }
+        setState({
+          data: nextData,
           errorMessage: null,
-          hasMore: page.length === normalizedPageSize,
+          hasMore,
           loading: false,
           loadingMore: false,
-        }));
+        });
         return true;
       } catch (error: unknown) {
         if (requestId.current !== currentRequestId) {
@@ -306,15 +351,17 @@ export function usePaginatedScanRecords(
       search,
       syncStatus,
       submitterIdentity,
+      ownerStore,
+      timelineKey,
     ],
   );
 
   const refresh = useCallback(
-    () => loadPage(0, false),
+    (options?: { force?: boolean }) => loadPage(0, false, options?.force !== false),
     [loadPage],
   );
   useSyncRecordsRefresh(() => {
-    void refresh();
+    void refresh({ force: true });
   });
   const loadMore = useCallback(() => {
     if (loadMoreInFlight.current) {
@@ -340,7 +387,7 @@ export function usePaginatedScanRecords(
 
   useFocusEffect(
     useCallback(() => {
-      void refresh();
+      void refresh({ force: false });
       return () => {
         requestId.current += 1;
       };

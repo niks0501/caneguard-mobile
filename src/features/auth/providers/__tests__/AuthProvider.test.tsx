@@ -12,7 +12,7 @@ import {
 } from '@/features/auth/api/mobileAuthApi';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { AuthProvider } from '@/features/auth/providers/AuthProvider';
-import HomeScreen from '@/app/home';
+import HomeScreen from '@/app/(tabs)/home';
 import {
   clearLegacyMobileSession,
   clearMobileSession,

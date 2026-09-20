@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BottomNav } from '@/components/ui/BottomNav';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AppButton } from '@/components/ui/AppButton';
@@ -87,7 +86,6 @@ export default function TodayScreen() {
             )}
           </View>
         </ScrollView>
-        <BottomNav activeTab="home" />
       </View>
     </SafeAreaView>
   );

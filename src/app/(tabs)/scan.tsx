@@ -8,7 +8,6 @@ import { Linking, Platform, ScrollView, StyleSheet, Text, View } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
-import { BottomNav } from '@/components/ui/BottomNav';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ComponentTokens, Layout, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
@@ -428,7 +427,6 @@ export default function ScanScreen() {
             </View>
           </View>
         </ScrollView>
-        <BottomNav activeTab="scan" />
         <ConfirmDialog
           visible={showCancelConfirm}
           title="Cancel scan?"

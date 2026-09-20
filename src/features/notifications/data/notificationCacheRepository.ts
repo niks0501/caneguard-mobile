@@ -48,17 +48,73 @@ export async function replaceCachedMobileNotifications(
   }
 
   try {
+    const current = await listCachedMobileNotifications(database, owner);
+    const incoming = new Map(
+      updates.map((update) => [
+        update.id,
+        applyConfirmedRead(database, owner, update),
+      ]),
+    );
+    const currentById = new Map(current.map((notification) => [notification.id, notification]));
+    const removed = current.some((notification) => !incoming.has(notification.id));
+    const changed = updates.some((update) => {
+      const previous = currentById.get(update.id);
+      if (!previous) return true;
+      const { ownerIdentity: _owner, cachedAt: _cachedAt, ...previousData } = previous;
+      return stableFingerprint(previousData) !== stableFingerprint(incoming.get(update.id));
+    });
+
+    if (!removed && !changed) {
+      database
+        .update(mobileNotifications)
+        .set({ cachedAt })
+        .where(eq(mobileNotifications.ownerIdentity, owner))
+        .run();
+      return;
+    }
+
     database.transaction((transaction) => {
+      for (const notification of current) {
+        if (!incoming.has(notification.id)) {
+          transaction
+            .delete(mobileNotifications)
+            .where(
+              and(
+                eq(mobileNotifications.ownerIdentity, owner),
+                eq(mobileNotifications.id, notification.id),
+              ),
+            )
+            .run();
+        }
+      }
+
       transaction
-        .delete(mobileNotifications)
+        .update(mobileNotifications)
+        .set({ cachedAt })
         .where(eq(mobileNotifications.ownerIdentity, owner))
         .run();
 
       for (const update of updates) {
-        transaction
-          .insert(mobileNotifications)
-          .values(toRow(applyConfirmedRead(database, owner, update), owner, cachedAt))
-          .run();
+        const previous = currentById.get(update.id);
+        const { ownerIdentity: _owner, cachedAt: _cachedAt, ...previousData } = previous ?? {};
+        const next = incoming.get(update.id) ?? update;
+        if (!previous || stableFingerprint(previousData) !== stableFingerprint(next)) {
+          if (previous) {
+            transaction
+              .delete(mobileNotifications)
+              .where(
+                and(
+                  eq(mobileNotifications.ownerIdentity, owner),
+                  eq(mobileNotifications.id, update.id),
+                ),
+              )
+              .run();
+          }
+          transaction
+            .insert(mobileNotifications)
+            .values(toRow(next, owner, cachedAt))
+            .run();
+        }
       }
     });
   } catch (error: unknown) {
@@ -222,6 +278,19 @@ function toNotification(
     createdAt: row.createdAt,
     cachedAt: row.cachedAt,
   };
+}
+
+function stableFingerprint(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableFingerprint).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([first], [second]) => first.localeCompare(second))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableFingerprint(entry)}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
 }
 
 function requireOwner(value: string): string {

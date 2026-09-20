@@ -1,0 +1,1 @@
+CREATE INDEX `field_reports_authority_reference_code_idx` ON `field_reports` (`authority_reference_code`);

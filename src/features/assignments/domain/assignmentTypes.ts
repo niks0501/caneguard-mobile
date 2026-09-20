@@ -1,4 +1,5 @@
 import type { FieldValidationAssignmentState } from '@/database/schema';
+import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
 
 export interface FieldValidationAssignment {
   id: string;
@@ -27,6 +28,7 @@ export interface FieldValidationAssignment {
     predictedLabel: string;
     confidence: number;
   };
+  previousVisit?: PreviousVisitContext | null;
 }
 
 export interface FieldValidationAssignmentUpdate extends Omit<

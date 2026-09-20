@@ -20,6 +20,10 @@ export class ApiHttpError extends Error {
   }
 }
 
+export function buildApiUrl(path: string): string {
+  return buildRequestUrl(path);
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit & {
@@ -58,7 +62,7 @@ export async function apiRequest<T>(
   try {
     return await Promise.race([
       (async () => {
-        const response = await fetch(buildRequestUrl(path), {
+        const response = await fetch(buildApiUrl(path), {
           ...requestInit,
           headers,
           signal: controller.signal,

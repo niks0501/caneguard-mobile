@@ -21,6 +21,7 @@ const migration12 = readMigration('0012_dapper_sumo.sql');
 const migration13 = readMigration('0013_v1_local_scan_migration.sql');
 const migration14 = readMigration('0014_safe_songbird.sql');
 const migration15 = readMigration('0015_sour_riptide.sql');
+const migration16 = readMigration('0016_nervous_gateway.sql');
 const migrationJournal = migrationBundle.journal;
 
 function readMigration(filename: string): string {
@@ -532,6 +533,7 @@ describe('CaneGuard database migrations', () => {
       '0013_v1_local_scan_migration',
       '0014_safe_songbird',
       '0015_sour_riptide',
+      '0016_nervous_gateway',
     ]);
     expect(Object.keys(migrationBundle.migrations)).toEqual([
       'm0000',
@@ -550,6 +552,7 @@ describe('CaneGuard database migrations', () => {
       'm0013',
       'm0014',
       'm0015',
+      'm0016',
     ]);
     expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
       migration0,
@@ -568,6 +571,7 @@ describe('CaneGuard database migrations', () => {
       migration13,
       migration14,
       migration15,
+      migration16,
     ]);
   });
 });

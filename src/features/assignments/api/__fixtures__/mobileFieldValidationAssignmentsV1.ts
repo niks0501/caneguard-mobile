@@ -31,6 +31,7 @@ export const MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE = {
         predicted_label: 'rust',
         confidence: 0.93,
       },
+      previous_visit: null,
     },
   ],
   links: { next: null },

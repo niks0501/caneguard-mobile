@@ -498,9 +498,9 @@
     "semantic_hash": ""
   },
   "src/database/__tests__/migrations.test.ts": {
-    "mtime": 1789878993.0574536,
-    "seen": 1789879387.5232067,
-    "ast_hash": "024e486c465de5d99c3f7647b8916a0b",
+    "mtime": 1789880672.2527773,
+    "seen": 1789880852.926944,
+    "ast_hash": "b6b2a398c86a47f6189110f5ca925b27",
     "semantic_hash": ""
   },
   "src/database/database.ts": {
@@ -522,9 +522,9 @@
     "semantic_hash": ""
   },
   "src/database/schema.ts": {
-    "mtime": 1789878993.0574536,
-    "seen": 1789879387.5232112,
-    "ast_hash": "a372c77578307b830c38847a1efa5830",
+    "mtime": 1789880528.4368064,
+    "seen": 1789880852.9269483,
+    "ast_hash": "670723688375f9ff1bb079d82ef1a1bd",
     "semantic_hash": ""
   },
   "src/database/useStorageDiagnostics.ts": {
@@ -744,9 +744,9 @@
     "semantic_hash": ""
   },
   "src/features/shared/api/apiClient.ts": {
-    "mtime": 1789397299.496622,
-    "seen": 1789879387.5233607,
-    "ast_hash": "9759f82f9b2ba156edc6b201ad789e8d",
+    "mtime": 1789880437.0408175,
+    "seen": 1789880852.9271019,
+    "ast_hash": "c63308d523cbb37ab8b8e790c61bfddc",
     "semantic_hash": ""
   },
   "src/features/sync/api/mobileReportsApi.ts": {
@@ -1206,8 +1206,8 @@
     "semantic_hash": ""
   },
   "src/app/__tests__/activity.test.tsx": {
-    "mtime": 1789879337.4170241,
-    "seen": 1789879387.5231204,
+    "mtime": 1789879942.6689203,
+    "seen": 1789880852.9268553,
     "ast_hash": "5608b27bbaf04d7e6df42bca29beebd4",
     "semantic_hash": ""
   },
@@ -1218,8 +1218,8 @@
     "semantic_hash": ""
   },
   "src/features/activity/components/ActivityScreen.tsx": {
-    "mtime": 1789879282.0770447,
-    "seen": 1789879387.523213,
+    "mtime": 1789879942.6689203,
+    "seen": 1789880852.9269505,
     "ast_hash": "c4236e7ce0db52e1e2f96c8cae723e14",
     "semantic_hash": ""
   },
@@ -1242,9 +1242,9 @@
     "semantic_hash": ""
   },
   "src/app/field-validation.tsx": {
-    "mtime": 1789878993.0534532,
-    "seen": 1789879387.5231614,
-    "ast_hash": "f995792eb15c0a44512ebc9d8e9b9dd5",
+    "mtime": 1789880625.860778,
+    "seen": 1789880852.9268985,
+    "ast_hash": "9433f754f86de99e4aacb36ae3874178",
     "semantic_hash": ""
   },
   "src/features/activity/components/AssignmentCard.tsx": {
@@ -1254,9 +1254,9 @@
     "semantic_hash": ""
   },
   "src/features/assignments/api/__fixtures__/mobileFieldValidationAssignmentsV1.ts": {
-    "mtime": 1789397299.4584544,
-    "seen": 1789879387.5232217,
-    "ast_hash": "cd9441b5300a47bc6ec1fd707d3870c8",
+    "mtime": 1789880459.1128113,
+    "seen": 1789880852.9269602,
+    "ast_hash": "961bdf08c9df52aeba4fd050a5543e73",
     "semantic_hash": ""
   },
   "src/features/assignments/api/__tests__/mobileFieldValidationAssignmentsApi.contract.test.ts": {
@@ -1266,9 +1266,9 @@
     "semantic_hash": ""
   },
   "src/features/assignments/api/__tests__/mobileFieldValidationAssignmentsApi.test.ts": {
-    "mtime": 1789398757.4070055,
-    "seen": 1789879387.5232234,
-    "ast_hash": "adb695eae9497dbcebec4297c2d96b06",
+    "mtime": 1789880752.5167525,
+    "seen": 1789880852.9269617,
+    "ast_hash": "0519d02e68552fc3dd742718f0bbc206",
     "semantic_hash": ""
   },
   "src/features/assignments/api/__tests__/mobileFieldValidationCompletion.contract.test.ts": {
@@ -1278,9 +1278,9 @@
     "semantic_hash": ""
   },
   "src/features/assignments/api/mobileFieldValidationAssignmentsApi.ts": {
-    "mtime": 1789398757.4070055,
-    "seen": 1789879387.5232248,
-    "ast_hash": "49f5f67860381205d54d0d7a82fbb96e",
+    "mtime": 1789880483.4968176,
+    "seen": 1789880852.926963,
+    "ast_hash": "f07416e43426850bd1ad5b2bddca3755",
     "semantic_hash": ""
   },
   "src/features/assignments/api/mobileFieldValidationCompletionApi.ts": {
@@ -1296,9 +1296,9 @@
     "semantic_hash": ""
   },
   "src/features/assignments/data/__tests__/assignmentCacheRepository.test.ts": {
-    "mtime": 1789657583.7837825,
-    "seen": 1789879387.523229,
-    "ast_hash": "8ebe4bd43198838a3ce4a514aef941d6",
+    "mtime": 1789880632.3767767,
+    "seen": 1789880852.9269693,
+    "ast_hash": "c4d1c2072631e18c9f02a2ba4d444e22",
     "semantic_hash": ""
   },
   "src/features/assignments/data/__tests__/fieldValidationCompletionRepository.test.ts": {
@@ -1308,9 +1308,9 @@
     "semantic_hash": ""
   },
   "src/features/assignments/data/assignmentCacheRepository.ts": {
-    "mtime": 1789657583.7837825,
-    "seen": 1789879387.5232306,
-    "ast_hash": "73ac2d03f55ee90d499dde6ed8134840",
+    "mtime": 1789880543.3688045,
+    "seen": 1789880852.926971,
+    "ast_hash": "5e93abd3d5495f920c64afc72dad7081",
     "semantic_hash": ""
   },
   "src/features/assignments/data/fieldValidationCompletionRepository.ts": {
@@ -1320,9 +1320,9 @@
     "semantic_hash": ""
   },
   "src/features/assignments/domain/assignmentTypes.ts": {
-    "mtime": 1789397299.460489,
-    "seen": 1789879387.5232344,
-    "ast_hash": "87372d2939f9b336ec2bcca9477a0a83",
+    "mtime": 1789880388.6368349,
+    "seen": 1789880852.9269748,
+    "ast_hash": "68a88b8925a299ef4715d7955bc3e0d8",
     "semantic_hash": ""
   },
   "src/features/assignments/domain/fieldValidationCompletionTypes.ts": {
@@ -1338,9 +1338,9 @@
     "semantic_hash": ""
   },
   "src/features/assignments/hooks/useFieldValidationAssignment.ts": {
-    "mtime": 1789878993.0624108,
-    "seen": 1789879387.5232384,
-    "ast_hash": "3d6d5f1ffcbc8a5e19082918bde100b6",
+    "mtime": 1789880619.8287828,
+    "seen": 1789880852.9269786,
+    "ast_hash": "d7a39b48d82853c2b5f8dfae6de9ce9a",
     "semantic_hash": ""
   },
   "src/features/assignments/hooks/useFieldValidationAssignments.ts": {
@@ -1608,9 +1608,9 @@
     "semantic_hash": ""
   },
   "src/database/__tests__/localDataLifecycle.test.ts": {
-    "mtime": 1789878993.0534532,
-    "seen": 1789879387.523206,
-    "ast_hash": "b0ea3985e0474ea24ef4ba5f37c29e91",
+    "mtime": 1789880663.8727818,
+    "seen": 1789880852.9269433,
+    "ast_hash": "56937214db552a71abafc4fa1920fbd1",
     "semantic_hash": ""
   },
   "src/database/localDataLifecycle.ts": {
@@ -1794,9 +1794,9 @@
     "semantic_hash": ""
   },
   "src/features/assignments/components/PreviousVisitCard.tsx": {
-    "mtime": 1789878993.0624108,
-    "seen": 1789879387.523228,
-    "ast_hash": "dc4ff12642296e132b416c498d0c958e",
+    "mtime": 1789880598.3607886,
+    "seen": 1789880852.9269664,
+    "ast_hash": "338c2f232c64742c2d12a59f7b116240",
     "semantic_hash": ""
   },
   "src/features/assignments/domain/__tests__/previousVisit.test.ts": {
@@ -1812,9 +1812,9 @@
     "semantic_hash": ""
   },
   "src/features/assignments/domain/previousVisit.ts": {
-    "mtime": 1789878993.0624108,
-    "seen": 1789879387.5232368,
-    "ast_hash": "6f87e3a2c35c8b26bdad5ef785d04ce0",
+    "mtime": 1789880477.3208187,
+    "seen": 1789880852.926977,
+    "ast_hash": "ba0cac889bb61c9f4be8f6ccb826001d",
     "semantic_hash": ""
   },
   "src/features/assignments/domain/todayVisits.ts": {
@@ -1869,6 +1869,12 @@
     "mtime": 1789397299.4837358,
     "seen": 1789879387.5233226,
     "ast_hash": "d234cee6c131a476d95b120a6814c5ec",
+    "semantic_hash": ""
+  },
+  "src/features/assignments/components/__tests__/PreviousVisitCard.test.tsx": {
+    "mtime": 1789880800.256754,
+    "seen": 1789880852.926968,
+    "ast_hash": "6da6dd28bbffdaf02a8b8ed31fb9f328",
     "semantic_hash": ""
   }
 }

@@ -17,6 +17,7 @@ import m0012 from './0012_dapper_sumo.sql';
 import m0013 from './0013_v1_local_scan_migration.sql';
 import m0014 from './0014_safe_songbird.sql';
 import m0015 from './0015_sour_riptide.sql';
+import m0016 from './0016_nervous_gateway.sql';
 
   export default {
     journal,
@@ -36,7 +37,8 @@ m0011,
 m0012,
 m0013,
 m0014,
-m0015
+m0015,
+m0016
     }
   }
   

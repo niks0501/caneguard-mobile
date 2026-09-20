@@ -225,6 +225,7 @@ export const fieldValidationAssignments = sqliteTable(
     submittedAt: text('submitted_at').notNull(),
     predictedLabel: text('predicted_label').notNull(),
     confidence: real('confidence').notNull(),
+    previousVisitJson: text('previous_visit_json'),
   },
   (table) => [
     index('field_validation_assignments_owner_updated_at_idx').on(

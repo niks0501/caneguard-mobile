@@ -1,0 +1,1 @@
+ALTER TABLE `field_validation_assignments` ADD `previous_visit_json` text;

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "caneguard-mobile",
-    "owner":"caneguard",
+    "name": "CaneGuard",
+    "owner": "caneguard",
     "slug": "caneguard-mobile",
     "version": "1.1.1",
     "orientation": "portrait",
@@ -44,10 +44,8 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#101711",
-          "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 200
-          }
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 134
         }
       ],
       "expo-font",

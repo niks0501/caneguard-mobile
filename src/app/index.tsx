@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, useColorScheme, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
@@ -10,6 +10,10 @@ import { useTheme } from '@/hooks/use-theme';
 
 export default function SplashScreen() {
   const theme = useTheme();
+  const colorScheme = useColorScheme();
+  const logoSource = colorScheme === 'dark'
+    ? require('../../assets/cane_guard_logo_onDark.png')
+    : require('../../assets/cane_guard_logo.png');
   const { hasCompletedLogin, status } = useAuth();
 
   useEffect(() => {
@@ -24,7 +28,7 @@ export default function SplashScreen() {
         <Image
           accessible
           accessibilityLabel="CaneGuard Logo"
-          source={require('../../assets/cane_guard_logo.png')}
+          source={logoSource}
           style={styles.logo}
           resizeMode="contain"
         />

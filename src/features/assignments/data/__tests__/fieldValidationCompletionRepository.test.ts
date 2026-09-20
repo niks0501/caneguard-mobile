@@ -45,6 +45,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
     '0012_dapper_sumo.sql',
     '0013_v1_local_scan_migration.sql',
     '0014_safe_songbird.sql',
+    '0015_sour_riptide.sql',
   ]) native.exec(migration(filename));
   return { database: createDatabase(native), native };
 }
@@ -82,6 +83,7 @@ function input(overrides: Partial<SaveFieldValidationCompletionInput> = {}): Sav
     fieldObservation: 'Fresh leaves show rust-like lesions.',
     fieldFinding: 'Evidence was recorded for office review.',
     actionTaken: 'Provided field guidance and recorded the visit.',
+    followUpOutcome: 'improved',
     visitedAt: '2026-09-02T04:05:06.123Z',
     gpsOutcome: 'low_accuracy',
     gpsAttemptedAt: '2026-09-02T04:05:01.123Z',
@@ -103,6 +105,7 @@ describe('field validation completion repository', () => {
       syncStatus: 'pending',
       fieldObservation: 'Fresh leaves show rust-like lesions.',
       gpsOutcome: 'low_accuracy',
+      followUpOutcome: 'improved',
     });
     // A new repository connection represents the app reopening SQLite after a
     // restart; the row remains in the durable database.

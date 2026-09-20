@@ -10,6 +10,7 @@ context platform=android timeout=240000
 open "com.niks0501.caneguard" --platform android
 wait "id=field-validation.assignment-summary" 30000
 is visible "label=\"${T10_CASE_REFERENCE}\""
+click "id=field-validation.outcome.unable_to_determine"
 fill "id=field-validation.observation-input" "Intent offline observation"
 scroll down 0.25 --settle
 fill "id=field-validation.finding-input" "Intent field finding"

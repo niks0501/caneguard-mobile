@@ -4,14 +4,23 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { DiseasePill, type DiseasePillVariant } from '@/components/ui/DiseasePill';
 import { ComponentTokens, Radius, Spacing, Typography } from '@/constants/theme';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
+import {
+  formatTodayDueLine,
+  getLocalDateKey,
+  type TodayVisitBucket,
+} from '@/features/assignments/domain/todayVisits';
 import { useTheme } from '@/hooks/use-theme';
 
 export function AssignmentCard({
   assignment,
+  dueState,
   onPress,
   testID,
+  today,
 }: {
   assignment: FieldValidationAssignment;
+  dueState?: TodayVisitBucket;
+  today?: string;
   onPress?: () => void;
   testID?: string;
 }) {
@@ -51,6 +60,7 @@ export function AssignmentCard({
       </View>
       <View style={[styles.details, { borderTopColor: theme.divider }]}>
         <Detail label="Visit" value={target} theme={theme} />
+        {dueState ? <Detail label="Due" value={formatTodayDueLine(assignment, today ?? getLocalDateKey())} theme={theme} /> : null}
         <Detail label="Submitted by" value={assignment.submitter.name} theme={theme} />
         <Detail label="Status" value={stateLabel(assignment.fieldValidationState)} theme={theme} />
       </View>

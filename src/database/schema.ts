@@ -91,6 +91,16 @@ export const FIELD_VALIDATION_GPS_OUTCOMES = [
 export type FieldValidationGpsOutcome =
   (typeof FIELD_VALIDATION_GPS_OUTCOMES)[number];
 
+export const FIELD_VALIDATION_FOLLOW_UP_OUTCOMES = [
+  'improved',
+  'unchanged',
+  'worsened',
+  'unable_to_determine',
+] as const;
+
+export type FieldValidationFollowUpOutcome =
+  (typeof FIELD_VALIDATION_FOLLOW_UP_OUTCOMES)[number];
+
 export const scanRecords = sqliteTable(
   'scan_records',
   {
@@ -255,6 +265,10 @@ export const fieldValidationCompletions = sqliteTable(
     fieldObservation: text('field_observation').notNull(),
     fieldFinding: text('field_finding').notNull(),
     actionTaken: text('action_taken').notNull(),
+    followUpOutcome: text('follow_up_outcome')
+      .$type<FieldValidationFollowUpOutcome>()
+      .notNull()
+      .default('unable_to_determine'),
     visitedAt: text('visited_at').notNull(),
     gpsOutcome: text('gps_outcome')
       .$type<FieldValidationGpsOutcome>()
@@ -291,6 +305,10 @@ export const fieldValidationCompletions = sqliteTable(
     check(
       'field_validation_completions_gps_outcome_check',
       sql`${table.gpsOutcome} in ('resolved', 'low_accuracy', 'permission_denied', 'unavailable', 'error')`,
+    ),
+    check(
+      'field_validation_completions_follow_up_outcome_check',
+      sql`${table.followUpOutcome} in ('improved', 'unchanged', 'worsened', 'unable_to_determine')`,
     ),
     check(
       'field_validation_completions_sync_status_check',

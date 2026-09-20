@@ -30,6 +30,7 @@ type QuickAction = {
   icon: keyof typeof Feather.glyphMap;
   primary?: boolean;
   onPress: () => void;
+  testID?: string;
 };
 
 export default function HomeScreen() {
@@ -37,6 +38,9 @@ export default function HomeScreen() {
   const { sessionVerification, user } = useAuth();
   const { apiReachability, isOnline } = useSync();
   const attention = useHomeAttention();
+  const activeVisitItems = attention.items.filter((item) => item.kind === 'assignment');
+  const dueTodayCount = activeVisitItems.filter((item) => item.meta === 'Visit due today').length;
+  const overdueCount = activeVisitItems.filter((item) => item.meta.startsWith('Visit was due')).length;
   const serverUnavailable =
     sessionVerification === 'unavailable' || apiReachability === 'unavailable';
   const connectionBadge = isOnline === false
@@ -55,6 +59,15 @@ export default function HomeScreen() {
       icon: 'camera',
       primary: true,
       onPress: () => router.push('/scan'),
+    },
+    {
+      title: "Today's visits",
+      body: activeVisitItems.length
+        ? `${dueTodayCount} due today · ${overdueCount} overdue`
+        : 'No visits scheduled',
+      icon: 'calendar',
+      testID: 'home.today-visits',
+      onPress: () => router.push('/today' as Href),
     },
     {
       title: 'My Activity',
@@ -198,6 +211,7 @@ function QuickActionCard({ action }: { action: QuickAction }) {
 
   return (
     <Pressable
+      testID={action.testID}
       accessibilityRole="button"
       accessibilityLabel={action.title}
       onPress={action.onPress}

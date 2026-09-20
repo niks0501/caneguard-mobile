@@ -102,6 +102,7 @@ function completionInput(): SaveFieldValidationCompletionInput {
     fieldObservation: 'Fresh leaves show rust-like lesions during the visit.',
     fieldFinding: 'The field evidence is preserved separately for office review.',
     actionTaken: 'Provided field guidance and recorded the next action.',
+    followUpOutcome: 'unchanged',
     visitedAt: '2026-09-02T04:05:06.123Z',
     gpsOutcome: 'unavailable',
     gpsAttemptedAt: '2026-09-02T04:05:01.123Z',

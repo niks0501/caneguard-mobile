@@ -7,18 +7,24 @@ import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import {
   findCachedFieldValidationAssignment,
+  listCachedFieldValidationAssignments,
   markCachedFieldValidationAssignmentInProgress,
 } from '@/features/assignments/data/assignmentCacheRepository';
 import {
   findFieldValidationCompletion,
+  listFieldValidationCompletions,
   saveFieldValidationCompletion,
 } from '@/features/assignments/data/fieldValidationCompletionRepository';
+import type { FieldValidationFollowUpOutcome } from '@/database/schema';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
+import type { PreviousVisit } from '@/features/assignments/domain/previousVisit';
+import { selectPreviousVisit } from '@/features/assignments/domain/previousVisit';
 import type {
   FieldValidationCompletion,
   SaveFieldValidationCompletionInput,
 } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 import { normalizeFieldValidationText } from '@/features/assignments/domain/fieldValidationCompletionValidation';
+import { findFieldReportById } from '@/features/reports/data/fieldReportRepository';
 import {
   deleteFieldValidationPhoto,
   persistFieldValidationPhoto,
@@ -33,12 +39,15 @@ export interface CompleteFieldValidationInput {
   fieldFinding: string;
   fieldObservation: string;
   freshPhoto?: ImagePickerAsset | null;
+  followUpOutcome: FieldValidationFollowUpOutcome;
 }
 
 interface AssignmentState {
   assignment: FieldValidationAssignment | null;
   completion: FieldValidationCompletion | null;
+  currentReporterConcern: string | null;
   errorMessage: string | null;
+  previousVisit: PreviousVisit | null;
   loading: boolean;
   saving: boolean;
 }
@@ -52,7 +61,9 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
   const [state, setState] = useState<AssignmentState>({
     assignment: null,
     completion: null,
+    currentReporterConcern: null,
     errorMessage: null,
+    previousVisit: null,
     loading: true,
     saving: false,
   });
@@ -62,21 +73,43 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
   const refresh = useCallback(async () => {
     const requestedSession = session;
     if (!assignmentId || authStatus !== 'authenticated' || !requestedSession) {
-      setState({ assignment: null, completion: null, errorMessage: 'Sign in to open this assignment.', loading: false, saving: false });
+      setState({ assignment: null, completion: null, currentReporterConcern: null, errorMessage: 'Sign in to open this assignment.', loading: false, previousVisit: null, saving: false });
       return;
     }
     setState((current) => ({ ...current, errorMessage: null, loading: true }));
     try {
-      const [assignment, completion] = await Promise.all([
+      const [assignment, completion, assignments, completions] = await Promise.all([
         findCachedFieldValidationAssignment(database, requestedSession.user.uuid, assignmentId),
         findFieldValidationCompletion(database, requestedSession.user.uuid, assignmentId),
+        listCachedFieldValidationAssignments(database, requestedSession.user.uuid),
+        listFieldValidationCompletions(database, requestedSession.user.uuid),
       ]);
       if (sessionRef.current?.token !== requestedSession.token || !mounted.current) return;
+      if (!assignment) {
+        setState({ assignment: null, completion: null, currentReporterConcern: null, errorMessage: 'This assignment is not downloaded on this device. Refresh Activity while online first.', loading: false, previousVisit: null, saving: false });
+        return;
+      }
+      const reporterConcerns = new Map<string, string | null>();
+      await Promise.all(assignments.map(async (candidate) => {
+        try {
+          const report = await findFieldReportById(database, candidate.reportClientUuid, requestedSession.user.uuid);
+          reporterConcerns.set(candidate.id, report.reporterSuspectedCondition);
+        } catch {
+          reporterConcerns.set(candidate.id, null);
+        }
+      }));
       setState({
         assignment,
         completion,
-        errorMessage: assignment ? null : 'This assignment is not downloaded on this device. Refresh Activity while online first.',
+        currentReporterConcern: reporterConcerns.get(assignment.id) ?? null,
+        errorMessage: null,
         loading: false,
+        previousVisit: selectPreviousVisit({
+          assignments,
+          completions,
+          currentAssignment: assignment,
+          reporterConcerns,
+        }),
         saving: false,
       });
     } catch (error: unknown) {
@@ -134,6 +167,7 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
         fieldObservation: normalizeFieldValidationText(input.fieldObservation),
         fieldFinding: normalizeFieldValidationText(input.fieldFinding),
         actionTaken: normalizeFieldValidationText(input.actionTaken),
+        followUpOutcome: input.followUpOutcome,
         visitedAt: new Date().toISOString(),
         gpsOutcome: gps.outcome,
         ...gpsInput,

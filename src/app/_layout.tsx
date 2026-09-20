@@ -64,6 +64,7 @@ function AppNavigator() {
         <Stack.Protected guard={status === 'authenticated'}>
           <Stack.Screen name="home" />
           <Stack.Screen name="activity" />
+          <Stack.Screen name="today" />
           <Stack.Screen name="scan" />
           <Stack.Screen name="image-preview" />
           <Stack.Screen name="symptom-checklist" />

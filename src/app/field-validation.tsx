@@ -19,8 +19,11 @@ import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { Row } from '@/components/ui/Row';
 import { TextField } from '@/components/ui/TextField';
+import { FollowUpOutcomeControl } from '@/features/assignments/components/FollowUpOutcomeControl';
+import { PreviousVisitCard } from '@/features/assignments/components/PreviousVisitCard';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
+import type { FieldValidationFollowUpOutcome } from '@/database/schema';
 import type { FieldValidationCompletion } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 import { FIELD_VALIDATION_TEXT_MAX_LENGTH } from '@/features/assignments/domain/fieldValidationCompletionValidation';
 import { useFieldValidationAssignment } from '@/features/assignments/hooks/useFieldValidationAssignment';
@@ -34,6 +37,7 @@ export default function FieldValidationScreen() {
   const [observation, setObservation] = useState('');
   const [finding, setFinding] = useState('');
   const [action, setAction] = useState('');
+  const [followUpOutcome, setFollowUpOutcome] = useState<FieldValidationFollowUpOutcome | null>(null);
   const [photo, setPhoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
@@ -70,11 +74,16 @@ export default function FieldValidationScreen() {
       setFieldError('Each validation evidence field must be no more than 2,000 characters.');
       return;
     }
+    if (!followUpOutcome) {
+      setFieldError('Choose the follow-up outcome before completing this visit.');
+      return;
+    }
     setFieldError(null);
     await state.complete({
       fieldObservation: observation,
       fieldFinding: finding,
       actionTaken: action,
+      followUpOutcome,
       freshPhoto: photo,
     });
   };
@@ -94,6 +103,10 @@ export default function FieldValidationScreen() {
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
             <View style={styles.content}>
               <VisitContext assignment={state.assignment} completion={state.completion} />
+              <PreviousVisitCard
+                currentReporterConcern={state.currentReporterConcern}
+                previousVisit={state.previousVisit}
+              />
               {state.completion ? (
                 <CompletionStatus completion={state.completion} onRetry={() => void state.retry()} />
               ) : (
@@ -101,10 +114,13 @@ export default function FieldValidationScreen() {
                   observation={observation}
                   finding={finding}
                   action={action}
+                  followUpOutcome={followUpOutcome}
+                  previousVisitAt={state.previousVisit?.visitedAt ?? null}
                   photo={photo}
                   onObservationChange={setObservation}
                   onFindingChange={setFinding}
                   onActionChange={setAction}
+                  onFollowUpOutcomeChange={setFollowUpOutcome}
                   onCapturePhoto={() => void capturePhoto()}
                 />
               )}
@@ -168,16 +184,17 @@ function CompletionActions({ saving, fieldError, onSubmit }: { fieldError: strin
 }
 
 function EvidenceForm({
-  observation, finding, action, photo, onObservationChange, onFindingChange, onActionChange, onCapturePhoto,
+  observation, finding, action, followUpOutcome, previousVisitAt, photo, onObservationChange, onFindingChange, onActionChange, onCapturePhoto, onFollowUpOutcomeChange,
 }: {
-  observation: string; finding: string; action: string; photo: ImagePicker.ImagePickerAsset | null;
-  onObservationChange: (value: string) => void; onFindingChange: (value: string) => void; onActionChange: (value: string) => void; onCapturePhoto: () => void;
+  observation: string; finding: string; action: string; followUpOutcome: FieldValidationFollowUpOutcome | null; previousVisitAt: string | null; photo: ImagePicker.ImagePickerAsset | null;
+  onObservationChange: (value: string) => void; onFindingChange: (value: string) => void; onActionChange: (value: string) => void; onCapturePhoto: () => void; onFollowUpOutcomeChange: (value: FieldValidationFollowUpOutcome) => void;
 }) {
   const theme = useTheme();
   const hasObservation = observation.trim().length > 0;
   const hasFinding = finding.trim().length > 0;
   return (
     <View testID="field-validation.form" style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
+      <FollowUpOutcomeControl previousVisitAt={previousVisitAt} value={followUpOutcome} onChange={onFollowUpOutcomeChange} />
       <View style={styles.heading}><Feather name="edit-3" size={20} color={theme.primary} /><Text style={[styles.title, { color: theme.text }]}>What did you record on this visit?</Text></View>
       <Text style={[styles.help, { color: theme.textSecondary }]}>Three separate parts of the same visit: what you saw, what you make of it, and what you did. These are stored as field evidence, separate from the submitted case evidence.</Text>
       <TextField testID="field-validation.observation-input" label="Fresh field observation" hint="What you physically saw on this visit. For example: “Orange-brown pustules on the lower leaves of about a fifth of the block.”" value={observation} onChangeText={onObservationChange} placeholder="What did you see during this visit?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />

@@ -5,6 +5,7 @@ import {
   type NeedsAttentionItem,
 } from '@/features/activity/domain/needsAttention';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
+import { getLocalDateKey } from '@/features/assignments/domain/todayVisits';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
 import { useNotificationDestinations } from '@/features/notifications/hooks/useNotificationDestinations';
 
@@ -37,7 +38,7 @@ export function useHomeAttention(): HomeAttention {
         notifications: notifications.notifications,
         pendingUploadCount: 0,
         syncErrorMessage: null,
-        today: new Date().toISOString().slice(0, 10),
+        today: getLocalDateKey(),
       }).items,
     [assignments.assignments, destinations, notifications.notifications],
   );

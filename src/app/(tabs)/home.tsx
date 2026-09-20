@@ -3,7 +3,6 @@ import { router, type Href } from 'expo-router';
 import { Image, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BottomNav } from '@/components/ui/BottomNav';
 import { Pill, type PillVariant } from '@/components/ui/Pill';
 import { SyncStatusRow } from '@/components/ui/SyncStatusRow';
 import { HomeAttentionCard } from '@/features/activity/components/HomeAttentionCard';
@@ -37,8 +36,8 @@ export default function HomeScreen() {
   const theme = useTheme();
   const colorScheme = useColorScheme();
   const logoSource = colorScheme === 'dark'
-    ? require('../../assets/cane_guard_logo_onDark.png')
-    : require('../../assets/cane_guard_logo.png');
+    ? require('../../../assets/cane_guard_logo_onDark.png')
+    : require('../../../assets/cane_guard_logo.png');
   const { sessionVerification, user } = useAuth();
   const { apiReachability, isOnline } = useSync();
   const attention = useHomeAttention();
@@ -209,7 +208,6 @@ export default function HomeScreen() {
             </View>
           </View>
         </ScrollView>
-        <BottomNav activeTab="home" />
       </View>
     </SafeAreaView>
   );

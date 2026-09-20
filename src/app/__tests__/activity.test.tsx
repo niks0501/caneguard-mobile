@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
-import ActivityScreen from '@/app/activity';
+import ActivityScreen from '@/app/(tabs)/activity';
 import { ToastProvider } from '@/components/ui/Toast';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';

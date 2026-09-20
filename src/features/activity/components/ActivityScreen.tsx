@@ -27,7 +27,6 @@ import { useNotificationDestinations } from '@/features/notifications/hooks/useN
 import { notificationDestinationRoute } from '@/features/notifications/services/resolveNotificationDestination';
 import { RecordCard } from '@/components/ui/RecordCard';
 import { AppButton } from '@/components/ui/AppButton';
-import { BottomNav } from '@/components/ui/BottomNav';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SyncStatusPanel } from '@/components/ui/SyncStatusPanel';
@@ -104,10 +103,10 @@ export default function ActivityScreen() {
   const activityCount = timeline.length;
   const buildRefreshTargets = (): RefreshAllTarget[] => {
     const targets: RefreshAllTarget[] = [
-      { key: 'notifications', run: () => notifications.refresh() },
-      { key: 'officeReview', run: () => authorityStatus.refresh() },
-      { key: 'assignments', run: () => assignments.refresh() },
-      { key: 'records', run: () => records.refresh() },
+      { key: 'notifications', run: () => notifications.refresh({ force: true }) },
+      { key: 'officeReview', run: () => authorityStatus.refresh({ force: true }) },
+      { key: 'assignments', run: () => assignments.refresh({ force: true }) },
+      { key: 'records', run: () => records.refresh({ force: true }) },
     ];
     if (sync.isOnline === true) {
       targets.unshift({
@@ -425,7 +424,6 @@ export default function ActivityScreen() {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-        <BottomNav activeTab="activity" />
       </View>
     </SafeAreaView>
   );

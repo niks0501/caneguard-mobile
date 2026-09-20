@@ -27,6 +27,7 @@ jest.mock('expo-image', () => {
 jest.mock('expo-router', () => ({
   router: {
     back: jest.fn(),
+    navigate: jest.fn(),
     push: jest.fn(),
     replace: jest.fn(),
   },

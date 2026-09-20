@@ -11,6 +11,14 @@ import {
 import { listCachedFieldValidationAssignments } from '@/features/assignments/data/assignmentCacheRepository';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import { refreshFieldValidationAssignments } from '@/features/assignments/services/refreshFieldValidationAssignments';
+import {
+  beginOwnerCacheLoad,
+  beginOwnerRefresh,
+  getOwnerMobileDataStore,
+  isFresh,
+  setOwnerAssignments,
+  subscribeOwnerMobileData,
+} from '@/features/mobile-data/data/mobileDataStore';
 
 interface AssignmentState {
   assignments: FieldValidationAssignment[];
@@ -35,6 +43,16 @@ export function useFieldValidationAssignments(enabled = true) {
   const sessionRef = useRef(session);
   const mounted = useRef(true);
   const sessionKey = session ? `${session.user.uuid}:${session.token}` : null;
+  const ownerStore =
+    session && database !== EMPTY_DATABASE
+      ? getOwnerMobileDataStore(database, session.user.uuid)
+      : null;
+  const [, setStoreRevision] = useState(0);
+
+  useEffect(() => {
+    if (!ownerStore) return;
+    return subscribeOwnerMobileData(ownerStore, () => setStoreRevision((value) => value + 1));
+  }, [ownerStore]);
 
   useEffect(() => {
     sessionRef.current = session;
@@ -48,16 +66,33 @@ export function useFieldValidationAssignments(enabled = true) {
     [],
   );
 
-  const refresh = useCallback(async (): Promise<boolean> => {
+  const refresh = useCallback(async (options?: { force?: boolean }): Promise<boolean> => {
     const requestedSession = session;
+    const force = options?.force !== false;
     if (
       !enabled ||
       authStatus !== 'authenticated' ||
       !requestedSession ||
-      !database ||
-      (EMPTY_DATABASE && database === EMPTY_DATABASE)
+      database === EMPTY_DATABASE ||
+      !ownerStore
     ) {
       return false;
+    }
+
+    const store = ownerStore;
+    const applyCached = (assignments: FieldValidationAssignment[]) => {
+      if (isCurrentSession(requestedSession)) {
+        setState((current) => ({
+          ...current,
+          assignments,
+          sessionKey,
+        }));
+      }
+    };
+
+    if (!force && isFresh(store.assignments)) {
+      applyCached(store.assignments?.value ?? []);
+      return true;
     }
 
     setState((current) => ({
@@ -68,37 +103,46 @@ export function useFieldValidationAssignments(enabled = true) {
     }));
 
     try {
-      const cached = await listCachedFieldValidationAssignments(
-        database,
-        requestedSession.user.uuid,
-      );
-      if (isCurrentSession(requestedSession)) {
-        setState((current) => ({
-          ...current,
-          assignments: cached,
-          sessionKey,
-        }));
+      await beginOwnerCacheLoad(store, 'assignments', async () => {
+        const cached = await listCachedFieldValidationAssignments(
+          database,
+          requestedSession.user.uuid,
+        );
+        const fetchedAt = cached.reduce(
+          (latest, assignment) => Math.max(latest, Date.parse(assignment.cachedAt)),
+          0,
+        );
+        setOwnerAssignments(store, cached, fetchedAt);
+        applyCached(cached);
+      });
+      if (!force && isFresh(store.assignments)) {
+        applyCached(store.assignments?.value ?? []);
+        setState((current) => ({ ...current, refreshing: false }));
+        return true;
       }
     } catch {
       // A network refresh can still recover a cache read failure.
     }
 
     try {
-      const result = await refreshFieldValidationAssignments({
-        database,
-        ownerIdentity: requestedSession.user.uuid,
-        token: requestedSession.token,
+      return await beginOwnerRefresh(store, 'assignments', async () => {
+        const result = await refreshFieldValidationAssignments({
+          database,
+          ownerIdentity: requestedSession.user.uuid,
+          token: requestedSession.token,
+        });
+        if (!isCurrentSession(requestedSession)) return false;
+        setOwnerAssignments(store, result.assignments, result.fetchedAt);
+        setState({
+          assignments: result.assignments,
+          capabilityUnavailable: false,
+          errorMessage: null,
+          lastSuccessfulAt: result.fetchedAt,
+          refreshing: false,
+          sessionKey,
+        });
+        return true;
       });
-      if (!isCurrentSession(requestedSession)) return false;
-      setState({
-        assignments: result.assignments,
-        capabilityUnavailable: false,
-        errorMessage: null,
-        lastSuccessfulAt: result.fetchedAt,
-        refreshing: false,
-        sessionKey,
-      });
-      return true;
     } catch (error: unknown) {
       if (!isCurrentSession(requestedSession)) return false;
       if (
@@ -116,7 +160,7 @@ export function useFieldValidationAssignments(enabled = true) {
         capabilityUnavailable,
         errorMessage: capabilityUnavailable
           ? 'Field validation assignments are unavailable on this server. Showing the saved assignment cache.'
-          : current.assignments.length
+          : (store.assignments?.value.length ?? current.assignments.length)
             ? "Couldn't refresh - showing saved assignments."
             : error instanceof Error && error.message.includes('cache')
               ? getStorageErrorMessage(
@@ -131,11 +175,11 @@ export function useFieldValidationAssignments(enabled = true) {
       }));
       return false;
     }
-  }, [authStatus, database, enabled, isCurrentSession, markSessionExpired, session, sessionKey]);
+  }, [authStatus, database, enabled, isCurrentSession, markSessionExpired, ownerStore, session, sessionKey]);
 
   useFocusEffect(
     useCallback(() => {
-      if (enabled) void refresh();
+      if (enabled) void refresh({ force: false });
     }, [enabled, refresh]),
   );
 
@@ -145,7 +189,7 @@ export function useFieldValidationAssignments(enabled = true) {
     const subscription = AppState.addEventListener('change', (nextState) => {
       const becameActive = nextState === 'active' && previousState !== 'active';
       previousState = nextState;
-      if (becameActive) void refresh();
+      if (becameActive) void refresh({ force: false });
     });
     return () => {
       mounted.current = false;
@@ -155,9 +199,12 @@ export function useFieldValidationAssignments(enabled = true) {
 
   const visibleState =
     state.sessionKey === sessionKey
-      ? state
+      ? {
+          ...state,
+          assignments: ownerStore?.assignments?.value ?? state.assignments,
+        }
       : {
-          assignments: [],
+          assignments: ownerStore?.assignments?.value ?? [],
           capabilityUnavailable: false,
           errorMessage: null,
           lastSuccessfulAt: null,

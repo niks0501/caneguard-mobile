@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
-import HomeScreen from '@/app/home';
+import HomeScreen from '@/app/(tabs)/home';
 
 import type { NeedsAttentionItem } from '@/features/activity/domain/needsAttention';
 

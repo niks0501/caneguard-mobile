@@ -477,6 +477,7 @@ export const fieldReports = sqliteTable(
   (table) => [
     uniqueIndex('field_reports_scan_record_id_unique').on(table.scanRecordId),
     uniqueIndex('field_reports_remote_id_unique').on(table.remoteId),
+    index('field_reports_authority_reference_code_idx').on(table.authorityReferenceCode),
     index('field_reports_authoring_updated_at_idx').on(
       table.authoringState,
       table.updatedAt,

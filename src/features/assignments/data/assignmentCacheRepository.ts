@@ -9,6 +9,10 @@ import type {
 } from '@/features/assignments/domain/assignmentTypes';
 import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
+import {
+  getOwnerMobileDataStore,
+  setOwnerAssignments,
+} from '@/features/mobile-data/data/mobileDataStore';
 
 export async function listCachedFieldValidationAssignments(
   database: CaneGuardDatabase,
@@ -102,6 +106,18 @@ async function updateCachedAssignmentState(
           eq(fieldValidationAssignments.id, assignmentId),
         ),
       );
+    const store = getOwnerMobileDataStore(database, owner);
+    if (store.assignments) {
+      setOwnerAssignments(
+        store,
+        store.assignments.value.map((assignment) =>
+          assignment.id === assignmentId
+            ? { ...assignment, fieldValidationState, updatedAt }
+            : assignment,
+        ),
+        store.assignments.fetchedAt,
+      );
+    }
   } catch (error: unknown) {
     throw toStorageError(
       error,
@@ -123,17 +139,67 @@ export async function replaceCachedFieldValidationAssignments(
   }
 
   try {
+    const current = await listCachedFieldValidationAssignments(database, owner);
+    const incoming = new Map(updates.map((update) => [update.id, update]));
+    const currentById = new Map(current.map((assignment) => [assignment.id, assignment]));
+    const removed = current.some((assignment) => !incoming.has(assignment.id));
+    const changed = updates.some((update) => {
+      const previous = currentById.get(update.id);
+      if (!previous) return true;
+      const { ownerIdentity: _owner, cachedAt: _cachedAt, ...previousData } = previous;
+      return stableFingerprint(previousData) !== stableFingerprint(update);
+    });
+
+    if (!removed && !changed) {
+      database
+        .update(fieldValidationAssignments)
+        .set({ cachedAt })
+        .where(eq(fieldValidationAssignments.ownerIdentity, owner))
+        .run();
+      return;
+    }
+
     database.transaction((transaction) => {
+      for (const assignment of current) {
+        if (!incoming.has(assignment.id)) {
+          transaction
+            .delete(fieldValidationAssignments)
+            .where(
+              and(
+                eq(fieldValidationAssignments.ownerIdentity, owner),
+                eq(fieldValidationAssignments.id, assignment.id),
+              ),
+            )
+            .run();
+        }
+      }
+
       transaction
-        .delete(fieldValidationAssignments)
+        .update(fieldValidationAssignments)
+        .set({ cachedAt })
         .where(eq(fieldValidationAssignments.ownerIdentity, owner))
         .run();
 
       for (const update of updates) {
-        transaction
-          .insert(fieldValidationAssignments)
-          .values(toRow(update, owner, cachedAt))
-          .run();
+        const previous = currentById.get(update.id);
+        const { ownerIdentity: _owner, cachedAt: _cachedAt, ...previousData } = previous ?? {};
+        if (!previous || stableFingerprint(previousData) !== stableFingerprint(update)) {
+          if (previous) {
+            transaction
+              .delete(fieldValidationAssignments)
+              .where(
+                and(
+                  eq(fieldValidationAssignments.ownerIdentity, owner),
+                  eq(fieldValidationAssignments.id, update.id),
+                ),
+              )
+              .run();
+          }
+          transaction
+            .insert(fieldValidationAssignments)
+            .values(toRow(update, owner, cachedAt))
+            .run();
+        }
       }
     });
     emitSyncRecordsChanged();
@@ -225,6 +291,19 @@ function parsePreviousVisit(value: string | null): PreviousVisitContext | null {
   } catch {
     return null;
   }
+}
+
+function stableFingerprint(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableFingerprint).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([first], [second]) => first.localeCompare(second))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableFingerprint(entry)}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
 }
 
 function requireOwner(value: string): string {

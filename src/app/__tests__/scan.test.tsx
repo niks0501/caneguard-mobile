@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { useReducer } from 'react';
 import { Linking, Platform } from 'react-native';
 
-import ScanScreen from '@/app/scan';
+import ScanScreen from '@/app/(tabs)/scan';
 import { ToastProvider } from '@/components/ui/Toast';
 import { ScanSessionContext } from '@/features/detection/context/ScanSessionProvider';
 import {

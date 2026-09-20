@@ -20,6 +20,7 @@ const migration11 = readMigration('0011_tidy_meteorite.sql');
 const migration12 = readMigration('0012_dapper_sumo.sql');
 const migration13 = readMigration('0013_v1_local_scan_migration.sql');
 const migration14 = readMigration('0014_safe_songbird.sql');
+const migration15 = readMigration('0015_sour_riptide.sql');
 const migrationJournal = migrationBundle.journal;
 
 function readMigration(filename: string): string {
@@ -472,6 +473,36 @@ describe('CaneGuard database migrations', () => {
     database.close();
   });
 
+  it('defaults follow-up outcome when an existing completion crosses the migration', () => {
+    const database = openDatabase();
+    applyLatest(database);
+    database.prepare(`
+      INSERT INTO field_validation_completions (
+        id, owner_identity, assignment_id, report_uuid, field_observation,
+        field_finding, action_taken, visited_at, gps_outcome, gps_attempted_at,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'completion-legacy',
+      'owner-legacy',
+      'assignment-legacy',
+      'report-legacy',
+      'observation',
+      'finding',
+      'action',
+      '2026-09-01T00:00:00.000Z',
+      'unavailable',
+      '2026-09-01T00:00:00.000Z',
+      '2026-09-01T00:00:00.000Z',
+      '2026-09-01T00:00:00.000Z',
+    );
+    database.exec(migration15);
+    expect(database.prepare('SELECT follow_up_outcome FROM field_validation_completions').get()).toEqual({
+      follow_up_outcome: 'unable_to_determine',
+    });
+    database.close();
+  });
+
   it('keeps the bundled migration module aligned with the journal and SQL files', () => {
     const consumedMigrations = migrationJournal.entries.map((entry) => {
       const key = `m${String(entry.idx).padStart(4, '0')}`;
@@ -500,6 +531,7 @@ describe('CaneGuard database migrations', () => {
       '0012_dapper_sumo',
       '0013_v1_local_scan_migration',
       '0014_safe_songbird',
+      '0015_sour_riptide',
     ]);
     expect(Object.keys(migrationBundle.migrations)).toEqual([
       'm0000',
@@ -517,6 +549,7 @@ describe('CaneGuard database migrations', () => {
       'm0012',
       'm0013',
       'm0014',
+      'm0015',
     ]);
     expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
       migration0,
@@ -534,6 +567,7 @@ describe('CaneGuard database migrations', () => {
       migration12,
       migration13,
       migration14,
+      migration15,
     ]);
   });
 });

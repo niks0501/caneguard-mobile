@@ -97,6 +97,7 @@ export async function saveFieldValidationCompletion(
           fieldObservation: input.fieldObservation,
           fieldFinding: input.fieldFinding,
           actionTaken: input.actionTaken,
+          followUpOutcome: input.followUpOutcome,
           visitedAt: input.visitedAt,
           gpsOutcome: input.gpsOutcome,
           gpsAttemptedAt: input.gpsAttemptedAt,
@@ -124,6 +125,40 @@ export async function saveFieldValidationCompletion(
     });
   } catch (error: unknown) {
     throw toStorageError(error, 'UPDATE_FAILED', 'Saving field validation evidence failed.');
+  }
+}
+
+export async function listFieldValidationCompletions(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+): Promise<FieldValidationCompletion[]> {
+  try {
+    const rows = await database
+      .select()
+      .from(fieldValidationCompletions)
+      .where(eq(fieldValidationCompletions.ownerIdentity, requireOwner(ownerIdentity)))
+      .orderBy(asc(fieldValidationCompletions.visitedAt), asc(fieldValidationCompletions.createdAt));
+    return rows.map(toCompletion);
+  } catch (error: unknown) {
+    throw toStorageError(error, 'QUERY_FAILED', 'Reading saved field validation visits failed.');
+  }
+}
+
+export async function listFieldValidationCompletionSummaries(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+): Promise<{ assignmentId: string; visitedAt: string }[]> {
+  try {
+    return await database
+      .select({
+        assignmentId: fieldValidationCompletions.assignmentId,
+        visitedAt: fieldValidationCompletions.visitedAt,
+      })
+      .from(fieldValidationCompletions)
+      .where(eq(fieldValidationCompletions.ownerIdentity, requireOwner(ownerIdentity)))
+      .orderBy(asc(fieldValidationCompletions.visitedAt));
+  } catch (error: unknown) {
+    throw toStorageError(error, 'QUERY_FAILED', 'Reading saved field validation visits failed.');
   }
 }
 
@@ -378,6 +413,7 @@ function toCompletion(row: FieldValidationCompletionRow): FieldValidationComplet
     fieldObservation: row.fieldObservation,
     fieldFinding: row.fieldFinding,
     actionTaken: row.actionTaken,
+    followUpOutcome: row.followUpOutcome,
     visitedAt: row.visitedAt,
     gpsOutcome: row.gpsOutcome,
     gpsAttemptedAt: row.gpsAttemptedAt,

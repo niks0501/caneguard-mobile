@@ -40,6 +40,7 @@ const MIGRATIONS = [
   '0012_dapper_sumo.sql',
   '0013_v1_local_scan_migration.sql',
     '0014_safe_songbird.sql',
+  '0015_sour_riptide.sql',
 ] as const;
 
 function readMigration(filename: string): string {

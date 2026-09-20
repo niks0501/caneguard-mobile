@@ -1,5 +1,6 @@
 import { StorageError } from '@/database/errors';
 import {
+  FIELD_VALIDATION_FOLLOW_UP_OUTCOMES,
   FIELD_VALIDATION_GPS_OUTCOMES,
   type FieldValidationGpsOutcome,
 } from '@/database/schema';
@@ -23,6 +24,9 @@ export function validateFieldValidationCompletionInput(
   validateTimestamp(input.gpsAttemptedAt, 'GPS attempt time');
   if (!isGpsOutcome(input.gpsOutcome)) {
     invalid('GPS outcome is invalid.');
+  }
+  if (!isFollowUpOutcome(input.followUpOutcome)) {
+    invalid('Follow-up outcome is invalid.');
   }
 
   const hasLatitude = input.gpsLatitude !== null && input.gpsLatitude !== undefined;
@@ -98,6 +102,10 @@ function validateTimestamp(value: string, name: string): void {
 
 function isGpsOutcome(value: string): value is FieldValidationGpsOutcome {
   return (FIELD_VALIDATION_GPS_OUTCOMES as readonly string[]).includes(value);
+}
+
+function isFollowUpOutcome(value: string): boolean {
+  return (FIELD_VALIDATION_FOLLOW_UP_OUTCOMES as readonly string[]).includes(value);
 }
 
 function invalid(message: string): never {

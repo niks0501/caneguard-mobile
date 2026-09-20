@@ -1,4 +1,9 @@
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
+import {
+  assignmentDueMeta,
+  compareVisits,
+  isActiveFieldValidationAssignment,
+} from '@/features/assignments/domain/todayVisits';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
 
@@ -26,8 +31,6 @@ export const NEEDS_ATTENTION_ROW_LIMIT = 3;
  * line, so the work-first card never grows into a second inbox.
  */
 export const HOME_ATTENTION_ROW_LIMIT = 2;
-
-const ACTIVE_ASSIGNMENT_STATES = new Set(['assigned', 'in_progress']);
 
 /**
  * Build the Needs Attention block: unread office updates, active/due field
@@ -92,19 +95,15 @@ function assignmentItems(input: {
 }): NeedsAttentionItem[] {
   return input.assignments
     .filter((assignment) =>
-      ACTIVE_ASSIGNMENT_STATES.has(assignment.fieldValidationState),
+      isActiveFieldValidationAssignment(assignment),
     )
-    .sort(
-      (first, second) =>
-        compareNullableDates(first.targetVisitDate, second.targetVisitDate) ||
-        first.referenceCode.localeCompare(second.referenceCode),
-    )
+    .sort(compareVisits)
     .map((assignment) => ({
       destination: { kind: 'assignment' as const, assignmentId: assignment.id },
       id: `assignment-${assignment.id}`,
       kind: 'assignment' as const,
       message: `${assignment.case.barangay} · submitted by ${assignment.submitter.name}`,
-      meta: assignmentMeta(assignment, input.today),
+      meta: assignmentDueMeta(assignment, input.today),
       title: `Field visit for ${assignment.referenceCode}`,
     }));
 }
@@ -142,32 +141,4 @@ function uploadItems(input: {
       title: `${nounPhrase} synchronization`,
     },
   ];
-}
-
-function assignmentMeta(
-  assignment: FieldValidationAssignment,
-  today: string,
-): string {
-  if (!assignment.targetVisitDate) {
-    return assignment.fieldValidationState === 'in_progress'
-      ? 'Visit in progress'
-      : 'Visit scheduled';
-  }
-  if (assignment.targetVisitDate < today) {
-    return `Visit was due ${assignment.targetVisitDate}`;
-  }
-  if (assignment.targetVisitDate === today) {
-    return 'Visit due today';
-  }
-  return `Visit due ${assignment.targetVisitDate}`;
-}
-
-function compareNullableDates(
-  first: string | null,
-  second: string | null,
-): number {
-  if (first === second) return 0;
-  if (first === null) return 1;
-  if (second === null) return -1;
-  return first.localeCompare(second);
 }

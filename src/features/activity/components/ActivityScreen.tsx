@@ -49,6 +49,7 @@ import {
   type CurrentActivityFilter,
 } from '@/features/activity/domain/activityTypes';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
+import { getLocalDateKey } from '@/features/assignments/domain/todayVisits';
 import { DEFAULT_RECORD_PAGE_SIZE } from '@/features/records/domain/recordTypes';
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
 import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
@@ -114,7 +115,7 @@ export default function ActivityScreen() {
     pendingReportsCount: (sync as any).pendingReportsCount,
     pendingCompletionsCount: (sync as any).pendingCompletionsCount,
     syncErrorMessage: sync.errorMessage,
-    today: new Date().toISOString().slice(0, 10),
+    today: getLocalDateKey(),
   });
   const buildRefreshTargets = (): RefreshAllTarget[] => {
     const targets: RefreshAllTarget[] = [
@@ -228,6 +229,8 @@ export default function ActivityScreen() {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.scrollContent}>
             <View style={styles.content}>
+              <TodayEntry activeVisitCount={assignments.assignments.filter((assignment) => assignment.fieldValidationState === 'assigned' || assignment.fieldValidationState === 'in_progress').length} />
+
               {activeFilter !== 'scans' ? (
                 <NeedsAttentionPanel
                   expanded={attentionExpanded}
@@ -460,6 +463,25 @@ export default function ActivityScreen() {
   );
 }
 
+function TodayEntry({ activeVisitCount }: { activeVisitCount: number }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      testID="activity.today-entry"
+      accessibilityRole="button"
+      accessibilityLabel="Open Today's visits"
+      onPress={() => router.push('/today' as never)}
+      style={({ pressed }) => [styles.todayEntry, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }, pressed && styles.pressed]}>
+      <View style={[styles.todayEntryIcon, { backgroundColor: theme.surfaceMuted }]}><Feather name="calendar" size={20} color={theme.primary} /></View>
+      <View style={styles.todayEntryCopy}>
+        <Text style={[styles.todayEntryTitle, { color: theme.primaryDark }]}>Today&apos;s visits</Text>
+        <Text style={[styles.todayEntryBody, { color: theme.textSecondary }]}>{activeVisitCount ? `${activeVisitCount} assigned visit${activeVisitCount === 1 ? '' : 's'} in due-date order` : 'Open your assigned visits'}</Text>
+      </View>
+      <Feather name="chevron-right" size={18} color={theme.textSecondary} />
+    </Pressable>
+  );
+}
+
 function formatActivityCount(
   count: number,
   filter: CurrentActivityFilter,
@@ -580,6 +602,11 @@ const styles = StyleSheet.create({
   badgeText: { ...Typography.caption, fontWeight: '800' },
   refreshScope: { gap: Spacing.sm },
   refreshMessage: { ...Typography.caption },
+  todayEntry: { minHeight: 66, borderWidth: 1, borderRadius: Radius.xl, padding: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  todayEntryIcon: { width: 40, height: 40, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
+  todayEntryCopy: { flex: 1, gap: Spacing.xs },
+  todayEntryTitle: { ...Typography.bodySmall, fontWeight: '800' },
+  todayEntryBody: { ...Typography.caption },
   searchRow: { flexDirection: 'row', gap: Spacing.sm },
   search: {
     minHeight: 54,

@@ -11,6 +11,7 @@ const COMPLETION: FieldValidationCompletion = {
   fieldObservation: 'Fresh observation',
   fieldFinding: 'Fresh finding',
   actionTaken: 'Fresh action',
+  followUpOutcome: 'unable_to_determine',
   visitedAt: '2026-09-02T04:05:06.123Z',
   gpsOutcome: 'unavailable',
   gpsAttemptedAt: '2026-09-02T04:05:01.123Z',

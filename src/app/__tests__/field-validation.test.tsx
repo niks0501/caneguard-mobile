@@ -59,11 +59,17 @@ describe('FieldValidationScreen', () => {
     await fireEvent.changeText(screen.getByTestId('field-validation.finding-input'), 'Field finding recorded for office review.');
     await fireEvent.changeText(screen.getByTestId('field-validation.action-input'), 'Provided field guidance.');
     await fireEvent.press(screen.getByTestId('field-validation.complete'));
+    expect(screen.getByTestId('field-validation.error')).toHaveTextContent(
+      'Choose the follow-up outcome before completing this visit.',
+    );
+    await fireEvent.press(screen.getByTestId('field-validation.outcome.improved'));
+    await fireEvent.press(screen.getByTestId('field-validation.complete'));
 
     expect(complete).toHaveBeenCalledWith({
       fieldObservation: 'Leaves show fresh lesions.',
       fieldFinding: 'Field finding recorded for office review.',
       actionTaken: 'Provided field guidance.',
+      followUpOutcome: 'improved',
       freshPhoto: null,
     });
   });

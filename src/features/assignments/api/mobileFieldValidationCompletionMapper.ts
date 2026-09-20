@@ -1,6 +1,7 @@
 import { File } from 'expo-file-system';
 
 import type { FieldValidationCompletionUploadRecord } from '@/features/assignments/domain/fieldValidationCompletionTypes';
+import { FIELD_VALIDATION_FOLLOW_UP_OUTCOMES } from '@/database/schema';
 import {
   FIELD_VALIDATION_TEXT_MAX_LENGTH,
   isSupportedPhotoMimeType,
@@ -31,6 +32,7 @@ export function mapFieldValidationCompletionToMultipart(
   form.append('field_observation', completion.fieldObservation.trim());
   form.append('field_finding', completion.fieldFinding.trim());
   form.append('action_taken', completion.actionTaken.trim());
+  form.append('follow_up_outcome', completion.followUpOutcome);
   form.append('visited_at', completion.visitedAt);
   form.append('gps_outcome', completion.gpsOutcome);
   form.append('gps_attempted_at', completion.gpsAttemptedAt);
@@ -66,6 +68,9 @@ function validateCompletion(
     if (!value.trim() || value.trim().length > FIELD_VALIDATION_TEXT_MAX_LENGTH) {
       invalid(`${name} is required and must be no more than 2,000 characters.`);
     }
+  }
+  if (!(FIELD_VALIDATION_FOLLOW_UP_OUTCOMES as readonly string[]).includes(completion.followUpOutcome)) {
+    invalid('Follow-up outcome is invalid.');
   }
   for (const [value, name] of [
     [completion.visitedAt, 'Visit time'],

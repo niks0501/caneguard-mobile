@@ -201,7 +201,8 @@ describe('ActivityScreen', () => {
     await render(<ActivityScreen />);
 
     expect(screen.queryByTestId('activity.notifications')).not.toBeOnTheScreen();
-    expect(screen.getByTestId('activity.needs-attention')).toBeOnTheScreen();
+    expect(screen.queryByTestId('activity.needs-attention')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('activity.today-entry')).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByTestId('activity.notifications-toggle'));
 
@@ -227,7 +228,8 @@ describe('ActivityScreen', () => {
     ]);
     await render(<ActivityScreen />);
 
-    await fireEvent.press(screen.getByTestId(`activity.attention.notification-${NOTIFICATION.id}`));
+    await fireEvent.press(screen.getByTestId('activity.notifications-toggle'));
+    await fireEvent.press(screen.getByTestId(`activity.notification.${NOTIFICATION.id}`));
 
     expect(mockMarkRead).toHaveBeenCalledWith(NOTIFICATION.id);
     expect(mockRouterPush).toHaveBeenCalledWith({
@@ -264,7 +266,7 @@ describe('ActivityScreen', () => {
     expect(screen.getByText(/Saved content is still available/)).toBeOnTheScreen();
   });
 
-  it('caps Needs Attention detail rows at three with expansion for the rest', async () => {
+  it('omits the Needs-you section from Activity and routes active visits to Today via activity.today-entry', async () => {
     mockAssignmentsState = {
       ...mockAssignmentsState,
       assignments: Array.from({ length: 5 }, (_, index) => ({
@@ -275,14 +277,34 @@ describe('ActivityScreen', () => {
     };
     await render(<ActivityScreen />);
 
-    expect(screen.getByLabelText('5 attention items')).toBeOnTheScreen();
-    expect(screen.getByText('Show all 5')).toBeOnTheScreen();
-    expect(screen.getAllByTestId(/^activity\.attention\.assignment-/)).toHaveLength(3);
+    expect(screen.queryByTestId('activity.needs-attention')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText(/attention items/)).not.toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByLabelText('Show all 5 attention items'));
-    expect(screen.getAllByTestId(/^activity\.attention\.assignment-/)).toHaveLength(5);
-    await fireEvent.press(screen.getByLabelText('Show fewer attention items'));
-    expect(screen.getAllByTestId(/^activity\.attention\.assignment-/)).toHaveLength(3);
+    const todayEntry = screen.getByTestId('activity.today-entry');
+    expect(todayEntry).toBeOnTheScreen();
+    expect(screen.getByText("Today's visits")).toBeOnTheScreen();
+    expect(screen.getByText('5 assigned visits in due-date order')).toBeOnTheScreen();
+
+    await fireEvent.press(todayEntry);
+    expect(mockRouterPush).toHaveBeenCalledWith('/today');
+  });
+
+  it('orders history timeline by reverse chronological timestamp', async () => {
+    await render(<ActivityScreen />);
+
+    const timeline = screen.getByTestId('activity.timeline');
+    expect(timeline).toBeOnTheScreen();
+    expect(screen.queryByTestId('activity.needs-attention')).not.toBeOnTheScreen();
+
+    expect(screen.getByTestId(`activity.assignment.${ASSIGNMENT.id}`)).toBeOnTheScreen();
+    expect(screen.getByTestId('activity.latest-record')).toBeOnTheScreen();
+    expect(screen.getByTestId(`activity.item.${SCAN.id}`)).toBeOnTheScreen();
+
+    const renderedNodes = timeline.props.children;
+    expect(renderedNodes).toHaveLength(3);
+    expect(renderedNodes[0].key).toBe(`assignment-${ASSIGNMENT.id}`);
+    expect(renderedNodes[1].key).toBe(REPORT.id);
+    expect(renderedNodes[2].key).toBe(SCAN.id);
   });
 
   it('opens a cached assignment in the field validation flow', async () => {

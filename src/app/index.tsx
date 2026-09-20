@@ -58,8 +58,8 @@ const styles = StyleSheet.create({
   },
   logo: {
     width: '100%',
-    maxWidth: 280,
-    aspectRatio: 677 / 369,
+    maxWidth: 180,
+    aspectRatio: 1,
   },
   appName: {
     ...Typography.title,

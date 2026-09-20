@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomNav } from '@/components/ui/BottomNav';
@@ -101,6 +101,18 @@ export default function HomeScreen() {
           <View style={styles.dashboard}>
             <View style={[styles.hero, { backgroundColor: theme.backgroundElement }]}>
               <View style={styles.heroContent}>
+                <View style={styles.brandRow}>
+                  <View style={styles.brandLockup}>
+                    <Image
+                      accessible
+                      accessibilityLabel="CaneGuard Logo"
+                      source={require('../../assets/cane_guard_logo.png')}
+                      style={styles.brandMark}
+                      resizeMode="contain"
+                    />
+                    <Text style={[styles.brandWordmark, { color: theme.primaryDark }]}>CaneGuard</Text>
+                  </View>
+                </View>
                 <View style={styles.heroTop}>
                   <View style={styles.greetingBlock}>
                     <Text style={[styles.greeting, { color: theme.textSecondary }]}>Welcome back,</Text>
@@ -268,6 +280,25 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing['2xl'],
     gap: Spacing.lg,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  brandLockup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  brandMark: {
+    width: 22,
+    height: 22,
+  },
+  brandWordmark: {
+    ...Typography.body,
+    fontWeight: '800',
+    letterSpacing: -0.16,
   },
   heroTop: {
     flexDirection: 'row',

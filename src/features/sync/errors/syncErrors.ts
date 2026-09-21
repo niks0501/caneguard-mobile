@@ -67,6 +67,12 @@ export function toSyncError(error: unknown): SyncError {
         'This account is not allowed to submit field reports.',
       );
     }
+    if (error.status === 409) {
+      return new SyncError(
+        'API_VALIDATION_FAILED',
+        'The server reported a conflicting upload identity. Review its saved details before retrying.',
+      );
+    }
     if (error.status === 400 || error.status === 422) {
       return new SyncError(
         'API_VALIDATION_FAILED',

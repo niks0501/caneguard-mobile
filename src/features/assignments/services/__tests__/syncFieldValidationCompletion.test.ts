@@ -1,7 +1,13 @@
 import type { FieldValidationCompletionSyncRepository } from '@/features/assignments/data/fieldValidationCompletionRepository';
 import type { FieldValidationCompletion } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 import { syncFieldValidationCompletion } from '@/features/assignments/services/syncFieldValidationCompletion';
+import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
 import { SyncError } from '@/features/sync/errors/syncErrors';
+
+jest.mock('@/features/shared/api/apiClient', () => {
+  const actual = jest.requireActual('@/features/shared/api/apiClient');
+  return { ...actual, apiRequest: jest.fn() };
+});
 
 const COMPLETION: FieldValidationCompletion = {
   id: '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f',
@@ -46,6 +52,40 @@ function repository(): FieldValidationCompletionSyncRepository {
 }
 
 describe('field validation completion synchronization', () => {
+  it('marks completion synced when the server already recorded it and echoes its client UUID', async () => {
+    const repo = repository();
+    jest.mocked(apiRequest).mockRejectedValueOnce(
+      new ApiHttpError(409, 'Already completed', {
+        body: {
+          data: {
+            completion: {
+              uuid: 'server-completion-uuid',
+              client_uuid: COMPLETION.id,
+            },
+          },
+        },
+      }),
+    );
+
+    await expect(syncFieldValidationCompletion({
+      allowImmediateRetries: false,
+      completionId: COMPLETION.id,
+      repository: repo,
+      token: 'secure-token',
+    })).resolves.toEqual({
+      reportId: COMPLETION.id,
+      remoteId: 'server-completion-uuid',
+      status: 'synced',
+    });
+
+    expect(repo.markSynced).toHaveBeenCalledWith(
+      COMPLETION.id,
+      'server-completion-uuid',
+      expect.any(String),
+    );
+    expect(repo.markFailed).not.toHaveBeenCalled();
+  });
+
   it('keeps offline evidence after a network failure and synchronizes the same completion on reconnect', async () => {
     const firstRepository = repository();
     const upload = jest.fn(async () => {

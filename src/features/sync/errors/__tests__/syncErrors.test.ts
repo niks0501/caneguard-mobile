@@ -40,6 +40,10 @@ describe('synchronization retry policy', () => {
     expect(new SyncError('SERVER_ERROR', 'temporary').retryable).toBe(true);
     expect(new SyncError('API_VALIDATION_FAILED', 'permanent').retryable).toBe(false);
     expect(toSyncError(new ApiHttpError(503, 'unavailable')).retryable).toBe(true);
+    expect(toSyncError(new ApiHttpError(409, 'conflict'))).toMatchObject({
+      code: 'API_VALIDATION_FAILED',
+      retryable: false,
+    });
     expect(toSyncError(new ApiHttpError(422, 'invalid')).retryable).toBe(false);
   });
 });

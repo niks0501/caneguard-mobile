@@ -346,6 +346,8 @@ export const mobileNotifications = sqliteTable(
     eventType: text('event_type').notNull(),
     title: text('title').notNull(),
     message: text('message').notNull(),
+    content: text('content'),
+    advisoryJson: text('advisory_json'),
     caseUuid: text('case_uuid'),
     referenceCode: text('reference_code'),
     assignmentUuid: text('assignment_uuid'),

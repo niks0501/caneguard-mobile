@@ -5,6 +5,7 @@ import { StorageError, toStorageError } from '@/database/errors';
 import { mobileNotifications } from '@/database/schema';
 import type {
   MobileNotification,
+  MobileNotificationAdvisory,
   MobileNotificationUpdate,
 } from '@/features/notifications/domain/notificationTypes';
 
@@ -249,6 +250,8 @@ function toRow(
     eventType: update.eventType,
     title: update.title,
     message: update.message,
+    content: update.content,
+    advisoryJson: update.advisory ? JSON.stringify(update.advisory) : null,
     caseUuid: update.caseUuid,
     referenceCode: update.referenceCode,
     assignmentUuid: update.assignmentUuid,
@@ -269,15 +272,26 @@ function toNotification(
     title: row.title,
     message: row.message,
     caseUuid: row.caseUuid,
+    content: row.content,
+    advisory: parseAdvisory(row.advisoryJson),
     referenceCode: row.referenceCode,
     assignmentUuid: row.assignmentUuid,
-    content: null,
-    advisory: null,
     isRead: row.isRead,
     readAt: row.readAt,
     createdAt: row.createdAt,
     cachedAt: row.cachedAt,
   };
+}
+
+function parseAdvisory(value: string | null): MobileNotificationAdvisory | null {
+  if (!value) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    return parsed as MobileNotificationAdvisory;
+  } catch {
+    return null;
+  }
 }
 
 function stableFingerprint(value: unknown): string {

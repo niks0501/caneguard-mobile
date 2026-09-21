@@ -78,7 +78,8 @@ export function NotificationInbox({
           {recent.map((notification, index) => {
             const destination = destinations.get(notification.id);
             const actionable =
-              destination !== undefined && destination.kind !== 'unavailable';
+              Boolean(notification.content || notification.advisory) ||
+              (destination !== undefined && destination.kind !== 'unavailable');
             return (
               <Pressable
                 key={notification.id}

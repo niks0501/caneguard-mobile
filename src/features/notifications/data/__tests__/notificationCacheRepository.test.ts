@@ -37,6 +37,10 @@ function openTestDatabase(): { database: CaneGuardDatabase; native: DatabaseSync
     '0012_dapper_sumo.sql',
     '0013_v1_local_scan_migration.sql',
     '0014_safe_songbird.sql',
+    '0015_sour_riptide.sql',
+    '0016_nervous_gateway.sql',
+    '0017_silky_rick_jones.sql',
+    '0018_notification_advisory_content_cache.sql',
   ]) native.exec(readMigration(migration));
 
   const client = {
@@ -70,8 +74,15 @@ const NOTIFICATION: MobileNotificationUpdate = {
   caseUuid: '7e8c2e48-a2d4-4aca-9a50-9ca460fd7a7f',
   referenceCode: 'CG-2026-0001',
   assignmentUuid: '3fbd7f77-7d6b-4eb0-a1c7-b673f5a2f39f',
-  content: null,
-  advisory: null,
+  content: 'Visit the farm and record the observed symptoms before submitting the report.',
+  advisory: {
+    uuid: '2eaf6f1b-1c44-4f9b-95f2-7c8c682c2b5f',
+    code: 'CG-ADVISORY-001',
+    title: 'Inspect affected leaves',
+    content: 'Inspect the affected leaves and capture clear evidence during the visit.',
+    status: 'validated',
+    selectedAt: '2026-08-13T11:55:00.000Z',
+  },
   isRead: false,
   readAt: null,
   createdAt: '2026-08-13T12:00:00.000Z',
@@ -87,6 +98,8 @@ describe('mobile notification cache', () => {
         id: NOTIFICATION.id,
         ownerIdentity: 'owner-1',
         eventType: NOTIFICATION.eventType,
+        content: NOTIFICATION.content,
+        advisory: NOTIFICATION.advisory,
         isRead: false,
         cachedAt: '2026-08-13T12:05:00.000Z',
       }),

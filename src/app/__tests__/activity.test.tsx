@@ -148,6 +148,19 @@ const NOTIFICATION = {
   cachedAt: '2026-08-13T12:05:00.000Z',
 };
 
+const ADVISORY_NOTIFICATION = {
+  ...NOTIFICATION,
+  content: 'Follow the office guidance during your next visit.',
+  advisory: {
+    uuid: '2eaf6f1b-1c44-4f9b-95f2-7c8c682c2b5f',
+    code: 'CG-ADVISORY-001',
+    title: 'Inspect affected leaves',
+    content: 'Inspect the affected leaves and capture clear evidence during the visit.',
+    status: 'validated' as const,
+    selectedAt: '2026-08-13T11:55:00.000Z',
+  },
+};
+
 describe('ActivityScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -236,6 +249,27 @@ describe('ActivityScreen', () => {
     expect(mockRouterPush).toHaveBeenCalledWith({
       pathname: '/field-report',
       params: { scanRecordId: SCAN.id },
+    });
+  });
+
+  it('opens advisory updates in the in-app detail view', async () => {
+    mockNotificationsState = {
+      ...mockNotificationsState,
+      notifications: [ADVISORY_NOTIFICATION],
+      unreadCount: 1,
+    };
+    mockDestinations = new Map([
+      [ADVISORY_NOTIFICATION.id, { kind: 'unavailable' }],
+    ]);
+    await render(<ActivityScreen />);
+
+    await fireEvent.press(screen.getByTestId('activity.notifications-toggle'));
+    await fireEvent.press(screen.getByTestId(`activity.notification.${ADVISORY_NOTIFICATION.id}`));
+
+    expect(mockMarkRead).toHaveBeenCalledWith(ADVISORY_NOTIFICATION.id);
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/notification-details',
+      params: { id: ADVISORY_NOTIFICATION.id },
     });
   });
 

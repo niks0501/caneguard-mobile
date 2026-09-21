@@ -75,6 +75,7 @@ function AppNavigator() {
           <Stack.Screen name="field-validation" />
           <Stack.Screen name="manual-map" />
           <Stack.Screen name="reports" />
+          <Stack.Screen name="notification-details" />
           <Stack.Screen name="settings" />
           <Stack.Screen name="account-security" />
         </Stack.Protected>

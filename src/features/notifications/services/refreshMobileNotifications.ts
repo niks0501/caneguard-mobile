@@ -7,6 +7,7 @@ export interface MobileNotificationsRefreshResult {
   notifications: MobileNotification[];
   fetchedAt: string;
   syncBefore: string;
+  partial: boolean;
 }
 
 interface ActiveRefresh {
@@ -74,5 +75,10 @@ async function executeRefresh(options: {
     options.database,
     options.ownerIdentity,
   );
-  return { notifications, fetchedAt, syncBefore: response.syncBefore };
+  return {
+    notifications,
+    fetchedAt,
+    syncBefore: response.syncBefore,
+    partial: response.partial,
+  };
 }

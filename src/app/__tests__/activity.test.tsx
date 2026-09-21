@@ -47,6 +47,7 @@ let mockNotificationsState: ReturnType<typeof useMobileNotifications> = {
   markAllRead: mockMarkAllRead,
   markRead: mockMarkRead,
   notifications: [],
+  partial: false,
   readActionError: null,
   refreshing: false,
   refresh: mockRefreshNotifications,

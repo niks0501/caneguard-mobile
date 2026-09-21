@@ -11,6 +11,7 @@ export function NotificationInbox({
   errorMessage,
   notifications,
   onMarkAllRead,
+  partial,
   onNotificationPress,
   readActionError,
   unreadCount,
@@ -19,6 +20,7 @@ export function NotificationInbox({
   errorMessage: string | null;
   notifications: MobileNotification[];
   onMarkAllRead: () => void;
+  partial: boolean;
   onNotificationPress: (notification: MobileNotification) => void;
   readActionError: string | null;
   unreadCount: number;
@@ -41,6 +43,11 @@ export function NotificationInbox({
           {errorMessage ? (
             <Text accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>
               {errorMessage}
+            </Text>
+          ) : null}
+          {partial ? (
+            <Text accessibilityLiveRegion="polite" style={[styles.message, { color: theme.warning }]}>
+              Some office updates could not be loaded.
             </Text>
           ) : null}
           {readActionError ? (

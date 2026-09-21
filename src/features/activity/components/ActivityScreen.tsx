@@ -224,6 +224,7 @@ export default function ActivityScreen() {
                     showToast('Updates marked as read', 'info');
                   }}
                   onNotificationPress={openNotification}
+                  partial={notifications.partial}
                   readActionError={notifications.readActionError}
                   unreadCount={notifications.unreadCount}
                 />

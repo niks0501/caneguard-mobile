@@ -20,13 +20,19 @@ jest.mock('@/features/shared/api/apiClient', () => ({
 
 const request = jest.mocked(apiRequest);
 const CHECKPOINT = '2026-08-13T12:05:00.000Z';
+let warn: jest.SpyInstance;
 
 function page(data: readonly unknown[] = MOBILE_NOTIFICATIONS_V1_FIXTURE.data, next: string | null = null, before = CHECKPOINT) {
   return { data, links: { next }, meta: { per_page: 100 }, sync: { before } };
 }
 
 describe('mobile notifications API', () => {
-  beforeEach(() => request.mockReset());
+  beforeEach(() => {
+    request.mockReset();
+    warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => warn.mockRestore());
 
   it('parses the canonical owner-scoped notification fixture', async () => {
     request.mockResolvedValueOnce(MOBILE_NOTIFICATIONS_V1_FIXTURE);
@@ -64,15 +70,37 @@ describe('mobile notifications API', () => {
     });
   });
 
-  it('rejects an advisory with an unsupported status', async () => {
-    request.mockResolvedValueOnce(page([{
-      ...MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0],
-      advisory: { ...MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0].advisory, status: 'draft' },
-    }]));
+  it('skips and warns for malformed items and non-validated advisories', async () => {
+    const valid = MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0];
+    const nonValidated = {
+      ...valid,
+      id: '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f',
+      advisory: { ...valid.advisory, status: 'draft' },
+    };
+    const malformed = {
+      ...valid,
+      id: '0cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f',
+      is_read: 'false',
+    };
+    request.mockResolvedValueOnce(page([malformed, nonValidated, valid]));
 
-    await expect(fetchAllMobileNotifications({ token: 'secure-token' })).rejects.toMatchObject({
-      code: 'MALFORMED_RESPONSE',
+    await expect(fetchAllMobileNotifications({ token: 'secure-token' })).resolves.toMatchObject({
+      notifications: [expect.objectContaining({ id: valid.id })],
+      partial: true,
     });
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('is_read'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('advisory.status'));
+  });
+
+  it('reports a complete refresh when every page item is valid', async () => {
+    request.mockResolvedValueOnce(page([MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0]]));
+
+    await expect(fetchAllMobileNotifications({ token: 'secure-token' })).resolves.toMatchObject({
+      notifications: [expect.anything()],
+      partial: false,
+    });
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('follows pagination with one stable checkpoint and rejects duplicate notification ids', async () => {
@@ -111,9 +139,17 @@ describe('mobile notifications API', () => {
     },
   );
 
-  it('rejects malformed values before they reach the cache', async () => {
-    request.mockResolvedValueOnce(page([{ ...MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0], is_read: 'false' }]));
-    await expect(fetchAllMobileNotifications({ token: 'secure-token' })).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' });
+  it('keeps valid values when another item is malformed', async () => {
+    const valid = MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0];
+    request.mockResolvedValueOnce(page([
+      { ...valid, id: '0cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f', is_read: 'false' },
+      valid,
+    ]));
+
+    await expect(fetchAllMobileNotifications({ token: 'secure-token' })).resolves.toMatchObject({
+      notifications: [expect.objectContaining({ id: valid.id })],
+      partial: true,
+    });
   });
   it('marks one notification read through the owner-scoped endpoint', async () => {
     request.mockResolvedValueOnce({

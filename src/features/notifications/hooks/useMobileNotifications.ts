@@ -31,6 +31,7 @@ interface MobileNotificationsState {
   errorMessage: string | null;
   lastSuccessfulAt: string | null;
   notifications: MobileNotification[];
+  partial: boolean;
   readActionError: string | null;
   refreshing: boolean;
   sessionKey: string | null;
@@ -44,6 +45,7 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
     errorMessage: null,
     lastSuccessfulAt: null,
     notifications: [],
+    partial: false,
     readActionError: null,
     refreshing: false,
     sessionKey: null,
@@ -102,6 +104,7 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
     setState((current) => ({
       ...current,
       errorMessage: null,
+      partial: false,
       refreshing: true,
       sessionKey,
     }));
@@ -142,6 +145,7 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
           errorMessage: null,
           lastSuccessfulAt: result.fetchedAt,
           notifications: result.notifications,
+          partial: result.partial,
           readActionError: null,
           refreshing: false,
           sessionKey,
@@ -294,6 +298,7 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
         errorMessage: null,
         lastSuccessfulAt: null,
         notifications: ownerStore?.notifications?.value ?? [],
+        partial: false,
         readActionError: null,
         refreshing: false,
         sessionKey,

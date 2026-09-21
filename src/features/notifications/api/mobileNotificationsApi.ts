@@ -13,6 +13,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 export interface MobileNotificationsResult {
   syncBefore: string;
   notifications: MobileNotificationUpdate[];
+  partial: boolean;
 }
 
 export type MobileNotificationsApiErrorCode =
@@ -44,6 +45,7 @@ export async function fetchAllMobileNotifications(options: {
 }): Promise<MobileNotificationsResult> {
   const visited = new Set<string>();
   const notifications: MobileNotificationUpdate[] = [];
+  let partial = false;
   let path: string | null = buildInitialPath();
   let syncBefore: string | null = null;
 
@@ -65,6 +67,7 @@ export async function fetchAllMobileNotifications(options: {
     }
     syncBefore ??= page.syncBefore;
     notifications.push(...page.notifications);
+    partial ||= page.skippedCount > 0;
 
     if (page.nextPath) {
       assertContinuationCheckpoint(page.nextPath, syncBefore);
@@ -80,7 +83,7 @@ export async function fetchAllMobileNotifications(options: {
   }
 
   assertUniqueIdentities(notifications);
-  return { syncBefore, notifications };
+  return { syncBefore, notifications, partial };
 }
 
 async function requestPage(
@@ -90,6 +93,7 @@ async function requestPage(
   nextPath: string | null;
   syncBefore: string;
   notifications: MobileNotificationUpdate[];
+  skippedCount: number;
 }> {
   let body: unknown;
   try {
@@ -193,6 +197,7 @@ function parsePage(body: unknown): {
   nextPath: string | null;
   syncBefore: string;
   notifications: MobileNotificationUpdate[];
+  skippedCount: number;
 } {
   if (!isRecord(body) || !Array.isArray(body.data) || !isRecord(body.links)) {
     throw malformed('page');
@@ -204,10 +209,30 @@ function parsePage(body: unknown): {
     throw malformed('links.next');
   }
 
+  const notifications: MobileNotificationUpdate[] = [];
+  let skippedCount = 0;
+  body.data.forEach((value, index) => {
+    try {
+      notifications.push(parseNotification(value));
+    } catch (error: unknown) {
+      if (
+        !(error instanceof MobileNotificationsApiError) ||
+        error.code !== 'MALFORMED_RESPONSE'
+      ) {
+        throw error;
+      }
+      skippedCount += 1;
+      console.warn(
+        `[notifications] Skipping malformed notification item at index ${index}: ${error.message}`,
+      );
+    }
+  });
+
   return {
     nextPath: rawNext === null ? null : toSafeContinuationPath(rawNext),
     syncBefore,
-    notifications: body.data.map(parseNotification),
+    notifications,
+    skippedCount,
   };
 }
 

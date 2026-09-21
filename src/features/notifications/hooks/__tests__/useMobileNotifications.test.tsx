@@ -82,6 +82,7 @@ function Probe() {
       <Text testID="count">{state.notifications.length}</Text>
       <Text testID="unread">{state.unreadCount}</Text>
       <Text testID="error">{state.errorMessage ?? 'none'}</Text>
+      <Text testID="partial">{state.partial ? 'partial' : 'complete'}</Text>
       <Text testID="read-error">{state.readActionError ?? 'none'}</Text>
       <Button title="Manual refresh" onPress={() => void state.refresh()} />
       <Button
@@ -112,6 +113,7 @@ describe('useMobileNotifications lifecycle behavior', () => {
       notifications: CACHED,
       fetchedAt: '2026-08-13T12:01:00.000Z',
       syncBefore: '2026-08-13T12:05:00.000Z',
+      partial: false,
     });
   });
 
@@ -120,6 +122,7 @@ describe('useMobileNotifications lifecycle behavior', () => {
     await waitFor(() => expect(refreshService).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId('count')).toHaveTextContent('1');
     expect(screen.getByTestId('unread')).toHaveTextContent('1');
+    expect(screen.getByTestId('partial')).toHaveTextContent('complete');
 
     await act(async () => {
       fireEvent.press(screen.getByText('Manual refresh'));
@@ -133,6 +136,19 @@ describe('useMobileNotifications lifecycle behavior', () => {
       await Promise.resolve();
     });
     await waitFor(() => expect(refreshService).toHaveBeenCalledTimes(3));
+  });
+
+  it('surfaces a partial refresh to the UI layer', async () => {
+    refreshService.mockResolvedValueOnce({
+      notifications: CACHED,
+      fetchedAt: '2026-08-13T12:02:00.000Z',
+      syncBefore: '2026-08-13T12:05:00.000Z',
+      partial: true,
+    });
+
+    await render(<Probe />);
+
+    await waitFor(() => expect(screen.getByTestId('partial')).toHaveTextContent('partial'));
   });
 
   it('keeps cached attention items visible when the server refresh fails', async () => {

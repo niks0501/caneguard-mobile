@@ -43,7 +43,7 @@ describe('refreshMobileNotifications', () => {
   });
 
   it('coalesces concurrent refreshes for the same owner and token', async () => {
-    let finish!: (value: { syncBefore: string; notifications: [] }) => void;
+    let finish!: (value: { syncBefore: string; notifications: []; partial: boolean }) => void;
     fetchNotifications.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
 
     const first = refreshMobileNotifications({ database, ownerIdentity: 'owner-1', token: 'token-1' });
@@ -52,7 +52,7 @@ describe('refreshMobileNotifications', () => {
     expect(second).toBe(first);
     expect(fetchNotifications).toHaveBeenCalledTimes(1);
 
-    finish({ syncBefore: '2026-08-13T12:05:00.000Z', notifications: [] });
+    finish({ syncBefore: '2026-08-13T12:05:00.000Z', notifications: [], partial: false });
     await expect(first).resolves.toMatchObject({ notifications: CACHED });
     expect(replaceCache).toHaveBeenCalledWith(database, 'owner-1', [], expect.any(String));
   });
@@ -65,7 +65,7 @@ describe('refreshMobileNotifications', () => {
   });
 
   it('keeps owner and token refreshes independent', async () => {
-    fetchNotifications.mockResolvedValue({ syncBefore: '2026-08-13T12:05:00.000Z', notifications: [] });
+    fetchNotifications.mockResolvedValue({ syncBefore: '2026-08-13T12:05:00.000Z', notifications: [], partial: false });
 
     await Promise.all([
       refreshMobileNotifications({ database, ownerIdentity: 'owner-1', token: 'token-1' }),

@@ -53,6 +53,7 @@ describe('NotificationDetailsScreen', () => {
       markAllRead: jest.fn(async () => undefined),
       markRead,
       notifications: [NOTIFICATION],
+      partial: false,
       readActionError: null,
       refreshing: false,
       refresh: jest.fn(async () => true),

@@ -4,7 +4,10 @@ import {
   replaceCachedMobileNotifications,
 } from '@/features/notifications/data/notificationCacheRepository';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
-import { refreshMobileNotifications } from '@/features/notifications/services/refreshMobileNotifications';
+import {
+  invalidateMobileNotificationsRefresh,
+  refreshMobileNotifications,
+} from '@/features/notifications/services/refreshMobileNotifications';
 
 jest.mock('@/features/notifications/api/mobileNotificationsApi', () => ({
   fetchAllMobileNotifications: jest.fn(),
@@ -54,7 +57,13 @@ describe('refreshMobileNotifications', () => {
 
     finish({ syncBefore: '2026-08-13T12:05:00.000Z', notifications: [], partial: false });
     await expect(first).resolves.toMatchObject({ notifications: CACHED });
-    expect(replaceCache).toHaveBeenCalledWith(database, 'owner-1', [], expect.any(String));
+    expect(replaceCache).toHaveBeenCalledWith(
+      database,
+      'owner-1',
+      [],
+      expect.any(String),
+      expect.any(Function),
+    );
   });
 
   it('does not replace the cache after a network failure', async () => {
@@ -62,6 +71,50 @@ describe('refreshMobileNotifications', () => {
 
     await expect(refreshMobileNotifications({ database, ownerIdentity: 'owner-1', token: 'token-1' })).rejects.toThrow('offline');
     expect(replaceCache).not.toHaveBeenCalled();
+  });
+
+  it('does not write a response after local data is invalidated', async () => {
+    let finish!: (value: { syncBefore: string; notifications: []; partial: boolean }) => void;
+    fetchNotifications.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+
+    const refresh = refreshMobileNotifications({ database, ownerIdentity: 'owner-1', token: 'token-1' });
+    invalidateMobileNotificationsRefresh(database, 'owner-1');
+    finish({ syncBefore: '2026-08-13T12:05:00.000Z', notifications: [], partial: false });
+
+    await expect(refresh).rejects.toThrow('superseded');
+    expect(replaceCache).not.toHaveBeenCalled();
+  });
+
+  it('preserves cached items while applying valid items from a partial feed', async () => {
+    const newlyFetched = {
+      id: '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f',
+      eventType: 'authority.reviewed',
+      title: 'Review complete',
+      message: 'The office reviewed a report.',
+      caseUuid: null,
+      referenceCode: null,
+      assignmentUuid: null,
+      content: null,
+      advisory: null,
+      isRead: false,
+      readAt: null,
+      createdAt: '2026-08-13T12:02:00.000Z',
+    };
+    fetchNotifications.mockResolvedValueOnce({
+      syncBefore: '2026-08-13T12:05:00.000Z',
+      notifications: [newlyFetched],
+      partial: true,
+    });
+
+    await refreshMobileNotifications({ database, ownerIdentity: 'owner-1', token: 'token-1' });
+
+    expect(replaceCache).toHaveBeenCalledWith(
+      database,
+      'owner-1',
+      [expect.objectContaining({ id: CACHED[0].id }), newlyFetched],
+      expect.any(String),
+      expect.any(Function),
+    );
   });
 
   it('keeps owner and token refreshes independent', async () => {

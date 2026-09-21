@@ -195,6 +195,20 @@ describe('mobile notifications API', () => {
     ).rejects.toMatchObject<Partial<MobileNotificationsApiError>>({ code: 'MALFORMED_RESPONSE' });
   });
 
+  it('rejects a read response for a different notification identity', async () => {
+    request.mockResolvedValueOnce({
+      data: { ...MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0], is_read: true, read_at: CHECKPOINT },
+      meta: { unread_count: 0 },
+    });
+
+    await expect(
+      markMobileNotificationRead({
+        id: '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f',
+        token: 'secure-token',
+      }),
+    ).rejects.toMatchObject<Partial<MobileNotificationsApiError>>({ code: 'MALFORMED_RESPONSE' });
+  });
+
   it('rejects read-all counts that are not non-negative integers', async () => {
     request.mockResolvedValueOnce({ data: [], meta: { marked_count: 1.5, unread_count: 0 } });
 

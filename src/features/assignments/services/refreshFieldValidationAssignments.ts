@@ -20,6 +20,20 @@ interface ActiveRefresh {
 const activeRefreshes = new WeakMap<CaneGuardDatabase, Map<string, ActiveRefresh>>();
 const refreshGenerations = new WeakMap<CaneGuardDatabase, Map<string, number>>();
 
+export function invalidateFieldValidationAssignmentsRefresh(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+): void {
+  const owner = ownerIdentity.trim();
+  let databaseGenerations = refreshGenerations.get(database);
+  if (!databaseGenerations) {
+    databaseGenerations = new Map();
+    refreshGenerations.set(database, databaseGenerations);
+  }
+  databaseGenerations.set(owner, (databaseGenerations.get(owner) ?? 0) + 1);
+  activeRefreshes.get(database)?.delete(owner);
+}
+
 export function refreshFieldValidationAssignments(options: {
   database: CaneGuardDatabase;
   ownerIdentity: string;
@@ -69,6 +83,7 @@ async function executeRefresh(options: {
     options.ownerIdentity,
     response.assignments,
     fetchedAt,
+    options.isCurrent,
   );
   const assignments = await listCachedFieldValidationAssignments(
     options.database,

@@ -27,10 +27,16 @@ export interface OwnerMobileDataStore {
   assignments: CachedValue<FieldValidationAssignment[]> | null;
   notifications: CachedValue<MobileNotification[]> | null;
   timeline: Map<string, TimelineSnapshot>;
+  generation: number;
   cacheLoads: Partial<Record<RefreshKey, Promise<void>>>;
-  refreshes: Partial<Record<RefreshKey, Promise<unknown>>>;
+  refreshes: Partial<Record<RefreshKey, ActiveRefresh>>;
   listeners: Set<() => void>;
 }
+
+type ActiveRefresh = {
+  promise: Promise<unknown>;
+  sessionKey: string;
+};
 
 const stores = new WeakMap<CaneGuardDatabase, Map<string, OwnerMobileDataStore>>();
 
@@ -51,6 +57,7 @@ export function getOwnerMobileDataStore(
       assignments: null,
       notifications: null,
       timeline: new Map(),
+      generation: 0,
       cacheLoads: {},
       refreshes: {},
       listeners: new Set(),
@@ -103,6 +110,27 @@ export function setOwnerTimeline(
   notify(store);
 }
 
+/**
+ * Invalidate every in-memory view of one owner after persisted local data is
+ * cleared. A generation prevents an older cache or network task from
+ * repopulating the cleared store when it completes.
+ */
+export function clearOwnerMobileDataStore(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  options: { cacheFetchedAt?: number } = {},
+): void {
+  const store = getOwnerMobileDataStore(database, ownerIdentity);
+  const cacheFetchedAt = options.cacheFetchedAt ?? Date.now();
+  store.generation += 1;
+  store.assignments = { value: [], fetchedAt: cacheFetchedAt };
+  store.notifications = { value: [], fetchedAt: cacheFetchedAt };
+  store.timeline.clear();
+  store.cacheLoads = {};
+  store.refreshes = {};
+  notify(store);
+}
+
 export function isFresh(
   cached: CachedValue<unknown> | TimelineSnapshot | null | undefined,
   now = Date.now(),
@@ -113,17 +141,20 @@ export function isFresh(
 export function beginOwnerRefresh<T>(
   store: OwnerMobileDataStore,
   key: RefreshKey,
+  sessionKey: string,
   task: () => Promise<T>,
 ): Promise<T> {
-  const active = store.refreshes[key] as Promise<T> | undefined;
-  if (active) return active;
+  const active = store.refreshes[key];
+  if (active?.sessionKey === sessionKey) {
+    return active.promise as Promise<T>;
+  }
 
   const promise = task().finally(() => {
-    if (store.refreshes[key] === promise) {
+    if (store.refreshes[key]?.promise === promise) {
       delete store.refreshes[key];
     }
   });
-  store.refreshes[key] = promise;
+  store.refreshes[key] = { promise, sessionKey };
   return promise;
 }
 

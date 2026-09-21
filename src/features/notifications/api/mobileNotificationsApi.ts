@@ -143,8 +143,10 @@ export async function markMobileNotificationRead(options: {
 
   try {
     if (!isRecord(body) || !isRecord(body.data)) throw malformed('data');
+    const notification = parseNotification(body.data);
+    if (notification.id !== options.id) throw malformed('data.id');
     return {
-      notification: parseNotification(body.data),
+      notification,
       unreadCount: optionalCount(body.meta, 'unread_count'),
     };
   } catch (error: unknown) {

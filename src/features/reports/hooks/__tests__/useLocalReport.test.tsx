@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { getLocalReportSummary } from '@/features/reports/data/reportRepository';
+import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { useLocalReport } from '@/features/reports/hooks/useLocalReport';
 import type { LocalReportSummary } from '@/features/records/domain/recordTypes';
 
@@ -57,6 +58,24 @@ describe('useLocalReport', () => {
     mockFocusCallback = null;
     mockUser = { uuid: SUBMITTER_A };
     jest.mocked(useAuth).mockImplementation(() => ({ user: mockUser }) as never);
+  });
+
+  it('refreshes the summary after persisted records change', async () => {
+    mockGetLocalReportSummary
+      .mockResolvedValueOnce(summary('record-a'))
+      .mockResolvedValueOnce(summary('record-b'));
+
+    const { result } = await renderHook(() => useLocalReport());
+    await act(async () => {
+      mockFocusCallback?.();
+    });
+    await waitFor(() => expect(result.current.data?.recentRecords[0]?.id).toBe('record-a'));
+
+    await act(async () => {
+      emitSyncRecordsChanged();
+    });
+    await waitFor(() => expect(result.current.data?.recentRecords[0]?.id).toBe('record-b'));
+    expect(mockGetLocalReportSummary).toHaveBeenCalledTimes(2);
   });
 
   it('does not apply a prior submitter summary after the session changes', async () => {

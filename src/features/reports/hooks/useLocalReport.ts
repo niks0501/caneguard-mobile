@@ -9,6 +9,7 @@ import type {
   LocalReportSummary,
 } from '@/features/records/domain/recordTypes';
 import { getLocalReportSummary } from '@/features/reports/data/reportRepository';
+import { useSyncRecordsRefresh } from '@/features/sync/hooks/useSyncRecordsRevision';
 
 interface LocalReportState {
   data: LocalReportSummary | null;
@@ -108,6 +109,10 @@ export function useLocalReport(dateRange?: DateRange) {
       });
     }
   }, [database, dateFrom, dateTo, isCurrentInput, setAppliedInput, submitterIdentity]);
+
+  useSyncRecordsRefresh(() => {
+    void refresh();
+  });
 
   useFocusEffect(
     useCallback(() => {

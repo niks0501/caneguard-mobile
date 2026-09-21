@@ -90,8 +90,10 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
     }
 
     const store = ownerStore;
+    const storeGeneration = store.generation;
+    const isCurrentStore = () => store.generation === storeGeneration;
     const applyCached = (notifications: MobileNotification[]) => {
-      if (isCurrentSession(requestedSession)) {
+      if (isCurrentSession(requestedSession) && isCurrentStore()) {
         setState((current) => ({ ...current, notifications, sessionKey }));
       }
     };
@@ -119,9 +121,11 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
           (latest, notification) => Math.max(latest, Date.parse(notification.cachedAt)),
           0,
         );
+        if (!isCurrentStore()) return;
         setOwnerNotifications(store, cached, fetchedAt);
         applyCached(cached);
       });
+      if (!isCurrentStore()) return false;
       if (!force && isFresh(store.notifications)) {
         applyCached(store.notifications?.value ?? []);
         setState((current) => ({ ...current, refreshing: false }));
@@ -132,28 +136,33 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
     }
 
     try {
-      return await beginOwnerRefresh(store, 'notifications', async () => {
-        const result = await refreshMobileNotifications({
-          database,
-          ownerIdentity: requestedSession.user.uuid,
-          token: requestedSession.token,
-        });
-        if (!isCurrentSession(requestedSession)) return false;
-        setOwnerNotifications(store, result.notifications, result.fetchedAt);
-        setState({
-          capabilityUnavailable: false,
-          errorMessage: null,
-          lastSuccessfulAt: result.fetchedAt,
-          notifications: result.notifications,
-          partial: result.partial,
-          readActionError: null,
-          refreshing: false,
-          sessionKey,
-        });
-        return true;
-      });
+      return await beginOwnerRefresh(
+        store,
+        'notifications',
+        `${requestedSession.user.uuid}:${requestedSession.token}`,
+        async () => {
+          const result = await refreshMobileNotifications({
+            database,
+            ownerIdentity: requestedSession.user.uuid,
+            token: requestedSession.token,
+          });
+          if (!isCurrentSession(requestedSession) || !isCurrentStore()) return false;
+          setOwnerNotifications(store, result.notifications, result.fetchedAt);
+          setState({
+            capabilityUnavailable: false,
+            errorMessage: null,
+            lastSuccessfulAt: result.fetchedAt,
+            notifications: result.notifications,
+            partial: result.partial,
+            readActionError: null,
+            refreshing: false,
+            sessionKey,
+          });
+          return true;
+        },
+      );
     } catch (error: unknown) {
-      if (!isCurrentSession(requestedSession)) return false;
+      if (!isCurrentSession(requestedSession) || !isCurrentStore()) return false;
       if (
         error instanceof MobileNotificationsApiError &&
         error.code === 'AUTH_REQUIRED'
@@ -186,6 +195,12 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
     }
   }, [authStatus, database, enabled, isCurrentSession, markSessionExpired, ownerStore, session, sessionKey]);
 
+  useEffect(() => {
+    if (ownerStore && ownerStore.generation > 0) {
+      void refresh({ force: false });
+    }
+  }, [ownerStore, ownerStore?.generation, refresh]);
+
   useFocusEffect(
     useCallback(() => {
       if (enabled && refreshOnFocus) void refresh({ force: false });
@@ -209,6 +224,7 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
   const markRead = useCallback(
     async (notificationId: string) => {
       const requestedSession = session;
+      const requestedStoreGeneration = ownerStore?.generation;
       if (!enabled || authStatus !== 'authenticated' || !requestedSession) return;
 
       try {
@@ -216,7 +232,10 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
           id: notificationId,
           token: requestedSession.token,
         });
-        if (!isCurrentSession(requestedSession)) return;
+        if (
+          !isCurrentSession(requestedSession) ||
+          ownerStore?.generation !== requestedStoreGeneration
+        ) return;
         const readAt = result.notification.readAt ?? new Date().toISOString();
         await markCachedMobileNotificationRead(
           database,
@@ -254,11 +273,15 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
 
   const markAllRead = useCallback(async () => {
     const requestedSession = session;
+    const requestedStoreGeneration = ownerStore?.generation;
     if (!enabled || authStatus !== 'authenticated' || !requestedSession) return;
 
     try {
       await markAllMobileNotificationsRead({ token: requestedSession.token });
-      if (!isCurrentSession(requestedSession)) return;
+      if (
+        !isCurrentSession(requestedSession) ||
+        ownerStore?.generation !== requestedStoreGeneration
+      ) return;
       const readAt = new Date().toISOString();
       await markAllCachedMobileNotificationsRead(
         database,

@@ -19,6 +19,7 @@ import m0014 from './0014_safe_songbird.sql';
 import m0015 from './0015_sour_riptide.sql';
 import m0016 from './0016_nervous_gateway.sql';
 import m0017 from './0017_silky_rick_jones.sql';
+import m0018 from './0018_notification_advisory_content_cache.sql';
 
   export default {
     journal,
@@ -40,7 +41,8 @@ m0013,
 m0014,
 m0015,
 m0016,
-m0017
+m0017,
+m0018
     }
   }
   

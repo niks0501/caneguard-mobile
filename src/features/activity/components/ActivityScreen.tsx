@@ -139,12 +139,22 @@ export default function ActivityScreen() {
 
   const openNotification = (notification: MobileNotification) => {
     const destination = destinations.get(notification.id);
-    if (!destination || destination.kind === 'unavailable') return;
+    const hasDetail = Boolean(notification.content || notification.advisory);
+    if (!hasDetail && (!destination || destination.kind === 'unavailable')) return;
+
     // Acknowledgment is best effort: a failed read mutation never blocks the
-    // inspector from opening the destination.
+    // inspector from opening the notification destination or detail view.
     void notifications.markRead(notification.id);
-    const route = notificationDestinationRoute(destination);
     setNotificationsOpen(false);
+    if (hasDetail) {
+      router.push({
+        pathname: '/notification-details',
+        params: { id: notification.id },
+      } as never);
+      return;
+    }
+
+    const route = destination ? notificationDestinationRoute(destination) : null;
     if (route) {
       router.push(route as never);
     }

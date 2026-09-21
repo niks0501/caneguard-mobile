@@ -282,7 +282,7 @@ export default function ImagePreviewScreen() {
 
               <DisclosureSection
                 testID="scan.technical-details"
-                title="Technical details">
+                title="Saved image details" summary="Image diagnostics">
                 <Text style={[styles.technicalIntro, { color: theme.textSecondary }]}>
                   These diagnostics are optional and do not change the analysis flow.
                 </Text>

@@ -3,6 +3,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { StyleSheet, Text, View } from 'react-native';
 import type { ReactNode } from 'react';
 
+import { ClampedText } from '@/components/ui/ClampedText';
 import { Pill } from '@/components/ui/Pill';
 import { Row } from '@/components/ui/Row';
 import { Radius, Spacing, Typography } from '@/constants/theme';
@@ -88,16 +89,18 @@ function PreviousVisitDetails({
         label="Last action taken"
         value={previousVisit.actionTaken ? <Text style={[styles.value, { color: theme.text }]}>{previousVisit.actionTaken}</Text> : <Text style={[styles.fallback, { color: theme.textSecondary }]}>Not recorded</Text>}
       />
-      <ContextRow
-        label="Previous field evidence"
-        value={
-          <View style={styles.evidence}>
-            {evidence ? <Text style={[styles.value, { color: theme.text }]}>{evidence}</Text> : null}
-            {photoSource ? <ExpoImage accessibilityLabel="Previous field evidence photo" contentFit="cover" source={photoSource} style={styles.photo} /> : null}
-            {!evidence && !photoSource ? <Text style={[styles.fallback, { color: theme.textSecondary }]}>No previous evidence</Text> : null}
-          </View>
-        }
-      />
+      <View style={styles.evidenceBlock}>
+        <Text style={[styles.evidenceLabel, { color: theme.textSecondary }]}>Previous field evidence</Text>
+        {evidence ? (
+          <ClampedText
+            text={evidence}
+            style={[styles.value, styles.evidenceText, { color: theme.text }]}
+            testID="field-validation.previous-evidence"
+          />
+        ) : null}
+        {photoSource ? <ExpoImage accessibilityLabel="Previous field evidence photo" contentFit="cover" source={photoSource} style={styles.photo} /> : null}
+        {!evidence && !photoSource ? <Text style={[styles.fallback, { color: theme.textSecondary }]}>No previous evidence</Text> : null}
+      </View>
     </View>
   );
 }
@@ -122,6 +125,8 @@ const styles = StyleSheet.create({
   caption: { ...Typography.caption },
   fallback: { ...Typography.caption, textAlign: 'right', flexShrink: 1 },
   value: { ...Typography.caption, fontWeight: '700', textAlign: 'right', flexShrink: 1 },
-  evidence: { alignItems: 'flex-end', gap: Spacing.xs, maxWidth: '68%' },
+  evidenceBlock: { gap: Spacing.xs },
+  evidenceLabel: { ...Typography.caption },
+  evidenceText: { textAlign: 'left' },
   photo: { width: 96, height: 72, borderRadius: Radius.md },
 });

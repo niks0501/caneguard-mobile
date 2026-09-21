@@ -5,13 +5,21 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-type DisclosureSectionProps = {
+export type DisclosureSectionProps = {
+  accessibilityLabel?: string;
   children: ReactNode;
+  summary?: string;
   testID?: string;
   title: string;
 };
 
-export function DisclosureSection({ children, testID, title }: DisclosureSectionProps) {
+export function DisclosureSection({
+  accessibilityLabel,
+  children,
+  summary,
+  testID,
+  title,
+}: DisclosureSectionProps) {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const action = expanded ? 'Hide' : 'Show';
@@ -22,14 +30,16 @@ export function DisclosureSection({ children, testID, title }: DisclosureSection
       style={[styles.container, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${action} ${title}`}
+        accessibilityLabel={accessibilityLabel ?? `${action} ${title}`}
         accessibilityState={{ expanded }}
         onPress={() => setExpanded((value) => !value)}
         style={({ pressed }) => [styles.header, pressed && styles.pressed]}>
         <View style={styles.copy}>
           <Text style={[styles.title, { color: theme.primaryDark }]}>{title}</Text>
-          <Text style={[styles.hint, { color: theme.textSecondary }]}>
-            {expanded ? 'Hide details' : 'View details'}
+          <Text
+            testID={testID ? `${testID}.summary` : undefined}
+            style={[styles.hint, { color: theme.textSecondary }]}>
+            {expanded ? 'Hide details' : (summary ?? 'View details')}
           </Text>
         </View>
         <Feather

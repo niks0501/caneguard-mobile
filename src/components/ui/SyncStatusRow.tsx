@@ -4,6 +4,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useSync } from '@/features/sync/hooks/useSync';
+import {
+  getSyncRowSummary,
+  isServerUnavailable,
+} from '@/features/sync/utils/syncStatusCopy';
 import { useTheme } from '@/hooks/use-theme';
 
 type SyncStatusRowProps = {
@@ -18,19 +22,11 @@ export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
   const hasPendingReports = sync.pendingCount > 0;
   const reportsCount = (sync as any).pendingReportsCount ?? sync.pendingCount;
   const completionsCount = (sync as any).pendingCompletionsCount ?? 0;
-  const formatPendingSummary = () => {
-    if (reportsCount > 0 && completionsCount > 0) {
-      return `${reportsCount} ${reportsCount === 1 ? 'report' : 'reports'}, ${completionsCount} ${completionsCount === 1 ? 'visit' : 'visits'} awaiting sync`;
-    }
-    if (completionsCount > 0 && reportsCount === 0) {
-      return `${completionsCount} ${completionsCount === 1 ? 'visit' : 'visits'} awaiting sync`;
-    }
-    return `${sync.pendingCount} ${sync.pendingCount === 1 ? 'report' : 'reports'} awaiting sync`;
-  };
-  const pendingSummary = formatPendingSummary();
-  const apiUnavailable =
-    sessionVerification === 'unavailable' ||
-    (sync.isOnline === true && sync.apiReachability === 'unavailable');
+  const apiUnavailable = isServerUnavailable(
+    sync.apiReachability,
+    sessionVerification,
+    sync.isOnline,
+  );
   const icon = sync.isSyncing
     ? 'upload-cloud'
     : apiUnavailable
@@ -49,21 +45,15 @@ export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
       : hasPendingReports || sync.isOnline === false
         ? theme.warning
         : theme.success;
-  const summary = sync.isSyncing
-    ? 'Syncing saved reports…'
-    : sync.isOnline === null
-      ? 'Checking connection'
-      : sync.isOnline === false
-        ? 'Offline · saved reports stay on this device'
-        : apiUnavailable
-          ? hasPendingReports
-            ? `${pendingSummary} · CaneGuard server unavailable`
-            : 'Network available · CaneGuard server unavailable'
-          : hasPendingReports
-            ? pendingSummary
-            : sync.apiReachability === 'unknown'
-              ? 'Network available · CaneGuard status not checked'
-              : 'CaneGuard connected · All saved reports are synced';
+  const summary = getSyncRowSummary({
+    apiReachability: sync.apiReachability,
+    isOnline: sync.isOnline,
+    isSyncing: sync.isSyncing,
+    pendingCompletionsCount: completionsCount,
+    pendingCount: sync.pendingCount,
+    pendingReportsCount: reportsCount,
+    sessionVerification,
+  });
 
   return (
     <Pressable

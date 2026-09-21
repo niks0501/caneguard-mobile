@@ -16,6 +16,8 @@ export type ConfirmDialogProps = {
   onConfirm: () => void;
   onCancel: () => void;
   testID?: string;
+  confirmTestID?: string;
+  cancelTestID?: string;
   style?: StyleProp<ViewStyle>;
   overlay?: boolean;
   onRequestClose?: () => void;
@@ -23,7 +25,9 @@ export type ConfirmDialogProps = {
 
 export function ConfirmDialog({
   cancelLabel = 'Cancel',
+  cancelTestID,
   confirmLabel = 'Confirm',
+  confirmTestID,
   destructive = false,
   message,
   onCancel,
@@ -66,7 +70,7 @@ export function ConfirmDialog({
         <View style={styles.actionBtn}>
           <AppButton
             onPress={onCancel}
-            testID={`${testID}.cancel`}
+            testID={cancelTestID ?? `${testID}.cancel`}
             variant="secondary">
             {cancelLabel}
           </AppButton>
@@ -74,7 +78,7 @@ export function ConfirmDialog({
         <View style={styles.actionBtn}>
           <AppButton
             onPress={onConfirm}
-            testID={`${testID}.confirm`}
+            testID={confirmTestID ?? `${testID}.confirm`}
             variant={destructive ? 'danger' : 'primary'}>
             {confirmLabel}
           </AppButton>

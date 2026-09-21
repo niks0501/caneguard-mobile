@@ -6,6 +6,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 export type RowProps = {
   label: string;
+  labelAccessory?: ReactNode;
   value: ReactNode;
   valueTestID?: string;
   testID?: string;
@@ -16,6 +17,7 @@ export type RowProps = {
 
 export function Row({
   label,
+  labelAccessory,
   numberOfLines = 2,
   style,
   testID,
@@ -33,7 +35,10 @@ export function Row({
         style,
       ]}
       testID={testID}>
-      <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
+      <View style={styles.labelRow}>
+        <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
+        {labelAccessory}
+      </View>
       {typeof value === 'string' || typeof value === 'number' ? (
         <Text
           numberOfLines={numberOfLines}
@@ -62,6 +67,12 @@ const styles = StyleSheet.create({
   divider: {
     borderBottomWidth: 1,
     paddingBottom: Spacing.sm,
+  },
+  labelRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
   label: {
     ...Typography.bodySmall,

@@ -9,7 +9,9 @@ import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
+import { HelpHint } from '@/components/ui/HelpHint';
 import { Pill } from '@/components/ui/Pill';
+import { DECISION_SUPPORT_DISCLAIMER } from '@/constants/copy';
 import {
   ComponentTokens,
   Layout,
@@ -24,10 +26,7 @@ import {
   type ChecklistConsistency,
 } from '@/features/detection/checklist/checklistConsistency';
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
-import {
-  MODEL_LABELS,
-  type ModelLabel,
-} from '@/features/detection/constants/modelContract';
+import { ModelScoreList } from '@/features/detection/components/ModelScoreList';
 import {
   V1_CONFIDENCE_CAUTION_THRESHOLD,
   isBelowV1ConfidenceCautionThreshold,
@@ -379,38 +378,43 @@ export default function AnalysisResultScreen() {
                   accessibilityLabel="Scan again with a new image">
                   Scan Again
                 </AppButton>
-                <AppButton
-                  testID="scan.view-disease-reference"
-                  onPress={() => router.push('/disease-reference')}
-                  leadingIcon="book-open"
-                  variant="secondary"
-                  accessibilityLabel="Open disease reference for this condition">
-                  Disease Reference
-                </AppButton>
-                <AppButton
-                  testID="analysis-result.cancel"
-                  onPress={handleCancel}
-                  disabled={saveRecord.status === 'saving'}
-                  variant="secondary"
-                  leadingIcon="x"
-                  accessibilityLabel="Cancel scan and return home">
-                  Cancel Scan
-                </AppButton>
-                {saveRecord.status === 'saved' && saveRecord.recordId ? (
+                <DisclosureSection
+                  testID="scan.more-actions"
+                  title="More actions"
+                  summary={saveRecord.status === 'saved' && saveRecord.recordId ? '3 more actions' : '2 more actions'}>
                   <AppButton
-                    testID="scan.open-saved-record"
-                    onPress={() =>
-                      router.push({
-                        pathname: '/record-details',
-                        params: { id: saveRecord.recordId! },
-                      } as unknown as Href)
-                    }
-                    leadingIcon="folder"
-                    variant="text"
-                    accessibilityLabel="Open the saved local scan">
-                    Open Saved Scan
+                    testID="scan.view-disease-reference"
+                    onPress={() => router.push('/disease-reference')}
+                    leadingIcon="book-open"
+                    variant="secondary"
+                    accessibilityLabel="Open disease reference for this condition">
+                    Disease Reference
                   </AppButton>
-                ) : null}
+                  <AppButton
+                    testID="analysis-result.cancel"
+                    onPress={handleCancel}
+                    disabled={saveRecord.status === 'saving'}
+                    variant="secondary"
+                    leadingIcon="x"
+                    accessibilityLabel="Cancel scan and return home">
+                    Cancel Scan
+                  </AppButton>
+                  {saveRecord.status === 'saved' && saveRecord.recordId ? (
+                    <AppButton
+                      testID="scan.open-saved-record"
+                      onPress={() =>
+                        router.push({
+                          pathname: '/record-details',
+                          params: { id: saveRecord.recordId! },
+                        } as unknown as Href)
+                      }
+                      leadingIcon="folder"
+                      variant="text"
+                      accessibilityLabel="Open the saved local scan">
+                      Open Saved Scan
+                    </AppButton>
+                  ) : null}
+                </DisclosureSection>
               </View>
             </View>
 
@@ -505,15 +509,9 @@ export default function AnalysisResultScreen() {
               ) : null}
             </DisclosureSection>
 
-            <DisclosureSection testID="scan.technical-details" title="Technical details">
+            <DisclosureSection testID="scan.technical-details" title="Model details" summary="All 7 model details">
               <SectionCard title="All condition scores">
-                {MODEL_LABELS.map((label) => (
-                  <ScoreRow
-                    key={label}
-                    label={label}
-                    score={result.scores.find((item) => item.label === label)?.score}
-                  />
-                ))}
+                <ModelScoreList scores={result.scores} />
               </SectionCard>
               <SectionCard title="Analysis details">
                 <DetailRow label="Model version" value={result.modelVersion} />
@@ -524,6 +522,7 @@ export default function AnalysisResultScreen() {
                 <DetailRow
                   label="V1 caution threshold"
                   value={formatThreshold(V1_CONFIDENCE_CAUTION_THRESHOLD)}
+                  helpText="The confidence level below which the app warns that a result is not conclusive."
                 />
               </SectionCard>
             </DisclosureSection>
@@ -531,9 +530,7 @@ export default function AnalysisResultScreen() {
             <View style={[styles.disclaimer, { backgroundColor: theme.infoBg, borderColor: theme.info }]}>
               <Feather name="info" size={19} color={theme.info} />
               <Text style={[styles.disclaimerText, { color: theme.text }]}>
-                This output is for decision support only. It does not confirm a
-                disease. Retake the image or consult an agricultural expert when the
-                result is unclear or symptoms do not match.
+                {DECISION_SUPPORT_DISCLAIMER}
               </Text>
             </View>
           </View>
@@ -585,36 +582,15 @@ function SectionCard({
   );
 }
 
-function ScoreRow({ label, score }: { label: ModelLabel; score?: number }) {
-  const theme = useTheme();
-  const metadata = diseaseCatalog[label];
-  const value = score === undefined ? 'Unavailable' : formatPercentage(score);
-
-  return (
-    <View
-      accessibilityLabel={`${metadata.label === 'healthy' ? 'Healthy' : metadata.displayName} score ${value}`}
-      style={styles.scoreRow}>
-      <View style={styles.scoreLabel}>
-        <Feather
-          name={metadata.icon}
-          size={17}
-          color={theme[metadata.themeToken.foreground]}
-        />
-        <Text style={[styles.scoreName, { color: theme.text }]}>
-          {metadata.label === 'healthy' ? 'Healthy' : metadata.displayName}
-        </Text>
-      </View>
-      <Text style={[styles.scoreValue, { color: theme.primaryDark }]}>{value}</Text>
-    </View>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({ helpText, label, value }: { helpText?: string; label: string; value: string }) {
   const theme = useTheme();
 
   return (
     <View style={[styles.detailRow, { borderBottomColor: theme.divider }]}>
-      <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>{label}</Text>
+      <View style={styles.detailLabelRow}>
+        <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>{label}</Text>
+        {helpText ? <HelpHint label={label} text={helpText} /> : null}
+      </View>
       <Text style={[styles.detailValue, { color: theme.text }]}>{value}</Text>
     </View>
   );
@@ -652,6 +628,7 @@ const styles = StyleSheet.create({
   caution: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
   cautionText: { ...Typography.caption, flex: 1 },
   detailRow: { minHeight: 36, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
+  detailLabelRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   detailLabel: { ...Typography.bodySmall },
   detailValue: { ...Typography.bodySmall, fontWeight: '800', flexShrink: 1, textAlign: 'right' },
   disclaimer: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm, flexDirection: 'row', alignItems: 'flex-start' }, disclaimerText: { ...Typography.caption, flex: 1, lineHeight: 18 },

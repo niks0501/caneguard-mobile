@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react';
-import { StyleSheet, Text, TextInput, type KeyboardTypeOptions } from 'react-native';
+import { StyleSheet, Text, TextInput, View, type KeyboardTypeOptions } from 'react-native';
 
+import { HelpHint } from '@/components/ui/HelpHint';
 import { ComponentTokens, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -15,6 +16,14 @@ type TextFieldProps = {
    * a placeholder disappears as soon as the inspector starts writing.
    */
   hint?: string;
+  /**
+   * Worked example hidden behind the help (i) affordance. When set, `hint`
+   * carries only the short definition while this text is reachable by tapping
+   * the icon (decided Q6 option A). It is also the icon's accessibilityHint,
+   * so screen readers announce it without a tap.
+   */
+  helpHintText?: string;
+  helpHintTestID?: string;
   secureTextEntry?: boolean;
   maxLength?: number;
   multiline?: boolean;
@@ -31,6 +40,8 @@ export function TextField({
   onChangeText,
   placeholder,
   hint,
+  helpHintTestID,
+  helpHintText,
   secureTextEntry,
   maxLength,
   multiline = false,
@@ -44,9 +55,18 @@ export function TextField({
 
   return (
     <>
-      <Text style={[styles.label, hint ? styles.labelWithHint : null, { color: theme.text }]}>
-        {label}
-      </Text>
+      {helpHintText ? (
+        <View style={styles.labelRow}>
+          <Text style={[styles.labelText, hint ? styles.labelWithHint : null, { color: theme.text }]}>
+            {label}
+          </Text>
+          <HelpHint label={label} text={helpHintText} testID={helpHintTestID} />
+        </View>
+      ) : (
+        <Text style={[styles.label, hint ? styles.labelWithHint : null, { color: theme.text }]}>
+          {label}
+        </Text>
+      )}
       {hint ? (
         <Text style={[styles.hint, { color: theme.textSecondary }]}>{hint}</Text>
       ) : null}
@@ -84,6 +104,15 @@ const styles = StyleSheet.create({
   label: {
     ...Typography.label,
     marginBottom: 6,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  labelText: {
+    ...Typography.label,
+    flex: 1,
   },
   labelWithHint: {
     marginBottom: 2,

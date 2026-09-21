@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Linking } from 'react-native';
 
@@ -388,6 +388,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
+    await fireEvent.press(screen.getByTestId('field-report.confirm-finalize'));
 
     expect(mockFinalize).toHaveBeenCalledWith(
       expectFormValues({
@@ -438,6 +439,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
+    await fireEvent.press(screen.getByTestId('field-report.confirm-finalize'));
 
     expect(mockFinalize).toHaveBeenCalledWith(
       expectFormValues({
@@ -565,6 +567,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
+    await fireEvent.press(screen.getByTestId('field-report.confirm-finalize'));
 
     expect(mockFinalize).toHaveBeenCalledWith(
       expectFormValues({
@@ -900,6 +903,79 @@ describe('FieldReportScreen', () => {
     ).toBeOnTheScreen();
   });
 
+  it('cancels the finalize confirmation without saving anything', async () => {
+    await render(<FieldReportScreen />);
+    await goToStep(2);
+    await act(async () => {
+      fireEvent.changeText(screen.getByTestId('field-report.farmer-name-input'), 'Maria Santos');
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-area-input'),
+        '1.25',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-portion-input'),
+        '40',
+      );
+    });
+    await goToStep(5);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+    });
+
+    // C1: pressing finalize saves nothing yet; the gate lists the facts.
+    expect(mockFinalize).not.toHaveBeenCalled();
+    expect(screen.getByTestId('field-report.confirm-finalize-dialog')).toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.confirm-finalize-dialog')).toHaveTextContent(/Maria Santos/);
+    expect(screen.getByTestId('field-report.confirm-finalize-dialog')).toHaveTextContent(/can no longer be edited/);
+
+    await fireEvent.press(screen.getByTestId('field-report.confirm-finalize-dialog.cancel'));
+
+    expect(mockFinalize).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('field-report.confirm-finalize-dialog')).toBeNull();
+    // The report is still a Draft with its finalize action available.
+    expect(screen.getByLabelText('Finalize Field Report')).toBeOnTheScreen();
+  });
+
+  it('keeps the finalize gate open with the error when finalization fails', async () => {
+    mockFinalize.mockResolvedValueOnce(null);
+    mockDraftState = {
+      ...mockDraftState,
+      errorMessage: 'Only a Draft Field Report can be finalized.',
+    };
+    await render(<FieldReportScreen />);
+    await goToStep(2);
+    await act(async () => {
+      fireEvent.changeText(screen.getByTestId('field-report.farmer-name-input'), 'Maria Santos');
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-area-input'),
+        '1.25',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-portion-input'),
+        '40',
+      );
+    });
+    await goToStep(5);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+    });
+    await fireEvent.press(screen.getByTestId('field-report.confirm-finalize'));
+
+    await waitFor(() => expect(mockFinalize).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('field-report.confirm-finalize-dialog')).toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.confirm-finalize-dialog')).toHaveTextContent(
+      /Only a Draft Field Report can be finalized/,
+    );
+  });
+
   it('finalizes using the latest form values including affected numbers', async () => {
     await render(<FieldReportScreen />);
     await goToStep(2);
@@ -934,6 +1010,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
+    await fireEvent.press(screen.getByTestId('field-report.confirm-finalize'));
 
     expect(mockFinalize).toHaveBeenCalledWith(
       expectFormValues({
@@ -954,6 +1031,8 @@ describe('FieldReportScreen', () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
 
+    // The validation gate fires before any confirmation: no dialog opens.
+    expect(screen.queryByTestId('field-report.confirm-finalize-dialog')).toBeNull();
     expect(mockFinalize).not.toHaveBeenCalled();
     expect(
       screen.getByText('Enter the affected area, or mark it as Not measured.'),
@@ -983,6 +1062,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
+    await fireEvent.press(screen.getByTestId('field-report.confirm-finalize'));
 
     expect(mockFinalize).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1054,6 +1134,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
+    await fireEvent.press(screen.getByTestId('field-report.confirm-finalize'));
 
     expect(mockFinalize).toHaveBeenCalledWith(
       expectFormValues({
@@ -1084,6 +1165,7 @@ describe('FieldReportScreen', () => {
     });
     await goToStep(5);
     await fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+    await fireEvent.press(screen.getByTestId('field-report.confirm-finalize'));
 
     expect(mockSyncNow).toHaveBeenCalledWith('after-save');
     expect(mockRefresh).toHaveBeenCalled();
@@ -1121,6 +1203,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
+    await fireEvent.press(screen.getByTestId('field-report.confirm-finalize'));
 
     expect(mockFinalize).toHaveBeenCalledWith(
       expectFormValues({
@@ -1378,7 +1461,7 @@ describe('FieldReportScreen', () => {
     );
     await goToStep(5);
     await act(async () => {
-      fireEvent.press(screen.getByLabelText('Show Technical details'));
+      fireEvent.press(screen.getByLabelText('Show Report identifiers'));
     });
     expect(screen.getByText(REPORT_ID)).toBeOnTheScreen();
     expect(screen.getByTestId('field-report.saved')).toHaveTextContent(
@@ -1386,37 +1469,41 @@ describe('FieldReportScreen', () => {
     );
   });
 
-  it('collects optional more-details values into the Draft save', async () => {
+  it('opens the optional details as a sheet route and keeps the Draft save path', async () => {
     await render(<FieldReportScreen />);
 
     await goToStep(5);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Show More field details'));
     });
-    await act(async () => {
-      fireEvent.changeText(
-        screen.getByTestId('field-report.variety-input'),
-        'Phil 2000',
-      );
+
+    // F6: the optional details open as a native sheet route carrying the
+    // current values; the review step keeps no inline fields.
+    expect(router.push).toHaveBeenCalledWith({
+      params: {
+        caneClass: '',
+        cropAge: '',
+        notes: '',
+        scanRecordId: SCAN_ID,
+        variety: '',
+      },
+      pathname: '/field-report-details',
     });
-    await act(async () => {
-      fireEvent.changeText(
-        screen.getByTestId('field-report.crop-age-input'),
-        '~3 months',
-      );
+    expect(screen.queryByTestId('field-report.variety-input')).toBeNull();
+  });
+
+  it('applies optional details returned from the sheet into the Draft save', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      caneClass: 'Plant cane',
+      cropAge: '~3 months',
+      detailsSaved: '1',
+      notes: 'Near the river',
+      scanRecordId: SCAN_ID,
+      variety: 'Phil 2000',
     });
-    await act(async () => {
-      fireEvent.changeText(
-        screen.getByTestId('field-report.cane-class-input'),
-        'Plant cane',
-      );
-    });
-    await act(async () => {
-      fireEvent.changeText(
-        screen.getByTestId('field-report.notes-input'),
-        'Near the river',
-      );
-    });
+    await render(<FieldReportScreen />);
+
+    await goToStep(5);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Save Field Report draft'));
     });
@@ -1656,7 +1743,7 @@ describe('FieldReportScreen', () => {
       expect(screen.queryByText(REPORT_ID)).not.toBeOnTheScreen();
 
       await act(async () => {
-        fireEvent.press(screen.getByLabelText('Show Technical details'));
+        fireEvent.press(screen.getByLabelText('Show Report identifiers'));
       });
       expect(screen.getByText(REPORT_ID)).toBeOnTheScreen();
     });

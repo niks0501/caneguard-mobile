@@ -12,7 +12,9 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 import { referenceMedia } from '@/features/detection/constants/referenceMedia';
 import { notificationDestinationRoute } from '@/features/notifications/services/resolveNotificationDestination';
+import { getSyncBadgeLabel } from '@/features/sync/utils/syncStatusCopy';
 import { useSync } from '@/features/sync/hooks/useSync';
+import { DECISION_SUPPORT_DISCLAIMER } from '@/constants/copy';
 import {
   ComponentTokens,
   Layout,
@@ -46,15 +48,17 @@ export default function HomeScreen() {
   const overdueCount = activeVisitItems.filter((item) => item.meta.startsWith('Visit was due')).length;
   const serverUnavailable =
     sessionVerification === 'unavailable' || apiReachability === 'unavailable';
-  const connectionBadge = isOnline === false
-    ? { backgroundColor: theme.warningBg, color: theme.warning, label: 'Offline' }
+  const badgeLabel = getSyncBadgeLabel({ apiReachability, isOnline, sessionVerification });
+  const badgeColors = isOnline === false
+    ? { backgroundColor: theme.warningBg, color: theme.warning }
     : serverUnavailable
-      ? { backgroundColor: theme.dangerBg, color: theme.danger, label: 'Server unavailable' }
+      ? { backgroundColor: theme.dangerBg, color: theme.danger }
       : isOnline === true
         ? apiReachability === 'unknown'
-          ? { backgroundColor: theme.infoBg, color: theme.info, label: 'Network available' }
-          : { backgroundColor: theme.successBg, color: theme.success, label: 'Online' }
-        : { backgroundColor: theme.infoBg, color: theme.info, label: 'Checking connection' };
+          ? { backgroundColor: theme.infoBg, color: theme.info }
+          : { backgroundColor: theme.successBg, color: theme.success }
+        : { backgroundColor: theme.infoBg, color: theme.info };
+  const connectionBadge = { ...badgeColors, label: badgeLabel };
   const actions: QuickAction[] = [
     {
       title: 'Start Scan',
@@ -192,7 +196,7 @@ export default function HomeScreen() {
                     <Feather name="arrow-right" size={20} color={theme.primary} />
                   </View>
                   <Text style={[styles.referenceIntro, { color: theme.textSecondary }]}>
-                    Observational references for the four sugarcane conditions CaneGuard can check. Decision support only — not a diagnosis.
+                    Observational references for the four sugarcane conditions CaneGuard can check. {DECISION_SUPPORT_DISCLAIMER}
                   </Text>
                   <View style={styles.referencePillsRow}>
                     {MODEL_LABELS.map((key) => (

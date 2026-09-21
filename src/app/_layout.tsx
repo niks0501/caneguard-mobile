@@ -78,6 +78,51 @@ function AppNavigator() {
           <Stack.Screen name="notification-details" />
           <Stack.Screen name="settings" />
           <Stack.Screen name="account-security" />
+          <Stack.Screen
+            name="account-password"
+            options={{
+              presentation: 'formSheet',
+              sheetAllowedDetents: [0.85, 1],
+              sheetGrabberVisible: true,
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
+            name="account-email"
+            options={{
+              presentation: 'formSheet',
+              sheetAllowedDetents: [0.85, 1],
+              sheetGrabberVisible: true,
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
+            name="account-device-enrollment"
+            options={{
+              presentation: 'formSheet',
+              sheetAllowedDetents: [0.85, 1],
+              sheetGrabberVisible: true,
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
+            name="account-biometric"
+            options={{
+              presentation: 'formSheet',
+              sheetAllowedDetents: [0.85, 1],
+              sheetGrabberVisible: true,
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
+            name="field-report-details"
+            options={{
+              presentation: 'formSheet',
+              sheetAllowedDetents: [0.85, 1],
+              sheetGrabberVisible: true,
+              gestureEnabled: false,
+            }}
+          />
         </Stack.Protected>
         <Stack.Protected guard={status === 'unauthenticated'}>
           <Stack.Screen name="index" />

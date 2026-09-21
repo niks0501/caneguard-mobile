@@ -20,6 +20,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
+import { HelpHintGroup } from '@/components/ui/HelpHint';
 import { getResultLabel, getSyncPresentation } from '@/components/ui/RecordCard';
 import { Row } from '@/components/ui/Row';
 import { TextField } from '@/components/ui/TextField';
@@ -175,7 +176,15 @@ export type FieldReportScreenProps = {
 export default function FieldReportScreen({ initialStep: propsInitialStep }: FieldReportScreenProps = {}) {
   const theme = useTheme();
   const { showToast } = useToast();
-  const params = useLocalSearchParams<{ scanRecordId?: string | string[]; step?: string }>();
+  const params = useLocalSearchParams<{
+    caneClass?: string | string[];
+    cropAge?: string | string[];
+    detailsSaved?: string | string[];
+    notes?: string | string[];
+    scanRecordId?: string | string[];
+    step?: string;
+    variety?: string | string[];
+  }>();
   const scanRecordId = Array.isArray(params.scanRecordId)
     ? params.scanRecordId[0]
     : (params.scanRecordId ?? null);
@@ -211,6 +220,9 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
+  const [finalizeError, setFinalizeError] = useState<string | null>(null);
+  const [pendingFinalizeValues, setPendingFinalizeValues] = useState<FinalizeFieldReportFormValues | null>(null);
 
   // Form values in component state so they survive step transitions
   const [loadedReportId, setLoadedReportId] = useState<string | null>(null);
@@ -314,6 +326,37 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       reporterSuspectedCondition: report.data.reporterSuspectedCondition ?? '',
     });
   }
+
+  // Values returned from the optional-details sheet route (F6). The sheet
+  // passes the four fields back as params; applying them to this screen's
+  // state keeps them in the same Draft save path. Applied once per returned
+  // marker, mirroring the draft hydration pattern below.
+  const returnedDetailsSaved = firstSearchParam(params.detailsSaved);
+  const returnedVariety = firstSearchParam(params.variety);
+  const returnedCropAge = firstSearchParam(params.cropAge);
+  const returnedCaneClass = firstSearchParam(params.caneClass);
+  const returnedNotes = firstSearchParam(params.notes);
+  const [appliedDetailsMarker, setAppliedDetailsMarker] = useState<string | null>(null);
+  const returnedDetailsMarker =
+    returnedDetailsSaved === '1'
+      ? [returnedVariety, returnedCropAge, returnedCaneClass, returnedNotes].join('|')
+      : null;
+  if (returnedDetailsMarker && returnedDetailsMarker !== appliedDetailsMarker) {
+    setAppliedDetailsMarker(returnedDetailsMarker);
+    if (returnedVariety !== undefined) {
+      setVariety(returnedVariety);
+    }
+    if (returnedCropAge !== undefined) {
+      setCropAge(returnedCropAge);
+    }
+    if (returnedCaneClass !== undefined) {
+      setCaneClass(returnedCaneClass);
+    }
+    if (returnedNotes !== undefined) {
+      setNotes(returnedNotes);
+    }
+  }
+
 
   const goToStep = (targetStep: number) => {
     const clamped = Math.max(1, Math.min(5, targetStep));
@@ -487,7 +530,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   const handleFinalize = () => {
     const values = collectValues(true);
     if (values) {
-      void finalizeAndSync({
+      setFinalizeError(null);
+      setPendingFinalizeValues({
         ...values,
         affectedAreaHectares: values.affectedAreaHectares ?? null,
         affectedAreaMeasurement: values.affectedAreaMeasurement ?? 'not_measured',
@@ -495,9 +539,27 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
         affectedPortionMeasurement:
           values.affectedPortionMeasurement ?? 'not_measured',
       });
+      setShowFinalizeConfirm(true);
     } else {
       // Numerical error on Step 2; navigate back to Step 2 so inspector sees it
       goToStep(2);
+    }
+  };
+
+  const confirmFinalize = async () => {
+    if (!pendingFinalizeValues) {
+      setShowFinalizeConfirm(false);
+      return;
+    }
+    // A failed finalize keeps the gate open with the existing error text;
+    // only a confirmed success closes it.
+    const finalized = await finalizeAndSync(pendingFinalizeValues);
+    if (finalized) {
+      setShowFinalizeConfirm(false);
+      setFinalizeError(null);
+      setPendingFinalizeValues(null);
+    } else {
+      setFinalizeError(report.errorMessage || 'Could not finalize report — check required fields');
     }
   };
 
@@ -512,14 +574,16 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
           showToast('Report finalized — will sync when online', 'success');
         }
         await report.refresh();
-      } else {
-        showToast(
-          report.errorMessage || 'Could not finalize report — check required fields',
-          'error',
-        );
+        return true;
       }
+      showToast(
+        report.errorMessage || 'Could not finalize report — check required fields',
+        'error',
+      );
+      return false;
     } catch {
       showToast('Could not finalize report — please try again', 'error');
+      return false;
     }
   };
 
@@ -737,6 +801,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
               automaticallyAdjustKeyboardInsets
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.scrollContent}>
+              <HelpHintGroup>
               <View style={styles.content}>
                 <View
                   testID="field-report.authoring-status"
@@ -928,6 +993,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                               <TextField
                                 testID="field-report.affected-area-input"
                                 label="Affected area (hectares)"
+                                hint="The size of the affected planting."
+                                helpHintText="Mark Not measured when you cannot pace or map the affected planting."
                                 value={affectedAreaText}
                                 onChangeText={(value) => {
                                   setAffectedAreaText(value);
@@ -964,6 +1031,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                               <TextField
                                 testID="field-report.affected-portion-input"
                                 label="Estimated affected portion (%)"
+                                hint="How much of the planting looks affected."
+                                helpHintText="Mark Not measured when you cannot estimate the affected share."
                                 value={affectedPortionText}
                                 onChangeText={(value) => {
                                   setAffectedPortionText(value);
@@ -1100,45 +1169,39 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                             onJumpToStep={goToStep}
                           />
 
-                          <DisclosureSection testID="field-report.more-details" title="More field details">
-                            <TextField
-                              testID="field-report.variety-input"
-                              label="Sugarcane variety"
-                              value={variety}
-                              onChangeText={setVariety}
-                              placeholder="Optional"
-                              autoCapitalize="words"
-                            />
-                            <TextField
-                              testID="field-report.crop-age-input"
-                              label="Crop age"
-                              value={cropAge}
-                              onChangeText={setCropAge}
-                              placeholder="Optional, e.g. ~3 months"
-                              autoCapitalize="sentences"
-                            />
-                            <TextField
-                              testID="field-report.cane-class-input"
-                              label="Cane class"
-                              value={caneClass}
-                              onChangeText={setCaneClass}
-                              placeholder="Optional"
-                              autoCapitalize="words"
-                            />
-                            <TextField
-                              testID="field-report.notes-input"
-                              label="Field notes"
-                              value={notes}
-                              onChangeText={setNotes}
-                              placeholder="Optional"
-                              autoCapitalize="sentences"
-                            />
-                            <Text style={[styles.helpText, { color: theme.textSecondary }]}>
-                              These optional details never block finalization.
-                            </Text>
-                          </DisclosureSection>
+                          <View style={[styles.detailsCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
+                            <View style={styles.detailsHeader}>
+                              <Text style={[styles.sectionTitle, { color: theme.primaryDark }]}>More field details</Text>
+                              <Text style={[styles.helpText, { color: theme.textSecondary }]}>
+                                {variety || cropAge || caneClass || notes
+                                  ? 'Optional details saved on this step. Reopen the sheet to edit them.'
+                                  : 'Sugarcane variety, crop age, cane class, and field notes (optional).'}
+                              </Text>
+                            </View>
+                            <AppButton
+                              testID="field-report.more-details"
+                              variant="secondary"
+                              accessibilityLabel="Show More field details"
+                              onPress={() =>
+                                router.push({
+                                  params: {
+                                    caneClass,
+                                    cropAge,
+                                    notes,
+                                    scanRecordId: scanRecordId ?? undefined,
+                                    variety,
+                                  },
+                                  pathname: '/field-report-details',
+                                })
+                              }>
+                              {variety || cropAge || caneClass || notes ? 'Edit optional details' : 'Add optional details'}
+                            </AppButton>
+                          </View>
 
-                          <DisclosureSection testID="field-report.technical-details" title="Technical details">
+                          <DisclosureSection
+                            testID="field-report.technical-details"
+                            title="Report identifiers"
+                            summary="4 report identifiers">
                             <EvidenceRow label="Report ID" value={report.data.id} />
                             <EvidenceRow label="Scan Record ID" value={report.data.scanRecordId} />
                             <EvidenceRow label="Observed" value={formatTimestamp(report.data.observedAt)} />
@@ -1241,6 +1304,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                   </Text>
                 ) : null}
               </View>
+              </HelpHintGroup>
             </ScrollView>
           </KeyboardAvoidingView>
         ) : null}
@@ -1256,6 +1320,22 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
           onCancel={handleKeepDraft}
           onConfirm={handleDiscardDraft}
           testID="field-report.cancel-dialog"
+        />
+        <ConfirmDialog
+          visible={showFinalizeConfirm}
+          title="Finalize this report?"
+          message={
+            finalizeError
+              ? `${finalizeConfirmMessage({ farmerName, record: record.data, report: report.data })} Finalize failed: ${finalizeError}`
+              : finalizeConfirmMessage({ farmerName, record: record.data, report: report.data })
+          }
+          confirmLabel="Finalize report"
+          confirmTestID="field-report.confirm-finalize"
+          cancelLabel="Cancel"
+          overlay
+          testID="field-report.confirm-finalize-dialog"
+          onConfirm={() => void confirmFinalize()}
+          onCancel={() => setShowFinalizeConfirm(false)}
         />
       </View>
     </SafeAreaView>
@@ -1897,6 +1977,49 @@ function ReporterObservationSection({
       </View>
     </View>
   );
+}
+
+function firstSearchParam(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value;
+}
+
+function describeReportLocation(report: FieldReport | null): string {
+  if (!report) {
+    return 'No location saved yet';
+  }
+  if (report.locationSource === 'manual_map') {
+    return 'Manual map pin';
+  }
+  if (report.locationSource === 'unavailable') {
+    return 'No location (marked unavailable)';
+  }
+  if (
+    report.locationSource === 'gps' &&
+    report.finalLatitude !== null &&
+    report.finalLongitude !== null
+  ) {
+    return 'GPS captured';
+  }
+  return 'No location captured yet';
+}
+
+function finalizeConfirmMessage({
+  farmerName,
+  record,
+  report,
+}: {
+  farmerName: string;
+  record: ScanRecordDetails | null;
+  report: FieldReport | null;
+}): string {
+  const farmer = farmerName.trim() || 'this Field Report';
+  const condition = record
+    ? `${getResultLabel(record.predictedLabel)} (${Math.round(record.confidence * 100)}%)`
+    : 'unknown condition';
+  return `Finalize the report for ${farmer}? Stored condition: ${condition}. Location: ${describeReportLocation(report)}. A finalized report can no longer be edited.`;
 }
 
 function EvidenceRow({ label, value }: { label: string; value: string }) {
@@ -2579,6 +2702,15 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     padding: Spacing.lg,
     gap: Spacing.sm,
+  },
+  detailsCard: {
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  detailsHeader: {
+    gap: Spacing.xs,
   },
   validationTitle: { ...Typography.bodySmall, fontWeight: '800' },
 });

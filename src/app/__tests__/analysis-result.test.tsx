@@ -181,7 +181,7 @@ describe('AnalysisResultScreen', () => {
     expect(screen.queryByLabelText('AI confidence 78%')).not.toBeOnTheScreen();
     await fireEvent.press(screen.getByLabelText('Show Why this result?'));
     expect(screen.getByLabelText('AI confidence 78%')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByLabelText('Show Technical details'));
+    await fireEvent.press(screen.getByLabelText('Show Model details'));
     expect(screen.getByLabelText('Healthy score 8%')).toBeOnTheScreen();
     expect(screen.getByLabelText('Mosaic score 14%')).toBeOnTheScreen();
     expect(screen.getByLabelText('Rust score 78%')).toBeOnTheScreen();
@@ -212,7 +212,7 @@ describe('AnalysisResultScreen', () => {
       screen.queryByText(/55\.2%/),
     ).not.toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByLabelText('Show Technical details'));
+    await fireEvent.press(screen.getByLabelText('Show Model details'));
     expect(screen.getByText('55.2%')).toBeOnTheScreen();
   });
 
@@ -381,6 +381,8 @@ describe('AnalysisResultScreen', () => {
     await renderResult(createCompletedState('rust', ['rust']));
 
     expect(screen.getByTestId('scan.record-saved')).toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.open-saved-record')).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Show More actions'));
     expect(screen.getByTestId('scan.open-saved-record')).toBeOnTheScreen();
     expect(screen.getByText('Scan saved on this device')).toBeOnTheScreen();
     expect(screen.getByLabelText('Report this scan to the office')).toBeOnTheScreen();
@@ -437,6 +439,28 @@ describe('AnalysisResultScreen', () => {
       params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
     });
   });
+  it('keeps three actions in the first view with the rest behind More actions', async () => {
+    mockSaveRecordState = {
+      ...mockSaveRecordState,
+      status: 'saved',
+      recordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+    };
+    await renderResult(createCompletedState('rust', ['rust']));
+
+    expect(screen.getByTestId('scan.report-to-office')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.keep-as-scan-only')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.new-scan')).toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.view-disease-reference')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('analysis-result.cancel')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.open-saved-record')).not.toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Show More actions'));
+
+    expect(screen.getByTestId('scan.view-disease-reference')).toBeOnTheScreen();
+    expect(screen.getByTestId('analysis-result.cancel')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.open-saved-record')).toBeOnTheScreen();
+  });
+
   it('places the three decisions before every explanation disclosure', async () => {
     await renderResult(createCompletedState('rust', ['rust'], {
       qualityAssessment: {
@@ -489,6 +513,7 @@ describe('AnalysisResultScreen', () => {
       await renderResult(createCompletedState('rust', ['rust']));
 
       expect(screen.queryByTestId('analysis-result.cancel-dialog')).not.toBeOnTheScreen();
+      await fireEvent.press(screen.getByLabelText('Show More actions'));
       await fireEvent.press(screen.getByTestId('analysis-result.cancel'));
 
       expect(screen.getByTestId('analysis-result.cancel-dialog')).toBeOnTheScreen();
@@ -498,6 +523,7 @@ describe('AnalysisResultScreen', () => {
       mockSaveRecord.mockResolvedValue({ id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' });
       await renderResult(createCompletedState('rust', ['rust']));
 
+      await fireEvent.press(screen.getByLabelText('Show More actions'));
       await fireEvent.press(screen.getByTestId('analysis-result.cancel'));
       await fireEvent.press(screen.getByTestId('analysis-result.cancel-dialog.cancel'));
 
@@ -511,6 +537,7 @@ describe('AnalysisResultScreen', () => {
     it('resets scan session and routes home when Discard draft is chosen', async () => {
       await renderResult(createCompletedState('rust', ['rust']));
 
+      await fireEvent.press(screen.getByLabelText('Show More actions'));
       await fireEvent.press(screen.getByTestId('analysis-result.cancel'));
       await fireEvent.press(screen.getByTestId('analysis-result.cancel-dialog.confirm'));
 

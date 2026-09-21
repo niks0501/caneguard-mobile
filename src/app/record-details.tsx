@@ -5,6 +5,7 @@ import { useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,8 +17,10 @@ import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
+import { HelpHint, HelpHintGroup } from '@/components/ui/HelpHint';
 import { Row } from '@/components/ui/Row';
 import { useToast } from '@/components/ui/Toast';
+import { DECISION_SUPPORT_DISCLAIMER } from '@/constants/copy';
 import {
   getResultLabel,
   getSyncPresentation,
@@ -32,6 +35,7 @@ import {
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
+import { ModelScoreList } from '@/features/detection/components/ModelScoreList';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
@@ -100,25 +104,6 @@ export default function RecordDetailsScreen() {
 
   const confirmDelete = () => {
     setShowDeleteConfirm(true);
-    Alert.alert(
-      'Delete local record?',
-      'This removes the scan, its saved image, and any associated Field Report from this device. This action cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-          onPress: () => setShowDeleteConfirm(false),
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            setShowDeleteConfirm(false);
-            void performDelete();
-          },
-        },
-      ],
-    );
   };
 
   const performDelete = async () => {
@@ -182,6 +167,7 @@ export default function RecordDetailsScreen() {
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}>
+            <HelpHintGroup>
             <View style={styles.content}>
               <View
                 style={[
@@ -290,121 +276,6 @@ export default function RecordDetailsScreen() {
                 </AppButton>
               </Section>
 
-              <Section title="Observation context">
-                <DetailRow
-                  label="Checklist"
-                  value={CONSISTENCY_LABELS[record.data.checklistConsistency]}
-                />
-                <DetailRow
-                  label="Reported severity"
-                  value={record.data.reportedSeverity ?? 'Not provided'}
-                />
-                <ObservationList
-                  title="Selected observations"
-                  values={record.data.symptoms.map(getObservationLabel)}
-                  emptyLabel="None selected"
-                />
-                <ObservationList
-                  title="Image quality notices"
-                  values={record.data.qualityWarnings.map(
-                    getQualityWarningMessage,
-                  )}
-                  emptyLabel="No warnings stored"
-                />
-              </Section>
-
-              <DisclosureSection testID="records.technical-details" title="Technical details">
-                <Section title="All model class scores">
-                  {record.data.classScores.map((score) => (
-                    <DetailRow
-                      key={score.label}
-                      label={formatClassLabel(score.label)}
-                      value={`${Math.round(score.score * 100)}%`}
-                    />
-                  ))}
-                </Section>
-                <Section title="Saved analysis details">
-                  <DetailRow label="Decision support" value={record.data.decisionSupportWording} />
-                  <DetailRow label="Model version" value={record.data.modelVersion} />
-                  <DetailRow
-                    label="Preprocessing"
-                    value={`${formatDuration(record.data.preprocessMs)} ms`}
-                  />
-                  <DetailRow
-                    label="Inference"
-                    value={`${formatDuration(record.data.inferenceMs)} ms`}
-                  />
-                  <DetailRow
-                    label="Total processing"
-                    value={`${formatDuration(record.data.totalMs)} ms`}
-                  />
-                  <DetailRow label="Saved" value={formatSavedAt(record.data.createdAt)} />
-                  <DetailRow
-                    label="Server report UUID"
-                    value={synchronizationMetadata?.remoteId ?? 'Not assigned'}
-                  />
-                  <DetailRow
-                    label="Last synchronized"
-                    value={
-                      synchronizationMetadata?.lastSyncedAt
-                        ? formatSavedAt(synchronizationMetadata.lastSyncedAt)
-                        : 'Not yet synchronized'
-                    }
-                  />
-                </Section>
-              </DisclosureSection>
-
-              {synchronizationMetadata?.lastSyncErrorCode ? (
-                <View
-                  accessibilityLiveRegion="assertive"
-                  style={[
-                    styles.syncError,
-                    { backgroundColor: theme.dangerBg, borderColor: theme.danger },
-                  ]}>
-                  <Feather name="alert-triangle" size={19} color={theme.danger} />
-                  <Text style={[styles.syncErrorText, { color: theme.text }]}>
-                    {getSyncErrorMessage(
-                      synchronizationMetadata.lastSyncErrorCode,
-                    ) ??
-                      'The last upload did not finish.'}
-                  </Text>
-                </View>
-              ) : null}
-
-              {retryError ? (
-                <Text
-                  testID="records.retry-error"
-                  accessibilityLiveRegion="assertive"
-                  style={[styles.deleteError, { color: theme.danger }]}>
-                  {retryError}
-                </Text>
-              ) : null}
-
-              {fieldReport.data?.syncStatus === 'pending' ||
-              fieldReport.data?.syncStatus === 'failed' ? (
-                <AppButton
-                  onPress={() => void retrySync()}
-                  disabled={retrying || sync.isSyncing || sync.isOnline !== true}
-                  leadingIcon="refresh-cw"
-                  accessibilityLabel={
-                    retrying ? 'Retrying report synchronization' : 'Retry sync'
-                  }>
-                  {retrying ? 'Retrying...' : 'Retry Sync'}
-                </AppButton>
-              ) : null}
-
-              <View
-                style={[
-                  styles.disclaimer,
-                  { backgroundColor: theme.infoBg, borderColor: theme.info },
-                ]}>
-                <Feather name="info" size={19} color={theme.info} />
-                <Text style={[styles.disclaimerText, { color: theme.text }]}>
-                  This stored Possible Condition is decision support only. It
-                  does not confirm a disease.
-                </Text>
-              </View>
-
               {deleteError ? (
                 <Text
                   accessibilityLiveRegion="assertive"
@@ -434,7 +305,142 @@ export default function RecordDetailsScreen() {
                 accessibilityLabel="Delete this local record and saved image">
                 {deleting ? 'Deleting...' : 'Delete Local Record'}
               </AppButton>
+
+              <Section title="Observation context">
+                <DetailRow
+                  label="Checklist"
+                  value={CONSISTENCY_LABELS[record.data.checklistConsistency]}
+                />
+                <DetailRow
+                  label="Reported severity"
+                  value={record.data.reportedSeverity ?? 'Not provided'}
+                />
+                <ObservationList
+                  title="Selected observations"
+                  values={record.data.symptoms.map(getObservationLabel)}
+                  emptyLabel="None selected"
+                  visibleCount={3}
+                />
+                <ObservationList
+                  title="Image quality notices"
+                  values={record.data.qualityWarnings.map(
+                    getQualityWarningMessage,
+                  )}
+                  emptyLabel="No warnings stored"
+                  visibleCount={1}
+                />
+              </Section>
+
+              <DisclosureSection
+                testID="records.model-details"
+                title="Model details"
+                summary={`All ${record.data.classScores.length + 4} model details`}>
+                <DetailRow label="Model version" value={record.data.modelVersion} helpText="The AI model build that scored this image. Results can differ between builds." />
+                <DetailRow
+                  label="Preprocessing"
+                  value={`${formatDuration(record.data.preprocessMs)} ms`}
+                  helpText="Time spent preparing the image before scoring, in milliseconds."
+                />
+                <DetailRow
+                  label="Inference"
+                  value={`${formatDuration(record.data.inferenceMs)} ms`}
+                  helpText="Time the model spent scoring the image, in milliseconds."
+                />
+                <DetailRow
+                  label="Total processing"
+                  value={`${formatDuration(record.data.totalMs)} ms`}
+                  helpText="End-to-end scoring time on this device, in milliseconds."
+                />
+                <DisclosureSection
+                  testID="records.model-scores"
+                  title="All condition scores"
+                  summary={`${record.data.classScores.length} condition scores`}>
+                  <ModelScoreList scores={record.data.classScores} />
+                </DisclosureSection>
+              </DisclosureSection>
+
+              <DisclosureSection
+                testID="records.saved-details"
+                title="Saved record details"
+                summary="All 4 saved details">
+                <DetailRow label="Decision support" value={record.data.decisionSupportWording} />
+                <DetailRow label="Saved" value={formatSavedAt(record.data.createdAt)} />
+                <DetailRow
+                  label="Server report UUID"
+                  value={synchronizationMetadata?.remoteId ?? 'Not assigned'}
+                  helpText="The office system's identifier for the uploaded report, assigned after sync."
+                />
+                <DetailRow
+                  label="Last synchronized"
+                  value={
+                    synchronizationMetadata?.lastSyncedAt
+                      ? formatSavedAt(synchronizationMetadata.lastSyncedAt)
+                      : 'Not yet synchronized'
+                  }
+                  helpText="When this device last confirmed the upload with the office."
+                />
+              </DisclosureSection>
+
+              {synchronizationMetadata?.lastSyncErrorCode ||
+              fieldReport.data?.syncStatus === 'pending' ||
+              fieldReport.data?.syncStatus === 'failed' ? (
+                <DisclosureSection
+                  testID="records.sync-details"
+                  title="Sync details"
+                  summary={synchronizationMetadata?.lastSyncErrorCode ? 'Sync failed' : 'Waiting to sync'}>
+                  {synchronizationMetadata?.lastSyncErrorCode ? (
+                    <View
+                      accessibilityLiveRegion="assertive"
+                      style={[
+                        styles.syncError,
+                        { backgroundColor: theme.dangerBg, borderColor: theme.danger },
+                      ]}>
+                      <Feather name="alert-triangle" size={19} color={theme.danger} />
+                      <Text style={[styles.syncErrorText, { color: theme.text }]}>
+                        {getSyncErrorMessage(
+                          synchronizationMetadata.lastSyncErrorCode,
+                        ) ??
+                          'The last upload did not finish.'}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {retryError ? (
+                    <Text
+                      testID="records.retry-error"
+                      accessibilityLiveRegion="assertive"
+                      style={[styles.deleteError, { color: theme.danger }]}>
+                      {retryError}
+                    </Text>
+                  ) : null}
+
+                  {fieldReport.data?.syncStatus === 'pending' ||
+                  fieldReport.data?.syncStatus === 'failed' ? (
+                    <AppButton
+                      onPress={() => void retrySync()}
+                      disabled={retrying || sync.isSyncing || sync.isOnline !== true}
+                      leadingIcon="refresh-cw"
+                      accessibilityLabel={
+                        retrying ? 'Retrying report synchronization' : 'Retry sync'
+                      }>
+                      {retrying ? 'Retrying...' : 'Retry Sync'}
+                    </AppButton>
+                  ) : null}
+                </DisclosureSection>
+              ) : null}
+
+              <View
+                style={[
+                  styles.disclaimer,
+                  { backgroundColor: theme.infoBg, borderColor: theme.info },
+                ]}>
+                <Feather name="info" size={19} color={theme.info} />
+                <Text style={[styles.disclaimerText, { color: theme.text }]}>
+                  {DECISION_SUPPORT_DISCLAIMER}
+                </Text>
+              </View>
             </View>
+            </HelpHintGroup>
           </ScrollView>
         )}
       </View>
@@ -595,10 +601,12 @@ function Section({ children, title }: { children: ReactNode; title: string }) {
 }
 
 function DetailRow({
+  helpText,
   label,
   value,
   valueTestID,
 }: {
+  helpText?: string;
   label: string;
   value: string;
   valueTestID?: string;
@@ -606,6 +614,9 @@ function DetailRow({
   return (
     <Row
       label={label}
+      labelAccessory={
+        helpText ? <HelpHint label={label} text={helpText} /> : undefined
+      }
       value={value}
       valueTestID={valueTestID}
       withDivider
@@ -617,18 +628,25 @@ function ObservationList({
   emptyLabel,
   title,
   values,
+  visibleCount = 3,
 }: {
   emptyLabel: string;
   title: string;
   values: string[];
+  visibleCount?: number;
 }) {
   const theme = useTheme();
+  const [expanded, setExpanded] = useState(false);
+  const items = values.length ? values : [emptyLabel];
+  const shown = expanded ? items : items.slice(0, visibleCount);
+  const remaining = items.length - shown.length;
+  const toggleLabel = expanded ? 'Show less' : `Show remaining ${remaining}`;
   return (
     <View style={styles.observations}>
       <Text style={[styles.observationTitle, { color: theme.textSecondary }]}>
         {title}
       </Text>
-      {(values.length ? values : [emptyLabel]).map((value) => (
+      {shown.map((value) => (
         <View key={value} style={styles.observation}>
           <View
             style={[styles.observationBullet, { backgroundColor: theme.primary }]}
@@ -638,6 +656,17 @@ function ObservationList({
           </Text>
         </View>
       ))}
+      {values.length > visibleCount ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${toggleLabel} in ${title}`}
+          onPress={() => setExpanded((value) => !value)}
+          style={styles.showMore}>
+          <Text style={[styles.showMoreText, { color: theme.primary }]}>
+            {toggleLabel}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -651,10 +680,6 @@ function getObservationLabel(key: string): string {
 
 function formatDuration(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
-}
-
-function formatClassLabel(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function formatSavedAt(value: string): string {
@@ -738,6 +763,12 @@ const styles = StyleSheet.create({
     marginTop: 7,
   },
   observationText: { ...Typography.caption, flex: 1 },
+  showMore: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+  },
+  showMoreText: { ...Typography.caption, fontWeight: '800' },
   disclaimer: {
     borderWidth: 1,
     borderRadius: Radius.lg,

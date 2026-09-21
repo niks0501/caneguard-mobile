@@ -27,9 +27,11 @@ jest.mock('expo-image', () => {
 jest.mock('expo-router', () => ({
   router: {
     back: jest.fn(),
+    dismissTo: jest.fn(),
     navigate: jest.fn(),
     push: jest.fn(),
     replace: jest.fn(),
+    setParams: jest.fn(),
   },
   useFocusEffect: (callback) => callback(),
   useLocalSearchParams: jest.fn(() => ({})),

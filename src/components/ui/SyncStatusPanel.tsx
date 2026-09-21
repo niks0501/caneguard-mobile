@@ -5,6 +5,10 @@ import { AppButton } from '@/components/ui/AppButton';
 import { useToast } from '@/components/ui/Toast';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useSync } from '@/features/sync/hooks/useSync';
+import {
+  getConnectionLabel,
+  isServerUnavailable,
+} from '@/features/sync/utils/syncStatusCopy';
 import { useTheme } from '@/hooks/use-theme';
 
 export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } = {}) {
@@ -30,18 +34,8 @@ export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } 
       showToast('Sync failed — will retry', 'error');
     }
   };
-  const apiUnavailable =
-    sync.isOnline === true && sync.apiReachability === 'unavailable';
-  const connectionLabel =
-    sync.isOnline === null
-      ? 'Checking connection'
-      : sync.isOnline === false
-        ? 'Offline'
-        : apiUnavailable
-          ? 'Network available · CaneGuard server unavailable'
-          : sync.apiReachability === 'unknown'
-            ? 'Network available · CaneGuard status not checked'
-            : 'Network and CaneGuard available';
+  const apiUnavailable = isServerUnavailable(sync.apiReachability, undefined, sync.isOnline);
+  const connectionLabel = getConnectionLabel(sync.isOnline, sync.apiReachability);
   const icon = apiUnavailable
     ? 'alert-triangle'
     : sync.isOnline === true

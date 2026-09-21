@@ -16,15 +16,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { getResultLabel } from '@/components/ui/RecordCard';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
+import { HelpHintGroup } from '@/components/ui/HelpHint';
 import { Row } from '@/components/ui/Row';
 import { TextField } from '@/components/ui/TextField';
-import { FollowUpOutcomeControl } from '@/features/assignments/components/FollowUpOutcomeControl';
+import { CASE_CLOSE_NOTICE, DECISION_SUPPORT_DISCLAIMER } from '@/constants/copy';
+import { FollowUpOutcomeControl, OUTCOME_LABELS } from '@/features/assignments/components/FollowUpOutcomeControl';
 import { PreviousVisitCard } from '@/features/assignments/components/PreviousVisitCard';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import type { FieldValidationFollowUpOutcome } from '@/database/schema';
 import type { FieldValidationCompletion } from '@/features/assignments/domain/fieldValidationCompletionTypes';
+import type { PreviousVisitContext as PreviousVisitContextValue } from '@/features/assignments/domain/previousVisit';
 import { FIELD_VALIDATION_TEXT_MAX_LENGTH } from '@/features/assignments/domain/fieldValidationCompletionValidation';
 import { useFieldValidationAssignment } from '@/features/assignments/hooks/useFieldValidationAssignment';
 import { useToast } from '@/components/ui/Toast';
@@ -79,26 +83,33 @@ export default function FieldValidationScreen() {
     showToast('Photo removed', 'info');
   };
 
-  const submit = async () => {
+  const reviewSubmit = () => {
     if (!observation.trim() || !finding.trim() || !action.trim()) {
       const msg = 'Field observation, field finding, and action taken are required.';
       setFieldError(msg);
       showToast(msg, 'error');
-      return;
+      return false;
     }
     if ([observation, finding, action].some((value) => value.trim().length > FIELD_VALIDATION_TEXT_MAX_LENGTH)) {
       const msg = 'Each validation evidence field must be no more than 2,000 characters.';
       setFieldError(msg);
       showToast(msg, 'error');
-      return;
+      return false;
     }
     if (!followUpOutcome) {
       const msg = 'Choose the follow-up outcome before completing this visit.';
       setFieldError(msg);
       showToast(msg, 'error');
-      return;
+      return false;
     }
     setFieldError(null);
+    return true;
+  };
+
+  const confirmSubmit = async () => {
+    if (!followUpOutcome) {
+      return;
+    }
     try {
       const result = await state.complete({
         fieldObservation: observation,
@@ -131,13 +142,7 @@ export default function FieldValidationScreen() {
         ) : state.assignment ? (
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
             <View style={styles.content}>
-              <VisitContext assignment={state.assignment} completion={state.completion} />
-              <PreviousVisitCard
-                currentReporterConcern={state.currentReporterConcern}
-                photoAccessToken={state.photoAccessToken}
-                previousVisit={state.previousVisit}
-                previousVisitPhotoUrl={state.previousVisitPhotoUrl}
-              />
+              <VisitContext assignment={state.assignment} />
               {state.completion ? (
                 <CompletionStatus completion={state.completion} onRetry={() => void state.retry()} />
               ) : (
@@ -156,17 +161,29 @@ export default function FieldValidationScreen() {
                   onRemovePhoto={removePhoto}
                 />
               )}
-              {/* Submitted AI evidence stays reachable but never leads the visit,
-                  so the inspector records a fresh observation first. */}
-              <SubmittedCaseEvidence assignment={state.assignment} />
+              {/* History stays reachable but never leads the visit, so the
+                  inspector records fresh evidence first. Previous visit and
+                  submitted case evidence share one disclosure. */}
+              <VisitHistory
+                assignment={state.assignment}
+                completion={state.completion}
+                currentReporterConcern={state.currentReporterConcern}
+                photoAccessToken={state.photoAccessToken}
+                previousVisit={state.previousVisit}
+                previousVisitPhotoUrl={state.previousVisitPhotoUrl}
+              />
               {state.completion ? null : (
                 <CompletionActions
                   saving={state.saving}
                   fieldError={fieldError ?? state.errorMessage}
-                  onSubmit={() => void submit()}
+                  followUpOutcome={followUpOutcome}
+                  hasPhoto={photo !== null}
+                  targetVisitDate={state.assignment.targetVisitDate}
+                  onReview={reviewSubmit}
+                  onConfirm={() => void confirmSubmit()}
                 />
               )}
-              <Text style={[styles.disclaimer, { color: theme.textSecondary }]}>Visit time is recorded automatically. GPS is attempted once and poor GPS does not block a valid completion. A fresh field photo is recommended but optional.</Text>
+              <Text style={[styles.disclaimer, { color: theme.textSecondary }]}>{DECISION_SUPPORT_DISCLAIMER} GPS is attempted once and poor GPS does not block a valid completion. A fresh field photo is recommended but optional.</Text>
             </View>
           </ScrollView>
         ) : null}
@@ -177,7 +194,7 @@ export default function FieldValidationScreen() {
 
 // testID is kept from the shipped assignment screen because the deterministic
 // .agent-device flows use it as the field-validation screen-loaded marker.
-function VisitContext({ assignment, completion }: { assignment: FieldValidationAssignment; completion: FieldValidationCompletion | null }) {
+function VisitContext({ assignment }: { assignment: FieldValidationAssignment }) {
   const theme = useTheme();
   return (
     <View testID="field-validation.assignment-summary" style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
@@ -186,33 +203,112 @@ function VisitContext({ assignment, completion }: { assignment: FieldValidationA
       <Row label="Location" value={[assignment.case.barangay, assignment.case.municipality, assignment.case.province].filter(Boolean).join(', ')} />
       <Row label="Case" value={assignment.referenceCode} />
       <Row label="Target visit" value={assignment.targetVisitDate ?? 'No target date'} />
-      <Row label="Submitted by" value={assignment.submitter.name} />
       {assignment.submitterIsAssignee ? <Text style={[styles.samePerson, { color: theme.warning }]}>You submitted this case and are its validator.</Text> : null}
-      {completion ? <Row label="Visit time" value={formatTimestamp(completion.visitedAt)} /> : null}
     </View>
   );
 }
 
-function SubmittedCaseEvidence({ assignment }: { assignment: FieldValidationAssignment }) {
+function VisitHistory({
+  assignment,
+  completion,
+  currentReporterConcern,
+  photoAccessToken,
+  previousVisit,
+  previousVisitPhotoUrl,
+}: {
+  assignment: FieldValidationAssignment;
+  completion?: FieldValidationCompletion | null;
+  currentReporterConcern?: string | null;
+  photoAccessToken?: string | null;
+  previousVisit?: PreviousVisitContextValue | null;
+  previousVisitPhotoUrl?: string | null;
+}) {
   const theme = useTheme();
   return (
-    <DisclosureSection testID="field-validation.submitted-evidence" title="Submitted case evidence">
+    <DisclosureSection
+      testID="field-validation.submitted-evidence"
+      title="Previous visit and submitted evidence"
+      summary={previousVisit ? '1 previous visit · submitted evidence' : 'No previous visit · submitted evidence'}>
       <Text style={[styles.help, { color: theme.textSecondary }]}>Recorded before this visit and submitted by the reporter. It is decision-support only, cannot be changed here, and is kept separate from your field evidence.</Text>
       <Row label="Possible Condition" value={getResultLabel(assignment.case.predictedLabel)} />
       <Row label="Confidence" value={`${Math.round(assignment.case.confidence * 100)}%`} />
+      <Row label="Submitted by" value={assignment.submitter.name} />
+      {completion ? <Row label="Visit time" value={formatTimestamp(completion.visitedAt)} /> : null}
+      <PreviousVisitCard
+        currentReporterConcern={currentReporterConcern}
+        photoAccessToken={photoAccessToken}
+        previousVisit={previousVisit}
+        previousVisitPhotoUrl={previousVisitPhotoUrl}
+      />
     </DisclosureSection>
   );
 }
 
-function CompletionActions({ saving, fieldError, onSubmit }: { fieldError: string | null; onSubmit: () => void; saving: boolean }) {
+function CompletionActions({
+  fieldError,
+  followUpOutcome,
+  hasPhoto,
+  onConfirm,
+  onReview,
+  saving,
+  targetVisitDate,
+}: {
+  fieldError: string | null;
+  followUpOutcome: FieldValidationFollowUpOutcome | null;
+  hasPhoto: boolean;
+  onConfirm: () => void;
+  onReview: () => boolean;
+  saving: boolean;
+  targetVisitDate: string | null;
+}) {
   const theme = useTheme();
+  const [showConfirm, setShowConfirm] = useState(false);
   return (
     <View testID="field-validation.actions" style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
-      <Text style={[styles.help, { color: theme.textSecondary }]}>Completing this visit saves your field evidence. It does not verify or close the case.</Text>
+      <Text style={[styles.help, { color: theme.textSecondary }]}>{CASE_CLOSE_NOTICE}</Text>
       {fieldError ? <Text testID="field-validation.error" accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>{fieldError}</Text> : null}
-      <AppButton testID="field-validation.complete" onPress={onSubmit} disabled={saving} leadingIcon="check-circle">{saving ? 'Saving validation...' : 'Complete field validation'}</AppButton>
+      <AppButton
+        testID="field-validation.complete"
+        onPress={() => {
+          if (onReview()) {
+            setShowConfirm(true);
+          }
+        }}
+        disabled={saving}
+        leadingIcon="check-circle">
+        {saving ? 'Saving validation...' : 'Complete field validation'}
+      </AppButton>
+      <ConfirmDialog
+        visible={showConfirm}
+        title="Complete this visit?"
+        message={completeConfirmMessage({ followUpOutcome, hasPhoto, targetVisitDate })}
+        confirmLabel="Complete visit"
+        confirmTestID="field-validation.confirm-complete"
+        cancelLabel="Cancel"
+        overlay
+        testID="field-validation.confirm-complete-dialog"
+        onConfirm={() => {
+          setShowConfirm(false);
+          onConfirm();
+        }}
+        onCancel={() => setShowConfirm(false)}
+      />
     </View>
   );
+}
+
+function completeConfirmMessage({
+  followUpOutcome,
+  hasPhoto,
+  targetVisitDate,
+}: {
+  followUpOutcome: FieldValidationFollowUpOutcome | null;
+  hasPhoto: boolean;
+  targetVisitDate: string | null;
+}): string {
+  const outcome = followUpOutcome ? OUTCOME_LABELS[followUpOutcome] : 'No outcome chosen';
+  const visit = targetVisitDate ?? 'No target date';
+  return `Complete the visit for ${visit}? Follow-up outcome: ${outcome}. Fresh photo: ${hasPhoto ? 'attached' : 'not attached'}. The completed evidence can no longer be edited, and the case stays open.`;
 }
 
 function EvidenceForm({
@@ -226,11 +322,11 @@ function EvidenceForm({
   const hasFinding = finding.trim().length > 0;
   return (
     <View testID="field-validation.form" style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
+      <HelpHintGroup>
       <FollowUpOutcomeControl previousVisitAt={previousVisitAt} value={followUpOutcome} onChange={onFollowUpOutcomeChange} />
       <View style={styles.heading}><Feather name="edit-3" size={20} color={theme.primary} /><Text style={[styles.title, { color: theme.text }]}>What did you record on this visit?</Text></View>
-      <Text style={[styles.help, { color: theme.textSecondary }]}>Three separate parts of the same visit: what you saw, what you make of it, and what you did. These are stored as field evidence, separate from the submitted case evidence.</Text>
-      <TextField testID="field-validation.observation-input" label="Fresh field observation" hint="What you physically saw on this visit. For example: “Orange-brown pustules on the lower leaves of about a fifth of the block.”" value={observation} onChangeText={onObservationChange} placeholder="What did you see during this visit?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
-      <TextField testID="field-validation.finding-input" label="Field finding" hint="Your own assessment of what those observations mean here. For example: “Lesions consistent with Rust; no smut whip seen in the sampled rows.”" value={finding} onChangeText={onFindingChange} placeholder="Describe the field finding needed by the office." maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
+      <TextField testID="field-validation.observation-input" label="Fresh field observation" hint="What you physically saw on this visit." helpHintText="For example: “Orange-brown pustules on the lower leaves of about a fifth of the block.”" helpHintTestID="field-validation.observation-help" value={observation} onChangeText={onObservationChange} placeholder="What did you see during this visit?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
+      <TextField testID="field-validation.finding-input" label="Field finding" hint="Your own assessment of what those observations mean here." helpHintText="For example: “Lesions consistent with Rust; no smut whip seen in the sampled rows.”" helpHintTestID="field-validation.finding-help" value={finding} onChangeText={onFindingChange} placeholder="Describe the field finding needed by the office." maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
       <Pressable
         testID="field-validation.copy-observation"
         accessibilityRole="button"
@@ -245,7 +341,7 @@ function EvidenceForm({
           {hasFinding ? 'Replace finding with observation' : 'Copy observation into finding'}
         </Text>
       </Pressable>
-      <TextField testID="field-validation.action-input" label="Action taken" hint="What you actually did or told the farmer. For example: “Advised removal of affected leaves and a follow-up visit in 7 days.”" value={action} onChangeText={onActionChange} placeholder="What action or guidance was provided?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
+      <TextField testID="field-validation.action-input" label="Action taken" hint="What you actually did or told the farmer." helpHintText="For example: “Advised removal of affected leaves and a follow-up visit in 7 days.”" helpHintTestID="field-validation.action-help" value={action} onChangeText={onActionChange} placeholder="What action or guidance was provided?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
       {photo ? (
         <View style={styles.photoContainer}>
           <ExpoImage source={{ uri: photo.uri }} accessibilityLabel="Fresh field validation photo" contentFit="cover" style={styles.photo} />
@@ -253,6 +349,7 @@ function EvidenceForm({
         </View>
       ) : null}
       <AppButton testID="field-validation.capture-photo" onPress={onCapturePhoto} leadingIcon="camera" variant="secondary">{photo ? 'Replace fresh photo' : 'Add fresh field photo (recommended)'}</AppButton>
+      </HelpHintGroup>
     </View>
   );
 }
@@ -275,7 +372,7 @@ function CompletionStatus({ completion, onRetry }: { completion: FieldValidation
     <View testID="field-validation.completion-status" style={[styles.card, { backgroundColor: pending ? theme.warningBg : theme.successBg, borderColor: pending ? theme.warning : theme.success }]}>
       <Feather name={pending ? 'clock' : 'check-circle'} size={24} color={pending ? theme.warning : theme.success} />
       <Text style={[styles.title, { color: theme.text }]}>{pending ? 'Saved on this device' : 'Validation synchronized'}</Text>
-      <Text style={[styles.help, { color: theme.textSecondary }]}>{pending ? 'The completed evidence is preserved locally and will retry automatically when connectivity returns.' : 'The office can now review this field evidence. The case remains open and is not automatically verified or closed.'}</Text>
+      <Text style={[styles.help, { color: theme.textSecondary }]}>{pending ? 'The completed evidence is preserved locally and will retry automatically when connectivity returns. Visit time is recorded automatically.' : 'The office can now review this field evidence. Visit time is recorded automatically.'}</Text>
       <Row label="Visit time" value={formatTimestamp(completion.visitedAt)} />
       <Row label="GPS" value={completion.gpsOutcome.replace('_', ' ')} />
       {pending ? <AppButton testID="field-validation.retry" onPress={() => void handleRetry()} disabled={completion.syncStatus === 'syncing'} leadingIcon="refresh-cw" variant="secondary">Retry synchronization</AppButton> : null}

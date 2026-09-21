@@ -238,7 +238,7 @@ describe('RecordDetailsScreen', () => {
 
     const view = await render(<RecordDetailsScreen />);
 
-    await fireEvent.press(screen.getByLabelText('Show Technical details'));
+    await fireEvent.press(screen.getByLabelText('Show Saved record details'));
     expect(screen.getByLabelText('Open finalized Field Report')).toBeOnTheScreen();
     expect(screen.getByText('View Finalized Report')).toBeOnTheScreen();
     expect(
@@ -282,7 +282,7 @@ describe('RecordDetailsScreen', () => {
   it('loads complete stored metadata by UUID', async () => {
     await render(<RecordDetailsScreen />);
 
-    await fireEvent.press(screen.getByLabelText('Show Technical details'));
+    await fireEvent.press(screen.getByLabelText('Show Model details'));
     expect(useScanRecordDetails).toHaveBeenCalledWith(RECORD_ID);
     expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
     expect(screen.getByTestId('records.result-title')).toHaveTextContent(
@@ -318,7 +318,7 @@ describe('RecordDetailsScreen', () => {
     expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
   });
 
-  it('requires confirmation and deletes before returning to records', async () => {
+  it('requires one confirmation and deletes before returning to records', async () => {
     await render(
       <ToastProvider>
         <RecordDetailsScreen />
@@ -328,17 +328,12 @@ describe('RecordDetailsScreen', () => {
       screen.getByLabelText('Delete this local record and saved image'),
     );
 
-    const confirmation = jest.mocked(Alert.alert).mock.calls[0];
-    expect(confirmation[0]).toBe('Delete local record?');
-    expect(confirmation[1]).toContain('saved image');
-    expect(confirmation[1]).toContain('Field Report');
-    const deleteAction = confirmation[2]?.find(
-      (action) => action.style === 'destructive',
-    );
+    // C3: exactly one in-app confirmation gate — no native Alert.
+    expect(jest.mocked(Alert.alert)).not.toHaveBeenCalled();
+    expect(screen.getByTestId('records.confirm-delete')).toBeOnTheScreen();
+    expect(screen.getByTestId('records.confirm-delete')).toHaveTextContent(/cannot be undone/);
 
-    await act(async () => {
-      deleteAction?.onPress?.();
-    });
+    await fireEvent.press(screen.getByTestId('records.confirm-delete.confirm'));
 
     expect(mockDeleteScanRecord).toHaveBeenCalledWith(
       mockDatabase,
@@ -348,6 +343,76 @@ describe('RecordDetailsScreen', () => {
     expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
     expect(screen.getByTestId('app-toast')).toHaveTextContent('Record deleted');
     expect(mockRouterReplace).toHaveBeenCalledWith('/activity');
+  });
+
+  it('deletes nothing when the single delete confirmation is cancelled', async () => {
+    await render(
+      <ToastProvider>
+        <RecordDetailsScreen />
+      </ToastProvider>,
+    );
+    await fireEvent.press(
+      screen.getByLabelText('Delete this local record and saved image'),
+    );
+    expect(screen.getByTestId('records.confirm-delete')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('records.confirm-delete.cancel'));
+
+    expect(jest.mocked(Alert.alert)).not.toHaveBeenCalled();
+    expect(mockDeleteScanRecord).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('records.confirm-delete')).toBeNull();
+  });
+
+  it('splits model and saved details into two counted disclosures', async () => {
+    await render(<RecordDetailsScreen />);
+
+    // Both disclosures replace the bare Technical details block.
+    expect(screen.queryByText('Technical details')).toBeNull();
+    expect(screen.getByText('Model details')).toBeOnTheScreen();
+    expect(screen.getByText('Saved record details')).toBeOnTheScreen();
+    expect(screen.getByText('All 7 model details')).toBeOnTheScreen();
+    expect(screen.getByText('All 4 saved details')).toBeOnTheScreen();
+
+    // Model rows stay behind their tap; the hero keeps the single answer.
+    expect(screen.queryByText('v0.1-baseline')).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Show Model details'));
+    expect(screen.getByText('v0.1-baseline')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Rust score 82%')).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Show All condition scores'));
+    expect(screen.getByLabelText('Rust score 82%')).toBeOnTheScreen();
+
+    // Saved rows live in the other disclosure.
+    expect(screen.queryByText('Not assigned')).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Show Saved record details'));
+    expect(screen.getByText('Not assigned')).toBeOnTheScreen();
+    expect(screen.getByText('Not yet synchronized')).toBeOnTheScreen();
+  });
+
+  it('caps long observation lists behind a Show remaining control', async () => {
+    mockDetailsState = {
+      ...mockDetailsState,
+      data: {
+        ...DETAILS,
+        symptoms: ['rust', 'mosaic', 'smut', 'yellow-midrib'],
+      },
+    };
+    await render(<RecordDetailsScreen />);
+
+    expect(
+      screen.getByText('Raised rust-colored or orange-brown spots or pustules, mainly on the leaf underside'),
+    ).toBeOnTheScreen();
+    expect(screen.getByText('Show remaining 1')).toBeOnTheScreen();
+    expect(
+      screen.queryByText('Bright yellow midrib on lower or older leaves, or yellowing spreading outward from the midrib'),
+    ).not.toBeOnTheScreen();
+
+    await fireEvent.press(
+      screen.getByText('Show remaining 1'),
+    );
+    expect(screen.getByText('Show less')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Bright yellow midrib on lower or older leaves, or yellowing spreading outward from the midrib'),
+    ).toBeOnTheScreen();
   });
 
   it('preserves legacy synced identity without offering resubmission', async () => {
@@ -363,7 +428,7 @@ describe('RecordDetailsScreen', () => {
 
     await render(<RecordDetailsScreen />);
 
-    await fireEvent.press(screen.getByLabelText('Show Technical details'));
+    await fireEvent.press(screen.getByLabelText('Show Saved record details'));
     expect(screen.getByText('Legacy Report Synced')).toBeOnTheScreen();
     expect(
       screen.getByLabelText('Legacy report already synchronized'),

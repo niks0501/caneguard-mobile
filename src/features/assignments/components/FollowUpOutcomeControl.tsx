@@ -7,7 +7,7 @@ import {
 } from '@/database/schema';
 import { useTheme } from '@/hooks/use-theme';
 
-const OUTCOME_LABELS: Record<FieldValidationFollowUpOutcome, string> = {
+export const OUTCOME_LABELS: Record<FieldValidationFollowUpOutcome, string> = {
   improved: 'Improved',
   unchanged: 'Unchanged',
   worsened: 'Worsened',

@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { DECISION_SUPPORT_DISCLAIMER } from '@/constants/copy';
 import { ComponentTokens, Layout, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useScanSession } from '@/features/detection/context/useScanSession';
 import { readPickerOutcome } from '@/features/detection/imagePicker/readPickerOutcome';
@@ -422,7 +423,7 @@ export default function ScanScreen() {
               ]}>
               <Feather name="info" size={18} color={theme.guideIcon} />
               <Text style={[styles.disclaimerText, { color: theme.text }]}>
-                This result is for decision support only and should not replace expert validation.
+                {DECISION_SUPPORT_DISCLAIMER}
               </Text>
             </View>
           </View>

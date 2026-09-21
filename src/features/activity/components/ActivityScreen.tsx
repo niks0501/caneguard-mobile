@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AssignmentCard } from '@/features/activity/components/AssignmentCard';
+import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import {
   describeRefreshAllResult,
   type RefreshAllTarget,
@@ -214,54 +215,6 @@ export default function ActivityScreen() {
             <View style={styles.content}>
               <TodayEntry activeVisitCount={assignments.assignments.filter((assignment) => assignment.fieldValidationState === 'assigned' || assignment.fieldValidationState === 'in_progress').length} />
 
-              {activeFilter !== 'scans' && notificationsOpen ? (
-                <NotificationInbox
-                  destinations={destinations}
-                  errorMessage={notifications.errorMessage}
-                  notifications={notifications.notifications}
-                  onMarkAllRead={() => {
-                    void notifications.markAllRead();
-                    showToast('Updates marked as read', 'info');
-                  }}
-                  onNotificationPress={openNotification}
-                  partial={notifications.partial}
-                  readActionError={notifications.readActionError}
-                  unreadCount={notifications.unreadCount}
-                />
-              ) : null}
-
-              {activeFilter !== 'scans' ? (
-                <View testID="activity.refresh-scope" style={styles.refreshScope}>
-                  <SyncStatusPanel showAction={false} />
-                  <AppButton
-                    testID="activity.refresh-all"
-                    onPress={() => void refreshAll(buildRefreshTargets())}
-                    disabled={refreshingAll}
-                    variant="secondary"
-                    leadingIcon="refresh-cw"
-                    accessibilityLabel={
-                      refreshingAll ? 'Refreshing all activity' : 'Refresh all activity'
-                    }>
-                    {refreshingAll ? 'Refreshing...' : 'Refresh all'}
-                  </AppButton>
-                  {refreshMessage ? (
-                    <Text
-                      accessibilityLiveRegion="polite"
-                      style={[styles.refreshMessage, { color: theme.textSecondary }]}>
-                      {refreshMessage}
-                    </Text>
-                  ) : null}
-                  {subsystemErrors.map((message) => (
-                    <Text
-                      key={message}
-                      accessibilityLiveRegion="assertive"
-                      style={[styles.refreshMessage, { color: theme.danger }]}>
-                      {message}
-                    </Text>
-                  ))}
-                </View>
-              ) : null}
-
               <View style={styles.searchRow}>
                 <View
                   style={[
@@ -431,6 +384,58 @@ export default function ActivityScreen() {
                   ) : null}
                 </>
               )}
+              {activeFilter !== 'scans' && notificationsOpen ? (
+                <NotificationInbox
+                  destinations={destinations}
+                  errorMessage={notifications.errorMessage}
+                  notifications={notifications.notifications}
+                  onMarkAllRead={() => {
+                    void notifications.markAllRead();
+                    showToast('Updates marked as read', 'info');
+                  }}
+                  onNotificationPress={openNotification}
+                  partial={notifications.partial}
+                  readActionError={notifications.readActionError}
+                  unreadCount={notifications.unreadCount}
+                />
+              ) : null}
+
+              {activeFilter !== 'scans' ? (
+                <DisclosureSection
+                  testID="activity.sync"
+                  title="Sync"
+                  summary={syncSummary(sync)}>
+                  <View testID="activity.refresh-scope" style={styles.refreshScope}>
+                    <SyncStatusPanel showAction={false} />
+                    <AppButton
+                      testID="activity.refresh-all"
+                      onPress={() => void refreshAll(buildRefreshTargets())}
+                      disabled={refreshingAll}
+                      variant="secondary"
+                      leadingIcon="refresh-cw"
+                      accessibilityLabel={
+                        refreshingAll ? 'Refreshing all activity' : 'Refresh all activity'
+                      }>
+                      {refreshingAll ? 'Refreshing...' : 'Refresh all'}
+                    </AppButton>
+                    {refreshMessage ? (
+                      <Text
+                        accessibilityLiveRegion="polite"
+                        style={[styles.refreshMessage, { color: theme.textSecondary }]}>
+                        {refreshMessage}
+                      </Text>
+                    ) : null}
+                    {subsystemErrors.map((message) => (
+                      <Text
+                        key={message}
+                        accessibilityLiveRegion="assertive"
+                        style={[styles.refreshMessage, { color: theme.danger }]}>
+                        {message}
+                      </Text>
+                    ))}
+                  </View>
+                </DisclosureSection>
+              ) : null}
               <View style={styles.bottomSpace} />
             </View>
           </ScrollView>
@@ -438,6 +443,19 @@ export default function ActivityScreen() {
       </View>
     </SafeAreaView>
   );
+}
+
+function syncSummary(sync: { isOnline: boolean | null; isSyncing: boolean; pendingCount: number }): string {
+  if (sync.isSyncing) {
+    return 'Syncing';
+  }
+  if (sync.isOnline === false) {
+    return 'Offline';
+  }
+  if (sync.pendingCount > 0) {
+    return `${sync.pendingCount} awaiting upload`;
+  }
+  return 'All synced';
 }
 
 function TodayEntry({ activeVisitCount }: { activeVisitCount: number }) {

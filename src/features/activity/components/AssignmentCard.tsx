@@ -59,17 +59,14 @@ export function AssignmentCard({
         <DiseasePill variant={variant} />
       </View>
       <View style={[styles.details, { borderTopColor: theme.divider }]}>
-        <Detail label="Visit" value={target} theme={theme} />
-        {dueState ? <Detail label="Due" value={formatTodayDueLine(assignment, today ?? getLocalDateKey())} theme={theme} /> : null}
+        {dueState ? (
+          <Detail label="Due" value={formatTodayDueLine(assignment, today ?? getLocalDateKey())} theme={theme} />
+        ) : (
+          <Detail label="Visit" value={target} theme={theme} />
+        )}
         <Detail label="Submitted by" value={assignment.submitter.name} theme={theme} />
         <Detail label="Status" value={stateLabel(assignment.fieldValidationState)} theme={theme} />
       </View>
-      {assignment.submitterIsAssignee ? (
-        <View style={[styles.samePerson, { backgroundColor: theme.warningBg }]}>
-          <Feather name="user-check" size={15} color={theme.warning} />
-          <Text style={[styles.samePersonText, { color: theme.warning }]}>You submitted this case and are its validator.</Text>
-        </View>
-      ) : null}
       </View>
     </Pressable>
   );
@@ -153,12 +150,4 @@ const styles = StyleSheet.create({
   detail: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.md },
   detailLabel: { ...Typography.caption, flexShrink: 0 },
   detailValue: { ...Typography.caption, fontWeight: '800', textAlign: 'right', flex: 1 },
-  samePerson: {
-    borderRadius: Radius.md,
-    padding: Spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.xs,
-  },
-  samePersonText: { ...Typography.caption, fontWeight: '800', flex: 1 },
 });

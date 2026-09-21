@@ -193,7 +193,7 @@ describe('ImagePreviewScreen', () => {
       );
     });
 
-    await fireEvent.press(screen.getByLabelText('Show Technical details'));
+    await fireEvent.press(screen.getByLabelText('Show Saved image details'));
     expect(screen.getByText('Model input ready')).toBeOnTheScreen();
     expect(screen.getByText('224 × 224 RGB float32 · 42 ms')).toBeOnTheScreen();
     expect(screen.getByText('Running on-device model…')).toBeOnTheScreen();

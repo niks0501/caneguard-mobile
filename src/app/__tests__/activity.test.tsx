@@ -276,6 +276,7 @@ describe('ActivityScreen', () => {
 
   it('runs one Refresh all scope that covers every eligible subsystem once', async () => {
     await render(<ActivityScreen />);
+    await fireEvent.press(screen.getByLabelText('Show Sync'));
 
     expect(screen.queryByLabelText('Refresh notifications')).not.toBeOnTheScreen();
     expect(screen.queryByLabelText('Refresh office review updates')).not.toBeOnTheScreen();
@@ -296,6 +297,7 @@ describe('ActivityScreen', () => {
     mockRefresh.mockResolvedValue(false);
 
     await render(<ActivityScreen />);
+    await fireEvent.press(screen.getByLabelText('Show Sync'));
     await fireEvent.press(screen.getByTestId('activity.refresh-all'));
 
     expect(screen.getByText(/Couldn.t refresh/)).toBeOnTheScreen();
@@ -469,5 +471,36 @@ describe('ActivityScreen', () => {
     expect(mockMarkAllRead).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
     expect(screen.getByTestId('app-toast')).toHaveTextContent('Updates marked as read');
+  });
+
+  it('renders the records list before the office-updates panel and the sync panel', async () => {
+    mockNotificationsState = {
+      ...mockNotificationsState,
+      notifications: [NOTIFICATION],
+      unreadCount: 1,
+    };
+    mockDestinations = new Map([
+      [NOTIFICATION.id, { kind: 'assignment', assignmentId: ASSIGNMENT.id }],
+    ]);
+    await render(<ActivityScreen />);
+
+    expect(screen.getByTestId('activity.timeline')).toBeOnTheScreen();
+    // Status panels stay behind their taps: the list leads.
+    expect(screen.queryByTestId('activity.notifications')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Report synchronization')).not.toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('activity.notifications-toggle'));
+    await fireEvent.press(screen.getByLabelText('Show Sync'));
+
+    expect(screen.getByTestId('activity.notifications')).toBeOnTheScreen();
+    expect(screen.getByText('Report synchronization')).toBeOnTheScreen();
+
+    const tree = JSON.stringify(screen.toJSON());
+    const order = [
+      'testID":"activity.timeline',
+      'testID":"activity.notifications"',
+      'testID":"activity.refresh-scope',
+    ];
+    expect([...order].sort((a, b) => tree.indexOf(a) - tree.indexOf(b))).toEqual(order);
   });
 });

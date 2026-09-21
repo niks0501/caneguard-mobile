@@ -1,117 +1,36 @@
 import * as Device from 'expo-device';
-import { router } from 'expo-router';
-import { useState, type ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
-import { TextField } from '@/components/ui/TextField';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
-const PASSWORD_MIN_LENGTH = 15;
-const PASSWORD_MAX_LENGTH = 128;
+const ENROLLMENT_SUCCESS_MESSAGE =
+  'This installation is enrolled with a fresh server session. Existing sessions on other device identities are unchanged.';
 
 export function AccountSecurityScreen() {
   const theme = useTheme();
   const { showToast } = useToast();
+  const params = useLocalSearchParams<{ notice?: string | string[] }>();
+  const notice = Array.isArray(params.notice) ? params.notice[0] : params.notice;
   const {
     biometricCapability,
     biometricEnabled,
     biometricLoading,
-    changeEmail,
-    changePassword,
-    disableBiometric,
     enableBiometricUnlock,
-    enrollMobileDevice,
     errorMessage,
     session,
   } = useAuth();
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [newEmail, setNewEmail] = useState('');
-  const [emailPassword, setEmailPassword] = useState('');
-  const [disablePassword, setDisablePassword] = useState('');
-  const [enrollmentPassword, setEnrollmentPassword] = useState('');
-  const [deviceName, setDeviceName] = useState(
-    Device.deviceName?.trim() || Device.modelName?.trim() || 'CaneGuard mobile device',
-  );
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  const submitPasswordChange = async () => {
-    if (
-      busyAction ||
-      !currentPassword ||
-      newPassword.length < PASSWORD_MIN_LENGTH
-    ) {
-      return;
-    }
-    setBusyAction('password');
-    setSuccessMessage(null);
-    const changed = await changePassword({
-      currentPassword,
-      password: newPassword,
-    });
-    setBusyAction(null);
-    if (changed) {
-      showToast('Password updated', 'success');
-      router.replace('/login');
-    }
-  };
-
-  const submitEmailChange = async () => {
-    if (busyAction || !emailPassword || !newEmail.trim()) {
-      return;
-    }
-    setBusyAction('email');
-    setSuccessMessage(null);
-    const changed = await changeEmail({
-      currentPassword: emailPassword,
-      email: newEmail,
-    });
-    setBusyAction(null);
-    if (changed) {
-      showToast('Email updated', 'success');
-      router.replace('/login');
-    }
-  };
-
-  const submitEnrollment = async () => {
-    if (busyAction || !enrollmentPassword || !deviceName.trim()) {
-      return;
-    }
-    setBusyAction('enrollment');
-    setSuccessMessage(null);
-    const enrolled = await enrollMobileDevice(
-      enrollmentPassword,
-      deviceName,
-    );
-    setBusyAction(null);
-    if (enrolled) {
-      setEnrollmentPassword('');
-      showToast('Device enrolled', 'success');
-      setSuccessMessage(
-        'This installation is enrolled with a fresh server session. Existing sessions on other device identities are unchanged.',
-      );
-    }
-  };
-
-  const submitBiometricDisable = async () => {
-    if (busyAction || !disablePassword) {
-      return;
-    }
-    setBusyAction('biometric-disable');
-    setSuccessMessage(null);
-    const disabled = await disableBiometric(disablePassword);
-    setBusyAction(null);
-    if (disabled) {
-      showToast('Biometrics disabled', 'info');
-      router.replace('/login');
-    }
-  };
+  const installationName =
+    Device.deviceName?.trim() || Device.modelName?.trim() || 'CaneGuard mobile device';
 
   const enableBiometrics = async () => {
     if (busyAction || biometricLoading) {
@@ -145,32 +64,26 @@ export function AccountSecurityScreen() {
       {errorMessage ? (
         <Text testID="account-security.error" accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>{errorMessage}</Text>
       ) : null}
-      {successMessage ? (
-        <Text testID="account-security.success" accessibilityLiveRegion="polite" style={[styles.success, { color: theme.primaryDark, backgroundColor: theme.successBg }]}>{successMessage}</Text>
+      {notice === 'enrolled' || successMessage ? (
+        <Text testID="account-security.success" accessibilityLiveRegion="polite" style={[styles.success, { color: theme.primaryDark, backgroundColor: theme.successBg }]}>{notice === 'enrolled' ? ENROLLMENT_SUCCESS_MESSAGE : successMessage}</Text>
       ) : null}
 
-      <SecuritySection title="Biometric unlock" description="Use an enrolled strong biometric to unlock the OS-protected session after a cold start. Password sign-in is always available; a device passcode cannot unlock this credential.">
-        <Text style={[styles.capability, { color: theme.textSecondary }]}>{biometricCapabilityMessage(biometricCapability?.status)}</Text>
+      <View style={[styles.row, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
+        <View style={styles.rowCopy}>
+          <Text style={[styles.rowTitle, { color: theme.primaryDark }]}>Biometric unlock</Text>
+          <Text style={[styles.rowDescription, { color: theme.textSecondary }]}>
+            {biometricEnabled
+              ? 'Biometric unlock is on for this installation.'
+              : biometricCapabilityMessage(biometricCapability?.status)}
+          </Text>
+        </View>
         {biometricEnabled ? (
-          <View style={styles.form}>
-            <TextField
-              testID="account-security.disable-biometric-password"
-              label="Current password"
-              value={disablePassword}
-              onChangeText={setDisablePassword}
-              placeholder="Confirm to disable"
-              secureTextEntry
-              autoCapitalize="none"
-              textContentType="password"
-            />
-            <AppButton
-              testID="account-security.disable-biometric"
-              variant="secondary"
-              onPress={() => void submitBiometricDisable()}
-              disabled={Boolean(busyAction) || !disablePassword}>
-              {busyAction === 'biometric-disable' ? 'Disabling...' : 'Disable biometric unlock'}
-            </AppButton>
-          </View>
+          <AppButton
+            testID="account-security.open-disable-biometric"
+            variant="secondary"
+            onPress={() => router.push('/account-biometric')}>
+            Disable biometric unlock
+          </AppButton>
         ) : (
           <AppButton
             testID="account-security.enable-biometric"
@@ -184,124 +97,67 @@ export function AccountSecurityScreen() {
             {biometricLoading || busyAction === 'biometric-enable' ? 'Enabling...' : 'Enable biometric unlock'}
           </AppButton>
         )}
-      </SecuritySection>
+      </View>
 
-      <SecuritySection title="Change password" description={`Use ${PASSWORD_MIN_LENGTH} to ${PASSWORD_MAX_LENGTH} characters. Changing your password signs out every active session.`}>
-        <View style={styles.form}>
-          <TextField
-            testID="account-security.current-password"
-            label="Current password"
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            placeholder="Current password"
-            secureTextEntry
-            autoCapitalize="none"
-            textContentType="password"
-          />
-          <TextField
-            testID="account-security.new-password"
-            label="New password"
-            value={newPassword}
-            onChangeText={setNewPassword}
-            placeholder="New password"
-            secureTextEntry
-            maxLength={PASSWORD_MAX_LENGTH}
-            autoCapitalize="none"
-            textContentType="newPassword"
-          />
-          <AppButton
-            testID="account-security.change-password"
-            onPress={() => void submitPasswordChange()}
-            disabled={
-              Boolean(busyAction) ||
-              !currentPassword ||
-              newPassword.length < PASSWORD_MIN_LENGTH
-            }>
-            {busyAction === 'password' ? 'Updating...' : 'Change password'}
-          </AppButton>
-        </View>
-      </SecuritySection>
+      <SecurityRow
+        title="Change password"
+        description="Password protection is on. Changing your password signs out every active session."
+        openTestID="account-security.open-change-password"
+        openLabel="Open the change password form"
+        onOpen={() => router.push('/account-password')}
+      />
 
-      <SecuritySection title="Change email" description="Changing your email signs out every active session and requires verification of the new address.">
-        <View style={styles.form}>
-          <TextField
-            testID="account-security.new-email"
-            label="New email"
-            value={newEmail}
-            onChangeText={setNewEmail}
-            placeholder="you@example.com"
-            maxLength={255}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            textContentType="emailAddress"
-          />
-          <TextField
-            testID="account-security.email-password"
-            label="Current password"
-            value={emailPassword}
-            onChangeText={setEmailPassword}
-            placeholder="Confirm to change email"
-            secureTextEntry
-            autoCapitalize="none"
-            textContentType="password"
-          />
-          <AppButton
-            testID="account-security.change-email"
-            onPress={() => void submitEmailChange()}
-            disabled={Boolean(busyAction) || !emailPassword || !newEmail.trim()}>
-            {busyAction === 'email' ? 'Updating...' : 'Change email'}
-          </AppButton>
-        </View>
-      </SecuritySection>
+      <SecurityRow
+        title="Change email"
+        description={`Current email: ${session?.user.email ?? 'authenticated account'}. Changing it signs out every active session and requires verification of the new address.`}
+        openTestID="account-security.open-change-email"
+        openLabel="Open the change email form"
+        onOpen={() => router.push('/account-email')}
+      />
 
-      <SecuritySection title="Device enrollment" description="Enroll this installation with an auditable password step-up. Its opaque installation identity is stored securely and is not a hardware identifier.">
-        <View style={styles.form}>
-          <TextField
-            testID="account-security.device-name"
-            label="Installation name"
-            value={deviceName}
-            onChangeText={setDeviceName}
-            placeholder="CaneGuard mobile device"
-            maxLength={120}
-            textContentType="none"
-          />
-          <TextField
-            testID="account-security.enrollment-password"
-            label="Current password"
-            value={enrollmentPassword}
-            onChangeText={setEnrollmentPassword}
-            placeholder="Confirm this installation"
-            secureTextEntry
-            autoCapitalize="none"
-            textContentType="password"
-          />
-          <AppButton
-            testID="account-security.enroll-device"
-            variant="secondary"
-            onPress={() => void submitEnrollment()}
-            disabled={Boolean(busyAction) || !enrollmentPassword || !deviceName.trim()}>
-            {busyAction === 'enrollment' ? 'Enrolling...' : 'Enroll this installation'}
-          </AppButton>
-        </View>
-      </SecuritySection>
+      <SecurityRow
+        title="Device enrollment"
+        description={`Installation identity: ${installationName}.`}
+        openTestID="account-security.open-enroll-device"
+        openLabel="Open the device enrollment form"
+        onOpen={() => router.push('/account-device-enrollment')}
+      />
     </ScreenContainer>
   );
 }
 
-type SecuritySectionProps = {
-  children: ReactNode;
+function SecurityRow({
+  description,
+  onOpen,
+  openLabel,
+  openTestID,
+  title,
+}: {
   description: string;
+  onOpen: () => void;
+  openLabel: string;
+  openTestID: string;
   title: string;
-};
-
-function SecuritySection({ children, description, title }: SecuritySectionProps) {
+}) {
   const theme = useTheme();
   return (
-    <View style={[styles.section, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
-      <Text style={[styles.sectionTitle, { color: theme.primaryDark }]}>{title}</Text>
-      <Text style={[styles.sectionDescription, { color: theme.textSecondary }]}>{description}</Text>
-      {children}
-    </View>
+    <Pressable
+      testID={openTestID}
+      accessibilityRole="button"
+      accessibilityLabel={openLabel}
+      onPress={onOpen}
+      style={({ pressed }) => [
+        styles.row,
+        styles.pressableRow,
+        { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+        pressed && styles.pressed,
+      ]}>
+      <View style={styles.rowCopy}>
+        <Text style={[styles.rowTitle, { color: theme.primaryDark }]}>{title}</Text>
+        <Text style={[styles.rowDescription, { color: theme.textSecondary }]}>{description}</Text>
+      </View>
+      <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+    </Pressable>
   );
 }
 
@@ -372,22 +228,26 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     padding: Spacing.md,
   },
-  section: {
+  row: {
     gap: Spacing.md,
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
   },
-  sectionTitle: {
+  pressableRow: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rowCopy: {
+    flex: 1,
+    gap: Spacing.xs,
+  },
+  rowTitle: {
     ...Typography.subheading,
   },
-  sectionDescription: {
+  rowDescription: {
     ...Typography.bodySmall,
   },
-  capability: {
-    ...Typography.caption,
-  },
-  form: {
-    gap: Spacing.lg,
-  },
+  pressed: { opacity: 0.74 },
 });

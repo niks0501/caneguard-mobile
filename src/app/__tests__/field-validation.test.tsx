@@ -66,6 +66,13 @@ describe('FieldValidationScreen', () => {
     await fireEvent.press(screen.getByTestId('field-validation.outcome.improved'));
     await fireEvent.press(screen.getByTestId('field-validation.complete'));
 
+    // C2: completing a visit requires an explicit confirmation gate that
+    // lists the committed facts. Nothing is saved yet.
+    expect(complete).not.toHaveBeenCalled();
+    expect(screen.getByTestId('field-validation.confirm-complete-dialog')).toBeOnTheScreen();
+    expect(screen.getByTestId('field-validation.confirm-complete-dialog')).toHaveTextContent(/Follow-up outcome: Improved/);
+    await fireEvent.press(screen.getByTestId('field-validation.confirm-complete'));
+
     expect(complete).toHaveBeenCalledWith({
       fieldObservation: 'Leaves show fresh lesions.',
       fieldFinding: 'Field finding recorded for office review.',
@@ -86,6 +93,8 @@ describe('FieldValidationScreen', () => {
     expect(screen.getByTestId('field-validation.observation-input')).toBeOnTheScreen();
     expect(screen.queryByText('Possible Condition: Rust')).not.toBeOnTheScreen();
     expect(screen.queryByText('93%')).not.toBeOnTheScreen();
+    // The submitter and visit history live behind the disclosure.
+    expect(screen.queryByText('Ana Reporter')).not.toBeOnTheScreen();
 
     const tree = JSON.stringify(screen.toJSON());
     const order = [
@@ -99,9 +108,10 @@ describe('FieldValidationScreen', () => {
     expect([...order].sort((a, b) => tree.indexOf(a) - tree.indexOf(b))).toEqual(order);
 
     // The submitted AI evidence stays available behind an explicit disclosure.
-    await fireEvent.press(screen.getByLabelText('Show Submitted case evidence'));
+    await fireEvent.press(screen.getByLabelText('Show Previous visit and submitted evidence'));
     expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
     expect(screen.getByText('93%')).toBeOnTheScreen();
+    expect(screen.getByText('Ana Reporter')).toBeOnTheScreen();
   });
 
   it('provides persistent hints with sugarcane examples and supports copy observation into finding', async () => {
@@ -111,20 +121,38 @@ describe('FieldValidationScreen', () => {
     expect(screen.getByText('What did you record on this visit?')).toBeOnTheScreen();
     expect(screen.queryByText('What do you observe?')).not.toBeOnTheScreen();
 
-    // Persistent hints on all three fields
+    // Short definitions stay visible (Q6 option A); only the worked example
+    // moves behind the help icon.
     expect(
-      screen.getByText(
-        'What you physically saw on this visit. For example: “Orange-brown pustules on the lower leaves of about a fifth of the block.”',
-      ),
+      screen.getByText('What you physically saw on this visit.'),
     ).toBeOnTheScreen();
     expect(
-      screen.getByText(
-        'Your own assessment of what those observations mean here. For example: “Lesions consistent with Rust; no smut whip seen in the sampled rows.”',
-      ),
+      screen.getByText('Your own assessment of what those observations mean here.'),
     ).toBeOnTheScreen();
     expect(
+      screen.getByText('What you actually did or told the farmer.'),
+    ).toBeOnTheScreen();
+
+    // Worked examples are hidden until their help icon is tapped.
+    expect(
+      screen.queryByText(/Orange-brown pustules on the lower leaves/),
+    ).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('field-validation.observation-help'));
+    expect(
       screen.getByText(
-        'What you actually did or told the farmer. For example: “Advised removal of affected leaves and a follow-up visit in 7 days.”',
+        'For example: “Orange-brown pustules on the lower leaves of about a fifth of the block.”',
+      ),
+    ).toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('field-validation.finding-help'));
+    expect(
+      screen.getByText(
+        'For example: “Lesions consistent with Rust; no smut whip seen in the sampled rows.”',
+      ),
+    ).toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('field-validation.action-help'));
+    expect(
+      screen.getByText(
+        'For example: “Advised removal of affected leaves and a follow-up visit in 7 days.”',
       ),
     ).toBeOnTheScreen();
 
@@ -165,6 +193,7 @@ describe('FieldValidationScreen', () => {
     await fireEvent.changeText(screen.getByTestId('field-validation.action-input'), 'Advised farmer.');
     await fireEvent.press(screen.getByTestId('field-validation.outcome.improved'));
     await fireEvent.press(screen.getByTestId('field-validation.complete'));
+    await fireEvent.press(screen.getByTestId('field-validation.confirm-complete'));
 
     expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
     expect(screen.getByTestId('app-toast')).toHaveTextContent('Visit recorded');

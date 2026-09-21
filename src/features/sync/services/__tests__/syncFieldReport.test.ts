@@ -122,6 +122,41 @@ describe('single Field Report synchronization', () => {
     );
   });
 
+  it('keeps a non-matching upload conflict actionable without marking the report synced', async () => {
+    const repo = repository();
+    const upload = jest.fn(async () => {
+      throw new ApiHttpError(409, 'Conflict', {
+        body: {
+          data: {
+            identity: {
+              uuid: 'server-report-uuid',
+              client_uuid: 'another-report-uuid',
+            },
+          },
+        },
+      });
+    });
+
+    await expect(syncFieldReport({
+      reportId: REPORT.id,
+      repository: repo,
+      token: 'secure-token',
+      upload,
+      mapMultipart: jest.fn(() => new FormData()),
+    })).resolves.toMatchObject({
+      reportId: REPORT.id,
+      status: 'failed',
+      error: { code: 'API_VALIDATION_FAILED', retryable: false },
+    });
+
+    expect(repo.markFailed).toHaveBeenCalledWith(
+      REPORT.id,
+      'API_VALIDATION_FAILED',
+      expect.any(String),
+    );
+    expect(repo.markSynced).not.toHaveBeenCalled();
+  });
+
   it.each([[401, 'AUTH_REQUIRED'], [403, 'API_FORBIDDEN'], [422, 'API_VALIDATION_FAILED']])(
     'stores HTTP %s as a terminal attempt without deleting local evidence',
     async (status, code) => {

@@ -20,20 +20,43 @@ describe('mobile Field Report API', () => {
     );
   });
 
-  it('treats a duplicate stable identity with an existing server UUID as idempotent success', async () => {
+  it('treats a duplicate stable identity with a matching client UUID as idempotent success', async () => {
+    const form = new FormData();
+    form.append('client_uuid', 'client-report-uuid');
     jest.mocked(apiRequest).mockRejectedValueOnce(
       new ApiHttpError(409, 'Already submitted', {
-        body: { identity: { uuid: 'existing-server-report-uuid' } },
+        body: {
+          data: {
+            identity: {
+              uuid: 'existing-server-report-uuid',
+              client_uuid: 'client-report-uuid',
+            },
+          },
+        },
       }),
     );
-    await expect(uploadMobileReport(new FormData(), 'secure-token')).resolves.toEqual({
+    await expect(uploadMobileReport(form, 'secure-token')).resolves.toEqual({
       remoteId: 'existing-server-report-uuid',
     });
   });
 
-  it('does not hide a conflict that lacks an existing server identity', async () => {
-    const conflict = new ApiHttpError(409, 'Conflict');
+  it.each([
+    ['a mismatched client UUID', { client_uuid: 'other-report-uuid' }],
+    ['a missing client UUID', {}],
+  ])('does not hide a conflict with %s', async (_description, identity) => {
+    const form = new FormData();
+    form.append('client_uuid', 'client-report-uuid');
+    const conflict = new ApiHttpError(409, 'Conflict', {
+      body: {
+        data: {
+          identity: {
+            uuid: 'existing-server-report-uuid',
+            ...identity,
+          },
+        },
+      },
+    });
     jest.mocked(apiRequest).mockRejectedValueOnce(conflict);
-    await expect(uploadMobileReport(new FormData(), 'secure-token')).rejects.toBe(conflict);
+    await expect(uploadMobileReport(form, 'secure-token')).rejects.toBe(conflict);
   });
 });

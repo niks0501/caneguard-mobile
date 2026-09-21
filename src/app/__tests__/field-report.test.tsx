@@ -298,6 +298,27 @@ describe('FieldReportScreen', () => {
     };
   });
 
+  it('provides an exit from the no-data error state', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: null,
+      errorMessage: 'Opening the Field Report draft failed.',
+      loading: false,
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    expect(screen.getByText('Opening the Field Report draft failed.')).toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.error-return-home')).toBeOnTheScreen();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-report.error-return-home'));
+    });
+
+    expect(router.replace).toHaveBeenCalledWith('/home');
+  });
+
   it('shows the automatic summary prefilled and saves incomplete values as a Draft', async () => {
     await render(<FieldReportScreen />);
 

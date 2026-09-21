@@ -721,6 +721,13 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
             <AppButton onPress={() => void report.refresh()} leadingIcon="refresh-cw">
               Try Again
             </AppButton>
+            <AppButton
+              testID="field-report.error-return-home"
+              onPress={() => router.replace('/home')}
+              variant="secondary"
+              leadingIcon="home">
+              Return Home
+            </AppButton>
           </View>
         ) : report.data ? (
           <KeyboardAvoidingView

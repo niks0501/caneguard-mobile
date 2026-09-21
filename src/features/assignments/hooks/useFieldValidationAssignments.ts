@@ -80,8 +80,10 @@ export function useFieldValidationAssignments(enabled = true) {
     }
 
     const store = ownerStore;
+    const storeGeneration = store.generation;
+    const isCurrentStore = () => store.generation === storeGeneration;
     const applyCached = (assignments: FieldValidationAssignment[]) => {
-      if (isCurrentSession(requestedSession)) {
+      if (isCurrentSession(requestedSession) && isCurrentStore()) {
         setState((current) => ({
           ...current,
           assignments,
@@ -112,9 +114,11 @@ export function useFieldValidationAssignments(enabled = true) {
           (latest, assignment) => Math.max(latest, Date.parse(assignment.cachedAt)),
           0,
         );
+        if (!isCurrentStore()) return;
         setOwnerAssignments(store, cached, fetchedAt);
         applyCached(cached);
       });
+      if (!isCurrentStore()) return false;
       if (!force && isFresh(store.assignments)) {
         applyCached(store.assignments?.value ?? []);
         setState((current) => ({ ...current, refreshing: false }));
@@ -125,26 +129,31 @@ export function useFieldValidationAssignments(enabled = true) {
     }
 
     try {
-      return await beginOwnerRefresh(store, 'assignments', async () => {
-        const result = await refreshFieldValidationAssignments({
-          database,
-          ownerIdentity: requestedSession.user.uuid,
-          token: requestedSession.token,
-        });
-        if (!isCurrentSession(requestedSession)) return false;
-        setOwnerAssignments(store, result.assignments, result.fetchedAt);
-        setState({
-          assignments: result.assignments,
-          capabilityUnavailable: false,
-          errorMessage: null,
-          lastSuccessfulAt: result.fetchedAt,
-          refreshing: false,
-          sessionKey,
-        });
-        return true;
-      });
+      return await beginOwnerRefresh(
+        store,
+        'assignments',
+        `${requestedSession.user.uuid}:${requestedSession.token}`,
+        async () => {
+          const result = await refreshFieldValidationAssignments({
+            database,
+            ownerIdentity: requestedSession.user.uuid,
+            token: requestedSession.token,
+          });
+          if (!isCurrentSession(requestedSession) || !isCurrentStore()) return false;
+          setOwnerAssignments(store, result.assignments, result.fetchedAt);
+          setState({
+            assignments: result.assignments,
+            capabilityUnavailable: false,
+            errorMessage: null,
+            lastSuccessfulAt: result.fetchedAt,
+            refreshing: false,
+            sessionKey,
+          });
+          return true;
+        },
+      );
     } catch (error: unknown) {
-      if (!isCurrentSession(requestedSession)) return false;
+      if (!isCurrentSession(requestedSession) || !isCurrentStore()) return false;
       if (
         error instanceof MobileFieldValidationAssignmentsApiError &&
         error.code === 'AUTH_REQUIRED'
@@ -176,6 +185,12 @@ export function useFieldValidationAssignments(enabled = true) {
       return false;
     }
   }, [authStatus, database, enabled, isCurrentSession, markSessionExpired, ownerStore, session, sessionKey]);
+
+  useEffect(() => {
+    if (ownerStore && ownerStore.generation > 0) {
+      void refresh({ force: false });
+    }
+  }, [ownerStore, ownerStore?.generation, refresh]);
 
   useFocusEffect(
     useCallback(() => {

@@ -1,6 +1,9 @@
 import type { CaneGuardDatabase } from '@/database/database';
 import { listCachedMobileNotifications, replaceCachedMobileNotifications } from '@/features/notifications/data/notificationCacheRepository';
-import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
+import type {
+  MobileNotification,
+  MobileNotificationUpdate,
+} from '@/features/notifications/domain/notificationTypes';
 import { fetchAllMobileNotifications } from '@/features/notifications/api/mobileNotificationsApi';
 
 export interface MobileNotificationsRefreshResult {
@@ -17,6 +20,20 @@ interface ActiveRefresh {
 
 const activeRefreshes = new WeakMap<CaneGuardDatabase, Map<string, ActiveRefresh>>();
 const refreshGenerations = new WeakMap<CaneGuardDatabase, Map<string, number>>();
+
+export function invalidateMobileNotificationsRefresh(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+): void {
+  const owner = ownerIdentity.trim();
+  let databaseGenerations = refreshGenerations.get(database);
+  if (!databaseGenerations) {
+    databaseGenerations = new Map();
+    refreshGenerations.set(database, databaseGenerations);
+  }
+  databaseGenerations.set(owner, (databaseGenerations.get(owner) ?? 0) + 1);
+  activeRefreshes.get(database)?.delete(owner);
+}
 
 export function refreshMobileNotifications(options: {
   database: CaneGuardDatabase;
@@ -65,11 +82,21 @@ async function executeRefresh(options: {
   if (!options.isCurrent()) throw new Error('The notification refresh was superseded.');
 
   const fetchedAt = new Date().toISOString();
+  const notificationsToCache = response.partial
+    ? mergePartialNotifications(
+        await listCachedMobileNotifications(
+          options.database,
+          options.ownerIdentity,
+        ),
+        response.notifications,
+      )
+    : response.notifications;
   await replaceCachedMobileNotifications(
     options.database,
     options.ownerIdentity,
-    response.notifications,
+    notificationsToCache,
     fetchedAt,
+    options.isCurrent,
   );
   const notifications = await listCachedMobileNotifications(
     options.database,
@@ -81,4 +108,20 @@ async function executeRefresh(options: {
     syncBefore: response.syncBefore,
     partial: response.partial,
   };
+}
+
+function mergePartialNotifications(
+  cached: MobileNotification[],
+  fetched: MobileNotificationUpdate[],
+): MobileNotificationUpdate[] {
+  const merged = new Map<string, MobileNotificationUpdate>(
+    cached.map(({ ownerIdentity: _ownerIdentity, cachedAt: _cachedAt, ...notification }) => [
+      notification.id,
+      notification,
+    ]),
+  );
+  for (const notification of fetched) {
+    merged.set(notification.id, notification);
+  }
+  return [...merged.values()];
 }

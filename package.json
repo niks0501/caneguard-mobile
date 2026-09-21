@@ -69,6 +69,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "pretypecheck": "node ./scripts/generate-expo-router-types.js",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",

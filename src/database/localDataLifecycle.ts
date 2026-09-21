@@ -11,8 +11,11 @@ import {
   scanRecords,
 } from '@/database/schema';
 import { deleteFieldValidationPhoto } from '@/features/assignments/services/fieldValidationPhotoStorage';
+import { invalidateFieldValidationAssignmentsRefresh } from '@/features/assignments/services/refreshFieldValidationAssignments';
 import { deleteManagedScanImage } from '@/features/records/services/scanImageStorage';
+import { invalidateMobileNotificationsRefresh } from '@/features/notifications/services/refreshMobileNotifications';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
+import { clearOwnerMobileDataStore } from '@/features/mobile-data/data/mobileDataStore';
 
 /** Keep completed, successfully synchronized local PII for a bounded period. */
 export const LOCAL_DATA_RETENTION_DAYS = 90;
@@ -32,6 +35,8 @@ export async function clearLocalDataForOwner(
   ownerIdentity: string,
 ): Promise<LocalDataCleanupResult> {
   const owner = requireOwnerIdentity(ownerIdentity);
+  invalidateFieldValidationAssignmentsRefresh(database, owner);
+  invalidateMobileNotificationsRefresh(database, owner);
   const targets = await readCleanupTargets(database, owner);
   let deletedRows = 0;
 
@@ -66,6 +71,7 @@ export async function clearLocalDataForOwner(
     );
   }
 
+  clearOwnerMobileDataStore(database, owner);
   const imageCleanupErrors = cleanupImages(targets, owner);
   emitSyncRecordsChanged();
   return { deletedRows, imageCleanupErrors };
@@ -94,7 +100,7 @@ export async function purgeExpiredLocalData(
     now.getTime() - Math.trunc(retentionDays) * 24 * 60 * 60 * 1000,
   ).toISOString();
 
-  const [scanRows, allReportRows, completionRows] = await Promise.all([
+  const [scanRows, allReportRows, completionRows, assignmentRows, notificationRows] = await Promise.all([
     database
       .select({
         id: scanRecords.id,
@@ -126,6 +132,24 @@ export async function purgeExpiredLocalData(
           eq(fieldValidationCompletions.ownerIdentity, owner),
           eq(fieldValidationCompletions.syncStatus, 'synced'),
           lt(fieldValidationCompletions.createdAt, cutoff),
+        ),
+      ),
+    database
+      .select({ id: fieldValidationAssignments.id })
+      .from(fieldValidationAssignments)
+      .where(
+        and(
+          eq(fieldValidationAssignments.ownerIdentity, owner),
+          lt(fieldValidationAssignments.updatedAt, cutoff),
+        ),
+      ),
+    database
+      .select({ id: mobileNotifications.id })
+      .from(mobileNotifications)
+      .where(
+        and(
+          eq(mobileNotifications.ownerIdentity, owner),
+          lt(mobileNotifications.cachedAt, cutoff),
         ),
       ),
   ]);
@@ -161,6 +185,16 @@ export async function purgeExpiredLocalData(
       .filter((uri): uri is string => Boolean(uri)),
   };
   let deletedRows = 0;
+  if (
+    scanIds.length > 0 ||
+    reportIds.length > 0 ||
+    completionRows.length > 0 ||
+    assignmentRows.length > 0 ||
+    notificationRows.length > 0
+  ) {
+    invalidateFieldValidationAssignmentsRefresh(database, owner);
+    invalidateMobileNotificationsRefresh(database, owner);
+  }
 
   try {
     database.transaction((transaction) => {
@@ -223,6 +257,9 @@ export async function purgeExpiredLocalData(
     );
   }
 
+  if (deletedRows > 0) {
+    clearOwnerMobileDataStore(database, owner, { cacheFetchedAt: 0 });
+  }
   const imageCleanupErrors = cleanupImages(targets, owner);
   if (deletedRows > 0 || imageCleanupErrors.length > 0) {
     emitSyncRecordsChanged();

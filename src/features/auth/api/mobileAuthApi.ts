@@ -1,3 +1,4 @@
+import { isSafeOwnerIdentity } from '@/database/ownerIdentity';
 import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
 import type {
   AuthActionResponse,
@@ -93,7 +94,7 @@ export function parseMobileUser(value: unknown): MobileUser {
   }
   if (
     typeof value.uuid !== 'string' ||
-    value.uuid.trim() === '' ||
+    !isSafeOwnerIdentity(value.uuid.trim()) ||
     typeof value.name !== 'string' ||
     value.name.trim() === '' ||
     typeof value.email !== 'string' ||
@@ -542,7 +543,7 @@ function isMobileUser(value: unknown): value is MobileUser {
   return Boolean(
     isRecord(value) &&
       typeof value.uuid === 'string' &&
-      value.uuid.trim().length > 0 &&
+      isSafeOwnerIdentity(value.uuid.trim()) &&
       typeof value.name === 'string' &&
       value.name.trim().length > 0 &&
       typeof value.email === 'string' &&

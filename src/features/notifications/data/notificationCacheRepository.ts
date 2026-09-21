@@ -42,6 +42,7 @@ export async function replaceCachedMobileNotifications(
   ownerIdentity: string,
   updates: MobileNotificationUpdate[],
   cachedAt: string,
+  isCurrent?: () => boolean,
 ): Promise<void> {
   const owner = requireOwner(ownerIdentity);
   if (!cachedAt || Number.isNaN(Date.parse(cachedAt))) {
@@ -50,6 +51,12 @@ export async function replaceCachedMobileNotifications(
 
   try {
     const current = await listCachedMobileNotifications(database, owner);
+    if (isCurrent && !isCurrent()) {
+      throw new StorageError(
+        'UPDATE_FAILED',
+        'The notification refresh was superseded before its cache could be updated.',
+      );
+    }
     const incoming = new Map(
       updates.map((update) => [
         update.id,

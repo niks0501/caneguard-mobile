@@ -132,6 +132,7 @@ export async function replaceCachedFieldValidationAssignments(
   ownerIdentity: string,
   updates: FieldValidationAssignmentUpdate[],
   cachedAt: string,
+  isCurrent?: () => boolean,
 ): Promise<void> {
   const owner = requireOwner(ownerIdentity);
   if (!cachedAt || Number.isNaN(Date.parse(cachedAt))) {
@@ -140,6 +141,12 @@ export async function replaceCachedFieldValidationAssignments(
 
   try {
     const current = await listCachedFieldValidationAssignments(database, owner);
+    if (isCurrent && !isCurrent()) {
+      throw new StorageError(
+        'UPDATE_FAILED',
+        'The assignment refresh was superseded before its cache could be updated.',
+      );
+    }
     const incoming = new Map(updates.map((update) => [update.id, update]));
     const currentById = new Map(current.map((assignment) => [assignment.id, assignment]));
     const removed = current.some((assignment) => !incoming.has(assignment.id));

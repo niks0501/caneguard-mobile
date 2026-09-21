@@ -143,6 +143,18 @@ describe('mobile authentication API', () => {
     });
   });
 
+  it('rejects path traversal user identities before they reach local storage', async () => {
+    fetchMock.mockResolvedValueOnce(
+      response(200, {
+        user: { ...USER, uuid: '..' },
+      }),
+    );
+
+    await expect(verifyMobileSession('test-session-value')).rejects.toMatchObject({
+      code: 'INVALID_RESPONSE',
+    });
+  });
+
   it('maps unverified login without exposing the server payload', async () => {
     fetchMock.mockResolvedValueOnce(
       response(403, {

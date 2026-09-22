@@ -2,10 +2,10 @@
 // pipeline is installed before any other module runs.
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { MobileAttentionLifecycle } from '@/features/notifications/components/MobileAttentionLifecycle';
@@ -45,15 +45,27 @@ export default function RootLayout() {
   );
 }
 
-function AppNavigator() {
+export function AppNavigator() {
   const { colorScheme, isHydrated } = useThemePreference();
   const { status } = useAuth();
+  const previousStatusRef = useRef(status);
 
   useEffect(() => {
     if (isHydrated && status !== 'restoring') {
       void SplashScreen.hideAsync();
     }
   }, [isHydrated, status]);
+
+  useEffect(() => {
+    const previousStatus = previousStatusRef.current;
+    previousStatusRef.current = status;
+    // Every successful login lands on the dashboard unconditionally. The
+    // login screen's own replace can be lost when the auth guard flips and
+    // unmounts it, letting the router restore the pre-login route instead.
+    if (previousStatus !== 'authenticated' && status === 'authenticated') {
+      router.replace('/home');
+    }
+  }, [status]);
 
   if (!isHydrated || status === 'restoring') {
     return null;

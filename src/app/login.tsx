@@ -6,9 +6,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { useToast } from '@/components/ui/Toast';
-import { Radius, Shadows, Spacing, Typography } from '@/constants/theme';
+import { ComponentTokens, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
+
+// Design read: redesign-overhaul of a native mobile auth screen for field
+// agronomists, with a trusted heritage-brand language, leaning toward deep
+// cane-green surfaces plus cane-gold accent plus system type.
+// Dials: DESIGN_VARIANCE 5 / MOTION_INTENSITY 3 / VISUAL_DENSITY 4.
+// Static by intent (no entrance animation), so prefers-reduced-motion is
+// honored by construction. Shape rule: xl radii on surfaces, input-token
+// radii on fields, full-pill medallion only. Offline: bundled logo asset.
+// All color comes from theme tokens (design-spine guard); the light-mode
+// header uses primaryDark as its deep cane-green field with onPrimary type.
 
 export default function LoginScreen() {
   const theme = useTheme();
@@ -16,6 +26,9 @@ export default function LoginScreen() {
   const logoSource = colorScheme === 'dark'
     ? require('../../assets/cane_guard_logo_onDark.png')
     : require('../../assets/cane_guard_logo.png');
+  const headerBackground = colorScheme === 'dark' ? theme.backgroundElement : theme.primaryDark;
+  const headerTitleColor = colorScheme === 'dark' ? theme.text : theme.onPrimary;
+  const headerSubtitleColor = colorScheme === 'dark' ? theme.textSecondary : theme.accent;
   const { showToast } = useToast();
   const {
     biometricEnabled,
@@ -60,69 +73,79 @@ export default function LoginScreen() {
       edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.root}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <View style={[styles.hero, { backgroundColor: theme.backgroundElement, borderBottomColor: theme.divider }]}>
+        <View style={[styles.header, { backgroundColor: headerBackground }]}>
           <View style={styles.brandRow}>
-            <Image source={logoSource} style={styles.logo} resizeMode="contain" />
-            <Text style={[styles.brand, { color: theme.primaryDark }]}>CaneGuard</Text>
+            <View style={[styles.medallion, { backgroundColor: theme.background }]}>
+              <Image source={logoSource} style={styles.logo} resizeMode="contain" />
+            </View>
+            <View style={styles.brandCopy}>
+              <Text style={[styles.brand, { color: headerTitleColor }]}>CaneGuard</Text>
+              <Text style={[styles.tagline, { color: headerSubtitleColor }]}>Field disease detection for sugarcane</Text>
+            </View>
           </View>
+          <View style={[styles.goldRule, { backgroundColor: theme.accent }]} />
         </View>
 
         <View style={styles.content}>
-          <View style={styles.intro}>
-            <Text style={[styles.title, { color: theme.primaryDark }]}>Welcome back</Text>
-            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Sign in to keep your field observations in sync.</Text>
-          </View>
+          <View style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
+            <View style={styles.intro}>
+              <Text style={[styles.title, { color: theme.primaryDark }]}>Welcome back</Text>
+              <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Sign in to keep your field observations in sync.</Text>
+            </View>
 
-          <View style={styles.form}>
-            <InputRow testID="auth.email-input" icon="mail" value={email} onChangeText={setEmail} placeholder="Email" keyboardType="email-address" textContentType="username" />
-            <InputRow testID="auth.password-input" icon="lock" value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry={!passwordVisible} textContentType="password" trailingIcon={passwordVisible ? 'eye-off' : 'eye'} onTrailingPress={() => setPasswordVisible((visible) => !visible)} />
-            {errorMessage ? (
-              <Text
-                accessibilityLiveRegion="assertive"
-                style={[styles.error, { color: theme.danger }]}>
-                {errorMessage}
-              </Text>
-            ) : null}
-            <AppButton
-              testID="auth.login-submit"
-              onPress={() => void submit()}
-              disabled={submitting || !email.trim() || !password}
-              leadingIcon="log-in"
-              trailingIcon="arrow-right"
-              accessibilityLabel={submitting ? 'Signing in to CaneGuard' : 'Login to CaneGuard'}>
-              {submitting ? 'Signing In...' : 'Login'}
-            </AppButton>
-            {biometricEnabled ? (
+            <View style={styles.form}>
+              <InputRow testID="auth.email-input" label="Email" icon="mail" value={email} onChangeText={setEmail} placeholder="Email" keyboardType="email-address" textContentType="username" />
+              <InputRow testID="auth.password-input" label="Password" icon="lock" value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry={!passwordVisible} textContentType="password" trailingIcon={passwordVisible ? 'eye-off' : 'eye'} onTrailingPress={() => setPasswordVisible((visible) => !visible)} />
+              {errorMessage ? (
+                <View style={styles.errorRow}>
+                  <Feather name="alert-circle" size={16} color={theme.danger} />
+                  <Text
+                    accessibilityLiveRegion="assertive"
+                    style={[styles.error, { color: theme.danger }]}>
+                    {errorMessage}
+                  </Text>
+                </View>
+              ) : null}
               <AppButton
-                testID="auth.biometric-unlock"
-                variant="secondary"
-                onPress={() => void handleBiometricUnlock()}
-                disabled={submitting || biometricLoading}
-                leadingIcon="shield"
-                accessibilityLabel="Unlock with biometrics">
-                {biometricLoading ? 'Unlocking...' : 'Unlock with biometrics'}
+                testID="auth.login-submit"
+                onPress={() => void submit()}
+                disabled={submitting || !email.trim() || !password}
+                leadingIcon="log-in"
+                trailingIcon="arrow-right"
+                accessibilityLabel={submitting ? 'Signing in to CaneGuard' : 'Login to CaneGuard'}>
+                {submitting ? 'Signing In...' : 'Login'}
               </AppButton>
-            ) : null}
-            <AppButton
-              testID="auth.forgot-password"
-              variant="text"
-              onPress={() => router.push('/forgot-password')}
-              accessibilityLabel="Forgot your password">
-              Forgot password?
-            </AppButton>
-          </View>
+              {biometricEnabled ? (
+                <AppButton
+                  testID="auth.biometric-unlock"
+                  variant="secondary"
+                  onPress={() => void handleBiometricUnlock()}
+                  disabled={submitting || biometricLoading}
+                  leadingIcon="shield"
+                  accessibilityLabel="Unlock with biometrics">
+                  {biometricLoading ? 'Unlocking...' : 'Unlock with biometrics'}
+                </AppButton>
+              ) : null}
+              <AppButton
+                testID="auth.forgot-password"
+                variant="text"
+                onPress={() => router.push('/forgot-password')}
+                accessibilityLabel="Forgot your password">
+                Forgot password?
+              </AppButton>
+            </View>
 
-          <View style={styles.signupRow}>
-            <View style={[styles.rule, { backgroundColor: theme.accent }]} />
-            <Pressable accessibilityRole="button" onPress={() => router.push('/register')} style={({ pressed }) => [styles.signupButton, pressed && styles.pressed]}>
-              <Text style={[styles.signup, { color: theme.primaryDark }]}>Create an account</Text>
-            </Pressable>
-            <View style={[styles.rule, { backgroundColor: theme.accent }]} />
+            <View style={styles.signupRow}>
+              <View style={[styles.rule, { backgroundColor: theme.accent }]} />
+              <Pressable accessibilityRole="button" onPress={() => router.push('/register')} style={({ pressed }) => [styles.signupButton, pressed && styles.pressed]}>
+                <Text style={[styles.signup, { color: theme.primaryDark }]}>Create an account</Text>
+              </Pressable>
+              <View style={[styles.rule, { backgroundColor: theme.accent }]} />
+            </View>
           </View>
         </View>
 
         <View style={styles.footer}>
-          <View style={[styles.footerLine, { backgroundColor: theme.accent }]} />
           <Text style={[styles.footerText, { color: theme.textSecondary }]}>Offline-first disease detection support</Text>
         </View>
         </ScrollView>
@@ -133,6 +156,7 @@ export default function LoginScreen() {
 
 type InputRowProps = {
   testID?: string;
+  label: string;
   icon: keyof typeof Feather.glyphMap;
   value: string;
   onChangeText: (value: string) => void;
@@ -144,16 +168,19 @@ type InputRowProps = {
   onTrailingPress?: () => void;
 };
 
-function InputRow({ testID, icon, value, onChangeText, placeholder, keyboardType, textContentType, secureTextEntry, trailingIcon, onTrailingPress }: InputRowProps) {
+function InputRow({ testID, label, icon, value, onChangeText, placeholder, keyboardType, textContentType, secureTextEntry, trailingIcon, onTrailingPress }: InputRowProps) {
   const theme = useTheme();
 
   return (
-    <View style={[styles.input, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
-      <Feather name={icon} size={20} color={theme.primary} />
-      <View style={styles.inputCopy}>
-        <TextInput testID={testID} accessibilityLabel={placeholder} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={theme.textSecondary} keyboardType={keyboardType} textContentType={textContentType} autoCapitalize="none" secureTextEntry={secureTextEntry} style={[styles.inputText, { color: theme.text }]} />
+    <View style={styles.field}>
+      <Text style={[styles.fieldLabel, { color: theme.text }]}>{label}</Text>
+      <View style={[styles.input, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
+        <Feather name={icon} size={20} color={theme.primary} />
+        <View style={styles.inputCopy}>
+          <TextInput testID={testID} accessibilityLabel={placeholder} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={theme.textSecondary} keyboardType={keyboardType} textContentType={textContentType} autoCapitalize="none" secureTextEntry={secureTextEntry} style={[styles.inputText, { color: theme.text }]} />
+        </View>
+         {trailingIcon && onTrailingPress ? <Pressable accessibilityRole="button" accessibilityLabel={secureTextEntry ? 'Show password' : 'Hide password'} hitSlop={4} onPress={onTrailingPress} style={styles.trailingButton}><Feather name={trailingIcon} size={20} color={theme.textSecondary} /></Pressable> : null}
       </View>
-       {trailingIcon && onTrailingPress ? <Pressable accessibilityRole="button" accessibilityLabel={secureTextEntry ? 'Show password' : 'Hide password'} hitSlop={4} onPress={onTrailingPress} style={styles.trailingButton}><Feather name={trailingIcon} size={20} color={theme.textSecondary} /></Pressable> : null}
     </View>
   );
 }
@@ -162,26 +189,51 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   root: { flex: 1 },
   scrollContent: { flexGrow: 1 },
-  hero: { height: 190, justifyContent: 'center', paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, borderBottomWidth: 1 },
-  brandRow: { maxWidth: '62%', flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, zIndex: 1 },
-  logo: { width: 54, height: 54 },
-  brand: { ...Typography.heading, flexShrink: 1 },
-  content: { flex: 1, paddingHorizontal: Spacing.xl, paddingTop: Spacing['2xl'], gap: Spacing['3xl'] },
+  header: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing['2xl'],
+    paddingBottom: Spacing.xl,
+    borderBottomLeftRadius: Radius.xl,
+    borderBottomRightRadius: Radius.xl,
+  },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  medallion: {
+    width: 56,
+    height: 56,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo: { width: 40, height: 40 },
+  brandCopy: { flex: 1, gap: Spacing.xs },
+  brand: { ...Typography.heading },
+  tagline: { ...Typography.bodySmall },
+  goldRule: { height: 3, borderRadius: Radius.full, marginTop: Spacing.lg, width: 72 },
+  content: { flex: 1, paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
+  card: {
+    borderWidth: 1,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    gap: Spacing.xl,
+    ...Shadows.md,
+  },
   intro: { gap: Spacing.sm },
   title: { ...Typography.display, fontWeight: '700' },
   subtitle: { ...Typography.bodySmall },
   form: { gap: Spacing.md },
-  input: { minHeight: 62, paddingHorizontal: Spacing.lg, borderWidth: 1, borderRadius: Radius.lg, flexDirection: 'row', alignItems: 'center', gap: Spacing.md, ...Shadows.sm },
+  field: { gap: Spacing.sm },
+  fieldLabel: { ...Typography.label },
+  input: { minHeight: ComponentTokens.input.minHeight, paddingHorizontal: Spacing.lg, borderWidth: ComponentTokens.input.borderWidth, borderRadius: ComponentTokens.input.borderRadius, flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   inputCopy: { flex: 1 },
   inputText: { ...Typography.body, minHeight: 44, paddingVertical: Spacing.sm },
-  error: { ...Typography.bodySmall, fontWeight: '700' },
+  errorRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  error: { ...Typography.bodySmall, fontWeight: '700', flexShrink: 1 },
   trailingButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   signupRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   signupButton: { minHeight: 48, flexShrink: 1, alignItems: 'center', justifyContent: 'center' },
   rule: { height: 1, flex: 1 },
   signup: { ...Typography.bodySmall, fontWeight: '800' },
-  footer: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg, alignItems: 'center', gap: Spacing.sm },
-  footerLine: { width: 70, height: 3, borderRadius: Radius.full },
+  footer: { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.lg, alignItems: 'center', gap: Spacing.sm },
   footerText: { ...Typography.caption },
   pressed: { opacity: 0.7 },
 });

@@ -51,6 +51,7 @@ describe('mobile field validation assignment API', () => {
       reporter_suspected_condition: 'RSSI',
       authority_classified_condition: 'RSSI',
       action_taken: 'Previous action',
+      follow_up_outcome: 'improved',
       field_observation: 'Previous observation',
       field_finding: 'Previous finding',
       fresh_photo_available: true,
@@ -66,11 +67,17 @@ describe('mobile field validation assignment API', () => {
           reporterSuspectedCondition: 'RSSI',
           authorityClassifiedCondition: 'RSSI',
           actionTaken: 'Previous action',
+          followUpOutcome: 'improved',
           fieldObservation: 'Previous observation',
           fieldFinding: 'Previous finding',
           freshPhotoAvailable: true,
         },
       })],
+    });
+
+    request.mockResolvedValueOnce(page([{ ...withoutPreviousVisit, previous_visit: { ...previousVisit, follow_up_outcome: null } }]));
+    await expect(fetchAllMobileFieldValidationAssignments({ token: 'secure-token' })).resolves.toMatchObject({
+      assignments: [expect.objectContaining({ previousVisit: expect.objectContaining({ followUpOutcome: null }) })],
     });
 
     request.mockResolvedValueOnce(page([withoutPreviousVisit]));

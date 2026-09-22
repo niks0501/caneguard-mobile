@@ -1,3 +1,4 @@
+import type { FieldValidationFollowUpOutcome } from '@/database/schema';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import type { FieldValidationCompletion } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 
@@ -7,6 +8,7 @@ export interface PreviousVisitContext {
   reporterSuspectedCondition: string | null;
   authorityClassifiedCondition: string | null;
   actionTaken: string;
+  followUpOutcome: FieldValidationFollowUpOutcome | null;
   fieldObservation: string | null;
   fieldFinding: string | null;
   freshPhotoAvailable: boolean;

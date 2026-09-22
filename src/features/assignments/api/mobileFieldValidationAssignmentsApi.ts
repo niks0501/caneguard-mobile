@@ -2,6 +2,7 @@ import { apiBaseUrl } from '@/config/env';
 import { ApiHttpError, apiRequest, buildApiUrl } from '@/features/shared/api/apiClient';
 import {
   FIELD_VALIDATION_ASSIGNMENT_STATES,
+  FIELD_VALIDATION_FOLLOW_UP_OUTCOMES,
   type FieldValidationAssignmentState,
 } from '@/database/schema';
 import type {
@@ -220,6 +221,11 @@ function parsePreviousVisit(value: unknown): PreviousVisitContext | null {
       'previous_visit.authority_classified_condition',
     ),
     actionTaken: requireString(value.action_taken, 'previous_visit.action_taken'),
+    followUpOutcome: optionalEnum(
+      value.follow_up_outcome,
+      'previous_visit.follow_up_outcome',
+      FIELD_VALIDATION_FOLLOW_UP_OUTCOMES,
+    ),
     fieldObservation: optionalString(value.field_observation, 'previous_visit.field_observation'),
     fieldFinding: optionalString(value.field_finding, 'previous_visit.field_finding'),
     freshPhotoAvailable: requireBoolean(
@@ -326,6 +332,11 @@ function optionalString(value: unknown, field: string): string | null {
   if (value === null) return null;
   if (typeof value !== 'string') throw malformed(field);
   return value;
+}
+
+function optionalEnum<T extends string>(value: unknown, field: string, values: readonly T[]): T | null {
+  if (value === null) return null;
+  return requireEnum(value, field, values);
 }
 
 function requireTimestamp(value: unknown, field: string): string {

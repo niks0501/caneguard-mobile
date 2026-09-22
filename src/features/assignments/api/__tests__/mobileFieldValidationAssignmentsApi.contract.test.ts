@@ -33,6 +33,12 @@ describe('mobile-field-validation-assignment-v1 producer contract', () => {
       method: 'GET',
       path: '/api/v1/mobile/assignments',
     });
+    const previousVisit = artifact.fields.previous_visit as {
+      required_keys: string[];
+      properties: Record<string, unknown>;
+    };
+    expect(previousVisit.required_keys).toContain('follow_up_outcome');
+    expect(previousVisit.properties).toHaveProperty('follow_up_outcome');
     expect(Object.keys(fixture.data[0])).toEqual(Object.keys(artifact.fields));
 
     await expect(fetchAllMobileFieldValidationAssignments({ token: 'contract-token' })).resolves.toMatchObject({

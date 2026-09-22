@@ -7,6 +7,7 @@ import { ClampedText } from '@/components/ui/ClampedText';
 import { Pill } from '@/components/ui/Pill';
 import { Row } from '@/components/ui/Row';
 import { Radius, Spacing, Typography } from '@/constants/theme';
+import { OUTCOME_LABELS } from '@/features/assignments/components/FollowUpOutcomeControl';
 import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -89,6 +90,12 @@ function PreviousVisitDetails({
         label="Last action taken"
         value={previousVisit.actionTaken ? <Text style={[styles.value, { color: theme.text }]}>{previousVisit.actionTaken}</Text> : <Text style={[styles.fallback, { color: theme.textSecondary }]}>Not recorded</Text>}
       />
+      {previousVisit.followUpOutcome ? (
+        <ContextRow
+          label="Follow-up outcome"
+          value={<Text style={[styles.value, { color: theme.text }]}>{OUTCOME_LABELS[previousVisit.followUpOutcome]}</Text>}
+        />
+      ) : null}
       <View style={styles.evidenceBlock}>
         <Text style={[styles.evidenceLabel, { color: theme.textSecondary }]}>Previous field evidence</Text>
         {evidence ? (

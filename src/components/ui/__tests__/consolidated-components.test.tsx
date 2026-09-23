@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Text, View } from 'react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -214,6 +214,54 @@ describe('Consolidated UI components', () => {
       expect(screen.getByTestId('confirm-dialog')).toBeOnTheScreen();
       await fireEvent.press(screen.getByLabelText('Dismiss confirmation'));
       expect(onRequestClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps long overlay content reachable with a height-constrained card and scrollable message', async () => {
+      await render(
+        <ConfirmDialog
+          visible={true}
+          overlay
+          title="Complete this visit?"
+          message="Complete the visit for 2026-09-24? Follow-up outcome: Improved. Fresh photo: attached. The completed visit can no longer be edited, and the case stays open."
+          confirmLabel="Complete visit"
+          cancelLabel="Cancel"
+          onConfirm={jest.fn()}
+          onCancel={jest.fn()}
+        />,
+      );
+
+      const cardStyle = StyleSheet.flatten(screen.getByTestId('confirm-dialog').props.style);
+      expect(cardStyle.maxHeight).toBeDefined();
+
+      const messageScroll = screen.getByTestId('confirm-dialog.message-scroll');
+      expect(messageScroll).toBeOnTheScreen();
+      expect(String(messageScroll.type)).toMatch(/ScrollView/i);
+      expect(messageScroll).toHaveTextContent(/can no longer be edited/);
+    });
+
+    it('lets actions wrap so every button stays reachable at small widths', async () => {
+      await render(
+        <ConfirmDialog
+          visible={true}
+          overlay
+          title="Complete this visit?"
+          message="Complete the visit?"
+          confirmLabel="Complete visit"
+          cancelLabel="Cancel"
+          onConfirm={jest.fn()}
+          onCancel={jest.fn()}
+        />,
+      );
+
+      const actionsStyle = StyleSheet.flatten(screen.getByTestId('confirm-dialog.actions').props.style);
+      expect(actionsStyle.flexDirection).toBe('row');
+      expect(actionsStyle.flexWrap).toBe('wrap');
+
+      // Button order is unchanged: cancel first, confirm second.
+      const buttons = within(screen.getByTestId('confirm-dialog.actions')).getAllByRole('button');
+      expect(buttons).toHaveLength(2);
+      expect(buttons[0]).toHaveProp('testID', 'confirm-dialog.cancel');
+      expect(buttons[1]).toHaveProp('testID', 'confirm-dialog.confirm');
     });
   });
 });

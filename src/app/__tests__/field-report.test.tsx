@@ -775,6 +775,93 @@ describe('FieldReportScreen', () => {
     expect(screen.queryByTestId('field-report.gps-evidence')).not.toBeOnTheScreen();
   });
 
+  it('hides retry and map actions once a GPS location is recorded', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        locationSource: 'gps',
+        gpsAccuracy: 4.2,
+        gpsCaptureOutcome: 'resolved',
+        gpsOutcomeRecordedAt: '2026-08-10T01:04:00.000Z',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    await goToStep(4);
+    expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
+      /Location added/,
+    );
+    expect(screen.queryByLabelText('Retry location')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('field-report.capture-gps')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Choose location on map')).not.toBeOnTheScreen();
+  });
+
+  it('hides retry and map actions once a map location is recorded', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        finalLatitude: 14.071,
+        finalLongitude: 120.635,
+        locationSource: 'manual_map',
+        manualLocationSelectedAt: '2026-08-10T02:00:00.000Z',
+        gpsCaptureOutcome: 'low_accuracy',
+        gpsAttemptAccuracy: 38,
+        gpsAttemptLatitude: 14.0667,
+        gpsAttemptLongitude: 120.6319,
+        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    await goToStep(4);
+    expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
+      /Location added from the map/,
+    );
+    expect(screen.queryByLabelText('Retry location')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('field-report.capture-gps')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Choose location on map')).not.toBeOnTheScreen();
+  });
+
+  it('keeps retry and map actions while the location is unconfirmed', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        gpsCaptureOutcome: 'error',
+        gpsOutcomeRecordedAt: '2026-08-10T01:04:00.000Z',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    await goToStep(4);
+    expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
+      /Location could not be confirmed/,
+    );
+    expect(screen.getByLabelText('Retry location')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Choose location on map')).toBeOnTheScreen();
+  });
+
+  it('shows the in-progress capture action while adding the location', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      capturingLocation: true,
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    await goToStep(4);
+    expect(screen.getByLabelText('Adding location')).toBeOnTheScreen();
+    expect(screen.getByText('Adding location...')).toBeOnTheScreen();
+  });
+
   it('selects a barangay from the searchable picker', async () => {
     await render(<FieldReportScreen />);
 

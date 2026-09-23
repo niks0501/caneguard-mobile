@@ -1473,6 +1473,7 @@ function LocationCapture({
 }) {
   const theme = useTheme();
   const presentation = getGpsPresentation(fieldReport);
+  const locationConfirmed = isLocationConfirmed(fieldReport);
   const [unavailableReason, setUnavailableReason] =
     useState<LocationUnavailableReason | null>(null);
   const [showUnavailable, setShowUnavailable] = useState(
@@ -1521,15 +1522,17 @@ function LocationCapture({
           </AppButton>
         </View>
       ) : null}
-      <AppButton
-        testID="field-report.capture-gps"
-        onPress={onCapture}
-        disabled={capturing || saveInProgress}
-        leadingIcon="crosshair"
-        accessibilityLabel={capturing ? 'Adding location' : presentation.actionLabel}>
-        {capturing ? 'Adding location...' : presentation.actionLabel}
-      </AppButton>
-      {canUseManualMap(fieldReport) ? (
+      {!locationConfirmed ? (
+        <AppButton
+          testID="field-report.capture-gps"
+          onPress={onCapture}
+          disabled={capturing || saveInProgress}
+          leadingIcon="crosshair"
+          accessibilityLabel={capturing ? 'Adding location' : presentation.actionLabel}>
+          {capturing ? 'Adding location...' : presentation.actionLabel}
+        </AppButton>
+      ) : null}
+      {!locationConfirmed && canUseManualMap(fieldReport) ? (
         isOnline === true ? (
           <AppButton
             testID="field-report.open-manual-map"
@@ -1546,9 +1549,11 @@ function LocationCapture({
           </Text>
         )
       ) : null}
-      <Text style={[styles.helpText, { color: theme.textSecondary }]}>
-        Location is added to the report when it can be confirmed. You can retry location or choose on map at any time.
-      </Text>
+      {!locationConfirmed ? (
+        <Text style={[styles.helpText, { color: theme.textSecondary }]}>
+          Location is added to the report when it can be confirmed. You can retry location or choose on map at any time.
+        </Text>
+      ) : null}
 
       <View style={[styles.locationDivider, { borderTopColor: theme.divider }]} />
 
@@ -2041,6 +2046,30 @@ function getGpsPresentation(fieldReport: FieldReport): {
         message: 'No location added yet.',
       };
   }
+}
+
+function isLocationConfirmed(fieldReport: FieldReport): boolean {
+  if (fieldReport.locationSource === 'unavailable') {
+    return false;
+  }
+  if (
+    fieldReport.locationSource === 'manual_map' &&
+    fieldReport.finalLatitude !== null &&
+    fieldReport.finalLongitude !== null
+  ) {
+    return true;
+  }
+  if (fieldReport.gpsCaptureOutcome === 'low_accuracy') {
+    return false;
+  }
+  if (
+    fieldReport.locationSource === 'gps' &&
+    fieldReport.finalLatitude !== null &&
+    fieldReport.finalLongitude !== null
+  ) {
+    return true;
+  }
+  return fieldReport.gpsCaptureOutcome === 'resolved';
 }
 
 function canUseManualMap(fieldReport: FieldReport): boolean {

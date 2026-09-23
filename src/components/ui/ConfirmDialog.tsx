@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { Card } from '@/components/ui/Card';
@@ -65,8 +65,14 @@ export function ConfirmDialog({
         />
         <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
       </View>
-      <Text style={[styles.message, { color: theme.textSecondary }]}>{message}</Text>
-      <View style={styles.actions}>
+      <ScrollView
+        contentContainerStyle={styles.messageContent}
+        showsVerticalScrollIndicator={false}
+        style={styles.messageScroll}
+        testID={`${testID}.message-scroll`}>
+        <Text style={[styles.message, { color: theme.textSecondary }]}>{message}</Text>
+      </ScrollView>
+      <View style={styles.actions} testID={`${testID}.actions`}>
         <View style={styles.actionBtn}>
           <AppButton
             onPress={onCancel}
@@ -116,6 +122,8 @@ const styles = StyleSheet.create({
   overlayCard: {
     width: '100%',
     maxWidth: Layout.mobileMaxWidth,
+    maxHeight: '100%',
+    flexShrink: 1,
   },
   card: {
     padding: Spacing.lg,
@@ -133,16 +141,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     flex: 1,
   },
+  messageScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  messageContent: {
+    flexGrow: 0,
+  },
   message: {
     ...Typography.bodySmall,
     lineHeight: 20,
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.md,
     marginTop: Spacing.xs,
   },
   actionBtn: {
     flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 140,
+    minWidth: 140,
   },
 });

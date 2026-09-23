@@ -227,7 +227,7 @@ export default function SettingsScreen() {
                   onPress={() =>
                     Alert.alert(
                       'Clear local data?',
-                      'This permanently removes saved scans, report drafts, validation evidence, and cached account data from this device. It does not change data already synchronized to the server.',
+                      'This permanently removes saved scans, report drafts, validation evidence, and cached account data from this device. It does not change data already sent to the office.',
                       [
                         { text: 'Cancel', style: 'cancel' },
                         {

@@ -58,10 +58,10 @@ describe('sync status UI', () => {
     );
 
     expect(
-      screen.getByText('1 report awaiting sync · CaneGuard server unavailable'),
+      screen.getByText('1 report waiting to send · Cannot reach the office'),
     ).toBeOnTheScreen();
     expect(
-      screen.getByText('Network available · CaneGuard server unavailable · 1 awaiting upload'),
+      screen.getByText('Network available · Cannot reach the office · 1 waiting to send'),
     ).toBeOnTheScreen();
   });
 
@@ -75,7 +75,7 @@ describe('sync status UI', () => {
     await render(<SyncStatusPanel />);
 
     expect(
-      screen.getByText('Network available · CaneGuard status not checked · 0 awaiting upload'),
+      screen.getByText('Network available · Office status not checked · 0 waiting to send'),
     ).toBeOnTheScreen();
   });
 
@@ -92,8 +92,8 @@ describe('sync status UI', () => {
       </ToastProvider>,
     );
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Sync reports now' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Send reports now' }));
     expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
-    expect(screen.getByTestId('app-toast')).toHaveTextContent('Sync complete');
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('Sent to office');
   });
 });

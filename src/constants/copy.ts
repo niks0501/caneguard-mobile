@@ -7,3 +7,7 @@ export const DECISION_SUPPORT_DISCLAIMER =
 
 export const CASE_CLOSE_NOTICE =
   'Completing this visit saves your field evidence. It does not verify or close the case.';
+
+export const LOCATION_ADDED = 'Location added';
+
+export const LOCATION_UNCONFIRMED = 'Location could not be confirmed';

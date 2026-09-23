@@ -32,6 +32,7 @@ import {
   Spacing,
   Typography,
 } from '@/constants/theme';
+import { LOCATION_ADDED, LOCATION_UNCONFIRMED } from '@/constants/copy';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -115,7 +116,7 @@ const REPORTER_CONCERN_OPTIONS: {
   { choice: 'none', label: 'None' },
   {
     choice: 'rssi',
-    hint: 'Field concern only · not detected by current Model V1',
+    hint: 'Field concern only · not shown by the scan',
     label: 'RSSI',
   },
   { choice: 'other', label: 'Other' },
@@ -596,18 +597,18 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     try {
       await sync.retryReport(report.data.id);
       await report.refresh();
-      showToast('Sync complete', 'success');
+      showToast('Sent to office', 'success');
     } catch (error: unknown) {
       setRetryError(
         getStorageErrorMessage(
           toStorageError(
             error,
             'UPDATE_FAILED',
-            'Retrying Field Report synchronization failed.',
+            'Retrying sending the Field Report failed.',
           ),
         ),
       );
-      showToast('Sync failed — will retry', 'error');
+      showToast('Could not send — will try again', 'error');
     } finally {
       setRetrying(false);
     }
@@ -617,12 +618,12 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     try {
       const res = await report.captureLocation();
       if (res && res.finalLatitude !== null) {
-        showToast('GPS location captured', 'success');
+        showToast(LOCATION_ADDED, 'success');
       } else if (report.errorMessage) {
         showToast(report.errorMessage, 'error');
       }
     } catch {
-      showToast('GPS capture failed — please try again', 'error');
+      showToast(`${LOCATION_UNCONFIRMED} — please try again`, 'error');
     }
   };
 
@@ -831,8 +832,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                     </Text>
                     <Text style={[styles.statusMessage, { color: theme.textSecondary }]}>
                       {report.data.authoringState === 'finalized'
-                        ? `This report is finalized locally. Current synchronization status: ${getSyncPresentation(report.data.syncStatus, report.data.lastSyncErrorCode).label}.`
-                        : 'Save incomplete information now and return later. Drafts are stored only on this device and are not queued for synchronization.'}
+                        ? `This report is finalized and saved on this device. Status: ${getSyncPresentation(report.data.syncStatus, report.data.lastSyncErrorCode).label}.`
+                        : 'Save incomplete information now and return later. Drafts are saved only on this device and are not sent.'}
                     </Text>
                   </View>
                 </View>
@@ -858,10 +859,10 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                         leadingIcon="refresh-cw"
                         accessibilityLabel={
                           retrying
-                            ? 'Retrying Field Report synchronization'
-                            : 'Sync Field Report'
+                            ? 'Trying to send the Field Report again'
+                            : 'Send Field Report'
                         }>
-                        {retrying ? 'Synchronizing…' : 'Sync Report'}
+                        {retrying ? 'Sending…' : 'Send Report'}
                       </AppButton>
                     ) : null}
 
@@ -1197,19 +1198,6 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                               {variety || cropAge || caneClass || notes ? 'Edit optional details' : 'Add optional details'}
                             </AppButton>
                           </View>
-
-                          <DisclosureSection
-                            testID="field-report.technical-details"
-                            title="Report identifiers"
-                            summary="4 report identifiers">
-                            <EvidenceRow label="Report ID" value={report.data.id} />
-                            <EvidenceRow label="Scan Record ID" value={report.data.scanRecordId} />
-                            <EvidenceRow label="Observed" value={formatTimestamp(report.data.observedAt)} />
-                            <EvidenceRow
-                              label="Submitter"
-                              value={reporterDisplayName ?? 'Authenticated Field Inspector'}
-                            />
-                          </DisclosureSection>
                         </>
                       )}
                     </Animated.View>
@@ -1382,12 +1370,12 @@ function AutomaticSummaryCard({
       <View style={styles.sectionHeading}>
         <Feather name="check-circle" size={20} color={theme.success} />
         <Text style={[styles.sectionTitle, { color: theme.text }]}>
-          Automatic report summary
+          Report summary
         </Text>
       </View>
       <Text style={[styles.helpText, { color: theme.textSecondary }]}>
-        Everything below is inherited from the completed scan and cannot be
-        edited here.
+        Everything below was saved from your completed scan and cannot be
+        changed here.
       </Text>
       {record ? (
         <ExpoImage
@@ -1404,22 +1392,9 @@ function AutomaticSummaryCard({
               Possible Condition
             </Text>
             <Text style={[styles.automaticValue, { color: theme.text }]}>
-              {getResultLabel(record.predictedLabel)} ·{' '}
-              {Math.round(record.confidence * 100)}% confidence
+              {getResultLabel(record.predictedLabel)}
             </Text>
           </View>
-          {record.classScores && record.classScores.length ? (
-            <View style={styles.summaryRows}>
-              <Text style={[styles.automaticLabel, { color: theme.textSecondary }]}>
-                Class scores
-              </Text>
-              <Text style={[styles.evidenceValue, { color: theme.text }]}>
-                {record.classScores
-                  .map(({ label, score }) => `${label}: ${Math.round(score * 100)}%`)
-                  .join(' · ')}
-              </Text>
-            </View>
-          ) : null}
           {record.symptoms.length ? (
             <View style={styles.summaryRows}>
               <Text style={[styles.automaticLabel, { color: theme.textSecondary }]}>
@@ -1521,27 +1496,6 @@ function LocationCapture({
         style={[styles.statusMessage, { color: theme.textSecondary }]}>
         {presentation.message}
       </Text>
-      {fieldReport.gpsAttemptLatitude !== null &&
-      fieldReport.gpsAttemptLongitude !== null &&
-      fieldReport.gpsAttemptAccuracy !== null ? (
-        <Text testID="field-report.gps-evidence" style={[styles.gpsEvidence, { color: theme.text }]}>
-          {fieldReport.gpsAttemptLatitude.toFixed(6)}, {fieldReport.gpsAttemptLongitude.toFixed(6)} · ±{Math.round(fieldReport.gpsAttemptAccuracy)} m
-        </Text>
-      ) : null}
-      {fieldReport.locationSource === 'manual_map' &&
-      fieldReport.finalLatitude !== null &&
-      fieldReport.finalLongitude !== null ? (
-        <View style={styles.automaticFields}>
-          <Text testID="field-report.manual-location" style={[styles.gpsEvidence, { color: theme.text }]}>
-            Manual map · {fieldReport.finalLatitude.toFixed(6)}, {fieldReport.finalLongitude.toFixed(6)} · GPS accuracy not applicable
-          </Text>
-          {fieldReport.manualLocationSelectedAt ? (
-            <Text testID="field-report.manual-location-selected-at" style={[styles.helpText, { color: theme.textSecondary }]}>
-              Selected {formatTimestamp(fieldReport.manualLocationSelectedAt)}
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
       {locationServicesDisabled ? (
         <View
           testID="field-report.location-services-off"
@@ -1554,8 +1508,8 @@ function LocationCapture({
             Location services are off
           </Text>
           <Text style={[styles.statusMessage, { color: theme.text }]}>
-            Enable location services in device settings, then retry GPS capture.
-            Your Draft remains saved.
+            Enable location services in device settings, then retry location.
+            Your draft is still saved.
           </Text>
           <AppButton
             testID="field-report.open-location-settings"
@@ -1572,28 +1526,28 @@ function LocationCapture({
         onPress={onCapture}
         disabled={capturing || saveInProgress}
         leadingIcon="crosshair"
-        accessibilityLabel={capturing ? 'Capturing GPS location' : presentation.actionLabel}>
-        {capturing ? 'Capturing GPS...' : presentation.actionLabel}
+        accessibilityLabel={capturing ? 'Adding location' : presentation.actionLabel}>
+        {capturing ? 'Adding location...' : presentation.actionLabel}
       </AppButton>
       {canUseManualMap(fieldReport) ? (
         isOnline === true ? (
           <AppButton
             testID="field-report.open-manual-map"
-            accessibilityLabel="Open online manual map"
+            accessibilityLabel="Choose location on map"
             onPress={onOpenMap}
             disabled={capturing || saveInProgress}
             leadingIcon="map"
             variant="secondary">
-            {fieldReport.locationSource === 'manual_map' ? 'Change Manual Map Location' : 'Pin Location on Online Map'}
+            Choose on map
           </AppButton>
         ) : (
           <Text testID="field-report.manual-map-offline" style={[styles.helpText, { color: theme.textSecondary }]}>
-            The manual map fallback becomes available when this device is online. The Draft remains unchanged.
+            Choosing on map needs an internet connection. The draft is unchanged.
           </Text>
         )
       ) : null}
       <Text style={[styles.helpText, { color: theme.textSecondary }]}>
-        CaneGuard requests one foreground reading only. A reading above the preferred 5 m quality target is saved as the report location but can be retried for higher accuracy.
+        Location is added to the report when it can be confirmed. You can retry location or choose on map at any time.
       </Text>
 
       <View style={[styles.locationDivider, { borderTopColor: theme.divider }]} />
@@ -1621,7 +1575,7 @@ function LocationCapture({
           </Text>
           <AppButton
             testID="field-report.change-location"
-            accessibilityLabel="Capture a location instead"
+            accessibilityLabel="Add a location instead"
             onPress={() => {
               setShowUnavailable(false);
               setUnavailableReason(null);
@@ -1629,7 +1583,7 @@ function LocationCapture({
             }}
             leadingIcon="crosshair"
             variant="secondary">
-            Capture a Location Instead
+            Add Location Instead
           </AppButton>
         </View>
       ) : showUnavailable ? (
@@ -1692,12 +1646,12 @@ function LocationCapture({
       ) : (
         <AppButton
           testID="field-report.open-location-unavailable"
-          accessibilityLabel="I cannot capture a location"
+          accessibilityLabel="Continue without an exact location"
           onPress={() => setShowUnavailable(true)}
           disabled={capturing || saveInProgress}
           variant="text"
           leadingIcon="help-circle">
-          No location available now
+          Continue Without a Location
         </AppButton>
       )}
     </View>
@@ -1744,10 +1698,10 @@ function InheritedScanEvidence({
       ]}>
       <View style={styles.sectionHeading}>
         <Feather name="shield" size={20} color={theme.primary} />
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Inherited scan evidence</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Scan evidence</Text>
       </View>
       <Text style={[styles.helpText, { color: theme.textSecondary }]}>
-        This read-only evidence remains owned by the completed Scan Record.
+        Saved from your completed scan. You cannot change it here.
       </Text>
       {loading ? (
         <ActivityIndicator accessibilityLabel="Loading inherited scan evidence" color={theme.primary} />
@@ -1765,11 +1719,6 @@ function InheritedScanEvidence({
             style={styles.evidenceImage}
           />
           <EvidenceRow label="Possible Condition" value={getResultLabel(record.predictedLabel)} />
-          <EvidenceRow label="Confidence" value={`${Math.round(record.confidence * 100)}%`} />
-          <EvidenceRow
-            label="Class scores"
-            value={record.classScores.map(({ label, score }) => `${label}: ${Math.round(score * 100)}%`).join(' · ')}
-          />
           <EvidenceRow
             label="Symptom checklist"
             value={record.symptoms.length ? record.symptoms.join(', ') : 'No symptoms selected'}
@@ -1805,8 +1754,8 @@ function getAgreementLabel(value: boolean | null): string {
     return 'Not answered';
   }
   return value
-    ? 'Does not match what you observed in the field'
-    : 'Matches what you observed in the field';
+    ? "The reporter's observation does not match the Possible Condition"
+    : "The reporter's observation matches the Possible Condition";
 }
 
 function ReporterObservationSection({
@@ -1848,7 +1797,7 @@ function ReporterObservationSection({
         </View>
         <EvidenceRow label="What do you see?" value={observation || 'Not recorded'} />
         <EvidenceRow label="Observed or suspected concern" value={concern || 'None reported'} />
-        <EvidenceRow label="Possible Condition agreement" value={getAgreementLabel(mismatchReported)} />
+        <EvidenceRow label="Observation match" value={getAgreementLabel(mismatchReported)} />
       </View>
     );
   }
@@ -1927,7 +1876,7 @@ function ReporterObservationSection({
         ) : null}
         {reporterConcernChoice === 'rssi' ? (
           <Text testID="field-report.rssi-not-model-copy" style={[styles.helpText, { color: theme.textSecondary }]}>
-            RSSI can be reported as a field concern, but the current Model V1 does not detect RSSI. It remains separate from the Possible Condition.
+            RSSI can be reported as a field concern, but the scan does not detect RSSI. It remains separate from the Possible Condition.
           </Text>
         ) : null}
         <Text style={[styles.helpText, { color: theme.textSecondary }]}>Optional. Reporting a concern never blocks finalization.</Text>
@@ -1991,19 +1940,19 @@ function describeReportLocation(report: FieldReport | null): string {
     return 'No location saved yet';
   }
   if (report.locationSource === 'manual_map') {
-    return 'Manual map pin';
+    return 'Map location';
   }
   if (report.locationSource === 'unavailable') {
-    return 'No location (marked unavailable)';
+    return 'No location';
   }
   if (
     report.locationSource === 'gps' &&
     report.finalLatitude !== null &&
     report.finalLongitude !== null
   ) {
-    return 'GPS captured';
+    return LOCATION_ADDED;
   }
-  return 'No location captured yet';
+  return 'No location yet';
 }
 
 function finalizeConfirmMessage({
@@ -2017,9 +1966,9 @@ function finalizeConfirmMessage({
 }): string {
   const farmer = farmerName.trim() || 'this Field Report';
   const condition = record
-    ? `${getResultLabel(record.predictedLabel)} (${Math.round(record.confidence * 100)}%)`
+    ? getResultLabel(record.predictedLabel)
     : 'unknown condition';
-  return `Finalize the report for ${farmer}? Stored condition: ${condition}. Location: ${describeReportLocation(report)}. A finalized report can no longer be edited.`;
+  return `Finalize the report for ${farmer}? Possible Condition: ${condition}. Location: ${describeReportLocation(report)}. A finalized report can no longer be edited.`;
 }
 
 function EvidenceRow({ label, value }: { label: string; value: string }) {
@@ -2032,10 +1981,10 @@ function getGpsPresentation(fieldReport: FieldReport): {
 } {
   if (fieldReport.locationSource === 'unavailable') {
     return {
-      actionLabel: 'Retry GPS Location',
+      actionLabel: 'Retry location',
       message: fieldReport.locationUnavailableReason
-        ? `Location unavailable: ${LOCATION_UNAVAILABLE_REASON_LABELS[fieldReport.locationUnavailableReason]}. You can retry GPS or choose an online map when available.`
-        : 'Location unavailable. You can retry GPS or choose an online map when available.',
+        ? `${LOCATION_UNCONFIRMED}: ${LOCATION_UNAVAILABLE_REASON_LABELS[fieldReport.locationUnavailableReason]}. You can retry location or choose on map.`
+        : `${LOCATION_UNCONFIRMED}. You can retry location or choose on map.`,
     };
   }
   if (
@@ -2044,53 +1993,52 @@ function getGpsPresentation(fieldReport: FieldReport): {
     fieldReport.finalLongitude !== null
   ) {
     return {
-      actionLabel: 'Use GPS Instead',
-      message: 'Final coordinates were selected manually on the online map. They are not presented as GPS-measured.',
+      actionLabel: 'Retry location',
+      message: 'Location added from the map.',
     };
   }
   if (fieldReport.gpsCaptureOutcome === 'low_accuracy') {
     return {
-      actionLabel: 'Retry GPS Location',
-      message: 'The last GPS reading did not meet the preferred quality target. The Draft and reading were preserved.',
+      actionLabel: 'Retry location',
+      message: `${LOCATION_UNCONFIRMED}. You can retry location or choose on map.`,
     };
   }
   if (
     fieldReport.locationSource === 'gps' &&
     fieldReport.finalLatitude !== null &&
-    fieldReport.finalLongitude !== null &&
-    fieldReport.gpsAccuracy !== null
+    fieldReport.finalLongitude !== null
   ) {
     return {
-      actionLabel: 'Refresh GPS Location',
-      message: `GPS location resolved with ±${Math.round(fieldReport.gpsAccuracy)} m device-reported accuracy.`,
+      actionLabel: 'Retry location',
+      message: LOCATION_ADDED,
     };
   }
 
   switch (fieldReport.gpsCaptureOutcome) {
     case 'resolved':
       return {
-        actionLabel: 'Refresh GPS Location',
-        message: `GPS location resolved with ±${Math.round(fieldReport.gpsAccuracy ?? 0)} m device-reported accuracy.`,
+        actionLabel: 'Retry location',
+        message: LOCATION_ADDED,
       };
     case 'permission_denied':
       return {
-        actionLabel: 'Retry GPS Permission',
-        message: 'Foreground location permission was denied. The Draft remains saved and can be retried.',
+        actionLabel: 'Retry location',
+        message: `${LOCATION_UNCONFIRMED}. Location permission was not given. The draft is still saved and you can try again.`,
       };
     case 'unavailable':
       return {
-        actionLabel: 'Retry GPS Location',
-        message: 'Location services or an accurate device reading are unavailable. The Draft remains unchanged.',
+        actionLabel: 'Retry location',
+        message: `${LOCATION_UNCONFIRMED}. The draft is unchanged.`,
       };
     case 'error':
       return {
-        actionLabel: 'Retry GPS Location',
-        message: 'CaneGuard could not capture GPS. The Draft remains unchanged.',
+        actionLabel: 'Retry location',
+        message: `${LOCATION_UNCONFIRMED}. The draft is unchanged.`,
       };
     default:
       return {
-        actionLabel: 'Capture GPS Location',
-        message: 'No final report location has been captured yet.',
+        actionLabel: 'Add location',
+        message: 'No location added yet.',
       };
   }
 }
@@ -2119,12 +2067,12 @@ function formatMeasurementSummary(
 
 function formatLocationSummary(fieldReport: FieldReport): string {
   if (fieldReport.locationSource === 'unavailable') {
-    return 'Unavailable';
+    return 'Not confirmed';
   }
   if (fieldReport.locationSource === 'manual_map') {
-    return 'Manual map';
+    return 'Added from map';
   }
-  return fieldReport.locationSource === 'gps' ? 'GPS' : 'Not provided';
+  return fieldReport.locationSource === 'gps' ? LOCATION_ADDED : 'Not provided';
 }
 
 function previewMeasurementValue(
@@ -2159,7 +2107,7 @@ function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
         )}
       />
       <EvidenceRow
-        label="Location source"
+        label="Location"
         value={formatLocationSummary(fieldReport)}
       />
       {fieldReport.locationSource === 'unavailable' && fieldReport.locationUnavailableReason ? (
@@ -2168,22 +2116,19 @@ function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
           value={LOCATION_UNAVAILABLE_REASON_LABELS[fieldReport.locationUnavailableReason]}
         />
       ) : null}
-      {fieldReport.manualLocationSelectedAt ? (
-        <EvidenceRow label="Manual location selected" value={formatTimestamp(fieldReport.manualLocationSelectedAt)} />
-      ) : null}
       <EvidenceRow label="Observation time" value={formatTimestamp(fieldReport.observedAt)} />
       <EvidenceRow label="Local submission time" value={fieldReport.submittedAt ? formatTimestamp(fieldReport.submittedAt) : 'Not submitted'} />
       <EvidenceRow
-        label="Synchronization"
+        label="Report status"
         value={getSyncPresentation(fieldReport.syncStatus, fieldReport.lastSyncErrorCode).label}
       />
-      {fieldReport.remoteId ? (
-        <EvidenceRow label="Server report UUID" value={fieldReport.remoteId} />
-      ) : null}
+      <EvidenceRow
+        label="Office reference"
+        value={fieldReport.authorityReview?.referenceCode ?? 'Not yet available'}
+      />
       {fieldReport.lastSyncedAt ? (
-        <EvidenceRow label="Last synchronized" value={formatTimestamp(fieldReport.lastSyncedAt)} />
+        <EvidenceRow label="Sent to office" value={formatTimestamp(fieldReport.lastSyncedAt)} />
       ) : null}
-      <EvidenceRow label="Report ID" value={fieldReport.id} />
     </View>
   );
 }
@@ -2207,7 +2152,7 @@ function AuthorityReviewSection({
       ]}>
       <View style={styles.sectionHeading}>
         <Feather name="shield" size={20} color={theme.info} />
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Authority review</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Office review</Text>
       </View>
       {review ? (
         <>
@@ -2226,11 +2171,11 @@ function AuthorityReviewSection({
               </Text>
             </View>
           ) : null}
-          <EvidenceRow label="Server update" value={formatTimestamp(review.statusUpdatedAt)} />
+          <EvidenceRow label="Office update" value={formatTimestamp(review.statusUpdatedAt)} />
         </>
       ) : (
         <Text testID="field-report.authority-status-unavailable" style={[styles.statusMessage, { color: theme.textSecondary }]}>
-          Authority review status is unavailable for this synchronized report.
+          Office review status is unavailable for this sent report.
         </Text>
       )}
       {status.errorMessage ? (
@@ -2489,24 +2434,24 @@ export const SUBMISSION_REQUIREMENT_LABELS: Record<
   string
 > = {
   original_scan_image: 'Original scan image',
-  submission_image: 'Upload-ready submission image',
-  source_image_dimensions: 'Original scan image dimensions',
+  submission_image: 'Report photo',
+  source_image_dimensions: 'Scan image details',
   ai_supported_result: 'Possible Condition',
-  confidence: 'Confidence score',
-  class_scores: 'Class scores',
-  symptom_checklist: 'Symptom checklist evidence',
+  confidence: 'Complete scan result',
+  class_scores: 'Full scan result',
+  symptom_checklist: 'Symptom checklist',
   farmer_or_farm_owner_name: 'Farmer or farm reference',
-  submitter_identity: 'Authenticated submitter identity',
-  submitter_role: 'Field Inspector role',
+  submitter_identity: 'Reporter name',
+  submitter_role: 'Reporter role',
   province: 'Province',
   municipality: 'Municipality',
   barangay: 'Barangay',
   affected_area_hectares: 'Affected area (hectares)',
   affected_portion_percent: 'Estimated affected portion (%)',
-  final_coordinates: 'Final coordinates',
-  location_source: 'GPS or manual-map location source',
-  location_unavailable_reason: 'Reason the location is unavailable',
-  gps_accuracy: 'Device-reported GPS accuracy',
+  final_coordinates: 'Report location',
+  location_source: 'Location added',
+  location_unavailable_reason: 'Reason for missing location',
+  gps_accuracy: 'Confirmed location',
   observation_time: 'Observation time',
 };
 

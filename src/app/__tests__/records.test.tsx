@@ -105,7 +105,7 @@ describe('legacy records route', () => {
     expect(screen.getByTestId('activity.screen')).toBeOnTheScreen();
     expect(screen.getByRole('header')).toHaveTextContent('Activity');
     expect(screen.getByLabelText('Scan activity')).toBeOnTheScreen();
-    expect(screen.getByText('Waiting to sync')).toBeOnTheScreen();
+    expect(screen.getByText('Waiting to send')).toBeOnTheScreen();
 
     await fireEvent.press(
       screen.getByLabelText(/Open Possible Condition: Rust scan saved/),

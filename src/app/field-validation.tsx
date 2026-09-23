@@ -183,7 +183,7 @@ export default function FieldValidationScreen() {
                   onConfirm={() => void confirmSubmit()}
                 />
               )}
-              <Text style={[styles.disclaimer, { color: theme.textSecondary }]}>{DECISION_SUPPORT_DISCLAIMER} GPS is attempted once and poor GPS does not block a valid completion. A fresh field photo is recommended but optional.</Text>
+              <Text style={[styles.disclaimer, { color: theme.textSecondary }]}>{DECISION_SUPPORT_DISCLAIMER} Location is added automatically when available and never blocks saving. A fresh field photo is recommended but optional.</Text>
             </View>
           </ScrollView>
         ) : null}
@@ -231,7 +231,6 @@ function VisitHistory({
       summary={previousVisit ? '1 previous visit · submitted evidence' : 'No previous visit · submitted evidence'}>
       <Text style={[styles.help, { color: theme.textSecondary }]}>Recorded before this visit and submitted by the reporter. It is decision-support only, cannot be changed here, and is kept separate from your field evidence.</Text>
       <Row label="Possible Condition" value={getResultLabel(assignment.case.predictedLabel)} />
-      <Row label="Confidence" value={`${Math.round(assignment.case.confidence * 100)}%`} />
       <Row label="Submitted by" value={assignment.submitter.name} />
       {completion ? <Row label="Visit time" value={formatTimestamp(completion.visitedAt)} /> : null}
       <PreviousVisitCard
@@ -362,20 +361,20 @@ function CompletionStatus({ completion, onRetry }: { completion: FieldValidation
   const handleRetry = async () => {
     try {
       await onRetry();
-      showToast('Sync requested', 'info');
+      showToast('Trying to send again', 'info');
     } catch {
-      showToast('Sync failed — will retry', 'error');
+      showToast('Could not send — will try again', 'error');
     }
   };
 
   return (
     <View testID="field-validation.completion-status" style={[styles.card, { backgroundColor: pending ? theme.warningBg : theme.successBg, borderColor: pending ? theme.warning : theme.success }]}>
       <Feather name={pending ? 'clock' : 'check-circle'} size={24} color={pending ? theme.warning : theme.success} />
-      <Text style={[styles.title, { color: theme.text }]}>{pending ? 'Saved on this device' : 'Validation synchronized'}</Text>
+      <Text style={[styles.title, { color: theme.text }]}>{pending ? 'Saved on this device' : 'Sent to office'}</Text>
       <Text style={[styles.help, { color: theme.textSecondary }]}>{pending ? 'The completed evidence is preserved locally and will retry automatically when connectivity returns. Visit time is recorded automatically.' : 'The office can now review this field evidence. Visit time is recorded automatically.'}</Text>
       <Row label="Visit time" value={formatTimestamp(completion.visitedAt)} />
-      <Row label="GPS" value={completion.gpsOutcome.replace('_', ' ')} />
-      {pending ? <AppButton testID="field-validation.retry" onPress={() => void handleRetry()} disabled={completion.syncStatus === 'syncing'} leadingIcon="refresh-cw" variant="secondary">Retry synchronization</AppButton> : null}
+      <Row label="Location" value={completion.gpsOutcome === 'resolved' ? 'Location added' : 'Location could not be confirmed'} />
+      {pending ? <AppButton testID="field-validation.retry" onPress={() => void handleRetry()} disabled={completion.syncStatus === 'syncing'} leadingIcon="refresh-cw" variant="secondary">Try Again</AppButton> : null}
     </View>
   );
 }

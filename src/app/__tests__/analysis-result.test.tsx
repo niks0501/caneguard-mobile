@@ -157,7 +157,7 @@ describe('AnalysisResultScreen', () => {
     },
   );
 
-  it('renders the selected image, raw model scores, and metadata without scan severity controls', async () => {
+  it('renders the selected image and Possible Condition without technical internals', async () => {
     const result = createResult('rust');
     const state = createCompletedState('rust', ['rust'], {
       result,
@@ -178,25 +178,27 @@ describe('AnalysisResultScreen', () => {
       screen.getByLabelText('Selected sugarcane image used for analysis'),
     ).toHaveProp('source', { uri: 'file:///result-leaf.jpg' });
     expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
-    expect(screen.queryByLabelText('AI confidence 78%')).not.toBeOnTheScreen();
+    // Technical internals never appear in the normal workflow.
+    expect(screen.queryByTestId('scan.technical-details')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Model details')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Analysis details')).not.toBeOnTheScreen();
+    expect(screen.queryByText('v1.0-mobilenetv2')).not.toBeOnTheScreen();
+    expect(screen.queryByText('60 ms')).not.toBeOnTheScreen();
+    expect(screen.queryByText('78%')).not.toBeOnTheScreen();
     await fireEvent.press(screen.getByLabelText('Show Why this result?'));
-    expect(screen.getByLabelText('AI confidence 78%')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByLabelText('Show Model details'));
-    expect(screen.getByLabelText('Healthy score 8%')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Mosaic score 14%')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Rust score 78%')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Smut score 2%')).toBeOnTheScreen();
+    expect(screen.getByText('About this result')).toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.technical-details')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Model details')).not.toBeOnTheScreen();
+    expect(screen.queryByText('v1.0-mobilenetv2')).not.toBeOnTheScreen();
     expect(screen.queryByText('Reported severity')).not.toBeOnTheScreen();
     expect(screen.queryByText('Mild')).not.toBeOnTheScreen();
     expect(screen.queryByText('Moderate')).not.toBeOnTheScreen();
     expect(screen.queryByText('Severe')).not.toBeOnTheScreen();
-    expect(screen.getAllByText('v1.0-mobilenetv2').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('60 ms')).toBeOnTheScreen();
     expect(result.confidence).toBe(0.78);
     expect(screen.queryByText('Downy Mildew')).not.toBeOnTheScreen();
   });
 
-  it('uses the frozen V1 low-confidence caution without blocking outcomes', async () => {
+  it('uses the frozen V1 low-confidence caution without exposing scores', async () => {
     await renderResult(
       createCompletedState('mosaic', ['mosaic'], {
         result: createResult('mosaic', 0.42),
@@ -212,8 +214,10 @@ describe('AnalysisResultScreen', () => {
       screen.queryByText(/55\.2%/),
     ).not.toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByLabelText('Show Model details'));
-    expect(screen.getByText('55.2%')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Show Why this result?'));
+    expect(screen.queryByText('55.2%')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.technical-details')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Model details')).not.toBeOnTheScreen();
   });
 
   it('shows image quality warnings without changing model confidence', async () => {
@@ -235,14 +239,14 @@ describe('AnalysisResultScreen', () => {
 
     expect(screen.getByText('Image quality notice')).toBeOnTheScreen();
     expect(
-      screen.getByText('These input warnings did not change the model scores.'),
+      screen.getByText('These warnings did not change the result.'),
     ).toBeOnTheScreen();
     expect(
       screen.getByText(
         'The image resolution is low. Move closer and keep the affected area in focus.',
       ),
     ).toBeOnTheScreen();
-    expect(screen.getByLabelText('AI confidence 78%')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('AI confidence 78%')).not.toBeOnTheScreen();
     expect(result.confidence).toBe(0.78);
   });
 
@@ -286,11 +290,11 @@ describe('AnalysisResultScreen', () => {
 
     expect(
       screen.getByText(
-        'Report to Office saves this scan and opens a short Field Report Draft. Keep as Scan Only stores the scan without sending a report.',
+        'Report to Office saves this scan and opens a short Field Report Draft. Save Scan stores the scan on this device without sending a report.',
       ),
     ).toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByLabelText('Keep this scan only on the device'));
+    await fireEvent.press(screen.getByLabelText('Save this scan on the device'));
     expect(mockSaveRecord).toHaveBeenCalledTimes(1);
   });
 
@@ -352,7 +356,7 @@ describe('AnalysisResultScreen', () => {
       createCompletedState('rust', ['rust']),
     );
 
-    expect(screen.getByLabelText('Keep this scan only on the device')).toBeEnabled();
+    expect(screen.getByLabelText('Save this scan on the device')).toBeEnabled();
   });
 
   it('disables report, scan-only, and new-scan actions while saving', async () => {
@@ -365,7 +369,7 @@ describe('AnalysisResultScreen', () => {
     await renderResult(createCompletedState('rust', ['rust']));
 
     expect(screen.getByLabelText('Report this scan to the office')).toBeDisabled();
-    expect(screen.getByLabelText('Keep this scan only on the device')).toBeDisabled();
+    expect(screen.getByLabelText('Save this scan on the device')).toBeDisabled();
     expect(
       screen.getByLabelText('Scan again with a new image'),
     ).toBeDisabled();
@@ -386,7 +390,7 @@ describe('AnalysisResultScreen', () => {
     expect(screen.getByTestId('scan.open-saved-record')).toBeOnTheScreen();
     expect(screen.getByText('Scan saved on this device')).toBeOnTheScreen();
     expect(screen.getByLabelText('Report this scan to the office')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Keep this scan only on the device')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Save this scan on the device')).toBeOnTheScreen();
     await fireEvent.press(screen.getByLabelText('Open the saved local scan'));
     expect(mockRouterPush).toHaveBeenCalledWith({
       pathname: '/record-details',
@@ -410,7 +414,7 @@ describe('AnalysisResultScreen', () => {
     expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
     expect(screen.getByText('Choose another action')).toBeOnTheScreen();
     await fireEvent.press(
-      screen.getByLabelText('Retry and keep this scan only'),
+      screen.getByLabelText('Retry and save this scan on the device'),
     );
     expect(mockSaveRecord).toHaveBeenCalledTimes(1);
   });
@@ -427,7 +431,7 @@ describe('AnalysisResultScreen', () => {
     expect(screen.getByText('Checklist inconsistent')).toBeOnTheScreen();
     expect(
       screen.getByText(
-        'The selected observation differs from the Possible Condition. Both remain separate evidence, and this scan can still be reported to the office.',
+        "The reporter's observation does not match the Possible Condition. Both remain separate evidence, and this scan can still be reported to the office.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByLabelText('Report this scan to the office')).toBeEnabled();
@@ -476,19 +480,18 @@ describe('AnalysisResultScreen', () => {
     const keepIndex = order.indexOf('scan.keep-as-scan-only');
     const scanAgainIndex = order.indexOf('scan.new-scan');
     const whyIndex = order.indexOf('scan.why-this-result');
-    const technicalIndex = order.indexOf('scan.technical-details');
 
     expect(reportIndex).toBeGreaterThan(-1);
     expect(keepIndex).toBeGreaterThan(reportIndex);
     expect(scanAgainIndex).toBeGreaterThan(keepIndex);
     expect(whyIndex).toBeGreaterThan(scanAgainIndex);
-    expect(technicalIndex).toBeGreaterThan(whyIndex);
+    expect(order).not.toContain('scan.technical-details');
 
     expect(screen.queryByText('Image quality notice')).not.toBeOnTheScreen();
     expect(screen.queryByText('v1.0-mobilenetv2')).not.toBeOnTheScreen();
     expect(screen.queryByText('55.2%')).not.toBeOnTheScreen();
     expect(screen.getByLabelText('Report this scan to the office')).toBeEnabled();
-    expect(screen.getByLabelText('Keep this scan only on the device')).toBeEnabled();
+    expect(screen.getByLabelText('Save this scan on the device')).toBeEnabled();
   });
 
   describe('cancel and return home', () => {

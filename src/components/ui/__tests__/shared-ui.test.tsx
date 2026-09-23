@@ -58,7 +58,7 @@ describe('shared navigation UI', () => {
     };
 
     const view = await render(<RecordCard record={record} onPress={jest.fn()} />);
-    expect(screen.getByText('Synced')).toBeOnTheScreen();
+    expect(screen.getByText('Sent to office')).toBeOnTheScreen();
     expect(screen.getByText('Status update unavailable')).toBeOnTheScreen();
 
     await view.rerender(
@@ -67,7 +67,7 @@ describe('shared navigation UI', () => {
         onPress={jest.fn()}
       />,
     );
-    expect(screen.getByText('Needs attention')).toBeOnTheScreen();
+    expect(screen.getByText('Could not send — try again')).toBeOnTheScreen();
     expect(screen.queryByText('Status update unavailable')).not.toBeOnTheScreen();
   });
 

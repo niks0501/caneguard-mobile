@@ -248,7 +248,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
             ...current,
             errorMessage:
               result.haltReason === 'transient-blocker'
-                ? 'Waiting to sync. Will retry automatically.'
+                ? 'Waiting to send. Will try again automatically.'
                 : `${result.failed} report${result.failed === 1 ? '' : 's'} still need attention.`,
             isSyncing: true,
             sessionKey,
@@ -260,7 +260,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         if (isInitiatingSessionCurrent()) {
           setSyncState((current) => ({
             ...current,
-            errorMessage: 'CaneGuard could not process the pending upload queue.',
+            errorMessage: 'CaneGuard could not send the saved reports.',
             isSyncing: true,
             sessionKey,
           }));

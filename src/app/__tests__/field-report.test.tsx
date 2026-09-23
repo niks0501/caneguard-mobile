@@ -326,7 +326,7 @@ describe('FieldReportScreen', () => {
 
     expect(screen.getByText('Draft')).toBeOnTheScreen();
     expect(
-      screen.getByText(/Drafts are stored only on this device and are not queued/),
+      screen.getByText(/Drafts are saved only on this device and are not sent./),
     ).toBeOnTheScreen();
     expect(screen.getByTestId('field-report.summary')).toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.possible-match-warning')).not.toBeOnTheScreen();
@@ -334,7 +334,7 @@ describe('FieldReportScreen', () => {
     expect(screen.getByTestId('field-report.submitter')).toHaveTextContent(
       'Ana Reyes · Field Inspector',
     );
-    expect(screen.getByText('Possible Condition: Rust · 82% confidence')).toBeOnTheScreen();
+    expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
     expect(screen.getByText('Raised rust-colored or orange-brown spots or pustules, mainly on the leaf underside')).toBeOnTheScreen();
 
     await goToStep(2);
@@ -405,8 +405,8 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    expect(screen.getByText('Possible Condition: Rust · 82% confidence')).toBeOnTheScreen();
-    expect(screen.getByText('healthy: 8% · mosaic: 10% · rust: 82%')).toBeOnTheScreen();
+    expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
+    expect(screen.queryByText('healthy: 8% · mosaic: 10% · rust: 82%')).not.toBeOnTheScreen();
 
     await goToStep(3);
     // The concern choices are independent of the Possible Condition agreement
@@ -420,7 +420,7 @@ describe('FieldReportScreen', () => {
     });
 
     expect(screen.getByTestId('field-report.rssi-not-model-copy')).toHaveTextContent(
-      /RSSI can be reported as a field concern, but the current Model V1 does not detect RSSI\./,
+      /RSSI can be reported as a field concern, but the scan does not detect RSSI\./,
     );
     await act(async () => {
       fireEvent.changeText(
@@ -594,7 +594,7 @@ describe('FieldReportScreen', () => {
     });
     await goToStep(4);
     await act(async () => {
-      fireEvent.press(screen.getByLabelText('Capture GPS Location'));
+      fireEvent.press(screen.getByLabelText('Add location'));
     });
 
     expect(mockCaptureLocation).toHaveBeenCalledTimes(1);
@@ -623,12 +623,10 @@ describe('FieldReportScreen', () => {
 
     await goToStep(4);
     expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
-      /did not meet the preferred quality target/,
+      /Location could not be confirmed/,
     );
-    expect(screen.getByTestId('field-report.gps-evidence')).toHaveTextContent(
-      /±38 m/,
-    );
-    expect(screen.getByLabelText('Retry GPS Location')).toBeOnTheScreen();
+    expect(screen.queryByTestId('field-report.gps-evidence')).not.toBeOnTheScreen();
+    expect(screen.getByLabelText('Retry location')).toBeOnTheScreen();
   });
 
   it('does not block finalization on poor GPS accuracy and keeps retry available', async () => {
@@ -653,10 +651,10 @@ describe('FieldReportScreen', () => {
 
     await goToStep(4);
     expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
-      /did not meet the preferred quality target/,
+      /Location could not be confirmed/,
     );
-    expect(screen.getByLabelText('Retry GPS Location')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Open online manual map')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Retry location')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Choose location on map')).toBeOnTheScreen();
 
     await goToStep(5);
     expect(screen.queryByTestId('field-report.ready.final_coordinates')).not.toBeOnTheScreen();
@@ -685,10 +683,10 @@ describe('FieldReportScreen', () => {
       /Location services are off/,
     );
     expect(
-      screen.getByText(/Enable location services in device settings, then retry GPS capture/),
+      screen.getByText(/Enable location services in device settings, then retry location/),
     ).toBeOnTheScreen();
     expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
-      /Location services or an accurate device reading are unavailable/,
+      /Location could not be confirmed\. The draft is unchanged\./,
     );
 
     await act(async () => {
@@ -730,7 +728,7 @@ describe('FieldReportScreen', () => {
 
     await goToStep(4);
     expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
-      /permission was denied/,
+      /permission was not given/,
     );
     await goToStep(2);
     expect(screen.getByTestId('field-report.farmer-name-input')).toHaveProp(
@@ -738,11 +736,11 @@ describe('FieldReportScreen', () => {
       'Maria Santos',
     );
     await goToStep(4);
-    expect(screen.getByLabelText('Retry GPS Permission')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Open online manual map')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Retry location')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Choose location on map')).toBeOnTheScreen();
 
     await act(async () => {
-      fireEvent.press(screen.getByLabelText('Open online manual map'));
+      fireEvent.press(screen.getByLabelText('Choose location on map'));
     });
     expect(router.push).toHaveBeenCalledWith({
       pathname: './manual-map',
@@ -770,10 +768,11 @@ describe('FieldReportScreen', () => {
     await act(async () => undefined);
 
     await goToStep(4);
-    expect(screen.getByTestId('field-report.manual-location')).toHaveTextContent(
-      'Manual map · 14.071000, 120.635000 · GPS accuracy not applicable',
+    expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
+      /Location added from the map/,
     );
-    expect(screen.getByTestId('field-report.gps-evidence')).toHaveTextContent(/±38 m/);
+    expect(screen.queryByTestId('field-report.manual-location')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('field-report.gps-evidence')).not.toBeOnTheScreen();
   });
 
   it('selects a barangay from the searchable picker', async () => {
@@ -1244,7 +1243,7 @@ describe('FieldReportScreen', () => {
     await goToStep(5);
     expect(screen.getByText('Draft')).toBeOnTheScreen();
     expect(screen.getByTestId('field-report.submission-issues')).toHaveTextContent(
-      /Barangay.*Final coordinates.*GPS or manual-map location source.*latest entries were saved/s,
+      /Barangay.*Report location.*Location added.*latest entries were saved/s,
     );
   });
 
@@ -1271,14 +1270,14 @@ describe('FieldReportScreen', () => {
     const view = await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    expect(screen.getByText('Finalized · Waiting to sync')).toBeOnTheScreen();
+    expect(screen.getByText('Finalized · Waiting to send')).toBeOnTheScreen();
     expect(
       screen.getByText(
-        'This report is finalized locally. Current synchronization status: Waiting to sync.',
+        'This report is finalized and saved on this device. Status: Waiting to send.',
       ),
     ).toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.finalize')).not.toBeOnTheScreen();
-    expect(screen.getByText('GPS')).toBeOnTheScreen();
+    expect(screen.getByText('Location added')).toBeOnTheScreen();
     expect(screen.getByText('0.5 ha')).toBeOnTheScreen();
     expect(screen.getByText('30%')).toBeOnTheScreen();
 
@@ -1289,7 +1288,7 @@ describe('FieldReportScreen', () => {
     await view.rerender(<FieldReportScreen />);
     expect(
       screen.getByText(
-        'This report is finalized locally. Current synchronization status: Synced.',
+        'This report is finalized and saved on this device. Status: Sent to office.',
       ),
     ).toBeOnTheScreen();
   });
@@ -1326,7 +1325,7 @@ describe('FieldReportScreen', () => {
     expect(screen.getByText('Verified by staff')).toBeOnTheScreen();
     expect(screen.getByText('Please inspect the affected area.')).toBeOnTheScreen();
     expect(screen.getByText(/Authority staff · Updated/)).toBeOnTheScreen();
-    expect(screen.getByText('CG-100')).toBeOnTheScreen();
+    expect(screen.getAllByText('CG-100').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByLabelText('Refresh authority review status')).toBeOnTheScreen();
 
     mockDraftState = {
@@ -1335,7 +1334,7 @@ describe('FieldReportScreen', () => {
     };
     await view.rerender(<FieldReportScreen />);
     expect(screen.queryByTestId('field-report.authority-review-section')).not.toBeOnTheScreen();
-    expect(screen.getByText('Finalized · Waiting to sync')).toBeOnTheScreen();
+    expect(screen.getByText('Finalized · Waiting to send')).toBeOnTheScreen();
   });
 
   it('keeps cached authority feedback visible when refresh fails', async () => {
@@ -1386,7 +1385,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
 
     expect(screen.getByTestId('field-report.authority-status-unavailable')).toHaveTextContent(
-      'Authority review status is unavailable for this synchronized report.',
+      'Office review status is unavailable for this sent report.',
     );
     expect(screen.queryByText('Under review')).not.toBeOnTheScreen();
   });
@@ -1402,7 +1401,7 @@ describe('FieldReportScreen', () => {
     };
 
     await render(<FieldReportScreen />);
-    await fireEvent.press(screen.getByLabelText('Sync Field Report'));
+    await fireEvent.press(screen.getByLabelText('Send Field Report'));
 
     expect(mockRetryReport).toHaveBeenCalledWith(REPORT_ID);
     expect(mockRefresh).toHaveBeenCalled();
@@ -1420,12 +1419,12 @@ describe('FieldReportScreen', () => {
     mockRetryReport.mockRejectedValueOnce(new Error('storage unavailable'));
 
     await render(<FieldReportScreen />);
-    await fireEvent.press(screen.getByLabelText('Sync Field Report'));
+    await fireEvent.press(screen.getByLabelText('Send Field Report'));
 
     expect(screen.getByTestId('field-report.retry-error')).toHaveTextContent(
       'The saved record could not be updated. Please try again.',
     );
-    expect(screen.getByLabelText('Sync Field Report')).toBeEnabled();
+    expect(screen.getByLabelText('Send Field Report')).toBeEnabled();
   });
 
   it('reopens persisted partial values under the same report identity', async () => {
@@ -1460,10 +1459,6 @@ describe('FieldReportScreen', () => {
       '30',
     );
     await goToStep(5);
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText('Show Report identifiers'));
-    });
-    expect(screen.getByText(REPORT_ID)).toBeOnTheScreen();
     expect(screen.getByTestId('field-report.saved')).toHaveTextContent(
       'Draft saved on this device.',
     );
@@ -1558,7 +1553,7 @@ describe('FieldReportScreen', () => {
 
     await goToStep(4);
     await act(async () => {
-      fireEvent.press(screen.getByLabelText('I cannot capture a location'));
+      fireEvent.press(screen.getByLabelText('Continue without an exact location'));
     });
 
     expect(screen.getByTestId('field-report.mark-location-unavailable')).toBeDisabled();
@@ -1586,7 +1581,7 @@ describe('FieldReportScreen', () => {
 
     await render(<FieldReportScreen />);
     await goToStep(4);
-    await fireEvent.press(screen.getByLabelText('Capture a location instead'));
+    await fireEvent.press(screen.getByLabelText('Add a location instead'));
 
     expect(mockClearLocationUnavailable).toHaveBeenCalledTimes(1);
   });
@@ -1608,9 +1603,9 @@ describe('FieldReportScreen', () => {
 
     await goToStep(4);
     expect(screen.getByTestId('field-report.location-unavailable')).toHaveTextContent(
-      /GPS never reached a usable accuracy/,
+      /The location could not be confirmed/,
     );
-    expect(screen.getByLabelText('Capture a location instead')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Add a location instead')).toBeOnTheScreen();
   });
 
   describe('stepped wizard navigation and requirements handling', () => {
@@ -1712,7 +1707,7 @@ describe('FieldReportScreen', () => {
       expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
         'Step 4 of 5: Location',
       );
-      expect(screen.getByLabelText('Capture GPS Location')).toBeOnTheScreen();
+      expect(screen.getByLabelText('Add location')).toBeOnTheScreen();
     });
 
     it('holds all 20 submission requirements inside disclosure on Step 5 (W-3, Rule 4)', async () => {
@@ -1727,13 +1722,13 @@ describe('FieldReportScreen', () => {
       const disclosure = within(screen.getByTestId('field-report.all-requirements-disclosure'));
       expect(disclosure.getByText('Original scan image')).toBeOnTheScreen();
       expect(disclosure.getByText('Farmer or farm reference')).toBeOnTheScreen();
-      expect(disclosure.getByText('Final coordinates')).toBeOnTheScreen();
+      expect(disclosure.getByText('Report location')).toBeOnTheScreen();
       expect(disclosure.getByText('Observation time')).toBeOnTheScreen();
       expect(disclosure.getByText('Affected area (hectares)')).toBeOnTheScreen();
-      expect(disclosure.getByText('Device-reported GPS accuracy')).toBeOnTheScreen();
+      expect(disclosure.getByText('Confirmed location')).toBeOnTheScreen();
     });
 
-    it('keeps Report ID UUID in Technical details disclosure and off main scroll (E11)', async () => {
+    it('never shows report UUIDs in the normal workflow (E11)', async () => {
       await render(<FieldReportScreen />);
       await act(async () => undefined);
 
@@ -1741,11 +1736,7 @@ describe('FieldReportScreen', () => {
 
       await goToStep(5);
       expect(screen.queryByText(REPORT_ID)).not.toBeOnTheScreen();
-
-      await act(async () => {
-        fireEvent.press(screen.getByLabelText('Show Report identifiers'));
-      });
-      expect(screen.getByText(REPORT_ID)).toBeOnTheScreen();
+      expect(screen.queryByText('Report identifiers')).not.toBeOnTheScreen();
     });
   });
 

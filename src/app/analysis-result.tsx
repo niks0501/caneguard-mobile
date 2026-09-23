@@ -9,7 +9,6 @@ import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
-import { HelpHint } from '@/components/ui/HelpHint';
 import { Pill } from '@/components/ui/Pill';
 import { DECISION_SUPPORT_DISCLAIMER } from '@/constants/copy';
 import {
@@ -26,11 +25,7 @@ import {
   type ChecklistConsistency,
 } from '@/features/detection/checklist/checklistConsistency';
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
-import { ModelScoreList } from '@/features/detection/components/ModelScoreList';
-import {
-  V1_CONFIDENCE_CAUTION_THRESHOLD,
-  isBelowV1ConfidenceCautionThreshold,
-} from '@/features/detection/constants/confidenceCaution';
+import { isBelowV1ConfidenceCautionThreshold } from '@/features/detection/constants/confidenceCaution';
 import { useScanSession } from '@/features/detection/context/useScanSession';
 import {
   getSessionStateErrorMessage,
@@ -61,7 +56,7 @@ const CONSISTENCY_PRESENTATION: Record<
   inconsistent: {
     title: 'Checklist inconsistent',
     message:
-      'The selected observation differs from the Possible Condition. Both remain separate evidence, and this scan can still be reported to the office.',
+      "The reporter's observation does not match the Possible Condition. Both remain separate evidence, and this scan can still be reported to the office.",
     icon: 'alert-triangle',
     foreground: 'danger',
     background: 'dangerBg',
@@ -178,7 +173,7 @@ export default function AnalysisResultScreen() {
                 {getSessionStateErrorMessage(
                   new SessionStateError(
                     'RESULT_MISSING',
-                    'Analysis result requires completed inference state.',
+                    'Analysis result requires a completed scan state.',
                   ),
                 )}
               </Text>
@@ -326,10 +321,10 @@ export default function AnalysisResultScreen() {
               </View>
               <Text style={[styles.saveMessage, { color: theme.textSecondary }]}>
                 {saveRecord.status === 'saved'
-                  ? 'This scan is stored as local AI evidence. Reporting it to the office remains a separate choice.'
+                  ? 'This scan is saved on this device. Reporting it to the office is a separate choice.'
                   : saveRecord.status === 'failed'
                     ? saveRecord.errorMessage ?? 'The scan could not be saved on this device.'
-                    : 'Report to Office saves this scan and opens a short Field Report Draft. Keep as Scan Only stores the scan without sending a report.'}
+                    : 'Report to Office saves this scan and opens a short Field Report Draft. Save Scan stores the scan on this device without sending a report.'}
               </Text>
               <View style={styles.outcomeActions}>
                 <AppButton
@@ -360,14 +355,14 @@ export default function AnalysisResultScreen() {
                   variant="secondary"
                   accessibilityLabel={
                     saveRecord.status === 'failed'
-                      ? 'Retry and keep this scan only'
-                      : 'Keep this scan only on the device'
+                      ? 'Retry and save this scan on the device'
+                      : 'Save this scan on the device'
                   }>
                   {saveRecord.status === 'saving'
                     ? 'Saving scan...'
                     : saveRecord.status === 'failed'
-                      ? 'Retry and Keep as Scan Only'
-                      : 'Keep as Scan Only'}
+                      ? 'Retry and Save Scan'
+                      : 'Save Scan'}
                 </AppButton>
                 <AppButton
                   testID="scan.new-scan"
@@ -419,24 +414,12 @@ export default function AnalysisResultScreen() {
             </View>
 
             <DisclosureSection testID="scan.why-this-result" title="Why this result?">
-              <SectionCard title="What the model found">
+              <SectionCard title="About this result">
                 <Text style={[styles.resultMessage, { color: theme.text }]}>
                   {metadata.resultMessage}
                 </Text>
                 <Text style={[styles.description, { color: theme.textSecondary }]}>
                   {metadata.shortDescription}
-                </Text>
-              </SectionCard>
-
-              <SectionCard title="AI confidence">
-                <Text style={[styles.confidenceLabel, { color: theme.textSecondary }]}>
-                  Exact model confidence for this image
-                </Text>
-                <Text
-                  testID="scan.confidence"
-                  accessibilityLabel={`AI confidence ${formatPercentage(result.confidence)}`}
-                  style={[styles.confidenceValue, { color: theme.primaryDark }]}>
-                  {formatPercentage(result.confidence)}
                 </Text>
               </SectionCard>
 
@@ -485,7 +468,7 @@ export default function AnalysisResultScreen() {
                       Image quality notice
                     </Text>
                     <Text style={[styles.qualityIndependence, { color: theme.text }]}>
-                      These input warnings did not change the model scores.
+                      These warnings did not change the result.
                     </Text>
                     {state.qualityAssessment.warnings.map((warning) => (
                       <View key={warning} style={styles.qualityWarning}>
@@ -507,24 +490,6 @@ export default function AnalysisResultScreen() {
                   </View>
                 </View>
               ) : null}
-            </DisclosureSection>
-
-            <DisclosureSection testID="scan.technical-details" title="Model details" summary="All 7 model details">
-              <SectionCard title="All condition scores">
-                <ModelScoreList scores={result.scores} />
-              </SectionCard>
-              <SectionCard title="Analysis details">
-                <DetailRow label="Model version" value={result.modelVersion} />
-                <DetailRow
-                  label="Processing time"
-                  value={`${Math.round(result.timings.totalMs)} ms`}
-                />
-                <DetailRow
-                  label="V1 caution threshold"
-                  value={formatThreshold(V1_CONFIDENCE_CAUTION_THRESHOLD)}
-                  helpText="The confidence level below which the app warns that a result is not conclusive."
-                />
-              </SectionCard>
             </DisclosureSection>
 
             <View style={[styles.disclaimer, { backgroundColor: theme.infoBg, borderColor: theme.info }]}>
@@ -553,14 +518,6 @@ export default function AnalysisResultScreen() {
   );
 }
 
-function formatPercentage(score: number) {
-  return `${Math.round(score * 100)}%`;
-}
-
-function formatThreshold(score: number) {
-  return `${(score * 100).toFixed(1)}%`;
-}
-
 function SectionCard({
   title,
   children,
@@ -582,20 +539,6 @@ function SectionCard({
   );
 }
 
-function DetailRow({ helpText, label, value }: { helpText?: string; label: string; value: string }) {
-  const theme = useTheme();
-
-  return (
-    <View style={[styles.detailRow, { borderBottomColor: theme.divider }]}>
-      <View style={styles.detailLabelRow}>
-        <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>{label}</Text>
-        {helpText ? <HelpHint label={label} text={helpText} /> : null}
-      </View>
-      <Text style={[styles.detailValue, { color: theme.text }]}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1 }, root: { flex: 1 }, scrollContent: { alignItems: 'center' },
   content: { width: '100%', maxWidth: Layout.mobileMaxWidth, paddingHorizontal: ComponentTokens.screen.horizontalPadding, paddingVertical: Spacing.xl, gap: Spacing.lg },
@@ -606,14 +549,8 @@ const styles = StyleSheet.create({
   resultMessage: { ...Typography.body, fontWeight: '700' },
   description: { ...Typography.bodySmall },
   advisory: { ...Typography.bodySmall, fontWeight: '700' },
-  confidenceLabel: { ...Typography.caption, fontWeight: '800' },
-  confidenceValue: { ...Typography.title, fontWeight: '800' },
   sectionCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
   sectionTitle: { ...Typography.subheading },
-  scoreRow: { minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
-  scoreLabel: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  scoreName: { ...Typography.bodySmall, flex: 1 },
-  scoreValue: { ...Typography.body, fontWeight: '800' },
   qualityCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
   qualityCopy: { flex: 1, gap: Spacing.sm },
   qualityTitle: { ...Typography.subheading },
@@ -627,10 +564,6 @@ const styles = StyleSheet.create({
   consistencyMessage: { ...Typography.bodySmall },
   caution: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
   cautionText: { ...Typography.caption, flex: 1 },
-  detailRow: { minHeight: 36, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
-  detailLabelRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  detailLabel: { ...Typography.bodySmall },
-  detailValue: { ...Typography.bodySmall, fontWeight: '800', flexShrink: 1, textAlign: 'right' },
   disclaimer: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm, flexDirection: 'row', alignItems: 'flex-start' }, disclaimerText: { ...Typography.caption, flex: 1, lineHeight: 18 },
   saveCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
   outcomeActions: { gap: Spacing.sm },

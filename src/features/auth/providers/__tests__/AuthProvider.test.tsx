@@ -257,7 +257,7 @@ describe('AuthProvider', () => {
     }
 
     await waitFor(() =>
-      expect(screen.getByText('Server unavailable')).toBeOnTheScreen(),
+      expect(screen.getByText('Office unreachable')).toBeOnTheScreen(),
     );
   });
 

@@ -147,7 +147,7 @@ describe('ImagePreviewScreen', () => {
     expect(screen.getByLabelText('Analyze selected image')).toBeDisabled();
     expect(
       screen.getByText(
-        'Analysis stays on this screen until preprocessing and inference succeed.',
+        'Analysis stays on this screen until the check succeeds.',
       ),
     ).toBeOnTheScreen();
   });
@@ -174,9 +174,9 @@ describe('ImagePreviewScreen', () => {
     await fireEvent(screen.getByLabelText('Selected sugarcane image from gallery'), 'load');
     await fireEvent.press(screen.getByLabelText('Analyze selected image'));
 
-    expect(screen.getByLabelText('Preprocessing image')).toBeDisabled();
+    expect(screen.getByLabelText('Image preparation in progress')).toBeDisabled();
     expect(screen.getByText('Preparing image…')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByLabelText('Preprocessing image'));
+    await fireEvent.press(screen.getByLabelText('Image preparation in progress'));
     expect(mockPreprocessImage).toHaveBeenCalledTimes(1);
     completePreprocessing?.(successfulPreprocessingResult);
 
@@ -193,10 +193,9 @@ describe('ImagePreviewScreen', () => {
       );
     });
 
-    await fireEvent.press(screen.getByLabelText('Show Saved image details'));
-    expect(screen.getByText('Model input ready')).toBeOnTheScreen();
-    expect(screen.getByText('224 × 224 RGB float32 · 42 ms')).toBeOnTheScreen();
-    expect(screen.getByText('Running on-device model…')).toBeOnTheScreen();
+    expect(screen.queryByText('Model input ready')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Saved image details')).not.toBeOnTheScreen();
+    expect(screen.getByText('Checking image…')).toBeOnTheScreen();
 
     completeInference?.(successfulInferenceResult);
     await waitFor(() => {
@@ -239,8 +238,8 @@ describe('ImagePreviewScreen', () => {
 
     await fireEvent(screen.getByLabelText('Selected sugarcane image from gallery'), 'load');
 
-    expect(screen.getByLabelText('Model loading')).toBeDisabled();
-    expect(screen.getByText('Loading the on-device model before analysis…')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Getting ready')).toBeDisabled();
+    expect(screen.getByText('Getting ready before analysis…')).toBeOnTheScreen();
     expect(mockPreprocessImage).not.toHaveBeenCalled();
   });
 

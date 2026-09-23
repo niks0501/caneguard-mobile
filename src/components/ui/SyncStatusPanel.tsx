@@ -20,18 +20,18 @@ export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } 
     try {
       const result = await sync.syncNow('manual');
       if (result && !result.authRequired && result.failed === 0) {
-        showToast('Sync complete', 'success');
+        showToast('Sent to office', 'success');
       } else if (result && result.failed > 0) {
-        showToast('Sync failed — will retry', 'error');
+        showToast('Could not send — will try again', 'error');
       } else if (result?.authRequired) {
         showToast('Session expired — please sign in again', 'error');
       } else if (result === null && sync.errorMessage) {
         showToast(sync.errorMessage, 'error');
       } else if (result === null) {
-        showToast('Sync failed — will retry', 'error');
+        showToast('Could not send — will try again', 'error');
       }
     } catch {
-      showToast('Sync failed — will retry', 'error');
+      showToast('Could not send — will try again', 'error');
     }
   };
   const apiUnavailable = isServerUnavailable(sync.apiReachability, undefined, sync.isOnline);
@@ -62,17 +62,17 @@ export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } 
         <Feather name={icon} size={20} color={iconColor} />
         <View style={styles.copy}>
           <Text style={[styles.title, { color: theme.primaryDark }]}>
-            Report synchronization
+            Report status
           </Text>
           <Text style={[styles.summary, { color: theme.textSecondary }]}>
-            {connectionLabel} · {sync.pendingCount} awaiting upload
-            {sync.isSyncing ? ' · Uploading' : ''}
+            {connectionLabel} · {sync.pendingCount} waiting to send
+            {sync.isSyncing ? ' · Sending' : ''}
           </Text>
         </View>
       </View>
       {sync.lastSuccessfulSyncAt ? (
         <Text style={[styles.detail, { color: theme.textSecondary }]}>
-          Last upload: {formatDate(sync.lastSuccessfulSyncAt)}
+          Last sent: {formatDate(sync.lastSuccessfulSyncAt)}
         </Text>
       ) : null}
       {sync.errorMessage ? (
@@ -89,9 +89,9 @@ export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } 
           }
           leadingIcon="refresh-cw"
           accessibilityLabel={
-            sync.isSyncing ? 'Synchronizing pending reports' : 'Sync reports now'
+            sync.isSyncing ? 'Sending saved reports' : 'Send reports now'
           }>
-          {sync.isSyncing ? 'Syncing...' : 'Sync Now'}
+          {sync.isSyncing ? 'Sending...' : 'Send Now'}
         </AppButton>
       ) : null}
     </View>

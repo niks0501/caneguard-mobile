@@ -166,7 +166,7 @@ export default function SymptomChecklistScreen() {
               </View>
               <Text style={[styles.introText, { color: theme.textSecondary }]}>
                 Add a short visual observation before reviewing the Possible Condition.
-                Your answer is stored separately and never changes model scores.
+                Your answer is stored separately and never changes the result.
               </Text>
             </View>
             {currentQuestion ? (

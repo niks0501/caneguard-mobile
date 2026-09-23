@@ -8,11 +8,11 @@ import {
 
 describe('syncStatusCopy', () => {
   it('summarizes pending reports and visits with one vocabulary', () => {
-    expect(formatPendingSummary(0)).toBe('0 reports awaiting sync');
-    expect(formatPendingSummary(1)).toBe('1 report awaiting sync');
-    expect(formatPendingSummary(2)).toBe('2 reports awaiting sync');
-    expect(formatPendingSummary(3, 2, 1)).toBe('2 reports, 1 visit awaiting sync');
-    expect(formatPendingSummary(1, 0, 1)).toBe('1 visit awaiting sync');
+    expect(formatPendingSummary(0)).toBe('0 reports waiting to send');
+    expect(formatPendingSummary(1)).toBe('1 report waiting to send');
+    expect(formatPendingSummary(2)).toBe('2 reports waiting to send');
+    expect(formatPendingSummary(3, 2, 1)).toBe('2 reports, 1 visit waiting to send');
+    expect(formatPendingSummary(1, 0, 1)).toBe('1 visit waiting to send');
   });
 
   it('detects server unavailability the same way for every surface', () => {
@@ -25,12 +25,12 @@ describe('syncStatusCopy', () => {
     expect(getConnectionLabel(null, 'unknown')).toBe('Checking connection');
     expect(getConnectionLabel(false, 'unknown')).toBe('Offline');
     expect(getConnectionLabel(true, 'unavailable')).toBe(
-      'Network available · CaneGuard server unavailable',
+      'Network available · Cannot reach the office',
     );
     expect(getConnectionLabel(true, 'unknown')).toBe(
-      'Network available · CaneGuard status not checked',
+      'Network available · Office status not checked',
     );
-    expect(getConnectionLabel(true, 'available')).toBe('Network and CaneGuard available');
+    expect(getConnectionLabel(true, 'available')).toBe('Network and office available');
   });
 
   it('chooses one row summary across connection states', () => {
@@ -39,23 +39,23 @@ describe('syncStatusCopy', () => {
       isOnline: true as const,
       pendingCount: 0,
     };
-    expect(getSyncRowSummary({ ...base, isSyncing: true })).toBe('Syncing saved reports…');
+    expect(getSyncRowSummary({ ...base, isSyncing: true })).toBe('Sending saved reports…');
     expect(getSyncRowSummary({ ...base, isOnline: null })).toBe('Checking connection');
     expect(getSyncRowSummary({ ...base, isOnline: false })).toBe(
       'Offline · saved reports stay on this device',
     );
-    expect(getSyncRowSummary({ ...base, pendingCount: 2 })).toBe('2 reports awaiting sync');
+    expect(getSyncRowSummary({ ...base, pendingCount: 2 })).toBe('2 reports waiting to send');
     expect(
       getSyncRowSummary({ ...base, apiReachability: 'unavailable', pendingCount: 2 }),
-    ).toBe('2 reports awaiting sync · CaneGuard server unavailable');
-    expect(getSyncRowSummary(base)).toBe('CaneGuard connected · All saved reports are synced');
+    ).toBe('2 reports waiting to send · Cannot reach the office');
+    expect(getSyncRowSummary(base)).toBe('Office connected · All saved reports are sent');
   });
 
   it('chooses one short badge label for the Home status', () => {
     expect(getSyncBadgeLabel({ apiReachability: 'available', isOnline: false })).toBe('Offline');
     expect(
       getSyncBadgeLabel({ apiReachability: 'available', isOnline: true, sessionVerification: 'unavailable' }),
-    ).toBe('Server unavailable');
+    ).toBe('Office unreachable');
     expect(getSyncBadgeLabel({ apiReachability: 'unknown', isOnline: true })).toBe(
       'Network available',
     );

@@ -68,7 +68,7 @@ import { useTheme } from '@/hooks/use-theme';
 const MAX_AFFECTED_AREA_HECTARES = 10_000;
 
 export const STEP_TITLES = [
-  'Scan evidence',
+  'Original scan',
   'Farm & area',
   'Your observation',
   'Location',
@@ -76,7 +76,7 @@ export const STEP_TITLES = [
 ];
 
 const STEP_SHORT_LABELS = [
-  'Evidence',
+  'Scan',
   'Farm',
   'Observe',
   'Location',
@@ -1415,7 +1415,7 @@ function AutomaticSummaryCard({
         </>
       ) : (
         <Text style={[styles.error, { color: theme.danger }]}>
-          Scan evidence is unavailable.
+          The saved scan is unavailable.
         </Text>
       )}
       <View style={styles.summaryRows}>
@@ -1698,17 +1698,17 @@ function InheritedScanEvidence({
       ]}>
       <View style={styles.sectionHeading}>
         <Feather name="shield" size={20} color={theme.primary} />
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Scan evidence</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Original scan</Text>
       </View>
       <Text style={[styles.helpText, { color: theme.textSecondary }]}>
         Saved from your completed scan. You cannot change it here.
       </Text>
       {loading ? (
-        <ActivityIndicator accessibilityLabel="Loading inherited scan evidence" color={theme.primary} />
+        <ActivityIndicator accessibilityLabel="Loading saved scan" color={theme.primary} />
       ) : errorMessage || !record ? (
         <>
-          <Text style={[styles.error, { color: theme.danger }]}>{errorMessage ?? 'Scan evidence is unavailable.'}</Text>
-          <AppButton onPress={onRetry} leadingIcon="refresh-cw">Retry Evidence</AppButton>
+          <Text style={[styles.error, { color: theme.danger }]}>{errorMessage ?? 'The saved scan is unavailable.'}</Text>
+          <AppButton onPress={onRetry} leadingIcon="refresh-cw">Try again</AppButton>
         </>
       ) : (
         <>
@@ -2273,7 +2273,7 @@ const ALL_REQUIREMENT_GROUPS: { label: string; requirements: FieldReportSubmissi
     ],
   },
   {
-    label: 'Automatic evidence',
+    label: 'Saved scan details',
     requirements: [
       'original_scan_image',
       'submission_image',

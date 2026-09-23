@@ -79,7 +79,7 @@ export default function SettingsScreen() {
           : 'Local data cleared',
         result.imageCleanupErrors.length > 0
           ? 'Your local records were removed, but one or more cached images could not be deleted yet.'
-          : 'Saved scans, report drafts, field-validation evidence, and cached account data were removed from this device.',
+          : 'Saved scans, report drafts, completed visits, and cached account data were removed from this device.',
       );
     } catch {
       showToast('Could not clear local data', 'error');
@@ -227,7 +227,7 @@ export default function SettingsScreen() {
                   onPress={() =>
                     Alert.alert(
                       'Clear local data?',
-                      'This permanently removes saved scans, report drafts, validation evidence, and cached account data from this device. It does not change data already sent to the office.',
+                      'This permanently removes saved scans, report drafts, completed visits, and cached account data from this device. It does not change data already sent to the office.',
                       [
                         { text: 'Cancel', style: 'cancel' },
                         {

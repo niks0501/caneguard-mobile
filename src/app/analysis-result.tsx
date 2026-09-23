@@ -56,7 +56,7 @@ const CONSISTENCY_PRESENTATION: Record<
   inconsistent: {
     title: 'Checklist inconsistent',
     message:
-      "The reporter's observation does not match the Possible Condition. Both remain separate evidence, and this scan can still be reported to the office.",
+      "The reporter's observation does not match the Possible Condition. Both are kept separately, and this scan can still be reported to the office.",
     icon: 'alert-triangle',
     foreground: 'danger',
     background: 'dangerBg',

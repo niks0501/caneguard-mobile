@@ -1614,7 +1614,7 @@ describe('FieldReportScreen', () => {
       await act(async () => undefined);
 
       expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
-        'Step 1 of 5: Scan evidence',
+        'Step 1 of 5: Original scan',
       );
       expect(screen.queryByTestId('field-report.wizard-prev')).not.toBeOnTheScreen();
       expect(screen.getByTestId('field-report.wizard-next')).toBeOnTheScreen();
@@ -1631,7 +1631,7 @@ describe('FieldReportScreen', () => {
         fireEvent.press(screen.getByTestId('field-report.wizard-prev'));
       });
       expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
-        'Step 1 of 5: Scan evidence',
+        'Step 1 of 5: Original scan',
       );
     });
 
@@ -1674,7 +1674,7 @@ describe('FieldReportScreen', () => {
       await act(async () => undefined);
 
       // On Step 1: Step 1 shows full label, others show step number
-      expect(screen.getByTestId('field-report.step-1')).toHaveTextContent('1. Evidence');
+      expect(screen.getByTestId('field-report.step-1')).toHaveTextContent('1. Scan');
       expect(screen.getByTestId('field-report.step-2')).toHaveTextContent('2');
       expect(screen.getByTestId('field-report.step-3')).toHaveTextContent('3');
 

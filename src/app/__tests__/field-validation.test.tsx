@@ -107,9 +107,9 @@ describe('FieldValidationScreen', () => {
     ];
     expect([...order].sort((a, b) => tree.indexOf(a) - tree.indexOf(b))).toEqual(order);
 
-    // The submitted evidence stays available behind an explicit disclosure,
+    // The original report stays available behind an explicit disclosure,
     // with Possible Condition as visit context and no technical AI metadata.
-    await fireEvent.press(screen.getByLabelText('Show Previous visit and submitted evidence'));
+    await fireEvent.press(screen.getByLabelText('Show Previous visit and original report'));
     expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
     expect(screen.queryByText('93%')).not.toBeOnTheScreen();
     expect(screen.getByText('Ana Reporter')).toBeOnTheScreen();

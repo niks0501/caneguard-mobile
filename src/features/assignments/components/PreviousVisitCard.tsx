@@ -97,7 +97,7 @@ function PreviousVisitDetails({
         />
       ) : null}
       <View style={styles.evidenceBlock}>
-        <Text style={[styles.evidenceLabel, { color: theme.textSecondary }]}>Previous field evidence</Text>
+        <Text style={[styles.evidenceLabel, { color: theme.textSecondary }]}>Previous field findings</Text>
         {evidence ? (
           <ClampedText
             text={evidence}
@@ -106,7 +106,7 @@ function PreviousVisitDetails({
           />
         ) : null}
         {photoSource ? <ExpoImage accessibilityLabel="Previous field evidence photo" contentFit="cover" source={photoSource} style={styles.photo} /> : null}
-        {!evidence && !photoSource ? <Text style={[styles.fallback, { color: theme.textSecondary }]}>No previous evidence</Text> : null}
+        {!evidence && !photoSource ? <Text style={[styles.fallback, { color: theme.textSecondary }]}>No previous visit details</Text> : null}
       </View>
     </View>
   );

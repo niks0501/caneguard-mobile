@@ -91,7 +91,7 @@ export default function FieldValidationScreen() {
       return false;
     }
     if ([observation, finding, action].some((value) => value.trim().length > FIELD_VALIDATION_TEXT_MAX_LENGTH)) {
-      const msg = 'Each validation evidence field must be no more than 2,000 characters.';
+      const msg = 'Each entry must be no more than 2,000 characters.';
       setFieldError(msg);
       showToast(msg, 'error');
       return false;
@@ -227,9 +227,9 @@ function VisitHistory({
   return (
     <DisclosureSection
       testID="field-validation.submitted-evidence"
-      title="Previous visit and submitted evidence"
-      summary={previousVisit ? '1 previous visit · submitted evidence' : 'No previous visit · submitted evidence'}>
-      <Text style={[styles.help, { color: theme.textSecondary }]}>Recorded before this visit and submitted by the reporter. It is decision-support only, cannot be changed here, and is kept separate from your field evidence.</Text>
+      title="Previous visit and original report"
+      summary={previousVisit ? '1 previous visit · original report' : 'No previous visit · original report'}>
+      <Text style={[styles.help, { color: theme.textSecondary }]}>Recorded before this visit and submitted by the reporter. It is decision-support only, cannot be changed here, and is kept separate from your field findings.</Text>
       <Row label="Possible Condition" value={getResultLabel(assignment.case.predictedLabel)} />
       <Row label="Submitted by" value={assignment.submitter.name} />
       {completion ? <Row label="Visit time" value={formatTimestamp(completion.visitedAt)} /> : null}
@@ -307,7 +307,7 @@ function completeConfirmMessage({
 }): string {
   const outcome = followUpOutcome ? OUTCOME_LABELS[followUpOutcome] : 'No outcome chosen';
   const visit = targetVisitDate ?? 'No target date';
-  return `Complete the visit for ${visit}? Follow-up outcome: ${outcome}. Fresh photo: ${hasPhoto ? 'attached' : 'not attached'}. The completed evidence can no longer be edited, and the case stays open.`;
+  return `Complete the visit for ${visit}? Follow-up outcome: ${outcome}. Fresh photo: ${hasPhoto ? 'attached' : 'not attached'}. The completed visit can no longer be edited, and the case stays open.`;
 }
 
 function EvidenceForm({
@@ -371,7 +371,7 @@ function CompletionStatus({ completion, onRetry }: { completion: FieldValidation
     <View testID="field-validation.completion-status" style={[styles.card, { backgroundColor: pending ? theme.warningBg : theme.successBg, borderColor: pending ? theme.warning : theme.success }]}>
       <Feather name={pending ? 'clock' : 'check-circle'} size={24} color={pending ? theme.warning : theme.success} />
       <Text style={[styles.title, { color: theme.text }]}>{pending ? 'Saved on this device' : 'Sent to office'}</Text>
-      <Text style={[styles.help, { color: theme.textSecondary }]}>{pending ? 'The completed evidence is preserved locally and will retry automatically when connectivity returns. Visit time is recorded automatically.' : 'The office can now review this field evidence. Visit time is recorded automatically.'}</Text>
+      <Text style={[styles.help, { color: theme.textSecondary }]}>{pending ? 'The completed visit is saved on this device and will retry automatically when connectivity returns. Visit time is recorded automatically.' : 'The office can now review your field findings. Visit time is recorded automatically.'}</Text>
       <Row label="Visit time" value={formatTimestamp(completion.visitedAt)} />
       <Row label="Location" value={completion.gpsOutcome === 'resolved' ? 'Location added' : 'Location could not be confirmed'} />
       {pending ? <AppButton testID="field-validation.retry" onPress={() => void handleRetry()} disabled={completion.syncStatus === 'syncing'} leadingIcon="refresh-cw" variant="secondary">Try Again</AppButton> : null}

@@ -47,7 +47,7 @@ describe('PreviousVisitCard', () => {
     await render(<PreviousVisitCard previousVisit={null} />);
 
     expect(screen.getByText('No previous visit recorded for this farm on this device')).toBeOnTheScreen();
-    expect(screen.queryByText('Previous field evidence')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Previous field findings')).not.toBeOnTheScreen();
     expect(screen.queryByLabelText('Previous field evidence photo')).not.toBeOnTheScreen();
   });
 });

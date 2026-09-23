@@ -431,7 +431,7 @@ describe('AnalysisResultScreen', () => {
     expect(screen.getByText('Checklist inconsistent')).toBeOnTheScreen();
     expect(
       screen.getByText(
-        "The reporter's observation does not match the Possible Condition. Both remain separate evidence, and this scan can still be reported to the office.",
+        "The reporter's observation does not match the Possible Condition. Both are kept separately, and this scan can still be reported to the office.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByLabelText('Report this scan to the office')).toBeEnabled();

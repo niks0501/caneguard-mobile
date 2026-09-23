@@ -276,12 +276,12 @@ describe('ActivityScreen', () => {
 
   it('runs one Refresh all scope that covers every eligible subsystem once', async () => {
     await render(<ActivityScreen />);
-    await fireEvent.press(screen.getByLabelText('Show Sync'));
+    await fireEvent.press(screen.getByLabelText('Show Report status'));
 
     expect(screen.queryByLabelText('Refresh notifications')).not.toBeOnTheScreen();
     expect(screen.queryByLabelText('Refresh office review updates')).not.toBeOnTheScreen();
     expect(screen.queryByLabelText('Refresh field assignments')).not.toBeOnTheScreen();
-    expect(screen.queryByLabelText('Sync reports now')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Send reports now')).not.toBeOnTheScreen();
 
     await fireEvent.press(screen.getByTestId('activity.refresh-all'));
 
@@ -297,7 +297,7 @@ describe('ActivityScreen', () => {
     mockRefresh.mockResolvedValue(false);
 
     await render(<ActivityScreen />);
-    await fireEvent.press(screen.getByLabelText('Show Sync'));
+    await fireEvent.press(screen.getByLabelText('Show Report status'));
     await fireEvent.press(screen.getByTestId('activity.refresh-all'));
 
     expect(screen.getByText(/Couldn.t refresh/)).toBeOnTheScreen();
@@ -487,13 +487,13 @@ describe('ActivityScreen', () => {
     expect(screen.getByTestId('activity.timeline')).toBeOnTheScreen();
     // Status panels stay behind their taps: the list leads.
     expect(screen.queryByTestId('activity.notifications')).not.toBeOnTheScreen();
-    expect(screen.queryByText('Report synchronization')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('activity.refresh-scope')).not.toBeOnTheScreen();
 
     await fireEvent.press(screen.getByTestId('activity.notifications-toggle'));
-    await fireEvent.press(screen.getByLabelText('Show Sync'));
+    await fireEvent.press(screen.getByLabelText('Show Report status'));
 
     expect(screen.getByTestId('activity.notifications')).toBeOnTheScreen();
-    expect(screen.getByText('Report synchronization')).toBeOnTheScreen();
+    expect(screen.getByTestId('activity.refresh-scope')).toBeOnTheScreen();
 
     const tree = JSON.stringify(screen.toJSON());
     const order = [

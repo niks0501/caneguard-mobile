@@ -242,10 +242,10 @@ describe('RecordDetailsScreen', () => {
     expect(screen.getByLabelText('Open finalized Field Report')).toBeOnTheScreen();
     expect(screen.getByText('View Finalized Report')).toBeOnTheScreen();
     expect(
-      screen.getByText('This Field Report is finalized locally: Waiting to sync.'),
+      screen.getByText('This Field Report is finalized: Waiting to send.'),
     ).toBeOnTheScreen();
-    expect(screen.getByText('Not assigned')).toBeOnTheScreen();
-    expect(screen.getByText('Not yet synchronized')).toBeOnTheScreen();
+    expect(screen.getByText('Not yet available')).toBeOnTheScreen();
+    expect(screen.getByText('Not sent yet')).toBeOnTheScreen();
     expect(
       screen.queryByText('The connection was unavailable. Retry when online.'),
     ).not.toBeOnTheScreen();
@@ -257,7 +257,7 @@ describe('RecordDetailsScreen', () => {
     };
     await view.rerender(<RecordDetailsScreen />);
     expect(
-      screen.getByText('This Field Report is finalized locally: Synced.'),
+      screen.getByText('This Field Report is finalized: Sent to office.'),
     ).toBeOnTheScreen();
   });
 
@@ -279,16 +279,18 @@ describe('RecordDetailsScreen', () => {
     expect(screen.queryByLabelText('Create Field Report draft')).not.toBeOnTheScreen();
   });
 
-  it('loads complete stored metadata by UUID', async () => {
+  it('loads the saved record without technical internals', async () => {
     await render(<RecordDetailsScreen />);
 
-    await fireEvent.press(screen.getByLabelText('Show Model details'));
     expect(useScanRecordDetails).toHaveBeenCalledWith(RECORD_ID);
     expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
     expect(screen.getByTestId('records.result-title')).toHaveTextContent(
       'Possible Condition: Rust',
     );
-    expect(screen.getByText('82% AI confidence')).toBeOnTheScreen();
+    expect(screen.queryByText('Model details')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Technical details')).not.toBeOnTheScreen();
+    expect(screen.queryByText('v0.1-baseline')).not.toBeOnTheScreen();
+    expect(screen.queryByText('82% AI confidence')).not.toBeOnTheScreen();
     expect(screen.getByText('Checklist consistent')).toBeOnTheScreen();
     expect(screen.getByText('Moderate')).toBeOnTheScreen();
     expect(
@@ -299,8 +301,7 @@ describe('RecordDetailsScreen', () => {
         'The image may be too dark. Retake the photo in better lighting for a more reliable input.',
       ),
     ).toBeOnTheScreen();
-    expect(screen.getByText('v0.1-baseline')).toBeOnTheScreen();
-    expect(screen.getByText('Local only')).toBeOnTheScreen();
+    expect(screen.getByText('Saved on this device')).toBeOnTheScreen();
   });
 
   it('keeps metadata visible when the managed image is missing', async () => {
@@ -363,29 +364,25 @@ describe('RecordDetailsScreen', () => {
     expect(screen.queryByTestId('records.confirm-delete')).toBeNull();
   });
 
-  it('splits model and saved details into two counted disclosures', async () => {
+  it('keeps saved details plain without technical internals', async () => {
     await render(<RecordDetailsScreen />);
 
-    // Both disclosures replace the bare Technical details block.
+    // No technical section exists in the normal workflow.
     expect(screen.queryByText('Technical details')).toBeNull();
-    expect(screen.getByText('Model details')).toBeOnTheScreen();
+    expect(screen.queryByText('Model details')).not.toBeOnTheScreen();
     expect(screen.getByText('Saved record details')).toBeOnTheScreen();
-    expect(screen.getByText('All 7 model details')).toBeOnTheScreen();
     expect(screen.getByText('All 4 saved details')).toBeOnTheScreen();
 
-    // Model rows stay behind their tap; the hero keeps the single answer.
+    // Technical values stay out of the normal interface.
     expect(screen.queryByText('v0.1-baseline')).not.toBeOnTheScreen();
-    await fireEvent.press(screen.getByLabelText('Show Model details'));
-    expect(screen.getByText('v0.1-baseline')).toBeOnTheScreen();
-    expect(screen.queryByLabelText('Rust score 82%')).not.toBeOnTheScreen();
-    await fireEvent.press(screen.getByLabelText('Show All condition scores'));
-    expect(screen.getByLabelText('Rust score 82%')).toBeOnTheScreen();
 
     // Saved rows live in the other disclosure.
-    expect(screen.queryByText('Not assigned')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Not yet available')).not.toBeOnTheScreen();
     await fireEvent.press(screen.getByLabelText('Show Saved record details'));
-    expect(screen.getByText('Not assigned')).toBeOnTheScreen();
-    expect(screen.getByText('Not yet synchronized')).toBeOnTheScreen();
+    expect(screen.getByText('Office reference')).toBeOnTheScreen();
+    expect(screen.getByText('Not yet available')).toBeOnTheScreen();
+    expect(screen.getByText('Not sent yet')).toBeOnTheScreen();
+    expect(screen.queryByText('v0.1-baseline')).not.toBeOnTheScreen();
   });
 
   it('caps long observation lists behind a Show remaining control', async () => {
@@ -429,11 +426,12 @@ describe('RecordDetailsScreen', () => {
     await render(<RecordDetailsScreen />);
 
     await fireEvent.press(screen.getByLabelText('Show Saved record details'));
-    expect(screen.getByText('Legacy Report Synced')).toBeOnTheScreen();
+    expect(screen.getByText('Legacy Report Sent')).toBeOnTheScreen();
     expect(
-      screen.getByLabelText('Legacy report already synchronized'),
+      screen.getByLabelText('Legacy report already sent'),
     ).toBeDisabled();
-    expect(screen.getByText('legacy-remote-id')).toBeOnTheScreen();
+    expect(screen.getByText('Not yet available')).toBeOnTheScreen();
+    expect(screen.queryByText('legacy-remote-id')).not.toBeOnTheScreen();
     expect(screen.queryByLabelText('Create Field Report draft')).not.toBeOnTheScreen();
   });
 

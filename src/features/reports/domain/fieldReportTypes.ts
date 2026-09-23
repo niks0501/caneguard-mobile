@@ -27,7 +27,7 @@ export const LOCATION_UNAVAILABLE_REASON_LABELS: Record<
 > = {
   permission_denied: 'Location permission was denied',
   services_unavailable: 'Device location services were unavailable',
-  low_accuracy: 'GPS never reached a usable accuracy',
+  low_accuracy: 'The location could not be confirmed',
   offline_no_map: 'Offline, so the online map could not be used',
   other: 'Another reason',
 };

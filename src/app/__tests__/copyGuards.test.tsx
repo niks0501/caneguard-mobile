@@ -96,6 +96,63 @@ describe('Copy regression guards', () => {
     expect(violations).toEqual([]);
   });
 
+  it('keeps technical implementation details out of normal user-facing copy', () => {
+    // Field users act on meaning, not implementation: model internals,
+    // timings, raw scores, UUIDs, and sync/GPS mechanics stay internal.
+    // Patterns use word spacing so code identifiers (modelVersion,
+    // gpsAccuracy, remoteId, isPreprocessing) never match.
+    const forbiddenPatterns = [
+      /Model details/,
+      /Analysis details/,
+      /Model version/,
+      /Processing time/,
+      /Preprocessing time/,
+      /Server report UUID/,
+      /Class scores/,
+      /All condition scores/,
+      /Exact model confidence/,
+      /AI confidence/,
+      /Report ID/,
+      /Scan Record ID/,
+      /GPS accuracy/,
+      /Device-reported GPS/,
+      /synchronization status/,
+      /Upload-ready submission image/,
+      /Authenticated submitter/,
+      /Diagnosis/,
+      /inference succeed/,
+      /completed inference/,
+      /Waiting to sync/,
+      /Local only/,
+      /Keep as Scan Only/,
+      /AI evidence/,
+      /What the model found/,
+      /model scores/,
+    ];
+
+    const violations: string[] = [];
+
+    for (const file of files) {
+      const content = fs.readFileSync(path.join(appDir, file), 'utf8');
+      const lines = content.split('\n');
+
+      lines.forEach((line, idx) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*')) {
+          return;
+        }
+
+        for (const pattern of forbiddenPatterns) {
+          if (pattern.test(line)) {
+            violations.push(`${file}:${idx + 1} matches forbidden pattern ${pattern}: "${trimmed}"`);
+          }
+        }
+      });
+    }
+
+    expect(violations).toEqual([]);
+  });
+
   it('keeps disclosure titles specific instead of a bare Technical details', () => {
     const violations: string[] = [];
     for (const file of files) {

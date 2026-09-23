@@ -71,7 +71,7 @@ export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
         <Feather name={icon} size={18} color={iconColor} />
       </View>
       <View style={styles.copy}>
-        <Text style={[styles.title, { color: theme.primaryDark }]}>Sync status</Text>
+        <Text style={[styles.title, { color: theme.primaryDark }]}>Report status</Text>
         <Text style={[styles.summary, { color: theme.textSecondary }]}>{summary}</Text>
         {sync.errorMessage ? (
           <Text style={[styles.error, { color: theme.danger }]}>{sync.errorMessage}</Text>

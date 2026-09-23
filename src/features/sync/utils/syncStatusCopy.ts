@@ -16,12 +16,12 @@ export function formatPendingSummary(
   completionsCount: number = 0,
 ): string {
   if (reportsCount > 0 && completionsCount > 0) {
-    return `${reportsCount} ${reportsCount === 1 ? 'report' : 'reports'}, ${completionsCount} ${completionsCount === 1 ? 'visit' : 'visits'} awaiting sync`;
+    return `${reportsCount} ${reportsCount === 1 ? 'report' : 'reports'}, ${completionsCount} ${completionsCount === 1 ? 'visit' : 'visits'} waiting to send`;
   }
   if (completionsCount > 0 && reportsCount === 0) {
-    return `${completionsCount} ${completionsCount === 1 ? 'visit' : 'visits'} awaiting sync`;
+    return `${completionsCount} ${completionsCount === 1 ? 'visit' : 'visits'} waiting to send`;
   }
-  return `${pendingCount} ${pendingCount === 1 ? 'report' : 'reports'} awaiting sync`;
+  return `${pendingCount} ${pendingCount === 1 ? 'report' : 'reports'} waiting to send`;
 }
 
 export function isServerUnavailable(
@@ -53,25 +53,25 @@ export function getConnectionLabel(
     return 'Offline';
   }
   if (isServerUnavailable(apiReachability, sessionVerification, isOnline)) {
-    return 'Network available · CaneGuard server unavailable';
+    return 'Network available · Cannot reach the office';
   }
   if (apiReachability === 'unknown') {
-    return 'Network available · CaneGuard status not checked';
+    return 'Network available · Office status not checked';
   }
-  return 'Network and CaneGuard available';
+  return 'Network and office available';
 }
 
 export function getSyncBadgeLabel(input: {
   apiReachability: ApiReachability;
   isOnline: boolean | null;
   sessionVerification?: string;
-}): 'Offline' | 'Server unavailable' | 'Network available' | 'Online' | 'Checking connection' {
+}): 'Offline' | 'Office unreachable' | 'Network available' | 'Online' | 'Checking connection' {
   const { apiReachability, isOnline, sessionVerification } = input;
   if (isOnline === false) {
     return 'Offline';
   }
   if (isServerUnavailable(apiReachability, sessionVerification, isOnline)) {
-    return 'Server unavailable';
+    return 'Office unreachable';
   }
   if (isOnline === true) {
     return apiReachability === 'unknown' ? 'Network available' : 'Online';
@@ -99,7 +99,7 @@ export function getSyncRowSummary(input: SyncWordingInput): string {
   );
 
   if (isSyncing) {
-    return 'Syncing saved reports…';
+    return 'Sending saved reports…';
   }
   if (isOnline === null) {
     return 'Checking connection';
@@ -109,14 +109,14 @@ export function getSyncRowSummary(input: SyncWordingInput): string {
   }
   if (serverUnavail) {
     return hasPending
-      ? `${pendingSummary} · CaneGuard server unavailable`
-      : 'Network available · CaneGuard server unavailable';
+      ? `${pendingSummary} · Cannot reach the office`
+      : 'Network available · Cannot reach the office';
   }
   if (hasPending) {
     return pendingSummary;
   }
   if (apiReachability === 'unknown') {
-    return 'Network available · CaneGuard status not checked';
+    return 'Network available · Office status not checked';
   }
-  return 'CaneGuard connected · All saved reports are synced';
+  return 'Office connected · All saved reports are sent';
 }

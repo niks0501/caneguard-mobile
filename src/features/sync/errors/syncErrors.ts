@@ -110,7 +110,7 @@ export function toSyncError(error: unknown): SyncError {
 export function getSyncErrorMessage(code: string | null): string | null {
   switch (code) {
     case 'AUTH_REQUIRED':
-      return 'Sign in again to retry this upload.';
+      return 'Sign in again to send this report.';
     case 'NETWORK_UNAVAILABLE':
     case 'NETWORK_REQUEST_FAILED':
       return 'The connection was unavailable. Retry when online.';
@@ -123,11 +123,11 @@ export function getSyncErrorMessage(code: string | null): string | null {
     case 'IMAGE_MISSING':
       return 'The saved image is missing from this device.';
     case 'INVALID_LOCAL_RECORD':
-      return 'This saved record is incomplete and cannot be uploaded.';
+      return 'This saved record is incomplete and cannot be sent.';
     case 'SERVER_ERROR':
-      return 'The server was unavailable during the last upload.';
+      return 'The office was unavailable. Try again later.';
     case 'UNKNOWN_SYNC_ERROR':
-      return 'The last upload did not finish.';
+      return 'Could not send the report.';
     default:
       return null;
   }

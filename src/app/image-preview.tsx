@@ -8,7 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { useScanSession } from '@/features/detection/context/useScanSession';
@@ -16,7 +15,6 @@ import {
   getSessionStateErrorMessage,
   SessionStateError,
 } from '@/features/detection/context/sessionErrors';
-import { MODEL_INPUT } from '@/features/detection/constants/modelContract';
 import {
   getPreprocessingErrorMessage,
 } from '@/features/detection/preprocessing/preprocessingErrors';
@@ -277,37 +275,8 @@ export default function ImagePreviewScreen() {
               </View>
 
               <Text style={[styles.statusText, { color: theme.textSecondary }]}>
-                Your image will be prepared on-device before analysis.
+                Your image will be checked on this device before analysis.
               </Text>
-
-              <DisclosureSection
-                testID="scan.technical-details"
-                title="Saved image details" summary="Image diagnostics">
-                <Text style={[styles.technicalIntro, { color: theme.textSecondary }]}>
-                  These diagnostics are optional and do not change the analysis flow.
-                </Text>
-                <Text style={[styles.technicalValue, { color: theme.text }]}>
-                  Model input: {MODEL_INPUT.shape[2]} × {MODEL_INPUT.shape[1]} RGB float32
-                </Text>
-                {preprocessingComplete ? (
-                  <View
-                    accessibilityLiveRegion="polite"
-                    style={[styles.preprocessingStatus, { backgroundColor: theme.successBg }]}>
-                    <Feather name="check-circle" size={20} color={theme.success} />
-                    <View style={styles.preprocessingStatusCopy}>
-                      <Text style={[styles.preprocessingStatusTitle, { color: theme.success }]}>
-                        Model input ready
-                      </Text>
-                      <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
-                        {MODEL_INPUT.shape[2]} × {MODEL_INPUT.shape[1]} RGB float32
-                        {state.preprocessMs === null
-                          ? ''
-                          : ` · ${Math.round(state.preprocessMs)} ms`}
-                      </Text>
-                    </View>
-                  </View>
-                ) : null}
-              </DisclosureSection>
             </AppCard>
 
             <View style={styles.actions}>
@@ -340,11 +309,11 @@ export default function ImagePreviewScreen() {
                     : isRunning
                       ? 'Analyzing image'
                     : isPreprocessing
-                      ? 'Preprocessing image'
+                      ? 'Image preparation in progress'
                       : modelState.state === 'loading'
-                        ? 'Model loading'
+                        ? 'Getting ready'
                         : modelState.state === 'error'
-                          ? 'Model unavailable'
+                          ? 'Check unavailable'
                       : 'Analyze selected image'
                 }>
                 {isFinalizing
@@ -364,8 +333,8 @@ export default function ImagePreviewScreen() {
                       isFinalizing
                         ? 'Preparing analysis result'
                         : isRunning
-                          ? 'Running on-device model'
-                          : 'Preparing image for model'
+                          ? 'Checking image'
+                          : 'Preparing image'
                     }
                     color={theme.primary}
                   />
@@ -373,21 +342,21 @@ export default function ImagePreviewScreen() {
                     {isFinalizing
                       ? 'Preparing result…'
                       : isRunning
-                        ? 'Running on-device model…'
+                        ? 'Checking image…'
                         : 'Preparing image…'}
                   </Text>
                 </View>
               ) : (
                 <Text style={[styles.pipelineNotice, { color: theme.textSecondary }]}>
                   {modelState.state === 'loading'
-                    ? 'Loading the on-device model before analysis…'
+                    ? 'Getting ready before analysis…'
                     : modelState.state === 'error'
                       ? getInferenceErrorMessage(modelState.error)
                       : analysisComplete
                         ? 'Analysis complete. Continuing to the symptom checklist…'
                         : preprocessingComplete
-                          ? 'The model input is ready. Retry analysis to continue.'
-                          : 'Analysis stays on this screen until preprocessing and inference succeed.'}
+                          ? 'The image is ready. Retry analysis to continue.'
+                          : 'Analysis stays on this screen until the check succeeds.'}
                 </Text>
               )}
               {state.errorMessage && !imageLoadFailed ? (
@@ -508,8 +477,6 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     textAlign: 'center',
   },
-  technicalIntro: { ...Typography.caption },
-  technicalValue: { ...Typography.bodySmall, fontWeight: '700' },
   actions: {
     gap: Spacing.md,
   },
@@ -527,20 +494,6 @@ const styles = StyleSheet.create({
   errorText: {
     ...Typography.bodySmall,
     textAlign: 'center',
-  },
-  preprocessingStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    borderRadius: Radius.sm,
-    padding: Spacing.md,
-  },
-  preprocessingStatusCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  preprocessingStatusTitle: {
-    ...Typography.label,
   },
   recoveryContent: {
     flex: 1,

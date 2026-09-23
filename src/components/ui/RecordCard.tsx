@@ -113,9 +113,6 @@ export function RecordCard({ activityType, onPress, record, testID }: RecordCard
           <DiseasePill variant={variant} />
         </View>
         <View style={styles.footer}>
-          <Text style={[styles.confidence, { color: theme.primaryDark }]}>
-            {Math.round(record.confidence * 100)}% confidence
-          </Text>
           <View style={styles.status}>
             <Feather
               name={syncPresentation.icon}
@@ -162,21 +159,21 @@ export function getSyncPresentation(
 } {
   switch (status) {
     case 'local_only':
-      return { color: 'info', icon: 'smartphone', label: 'Local only' };
+      return { color: 'info', icon: 'smartphone', label: 'Saved on this device' };
     case 'pending':
-      return { color: 'warning', icon: 'clock', label: 'Waiting to sync' };
+      return { color: 'warning', icon: 'clock', label: 'Waiting to send' };
     case 'syncing':
-      return { color: 'info', icon: 'upload-cloud', label: 'Uploading' };
+      return { color: 'info', icon: 'upload-cloud', label: 'Sending to office' };
     case 'synced':
-      return { color: 'success', icon: 'check-circle', label: 'Synced' };
+      return { color: 'success', icon: 'check-circle', label: 'Sent to office' };
     case 'failed':
       if (lastSyncErrorCode === 'AUTH_REQUIRED') {
-        return { color: 'danger', icon: 'lock', label: 'Sign in required' };
+        return { color: 'danger', icon: 'lock', label: 'Sign in again to send' };
       }
       if (isAutoRetryableSyncErrorCode(lastSyncErrorCode)) {
-        return { color: 'info', icon: 'clock', label: 'Will retry automatically' };
+        return { color: 'info', icon: 'clock', label: 'Waiting to send' };
       }
-      return { color: 'danger', icon: 'alert-triangle', label: 'Needs attention' };
+      return { color: 'danger', icon: 'alert-triangle', label: 'Could not send — try again' };
   }
 }
 
@@ -193,7 +190,7 @@ export function getResultLabel(label: string): string {
   if (label === 'smut') {
     return 'Possible Condition: Smut';
   }
-  return `Stored Possible Condition: ${label}`;
+  return `Possible Condition: ${label}`;
 }
 
 function toPillVariant(label: string): DiseasePillVariant {

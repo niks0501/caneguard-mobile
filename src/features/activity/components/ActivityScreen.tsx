@@ -403,7 +403,7 @@ export default function ActivityScreen() {
               {activeFilter !== 'scans' ? (
                 <DisclosureSection
                   testID="activity.sync"
-                  title="Sync"
+                  title="Report status"
                   summary={syncSummary(sync)}>
                   <View testID="activity.refresh-scope" style={styles.refreshScope}>
                     <SyncStatusPanel showAction={false} />
@@ -447,15 +447,15 @@ export default function ActivityScreen() {
 
 function syncSummary(sync: { isOnline: boolean | null; isSyncing: boolean; pendingCount: number }): string {
   if (sync.isSyncing) {
-    return 'Syncing';
+    return 'Sending';
   }
   if (sync.isOnline === false) {
     return 'Offline';
   }
   if (sync.pendingCount > 0) {
-    return `${sync.pendingCount} awaiting upload`;
+    return `${sync.pendingCount} waiting to send`;
   }
-  return 'All synced';
+  return 'All sent';
 }
 
 function TodayEntry({ activeVisitCount }: { activeVisitCount: number }) {

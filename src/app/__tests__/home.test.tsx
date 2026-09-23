@@ -62,7 +62,7 @@ describe('HomeScreen', () => {
     }[] = [
       { apiReachability: 'available', isOnline: true, label: 'Online' },
       { apiReachability: 'unknown', isOnline: true, label: 'Network available' },
-      { apiReachability: 'unavailable', isOnline: true, label: 'Server unavailable' },
+      { apiReachability: 'unavailable', isOnline: true, label: 'Office unreachable' },
       { apiReachability: 'unknown', isOnline: false, label: 'Offline' },
       { apiReachability: 'unknown', isOnline: null, label: 'Checking connection' },
     ];
@@ -88,9 +88,9 @@ describe('HomeScreen', () => {
 
     expect(screen.getByTestId('home.connection-status')).toHaveProp(
       'accessibilityLabel',
-      'Server unavailable',
+      'Office unreachable',
     );
-    expect(screen.getByText('Server unavailable')).toBeOnTheScreen();
+    expect(screen.getByText('Office unreachable')).toBeOnTheScreen();
   });
 
   it('shows only the supported education reference classes and links to full guide', async () => {
@@ -115,7 +115,7 @@ describe('HomeScreen', () => {
   it('keeps the live sync row linked to Activity without adding a sync shortcut', async () => {
     await render(<HomeScreen />);
 
-    expect(screen.getByText('1 report awaiting sync')).toBeOnTheScreen();
+    expect(screen.getByText('1 report waiting to send')).toBeOnTheScreen();
     expect(screen.queryByText('Sync Queue')).not.toBeOnTheScreen();
     expect(screen.queryByText('Help & FAQ')).not.toBeOnTheScreen();
 
@@ -129,9 +129,9 @@ describe('HomeScreen', () => {
 
     await render(<HomeScreen />);
 
-    expect(screen.getByText('Server unavailable')).toBeOnTheScreen();
+    expect(screen.getByText('Office unreachable')).toBeOnTheScreen();
     expect(
-      screen.getByText('1 report awaiting sync · CaneGuard server unavailable'),
+      screen.getByText('1 report waiting to send · Cannot reach the office'),
     ).toBeOnTheScreen();
     expect(screen.queryByText('Online')).not.toBeOnTheScreen();
   });

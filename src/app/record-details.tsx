@@ -17,7 +17,6 @@ import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
-import { HelpHint, HelpHintGroup } from '@/components/ui/HelpHint';
 import { Row } from '@/components/ui/Row';
 import { useToast } from '@/components/ui/Toast';
 import { DECISION_SUPPORT_DISCLAIMER } from '@/constants/copy';
@@ -35,7 +34,6 @@ import {
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
-import { ModelScoreList } from '@/features/detection/components/ModelScoreList';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
@@ -85,18 +83,18 @@ export default function RecordDetailsScreen() {
     try {
       await sync.retryReport(fieldReport.data.id);
       await fieldReport.refresh();
-      showToast('Sync complete', 'success');
+      showToast('Sent to office', 'success');
     } catch (error: unknown) {
       setRetryError(
         getStorageErrorMessage(
           toStorageError(
             error,
             'UPDATE_FAILED',
-            'Retrying Field Report synchronization failed.',
+            'Retrying sending the Field Report failed.',
           ),
         ),
       );
-      showToast('Sync failed — will retry', 'error');
+      showToast('Could not send — will try again', 'error');
     } finally {
       setRetrying(false);
     }
@@ -167,7 +165,6 @@ export default function RecordDetailsScreen() {
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}>
-            <HelpHintGroup>
             <View style={styles.content}>
               <View
                 style={[
@@ -213,9 +210,6 @@ export default function RecordDetailsScreen() {
                   testID="records.result-title"
                   style={[styles.result, { color: theme.primaryDark }]}>
                   {getResultLabel(record.data.predictedLabel)}
-                </Text>
-                <Text style={[styles.confidence, { color: theme.primary }]}>
-                  {Math.round(record.data.confidence * 100)}% AI confidence
                 </Text>
                 <RecordSyncStatus
                   errorCode={synchronizationMetadata?.lastSyncErrorCode}
@@ -300,7 +294,7 @@ export default function RecordDetailsScreen() {
               <AppButton
                 onPress={confirmDelete}
                 disabled={deleting}
-                variant="danger"
+                variant="secondary"
                 leadingIcon="trash-2"
                 accessibilityLabel="Delete this local record and saved image">
                 {deleting ? 'Deleting...' : 'Delete Local Record'}
@@ -326,58 +320,28 @@ export default function RecordDetailsScreen() {
                   values={record.data.qualityWarnings.map(
                     getQualityWarningMessage,
                   )}
-                  emptyLabel="No warnings stored"
+                  emptyLabel="None"
                   visibleCount={1}
                 />
               </Section>
-
-              <DisclosureSection
-                testID="records.model-details"
-                title="Model details"
-                summary={`All ${record.data.classScores.length + 4} model details`}>
-                <DetailRow label="Model version" value={record.data.modelVersion} helpText="The AI model build that scored this image. Results can differ between builds." />
-                <DetailRow
-                  label="Preprocessing"
-                  value={`${formatDuration(record.data.preprocessMs)} ms`}
-                  helpText="Time spent preparing the image before scoring, in milliseconds."
-                />
-                <DetailRow
-                  label="Inference"
-                  value={`${formatDuration(record.data.inferenceMs)} ms`}
-                  helpText="Time the model spent scoring the image, in milliseconds."
-                />
-                <DetailRow
-                  label="Total processing"
-                  value={`${formatDuration(record.data.totalMs)} ms`}
-                  helpText="End-to-end scoring time on this device, in milliseconds."
-                />
-                <DisclosureSection
-                  testID="records.model-scores"
-                  title="All condition scores"
-                  summary={`${record.data.classScores.length} condition scores`}>
-                  <ModelScoreList scores={record.data.classScores} />
-                </DisclosureSection>
-              </DisclosureSection>
 
               <DisclosureSection
                 testID="records.saved-details"
                 title="Saved record details"
                 summary="All 4 saved details">
                 <DetailRow label="Decision support" value={record.data.decisionSupportWording} />
-                <DetailRow label="Saved" value={formatSavedAt(record.data.createdAt)} />
+                <DetailRow label="Saved on this device" value={formatSavedAt(record.data.createdAt)} />
                 <DetailRow
-                  label="Server report UUID"
-                  value={synchronizationMetadata?.remoteId ?? 'Not assigned'}
-                  helpText="The office system's identifier for the uploaded report, assigned after sync."
+                  label="Office reference"
+                  value={synchronizationMetadata?.authorityReview?.referenceCode ?? 'Not yet available'}
                 />
                 <DetailRow
-                  label="Last synchronized"
+                  label="Sent to office"
                   value={
                     synchronizationMetadata?.lastSyncedAt
                       ? formatSavedAt(synchronizationMetadata.lastSyncedAt)
-                      : 'Not yet synchronized'
+                      : 'Not sent yet'
                   }
-                  helpText="When this device last confirmed the upload with the office."
                 />
               </DisclosureSection>
 
@@ -386,8 +350,8 @@ export default function RecordDetailsScreen() {
               fieldReport.data?.syncStatus === 'failed' ? (
                 <DisclosureSection
                   testID="records.sync-details"
-                  title="Sync details"
-                  summary={synchronizationMetadata?.lastSyncErrorCode ? 'Sync failed' : 'Waiting to sync'}>
+                  title="Sending to the office"
+                  summary={synchronizationMetadata?.lastSyncErrorCode ? 'Could not send — try again' : 'Waiting to send'}>
                   {synchronizationMetadata?.lastSyncErrorCode ? (
                     <View
                       accessibilityLiveRegion="assertive"
@@ -400,7 +364,7 @@ export default function RecordDetailsScreen() {
                         {getSyncErrorMessage(
                           synchronizationMetadata.lastSyncErrorCode,
                         ) ??
-                          'The last upload did not finish.'}
+                          'Could not send the report.'}
                       </Text>
                     </View>
                   ) : null}
@@ -421,9 +385,9 @@ export default function RecordDetailsScreen() {
                       disabled={retrying || sync.isSyncing || sync.isOnline !== true}
                       leadingIcon="refresh-cw"
                       accessibilityLabel={
-                        retrying ? 'Retrying report synchronization' : 'Retry sync'
+                        retrying ? 'Trying to send the report again' : 'Try sending again'
                       }>
-                      {retrying ? 'Retrying...' : 'Retry Sync'}
+                      {retrying ? 'Trying again...' : 'Try Again'}
                     </AppButton>
                   ) : null}
                 </DisclosureSection>
@@ -440,7 +404,6 @@ export default function RecordDetailsScreen() {
                 </Text>
               </View>
             </View>
-            </HelpHintGroup>
           </ScrollView>
         )}
       </View>
@@ -472,12 +435,12 @@ function getFieldReportAction(
     }
     if (legacySyncStatus === 'synced') {
       return {
-        accessibilityLabel: 'Legacy report already synchronized',
+        accessibilityLabel: 'Legacy report already sent',
         disabled: true,
         icon: 'check-circle',
-        label: 'Legacy Report Synced',
+        label: 'Legacy Report Sent',
         message:
-          'This scan was synchronized by an earlier app version and cannot be submitted again.',
+          'This scan was sent by an earlier app version and cannot be submitted again.',
       };
     }
     if (legacySyncStatus !== 'local_only') {
@@ -487,7 +450,7 @@ function getFieldReportAction(
         icon: 'file-plus',
         label: 'Complete Report Draft',
         message:
-          'Complete this older unsent scan as a Field Report Draft before uploading it.',
+          'Complete this older unsent scan as a Field Report Draft before sending it.',
       };
     }
     return {
@@ -504,7 +467,7 @@ function getFieldReportAction(
       disabled: false,
       icon: 'edit-3',
       label: 'Resume Draft',
-      message: 'Continue the same locally saved Draft. Partial information is preserved.',
+      message: 'Continue the same saved draft. Partial information is preserved.',
     };
   }
   const syncPresentation = getSyncPresentation(
@@ -516,7 +479,7 @@ function getFieldReportAction(
     disabled: false,
     icon: 'check-circle',
     label: 'View Finalized Report',
-    message: `This Field Report is finalized locally: ${syncPresentation.label}.`,
+    message: `This Field Report is finalized: ${syncPresentation.label}.`,
   };
 }
 
@@ -601,12 +564,10 @@ function Section({ children, title }: { children: ReactNode; title: string }) {
 }
 
 function DetailRow({
-  helpText,
   label,
   value,
   valueTestID,
 }: {
-  helpText?: string;
   label: string;
   value: string;
   valueTestID?: string;
@@ -614,9 +575,6 @@ function DetailRow({
   return (
     <Row
       label={label}
-      labelAccessory={
-        helpText ? <HelpHint label={label} text={helpText} /> : undefined
-      }
       value={value}
       valueTestID={valueTestID}
       withDivider
@@ -676,10 +634,6 @@ function getObservationLabel(key: string): string {
     CHECKLIST_OBSERVATIONS.find((observation) => observation.id === key)?.label ??
     key
   );
-}
-
-function formatDuration(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
 function formatSavedAt(value: string): string {

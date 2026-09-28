@@ -22,12 +22,9 @@ import {
 } from '@/features/activity/domain/refreshAll';
 import { useRefreshAll } from '@/features/activity/hooks/useRefreshAll';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
-import { NotificationInbox } from '@/features/notifications/components/NotificationInbox';
-import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
-import { useNotificationDestinations } from '@/features/notifications/hooks/useNotificationDestinations';
-import { notificationDestinationRoute } from '@/features/notifications/services/resolveNotificationDestination';
 import { RecordCard } from '@/components/ui/RecordCard';
 import { AppButton } from '@/components/ui/AppButton';
+import { OFFICE_UPDATES_OPEN_LABEL } from '@/constants/copy';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SyncStatusPanel } from '@/components/ui/SyncStatusPanel';
@@ -48,17 +45,15 @@ import { DEFAULT_RECORD_PAGE_SIZE } from '@/features/records/domain/recordTypes'
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
 import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
+import { useOfficeUpdates } from '@/features/notifications/providers/OfficeUpdatesProvider';
 import { useSync } from '@/features/sync/hooks/useSync';
-import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ActivityScreen() {
   const theme = useTheme();
-  const { showToast } = useToast();
   const [activeFilter, setActiveFilter] = useState<CurrentActivityFilter>('all');
   const [searchInput, setSearchInput] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const hasFieldReport =
     activeFilter === 'reports'
       ? true
@@ -75,7 +70,7 @@ export default function ActivityScreen() {
   const authorityStatus = useAuthorityReviewStatus(activeFilter !== 'assignments');
   const assignments = useFieldValidationAssignments();
   const notifications = useMobileNotifications();
-  const destinations = useNotificationDestinations(notifications.notifications);
+  const { isOpen: officeUpdatesOpen, open: openOfficeUpdates } = useOfficeUpdates();
   const sync = useSync();
   const visibleAssignments =
     activeFilter === 'all' || activeFilter === 'assignments'
@@ -138,29 +133,6 @@ export default function ActivityScreen() {
     setSubmittedSearch('');
   };
 
-  const openNotification = (notification: MobileNotification) => {
-    const destination = destinations.get(notification.id);
-    const hasDetail = Boolean(notification.content || notification.advisory);
-    if (!hasDetail && (!destination || destination.kind === 'unavailable')) return;
-
-    // Acknowledgment is best effort: a failed read mutation never blocks the
-    // inspector from opening the notification destination or detail view.
-    void notifications.markRead(notification.id);
-    setNotificationsOpen(false);
-    if (hasDetail) {
-      router.push({
-        pathname: '/notification-details',
-        params: { id: notification.id },
-      } as never);
-      return;
-    }
-
-    const route = destination ? notificationDestinationRoute(destination) : null;
-    if (route) {
-      router.push(route as never);
-    }
-  };
-
   return (
     <SafeAreaView
       testID="activity.screen"
@@ -173,28 +145,20 @@ export default function ActivityScreen() {
           subtitle="One place for your field work. Reports and scans stay on this device."
           action={
             <Pressable
-              testID="activity.notifications-toggle"
+              testID="activity.notifications-open"
               accessibilityRole="button"
-              accessibilityLabel={
-                notificationsOpen ? 'Hide office updates' : 'Show office updates'
-              }
-              accessibilityState={{ expanded: notificationsOpen }}
-              onPress={() => setNotificationsOpen((value) => !value)}
+              accessibilityLabel={OFFICE_UPDATES_OPEN_LABEL}
+              accessibilityState={{ expanded: officeUpdatesOpen }}
+              onPress={openOfficeUpdates}
               style={({ pressed }) => [
                 styles.bell,
                 {
-                  backgroundColor: notificationsOpen
-                    ? theme.primary
-                    : theme.surfaceElevated,
-                  borderColor: notificationsOpen ? theme.primary : theme.border,
+                  backgroundColor: theme.surfaceElevated,
+                  borderColor: theme.border,
                 },
                 pressed && styles.pressed,
               ]}>
-              <Feather
-                name="bell"
-                size={21}
-                color={notificationsOpen ? theme.background : theme.primaryDark}
-              />
+              <Feather name="bell" size={21} color={theme.primaryDark} />
               {notifications.unreadCount > 0 ? (
                 <View style={[styles.badge, { backgroundColor: theme.danger }]}>
                   <Text style={[styles.badgeText, { color: theme.background }]}>
@@ -384,22 +348,6 @@ export default function ActivityScreen() {
                   ) : null}
                 </>
               )}
-              {activeFilter !== 'scans' && notificationsOpen ? (
-                <NotificationInbox
-                  destinations={destinations}
-                  errorMessage={notifications.errorMessage}
-                  notifications={notifications.notifications}
-                  onMarkAllRead={() => {
-                    void notifications.markAllRead();
-                    showToast('Updates marked as read', 'info');
-                  }}
-                  onNotificationPress={openNotification}
-                  partial={notifications.partial}
-                  readActionError={notifications.readActionError}
-                  unreadCount={notifications.unreadCount}
-                />
-              ) : null}
-
               {activeFilter !== 'scans' ? (
                 <DisclosureSection
                   testID="activity.sync"

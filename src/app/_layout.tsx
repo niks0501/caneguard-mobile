@@ -9,6 +9,7 @@ import { useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { MobileAttentionLifecycle } from '@/features/notifications/components/MobileAttentionLifecycle';
+import { OfficeUpdatesProvider } from '@/features/notifications/providers/OfficeUpdatesProvider';
 import { ScanSessionProvider } from '@/features/detection/context/ScanSessionProvider';
 import { CaneGuardModelProvider } from '@/features/detection/model/useCaneGuardModel';
 import { CaneGuardDatabaseProvider } from '@/database/DatabaseProvider';
@@ -33,7 +34,9 @@ export default function RootLayout() {
               <ScanSessionProvider>
                 <CaneGuardModelProvider>
                   <SyncProvider>
-                    <AppNavigator />
+                    <OfficeUpdatesProvider>
+                      <AppNavigator />
+                    </OfficeUpdatesProvider>
                   </SyncProvider>
                 </CaneGuardModelProvider>
               </ScanSessionProvider>

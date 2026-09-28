@@ -1,5 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
+import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,6 +12,11 @@ import { useHomeAttention } from '@/features/activity/hooks/useHomeAttention';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 import { referenceMedia } from '@/features/detection/constants/referenceMedia';
+import {
+  OfficeUpdatesPill,
+  OFFICE_UPDATES_PILL_CLEARANCE,
+} from '@/features/notifications/components/OfficeUpdatesPill';
+import { useOfficeUpdates } from '@/features/notifications/providers/OfficeUpdatesProvider';
 import { notificationDestinationRoute } from '@/features/notifications/services/resolveNotificationDestination';
 import { getSyncBadgeLabel } from '@/features/sync/utils/syncStatusCopy';
 import { useSync } from '@/features/sync/hooks/useSync';
@@ -43,6 +49,9 @@ export default function HomeScreen() {
   const { sessionVerification, user } = useAuth();
   const { apiReachability, isOnline } = useSync();
   const attention = useHomeAttention();
+  const { open: openOfficeUpdates, unreadCount } = useOfficeUpdates();
+  const [dismissedUpdateCount, setDismissedUpdateCount] = useState(0);
+  const showOfficeUpdatesPill = unreadCount > dismissedUpdateCount;
   const activeVisitItems = attention.items.filter((item) => item.kind === 'assignment');
   const dueTodayCount = activeVisitItems.filter((item) => item.meta === 'Visit due today').length;
   const overdueCount = activeVisitItems.filter((item) => item.meta.startsWith('Visit was due')).length;
@@ -103,8 +112,12 @@ export default function HomeScreen() {
       edges={['top']}>
       <View style={styles.root}>
         <ScrollView
+          testID="home.scroll"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}>
+          contentContainerStyle={[
+            styles.scrollContent,
+            showOfficeUpdatesPill ? styles.scrollContentWithPill : null,
+          ]}>
           <View style={styles.dashboard}>
             <View style={[styles.hero, { backgroundColor: theme.backgroundElement }]}>
               <View style={styles.heroContent}>
@@ -212,6 +225,15 @@ export default function HomeScreen() {
             </View>
           </View>
         </ScrollView>
+
+        {showOfficeUpdatesPill ? (
+          <OfficeUpdatesPill
+            count={unreadCount}
+            onDismiss={() => setDismissedUpdateCount(unreadCount)}
+            onOpen={openOfficeUpdates}
+            testID="home.office-updates-pill"
+          />
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -274,6 +296,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   root: { flex: 1 },
   scrollContent: { alignItems: 'center', paddingBottom: Spacing.xl },
+  // Room for the floating office-updates pill so it never covers the last card.
+  scrollContentWithPill: { paddingBottom: OFFICE_UPDATES_PILL_CLEARANCE },
   dashboard: { width: '100%', maxWidth: Layout.mobileMaxWidth },
   hero: {
     minHeight: 190,

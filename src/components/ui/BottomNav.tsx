@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
+import { activityTabLabel } from '@/constants/copy';
 import { useTheme } from '@/hooks/use-theme';
 
 export type NavTab = 'home' | 'scan' | 'activity' | 'today';
@@ -21,6 +22,8 @@ export type BottomNavProps = {
   activeTab?: NavTab;
   state?: TabNavigationState;
   navigation?: TabNavigation;
+  /** Unread office updates, shown on the Activity tab. */
+  notificationCount?: number;
 };
 
 type NavItem = {
@@ -40,7 +43,7 @@ const NAV_ITEMS: NavItem[] = [
  * The tab bar is intentionally a presenter. The navigator owns route state
  * and focus; this component only renders it and dispatches tab navigation.
  */
-export function BottomNav({ activeTab, state, navigation }: BottomNavProps) {
+export function BottomNav({ activeTab, navigation, notificationCount = 0, state }: BottomNavProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const selectedRoute = state?.routes[state.index]?.name;
@@ -56,7 +59,9 @@ export function BottomNav({ activeTab, state, navigation }: BottomNavProps) {
               key={item.key}
               testID={`nav.${item.key}`}
               accessibilityRole="button"
-              accessibilityLabel={item.label}
+              accessibilityLabel={
+                item.key === 'activity' ? activityTabLabel(notificationCount) : item.label
+              }
               accessibilityState={{ selected: active }}
               onPress={() => {
                 if (!active) {
@@ -69,6 +74,15 @@ export function BottomNav({ activeTab, state, navigation }: BottomNavProps) {
               ]}>
               <View style={styles.iconWrap}>
                 <Feather name={item.icon} size={ComponentTokens.bottomNav.iconSize} color={active ? theme.primary : theme.textSecondary} />
+                {item.key === 'activity' && notificationCount > 0 ? (
+                  <View
+                    testID="nav.activity-badge"
+                    style={[styles.badge, { backgroundColor: theme.danger }]}>
+                    <Text style={[styles.badgeText, { color: theme.background }]}>
+                      {notificationCount > 9 ? '9+' : notificationCount}
+                    </Text>
+                  </View>
+                ) : null}
                 {active ? <View style={[styles.activeLine, { backgroundColor: theme.accentDark }]} /> : null}
               </View>
               <Text style={[styles.label, { color: active ? theme.primary : theme.textSecondary }]}>
@@ -118,6 +132,18 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     marginTop: Spacing.xs,
   },
+  badge: {
+    alignItems: 'center',
+    borderRadius: Radius.full,
+    height: 18,
+    justifyContent: 'center',
+    minWidth: 18,
+    paddingHorizontal: 4,
+    position: 'absolute',
+    right: -8,
+    top: -4,
+  },
+  badgeText: { ...Typography.caption, fontWeight: '800' },
   label: {
     ...Typography.caption,
     lineHeight: 14,

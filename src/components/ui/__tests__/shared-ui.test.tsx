@@ -85,4 +85,27 @@ describe('shared navigation UI', () => {
     await fireEvent.press(screen.getByLabelText('Activity'));
     expect(navigation.navigate).toHaveBeenCalledWith('activity');
   });
+
+  it('shows the unread office-update count on the Activity tab only', async () => {
+    const navigation = { navigate: jest.fn() };
+    const view = await render(
+      <BottomNav activeTab="home" navigation={navigation} notificationCount={4} />,
+    );
+
+    expect(screen.getByTestId('nav.activity-badge')).toHaveTextContent('4');
+    expect(screen.getByLabelText('Activity, 4 office updates unread')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Home')).toBeOnTheScreen();
+    expect(screen.queryByTestId('nav.home-badge')).not.toBeOnTheScreen();
+
+    await view.rerender(
+      <BottomNav activeTab="home" navigation={navigation} notificationCount={12} />,
+    );
+    expect(screen.getByTestId('nav.activity-badge')).toHaveTextContent('9+');
+
+    await view.rerender(
+      <BottomNav activeTab="home" navigation={navigation} notificationCount={0} />,
+    );
+    expect(screen.queryByTestId('nav.activity-badge')).not.toBeOnTheScreen();
+    expect(screen.getByLabelText('Activity')).toBeOnTheScreen();
+  });
 });

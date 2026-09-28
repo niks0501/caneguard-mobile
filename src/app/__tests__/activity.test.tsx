@@ -2,12 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import ActivityScreen from '@/app/(tabs)/activity';
-import { ToastProvider } from '@/components/ui/Toast';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
-import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
 
 const mockRefresh = jest.fn(async () => true);
 const mockLoadMore = jest.fn(async () => true);
@@ -57,9 +55,14 @@ let mockNotificationsState: ReturnType<typeof useMobileNotifications> = {
 jest.mock('@/features/notifications/hooks/useMobileNotifications', () => ({
   useMobileNotifications: jest.fn(() => mockNotificationsState),
 }));
-let mockDestinations = new Map<string, NotificationDestination>();
-jest.mock('@/features/notifications/hooks/useNotificationDestinations', () => ({
-  useNotificationDestinations: jest.fn(() => mockDestinations),
+const mockOpenOfficeUpdates = jest.fn();
+jest.mock('@/features/notifications/providers/OfficeUpdatesProvider', () => ({
+  useOfficeUpdates: () => ({
+    close: jest.fn(),
+    isOpen: false,
+    open: mockOpenOfficeUpdates,
+    unreadCount: 0,
+  }),
 }));
 jest.mock('@/features/reports/hooks/useAuthorityReviewStatus', () => ({
   useAuthorityReviewStatus: () => ({
@@ -149,23 +152,9 @@ const NOTIFICATION = {
   cachedAt: '2026-08-13T12:05:00.000Z',
 };
 
-const ADVISORY_NOTIFICATION = {
-  ...NOTIFICATION,
-  content: 'Follow the office guidance during your next visit.',
-  advisory: {
-    uuid: '2eaf6f1b-1c44-4f9b-95f2-7c8c682c2b5f',
-    code: 'CG-ADVISORY-001',
-    title: 'Inspect affected leaves',
-    content: 'Inspect the affected leaves and capture clear evidence during the visit.',
-    status: 'validated' as const,
-    selectedAt: '2026-08-13T11:55:00.000Z',
-  },
-};
-
 describe('ActivityScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockDestinations = new Map();
     mockAssignmentsState = {
       ...mockAssignmentsState,
       assignments: [ASSIGNMENT],
@@ -204,74 +193,29 @@ describe('ActivityScreen', () => {
     );
   });
 
-  it('keeps office updates behind a dedicated toggle instead of inline on screen', async () => {
+  it('opens the shared floating office-updates panel instead of an inline list', async () => {
     mockNotificationsState = {
       ...mockNotificationsState,
       notifications: [NOTIFICATION],
       unreadCount: 1,
     };
-    mockDestinations = new Map([
-      [NOTIFICATION.id, { kind: 'assignment', assignmentId: ASSIGNMENT.id }],
-    ]);
     await render(<ActivityScreen />);
 
     expect(screen.queryByTestId('activity.notifications')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('activity.needs-attention')).not.toBeOnTheScreen();
     expect(screen.getByTestId('activity.today-entry')).toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByTestId('activity.notifications-toggle'));
+    await fireEvent.press(screen.getByTestId('activity.notifications-open'));
 
-    expect(screen.getByTestId('activity.notifications')).toBeOnTheScreen();
-    expect(screen.getByText('Office updates')).toBeOnTheScreen();
-    expect(screen.getByText('1 unread item from the office.')).toBeOnTheScreen();
-
-    await fireEvent.press(screen.getByLabelText('Mark all office updates as read'));
-    expect(mockMarkAllRead).toHaveBeenCalledTimes(1);
-
-    await fireEvent.press(screen.getByTestId('activity.notifications-toggle'));
+    expect(mockOpenOfficeUpdates).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('activity.notifications-open')).toHaveProp(
+      'accessibilityLabel',
+      'Open office updates',
+    );
+    // The updates themselves live in the shared panel now; opening one from the
+    // panel is covered by the OfficeUpdatesProvider and
+    // useOpenMobileNotification suites.
     expect(screen.queryByTestId('activity.notifications')).not.toBeOnTheScreen();
-  });
-
-  it('acknowledges an unread update without blocking its destination', async () => {
-    mockNotificationsState = {
-      ...mockNotificationsState,
-      notifications: [NOTIFICATION],
-      unreadCount: 1,
-    };
-    mockDestinations = new Map([
-      [NOTIFICATION.id, { kind: 'field_report', scanRecordId: SCAN.id }],
-    ]);
-    await render(<ActivityScreen />);
-
-    await fireEvent.press(screen.getByTestId('activity.notifications-toggle'));
-    await fireEvent.press(screen.getByTestId(`activity.notification.${NOTIFICATION.id}`));
-
-    expect(mockMarkRead).toHaveBeenCalledWith(NOTIFICATION.id);
-    expect(mockRouterPush).toHaveBeenCalledWith({
-      pathname: '/field-report',
-      params: { scanRecordId: SCAN.id },
-    });
-  });
-
-  it('opens advisory updates in the in-app detail view', async () => {
-    mockNotificationsState = {
-      ...mockNotificationsState,
-      notifications: [ADVISORY_NOTIFICATION],
-      unreadCount: 1,
-    };
-    mockDestinations = new Map([
-      [ADVISORY_NOTIFICATION.id, { kind: 'unavailable' }],
-    ]);
-    await render(<ActivityScreen />);
-
-    await fireEvent.press(screen.getByTestId('activity.notifications-toggle'));
-    await fireEvent.press(screen.getByTestId(`activity.notification.${ADVISORY_NOTIFICATION.id}`));
-
-    expect(mockMarkRead).toHaveBeenCalledWith(ADVISORY_NOTIFICATION.id);
-    expect(mockRouterPush).toHaveBeenCalledWith({
-      pathname: '/notification-details',
-      params: { id: ADVISORY_NOTIFICATION.id },
-    });
   });
 
   it('runs one Refresh all scope that covers every eligible subsystem once', async () => {
@@ -443,64 +387,24 @@ describe('ActivityScreen', () => {
     );
   });
 
-  it('displays confirmation toast when marking all notifications read', async () => {
-    mockNotificationsState = {
-      ...mockNotificationsState,
-      unreadCount: 2,
-      notifications: [
-        {
-          id: 'notif-1',
-          createdAt: '2026-08-10T01:00:00.000Z',
-          kind: 'review_approved',
-          message: 'Approved',
-          title: 'Review update',
-          readAt: null,
-          isRead: false,
-        } as never,
-      ],
-    };
-    await render(
-      <ToastProvider>
-        <ActivityScreen />
-      </ToastProvider>,
-    );
-
-    await fireEvent.press(screen.getByTestId('activity.notifications-toggle'));
-    await fireEvent.press(screen.getByLabelText('Mark all office updates as read'));
-
-    expect(mockMarkAllRead).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
-    expect(screen.getByTestId('app-toast')).toHaveTextContent('Updates marked as read');
-  });
-
-  it('renders the records list before the office-updates panel and the sync panel', async () => {
+  it('renders the records list before the sync panel', async () => {
     mockNotificationsState = {
       ...mockNotificationsState,
       notifications: [NOTIFICATION],
       unreadCount: 1,
     };
-    mockDestinations = new Map([
-      [NOTIFICATION.id, { kind: 'assignment', assignmentId: ASSIGNMENT.id }],
-    ]);
     await render(<ActivityScreen />);
 
     expect(screen.getByTestId('activity.timeline')).toBeOnTheScreen();
     // Status panels stay behind their taps: the list leads.
-    expect(screen.queryByTestId('activity.notifications')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('activity.refresh-scope')).not.toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByTestId('activity.notifications-toggle'));
     await fireEvent.press(screen.getByLabelText('Show Report status'));
 
-    expect(screen.getByTestId('activity.notifications')).toBeOnTheScreen();
     expect(screen.getByTestId('activity.refresh-scope')).toBeOnTheScreen();
 
     const tree = JSON.stringify(screen.toJSON());
-    const order = [
-      'testID":"activity.timeline',
-      'testID":"activity.notifications"',
-      'testID":"activity.refresh-scope',
-    ];
+    const order = ['testID":"activity.timeline', 'testID":"activity.refresh-scope'];
     expect([...order].sort((a, b) => tree.indexOf(a) - tree.indexOf(b))).toEqual(order);
   });
 });

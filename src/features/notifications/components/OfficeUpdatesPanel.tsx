@@ -1,3 +1,4 @@
+import { Feather } from '@expo/vector-icons';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -45,7 +46,9 @@ export function OfficeUpdatesPanel({
 
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible>
-      <View style={[styles.root, { paddingBottom: insets.bottom + Spacing.lg }]}>
+      <View
+        testID="office-updates.root"
+        style={[styles.root, { paddingBottom: insets.bottom + Spacing.lg }]}>
         <Pressable
           accessibilityLabel={OFFICE_UPDATES_PANEL_CLOSE_LABEL}
           accessibilityRole="button"
@@ -60,6 +63,21 @@ export function OfficeUpdatesPanel({
             { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
             Shadows.md,
           ]}>
+          <View style={styles.header}>
+            <Pressable
+              accessibilityLabel={OFFICE_UPDATES_PANEL_CLOSE_LABEL}
+              accessibilityRole="button"
+              hitSlop={Spacing.sm}
+              onPress={onClose}
+              style={({ pressed }) => [
+                styles.close,
+                { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                pressed && styles.pressed,
+              ]}
+              testID="office-updates.close">
+              <Feather name="x" size={18} color={theme.primaryDark} />
+            </Pressable>
+          </View>
           <ScrollView
             showsVerticalScrollIndicator={false}
             style={styles.list}
@@ -85,7 +103,7 @@ const styles = StyleSheet.create({
   root: {
     alignItems: 'center',
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     paddingHorizontal: Spacing.lg,
   },
   scrim: { backgroundColor: 'rgba(16, 23, 17, 0.45)' },
@@ -99,6 +117,21 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     width: '100%',
   },
+  header: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: Spacing.sm,
+  },
+  close: {
+    alignItems: 'center',
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  pressed: { opacity: 0.72 },
   list: { flexGrow: 0 },
   listContent: { paddingBottom: Spacing.lg },
 });

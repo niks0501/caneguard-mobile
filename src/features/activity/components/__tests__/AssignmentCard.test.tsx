@@ -3,6 +3,30 @@ import { render, screen } from '@testing-library/react-native';
 import { AssignmentCard } from '@/features/activity/components/AssignmentCard';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 
+type JsonNode = { type?: string; props?: { testID?: string; numberOfLines?: number }; children?: unknown };
+
+/** Line caps of every host Text node inside the card with `testID`, in render order. */
+function renderedLineCaps(rootTestID: string): (number | undefined)[] {
+  const caps: (number | undefined)[] = [];
+  const walk = (node: unknown, insideCard: boolean) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      node.forEach((child) => walk(child, insideCard));
+      return;
+    }
+    const element = node as JsonNode;
+    const inside = insideCard || element.props?.testID === rootTestID;
+    if (inside && element.type === 'Text' && element.children) {
+      caps.push(element.props?.numberOfLines);
+    }
+    if (Array.isArray(element.children)) {
+      element.children.forEach((child) => walk(child, inside));
+    }
+  };
+  walk(screen.toJSON(), false);
+  return caps;
+}
+
 const ASSIGNMENT: FieldValidationAssignment = {
   id: '3fbd7f77-7d6b-4eb0-a1c7-b673f5a2f39f',
   ownerIdentity: 'owner-1',
@@ -32,6 +56,22 @@ const ASSIGNMENT: FieldValidationAssignment = {
   },
 } as FieldValidationAssignment;
 
+const LONG_BARANGAY =
+  'Barangay San Isidro de la Cruz ng Napakahabang Pangalan na Walang Hangganan sa Mundo';
+
+const LONG_ASSIGNMENT: FieldValidationAssignment = {
+  ...ASSIGNMENT,
+  referenceCode: 'CG-2026-0001-EXTREMELY-LONG-REFERENCE-CODE-WITHOUT-ANY-BREAK-OPPORTUNITY',
+  submitter: {
+    uuid: 'submitter-1',
+    name: 'Ana Reporter with a name far longer than any list row should ever grow',
+  },
+  case: {
+    ...ASSIGNMENT.case,
+    barangay: `${LONG_BARANGAY} ${LONG_BARANGAY} ${LONG_BARANGAY}`,
+  },
+};
+
 describe('AssignmentCard', () => {
   it('renders exactly one due row when a due state is shown', async () => {
     await render(
@@ -57,5 +97,30 @@ describe('AssignmentCard', () => {
     expect(
       screen.queryByText('You submitted this case and are its validator.'),
     ).not.toBeOnTheScreen();
+  });
+
+  it('bounds long values to one line each', async () => {
+    await render(<AssignmentCard assignment={LONG_ASSIGNMENT} />);
+
+    expect(screen.getByText(LONG_ASSIGNMENT.referenceCode)).toHaveProp('numberOfLines', 1);
+    expect(screen.getByText(LONG_ASSIGNMENT.case.barangay)).toHaveProp('numberOfLines', 1);
+    expect(screen.getByText(LONG_ASSIGNMENT.submitter.name)).toHaveProp('numberOfLines', 1);
+    expect(screen.getByText('Assigned')).toHaveProp('numberOfLines', 1);
+  });
+
+  it('renders the same bounded line structure for short and long content', async () => {
+    await render(
+      <>
+        <AssignmentCard assignment={ASSIGNMENT} testID="assignment.short" />
+        <AssignmentCard assignment={LONG_ASSIGNMENT} testID="assignment.long" />
+      </>,
+    );
+
+    const shortCaps = renderedLineCaps('assignment.short');
+    const longCaps = renderedLineCaps('assignment.long');
+
+    // Every content line is capped at one line, so height cannot grow with text.
+    expect(shortCaps).toEqual(longCaps);
+    expect(shortCaps.every((cap) => cap === undefined || cap === 1)).toBe(true);
   });
 });

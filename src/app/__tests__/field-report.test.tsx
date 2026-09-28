@@ -316,7 +316,7 @@ describe('FieldReportScreen', () => {
       fireEvent.press(screen.getByTestId('field-report.error-return-home'));
     });
 
-    expect(router.replace).toHaveBeenCalledWith('/home');
+    expect(router.dismissTo).toHaveBeenCalledWith('/home');
   });
 
   it('shows the automatic summary prefilled and saves incomplete values as a Draft', async () => {
@@ -1868,7 +1868,7 @@ describe('FieldReportScreen', () => {
 
       expect(mockSave).toHaveBeenCalledTimes(1);
       expect(mockDiscardDraft).not.toHaveBeenCalled();
-      expect(router.replace).toHaveBeenCalledWith('/home');
+      expect(router.dismissTo).toHaveBeenCalledWith('/home');
     });
 
     it('discards draft and routes home when Discard draft is chosen', async () => {
@@ -1883,7 +1883,7 @@ describe('FieldReportScreen', () => {
       });
 
       expect(mockDiscardDraft).toHaveBeenCalledTimes(1);
-      expect(router.replace).toHaveBeenCalledWith('/home');
+      expect(router.dismissTo).toHaveBeenCalledWith('/home');
     });
 
     it('displays visible confirmation toast when draft is saved with barangay only', async () => {
@@ -1943,7 +1943,7 @@ describe('FieldReportScreen', () => {
         fireEvent.press(screen.getByTestId('field-report.return-home'));
       });
 
-      expect(router.replace).toHaveBeenCalledWith('/home');
+      expect(router.dismissTo).toHaveBeenCalledWith('/home');
     });
 
     it('routes home from the header back action on a finalized report', async () => {
@@ -1955,7 +1955,7 @@ describe('FieldReportScreen', () => {
         fireEvent.press(screen.getByLabelText('Go back'));
       });
 
-      expect(router.replace).toHaveBeenCalledWith('/home');
+      expect(router.dismissTo).toHaveBeenCalledWith('/home');
       expect(router.back).not.toHaveBeenCalled();
       expect(screen.queryByTestId('field-report.cancel-dialog')).not.toBeOnTheScreen();
     });
@@ -1980,7 +1980,7 @@ describe('FieldReportScreen', () => {
         });
 
         expect(handled).toBe(true);
-        expect(router.replace).toHaveBeenCalledWith('/home');
+        expect(router.dismissTo).toHaveBeenCalledWith('/home');
       } finally {
         addEventListener.mockRestore();
         platformOS.restore();

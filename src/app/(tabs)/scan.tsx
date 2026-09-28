@@ -234,6 +234,9 @@ export default function ScanScreen() {
     setShowCancelConfirm(true);
   };
 
+  // Inside the tab navigator the href resolves to the already-mounted tab, so
+  // `replace` is the tab-level switch here; `returnToTab` is a no-op in here
+  // and is only for screens outside `(tabs)`.
   const handleKeepDraft = () => {
     setShowCancelConfirm(false);
     showToast('Draft kept', 'info');

@@ -32,6 +32,7 @@ import {
   SessionStateError,
 } from '@/features/detection/context/sessionErrors';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
+import { returnToTab } from '@/features/navigation/returnToTab';
 import { useSaveCompletedScan } from '@/features/records/hooks/useSaveCompletedScan';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
@@ -95,19 +96,19 @@ export default function AnalysisResultScreen() {
     setShowCancelConfirm(false);
     void persistScanForOutcome();
     showToast('Scan saved', 'success');
-    router.replace('/home');
+    returnToTab('/home');
   };
 
   const handleDiscardDraft = () => {
     setShowCancelConfirm(false);
     dispatch({ type: 'RESET_SCAN' });
     showToast('Scan discarded', 'info');
-    router.replace('/home');
+    returnToTab('/home');
   };
 
   const startNewScan = () => {
     dispatch({ type: 'RESET_SCAN' });
-    router.replace('/scan');
+    returnToTab('/scan');
   };
 
   const persistScanForOutcome = async () => {

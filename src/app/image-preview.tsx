@@ -22,6 +22,7 @@ import { preprocessImage } from '@/features/detection/preprocessing/preprocessIm
 import { getInferenceErrorMessage } from '@/features/detection/model/inferenceErrors';
 import { runInference } from '@/features/detection/model/runInference';
 import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
+import { returnToTab } from '@/features/navigation/returnToTab';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -59,23 +60,23 @@ export default function ImagePreviewScreen() {
   const handleKeepDraft = () => {
     setShowCancelConfirm(false);
     showToast('Draft kept', 'info');
-    router.replace('/home');
+    returnToTab('/home');
   };
 
   const handleDiscardDraft = () => {
     setShowCancelConfirm(false);
     dispatch({ type: 'RESET_SCAN' });
     showToast('Draft discarded', 'info');
-    router.replace('/home');
+    returnToTab('/home');
   };
 
   const returnToScan = () => {
-    router.replace('/scan');
+    returnToTab('/scan');
   };
 
   const startNewScan = () => {
     dispatch({ type: 'RESET_SCAN' });
-    router.replace('/scan');
+    returnToTab('/scan');
   };
 
   const analyzeImage = async () => {

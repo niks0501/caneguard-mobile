@@ -36,6 +36,7 @@ import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { returnToTab } from '@/features/navigation/returnToTab';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import type { SyncStatus } from '@/database/schema';
 import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
@@ -120,7 +121,7 @@ export default function RecordDetailsScreen() {
         );
       }
       showToast('Record deleted', 'success');
-      router.replace('/activity' as Href);
+      returnToTab('/activity');
     } catch (error: unknown) {
       const storageError = toStorageError(
         error,

@@ -48,7 +48,7 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
 
 const mockUseLocalSearchParams = jest.mocked(useLocalSearchParams);
 const mockDeleteScanRecord = jest.mocked(deleteScanRecord);
-const mockRouterReplace = router.replace as jest.Mock;
+const mockRouterDismissTo = router.dismissTo as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
 const DETAILS: ScanRecordDetails = {
   authorityReview: null,
@@ -343,7 +343,7 @@ describe('RecordDetailsScreen', () => {
     );
     expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
     expect(screen.getByTestId('app-toast')).toHaveTextContent('Record deleted');
-    expect(mockRouterReplace).toHaveBeenCalledWith('/activity');
+    expect(mockRouterDismissTo).toHaveBeenCalledWith('/activity');
   });
 
   it('deletes nothing when the single delete confirmation is cancelled', async () => {

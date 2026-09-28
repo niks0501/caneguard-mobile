@@ -4,6 +4,20 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+// FlashList v2 measures its own viewport and rows. Under Jest those measurements
+// never resolve, so the list falls back to rendering every row and no test can
+// observe windowing. Pin a 400x900 viewport with 100px rows instead: the window
+// is then deterministic (about ten rows) regardless of the data length.
+// `@shopify/flash-list/jestSetup` is not used because it maps the `FlashList`
+// export to a `RecyclerView` the package stopped re-exporting, which makes every
+// FlashList render fail with an invalid element type.
+jest.mock('@shopify/flash-list/dist/recyclerview/utils/measureLayout', () => ({
+  ...jest.requireActual('@shopify/flash-list/dist/recyclerview/utils/measureLayout'),
+  measureFirstChildLayout: jest.fn(() => ({ height: 900, width: 400, x: 0, y: 0 })),
+  measureItemLayout: jest.fn(() => ({ height: 100, width: 400, x: 0, y: 0 })),
+  measureParentSize: jest.fn(() => ({ height: 900, width: 400, x: 0, y: 0 })),
+}));
+
 jest.mock('@expo/vector-icons', () => {
   const React = require('react');
 

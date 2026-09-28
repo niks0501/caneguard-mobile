@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native';
 
 import { OFFICE_UPDATES_PANEL_CLOSE_LABEL } from '@/constants/copy';
 import { OfficeUpdatesPanel } from '@/features/notifications/components/OfficeUpdatesPanel';
+import { RECENT_NOTIFICATION_COUNT } from '@/features/notifications/components/NotificationInbox';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 
 const NOTIFICATION: MobileNotification = {
@@ -105,5 +106,26 @@ describe('OfficeUpdatesPanel', () => {
     expect(screen.getByText('Could not load every update.')).toBeOnTheScreen();
     expect(screen.getByText('Some office updates could not be loaded.')).toBeOnTheScreen();
     expect(screen.getByText('Could not mark every update as read.')).toBeOnTheScreen();
+  });
+
+  it('draws only the newest updates when the cached history is large', async () => {
+    const notifications = Array.from({ length: 250 }, (_, index) => ({
+      ...NOTIFICATION,
+      createdAt: new Date(Date.UTC(2026, 7, 1, 0, index)).toISOString(),
+      id: `notification-${index}`,
+      title: `Office update ${index}`,
+    }));
+
+    await renderPanel({ notifications, unreadCount: 250 });
+
+    const renderedRows = screen.queryAllByTestId(/^activity\.notification\./);
+    expect(renderedRows).toHaveLength(RECENT_NOTIFICATION_COUNT);
+    expect(screen.getByText('Office update 249')).toBeOnTheScreen();
+    expect(screen.queryByText('Office update 0')).not.toBeOnTheScreen();
+    expect(renderedRows.map((node) => node.props.testID)).toEqual(
+      Array.from({ length: RECENT_NOTIFICATION_COUNT }, (_, offset) =>
+        `activity.notification.notification-${249 - offset}`,
+      ),
+    );
   });
 });

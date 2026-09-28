@@ -1,6 +1,7 @@
 import { Feather } from '@expo/vector-icons';
+import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { router, type Href } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -47,7 +48,33 @@ import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityR
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
 import { useOfficeUpdates } from '@/features/notifications/providers/OfficeUpdatesProvider';
 import { useSync } from '@/features/sync/hooks/useSync';
+import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { useTheme } from '@/hooks/use-theme';
+
+type TimelineItem =
+  | {
+      assignment: FieldValidationAssignment;
+      id: string;
+      kind: 'assignment';
+      timestamp: string;
+    }
+  | {
+      id: string;
+      kind: 'record';
+      record: ScanRecordListItem;
+      timestamp: string;
+    };
+
+const NO_ASSIGNMENTS: FieldValidationAssignment[] = [];
+const NO_RECORDS: ScanRecordListItem[] = [];
+
+/**
+ * Spacing between two history rows. FlashList measures the separator as part of
+ * the row that owns it, so the row heights stay stable while scrolling.
+ */
+function TimelineSeparator() {
+  return <View style={styles.timelineSeparator} />;
+}
 
 export default function ActivityScreen() {
   const theme = useTheme();
@@ -72,28 +99,38 @@ export default function ActivityScreen() {
   const notifications = useMobileNotifications();
   const { isOpen: officeUpdatesOpen, open: openOfficeUpdates } = useOfficeUpdates();
   const sync = useSync();
-  const visibleAssignments =
-    activeFilter === 'all' || activeFilter === 'assignments'
-      ? assignments.assignments.filter((assignment) => matchesSearch(assignment, submittedSearch))
-      : [];
-  const visibleRecords = activeFilter === 'assignments' ? [] : records.data;
-  const timeline = [
-    ...visibleAssignments.map((assignment) => ({
-      assignment,
-      id: assignment.id,
-      kind: 'assignment' as const,
-      timestamp: assignment.updatedAt,
-    })),
-    ...visibleRecords.map((record) => ({
-      id: record.id,
-      kind: 'record' as const,
-      record,
-      timestamp: record.createdAt,
-    })),
-  ].sort((first, second) =>
-    Date.parse(second.timestamp) - Date.parse(first.timestamp) ||
-    second.id.localeCompare(first.id),
+  const visibleAssignments = useMemo(
+    () =>
+      activeFilter === 'all' || activeFilter === 'assignments'
+        ? assignments.assignments.filter((assignment) =>
+            matchesSearch(assignment, submittedSearch),
+          )
+        : NO_ASSIGNMENTS,
+    [activeFilter, assignments.assignments, submittedSearch],
   );
+  const visibleRecords = activeFilter === 'assignments' ? NO_RECORDS : records.data;
+  // The merged, sorted history is derived once per input change so a repeated
+  // virtualization pass never re-sorts the whole timeline.
+  const timeline = useMemo<TimelineItem[]>(() =>
+    [
+      ...visibleAssignments.map((assignment) => ({
+        assignment,
+        id: assignment.id,
+        kind: 'assignment' as const,
+        timestamp: assignment.updatedAt,
+      })),
+      ...visibleRecords.map((record) => ({
+        id: record.id,
+        kind: 'record' as const,
+        record,
+        timestamp: record.createdAt,
+      })),
+    ].sort(
+      (first, second) =>
+        Date.parse(second.timestamp) - Date.parse(first.timestamp) ||
+        second.id.localeCompare(first.id),
+    ),
+  [visibleAssignments, visibleRecords]);
   const hasFilters = activeFilter !== 'all' || Boolean(submittedSearch);
   const latestVisibleRecordId = timeline.find((item) => item.kind === 'record')?.id;
   const activityCount = timeline.length;
@@ -123,6 +160,51 @@ export default function ActivityScreen() {
     assignments.errorMessage,
   ].filter((message): message is string => Boolean(message));
 
+  const keyExtractor = useCallback(
+    (item: TimelineItem) =>
+      item.kind === 'assignment' ? `assignment-${item.id}` : item.id,
+    [],
+  );
+  // Separate recycling pools per row type. FlashList v2 measures item sizes
+  // itself, so item types are the sizing hint it accepts instead of the v1
+  // `estimatedItemSize` estimate.
+  const getItemType = useCallback((item: TimelineItem) => item.kind, []);
+  const renderTimelineItem = useCallback(
+    ({ item }: ListRenderItemInfo<TimelineItem>) => (
+      <View style={styles.listRow}>
+        {item.kind === 'assignment' ? (
+          <AssignmentCard
+            testID={`activity.assignment.${item.assignment.id}`}
+            assignment={item.assignment}
+            onPress={() =>
+              router.push({
+                pathname: '/field-validation',
+                params: { assignmentId: item.assignment.id },
+              } as never)
+            }
+          />
+        ) : (
+          <RecordCard
+            testID={
+              item.id === latestVisibleRecordId
+                ? 'activity.latest-record'
+                : `activity.item.${item.record.id}`
+            }
+            activityType={getActivityItemKind(item.record.hasFieldReport)}
+            record={item.record}
+            onPress={() =>
+              router.push({
+                pathname: '/record-details',
+                params: { id: item.record.id },
+              } as unknown as Href)
+            }
+          />
+        )}
+      </View>
+    ),
+    [latestVisibleRecordId],
+  );
+
   const submitSearch = () => {
     setSubmittedSearch(searchInput.trim());
   };
@@ -132,6 +214,189 @@ export default function ActivityScreen() {
     setSearchInput('');
     setSubmittedSearch('');
   };
+
+  const activityState: ReactNode =
+    activeFilter !== 'assignments' && records.loading && records.data.length === 0 ? (
+      <StateCard
+        icon="loader"
+        title="Loading activity"
+        message="Reading reports and scans from this device."
+        liveRegion="polite">
+        <ActivityIndicator
+          accessibilityLabel="Loading activity"
+          color={theme.primary}
+        />
+      </StateCard>
+    ) : activeFilter !== 'assignments' && records.errorMessage ? (
+      <StateCard
+        icon="alert-triangle"
+        title="Activity unavailable"
+        message={records.errorMessage}
+        liveRegion="assertive">
+        <AppButton onPress={() => void records.refresh()} leadingIcon="refresh-cw">
+          Try Again
+        </AppButton>
+      </StateCard>
+    ) : (records.loading || assignments.refreshing) && activityCount === 0 ? (
+      <StateCard
+        icon="loader"
+        title="Loading activity"
+        message="Reading saved reports, scans, and assignments from this device."
+        liveRegion="polite">
+        <ActivityIndicator accessibilityLabel="Loading activity" color={theme.primary} />
+      </StateCard>
+    ) : activityCount === 0 ? (
+      <StateCard
+        icon={hasFilters ? 'search' : 'activity'}
+        title={getEmptyTitle(activeFilter, hasFilters)}
+        message={getEmptyMessage(activeFilter, hasFilters)}>
+        {hasFilters ? (
+          <AppButton onPress={clearFilters} variant="secondary">
+            Clear Filters
+          </AppButton>
+        ) : (
+          <AppButton onPress={() => router.push('/scan')} leadingIcon="camera">
+            Start Scan
+          </AppButton>
+        )}
+      </StateCard>
+    ) : null;
+
+  const listHeader = (
+    <View style={styles.content}>
+      <TodayEntry activeVisitCount={assignments.assignments.filter((assignment) => assignment.fieldValidationState === 'assigned' || assignment.fieldValidationState === 'in_progress').length} />
+
+      <View style={styles.searchRow}>
+        <View
+          style={[
+            styles.search,
+            {
+              backgroundColor: theme.surfaceElevated,
+              borderColor: theme.border,
+            },
+          ]}>
+          <Feather name="search" size={20} color={theme.textSecondary} />
+          <TextInput
+            accessibilityLabel="Search activity"
+            placeholder="Search result or barangay"
+            placeholderTextColor={theme.textSecondary}
+            value={searchInput}
+            onChangeText={setSearchInput}
+            onSubmitEditing={submitSearch}
+            returnKeyType="search"
+            style={[styles.searchInput, { color: theme.text }]}
+          />
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Submit activity search"
+          onPress={submitSearch}
+          style={({ pressed }) => [
+            styles.searchButton,
+            { backgroundColor: theme.primary },
+            pressed && styles.pressed,
+          ]}>
+          <Feather name="arrow-right" size={20} color={theme.background} />
+        </Pressable>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filters}>
+        {ACTIVITY_FILTERS.map((filter) => {
+          const selected = activeFilter === filter.key;
+          return (
+            <Pressable
+              key={filter.key}
+              testID={`activity.filter.${filter.key}`}
+              accessibilityRole="button"
+              accessibilityLabel={`Filter activity by ${filter.label}`}
+              accessibilityState={{ selected }}
+              onPress={() => setActiveFilter(filter.key)}
+              style={({ pressed }) => [
+                styles.filter,
+                {
+                  backgroundColor: selected
+                    ? theme.primary
+                    : theme.surfaceMuted,
+                  borderColor: selected ? theme.primary : theme.border,
+                },
+                pressed && styles.pressed,
+              ]}>
+              <Text
+                style={[
+                  styles.filterText,
+                  {
+                    color: selected
+                      ? theme.background
+                      : theme.primaryDark,
+                  },
+                ]}>
+                {filter.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {activityState ?? (
+        <Text testID="activity.count" style={[styles.count, { color: theme.textSecondary }]}>
+          {formatActivityCount(activityCount, activeFilter)}
+        </Text>
+      )}
+    </View>
+  );
+
+  const listFooter = (
+    <View style={styles.footer}>
+      {records.hasMore ? (
+        <AppButton
+          onPress={() => void records.loadMore()}
+          disabled={records.loadingMore}
+          variant="secondary">
+          {records.loadingMore ? 'Loading...' : 'Load More'}
+        </AppButton>
+      ) : null}
+      {activeFilter !== 'scans' ? (
+        <DisclosureSection
+          testID="activity.sync"
+          title="Report status"
+          summary={syncSummary(sync)}>
+          <View testID="activity.refresh-scope" style={styles.refreshScope}>
+            <SyncStatusPanel showAction={false} />
+            <AppButton
+              testID="activity.refresh-all"
+              onPress={() => void refreshAll(buildRefreshTargets())}
+              disabled={refreshingAll}
+              variant="secondary"
+              leadingIcon="refresh-cw"
+              accessibilityLabel={
+                refreshingAll ? 'Refreshing all activity' : 'Refresh all activity'
+              }>
+              {refreshingAll ? 'Refreshing...' : 'Refresh all'}
+            </AppButton>
+            {refreshMessage ? (
+              <Text
+                accessibilityLiveRegion="polite"
+                style={[styles.refreshMessage, { color: theme.textSecondary }]}>
+                {refreshMessage}
+              </Text>
+            ) : null}
+            {subsystemErrors.map((message) => (
+              <Text
+                key={message}
+                accessibilityLiveRegion="assertive"
+                style={[styles.refreshMessage, { color: theme.danger }]}>
+                {message}
+              </Text>
+            ))}
+          </View>
+        </DisclosureSection>
+      ) : null}
+      <View style={styles.bottomSpace} />
+    </View>
+  );
 
   return (
     <SafeAreaView
@@ -172,221 +437,18 @@ export default function ActivityScreen() {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardAvoiding}>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
+          <FlashList
+            testID="activity.timeline"
+            data={timeline}
+            getItemType={getItemType}
+            ItemSeparatorComponent={TimelineSeparator}
+            keyExtractor={keyExtractor}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.scrollContent}>
-            <View style={styles.content}>
-              <TodayEntry activeVisitCount={assignments.assignments.filter((assignment) => assignment.fieldValidationState === 'assigned' || assignment.fieldValidationState === 'in_progress').length} />
-
-              <View style={styles.searchRow}>
-                <View
-                  style={[
-                    styles.search,
-                    {
-                      backgroundColor: theme.surfaceElevated,
-                      borderColor: theme.border,
-                    },
-                  ]}>
-                  <Feather name="search" size={20} color={theme.textSecondary} />
-                  <TextInput
-                    accessibilityLabel="Search activity"
-                    placeholder="Search result or barangay"
-                    placeholderTextColor={theme.textSecondary}
-                    value={searchInput}
-                    onChangeText={setSearchInput}
-                    onSubmitEditing={submitSearch}
-                    returnKeyType="search"
-                    style={[styles.searchInput, { color: theme.text }]}
-                  />
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Submit activity search"
-                  onPress={submitSearch}
-                  style={({ pressed }) => [
-                    styles.searchButton,
-                    { backgroundColor: theme.primary },
-                    pressed && styles.pressed,
-                  ]}>
-                  <Feather name="arrow-right" size={20} color={theme.background} />
-                </Pressable>
-              </View>
-
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filters}>
-                {ACTIVITY_FILTERS.map((filter) => {
-                  const selected = activeFilter === filter.key;
-                  return (
-                    <Pressable
-                      key={filter.key}
-                      testID={`activity.filter.${filter.key}`}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Filter activity by ${filter.label}`}
-                      accessibilityState={{ selected }}
-                      onPress={() => setActiveFilter(filter.key)}
-                      style={({ pressed }) => [
-                        styles.filter,
-                        {
-                          backgroundColor: selected
-                            ? theme.primary
-                            : theme.surfaceMuted,
-                          borderColor: selected ? theme.primary : theme.border,
-                        },
-                        pressed && styles.pressed,
-                      ]}>
-                      <Text
-                        style={[
-                          styles.filterText,
-                          {
-                            color: selected
-                              ? theme.background
-                              : theme.primaryDark,
-                          },
-                        ]}>
-                        {filter.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-
-              {activeFilter !== 'assignments' && records.loading && records.data.length === 0 ? (
-                <StateCard
-                  icon="loader"
-                  title="Loading activity"
-                  message="Reading reports and scans from this device."
-                  liveRegion="polite">
-                  <ActivityIndicator
-                    accessibilityLabel="Loading activity"
-                    color={theme.primary}
-                  />
-                </StateCard>
-              ) : activeFilter !== 'assignments' && records.errorMessage ? (
-                <StateCard
-                  icon="alert-triangle"
-                  title="Activity unavailable"
-                  message={records.errorMessage}
-                  liveRegion="assertive">
-                  <AppButton onPress={() => void records.refresh()} leadingIcon="refresh-cw">
-                    Try Again
-                  </AppButton>
-                </StateCard>
-              ) : (records.loading || assignments.refreshing) && activityCount === 0 ? (
-                <StateCard
-                  icon="loader"
-                  title="Loading activity"
-                  message="Reading saved reports, scans, and assignments from this device."
-                  liveRegion="polite">
-                  <ActivityIndicator accessibilityLabel="Loading activity" color={theme.primary} />
-                </StateCard>
-              ) : activityCount === 0 ? (
-                <StateCard
-                  icon={hasFilters ? 'search' : 'activity'}
-                  title={getEmptyTitle(activeFilter, hasFilters)}
-                  message={getEmptyMessage(activeFilter, hasFilters)}>
-                  {hasFilters ? (
-                    <AppButton onPress={clearFilters} variant="secondary">
-                      Clear Filters
-                    </AppButton>
-                  ) : (
-                    <AppButton
-                      onPress={() => router.push('/scan')}
-                      leadingIcon="camera">
-                      Start Scan
-                    </AppButton>
-                  )}
-                </StateCard>
-              ) : (
-                <>
-                  <Text testID="activity.count" style={[styles.count, { color: theme.textSecondary }]}>
-                    {formatActivityCount(activityCount, activeFilter)}
-                  </Text>
-                  <View testID="activity.timeline" style={styles.list}>
-                    {timeline.map((item) =>
-                      item.kind === 'assignment' ? (
-                        <AssignmentCard
-                          key={`assignment-${item.assignment.id}`}
-                          testID={`activity.assignment.${item.assignment.id}`}
-                          assignment={item.assignment}
-                          onPress={() =>
-                            router.push({
-                              pathname: '/field-validation',
-                              params: { assignmentId: item.assignment.id },
-                            } as never)
-                          }
-                        />
-                      ) : (
-                        <RecordCard
-                          key={item.record.id}
-                          testID={
-                            item.id === latestVisibleRecordId
-                              ? 'activity.latest-record'
-                              : `activity.item.${item.record.id}`
-                          }
-                          activityType={getActivityItemKind(item.record.hasFieldReport)}
-                          record={item.record}
-                          onPress={() =>
-                            router.push({
-                              pathname: '/record-details',
-                              params: { id: item.record.id },
-                            } as unknown as Href)
-                          }
-                        />
-                      ),
-                    )}
-                  </View>
-                  {records.hasMore ? (
-                    <AppButton
-                      onPress={() => void records.loadMore()}
-                      disabled={records.loadingMore}
-                      variant="secondary">
-                      {records.loadingMore ? 'Loading...' : 'Load More'}
-                    </AppButton>
-                  ) : null}
-                </>
-              )}
-              {activeFilter !== 'scans' ? (
-                <DisclosureSection
-                  testID="activity.sync"
-                  title="Report status"
-                  summary={syncSummary(sync)}>
-                  <View testID="activity.refresh-scope" style={styles.refreshScope}>
-                    <SyncStatusPanel showAction={false} />
-                    <AppButton
-                      testID="activity.refresh-all"
-                      onPress={() => void refreshAll(buildRefreshTargets())}
-                      disabled={refreshingAll}
-                      variant="secondary"
-                      leadingIcon="refresh-cw"
-                      accessibilityLabel={
-                        refreshingAll ? 'Refreshing all activity' : 'Refresh all activity'
-                      }>
-                      {refreshingAll ? 'Refreshing...' : 'Refresh all'}
-                    </AppButton>
-                    {refreshMessage ? (
-                      <Text
-                        accessibilityLiveRegion="polite"
-                        style={[styles.refreshMessage, { color: theme.textSecondary }]}>
-                        {refreshMessage}
-                      </Text>
-                    ) : null}
-                    {subsystemErrors.map((message) => (
-                      <Text
-                        key={message}
-                        accessibilityLiveRegion="assertive"
-                        style={[styles.refreshMessage, { color: theme.danger }]}>
-                        {message}
-                      </Text>
-                    ))}
-                  </View>
-                </DisclosureSection>
-              ) : null}
-              <View style={styles.bottomSpace} />
-            </View>
-          </ScrollView>
+            ListFooterComponent={listFooter}
+            ListHeaderComponent={listHeader}
+            renderItem={renderTimelineItem}
+            showsVerticalScrollIndicator={false}
+          />
         </KeyboardAvoidingView>
       </View>
     </SafeAreaView>
@@ -515,14 +577,29 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   root: { flex: 1 },
   keyboardAvoiding: { flex: 1 },
-  scrollContent: { alignItems: 'center' },
   content: {
     width: '100%',
     maxWidth: Layout.mobileMaxWidth,
+    alignSelf: 'center',
     paddingHorizontal: ComponentTokens.screen.horizontalPadding,
     paddingVertical: Spacing.lg,
     gap: Spacing.lg,
   },
+  footer: {
+    width: '100%',
+    maxWidth: Layout.mobileMaxWidth,
+    alignSelf: 'center',
+    paddingHorizontal: ComponentTokens.screen.horizontalPadding,
+    paddingBottom: Spacing.lg,
+    gap: Spacing.lg,
+  },
+  listRow: {
+    width: '100%',
+    maxWidth: Layout.mobileMaxWidth,
+    alignSelf: 'center',
+    paddingHorizontal: ComponentTokens.screen.horizontalPadding,
+  },
+  timelineSeparator: { height: Spacing.md },
   bell: {
     width: 44,
     height: 44,
@@ -580,7 +657,6 @@ const styles = StyleSheet.create({
   },
   filterText: { ...Typography.bodySmall, fontWeight: '800' },
   count: { ...Typography.label, letterSpacing: 0.8 },
-  list: { gap: Spacing.md },
   stateCard: {
     minHeight: 220,
     borderRadius: Radius.xl,

@@ -8,6 +8,7 @@ Project-specific stack and implementation guidance for CaneGuard Mobile.
 - Expo Router
 - React 19
 - React Native 0.86
+- `@shopify/flash-list` (list virtualization)
 - TypeScript 6 with strict mode
 - Expo SQLite
 - Drizzle ORM / Drizzle Kit

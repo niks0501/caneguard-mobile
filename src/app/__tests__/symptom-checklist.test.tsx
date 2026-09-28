@@ -18,7 +18,7 @@ import type {
 
 const mockDispatch = jest.fn<void, [ScanSessionAction]>();
 const mockRouterPush = router.push as jest.Mock;
-const mockRouterReplace = router.replace as jest.Mock;
+const mockRouterDismissTo = router.dismissTo as jest.Mock;
 
 const completedResult: DetectionResult = {
   predictedLabel: 'mosaic',
@@ -177,7 +177,7 @@ describe('SymptomChecklistScreen', () => {
     expect(screen.getByText('No completed scan')).toBeOnTheScreen();
     await fireEvent.press(screen.getByLabelText('Return to scan'));
 
-    expect(mockRouterReplace).toHaveBeenCalledWith('/scan');
+    expect(mockRouterDismissTo).toHaveBeenCalledWith('/scan');
   });
 
   describe('cancel and return home', () => {
@@ -217,7 +217,7 @@ describe('SymptomChecklistScreen', () => {
         type: 'SET_SYMPTOMS',
         payload: ['mosaic'],
       });
-      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+      expect(mockRouterDismissTo).toHaveBeenCalledWith('/home');
     });
 
     it('resets scan session and routes home when Discard draft is chosen', async () => {
@@ -227,7 +227,7 @@ describe('SymptomChecklistScreen', () => {
       await fireEvent.press(screen.getByTestId('symptom-checklist.cancel-dialog.confirm'));
 
       expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
-      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+      expect(mockRouterDismissTo).toHaveBeenCalledWith('/home');
     });
   });
 });

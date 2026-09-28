@@ -14,6 +14,7 @@ import {
   type ChecklistObservationId,
 } from '@/features/detection/checklist/checklistConsistency';
 import { useScanSession } from '@/features/detection/context/useScanSession';
+import { returnToTab } from '@/features/navigation/returnToTab';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -78,14 +79,14 @@ export default function SymptomChecklistScreen() {
       dispatch({ type: 'SET_SYMPTOMS', payload: [...selectedSymptoms] });
     }
     showToast('Draft kept', 'info');
-    router.replace('/home');
+    returnToTab('/home');
   };
 
   const handleDiscardDraft = () => {
     setShowCancelConfirm(false);
     dispatch({ type: 'RESET_SCAN' });
     showToast('Draft discarded', 'info');
-    router.replace('/home');
+    returnToTab('/home');
   };
 
   if (!hasCompletedScan) {
@@ -119,7 +120,7 @@ export default function SymptomChecklistScreen() {
                 Analyze a sugarcane image before adding symptom observations.
               </Text>
               <AppButton
-                onPress={() => router.replace('/scan')}
+                onPress={() => returnToTab('/scan')}
                 leadingIcon="camera"
                 accessibilityLabel="Return to scan">
                 Return to Scan

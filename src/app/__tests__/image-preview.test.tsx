@@ -31,7 +31,7 @@ jest.mock('@/features/detection/model/useCaneGuardModel', () => ({
 }));
 
 const mockDispatch = jest.fn<void, [ScanSessionAction]>();
-const mockRouterReplace = router.replace as jest.Mock;
+const mockRouterDismissTo = router.dismissTo as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
 const mockPreprocessImage = preprocessImage as jest.MockedFunction<typeof preprocessImage>;
 const mockRunInference = runInference as jest.MockedFunction<typeof runInference>;
@@ -131,7 +131,7 @@ describe('ImagePreviewScreen', () => {
     await fireEvent.press(screen.getByLabelText('Return to scan image choices'));
 
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
-    expect(mockRouterReplace).toHaveBeenCalledWith('/scan');
+    expect(mockRouterDismissTo).toHaveBeenCalledWith('/scan');
   });
 
   it('displays the exact selected image, source, and dimensions', async () => {
@@ -316,7 +316,7 @@ describe('ImagePreviewScreen', () => {
       screen.getByLabelText('Return to scan and replace the selected image'),
     );
 
-    expect(mockRouterReplace).toHaveBeenCalledWith('/scan');
+    expect(mockRouterDismissTo).toHaveBeenCalledWith('/scan');
     expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
     expect(screen.getByLabelText('Selected sugarcane image from gallery')).toBeOnTheScreen();
   });
@@ -327,7 +327,7 @@ describe('ImagePreviewScreen', () => {
     await fireEvent.press(screen.getByLabelText('Clear this image and start a new scan'));
 
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
-    expect(mockRouterReplace).toHaveBeenCalledWith('/scan');
+    expect(mockRouterDismissTo).toHaveBeenCalledWith('/scan');
     expect(screen.getByText('No image selected')).toBeOnTheScreen();
   });
 
@@ -389,7 +389,7 @@ describe('ImagePreviewScreen', () => {
       await fireEvent.press(screen.getByTestId('image-preview.cancel-dialog.cancel'));
 
       expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
-      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+      expect(mockRouterDismissTo).toHaveBeenCalledWith('/home');
     });
 
     it('resets scan session and routes home when Discard draft is chosen', async () => {
@@ -399,7 +399,7 @@ describe('ImagePreviewScreen', () => {
       await fireEvent.press(screen.getByTestId('image-preview.cancel-dialog.confirm'));
 
       expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
-      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+      expect(mockRouterDismissTo).toHaveBeenCalledWith('/home');
     });
   });
 });

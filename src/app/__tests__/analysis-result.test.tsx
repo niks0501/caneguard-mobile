@@ -29,7 +29,7 @@ let mockSaveRecordState = {
 };
 const mockRouterBack = router.back as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
-const mockRouterReplace = router.replace as jest.Mock;
+const mockRouterDismissTo = router.dismissTo as jest.Mock;
 
 jest.mock('@/features/records/hooks/useSaveCompletedScan', () => ({
   useSaveCompletedScan: () => mockSaveRecordState,
@@ -273,7 +273,7 @@ describe('AnalysisResultScreen', () => {
     );
 
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
-    expect(mockRouterReplace).toHaveBeenCalledWith('/scan');
+    expect(mockRouterDismissTo).toHaveBeenCalledWith('/scan');
   });
 
   it('returns to the checklist without clearing the completed session', async () => {
@@ -496,7 +496,7 @@ describe('AnalysisResultScreen', () => {
 
   describe('cancel and return home', () => {
     beforeEach(() => {
-      mockRouterReplace.mockReset();
+      mockRouterDismissTo.mockReset();
       mockDispatch.mockReset();
     });
 
@@ -533,7 +533,7 @@ describe('AnalysisResultScreen', () => {
       expect(mockSaveRecord).toHaveBeenCalledTimes(1);
       expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
       expect(screen.getByTestId('app-toast')).toHaveTextContent('Scan saved');
-      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+      expect(mockRouterDismissTo).toHaveBeenCalledWith('/home');
       expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
     });
 
@@ -547,7 +547,7 @@ describe('AnalysisResultScreen', () => {
       expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
       expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
       expect(screen.getByTestId('app-toast')).toHaveTextContent('Scan discarded');
-      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+      expect(mockRouterDismissTo).toHaveBeenCalledWith('/home');
     });
 
     it('allows canceling from recovery screen when result is missing', async () => {
@@ -562,7 +562,7 @@ describe('AnalysisResultScreen', () => {
 
       await fireEvent.press(screen.getByTestId('analysis-result.cancel-dialog.confirm'));
       expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
-      expect(mockRouterReplace).toHaveBeenCalledWith('/home');
+      expect(mockRouterDismissTo).toHaveBeenCalledWith('/home');
     });
   });
 });

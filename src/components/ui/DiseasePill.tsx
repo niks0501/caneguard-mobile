@@ -7,11 +7,15 @@ type DiseasePillProps = {
   testID?: string;
 };
 
+/**
+ * Disease name only. Callers that need the "Possible Condition" label keep it
+ * on their own detail rows, because opening a card already states it.
+ */
 const VARIANT_MAP: Record<DiseasePillVariant, string> = {
-  smut: 'Possible Condition: Smut',
-  rust: 'Possible Condition: Rust',
-  mosaic: 'Possible Condition: Mosaic',
-  healthy: 'Possible Condition: No supported disease detected',
+  smut: 'Smut',
+  rust: 'Rust',
+  mosaic: 'Mosaic',
+  healthy: 'No supported disease detected',
   unclear: 'Unclear',
 };
 

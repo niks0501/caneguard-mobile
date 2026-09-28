@@ -1,7 +1,7 @@
 import type { CaneGuardDatabase } from '@/database/database';
 import { toStorageError, type StorageError } from '@/database/errors';
 import { deleteScanRecordById } from '@/features/records/data/scanRecordRepository';
-import { deleteManagedScanImage } from '@/features/records/services/scanImageStorage';
+import { deleteManagedScanImage, managedDisplayImageUri } from '@/features/records/services/scanImageStorage';
 
 export interface DeleteScanRecordResult {
   id: string;
@@ -26,9 +26,14 @@ export async function deleteScanRecord(
   );
   const imageUris = [
     ...new Set(
-      [managedImageUri, submissionImageUri].filter(
-        (uri): uri is string => Boolean(uri),
-      ),
+      [managedImageUri, submissionImageUri]
+        .filter((uri): uri is string => Boolean(uri))
+        // The display derivative is never recorded in the database, so it is
+        // derived from the preserved image and deleted alongside it.
+        .flatMap((uri) => {
+          const displayUri = managedDisplayImageUri(uri);
+          return displayUri ? [uri, displayUri] : [uri];
+        }),
     ),
   ];
   let imageCleanupError: StorageError | null = null;

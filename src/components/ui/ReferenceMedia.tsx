@@ -1,5 +1,6 @@
 import { Feather } from '@expo/vector-icons';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -44,7 +45,8 @@ export function ReferenceMedia({
         testID={testID}>
         <Image
           accessibilityLabel={`${label} reference photo`}
-          resizeMode="contain"
+          contentFit="contain"
+          cachePolicy="memory-disk"
           source={photo}
           style={styles.photo}
         />

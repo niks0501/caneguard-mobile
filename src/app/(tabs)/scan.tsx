@@ -320,6 +320,7 @@ export default function ScanScreen() {
                   <>
                     <ExpoImage
                       source={{ uri: state.sourceUri }}
+                      cachePolicy="memory-disk"
                       contentFit="cover"
                       accessibilityLabel="Currently selected sugarcane image"
                       style={styles.selectedImage}

@@ -15,6 +15,8 @@ export type CaneGuardModelController = {
   model: undefined;
   run: ModelRun;
   error: Error;
+  /** No-op on web: there is no native TFLite runtime to start. */
+  start: () => void;
 };
 
 const WEB_MODEL_ERROR = new InferenceError(
@@ -28,14 +30,16 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
   const run = useCallback<ModelRun>(async () => {
     throw WEB_MODEL_ERROR;
   }, []);
+  const start = useCallback(() => undefined, []);
   const value = useMemo<CaneGuardModelController>(
     () => ({
       error: WEB_MODEL_ERROR,
       model: undefined,
       run,
+      start,
       state: 'error',
     }),
-    [run],
+    [run, start],
   );
 
   return (

@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
@@ -60,48 +61,14 @@ export function HomeAttentionCard({
       </View>
 
       <View>
-        {visible.map((item, index) => {
-          const actionable = Boolean(
-            item.destination && item.destination.kind !== 'unavailable',
-          );
-          return (
-            <Pressable
-              key={item.id}
-              accessibilityLabel={`${item.title}. ${item.message}. ${item.meta}`}
-              accessibilityRole={actionable ? 'button' : 'text'}
-              accessibilityState={{ disabled: !actionable }}
-              disabled={!actionable}
-              onPress={() => onOpenItem(item)}
-              testID={`home.attention.${item.id}`}
-              style={({ pressed }) => [
-                styles.row,
-                index === 0
-                  ? null
-                  : { borderTopColor: theme.divider, borderTopWidth: 1 },
-                pressed && actionable ? styles.pressed : null,
-              ]}>
-              <View style={[styles.icon, { backgroundColor: theme.surfaceMuted }]}>
-                <Feather name={KIND_ICONS[item.kind]} size={16} color={theme.primary} />
-              </View>
-              <View style={styles.copy}>
-                <Text
-                  numberOfLines={2}
-                  style={[styles.itemTitle, { color: theme.primaryDark }]}>
-                  {item.title}
-                </Text>
-                <Text
-                  numberOfLines={2}
-                  style={[styles.itemMessage, { color: theme.textSecondary }]}>
-                  {item.message}
-                </Text>
-                <Text style={[styles.itemMeta, { color: theme.warning }]}>{item.meta}</Text>
-              </View>
-              {actionable ? (
-                <Feather name="chevron-right" size={18} color={theme.textSecondary} />
-              ) : null}
-            </Pressable>
-          );
-        })}
+        {visible.map((item, index) => (
+          <AttentionRow
+            index={index}
+            item={item}
+            key={item.id}
+            onOpen={onOpenItem}
+          />
+        ))}
       </View>
 
       {total > visible.length ? (
@@ -124,6 +91,59 @@ export function HomeAttentionCard({
     </Card>
   );
 }
+
+/**
+ * One attention row. Memoized so a Home re-render that does not change the
+ * prepared items or the open handler cannot re-render every row: the item is a
+ * stable object from the memoized attention build, and `onOpen` is the screen's
+ * memoized handler, which takes the item as an argument instead of closing over
+ * it.
+ */
+const AttentionRow = memo(function AttentionRow({
+  index,
+  item,
+  onOpen,
+}: {
+  index: number;
+  item: NeedsAttentionItem;
+  onOpen: (item: NeedsAttentionItem) => void;
+}) {
+  const theme = useTheme();
+  const actionable = Boolean(
+    item.destination && item.destination.kind !== 'unavailable',
+  );
+
+  return (
+    <Pressable
+      accessibilityLabel={`${item.title}. ${item.message}. ${item.meta}`}
+      accessibilityRole={actionable ? 'button' : 'text'}
+      accessibilityState={{ disabled: !actionable }}
+      disabled={!actionable}
+      onPress={() => onOpen(item)}
+      testID={`home.attention.${item.id}`}
+      style={({ pressed }) => [
+        styles.row,
+        index === 0 ? null : { borderTopColor: theme.divider, borderTopWidth: 1 },
+        pressed && actionable ? styles.pressed : null,
+      ]}>
+      <View style={[styles.icon, { backgroundColor: theme.surfaceMuted }]}>
+        <Feather name={KIND_ICONS[item.kind]} size={16} color={theme.primary} />
+      </View>
+      <View style={styles.copy}>
+        <Text numberOfLines={2} style={[styles.itemTitle, { color: theme.primaryDark }]}>
+          {item.title}
+        </Text>
+        <Text numberOfLines={2} style={[styles.itemMessage, { color: theme.textSecondary }]}>
+          {item.message}
+        </Text>
+        <Text style={[styles.itemMeta, { color: theme.warning }]}>{item.meta}</Text>
+      </View>
+      {actionable ? (
+        <Feather name="chevron-right" size={18} color={theme.textSecondary} />
+      ) : null}
+    </Pressable>
+  );
+});
 
 const styles = StyleSheet.create({
   card: { gap: Spacing.sm },

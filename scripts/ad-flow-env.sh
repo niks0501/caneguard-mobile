@@ -30,9 +30,9 @@
 set -euo pipefail
 
 APP_PACKAGE="${AD_APP_PACKAGE:-com.niks0501.caneguard}"
-FIXTURE="${AD_FIXTURE:-assets/model-fixtures/parity-reference.jpg}"
+FIXTURE="${AD_FIXTURE:-dev-assets/model-fixtures/parity-reference.jpg}"
 DEVICE_DIR="${AD_DEVICE_MEDIA_DIR:-/sdcard/Download}"
-V1_FIXTURE_DIR="${AD_V1_FIXTURE_DIR:-assets/model-fixtures}"
+V1_FIXTURE_DIR="${AD_V1_FIXTURE_DIR:-dev-assets/model-fixtures}"
 V1_HANDOFF_QA_DIR="${AD_V1_HANDOFF_QA_DIR:-$HOME/projects/CaneGuard-V1-Integration-Handoff/qa}"
 V1_FIXTURE_PREFIX="caneguard-v1"
 

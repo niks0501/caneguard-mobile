@@ -230,6 +230,7 @@ export default function AnalysisResultScreen() {
           <View style={styles.content}>
             <ExpoImage
               source={{ uri: state.sourceUri }}
+              cachePolicy="memory-disk"
               contentFit="cover"
               accessibilityLabel="Selected sugarcane image used for analysis"
               style={[styles.resultImage, { borderColor: theme.border }]}

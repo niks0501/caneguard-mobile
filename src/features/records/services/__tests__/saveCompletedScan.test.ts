@@ -56,6 +56,7 @@ describe('saveCompletedScan', () => {
     }),
   );
   const cleanupImage = jest.fn();
+  const writeDisplayImage = jest.fn(async () => MANAGED_IMAGE.managedUri);
 
   function save(state = completedState()) {
     return saveCompletedScan({
@@ -68,6 +69,7 @@ describe('saveCompletedScan', () => {
         insertRecord,
         cleanupImage,
         now: () => NOW,
+        writeDisplayImage,
       },
     });
   }
@@ -105,6 +107,29 @@ describe('saveCompletedScan', () => {
       }),
     );
     expect(cleanupImage).not.toHaveBeenCalled();
+  });
+
+  it('writes the display derivative from the preserved copy', async () => {
+    await expect(save()).resolves.toEqual({ id: RECORD_ID });
+
+    expect(writeDisplayImage).toHaveBeenCalledWith({
+      ownerIdentity: OWNER_ID,
+      recordId: RECORD_ID,
+      sourceHeight: 900,
+      sourceUri: MANAGED_IMAGE.managedUri,
+      sourceWidth: 1200,
+    });
+  });
+
+  it('keeps the save successful when the display derivative fails', async () => {
+    writeDisplayImage.mockRejectedValueOnce(
+      new StorageError('IMAGE_PREPARATION_FAILED', 'derivative failed'),
+    );
+
+    // Lists fall back to the preserved original, so a derivative failure must
+    // not turn a completed scan into a failed save.
+    await expect(save()).resolves.toEqual({ id: RECORD_ID });
+    expect(insertRecord).toHaveBeenCalledTimes(1);
   });
 
   it('rejects an invalid session before file or database writes', async () => {

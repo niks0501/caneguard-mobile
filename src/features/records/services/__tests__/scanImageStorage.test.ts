@@ -7,13 +7,27 @@ import {
   deleteManagedScanImage,
   ensureManagedScanImageDirectory,
   findOrphanedManagedImages,
+  getDisplayImageResizeAction,
+  getDisplayImageUri,
   isManagedScanImageUri,
   isManagedScanImageUriForRecord,
   isManagedSourceScanImageUriForRecord,
+  managedDisplayImageUri,
+  managedDisplayImageUriIfPresent,
   managedImageExists,
   readManagedImageMetadata,
   resolveImageFormat,
+  writeScanDisplayImage,
 } from '@/features/records/services/scanImageStorage';
+
+const mockManipulateAsync = jest.fn();
+let mockManipulatedWidth = 512;
+let mockManipulatedHeight = 384;
+jest.mock('expo-image-manipulator', () => ({
+  manipulateAsync: (...args: unknown[]) =>
+    mockManipulateAsync(...args),
+  SaveFormat: { JPEG: 'jpeg' },
+}));
 
 type MockFileEntry = {
   deleteFails?: boolean;
@@ -440,5 +454,118 @@ describe('scanImageStorage', () => {
     const file = new File(`${MANAGED_ROOT}/${RECORD_ID}.jpg`);
     expect(file.uri).toBe(`${MANAGED_ROOT}/${RECORD_ID}.jpg`);
     expect(file).not.toHaveProperty('base64Payload');
+  });
+
+  describe('display derivative', () => {
+    const SOURCE_URI = `${MANAGED_ROOT}/${RECORD_ID}.jpg`;
+    const DISPLAY_URI = `${MANAGED_ROOT}/${RECORD_ID}.display.jpg`;
+    const TEMP_URI = 'file:///cache/display-candidate.jpg';
+
+    beforeEach(() => {
+      mockManipulateAsync.mockReset();
+      mockManipulatedWidth = 512;
+      mockManipulatedHeight = 384;
+      mockManipulateAsync.mockImplementation(async () => {
+        seedFile(TEMP_URI, { mimeType: 'image/jpeg', size: 47_200 });
+        return {
+          uri: TEMP_URI,
+          width: mockManipulatedWidth,
+          height: mockManipulatedHeight,
+        };
+      });
+    });
+
+    it('bounds the long edge for either orientation', () => {
+      // A width-only bound leaves a portrait capture taller than the bound, so
+      // the action has to follow the long edge.
+      expect(getDisplayImageResizeAction(3000, 4000)).toEqual({ height: 512 });
+      expect(getDisplayImageResizeAction(4000, 3000)).toEqual({ width: 512 });
+      expect(getDisplayImageResizeAction(null, null)).toEqual({ width: 512 });
+      expect(getDisplayImageResizeAction(0, 4000)).toEqual({ width: 512 });
+    });
+
+    it('derives the sibling derivative URI and refuses to derive from one', () => {
+      expect(managedDisplayImageUri(SOURCE_URI)).toBe(DISPLAY_URI);
+      expect(managedDisplayImageUri(DISPLAY_URI)).toBeNull();
+      expect(managedDisplayImageUri('file:///elsewhere/leaf.jpg')).toBeNull();
+      expect(getDisplayImageUri(RECORD_ID, OWNER_ID)).toBe(DISPLAY_URI);
+      expect(isManagedScanImageUri(DISPLAY_URI)).toBe(true);
+      expect(
+        isManagedScanImageUriForRecord(DISPLAY_URI, RECORD_ID, OWNER_ID),
+      ).toBe(true);
+    });
+
+    it('writes a bounded JPEG derivative and removes the temporary file', async () => {
+      seedFile(SOURCE_URI, { mimeType: 'image/jpeg', size: 3_369_178 });
+
+      await expect(
+        writeScanDisplayImage({
+          ownerIdentity: OWNER_ID,
+          recordId: RECORD_ID,
+          sourceHeight: 4000,
+          sourceUri: SOURCE_URI,
+          sourceWidth: 3000,
+        }),
+      ).resolves.toBe(DISPLAY_URI);
+
+      expect(mockManipulateAsync).toHaveBeenCalledWith(
+        SOURCE_URI,
+        [{ resize: { height: 512 } }],
+        { compress: 0.8, format: 'jpeg' },
+      );
+      expect(mockFiles.get(DISPLAY_URI)).toEqual({
+        mimeType: 'image/jpeg',
+        size: 47_200,
+      });
+      expect(mockFiles.has(TEMP_URI)).toBe(false);
+      // The preserved original is untouched.
+      expect(mockFiles.get(SOURCE_URI)?.size).toBe(3_369_178);
+    });
+
+    it('reports the derivative only while it exists and follows a delete', async () => {
+      seedFile(SOURCE_URI, { mimeType: 'image/jpeg', size: 3_369_178 });
+      expect(managedDisplayImageUriIfPresent(SOURCE_URI)).toBeNull();
+
+      await writeScanDisplayImage({
+        ownerIdentity: OWNER_ID,
+        recordId: RECORD_ID,
+        sourceHeight: 4000,
+        sourceUri: SOURCE_URI,
+        sourceWidth: 3000,
+      });
+      expect(managedDisplayImageUriIfPresent(SOURCE_URI)).toBe(DISPLAY_URI);
+
+      deleteManagedScanImage(DISPLAY_URI, OWNER_ID);
+      expect(managedDisplayImageUriIfPresent(SOURCE_URI)).toBeNull();
+    });
+
+    it('keeps the derivative alive with its source and reports it once the source is gone', () => {
+      seedFile(SOURCE_URI, { mimeType: 'image/jpeg', size: 3_369_178 });
+      seedFile(DISPLAY_URI, { mimeType: 'image/jpeg', size: 47_200 });
+
+      expect(findOrphanedManagedImages([SOURCE_URI], OWNER_ID)).toEqual([]);
+
+      const orphaned = findOrphanedManagedImages([], OWNER_ID);
+      expect(orphaned.map((entry) => entry.managedUri).sort()).toEqual([
+        DISPLAY_URI,
+        SOURCE_URI,
+      ]);
+    });
+
+    it('fails with a typed storage error when the derivative cannot be created', async () => {
+      seedFile(SOURCE_URI, { mimeType: 'image/jpeg', size: 3_369_178 });
+      mockManipulateAsync.mockRejectedValue(new Error('Manipulation failed'));
+
+      await expect(
+        writeScanDisplayImage({
+          ownerIdentity: OWNER_ID,
+          recordId: RECORD_ID,
+          sourceHeight: 4000,
+          sourceUri: SOURCE_URI,
+          sourceWidth: 3000,
+        }),
+      ).rejects.toMatchObject({ code: 'IMAGE_PREPARATION_FAILED' });
+      expect(mockFiles.has(DISPLAY_URI)).toBe(false);
+    });
   });
 });

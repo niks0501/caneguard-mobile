@@ -105,7 +105,7 @@ function PreviousVisitDetails({
             testID="field-validation.previous-evidence"
           />
         ) : null}
-        {photoSource ? <ExpoImage accessibilityLabel="Previous field evidence photo" contentFit="cover" source={photoSource} style={styles.photo} /> : null}
+        {photoSource ? <ExpoImage accessibilityLabel="Previous field evidence photo" cachePolicy="memory-disk" contentFit="cover" source={photoSource} style={styles.photo} /> : null}
         {!evidence && !photoSource ? <Text style={[styles.fallback, { color: theme.textSecondary }]}>No previous visit details</Text> : null}
       </View>
     </View>

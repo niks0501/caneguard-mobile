@@ -5,6 +5,7 @@ import { Pressable, Text } from 'react-native';
 import { ToastProvider } from '@/components/ui/Toast';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
+import { useNotificationDestinations } from '@/features/notifications/hooks/useNotificationDestinations';
 import {
   OfficeUpdatesProvider,
   useOfficeUpdates,
@@ -36,6 +37,7 @@ let mockDestinations = new Map<string, NotificationDestination>();
 jest.mock('@/features/notifications/hooks/useNotificationDestinations', () => ({
   useNotificationDestinations: jest.fn(() => mockDestinations),
 }));
+const mockUseNotificationDestinations = jest.mocked(useNotificationDestinations);
 
 const NOTIFICATION: MobileNotification = {
   id: '4e04321c-a879-423f-875d-4cdce5e028a6',
@@ -177,10 +179,29 @@ describe('OfficeUpdatesProvider', () => {
     expect(screen.getByTestId('app-toast')).toHaveTextContent('Updates marked as read');
   });
 
-  it('reads the shared cache once on mount without taking over the focus refresh', async () => {
+  it('leaves the shared cache read to the attention lifecycle', async () => {
     await renderProvider();
 
     expect(useMobileNotifications).toHaveBeenCalledWith(true, false);
-    expect(mockRefreshNotifications).toHaveBeenCalledWith({ force: false });
+    // Home, Activity and the attention lifecycle already start that read, and
+    // the owner store turns repeats into no-ops, so this instance must not add
+    // a fourth entry point of its own.
+    expect(mockRefreshNotifications).not.toHaveBeenCalled();
+  });
+
+  it('resolves notification destinations only once the panel is open', async () => {
+    await renderProvider();
+
+    expect(mockUseNotificationDestinations).toHaveBeenLastCalledWith(
+      expect.anything(),
+      false,
+    );
+
+    await fireEvent.press(screen.getByTestId('consumer.open-button'));
+
+    expect(mockUseNotificationDestinations).toHaveBeenLastCalledWith(
+      expect.anything(),
+      true,
+    );
   });
 });

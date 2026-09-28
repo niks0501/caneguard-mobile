@@ -43,6 +43,15 @@ export const SUBMISSION_IMAGE_QUALITY_STEPS = [
   0.15,
 ] as const;
 
+/**
+ * The no-resize rung only tries its best two quality levels. A source that is
+ * over the target and still over it at quality 0.7 has to be downscaled anyway,
+ * and a resized candidate at 0.85 is both smaller and visually better than a
+ * no-resize candidate at 0.55. Without this bound the rung burns six full
+ * camera-resolution decodes before the ladder reaches the resize it needs.
+ */
+const SUBMISSION_IMAGE_IDENTITY_QUALITY_LIMIT = 2;
+
 const SUBMISSION_IMAGE_MAX_DIMENSIONS = [
   3072,
   2048,
@@ -301,7 +310,13 @@ async function generateSubmissionDerivative(
 
   let lastError: unknown = null;
   for (const dimensions of getDimensionCandidates(sourceWidth, sourceHeight)) {
-    for (const quality of SUBMISSION_IMAGE_QUALITY_STEPS) {
+    const qualitySteps = dimensions
+      ? SUBMISSION_IMAGE_QUALITY_STEPS
+      : SUBMISSION_IMAGE_QUALITY_STEPS.slice(
+          0,
+          SUBMISSION_IMAGE_IDENTITY_QUALITY_LIMIT,
+        );
+    for (const quality of qualitySteps) {
       let candidateUri: string | null = null;
       try {
         const result = await manipulateAsync(

@@ -1,3 +1,5 @@
+import { Directory, File, Paths } from 'expo-file-system';
+
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError } from '@/database/errors';
 import { deleteScanRecordById } from '@/features/records/data/scanRecordRepository';
@@ -39,6 +41,38 @@ describe('deleteScanRecord', () => {
       deleteImage.mock.invocationCallOrder[0],
     );
     expect(deleteImage).toHaveBeenCalledWith(IMAGE_URI, SUBMITTER_ID);
+  });
+
+  it('deletes the display derivative alongside the preserved image', async () => {
+    // The derivative is recorded in no column, so it is derived from the
+    // preserved URI. A document-rooted URI is what makes the managed-path check
+    // recognise it as ours.
+    const ownedImageUri = new File(
+      new Directory(
+        Paths.document,
+        'caneguard',
+        'scan-images',
+        SUBMITTER_ID,
+      ),
+      `${RECORD_ID}.jpg`,
+    ).uri;
+    const ownedDisplayUri = ownedImageUri.replace(/\.jpg$/, '.display.jpg');
+    deleteRecord.mockResolvedValueOnce({
+      managedImageUri: ownedImageUri,
+      submissionImageUri: null,
+    });
+    deleteImage.mockClear();
+
+    await expect(
+      deleteScanRecord(database, RECORD_ID, SUBMITTER_ID, {
+        deleteRecord,
+        deleteImage,
+      }),
+    ).resolves.toEqual({ id: RECORD_ID, imageCleanupError: null });
+
+    expect(deleteImage).toHaveBeenCalledTimes(2);
+    expect(deleteImage).toHaveBeenNthCalledWith(1, ownedImageUri, SUBMITTER_ID);
+    expect(deleteImage).toHaveBeenNthCalledWith(2, ownedDisplayUri, SUBMITTER_ID);
   });
 
   it('cleans a distinct submission derivative and avoids deleting a reused source twice', async () => {

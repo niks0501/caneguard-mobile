@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -93,17 +93,23 @@ export default function HomeScreen() {
     },
   ];
 
-  const openAttentionItem = (item: NeedsAttentionItem) => {
-    if (!item.destination) return;
-    const route = notificationDestinationRoute(item.destination);
-    if (!route) return;
-    if (item.kind === 'notification') {
-      // Acknowledgment is best effort: a failed read mutation never blocks the
-      // inspector from opening the destination.
-      void attention.markRead(item.id.replace(/^notification-/, ''));
-    }
-    router.push(route as never);
-  };
+  // Stable identity so the memoized attention rows can skip re-rendering when
+  // only unrelated Home state changes.
+  const markAttentionRead = attention.markRead;
+  const openAttentionItem = useCallback(
+    (item: NeedsAttentionItem) => {
+      if (!item.destination) return;
+      const route = notificationDestinationRoute(item.destination);
+      if (!route) return;
+      if (item.kind === 'notification') {
+        // Acknowledgment is best effort: a failed read mutation never blocks the
+        // inspector from opening the destination.
+        void markAttentionRead(item.id.replace(/^notification-/, ''));
+      }
+      router.push(route as never);
+    },
+    [markAttentionRead],
+  );
 
   return (
     <SafeAreaView

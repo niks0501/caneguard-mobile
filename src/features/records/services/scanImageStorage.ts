@@ -1,4 +1,5 @@
 import { Directory, File, Paths } from 'expo-file-system';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 import { StorageError, toStorageError } from '@/database/errors';
 import {
@@ -35,6 +36,15 @@ const EXTENSION_TO_MIME: Readonly<Record<string, string>> = {
 const FALLBACK_EXTENSION = 'img';
 const BACKUP_SUFFIX = '.backup';
 const LEGACY_MANAGED_IMAGE_ROOTS = ['file:///caneguard'] as const;
+
+/**
+ * Long-edge bound of the display derivative. A phone list row shows a 72 pt
+ * square and the detail frames are at most 390 pt wide, so 512 px covers a 3x
+ * screen without making every row decode a camera-resolution file.
+ */
+export const SCAN_DISPLAY_IMAGE_MAX_DIMENSION = 512;
+export const SCAN_DISPLAY_IMAGE_COMPRESS = 0.8;
+const DISPLAY_SUFFIX = '.display';
 
 export interface CopyScanImageInput {
   ownerIdentity: string;
@@ -113,6 +123,64 @@ export function getSubmissionImageUri(
     ensureManagedScanImageDirectory(ownerIdentity),
     `${recordId}.submission.jpg`,
   ).uri;
+}
+
+export function getDisplayImageUri(
+  recordId: string,
+  ownerIdentity: string,
+): string {
+  if (!UUID_V4_PATTERN.test(recordId)) {
+    throw new StorageError(
+      'INVALID_SCAN_RECORD',
+      'The scan record ID is not UUIDv4.',
+    );
+  }
+
+  return new File(
+    ensureManagedScanImageDirectory(ownerIdentity),
+    `${recordId}${DISPLAY_SUFFIX}.jpg`,
+  ).uri;
+}
+
+/**
+ * Bounds the long edge, not the width: a portrait capture bounded on width
+ * would still be taller than the bound and would stay oversized.
+ */
+export function getDisplayImageResizeAction(
+  sourceWidth: number | null,
+  sourceHeight: number | null,
+): { height: number } | { width: number } {
+  const usable =
+    typeof sourceWidth === 'number' &&
+    Number.isFinite(sourceWidth) &&
+    sourceWidth > 0 &&
+    typeof sourceHeight === 'number' &&
+    Number.isFinite(sourceHeight) &&
+    sourceHeight > 0;
+
+  if (usable && sourceHeight > sourceWidth) {
+    return { height: SCAN_DISPLAY_IMAGE_MAX_DIMENSION };
+  }
+  return { width: SCAN_DISPLAY_IMAGE_MAX_DIMENSION };
+}
+
+/**
+ * Derives the display derivative URI from a preserved scan image URI. Purely
+ * string-based, so a caller can ask for the sibling without touching the file
+ * system first. Always JPEG: the derivative is always re-encoded.
+ */
+export function managedDisplayImageUri(
+  managedImageUri: string,
+): string | null {
+  const recordPart = readManagedImageRecordPart(managedImageUri);
+  if (!recordPart || recordPart.endsWith(DISPLAY_SUFFIX)) {
+    return null;
+  }
+  const separatorIndex = managedImageUri.lastIndexOf('/');
+  if (separatorIndex <= 0) {
+    return null;
+  }
+  return `${managedImageUri.slice(0, separatorIndex)}/${recordPart}${DISPLAY_SUFFIX}.jpg`;
 }
 
 export function resolveImageFormat(input: {
@@ -215,6 +283,96 @@ export function managedImageExists(uri: string): boolean {
   return isManagedScanImageUri(uri) && new File(uri).exists;
 }
 
+/**
+ * The display derivative to render for a preserved scan image, or `null` when
+ * the derivative has not been generated. Callers fall back to the preserved
+ * original, so a missing derivative is never a broken image.
+ *
+ * The existence check is a synchronous stat on purpose. A process-lifetime
+ * memo would answer `false` for a derivative written after the first look and
+ * would grow one entry per record the inspector ever scrolled past; a stat on
+ * the handful of rows a virtualized list actually mounts is cheaper than both.
+ */
+export function managedDisplayImageUriIfPresent(
+  managedImageUri: string,
+): string | null {
+  const displayUri = managedDisplayImageUri(managedImageUri);
+  if (!displayUri) {
+    return null;
+  }
+
+  try {
+    return new File(displayUri).exists ? displayUri : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Writes the small display derivative for an already-preserved scan image.
+ * Best effort by contract: a failure leaves the preserved original in place and
+ * callers keep rendering it, so a scan save is never blocked by this step.
+ */
+export async function writeScanDisplayImage(input: {
+  ownerIdentity: string;
+  recordId: string;
+  sourceHeight: number | null;
+  sourceUri: string;
+  sourceWidth: number | null;
+}): Promise<string> {
+  const source = new File(input.sourceUri);
+  if (!source.exists) {
+    throw new StorageError('IMAGE_NOT_FOUND', 'The scan image to downscale does not exist.');
+  }
+
+  const destinationUri = getDisplayImageUri(input.recordId, input.ownerIdentity);
+  let candidateUri: string | null = null;
+
+  try {
+    const result = await manipulateAsync(
+      input.sourceUri,
+      [{ resize: getDisplayImageResizeAction(input.sourceWidth, input.sourceHeight) }],
+      {
+        compress: SCAN_DISPLAY_IMAGE_COMPRESS,
+        format: SaveFormat.JPEG,
+      },
+    );
+    candidateUri = result.uri;
+
+    const candidate = new File(candidateUri);
+    if (!candidate.exists) {
+      throw new Error('The display derivative was not created.');
+    }
+
+    const destination = new File(destinationUri);
+    // The derivative is regenerable, and a retried save must not be blocked by a
+    // stale file left by an interrupted earlier attempt.
+    await candidate.copy(destination, { overwrite: true });
+    if (!destination.exists) {
+      throw new Error('The display derivative was not persisted.');
+    }
+
+    return destinationUri;
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'IMAGE_PREPARATION_FAILED',
+      'The scan display image could not be prepared.',
+    );
+  } finally {
+    if (candidateUri && candidateUri !== destinationUri) {
+      try {
+        const temporary = new File(candidateUri);
+        if (temporary.exists) {
+          temporary.delete();
+        }
+      } catch {
+        // The temporary is regenerable; a stuck temp file is not a save failure.
+      }
+    }
+  }
+}
+
 export function readManagedImageMetadata(uri: string): ManagedImageMetadata | null {
   if (!isManagedScanImageUri(uri)) {
     return null;
@@ -291,14 +449,31 @@ export function findOrphanedManagedImages(
     referencedManagedUris instanceof Set
       ? referencedManagedUris
       : new Set(referencedManagedUris);
+  // A display derivative has no column of its own, so it counts as referenced
+  // exactly when the preserved scan image it was generated from is referenced.
+  const referencedRecordIds = new Set(
+    [...referenced]
+      .map((uri) => readManagedImageRecordPart(uri))
+      .filter((recordId): recordId is string => Boolean(recordId)),
+  );
   ensureManagedScanImageDirectory(ownerIdentity);
 
   return listManagedScanImageFiles()
-    .filter(
-      (file) =>
-        isManagedImageOwnedBy(file.uri, ownerIdentity) &&
-        !referenced.has(file.uri),
-    )
+    .filter((file) => {
+      if (!isManagedImageOwnedBy(file.uri, ownerIdentity)) {
+        return false;
+      }
+      if (referenced.has(file.uri)) {
+        return false;
+      }
+      const recordPart = readManagedImageRecordPart(file.uri);
+      if (recordPart?.endsWith(DISPLAY_SUFFIX)) {
+        return !referencedRecordIds.has(
+          recordPart.slice(0, -DISPLAY_SUFFIX.length),
+        );
+      }
+      return true;
+    })
     .map((file) => readManagedImageMetadata(file.uri))
     .filter((metadata): metadata is ManagedImageMetadata => metadata !== null);
 }
@@ -323,7 +498,11 @@ export function isManagedScanImageUriForRecord(
     return false;
   }
   const recordPart = readManagedImageRecordPart(uri);
-  return recordPart === recordId || recordPart === `${recordId}.submission`;
+  return (
+    recordPart === recordId ||
+    recordPart === `${recordId}.submission` ||
+    recordPart === `${recordId}${DISPLAY_SUFFIX}`
+  );
 }
 
 export function isManagedScanImageUri(uri: string): boolean {
@@ -374,16 +553,28 @@ function isManagedImageFilename(filename: string): boolean {
   }
 
   const basename = imageFilename.slice(0, separatorIndex);
-  const recordId = basename.endsWith('.submission')
-    ? basename.slice(0, -'.submission'.length)
-    : basename;
+  const recordId = readRecordIdFromImageBasename(basename);
   const extension = normalizeExtension(imageFilename.slice(separatorIndex));
 
   return (
-    UUID_V4_PATTERN.test(recordId) &&
-    (basename === recordId || basename === `${recordId}.submission`) &&
+    recordId !== null &&
     (extension === FALLBACK_EXTENSION || Boolean(extension && EXTENSION_TO_MIME[extension]))
   );
+}
+
+/**
+ * The single place that decides which managed image basenames belong to a scan
+ * record. A derivative keeps the record id and appends its own suffix, so the
+ * suffix list and the UUID check stay together here.
+ */
+function readRecordIdFromImageBasename(basename: string): string | null {
+  for (const suffix of ['.submission', DISPLAY_SUFFIX]) {
+    if (basename.endsWith(suffix)) {
+      const recordId = basename.slice(0, -suffix.length);
+      return UUID_V4_PATTERN.test(recordId) ? recordId : null;
+    }
+  }
+  return UUID_V4_PATTERN.test(basename) ? basename : null;
 }
 
 function validateCopyInput(input: CopyScanImageInput): void {

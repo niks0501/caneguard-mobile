@@ -1,10 +1,19 @@
 import { Feather } from '@expo/vector-icons';
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+
+/**
+ * The panel is a content-sized card capped at 72% of the viewport, so its list
+ * cannot own a virtualized viewport. Only this many newest updates are ever
+ * drawn, which keeps the panel's first paint and scroll cost independent of the
+ * cached notification history.
+ */
+export const RECENT_NOTIFICATION_COUNT = 10;
 
 export function NotificationInbox({
   destinations,
@@ -26,9 +35,19 @@ export function NotificationInbox({
   unreadCount: number;
 }) {
   const theme = useTheme();
-  const recent = [...notifications]
-    .sort((first, second) => Date.parse(second.createdAt ?? '') - Date.parse(first.createdAt ?? ''))
-    .slice(0, 10);
+  // Sorting the whole cached notification history on every parent render is
+  // what scales with the cache size. The panel only ever shows the newest ten,
+  // so the sort is derived once per notification change.
+  const recent = useMemo(
+    () =>
+      [...notifications]
+        .sort(
+          (first, second) =>
+            Date.parse(second.createdAt ?? '') - Date.parse(first.createdAt ?? ''),
+        )
+        .slice(0, RECENT_NOTIFICATION_COUNT),
+    [notifications],
+  );
 
   return (
     <View testID="activity.notifications" style={styles.container}>

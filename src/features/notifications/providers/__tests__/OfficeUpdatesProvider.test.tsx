@@ -123,6 +123,23 @@ describe('OfficeUpdatesProvider', () => {
     expect(screen.queryByTestId('office-updates.panel')).not.toBeOnTheScreen();
   });
 
+  it('closes the floating panel from its header exit control', async () => {
+    mockNotificationsState = {
+      ...mockNotificationsState,
+      notifications: [NOTIFICATION],
+      unreadCount: 1,
+    };
+
+    await renderProvider();
+    await fireEvent.press(screen.getByTestId('consumer.open-button'));
+    expect(screen.getByTestId('office-updates.panel')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('office-updates.close'));
+
+    expect(screen.getByTestId('consumer.open')).toHaveTextContent('closed');
+    expect(screen.queryByTestId('office-updates.panel')).not.toBeOnTheScreen();
+  });
+
   it('acknowledges a tapped update and opens its destination from the panel', async () => {
     mockNotificationsState = {
       ...mockNotificationsState,

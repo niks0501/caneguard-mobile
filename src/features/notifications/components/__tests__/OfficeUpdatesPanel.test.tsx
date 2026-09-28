@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { type ComponentProps } from 'react';
+import { StyleSheet } from 'react-native';
 
+import { OFFICE_UPDATES_PANEL_CLOSE_LABEL } from '@/constants/copy';
 import { OfficeUpdatesPanel } from '@/features/notifications/components/OfficeUpdatesPanel';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 
@@ -56,6 +58,29 @@ describe('OfficeUpdatesPanel', () => {
     expect(screen.getByText(NOTIFICATION.title)).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByTestId('office-updates.scrim'));
+
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('centers the panel in the viewport while keeping the content column capped', async () => {
+    await renderPanel();
+
+    const rootStyle = StyleSheet.flatten(screen.getByTestId('office-updates.root').props.style);
+    expect(rootStyle.justifyContent).toBe('center');
+    expect(rootStyle.alignItems).toBe('center');
+
+    const panelStyle = StyleSheet.flatten(screen.getByTestId('office-updates.panel').props.style);
+    expect(panelStyle.width).toBe('100%');
+    expect(panelStyle.maxWidth).toBeDefined();
+  });
+
+  it('closes from the header exit control using the canonical label', async () => {
+    const { props } = await renderPanel();
+
+    const close = screen.getByTestId('office-updates.close');
+    expect(close).toHaveProp('accessibilityLabel', OFFICE_UPDATES_PANEL_CLOSE_LABEL);
+
+    await fireEvent.press(close);
 
     expect(props.onClose).toHaveBeenCalledTimes(1);
   });

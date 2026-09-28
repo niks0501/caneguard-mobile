@@ -49,10 +49,16 @@ export function AssignmentCard({
             <Feather name="clipboard" size={14} color={theme.primary} />
             <Text style={[styles.assignmentTagText, { color: theme.primary }]}>Assignment</Text>
           </View>
-          <Text style={[styles.reference, { color: theme.primaryDark }]}>
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[styles.reference, { color: theme.primaryDark }]}>
             {assignment.referenceCode}
           </Text>
-          <Text style={[styles.location, { color: theme.textSecondary }]}>
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[styles.location, { color: theme.textSecondary }]}>
             {assignment.case.barangay}
           </Text>
         </View>
@@ -84,7 +90,12 @@ function Detail({
   return (
     <View style={styles.detail}>
       <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>{label}</Text>
-      <Text style={[styles.detailValue, { color: theme.primaryDark }]} numberOfLines={2}>{value}</Text>
+      <Text
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        style={[styles.detailValue, { color: theme.primaryDark }]}>
+        {value}
+      </Text>
     </View>
   );
 }

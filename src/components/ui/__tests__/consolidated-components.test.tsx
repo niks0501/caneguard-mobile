@@ -117,12 +117,22 @@ describe('Consolidated UI components', () => {
       expect(screen.getByText('Healthy')).toBeOnTheScreen();
     });
 
-    it('renders DiseasePill for all supported variants', async () => {
+    it('renders DiseasePill with the disease name only', async () => {
       const { rerender } = await render(<DiseasePill variant="mosaic" testID="disease-pill" />);
-      expect(screen.getByText('Possible Condition: Mosaic')).toBeOnTheScreen();
+      expect(screen.getByText('Mosaic')).toBeOnTheScreen();
+      expect(screen.queryByText(/Possible Condition/)).not.toBeOnTheScreen();
 
       await rerender(<DiseasePill variant="rust" testID="disease-pill" />);
-      expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
+      expect(screen.getByText('Rust')).toBeOnTheScreen();
+
+      await rerender(<DiseasePill variant="smut" testID="disease-pill" />);
+      expect(screen.getByText('Smut')).toBeOnTheScreen();
+
+      await rerender(<DiseasePill variant="healthy" testID="disease-pill" />);
+      expect(screen.getByText('No supported disease detected')).toBeOnTheScreen();
+
+      await rerender(<DiseasePill variant="unclear" testID="disease-pill" />);
+      expect(screen.getByText('Unclear')).toBeOnTheScreen();
     });
   });
 

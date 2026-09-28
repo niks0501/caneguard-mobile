@@ -37,6 +37,7 @@ import { LOCATION_ADDED, LOCATION_UNCONFIRMED } from '@/constants/copy';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { returnToTab } from '@/features/navigation/returnToTab';
 import { BarangayPicker } from '@/features/reports/components/BarangayPicker';
 import { PossibleRecentMatchWarning } from '@/features/reports/components/PossibleRecentMatchWarning';
 import { RegionPicker } from '@/features/reports/components/RegionPicker';
@@ -284,7 +285,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   // dialog is suppressed while finalized and cleared on finalize success.
   const handleFinalizedBack = useCallback(() => {
     setShowCancelConfirm(false);
-    router.replace('/home');
+    returnToTab('/home');
   }, []);
 
   // Android hardware back must return home from a finalized report instead of
@@ -510,7 +511,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   const handleKeepDraft = async () => {
     setShowCancelConfirm(false);
     if (isFinalized) {
-      router.replace('/home');
+      returnToTab('/home');
       return;
     }
     if (report.data) {
@@ -524,13 +525,13 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       }
     }
     showToast('Draft saved', 'success');
-    router.replace('/home');
+    returnToTab('/home');
   };
 
   const handleDiscardDraft = async () => {
     setShowCancelConfirm(false);
     if (isFinalized) {
-      router.replace('/home');
+      returnToTab('/home');
       return;
     }
     if (report.data) {
@@ -541,7 +542,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       }
     }
     showToast('Draft discarded', 'info');
-    router.replace('/home');
+    returnToTab('/home');
   };
 
   const handleSave = async () => {
@@ -822,7 +823,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
             </AppButton>
             <AppButton
               testID="field-report.error-return-home"
-              onPress={() => router.replace('/home')}
+              onPress={() => returnToTab('/home')}
               variant="secondary"
               leadingIcon="home">
               Return Home

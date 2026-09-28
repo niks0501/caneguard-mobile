@@ -1,8 +1,12 @@
 import { Feather } from '@expo/vector-icons';
+import { Image as ExpoImage } from 'expo-image';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DiseasePill, type DiseasePillVariant } from '@/components/ui/DiseasePill';
+import { ASSIGNMENT_PHOTO_PLACEHOLDER } from '@/constants/copy';
 import { ComponentTokens, Radius, Spacing, Typography } from '@/constants/theme';
+import { useAssignmentPhotoUri } from '@/features/activity/hooks/useAssignmentPhoto';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import {
   formatTodayDueLine,
@@ -25,6 +29,7 @@ export function AssignmentCard({
   testID?: string;
 }) {
   const theme = useTheme();
+  const photoUri = useAssignmentPhotoUri(assignment);
   const variant = toPillVariant(assignment.case.predictedLabel);
   const target = assignment.targetVisitDate
     ? formatDate(assignment.targetVisitDate)
@@ -43,38 +48,92 @@ export function AssignmentCard({
           styles.card,
           { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
         ]}>
-      <View style={styles.header}>
-        <View style={styles.titleBlock}>
-          <View style={[styles.assignmentTag, { backgroundColor: theme.infoBg }]}>
-            <Feather name="clipboard" size={14} color={theme.primary} />
-            <Text style={[styles.assignmentTagText, { color: theme.primary }]}>Assignment</Text>
+        <View style={styles.body}>
+          <AssignmentPhoto
+            referenceCode={assignment.referenceCode}
+            uri={photoUri}
+          />
+          <View style={styles.titleBlock}>
+            <View style={[styles.assignmentTag, { backgroundColor: theme.infoBg }]}>
+              <Feather name="clipboard" size={14} color={theme.primary} />
+              <Text style={[styles.assignmentTagText, { color: theme.primary }]}>Assignment</Text>
+            </View>
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={[styles.reference, { color: theme.primaryDark }]}>
+              {assignment.referenceCode}
+            </Text>
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={[styles.location, { color: theme.textSecondary }]}>
+              {assignment.case.barangay}
+            </Text>
           </View>
-          <Text
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            style={[styles.reference, { color: theme.primaryDark }]}>
-            {assignment.referenceCode}
-          </Text>
-          <Text
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            style={[styles.location, { color: theme.textSecondary }]}>
-            {assignment.case.barangay}
-          </Text>
         </View>
         <DiseasePill variant={variant} />
-      </View>
-      <View style={[styles.details, { borderTopColor: theme.divider }]}>
-        {dueState ? (
-          <Detail label="Due" value={formatTodayDueLine(assignment, today ?? getLocalDateKey())} theme={theme} />
-        ) : (
-          <Detail label="Visit" value={target} theme={theme} />
-        )}
-        <Detail label="Submitted by" value={assignment.submitter.name} theme={theme} />
-        <Detail label="Status" value={stateLabel(assignment.fieldValidationState)} theme={theme} />
-      </View>
+        <View style={[styles.details, { borderTopColor: theme.divider }]}>
+          {dueState ? (
+            <Detail label="Due" value={formatTodayDueLine(assignment, today ?? getLocalDateKey())} theme={theme} />
+          ) : (
+            <Detail label="Visit" value={target} theme={theme} />
+          )}
+          <Detail label="Submitted by" value={assignment.submitter.name} theme={theme} />
+          <Detail label="Status" value={stateLabel(assignment.fieldValidationState)} theme={theme} />
+        </View>
       </View>
     </Pressable>
+  );
+}
+
+/**
+ * One fixed-size photo frame. A stored picture and the designed placeholder
+ * share the frame, so the card never opens a hole and heights stay put.
+ */
+function AssignmentPhoto({
+  referenceCode,
+  uri,
+}: {
+  referenceCode: string;
+  uri: string | null;
+}) {
+  const theme = useTheme();
+  const [failedUri, setFailedUri] = useState<string | null>(null);
+  // A new URI is shown again without an effect: only the URI that actually
+  // failed falls back to the placeholder.
+  const photoUri = uri && uri !== failedUri ? uri : null;
+
+  return (
+    <View
+      style={[
+        styles.photo,
+        { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+        photoUri ? null : styles.photoPlaceholderFrame,
+      ]}
+      testID="assignment.photo">
+      {photoUri ? (
+        <ExpoImage
+          accessibilityLabel={`Case photo for ${referenceCode}`}
+          contentFit="cover"
+          onError={() => setFailedUri(photoUri)}
+          source={{ uri: photoUri }}
+          style={styles.photoImage}
+          testID="assignment.photo.image"
+        />
+      ) : (
+        <View
+          style={styles.photoPlaceholder}
+          testID="assignment.photo.placeholder">
+          <Feather name="image" size={20} color={theme.textSecondary} />
+          <Text
+            numberOfLines={1}
+            style={[styles.photoPlaceholderLabel, { color: theme.textSecondary }]}>
+            {ASSIGNMENT_PHOTO_PLACEHOLDER}
+          </Text>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -134,12 +193,23 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     gap: Spacing.md,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
+  body: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
+  photo: {
+    width: 72,
+    height: 72,
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
   },
+  photoImage: { width: '100%', height: '100%' },
+  photoPlaceholderFrame: { borderWidth: 1, borderStyle: 'dashed' },
+  photoPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.xs,
+  },
+  photoPlaceholderLabel: { ...Typography.caption, textAlign: 'center' },
   titleBlock: { flex: 1, gap: Spacing.xs },
   assignmentTag: {
     alignSelf: 'flex-start',

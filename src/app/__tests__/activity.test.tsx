@@ -152,6 +152,18 @@ const NOTIFICATION = {
   cachedAt: '2026-08-13T12:05:00.000Z',
 };
 
+function largeHistory(count: number): ScanRecordListItem[] {
+  return Array.from({ length: count }, (_, index) => ({
+    ...SCAN,
+    createdAt: new Date(Date.UTC(2026, 6, 1, 0, index)).toISOString(),
+    id: `record-${index}`,
+  }));
+}
+
+function mountedHistoryRows() {
+  return screen.queryAllByTestId(/^activity\.(item\.record-|latest-record)/);
+}
+
 describe('ActivityScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -274,19 +286,61 @@ describe('ActivityScreen', () => {
   it('orders history timeline by reverse chronological timestamp', async () => {
     await render(<ActivityScreen />);
 
-    const timeline = screen.getByTestId('activity.timeline');
-    expect(timeline).toBeOnTheScreen();
+    expect(screen.getByTestId('activity.timeline')).toBeOnTheScreen();
     expect(screen.queryByTestId('activity.needs-attention')).not.toBeOnTheScreen();
 
     expect(screen.getByTestId(`activity.assignment.${ASSIGNMENT.id}`)).toBeOnTheScreen();
     expect(screen.getByTestId('activity.latest-record')).toBeOnTheScreen();
     expect(screen.getByTestId(`activity.item.${SCAN.id}`)).toBeOnTheScreen();
 
-    const renderedNodes = timeline.props.children;
-    expect(renderedNodes).toHaveLength(3);
-    expect(renderedNodes[0].key).toBe(`assignment-${ASSIGNMENT.id}`);
-    expect(renderedNodes[1].key).toBe(REPORT.id);
-    expect(renderedNodes[2].key).toBe(SCAN.id);
+    // Reverse chronological order: assignment (13 Aug), report (26 Jul), scan (25 Jul).
+    const tree = JSON.stringify(screen.toJSON());
+    const order = [
+      `testID":"activity.assignment.${ASSIGNMENT.id}`,
+      'testID":"activity.latest-record',
+      `testID":"activity.item.${SCAN.id}`,
+    ];
+    expect(order.every((entry) => tree.includes(entry))).toBe(true);
+    expect([...order].sort((a, b) => tree.indexOf(a) - tree.indexOf(b))).toEqual(order);
+  });
+
+  it('mounts a window of a large history instead of every row', async () => {
+    mockRecordsState = {
+      ...mockRecordsState,
+      data: largeHistory(300),
+    };
+
+    await render(<ActivityScreen />);
+
+    expect(screen.getByText('301 activity items')).toBeOnTheScreen();
+    // Newest row is drawn, and the tail of the history stays unmounted.
+    expect(screen.getByTestId('activity.latest-record')).toBeOnTheScreen();
+    expect(screen.queryByTestId('activity.item.record-0')).not.toBeOnTheScreen();
+    expect(mountedHistoryRows().length).toBeLessThan(40);
+  });
+
+  it('keeps the mounted window bounded while scrolling a large history', async () => {
+    mockRecordsState = {
+      ...mockRecordsState,
+      data: largeHistory(300),
+    };
+
+    await render(<ActivityScreen />);
+    const firstWindow = mountedHistoryRows().map((node) => node.props.testID);
+    expect(firstWindow.length).toBeLessThan(40);
+
+    await fireEvent.scroll(screen.getByTestId('activity.timeline'), {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 20000 },
+        contentSize: { height: 30100, width: 400 },
+        layoutMeasurement: { height: 900, width: 400 },
+      },
+    });
+
+    const scrolledWindow = mountedHistoryRows().map((node) => node.props.testID);
+    // Scrolling reaches different rows without growing the mounted window.
+    expect(scrolledWindow).not.toEqual(firstWindow);
+    expect(scrolledWindow.length).toBeLessThan(40);
   });
 
   it('opens a cached assignment in the field validation flow', async () => {

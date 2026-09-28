@@ -26,6 +26,9 @@ export const OFFICE_UPDATES_PANEL_CLOSE_LABEL = 'Close office updates';
 
 export const OFFICE_UPDATES_MARKED_READ = 'Updates marked as read';
 
+/** Assignment card photo block when no case picture is stored on this device. */
+export const ASSIGNMENT_PHOTO_PLACEHOLDER = 'No photo';
+
 /** Activity tab, with the unread count when there is one. */
 export function activityTabLabel(count: number): string {
   return count > 0 ? `Activity, ${officeUpdatesPillLabel(count)} unread` : 'Activity';

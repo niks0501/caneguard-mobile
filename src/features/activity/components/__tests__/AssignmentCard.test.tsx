@@ -1,7 +1,17 @@
-import { render, screen } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
+import { ASSIGNMENT_PHOTO_PLACEHOLDER } from '@/constants/copy';
 import { AssignmentCard } from '@/features/activity/components/AssignmentCard';
+import { useAssignmentPhotoUri } from '@/features/activity/hooks/useAssignmentPhoto';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
+
+jest.mock('@/features/activity/hooks/useAssignmentPhoto', () => ({
+  useAssignmentPhotoUri: jest.fn(() => null),
+}));
+
+const mockUseAssignmentPhotoUri = jest.mocked(useAssignmentPhotoUri);
+const STORED_PHOTO_URI = 'file:///documents/caneguard/scan-images/case.jpg';
 
 type JsonNode = { type?: string; props?: { testID?: string; numberOfLines?: number }; children?: unknown };
 
@@ -73,6 +83,10 @@ const LONG_ASSIGNMENT: FieldValidationAssignment = {
 };
 
 describe('AssignmentCard', () => {
+  beforeEach(() => {
+    mockUseAssignmentPhotoUri.mockReturnValue(null);
+  });
+
   it('renders exactly one due row when a due state is shown', async () => {
     await render(
       <AssignmentCard assignment={ASSIGNMENT} dueState="today" today="2026-08-20" />,
@@ -123,4 +137,68 @@ describe('AssignmentCard', () => {
     expect(shortCaps).toEqual(longCaps);
     expect(shortCaps.every((cap) => cap === undefined || cap === 1)).toBe(true);
   });
+
+  it('shows the stored case picture for the assignment', async () => {
+    mockUseAssignmentPhotoUri.mockReturnValue(STORED_PHOTO_URI);
+    await render(<AssignmentCard assignment={ASSIGNMENT} />);
+
+    expect(screen.getByTestId('assignment.photo.image')).toHaveProp('source', {
+      uri: STORED_PHOTO_URI,
+    });
+    expect(screen.queryByTestId('assignment.photo.placeholder')).not.toBeOnTheScreen();
+  });
+
+  it('renders the designed placeholder when no picture is stored', async () => {
+    await render(<AssignmentCard assignment={ASSIGNMENT} />);
+
+    expect(screen.getByTestId('assignment.photo.placeholder')).toBeOnTheScreen();
+    expect(screen.getByText(ASSIGNMENT_PHOTO_PLACEHOLDER)).toBeOnTheScreen();
+    expect(screen.queryByTestId('assignment.photo.image')).not.toBeOnTheScreen();
+  });
+
+  it('falls back to the placeholder when a stored picture cannot be loaded', async () => {
+    mockUseAssignmentPhotoUri.mockReturnValue(STORED_PHOTO_URI);
+    await render(<AssignmentCard assignment={ASSIGNMENT} />);
+
+    await act(() => screen.getByTestId('assignment.photo.image').props.onError());
+
+    expect(screen.getByTestId('assignment.photo.placeholder')).toBeOnTheScreen();
+    expect(screen.queryByTestId('assignment.photo.image')).not.toBeOnTheScreen();
+  });
+
+  it('keeps one photo frame size for loaded, missing, and long content', async () => {
+    mockUseAssignmentPhotoUri.mockReturnValue(STORED_PHOTO_URI);
+    const view = await render(<AssignmentCard assignment={ASSIGNMENT} />);
+    expect(photoFrameSize()).toEqual({ height: 72, width: 72 });
+
+    mockUseAssignmentPhotoUri.mockReturnValue(null);
+    await view.rerender(
+      <>
+        <AssignmentCard assignment={ASSIGNMENT} testID="assignment.short" />
+        <AssignmentCard assignment={LONG_ASSIGNMENT} testID="assignment.long" />
+      </>,
+    );
+
+    const frames = screen.getAllByTestId('assignment.photo');
+    expect(frames).toHaveLength(2);
+    frames.forEach((frame) => {
+      expect(flattenedSize(frame.props.style)).toEqual({ height: 72, width: 72 });
+    });
+  });
+
+  it('keeps the assignment pill to the disease name only', async () => {
+    await render(<AssignmentCard assignment={ASSIGNMENT} />);
+
+    expect(screen.getByText('Rust')).toBeOnTheScreen();
+    expect(screen.queryByText(/Possible Condition/)).not.toBeOnTheScreen();
+  });
 });
+
+function photoFrameSize(): { height: number; width: number } {
+  return flattenedSize(screen.getByTestId('assignment.photo').props.style);
+}
+
+function flattenedSize(style: unknown): { height: number; width: number } {
+  const flattened = StyleSheet.flatten(style) as { height: number; width: number };
+  return { height: flattened.height, width: flattened.width };
+}

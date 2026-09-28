@@ -1,9 +1,10 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -212,6 +213,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     report.data?.authoringState === 'finalized' &&
       report.data.syncStatus === 'synced',
   );
+  const isFinalized = report.data?.authoringState === 'finalized';
 
   const [currentStep, setCurrentStep] = useState<number>(
     resolvedInitialStep >= 1 && resolvedInitialStep <= 5 ? resolvedInitialStep : 1,
@@ -277,6 +279,28 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     reporterObservationText: report.data?.reporterObservationText ?? '',
     reporterSuspectedCondition: report.data?.reporterSuspectedCondition ?? '',
   }));
+
+  // A finalized report must never keep draft-exit handling: the draft cancel
+  // dialog is suppressed while finalized and cleared on finalize success.
+  const handleFinalizedBack = useCallback(() => {
+    setShowCancelConfirm(false);
+    router.replace('/home');
+  }, []);
+
+  // Android hardware back must return home from a finalized report instead of
+  // falling back to the draft exit path.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android' || !isFinalized) {
+        return undefined;
+      }
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        handleFinalizedBack();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [handleFinalizedBack, isFinalized]),
+  );
 
   // Hydrate state when draft loads or changes ID
   if (report.data && loadedReportId !== report.data.id) {
@@ -476,8 +500,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   };
 
   const handleCancel = () => {
-    if (report.data?.authoringState === 'finalized') {
-      router.back();
+    if (isFinalized) {
+      handleFinalizedBack();
       return;
     }
     setShowCancelConfirm(true);
@@ -485,6 +509,10 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
 
   const handleKeepDraft = async () => {
     setShowCancelConfirm(false);
+    if (isFinalized) {
+      router.replace('/home');
+      return;
+    }
     if (report.data) {
       const values = collectValues(false);
       if (values) {
@@ -501,6 +529,10 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
 
   const handleDiscardDraft = async () => {
     setShowCancelConfirm(false);
+    if (isFinalized) {
+      router.replace('/home');
+      return;
+    }
     if (report.data) {
       try {
         await report.discardDraft();
@@ -556,6 +588,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     // only a confirmed success closes it.
     const finalized = await finalizeAndSync(pendingFinalizeValues);
     if (finalized) {
+      setShowCancelConfirm(false);
       setShowFinalizeConfirm(false);
       setFinalizeError(null);
       setPendingFinalizeValues(null);
@@ -767,8 +800,9 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
               ? 'Finalized Field Report'
               : 'Field Report Draft'
           }
-          showClose={report.data?.authoringState !== 'finalized'}
+          showClose={!isFinalized}
           onClosePress={handleCancel}
+          onBackPress={isFinalized ? handleFinalizedBack : undefined}
           closeTestID="field-report.header-close"
         />
         {report.loading && !report.data ? (
@@ -865,6 +899,14 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                         {retrying ? 'Sending…' : 'Send Report'}
                       </AppButton>
                     ) : null}
+
+                    <AppButton
+                      testID="field-report.return-home"
+                      onPress={handleFinalizedBack}
+                      variant="secondary"
+                      leadingIcon="home">
+                      Return Home
+                    </AppButton>
 
                     <InheritedScanEvidence
                       record={record.data}
@@ -1297,7 +1339,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
           </KeyboardAvoidingView>
         ) : null}
         <ConfirmDialog
-          visible={showCancelConfirm}
+          visible={showCancelConfirm && !isFinalized}
           title="Cancel field report?"
           message="Do you want to keep your field report as a draft or discard it before returning home?"
           cancelLabel="Keep draft"

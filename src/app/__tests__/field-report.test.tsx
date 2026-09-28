@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Linking } from 'react-native';
+import { BackHandler, Linking, Platform } from 'react-native';
 
 import FieldReportScreen from '@/app/field-report';
 import { ToastProvider } from '@/components/ui/Toast';
@@ -1921,6 +1921,120 @@ describe('FieldReportScreen', () => {
       await act(async () => undefined);
 
       expect(screen.queryByTestId('field-report.header-close')).toBeNull();
+    });
+  });
+
+  describe('finalized exit navigation', () => {
+    const finalizedReport = () =>
+      draft({
+        authoringState: 'finalized',
+        syncStatus: 'synced',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+      });
+
+    it('offers a Return Home action on the finalized view', async () => {
+      mockDraftState.data = finalizedReport();
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+
+      expect(screen.getByTestId('field-report.return-home')).toBeOnTheScreen();
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.return-home'));
+      });
+
+      expect(router.replace).toHaveBeenCalledWith('/home');
+    });
+
+    it('routes home from the header back action on a finalized report', async () => {
+      mockDraftState.data = finalizedReport();
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+
+      await act(async () => {
+        fireEvent.press(screen.getByLabelText('Go back'));
+      });
+
+      expect(router.replace).toHaveBeenCalledWith('/home');
+      expect(router.back).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('field-report.cancel-dialog')).not.toBeOnTheScreen();
+    });
+
+    it('routes home from the hardware back action on a finalized report', async () => {
+      const platformOS = jest.replaceProperty(Platform, 'OS', 'android');
+      const addEventListener = jest.spyOn(BackHandler, 'addEventListener');
+      try {
+        mockDraftState.data = finalizedReport();
+        await render(<FieldReportScreen />);
+        await act(async () => undefined);
+
+        const backPressCalls = addEventListener.mock.calls.filter(
+          ([eventName]) => eventName === 'hardwareBackPress',
+        );
+        const handler = backPressCalls[backPressCalls.length - 1]?.[1];
+        expect(handler).toBeDefined();
+
+        let handled: boolean | null | undefined;
+        await act(async () => {
+          handled = handler?.({ timeStamp: 0, type: 'hardwareBackPress' });
+        });
+
+        expect(handled).toBe(true);
+        expect(router.replace).toHaveBeenCalledWith('/home');
+      } finally {
+        addEventListener.mockRestore();
+        platformOS.restore();
+      }
+    });
+
+    it('has no draft exit affordances on a finalized report', async () => {
+      mockDraftState.data = finalizedReport();
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+
+      expect(screen.queryByTestId('field-report.header-close')).toBeNull();
+      expect(screen.queryByTestId('field-report.cancel')).toBeNull();
+      expect(screen.queryByTestId('field-report.cancel-dialog')).not.toBeOnTheScreen();
+    });
+
+    it('suppresses the draft dialog and never discards when a report finalizes', async () => {
+      const finalized = finalizedReport();
+      mockFinalize.mockImplementationOnce(async () => {
+        mockDraftState.data = finalized;
+        return finalized;
+      });
+
+      await render(
+        <ToastProvider>
+          <FieldReportScreen />
+        </ToastProvider>,
+      );
+      await act(async () => undefined);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.header-close'));
+      });
+      expect(screen.getByTestId('field-report.cancel-dialog')).toBeOnTheScreen();
+
+      await goToStep(2);
+      await act(async () => {
+        fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '0.5');
+      });
+      await act(async () => {
+        fireEvent.changeText(screen.getByTestId('field-report.affected-portion-input'), '30');
+      });
+      await goToStep(5);
+      await act(async () => {
+        fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.confirm-finalize'));
+      });
+
+      expect(mockFinalize).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('field-report.authoring-status')).toHaveTextContent(/Finalized/);
+      expect(screen.queryByTestId('field-report.cancel-dialog')).not.toBeOnTheScreen();
+      expect(mockDiscardDraft).not.toHaveBeenCalled();
     });
   });
 });

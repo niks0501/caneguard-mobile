@@ -1,8 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { StyleSheet } from 'react-native';
 
 import HomeScreen from '@/app/(tabs)/home';
 
+import { Spacing } from '@/constants/theme';
+import { OFFICE_UPDATES_PILL_CLEARANCE } from '@/features/notifications/components/OfficeUpdatesPill';
 import type { NeedsAttentionItem } from '@/features/activity/domain/needsAttention';
 
 let mockIsOnline: boolean | null = true;
@@ -10,6 +13,17 @@ let mockApiReachability: 'unknown' | 'available' | 'unavailable' = 'unknown';
 let mockSessionVerification: 'idle' | 'pending' | 'verified' | 'unavailable' = 'idle';
 let mockAttentionItems: NeedsAttentionItem[] = [];
 const mockMarkRead = jest.fn(async () => undefined);
+let mockUnreadCount = 0;
+const mockOpenOfficeUpdates = jest.fn();
+
+jest.mock('@/features/notifications/providers/OfficeUpdatesProvider', () => ({
+  useOfficeUpdates: () => ({
+    close: jest.fn(),
+    isOpen: false,
+    open: mockOpenOfficeUpdates,
+    unreadCount: mockUnreadCount,
+  }),
+}));
 
 jest.mock('@/features/activity/hooks/useHomeAttention', () => ({
   useHomeAttention: () => ({
@@ -52,6 +66,7 @@ describe('HomeScreen', () => {
     mockIsOnline = true;
     mockSessionVerification = 'idle';
     mockAttentionItems = [];
+    mockUnreadCount = 0;
   });
 
   it('renders separate network and API connection states without a location line', async () => {
@@ -205,4 +220,54 @@ describe('HomeScreen', () => {
     await fireEvent.press(screen.getByTestId('home.needs-attention.see-all'));
     expect(mockRouterPush).toHaveBeenCalledWith('/activity');
   });
+
+  it('floats the office-updates pill over the list and opens the shared panel', async () => {
+    mockUnreadCount = 3;
+    await render(<HomeScreen />);
+
+    const pill = screen.getByTestId('home.office-updates-pill');
+    expect(pill).toBeOnTheScreen();
+    expect(pill).toHaveProp(
+      'accessibilityLabel',
+      '3 office updates. Open office updates.',
+    );
+    expect(screen.getByText('3 office updates')).toBeOnTheScreen();
+
+    await fireEvent.press(pill);
+
+    expect(mockOpenOfficeUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the pill when every office update has been read and keeps the list clear', async () => {
+    mockUnreadCount = 0;
+    await render(<HomeScreen />);
+
+    expect(screen.queryByTestId('home.office-updates-pill')).not.toBeOnTheScreen();
+    expect(scrollBottomPadding()).toBe(Spacing.xl);
+  });
+
+  it('reserves room while the pill floats and dismisses it until a new update arrives', async () => {
+    mockUnreadCount = 2;
+    const view = await render(<HomeScreen />);
+
+    // The last card must never sit behind the floating pill.
+    expect(scrollBottomPadding()).toBe(OFFICE_UPDATES_PILL_CLEARANCE);
+
+    await fireEvent.press(screen.getByTestId('home.office-updates-pill.dismiss'));
+
+    expect(screen.queryByTestId('home.office-updates-pill')).not.toBeOnTheScreen();
+    expect(scrollBottomPadding()).toBe(Spacing.xl);
+
+    mockUnreadCount = 3;
+    await view.rerender(<HomeScreen />);
+
+    expect(screen.getByTestId('home.office-updates-pill')).toBeOnTheScreen();
+    expect(screen.getByText('3 office updates')).toBeOnTheScreen();
+  });
 });
+
+function scrollBottomPadding(): number {
+  return StyleSheet.flatten(
+    screen.getByTestId('home.scroll').props.contentContainerStyle,
+  ).paddingBottom;
+}

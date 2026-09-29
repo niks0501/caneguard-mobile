@@ -9,6 +9,7 @@ Project-specific stack and implementation guidance for CaneGuard Mobile.
 - React 19
 - React Native 0.86
 - `@shopify/flash-list` (list virtualization)
+- `@sentry/react-native` (crash and release-health reporting)
 - TypeScript 6 with strict mode
 - Expo SQLite
 - Drizzle ORM / Drizzle Kit

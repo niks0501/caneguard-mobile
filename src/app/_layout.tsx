@@ -21,6 +21,11 @@ import {
   ThemePreferenceProvider,
   useThemePreference,
 } from '@/providers/ThemePreferenceProvider';
+import { startCrashReporting } from '@/features/observability/startCrashReporting';
+
+// Crash and release-health reporting must be installed before the first screen
+// renders. It stays disabled unless the build supplied EXPO_PUBLIC_SENTRY_DSN.
+startCrashReporting();
 
 void SplashScreen.preventAutoHideAsync();
 

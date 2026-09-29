@@ -23,6 +23,29 @@ function readAuthLinkHost() {
   return value.toLowerCase();
 }
 
+/**
+ * Crash reporting uploads source maps and native symbols from release builds.
+ * The Sentry Expo plugin is only added when the build environment supplies the
+ * project coordinates and an auth token, so builds without Sentry credentials
+ * are unchanged and no secret is ever committed. The token itself is not
+ * written into the plugin config: the tooling reads SENTRY_AUTH_TOKEN directly.
+ */
+function readSentryExpoPluginConfig() {
+  const organization = process.env.SENTRY_ORG?.trim();
+  const project = process.env.SENTRY_PROJECT?.trim();
+  const authToken = process.env.SENTRY_AUTH_TOKEN?.trim();
+  if (!organization || !project || !authToken) {
+    return null;
+  }
+
+  const url = process.env.SENTRY_URL?.trim();
+  return {
+    organization,
+    project,
+    ...(url ? { url } : {}),
+  };
+}
+
 module.exports = ({ config }) => {
   const isQa =
     process.env.EXPO_PUBLIC_QA_MODE === 'true' ||
@@ -34,6 +57,11 @@ module.exports = ({ config }) => {
     easBuildProfile === 'production' ||
     process.env.NODE_ENV === 'production';
   const authLinkHost = readAuthLinkHost();
+  const sentryPluginConfig = readSentryExpoPluginConfig();
+  const plugins = [...(config.plugins ?? [])];
+  if (sentryPluginConfig) {
+    plugins.push(['@sentry/react-native/expo', sentryPluginConfig]);
+  }
 
   if (isQa) {
     validateQaEnvironment(process.env, {
@@ -46,6 +74,7 @@ module.exports = ({ config }) => {
     // Custom schemes are deliberately debug-only. Release recovery links must
     // use verified HTTPS App Links so another app cannot claim the token.
     scheme: isReleaseBuild ? undefined : AUTH_LINK_SCHEME,
+    plugins,
     android: {
       ...config.android,
       intentFilters: authLinkHost

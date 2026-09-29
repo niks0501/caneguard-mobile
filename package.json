@@ -11,7 +11,7 @@
     "@shopify/flash-list": "^2.0.2",
     "base64-js": "^1.5.1",
     "drizzle-orm": "0.45.2",
-    "expo": "~57.0.24",
+    "expo": "~57.0.25",
     "expo-asset": "~57.0.18",
     "expo-constants": "~57.0.19",
     "expo-crypto": "~57.0.3",
@@ -117,5 +117,10 @@
       }
     }
   },
-  "private": true
+  "private": true,
+  "allowScripts": {
+    "@sentry/cli@2.58.4": true,
+    "unrs-resolver@1.12.2": true,
+    "esbuild@0.25.12": true
+  }
 }

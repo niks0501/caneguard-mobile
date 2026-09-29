@@ -73,6 +73,7 @@ describe('ModelSmokeTestScreen', () => {
 
   it('shows model loading status and static metadata', async () => {
     mockUseCaneGuardModel.mockReturnValue({
+      start: jest.fn(),
       model: undefined,
       state: 'loading',
       run: mockRun,
@@ -90,6 +91,7 @@ describe('ModelSmokeTestScreen', () => {
 
   it('shows validated input and output metadata after loading', async () => {
     mockUseCaneGuardModel.mockReturnValue({
+      start: jest.fn(),
       state: 'loaded',
       run: mockRun,
       error: null,
@@ -122,6 +124,7 @@ describe('ModelSmokeTestScreen', () => {
 
   it('shows native error detail in development', async () => {
     mockUseCaneGuardModel.mockReturnValue({
+      start: jest.fn(),
       model: undefined,
       state: 'error',
       run: mockRun,

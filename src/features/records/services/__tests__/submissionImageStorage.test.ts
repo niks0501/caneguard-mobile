@@ -204,6 +204,47 @@ describe('submission image preparation', () => {
     });
   });
 
+  it('stops the no-resize rung after two quality steps before downscaling', async () => {
+    // A 12 MP over-target source. Both no-resize re-encodes stay over the
+    // target, and the first resized candidate at quality 0.85 fits. The ladder
+    // exists to reach that resize, so spending six full-resolution encodes on
+    // the no-resize rung first is pure cost.
+    const attempts: { actions: unknown; compress: number | undefined }[] = [];
+    mockManipulateAsync.mockImplementation(async (...args) => {
+      const actions = args[1] ?? [];
+      const options = args[2];
+      attempts.push({ actions, compress: options?.compress });
+      const uri = `file:///cache/submission-${attempts.length}.jpg`;
+      const resized = actions.length > 0;
+      seedFile(uri, {
+        mimeType: 'image/jpeg',
+        size:
+          resized && options?.compress === 0.85
+            ? MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES
+            : MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES,
+      });
+      return { uri, width: 3072, height: 2304 };
+    });
+
+    const result = await prepareSubmissionImage(
+      input({ sourceSizeBytes: 40 * 1024 * 1024 }),
+    );
+
+    expect(result.created).toBe(true);
+    // Report acceptance: no more than 8 manipulator passes, where the old
+    // worst case was 8 dimension candidates x 6 quality steps = 48.
+    expect(attempts.length).toBeLessThanOrEqual(8);
+    expect(attempts).toHaveLength(3);
+    expect(attempts[0].actions).toEqual([]);
+    expect(attempts[0].compress).toBe(0.85);
+    expect(attempts[1].actions).toEqual([]);
+    expect(attempts[1].compress).toBe(0.7);
+    expect(attempts[2].actions).toEqual([
+      { resize: { height: 2304, width: 3072 } },
+    ]);
+    expect(attempts[2].compress).toBe(0.85);
+  });
+
   it.each([
     ['PNG', 'image/png'],
     ['WebP', 'image/webp'],

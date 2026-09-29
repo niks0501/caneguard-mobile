@@ -115,6 +115,7 @@ function AssignmentPhoto({
       {photoUri ? (
         <ExpoImage
           accessibilityLabel={`Case photo for ${referenceCode}`}
+          cachePolicy="memory-disk"
           contentFit="cover"
           onError={() => setFailedUri(photoUri)}
           source={{ uri: photoUri }}

@@ -2,7 +2,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -40,21 +39,21 @@ export function useOfficeUpdates(): OfficeUpdatesContextValue {
  * opens the same surface over the current screen, and nothing is added to the
  * page behind it.
  *
- * The provider reads the shared owner cache without its own focus refresh,
- * because Home, Activity, and the attention lifecycle already refresh it; the
- * mount-time cache read below matches the app-wide attention lifecycle so this
- * instance can still report load state to the panel.
+ * The provider reads the shared owner cache without its own focus refresh and
+ * without a mount refresh: the attention lifecycle and the Home screen already
+ * start that read, and the owner store keeps them from turning into repeated
+ * requests, so a third entry point on cold start only cost a duplicate cache
+ * read and a duplicate state write.
  */
 export function OfficeUpdatesProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const notifications = useMobileNotifications(true, false);
-  const destinations = useNotificationDestinations(notifications.notifications);
+  // The panel is the only consumer of the resolved destinations, and it is
+  // closed most of the session, so the resolution waits for the first open
+  // instead of running on cold start beside the Home attention card.
+  const destinations = useNotificationDestinations(notifications.notifications, isOpen);
   const { showToast } = useToast();
-  const { markAllRead, markRead, refresh, unreadCount } = notifications;
-
-  useEffect(() => {
-    void refresh({ force: false });
-  }, [refresh]);
+  const { markAllRead, markRead, unreadCount } = notifications;
 
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);

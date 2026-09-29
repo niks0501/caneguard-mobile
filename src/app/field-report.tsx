@@ -1424,6 +1424,7 @@ function AutomaticSummaryCard({
         <ExpoImage
           source={{ uri: record.managedImageUri }}
           accessibilityLabel="Original sugarcane scan image"
+          cachePolicy="memory-disk"
           contentFit="cover"
           style={styles.summaryImage}
         />
@@ -1763,6 +1764,7 @@ function InheritedScanEvidence({
           <ExpoImage
             source={{ uri: record.managedImageUri }}
             accessibilityLabel="Original sugarcane scan image"
+            cachePolicy="memory-disk"
             contentFit="cover"
             style={styles.evidenceImage}
           />

@@ -17,7 +17,7 @@ import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel'
 import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
 import { useTheme } from '@/hooks/use-theme';
 
-const HEALTHY_FIXTURE = require('../../assets/model-fixtures/v1-healthy.jpg') as number;
+const HEALTHY_FIXTURE = require('../../dev-assets/model-fixtures/v1-healthy.jpg') as number;
 const HEALTHY_FIXTURE_DIMENSIONS = { width: 3000, height: 4000 };
 
 type SmokeVerification =
@@ -40,7 +40,13 @@ export default function ModelSmokeTestScreen() {
 function DevelopmentModelSmokeTestScreen() {
   const theme = useTheme();
   const modelState = useCaneGuardModel();
+  const startModelLoad = modelState.start;
   const [verification, setVerification] = useState<SmokeVerification | null>(null);
+
+  // Development harness: it works on the model itself, so it starts the load.
+  useEffect(() => {
+    startModelLoad();
+  }, [startModelLoad]);
 
   useEffect(() => {
     if (modelState.state !== 'loaded') {

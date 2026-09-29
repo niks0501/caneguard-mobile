@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
@@ -101,61 +101,86 @@ export function NotificationInbox({
         </Text>
       ) : (
         <View>
-          {recent.map((notification, index) => {
-            const destination = destinations.get(notification.id);
-            const actionable =
-              Boolean(notification.content || notification.advisory) ||
-              (destination !== undefined && destination.kind !== 'unavailable');
-            return (
-              <Pressable
-                key={notification.id}
-                testID={`activity.notification.${notification.id}`}
-                accessibilityRole={actionable ? 'button' : 'text'}
-                accessibilityLabel={`${notification.title}: ${notification.message}`}
-                onPress={() => onNotificationPress(notification)}
-                style={({ pressed }) => [
-                  styles.item,
-                  {
-                    borderTopColor: theme.divider,
-                    borderTopWidth: index === 0 ? 0 : 1,
-                  },
-                  pressed && actionable ? styles.pressed : null,
-                ]}>
-                <View
-                  style={[
-                    styles.marker,
-                    { backgroundColor: notification.isRead ? theme.border : theme.primary },
-                  ]}
-                />
-                <View style={styles.itemCopy}>
-                  <View style={styles.itemTitleRow}>
-                    <Text style={[styles.itemTitle, { color: theme.primaryDark }]}>
-                      {notification.title}
-                    </Text>
-                    {!notification.isRead ? (
-                      <Text style={[styles.unread, { color: theme.primary }]}>Unread</Text>
-                    ) : null}
-                  </View>
-                  <Text style={[styles.itemMessage, { color: theme.textSecondary }]}>
-                    {notification.message}
-                  </Text>
-                  <Text style={[styles.meta, { color: theme.textSecondary }]}>
-                    {destination?.kind === 'unavailable'
-                      ? 'This case is not stored on this device'
-                      : `${notification.referenceCode ?? 'Case activity'}${notification.createdAt ? ` · ${formatDate(notification.createdAt)}` : ''}`}
-                  </Text>
-                </View>
-                {actionable ? (
-                  <Feather name="chevron-right" size={18} color={theme.textSecondary} />
-                ) : null}
-              </Pressable>
-            );
-          })}
+          {recent.map((notification, index) => (
+            <NotificationRow
+              destination={destinations.get(notification.id)}
+              index={index}
+              key={notification.id}
+              notification={notification}
+              onPress={onNotificationPress}
+            />
+          ))}
         </View>
       )}
     </View>
   );
 }
+
+/**
+ * One office-update row. Memoized so a panel re-render that does not change the
+ * notification, its resolved destination, or the memoized press handler cannot
+ * re-render every row in the list.
+ */
+const NotificationRow = memo(function NotificationRow({
+  destination,
+  index,
+  notification,
+  onPress,
+}: {
+  destination: NotificationDestination | undefined;
+  index: number;
+  notification: MobileNotification;
+  onPress: (notification: MobileNotification) => void;
+}) {
+  const theme = useTheme();
+  const actionable =
+    Boolean(notification.content || notification.advisory) ||
+    (destination !== undefined && destination.kind !== 'unavailable');
+
+  return (
+    <Pressable
+      testID={`activity.notification.${notification.id}`}
+      accessibilityRole={actionable ? 'button' : 'text'}
+      accessibilityLabel={`${notification.title}: ${notification.message}`}
+      onPress={() => onPress(notification)}
+      style={({ pressed }) => [
+        styles.item,
+        {
+          borderTopColor: theme.divider,
+          borderTopWidth: index === 0 ? 0 : 1,
+        },
+        pressed && actionable ? styles.pressed : null,
+      ]}>
+      <View
+        style={[
+          styles.marker,
+          { backgroundColor: notification.isRead ? theme.border : theme.primary },
+        ]}
+      />
+      <View style={styles.itemCopy}>
+        <View style={styles.itemTitleRow}>
+          <Text style={[styles.itemTitle, { color: theme.primaryDark }]}>
+            {notification.title}
+          </Text>
+          {!notification.isRead ? (
+            <Text style={[styles.unread, { color: theme.primary }]}>Unread</Text>
+          ) : null}
+        </View>
+        <Text style={[styles.itemMessage, { color: theme.textSecondary }]}>
+          {notification.message}
+        </Text>
+        <Text style={[styles.meta, { color: theme.textSecondary }]}>
+          {destination?.kind === 'unavailable'
+            ? 'This case is not stored on this device'
+            : `${notification.referenceCode ?? 'Case activity'}${notification.createdAt ? ` · ${formatDate(notification.createdAt)}` : ''}`}
+        </Text>
+      </View>
+      {actionable ? (
+        <Feather name="chevron-right" size={18} color={theme.textSecondary} />
+      ) : null}
+    </Pressable>
+  );
+});
 
 function formatDate(value: string): string {
   const date = new Date(value);

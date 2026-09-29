@@ -12,7 +12,10 @@ import {
 } from '@/database/schema';
 import { deleteFieldValidationPhoto } from '@/features/assignments/services/fieldValidationPhotoStorage';
 import { invalidateFieldValidationAssignmentsRefresh } from '@/features/assignments/services/refreshFieldValidationAssignments';
-import { deleteManagedScanImage } from '@/features/records/services/scanImageStorage';
+import {
+  deleteManagedScanImage,
+  managedDisplayImageUri,
+} from '@/features/records/services/scanImageStorage';
 import { invalidateMobileNotificationsRefresh } from '@/features/notifications/services/refreshMobileNotifications';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { clearOwnerMobileDataStore } from '@/features/mobile-data/data/mobileDataStore';
@@ -300,16 +303,21 @@ function cleanupImages(
 ): StorageError[] {
   const errors: StorageError[] = [];
   for (const uri of new Set(targets.managedScanImages)) {
-    try {
-      deleteManagedScanImage(uri, ownerIdentity);
-    } catch (error: unknown) {
-      errors.push(
-        toStorageError(
-          error,
-          'IMAGE_DELETE_FAILED',
-          'A managed scan image could not be removed during local-data cleanup.',
-        ),
-      );
+    // The display derivative is deleted with the image it was generated from:
+    // it is recorded nowhere else, so nothing would ever clean it up later.
+    const displayUri = managedDisplayImageUri(uri);
+    for (const candidate of displayUri ? [uri, displayUri] : [uri]) {
+      try {
+        deleteManagedScanImage(candidate, ownerIdentity);
+      } catch (error: unknown) {
+        errors.push(
+          toStorageError(
+            error,
+            'IMAGE_DELETE_FAILED',
+            'A managed scan image could not be removed during local-data cleanup.',
+          ),
+        );
+      }
     }
   }
   for (const uri of new Set(targets.fieldValidationPhotos)) {

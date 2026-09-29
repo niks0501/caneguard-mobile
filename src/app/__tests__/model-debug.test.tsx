@@ -33,6 +33,7 @@ describe('ModelDebugRoute', () => {
       scale: 1,
     });
     mockUseCaneGuardModel.mockReturnValue({
+      start: jest.fn(),
       state: 'loaded',
       model: {} as never,
       run: mockModelRun,

@@ -4,6 +4,7 @@ import { useContext } from 'react';
 import { AppState, Text } from 'react-native';
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
+import { purgeExpiredLocalData } from '@/database/localDataLifecycle';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
   countUnsyncedFieldValidationCompletions,
@@ -33,6 +34,9 @@ jest.mock('@react-native-community/netinfo', () => ({
 }));
 jest.mock('@/database/DatabaseProvider', () => ({
   useCaneGuardDatabase: jest.fn(),
+}));
+jest.mock('@/database/localDataLifecycle', () => ({
+  purgeExpiredLocalData: jest.fn(async () => undefined),
 }));
 jest.mock('@/features/auth/hooks/useAuth', () => ({
   useAuth: jest.fn(),
@@ -140,6 +144,36 @@ describe('SyncProvider foreground triggers', () => {
         appStateListener = listener as (state: string) => void;
         return { remove: jest.fn() };
       });
+  });
+
+  it('defers the mount-time database maintenance past the first paint', async () => {
+    jest.useFakeTimers();
+    try {
+      await render(
+        <SyncProvider>
+          <Text>Ready</Text>
+        </SyncProvider>,
+      );
+
+      // Housekeeping must not compete with the database migration, the auth
+      // restore, and the first Home queries for the cold-start JS thread.
+      expect(purgeExpiredLocalData).not.toHaveBeenCalled();
+      expect(resetStaleSyncingFieldReports).not.toHaveBeenCalled();
+      expect(resetStaleSyncingFieldValidationCompletions).not.toHaveBeenCalled();
+      expect(countUnsyncedFieldReports).not.toHaveBeenCalled();
+
+      await act(async () => {
+        jest.runOnlyPendingTimers();
+        await Promise.resolve();
+      });
+
+      expect(purgeExpiredLocalData).toHaveBeenCalledTimes(1);
+      expect(resetStaleSyncingFieldReports).toHaveBeenCalledTimes(1);
+      expect(resetStaleSyncingFieldValidationCompletions).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(countUnsyncedFieldReports).toHaveBeenCalled());
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('uploads when connectivity returns and when the app resumes', async () => {

@@ -39,6 +39,7 @@ const CPU_DELEGATES: TensorflowModelDelegate[] = [];
 function useTensorflowModelFromAsset(
   assetModule: number,
   delegates: TensorflowModelDelegate[],
+  started: boolean,
 ): TensorflowPlugin {
   const [nativeModel, setNativeModel] = useState<TensorflowPlugin>({
     model: undefined,
@@ -46,6 +47,10 @@ function useTensorflowModelFromAsset(
   });
 
   useEffect(() => {
+    if (!started) {
+      return;
+    }
+
     let cancelled = false;
 
     const load = async () => {
@@ -84,14 +89,29 @@ function useTensorflowModelFromAsset(
     return () => {
       cancelled = true;
     };
-  }, [assetModule, delegates]);
+  }, [assetModule, delegates, started]);
 
   return nativeModel;
 }
 
 type ModelRun = (input: ArrayBuffer[]) => Promise<ArrayBuffer[]>;
 
-export type CaneGuardModelController =
+/**
+ * Starts the one-time model download and native load. The provider defers this
+ * until the scan flow asks for it, so a cold start does not pay 8.9 MB of asset
+ * I/O and a TFLite load for a screen the inspector has not opened. It is
+ * idempotent: calling it more than once is a no-op after the first call.
+ */
+type StartModelLoad = () => void;
+
+export type CaneGuardModelController = {
+  /**
+   * `loading` covers both "not started yet" and "downloading". The first call
+   * to `start` moves it to the download, and the load then reports `loaded` or
+   * `error` as before.
+   */
+  start: StartModelLoad;
+} & (
   | {
       state: 'loading';
       model: undefined;
@@ -109,12 +129,19 @@ export type CaneGuardModelController =
       model: undefined;
       run: ModelRun;
       error: Error;
-    };
+    }
+);
 
 const CaneGuardModelContext = createContext<CaneGuardModelController | null>(null);
 
 export function CaneGuardModelProvider({ children }: PropsWithChildren) {
-  const nativeModel = useTensorflowModelFromAsset(MODEL_ASSET, CPU_DELEGATES);
+  const [started, setStarted] = useState(false);
+  const start = useCallback(() => setStarted(true), []);
+  const nativeModel = useTensorflowModelFromAsset(
+    MODEL_ASSET,
+    CPU_DELEGATES,
+    started,
+  );
   const contractError =
     nativeModel.state === 'loaded'
       ? validateModelContract(nativeModel.model)
@@ -140,6 +167,7 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
     if (contractError) {
       return {
         model: undefined,
+        start,
         state: 'error',
         run,
         error: contractError,
@@ -149,6 +177,7 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
     if (nativeModel.state === 'error') {
       return {
         model: undefined,
+        start,
         state: 'error',
         run,
         error: new InferenceError(
@@ -162,6 +191,7 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
     if (nativeModel.state === 'loaded') {
       return {
         model: nativeModel.model,
+        start,
         state: 'loaded',
         run,
         error: null,
@@ -170,11 +200,12 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
 
     return {
       model: undefined,
+      start,
       state: 'loading',
       run,
       error: null,
     };
-  }, [contractError, nativeModel, run]);
+  }, [contractError, nativeModel, run, start]);
 
   return (
     <CaneGuardModelContext.Provider value={modelState}>

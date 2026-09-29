@@ -111,6 +111,7 @@ describe('ImagePreviewScreen', () => {
     mockPreprocessImage.mockResolvedValue(successfulPreprocessingResult);
     mockRunInference.mockResolvedValue(successfulInferenceResult);
     mockUseCaneGuardModel.mockReturnValue({
+      start: jest.fn(),
       state: 'loaded',
       model: {} as never,
       run: mockModelRun,
@@ -229,6 +230,7 @@ describe('ImagePreviewScreen', () => {
 
   it('keeps Analyze disabled until the model is loaded', async () => {
     mockUseCaneGuardModel.mockReturnValue({
+      start: jest.fn(),
       state: 'loading',
       model: undefined,
       run: mockModelRun,

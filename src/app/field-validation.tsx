@@ -343,7 +343,7 @@ function EvidenceForm({
       <TextField testID="field-validation.action-input" label="Action taken" hint="What you actually did or told the farmer." helpHintText="For example: “Advised removal of affected leaves and a follow-up visit in 7 days.”" helpHintTestID="field-validation.action-help" value={action} onChangeText={onActionChange} placeholder="What action or guidance was provided?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
       {photo ? (
         <View style={styles.photoContainer}>
-          <ExpoImage source={{ uri: photo.uri }} accessibilityLabel="Fresh field validation photo" contentFit="cover" style={styles.photo} />
+          <ExpoImage source={{ uri: photo.uri }} accessibilityLabel="Fresh field validation photo" cachePolicy="memory-disk" contentFit="cover" style={styles.photo} />
           <AppButton testID="field-validation.remove-photo" onPress={onRemovePhoto} leadingIcon="trash-2" variant="secondary">Remove photo</AppButton>
         </View>
       ) : null}

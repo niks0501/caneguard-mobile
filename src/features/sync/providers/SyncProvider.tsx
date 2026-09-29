@@ -343,61 +343,72 @@ export function SyncProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     mounted.current = true;
     if (!submitterIdentity) {
-      void refreshPendingCount();
+      const cancelDeferredCount = scheduleAfterFirstPaint(() => {
+        if (mounted.current) {
+          void refreshPendingCount();
+        }
+      });
       return () => {
         mounted.current = false;
+        cancelDeferredCount();
       };
     }
 
     const requestedToken = sessionToken;
     const requestedSubmitterIdentity = submitterIdentity;
-    const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
-    void purgeExpiredLocalData(
-      database,
-      requestedSubmitterIdentity,
-    ).catch(() => undefined);
-    void Promise.all([
-      resetStaleSyncingFieldReports(
+    // Housekeeping, not first-paint data: the purge and the stale-sync resets
+    // only have to finish before the first sync attempt. Running them here kept
+    // four database jobs on the cold-start critical path beside the database
+    // migration, the auth restore and the first Home queries.
+    const cancelDeferredWork = scheduleAfterFirstPaint(() => {
+      const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
+      void purgeExpiredLocalData(
         database,
         requestedSubmitterIdentity,
-        staleBefore,
-      ),
-      resetStaleSyncingFieldValidationCompletions(
-        database,
-        requestedSubmitterIdentity,
-        staleBefore,
-      ),
-    ])
-      .then(() => {
-        if (
-          mounted.current &&
-          isSameSession(
-            sessionRef.current,
-            requestedToken,
-            requestedSubmitterIdentity,
-          )
-        ) {
-          return refreshPendingCount();
-        }
-        return undefined;
-      })
-      .catch(() => {
-        if (
-          mounted.current &&
-          isSameSession(
-            sessionRef.current,
-            requestedToken,
-            requestedSubmitterIdentity,
-          )
-        ) {
-          setSyncState((current) => ({
-            ...current,
-            errorMessage: 'Interrupted uploads could not be recovered yet.',
-            isSyncing: false,
-            sessionKey,
-          }));
-        }
-      });
+      ).catch(() => undefined);
+      void Promise.all([
+        resetStaleSyncingFieldReports(
+          database,
+          requestedSubmitterIdentity,
+          staleBefore,
+        ),
+        resetStaleSyncingFieldValidationCompletions(
+          database,
+          requestedSubmitterIdentity,
+          staleBefore,
+        ),
+      ])
+        .then(() => {
+          if (
+            mounted.current &&
+            isSameSession(
+              sessionRef.current,
+              requestedToken,
+              requestedSubmitterIdentity,
+            )
+          ) {
+            return refreshPendingCount();
+          }
+          return undefined;
+        })
+        .catch(() => {
+          if (
+            mounted.current &&
+            isSameSession(
+              sessionRef.current,
+              requestedToken,
+              requestedSubmitterIdentity,
+            )
+          ) {
+            setSyncState((current) => ({
+              ...current,
+              errorMessage: 'Interrupted uploads could not be recovered yet.',
+              isSyncing: false,
+              sessionKey,
+            }));
+          }
+        });
+    });
 
     const unsubscribeRecords = subscribeSyncRecords(() => {
       void refreshPendingCount();
@@ -446,6 +457,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
     return () => {
       mounted.current = false;
+      cancelDeferredWork();
       unsubscribeRecords();
       unsubscribeNetwork();
       appStateSubscription.remove();
@@ -572,6 +584,33 @@ function inferApiReachability(
 
 function getSessionKey(session: MobileSession | null): string | null {
   return session ? `${session.token}:${session.user.uuid}` : null;
+}
+
+/**
+ * Runs `work` once the first frame is out. `requestIdleCallback` is the
+ * scheduler React Native points at instead of `InteractionManager`, and the
+ * timer fallback keeps the behaviour defined in environments without it (the
+ * Jest test runner, for one). Returns a cancel function for effect cleanup.
+ */
+function scheduleAfterFirstPaint(work: () => void): () => void {
+  const requestIdle = (
+    globalThis as {
+      requestIdleCallback?: (callback: () => void) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    }
+  );
+
+  if (typeof requestIdle.requestIdleCallback === 'function') {
+    const handle = requestIdle.requestIdleCallback(work);
+    return () => {
+      if (typeof requestIdle.cancelIdleCallback === 'function') {
+        requestIdle.cancelIdleCallback(handle);
+      }
+    };
+  }
+
+  const timer = setTimeout(work, 0);
+  return () => clearTimeout(timer);
 }
 
 function isSameSession(

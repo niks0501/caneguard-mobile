@@ -34,7 +34,7 @@ describe('Model V1 QA oracle', () => {
     for (const fixture of qaExpectedOutputs.fixtures) {
       const fixturePath = join(
         process.cwd(),
-        'assets/model-fixtures',
+        'dev-assets/model-fixtures',
         `v1-${fixture.fixture_id}.jpg`,
       );
       expect(createHash('sha256').update(readFileSync(fixturePath)).digest('hex')).toBe(

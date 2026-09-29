@@ -33,6 +33,12 @@ export default function ImagePreviewScreen() {
   const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
   const modelState = useCaneGuardModel();
+  const startModelLoad = modelState.start;
+  // The model download and native load are deferred to this screen: it is the
+  // only place that needs the runtime, so a cold start no longer pays for it.
+  useEffect(() => {
+    startModelLoad();
+  }, [startModelLoad]);
   const [isImageLoading, setIsImageLoading] = useState(Boolean(state.sourceUri));
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const analysisInFlight = useRef(false);
@@ -225,6 +231,7 @@ export default function ImagePreviewScreen() {
                 ]}>
                 <ExpoImage
                   source={{ uri: state.sourceUri }}
+                  cachePolicy="memory-disk"
                   contentFit="contain"
                   transition={150}
                   accessibilityLabel={`Selected sugarcane image from ${sourceLabel.toLowerCase()}`}

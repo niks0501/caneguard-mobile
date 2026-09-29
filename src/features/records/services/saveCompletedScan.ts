@@ -6,6 +6,7 @@ import { createCompletedScanDraft } from '@/features/records/domain/recordValida
 import {
   compensateManagedImageCopy,
   copyScanImageToManagedStorage,
+  writeScanDisplayImage,
   type ManagedImage,
 } from '@/features/records/services/scanImageStorage';
 import {
@@ -20,6 +21,7 @@ export interface SaveCompletedScanOptions {
     copyImage?: typeof copyScanImageToManagedStorage;
     insertRecord?: typeof insertScanRecord;
     now?: () => Date;
+    writeDisplayImage?: typeof writeScanDisplayImage;
   };
   ownerIdentity: string;
   recordId: string;
@@ -37,6 +39,7 @@ export async function saveCompletedScan({
   const copyImage = dependencies?.copyImage ?? copyScanImageToManagedStorage;
   const insertRecord = dependencies?.insertRecord ?? insertScanRecord;
   const cleanupImage = dependencies?.cleanupImage ?? compensateManagedImageCopy;
+  const writeDisplayImage = dependencies?.writeDisplayImage ?? writeScanDisplayImage;
   const draft = createCompletedScanDraft(state, recordId, now());
   const managedImage = await copyImage({
     ownerIdentity,
@@ -46,6 +49,24 @@ export async function saveCompletedScan({
     sourceWidth: draft.sourceWidth,
     sourceHeight: draft.sourceHeight,
   });
+
+  // Best effort: lists render the small derivative, and every screen falls back
+  // to the preserved original, so a derivative failure must not fail the save.
+  try {
+    await writeDisplayImage({
+      ownerIdentity,
+      recordId: draft.id,
+      sourceWidth: managedImage.sourceWidth,
+      sourceHeight: managedImage.sourceHeight,
+      sourceUri: managedImage.managedUri,
+    });
+  } catch {
+    if (__DEV__) {
+      console.warn(
+        '[storage:IMAGE_PREPARATION_FAILED] The scan display image was not prepared; lists will render the preserved original.',
+      );
+    }
+  }
 
   try {
     return await insertRecord(

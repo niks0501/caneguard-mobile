@@ -11,6 +11,7 @@ import {
   Typography,
 } from '@/constants/theme';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
+import { managedDisplayImageUriIfPresent } from '@/features/records/services/scanImageStorage';
 import type { SyncStatus } from '@/database/schema';
 import { getAuthorityReviewPresentation } from '@/features/reports/domain/reportReviewTypes';
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
@@ -26,6 +27,11 @@ type RecordCardProps = {
 export function RecordCard({ activityType, onPress, record, testID }: RecordCardProps) {
   const theme = useTheme();
   const [imageUnavailable, setImageUnavailable] = useState(false);
+  // Prefer the small display derivative this save wrote. It is absent for
+  // records saved before the derivative existed and after a failed generation,
+  // and the preserved original is the correct fallback in both cases.
+  const thumbnailUri =
+    managedDisplayImageUriIfPresent(record.managedImageUri) ?? record.managedImageUri;
   const savedAt = formatSavedAt(record.createdAt);
   const variant = toPillVariant(record.predictedLabel);
   const syncPresentation = getSyncPresentation(record.syncStatus);
@@ -56,7 +62,8 @@ export function RecordCard({ activityType, onPress, record, testID }: RecordCard
           />
         ) : (
           <ExpoImage
-            source={{ uri: record.managedImageUri }}
+            source={{ uri: thumbnailUri }}
+            cachePolicy="memory-disk"
             contentFit="cover"
             accessibilityLabel={`Saved image for ${getResultLabel(record.predictedLabel)}`}
             onError={() => setImageUnavailable(true)}

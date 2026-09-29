@@ -6,7 +6,7 @@ import {
 } from '@testing-library/react-native';
 import { Pressable, Text } from 'react-native';
 import type { TfliteModel } from 'react-native-fast-tflite';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   MODEL_INPUT,
@@ -63,9 +63,16 @@ function createLoadedModel(
 
 const mockModelRun = jest.fn<Promise<ArrayBuffer[]>, [ArrayBuffer[]]>();
 
-function ModelStateProbe() {
+function ModelStateProbe({ autoStart = true }: { autoStart?: boolean } = {}) {
   const modelState = useCaneGuardModel();
+  const startModelLoad = modelState.start;
   const [runState, setRunState] = useState('not-run');
+
+  useEffect(() => {
+    if (autoStart) {
+      startModelLoad();
+    }
+  }, [autoStart, startModelLoad]);
 
   return (
     <>
@@ -73,6 +80,7 @@ function ModelStateProbe() {
         {modelState.state}
         {modelState.state === 'error' ? `: ${modelState.error.message}` : ''}
       </Text>
+      <Pressable accessibilityLabel="Start model load" onPress={startModelLoad} />
       <Pressable
         accessibilityLabel="Run model"
         onPress={() => {
@@ -97,6 +105,28 @@ describe('CaneGuardModelProvider', () => {
     mockModelRun.mockResolvedValue([]);
     mockAssetDownloadAsync.mockResolvedValue(undefined);
     mockLoadTensorflowModel.mockResolvedValue(createLoadedModel());
+  });
+
+  it('does not download or load the model until a screen starts it', async () => {
+    await render(
+      <CaneGuardModelProvider>
+        <ModelStateProbe autoStart={false} />
+      </CaneGuardModelProvider>,
+    );
+
+    // The cold-start contract: mounting the provider alone must not touch the
+    // asset or the native loader.
+    expect(screen.getByText('loading')).toBeOnTheScreen();
+    expect(mockAssetDownloadAsync).not.toHaveBeenCalled();
+    expect(mockLoadTensorflowModel).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByLabelText('Start model load'));
+
+    await waitFor(() => {
+      expect(mockAssetDownloadAsync).toHaveBeenCalledTimes(1);
+      expect(mockLoadTensorflowModel).toHaveBeenCalledTimes(1);
+    });
+    expect(await screen.findByText('loaded')).toBeOnTheScreen();
   });
 
   it('downloads the static model asset to a local file, then loads it with the CPU delegate', async () => {

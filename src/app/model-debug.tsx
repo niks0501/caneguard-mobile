@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image as NativeImage,
@@ -40,28 +40,28 @@ const FIXTURES: readonly Fixture[] = [
   {
     id: 'healthy',
     buttonLabel: 'Run Healthy QA Fixture',
-    asset: require('../../assets/model-fixtures/v1-healthy.jpg') as number,
+    asset: require('../../dev-assets/model-fixtures/v1-healthy.jpg') as number,
     width: 3000,
     height: 4000,
   },
   {
     id: 'mosaic',
     buttonLabel: 'Run Mosaic QA Fixture',
-    asset: require('../../assets/model-fixtures/v1-mosaic.jpg') as number,
+    asset: require('../../dev-assets/model-fixtures/v1-mosaic.jpg') as number,
     width: 1589,
     height: 2116,
   },
   {
     id: 'rust',
     buttonLabel: 'Run Rust QA Fixture',
-    asset: require('../../assets/model-fixtures/v1-rust.jpg') as number,
+    asset: require('../../dev-assets/model-fixtures/v1-rust.jpg') as number,
     width: 1454,
     height: 1936,
   },
   {
     id: 'smut',
     buttonLabel: 'Run Smut QA Fixture',
-    asset: require('../../assets/model-fixtures/v1-smut.jpg') as number,
+    asset: require('../../dev-assets/model-fixtures/v1-smut.jpg') as number,
     width: 3000,
     height: 4000,
   },
@@ -86,6 +86,11 @@ export default function ModelDebugRoute() {
 function ModelDebugScreen() {
   const theme = useTheme();
   const modelState = useCaneGuardModel();
+  const startModelLoad = modelState.start;
+  // Development harness: it works on the model itself, so it starts the load.
+  useEffect(() => {
+    startModelLoad();
+  }, [startModelLoad]);
   const [activeFixtureId, setActiveFixtureId] =
     useState<Fixture['id'] | null>(null);
   const [debugRun, setDebugRun] = useState<DebugRun | null>(null);

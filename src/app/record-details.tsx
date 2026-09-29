@@ -191,6 +191,7 @@ export default function RecordDetailsScreen() {
                 ) : (
                   <ExpoImage
                     source={{ uri: record.data.managedImageUri }}
+                    cachePolicy="memory-disk"
                     contentFit="cover"
                     accessibilityLabel="Saved sugarcane scan image"
                     onError={() => setImageUnavailable(true)}

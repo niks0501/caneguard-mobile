@@ -2,8 +2,8 @@
 
 - Inspect the repository and existing patterns before making changes.
 - Prefer the simplest complete solution and avoid unnecessary abstractions or dependencies.
-- Keep changes focused, readable, deterministic, and maintainable.
-- Preserve unrelated user work and never overwrite, reset, stash, delete, or rewrite unrelated changes.
+- Keep changes focused, readable, deterministic, and maintainable. A report, audit, or plan is not authorization to implement fixes or publish issues; deliver the requested findings and wait for explicit authorization.
+- Preserve unrelated user work and never overwrite, reset, stash, delete, or rewrite unrelated changes. Before deleting a path the task did not explicitly name, inspect it and confirm it is task-created residue; preserve it if ownership is uncertain.
 - Treat secrets, credentials, tokens, environment values, production data, and personal data as sensitive.
 - Do not expose sensitive values in output, logs, commits, examples, or generated files.
 - Ask before destructive actions, production changes, deployments, publishing, force operations, dependency changes, credential access, or other externally consequential actions. Approval must be explicit and received before the action starts.
@@ -21,7 +21,7 @@ When `graphify-out/graph.json` exists, use Graphify as the first source for unde
 - If `graphify-out/wiki/index.md` exists, use it for broad repository navigation.
 - Read `graphify-out/GRAPH_REPORT.md` only for broad architecture review or when `query`, `path`, and `explain` do not provide enough context.
 - Dirty files under `graphify-out/` are expected after hooks or incremental updates and are not a reason to avoid Graphify. Do not stage, restore, or commit them merely to clean generated dirtiness.
-- After modifying code, run `graphify update .` for local use; commit only the stable reading artifacts that remain tracked. Volatile Graphify outputs are covered by the repository `.gitignore` rule.
+- After modifying code, run `graphify update .` for local use; commit only the stable reading artifacts that remain tracked. Volatile Graphify outputs are covered by the repository `.gitignore` rule. Even tracked `graphify-out/` changes stay out of task commits unless the task explicitly requests Graphify artifacts; stage task paths explicitly rather than including all generated changes.
 - When the user explicitly invokes `/graphify`, follow the installed Graphify skill or instructions before doing anything else.
 
 ## Verification

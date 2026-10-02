@@ -44,7 +44,7 @@ export default function TodayScreen() {
   return (
     <SafeAreaView testID="today.screen" style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Today's field work" subtitle="Visits ordered by due date and barangay." showBack />
+        <BrandedScreenHeader title="Today's field work" subtitle="Visits ordered by due date and barangay." showBack={false} />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
             {state.errorMessage ? (

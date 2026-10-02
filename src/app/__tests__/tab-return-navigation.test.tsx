@@ -127,7 +127,7 @@ function screenStub(testID: string) {
 function TodayTabStub() {
   return (
     <View testID="screen.today">
-      <BrandedScreenHeader title="Today's field work" />
+      <BrandedScreenHeader title="Today's field work" showBack={false} />
     </View>
   );
 }
@@ -344,15 +344,13 @@ describe('tab-root header navigation', () => {
     expect(dismissedNativelyErrors()).toEqual([]);
   });
 
-  it("returns from Today's field work back button to Home without an unhandled action", async () => {
+  it("hides Today's field work back button without logging a navigation warning", async () => {
     await renderRouter(routes, { initialUrl: '/login' });
     await signIn();
     await step(() => router.push('/today'));
 
-    await step(() => fireEvent.press(screen.getByRole('button', { name: 'Go back' })));
-
-    expect(screen.getByTestId('screen.home')).toBeTruthy();
-    expect(selectedTab()).toBe('Home');
+    expect(screen.getByTestId('screen.today')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Go back' })).toBeNull();
     expect(consoleError.mock.calls.flat().join(' ')).not.toContain('GO_BACK');
     expect(dismissedNativelyErrors()).toEqual([]);
   });

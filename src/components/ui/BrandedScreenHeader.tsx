@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ReactNode } from 'react';
 
 import { Layout, Radius, Spacing, Typography } from '@/constants/theme';
+import { returnToTab } from '@/features/navigation/returnToTab';
 import { useTheme } from '@/hooks/use-theme';
 
 export type BrandedScreenHeaderProps = {
@@ -36,8 +37,10 @@ export function BrandedScreenHeader({
   const handleBack = () => {
     if (onBackPress) {
       onBackPress();
-    } else {
+    } else if (router.canGoBack()) {
       router.back();
+    } else {
+      returnToTab('/home');
     }
   };
 

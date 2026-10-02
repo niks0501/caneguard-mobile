@@ -1,11 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 
-import { act, renderRouter, screen } from 'expo-router/testing-library';
+import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import { router, Stack, Tabs, type Href } from 'expo-router';
 import { useEffect, useRef, useSyncExternalStore, type PropsWithChildren } from 'react';
 import { View } from 'react-native';
 
+import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { returnToTab, type TabHref } from '@/features/navigation/returnToTab';
 
 jest.unmock('expo-router');
@@ -123,14 +124,35 @@ function screenStub(testID: string) {
   };
 }
 
+function TodayTabStub() {
+  return (
+    <View testID="screen.today">
+      <BrandedScreenHeader title="Today's field work" />
+    </View>
+  );
+}
+
+function ScanTabStub() {
+  return (
+    <View testID="screen.scan">
+      <BrandedScreenHeader
+        title="Scan sugarcane"
+        showClose
+        onClosePress={() => router.replace('/home')}
+        closeTestID="scan.header-close"
+      />
+    </View>
+  );
+}
+
 const routes = {
   _layout: RootLayout,
   login: screenStub('screen.login'),
   '(tabs)/_layout': TabsLayout,
   '(tabs)/home': screenStub('screen.home'),
-  '(tabs)/scan': screenStub('screen.scan'),
+  '(tabs)/scan': ScanTabStub,
   '(tabs)/activity': screenStub('screen.activity'),
-  '(tabs)/today': screenStub('screen.today'),
+  '(tabs)/today': TodayTabStub,
   reports: screenStub('screen.reports'),
   'field-report': screenStub('screen.field-report'),
   'analysis-result': screenStub('screen.analysis-result'),
@@ -192,6 +214,7 @@ async function renderSignedInAppOnScan() {
 }
 
 beforeEach(() => {
+  consoleError.mockClear();
   mockPendingRemovals.length = 0;
   mockNativeScreens.clear();
   setAuthStatus('unauthenticated');
@@ -305,6 +328,32 @@ describe('returning to a bottom tab from a root-level screen', () => {
 
     expect(screen.getByTestId('screen.scan')).toBeTruthy();
     expect(screen.queryByTestId('screen.reports')).toBeNull();
+    expect(dismissedNativelyErrors()).toEqual([]);
+  });
+});
+
+describe('tab-root header navigation', () => {
+  it('returns from the Scan close affordance to Home without an unhandled action', async () => {
+    await renderSignedInAppOnScan();
+
+    await step(() => fireEvent.press(screen.getByTestId('scan.header-close')));
+
+    expect(screen.getByTestId('screen.home')).toBeTruthy();
+    expect(selectedTab()).toBe('Home');
+    expect(consoleError.mock.calls.flat().join(' ')).not.toContain('GO_BACK');
+    expect(dismissedNativelyErrors()).toEqual([]);
+  });
+
+  it("returns from Today's field work back button to Home without an unhandled action", async () => {
+    await renderRouter(routes, { initialUrl: '/login' });
+    await signIn();
+    await step(() => router.push('/today'));
+
+    await step(() => fireEvent.press(screen.getByRole('button', { name: 'Go back' })));
+
+    expect(screen.getByTestId('screen.home')).toBeTruthy();
+    expect(selectedTab()).toBe('Home');
+    expect(consoleError.mock.calls.flat().join(' ')).not.toContain('GO_BACK');
     expect(dismissedNativelyErrors()).toEqual([]);
   });
 });

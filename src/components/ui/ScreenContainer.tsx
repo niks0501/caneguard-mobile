@@ -43,6 +43,7 @@ export function ScreenContainer({
         style={styles.keyboardAvoiding}>
         {scrollable ? (
           <ScrollView
+            testID="screen-container.scroll-view"
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={[styles.scrollContent, { backgroundColor: theme.background }]}
             style={styles.scrollView}

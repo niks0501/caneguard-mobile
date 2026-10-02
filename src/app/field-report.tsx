@@ -283,6 +283,14 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
 
   // A finalized report must never keep draft-exit handling: the draft cancel
   // dialog is suppressed while finalized and cleared on finalize success.
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    returnToTab('/home');
+  }, []);
+
   const handleFinalizedBack = useCallback(() => {
     setShowCancelConfirm(false);
     returnToTab('/home');
@@ -803,7 +811,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
           }
           showClose={!isFinalized}
           onClosePress={handleCancel}
-          onBackPress={isFinalized ? handleFinalizedBack : undefined}
+          onBackPress={isFinalized ? handleFinalizedBack : handleBack}
           closeTestID="field-report.header-close"
         />
         {report.loading && !report.data ? (

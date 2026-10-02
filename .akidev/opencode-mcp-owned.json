@@ -1,0 +1,19 @@
+{
+  "context7": {
+    "type": "local",
+    "command": [
+      "npx",
+      "-y",
+      "@upstash/context7-mcp@4.1.1"
+    ],
+    "enabled": true
+  },
+  "agent-device": {
+    "type": "local",
+    "command": [
+      "agent-device",
+      "mcp"
+    ],
+    "enabled": true
+  }
+}

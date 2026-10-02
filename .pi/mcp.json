@@ -2,11 +2,16 @@
   "mcpServers": {
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@4.0.4"]
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@4.0.4"
+      ]
     },
     "agent-device": {
       "command": "agent-device",
-      "args": ["mcp"]
+      "args": [
+        "mcp"
+      ]
     }
   }
 }

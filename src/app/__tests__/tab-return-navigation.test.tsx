@@ -269,6 +269,19 @@ describe('returning to a bottom tab from a root-level screen', () => {
     expect(dismissedNativelyErrors()).toEqual([]);
   });
 
+  it('returns from a pushed field-report route to its previous screen', async () => {
+    await renderSignedInAppOnScan();
+    await step(() => router.push('/field-report'));
+    expect(screen.getByTestId('screen.field-report')).toBeTruthy();
+    expect(router.canGoBack()).toBe(true);
+
+    await step(() => router.back());
+
+    expect(screen.getByTestId('screen.scan')).toBeTruthy();
+    expect(screen.queryByTestId('screen.field-report')).toBeNull();
+    expect(dismissedNativelyErrors()).toEqual([]);
+  });
+
   it('returns to home in one step from a stack of flow screens', async () => {
     await renderSignedInAppOnScan();
     await step(() => router.push('/image-preview'));

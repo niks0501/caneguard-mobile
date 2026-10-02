@@ -267,6 +267,7 @@ async function goToStep(step: 1 | 2 | 3 | 4 | 5): Promise<void> {
 describe('FieldReportScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(router.canGoBack).mockReturnValue(true);
     mockAuthorityError = null;
     mockIsOnline = true;
     mockPossibleRecentMatchState = {
@@ -1824,6 +1825,37 @@ describe('FieldReportScreen', () => {
       await goToStep(5);
       expect(screen.queryByText(REPORT_ID)).not.toBeOnTheScreen();
       expect(screen.queryByText('Report identifiers')).not.toBeOnTheScreen();
+    });
+  });
+
+  describe('back navigation', () => {
+    it('returns to the previous screen when the report was pushed onto navigation history', async () => {
+      jest.mocked(router.canGoBack).mockReturnValue(true);
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+
+      await act(async () => {
+        fireEvent.press(screen.getByLabelText('Go back'));
+      });
+
+      expect(router.canGoBack).toHaveBeenCalled();
+      expect(router.back).toHaveBeenCalledTimes(1);
+      expect(router.dismissTo).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('field-report.cancel-dialog')).not.toBeOnTheScreen();
+    });
+
+    it('returns home without dispatching an unhandled back action when history is empty', async () => {
+      jest.mocked(router.canGoBack).mockReturnValue(false);
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+
+      await act(async () => {
+        fireEvent.press(screen.getByLabelText('Go back'));
+      });
+
+      expect(router.canGoBack).toHaveBeenCalled();
+      expect(router.back).not.toHaveBeenCalled();
+      expect(router.dismissTo).toHaveBeenCalledWith('/home');
     });
   });
 

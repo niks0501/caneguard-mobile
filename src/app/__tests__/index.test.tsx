@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react-native';
+import { render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import SplashScreen from '@/app/index';
@@ -36,5 +36,19 @@ describe('public auth entry', () => {
     await render(<SplashScreen />);
 
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('keeps the logo and both welcome actions visible in a fixed no-scroll screen', async () => {
+    mockUseAuth.mockReturnValue({
+      hasCompletedLogin: false,
+      status: 'unauthenticated',
+    } as unknown as ReturnType<typeof useAuth>);
+
+    await render(<SplashScreen />);
+
+    expect(screen.queryByTestId('screen-container.scroll-view')).toBeNull();
+    expect(screen.getByLabelText('CaneGuard Logo')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Get started with CaneGuard')).toBeOnTheScreen();
+    expect(screen.getByLabelText('I already have an account')).toBeOnTheScreen();
   });
 });

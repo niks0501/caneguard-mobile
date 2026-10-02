@@ -23,7 +23,7 @@ export default function SplashScreen() {
   }, [hasCompletedLogin, status]);
 
   return (
-    <ScreenContainer contentStyle={styles.container}>
+    <ScreenContainer contentStyle={styles.container} scrollable={false}>
       <View style={styles.brandWrap}>
         <Image
           accessible

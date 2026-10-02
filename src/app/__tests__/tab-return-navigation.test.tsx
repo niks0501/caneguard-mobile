@@ -12,7 +12,7 @@ import { returnToTab, type TabHref } from '@/features/navigation/returnToTab';
 jest.unmock('expo-router');
 
 jest.mock('react-native-safe-area-context', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   const inset = { top: 0, right: 0, bottom: 0, left: 0 };
   const frame = { x: 0, y: 0, width: 320, height: 640 };
   return {
@@ -35,7 +35,7 @@ jest.mock('react-native-safe-area-context', () => {
 const mockPendingRemovals: (() => void)[] = [];
 const mockNativeScreens = new Map<string, { dismiss: (event: unknown) => void }>();
 jest.mock('react-native-screens', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   const actual = jest.requireActual('react-native-screens');
   return {
     ...actual,

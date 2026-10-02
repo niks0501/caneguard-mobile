@@ -18,7 +18,7 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
 jest.mock(
   'expo-router',
   () => {
-    const React = require('react');
+    const React = jest.requireActual('react');
 
     const navigationState = {
       route: '/login',
@@ -90,31 +90,31 @@ jest.mock('expo-status-bar', () => ({
 // AppNavigator shares its route file with the provider composition root, so
 // stub the native-heavy providers it never renders itself.
 jest.mock('@/database/DatabaseProvider', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   return {
     CaneGuardDatabaseProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   };
 });
 jest.mock('@/features/detection/context/ScanSessionProvider', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   return {
     ScanSessionProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   };
 });
 jest.mock('@/features/detection/model/useCaneGuardModel', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   return {
     CaneGuardModelProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   };
 });
 jest.mock('@/features/sync/providers/SyncProvider', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   return {
     SyncProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   };
 });
 jest.mock('@/components/ui/Toast', () => {
-  const React = require('react');
+  const React = jest.requireActual('react');
   return {
     ToastProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   };

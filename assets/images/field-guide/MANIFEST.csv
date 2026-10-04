@@ -1,1 +1,8 @@
 local_filename,entry_id,subject,status,source_page,source_image_id_or_url,author_or_org,license_name,license_evidence,attribution_text,access_date,review_status
+healthy/01-healthy.jpg,healthy,leaf,,,,Nikko,,,,2026-10-04,
+mosaic/01-mosaic.jpg,mosaic,leaf,,,,Nikko,,,,2026-10-04,
+rust/01-rust.jpg,rust,leaf,,,,Nikko,,,,2026-10-04,
+smut/01-smut.jpg,smut,shoot,,,,Nikko,,,,2026-10-04,
+smut/02-smut.jpg,smut,shoot,,,,Nikko,,,,2026-10-04,
+rssi/01-rssi.jpg,rssi,insect,,,,Nikko,,,,2026-10-04,
+rssi/02-rssi.jpg,rssi,insect,,,,Nikko,,,,2026-10-04,

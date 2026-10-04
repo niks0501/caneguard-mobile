@@ -10,6 +10,7 @@ import {
 import {
   FIELD_GUIDE_LAUNCH_ENTRY_IDS,
   type FieldGuideEntry,
+  type FieldGuideImage,
 } from '@/features/field-guide/domain/fieldGuideTypes';
 
 /** Every reading-text field on an entry, for the forbidden-pattern sweep. */
@@ -26,6 +27,23 @@ function readingText(entry: FieldGuideEntry): string[] {
     entry.detail,
     ...entry.images.map((image) => `${image.caption} ${image.subject}`),
   ];
+}
+
+/** The dropped field photos of one entry, identified by their folder path. */
+function droppedPhotosFor(entryId: string): readonly FieldGuideImage[] {
+  return (findFieldGuideEntry(entryId)?.images ?? []).filter((image) =>
+    image.assetKey.includes('/'),
+  );
+}
+
+/** Every dropped field photo in the launch set, in reading order. */
+function droppedPhotos(): readonly FieldGuideImage[] {
+  return fieldGuideEntries.flatMap((entry) => droppedPhotosFor(entry.id));
+}
+
+/** Every bundled photo key of one entry, in reading order. */
+function photoKeysFor(entryId: string): string[] {
+  return (findFieldGuideEntry(entryId)?.images ?? []).map((image) => image.assetKey);
 }
 
 describe('field guide entry data', () => {
@@ -92,14 +110,42 @@ describe('field guide entry data', () => {
     expect(MODEL_LABELS).not.toContain(FIELD_GUIDE_PEST_ENTRY_ID);
   });
 
-  it('bundles a photo for exactly the classes that already ship one', () => {
-    const withPhotos = fieldGuideEntries
-      .filter((entry) => entry.images.length > 0)
-      .map((entry) => entry.id);
-    expect(withPhotos).toEqual(['healthy', 'mosaic', 'rust']);
-    // Smut and RSSI render the description-only frame until photos land.
-    expect(findFieldGuideEntry('smut')?.images).toEqual([]);
-    expect(findFieldGuideEntry('rssi')?.images).toEqual([]);
+  it('bundles the captain drop on all five entries, after the model reference photo', () => {
+    // Every launch entry now ships at least one bundled photo, so the
+    // description-only frame is no longer part of the launch state.
+    for (const entry of fieldGuideEntries) {
+      expect(entry.images.length).toBeGreaterThan(0);
+      for (const image of entry.images) {
+        // A bundled asset module is never a string; a string source would be a
+        // Phase 2 downloaded file URI.
+        expect(typeof image.source).not.toBe('string');
+      }
+    }
+
+    // The drop is one healthy, one mosaic, one rust, two smut and two RSSI
+    // photos, kept in the manifest's reading order.
+    expect(droppedPhotos().map((image) => image.assetKey)).toEqual([
+      'healthy/01-healthy.jpg',
+      'mosaic/01-mosaic.jpg',
+      'rust/01-rust.jpg',
+      'smut/01-smut.jpg',
+      'smut/02-smut.jpg',
+      'rssi/01-rssi.jpg',
+      'rssi/02-rssi.jpg',
+    ]);
+    expect(droppedPhotosFor('healthy')).toHaveLength(1);
+    expect(droppedPhotosFor('mosaic')).toHaveLength(1);
+    expect(droppedPhotosFor('rust')).toHaveLength(1);
+    expect(droppedPhotosFor('smut')).toHaveLength(2);
+    expect(droppedPhotosFor('rssi')).toHaveLength(2);
+
+    // The three model reference photos stay exactly where Phase 1 wired them,
+    // ahead of the drop, so the gallery only ever adds media.
+    expect(photoKeysFor('healthy')).toEqual(['reference_healthy.jpg', 'healthy/01-healthy.jpg']);
+    expect(photoKeysFor('mosaic')).toEqual(['reference_mosaic.jpg', 'mosaic/01-mosaic.jpg']);
+    expect(photoKeysFor('rust')).toEqual(['reference_rust.jpg', 'rust/01-rust.jpg']);
+    expect(photoKeysFor('smut')).toEqual(['smut/01-smut.jpg', 'smut/02-smut.jpg']);
+    expect(photoKeysFor('rssi')).toEqual(['rssi/01-rssi.jpg', 'rssi/02-rssi.jpg']);
   });
 
   it('returns null for an unknown id instead of throwing', () => {
@@ -115,8 +161,12 @@ describe('field guide safety rules over the entry data', () => {
   const BRAND_MARKER = /[®™]/;
   const NAMED_ACTIVE =
     /\b(imidacloprid|thiamethoxam|chlorantraniliprole|fipronil|lambda-cyhalothrin|deltamethrin|malathion|dimethoate|cartap|buprofezin|dinotefuran|sulfoxaflor|acephate|glyphosate|paraquat|atrazine|chlorpyrifos|profenofos|bifenthrin|cypermethrin|abamectin)\b/i;
+  // The interim drop's own vocabulary (see `assets/images/field-guide/README.md`):
+  // a dropped file's status or licence wording must never reach reading copy.
+  const PROVENANCE_WORDING =
+    /\b(pending|licen[cs]e|licensing|provenance|manifest|attribution|watermark)\b/i;
 
-  it('carries no dose, no formulation code, no brand marker and no named active', () => {
+  it('carries no dose, no formulation code, no brand marker, no named active and no provenance wording', () => {
     const violations: string[] = [];
 
     for (const entry of fieldGuideEntries) {
@@ -132,6 +182,9 @@ describe('field guide safety rules over the entry data', () => {
         }
         if (NAMED_ACTIVE.test(text)) {
           violations.push(`${entry.id}: named active in "${text}"`);
+        }
+        if (PROVENANCE_WORDING.test(text)) {
+          violations.push(`${entry.id}: provenance wording in "${text}"`);
         }
       }
     }

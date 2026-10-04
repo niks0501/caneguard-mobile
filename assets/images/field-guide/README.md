@@ -63,3 +63,8 @@ write `pending` or licence wording, because those words are banned from the
 app's user-facing copy by a build guard. If a licence requires a credit, record
 it in `attribution_text` and say where the credit should appear — until told
 otherwise the app puts required credits in the store listing only.
+
+A dropped photo reaches a phone only when `FIELD_GUIDE_DROP_PHOTOS` in
+`src/features/field-guide/constants/fieldGuideEntries.ts` requires that exact
+file and its `assetKey` matches the row's `local_filename`. A file left in a
+folder without both stays out of the build.

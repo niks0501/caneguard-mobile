@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
 
 import LoginScreen from '@/app/login';
 import { ToastProvider } from '@/components/ui/Toast';
@@ -99,5 +100,17 @@ describe('LoginScreen biometric fallback', () => {
       expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
       expect(screen.getByTestId('app-toast')).toHaveTextContent('Signed in');
     });
+  });
+
+  it('keeps the open field guide entry point on the login screen', async () => {
+    setAuthValue();
+
+    await render(<LoginScreen />);
+
+    const button = screen.getByTestId('auth.field-guide');
+    expect(button).toHaveProp('accessibilityLabel', 'Open the field guide without signing in');
+
+    await fireEvent.press(button);
+    expect(router.push).toHaveBeenCalledWith('/field-guide');
   });
 });

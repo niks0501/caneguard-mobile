@@ -20,7 +20,7 @@ import { useOfficeUpdates } from '@/features/notifications/providers/OfficeUpdat
 import { notificationDestinationRoute } from '@/features/notifications/services/resolveNotificationDestination';
 import { getSyncBadgeLabel } from '@/features/sync/utils/syncStatusCopy';
 import { useSync } from '@/features/sync/hooks/useSync';
-import { DECISION_SUPPORT_DISCLAIMER } from '@/constants/copy';
+import { DECISION_SUPPORT_DISCLAIMER, FIELD_GUIDE_ENTRY_TITLE } from '@/constants/copy';
 import {
   ComponentTokens,
   Layout,
@@ -197,8 +197,8 @@ export default function HomeScreen() {
               <Pressable
                 testID="home.disease-reference"
                 accessibilityRole="button"
-                accessibilityLabel="Open disease reference guide"
-                onPress={() => router.push('/disease-reference')}
+                accessibilityLabel="Open the field guide for sugarcane diseases and pests"
+                onPress={() => router.push('/field-guide')}
                 style={({ pressed }) => [pressed && styles.pressed]}>
                 <View
                   style={[
@@ -207,15 +207,15 @@ export default function HomeScreen() {
                   ]}>
                   <View style={styles.referenceEntryTop}>
                     <View style={styles.referenceHeading}>
-                      <SectionTitle label="DISEASE REFERENCE" />
+                      <SectionTitle label="FIELD GUIDE" />
                       <Text style={[styles.referenceEntryTitle, { color: theme.primaryDark }]}>
-                        Field symptom guide
+                        {FIELD_GUIDE_ENTRY_TITLE}
                       </Text>
                     </View>
                     <Feather name="arrow-right" size={20} color={theme.primary} />
                   </View>
                   <Text style={[styles.referenceIntro, { color: theme.textSecondary }]}>
-                    Observational references for the four sugarcane conditions CaneGuard can check. {DECISION_SUPPORT_DISCLAIMER}
+                    Observational references for the four sugarcane conditions CaneGuard can check, plus the RSSI pest it can only record as something you saw. {DECISION_SUPPORT_DISCLAIMER}
                   </Text>
                   <View style={styles.referencePillsRow}>
                     {MODEL_LABELS.map((key) => (

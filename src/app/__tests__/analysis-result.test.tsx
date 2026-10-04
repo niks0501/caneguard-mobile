@@ -463,6 +463,10 @@ describe('AnalysisResultScreen', () => {
     expect(screen.getByTestId('scan.view-disease-reference')).toBeOnTheScreen();
     expect(screen.getByTestId('analysis-result.cancel')).toBeOnTheScreen();
     expect(screen.getByTestId('scan.open-saved-record')).toBeOnTheScreen();
+
+    // The guide opens the entry for the condition the scan reported.
+    await fireEvent.press(screen.getByTestId('scan.view-disease-reference'));
+    expect(mockRouterPush).toHaveBeenCalledWith('/field-guide/rust');
   });
 
   it('places the three decisions before every explanation disclosure', async () => {

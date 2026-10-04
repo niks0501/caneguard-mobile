@@ -152,6 +152,12 @@ export function AppNavigator() {
         <Stack.Screen name="forgot-password" />
         <Stack.Screen name="reset-password" />
         <Stack.Screen name="verify-email" />
+        {/*
+          Deliberately outside both sign-in groups: the field guide is readable
+          with or without a session, exactly like the routes above.
+        */}
+        <Stack.Screen name="field-guide/index" />
+        <Stack.Screen name="field-guide/[entryId]" />
         <Stack.Protected guard={__DEV__}>
           <Stack.Screen name="model-smoke-test" />
           <Stack.Screen name="model-debug" />

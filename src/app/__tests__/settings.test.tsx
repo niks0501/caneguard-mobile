@@ -43,11 +43,11 @@ describe('SettingsScreen', () => {
     expect(screen.getByText('Account security')).toBeOnTheScreen();
   });
 
-  it('links to the disease reference guide', async () => {
+  it('links to the field guide', async () => {
     await render(<SettingsScreen />);
 
     await fireEvent.press(screen.getByTestId('settings.disease-reference'));
-    expect(router.push).toHaveBeenCalledWith('/disease-reference');
+    expect(router.push).toHaveBeenCalledWith('/field-guide');
   });
 
   it('displays confirmation toast when logging out', async () => {

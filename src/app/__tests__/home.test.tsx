@@ -108,10 +108,11 @@ describe('HomeScreen', () => {
     expect(screen.getByText('Office unreachable')).toBeOnTheScreen();
   });
 
-  it('shows only the supported education reference classes and links to full guide', async () => {
+  it('shows only the supported education reference classes and links to the field guide', async () => {
     await render(<HomeScreen />);
 
-    expect(screen.getByText('DISEASE REFERENCE')).toBeOnTheScreen();
+    expect(screen.getByText('FIELD GUIDE')).toBeOnTheScreen();
+    expect(screen.getByText('Field guide — diseases and pests')).toBeOnTheScreen();
     expect(screen.getByText('Healthy')).toBeOnTheScreen();
     expect(screen.getByText('Mosaic')).toBeOnTheScreen();
     expect(screen.getByText('Rust')).toBeOnTheScreen();
@@ -124,7 +125,7 @@ describe('HomeScreen', () => {
     ).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByTestId('home.disease-reference'));
-    expect(mockRouterPush).toHaveBeenCalledWith('/disease-reference');
+    expect(mockRouterPush).toHaveBeenCalledWith('/field-guide');
   });
 
   it('keeps the live sync row linked to Activity without adding a sync shortcut', async () => {

@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { useToast } from '@/components/ui/Toast';
+import { FIELD_GUIDE_TITLE } from '@/constants/copy';
 import { ComponentTokens, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
@@ -142,6 +143,20 @@ export default function LoginScreen() {
               </Pressable>
               <View style={[styles.rule, { backgroundColor: theme.accent }]} />
             </View>
+
+            {/*
+              The gallery needs no account, and a returning signed-out visitor
+              lands here rather than on the welcome screen, so the open entry
+              point has to exist on both.
+            */}
+            <AppButton
+              testID="auth.field-guide"
+              variant="text"
+              leadingIcon="book-open"
+              onPress={() => router.push('/field-guide')}
+              accessibilityLabel="Open the field guide without signing in">
+              {FIELD_GUIDE_TITLE}
+            </AppButton>
           </View>
         </View>
 

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import SplashScreen from '@/app/index';
@@ -10,6 +10,7 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
 
 const mockUseAuth = jest.mocked(useAuth);
 const mockReplace = jest.mocked(router.replace);
+const mockPush = jest.mocked(router.push);
 
 describe('public auth entry', () => {
   beforeEach(() => {
@@ -50,5 +51,17 @@ describe('public auth entry', () => {
     expect(screen.getByLabelText('CaneGuard Logo')).toBeOnTheScreen();
     expect(screen.getByLabelText('Get started with CaneGuard')).toBeOnTheScreen();
     expect(screen.getByLabelText('I already have an account')).toBeOnTheScreen();
+  });
+
+  it('offers the field guide as a third action that needs no account', async () => {
+    mockUseAuth.mockReturnValue({
+      hasCompletedLogin: false,
+      status: 'unauthenticated',
+    } as unknown as ReturnType<typeof useAuth>);
+
+    await render(<SplashScreen />);
+
+    await fireEvent.press(screen.getByTestId('welcome.field-guide'));
+    expect(mockPush).toHaveBeenCalledWith('/field-guide');
   });
 });

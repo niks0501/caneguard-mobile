@@ -5,6 +5,7 @@ import { Image, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { AppButton } from '@/components/ui/AppButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { Spacing, Typography } from '@/constants/theme';
+import { FIELD_GUIDE_TITLE } from '@/constants/copy';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -45,6 +46,19 @@ export default function SplashScreen() {
           onPress={() => router.push('/login')}
           accessibilityLabel="I already have an account">
           I already have an account
+        </AppButton>
+        {/*
+          Readable with no account. Repeated on the login screen because a
+          returning signed-out visitor is redirected there before they can use
+          this action.
+        */}
+        <AppButton
+          testID="welcome.field-guide"
+          variant="text"
+          leadingIcon="book-open"
+          onPress={() => router.push('/field-guide')}
+          accessibilityLabel="Open the field guide without signing in">
+          {FIELD_GUIDE_TITLE}
         </AppButton>
       </View>
     </ScreenContainer>

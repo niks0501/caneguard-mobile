@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
+import { FIELD_GUIDE_ENTRY_DESCRIPTION } from '@/constants/copy';
 import { ComponentTokens, Layout, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { clearLocalDataForOwner } from '@/database/localDataLifecycle';
@@ -117,7 +118,7 @@ export default function SettingsScreen() {
               />
             </View>
 
-            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>REFERENCE</Text>
+            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>FIELD GUIDE</Text>
 
             <View
               style={[
@@ -127,16 +128,16 @@ export default function SettingsScreen() {
               <Pressable
                 testID="settings.disease-reference"
                 accessibilityRole="button"
-                accessibilityLabel="Disease reference"
-                onPress={() => router.push('/disease-reference')}
+                accessibilityLabel="Field guide"
+                onPress={() => router.push('/field-guide')}
                 style={({ pressed }) => [
                   styles.menuRow,
                   pressed && styles.pressed,
                 ]}>
                 <View style={styles.toggleCopy}>
-                  <Text style={[styles.menuLabel, { color: theme.text }]}>Disease reference</Text>
+                  <Text style={[styles.menuLabel, { color: theme.text }]}>Field guide</Text>
                   <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>
-                    Observational symptom guide and reference photos
+                    {FIELD_GUIDE_ENTRY_DESCRIPTION}
                   </Text>
                 </View>
                 <Feather name="chevron-right" size={18} color={theme.textSecondary} />

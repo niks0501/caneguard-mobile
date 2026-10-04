@@ -381,11 +381,11 @@ export default function AnalysisResultScreen() {
                   summary={saveRecord.status === 'saved' && saveRecord.recordId ? '3 more actions' : '2 more actions'}>
                   <AppButton
                     testID="scan.view-disease-reference"
-                    onPress={() => router.push('/disease-reference')}
+                    onPress={() => router.push(`/field-guide/${result.predictedLabel}`)}
                     leadingIcon="book-open"
                     variant="secondary"
-                    accessibilityLabel="Open disease reference for this condition">
-                    Disease Reference
+                    accessibilityLabel="Open the field guide for this condition">
+                    Field Guide
                   </AppButton>
                   <AppButton
                     testID="analysis-result.cancel"

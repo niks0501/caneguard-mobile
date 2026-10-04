@@ -17,6 +17,28 @@ import {
 } from '@/constants/copy';
 import { FIELD_GUIDE_LAUNCH_ENTRY_IDS } from '@/features/field-guide/domain/fieldGuideTypes';
 
+// Asset modules required at module scope, exactly as the entry data requires
+// them, so a screen test compares the same module the screen renders.
+const REFERENCE_PHOTOS = {
+  healthy: require('../../../assets/images/sugarcane-diseases/reference_healthy.jpg'),
+  mosaic: require('../../../assets/images/sugarcane-diseases/reference_mosaic.jpg'),
+  rust: require('../../../assets/images/sugarcane-diseases/reference_rust.jpg'),
+} as const;
+
+const DROP_PHOTOS = {
+  healthy: [require('../../../assets/images/field-guide/healthy/01-healthy.jpg')],
+  mosaic: [require('../../../assets/images/field-guide/mosaic/01-mosaic.jpg')],
+  rust: [require('../../../assets/images/field-guide/rust/01-rust.jpg')],
+  smut: [
+    require('../../../assets/images/field-guide/smut/01-smut.jpg'),
+    require('../../../assets/images/field-guide/smut/02-smut.jpg'),
+  ],
+  rssi: [
+    require('../../../assets/images/field-guide/rssi/01-rssi.jpg'),
+    require('../../../assets/images/field-guide/rssi/02-rssi.jpg'),
+  ],
+} as const;
+
 const mockPush = jest.mocked(router.push);
 const mockReplace = jest.mocked(router.replace);
 const mockUseLocalSearchParams = jest.mocked(useLocalSearchParams);
@@ -56,7 +78,7 @@ describe('FieldGuideIndexScreen', () => {
     expect(screen.getByText('Pests')).toBeOnTheScreen();
   });
 
-  it('keeps the four reference classes wired to their shipped photos and the safe fallback', async () => {
+  it('wires every launch entry to a bundled photo, and the drop fills the old empty frames', async () => {
     await render(<FieldGuideIndexScreen />);
 
     expect(screen.getByText('Healthy')).toBeOnTheScreen();
@@ -68,12 +90,13 @@ describe('FieldGuideIndexScreen', () => {
       expect(screen.getByTestId(`field-guide.entry.${id}.media`)).toBeOnTheScreen();
     }
 
-    // Smut and RSSI render the description-only frame, never a broken image.
-    expect(screen.queryByLabelText('Smut reference photo')).not.toBeOnTheScreen();
+    // Smut and RSSI used to render the description-only frame; the captain's
+    // dropped photos now fill them on the card as well.
+    expect(screen.getByLabelText('Smut reference photo')).toBeOnTheScreen();
     expect(
-      screen.getByLabelText('Red-Striped Soft Scale Insect reference description'),
+      screen.getByLabelText('Red-Striped Soft Scale Insect reference photo'),
     ).toBeOnTheScreen();
-    expect(screen.getAllByText('No photo available · description only')).toHaveLength(2);
+    expect(screen.queryByText('No photo available · description only')).not.toBeOnTheScreen();
   });
 
   it('states which entries the app can check and which it cannot', async () => {
@@ -129,28 +152,66 @@ describe('FieldGuideEntryScreen', () => {
     expect(screen.getAllByText(/Red-Striped Soft Scale Insect/).length).toBeGreaterThan(0);
   });
 
-  it('renders the description-only frame when an entry has no photo', async () => {
-    showEntry('smut');
-    await render(<FieldGuideEntryScreen />);
-
-    expect(screen.getByText('No photo available · description only')).toBeOnTheScreen();
-    expect(screen.queryByLabelText('Smut reference photo')).not.toBeOnTheScreen();
-  });
-
-  it.each([
-    ['healthy', 'Healthy', require('../../../assets/images/sugarcane-diseases/reference_healthy.jpg')],
-    ['mosaic', 'Mosaic', require('../../../assets/images/sugarcane-diseases/reference_mosaic.jpg')],
-    ['rust', 'Rust', require('../../../assets/images/sugarcane-diseases/reference_rust.jpg')],
-  ])(
-    'renders the %s reference photo through the unchanged media component',
-    async (id, label, asset) => {
+  it.each(FIELD_GUIDE_LAUNCH_ENTRY_IDS)(
+    'renders a bundled photo for the %s entry instead of the description-only frame',
+    async (id) => {
+      // No launch entry has an empty photo list any more, so the
+      // description-only frame is unreachable from the five entry pages.
       showEntry(id);
       await render(<FieldGuideEntryScreen />);
 
       expect(screen.getByTestId(`field-guide.detail.${id}.media`)).toBeOnTheScreen();
-      expect(screen.getByLabelText(`${label} reference photo`)).toHaveProp('source', asset);
+      expect(screen.getByTestId(`field-guide.detail.${id}.photo.1`)).toBeOnTheScreen();
+      expect(screen.queryByText('No photo available · description only')).not.toBeOnTheScreen();
     },
   );
+
+  it.each([
+    ['healthy', 'A healthy sugarcane stool with evenly green leaves'],
+    ['mosaic', 'Leaf mottling with contrasting light and dark green areas'],
+    ['rust', 'Orange-brown rust pustules on the leaf underside'],
+  ] as const)('renders the %s reference photo first, with its caption', async (id, caption) => {
+    showEntry(id);
+    await render(<FieldGuideEntryScreen />);
+
+    expect(screen.getByTestId(`field-guide.detail.${id}.media`)).toBeOnTheScreen();
+    expect(screen.getByTestId(`field-guide.detail.${id}.photo.1`)).toHaveProp(
+      'source',
+      REFERENCE_PHOTOS[id],
+    );
+    expect(screen.getByLabelText(caption)).toBeOnTheScreen();
+    expect(screen.getByText(caption)).toBeOnTheScreen();
+  });
+
+  it.each([
+    ['smut', 'A single long whip rising above the cane canopy'],
+    ['rssi', 'Red-striped scale insects clustered along the leaf blade'],
+  ] as const)('renders both %s drop photos with their captions', async (id, caption) => {
+    showEntry(id);
+    await render(<FieldGuideEntryScreen />);
+
+    DROP_PHOTOS[id].forEach((asset, index) => {
+      expect(screen.getByTestId(`field-guide.detail.${id}.photo.${index + 1}`)).toHaveProp(
+        'source',
+        asset,
+      );
+    });
+    expect(screen.getByText(caption)).toBeOnTheScreen();
+    expect(screen.queryByText('No photo available · description only')).not.toBeOnTheScreen();
+  });
+
+  it('renders the drop after the reference photo on the healthy entry', async () => {
+    showEntry('healthy');
+    await render(<FieldGuideEntryScreen />);
+
+    expect(screen.getByTestId('field-guide.detail.healthy.photo.2')).toHaveProp(
+      'source',
+      DROP_PHOTOS.healthy[0],
+    );
+    expect(
+      screen.getByText('Clean, evenly green leaf blades on a healthy stool'),
+    ).toBeOnTheScreen();
+  });
 
   it('renders an honest not-found state for an unknown id instead of throwing', async () => {
     showEntry('not-a-real-entry');

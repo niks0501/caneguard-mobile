@@ -11,6 +11,7 @@ import {
   type FieldGuideEntry,
   type FieldGuideEntryId,
   type FieldGuideImage,
+  type FieldGuideLaunchEntryId,
 } from '../domain/fieldGuideTypes';
 import { fieldGuideEntryContent } from './fieldGuideEntryContent';
 
@@ -22,8 +23,11 @@ import { fieldGuideEntryContent } from './fieldGuideEntryContent';
  * (`REPORTER_OBSERVED_CONCERN_RSSI`), never a `MODEL_LABELS` member. Adding it
  * to `diseaseCatalog` would break the catalog-completeness guard, so the four
  * model-linked entries are *projected* from `referenceMedia` (name and bundled
- * photo) and `diseaseCatalog` (the app's own observational wording) instead of
- * being duplicated, and the pest entry lives in its own data block below.
+ * reference photo) and `diseaseCatalog` (the app's own observational wording)
+ * instead of being duplicated, and the pest entry lives in its own data block
+ * below. Every entry's `images` is that reference photo (where the class ships
+ * one) followed by the captain's dropped field photos from
+ * `assets/images/field-guide/`.
  */
 export const FIELD_GUIDE_PEST_ENTRY_ID = 'rssi';
 
@@ -39,6 +43,68 @@ function bundledImage(
   }
   return [{ source: photo, caption, subject, assetKey: `reference_${label}.jpg` }];
 }
+
+/**
+ * The captain's dropped field photos, wired in by an explicit `require` per
+ * file: `assets/images/field-guide/` is a drop folder, not a scan, so a file
+ * that is not required here never reaches a build. `assetKey` is that file's
+ * `local_filename` in `MANIFEST.csv`, and the caption is the label the entry
+ * page shows under the photo. Order is reading order.
+ */
+const FIELD_GUIDE_DROP_PHOTOS: Record<FieldGuideLaunchEntryId, readonly FieldGuideImage[]> = {
+  healthy: [
+    {
+      source: require('../../../../assets/images/field-guide/healthy/01-healthy.jpg'),
+      caption: 'Clean, evenly green leaf blades on a healthy stool',
+      subject: 'leaf',
+      assetKey: 'healthy/01-healthy.jpg',
+    },
+  ],
+  mosaic: [
+    {
+      source: require('../../../../assets/images/field-guide/mosaic/01-mosaic.jpg'),
+      caption: 'Paler green streaking along an otherwise green leaf blade',
+      subject: 'leaf',
+      assetKey: 'mosaic/01-mosaic.jpg',
+    },
+  ],
+  rust: [
+    {
+      source: require('../../../../assets/images/field-guide/rust/01-rust.jpg'),
+      caption: 'Orange-brown rust pustules scattered over the leaf blade',
+      subject: 'leaf',
+      assetKey: 'rust/01-rust.jpg',
+    },
+  ],
+  smut: [
+    {
+      source: require('../../../../assets/images/field-guide/smut/01-smut.jpg'),
+      caption: 'A single long whip rising above the cane canopy',
+      subject: 'shoot',
+      assetKey: 'smut/01-smut.jpg',
+    },
+    {
+      source: require('../../../../assets/images/field-guide/smut/02-smut.jpg'),
+      caption: 'Several whips curling over a smut-affected block',
+      subject: 'shoot',
+      assetKey: 'smut/02-smut.jpg',
+    },
+  ],
+  rssi: [
+    {
+      source: require('../../../../assets/images/field-guide/rssi/01-rssi.jpg'),
+      caption: 'Red-striped scale insects clustered along the leaf blade',
+      subject: 'insect',
+      assetKey: 'rssi/01-rssi.jpg',
+    },
+    {
+      source: require('../../../../assets/images/field-guide/rssi/02-rssi.jpg'),
+      caption: 'A heavy colony of wax-covered scale insects on a leaf',
+      subject: 'insect',
+      assetKey: 'rssi/02-rssi.jpg',
+    },
+  ],
+};
 
 const BUNDLED_PHOTO_DESCRIPTIONS: Record<
   Exclude<ModelLabel, 'smut'>,
@@ -74,9 +140,12 @@ function projectModelEntry(label: ModelLabel): FieldGuideEntry {
     impact: content.impact,
     management: content.management,
     detail: content.detail,
-    images: photoDescription
-      ? bundledImage(label, photoDescription.caption, photoDescription.subject)
-      : [],
+    images: [
+      ...(photoDescription
+        ? bundledImage(label, photoDescription.caption, photoDescription.subject)
+        : []),
+      ...FIELD_GUIDE_DROP_PHOTOS[label],
+    ],
     detectableByApp: true,
     contentVersion: content.contentVersion,
     updatedAt: content.updatedAt,
@@ -99,7 +168,7 @@ function projectPestEntry(): FieldGuideEntry {
     impact: content.impact,
     management: content.management,
     detail: content.detail,
-    images: [],
+    images: FIELD_GUIDE_DROP_PHOTOS[FIELD_GUIDE_PEST_ENTRY_ID],
     // The app can only record RSSI as something the reporter says they saw.
     detectableByApp: false,
     contentVersion: content.contentVersion,

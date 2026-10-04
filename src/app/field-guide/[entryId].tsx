@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,7 +30,7 @@ import {
   catalogObservationalWording,
   findFieldGuideEntry,
 } from '@/features/field-guide/constants/fieldGuideEntries';
-import type { FieldGuideEntry } from '@/features/field-guide/domain/fieldGuideTypes';
+import type { FieldGuideEntry, FieldGuideImage } from '@/features/field-guide/domain/fieldGuideTypes';
 import { useTheme } from '@/hooks/use-theme';
 
 const PILL_VARIANTS: Record<string, PillVariant> = {
@@ -41,18 +42,21 @@ const PILL_VARIANTS: Record<string, PillVariant> = {
 };
 
 /**
- * Phase 1 renders bundled seed photos only. `FieldGuideImage.source` also
+ * The entry's bundled photos, in reading order. `FieldGuideImage.source` also
  * allows a downloaded local-file URI, which arrives in Phase 2 together with
- * the media component's URI branch; until then an entry whose source is not a
- * bundled asset module renders the description-only frame, never a broken
- * image.
+ * the photo component's URI branch, so the honest runtime test for a bundled
+ * asset is "not a string" (a Metro asset module is a number). Until then an
+ * entry whose sources are all URIs renders the description-only frame, never a
+ * broken image.
  */
-function entryPhoto(entry: FieldGuideEntry): number | undefined {
-  const source = entry.images[0]?.source;
-  if (source === undefined || typeof source === 'string') {
-    return undefined;
-  }
-  return source;
+function isBundledPhoto(image: FieldGuideImage): image is FieldGuideImage & { source: number } {
+  return typeof image.source !== 'string';
+}
+
+function bundledPhotos(
+  entry: FieldGuideEntry,
+): readonly (FieldGuideImage & { source: number })[] {
+  return entry.images.filter(isBundledPhoto);
 }
 
 /**
@@ -93,6 +97,7 @@ export default function FieldGuideEntryScreen() {
   }
 
   const canCheck = entry.detectableByApp && entry.modelLabel !== null;
+  const photos = bundledPhotos(entry);
 
   return (
     <SafeAreaView
@@ -115,12 +120,24 @@ export default function FieldGuideEntryScreen() {
               ) : null}
             </View>
 
-            <ReferenceMedia
-              label={entry.displayName}
-              patternDescription={entry.signs[0]}
-              photo={entryPhoto(entry)}
-              testID={`field-guide.detail.${entry.id}.media`}
-            />
+            {photos.length > 0 ? (
+              <View style={styles.photoList} testID={`field-guide.detail.${entry.id}.media`}>
+                {photos.map((photo, index) => (
+                  <GalleryPhoto
+                    key={photo.assetKey}
+                    caption={photo.caption}
+                    photo={photo.source}
+                    testID={`field-guide.detail.${entry.id}.photo.${index + 1}`}
+                  />
+                ))}
+              </View>
+            ) : (
+              <ReferenceMedia
+                label={entry.displayName}
+                patternDescription={entry.signs[0]}
+                testID={`field-guide.detail.${entry.id}.media`}
+              />
+            )}
 
             <View
               style={[
@@ -224,6 +241,38 @@ function ReadingBlock({ body, label, testID }: { body: string; label: string; te
   );
 }
 
+function GalleryPhoto({
+  caption,
+  photo,
+  testID,
+}: {
+  caption: string;
+  photo: number;
+  testID: string;
+}) {
+  const theme = useTheme();
+
+  return (
+    <View style={styles.photoFigure}>
+      <View
+        style={[
+          styles.photoFrame,
+          { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+        ]}>
+        <Image
+          accessibilityLabel={caption}
+          cachePolicy="memory-disk"
+          contentFit="contain"
+          source={photo}
+          style={styles.photoImage}
+          testID={testID}
+        />
+      </View>
+      <Text style={[styles.photoCaption, { color: theme.textSecondary }]}>{caption}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   root: { flex: 1 },
@@ -265,6 +314,19 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   sectionBody: { ...Typography.bodySmall, flex: 1 },
+  photoList: { gap: Spacing.md },
+  photoFigure: { gap: Spacing.xs },
+  photoFrame: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoImage: { width: '100%', height: '100%' },
+  photoCaption: { ...Typography.caption },
   bulletList: { gap: Spacing.sm },
   bulletRow: {
     flexDirection: 'row',

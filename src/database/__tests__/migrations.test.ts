@@ -24,6 +24,7 @@ const migration15 = readMigration('0015_sour_riptide.sql');
 const migration16 = readMigration('0016_nervous_gateway.sql');
 const migration17 = readMigration('0017_silky_rick_jones.sql');
 const migration18 = readMigration('0018_notification_advisory_content_cache.sql');
+const migration19 = readMigration('0019_add_field_surveys.sql');
 const migrationJournal = migrationBundle.journal;
 
 function readMigration(filename: string): string {
@@ -123,6 +124,28 @@ describe('CaneGuard database migrations', () => {
       'scan_records_sync_created_at_idx',
     ]);
 
+    database.close();
+  });
+
+  it('adds the owner-scoped field survey outbox through an additive migration', () => {
+    const database = openDatabase();
+    applyLatest(database);
+    for (const migration of [migration14, migration15, migration16, migration17, migration18, migration19]) {
+      database.exec(migration);
+    }
+    const columns = database.prepare('PRAGMA table_info(field_surveys)').all().map((column) => column.name);
+    expect(columns).toEqual([
+      'client_uuid', 'owner_identity', 'district_code', 'waypoints_json',
+      'polygon_json', 'area_sqm', 'captured_at', 'status', 'remote_id',
+      'field_errors_json', 'sync_attempt_count', 'last_sync_error_code',
+      'last_synced_at', 'created_at', 'updated_at',
+    ]);
+    expect(() => database.prepare(`
+      INSERT INTO field_surveys (
+        client_uuid, owner_identity, district_code, waypoints_json, captured_at,
+        status, created_at, updated_at
+      ) VALUES ('survey-1', 'owner-1', 'D-01', '[]', 'now', 'unknown', 'now', 'now')
+    `).run()).toThrow();
     database.close();
   });
 
@@ -538,6 +561,7 @@ describe('CaneGuard database migrations', () => {
       '0016_nervous_gateway',
       '0017_silky_rick_jones',
       '0018_notification_advisory_content_cache',
+      '0019_add_field_surveys',
     ]);
     expect(Object.keys(migrationBundle.migrations)).toEqual([
       'm0000',
@@ -559,6 +583,7 @@ describe('CaneGuard database migrations', () => {
       'm0016',
       'm0017',
       'm0018',
+      'm0019',
     ]);
     expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
       migration0,
@@ -580,6 +605,7 @@ describe('CaneGuard database migrations', () => {
       migration16,
       migration17,
       migration18,
+      migration19,
     ]);
   });
 });

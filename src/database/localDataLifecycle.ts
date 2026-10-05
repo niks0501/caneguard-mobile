@@ -5,6 +5,7 @@ import { toStorageError, type StorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import {
   fieldReports,
+  fieldSurveys,
   fieldValidationAssignments,
   fieldValidationCompletions,
   mobileNotifications,
@@ -48,6 +49,10 @@ export async function clearLocalDataForOwner(
       deletedRows += transaction
         .delete(fieldReports)
         .where(eq(fieldReports.submitterIdentity, owner))
+        .run().changes;
+      deletedRows += transaction
+        .delete(fieldSurveys)
+        .where(eq(fieldSurveys.ownerIdentity, owner))
         .run().changes;
       deletedRows += transaction
         .delete(scanRecords)
@@ -103,7 +108,7 @@ export async function purgeExpiredLocalData(
     now.getTime() - Math.trunc(retentionDays) * 24 * 60 * 60 * 1000,
   ).toISOString();
 
-  const [scanRows, allReportRows, completionRows, assignmentRows, notificationRows] = await Promise.all([
+  const [scanRows, allReportRows, surveyRows, completionRows, assignmentRows, notificationRows] = await Promise.all([
     database
       .select({
         id: scanRecords.id,
@@ -127,6 +132,14 @@ export async function purgeExpiredLocalData(
         updatedAt: fieldReports.updatedAt,
       })
       .from(fieldReports),
+    database
+      .select({ clientUuid: fieldSurveys.clientUuid })
+      .from(fieldSurveys)
+      .where(and(
+        eq(fieldSurveys.ownerIdentity, owner),
+        eq(fieldSurveys.status, 'synced'),
+        lt(fieldSurveys.updatedAt, cutoff),
+      )),
     database
       .select({ freshPhotoUri: fieldValidationCompletions.freshPhotoUri })
       .from(fieldValidationCompletions)
@@ -191,6 +204,7 @@ export async function purgeExpiredLocalData(
   if (
     scanIds.length > 0 ||
     reportIds.length > 0 ||
+    surveyRows.length > 0 ||
     completionRows.length > 0 ||
     assignmentRows.length > 0 ||
     notificationRows.length > 0
@@ -210,6 +224,16 @@ export async function purgeExpiredLocalData(
               inArray(fieldReports.id, reportIds),
             ),
           )
+          .run().changes;
+      }
+      if (surveyRows.length > 0) {
+        deletedRows += transaction
+          .delete(fieldSurveys)
+          .where(and(
+            eq(fieldSurveys.ownerIdentity, owner),
+            eq(fieldSurveys.status, 'synced'),
+            lt(fieldSurveys.updatedAt, cutoff),
+          ))
           .run().changes;
       }
       if (scanIds.length > 0) {

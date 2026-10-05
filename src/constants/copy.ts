@@ -12,6 +12,44 @@ export const LOCATION_ADDED = 'Location added';
 
 export const LOCATION_UNCONFIRMED = 'Location could not be confirmed';
 
+export const FIELD_SURVEY_COPY = {
+  title: 'Measure a field boundary',
+  quickActionTitle: 'Measure a plot',
+  quickActionBody: 'Draw or walk a field boundary',
+  newSurvey: 'Start a new boundary',
+  resumedSurvey: 'Resumed your saved boundary draft on this device.',
+  intro: 'Draw a plot boundary on the map or walk it with GPS. Your points and area stay on this device until you sync while signed in.',
+  districtLabel: 'District code',
+  districtPlaceholder: 'Enter your assigned district code',
+  districtRequired: 'Enter a district code before syncing.',
+  mapHeading: 'Boundary map',
+  mapHelp: 'Tap to add a point. Select a point below, then tap the map to move it. Map drawing also works without tiles.',
+  mapAccessibility: 'Tap to add or move a boundary vertex',
+  mapTileError: 'Some map tiles could not be loaded. You can still draw and measure the boundary over the coordinate-only map.',
+  mapAttribution: '© OpenStreetMap contributors',
+  offlineMap: 'Offline map imagery is not available. Your boundary and measured area continue to work on this coordinate screen.',
+  drawMode: 'Draw boundary',
+  addGpsPoint: 'Capture GPS point',
+  capturingGps: 'Getting GPS…',
+  undo: 'Undo last point',
+  removeSelected: 'Remove selected',
+  pointsHeading: 'Boundary points',
+  selectPoint: (number: number) => `Select boundary point ${number} to move or remove it`,
+  gps: 'GPS',
+  map: 'Map',
+  accuracy: 'Accuracy',
+  accuracyUnknown: 'Accuracy unknown',
+  gpsAccuracyUnknown: 'GPS point saved; device accuracy was not reported.',
+  gpsAccuracyWeak: (meters: number) => `GPS accuracy is about ±${meters.toFixed(1)} m. Review this point before syncing.`,
+  gpsPermissionDenied: 'Location permission is off. You can continue by drawing on the map.',
+  gpsDisabled: 'Turn on device location to capture a GPS point. Your draft is unchanged.',
+  gpsUnavailable: 'Could not read a GPS point. Your draft is unchanged.',
+  tapToDraw: 'Tap the map to add points. Select a point below to move it.',
+  savingOffline: 'Saving boundary draft…',
+  saveFailed: 'The boundary could not be saved. Your previous draft is unchanged.',
+  close: 'Close',
+} as const;
+
 /** Floating office-updates pill on Home. */
 export function officeUpdatesPillLabel(count: number): string {
   return `${count} office ${count === 1 ? 'update' : 'updates'}`;

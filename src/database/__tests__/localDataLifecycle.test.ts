@@ -42,6 +42,9 @@ const MIGRATIONS = [
     '0014_safe_songbird.sql',
   '0015_sour_riptide.sql',
   '0016_nervous_gateway.sql',
+  '0017_silky_rick_jones.sql',
+  '0018_notification_advisory_content_cache.sql',
+  '0019_add_field_surveys.sql',
 ] as const;
 
 function readMigration(filename: string): string {
@@ -222,6 +225,21 @@ function insertNotification(
     .run(id, ownerIdentity, cachedAt);
 }
 
+function insertSurvey(
+  native: DatabaseSync,
+  clientUuid: string,
+  ownerIdentity: string,
+  status: 'pending' | 'synced',
+  updatedAt: string,
+): void {
+  native.prepare(`
+    INSERT INTO field_surveys (
+      client_uuid, owner_identity, district_code, waypoints_json, captured_at,
+      status, created_at, updated_at
+    ) VALUES (?, ?, 'D-01', '[]', ?, ?, ?, ?)
+  `).run(clientUuid, ownerIdentity, updatedAt, status, updatedAt, updatedAt);
+}
+
 function countRows(
   native: DatabaseSync,
   table: string,
@@ -257,6 +275,9 @@ describe('local data lifecycle', () => {
     insertCompletion(native, 'd4f6c5e6-9c02-4d4e-8e8b-42e0c85df0f1', OTHER_OWNER_ID, OLD);
     insertNotification(native, '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed4', OWNER_ID, OLD);
     insertNotification(native, 'c863a5af-e9ad-44fe-a0dc-73f9d3436ca1', OTHER_OWNER_ID, OLD);
+    insertSurvey(native, 'survey-expired', OWNER_ID, 'synced', OLD);
+    insertSurvey(native, 'survey-pending', OWNER_ID, 'pending', OLD);
+    insertSurvey(native, 'survey-other', OTHER_OWNER_ID, 'synced', OLD);
 
     const result = await purgeExpiredLocalData(
       database,
@@ -279,7 +300,10 @@ describe('local data lifecycle', () => {
     expect(countRows(native, 'field_validation_assignments', OTHER_OWNER_ID)).toBe(1);
     expect(countRows(native, 'notifications_cache', OWNER_ID)).toBe(0);
     expect(countRows(native, 'notifications_cache', OTHER_OWNER_ID)).toBe(1);
-    expect(result.deletedRows).toBeGreaterThanOrEqual(5);
+    expect(countRows(native, 'field_surveys', OWNER_ID)).toBe(1);
+    expect(countRows(native, 'field_surveys', OTHER_OWNER_ID)).toBe(1);
+    expect(native.prepare('SELECT client_uuid FROM field_surveys WHERE owner_identity = ?').get(OWNER_ID)).toEqual({ client_uuid: 'survey-pending' });
+    expect(result.deletedRows).toBeGreaterThanOrEqual(6);
     native.close();
   });
 
@@ -298,6 +322,8 @@ describe('local data lifecycle', () => {
     insertAssignment(native, '51214146-7439-48e0-aef4-d0e003f194b4', OTHER_OWNER_ID, OLD);
     insertCompletion(native, '7ea3e6f0-b893-4fd3-b414-0b797e62ec82', OTHER_OWNER_ID, OLD);
     insertNotification(native, 'd4f6c5e6-9c02-4d4e-8e8b-42e0c85df0fc', OTHER_OWNER_ID, OLD);
+    insertSurvey(native, 'survey-owner', OWNER_ID, 'pending', OLD);
+    insertSurvey(native, 'survey-other', OTHER_OWNER_ID, 'pending', OLD);
 
     const result = await clearLocalDataForOwner(database, OWNER_ID);
 
@@ -312,6 +338,8 @@ describe('local data lifecycle', () => {
     expect(countRows(native, 'field_validation_assignments', OTHER_OWNER_ID)).toBe(1);
     expect(countRows(native, 'field_validation_completions', OTHER_OWNER_ID)).toBe(1);
     expect(countRows(native, 'notifications_cache', OTHER_OWNER_ID)).toBe(1);
+    expect(countRows(native, 'field_surveys', OWNER_ID)).toBe(0);
+    expect(countRows(native, 'field_surveys', OTHER_OWNER_ID)).toBe(1);
     native.close();
   });
 });

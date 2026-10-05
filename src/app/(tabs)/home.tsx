@@ -20,7 +20,7 @@ import { useOfficeUpdates } from '@/features/notifications/providers/OfficeUpdat
 import { notificationDestinationRoute } from '@/features/notifications/services/resolveNotificationDestination';
 import { getSyncBadgeLabel } from '@/features/sync/utils/syncStatusCopy';
 import { useSync } from '@/features/sync/hooks/useSync';
-import { DECISION_SUPPORT_DISCLAIMER, FIELD_GUIDE_ENTRY_TITLE } from '@/constants/copy';
+import { DECISION_SUPPORT_DISCLAIMER, FIELD_GUIDE_ENTRY_TITLE, FIELD_SURVEY_COPY } from '@/constants/copy';
 import {
   ComponentTokens,
   Layout,
@@ -69,6 +69,13 @@ export default function HomeScreen() {
         : { backgroundColor: theme.infoBg, color: theme.info };
   const connectionBadge = { ...badgeColors, label: badgeLabel };
   const actions: QuickAction[] = [
+    {
+      title: FIELD_SURVEY_COPY.quickActionTitle,
+      body: FIELD_SURVEY_COPY.quickActionBody,
+      icon: 'map',
+      testID: 'home.field-survey',
+      onPress: () => router.push('/field-survey' as Href),
+    },
     {
       title: 'Start Scan',
       body: 'Check a sugarcane photo',

@@ -579,6 +579,55 @@ export const fieldReports = sqliteTable(
   ],
 );
 
+export const FIELD_SURVEY_STATUSES = [
+  'draft',
+  'pending',
+  'syncing',
+  'synced',
+  'failed',
+] as const;
+export type FieldSurveyStatus = (typeof FIELD_SURVEY_STATUSES)[number];
+
+/** Offline-first, owner-scoped plot boundary survey outbox. */
+export const fieldSurveys = sqliteTable(
+  'field_surveys',
+  {
+    clientUuid: text('client_uuid').primaryKey(),
+    ownerIdentity: text('owner_identity').notNull(),
+    districtCode: text('district_code').notNull(),
+    waypointsJson: text('waypoints_json').notNull(),
+    polygonJson: text('polygon_json'),
+    areaSqm: real('area_sqm'),
+    capturedAt: text('captured_at').notNull(),
+    status: text('status').$type<FieldSurveyStatus>().notNull().default('draft'),
+    remoteId: text('remote_id'),
+    fieldErrorsJson: text('field_errors_json'),
+    syncAttemptCount: integer('sync_attempt_count').notNull().default(0),
+    lastSyncErrorCode: text('last_sync_error_code'),
+    lastSyncedAt: text('last_synced_at'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('field_surveys_owner_updated_idx').on(table.ownerIdentity, table.updatedAt),
+    index('field_surveys_owner_status_updated_idx').on(
+      table.ownerIdentity,
+      table.status,
+      table.updatedAt,
+    ),
+    uniqueIndex('field_surveys_remote_id_unique').on(table.remoteId),
+    check(
+      'field_surveys_status_check',
+      sql`${table.status} in ('draft', 'pending', 'syncing', 'synced', 'failed')`,
+    ),
+    check('field_surveys_area_check', sql`${table.areaSqm} is null or ${table.areaSqm} > 0`),
+    check('field_surveys_sync_attempt_check', sql`${table.syncAttemptCount} >= 0`),
+  ],
+);
+
+export type FieldSurveyRow = typeof fieldSurveys.$inferSelect;
+export type NewFieldSurveyRow = typeof fieldSurveys.$inferInsert;
+
 export type MobileNotificationRow = typeof mobileNotifications.$inferSelect;
 export type NewMobileNotificationRow = typeof mobileNotifications.$inferInsert;
 export type FieldValidationAssignmentRow = typeof fieldValidationAssignments.$inferSelect;

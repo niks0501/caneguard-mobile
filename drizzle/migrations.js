@@ -20,6 +20,7 @@ import m0015 from './0015_sour_riptide.sql';
 import m0016 from './0016_nervous_gateway.sql';
 import m0017 from './0017_silky_rick_jones.sql';
 import m0018 from './0018_notification_advisory_content_cache.sql';
+import m0019 from './0019_add_field_surveys.sql';
 
   export default {
     journal,
@@ -42,7 +43,8 @@ m0014,
 m0015,
 m0016,
 m0017,
-m0018
+m0018,
+m0019
     }
   }
   

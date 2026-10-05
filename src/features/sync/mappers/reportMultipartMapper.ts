@@ -55,6 +55,7 @@ const MAX_REPORTED_SEVERITY_LENGTH = 20;
 const MAX_REPORTER_SUSPECTED_CONDITION_LENGTH = 120;
 const MAX_REPORTER_OBSERVATION_TEXT_LENGTH = 1_000;
 const MAX_MODEL_VERSION_LENGTH = 100;
+const CLASS_SCORE_KEY_PATTERN = /^[a-z][a-z0-9_-]{0,31}$/;
 
 export interface MultipartMapperDependencies {
   createImageFile?: (uri: string) => Blob;
@@ -339,7 +340,7 @@ function validateClassScores(
   }
   const labels = new Set<string>();
   for (const score of scores) {
-    if (typeof score?.label !== 'string' || !score.label.trim() || labels.has(score.label)) {
+    if (typeof score?.label !== 'string' || !CLASS_SCORE_KEY_PATTERN.test(score.label) || labels.has(score.label)) {
       invalid('The class score labels are unsupported or duplicated.');
     }
     labels.add(score.label);

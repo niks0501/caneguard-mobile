@@ -106,6 +106,21 @@ describe('Field Report multipart mapper', () => {
     expect(values.get('class_scores[wilt]')).toBe('0.1');
   });
 
+  it('keeps Model V1 limited to its four declared classes', () => {
+    expect(() => map(REPORT, {
+      ...SCAN,
+      classScores: [...SCAN.classScores, { label: 'wilt', score: 0.1 }],
+    })).toThrow(expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }));
+  });
+
+  it('rejects class-score keys outside the published bounded key pattern', () => {
+    expect(() => map(REPORT, {
+      ...SCAN,
+      modelVersion: 'v2.0-cane-model',
+      classScores: [...SCAN.classScores, { label: 'wilt class', score: 0.1 }],
+    })).toThrow(expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }));
+  });
+
   it('uploads the persisted submission artifact instead of the preserved source path', () => {
     const createImageFile = jest.fn(
       () => ({ name: 'submission.jpg', type: 'image/jpeg', size: 4096 }) as unknown as Blob,

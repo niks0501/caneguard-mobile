@@ -24,7 +24,9 @@ export async function saveFieldSurveyDraft(
     .from(fieldSurveys)
     .where(and(eq(fieldSurveys.clientUuid, input.clientUuid), eq(fieldSurveys.ownerIdentity, owner)))
     .get();
-  if (existing && existing.status !== 'draft' && existing.status !== 'failed') {
+  const canCorrectRejectedSurvey = existing?.status === 'failed' &&
+    (existing.lastSyncErrorCode === 'VALIDATION_FAILED' || existing.lastSyncErrorCode === 'API_VALIDATION_FAILED');
+  if (existing && existing.status !== 'draft' && !canCorrectRejectedSurvey) {
     throw new StorageError('UPDATE_FAILED', 'A submitted field survey cannot be edited.');
   }
   try {
@@ -89,6 +91,9 @@ export function markFieldSurveyPending(
   if (row.status === 'synced' || row.remoteId) {
     throw new StorageError('UPDATE_FAILED', 'A synced field survey cannot be submitted again.');
   }
+  if (row.lastSyncErrorCode === 'CLIENT_UUID_CONFLICT') {
+    throw new StorageError('UPDATE_FAILED', 'Start a new boundary to submit with a fresh identity.');
+  }
   if (!Number.isFinite(areaSqm) || areaSqm <= 0) {
     throw new StorageError('INVALID_FIELD_REPORT', 'The boundary has no valid measured area.');
   }
@@ -121,7 +126,7 @@ export function updateFieldSurveySyncResult(
     status: update.status,
     ...(update.remoteId === undefined ? {} : { remoteId: update.remoteId }),
     ...(update.fieldErrors === undefined ? {} : { fieldErrorsJson: update.fieldErrors ? JSON.stringify(update.fieldErrors) : null }),
-    lastSyncErrorCode: update.lastSyncErrorCode ?? null,
+    lastSyncErrorCode: update.lastSyncErrorCode === undefined ? row.lastSyncErrorCode : update.lastSyncErrorCode,
     syncAttemptCount: row.syncAttemptCount + (update.status === 'syncing' ? 1 : 0),
     lastSyncedAt: update.status === 'synced' ? new Date().toISOString() : row.lastSyncedAt,
     updatedAt: new Date().toISOString(),

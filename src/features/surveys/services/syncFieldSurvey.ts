@@ -1,56 +1,75 @@
 import type { CaneGuardDatabase } from '@/database/database';
-import type { SurveyPolygon } from '@/features/surveys/domain/fieldSurvey';
 import { findOwnedFieldSurvey, updateFieldSurveySyncResult } from '@/features/surveys/data/fieldSurveyRepository';
 import { FieldSurveyValidationError, submitFieldSurvey } from '@/features/surveys/api/fieldSurveysApi';
+import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
 
 export type FieldSurveySyncResult =
-  | { status: 'synced'; remoteId: string }
-  | { status: 'needs_correction'; fieldErrors: Record<string, string[]> }
-  | { status: 'failed'; message: string }
-  | { status: 'auth_required' };
+  | { status: 'synced' | 'already-synced'; remoteId: string }
+  | { status: 'failed'; error: SyncError };
+
+const RETRY_DELAYS_MS = [2_000, 5_000, 15_000] as const;
 
 export async function syncFieldSurvey(options: {
+  allowImmediateRetries?: boolean;
   clientUuid: string;
   database: CaneGuardDatabase;
+  delay?: (milliseconds: number) => Promise<void>;
   ownerIdentity: string;
   token: string | null;
 }): Promise<FieldSurveySyncResult> {
-  if (!options.token?.trim()) return { status: 'auth_required' };
+  if (!options.token?.trim()) {
+    return { status: 'failed', error: new SyncError('AUTH_REQUIRED', 'Sign in before sending saved boundaries.') };
+  }
   const row = findOwnedFieldSurvey(options.database, options.clientUuid, options.ownerIdentity);
   if (!row?.polygonJson || row.areaSqm === null || row.status === 'draft') {
-    return { status: 'failed', message: 'Finish and save a valid boundary before syncing.' };
+    return { status: 'failed', error: new SyncError('INVALID_LOCAL_RECORD', 'Finish and save a valid boundary before syncing.') };
   }
-  if (row.status === 'synced' && row.remoteId) return { status: 'synced', remoteId: row.remoteId };
+  if (row.status === 'synced' && row.remoteId) return { status: 'already-synced', remoteId: row.remoteId };
 
   updateFieldSurveySyncResult(options.database, row.clientUuid, options.ownerIdentity, { status: 'syncing' });
   try {
-    const response = await submitFieldSurvey({
-      client_uuid: row.clientUuid,
-      polygon: JSON.parse(row.polygonJson) as SurveyPolygon,
-      area_sqm: row.areaSqm,
-      captured_at: row.capturedAt,
-      district_code: row.districtCode,
-    }, options.token);
+    let response;
+    let retryIndex = 0;
+    while (true) {
+      try {
+        response = await submitFieldSurvey({
+          client_uuid: row.clientUuid,
+          polygon: JSON.parse(row.polygonJson),
+          area_sqm: row.areaSqm,
+          captured_at: row.capturedAt,
+          district_code: row.districtCode,
+        }, options.token);
+        break;
+      } catch (error: unknown) {
+        const syncError = error instanceof FieldSurveyValidationError
+          ? new SyncError('API_VALIDATION_FAILED', 'The server needs a correction to this boundary.')
+          : toSyncError(error);
+        if (!syncError.retryable || options.allowImmediateRetries === false || retryIndex >= RETRY_DELAYS_MS.length) throw error;
+        const waitFor = Math.min(syncError.retryAfterMs ?? RETRY_DELAYS_MS[retryIndex], 60_000);
+        retryIndex += 1;
+        await (options.delay ?? delay)(waitFor);
+      }
+    }
     updateFieldSurveySyncResult(options.database, row.clientUuid, options.ownerIdentity, {
-      remoteId: response.id,
-      status: 'synced',
-      fieldErrors: null,
+      remoteId: response.id, status: 'synced', fieldErrors: null, lastSyncErrorCode: null,
     });
     return { status: 'synced', remoteId: response.id };
   } catch (error: unknown) {
-    if (error instanceof FieldSurveyValidationError) {
-      updateFieldSurveySyncResult(options.database, row.clientUuid, options.ownerIdentity, {
-        fieldErrors: error.fieldErrors,
-        lastSyncErrorCode: 'VALIDATION_FAILED',
-        status: 'failed',
-      });
-      return { status: 'needs_correction', fieldErrors: error.fieldErrors };
-    }
-    const message = error instanceof Error ? error.message : 'The survey could not sync.';
+    const conflict = error instanceof FieldSurveyValidationError && Boolean(error.fieldErrors.client_uuid?.length);
+    const syncError = conflict
+      ? new SyncError('CLIENT_UUID_CONFLICT', 'This boundary identity was rejected. Start a new boundary before sending again.')
+      : error instanceof FieldSurveyValidationError
+        ? new SyncError('API_VALIDATION_FAILED', 'The server needs a correction to this boundary.')
+        : toSyncError(error);
     updateFieldSurveySyncResult(options.database, row.clientUuid, options.ownerIdentity, {
-      lastSyncErrorCode: 'UPLOAD_FAILED',
-      status: 'pending',
+      fieldErrors: error instanceof FieldSurveyValidationError ? error.fieldErrors : null,
+      lastSyncErrorCode: syncError.code,
+      status: 'failed',
     });
-    return { status: 'failed', message };
+    return { status: 'failed', error: syncError };
   }
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }

@@ -168,6 +168,32 @@ describe('mobile-report-upload-v2 producer contract', () => {
     expectCanonicalV2(map());
   });
 
+  it('never sends server-owned authority review snapshot fields', () => {
+    const form = map({ authorityReview: {
+      feedback: { authorLabel: 'Authority staff', message: 'private review notes', updatedAt: REPORT.submittedAt },
+      fetchedAt: REPORT.submittedAt,
+      rawStatus: 'resolved',
+      referenceCode: 'SERVER-123',
+      reviewedAt: REPORT.submittedAt,
+      statusKind: 'resolved',
+      statusLabel: 'Resolved',
+      statusUpdatedAt: REPORT.submittedAt,
+    } });
+    const serverOwnedNames = ['review_status', 'review_notes', 'reviewed_at', 'reviewer_id', 'lock_version', 'case_state', 'verification_outcome', 'field_validation_state', 'referral_state'];
+    expect(parts(form).map(([name]) => name)).not.toEqual(expect.arrayContaining(serverOwnedNames));
+    expect(JSON.stringify(parts(form))).not.toContain('private review notes');
+    expect(JSON.stringify(parts(form))).not.toContain('SERVER-123');
+  });
+
+  it('sends precise coordinate values without client-side rounding', () => {
+    const latitude = 14.0667123456789;
+    const longitude = 120.6319123456789;
+    const form = map({ finalLatitude: latitude, finalLongitude: longitude });
+    const multipart = parts(form);
+    expect(scalarValue(multipart, 'final_latitude')).toBe(String(latitude));
+    expect(scalarValue(multipart, 'final_longitude')).toBe(String(longitude));
+  });
+
   it('accepts RSSI as reporter observation while retaining the four-class model contract', () => {
     const form = map({
       mismatchReported: true,

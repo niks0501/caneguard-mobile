@@ -35,6 +35,8 @@ import {
   type SyncBatchResult,
   type SyncTriggerSource,
 } from '@/features/sync/services/syncPendingFieldReports';
+import { countUnsyncedFieldSurveys, findLastSuccessfulFieldSurveySyncAt, resetStaleSyncingFieldSurveys } from '@/features/surveys/data/fieldSurveySyncRepository';
+import { syncPendingFieldSurveys } from '@/features/surveys/services/syncPendingFieldSurveys';
 
 export type ApiReachability = 'unknown' | 'available' | 'unavailable';
 
@@ -46,6 +48,7 @@ interface SyncContextValue {
   lastSuccessfulSyncAt: string | null;
   pendingCount: number;
   pendingReportsCount: number;
+  pendingSurveysCount: number;
   pendingCompletionsCount: number;
   retryReport: (reportId: string) => Promise<SyncBatchResult | null>;
   retryFieldValidationCompletion: (completionId: string) => Promise<SyncBatchResult | null>;
@@ -76,6 +79,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingReportsCount, setPendingReportsCount] = useState(0);
   const [pendingCompletionsCount, setPendingCompletionsCount] = useState(0);
+  const [pendingSurveysCount, setPendingSurveysCount] = useState(0);
   const [lastSuccessfulSyncAt, setLastSuccessfulSyncAt] = useState<string | null>(
     null,
   );
@@ -146,20 +150,23 @@ export function SyncProvider({ children }: PropsWithChildren) {
       ) {
         setPendingCount(0);
         setPendingReportsCount(0);
+        setPendingSurveysCount(0);
         setPendingCompletionsCount(0);
         setLastSuccessfulSyncAt(null);
       }
       return;
     }
 
-    const [reportCount, completionCount, reportLastSyncedAt, completionLastSyncedAt] =
+    const [reportCount, surveyCount, completionCount, reportLastSyncedAt, surveyLastSyncedAt, completionLastSyncedAt] =
       await Promise.all([
         countUnsyncedFieldReports(database, requestedSubmitterIdentity),
+        countUnsyncedFieldSurveys(database, requestedSubmitterIdentity),
         countUnsyncedFieldValidationCompletions(database, requestedSubmitterIdentity),
         findLastSuccessfulFieldReportSyncAt(database, requestedSubmitterIdentity),
+        findLastSuccessfulFieldSurveySyncAt(database, requestedSubmitterIdentity),
         findLastSuccessfulFieldValidationCompletionSyncAt(database, requestedSubmitterIdentity),
       ]);
-    const lastSyncedAt = latestTimestamp(reportLastSyncedAt, completionLastSyncedAt);
+    const lastSyncedAt = latestTimestamp(latestTimestamp(reportLastSyncedAt, surveyLastSyncedAt), completionLastSyncedAt);
     if (
       mounted.current &&
       isSameSession(
@@ -168,8 +175,9 @@ export function SyncProvider({ children }: PropsWithChildren) {
         requestedSubmitterIdentity,
       )
     ) {
-      setPendingCount(reportCount + completionCount);
+      setPendingCount(reportCount + surveyCount + completionCount);
       setPendingReportsCount(reportCount);
+      setPendingSurveysCount(surveyCount);
       setPendingCompletionsCount(completionCount);
       setLastSuccessfulSyncAt(lastSyncedAt);
     }
@@ -213,13 +221,19 @@ export function SyncProvider({ children }: PropsWithChildren) {
           submitterIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
+        const surveyResult = await syncPendingFieldSurveys({
+          database,
+          source,
+          ownerIdentity: initiatingSession.user.uuid,
+          token: initiatingSession.token,
+        });
         const completionResult = await syncPendingFieldValidationCompletions({
           database,
           source,
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
-        const result = mergeSyncBatchResults(reportResult, completionResult);
+        const result = mergeSyncBatchResults(reportResult, surveyResult, completionResult);
         if (!isInitiatingSessionCurrent()) {
           return result;
         }
@@ -377,6 +391,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
           requestedSubmitterIdentity,
           staleBefore,
         ),
+        Promise.resolve().then(() => resetStaleSyncingFieldSurveys(database, requestedSubmitterIdentity, staleBefore)),
       ])
         .then(() => {
           if (
@@ -487,6 +502,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       lastSuccessfulSyncAt,
       pendingCount,
       pendingReportsCount,
+      pendingSurveysCount,
       pendingCompletionsCount,
       retryFieldValidationCompletion,
       retryReport,
@@ -497,6 +513,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       lastSuccessfulSyncAt,
       pendingCount,
       pendingReportsCount,
+      pendingSurveysCount,
       pendingCompletionsCount,
       retryFieldValidationCompletion,
       retryReport,
@@ -512,25 +529,22 @@ export function SyncProvider({ children }: PropsWithChildren) {
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;
 }
 
-function mergeSyncBatchResults(
-  reports: SyncBatchResult,
-  completions: SyncBatchResult,
-): SyncBatchResult {
+function mergeSyncBatchResults(...batches: SyncBatchResult[]): SyncBatchResult {
+  const haltReason = batches.some((batch) => batch.haltReason === 'auth-required')
+    ? 'auth-required'
+    : batches.some((batch) => batch.haltReason === 'transient-blocker')
+      ? 'transient-blocker'
+      : batches.some((batch) => batch.haltReason === 'run-limit')
+        ? 'run-limit'
+        : batches.find((batch) => batch.haltReason)?.haltReason ?? null;
   return {
-    attempted: reports.attempted + completions.attempted,
-    authRequired: reports.authRequired || completions.authRequired,
-    failed: reports.failed + completions.failed,
-    haltReason:
-      reports.haltReason === 'auth-required' || completions.haltReason === 'auth-required'
-        ? 'auth-required'
-        : reports.haltReason === 'transient-blocker' || completions.haltReason === 'transient-blocker'
-          ? 'transient-blocker'
-          : reports.haltReason === 'run-limit' || completions.haltReason === 'run-limit'
-            ? 'run-limit'
-            : reports.haltReason ?? completions.haltReason,
-    results: [...reports.results, ...completions.results],
-    source: reports.source,
-    synced: reports.synced + completions.synced,
+    attempted: batches.reduce((total, batch) => total + batch.attempted, 0),
+    authRequired: batches.some((batch) => batch.authRequired),
+    failed: batches.reduce((total, batch) => total + batch.failed, 0),
+    haltReason,
+    results: batches.flatMap((batch) => batch.results),
+    source: batches[0]?.source ?? 'manual',
+    synced: batches.reduce((total, batch) => total + batch.synced, 0),
   };
 }
 

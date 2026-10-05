@@ -94,12 +94,8 @@ export function mapFieldReportToMultipart(
     report.reporterObservationText,
   );
 
-  for (const label of MODEL_LABELS) {
-    const score = scanRecord.classScores.find((item) => item.label === label);
-    if (!score) {
-      invalid('Every supported class score is required.');
-    }
-    appendNumber(form, `class_scores[${label}]`, score.score);
+  for (const score of scanRecord.classScores) {
+    appendNumber(form, `class_scores[${score.label}]`, score.score);
   }
   for (const symptom of scanRecord.symptoms) {
     form.append('symptom_keys[]', symptom);
@@ -242,9 +238,6 @@ function validateReport(
     'Model version',
     MAX_MODEL_VERSION_LENGTH,
   );
-  if (record.modelVersion !== MODEL_VERSION) {
-    invalid('The mobile report upload contract does not support this model version.');
-  }
   if (!isOneOf(record.imageSourceType, IMAGE_SOURCE_TYPES)) {
     invalid('The image source type is unsupported.');
   }
@@ -252,7 +245,7 @@ function validateReport(
     invalid('The predicted label is unsupported.');
   }
   validateProbability(record.confidence, 'confidence');
-  validateClassScores(record.classScores);
+  validateClassScores(record.classScores, record.modelVersion);
   validateSymptoms(record.symptoms);
   validateRequiredText(
     record.checklistConsistency,
@@ -339,20 +332,22 @@ function validateMismatchFields(
 
 function validateClassScores(
   scores: ScanRecordDetails['classScores'],
+  modelVersion: string,
 ): void {
-  if (!Array.isArray(scores) || scores.length !== MODEL_LABELS.length) {
-    invalid('Every supported class score is required.');
+  if (!Array.isArray(scores) || scores.length < MODEL_LABELS.length) {
+    invalid('At least four class scores are required.');
   }
   const labels = new Set<string>();
   for (const score of scores) {
-    if (!isOneOf(score?.label, MODEL_LABELS) || labels.has(score.label)) {
-      invalid('The class score labels are unsupported.');
+    if (typeof score?.label !== 'string' || !score.label.trim() || labels.has(score.label)) {
+      invalid('The class score labels are unsupported or duplicated.');
     }
     labels.add(score.label);
     validateProbability(score.score, 'class score');
   }
-  if (MODEL_LABELS.some((label) => !labels.has(label))) {
-    invalid('Every supported class score is required.');
+  if (modelVersion === MODEL_VERSION &&
+    (scores.length !== MODEL_LABELS.length || MODEL_LABELS.some((label) => !labels.has(label)))) {
+    invalid('The current model requires its four supported class scores.');
   }
 }
 

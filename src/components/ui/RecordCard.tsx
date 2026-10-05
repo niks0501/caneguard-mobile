@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DiseasePill, type DiseasePillVariant } from '@/components/ui/DiseasePill';
+import { PERSONAL_SCAN_LOCAL_STATUS } from '@/constants/copy';
 import {
   ComponentTokens,
   Radius,
@@ -166,7 +167,7 @@ export function getSyncPresentation(
 } {
   switch (status) {
     case 'local_only':
-      return { color: 'info', icon: 'smartphone', label: 'Saved on this device' };
+      return { color: 'info', icon: 'smartphone', label: PERSONAL_SCAN_LOCAL_STATUS };
     case 'pending':
       return { color: 'warning', icon: 'clock', label: 'Waiting to send' };
     case 'syncing':

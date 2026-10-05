@@ -12,11 +12,15 @@ export const LOCATION_ADDED = 'Location added';
 
 export const LOCATION_UNCONFIRMED = 'Location could not be confirmed';
 
+export const PERSONAL_SCAN_LOCAL_STATUS = 'On this device · not sent';
+
 export const FIELD_SURVEY_COPY = {
   title: 'Measure a field boundary',
   quickActionTitle: 'Measure a plot',
   quickActionBody: 'Draw or walk a field boundary',
   newSurvey: 'Start a new boundary',
+  startNewBoundaryAfterRejection: 'Start a new boundary with a fresh identity',
+  surveyIdentityRejected: 'This boundary identity was rejected. Start a new boundary with a fresh identity before sending again.',
   resumedSurvey: 'Resumed your saved boundary draft on this device.',
   intro: 'Draw a plot boundary on the map or walk it with GPS. Your points and area stay on this device until you sync while signed in.',
   districtLabel: 'District code',

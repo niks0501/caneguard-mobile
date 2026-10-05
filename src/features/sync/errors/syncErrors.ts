@@ -5,6 +5,7 @@ export const SYNC_ERROR_CODES = [
   'NETWORK_UNAVAILABLE',
   'NETWORK_REQUEST_FAILED',
   'API_VALIDATION_FAILED',
+  'CLIENT_UUID_CONFLICT',
   'API_FORBIDDEN',
   'API_RATE_LIMITED',
   'IMAGE_MISSING',
@@ -116,6 +117,8 @@ export function getSyncErrorMessage(code: string | null): string | null {
       return 'The connection was unavailable. Retry when online.';
     case 'API_VALIDATION_FAILED':
       return 'The server rejected saved report data.';
+    case 'CLIENT_UUID_CONFLICT':
+      return 'Start a new boundary before sending again.';
     case 'API_FORBIDDEN':
       return 'This account cannot submit field reports.';
     case 'API_RATE_LIMITED':

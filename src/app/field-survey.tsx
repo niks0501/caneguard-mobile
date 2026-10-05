@@ -32,7 +32,6 @@ import {
 import { listOwnedFieldSurveys, saveFieldSurveyDraft, markFieldSurveyPending } from '@/features/surveys/data/fieldSurveyRepository';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
 import { validateSurveyWaypoints, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
-import { syncFieldSurvey } from '@/features/surveys/services/syncFieldSurvey';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
 
 const SURVEY_ZOOM = 17;
@@ -44,7 +43,7 @@ export default function FieldSurveyScreen() {
   const { showToast } = useToast();
   const { database, ready } = useDatabaseState();
   const { session } = useAuth();
-  const { isOnline } = useSync();
+  const { isOnline, syncNow } = useSync();
   const [clientUuid, setClientUuid] = useState(() => randomUUID());
   const [districtCode, setDistrictCode] = useState('');
   const [waypoints, setWaypoints] = useState<SurveyWaypoint[]>([]);
@@ -110,8 +109,11 @@ export default function FieldSurveyScreen() {
         }
         setSaved(true);
         setResumed(true);
-        setReadOnlyPending(previous.status === 'pending' || previous.status === 'syncing');
-        if (previous.status === 'pending' || previous.status === 'syncing') setSyncMessage(FIELD_SURVEY_SYNC_COPY.pendingLocked);
+        const identityRejected = previous.lastSyncErrorCode === 'CLIENT_UUID_CONFLICT';
+        const correctionNeeded = previous.lastSyncErrorCode === 'VALIDATION_FAILED' || previous.lastSyncErrorCode === 'API_VALIDATION_FAILED';
+        setReadOnlyPending(previous.status === 'pending' || previous.status === 'syncing' || (previous.status === 'failed' && !correctionNeeded));
+        if (identityRejected) setSyncMessage(FIELD_SURVEY_SYNC_COPY.identityRejected);
+        else if (previous.status === 'pending' || previous.status === 'syncing') setSyncMessage(FIELD_SURVEY_SYNC_COPY.pendingLocked);
       }
       setBootstrapped(true);
     }).catch(() => {
@@ -186,10 +188,6 @@ export default function FieldSurveyScreen() {
   }
 
   async function saveAndSync() {
-    if (isOnline === false) {
-      setSyncMessage(FIELD_SURVEY_SYNC_COPY.offline);
-      return;
-    }
     if (!session?.token || !session.user.uuid || !ready || !database || database === EMPTY_DATABASE) {
       setSyncMessage(FIELD_SURVEY_SYNC_COPY.signInRequired);
       return;
@@ -206,20 +204,31 @@ export default function FieldSurveyScreen() {
     try {
       markFieldSurveyPending(database, clientUuid, session.user.uuid, validation.polygon, validation.areaSqm, waypoints.at(-1)?.capturedAt ?? new Date().toISOString());
       setSyncBusy(true);
-      const result = await syncFieldSurvey({ database, clientUuid, ownerIdentity: session.user.uuid, token: session.token });
-      if (result.status === 'synced') {
+      const result = await syncNow('after-save');
+      const surveyResult = result?.results.find((item) => item.reportId === clientUuid);
+      if (isOnline === false) {
+        setReadOnlyPending(true);
+        setSyncMessage(FIELD_SURVEY_SYNC_COPY.offline);
+      } else if (surveyResult?.status === 'synced' || surveyResult?.status === 'already-synced') {
         setReadOnlyPending(true);
         setSyncMessage(FIELD_SURVEY_SYNC_COPY.synced);
         showToast(FIELD_SURVEY_SYNC_COPY.synced, 'success');
-      } else if (result.status === 'needs_correction') {
-        setReadOnlyPending(false);
-        setFieldErrors(result.fieldErrors);
-        setSyncMessage(FIELD_SURVEY_SYNC_COPY.serverCorrection);
-      } else if (result.status === 'auth_required') {
+      } else if (surveyResult?.status === 'failed') {
+        if (surveyResult.error.code === 'CLIENT_UUID_CONFLICT') {
+          setReadOnlyPending(true);
+          setSyncMessage(FIELD_SURVEY_SYNC_COPY.identityRejected);
+        } else if (surveyResult.error.code === 'API_VALIDATION_FAILED') {
+          setReadOnlyPending(false);
+          setSyncMessage(FIELD_SURVEY_SYNC_COPY.serverCorrection);
+        } else {
+          setReadOnlyPending(true);
+          setSyncMessage(surveyResult.error.message);
+        }
+      } else if (result?.authRequired) {
         setSyncMessage(FIELD_SURVEY_SYNC_COPY.signInRequired);
       } else {
         setReadOnlyPending(true);
-        setSyncMessage(result.message);
+        setSyncMessage(FIELD_SURVEY_SYNC_COPY.pendingLocked);
       }
     } catch (error: unknown) {
       setSyncMessage(error instanceof Error ? error.message : FIELD_SURVEY_COPY.saveFailed);
@@ -261,7 +270,7 @@ export default function FieldSurveyScreen() {
           setSaved(false);
           setResumed(false);
           setReadOnlyPending(false);
-        }}>{FIELD_SURVEY_COPY.newSurvey}</AppButton> : null}
+        }}>{readOnlyPending ? FIELD_SURVEY_COPY.startNewBoundaryAfterRejection : FIELD_SURVEY_COPY.newSurvey}</AppButton> : null}
         <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.districtLabel}</Text>
         <TextInput
           accessibilityLabel={FIELD_SURVEY_COPY.districtLabel}

@@ -12,6 +12,7 @@ describe('syncStatusCopy', () => {
     expect(formatPendingSummary(1)).toBe('1 report waiting to send');
     expect(formatPendingSummary(2)).toBe('2 reports waiting to send');
     expect(formatPendingSummary(3, 2, 1)).toBe('2 reports, 1 visit waiting to send');
+    expect(formatPendingSummary(3, 2, 1, 1)).toBe('1 boundary, 2 reports, 1 visit waiting to send');
     expect(formatPendingSummary(1, 0, 1)).toBe('1 visit waiting to send');
   });
 

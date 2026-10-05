@@ -14,7 +14,7 @@ describe('syncFieldSurvey authentication gate', () => {
       database: EMPTY_DATABASE,
       ownerIdentity: 'owner-1',
       token: null,
-    })).resolves.toEqual({ status: 'auth_required' });
+    })).resolves.toMatchObject({ status: 'failed', error: { code: 'AUTH_REQUIRED' } });
     expect(apiRequest).not.toHaveBeenCalled();
   });
 });

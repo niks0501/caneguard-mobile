@@ -129,6 +129,7 @@ export const scanRecords = sqliteTable(
     preprocessMs: real('preprocess_ms').notNull(),
     inferenceMs: real('inference_ms').notNull(),
     totalMs: real('total_ms').notNull(),
+    /** @deprecated Legacy mirror; scan rows written since migration 0013 stay local-only. */
     syncStatus: text('sync_status')
       .$type<SyncStatus>()
       .notNull()

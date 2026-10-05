@@ -24,6 +24,8 @@ interface CanonicalField extends CanonicalScalarRules {
   min_properties?: number;
   max_properties?: number;
   required_keys?: string[];
+  additional_properties?: boolean;
+  key_pattern?: string;
   items?: CanonicalScalarRules;
   values?: CanonicalScalarRules;
   formats?: { mime_types: string[] }[];
@@ -36,6 +38,8 @@ interface CanonicalCondition {
   fields?: string[];
   field?: string;
   value?: string;
+  required_keys?: string[];
+  additional_properties?: boolean;
 }
 
 interface CanonicalContract {
@@ -168,6 +172,32 @@ describe('mobile-report-upload-v2 producer contract', () => {
     expectCanonicalV2(map());
   });
 
+  it('never sends server-owned authority review snapshot fields', () => {
+    const form = map({ authorityReview: {
+      feedback: { authorLabel: 'Authority staff', message: 'private review notes', updatedAt: REPORT.submittedAt },
+      fetchedAt: REPORT.submittedAt,
+      rawStatus: 'resolved',
+      referenceCode: 'SERVER-123',
+      reviewedAt: REPORT.submittedAt,
+      statusKind: 'resolved',
+      statusLabel: 'Resolved',
+      statusUpdatedAt: REPORT.submittedAt,
+    } });
+    const serverOwnedNames = ['review_status', 'review_notes', 'reviewed_at', 'reviewer_id', 'lock_version', 'case_state', 'verification_outcome', 'field_validation_state', 'referral_state', 'authority_classified_condition'];
+    expect(parts(form).map(([name]) => name)).not.toEqual(expect.arrayContaining(serverOwnedNames));
+    expect(JSON.stringify(parts(form))).not.toContain('private review notes');
+    expect(JSON.stringify(parts(form))).not.toContain('SERVER-123');
+  });
+
+  it('sends precise coordinate values without client-side rounding', () => {
+    const latitude = 14.0667123456789;
+    const longitude = 120.6319123456789;
+    const form = map({ finalLatitude: latitude, finalLongitude: longitude });
+    const multipart = parts(form);
+    expect(scalarValue(multipart, 'final_latitude')).toBe(String(latitude));
+    expect(scalarValue(multipart, 'final_longitude')).toBe(String(longitude));
+  });
+
   it('accepts RSSI as reporter observation while retaining the four-class model contract', () => {
     const form = map({
       mismatchReported: true,
@@ -181,6 +211,16 @@ describe('mobile-report-upload-v2 producer contract', () => {
     expect(
       parts(form).filter(([name]) => name.startsWith('class_scores[')),
     ).toHaveLength(4);
+  });
+
+  it('accepts future model class keys within the widened contract', () => {
+    const form = map(undefined, {
+      modelVersion: 'v2.0-cane-model',
+      classScores: [...SCAN.classScores, { label: 'wilt', score: 0.1 }],
+    });
+    expectCanonicalV2(form);
+    expect(scalarValue(parts(form), 'model_version')).toBe('v2.0-cane-model');
+    expect(scalarValue(parts(form), 'class_scores[wilt]')).toBe('0.1');
   });
 
   it('accepts a finalized report with unavailable location provenance', () => {
@@ -450,7 +490,7 @@ function expectCanonicalV2(form: FormData): void {
     const fieldParts = formParts.filter(([name]) =>
       isPartForField(name, fieldName, field),
     );
-    validateField(fieldName, field, fieldParts);
+    validateField(fieldName, field, fieldParts, formParts);
   }
   validateConditions(formParts);
 }
@@ -459,6 +499,7 @@ function validateField(
   fieldName: string,
   field: CanonicalField,
   fieldParts: MultipartPart[],
+  allParts: MultipartPart[],
 ): void {
   if (field.required && fieldParts.length === 0) {
     throw new Error(`Required canonical field "${fieldName}" is missing.`);
@@ -477,7 +518,7 @@ function validateField(
     return;
   }
   if (field.wire_type === 'nested-object') {
-    validateNestedField(field, fieldParts);
+    validateNestedField(field, fieldParts, allParts);
     return;
   }
   if (field.wire_type === 'repeated-text') {
@@ -500,6 +541,7 @@ function validateField(
 function validateNestedField(
   field: CanonicalField,
   fieldParts: MultipartPart[],
+  allParts: MultipartPart[],
 ): void {
   if (fieldParts.length === 0) return;
   const entries = fieldParts.map(([name, value]) => {
@@ -510,9 +552,24 @@ function validateNestedField(
   expect(entries.length).toBeGreaterThanOrEqual(field.min_properties ?? 0);
   expect(entries.length).toBeLessThanOrEqual(field.max_properties ?? Infinity);
   expect(new Set(entries.map(({ key }) => key)).size).toBe(entries.length);
-  expect(entries.map(({ key }) => key).sort()).toEqual(
-    [...(field.required_keys ?? [])].sort(),
+  const keys = entries.map(({ key }) => key);
+  if (field.key_pattern) {
+    const keyPattern = new RegExp(field.key_pattern);
+    for (const key of keys) expect(key).toMatch(keyPattern);
+  }
+  const modelVersion = scalarValue(allParts, 'model_version');
+  const matchingModelKeys = field.conditions?.find((condition) =>
+    condition.rule === 'model_class_keys' &&
+    scalarValue(allParts, condition.field ?? '') === condition.value,
   );
+  const requiredKeys = matchingModelKeys?.required_keys ?? field.required_keys ?? [];
+  expect(keys.filter((key) => requiredKeys.includes(key)).sort()).toEqual([...requiredKeys].sort());
+  if (matchingModelKeys?.additional_properties === false || field.additional_properties === false) {
+    expect(keys.sort()).toEqual([...requiredKeys].sort());
+  }
+  if (modelVersion && modelVersion !== matchingModelKeys?.value && field.key_pattern) {
+    expect(keys.length).toBeGreaterThanOrEqual(field.min_properties ?? 0);
+  }
   for (const entry of entries) {
     validateScalar(entry.value, field.values ?? {});
   }

@@ -91,6 +91,36 @@ describe('Field Report multipart mapper', () => {
     expect(values.get('class_scores[smut]')).toBe('0.97');
   });
 
+  it('sends declared future model versions with their additional class-score keys', () => {
+    const parts = (map(REPORT, {
+      ...SCAN,
+      modelVersion: 'v2.0-cane-model',
+      classScores: [
+        ...SCAN.classScores,
+        { label: 'wilt', score: 0.1 },
+      ],
+    }) as unknown as { _parts: [string, unknown][] })._parts;
+    const values = new Map(parts);
+    expect(values.get('model_version')).toBe('v2.0-cane-model');
+    expect(values.get('class_scores[healthy]')).toBe('0.05');
+    expect(values.get('class_scores[wilt]')).toBe('0.1');
+  });
+
+  it('keeps Model V1 limited to its four declared classes', () => {
+    expect(() => map(REPORT, {
+      ...SCAN,
+      classScores: [...SCAN.classScores, { label: 'wilt', score: 0.1 }],
+    })).toThrow(expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }));
+  });
+
+  it('rejects class-score keys outside the published bounded key pattern', () => {
+    expect(() => map(REPORT, {
+      ...SCAN,
+      modelVersion: 'v2.0-cane-model',
+      classScores: [...SCAN.classScores, { label: 'wilt class', score: 0.1 }],
+    })).toThrow(expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }));
+  });
+
   it('uploads the persisted submission artifact instead of the preserved source path', () => {
     const createImageFile = jest.fn(
       () => ({ name: 'submission.jpg', type: 'image/jpeg', size: 4096 }) as unknown as Blob,

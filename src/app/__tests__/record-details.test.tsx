@@ -301,7 +301,7 @@ describe('RecordDetailsScreen', () => {
         'The image may be too dark. Retake the photo in better lighting for a more reliable input.',
       ),
     ).toBeOnTheScreen();
-    expect(screen.getByText('Saved on this device')).toBeOnTheScreen();
+    expect(screen.getByText('On this device · not sent')).toBeOnTheScreen();
   });
 
   it('keeps metadata visible when the managed image is missing', async () => {

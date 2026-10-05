@@ -24,6 +24,8 @@ import {
   SyncProvider,
 } from '@/features/sync/providers/SyncProvider';
 import { syncPendingFieldReports } from '@/features/sync/services/syncPendingFieldReports';
+import { countUnsyncedFieldSurveys, findLastSuccessfulFieldSurveySyncAt, resetStaleSyncingFieldSurveys } from '@/features/surveys/data/fieldSurveySyncRepository';
+import { syncPendingFieldSurveys } from '@/features/surveys/services/syncPendingFieldSurveys';
 
 jest.mock('@react-native-community/netinfo', () => ({
   __esModule: true,
@@ -60,6 +62,14 @@ jest.mock('@/features/reports/data/fieldReportSyncRepository', () => ({
 }));
 jest.mock('@/features/sync/services/syncPendingFieldReports', () => ({
   syncPendingFieldReports: jest.fn(),
+}));
+jest.mock('@/features/surveys/data/fieldSurveySyncRepository', () => ({
+  countUnsyncedFieldSurveys: jest.fn(),
+  findLastSuccessfulFieldSurveySyncAt: jest.fn(),
+  resetStaleSyncingFieldSurveys: jest.fn(),
+}));
+jest.mock('@/features/surveys/services/syncPendingFieldSurveys', () => ({
+  syncPendingFieldSurveys: jest.fn(),
 }));
 
 const OFFLINE = {
@@ -110,11 +120,23 @@ describe('SyncProvider foreground triggers', () => {
     } as never);
     jest.mocked(countUnsyncedFieldReports).mockResolvedValue(1);
     jest.mocked(countUnsyncedFieldValidationCompletions).mockResolvedValue(0);
+    jest.mocked(countUnsyncedFieldSurveys).mockReturnValue(0);
+    jest.mocked(findLastSuccessfulFieldSurveySyncAt).mockReturnValue(null);
+    jest.mocked(resetStaleSyncingFieldSurveys).mockReturnValue();
     jest.mocked(findFieldReportUploadRecord).mockResolvedValue({} as never);
     jest.mocked(findLastSuccessfulFieldReportSyncAt).mockResolvedValue(null);
     jest.mocked(findLastSuccessfulFieldValidationCompletionSyncAt).mockResolvedValue(null);
     jest.mocked(resetStaleSyncingFieldReports).mockResolvedValue();
     jest.mocked(resetStaleSyncingFieldValidationCompletions).mockResolvedValue();
+    jest.mocked(syncPendingFieldSurveys).mockResolvedValue({
+      attempted: 0,
+      authRequired: false,
+      failed: 0,
+      haltReason: 'empty',
+      results: [],
+      source: 'startup',
+      synced: 0,
+    });
     jest.mocked(syncPendingFieldValidationCompletions).mockResolvedValue({
       attempted: 0,
       authRequired: false,
@@ -170,6 +192,7 @@ describe('SyncProvider foreground triggers', () => {
       expect(purgeExpiredLocalData).toHaveBeenCalledTimes(1);
       expect(resetStaleSyncingFieldReports).toHaveBeenCalledTimes(1);
       expect(resetStaleSyncingFieldValidationCompletions).toHaveBeenCalledTimes(1);
+      expect(resetStaleSyncingFieldSurveys).toHaveBeenCalledTimes(1);
       await waitFor(() => expect(countUnsyncedFieldReports).toHaveBeenCalled());
     } finally {
       jest.useRealTimers();
@@ -203,6 +226,7 @@ describe('SyncProvider foreground triggers', () => {
         }),
       ),
     );
+    expect(syncPendingFieldSurveys).toHaveBeenCalledWith(expect.objectContaining({ source: 'network-restored', ownerIdentity: SUBMITTER_ID }));
     jest.mocked(syncPendingFieldReports).mockClear();
 
     await act(async () => {
@@ -215,6 +239,7 @@ describe('SyncProvider foreground triggers', () => {
         expect.objectContaining({ source: 'resume' }),
       ),
     );
+    expect(syncPendingFieldSurveys).toHaveBeenCalledWith(expect.objectContaining({ source: 'resume' }));
   });
 
   it('tracks API unavailability separately from phone network availability', async () => {

@@ -1,4 +1,5 @@
 import type { ApiReachability } from '@/features/sync/providers/SyncProvider';
+import { FIELD_SURVEY_COPY } from '@/constants/copy';
 
 /** Single-sourced sync status copy for offline field-survey submissions. */
 export const FIELD_SURVEY_SYNC_COPY = {
@@ -7,6 +8,7 @@ export const FIELD_SURVEY_SYNC_COPY = {
   offline: 'You are offline. Your boundary and measured area remain saved on this device; sync when online.',
   pendingLocked: 'This boundary has been submitted or may have reached the server. Retry the same survey, or start a separate boundary instead of changing this payload.',
   serverCorrection: 'The server needs a correction. Review the field-specific messages and edit the boundary.',
+  identityRejected: FIELD_SURVEY_COPY.surveyIdentityRejected,
   synced: 'Boundary measurement synced.',
   submit: 'Save and sync measurement',
   submitting: 'Syncing measurement…',
@@ -17,6 +19,7 @@ export type SyncWordingInput = {
   isOnline: boolean | null;
   isSyncing?: boolean;
   pendingCompletionsCount?: number;
+  pendingSurveysCount?: number;
   pendingCount: number;
   pendingReportsCount?: number;
   sessionVerification?: string;
@@ -26,14 +29,14 @@ export function formatPendingSummary(
   pendingCount: number,
   reportsCount: number = pendingCount,
   completionsCount: number = 0,
+  surveysCount: number = 0,
 ): string {
-  if (reportsCount > 0 && completionsCount > 0) {
-    return `${reportsCount} ${reportsCount === 1 ? 'report' : 'reports'}, ${completionsCount} ${completionsCount === 1 ? 'visit' : 'visits'} waiting to send`;
-  }
-  if (completionsCount > 0 && reportsCount === 0) {
-    return `${completionsCount} ${completionsCount === 1 ? 'visit' : 'visits'} waiting to send`;
-  }
-  return `${pendingCount} ${pendingCount === 1 ? 'report' : 'reports'} waiting to send`;
+  const parts = [
+    surveysCount > 0 ? `${surveysCount} ${surveysCount === 1 ? 'boundary' : 'boundaries'}` : null,
+    reportsCount > 0 ? `${reportsCount} ${reportsCount === 1 ? 'report' : 'reports'}` : null,
+    completionsCount > 0 ? `${completionsCount} ${completionsCount === 1 ? 'visit' : 'visits'}` : null,
+  ].filter((part): part is string => part !== null);
+  return parts.length ? `${parts.join(', ')} waiting to send` : `${pendingCount} reports waiting to send`;
 }
 
 export function isServerUnavailable(
@@ -99,6 +102,7 @@ export function getSyncRowSummary(input: SyncWordingInput): string {
     pendingCompletionsCount = 0,
     pendingCount,
     pendingReportsCount = pendingCount,
+    pendingSurveysCount = 0,
     sessionVerification,
   } = input;
 
@@ -108,6 +112,7 @@ export function getSyncRowSummary(input: SyncWordingInput): string {
     pendingCount,
     pendingReportsCount,
     pendingCompletionsCount,
+    pendingSurveysCount,
   );
 
   if (isSyncing) {

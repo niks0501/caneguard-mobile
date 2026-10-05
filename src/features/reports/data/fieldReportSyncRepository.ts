@@ -10,6 +10,7 @@ import { findFieldReportById } from '@/features/reports/data/fieldReportReposito
 import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
 import { AUTO_RETRYABLE_SYNC_ERROR_CODES } from '@/features/sync/errors/syncErrors';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
+import { isUploadableSubmissionArtifact } from '@/features/sync/domain/submissionArtifacts';
 
 export const SYNC_RETRY_COOLDOWN_MS = 60_000;
 
@@ -137,9 +138,13 @@ export async function findFieldReportSyncCandidates(
       )
       .orderBy(asc(fieldReports.submittedAt), asc(fieldReports.createdAt))
       .limit(normalizedLimit);
-    return Promise.all(
+    const reports = await Promise.all(
       rows.map(({ id }) => findFieldReportById(database, id, submitterIdentity)),
     );
+    return reports.filter((report) => isUploadableSubmissionArtifact('field_report', {
+      authoringState: report.authoringState,
+      syncStatus: report.syncStatus,
+    }));
   } catch (error: unknown) {
     throw toStorageError(
       error,

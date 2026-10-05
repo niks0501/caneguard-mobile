@@ -551,7 +551,7 @@ describe('scan record write repository', () => {
     native.close();
   });
 
-  it('preserves synchronization metadata for scans created by earlier versions', async () => {
+  it('does not treat legacy scan synchronization metadata as a submission state', async () => {
     const { database, native } = openTestDatabase();
     await insertScanRecord(database, validInput());
     native
@@ -562,9 +562,10 @@ describe('scan record write repository', () => {
 
     await expect(
       listScanRecords(database, { syncStatus: 'failed' }, SUBMITTER_ID),
-    ).resolves.toEqual([
-      expect.objectContaining({ id: RECORD_ID, syncStatus: 'failed' }),
-    ]);
+    ).resolves.toEqual([]);
+    await expect(
+      listScanRecords(database, { syncStatus: 'local_only' }, SUBMITTER_ID),
+    ).resolves.toEqual([expect.objectContaining({ id: RECORD_ID, syncStatus: 'local_only' })]);
 
     native
       .prepare(
@@ -572,9 +573,12 @@ describe('scan record write repository', () => {
       )
       .run('2026-07-25T06:00:00.000Z', RECORD_ID);
     await expect(findScanRecordById(database, RECORD_ID, SUBMITTER_ID)).resolves.toMatchObject({
-      remoteId: 'legacy-remote-id',
-      syncStatus: 'synced',
-      lastSyncedAt: '2026-07-25T06:00:00.000Z',
+      remoteId: null,
+      syncStatus: 'local_only',
+      syncAttemptCount: 0,
+      lastSyncErrorCode: null,
+      lastSyncAttemptAt: null,
+      lastSyncedAt: null,
     });
     native.close();
   });

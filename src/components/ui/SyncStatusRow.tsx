@@ -20,8 +20,9 @@ export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
   const { sessionVerification } = useAuth();
   const sync = useSync();
   const hasPendingReports = sync.pendingCount > 0;
-  const reportsCount = (sync as any).pendingReportsCount ?? sync.pendingCount;
-  const completionsCount = (sync as any).pendingCompletionsCount ?? 0;
+  const reportsCount = sync.pendingReportsCount;
+  const surveysCount = sync.pendingSurveysCount;
+  const completionsCount = sync.pendingCompletionsCount;
   const apiUnavailable = isServerUnavailable(
     sync.apiReachability,
     sessionVerification,
@@ -52,6 +53,7 @@ export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
     pendingCompletionsCount: completionsCount,
     pendingCount: sync.pendingCount,
     pendingReportsCount: reportsCount,
+    pendingSurveysCount: surveysCount,
     sessionVerification,
   });
 

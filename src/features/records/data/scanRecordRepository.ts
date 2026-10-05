@@ -78,7 +78,7 @@ export async function listScanRecords(
         predictedLabel: scanRecords.predictedLabel,
         confidence: scanRecords.confidence,
         barangay: sql<string | null>`coalesce(${fieldReports.barangay}, ${scanRecords.barangay})`,
-        syncStatus: sql<ScanRecordListItem['syncStatus']>`coalesce(${fieldReports.syncStatus}, ${scanRecords.syncStatus})`,
+        syncStatus: sql<ScanRecordListItem['syncStatus']>`coalesce(${fieldReports.syncStatus}, 'local_only')`,
         createdAt: scanRecords.createdAt,
       })
       .from(scanRecords)
@@ -253,7 +253,7 @@ function buildConditions(query: ScanRecordQuery): SQL[] {
   }
   if (query.syncStatus) {
     conditions.push(
-      sql`coalesce(${fieldReports.syncStatus}, ${scanRecords.syncStatus}) = ${query.syncStatus}`,
+      sql`coalesce(${fieldReports.syncStatus}, 'local_only') = ${query.syncStatus}`,
     );
   }
   if (query.hasFieldReport !== undefined) {

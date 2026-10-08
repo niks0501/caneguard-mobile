@@ -105,3 +105,5 @@ qa-mobile-*.json
 .akidev/tmp/
 .akidev/conflicts/
 # <<< AkiDev project-local runtime <<<
+.no-mistakes.yaml
+.no-mistakes-review.json

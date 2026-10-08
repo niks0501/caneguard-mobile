@@ -78,7 +78,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
-    "verify:fast": "npm run lint && npm run typecheck && npm run test:coverage -- --runInBand",
+    "verify:fast": "npm run lint && npm run typecheck && npm test -- --runInBand",
     "qa:config": "node ./scripts/validate-qa-env.js --config-only",
     "qa:preflight": "node ./scripts/validate-qa-env.js --require-qa",
     "qa:export": "node ./scripts/qa-export.js",
@@ -107,14 +107,7 @@
     "moduleNameMapper": {
       "\\.css$": "<rootDir>/test/__mocks__/fileMock.js",
       "\\.tflite$": "<rootDir>/test/__mocks__/fileMock.js"
-    },
-    "collectCoverageFrom": [
-      "src/features/detection/**/*.{ts,tsx}",
-      "src/app/model-smoke-test.tsx",
-      "src/app/(tabs)/scan.tsx",
-      "src/app/image-preview.tsx",
-      "!**/*.d.ts"
-    ]
+    }
   },
   "expo": {
     "doctor": {

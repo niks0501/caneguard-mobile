@@ -96,6 +96,8 @@ qa-mobile-*.json
 
 
 
+.no-mistakes.yaml
+
 # >>> AkiDev project-local runtime >>>
 .akidev/cache/
 .akidev/home/
@@ -103,4 +105,3 @@ qa-mobile-*.json
 .akidev/tmp/
 .akidev/conflicts/
 # <<< AkiDev project-local runtime <<<
-.no-mistakes.yaml

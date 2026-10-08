@@ -13,6 +13,8 @@ project_doc_max_bytes = 32768
 # AkiDev manages only this project-local MCP block.
 
 # AkiDev manages only this project-local MCP block.
+
+# AkiDev manages only this project-local MCP block.
 # >>> AKIDEV MCP START
 [mcp_servers.context7]
 command = "npx"

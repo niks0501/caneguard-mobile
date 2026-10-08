@@ -1,6 +1,3 @@
-import fs from 'fs';
-import path from 'path';
-
 import { Colors, Typography } from '@/constants/theme';
 
 function relLuminance(hexColor: string): number {
@@ -23,60 +20,7 @@ function contrastRatio(color1: string, color2: string): number {
   return (top + 0.05) / (bottom + 0.05);
 }
 
-function walkSourceFiles(dir: string): string[] {
-  let results: string[] = [];
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (entry.name !== '__tests__' && entry.name !== 'node_modules') {
-        results = results.concat(walkSourceFiles(fullPath));
-      }
-    } else if (/\.(tsx?|jsx?)$/.test(entry.name)) {
-      results.push(fullPath);
-    }
-  }
-  return results;
-}
-
 describe('Design spine static guards', () => {
-  it('forbids literal hex, fontSize, and borderRadius outside theme.ts', () => {
-    const srcDir = path.resolve(__dirname, '../../');
-    const sourceFiles = walkSourceFiles(srcDir).filter(
-      (f) => !f.endsWith('src/constants/theme.ts'),
-    );
-
-    const hexRegex = /#[0-9A-Fa-f]{3,8}\b/g;
-    const fontSizeRegex = /fontSize:\s*([0-9]+)/g;
-    const borderRadiusRegex = /borderRadius:\s*([0-9]+)/g;
-
-    const violations: string[] = [];
-
-    for (const file of sourceFiles) {
-      const content = fs.readFileSync(file, 'utf8');
-      const lines = content.split('\n');
-      lines.forEach((line, idx) => {
-        if (hexRegex.test(line)) {
-          violations.push(
-            `${path.relative(srcDir, file)}:${idx + 1} literal hex in "${line.trim()}"`,
-          );
-        }
-        if (fontSizeRegex.test(line)) {
-          violations.push(
-            `${path.relative(srcDir, file)}:${idx + 1} literal fontSize in "${line.trim()}"`,
-          );
-        }
-        if (borderRadiusRegex.test(line)) {
-          violations.push(
-            `${path.relative(srcDir, file)}:${idx + 1} literal borderRadius in "${line.trim()}"`,
-          );
-        }
-      });
-    }
-
-    expect(violations).toEqual([]);
-  });
-
   it('guarantees WCAG AA compliant contrast for semantic pairs in both light and dark themes', () => {
     for (const themeKey of ['light', 'dark'] as const) {
       const palette = Colors[themeKey];

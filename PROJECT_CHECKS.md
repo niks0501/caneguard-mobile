@@ -7,7 +7,7 @@
 - focused test: `npm test -- --runInBand <test-file>`
 - agent-facing fast gate: `npm run verify:fast`
 
-`verify:fast` composes lint, TypeScript, and the existing Jest/jest-expo suite with configured React Native Testing Library coverage. It does not start Metro, an emulator, Agent Device, or any E2E flow.
+`verify:fast` composes lint, TypeScript, and the existing Jest/jest-expo suite. Coverage is not a gate or a quality signal; `npm run test:coverage` is an on-demand report. The gate does not start Metro, an emulator, Agent Device, or any E2E flow.
 
 ## Broader checks
 
@@ -24,5 +24,6 @@ Native-boundary behavior such as biometrics, image picker, permissions, secure s
 
 - Run targeted tests before `npm run verify:fast`.
 - Do not run E2E as part of `verify:fast`.
+- Mirror tests are not behavior evidence: tests that copy or reimplement production source or structure do not prove production behavior.
 - Run only commands that actually exist in `package.json` or project scripts.
 - Prefer deterministic emulator/ADB mechanisms over repeated attempts to fight native dialogs.

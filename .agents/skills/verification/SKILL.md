@@ -1,6 +1,6 @@
 ---
 name: verification
-description: Choose and execute evidence through the strict test ladder, including the E2E intent gate, without confusing unavailable checks with passes.
+description: Use before choosing verification or declaring completion, especially for explicit device or tunnel acceptance criteria; follow the strict test ladder and E2E intent gate, and report unavailable checks as gaps, not passes.
 ---
 
 # Verification

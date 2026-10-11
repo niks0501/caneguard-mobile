@@ -1,6 +1,6 @@
 ---
 name: akidev-mobile-runtime
-description: Use only after explicit user intent for device/runtime inspection or mobile UI behavior; route agent-device interactive sessions, ADB, the deterministic .ad suite, or static checks without racing a shared device.
+description: Load before planning or running explicitly requested device/runtime inspection, mobile UI reproduction, or native inference verification; route agent-device, ADB, the deterministic .ad suite, or static checks without racing a shared device. Loading this skill does not authorize device use.
 ---
 
 <!-- Managed by AkiDev integration: akidev-mobile-runtime -->

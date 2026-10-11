@@ -1,6 +1,6 @@
 ---
 name: diagnose-reported-bug
-description: Use when diagnosing a reported bug or repeated failing command/check before changing implementation.
+description: Load at the first report of an app defect, including login, navigation, or form behavior, or a repeated command/check failure; use before investigation or implementation changes.
 user-invocable: false
 metadata:
   internal: true

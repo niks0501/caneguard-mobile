@@ -35,7 +35,7 @@ When `graphify-out/graph.json` exists, use Graphify as the first source for unde
 ## Failure Handling
 
 - Read the actual error before attempting a fix.
-- After an unexpected command failure, investigate it before continuing; if it remains unresolved, report it.
+- After an unexpected command failure, investigate it before continuing; if it remains unresolved, report it. Inspect failure details and relevant prerequisites; do not silently skip the failed step.
 - Report blockers clearly when further progress requires user action or an unsafe assumption.
 
 ## No-Mistakes Test Policy

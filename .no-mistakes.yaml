@@ -1,0 +1,77 @@
+
+protected_paths:
+  - ".no-mistakes.yaml"
+  - "drizzle/**"
+  - "*.tflite"
+  - "eas.json"
+  - "app.config.js"
+  - ".github/workflows/**"
+
+document:
+  instructions: |
+    README.md owns setup and onboarding.
+    PROJECT_CHECKS.md owns verification commands.
+    PROJECT_STACK.md owns architecture and platform rules.
+    docs/ owns detailed feature and operational guidance.
+    Update the existing authoritative document.
+    Avoid duplicated or unnecessary documentation.
+
+review:
+  path_instructions:
+    - path: "src/features/detection/**"
+      instructions: |
+        Preserve the TFLite model contract, preprocessing,
+        tensor shapes, labels, and inference semantics.
+        Browser tests cannot prove native inference correctness.
+
+    - path: "src/database/**"
+      instructions: |
+        Check persistence, transactional integrity,
+        ownership isolation, and migration compatibility.
+
+    - path: "drizzle/**"
+      instructions: |
+        Preserve existing data and migration ordering.
+        Flag destructive or incompatible schema changes.
+
+    - path: "src/features/sync/**"
+      instructions: |
+        Check offline recovery, retry safety, idempotency,
+        and preservation of unsynchronized records.
+
+    - path: "src/features/auth/**"
+      instructions: |
+        Check session lifecycle, secure token handling,
+        expiration, authorization, and recovery behavior.
+
+test:
+  instructions: |
+    Follow PROJECT_CHECKS.md.
+    Run relevant fast automated tests.
+
+    Use only Expo Web with chrome-devtools-axi
+    for browser-compatible live verification.
+
+    Assign a unique CHROME_DEVTOOLS_AXI_SESSION per run,
+    derived from the run or isolated worktree identity.
+    Use the same session for all browser commands.
+    Use AXI's default isolated Chrome launch mode.
+    Never attach to shared Chrome or another worker's browser.
+    Do not set a shared CHROME_DEVTOOLS_AXI_PORT.
+    Use a free application port for this worktree.
+    Never interrupt another worker's server or session.
+
+    Interact with affected UI flows.
+    Inspect screenshots, console errors, and network requests.
+    Verify the running application uses the target revision.
+
+    Never use agent-device, phones, emulators, ADB,
+    native builds, or device E2E.
+    Do not require persistent E2E scripts.
+
+    Browser success does not prove native behavior.
+    Report actual defects as no-go.
+    Report unsupported or unavailable verification as
+    inconclusive, with reasons and manual testing steps.
+    Never mark unverified behavior as passed.
+    Clean up only resources owned by this run.

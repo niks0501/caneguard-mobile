@@ -68,6 +68,7 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
+    "graphify:refresh": "graphify update .",
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
     "android": "expo start --android",

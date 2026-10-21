@@ -9,6 +9,17 @@
 
 `verify:fast` composes lint, TypeScript, and the existing Jest/jest-expo suite. Coverage is not a gate or a quality signal; `npm run test:coverage` is an on-demand report. The gate does not start Metro, an emulator, Agent Device, or any E2E flow.
 
+## Adaptive validation tiers
+
+Classify each task by intent and changed paths. Record exactly one tier line in the report and status, such as `Tier: T1-fast`. Changes touching `src/features/detection/**`, `src/database/**`, `drizzle/**`, `src/features/sync/**`, or `src/features/auth/**` are T3.
+
+- **T0 — Docs-Only:** For Markdown and `docs/**` changes only, or comments/docstrings with no executable changes. Run `git diff --check` and review the document's location, links, and ownership. There is no configured Markdown linter; do not run the app test suite or a browser.
+- **T1 — Fast Lane:** For copy, non-critical configuration, styling, or dead code, run `npm run lint && npm run typecheck && npm test -- --runInBand <test-file>`. No browser or server startup.
+- **T2 — Feature:** Run `npm run verify:fast`. Add exactly one targeted browser/live check only when browser-compatible user-visible UI or a live HTTP contract changed; skip it for non-visual and native-only changes.
+- **T3 — High-Stakes:** For detection/inference, database, sync, or authentication changes, run `npm run verify:fast && npm run db:check` and the relevant existing critical-path tests (for example, `npm test -- --runInBand <test-file>`). Obtain an independent adversarial review. Existing human-owned tests are the proof; agent-written tests are supplemental notes.
+
+Device, emulator, ADB, Agent Device, and staging checks are not routine gates. Run them only when the task brief explicitly requests them. Browser checks cannot prove native behavior.
+
 ## Broader checks
 
 - test suite: `npm test`

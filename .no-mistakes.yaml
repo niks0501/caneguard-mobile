@@ -49,32 +49,38 @@ review:
 
 test:
   instructions: |
-    Follow PROJECT_CHECKS.md.
-    Run relevant fast automated tests.
+    Follow PROJECT_CHECKS.md for repository-specific commands.
+    Classify task intent and declare the validation tier in one line
+    in the report and status (for example, "Tier: T1-fast").
 
-    Use only Expo Web with chrome-devtools-axi
-    for browser-compatible live verification.
+    Validation Tiers:
+    - T0 (Docs-Only): Markdown files and docs/** only, or comments/docstrings
+      with no executable changes. Run the documented documentation checks.
+      No test suite or browser overhead.
+    - T1 (Fast Lane): Copy, non-critical config, styling, or dead code.
+      Run lint, typecheck, and a focused unit test. No browser check or server.
+    - T2 (Feature): Standard features and non-critical business logic.
+      Run the canonical fast gate. Run exactly one targeted browser/live check
+      only for browser-compatible user-visible UI or a live HTTP contract.
+    - T3 (High-Stakes): Detection/inference, database, sync, or authentication.
+      Run the full verification gate and relevant critical-path tests, plus an
+      independent adversarial review. Human-owned tests are sole proof;
+      agent-written tests are supplemental notes. Unverified behavior is NO-GO.
 
-    Assign a unique CHROME_DEVTOOLS_AXI_SESSION per run,
-    derived from the run or isolated worktree identity.
-    Use the same session for all browser commands.
-    Use AXI's default isolated Chrome launch mode.
-    Never attach to shared Chrome or another worker's browser.
-    Do not set a shared CHROME_DEVTOOLS_AXI_PORT.
-    Use a free application port for this worktree.
-    Never interrupt another worker's server or session.
-
-    Interact with affected UI flows.
-    Inspect screenshots, console errors, and network requests.
-    Verify the running application uses the target revision.
-
-    Never use agent-device, phones, emulators, ADB,
-    native builds, or device E2E.
-    Do not require persistent E2E scripts.
-
-    Browser success does not prove native behavior.
-    Report actual defects as no-go.
-    Report unsupported or unavailable verification as
-    inconclusive, with reasons and manual testing steps.
-    Never mark unverified behavior as passed.
-    Clean up only resources owned by this run.
+    Live Verification & Environment Rules:
+    - Use chrome-devtools-axi only for browser-compatible user-visible UI or
+      live HTTP contracts. Never use browser checks for native-only behavior.
+      Give each run a unique CHROME_DEVTOOLS_AXI_SESSION derived from the
+      worktree, use isolated Chrome launch mode, and never set a shared port or
+      attach to another worker's browser. Use a free app port and do not
+      interrupt another run. Check the target revision, screenshot, console,
+      and network; clean up only resources owned by this run.
+    - Device emulators, ADB, agent-device, and staging checks are allowed only
+      when the task brief explicitly names them.
+    - Browser success does not prove native behavior.
+    - Ambiguous intent: report and wait for a decision; do not silently change
+      the tier. Escalate scope creep and prefer the smallest safe change.
+    - Report unsupported or unavailable verification as inconclusive, with
+      reasons and manual testing steps. Report defects as no-go; never mark
+      unverified behavior passed.
+    - Clean up only resources owned by this run.

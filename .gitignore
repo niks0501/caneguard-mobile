@@ -72,16 +72,8 @@ example
 # Python bytecode cache
 .opencode/skills/ui-ux-pro-max/scripts/__pycache__/
 
-# Generated Graphify cache
-graphify-out/cache/
-
-# Generated Graphify outputs stay local; keep the generator tooling tracked.
-graphify-out/*
-graphify-out/.[!.]*
-graphify-out/..?*
-# Volatile Graphify run metadata and dated snapshots.
-graphify-out/manifest.json
-graphify-out/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
+# Generated Graphify output is local-only; keep the generator tooling tracked.
+graphify-out/
 
 # Local / generated AI runtime data
 .ai

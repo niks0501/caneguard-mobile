@@ -1147,6 +1147,25 @@ describe('Field Report draft repository', () => {
     expect(native.prepare('SELECT count(*) AS count FROM scan_class_scores').get()).toEqual({
       count: 4,
     });
+    await expect(
+      findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, {
+        includeRetryableFailed: true,
+      }),
+    ).resolves.toEqual([]);
+    await expect(countUnsyncedFieldReports(database, SUBMITTER_ID)).resolves.toBe(0);
+
+    await markFieldReportSyncing(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      '2026-08-10T04:02:00.000Z',
+    );
+    await expect(findFieldReportById(database, REPORT_ID, SUBMITTER_ID)).resolves.toMatchObject({
+      remoteId: 'server-report-uuid',
+      syncAttemptCount: 2,
+      syncStatus: 'synced',
+      lastSyncedAt: '2026-08-10T04:01:01.000Z',
+    });
     native.close();
   });
 

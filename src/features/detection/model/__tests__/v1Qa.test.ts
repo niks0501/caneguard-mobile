@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -7,6 +8,7 @@ import qaExpectedOutputs from '../../../../../qa/expected-v1-outputs.json';
 import {
   MODEL_INPUT,
   MODEL_LABELS,
+  MODEL_OUTPUT,
   MODEL_SHA256,
   MODEL_VERSION,
 } from '@/features/detection/constants/modelContract';
@@ -26,10 +28,32 @@ function float32Buffer(values: readonly number[]): ArrayBuffer {
 }
 
 describe('Model V1 QA oracle', () => {
-  it('keeps the QA oracle bound to the accepted artifact and fixed labels', () => {
+  it('checks packaged tensor shapes through the host Python fixture', () => {
+    execFileSync(
+      'python3',
+      [join(process.cwd(), 'scripts/tests/test_tflite_model_shapes.py')],
+      { cwd: process.cwd() },
+    );
+  });
+
+  it('keeps the QA oracle bound to the packaged model, tensor shapes, and fixed labels', () => {
     expect(qaExpectedOutputs.model_sha256).toBe(MODEL_SHA256);
     expect(qaExpectedOutputs.class_order).toEqual([...MODEL_LABELS]);
     expect(qaExpectedOutputs.fixtures).toHaveLength(4);
+    expect(qaExpectedOutputs.preprocessing_contract).toMatchObject({
+      input_shape: [...MODEL_INPUT.shape],
+      dtype: MODEL_INPUT.dataType,
+      channel_order: MODEL_INPUT.colorOrder,
+    });
+    expect(MODEL_OUTPUT.shape).toEqual([1, MODEL_LABELS.length]);
+
+    const modelPath = join(
+      process.cwd(),
+      'assets/models/caneguard_v1_mobilenetv2_float32.tflite',
+    );
+    expect(createHash('sha256').update(readFileSync(modelPath)).digest('hex')).toBe(
+      MODEL_SHA256,
+    );
 
     for (const fixture of qaExpectedOutputs.fixtures) {
       const fixturePath = join(

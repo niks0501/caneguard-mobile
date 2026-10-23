@@ -57,6 +57,19 @@ function applyLatest(database: DatabaseSync): void {
   database.exec(migration13);
 }
 
+function applyFieldSurveyMigrations(database: DatabaseSync): void {
+  for (const migration of [
+    migration14,
+    migration15,
+    migration16,
+    migration17,
+    migration18,
+    migration19,
+  ]) {
+    database.exec(migration);
+  }
+}
+
 function insertScanRecord(
   database: DatabaseSync,
   id = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
@@ -90,6 +103,7 @@ describe('CaneGuard database migrations', () => {
     const database = openDatabase();
 
     applyLatest(database);
+    applyFieldSurveyMigrations(database);
 
     const tables = database
       .prepare(
@@ -107,6 +121,7 @@ describe('CaneGuard database migrations', () => {
     expect(tables).toEqual([
       'compatibility_probe',
       'field_reports',
+      'field_surveys',
       'field_validation_assignments',
       'field_validation_completions',
       'notifications_cache',
@@ -123,6 +138,18 @@ describe('CaneGuard database migrations', () => {
       'scan_records_remote_id_unique',
       'scan_records_sync_created_at_idx',
     ]);
+    expect(
+      database
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'field_surveys_%' ORDER BY name",
+        )
+        .all()
+        .map((row) => row.name),
+    ).toEqual([
+      'field_surveys_owner_status_updated_idx',
+      'field_surveys_owner_updated_idx',
+      'field_surveys_remote_id_unique',
+    ]);
 
     database.close();
   });
@@ -130,10 +157,11 @@ describe('CaneGuard database migrations', () => {
   it('adds the owner-scoped field survey outbox through an additive migration', () => {
     const database = openDatabase();
     applyLatest(database);
-    for (const migration of [migration14, migration15, migration16, migration17, migration18, migration19]) {
-      database.exec(migration);
-    }
-    const columns = database.prepare('PRAGMA table_info(field_surveys)').all().map((column) => column.name);
+    applyFieldSurveyMigrations(database);
+    const columns = database
+      .prepare('PRAGMA table_info(field_surveys)')
+      .all()
+      .map((column) => column.name);
     expect(columns).toEqual([
       'client_uuid', 'owner_identity', 'district_code', 'waypoints_json',
       'polygon_json', 'area_sqm', 'captured_at', 'status', 'remote_id',
@@ -146,6 +174,80 @@ describe('CaneGuard database migrations', () => {
         status, created_at, updated_at
       ) VALUES ('survey-1', 'owner-1', 'D-01', '[]', 'now', 'unknown', 'now', 'now')
     `).run()).toThrow();
+    database.close();
+  });
+
+  it('enforces Field Survey outbox identity and value invariants in SQLite', () => {
+    const database = openDatabase();
+    applyLatest(database);
+    applyFieldSurveyMigrations(database);
+
+    const insertSurvey = database.prepare(`
+      INSERT INTO field_surveys (
+        client_uuid, owner_identity, district_code, waypoints_json, area_sqm,
+        status, remote_id, sync_attempt_count, captured_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const timestamp = '2026-10-20T00:00:00.000Z';
+    const addSurvey = (
+      clientUuid: string,
+      overrides: Partial<{
+        areaSqm: number | null;
+        status: string;
+        remoteId: string | null;
+        syncAttemptCount: number;
+      }> = {},
+    ) => {
+      const {
+        areaSqm = null,
+        status = 'draft',
+        remoteId = null,
+        syncAttemptCount = 0,
+      } = overrides;
+      insertSurvey.run(
+        clientUuid,
+        'owner-1',
+        'D-01',
+        '[]',
+        areaSqm,
+        status,
+        remoteId,
+        syncAttemptCount,
+        timestamp,
+        timestamp,
+        timestamp,
+      );
+    };
+
+    addSurvey('survey-defaults');
+    expect(() => addSurvey('survey-defaults')).toThrow();
+    expect(
+      database
+        .prepare(
+          'SELECT status, remote_id, sync_attempt_count FROM field_surveys WHERE client_uuid = ?',
+        )
+        .get('survey-defaults'),
+    ).toEqual({ status: 'draft', remote_id: null, sync_attempt_count: 0 });
+    addSurvey('survey-null-remote-2');
+    addSurvey('survey-remote-1', {
+      status: 'synced',
+      remoteId: 'remote-1',
+      areaSqm: 1,
+    });
+
+    expect(() => addSurvey('survey-bad-status', { status: 'unknown' })).toThrow();
+    expect(() => addSurvey('survey-zero-area', { areaSqm: 0 })).toThrow();
+    expect(() => addSurvey('survey-negative-attempt', { syncAttemptCount: -1 })).toThrow();
+    expect(() =>
+      addSurvey('survey-duplicate-remote', { status: 'synced', remoteId: 'remote-1' }),
+    ).toThrow();
+    expect(
+      database
+        .prepare('PRAGMA index_info(field_surveys_owner_status_updated_idx)')
+        .all()
+        .map((column) => column.name),
+    ).toEqual(['owner_identity', 'status', 'updated_at']);
+
     database.close();
   });
 

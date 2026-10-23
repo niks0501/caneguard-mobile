@@ -88,6 +88,7 @@ function SessionProbe() {
       <Text>{state.sourceUri ?? 'no image'}</Text>
       <Text>{`draft:${draft.draftStatus}`}</Text>
       <Text>{`owner:${draft.ownerIdentity ?? 'none'}`}</Text>
+      <Text>{`symptoms:${state.selectedSymptoms.join(',')}`}</Text>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Select test image"
@@ -102,6 +103,18 @@ function SessionProbe() {
             },
           })
         }
+      />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Change test symptoms"
+        onPress={() =>
+          dispatch({ type: 'SET_SYMPTOMS', payload: ['rust'] })
+        }
+      />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Finalize saved draft"
+        onPress={() => draft.finalizeSavedDraft()}
       />
       <Pressable
         accessibilityRole="button"
@@ -198,6 +211,33 @@ describe('ScanSessionProvider', () => {
       ).toBeOnTheScreen(),
     );
     expect(screen.getByText('draft:saved')).toBeOnTheScreen();
+  });
+
+  it('keeps a saved scan out of the resumable draft checkpoint', async () => {
+    await render(<Harness owner={OWNER_A} />);
+    await fireEvent.press(screen.getByLabelText('Select test image'));
+    await waitFor(() => expect(screen.getByText('draft:saved')).toBeOnTheScreen());
+    const checkpoint = mockDraftRows.get(`${OWNER_A}:scan:current`);
+    const managedImageUri = (checkpoint?.payload as { managedImageUri: string })
+      .managedImageUri;
+
+    await fireEvent.press(screen.getByLabelText('Finalize saved draft'));
+
+    expect(mockDraftRows.get(`${OWNER_A}:scan:current`)).toBeUndefined();
+    expect(mockDeleteManagedScanImage).not.toHaveBeenCalled();
+    expect(screen.getByText('file:///picker/leaf.jpg')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Change test symptoms'));
+    await waitFor(() => expect(screen.getByText('symptoms:rust')).toBeOnTheScreen());
+    expect(mockDraftRows.get(`${OWNER_A}:scan:current`)).toBeUndefined();
+
+    await fireEvent.press(screen.getByLabelText('Reset test scan'));
+    await waitFor(() =>
+      expect(mockDeleteManagedScanImage).toHaveBeenCalledWith(
+        managedImageUri,
+        OWNER_A,
+      ),
+    );
   });
 
   it('removes a selected draft image that never reached a checkpoint', async () => {

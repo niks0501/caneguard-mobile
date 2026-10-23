@@ -8,7 +8,10 @@ import type {
   ChecklistObservationId,
 } from '@/features/detection/checklist/checklistConsistency';
 import type { ModelLabel } from '@/features/detection/constants/modelContract';
-import { ScanSessionContext } from '@/features/detection/context/ScanSessionProvider';
+import {
+  ScanDraftContext,
+  ScanSessionContext,
+} from '@/features/detection/context/ScanSessionProvider';
 import {
   initialScanSessionState,
 } from '@/features/detection/context/scanSessionReducer';
@@ -28,6 +31,16 @@ let mockSaveRecordState = {
   getLastError: () => mockSaveRecordError,
   recordId: null as string | null,
   save: mockSaveRecord,
+};
+const mockFinalizeSavedDraft = jest.fn();
+const mockDraftValue = {
+  discardSavedDraft: jest.fn(async () => true),
+  draftSavedAt: null,
+  draftStatus: 'idle' as const,
+  finalizeSavedDraft: mockFinalizeSavedDraft,
+  flushSavedDraft: jest.fn(async () => true),
+  isOwnerCurrent: jest.fn(() => true),
+  ownerIdentity: null,
 };
 const mockRouterBack = router.back as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
@@ -111,7 +124,9 @@ async function renderResult(state: ScanSessionState) {
   return render(
     <ToastProvider>
       <ScanSessionContext.Provider value={{ state, dispatch: mockDispatch }}>
-        <AnalysisResultScreen />
+        <ScanDraftContext.Provider value={mockDraftValue}>
+          <AnalysisResultScreen />
+        </ScanDraftContext.Provider>
       </ScanSessionContext.Provider>
     </ToastProvider>,
   );
@@ -330,6 +345,7 @@ describe('AnalysisResultScreen', () => {
     );
 
     expect(mockSaveRecord).toHaveBeenCalledTimes(1);
+    expect(mockFinalizeSavedDraft).toHaveBeenCalledTimes(1);
     expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
     expect(mockRouterDismissTo).not.toHaveBeenCalled();
     expect(screen.getByTestId('scan.result-screen')).toBeOnTheScreen();

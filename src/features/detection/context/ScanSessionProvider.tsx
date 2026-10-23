@@ -48,6 +48,11 @@ export interface ScanDraftContextValue {
   discardSavedDraft: () => Promise<boolean>;
   draftSavedAt: string | null;
   draftStatus: ScanDraftStatus;
+  /**
+   * Removes the resumable checkpoint of a session whose scan record is already
+   * saved, keeping the live session and its image on screen.
+   */
+  finalizeSavedDraft: () => void;
   /** Persists the latest state now and reports whether it is on the device. */
   flushSavedDraft: () => Promise<boolean>;
   /** True while `owner` is still the signed-in owner for this process. */
@@ -145,6 +150,7 @@ function ScanSessionOwner({
   );
   const lastWriteOk = useRef(true);
   const mounted = useRef(true);
+  const finalized = useRef(false);
 
   useEffect(() => {
     stateRef.current = state;
@@ -161,7 +167,7 @@ function ScanSessionOwner({
     (owner: string) => {
       const draft = draftImageRef.current;
       const currentState = stateRef.current;
-      if (!draft || !owner) {
+      if (finalized.current || !draft || !owner) {
         return Promise.resolve();
       }
       const checkpoint = buildScanDraftCheckpoint({
@@ -268,11 +274,13 @@ function ScanSessionOwner({
   const dispatch = useCallback(
     (action: ScanSessionAction) => {
       if (action.type === 'SELECT_IMAGE') {
+        finalized.current = false;
         rawDispatch(action);
         void persistSelectedImage(action.payload);
         return;
       }
       if (action.type === 'RESET_SCAN') {
+        finalized.current = false;
         rawDispatch(action);
         const trackedImage = draftImageRef.current;
         draftImageRef.current = null;
@@ -342,10 +350,25 @@ function ScanSessionOwner({
     }
     draftImageRef.current = null;
     imageOperation.current += 1;
+    finalized.current = false;
     rawDispatch({ type: 'RESET_SCAN' });
     setDraftStatus('idle');
     setDraftSavedAt(null);
     return true;
+  }, [database, ownerIdentity]);
+
+  const finalizeSavedDraft = useCallback(() => {
+    if (!ownerIdentity) {
+      return;
+    }
+    try {
+      deleteScanDraftCheckpoint(database, ownerIdentity, {
+        keepManagedImage: true,
+      });
+    } catch {
+      // Best effort: the explicit reset on leave retries this cleanup.
+    }
+    finalized.current = true;
   }, [database, ownerIdentity]);
 
   const flushSavedDraft = useCallback(async () => {
@@ -367,6 +390,7 @@ function ScanSessionOwner({
       discardSavedDraft,
       draftSavedAt,
       draftStatus,
+      finalizeSavedDraft,
       flushSavedDraft,
       isOwnerCurrent,
       ownerIdentity,
@@ -375,6 +399,7 @@ function ScanSessionOwner({
       discardSavedDraft,
       draftSavedAt,
       draftStatus,
+      finalizeSavedDraft,
       flushSavedDraft,
       isOwnerCurrent,
       ownerIdentity,
@@ -425,6 +450,7 @@ const NO_DRAFT: ScanDraftContextValue = {
   discardSavedDraft: async () => false,
   draftSavedAt: null,
   draftStatus: 'idle',
+  finalizeSavedDraft: () => undefined,
   flushSavedDraft: async () => true,
   isOwnerCurrent: () => true,
   ownerIdentity: null,

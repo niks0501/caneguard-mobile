@@ -154,11 +154,13 @@ export default function AnalysisResultScreen() {
   const persistScanForOutcome = async () => {
     if (saveRecord.status === 'saved' && saveRecord.recordId) {
       savedRecord.current = saveRecord.recordId;
+      draft.finalizeSavedDraft();
       return { id: saveRecord.recordId };
     }
     const saved = await saveRecord.save();
     if (saved) {
       savedRecord.current = saved.id;
+      draft.finalizeSavedDraft();
     }
     return saved;
   };

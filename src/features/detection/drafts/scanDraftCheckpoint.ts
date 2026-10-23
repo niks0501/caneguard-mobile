@@ -150,27 +150,30 @@ export function readScanDraftCheckpoint(
 }
 
 /**
- * Removes the checkpoint row and its managed draft image. Returns true when the
- * checkpoint is gone afterwards; a failed row delete reports false so the
- * caller never claims the draft was discarded.
+ * Removes the checkpoint row and, unless the caller keeps it, its managed
+ * draft image. Returns true when the checkpoint is gone afterwards; a failed
+ * row delete reports false so the caller never claims the draft was discarded.
  */
 export function deleteScanDraftCheckpoint(
   database: CaneGuardDatabase,
   ownerIdentity: string,
+  options: { keepManagedImage?: boolean } = {},
 ): boolean {
   const owner = requireOwnerIdentity(ownerIdentity);
   let rowDeleted = true;
   try {
-    const record = readLocalDraft<unknown>(
-      database,
-      owner,
-      SCAN_DRAFT_KIND,
-      SCAN_DRAFT_KEY,
-      SCAN_DRAFT_VERSION,
-    );
-    const checkpoint = record ? parseScanDraftCheckpoint(record.payload, owner) : null;
-    if (checkpoint) {
-      deleteManagedScanImage(checkpoint.managedImageUri, owner);
+    if (!options.keepManagedImage) {
+      const record = readLocalDraft<unknown>(
+        database,
+        owner,
+        SCAN_DRAFT_KIND,
+        SCAN_DRAFT_KEY,
+        SCAN_DRAFT_VERSION,
+      );
+      const checkpoint = record ? parseScanDraftCheckpoint(record.payload, owner) : null;
+      if (checkpoint) {
+        deleteManagedScanImage(checkpoint.managedImageUri, owner);
+      }
     }
     deleteLocalDraft(database, owner, SCAN_DRAFT_KIND, SCAN_DRAFT_KEY);
   } catch (error: unknown) {

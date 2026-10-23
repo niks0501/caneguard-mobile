@@ -13,6 +13,8 @@ import {
 } from 'react';
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
+import type { CaneGuardDatabase } from '@/database/database';
+import { AuthContext } from '@/features/auth/providers/AuthProvider';
 import {
   initialScanSessionState,
   scanSessionReducer,
@@ -22,13 +24,12 @@ import {
   deleteScanDraftCheckpoint,
   readScanDraftCheckpoint,
   writeScanDraftCheckpoint,
+  type ScanDraftCheckpoint,
 } from '@/features/detection/drafts/scanDraftCheckpoint';
 import type { ScanSessionAction, ScanSessionState } from '@/features/detection/types';
-import { AuthContext } from '@/features/auth/providers/AuthProvider';
 import {
   copyScanImageToManagedStorage,
   deleteManagedScanImage,
-  managedImageExists,
   type ManagedImage,
 } from '@/features/records/services/scanImageStorage';
 
@@ -67,25 +68,89 @@ interface StoredDraftImage {
 
 export function ScanSessionProvider({ children }: PropsWithChildren) {
   const database = useCaneGuardDatabase();
-  // Optional so a screen/provider can render in isolation; the app always
-  // mounts this provider under AuthProvider.
+  // Optional so a screen or provider suite can render in isolation; the app
+  // always mounts this provider under AuthProvider.
   const auth = useContext(AuthContext);
   const ownerIdentity =
     auth?.status === 'authenticated' ? auth.user?.uuid ?? null : null;
-  const [state, rawDispatch] = useReducer(scanSessionReducer, initialScanSessionState);
-  const [draftStatus, setDraftStatus] = useState<ScanDraftStatus>('idle');
-  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
 
-  const ownerRef = useRef<string | null>(ownerIdentity);
+  // Keying by owner makes an owner change a fresh session: no state from the
+  // previous inspector can survive, and the previous owner's saved draft is
+  // never deleted or reassigned.
+  return (
+    <ScanSessionOwner
+      key={ownerIdentity ?? 'signed-out'}
+      database={database}
+      ownerIdentity={ownerIdentity}>
+      {children}
+    </ScanSessionOwner>
+  );
+}
+
+function restoredSessionState(checkpoint: ScanDraftCheckpoint): ScanSessionState {
+  return {
+    ...initialScanSessionState,
+    preprocessMs: checkpoint.preprocessMs,
+    qualityAssessment: checkpoint.qualityAssessment,
+    reportedSeverity: checkpoint.reportedSeverity,
+    result: checkpoint.result,
+    selectedSymptoms: checkpoint.selectedSymptoms,
+    sourceHeight: checkpoint.sourceHeight,
+    sourceType: checkpoint.sourceType,
+    sourceUri: checkpoint.managedImageUri,
+    sourceWidth: checkpoint.sourceWidth,
+    status: checkpoint.status,
+  };
+}
+
+function storedImageFrom(checkpoint: ScanDraftCheckpoint): StoredDraftImage {
+  return {
+    draftId: checkpoint.draftId,
+    imageMimeType: checkpoint.imageMimeType,
+    imageSizeBytes: checkpoint.imageSizeBytes,
+    managedImageUri: checkpoint.managedImageUri,
+  };
+}
+
+function ScanSessionOwner({
+  children,
+  database,
+  ownerIdentity,
+}: PropsWithChildren<{
+  database: CaneGuardDatabase;
+  ownerIdentity: string | null;
+}>) {
+  const [initialDraft] = useState(() =>
+    ownerIdentity ? readScanDraftCheckpoint(database, ownerIdentity) : null,
+  );
+  const [state, rawDispatch] = useReducer(
+    scanSessionReducer,
+    initialDraft?.checkpoint ?? null,
+    (checkpoint) =>
+      checkpoint ? restoredSessionState(checkpoint) : initialScanSessionState,
+  );
+  const [draftStatus, setDraftStatus] = useState<ScanDraftStatus>(
+    initialDraft ? 'saved' : 'idle',
+  );
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(
+    initialDraft?.checkpoint.savedAt ?? null,
+  );
+
   const stateRef = useRef(state);
-  const draftImageRef = useRef<StoredDraftImage | null>(null);
+  const draftImageRef = useRef<StoredDraftImage | null>(
+    initialDraft ? storedImageFrom(initialDraft.checkpoint) : null,
+  );
   const imageOperation = useRef(0);
   const saveChain = useRef<Promise<void>>(Promise.resolve());
-  const lastSignature = useRef<string | null>(null);
+  const lastSignature = useRef<string | null>(
+    initialDraft ? checkpointSignature(initialDraft.checkpoint) : null,
+  );
   const lastWriteOk = useRef(true);
   const mounted = useRef(true);
 
-  stateRef.current = state;
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     mounted.current = true;
@@ -98,7 +163,7 @@ export function ScanSessionProvider({ children }: PropsWithChildren) {
     (owner: string) => {
       const draft = draftImageRef.current;
       const currentState = stateRef.current;
-      if (!draft) {
+      if (!draft || !owner) {
         return Promise.resolve();
       }
       const checkpoint = buildScanDraftCheckpoint({
@@ -116,7 +181,7 @@ export function ScanSessionProvider({ children }: PropsWithChildren) {
       if (lastSignature.current === signature) {
         return Promise.resolve();
       }
-      if (mounted.current && ownerRef.current === owner) {
+      if (mounted.current) {
         setDraftStatus('saving');
       }
       saveChain.current = saveChain.current.then(async () => {
@@ -124,13 +189,13 @@ export function ScanSessionProvider({ children }: PropsWithChildren) {
           await writeScanDraftCheckpoint(database, owner, checkpoint);
           lastSignature.current = signature;
           lastWriteOk.current = true;
-          if (mounted.current && ownerRef.current === owner) {
+          if (mounted.current) {
             setDraftStatus('saved');
             setDraftSavedAt(checkpoint.savedAt);
           }
         } catch {
           lastWriteOk.current = false;
-          if (mounted.current && ownerRef.current === owner) {
+          if (mounted.current) {
             setDraftStatus('failed');
           }
         }
@@ -142,7 +207,6 @@ export function ScanSessionProvider({ children }: PropsWithChildren) {
 
   const persistSelectedImage = useCallback(
     async (
-      owner: string,
       payload: {
         sourceHeight: number | null;
         sourceType: 'camera' | 'gallery';
@@ -150,14 +214,17 @@ export function ScanSessionProvider({ children }: PropsWithChildren) {
         sourceWidth: number | null;
       },
     ) => {
+      if (!ownerIdentity) {
+        return;
+      }
       const operation = ++imageOperation.current;
-      if (mounted.current && ownerRef.current === owner) {
+      if (mounted.current) {
         setDraftStatus('saving');
       }
       let managed: ManagedImage;
       try {
         managed = await copyScanImageToManagedStorage({
-          ownerIdentity: owner,
+          ownerIdentity,
           recordId: randomUUID(),
           sourceHeight: payload.sourceHeight,
           sourceType: payload.sourceType,
@@ -165,20 +232,16 @@ export function ScanSessionProvider({ children }: PropsWithChildren) {
           sourceWidth: payload.sourceWidth,
         });
       } catch {
-        if (mounted.current && ownerRef.current === owner) {
+        if (mounted.current) {
           setDraftStatus('failed');
         }
         return;
       }
 
-      // A newer selection, another owner, or unmount makes this copy stale.
-      if (
-        !mounted.current ||
-        ownerRef.current !== owner ||
-        imageOperation.current !== operation
-      ) {
+      // A newer selection or unmount makes this copy stale.
+      if (!mounted.current || imageOperation.current !== operation) {
         try {
-          deleteManagedScanImage(managed.managedUri, owner);
+          deleteManagedScanImage(managed.managedUri, ownerIdentity);
         } catch {
           // An orphaned owner-partitioned file is better than deleting nothing.
         }
@@ -194,47 +257,37 @@ export function ScanSessionProvider({ children }: PropsWithChildren) {
       };
       if (previous && previous.managedImageUri !== managed.managedUri) {
         try {
-          deleteManagedScanImage(previous.managedImageUri, owner);
+          deleteManagedScanImage(previous.managedImageUri, ownerIdentity);
         } catch {
           // Best effort: the checkpoint now points at the replacement image.
         }
       }
-      await persistCheckpoint(owner);
+      await persistCheckpoint(ownerIdentity);
     },
-    [persistCheckpoint],
+    [ownerIdentity, persistCheckpoint],
   );
 
   const dispatch = useCallback(
     (action: ScanSessionAction) => {
-      const actionOwner = ownerRef.current;
       if (action.type === 'SELECT_IMAGE') {
         rawDispatch(action);
-        if (actionOwner) {
-          void persistSelectedImage(actionOwner, action.payload);
-        }
+        void persistSelectedImage(action.payload);
         return;
       }
       if (action.type === 'RESET_SCAN') {
         rawDispatch(action);
-        const previous = draftImageRef.current;
         draftImageRef.current = null;
         imageOperation.current += 1;
         if (mounted.current) {
           setDraftStatus('idle');
           setDraftSavedAt(null);
         }
-        if (actionOwner) {
+        if (ownerIdentity) {
           saveChain.current = saveChain.current.then(async () => {
             try {
-              deleteScanDraftCheckpoint(database, actionOwner);
+              deleteScanDraftCheckpoint(database, ownerIdentity);
             } catch {
-              if (previous) {
-                try {
-                  deleteManagedScanImage(previous.managedImageUri, actionOwner);
-                } catch {
-                  // Best effort cleanup after an explicit discard.
-                }
-              }
+              // Best effort cleanup after an explicit reset.
             }
           });
         }
@@ -242,68 +295,8 @@ export function ScanSessionProvider({ children }: PropsWithChildren) {
       }
       rawDispatch(action);
     },
-    [database, persistSelectedImage],
+    [database, ownerIdentity, persistSelectedImage],
   );
-
-  // Owner change: never carry one inspector's visible scan into another
-  // account, and never delete the previous owner's saved draft.
-  useEffect(() => {
-    ownerRef.current = ownerIdentity;
-    imageOperation.current += 1;
-    draftImageRef.current = null;
-    lastSignature.current = null;
-    rawDispatch({ type: 'RESET_SCAN' });
-    setDraftStatus('idle');
-    setDraftSavedAt(null);
-
-    if (!ownerIdentity) {
-      return;
-    }
-
-    let active = true;
-    try {
-      const record = readScanDraftCheckpoint(database, ownerIdentity);
-      if (!active || !record) {
-        return;
-      }
-      const checkpoint = record.checkpoint;
-      if (!managedImageExists(checkpoint.managedImageUri)) {
-        return;
-      }
-      draftImageRef.current = {
-        draftId: checkpoint.draftId,
-        imageMimeType: checkpoint.imageMimeType,
-        imageSizeBytes: checkpoint.imageSizeBytes,
-        managedImageUri: checkpoint.managedImageUri,
-      };
-      lastSignature.current = checkpointSignature(checkpoint);
-      rawDispatch({
-        type: 'RESTORE_SCAN',
-        payload: {
-          preprocessMs: checkpoint.preprocessMs,
-          processedUri: null,
-          qualityAssessment: checkpoint.qualityAssessment,
-          reportedSeverity: checkpoint.reportedSeverity,
-          result: checkpoint.result,
-          selectedSymptoms: checkpoint.selectedSymptoms,
-          sourceHeight: checkpoint.sourceHeight,
-          sourceType: checkpoint.sourceType,
-          sourceUri: checkpoint.managedImageUri,
-          sourceWidth: checkpoint.sourceWidth,
-          status: checkpoint.status,
-        },
-      });
-      setDraftStatus('saved');
-      setDraftSavedAt(checkpoint.savedAt);
-    } catch {
-      if (active) {
-        setDraftStatus('failed');
-      }
-    }
-    return () => {
-      active = false;
-    };
-  }, [database, ownerIdentity]);
 
   // Checkpoint each settled state change (selection, analysis result, guided
   // answers). In-flight pipeline statuses are intentionally skipped.
@@ -329,31 +322,29 @@ export function ScanSessionProvider({ children }: PropsWithChildren) {
   ]);
 
   const clearSavedDraft = useCallback(async () => {
-    const owner = ownerRef.current;
     draftImageRef.current = null;
     if (mounted.current) {
       setDraftStatus('idle');
       setDraftSavedAt(null);
     }
-    if (!owner) {
+    if (!ownerIdentity) {
       return;
     }
     try {
-      deleteScanDraftCheckpoint(database, owner);
+      deleteScanDraftCheckpoint(database, ownerIdentity);
     } catch {
       if (mounted.current) {
         setDraftStatus('failed');
       }
     }
-  }, [database]);
+  }, [database, ownerIdentity]);
 
   const discardSavedDraft = useCallback(async () => {
-    const owner = ownerRef.current;
-    if (!owner) {
+    if (!ownerIdentity) {
       return false;
     }
     try {
-      deleteScanDraftCheckpoint(database, owner);
+      deleteScanDraftCheckpoint(database, ownerIdentity);
     } catch {
       return false;
     }
@@ -363,20 +354,19 @@ export function ScanSessionProvider({ children }: PropsWithChildren) {
     setDraftStatus('idle');
     setDraftSavedAt(null);
     return true;
-  }, [database]);
+  }, [database, ownerIdentity]);
 
   const flushSavedDraft = useCallback(async () => {
-    const owner = ownerRef.current;
-    if (!owner || !draftImageRef.current) {
+    if (!ownerIdentity || !draftImageRef.current) {
       return true;
     }
-    await persistCheckpoint(owner);
+    await persistCheckpoint(ownerIdentity);
     return lastWriteOk.current;
-  }, [persistCheckpoint]);
+  }, [ownerIdentity, persistCheckpoint]);
 
   const isOwnerCurrent = useCallback(
-    (owner: string | null) => owner !== null && ownerRef.current === owner,
-    [],
+    (owner: string | null) => owner !== null && owner === ownerIdentity,
+    [ownerIdentity],
   );
 
   const sessionValue = useMemo(() => ({ dispatch, state }), [dispatch, state]);

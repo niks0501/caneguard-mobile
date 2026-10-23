@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -56,40 +56,46 @@ export default function FieldValidationScreen() {
   const [followUpOutcome, setFollowUpOutcome] = useState<FieldValidationFollowUpOutcome | null>(null);
   const [photo, setPhoto] = useState<ValidationPhotoSelection | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
-  const hydratedAssignment = useRef<string | null>(null);
+  const [hydratedAssignmentId, setHydratedAssignmentId] = useState<string | null>(null);
+  const assignmentIdForDraft = state.assignment?.id ?? null;
+  const completionForDraft = state.completion;
+  const saveDraftCheckpoint = state.saveDraftCheckpoint;
+  const formDraft = state.formDraft;
 
   // Restore the owner-scoped checkpoint once per assignment. A completed visit
-  // is immutable and never hydrates a draft over its evidence.
-  useEffect(() => {
-    const id = state.assignment?.id ?? null;
-    if (!id || hydratedAssignment.current === id || state.completion) {
-      return;
+  // is immutable and never hydrates a draft over its evidence. State is
+  // adjusted during render (the supported "derive from props" pattern) so the
+  // inputs are ready on the first frame that has a checkpoint.
+  if (
+    assignmentIdForDraft &&
+    !completionForDraft &&
+    hydratedAssignmentId !== assignmentIdForDraft
+  ) {
+    setHydratedAssignmentId(assignmentIdForDraft);
+    if (formDraft) {
+      setObservation(formDraft.observation);
+      setFinding(formDraft.finding);
+      setAction(formDraft.action);
+      setFollowUpOutcome(formDraft.followUpOutcome);
+      setPhoto(
+        formDraft.photo
+          ? { artifact: formDraft.photo, asset: null, uri: formDraft.photo.uri }
+          : null,
+      );
     }
-    hydratedAssignment.current = id;
-    const draft = state.formDraft;
-    if (!draft) {
-      return;
-    }
-    setObservation(draft.observation);
-    setFinding(draft.finding);
-    setAction(draft.action);
-    setFollowUpOutcome(draft.followUpOutcome);
-    setPhoto(draft.photo ? { artifact: draft.photo, asset: null, uri: draft.photo.uri } : null);
-    showToast('Restored your saved visit draft', 'info');
-  }, [showToast, state.assignment?.id, state.completion, state.formDraft]);
+  }
 
   // Autosave an unfinished visit as a local checkpoint. Drafts never upload;
   // completion stays an explicit action.
   useEffect(() => {
-    const id = state.assignment?.id ?? null;
-    if (!id || state.completion) {
+    if (!assignmentIdForDraft || completionForDraft) {
       return;
     }
     if (!observation && !finding && !action && !followUpOutcome && !photo) {
       return;
     }
     const timer = setTimeout(() => {
-      void state.saveDraftCheckpoint({
+      void saveDraftCheckpoint({
         action,
         finding,
         followUpOutcome,
@@ -100,13 +106,13 @@ export default function FieldValidationScreen() {
     return () => clearTimeout(timer);
   }, [
     action,
+    assignmentIdForDraft,
+    completionForDraft,
     finding,
     followUpOutcome,
     observation,
     photo,
-    state.assignment?.id,
-    state.completion,
-    state.saveDraftCheckpoint,
+    saveDraftCheckpoint,
   ]);
 
   const capturePhoto = async () => {

@@ -240,6 +240,57 @@ describe('ImagePreviewScreen', () => {
     });
   });
 
+  it('offers an in-app retry after a recoverable model-load failure', async () => {
+    const retry = jest.fn();
+    mockUseCaneGuardModel.mockReturnValue({
+      error: new InferenceError(
+        'MODEL_LOAD_FAILED',
+        'The native runtime could not load the bundled Model V1 asset.',
+      ),
+      errorKind: 'load',
+      model: undefined,
+      retry,
+      run: mockModelRun,
+      start: jest.fn(),
+      state: 'error',
+    } as unknown as ReturnType<typeof useCaneGuardModel>);
+
+    await renderPreview(selectedState);
+
+    expect(
+      screen.getByLabelText('Selected sugarcane image from gallery'),
+    ).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.analyze-image')).toBeDisabled();
+
+    await fireEvent.press(screen.getByLabelText('Retry analysis setup'));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a contract mismatch fail-closed without offering a reload', async () => {
+    mockUseCaneGuardModel.mockReturnValue({
+      error: new InferenceError(
+        'MODEL_CONTRACT_MISMATCH',
+        'Model input does not match the Model V1 contract.',
+      ),
+      errorKind: 'contract',
+      model: undefined,
+      retry: jest.fn(),
+      run: mockModelRun,
+      start: jest.fn(),
+      state: 'error',
+    } as unknown as ReturnType<typeof useCaneGuardModel>);
+
+    await renderPreview(selectedState);
+
+    expect(screen.queryByLabelText('Retry analysis setup')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('scan.analyze-image')).toBeDisabled();
+    expect(
+      screen.getByText(
+        'This app and the bundled model are not compatible. Rebuild the app with the expected Model V1 asset.',
+      ),
+    ).toBeOnTheScreen();
+  });
+
   it('keeps Analyze disabled until the model is loaded', async () => {
     mockUseCaneGuardModel.mockReturnValue({
       start: jest.fn(),

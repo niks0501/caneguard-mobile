@@ -1,3 +1,9 @@
+> **Historical P0 document — not current product guidance.**
+> This phase plan required final coordinates before submission. The current contract also
+> supports an explicit unavailable-location reason with null coordinates and no fabricated
+> GPS accuracy. See [`docs/CAPABILITY-READINESS.md`](../../CAPABILITY-READINESS.md) for the
+> present behaviour and this file for the original P0 acceptance evidence.
+
 # P0-07 — Field Report Synchronization and API
 
 ## Source of Truth

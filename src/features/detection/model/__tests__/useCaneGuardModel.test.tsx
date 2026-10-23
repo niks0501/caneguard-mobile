@@ -82,6 +82,11 @@ function ModelStateProbe({ autoStart = true }: { autoStart?: boolean } = {}) {
       </Text>
       <Pressable accessibilityLabel="Start model load" onPress={startModelLoad} />
       <Pressable
+        accessibilityLabel="Retry model load"
+        onPress={modelState.retry}
+      />
+      <Text>{`kind:${modelState.errorKind ?? 'none'}`}</Text>
+      <Pressable
         accessibilityLabel="Run model"
         onPress={() => {
           void modelState.run([]).then(
@@ -237,5 +242,91 @@ describe('CaneGuardModelProvider', () => {
       ),
     ).toBeOnTheScreen();
     expect(mockLoadTensorflowModel).not.toHaveBeenCalled();
+  });
+
+  describe('in-app recovery (M05)', () => {
+    it('retries a failed load without restarting or replacing the asset', async () => {
+      mockAssetDownloadAsync.mockRejectedValueOnce(new Error('Download failed'));
+
+      await render(
+        <CaneGuardModelProvider>
+          <ModelStateProbe />
+        </CaneGuardModelProvider>,
+      );
+
+      expect(
+        await screen.findByText(
+          'error: The native runtime could not load the bundled Model V1 asset.',
+        ),
+      ).toBeOnTheScreen();
+      expect(screen.getByText('kind:load')).toBeOnTheScreen();
+
+      await fireEvent.press(screen.getByLabelText('Retry model load'));
+
+      expect(await screen.findByText('loaded')).toBeOnTheScreen();
+      expect(screen.getByText('kind:none')).toBeOnTheScreen();
+      expect(mockAssetDownloadAsync).toHaveBeenCalledTimes(2);
+      expect(mockLoadTensorflowModel).toHaveBeenCalledTimes(1);
+      expect(mockLoadTensorflowModel).toHaveBeenCalledWith(
+        { url: MODEL_LOCAL_URI },
+        [],
+      );
+    });
+
+    it('does not enable analysis when the contract still mismatches after a retry', async () => {
+      mockLoadTensorflowModel.mockResolvedValue(
+        createLoadedModel([1, 256, 256, 3]),
+      );
+
+      await render(
+        <CaneGuardModelProvider>
+          <ModelStateProbe />
+        </CaneGuardModelProvider>,
+      );
+
+      expect(
+        await screen.findByText(
+          /error: Model input does not match the Model V1 contract/,
+        ),
+      ).toBeOnTheScreen();
+      expect(screen.getByText('kind:contract')).toBeOnTheScreen();
+
+      await fireEvent.press(screen.getByLabelText('Retry model load'));
+
+      expect(
+        await screen.findByText(
+          /error: Model input does not match the Model V1 contract/,
+        ),
+      ).toBeOnTheScreen();
+      expect(screen.getByText('kind:contract')).toBeOnTheScreen();
+      await fireEvent.press(screen.getByLabelText('Run model'));
+      expect(await screen.findByText('MODEL_NOT_READY')).toBeOnTheScreen();
+      expect(mockModelRun).not.toHaveBeenCalled();
+    });
+
+    it('ignores a stale load completion after a newer attempt starts', async () => {
+      let rejectFirstLoad!: (error: Error) => void;
+      mockAssetDownloadAsync.mockReturnValueOnce(
+        new Promise((_resolve, reject) => {
+          rejectFirstLoad = reject;
+        }),
+      );
+
+      await render(
+        <CaneGuardModelProvider>
+          <ModelStateProbe />
+        </CaneGuardModelProvider>,
+      );
+
+      // Retry before the first attempt settles; only the newest attempt may win.
+      await fireEvent.press(screen.getByLabelText('Retry model load'));
+      expect(await screen.findByText('loaded')).toBeOnTheScreen();
+
+      rejectFirstLoad(new Error('stale failure'));
+      await Promise.resolve();
+
+      expect(screen.getByText('loaded')).toBeOnTheScreen();
+      expect(screen.queryByText(/stale failure/)).not.toBeOnTheScreen();
+    });
   });
 });

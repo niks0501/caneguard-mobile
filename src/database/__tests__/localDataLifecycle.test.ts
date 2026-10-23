@@ -11,7 +11,9 @@ import type { SQLiteDatabase, SQLiteStatement } from 'expo-sqlite';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import {
+  clearCachedOfficeDataForOwner,
   clearLocalDataForOwner,
+  getLocalDataRemovalPreview,
   purgeExpiredLocalData,
 } from '@/database/localDataLifecycle';
 import * as schema from '@/database/schema';
@@ -104,7 +106,7 @@ function insertScan(
   native: DatabaseSync,
   id: string,
   ownerIdentity: string,
-  syncStatus: 'local_only' | 'pending' | 'synced',
+  syncStatus: 'local_only' | 'pending' | 'synced' | 'syncing',
   createdAt: string,
 ): void {
   native
@@ -241,6 +243,22 @@ function insertSurvey(
   `).run(clientUuid, ownerIdentity, updatedAt, status, updatedAt, updatedAt);
 }
 
+function insertLocalDraft(
+  native: DatabaseSync,
+  ownerIdentity: string,
+  kind: 'scan' | 'field_report' | 'field_validation',
+  draftKey: string,
+  updatedAt: string,
+): void {
+  native
+    .prepare(`
+      INSERT INTO local_drafts (
+        owner_identity, kind, draft_key, version, payload_json, created_at, updated_at
+      ) VALUES (?, ?, ?, 1, '{}', ?, ?)
+    `)
+    .run(ownerIdentity, kind, draftKey, updatedAt, updatedAt);
+}
+
 function countRows(
   native: DatabaseSync,
   table: string,
@@ -341,6 +359,121 @@ describe('local data lifecycle', () => {
     expect(countRows(native, 'notifications_cache', OTHER_OWNER_ID)).toBe(1);
     expect(countRows(native, 'field_surveys', OWNER_ID)).toBe(0);
     expect(countRows(native, 'field_surveys', OTHER_OWNER_ID)).toBe(1);
+    native.close();
+  });
+
+  it('routine cleanup removes only re-downloadable office data', async () => {
+    const { database, native } = openTestDatabase();
+    const scanId = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+
+    insertScan(native, scanId, OWNER_ID, 'pending', OLD);
+    insertReport(native, `${scanId}-report`, scanId, OWNER_ID, OLD);
+    insertAssignment(native, '51214146-7439-48e0-aef4-d0e003f194b4', OWNER_ID, OLD);
+    insertCompletion(native, '7ea3e6f0-b893-4fd3-b414-0b797e62ec81', OWNER_ID, OLD);
+    insertNotification(native, 'd4f6c5e6-9c02-4d4e-8e8b-42e0c85df0fb', OWNER_ID, OLD);
+    insertSurvey(native, 'survey-pending', OWNER_ID, 'pending', OLD);
+    insertLocalDraft(native, OWNER_ID, 'field_report', `${scanId}-report`, OLD);
+    insertLocalDraft(native, OWNER_ID, 'scan', 'current', OLD);
+    insertLocalDraft(native, OWNER_ID, 'field_validation', 'visit-1', OLD);
+    insertAssignment(native, 'c863a5af-e9ad-44fe-a0dc-73f9d3436ca0', OTHER_OWNER_ID, OLD);
+    insertNotification(native, 'c863a5af-e9ad-44fe-a0dc-73f9d3436ca1', OTHER_OWNER_ID, OLD);
+
+    const result = await clearCachedOfficeDataForOwner(database, OWNER_ID);
+
+    expect(result.deletedRows).toBe(2);
+    // Everything unsent, drafted, or already captured stays exactly as it was.
+    expect(countRows(native, 'scan_records', OWNER_ID)).toBe(1);
+    expect(countRows(native, 'field_reports', OWNER_ID, 'submitter_identity')).toBe(1);
+    expect(countRows(native, 'field_validation_completions', OWNER_ID)).toBe(1);
+    expect(countRows(native, 'field_surveys', OWNER_ID)).toBe(1);
+    expect(countRows(native, 'local_drafts', OWNER_ID)).toBe(3);
+    // Only the re-downloadable caches were cleared.
+    expect(countRows(native, 'field_validation_assignments', OWNER_ID)).toBe(0);
+    expect(countRows(native, 'notifications_cache', OWNER_ID)).toBe(0);
+    // Other owners are untouched.
+    expect(countRows(native, 'field_validation_assignments', OTHER_OWNER_ID)).toBe(1);
+    expect(countRows(native, 'notifications_cache', OTHER_OWNER_ID)).toBe(1);
+    native.close();
+  });
+
+  it('previews every affected kind and reports an upload in flight', async () => {
+    const { database, native } = openTestDatabase();
+    const scanId = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+
+    insertScan(native, scanId, OWNER_ID, 'syncing', OLD);
+    insertReport(native, `${scanId}-report`, scanId, OWNER_ID, OLD);
+    native
+      .prepare('UPDATE field_reports SET sync_status = ? WHERE id = ?')
+      .run('syncing', `${scanId}-report`);
+    insertCompletion(native, '7ea3e6f0-b893-4fd3-b414-0b797e62ec81', OWNER_ID, OLD);
+    insertSurvey(native, 'survey-pending', OWNER_ID, 'pending', OLD);
+    insertAssignment(native, '51214146-7439-48e0-aef4-d0e003f194b4', OWNER_ID, OLD);
+    insertLocalDraft(native, OWNER_ID, 'scan', 'current', OLD);
+
+    const preview = getLocalDataRemovalPreview(database, OWNER_ID);
+
+    expect(preview).toMatchObject({
+      assignments: 1,
+      boundaries: 1,
+      draftCheckpoints: 1,
+      reports: 1,
+      scans: 1,
+      uploadInFlight: true,
+      unsentBoundaries: 1,
+      visits: 1,
+    });
+    expect(preview.totalUnsent).toBeGreaterThan(0);
+    expect(preview.totalRecords).toBe(6);
+    native.close();
+  });
+
+  it('refuses permanent removal while an upload is in flight', async () => {
+    const { database, native } = openTestDatabase();
+    const scanId = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+    insertScan(native, scanId, OWNER_ID, 'pending', OLD);
+    insertReport(native, `${scanId}-report`, scanId, OWNER_ID, OLD);
+    native.prepare('UPDATE field_reports SET sync_status = ? WHERE id = ?').run('syncing', `${scanId}-report`);
+
+    await expect(clearLocalDataForOwner(database, OWNER_ID)).rejects.toThrow(
+      /Wait for it to finish/,
+    );
+    expect(countRows(native, 'field_reports', OWNER_ID, 'submitter_identity')).toBe(1);
+    native.close();
+  });
+
+  it('refuses a confirmation whose counts changed and keeps the records', async () => {
+    const { database, native } = openTestDatabase();
+    const scanId = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+    insertScan(native, scanId, OWNER_ID, 'pending', OLD);
+    insertReport(native, `${scanId}-report`, scanId, OWNER_ID, OLD);
+
+    const stalePreview = getLocalDataRemovalPreview(database, OWNER_ID);
+    insertLocalDraft(native, OWNER_ID, 'field_report', `${scanId}-report`, OLD);
+
+    await expect(
+      clearLocalDataForOwner(database, OWNER_ID, {
+        expectedPreview: stalePreview,
+      }),
+    ).rejects.toThrow(/confirm again/);
+    expect(countRows(native, 'scan_records', OWNER_ID)).toBe(1);
+    expect(countRows(native, 'field_reports', OWNER_ID, 'submitter_identity')).toBe(1);
+    expect(countRows(native, 'local_drafts', OWNER_ID)).toBe(1);
+    native.close();
+  });
+
+  it('removes draft checkpoints with the confirmed owner records', async () => {
+    const { database, native } = openTestDatabase();
+    insertLocalDraft(native, OWNER_ID, 'field_report', 'report-1', OLD);
+    insertLocalDraft(native, OTHER_OWNER_ID, 'field_report', 'report-2', OLD);
+
+    const preview = getLocalDataRemovalPreview(database, OWNER_ID);
+    expect(preview.draftCheckpoints).toBe(1);
+    await clearLocalDataForOwner(database, OWNER_ID, {
+      expectedPreview: preview,
+    });
+
+    expect(countRows(native, 'local_drafts', OWNER_ID)).toBe(0);
+    expect(countRows(native, 'local_drafts', OTHER_OWNER_ID)).toBe(1);
     native.close();
   });
 });

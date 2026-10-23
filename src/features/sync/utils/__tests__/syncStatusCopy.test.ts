@@ -1,6 +1,8 @@
+import { SyncError } from '@/features/sync/errors/syncErrors';
 import {
   formatPendingSummary,
   getConnectionLabel,
+  getReportSyncAttemptOutcome,
   getSyncBadgeLabel,
   getSyncRowSummary,
   isServerUnavailable,
@@ -67,5 +69,88 @@ describe('syncStatusCopy', () => {
     expect(getSyncBadgeLabel({ apiReachability: 'unknown', isOnline: null })).toBe(
       'Checking connection',
     );
+  });
+
+  describe('per-report send confirmation (M02)', () => {
+    const target = 'report-target';
+
+    it('confirms success only for the target report', () => {
+      expect(
+        getReportSyncAttemptOutcome({
+          isOnline: true,
+          lastSyncErrorCode: null,
+          reportSyncStatus: 'synced',
+          targetResult: {
+            reportId: target,
+            remoteId: 'remote-1',
+            status: 'synced',
+          },
+        }),
+      ).toEqual({ kind: 'sent', message: 'Sent to office' });
+    });
+
+    it('never reports another report’s success as this report’s success', () => {
+      expect(
+        getReportSyncAttemptOutcome({
+          isOnline: true,
+          lastSyncErrorCode: 'API_VALIDATION_FAILED',
+          reportSyncStatus: 'failed',
+          targetResult: {
+            error: new SyncError('API_VALIDATION_FAILED', 'rejected'),
+            reportId: target,
+            status: 'failed',
+          },
+        }).kind,
+      ).toBe('needs-attention');
+    });
+
+    it('treats a null attempt as unconfirmed instead of sent', () => {
+      const outcome = getReportSyncAttemptOutcome({
+        isOnline: false,
+        lastSyncErrorCode: null,
+        reportSyncStatus: 'pending',
+        targetResult: null,
+      });
+      expect(outcome.kind).toBe('still-waiting');
+      expect(outcome.message).toContain('offline');
+    });
+
+    it('distinguishes auth, permanent and transient failures', () => {
+      expect(
+        getReportSyncAttemptOutcome({
+          isOnline: true,
+          lastSyncErrorCode: 'AUTH_REQUIRED',
+          reportSyncStatus: 'failed',
+          targetResult: null,
+        }).kind,
+      ).toBe('sign-in');
+      expect(
+        getReportSyncAttemptOutcome({
+          isOnline: true,
+          lastSyncErrorCode: 'IMAGE_MISSING',
+          reportSyncStatus: 'failed',
+          targetResult: null,
+        }).kind,
+      ).toBe('needs-attention');
+      expect(
+        getReportSyncAttemptOutcome({
+          isOnline: true,
+          lastSyncErrorCode: 'NETWORK_REQUEST_FAILED',
+          reportSyncStatus: 'failed',
+          targetResult: null,
+        }).kind,
+      ).toBe('still-waiting');
+    });
+
+    it('does not claim success while the target is still pending after a batch', () => {
+      const outcome = getReportSyncAttemptOutcome({
+        isOnline: true,
+        lastSyncErrorCode: null,
+        reportSyncStatus: 'pending',
+        targetResult: null,
+      });
+      expect(outcome.kind).toBe('still-waiting');
+      expect(outcome.message).not.toContain('Sent to office');
+    });
   });
 });

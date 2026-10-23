@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import FieldValidationScreen from '@/app/field-validation';
 import { ToastProvider } from '@/components/ui/Toast';
@@ -204,5 +204,151 @@ describe('FieldValidationScreen', () => {
 
     expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
     expect(screen.getByTestId('app-toast')).toHaveTextContent('Visit recorded');
+  });
+
+  describe('owner-scoped visit recovery (M04)', () => {
+    const saveDraftCheckpoint = jest.fn(async () => true);
+    const persistDraftPhoto = jest.fn(async () => ({
+      mimeType: 'image/jpeg',
+      sizeBytes: 4096,
+      uri: 'file:///managed/field-validation/owner/assignment-draft-1.jpg',
+    }));
+
+    function mockHook(overrides: Record<string, unknown> = {}) {
+      jest.mocked(useFieldValidationAssignment).mockReturnValue({
+        ...state,
+        complete,
+        draftSavedAt: null,
+        draftStatus: 'idle',
+        formDraft: null,
+        ownerIdentity: 'd4f4c3b8-4f27-49c7-9ec7-3ab7ea6fc91d',
+        persistDraftPhoto,
+        saveDraftCheckpoint,
+        ...overrides,
+      } as never);
+    }
+
+    beforeEach(() => {
+      saveDraftCheckpoint.mockClear();
+      persistDraftPhoto.mockClear();
+      mockHook();
+    });
+
+    it('restores the saved visit draft for the same owner', async () => {
+      mockHook({
+        draftSavedAt: '2026-10-23T08:00:00.000Z',
+        draftStatus: 'saved',
+        formDraft: {
+          action: 'Advised removal of affected leaves.',
+          finding: 'Lesions consistent with Rust.',
+          followUpOutcome: 'unchanged',
+          observation: 'Fresh pustules on lower leaves.',
+          photo: {
+            mimeType: 'image/png',
+            sizeBytes: 2048,
+            uri: 'file:///managed/field-validation/owner/assignment-draft.png',
+          },
+          savedAt: '2026-10-23T08:00:00.000Z',
+        },
+      });
+
+      await render(<FieldValidationScreen />);
+
+      expect(screen.getByTestId('field-validation.observation-input')).toHaveProp(
+        'value',
+        'Fresh pustules on lower leaves.',
+      );
+      expect(screen.getByTestId('field-validation.finding-input')).toHaveProp(
+        'value',
+        'Lesions consistent with Rust.',
+      );
+      expect(screen.getByTestId('field-validation.action-input')).toHaveProp(
+        'value',
+        'Advised removal of affected leaves.',
+      );
+      expect(screen.getByTestId('field-validation.draft-status')).toHaveTextContent(
+        /Draft saved on this device/,
+      );
+      expect(
+        screen.getByLabelText('Fresh field validation photo'),
+      ).toHaveProp('source', {
+        uri: 'file:///managed/field-validation/owner/assignment-draft.png',
+      });
+    });
+
+    it('checkpoints typed visit evidence without completing it', async () => {
+      jest.useFakeTimers();
+      try {
+        await render(<FieldValidationScreen />);
+        await fireEvent.changeText(
+          screen.getByTestId('field-validation.observation-input'),
+          'Fresh pustules on lower leaves.',
+        );
+        await fireEvent.changeText(
+          screen.getByTestId('field-validation.finding-input'),
+          'Lesions consistent with Rust.',
+        );
+        await fireEvent.changeText(
+          screen.getByTestId('field-validation.action-input'),
+          'Advised removal.',
+        );
+        await fireEvent.press(
+          screen.getByTestId('field-validation.outcome.worsened'),
+        );
+
+        await act(async () => {
+          jest.advanceTimersByTime(800);
+        });
+
+        expect(saveDraftCheckpoint).toHaveBeenCalledWith({
+          action: 'Advised removal.',
+          finding: 'Lesions consistent with Rust.',
+          followUpOutcome: 'worsened',
+          observation: 'Fresh pustules on lower leaves.',
+          photo: null,
+        });
+        expect(complete).not.toHaveBeenCalled();
+        expect(
+          screen.queryByTestId('field-validation.completion-status'),
+        ).not.toBeOnTheScreen();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('reuses a photo already saved with the draft instead of copying it again', async () => {
+      mockHook({
+        draftStatus: 'saved',
+        formDraft: {
+          action: 'Advised removal.',
+          finding: 'Lesions consistent with Rust.',
+          followUpOutcome: 'improved',
+          observation: 'Fresh pustules on lower leaves.',
+          photo: {
+            mimeType: 'image/jpeg',
+            sizeBytes: 4096,
+            uri: 'file:///managed/field-validation/owner/assignment-draft-1.jpg',
+          },
+          savedAt: '2026-10-23T08:00:00.000Z',
+        },
+      });
+      complete.mockResolvedValueOnce({ id: 'comp-1' } as never);
+
+      await render(<FieldValidationScreen />);
+      await fireEvent.press(screen.getByTestId('field-validation.complete'));
+      await fireEvent.press(screen.getByTestId('field-validation.confirm-complete'));
+
+      expect(complete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          savedFreshPhoto: {
+            mimeType: 'image/jpeg',
+            sizeBytes: 4096,
+            uri: 'file:///managed/field-validation/owner/assignment-draft-1.jpg',
+          },
+          freshPhoto: null,
+        }),
+      );
+      expect(persistDraftPhoto).not.toHaveBeenCalled();
+    });
   });
 });

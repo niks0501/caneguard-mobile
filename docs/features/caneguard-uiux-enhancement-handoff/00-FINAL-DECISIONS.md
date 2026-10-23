@@ -1,3 +1,9 @@
+> **Historical document — superseded for current guidance.**
+> This handoff records a three-class model decision made before Model V1.
+> The current model supports **four** classes (Healthy, Mosaic, Rust, Smut).
+> Use [`docs/CAPABILITY-READINESS.md`](../../CAPABILITY-READINESS.md) for current capability
+> guidance, and keep this file as historical acceptance evidence.
+
 # 00 — Final Decisions
 
 ## Product and model scope

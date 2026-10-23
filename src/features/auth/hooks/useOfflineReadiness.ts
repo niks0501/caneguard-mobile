@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 
 import { EMPTY_DATABASE, useCaneGuardDatabase } from '@/database/DatabaseProvider';
@@ -28,18 +28,22 @@ export function useOfflineReadiness(): OfflineReadinessState {
   const { biometricEnabled, session, user } = useAuth();
   const [assignmentCount, setAssignmentCount] = useState<number | null>(null);
   const [checkingAssignments, setCheckingAssignments] = useState(false);
-  // Holding the database in a ref keeps `refresh` stable across renders; some
-  // hosts provide a fresh object per render.
-  const databaseRef = useRef(database);
-  databaseRef.current = database;
+  const [sessionExpired, setSessionExpired] = useState(false);
   const ownerIdentity = user?.uuid ?? null;
+  const sessionExpiresAt = session?.expiresAt ?? null;
 
   const refresh = useCallback(() => {
-    const currentDatabase = databaseRef.current;
+    const expiresAt = sessionExpiresAt;
+    setSessionExpired(
+      expiresAt !== null &&
+        Number.isFinite(Date.parse(expiresAt)) &&
+        Date.parse(expiresAt) <= Date.now(),
+    );
+
     if (
       !ownerIdentity ||
-      currentDatabase === EMPTY_DATABASE ||
-      typeof currentDatabase.select !== 'function'
+      database === EMPTY_DATABASE ||
+      typeof database.select !== 'function'
     ) {
       setAssignmentCount(null);
       setCheckingAssignments(false);
@@ -47,7 +51,7 @@ export function useOfflineReadiness(): OfflineReadinessState {
     }
     let active = true;
     setCheckingAssignments(true);
-    void listCachedFieldValidationAssignments(currentDatabase, ownerIdentity)
+    void listCachedFieldValidationAssignments(database, ownerIdentity)
       .then((assignments) => {
         if (active) {
           setAssignmentCount(assignments.length);
@@ -64,10 +68,20 @@ export function useOfflineReadiness(): OfflineReadinessState {
     return () => {
       active = false;
     };
-  }, [ownerIdentity]);
+  }, [database, ownerIdentity, sessionExpiresAt]);
 
   useEffect(() => {
-    refresh();
+    let active = true;
+    // Deferred so the first readiness answer arrives from the cache read
+    // rather than as a synchronous state write during the effect.
+    void Promise.resolve().then(() => {
+      if (active) {
+        refresh();
+      }
+    });
+    return () => {
+      active = false;
+    };
   }, [refresh]);
 
   // A returning inspector sees a fresh readiness answer without a mount.
@@ -80,11 +94,6 @@ export function useOfflineReadiness(): OfflineReadinessState {
     return () => subscription.remove();
   }, [refresh]);
 
-  const sessionExpiresAt = session?.expiresAt ?? null;
-  const sessionExpired =
-    sessionExpiresAt !== null &&
-    Number.isFinite(Date.parse(sessionExpiresAt)) &&
-    Date.parse(sessionExpiresAt) <= Date.now();
   const protectedSessionEnabled = biometricEnabled && session !== null;
 
   return {

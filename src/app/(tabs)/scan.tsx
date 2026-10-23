@@ -54,7 +54,9 @@ export default function ScanScreen() {
     Platform.OS === 'android' ? 'recovery' : null,
   );
   const isOwnerCurrentRef = useRef(draft.isOwnerCurrent);
-  isOwnerCurrentRef.current = draft.isOwnerCurrent;
+  useEffect(() => {
+    isOwnerCurrentRef.current = draft.isOwnerCurrent;
+  }, [draft.isOwnerCurrent]);
   const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
   const [cameraPermissionBlocked, setCameraPermissionBlocked] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);

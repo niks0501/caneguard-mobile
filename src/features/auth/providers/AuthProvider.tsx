@@ -95,7 +95,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const sessionVerificationRef = useRef<SessionVerificationStatus>('idle');
   const verificationRetryRef = useRef<Promise<void> | null>(null);
   const lastVerificationRetryAt = useRef(0);
-  sessionVerificationRef.current = sessionVerification;
+
+  useEffect(() => {
+    sessionVerificationRef.current = sessionVerification;
+  }, [sessionVerification]);
   const biometricPromptRef = useRef<Promise<BiometricAuthResult> | null>(null);
   const biometricEnableRef = useRef<Promise<boolean> | null>(null);
   const biometricUnlockRef = useRef<Promise<boolean> | null>(null);

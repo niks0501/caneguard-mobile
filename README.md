@@ -131,7 +131,10 @@ The seed emails are `field@caneguard.test`, `mao@caneguard.test`, and `admin@can
 Use the password values you set locally when logging in during the smoke check.
 
 Current main's Mobile onboarding supports sign-in with the seeded `field@caneguard.test` account.
-Registration, password recovery, biometric login, and authentication deep-link setup are not available in this onboarding path.
+The mobile screens for registration, password recovery, email verification, and biometric unlock are implemented in this repository.
+Registration/recovery links and biometrics still depend on deployment setup: API mail delivery plus a configured auth deep-link host, and a device with enrolled biometrics.
+Without the deep-link host, an emailed link cannot return to the app.
+See [current capability and readiness](docs/CAPABILITY-READINESS.md) for what is implemented versus deployment-dependent.
 
 Generate the application key, apply migrations, and seed the local accounts and report fixtures from the Web repository root:
 
@@ -427,6 +430,8 @@ If migrations fail, confirm the MySQL service, database names, `caneguard_app` g
 
 - [Web/API full README](https://github.com/niks0501/caneguard-web/blob/main/README.md) for the companion installation, Laravel setup, database procedure, API startup, and Web/API validation.
 - [Mobile Agent Device workspace guide](.agent-device/README.md) for the Android Studio emulator, Windows-hosted ADB server, flow behavior, and evidence handling.
+- [Current capability and readiness](docs/CAPABILITY-READINESS.md) for implemented screens, the four current model classes, location behaviour, and deployment-dependent services.
+- [Release evidence record](docs/RELEASE-EVIDENCE.md) for the candidate revision and native/cross-system evidence status.
 - [Mobile project context](PROJECT_CONTEXT.md) for architecture and external contracts.
 - [Mobile project stack](PROJECT_STACK.md) for native-runtime compatibility and verification rules.
 - [Mobile upload contract mirror](references/mobile-report-upload-v2.json) for the concise machine-readable producer boundary.

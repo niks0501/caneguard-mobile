@@ -53,7 +53,6 @@ export default function ImagePreviewScreen() {
   const analysisInFlight = useRef(false);
   const isMounted = useRef(true);
   const isOwnerCurrentRef = useRef(draft.isOwnerCurrent);
-  isOwnerCurrentRef.current = draft.isOwnerCurrent;
   const isPreprocessing = state.status === 'preprocessing';
   const isRunning = state.status === 'running';
   const isFinalizing = state.status === 'finalizing';
@@ -74,7 +73,8 @@ export default function ImagePreviewScreen() {
   // account, so the next inspector is never blocked by it.
   useEffect(() => {
     analysisInFlight.current = false;
-  }, [draft.ownerIdentity]);
+    isOwnerCurrentRef.current = draft.isOwnerCurrent;
+  }, [draft.isOwnerCurrent, draft.ownerIdentity]);
 
   const handleCancel = () => {
     setShowCancelConfirm(true);

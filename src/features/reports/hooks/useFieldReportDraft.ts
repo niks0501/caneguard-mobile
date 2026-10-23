@@ -482,7 +482,6 @@ export function useFieldReportDraft(
       }
     },
     [
-      capturingLocation,
       database,
       finalizing,
       hasCurrentReport,
@@ -549,7 +548,6 @@ export function useFieldReportDraft(
         setSavingManualLocation(false);
       }
     }, [
-      capturingLocation,
       database,
       finalizing,
       hasCurrentReport,
@@ -612,7 +610,6 @@ export function useFieldReportDraft(
       }
     },
     [
-      capturingLocation,
       database,
       finalizing,
       hasCurrentReport,
@@ -673,7 +670,6 @@ export function useFieldReportDraft(
       }
     },
     [
-      capturingLocation,
       database,
       finalizing,
       hasCurrentReport,

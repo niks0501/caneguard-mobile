@@ -483,6 +483,62 @@ describe('Field Report draft repository', () => {
     native.close();
   });
 
+  it('drops a late GPS reading that started before a manual location was chosen', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    const started = await findFieldReportById(database, REPORT_ID, SUBMITTER_ID);
+
+    await saveManualMapLocation(database, REPORT_ID, SUBMITTER_ID, {
+      latitude: 14.071,
+      longitude: 120.635,
+      selectedAt: '2026-08-10T02:00:00.000Z',
+      updatedAt: '2026-08-10T02:00:01.000Z',
+    });
+
+    const saved = await saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
+      accuracy: 4.2,
+      capturedAt: '2026-08-10T03:00:00.000Z',
+      expectedUpdatedAt: started.updatedAt,
+      latitude: 14.0667,
+      longitude: 120.6319,
+      outcome: 'resolved',
+      updatedAt: '2026-08-10T03:00:05.000Z',
+    });
+
+    // The newer manual choice wins; the stale reading is never applied.
+    expect(saved).toMatchObject({
+      finalLatitude: 14.071,
+      finalLongitude: 120.635,
+      locationSource: 'manual_map',
+      gpsAccuracy: null,
+      manualLocationSelectedAt: '2026-08-10T02:00:00.000Z',
+    });
+    native.close();
+  });
+
+  it('applies a GPS reading when the Draft has not changed since the attempt started', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    const started = await findFieldReportById(database, REPORT_ID, SUBMITTER_ID);
+
+    await expect(
+      saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
+        accuracy: 4.2,
+        capturedAt: '2026-08-10T03:00:00.000Z',
+        expectedUpdatedAt: started.updatedAt,
+        latitude: 14.0667,
+        longitude: 120.6319,
+        outcome: 'resolved',
+        updatedAt: '2026-08-10T03:00:05.000Z',
+      }),
+    ).resolves.toMatchObject({
+      finalLatitude: 14.0667,
+      locationSource: 'gps',
+      gpsAccuracy: 4.2,
+    });
+    native.close();
+  });
+
   it('clears manual provenance when a resolved GPS capture replaces the final location', async () => {
     const { database, native } = openTestDatabase();
     await createOrGetFieldReportDraft(database, createDraftInput());

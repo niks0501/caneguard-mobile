@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
@@ -242,6 +242,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   const [retryOutcome, setRetryOutcome] = useState<ReportSyncAttemptOutcome | null>(null);
+  const [retryDetail, setRetryDetail] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
@@ -293,7 +294,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     'idle' | 'saving' | 'saved' | 'failed'
   >('idle');
   const [formDraftSavedAt, setFormDraftSavedAt] = useState<string | null>(null);
-  const lastCheckpointSignature = useRef<string | null>(null);
+  const [formDraftSignature, setFormDraftSignature] = useState<string | null>(null);
 
   const [mismatchDraft, setMismatchDraft] = useState(() => ({
     reportId: report.data?.id ?? null,
@@ -422,7 +423,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       if (propsInitialStep === undefined && stepParam === undefined) {
         setCurrentStep(Math.max(1, Math.min(5, saved.step)));
       }
-      lastCheckpointSignature.current = checkpointSignature(saved);
+      setFormDraftSignature(checkpointSignature(saved));
       setFormDraftSavedAt(saved.savedAt);
       setFormDraftStatus('saved');
     }
@@ -430,12 +431,16 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
 
   // Debounced local checkpoint for the Draft form. It never uploads and is
   // deleted as soon as an explicit save or finalize owns the values.
+  const activeReportId = report.data?.id ?? null;
+  const activeAuthoringState = report.data?.authoringState ?? null;
+  const ownerUuid = user?.uuid ?? null;
+
   useEffect(() => {
     if (
-      !user ||
-      !report.data ||
-      report.data.authoringState !== 'draft' ||
-      loadedReportId !== report.data.id
+      !ownerUuid ||
+      !activeReportId ||
+      activeAuthoringState !== 'draft' ||
+      loadedReportId !== activeReportId
     ) {
       return;
     }
@@ -459,18 +464,17 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       variety,
     };
     const signature = checkpointSignature(checkpoint);
-    if (signature === lastCheckpointSignature.current) {
+    if (signature === formDraftSignature) {
       return;
     }
-    const reportId = report.data.id;
-    setFormDraftStatus('saving');
     const timer = setTimeout(() => {
-      void writeFieldReportFormCheckpoint(database, user.uuid, reportId, {
+      setFormDraftStatus('saving');
+      void writeFieldReportFormCheckpoint(database, ownerUuid, activeReportId, {
         ...checkpoint,
         savedAt: new Date().toISOString(),
       })
         .then(() => {
-          lastCheckpointSignature.current = signature;
+          setFormDraftSignature(signature);
           setFormDraftStatus('saved');
           setFormDraftSavedAt(new Date().toISOString());
         })
@@ -478,6 +482,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     }, 700);
     return () => clearTimeout(timer);
   }, [
+    activeAuthoringState,
+    activeReportId,
     affectedAreaChoice,
     affectedAreaText,
     affectedPortionChoice,
@@ -488,22 +494,22 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     currentStep,
     database,
     farmerName,
+    formDraftSignature,
     loadedReportId,
     mismatchDraft.mismatchReported,
     mismatchDraft.reporterObservationText,
     mismatchDraft.reporterSuspectedCondition,
     municipality,
     notes,
+    ownerUuid,
     province,
-    report.data,
-    user,
     variety,
   ]);
 
   const clearFormCheckpoint = useCallback(() => {
     if (user && report.data) {
       deleteFieldReportFormCheckpoint(database, user.uuid, report.data.id);
-      lastCheckpointSignature.current = null;
+      setFormDraftSignature(null);
     }
     setFormDraftStatus('idle');
     setFormDraftSavedAt(null);
@@ -804,6 +810,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     setRetrying(true);
     setRetryError(null);
     setRetryOutcome(null);
+    setRetryDetail(null);
     try {
       const result = await sync.retryReport(targetReportId);
       const refreshed = await report.refresh();
@@ -821,6 +828,10 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
         targetResult,
       });
       setRetryOutcome(outcome);
+      // Bounded field detail from the office, shown for this attempt only.
+      setRetryDetail(
+        targetResult?.status === 'failed' ? targetResult.error.detail : null,
+      );
       showToast(
         outcome.message,
         outcome.kind === 'sent'
@@ -1116,8 +1127,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                         status={authorityStatus}
                       />
                     ) : null}
-                    {report.data.syncStatus === 'failed' &&
-                    syncAttention?.action === 'support' ? (
+                    {report.data.syncStatus === 'failed' && syncAttention ? (
                       <NeedsAttentionCard
                         attention={syncAttention}
                         fieldReport={report.data}
@@ -1537,7 +1547,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                         testID="field-report.save-draft"
                         onPress={handleSave}
                         variant="secondary"
-                        disabled={report.saving || report.capturingLocation || report.finalizing}
+                        disabled={report.saving || report.finalizing}
                         leadingIcon="save"
                         accessibilityLabel={
                           report.finalizing
@@ -1592,6 +1602,13 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                       },
                     ]}>
                     {retryOutcome.message}
+                  </Text>
+                ) : null}
+                {retryDetail ? (
+                  <Text
+                    testID="field-report.retry-detail"
+                    style={[styles.helpText, { color: theme.textSecondary }]}>
+                    {`Office detail: ${retryDetail}`}
                   </Text>
                 ) : null}
                 {report.saved ? (
@@ -2061,7 +2078,10 @@ function LocationCapture({
             onCapture();
           }
         }}
-        onCancel={() => setPendingReplacement(null)}
+        onCancel={() => {
+          setPendingReplacement(null);
+          setCorrecting(false);
+        }}
         testID="field-report.location-replacement-dialog"
       />
     </View>
@@ -2500,11 +2520,9 @@ function isLocationConfirmed(fieldReport: FieldReport): boolean {
 }
 
 function canUseManualMap(fieldReport: FieldReport): boolean {
-  return (
-    fieldReport.locationSource === 'manual_map' ||
-    fieldReport.locationSource === null ||
-    fieldReport.gpsCaptureOutcome === 'low_accuracy'
-  );
+  // Any draft location can be corrected on the map; an explicit unavailable
+  // choice first switches back through "Add Location Instead".
+  return fieldReport.locationSource !== 'unavailable';
 }
 
 function formatMeasurementSummary(
@@ -2571,8 +2589,11 @@ function NeedsAttentionCard({
         {attention.reason}
       </Text>
       <Text style={[styles.helpText, { color: theme.textSecondary }]}>
-        This report and its saved image stay unchanged on this device. Sending it
-        again is not offered until the office resolves the cause.
+        {attention.action === 'support'
+          ? 'This report and its saved image stay unchanged on this device. Sending it again is not offered until the office resolves the cause.'
+          : attention.action === 'sign-in'
+            ? 'This report and its saved image stay on this device. Signing in again sends this same report; nothing is duplicated.'
+            : 'This report and its saved image stay on this device. CaneGuard retries automatically and keeps the same report identity.'}
       </Text>
       <Text
         testID="field-report.support-reference"

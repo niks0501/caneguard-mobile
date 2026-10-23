@@ -1,6 +1,6 @@
 import { randomUUID } from 'expo-crypto';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ImagePickerAsset } from 'expo-image-picker';
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
@@ -83,7 +83,9 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
     useState<FieldValidationDraftStatus>('idle');
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const formDraftRef = useRef<FieldValidationCheckpoint | null>(null);
-  formDraftRef.current = formDraft;
+  useEffect(() => {
+    formDraftRef.current = formDraft;
+  }, [formDraft]);
 
   sessionRef.current = session;
 

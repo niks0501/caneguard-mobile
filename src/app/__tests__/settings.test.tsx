@@ -15,9 +15,10 @@ const mockLogout = jest.fn(async () => ({
   remoteRevocationFailed: false,
 }));
 
-jest.mock('@/database/DatabaseProvider', () => ({
-  useCaneGuardDatabase: () => ({}),
-}));
+jest.mock('@/database/DatabaseProvider', () => {
+  const stableDatabase = {};
+  return { useCaneGuardDatabase: () => stableDatabase };
+});
 const preview = {
   assignments: 2,
   boundaries: 1,

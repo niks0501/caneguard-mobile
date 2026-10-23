@@ -316,6 +316,19 @@ describe('AnalysisResultScreen', () => {
       pathname: '/field-report',
       params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
     });
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+  });
+
+  it('finalizes the scan session once a scan is saved on the device', async () => {
+    mockSaveRecord.mockResolvedValue({ id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' });
+
+    await renderResult(createCompletedState('rust', ['rust']));
+    await fireEvent.press(screen.getByLabelText('Save this scan on the device'));
+
+    await waitFor(() =>
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' }),
+    );
+    expect(mockRouterDismissTo).toHaveBeenCalledWith('/home');
   });
 
   it('opens the report from an already preserved scan without saving it again', async () => {
@@ -635,7 +648,7 @@ describe('AnalysisResultScreen', () => {
       expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
       expect(screen.getByTestId('app-toast')).toHaveTextContent('Scan saved');
       expect(mockRouterDismissTo).toHaveBeenCalledWith('/home');
-      expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
     });
 
     it('resets scan session and routes home when Discard draft is chosen', async () => {

@@ -44,8 +44,6 @@ export const ScanSessionContext = createContext<ScanSessionContextValue | null>(
 export type ScanDraftStatus = 'idle' | 'saving' | 'saved' | 'failed';
 
 export interface ScanDraftContextValue {
-  /** Clears the checkpoint and managed draft image without touching visible state. */
-  clearSavedDraft: () => Promise<void>;
   /** Discards the saved draft and clears visible session state. */
   discardSavedDraft: () => Promise<boolean>;
   draftSavedAt: string | null;
@@ -321,24 +319,6 @@ function ScanSessionOwner({
     state.status,
   ]);
 
-  const clearSavedDraft = useCallback(async () => {
-    draftImageRef.current = null;
-    if (mounted.current) {
-      setDraftStatus('idle');
-      setDraftSavedAt(null);
-    }
-    if (!ownerIdentity) {
-      return;
-    }
-    try {
-      deleteScanDraftCheckpoint(database, ownerIdentity);
-    } catch {
-      if (mounted.current) {
-        setDraftStatus('failed');
-      }
-    }
-  }, [database, ownerIdentity]);
-
   const discardSavedDraft = useCallback(async () => {
     if (!ownerIdentity) {
       return false;
@@ -372,7 +352,6 @@ function ScanSessionOwner({
   const sessionValue = useMemo(() => ({ dispatch, state }), [dispatch, state]);
   const draftValue = useMemo<ScanDraftContextValue>(
     () => ({
-      clearSavedDraft,
       discardSavedDraft,
       draftSavedAt,
       draftStatus,
@@ -381,7 +360,6 @@ function ScanSessionOwner({
       ownerIdentity,
     }),
     [
-      clearSavedDraft,
       discardSavedDraft,
       draftSavedAt,
       draftStatus,
@@ -432,7 +410,6 @@ export function useScanDraft(): ScanDraftContextValue {
 }
 
 const NO_DRAFT: ScanDraftContextValue = {
-  clearSavedDraft: async () => undefined,
   discardSavedDraft: async () => false,
   draftSavedAt: null,
   draftStatus: 'idle',

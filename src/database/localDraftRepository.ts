@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
@@ -22,13 +22,6 @@ export interface LocalDraftRecord<T = unknown> {
   kind: LocalDraftKind;
   ownerIdentity: string;
   payload: T;
-  updatedAt: string;
-  version: number;
-}
-
-export interface LocalDraftSummary {
-  draftKey: string;
-  kind: LocalDraftKind;
   updatedAt: string;
   version: number;
 }
@@ -199,25 +192,6 @@ export function deleteLocalDraft(
       'Deleting the local draft checkpoint failed.',
     );
   }
-}
-
-export function listLocalDraftSummaries(
-  database: CaneGuardDatabase,
-  ownerIdentity: string,
-  kind?: LocalDraftKind,
-): LocalDraftSummary[] {
-  const owner = requireOwnerIdentity(ownerIdentity);
-  const base = database
-    .select({
-      draftKey: localDrafts.draftKey,
-      kind: localDrafts.kind,
-      updatedAt: localDrafts.updatedAt,
-      version: localDrafts.version,
-    })
-    .from(localDrafts);
-  return (kind ? base.where(and(eq(localDrafts.ownerIdentity, owner), eq(localDrafts.kind, kind))) : base.where(eq(localDrafts.ownerIdentity, owner)))
-    .orderBy(desc(localDrafts.updatedAt))
-    .all();
 }
 
 function findRow(

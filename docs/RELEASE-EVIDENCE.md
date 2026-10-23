@@ -10,7 +10,7 @@ a browser, mock, or fixture.
 | --- | --- |
 | Repository | `caneguard-mobile` |
 | Branch | `fm/cg-mobile-ux-build-20261023` |
-| Candidate commit | `HEAD` of that branch at the time this file was written; re-stamp it for any later release candidate |
+| Candidate commit | `c21f701fa4922b2dc75b79cac0c51eef7a858560` — the revision this evidence table was produced on. Review fixes and any other commit after it are separate revisions: re-run the commands below and re-stamp this file before calling any of them a candidate |
 | Audit source | `data/cg-mobile-ux-audit-20261023/report.md` (16 findings) |
 
 ## Decision: native device verification skipped
@@ -29,10 +29,10 @@ The alternative evidence below was requested by the captain for this candidate.
 
 | Evidence | How to reproduce | Status |
 | --- | --- | --- |
-| Full Jest / React Native Testing Library suite | `npm test -- --runInBand` | **PASS** — 154 suites, 1,335 tests |
-| Type check | `npm run typecheck` (`tsc --noEmit`) | **PASS**, no diagnostics |
-| Lint | `npm run lint` (Expo lint) | **PASS**, no errors or warnings |
-| Database migration check | `npm run db:check` | **PASS**, additive `0020` migration only |
+| Full Jest / React Native Testing Library suite | `npm test -- --runInBand` | **PASS** on `c21f701` — 154 suites, 1,335 tests |
+| Type check | `npm run typecheck` (`tsc --noEmit`) | **PASS** on `c21f701`, no diagnostics |
+| Lint | `npm run lint` (Expo lint) | **PASS** on `c21f701`, no errors or warnings |
+| Database migration check | `npm run db:check` | **PASS** on `c21f701`, additive `0020` migration only |
 | Expo Web rendering checks with screenshots for user-visible flows | `npx expo start --web` behind a temporary COOP/COEP proxy; screenshots in the task data directory | **PASS for the public flows**: login (including the password-only restart limit), register, forgot-password, field-guide index, and the Healthy/Mosaic/Rust/Smut entries. **Not covered in a browser**: authenticated screens. The web dev server's synchronous SQLite bridge (`expo-sqlite` web worker) timed out in this environment, and no live API session was available, so scan/report/visit/settings screens were exercised by RNTL tests only. SPA output mode and verbose DB logging were temporary local overrides and were reverted before commit. |
 | Host-level TFLite tensor-shape fixture | `npm test -- --runInBand src/features/detection/model/__tests__/modelAsset.contract.test.ts` | **PASS** — parses the bundled FlatBuffer on the host and asserts one float32 input `[1,224,224,3]` and one float32 output `[1,4]`, then feeds those names/shapes through `validateModelContract` |
 | Static contract assertions | `npm test -- --runInBand src/features/detection/model/__tests__/validateModelContract.test.ts src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts` | **PASS** |

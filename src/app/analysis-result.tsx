@@ -113,7 +113,7 @@ export default function AnalysisResultScreen() {
         return;
       }
       showToast('Scan saved', 'success');
-      await draft.clearSavedDraft();
+      dispatch({ type: 'RESET_SCAN' });
       returnToTab('/home');
     } finally {
       setKeepingDraft(false);
@@ -157,6 +157,7 @@ export default function AnalysisResultScreen() {
       setOpeningReport(false);
       return;
     }
+    dispatch({ type: 'RESET_SCAN' });
     router.push({
       pathname: '/field-report',
       params: { scanRecordId: saved.id },
@@ -165,11 +166,13 @@ export default function AnalysisResultScreen() {
 
   const keepAsScanOnly = async () => {
     const saved = await persistScanForOutcome();
-    if (saved) {
-      showToast('Scan saved', 'success');
-    } else {
+    if (!saved) {
       showToast('Could not save scan', 'error');
+      return;
     }
+    showToast('Scan saved', 'success');
+    dispatch({ type: 'RESET_SCAN' });
+    returnToTab('/home');
   };
 
   if (state.status !== 'completed' || !state.result || !state.sourceUri) {

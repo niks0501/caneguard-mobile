@@ -152,7 +152,6 @@ export default function ImagePreviewScreen() {
       isPreprocessing ||
       isRunning ||
       isFinalizing ||
-      analysisComplete ||
       modelState.state !== 'loaded' ||
       analysisInFlight.current
     ) {
@@ -380,46 +379,51 @@ export default function ImagePreviewScreen() {
                   Choose another image
                 </AppButton>
               </DisclosureSection>
-              <AppButton
-                testID="scan.analyze-image"
-                disabled={
-                  isImageLoading ||
-                  imageLoadFailed ||
-                  isPreprocessing ||
-                  isRunning ||
-                  isFinalizing ||
-                  analysisComplete ||
-                  modelState.state !== 'loaded'
-                }
-                onPress={() => {
-                  void analyzeImage();
-                }}
-                leadingIcon="search"
-                accessibilityLabel={
-                  analysisComplete
-                    ? 'Image analysis complete'
-                    : isFinalizing
+              {analysisComplete ? (
+                <AppButton
+                  testID="image-preview.view-result"
+                  onPress={() => router.push('/analysis-result')}
+                  leadingIcon="arrow-right"
+                  accessibilityLabel="View the analysis result">
+                  View Analysis Result
+                </AppButton>
+              ) : (
+                <AppButton
+                  testID="scan.analyze-image"
+                  disabled={
+                    isImageLoading ||
+                    imageLoadFailed ||
+                    isPreprocessing ||
+                    isRunning ||
+                    isFinalizing ||
+                    modelState.state !== 'loaded'
+                  }
+                  onPress={() => {
+                    void analyzeImage();
+                  }}
+                  leadingIcon="search"
+                  accessibilityLabel={
+                    isFinalizing
                       ? 'Preparing analysis result'
+                      : isRunning
+                        ? 'Analyzing image'
+                        : isPreprocessing
+                          ? 'Image preparation in progress'
+                          : modelState.state === 'loading'
+                            ? 'Getting ready'
+                            : modelState.state === 'error'
+                              ? 'Check unavailable'
+                              : 'Analyze selected image'
+                  }>
+                  {isFinalizing
+                    ? 'Preparing Result…'
                     : isRunning
-                      ? 'Analyzing image'
-                    : isPreprocessing
-                      ? 'Image preparation in progress'
-                      : modelState.state === 'loading'
-                        ? 'Getting ready'
-                        : modelState.state === 'error'
-                          ? 'Check unavailable'
-                      : 'Analyze selected image'
-                }>
-                {isFinalizing
-                  ? 'Preparing Result…'
-                  : isRunning
-                  ? 'Analyzing…'
-                  : isPreprocessing
-                    ? 'Preparing Image…'
-                    : analysisComplete
-                      ? 'Analysis Complete'
-                      : 'Analyze'}
-              </AppButton>
+                      ? 'Analyzing…'
+                      : isPreprocessing
+                        ? 'Preparing Image…'
+                        : 'Analyze'}
+                </AppButton>
+              )}
               {modelState.state === 'error' && modelState.errorKind === 'load' ? (
                 <AppButton
                   testID="image-preview.retry-model"
@@ -466,7 +470,7 @@ export default function ImagePreviewScreen() {
                     : modelState.state === 'error'
                       ? getInferenceErrorMessage(modelState.error)
                       : analysisComplete
-                        ? 'Analysis complete. Continuing to the symptom checklist…'
+                        ? 'Analysis complete. Open the result to review it and save this scan.'
                         : preprocessingComplete
                           ? 'The image is ready. Retry analysis to continue.'
                           : 'Analysis stays on this screen until the check succeeds.'}

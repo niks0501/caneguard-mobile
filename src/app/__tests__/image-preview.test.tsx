@@ -165,6 +165,19 @@ describe('ImagePreviewScreen', () => {
     ).toBeOnTheScreen();
   });
 
+  it('lets a restored completed scan open its analysis result', async () => {
+    await renderPreview({
+      ...selectedState,
+      result: successfulInferenceResult,
+      status: 'completed',
+    });
+
+    expect(screen.getByTestId('scan.preview-screen')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('View the analysis result'));
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/analysis-result');
+  });
+
   it('preprocesses, runs inference once, stores the result, and continues', async () => {
     let completePreprocessing:
       | ((result: typeof successfulPreprocessingResult) => void)
@@ -221,13 +234,17 @@ describe('ImagePreviewScreen', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Image analysis complete')).toBeDisabled();
+      expect(screen.getByLabelText('View the analysis result')).toBeOnTheScreen();
       expect(
         screen.getByText(
-          'Analysis complete. Continuing to the symptom checklist…',
+          'Analysis complete. Open the result to review it and save this scan.',
         ),
       ).toBeOnTheScreen();
     });
+    expect(screen.queryByTestId('scan.analyze-image')).not.toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('View the analysis result'));
+    expect(mockRouterPush).toHaveBeenCalledWith('/analysis-result');
 
     expect(mockRouterPush).toHaveBeenCalledWith('/symptom-checklist');
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'START_INFERENCE' });

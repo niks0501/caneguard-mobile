@@ -518,7 +518,6 @@ describe('ScanScreen', () => {
       }),
     );
     mockDraftOverride = {
-      clearSavedDraft: jest.fn(async () => undefined),
       discardSavedDraft: jest.fn(async () => true),
       draftSavedAt: null,
       draftStatus: 'idle',
@@ -542,7 +541,6 @@ describe('ScanScreen', () => {
 
   it('shows honest draft status and a resume entry for a saved scan', async () => {
     mockDraftOverride = {
-      clearSavedDraft: jest.fn(async () => undefined),
       discardSavedDraft: jest.fn(async () => true),
       draftSavedAt: '2026-10-23T08:30:00.000Z',
       draftStatus: 'saved',
@@ -575,7 +573,6 @@ describe('ScanScreen', () => {
   it('does not claim a kept draft after a failed checkpoint write', async () => {
     const flushSavedDraft = jest.fn(async () => false);
     mockDraftOverride = {
-      clearSavedDraft: jest.fn(async () => undefined),
       discardSavedDraft: jest.fn(async () => true),
       draftSavedAt: null,
       draftStatus: 'failed',

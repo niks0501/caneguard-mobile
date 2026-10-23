@@ -67,7 +67,6 @@ export type ScanSessionAction =
       };
     }
   | { type: 'RESET_SCAN' }
-  | { type: 'RESTORE_SCAN'; payload: Partial<ScanSessionState> }
   | { type: 'START_PREPROCESSING' }
   | {
       type: 'COMPLETE_PREPROCESSING';

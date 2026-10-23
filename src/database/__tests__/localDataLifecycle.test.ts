@@ -567,6 +567,27 @@ describe('local data lifecycle', () => {
     native.close();
   });
 
+  it('counts a saved scan from its linked report status instead of the scan row', async () => {
+    const { database, native } = openTestDatabase();
+    const sentScanId = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+    const unsentScanId = '11111111-1111-4111-8111-111111111111';
+    insertScan(native, sentScanId, OWNER_ID, 'local_only', NOW);
+    insertReport(native, `${sentScanId}-report`, sentScanId, OWNER_ID, NOW);
+    insertScan(native, unsentScanId, OWNER_ID, 'local_only', NOW);
+    insertReport(native, `${unsentScanId}-report`, unsentScanId, OWNER_ID, NOW);
+    native
+      .prepare('UPDATE field_reports SET sync_status = ? WHERE id = ?')
+      .run('failed', `${unsentScanId}-report`);
+
+    const preview = getLocalDataRemovalPreview(database, OWNER_ID);
+
+    expect(preview.scans).toBe(2);
+    expect(preview.unsentScans).toBe(1);
+    expect(preview.finalizedUnsentReports).toBe(1);
+    expect(preview.totalUnsent).toBe(2);
+    native.close();
+  });
+
   it('removes leftover owner images that no record or draft names any more', async () => {
     const { database, native } = openTestDatabase();
     const scanId = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';

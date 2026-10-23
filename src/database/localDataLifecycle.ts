@@ -104,7 +104,12 @@ function readRemovalPreview(
   ).length;
   const unsentVisits = visits.filter((row) => row.syncStatus !== 'synced').length;
   const unsentBoundaries = boundaries.filter((row) => row.status !== 'synced').length;
-  const unsentScans = scans.filter((row) => row.syncStatus !== 'synced').length;
+  const reportSyncStatusByScanId = new Map(
+    reports.map((row) => [row.scanRecordId, row.syncStatus]),
+  );
+  const unsentScans = scans.filter(
+    (row) => (reportSyncStatusByScanId.get(row.id) ?? 'local_only') !== 'synced',
+  ).length;
   const uploadInFlight =
     reports.some((row) => row.syncStatus === 'syncing') ||
     visits.some((row) => row.syncStatus === 'syncing') ||

@@ -14,6 +14,7 @@ import {
   readFieldValidationCheckpoint,
   writeFieldValidationCheckpoint,
 } from '@/features/assignments/drafts/fieldValidationDraft';
+import { isUuid } from '@/features/assignments/domain/fieldValidationCompletionValidation';
 import { useFieldValidationAssignment } from '@/features/assignments/hooks/useFieldValidationAssignment';
 import {
   deleteFieldValidationPhoto,
@@ -202,6 +203,27 @@ describe('useFieldValidationAssignment visit drafts', () => {
 
     expect(mockDeletePhoto).toHaveBeenCalledTimes(1);
     expect(mockDeletePhoto).toHaveBeenCalledWith(COMPLETION_PHOTO.uri, OWNER_ID);
+  });
+
+  it('persists a draft photo under a storage identity the device accepts', async () => {
+    mockReadCheckpoint.mockReturnValue(null);
+    mockPersistPhoto.mockResolvedValue(REPLACEMENT_PHOTO);
+
+    const { result } = await renderAssignment();
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.persistDraftPhoto({
+        fileName: 'leaf.jpg',
+        mimeType: 'image/jpeg',
+        uri: 'file:///picker/leaf.jpg',
+      } as never);
+    });
+
+    expect(mockPersistPhoto).toHaveBeenCalledTimes(1);
+    const input = mockPersistPhoto.mock.calls[0][0];
+    expect(input.assignmentId).toBe(ASSIGNMENT_ID);
+    expect(isUuid(input.completionId)).toBe(true);
   });
 
   it('retires the previous draft photo only once the checkpoint stops referencing it', async () => {

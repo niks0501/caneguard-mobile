@@ -160,7 +160,7 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
         return await persistFieldValidationPhoto({
           ownerIdentity: session.user.uuid,
           assignmentId: state.assignment.id,
-          completionId: `draft-${randomUUID()}`,
+          completionId: randomUUID(),
           fileName: asset.fileName,
           mimeType: asset.mimeType,
           sourceUri: asset.uri,

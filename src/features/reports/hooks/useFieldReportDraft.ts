@@ -251,7 +251,7 @@ export function useFieldReportDraft(
           'UPDATE_FAILED',
           'Saving the GPS result failed.',
         );
-        if (isCurrentInput()) {
+        if (attempt === locationAttempt.current && isCurrentInput()) {
           lastError.current = getStorageErrorMessage(storageError);
           setState((current) => ({
             ...current,
@@ -260,8 +260,10 @@ export function useFieldReportDraft(
         }
         return null;
       } finally {
-        locationCaptureInFlight.current = false;
-        setCapturingLocation(false);
+        if (attempt === locationAttempt.current) {
+          locationCaptureInFlight.current = false;
+          setCapturingLocation(false);
+        }
       }
     },
     [database, finalizing, isCurrentInput, user],

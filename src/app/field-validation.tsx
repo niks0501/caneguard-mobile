@@ -32,6 +32,7 @@ import type { PreviousVisitContext as PreviousVisitContextValue } from '@/featur
 import { FIELD_VALIDATION_TEXT_MAX_LENGTH } from '@/features/assignments/domain/fieldValidationCompletionValidation';
 import { useFieldValidationAssignment } from '@/features/assignments/hooks/useFieldValidationAssignment';
 import type { FieldValidationPhotoArtifact } from '@/features/assignments/services/fieldValidationPhotoStorage';
+import { deleteFieldValidationPhoto } from '@/features/assignments/services/fieldValidationPhotoStorage';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -157,8 +158,16 @@ export default function FieldValidationScreen() {
   };
 
   const removePhoto = () => {
+    const removedArtifact = photo?.artifact ?? null;
     const checkpointPhoto = formDraft?.photo ?? null;
     setPhoto(null);
+    if (
+      removedArtifact &&
+      state.ownerIdentity &&
+      removedArtifact.uri !== checkpointPhoto?.uri
+    ) {
+      deleteFieldValidationPhoto(removedArtifact.uri, state.ownerIdentity);
+    }
     if (checkpointPhoto) {
       void saveDraftCheckpoint({
         action,

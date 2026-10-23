@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { router, type Href } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -90,6 +90,17 @@ export default function AnalysisResultScreen() {
   const [openingReport, setOpeningReport] = useState(false);
   const [keepingDraft, setKeepingDraft] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const savedRecord = useRef<string | null>(null);
+
+  // The saved result stays visible while the inspector is on this screen; the
+  // session is finalized once this entry leaves the stack.
+  useEffect(() => {
+    return () => {
+      if (savedRecord.current) {
+        dispatch({ type: 'RESET_SCAN' });
+      }
+    };
+  }, [dispatch]);
 
   const handleCancel = () => {
     setShowCancelConfirm(true);
@@ -142,9 +153,14 @@ export default function AnalysisResultScreen() {
 
   const persistScanForOutcome = async () => {
     if (saveRecord.status === 'saved' && saveRecord.recordId) {
+      savedRecord.current = saveRecord.recordId;
       return { id: saveRecord.recordId };
     }
-    return saveRecord.save();
+    const saved = await saveRecord.save();
+    if (saved) {
+      savedRecord.current = saved.id;
+    }
+    return saved;
   };
 
   const reportToOffice = async () => {
@@ -157,8 +173,6 @@ export default function AnalysisResultScreen() {
       setOpeningReport(false);
       return;
     }
-    dispatch({ type: 'RESET_SCAN' });
-    router.dismissAll();
     router.push({
       pathname: '/field-report',
       params: { scanRecordId: saved.id },
@@ -172,8 +186,6 @@ export default function AnalysisResultScreen() {
       return;
     }
     showToast('Scan saved', 'success');
-    dispatch({ type: 'RESET_SCAN' });
-    returnToTab('/home');
   };
 
   if (state.status !== 'completed' || !state.result || !state.sourceUri) {

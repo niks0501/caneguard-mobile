@@ -274,6 +274,7 @@ function ScanSessionOwner({
       }
       if (action.type === 'RESET_SCAN') {
         rawDispatch(action);
+        const trackedImage = draftImageRef.current;
         draftImageRef.current = null;
         imageOperation.current += 1;
         if (mounted.current) {
@@ -284,6 +285,9 @@ function ScanSessionOwner({
           saveChain.current = saveChain.current.then(async () => {
             try {
               deleteScanDraftCheckpoint(database, ownerIdentity);
+              if (trackedImage) {
+                deleteManagedScanImage(trackedImage.managedImageUri, ownerIdentity);
+              }
             } catch {
               // Best effort cleanup after an explicit reset.
             }
@@ -323,10 +327,18 @@ function ScanSessionOwner({
     if (!ownerIdentity) {
       return false;
     }
+    const trackedImage = draftImageRef.current;
     try {
       deleteScanDraftCheckpoint(database, ownerIdentity);
     } catch {
       return false;
+    }
+    if (trackedImage) {
+      try {
+        deleteManagedScanImage(trackedImage.managedImageUri, ownerIdentity);
+      } catch {
+        // Best effort: the checkpoint that named this image is already gone.
+      }
     }
     draftImageRef.current = null;
     imageOperation.current += 1;

@@ -31,8 +31,6 @@ let mockSaveRecordState = {
 };
 const mockRouterBack = router.back as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
-const mockRouterDismissAll = router.dismissAll as jest.Mock;
-const mockRouterReplace = router.replace as jest.Mock;
 const mockRouterDismissTo = router.dismissTo as jest.Mock;
 
 jest.mock('@/features/records/hooks/useSaveCompletedScan', () => ({
@@ -314,30 +312,43 @@ describe('AnalysisResultScreen', () => {
     await fireEvent.press(screen.getByLabelText('Report this scan to the office'));
 
     expect(mockSaveRecord).toHaveBeenCalledTimes(1);
-    expect(mockRouterDismissAll).toHaveBeenCalledTimes(1);
     expect(mockRouterPush).toHaveBeenCalledWith({
       pathname: '/field-report',
       params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
     });
-    expect(
-      mockRouterDismissAll.mock.invocationCallOrder[0],
-    ).toBeLessThan(mockRouterPush.mock.invocationCallOrder[0]);
-    expect(mockRouterReplace).not.toHaveBeenCalledWith(
-      expect.objectContaining({ pathname: '/field-report' }),
+    expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+    expect(screen.getByTestId('scan.result-screen')).toBeOnTheScreen();
+  });
+
+  it('keeps the result on screen after saving and finalizes it only when left', async () => {
+    mockSaveRecord.mockResolvedValue({ id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' });
+
+    const rendered = await renderResult(createCompletedState('rust', ['rust']));
+    await fireEvent.press(screen.getByLabelText('Save this scan on the device'));
+    await waitFor(() =>
+      expect(screen.getByTestId('app-toast')).toHaveTextContent('Scan saved'),
     );
+
+    expect(mockSaveRecord).toHaveBeenCalledTimes(1);
+    expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+    expect(mockRouterDismissTo).not.toHaveBeenCalled();
+    expect(screen.getByTestId('scan.result-screen')).toBeOnTheScreen();
+
+    await act(async () => {
+      rendered.unmount();
+    });
+
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
   });
 
-  it('finalizes the scan session once a scan is saved on the device', async () => {
-    mockSaveRecord.mockResolvedValue({ id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' });
+  it('does not finalize an unsaved result when it is left', async () => {
+    const rendered = await renderResult(createCompletedState('rust', ['rust']));
 
-    await renderResult(createCompletedState('rust', ['rust']));
-    await fireEvent.press(screen.getByLabelText('Save this scan on the device'));
+    await act(async () => {
+      rendered.unmount();
+    });
 
-    await waitFor(() =>
-      expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' }),
-    );
-    expect(mockRouterDismissTo).toHaveBeenCalledWith('/home');
+    expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
   });
 
   it('opens the report from an already preserved scan without saving it again', async () => {
@@ -351,11 +362,11 @@ describe('AnalysisResultScreen', () => {
     await fireEvent.press(screen.getByLabelText('Report this scan to the office'));
 
     expect(mockSaveRecord).not.toHaveBeenCalled();
-    expect(mockRouterDismissAll).toHaveBeenCalledTimes(1);
     expect(mockRouterPush).toHaveBeenCalledWith({
       pathname: '/field-report',
       params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
     });
+    expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
   });
 
   it('shows direct report progress while the scan is being preserved', async () => {
@@ -371,7 +382,6 @@ describe('AnalysisResultScreen', () => {
 
     expect(screen.getByLabelText('Opening Field Report')).toBeDisabled();
     expect(mockRouterPush).not.toHaveBeenCalled();
-    expect(mockRouterDismissAll).not.toHaveBeenCalled();
 
     resolveSave({ id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' });
     await waitFor(() =>
@@ -380,7 +390,6 @@ describe('AnalysisResultScreen', () => {
         params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
       }),
     );
-    expect(mockRouterDismissAll).toHaveBeenCalledTimes(1);
   });
 
   it('allows completed scan evidence to remain scan-only without a barangay', async () => {
@@ -560,7 +569,6 @@ describe('AnalysisResultScreen', () => {
 
     await fireEvent.press(screen.getByLabelText('Report this scan to the office'));
 
-    expect(mockRouterDismissAll).toHaveBeenCalledTimes(1);
     expect(mockRouterPush).toHaveBeenCalledWith({
       pathname: '/field-report',
       params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },

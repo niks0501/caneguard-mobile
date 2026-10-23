@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import FieldValidationScreen from '@/app/field-validation';
 import { ToastProvider } from '@/components/ui/Toast';
 import { useFieldValidationAssignment } from '@/features/assignments/hooks/useFieldValidationAssignment';
+import { deleteFieldValidationPhoto } from '@/features/assignments/services/fieldValidationPhotoStorage';
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: jest.fn(() => ({ assignmentId: '3fbd7f77-7d6b-4eb0-a1c7-b673f5a2f39f' })),
@@ -10,6 +11,23 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('@/features/assignments/hooks/useFieldValidationAssignment', () => ({
   useFieldValidationAssignment: jest.fn(),
+}));
+jest.mock('expo-image-picker', () => ({
+  CameraType: { back: 'back' },
+  launchCameraAsync: jest.fn(async () => ({
+    assets: [
+      {
+        fileName: 'leaf.jpg',
+        mimeType: 'image/jpeg',
+        uri: 'file:///picker/leaf.jpg',
+      },
+    ],
+    canceled: false,
+  })),
+  requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true })),
+}));
+jest.mock('@/features/assignments/services/fieldValidationPhotoStorage', () => ({
+  deleteFieldValidationPhoto: jest.fn(),
 }));
 
 const complete = jest.fn(async () => null);
@@ -382,6 +400,29 @@ describe('FieldValidationScreen', () => {
         observation: 'Fresh pustules on lower leaves.',
         photo: null,
       });
+      expect(deleteFieldValidationPhoto).not.toHaveBeenCalled();
+      expect(
+        screen.queryByLabelText('Fresh field validation photo'),
+      ).not.toBeOnTheScreen();
+    });
+
+    it('deletes a photo that never reached a checkpoint when it is removed', async () => {
+      mockHook();
+
+      await render(<FieldValidationScreen />);
+      await fireEvent.press(screen.getByTestId('field-validation.capture-photo'));
+
+      expect(
+        screen.getByLabelText('Fresh field validation photo'),
+      ).toBeOnTheScreen();
+
+      await fireEvent.press(screen.getByTestId('field-validation.remove-photo'));
+
+      expect(deleteFieldValidationPhoto).toHaveBeenCalledWith(
+        'file:///managed/field-validation/owner/assignment-draft-1.jpg',
+        'd4f4c3b8-4f27-49c7-9ec7-3ab7ea6fc91d',
+      );
+      expect(saveDraftCheckpoint).not.toHaveBeenCalled();
       expect(
         screen.queryByLabelText('Fresh field validation photo'),
       ).not.toBeOnTheScreen();

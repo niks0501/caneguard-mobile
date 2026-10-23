@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Pressable, Text } from 'react-native';
 
+import { saveLocalDraft } from '@/database/localDraftRepository';
 import { AuthContext } from '@/features/auth/providers/AuthProvider';
 import {
   ScanSessionProvider,
@@ -197,6 +198,28 @@ describe('ScanSessionProvider', () => {
       ).toBeOnTheScreen(),
     );
     expect(screen.getByText('draft:saved')).toBeOnTheScreen();
+  });
+
+  it('removes a selected draft image that never reached a checkpoint', async () => {
+    jest
+      .mocked(saveLocalDraft)
+      .mockRejectedValueOnce(new Error('The checkpoint write failed.'));
+
+    await render(<Harness owner={OWNER_A} />);
+    await fireEvent.press(screen.getByLabelText('Select test image'));
+    await waitFor(() =>
+      expect(screen.getByText('draft:failed')).toBeOnTheScreen(),
+    );
+    expect(mockDraftRows.get(`${OWNER_A}:scan:current`)).toBeUndefined();
+
+    await fireEvent.press(screen.getByLabelText('Reset test scan'));
+
+    await waitFor(() =>
+      expect(mockDeleteManagedScanImage).toHaveBeenCalledWith(
+        expect.stringContaining(`/scan-images/${OWNER_A}/`),
+        OWNER_A,
+      ),
+    );
   });
 
   it('drops a delayed image copy started by the previous owner', async () => {

@@ -892,21 +892,25 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
 
   const handleLocationCapture = async () => {
     const res = await report.captureLocation();
-    if (res && res.gpsCaptureOutcome === 'resolved') {
+    if (!res) {
+      const error = report.getLastOperationError();
+      if (error) {
+        showToast(error, 'error');
+      }
+      return;
+    }
+    if (res.gpsCaptureOutcome === 'resolved') {
       showToast(LOCATION_ADDED, 'success');
       return;
     }
-    if (res && res.locationSource === 'unavailable') {
+    if (res.locationSource === 'unavailable') {
       showToast(
         `${LOCATION_UNCONFIRMED} — ${LOCATION_UNAVAILABLE_REASON_LABELS[res.locationUnavailableReason ?? 'other']}. Your draft is still saved.`,
         'info',
       );
       return;
     }
-    showToast(
-      report.getLastOperationError() ?? `${LOCATION_UNCONFIRMED}. Your draft is still saved.`,
-      'error',
-    );
+    showToast(`${LOCATION_UNCONFIRMED}. Your draft is still saved.`, 'error');
   };
 
   const handleClearUnavailable = async () => {

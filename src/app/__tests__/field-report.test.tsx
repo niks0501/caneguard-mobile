@@ -724,6 +724,70 @@ describe('FieldReportScreen', () => {
     );
   });
 
+  it('stops locating without reporting a location failure', async () => {
+    let resolveCapture!: (value: null) => void;
+    mockCaptureLocation.mockReturnValueOnce(
+      new Promise<null>((resolve) => {
+        resolveCapture = resolve;
+      }),
+    );
+
+    const view = await render(
+      <ToastProvider>
+        <FieldReportScreen />
+      </ToastProvider>,
+    );
+    await act(async () => undefined);
+    await goToStep(4);
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Add location'));
+    });
+    expect(mockCaptureLocation).toHaveBeenCalledTimes(1);
+
+    mockDraftState = { ...mockDraftState, capturingLocation: true };
+    await view.rerender(
+      <ToastProvider>
+        <FieldReportScreen />
+      </ToastProvider>,
+    );
+    await act(async () => {
+      fireEvent.press(
+        screen.getByLabelText('Stop locating and keep the current draft'),
+      );
+    });
+    expect(mockCancelLocationCapture).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveCapture(null);
+    });
+
+    expect(screen.queryByTestId('app-toast')).not.toBeOnTheScreen();
+    expect(
+      screen.queryByText(/Location could not be confirmed/),
+    ).not.toBeOnTheScreen();
+  });
+
+  it('still reports a location attempt that recorded a failure', async () => {
+    mockLastOperationError = 'Saving the GPS result failed.';
+    mockCaptureLocation.mockResolvedValueOnce(null);
+
+    await render(
+      <ToastProvider>
+        <FieldReportScreen />
+      </ToastProvider>,
+    );
+    await act(async () => undefined);
+    await goToStep(4);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Add location'));
+    });
+
+    expect(screen.getByTestId('app-toast')).toHaveTextContent(
+      'Saving the GPS result failed.',
+    );
+  });
+
   it('shows retained poor GPS evidence and offers retry', async () => {
     mockDraftState = {
       ...mockDraftState,

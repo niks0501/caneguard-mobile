@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { useState } from 'react';
 import { Pressable, Text } from 'react-native';
 
 import { saveLocalDraft } from '@/database/localDraftRepository';
@@ -81,6 +82,7 @@ function authValue(uuid: string | null) {
 function SessionProbe() {
   const { state, dispatch } = useScanSession();
   const draft = useScanDraft();
+  const [flushResult, setFlushResult] = useState('none');
 
   return (
     <>
@@ -89,6 +91,16 @@ function SessionProbe() {
       <Text>{`draft:${draft.draftStatus}`}</Text>
       <Text>{`owner:${draft.ownerIdentity ?? 'none'}`}</Text>
       <Text>{`symptoms:${state.selectedSymptoms.join(',')}`}</Text>
+      <Text>{`flush:${flushResult}`}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Flush saved draft"
+        onPress={() => {
+          void draft.flushSavedDraft().then((saved) => {
+            setFlushResult(saved ? 'true' : 'false');
+          });
+        }}
+      />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Select test image"
@@ -211,6 +223,38 @@ describe('ScanSessionProvider', () => {
       ).toBeOnTheScreen(),
     );
     expect(screen.getByText('draft:saved')).toBeOnTheScreen();
+  });
+
+  it('reports a kept draft as unsaved when the image copy failed', async () => {
+    mockCopyScanImageToManagedStorage.mockRejectedValueOnce(
+      new Error('The device is out of space.'),
+    );
+
+    await render(<Harness owner={OWNER_A} />);
+    await fireEvent.press(screen.getByLabelText('Select test image'));
+    await waitFor(() =>
+      expect(screen.getByText('draft:failed')).toBeOnTheScreen(),
+    );
+    expect(screen.getByText('file:///picker/leaf.jpg')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Flush saved draft'));
+
+    await waitFor(() => expect(screen.getByText('flush:false')).toBeOnTheScreen());
+    expect(mockDraftRows.get(`${OWNER_A}:scan:current`)).toBeUndefined();
+  });
+
+  it('reports a kept draft as saved once the checkpoint is written', async () => {
+    await render(<Harness owner={OWNER_A} />);
+
+    await fireEvent.press(screen.getByLabelText('Flush saved draft'));
+    await waitFor(() => expect(screen.getByText('flush:true')).toBeOnTheScreen());
+
+    await fireEvent.press(screen.getByLabelText('Select test image'));
+    await waitFor(() => expect(screen.getByText('draft:saved')).toBeOnTheScreen());
+
+    await fireEvent.press(screen.getByLabelText('Flush saved draft'));
+    await waitFor(() => expect(screen.getByText('flush:true')).toBeOnTheScreen());
+    expect(mockDraftRows.get(`${OWNER_A}:scan:current`)).toBeDefined();
   });
 
   it('keeps a saved scan out of the resumable draft checkpoint', async () => {

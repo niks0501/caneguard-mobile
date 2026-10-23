@@ -372,8 +372,11 @@ function ScanSessionOwner({
   }, [database, ownerIdentity]);
 
   const flushSavedDraft = useCallback(async () => {
-    if (!ownerIdentity || !draftImageRef.current) {
+    if (!ownerIdentity) {
       return true;
+    }
+    if (!draftImageRef.current) {
+      return stateRef.current.sourceUri === null;
     }
     await persistCheckpoint(ownerIdentity);
     return lastWriteOk.current;

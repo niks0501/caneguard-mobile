@@ -31,6 +31,7 @@ describe('pending Field Report queue', () => {
   it('coalesces concurrent foreground triggers into one sequential run', async () => {
     findSyncCandidates
       .mockResolvedValueOnce([{ id: 'report-1' }])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
     let finish!: () => void;
     jest.mocked(syncFieldReport).mockReturnValueOnce(new Promise((resolve) => {
@@ -49,10 +50,14 @@ describe('pending Field Report queue', () => {
       submitterIdentity: SUBMITTER_ID,
       token: 'secure-token',
     });
-    expect(second).toBe(first);
     await waitFor(() => expect(syncFieldReport).toHaveBeenCalledTimes(1));
     finish();
-    await expect(first).resolves.toMatchObject({ attempted: 1, synced: 1, source: 'startup' });
+    const results = await Promise.all([first, second]);
+    expect(results[0]).toMatchObject({ attempted: 1, synced: 1, source: 'startup' });
+    expect(results[1]).toBe(results[0]);
+    expect(syncFieldReport).toHaveBeenCalledTimes(1);
+    expect(findSyncCandidates).toHaveBeenCalledTimes(2);
+    expect(second).toBe(first);
   });
 
   it('requests finalized pending/failed reports for manual retry and stops on auth failure', async () => {

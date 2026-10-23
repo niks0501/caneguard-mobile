@@ -43,6 +43,38 @@ describe('single Field Report synchronization', () => {
     );
   });
 
+  it('does not upload or mutate an already-synced report when the queue delivers it again', async () => {
+    const repo = repository();
+    const syncedReport = {
+      ...REPORT,
+      remoteId: 'existing-server-report-uuid',
+      syncStatus: 'synced',
+    } as FieldReport;
+    repo.findById.mockResolvedValue({
+      report: syncedReport,
+      scanRecord: {} as never,
+    });
+    const mapMultipart = jest.fn(() => new FormData());
+    const upload = jest.fn();
+
+    await expect(syncFieldReport({
+      reportId: REPORT.id,
+      repository: repo,
+      token: 'secure-token',
+      mapMultipart,
+      upload,
+    })).resolves.toEqual({
+      reportId: REPORT.id,
+      remoteId: 'existing-server-report-uuid',
+      status: 'already-synced',
+    });
+
+    expect(mapMultipart).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+    expect(repo.markSyncing).not.toHaveBeenCalled();
+    expect(repo.markSynced).not.toHaveBeenCalled();
+  });
+
   it('preserves the report and targets the same identity after a retryable failure', async () => {
     const repo = repository();
     const upload = jest.fn()

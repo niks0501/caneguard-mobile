@@ -430,6 +430,41 @@ describe('ScanSessionProvider', () => {
     });
   });
 
+  it('does not confirm a kept draft that permanent removal deleted', async () => {
+    const managedImageUri = `file:///managed/scan-images/${OWNER_A}/restored.jpg`;
+    mockDraftRows.set(`${OWNER_A}:scan:current`, {
+      payload: {
+        draftId: '00000000-0000-4000-8000-000000000777',
+        imageMimeType: 'image/jpeg',
+        imageSizeBytes: 4096,
+        managedImageUri,
+        preprocessMs: null,
+        qualityAssessment: null,
+        reportedSeverity: null,
+        result: null,
+        savedAt: '2026-10-23T08:00:00.000Z',
+        selectedSymptoms: [],
+        sourceHeight: 480,
+        sourceType: 'camera',
+        sourceWidth: 640,
+        status: 'image-selected',
+      },
+      updatedAt: '2026-10-23T08:00:00.000Z',
+      version: 1,
+    });
+
+    await render(<Harness owner={OWNER_A} />);
+    expect(screen.getByText('draft:saved')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Flush saved draft'));
+    await waitFor(() => expect(screen.getByText('flush:true')).toBeOnTheScreen());
+
+    mockDraftRows.clear();
+
+    await fireEvent.press(screen.getByLabelText('Flush saved draft'));
+    await waitFor(() => expect(screen.getByText('flush:false')).toBeOnTheScreen());
+  });
+
   it('reports a kept draft as saved once the checkpoint is written', async () => {
     await render(<Harness owner={OWNER_A} />);
 

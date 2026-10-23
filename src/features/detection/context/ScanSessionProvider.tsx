@@ -413,20 +413,26 @@ function ScanSessionOwner({
         await attempt.promise;
       }
     }
+    let persisted: boolean;
     if (draftImageRef.current?.sourceUri === selection) {
-      return persistCheckpoint(ownerIdentity);
+      persisted = await persistCheckpoint(ownerIdentity);
+    } else {
+      const sourceType = stateRef.current.sourceType;
+      if (!sourceType) {
+        return false;
+      }
+      persisted = await persistSelectedImage({
+        sourceHeight: stateRef.current.sourceHeight,
+        sourceType,
+        sourceUri: selection,
+        sourceWidth: stateRef.current.sourceWidth,
+      });
     }
-    const sourceType = stateRef.current.sourceType;
-    if (!sourceType) {
+    if (!persisted) {
       return false;
     }
-    return persistSelectedImage({
-      sourceHeight: stateRef.current.sourceHeight,
-      sourceType,
-      sourceUri: selection,
-      sourceWidth: stateRef.current.sourceWidth,
-    });
-  }, [ownerIdentity, persistCheckpoint, persistSelectedImage]);
+    return readScanDraftCheckpoint(database, ownerIdentity) !== null;
+  }, [database, ownerIdentity, persistCheckpoint, persistSelectedImage]);
 
   const isOwnerCurrent = useCallback(
     (owner: string | null) => owner !== null && owner === ownerIdentity,

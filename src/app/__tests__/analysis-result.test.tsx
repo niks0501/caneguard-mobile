@@ -31,6 +31,7 @@ let mockSaveRecordState = {
 };
 const mockRouterBack = router.back as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
+const mockRouterDismissAll = router.dismissAll as jest.Mock;
 const mockRouterReplace = router.replace as jest.Mock;
 const mockRouterDismissTo = router.dismissTo as jest.Mock;
 
@@ -313,11 +314,15 @@ describe('AnalysisResultScreen', () => {
     await fireEvent.press(screen.getByLabelText('Report this scan to the office'));
 
     expect(mockSaveRecord).toHaveBeenCalledTimes(1);
-    expect(mockRouterReplace).toHaveBeenCalledWith({
+    expect(mockRouterDismissAll).toHaveBeenCalledTimes(1);
+    expect(mockRouterPush).toHaveBeenCalledWith({
       pathname: '/field-report',
       params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
     });
-    expect(mockRouterPush).not.toHaveBeenCalledWith(
+    expect(
+      mockRouterDismissAll.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockRouterPush.mock.invocationCallOrder[0]);
+    expect(mockRouterReplace).not.toHaveBeenCalledWith(
       expect.objectContaining({ pathname: '/field-report' }),
     );
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
@@ -346,7 +351,8 @@ describe('AnalysisResultScreen', () => {
     await fireEvent.press(screen.getByLabelText('Report this scan to the office'));
 
     expect(mockSaveRecord).not.toHaveBeenCalled();
-    expect(mockRouterReplace).toHaveBeenCalledWith({
+    expect(mockRouterDismissAll).toHaveBeenCalledTimes(1);
+    expect(mockRouterPush).toHaveBeenCalledWith({
       pathname: '/field-report',
       params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
     });
@@ -364,15 +370,17 @@ describe('AnalysisResultScreen', () => {
     await fireEvent.press(screen.getByLabelText('Report this scan to the office'));
 
     expect(screen.getByLabelText('Opening Field Report')).toBeDisabled();
-    expect(mockRouterReplace).not.toHaveBeenCalled();
+    expect(mockRouterPush).not.toHaveBeenCalled();
+    expect(mockRouterDismissAll).not.toHaveBeenCalled();
 
     resolveSave({ id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' });
     await waitFor(() =>
-      expect(mockRouterReplace).toHaveBeenCalledWith({
+      expect(mockRouterPush).toHaveBeenCalledWith({
         pathname: '/field-report',
         params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
       }),
     );
+    expect(mockRouterDismissAll).toHaveBeenCalledTimes(1);
   });
 
   it('allows completed scan evidence to remain scan-only without a barangay', async () => {
@@ -552,7 +560,8 @@ describe('AnalysisResultScreen', () => {
 
     await fireEvent.press(screen.getByLabelText('Report this scan to the office'));
 
-    expect(mockRouterReplace).toHaveBeenCalledWith({
+    expect(mockRouterDismissAll).toHaveBeenCalledTimes(1);
+    expect(mockRouterPush).toHaveBeenCalledWith({
       pathname: '/field-report',
       params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
     });

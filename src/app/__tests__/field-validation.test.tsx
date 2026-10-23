@@ -350,5 +350,41 @@ describe('FieldValidationScreen', () => {
       );
       expect(persistDraftPhoto).not.toHaveBeenCalled();
     });
+
+    it('persists a photo removal to the saved draft', async () => {
+      mockHook({
+        draftStatus: 'saved',
+        formDraft: {
+          action: 'Advised removal.',
+          finding: 'Lesions consistent with Rust.',
+          followUpOutcome: 'improved',
+          observation: 'Fresh pustules on lower leaves.',
+          photo: {
+            mimeType: 'image/jpeg',
+            sizeBytes: 4096,
+            uri: 'file:///managed/field-validation/owner/assignment-draft-1.jpg',
+          },
+          savedAt: '2026-10-23T08:00:00.000Z',
+        },
+      });
+
+      await render(<FieldValidationScreen />);
+      expect(
+        screen.getByLabelText('Fresh field validation photo'),
+      ).toBeOnTheScreen();
+
+      await fireEvent.press(screen.getByTestId('field-validation.remove-photo'));
+
+      expect(saveDraftCheckpoint).toHaveBeenCalledWith({
+        action: 'Advised removal.',
+        finding: 'Lesions consistent with Rust.',
+        followUpOutcome: 'improved',
+        observation: 'Fresh pustules on lower leaves.',
+        photo: null,
+      });
+      expect(
+        screen.queryByLabelText('Fresh field validation photo'),
+      ).not.toBeOnTheScreen();
+    });
   });
 });

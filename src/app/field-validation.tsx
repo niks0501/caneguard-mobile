@@ -157,7 +157,17 @@ export default function FieldValidationScreen() {
   };
 
   const removePhoto = () => {
+    const checkpointPhoto = formDraft?.photo ?? null;
     setPhoto(null);
+    if (checkpointPhoto) {
+      void saveDraftCheckpoint({
+        action,
+        finding,
+        followUpOutcome,
+        observation,
+        photo: null,
+      });
+    }
     showToast('Photo removed', 'info');
   };
 

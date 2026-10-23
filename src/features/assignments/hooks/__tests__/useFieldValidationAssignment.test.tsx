@@ -249,6 +249,22 @@ describe('useFieldValidationAssignment visit drafts', () => {
       REPLACEMENT_PHOTO.uri,
       OWNER_ID,
     );
+
+    await act(async () => {
+      const saved = await result.current.saveDraftCheckpoint({
+        action: 'Advised removal.',
+        finding: 'Lesions consistent with Rust.',
+        followUpOutcome: 'improved',
+        observation: 'Fresh pustules on lower leaves.',
+        photo: null,
+      });
+      expect(saved).toBe(true);
+    });
+    expect(mockDeletePhoto).toHaveBeenCalledTimes(2);
+    expect(mockDeletePhoto).toHaveBeenLastCalledWith(
+      REPLACEMENT_PHOTO.uri,
+      OWNER_ID,
+    );
   });
 
   it('keeps the draft photo when the completed visit cannot clear its checkpoint', async () => {

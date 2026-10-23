@@ -269,13 +269,17 @@ export function useFieldReportDraft(
     [database, finalizing, isCurrentInput, user],
   );
 
-  const cancelLocationCapture = useCallback(() => {
-    // A foreground native read cannot be cancelled directly; invalidating the
-    // attempt makes any late result stale so it is never applied.
+  const invalidateLocationAttempt = useCallback(() => {
     locationAttempt.current += 1;
     locationCaptureInFlight.current = false;
     setCapturingLocation(false);
   }, []);
+
+  const cancelLocationCapture = useCallback(() => {
+    // A foreground native read cannot be cancelled directly; invalidating the
+    // attempt makes any late result stale so it is never applied.
+    invalidateLocationAttempt();
+  }, [invalidateLocationAttempt]);
 
   const captureLocation = useCallback(async (): Promise<FieldReport | null> => {
     if (!state.data || !hasCurrentReport || !user) {
@@ -507,7 +511,7 @@ export function useFieldReportDraft(
         return null;
       }
 
-      locationAttempt.current += 1;
+      invalidateLocationAttempt();
       lastError.current = null;
       setSavingManualLocation(true);
       setSaved(false);
@@ -553,6 +557,7 @@ export function useFieldReportDraft(
       database,
       finalizing,
       hasCurrentReport,
+      invalidateLocationAttempt,
       isCurrentInput,
       savingManualLocation,
       state.data,
@@ -574,7 +579,7 @@ export function useFieldReportDraft(
         return null;
       }
 
-      locationAttempt.current += 1;
+      invalidateLocationAttempt();
       lastError.current = null;
       setSavingManualLocation(true);
       setSaved(false);
@@ -615,6 +620,7 @@ export function useFieldReportDraft(
       database,
       finalizing,
       hasCurrentReport,
+      invalidateLocationAttempt,
       isCurrentInput,
       savingManualLocation,
       state.data,
@@ -636,7 +642,7 @@ export function useFieldReportDraft(
         return null;
       }
 
-      locationAttempt.current += 1;
+      invalidateLocationAttempt();
       lastError.current = null;
       setSavingManualLocation(true);
       setSaved(false);
@@ -675,6 +681,7 @@ export function useFieldReportDraft(
       database,
       finalizing,
       hasCurrentReport,
+      invalidateLocationAttempt,
       isCurrentInput,
       savingManualLocation,
       state.data,
@@ -714,7 +721,7 @@ export function useFieldReportDraft(
         return null;
       }
 
-      locationAttempt.current += 1;
+      invalidateLocationAttempt();
       finalizeInFlight.current = true;
       setFinalizing(true);
       setSaved(false);
@@ -765,6 +772,7 @@ export function useFieldReportDraft(
       database,
       finalizing,
       hasCurrentReport,
+      invalidateLocationAttempt,
       isCurrentInput,
       savingManualLocation,
       state.data,

@@ -118,6 +118,21 @@ function SessionProbe() {
       />
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel="Select second test image"
+        onPress={() =>
+          dispatch({
+            type: 'SELECT_IMAGE',
+            payload: {
+              sourceUri: 'file:///picker/second-leaf.jpg',
+              sourceWidth: 800,
+              sourceHeight: 600,
+              sourceType: 'gallery',
+            },
+          })
+        }
+      />
+      <Pressable
+        accessibilityRole="button"
         accessibilityLabel="Change test symptoms"
         onPress={() =>
           dispatch({ type: 'SET_SYMPTOMS', payload: ['rust'] })
@@ -223,6 +238,82 @@ describe('ScanSessionProvider', () => {
       ).toBeOnTheScreen(),
     );
     expect(screen.getByText('draft:saved')).toBeOnTheScreen();
+  });
+
+  it('keeps the newest selection when an older image copy settles later', async () => {
+    let resolveFirstCopy!: (value: unknown) => void;
+    mockCopyScanImageToManagedStorage.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveFirstCopy = resolve;
+      }),
+    );
+
+    await render(<Harness owner={OWNER_A} />);
+    await fireEvent.press(screen.getByLabelText('Select test image'));
+    await fireEvent.press(screen.getByLabelText('Select second test image'));
+    await waitFor(() => expect(screen.getByText('draft:saved')).toBeOnTheScreen());
+
+    const [firstCall, secondCall] = mockCopyScanImageToManagedStorage.mock.calls;
+    const firstManagedUri = `file:///managed/scan-images/${OWNER_A}/${
+      (firstCall[0] as { recordId: string }).recordId
+    }.jpg`;
+    const secondManagedUri = `file:///managed/scan-images/${OWNER_A}/${
+      (secondCall[0] as { recordId: string }).recordId
+    }.jpg`;
+
+    resolveFirstCopy({
+      extension: 'jpg',
+      managedUri: firstManagedUri,
+      mimeType: 'image/jpeg',
+      sizeBytes: 4096,
+      sourceHeight: 480,
+      sourceType: 'camera',
+      sourceWidth: 640,
+    });
+    await waitFor(() =>
+      expect(mockDeleteManagedScanImage).toHaveBeenCalledWith(
+        firstManagedUri,
+        OWNER_A,
+      ),
+    );
+
+    const checkpoint = mockDraftRows.get(`${OWNER_A}:scan:current`);
+    expect(checkpoint?.payload).toMatchObject({
+      managedImageUri: secondManagedUri,
+    });
+    expect(screen.getByText('file:///picker/second-leaf.jpg')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Flush saved draft'));
+    await waitFor(() => expect(screen.getByText('flush:true')).toBeOnTheScreen());
+  });
+
+  it('does not pair a stored draft image with a newer failed selection', async () => {
+    await render(<Harness owner={OWNER_A} />);
+    await fireEvent.press(screen.getByLabelText('Select test image'));
+    await waitFor(() => expect(screen.getByText('draft:saved')).toBeOnTheScreen());
+    const storedCheckpoint = mockDraftRows.get(`${OWNER_A}:scan:current`);
+    const storedImageUri = (
+      storedCheckpoint?.payload as { managedImageUri: string }
+    ).managedImageUri;
+
+    mockCopyScanImageToManagedStorage.mockRejectedValueOnce(
+      new Error('The device is out of space.'),
+    );
+    await fireEvent.press(screen.getByLabelText('Select second test image'));
+    await waitFor(() =>
+      expect(screen.getByText('draft:failed')).toBeOnTheScreen(),
+    );
+
+    await fireEvent.press(screen.getByLabelText('Change test symptoms'));
+    await waitFor(() => expect(screen.getByText('symptoms:rust')).toBeOnTheScreen());
+
+    expect(mockDraftRows.get(`${OWNER_A}:scan:current`)?.payload).toMatchObject({
+      managedImageUri: storedImageUri,
+      selectedSymptoms: [],
+    });
+
+    await fireEvent.press(screen.getByLabelText('Flush saved draft'));
+    await waitFor(() => expect(screen.getByText('flush:false')).toBeOnTheScreen());
   });
 
   it('reports a kept draft as unsaved when the image copy failed', async () => {

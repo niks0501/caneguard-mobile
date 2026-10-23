@@ -67,6 +67,7 @@ interface StoredDraftImage {
   imageMimeType: string | null;
   imageSizeBytes: number | null;
   managedImageUri: string;
+  sourceUri: string;
 }
 
 export function ScanSessionProvider({ children }: PropsWithChildren) {
@@ -112,6 +113,7 @@ function storedImageFrom(checkpoint: ScanDraftCheckpoint): StoredDraftImage {
     imageMimeType: checkpoint.imageMimeType,
     imageSizeBytes: checkpoint.imageSizeBytes,
     managedImageUri: checkpoint.managedImageUri,
+    sourceUri: checkpoint.managedImageUri,
   };
 }
 
@@ -168,6 +170,9 @@ function ScanSessionOwner({
       const draft = draftImageRef.current;
       const currentState = stateRef.current;
       if (finalized.current || !draft || !owner) {
+        return Promise.resolve();
+      }
+      if (draft.sourceUri !== currentState.sourceUri) {
         return Promise.resolve();
       }
       const checkpoint = buildScanDraftCheckpoint({
@@ -258,6 +263,7 @@ function ScanSessionOwner({
         imageMimeType: managed.mimeType,
         imageSizeBytes: managed.sizeBytes,
         managedImageUri: managed.managedUri,
+        sourceUri: payload.sourceUri,
       };
       if (previous && previous.managedImageUri !== managed.managedUri) {
         try {
@@ -328,6 +334,7 @@ function ScanSessionOwner({
     state.reportedSeverity,
     state.result,
     state.selectedSymptoms,
+    state.sourceUri,
     state.status,
   ]);
 
@@ -375,8 +382,12 @@ function ScanSessionOwner({
     if (!ownerIdentity) {
       return true;
     }
-    if (!draftImageRef.current) {
+    const draft = draftImageRef.current;
+    if (!draft) {
       return stateRef.current.sourceUri === null;
+    }
+    if (draft.sourceUri !== stateRef.current.sourceUri) {
+      return false;
     }
     await persistCheckpoint(ownerIdentity);
     return lastWriteOk.current;

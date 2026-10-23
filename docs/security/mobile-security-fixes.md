@@ -14,9 +14,16 @@ cannot be completed in this repository.
   This is an intentional safe migration rule; a future product flow may
   explicitly export or delete those rows, but the client must not guess which
   account owns them.
-- Settings exposes **Clear local data**. It removes the current owner's scans,
-  report drafts, validation evidence, assignment/notification caches, and
-  managed images without touching server-synchronized data.
+- Settings exposes two owner-scoped actions. **Clear downloaded office data**
+  removes only re-downloadable visit assignments and cached office updates.
+  **Remove all local records** permanently removes the current owner's scans,
+  reports, boundaries, visits, assignment and notification caches, draft
+  checkpoints, and managed images without touching server data or another
+  account; it previews every affected kind, refuses while an upload is in
+  flight, re-checks the confirmed counts inside the deletion transaction, and
+  requires an explicit acknowledgement before unsent work is lost.
+- Local draft checkpoints in `local_drafts` are keyed by owner identity, draft
+  kind, and draft key, and are never readable by another account.
 - On authenticated startup, the mobile client purges only synchronized local
   data older than `LOCAL_DATA_RETENTION_DAYS` (90 days). Draft, local-only,
   pending, and failed evidence remains available for offline retry.

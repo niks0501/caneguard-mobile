@@ -76,9 +76,10 @@ not proven by unit tests:
 - A password-only sign-in is not stored: closing the app while offline returns
   to the sign-in screen.
 - A biometric-protected session can restore the same unexpired owner offline.
-- Settings shows a **Before you go offline** readiness check (protected session
-  configured and unexpired, visits downloaded). Sign-in explains the
-  password-only limit.
+- Settings shows a **Ready for offline work** / **Not ready for offline work**
+  readiness card that reads ready only when a protected session is configured,
+  unexpired, and visits are downloaded. Sign-in explains the password-only
+  limit.
 - No offline password or weaker unlock method is implemented. A different
   offline-unlock design would need its own threat model and approval.
 

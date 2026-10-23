@@ -73,7 +73,7 @@ The Web dashboard keeps its report-table fallback visible when `VITE_MAPTILER_KE
 
 For the Mobile GPS path, grant CaneGuard foreground location permission and enable location services on the Android emulator or device.
 If GPS is unavailable, permission is denied, or location services are off, the manual-map fallback requires an active internet connection and loaded online map tiles served through the configured CaneGuard HTTPS tile proxy (`EXPO_PUBLIC_MAP_TILE_PROXY_URL`); without that proxy the map shows an unavailable state and makes no third-party tile requests.
-It is not available offline, and the Draft remains unchanged until a final location is selected.
+It is not available offline; the Draft is preserved either way, and an inspector who cannot use GPS or the online map records an explicit unavailable-location reason before finalizing.
 
 ## One-time setup
 

@@ -64,8 +64,11 @@ test:
       only for browser-compatible user-visible UI or a live HTTP contract.
     - T3 (High-Stakes): Detection/inference, database, sync, or authentication.
       Run the full verification gate and relevant critical-path tests, plus an
-      independent adversarial review. Human-owned tests are sole proof;
-      agent-written tests are supplemental notes. Unverified behavior is NO-GO.
+      independent adversarial review. Only human-owned or Secondmate-blessed
+      tests are proof; worker-written tests remain supplemental until blessed.
+      Follow the frozen T3 golden suite matrix in PROJECT_CHECKS.md. Do not
+      modify, delete, weaken, rename, or replace a frozen suite or its fixtures
+      without explicit Captain sign-off. Unverified behavior is NO-GO.
 
     Live Verification & Environment Rules:
     - Use chrome-devtools-axi only for browser-compatible user-visible UI or

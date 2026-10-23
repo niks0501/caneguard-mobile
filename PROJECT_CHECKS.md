@@ -16,7 +16,17 @@ Classify each task by intent and changed paths. Record exactly one tier line in 
 - **T0 — Docs-Only:** For Markdown and `docs/**` changes only, or comments/docstrings with no executable changes. Run `git diff --check` and review the document's location, links, and ownership. There is no configured Markdown linter; do not run the app test suite or a browser.
 - **T1 — Fast Lane:** For copy, non-critical configuration, styling, or dead code, run `npm run lint && npm run typecheck && npm test -- --runInBand <test-file>`. No browser or server startup.
 - **T2 — Feature:** Run `npm run verify:fast`. Add exactly one targeted browser/live check only when browser-compatible user-visible UI or a live HTTP contract changed; skip it for non-visual and native-only changes.
-- **T3 — High-Stakes:** For detection/inference, database, sync, or authentication changes, run `npm run verify:fast && npm run db:check` and the relevant existing critical-path tests (for example, `npm test -- --runInBand <test-file>`). Obtain an independent adversarial review. Existing human-owned tests are the proof; agent-written tests are supplemental notes.
+- **T3 — High-Stakes:** For detection/inference, database, sync, or authentication changes, run `npm run verify:fast && npm run db:check` and the relevant existing critical-path tests (for example, `npm test -- --runInBand <test-file>`). Obtain an independent adversarial review. Only human-owned or Secondmate-blessed tests are proof; worker-written tests remain supplemental until blessed. Follow the [frozen T3 golden suite matrix](#frozen-t3-golden-suite-matrix).
+
+### Frozen T3 golden suite matrix
+
+The suites and oracle below are frozen. A T3 claim is proved only by human-owned or explicitly Secondmate-blessed tests; worker-written tests are supplemental until blessed. Do not modify, delete, weaken, rename, or replace a frozen suite or its fixtures without explicit Captain sign-off.
+
+| T3 area | Frozen suite and golden evidence |
+| --- | --- |
+| Detection / inference | `src/features/detection/model/__tests__/v1Qa.test.ts` (runs `scripts/tests/test_tflite_model_shapes.py`); oracle `qa/expected-v1-outputs.json`, documented in [`docs/model-v1/model-v1-integration-handoff.md` — Frozen QA expected outputs](docs/model-v1/model-v1-integration-handoff.md#frozen-qa-expected-outputs). |
+| Database / migrations | `src/database/__tests__/migrations.test.ts` |
+| Sync / local outbox | `src/features/reports/data/__tests__/fieldReportRepository.test.ts`, `src/features/sync/services/__tests__/syncFieldReport.test.ts`, and `src/features/sync/services/__tests__/syncPendingFieldReports.test.ts` |
 
 Device, emulator, ADB, Agent Device, and staging checks are not routine gates. Run them only when the task brief explicitly requests them. Browser checks cannot prove native behavior.
 

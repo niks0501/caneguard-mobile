@@ -33,12 +33,16 @@ export function useSaveCompletedScan(state: ScanSessionState) {
   const [saveState, setSaveState] = useState<SaveRecordState>(INITIAL_STATE);
   const recordId = useRef<string | null>(null);
   const inFlight = useRef<Promise<{ id: string }> | null>(null);
+  // A result-based caller needs the failure message that belongs to the write
+  // it just awaited, not an older render's state value.
+  const lastError = useRef<string | null>(null);
 
   async function save(): Promise<{ id: string } | null> {
     if (inFlight.current) {
       return inFlight.current;
     }
 
+    lastError.current = null;
     recordId.current ??= randomUUID();
     setSaveState({
       error: null,
@@ -52,6 +56,7 @@ export function useSaveCompletedScan(state: ScanSessionState) {
         'INVALID_SCAN_RECORD',
         'Sign in before saving a scan record.',
       );
+      lastError.current = getStorageErrorMessage(error);
       setSaveState({
         error,
         errorMessage: getStorageErrorMessage(error),
@@ -84,6 +89,7 @@ export function useSaveCompletedScan(state: ScanSessionState) {
         'SAVE_TRANSACTION_FAILED',
         'Saving the completed scan failed.',
       );
+      lastError.current = getStorageErrorMessage(storageError);
       setSaveState({
         error: storageError,
         errorMessage: getStorageErrorMessage(storageError),
@@ -98,6 +104,7 @@ export function useSaveCompletedScan(state: ScanSessionState) {
 
   return {
     ...saveState,
+    getLastError: () => lastError.current,
     save,
   };
 }

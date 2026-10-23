@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
@@ -10,6 +10,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -34,6 +35,7 @@ import {
   Typography,
 } from '@/constants/theme';
 import { LOCATION_ADDED, LOCATION_UNCONFIRMED } from '@/constants/copy';
+import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -55,6 +57,12 @@ import {
   getMissingSubmissionRequirements,
 } from '@/features/reports/domain/fieldReportValidation';
 import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
+import {
+  deleteFieldReportFormCheckpoint,
+  readFieldReportFormCheckpoint,
+  writeFieldReportFormCheckpoint,
+  type FieldReportFormCheckpoint,
+} from '@/features/reports/drafts/fieldReportFormDraft';
 import { usePossibleRecentMatch } from '@/features/reports/hooks/usePossibleRecentMatch';
 import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
 import { useLocationReferenceData } from '@/features/reports/hooks/useLocationReferenceData';
@@ -65,6 +73,15 @@ import {
 } from '@/features/records/services/scanImageStorage';
 import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
 import { useSync } from '@/features/sync/hooks/useSync';
+import {
+  getReportSyncAttemptOutcome,
+  type ReportSyncAttemptOutcome,
+} from '@/features/sync/utils/syncStatusCopy';
+import {
+  buildSupportReference,
+  getSyncAttention,
+  supportShareMessage,
+} from '@/features/sync/utils/syncAttention';
 import { useTheme } from '@/hooks/use-theme';
 
 const MAX_AFFECTED_AREA_HECTARES = 10_000;
@@ -177,6 +194,7 @@ export type FieldReportScreenProps = {
 };
 
 export default function FieldReportScreen({ initialStep: propsInitialStep }: FieldReportScreenProps = {}) {
+  const database = useCaneGuardDatabase();
   const theme = useTheme();
   const { showToast } = useToast();
   const params = useLocalSearchParams<{
@@ -223,6 +241,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
 
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [retryOutcome, setRetryOutcome] = useState<ReportSyncAttemptOutcome | null>(null);
+  const [retryDetail, setRetryDetail] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
@@ -270,6 +290,11 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     affectedArea?: string;
     affectedPortion?: string;
   }>({});
+  const [formDraftStatus, setFormDraftStatus] = useState<
+    'idle' | 'saving' | 'saved' | 'failed'
+  >('idle');
+  const [formDraftSavedAt, setFormDraftSavedAt] = useState<string | null>(null);
+  const [formDraftSignature, setFormDraftSignature] = useState<string | null>(null);
 
   const [mismatchDraft, setMismatchDraft] = useState(() => ({
     reportId: report.data?.id ?? null,
@@ -314,52 +339,202 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   // Hydrate state when draft loads or changes ID
   if (report.data && loadedReportId !== report.data.id) {
     setLoadedReportId(report.data.id);
-    setFarmerName(report.data.farmerOrFarmOwnerName ?? '');
-    setBarangay(report.data.barangay ?? '');
-    setProvince(report.data.province ?? defaultRegion?.province ?? '');
-    setMunicipality(report.data.municipality ?? defaultRegion?.municipality ?? '');
-    setAffectedAreaText(
-      report.data.affectedAreaHectares === null
-        ? ''
-        : formatDecimalInput(report.data.affectedAreaHectares),
-    );
-    setAffectedPortionText(
-      report.data.affectedPortionPercent === null
-        ? ''
-        : formatDecimalInput(report.data.affectedPortionPercent),
-    );
-    setAffectedAreaChoice(
-      report.data.affectedAreaMeasurementExplicit === true
-        ? report.data.affectedAreaMeasurement
-        : report.data.affectedAreaMeasurementExplicit === false
-          ? null
-          : report.data.affectedAreaHectares !== null
-            ? 'measured'
-            : null,
-    );
-    setAffectedPortionChoice(
-      report.data.affectedPortionMeasurementExplicit === true
-        ? report.data.affectedPortionMeasurement
-        : report.data.affectedPortionMeasurementExplicit === false
-          ? null
-          : report.data.affectedPortionPercent !== null
-            ? 'measured'
-            : null,
-    );
-    setVariety(report.data.sugarcaneVariety ?? '');
-    setCropAge(report.data.cropAge ?? '');
-    setCaneClass(report.data.caneClass ?? '');
-    setNotes(report.data.fieldNotes ?? '');
-    setMismatchDraft({
-      reportId: report.data.id,
+    const persistedValues: Omit<FieldReportFormCheckpoint, 'savedAt'> = {
+      affectedAreaChoice:
+        report.data.affectedAreaMeasurementExplicit === true
+          ? report.data.affectedAreaMeasurement
+          : report.data.affectedAreaMeasurementExplicit === false
+            ? null
+            : report.data.affectedAreaHectares !== null
+              ? 'measured'
+              : null,
+      affectedAreaText:
+        report.data.affectedAreaHectares === null
+          ? ''
+          : formatDecimalInput(report.data.affectedAreaHectares),
+      affectedPortionChoice:
+        report.data.affectedPortionMeasurementExplicit === true
+          ? report.data.affectedPortionMeasurement
+          : report.data.affectedPortionMeasurementExplicit === false
+            ? null
+            : report.data.affectedPortionPercent !== null
+              ? 'measured'
+              : null,
+      affectedPortionText:
+        report.data.affectedPortionPercent === null
+          ? ''
+          : formatDecimalInput(report.data.affectedPortionPercent),
+      barangay: report.data.barangay ?? '',
+      caneClass: report.data.caneClass ?? '',
+      cropAge: report.data.cropAge ?? '',
+      farmerName: report.data.farmerOrFarmOwnerName ?? '',
       mismatchReported: report.data.mismatchReported,
-      reporterConcernChoice: getReporterConcernChoice(
-        report.data.reporterSuspectedCondition ?? '',
-      ),
+      municipality: report.data.municipality ?? defaultRegion?.municipality ?? '',
+      notes: report.data.fieldNotes ?? '',
+      province: report.data.province ?? defaultRegion?.province ?? '',
       reporterObservationText: report.data.reporterObservationText ?? '',
       reporterSuspectedCondition: report.data.reporterSuspectedCondition ?? '',
+      step: currentStep,
+      variety: report.data.sugarcaneVariety ?? '',
+    };
+    setFarmerName(persistedValues.farmerName);
+    setBarangay(persistedValues.barangay);
+    setProvince(persistedValues.province);
+    setMunicipality(persistedValues.municipality);
+    setAffectedAreaText(persistedValues.affectedAreaText);
+    setAffectedPortionText(persistedValues.affectedPortionText);
+    setAffectedAreaChoice(persistedValues.affectedAreaChoice);
+    setAffectedPortionChoice(persistedValues.affectedPortionChoice);
+    setVariety(persistedValues.variety);
+    setCropAge(persistedValues.cropAge);
+    setCaneClass(persistedValues.caneClass);
+    setNotes(persistedValues.notes);
+    setMismatchDraft({
+      reportId: report.data.id,
+      mismatchReported: persistedValues.mismatchReported,
+      reporterConcernChoice: getReporterConcernChoice(
+        persistedValues.reporterSuspectedCondition,
+      ),
+      reporterObservationText: persistedValues.reporterObservationText,
+      reporterSuspectedCondition: persistedValues.reporterSuspectedCondition,
     });
+    setFormDraftSignature(checkpointSignature(persistedValues));
+
+    // D02: unsaved form inputs are recoverable for the same owner. The
+    // checkpoint only wins over the persisted Draft because an explicit save
+    // or finalize deletes it.
+    const checkpoint =
+      user === null
+        ? null
+        : readFieldReportFormCheckpoint(
+            database,
+            user.uuid,
+            report.data.id,
+            report.data.authoringState,
+          );
+    if (checkpoint) {
+      const saved = checkpoint.checkpoint;
+      setFarmerName(saved.farmerName);
+      setBarangay(saved.barangay);
+      setProvince(saved.province || defaultRegion?.province || '');
+      setMunicipality(saved.municipality || defaultRegion?.municipality || '');
+      setAffectedAreaText(saved.affectedAreaText);
+      setAffectedPortionText(saved.affectedPortionText);
+      setAffectedAreaChoice(saved.affectedAreaChoice);
+      setAffectedPortionChoice(saved.affectedPortionChoice);
+      setVariety(saved.variety);
+      setCropAge(saved.cropAge);
+      setCaneClass(saved.caneClass);
+      setNotes(saved.notes);
+      setMismatchDraft({
+        reportId: report.data.id,
+        mismatchReported: saved.mismatchReported,
+        reporterConcernChoice: getReporterConcernChoice(
+          saved.reporterSuspectedCondition,
+        ),
+        reporterObservationText: saved.reporterObservationText,
+        reporterSuspectedCondition: saved.reporterSuspectedCondition,
+      });
+      if (propsInitialStep === undefined && stepParam === undefined) {
+        setCurrentStep(Math.max(1, Math.min(5, saved.step)));
+      }
+      setFormDraftSignature(checkpointSignature(saved));
+      setFormDraftSavedAt(saved.savedAt);
+      setFormDraftStatus('saved');
+    }
   }
+
+  // Debounced local checkpoint for the Draft form. It never uploads and is
+  // deleted as soon as an explicit save or finalize owns the values.
+  const activeReportId = report.data?.id ?? null;
+  const activeAuthoringState = report.data?.authoringState ?? null;
+  const ownerUuid = user?.uuid ?? null;
+
+  const currentFormCheckpoint = useCallback(
+    (): Omit<FieldReportFormCheckpoint, 'savedAt'> => ({
+      affectedAreaChoice,
+      affectedAreaText,
+      affectedPortionChoice,
+      affectedPortionText,
+      barangay,
+      caneClass,
+      cropAge,
+      farmerName: farmerName,
+      mismatchReported: mismatchDraft.mismatchReported,
+      municipality,
+      notes,
+      province,
+      reporterObservationText: mismatchDraft.reporterObservationText,
+      reporterSuspectedCondition: mismatchDraft.reporterSuspectedCondition,
+      step: currentStep,
+      variety,
+    }),
+    [
+      affectedAreaChoice,
+      affectedAreaText,
+      affectedPortionChoice,
+      affectedPortionText,
+      barangay,
+      caneClass,
+      cropAge,
+      currentStep,
+      farmerName,
+      mismatchDraft.mismatchReported,
+      mismatchDraft.reporterObservationText,
+      mismatchDraft.reporterSuspectedCondition,
+      municipality,
+      notes,
+      province,
+      variety,
+    ],
+  );
+
+  useEffect(() => {
+    if (
+      !ownerUuid ||
+      !activeReportId ||
+      activeAuthoringState !== 'draft' ||
+      loadedReportId !== activeReportId
+    ) {
+      return;
+    }
+    const checkpoint = currentFormCheckpoint();
+    const signature = checkpointSignature(checkpoint);
+    if (signature === formDraftSignature) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setFormDraftStatus('saving');
+      void writeFieldReportFormCheckpoint(database, ownerUuid, activeReportId, {
+        ...checkpoint,
+        savedAt: new Date().toISOString(),
+      })
+        .then(() => {
+          setFormDraftSignature(signature);
+          setFormDraftStatus('saved');
+          setFormDraftSavedAt(new Date().toISOString());
+        })
+        .catch(() => setFormDraftStatus('failed'));
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [
+    activeAuthoringState,
+    activeReportId,
+    currentFormCheckpoint,
+    database,
+    formDraftSignature,
+    loadedReportId,
+    ownerUuid,
+  ]);
+
+  const clearFormCheckpoint = useCallback(() => {
+    if (user && report.data) {
+      deleteFieldReportFormCheckpoint(database, user.uuid, report.data.id);
+      setFormDraftSignature(checkpointSignature(currentFormCheckpoint()));
+    }
+    setFormDraftStatus('idle');
+    setFormDraftSavedAt(null);
+  }, [currentFormCheckpoint, database, report.data, user]);
 
   // Values returned from the optional-details sheet route (F6). The sheet
   // passes the four fields back as params; applying them to this screen's
@@ -522,16 +697,27 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       returnToTab('/home');
       return;
     }
-    if (report.data) {
-      const values = collectValues(false);
-      if (values) {
-        try {
-          await report.save(values);
-        } catch {
-          // Best-effort save before exit
-        }
-      }
+    if (!report.data) {
+      showToast('Draft not saved — open the report again and retry', 'error');
+      return;
     }
+    const values = collectValues(false);
+    if (!values) {
+      // Invalid numeric input keeps the inspector on the form with the
+      // offending step identified; nothing is announced as saved.
+      showToast('Draft not saved — fix the highlighted field first', 'error');
+      goToStep(2);
+      return;
+    }
+    const saved = await report.save(values);
+    if (!saved) {
+      showToast(
+        report.getLastOperationError() ?? 'Draft not saved — please try again',
+        'error',
+      );
+      return;
+    }
+    clearFormCheckpoint();
     showToast('Draft saved', 'success');
     returnToTab('/home');
   };
@@ -543,30 +729,34 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       return;
     }
     if (report.data) {
-      try {
-        await report.discardDraft();
-      } catch {
-        // Best-effort discard before exit
+      const discarded = await report.discardDraft();
+      if (!discarded) {
+        showToast('Could not discard the draft — please try again', 'error');
+        return;
       }
     }
+    clearFormCheckpoint();
     showToast('Draft discarded', 'info');
     returnToTab('/home');
   };
 
   const handleSave = async () => {
     const values = collectValues(false);
-    if (values) {
-      try {
-        const result = await report.save(values);
-        if (result === null && report.errorMessage) {
-          showToast(report.errorMessage, 'error');
-        } else {
-          showToast('Draft saved', 'success');
-        }
-      } catch {
-        showToast('Saving draft failed — please try again', 'error');
-      }
+    if (!values) {
+      showToast('Draft not saved — fix the highlighted field first', 'error');
+      goToStep(2);
+      return;
     }
+    const result = await report.save(values);
+    if (!result) {
+      showToast(
+        report.getLastOperationError() ?? 'Draft not saved — please try again',
+        'error',
+      );
+      return;
+    }
+    clearFormCheckpoint();
+    showToast('Draft saved', 'success');
   };
 
   const handleFinalize = () => {
@@ -610,6 +800,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     try {
       const finalized = await report.finalize(values);
       if (finalized) {
+        clearFormCheckpoint();
         if (sync.isOnline === true) {
           await sync.syncNow('after-save');
           showToast('Report finalized', 'success');
@@ -634,12 +825,42 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     if (!report.data || retrying) {
       return;
     }
+    const targetReportId = report.data.id;
+    const previousStatus = report.data.syncStatus;
+    const previousErrorCode = report.data.lastSyncErrorCode;
     setRetrying(true);
     setRetryError(null);
+    setRetryOutcome(null);
+    setRetryDetail(null);
     try {
-      await sync.retryReport(report.data.id);
-      await report.refresh();
-      showToast('Sent to office', 'success');
+      const result = await sync.retryReport(targetReportId);
+      const refreshed = await report.refresh();
+      // The confirmation belongs to this report: another report syncing in the
+      // same batch, a null result, or an auth/validation failure is never
+      // reported as "Sent to office".
+      const targetResult =
+        result?.results.find((entry) => entry.reportId === targetReportId) ??
+        null;
+      const outcome = getReportSyncAttemptOutcome({
+        isOnline: sync.isOnline,
+        lastSyncErrorCode:
+          refreshed?.lastSyncErrorCode ?? previousErrorCode,
+        reportSyncStatus: refreshed?.syncStatus ?? previousStatus,
+        targetResult,
+      });
+      setRetryOutcome(outcome);
+      // Bounded field detail from the office, shown for this attempt only.
+      setRetryDetail(
+        targetResult?.status === 'failed' ? targetResult.error.detail : null,
+      );
+      showToast(
+        outcome.message,
+        outcome.kind === 'sent'
+          ? 'success'
+          : outcome.kind === 'still-waiting'
+            ? 'info'
+            : 'error',
+      );
     } catch (error: unknown) {
       setRetryError(
         getStorageErrorMessage(
@@ -656,35 +877,64 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     }
   };
 
-  const handleLocationCapture = async () => {
+  const shareSupportReference = async (fieldReport: FieldReport) => {
     try {
-      const res = await report.captureLocation();
-      if (res && res.finalLatitude !== null) {
-        showToast(LOCATION_ADDED, 'success');
-      } else if (report.errorMessage) {
-        showToast(report.errorMessage, 'error');
-      }
+      await Share.share({
+        message: supportShareMessage({
+          code: fieldReport.lastSyncErrorCode,
+          reportId: fieldReport.id,
+        }),
+      });
     } catch {
-      showToast(`${LOCATION_UNCONFIRMED} — please try again`, 'error');
+      showToast('Could not open the share sheet — copy the reference above', 'error');
     }
+  };
+
+  const handleLocationCapture = async () => {
+    const res = await report.captureLocation();
+    if (!res) {
+      const error = report.getLastOperationError();
+      if (error) {
+        showToast(error, 'error');
+      }
+      return;
+    }
+    if (res.gpsCaptureOutcome === 'resolved') {
+      showToast(LOCATION_ADDED, 'success');
+      return;
+    }
+    if (res.locationSource === 'unavailable') {
+      showToast(
+        `${LOCATION_UNCONFIRMED} — ${LOCATION_UNAVAILABLE_REASON_LABELS[res.locationUnavailableReason ?? 'other']}. Your draft is still saved.`,
+        'info',
+      );
+      return;
+    }
+    showToast(`${LOCATION_UNCONFIRMED}. Your draft is still saved.`, 'error');
   };
 
   const handleClearUnavailable = async () => {
-    try {
-      await report.clearLocationUnavailable();
-      showToast('Location reset', 'info');
-    } catch {
-      showToast('Could not reset location — please try again', 'error');
+    const res = await report.clearLocationUnavailable();
+    if (!res) {
+      showToast(
+        report.getLastOperationError() ?? 'Could not reset location — please try again',
+        'error',
+      );
+      return;
     }
+    showToast('Location reset', 'info');
   };
 
   const handleMarkUnavailable = async (reason: LocationUnavailableReason) => {
-    try {
-      await report.markLocationUnavailable(reason);
-      showToast('Location marked unavailable', 'info');
-    } catch {
-      showToast('Could not update location — please try again', 'error');
+    const res = await report.markLocationUnavailable(reason);
+    if (!res) {
+      showToast(
+        report.getLastOperationError() ?? 'Could not update location — please try again',
+        'error',
+      );
+      return;
     }
+    showToast('Location marked unavailable', 'info');
   };
 
   const openDeviceLocationSettings = () => {
@@ -694,6 +944,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       );
     });
   };
+
+  const syncAttention = getSyncAttention(report.data?.lastSyncErrorCode ?? null);
 
   const possibleMatchInput = useMemo<PossibleMatchLookupInput>(
     () => ({
@@ -881,6 +1133,15 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                   </View>
                 </View>
 
+                {report.data.authoringState === 'draft' ? (
+                  <Text
+                    testID="field-report.form-draft-status"
+                    accessibilityLiveRegion="polite"
+                    style={[styles.helpText, { color: theme.textSecondary }]}>
+                    {formatFormDraftStatus(formDraftStatus, formDraftSavedAt)}
+                  </Text>
+                ) : null}
+
                 {report.data.authoringState === 'finalized' ? (
                   // Rule 5: Finalized reports are not a wizard
                   <>
@@ -891,8 +1152,17 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                         status={authorityStatus}
                       />
                     ) : null}
+                    {report.data.syncStatus === 'failed' && syncAttention ? (
+                      <NeedsAttentionCard
+                        attention={syncAttention}
+                        fieldReport={report.data}
+                        onShare={() => void shareSupportReference(report.data!)}
+                      />
+                    ) : null}
+
                     {report.data.syncStatus === 'pending' ||
-                    report.data.syncStatus === 'failed' ? (
+                    (report.data.syncStatus === 'failed' &&
+                      syncAttention?.action !== 'support') ? (
                       <AppButton
                         testID="field-report.retry-sync"
                         onPress={() => void retrySync()}
@@ -903,9 +1173,15 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                         accessibilityLabel={
                           retrying
                             ? 'Trying to send the Field Report again'
-                            : 'Send Field Report'
+                            : syncAttention?.action === 'automatic-retry'
+                              ? 'Try sending this Field Report again'
+                              : 'Send Field Report'
                         }>
-                        {retrying ? 'Sending…' : 'Send Report'}
+                        {retrying
+                          ? 'Sending…'
+                          : syncAttention?.action === 'automatic-retry'
+                            ? 'Try Sending Again'
+                            : 'Send Report'}
                       </AppButton>
                     ) : null}
 
@@ -1171,6 +1447,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                           locationServicesDisabled={report.locationServicesDisabled}
                           markingUnavailable={report.markingLocationUnavailable}
                           saveInProgress={report.saving || report.finalizing}
+                          onCancelCapture={report.cancelLocationCapture}
                           onCapture={() => void handleLocationCapture()}
                           onClearUnavailable={() => void handleClearUnavailable()}
                           onMarkUnavailable={(reason) =>
@@ -1295,7 +1572,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                         testID="field-report.save-draft"
                         onPress={handleSave}
                         variant="secondary"
-                        disabled={report.saving || report.capturingLocation || report.finalizing}
+                        disabled={report.saving || report.finalizing}
                         leadingIcon="save"
                         accessibilityLabel={
                           report.finalizing
@@ -1332,6 +1609,31 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                     accessibilityLiveRegion="assertive"
                     style={[styles.error, { color: theme.danger }]}>
                     {retryError}
+                  </Text>
+                ) : null}
+                {retryOutcome ? (
+                  <Text
+                    testID="field-report.retry-outcome"
+                    accessibilityLiveRegion="polite"
+                    style={[
+                      styles.statusMessage,
+                      {
+                        color:
+                          retryOutcome.kind === 'sent'
+                            ? theme.success
+                            : retryOutcome.kind === 'still-waiting'
+                              ? theme.textSecondary
+                              : theme.danger,
+                      },
+                    ]}>
+                    {retryOutcome.message}
+                  </Text>
+                ) : null}
+                {retryDetail ? (
+                  <Text
+                    testID="field-report.retry-detail"
+                    style={[styles.helpText, { color: theme.textSecondary }]}>
+                    {`Office detail: ${retryDetail}`}
                   </Text>
                 ) : null}
                 {report.saved ? (
@@ -1504,6 +1806,7 @@ function LocationCapture({
   isOnline,
   locationServicesDisabled,
   markingUnavailable,
+  onCancelCapture,
   onCapture,
   onClearUnavailable,
   onMarkUnavailable,
@@ -1516,6 +1819,7 @@ function LocationCapture({
   isOnline: boolean | null;
   locationServicesDisabled: boolean;
   markingUnavailable: boolean;
+  onCancelCapture: () => void;
   onCapture: () => void;
   onClearUnavailable: () => void;
   onMarkUnavailable: (reason: LocationUnavailableReason) => void;
@@ -1531,7 +1835,27 @@ function LocationCapture({
   const [showUnavailable, setShowUnavailable] = useState(
     fieldReport.locationSource === 'unavailable',
   );
+  const [correcting, setCorrecting] = useState(false);
+  const [pendingReplacement, setPendingReplacement] = useState<
+    'gps' | 'map' | null
+  >(null);
   const locationUnavailable = fieldReport.locationSource === 'unavailable';
+  const editingLocation = !locationConfirmed || correcting;
+  const currentLocationSummary = describeConfirmedLocation(fieldReport);
+  const requestCapture = () => {
+    if (locationConfirmed) {
+      setPendingReplacement('gps');
+      return;
+    }
+    onCapture();
+  };
+  const requestMap = () => {
+    if (locationConfirmed) {
+      setPendingReplacement('map');
+      return;
+    }
+    onOpenMap();
+  };
 
   return (
     <View
@@ -1574,22 +1898,50 @@ function LocationCapture({
           </AppButton>
         </View>
       ) : null}
-      {!locationConfirmed ? (
+      {locationConfirmed && !correcting ? (
+        <>
+          <Text
+            testID="field-report.confirmed-location"
+            style={[styles.statusMessage, { color: theme.text }]}>
+            {currentLocationSummary}
+          </Text>
+          <AppButton
+            testID="field-report.correct-location"
+            accessibilityLabel="Change the saved report location"
+            onPress={() => setCorrecting(true)}
+            disabled={saveInProgress || markingUnavailable}
+            leadingIcon="edit-3"
+            variant="text">
+            Change location
+          </AppButton>
+        </>
+      ) : null}
+      {capturing ? (
+        <AppButton
+          testID="field-report.stop-locating"
+          accessibilityLabel="Stop locating and keep the current draft"
+          onPress={onCancelCapture}
+          leadingIcon="x-circle"
+          variant="secondary">
+          Stop locating
+        </AppButton>
+      ) : null}
+      {editingLocation ? (
         <AppButton
           testID="field-report.capture-gps"
-          onPress={onCapture}
+          onPress={requestCapture}
           disabled={capturing || saveInProgress}
           leadingIcon="crosshair"
           accessibilityLabel={capturing ? 'Adding location' : presentation.actionLabel}>
           {capturing ? 'Adding location...' : presentation.actionLabel}
         </AppButton>
       ) : null}
-      {!locationConfirmed && canUseManualMap(fieldReport) ? (
+      {editingLocation && canUseManualMap(fieldReport) ? (
         isOnline === true ? (
           <AppButton
             testID="field-report.open-manual-map"
             accessibilityLabel="Choose location on map"
-            onPress={onOpenMap}
+            onPress={requestMap}
             disabled={capturing || saveInProgress}
             leadingIcon="map"
             variant="secondary">
@@ -1601,9 +1953,11 @@ function LocationCapture({
           </Text>
         )
       ) : null}
-      {!locationConfirmed ? (
+      {editingLocation ? (
         <Text style={[styles.helpText, { color: theme.textSecondary }]}>
-          Location is added to the report when it can be confirmed. You can retry location or choose on map at any time.
+          {correcting && locationConfirmed
+            ? 'Choosing a new source replaces the saved location after you confirm. Cancel keeps it unchanged, and the earlier GPS attempt stays as evidence.'
+            : 'Location is added to the report when it can be confirmed. You can retry location or choose on map at any time.'}
         </Text>
       ) : null}
 
@@ -1643,7 +1997,7 @@ function LocationCapture({
             Add Location Instead
           </AppButton>
         </View>
-      ) : showUnavailable ? (
+      ) : showUnavailable && editingLocation ? (
         <View testID="field-report.location-unavailable-picker" style={styles.unavailablePicker}>
           <Text style={[styles.helpText, { color: theme.textSecondary }]}>
             If no source works, record why. The report is sent with the barangay
@@ -1700,17 +2054,60 @@ function LocationCapture({
               : 'Send Without Exact Location'}
           </AppButton>
         </View>
-      ) : (
+      ) : editingLocation ? (
         <AppButton
           testID="field-report.open-location-unavailable"
           accessibilityLabel="Continue without an exact location"
-          onPress={() => setShowUnavailable(true)}
-          disabled={capturing || saveInProgress}
+          onPress={() => {
+            setShowUnavailable(true);
+          }}
+          disabled={saveInProgress}
           variant="text"
           leadingIcon="help-circle">
           Continue Without a Location
         </AppButton>
-      )}
+      ) : null}
+      {correcting && locationConfirmed ? (
+        <AppButton
+          testID="field-report.cancel-location-change"
+          accessibilityLabel="Cancel changing the saved location"
+          onPress={() => {
+            setCorrecting(false);
+            setShowUnavailable(false);
+            setUnavailableReason(null);
+          }}
+          variant="text"
+          leadingIcon="arrow-left">
+          Cancel location change
+        </AppButton>
+      ) : null}
+      <ConfirmDialog
+        visible={pendingReplacement !== null}
+        title="Replace the saved location?"
+        message={`The current location (${currentLocationSummary}) will be replaced. Cancel keeps it unchanged.`}
+        cancelLabel="Keep current"
+        confirmLabel={
+          pendingReplacement === 'map' ? 'Choose on map' : 'Use new GPS reading'
+        }
+        confirmTestID="field-report.confirm-location-replacement"
+        overlay
+        onRequestClose={() => setPendingReplacement(null)}
+        onConfirm={() => {
+          const replacement = pendingReplacement;
+          setPendingReplacement(null);
+          setCorrecting(false);
+          if (replacement === 'map') {
+            onOpenMap();
+          } else if (replacement === 'gps') {
+            onCapture();
+          }
+        }}
+        onCancel={() => {
+          setPendingReplacement(null);
+          setCorrecting(false);
+        }}
+        testID="field-report.location-replacement-dialog"
+      />
     </View>
   );
 }
@@ -2101,6 +2498,27 @@ function getGpsPresentation(fieldReport: FieldReport): {
   }
 }
 
+function describeConfirmedLocation(fieldReport: FieldReport): string {
+  if (fieldReport.locationSource === 'manual_map') {
+    const selectedAt = fieldReport.manualLocationSelectedAt
+      ? new Date(fieldReport.manualLocationSelectedAt).toLocaleString()
+      : null;
+    return selectedAt
+      ? `Saved from the map on ${selectedAt}. GPS accuracy does not apply to a map pin.`
+      : 'Saved from the map. GPS accuracy does not apply to a map pin.';
+  }
+  const attemptedAt = fieldReport.gpsAttemptedAt
+    ? new Date(fieldReport.gpsAttemptedAt).toLocaleString()
+    : null;
+  const accuracy =
+    fieldReport.gpsAccuracy !== null
+      ? `±${fieldReport.gpsAccuracy.toFixed(1)} m`
+      : 'accuracy not recorded';
+  return attemptedAt
+    ? `Saved from GPS on ${attemptedAt} (${accuracy}).`
+    : `Saved from GPS (${accuracy}).`;
+}
+
 function isLocationConfirmed(fieldReport: FieldReport): boolean {
   if (fieldReport.locationSource === 'unavailable') {
     return false;
@@ -2126,11 +2544,9 @@ function isLocationConfirmed(fieldReport: FieldReport): boolean {
 }
 
 function canUseManualMap(fieldReport: FieldReport): boolean {
-  return (
-    fieldReport.locationSource === 'manual_map' ||
-    fieldReport.locationSource === null ||
-    fieldReport.gpsCaptureOutcome === 'low_accuracy'
-  );
+  // Any draft location can be corrected on the map; an explicit unavailable
+  // choice first switches back through "Add Location Instead".
+  return fieldReport.locationSource !== 'unavailable';
 }
 
 function formatMeasurementSummary(
@@ -2162,6 +2578,66 @@ function previewMeasurementValue(
   choice: MeasurementProvenance | null,
 ): number | null {
   return choice === 'not_measured' ? null : parseDecimalInput(value);
+}
+
+/**
+ * M13/D03: a rejected or blocked report is not offered as a blind resend. The
+ * card explains the safe reason, keeps the immutable evidence on this device,
+ * and hands support a reference that carries no photo, token, GPS or farmer text.
+ */
+function NeedsAttentionCard({
+  attention,
+  fieldReport,
+  onShare,
+}: {
+  attention: NonNullable<ReturnType<typeof getSyncAttention>>;
+  fieldReport: FieldReport;
+  onShare: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <View
+      testID="field-report.needs-attention"
+      accessibilityLiveRegion="polite"
+      style={[
+        styles.validationCard,
+        { backgroundColor: theme.dangerBg, borderColor: theme.danger },
+      ]}>
+      <View style={styles.sectionHeading}>
+        <Feather name="alert-triangle" size={20} color={theme.danger} />
+        <Text style={[styles.validationTitle, { color: theme.danger }]}>
+          {attention.title}
+        </Text>
+      </View>
+      <Text style={[styles.statusMessage, { color: theme.text }]}>
+        {attention.reason}
+      </Text>
+      <Text style={[styles.helpText, { color: theme.textSecondary }]}>
+        {attention.action === 'support'
+          ? 'This report and its saved image stay unchanged on this device. Sending it again is not offered until the office resolves the cause.'
+          : attention.action === 'sign-in'
+            ? 'This report and its saved image stay on this device. Signing in again sends this same report; nothing is duplicated.'
+            : 'This report and its saved image stay on this device. CaneGuard retries automatically and keeps the same report identity.'}
+      </Text>
+      <Text
+        testID="field-report.support-reference"
+        selectable
+        style={[styles.helpText, { color: theme.text }]}>
+        {buildSupportReference({
+          code: fieldReport.lastSyncErrorCode,
+          reportId: fieldReport.id,
+        })}
+      </Text>
+      <AppButton
+        testID="field-report.share-support-reference"
+        onPress={onShare}
+        leadingIcon="share-2"
+        variant="secondary"
+        accessibilityLabel="Share the support reference (no photo or personal details)">
+        Share Support Reference
+      </AppButton>
+    </View>
+  );
 }
 
 function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
@@ -2536,6 +3012,47 @@ export const SUBMISSION_REQUIREMENT_LABELS: Record<
   gps_accuracy: 'Confirmed location',
   observation_time: 'Observation time',
 };
+
+function checkpointSignature(
+  checkpoint: Omit<FieldReportFormCheckpoint, 'savedAt'>,
+): string {
+  return JSON.stringify([
+    checkpoint.affectedAreaChoice,
+    checkpoint.affectedAreaText,
+    checkpoint.affectedPortionChoice,
+    checkpoint.affectedPortionText,
+    checkpoint.barangay,
+    checkpoint.caneClass,
+    checkpoint.cropAge,
+    checkpoint.farmerName,
+    checkpoint.mismatchReported,
+    checkpoint.municipality,
+    checkpoint.notes,
+    checkpoint.province,
+    checkpoint.reporterObservationText,
+    checkpoint.reporterSuspectedCondition,
+    checkpoint.step,
+    checkpoint.variety,
+  ]);
+}
+
+function formatFormDraftStatus(
+  status: 'idle' | 'saving' | 'saved' | 'failed',
+  savedAt: string | null,
+): string {
+  switch (status) {
+    case 'saving':
+      return 'Saving on this device…';
+    case 'saved':
+      return savedAt
+        ? `Unsaved entries saved on this device · ${new Date(savedAt).toLocaleTimeString()}. Drafts are not sent.`
+        : 'Unsaved entries saved on this device. Drafts are not sent.';
+    case 'failed':
+      return 'Not saved on this device. The last good draft is unchanged — keep this screen open or save again.';
+    default:
+      return 'Entered values are saved on this device as you go. Drafts are not sent.';
+  }
+}
 
 function formatTimestamp(value: string): string {
   return new Date(value).toLocaleString();

@@ -35,7 +35,7 @@ interface FormValues {
   sugarcaneVariety?: string;
 }
 
-const mockSave = jest.fn(async () => null);
+const mockSave = jest.fn(async () => draft());
 const mockCaptureLocation = jest.fn(async () => null);
 const mockFinalize = jest.fn<Promise<FieldReport | null>, [FormValues]>(
   async () => null,
@@ -45,7 +45,7 @@ const mockMarkLocationUnavailable = jest.fn(async () => null);
 const mockClearLocationUnavailable = jest.fn(async () => null);
 const mockRefresh = jest.fn(async () => undefined);
 let mockAuthorityError: string | null = null;
-const mockRetryReport = jest.fn(async () => null);
+const mockRetryReport = jest.fn<Promise<unknown>, []>(async () => null);
 const mockSyncNow = jest.fn(async () => null);
 let mockIsOnline: boolean | null = true;
 const mockReferenceDataRefresh = jest.fn(async () => undefined);
@@ -55,12 +55,16 @@ let mockPossibleRecentMatchState: PossibleRecentMatchState = {
   loading: false,
 };
 const mockDiscardDraft = jest.fn(async () => true);
+const mockCancelLocationCapture = jest.fn();
+let mockLastOperationError: string | null = null;
 let mockDraftState: {
   data: FieldReport | null;
   errorMessage: string | null;
   loading: boolean;
+  cancelLocationCapture: typeof mockCancelLocationCapture;
   captureLocation: typeof mockCaptureLocation;
   capturingLocation: boolean;
+  getLastOperationError: () => string | null;
   discardDraft?: typeof mockDiscardDraft;
   finalize: typeof mockFinalize;
   finalizing: boolean;
@@ -77,6 +81,18 @@ let mockDraftState: {
   submissionIssues: FieldReportSubmissionRequirement[];
 };
 
+const mockReadFormCheckpoint = jest.fn();
+const mockWriteFormCheckpoint = jest.fn(async () => undefined);
+const mockDeleteFormCheckpoint = jest.fn(() => true);
+
+jest.mock('@/features/reports/drafts/fieldReportFormDraft', () => ({
+  deleteFieldReportFormCheckpoint: (...args: unknown[]) =>
+    mockDeleteFormCheckpoint(...(args as [])),
+  readFieldReportFormCheckpoint: (...args: unknown[]) =>
+    mockReadFormCheckpoint(...(args as [])),
+  writeFieldReportFormCheckpoint: (...args: unknown[]) =>
+    mockWriteFormCheckpoint(...(args as [])),
+}));
 jest.mock('@/features/reports/hooks/useFieldReportDraft', () => ({
   useFieldReportDraft: () => mockDraftState,
 }));
@@ -275,14 +291,22 @@ describe('FieldReportScreen', () => {
       unavailable: false,
       loading: false,
     };
+    mockLastOperationError = null;
+    mockRetryReport.mockReset();
+    mockRetryReport.mockResolvedValue(null);
+    mockReadFormCheckpoint.mockReturnValue(null);
+    mockWriteFormCheckpoint.mockResolvedValue(undefined);
+    mockDeleteFormCheckpoint.mockReturnValue(true);
     mockUseLocalSearchParams.mockReturnValue({ scanRecordId: SCAN_ID });
     mockDraftState = {
       data: draft(),
       errorMessage: null,
       loading: false,
+      cancelLocationCapture: mockCancelLocationCapture,
       captureLocation: mockCaptureLocation,
       capturingLocation: false,
       discardDraft: mockDiscardDraft,
+      getLastOperationError: () => mockLastOperationError,
       finalize: mockFinalize,
       finalizing: false,
       locationServicesDisabled: false,
@@ -606,6 +630,164 @@ describe('FieldReportScreen', () => {
     );
   });
 
+  it('reports the outcome of this attempt instead of the saved location', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        gpsAccuracy: 4.2,
+        gpsCaptureOutcome: 'resolved',
+        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
+        locationSource: 'gps',
+      }),
+    };
+    mockCaptureLocation.mockResolvedValueOnce(
+      draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        gpsAccuracy: 4.2,
+        gpsCaptureOutcome: 'unavailable',
+        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
+        locationSource: 'gps',
+      }) as never,
+    );
+
+    await render(
+      <ToastProvider>
+        <FieldReportScreen />
+      </ToastProvider>,
+    );
+    await act(async () => undefined);
+    await goToStep(4);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Change the saved report location'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Retry location'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-report.confirm-location-replacement'));
+    });
+
+    expect(mockCaptureLocation).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('app-toast')).toHaveTextContent(
+      /Location could not be confirmed/,
+    );
+    expect(screen.getByTestId('app-toast')).not.toHaveTextContent('Location added');
+  });
+
+  it('lets a confirmed location be replaced by an explicit unavailable reason', async () => {
+    mockMarkLocationUnavailable.mockResolvedValueOnce(true as never);
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        gpsAccuracy: 4.2,
+        gpsCaptureOutcome: 'resolved',
+        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
+        locationSource: 'gps',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+    await goToStep(4);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Change the saved report location'));
+    });
+    expect(
+      screen.queryByTestId('field-report.location-unavailable-picker'),
+    ).not.toBeOnTheScreen();
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByLabelText('Continue without an exact location'),
+      );
+    });
+
+    expect(
+      screen.getByTestId('field-report.location-unavailable-picker'),
+    ).toBeOnTheScreen();
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByTestId('field-report.location-reason.services_unavailable'),
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Send without an exact location'));
+    });
+    expect(mockMarkLocationUnavailable).toHaveBeenCalledWith(
+      'services_unavailable',
+    );
+  });
+
+  it('stops locating without reporting a location failure', async () => {
+    let resolveCapture!: (value: null) => void;
+    mockCaptureLocation.mockReturnValueOnce(
+      new Promise<null>((resolve) => {
+        resolveCapture = resolve;
+      }),
+    );
+
+    const view = await render(
+      <ToastProvider>
+        <FieldReportScreen />
+      </ToastProvider>,
+    );
+    await act(async () => undefined);
+    await goToStep(4);
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Add location'));
+    });
+    expect(mockCaptureLocation).toHaveBeenCalledTimes(1);
+
+    mockDraftState = { ...mockDraftState, capturingLocation: true };
+    await view.rerender(
+      <ToastProvider>
+        <FieldReportScreen />
+      </ToastProvider>,
+    );
+    await act(async () => {
+      fireEvent.press(
+        screen.getByLabelText('Stop locating and keep the current draft'),
+      );
+    });
+    expect(mockCancelLocationCapture).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveCapture(null);
+    });
+
+    expect(screen.queryByTestId('app-toast')).not.toBeOnTheScreen();
+    expect(
+      screen.queryByText(/Location could not be confirmed/),
+    ).not.toBeOnTheScreen();
+  });
+
+  it('still reports a location attempt that recorded a failure', async () => {
+    mockLastOperationError = 'Saving the GPS result failed.';
+    mockCaptureLocation.mockResolvedValueOnce(null);
+
+    await render(
+      <ToastProvider>
+        <FieldReportScreen />
+      </ToastProvider>,
+    );
+    await act(async () => undefined);
+    await goToStep(4);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Add location'));
+    });
+
+    expect(screen.getByTestId('app-toast')).toHaveTextContent(
+      'Saving the GPS result failed.',
+    );
+  });
+
   it('shows retained poor GPS evidence and offers retry', async () => {
     mockDraftState = {
       ...mockDraftState,
@@ -776,7 +958,7 @@ describe('FieldReportScreen', () => {
     expect(screen.queryByTestId('field-report.gps-evidence')).not.toBeOnTheScreen();
   });
 
-  it('hides retry and map actions once a GPS location is recorded', async () => {
+  it('lets a confirmed GPS location be corrected with explicit confirmation', async () => {
     mockDraftState = {
       ...mockDraftState,
       data: draft({
@@ -786,6 +968,7 @@ describe('FieldReportScreen', () => {
         gpsAccuracy: 4.2,
         gpsCaptureOutcome: 'resolved',
         gpsOutcomeRecordedAt: '2026-08-10T01:04:00.000Z',
+        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
       }),
     };
 
@@ -796,24 +979,78 @@ describe('FieldReportScreen', () => {
     expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
       /Location added/,
     );
-    expect(screen.queryByLabelText('Retry location')).not.toBeOnTheScreen();
+    // The quiet correction affordance replaces the always-on action set.
+    expect(screen.getByTestId('field-report.confirmed-location')).toHaveTextContent(
+      /Saved from GPS/,
+    );
+    expect(screen.getByTestId('field-report.confirmed-location')).toHaveTextContent(
+      /±4\.2 m/,
+    );
     expect(screen.queryByTestId('field-report.capture-gps')).not.toBeOnTheScreen();
-    expect(screen.queryByLabelText('Choose location on map')).not.toBeOnTheScreen();
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Change the saved report location'));
+    });
+    expect(screen.getByLabelText('Retry location')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Choose location on map')).toBeOnTheScreen();
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Retry location'));
+    });
+    expect(
+      screen.getByTestId('field-report.location-replacement-dialog'),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByTestId('field-report.location-replacement-dialog'),
+    ).toHaveTextContent(/will be replaced/);
+    expect(mockCaptureLocation).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-report.confirm-location-replacement'));
+    });
+    expect(mockCaptureLocation).toHaveBeenCalledTimes(1);
   });
 
-  it('hides retry and map actions once a map location is recorded', async () => {
+  it('cancelling a location correction keeps the saved GPS location', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        gpsAccuracy: 4.2,
+        gpsCaptureOutcome: 'resolved',
+        locationSource: 'gps',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await goToStep(4);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Change the saved report location'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Retry location'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-report.location-replacement-dialog.cancel'));
+    });
+
+    expect(mockCaptureLocation).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('field-report.location-replacement-dialog')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.confirmed-location')).toBeOnTheScreen();
+  });
+
+  it('lets a confirmed map location be corrected while offline', async () => {
+    mockIsOnline = false;
     mockDraftState = {
       ...mockDraftState,
       data: draft({
         finalLatitude: 14.071,
         finalLongitude: 120.635,
+        gpsAttemptAccuracy: 38,
+        gpsCaptureOutcome: 'low_accuracy',
         locationSource: 'manual_map',
         manualLocationSelectedAt: '2026-08-10T02:00:00.000Z',
-        gpsCaptureOutcome: 'low_accuracy',
-        gpsAttemptAccuracy: 38,
-        gpsAttemptLatitude: 14.0667,
-        gpsAttemptLongitude: 120.6319,
-        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
       }),
     };
 
@@ -821,12 +1058,17 @@ describe('FieldReportScreen', () => {
     await act(async () => undefined);
 
     await goToStep(4);
-    expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
-      /Location added from the map/,
+    expect(screen.getByTestId('field-report.confirmed-location')).toHaveTextContent(
+      /Saved from the map/,
     );
-    expect(screen.queryByLabelText('Retry location')).not.toBeOnTheScreen();
-    expect(screen.queryByTestId('field-report.capture-gps')).not.toBeOnTheScreen();
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Change the saved report location'));
+    });
+    // GPS retry and an explicit unavailable reason stay available offline.
+    expect(screen.getByLabelText('Retry location')).toBeOnTheScreen();
     expect(screen.queryByLabelText('Choose location on map')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.manual-map-offline')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Continue without an exact location')).toBeOnTheScreen();
   });
 
   it('keeps retry and map actions while the location is unconfirmed', async () => {
@@ -861,6 +1103,10 @@ describe('FieldReportScreen', () => {
     await goToStep(4);
     expect(screen.getByLabelText('Adding location')).toBeOnTheScreen();
     expect(screen.getByText('Adding location...')).toBeOnTheScreen();
+    // A bounded wait still lets the inspector stop or save without GPS.
+    expect(screen.getByLabelText('Stop locating and keep the current draft')).toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.open-location-unavailable')).toBeEnabled();
+    expect(screen.getByTestId('field-report.save-draft')).toBeEnabled();
   });
 
   it('selects a barangay from the searchable picker', async () => {
@@ -2067,6 +2313,329 @@ describe('FieldReportScreen', () => {
       expect(screen.getByTestId('field-report.authoring-status')).toHaveTextContent(/Finalized/);
       expect(screen.queryByTestId('field-report.cancel-dialog')).not.toBeOnTheScreen();
       expect(mockDiscardDraft).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('result-based confirmations and recovery (M01, M02, M04, M13)', () => {
+    it('keeps the form and names the offending step when Keep draft input is invalid', async () => {
+      await render(
+        <ToastProvider>
+          <FieldReportScreen />
+        </ToastProvider>,
+      );
+      await goToStep(2);
+      await act(async () => {
+        fireEvent.changeText(
+          screen.getByTestId('field-report.affected-area-input'),
+          'not-a-number',
+        );
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.cancel'));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.cancel-dialog.cancel'));
+      });
+
+      expect(mockSave).not.toHaveBeenCalled();
+      expect(router.dismissTo).not.toHaveBeenCalled();
+      expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
+        /Step 2 of 5/,
+      );
+      expect(screen.getByText(/fix the highlighted field first/i)).toBeOnTheScreen();
+    });
+
+    it('does not announce Draft saved or exit when the storage write returns null', async () => {
+      mockSave.mockResolvedValueOnce(null as never);
+      mockLastOperationError =
+        'The saved record could not be updated. Please try again.';
+
+      await render(
+        <ToastProvider>
+          <FieldReportScreen />
+        </ToastProvider>,
+      );
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.save-draft'));
+      });
+
+      expect(mockSave).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('app-toast')).toHaveTextContent(
+        'The saved record could not be updated. Please try again.',
+      );
+      expect(screen.queryByText('Draft saved')).not.toBeOnTheScreen();
+    });
+
+    it('does not claim a discard when deleting the draft fails', async () => {
+      mockDiscardDraft.mockResolvedValueOnce(false);
+
+      await render(
+        <ToastProvider>
+          <FieldReportScreen />
+        </ToastProvider>,
+      );
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.cancel'));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.cancel-dialog.confirm'));
+      });
+
+      expect(mockDiscardDraft).toHaveBeenCalledTimes(1);
+      expect(router.dismissTo).not.toHaveBeenCalled();
+      expect(screen.getByText(/Could not discard the draft/i)).toBeOnTheScreen();
+    });
+
+    it('never reports Sent to office for another report’s success', async () => {
+      mockDraftState = {
+        ...mockDraftState,
+        data: draft({
+          authoringState: 'finalized',
+          lastSyncErrorCode: 'API_VALIDATION_FAILED',
+          submittedAt: '2026-08-10T03:00:00.000Z',
+          syncStatus: 'pending',
+        }),
+      };
+      mockRetryReport.mockResolvedValueOnce({
+        attempted: 2,
+        authRequired: false,
+        failed: 1,
+        haltReason: 'transient-blocker',
+        results: [
+          { remoteId: 'remote-other', reportId: 'another-report', status: 'synced' },
+          {
+            error: {
+              code: 'API_VALIDATION_FAILED',
+              detail: 'affected_area_hectares: Enter a number.',
+              message: 'invalid',
+              retryable: false,
+            },
+            reportId: REPORT_ID,
+            status: 'failed',
+          },
+        ],
+        source: 'manual',
+        synced: 1,
+      });
+
+      await render(<FieldReportScreen />);
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.retry-sync'));
+      });
+
+      expect(screen.getByTestId('field-report.retry-outcome')).toHaveTextContent(
+        /needs attention/,
+      );
+      expect(screen.getByTestId('field-report.retry-detail')).toHaveTextContent(
+        /affected_area_hectares: Enter a number./,
+      );
+      expect(screen.queryByText('Sent to office')).not.toBeOnTheScreen();
+    });
+
+    it('confirms Sent to office only when the target report is synced', async () => {
+      mockDraftState = {
+        ...mockDraftState,
+        data: draft({
+          authoringState: 'finalized',
+          submittedAt: '2026-08-10T03:00:00.000Z',
+          syncStatus: 'failed',
+        }),
+      };
+      mockRetryReport.mockResolvedValueOnce({
+        attempted: 1,
+        authRequired: false,
+        failed: 0,
+        haltReason: 'empty',
+        results: [
+          { remoteId: 'remote-target', reportId: REPORT_ID, status: 'synced' },
+        ],
+        source: 'manual',
+        synced: 1,
+      });
+
+      await render(<FieldReportScreen />);
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.retry-sync'));
+      });
+
+      expect(screen.getByTestId('field-report.retry-outcome')).toHaveTextContent(
+        'Sent to office',
+      );
+    });
+
+    it('offers a support handoff instead of a blind resend for a permanent failure', async () => {
+      mockDraftState = {
+        ...mockDraftState,
+        data: draft({
+          authoringState: 'finalized',
+          lastSyncErrorCode: 'API_VALIDATION_FAILED',
+          submittedAt: '2026-08-10T03:00:00.000Z',
+          syncStatus: 'failed',
+        }),
+      };
+
+      await render(<FieldReportScreen />);
+
+      const card = screen.getByTestId('field-report.needs-attention');
+      expect(card).toHaveTextContent(/Needs office attention/);
+      expect(card).toHaveTextContent(/Sending the identical report again cannot fix/i);
+      expect(screen.getByTestId('field-report.support-reference')).toHaveTextContent(
+        new RegExp(REPORT_ID),
+      );
+      expect(screen.queryByTestId('field-report.retry-sync')).not.toBeOnTheScreen();
+      expect(
+        screen.getByLabelText('Share the support reference (no photo or personal details)'),
+      ).toBeOnTheScreen();
+    });
+
+    it('keeps an honest retry action for a transient failure', async () => {
+      mockDraftState = {
+        ...mockDraftState,
+        data: draft({
+          authoringState: 'finalized',
+          lastSyncErrorCode: 'NETWORK_REQUEST_FAILED',
+          submittedAt: '2026-08-10T03:00:00.000Z',
+          syncStatus: 'failed',
+        }),
+      };
+
+      await render(<FieldReportScreen />);
+
+      expect(screen.getByTestId('field-report.needs-attention')).toHaveTextContent(
+        /Waiting to send/,
+      );
+      expect(screen.getByLabelText('Try sending this Field Report again')).toBeOnTheScreen();
+    });
+
+    it('restores unsaved form inputs from the owner checkpoint', async () => {
+      mockReadFormCheckpoint.mockReturnValue({
+        checkpoint: {
+          affectedAreaChoice: 'measured',
+          affectedAreaText: '0.75',
+          affectedPortionChoice: 'not_measured',
+          affectedPortionText: '',
+          barangay: 'Wawa',
+          caneClass: 'Plant cane',
+          cropAge: '~4 months',
+          farmerName: 'Restored Farmer',
+          mismatchReported: null,
+          municipality: 'Nasugbu',
+          notes: 'Note kept',
+          province: 'Batangas',
+          reporterObservationText: '',
+          reporterSuspectedCondition: '',
+          savedAt: '2026-10-23T08:00:00.000Z',
+          step: 2,
+          variety: 'Phil 2000',
+        },
+        updatedAt: '2026-10-23T08:00:00.000Z',
+      });
+
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+
+      expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
+        /Step 2 of 5/,
+      );
+      expect(screen.getByTestId('field-report.farmer-name-input')).toHaveProp(
+        'value',
+        'Restored Farmer',
+      );
+      expect(screen.getByTestId('field-report.affected-area-input')).toHaveProp(
+        'value',
+        '0.75',
+      );
+      expect(screen.getByTestId('field-report.form-draft-status')).toHaveTextContent(
+        /saved on this device/i,
+      );
+    });
+
+    it('does not write a checkpoint for a Draft the inspector has not edited', async () => {
+      jest.useFakeTimers();
+      try {
+        await render(<FieldReportScreen />);
+        await act(async () => {
+          jest.advanceTimersByTime(800);
+        });
+
+        expect(mockWriteFormCheckpoint).not.toHaveBeenCalled();
+        expect(
+          screen.getByTestId('field-report.form-draft-status'),
+        ).not.toHaveTextContent(/Unsaved entries saved on this device/);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('checkpoints edits as the inspector types and clears it after an explicit save', async () => {
+      jest.useFakeTimers();
+      try {
+        await render(<FieldReportScreen />);
+        await goToStep(2);
+        await act(async () => {
+          fireEvent.changeText(
+            screen.getByTestId('field-report.farmer-name-input'),
+            'Maria Santos',
+          );
+        });
+        await act(async () => {
+          jest.advanceTimersByTime(800);
+        });
+
+        expect(mockWriteFormCheckpoint).toHaveBeenCalledWith(
+          expect.anything(),
+          'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
+          REPORT_ID,
+          expect.objectContaining({
+            farmerName: 'Maria Santos',
+            step: 2,
+          }),
+        );
+        expect(screen.getByTestId('field-report.form-draft-status')).toHaveTextContent(
+          /saved on this device/i,
+        );
+
+        await act(async () => {
+          fireEvent.press(screen.getByTestId('field-report.save-draft'));
+        });
+        expect(mockDeleteFormCheckpoint).toHaveBeenCalledWith(
+          expect.anything(),
+          'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
+          REPORT_ID,
+        );
+
+        mockWriteFormCheckpoint.mockClear();
+        await act(async () => {
+          jest.advanceTimersByTime(800);
+        });
+        expect(mockWriteFormCheckpoint).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('reports an unsuccessful checkpoint instead of claiming it was saved', async () => {
+      jest.useFakeTimers();
+      mockWriteFormCheckpoint.mockRejectedValueOnce(new Error('disk full'));
+      try {
+        await render(<FieldReportScreen />);
+        await goToStep(2);
+        await act(async () => {
+          fireEvent.changeText(
+            screen.getByTestId('field-report.farmer-name-input'),
+            'Maria Santos',
+          );
+        });
+        await act(async () => {
+          jest.advanceTimersByTime(800);
+        });
+
+        expect(screen.getByTestId('field-report.form-draft-status')).toHaveTextContent(
+          /Not saved on this device/,
+        );
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 });

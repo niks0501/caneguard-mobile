@@ -10,6 +10,7 @@ import {
   findFieldReportByScanRecordId,
   saveFieldReportDraft,
   saveGpsCapture,
+  setLocationUnavailable,
 } from '@/features/reports/data/fieldReportRepository';
 import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
 import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
@@ -50,6 +51,7 @@ jest.mock('@/features/reports/data/fieldReportRepository', () => ({
   saveFieldReportDraft: jest.fn(),
   saveGpsCapture: jest.fn(),
   saveManualMapLocation: jest.fn(),
+  setLocationUnavailable: jest.fn(),
 }));
 jest.mock('@/features/reports/services/captureGpsLocation', () => ({
   captureGpsLocation: jest.fn(),
@@ -69,6 +71,7 @@ const mockFinalizeFieldReport = jest.mocked(finalizeFieldReport);
 const mockFindFieldReportByScanRecordId = jest.mocked(findFieldReportByScanRecordId);
 const mockSaveFieldReportDraft = jest.mocked(saveFieldReportDraft);
 const mockClearLocationUnavailable = jest.mocked(clearLocationUnavailable);
+const mockSetLocationUnavailable = jest.mocked(setLocationUnavailable);
 const mockSaveGpsCapture = jest.mocked(saveGpsCapture);
 
 function createdReport(
@@ -353,6 +356,186 @@ describe('useFieldReportDraft', () => {
       await result.current.captureLocation();
     });
     expect(result.current.locationServicesDisabled).toBe(false);
+  });
+
+  it('keeps the live capture state when a superseded reading settles', async () => {
+    let resolveAbandoned!: (value: unknown) => void;
+    let resolveLive!: (value: unknown) => void;
+    mockCaptureGpsLocation
+      .mockResolvedValueOnce({
+        capturedAt: '2026-08-10T01:02:00.000Z',
+        outcome: 'permission_denied',
+      })
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveAbandoned = resolve;
+        }) as never,
+      )
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveLive = resolve;
+        }) as never,
+      );
+    mockSaveGpsCapture.mockResolvedValue(createdReport(REPORT_A, SCAN_A));
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+    await waitFor(() =>
+      expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
+    );
+    await waitFor(() => expect(result.current.capturingLocation).toBe(false));
+
+    let abandonedAttempt!: Promise<unknown>;
+    await act(async () => {
+      abandonedAttempt = result.current.captureLocation();
+    });
+    expect(result.current.capturingLocation).toBe(true);
+
+    await act(async () => {
+      result.current.cancelLocationCapture();
+    });
+    expect(result.current.capturingLocation).toBe(false);
+
+    let liveAttempt!: Promise<unknown>;
+    await act(async () => {
+      liveAttempt = result.current.captureLocation();
+    });
+    expect(result.current.capturingLocation).toBe(true);
+
+    await act(async () => {
+      resolveAbandoned({
+        accuracy: 4.4,
+        capturedAt: '2026-08-10T01:03:00.000Z',
+        latitude: 14.0667,
+        longitude: 120.6319,
+        outcome: 'resolved',
+      });
+      await abandonedAttempt;
+    });
+
+    expect(result.current.capturingLocation).toBe(true);
+    await act(async () => {
+      expect(await result.current.captureLocation()).toBeNull();
+    });
+    expect(result.current.capturingLocation).toBe(true);
+
+    await act(async () => {
+      resolveLive({
+        accuracy: 5,
+        capturedAt: '2026-08-10T01:04:00.000Z',
+        latitude: 14.07,
+        longitude: 120.64,
+        outcome: 'resolved',
+      });
+      await liveAttempt;
+    });
+    expect(result.current.capturingLocation).toBe(false);
+  });
+
+  it('ends the capture state when the location is recorded unavailable mid-read', async () => {
+    let resolveCapture!: (value: unknown) => void;
+    mockCaptureGpsLocation
+      .mockResolvedValueOnce({
+        capturedAt: '2026-08-10T01:02:00.000Z',
+        outcome: 'permission_denied',
+      })
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveCapture = resolve;
+        }) as never,
+      );
+    mockSaveGpsCapture.mockResolvedValue(createdReport(REPORT_A, SCAN_A));
+    mockSetLocationUnavailable.mockResolvedValue(
+      createdReport(REPORT_A, SCAN_A, {
+        locationSource: 'unavailable',
+        locationUnavailableReason: 'services_unavailable',
+      }),
+    );
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+    await waitFor(() =>
+      expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
+    );
+    await waitFor(() => expect(result.current.capturingLocation).toBe(false));
+
+    let attempt!: Promise<unknown>;
+    await act(async () => {
+      attempt = result.current.captureLocation();
+    });
+    expect(result.current.capturingLocation).toBe(true);
+
+    await act(async () => {
+      await result.current.markLocationUnavailable('services_unavailable');
+    });
+    expect(result.current.capturingLocation).toBe(false);
+
+    const savesBefore = mockSaveGpsCapture.mock.calls.length;
+    await act(async () => {
+      resolveCapture({
+        accuracy: 4.4,
+        capturedAt: '2026-08-10T01:03:00.000Z',
+        latitude: 14.0667,
+        longitude: 120.6319,
+        outcome: 'resolved',
+      });
+      await attempt;
+    });
+
+    expect(result.current.capturingLocation).toBe(false);
+    expect(mockSaveGpsCapture).toHaveBeenCalledTimes(savesBefore);
+    expect(result.current.data?.locationSource).toBe('unavailable');
+  });
+
+  it('ends the capture state when an unavailable location is cleared mid-read', async () => {
+    let resolveCapture!: (value: unknown) => void;
+    mockFindFieldReportByScanRecordId.mockResolvedValue(
+      createdReport(REPORT_A, SCAN_A, {
+        locationSource: 'unavailable',
+        locationUnavailableReason: 'offline_no_map',
+      }),
+    );
+    mockCaptureGpsLocation
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveCapture = resolve;
+        }) as never,
+      );
+    mockClearLocationUnavailable.mockResolvedValue(
+      createdReport(REPORT_A, SCAN_A, {
+        locationSource: null,
+        locationUnavailableReason: null,
+      }),
+    );
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+    await waitFor(() =>
+      expect(result.current.data?.locationSource).toBe('unavailable'),
+    );
+
+    let attempt!: Promise<unknown>;
+    await act(async () => {
+      attempt = result.current.captureLocation();
+    });
+    expect(result.current.capturingLocation).toBe(true);
+
+    await act(async () => {
+      await result.current.clearLocationUnavailable();
+    });
+    expect(result.current.capturingLocation).toBe(false);
+
+    const savesBefore = mockSaveGpsCapture.mock.calls.length;
+    await act(async () => {
+      resolveCapture({
+        accuracy: 4.4,
+        capturedAt: '2026-08-10T01:03:00.000Z',
+        latitude: 14.0667,
+        longitude: 120.6319,
+        outcome: 'resolved',
+      });
+      await attempt;
+    });
+
+    expect(result.current.capturingLocation).toBe(false);
+    expect(mockSaveGpsCapture).toHaveBeenCalledTimes(savesBefore);
   });
 
   it('clears unavailable provenance through the draft action', async () => {

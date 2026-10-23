@@ -629,6 +629,50 @@ export const fieldSurveys = sqliteTable(
 export type FieldSurveyRow = typeof fieldSurveys.$inferSelect;
 export type NewFieldSurveyRow = typeof fieldSurveys.$inferInsert;
 
+/**
+ * D02: owner-scoped, versioned checkpoints for unfinished field work. These
+ * rows are local-only recovery aids: nothing here is ever selected for upload,
+ * and a stale version is discarded instead of migrated in place.
+ */
+export const LOCAL_DRAFT_KINDS = [
+  'scan',
+  'field_report',
+  'field_validation',
+] as const;
+
+export type LocalDraftKind = (typeof LOCAL_DRAFT_KINDS)[number];
+
+export const localDrafts = sqliteTable(
+  'local_drafts',
+  {
+    ownerIdentity: text('owner_identity').notNull(),
+    kind: text('kind').$type<LocalDraftKind>().notNull(),
+    draftKey: text('draft_key').notNull(),
+    version: integer('version').notNull().default(1),
+    payloadJson: text('payload_json').notNull(),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.ownerIdentity, table.kind, table.draftKey],
+    }),
+    index('local_drafts_owner_kind_updated_idx').on(
+      table.ownerIdentity,
+      table.kind,
+      table.updatedAt,
+    ),
+    check(
+      'local_drafts_kind_check',
+      sql`${table.kind} in ('scan', 'field_report', 'field_validation')`,
+    ),
+    check('local_drafts_version_check', sql`${table.version} >= 1`),
+  ],
+);
+
+export type LocalDraftRow = typeof localDrafts.$inferSelect;
+export type NewLocalDraftRow = typeof localDrafts.$inferInsert;
+
 export type MobileNotificationRow = typeof mobileNotifications.$inferSelect;
 export type NewMobileNotificationRow = typeof mobileNotifications.$inferInsert;
 export type FieldValidationAssignmentRow = typeof fieldValidationAssignments.$inferSelect;

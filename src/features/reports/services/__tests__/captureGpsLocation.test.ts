@@ -1,5 +1,6 @@
 import {
   captureGpsLocation,
+  FOREGROUND_GPS_TIMEOUT_MS,
   type ForegroundLocationClient,
 } from '@/features/reports/services/captureGpsLocation';
 
@@ -105,6 +106,97 @@ describe('captureGpsLocation', () => {
     await expect(captureGpsLocation(locationClient, () => NOW)).resolves.toEqual({
       capturedAt: NOW.toISOString(),
       outcome: 'error',
+    });
+  });
+
+  describe('bounded foreground attempts', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('exits Adding location when the native reading never settles', async () => {
+      jest.useFakeTimers();
+      const locationClient = client({
+        getCurrentPosition: jest.fn(
+          () => new Promise<never>(() => undefined),
+        ),
+      });
+
+      const pending = captureGpsLocation(locationClient, () => NOW);
+      await jest.advanceTimersByTimeAsync(FOREGROUND_GPS_TIMEOUT_MS);
+
+      await expect(pending).resolves.toEqual({
+        capturedAt: NOW.toISOString(),
+        outcome: 'unavailable',
+        reason: 'reading_unavailable',
+        timedOut: true,
+      });
+      expect(FOREGROUND_GPS_TIMEOUT_MS).toBe(15_000);
+    });
+
+    it('treats a reading that arrives after the timeout as stale, not applied', async () => {
+      jest.useFakeTimers();
+      let resolveReading!: (value: {
+        accuracy: number;
+        latitude: number;
+        longitude: number;
+        timestamp: number;
+      }) => void;
+      const lateReading = new Promise<{
+        accuracy: number;
+        latitude: number;
+        longitude: number;
+        timestamp: number;
+      }>((resolve) => {
+        resolveReading = resolve;
+      });
+      const locationClient = client({
+        getCurrentPosition: jest.fn(() => lateReading),
+      });
+
+      const pending = captureGpsLocation(locationClient, () => NOW);
+      await jest.advanceTimersByTimeAsync(FOREGROUND_GPS_TIMEOUT_MS);
+      const result = await pending;
+
+      resolveReading({
+        accuracy: 4,
+        latitude: 14.1,
+        longitude: 120.7,
+        timestamp: NOW.getTime(),
+      });
+      await Promise.resolve();
+
+      expect(result).toMatchObject({
+        outcome: 'unavailable',
+        reason: 'reading_unavailable',
+        timedOut: true,
+      });
+    });
+
+    it('honours a caller-supplied bound', async () => {
+      jest.useFakeTimers();
+      const locationClient = client({
+        getCurrentPosition: jest.fn(
+          () => new Promise<never>(() => undefined),
+        ),
+      });
+
+      const pending = captureGpsLocation(locationClient, () => NOW, {
+        timeoutMs: 2_000,
+      });
+      await jest.advanceTimersByTimeAsync(1_999);
+      let settled = false;
+      void pending.then(() => {
+        settled = true;
+      });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+
+      await jest.advanceTimersByTimeAsync(1);
+      await expect(pending).resolves.toMatchObject({
+        outcome: 'unavailable',
+        timedOut: true,
+      });
     });
   });
 });

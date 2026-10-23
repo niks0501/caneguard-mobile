@@ -74,9 +74,11 @@ describe('ModelSmokeTestScreen', () => {
   it('shows model loading status and static metadata', async () => {
     mockUseCaneGuardModel.mockReturnValue({
       start: jest.fn(),
+      retry: jest.fn(),
       model: undefined,
       state: 'loading',
       run: mockRun,
+      errorKind: null,
       error: null,
     });
 
@@ -92,8 +94,10 @@ describe('ModelSmokeTestScreen', () => {
   it('shows validated input and output metadata after loading', async () => {
     mockUseCaneGuardModel.mockReturnValue({
       start: jest.fn(),
+      retry: jest.fn(),
       state: 'loaded',
       run: mockRun,
+      errorKind: null,
       error: null,
       model: {
         inputs: [
@@ -125,10 +129,12 @@ describe('ModelSmokeTestScreen', () => {
   it('shows native error detail in development', async () => {
     mockUseCaneGuardModel.mockReturnValue({
       start: jest.fn(),
+      retry: jest.fn(),
       model: undefined,
       state: 'error',
       run: mockRun,
       error: new Error('TFLite asset could not load'),
+      errorKind: 'load',
     });
 
     await render(<ModelSmokeTestScreen />);

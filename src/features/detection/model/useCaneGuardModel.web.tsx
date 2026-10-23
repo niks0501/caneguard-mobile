@@ -15,8 +15,12 @@ export type CaneGuardModelController = {
   model: undefined;
   run: ModelRun;
   error: Error;
+  /** Fail-closed: a web bundle can never load the native model contract. */
+  errorKind: 'contract';
   /** No-op on web: there is no native TFLite runtime to start. */
   start: () => void;
+  /** No-op on web: retrying cannot supply the native runtime. */
+  retry: () => void;
 };
 
 const WEB_MODEL_ERROR = new InferenceError(
@@ -31,15 +35,18 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
     throw WEB_MODEL_ERROR;
   }, []);
   const start = useCallback(() => undefined, []);
+  const retry = useCallback(() => undefined, []);
   const value = useMemo<CaneGuardModelController>(
     () => ({
       error: WEB_MODEL_ERROR,
+      errorKind: 'contract',
       model: undefined,
+      retry,
       run,
       start,
       state: 'error',
     }),
-    [run, start],
+    [retry, run, start],
   );
 
   return (

@@ -206,6 +206,12 @@ export type SaveGpsCaptureInput =
   | {
       accuracy: number;
       capturedAt: string;
+      /**
+       * When the attempt started. A reading that returns after another
+       * location choice or a newer attempt is dropped rather than overwriting
+       * the newer state. Form-only edits do not invalidate the reading.
+       */
+      startedAt?: string;
       latitude: number;
       longitude: number;
       outcome: 'low_accuracy' | 'resolved';
@@ -214,6 +220,7 @@ export type SaveGpsCaptureInput =
   | {
       capturedAt: string;
       outcome: 'error' | 'permission_denied' | 'unavailable';
+      startedAt?: string;
       reason?: GpsCaptureUnavailableReason;
       updatedAt: string;
     };

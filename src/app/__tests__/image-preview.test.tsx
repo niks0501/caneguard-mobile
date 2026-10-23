@@ -11,6 +11,7 @@ import {
 import { InferenceError } from '@/features/detection/model/inferenceErrors';
 import { runInference } from '@/features/detection/model/runInference';
 import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
+import { pickScanImage } from '@/features/detection/imagePicker/pickScanImage';
 import { PreprocessingError } from '@/features/detection/preprocessing/preprocessingErrors';
 import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
 import type {
@@ -30,12 +31,21 @@ jest.mock('@/features/detection/model/useCaneGuardModel', () => ({
   useCaneGuardModel: jest.fn(),
 }));
 
+jest.mock('@/features/detection/imagePicker/pickScanImage', () => ({
+  getPermissionDeniedMessage: (canAskAgain: boolean) =>
+    canAskAgain
+      ? 'Camera access is needed to take a sugarcane photo. You can try the camera again.'
+      : 'Camera access is turned off. Open device settings to allow CaneGuard to use the camera.',
+  pickScanImage: jest.fn(),
+}));
+
 const mockDispatch = jest.fn<void, [ScanSessionAction]>();
 const mockRouterDismissTo = router.dismissTo as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
 const mockPreprocessImage = preprocessImage as jest.MockedFunction<typeof preprocessImage>;
 const mockRunInference = runInference as jest.MockedFunction<typeof runInference>;
 const mockUseCaneGuardModel = jest.mocked(useCaneGuardModel);
+const mockPickScanImage = jest.mocked(pickScanImage);
 const mockModelRun = jest.fn<Promise<ArrayBuffer[]>, [ArrayBuffer[]]>();
 const successfulPreprocessingResult = {
   processedUri: 'file:///processed.jpg',
@@ -112,9 +122,11 @@ describe('ImagePreviewScreen', () => {
     mockRunInference.mockResolvedValue(successfulInferenceResult);
     mockUseCaneGuardModel.mockReturnValue({
       start: jest.fn(),
+      retry: jest.fn(),
       state: 'loaded',
       model: {} as never,
       run: mockModelRun,
+      errorKind: null,
       error: null,
     });
   });
@@ -151,6 +163,19 @@ describe('ImagePreviewScreen', () => {
         'Analysis stays on this screen until the check succeeds.',
       ),
     ).toBeOnTheScreen();
+  });
+
+  it('lets a restored completed scan open its analysis result', async () => {
+    await renderPreview({
+      ...selectedState,
+      result: successfulInferenceResult,
+      status: 'completed',
+    });
+
+    expect(screen.getByTestId('scan.preview-screen')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('View the analysis result'));
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/analysis-result');
   });
 
   it('preprocesses, runs inference once, stores the result, and continues', async () => {
@@ -209,13 +234,17 @@ describe('ImagePreviewScreen', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Image analysis complete')).toBeDisabled();
+      expect(screen.getByLabelText('View the analysis result')).toBeOnTheScreen();
       expect(
         screen.getByText(
-          'Analysis complete. Continuing to the symptom checklist…',
+          'Analysis complete. Open the result to review it and save this scan.',
         ),
       ).toBeOnTheScreen();
     });
+    expect(screen.queryByTestId('scan.analyze-image')).not.toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('View the analysis result'));
+    expect(mockRouterPush).toHaveBeenCalledWith('/analysis-result');
 
     expect(mockRouterPush).toHaveBeenCalledWith('/symptom-checklist');
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'START_INFERENCE' });
@@ -228,12 +257,65 @@ describe('ImagePreviewScreen', () => {
     });
   });
 
+  it('offers an in-app retry after a recoverable model-load failure', async () => {
+    const retry = jest.fn();
+    mockUseCaneGuardModel.mockReturnValue({
+      error: new InferenceError(
+        'MODEL_LOAD_FAILED',
+        'The native runtime could not load the bundled Model V1 asset.',
+      ),
+      errorKind: 'load',
+      model: undefined,
+      retry,
+      run: mockModelRun,
+      start: jest.fn(),
+      state: 'error',
+    } as unknown as ReturnType<typeof useCaneGuardModel>);
+
+    await renderPreview(selectedState);
+
+    expect(
+      screen.getByLabelText('Selected sugarcane image from gallery'),
+    ).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.analyze-image')).toBeDisabled();
+
+    await fireEvent.press(screen.getByLabelText('Retry analysis setup'));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a contract mismatch fail-closed without offering a reload', async () => {
+    mockUseCaneGuardModel.mockReturnValue({
+      error: new InferenceError(
+        'MODEL_CONTRACT_MISMATCH',
+        'Model input does not match the Model V1 contract.',
+      ),
+      errorKind: 'contract',
+      model: undefined,
+      retry: jest.fn(),
+      run: mockModelRun,
+      start: jest.fn(),
+      state: 'error',
+    } as unknown as ReturnType<typeof useCaneGuardModel>);
+
+    await renderPreview(selectedState);
+
+    expect(screen.queryByLabelText('Retry analysis setup')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('scan.analyze-image')).toBeDisabled();
+    expect(
+      screen.getByText(
+        'This app and the bundled model are not compatible. Rebuild the app with the expected Model V1 asset.',
+      ),
+    ).toBeOnTheScreen();
+  });
+
   it('keeps Analyze disabled until the model is loaded', async () => {
     mockUseCaneGuardModel.mockReturnValue({
       start: jest.fn(),
+      retry: jest.fn(),
       state: 'loading',
       model: undefined,
       run: mockModelRun,
+      errorKind: null,
       error: null,
     });
     await renderPreview(selectedState);
@@ -311,16 +393,90 @@ describe('ImagePreviewScreen', () => {
     );
   });
 
-  it('returns to scan without clearing the selected image for replacement', async () => {
+  it('offers the camera and gallery directly for replacement', async () => {
     await renderPreview(selectedState);
 
+    await fireEvent.press(screen.getByLabelText('Show Retake / Replace image'));
+
+    expect(screen.getByLabelText('Take another photo with the camera')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Choose another image from the gallery'),
+    ).toBeOnTheScreen();
+    expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+    expect(
+      screen.getByLabelText('Selected sugarcane image from gallery'),
+    ).toBeOnTheScreen();
+  });
+
+  it('keeps the current image and result when replacement is cancelled', async () => {
+    mockPickScanImage.mockResolvedValueOnce({ kind: 'canceled' });
+    await renderPreview(selectedState);
+
+    await fireEvent.press(screen.getByLabelText('Show Retake / Replace image'));
     await fireEvent.press(
-      screen.getByLabelText('Return to scan and replace the selected image'),
+      screen.getByLabelText('Choose another image from the gallery'),
     );
 
-    expect(mockRouterDismissTo).toHaveBeenCalledWith('/scan');
-    expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
-    expect(screen.getByLabelText('Selected sugarcane image from gallery')).toBeOnTheScreen();
+    expect(mockPickScanImage).toHaveBeenCalledWith('gallery');
+    expect(mockDispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SELECT_IMAGE' }),
+    );
+    expect(
+      screen.getByLabelText('Selected sugarcane image from gallery'),
+    ).toBeOnTheScreen();
+  });
+
+  it('keeps the current image when replacement permission is denied', async () => {
+    mockPickScanImage.mockResolvedValueOnce({
+      canAskAgain: false,
+      kind: 'permission-denied',
+    });
+    await renderPreview(selectedState);
+
+    await fireEvent.press(screen.getByLabelText('Show Retake / Replace image'));
+    await fireEvent.press(screen.getByLabelText('Take another photo with the camera'));
+
+    expect(mockDispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SELECT_IMAGE' }),
+    );
+    expect(
+      screen.getByTestId('image-preview.replacement-notice'),
+    ).toHaveTextContent(/Camera access is turned off/);
+    expect(
+      screen.getByLabelText('Selected sugarcane image from gallery'),
+    ).toBeOnTheScreen();
+  });
+
+  it('replaces the image only after a new selection is accepted', async () => {
+    mockPickScanImage.mockResolvedValueOnce({
+      image: {
+        sourceHeight: 900,
+        sourceType: 'gallery',
+        sourceUri: 'file:///replacement.jpg',
+        sourceWidth: 1200,
+      },
+      kind: 'selected',
+    });
+    await renderPreview(selectedState);
+
+    await fireEvent.press(screen.getByLabelText('Show Retake / Replace image'));
+    await fireEvent.press(
+      screen.getByLabelText('Choose another image from the gallery'),
+    );
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      payload: {
+        sourceHeight: 900,
+        sourceType: 'gallery',
+        sourceUri: 'file:///replacement.jpg',
+        sourceWidth: 1200,
+      },
+      type: 'SELECT_IMAGE',
+    });
+    expect(
+      screen.getByTestId('image-preview.replacement-notice'),
+    ).toHaveTextContent(/The previous analysis result and symptom answers were cleared/);
+    expect(mockRouterDismissTo).not.toHaveBeenCalled();
   });
 
   it('clears the session when starting a completely new scan', async () => {

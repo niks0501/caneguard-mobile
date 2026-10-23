@@ -1,3 +1,4 @@
+import NetInfo from '@react-native-community/netinfo';
 import { StrictMode, type PropsWithChildren } from 'react';
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 
@@ -114,6 +115,14 @@ function AuthenticatedHomeRoute() {
   const { status } = useAuth();
   return status === 'authenticated' ? <HomeScreen /> : null;
 }
+
+jest.mock('@react-native-community/netinfo', () => ({
+  __esModule: true,
+  default: {
+    addEventListener: jest.fn(() => () => undefined),
+    fetch: jest.fn(async () => ({ isConnected: true, isInternetReachable: true })),
+  },
+}));
 
 describe('AuthProvider', () => {
   const mockChangePassword = jest.mocked(changePassword);
@@ -259,6 +268,85 @@ describe('AuthProvider', () => {
     await waitFor(() =>
       expect(screen.getByText('Office unreachable')).toBeOnTheScreen(),
     );
+  });
+
+  it('retries a pending verification when the network returns without another biometric prompt', async () => {
+    prepareProtectedStartup();
+    mockVerify.mockRejectedValueOnce(
+      new MobileAuthError(
+        'SERVER_UNAVAILABLE',
+        'CaneGuard could not reach the server.',
+      ),
+    );
+    mockVerify.mockResolvedValueOnce({
+      ...SESSION.user,
+      name: 'Verified later',
+    });
+
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() =>
+      expect(result.current.sessionVerification).toBe('unavailable'),
+    );
+
+    const listener = jest
+      .mocked(NetInfo.addEventListener)
+      .mock.calls.map(([handler]) => handler)
+      .pop();
+    expect(listener).toBeDefined();
+
+    await act(async () => {
+      listener?.({
+        isConnected: true,
+        isInternetReachable: true,
+      } as never);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(result.current.sessionVerification).toBe('verified'),
+    );
+    expect(result.current.user?.name).toBe('Verified later');
+    expect(result.current.status).toBe('authenticated');
+    // Recovery reuses the current session; it never asks for biometrics again.
+    expect(mockBiometricAuth).toHaveBeenCalledTimes(1);
+    expect(mockVerify).toHaveBeenCalledTimes(2);
+  });
+
+  it('expires the same session when the retried verification is rejected', async () => {
+    prepareProtectedStartup();
+    mockVerify.mockRejectedValueOnce(
+      new MobileAuthError(
+        'SERVER_UNAVAILABLE',
+        'CaneGuard could not reach the server.',
+      ),
+    );
+    mockVerify.mockRejectedValueOnce(
+      new MobileAuthError('SESSION_EXPIRED', 'Expired'),
+    );
+
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() =>
+      expect(result.current.sessionVerification).toBe('unavailable'),
+    );
+
+    const listener = jest
+      .mocked(NetInfo.addEventListener)
+      .mock.calls.map(([handler]) => handler)
+      .pop();
+
+    await act(async () => {
+      listener?.({
+        isConnected: true,
+        isInternetReachable: true,
+      } as never);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+    expect(result.current.session).toBeNull();
+    expect(mockClear).toHaveBeenCalled();
   });
 
   it('clears a server-rejected restored session', async () => {

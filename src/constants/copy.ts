@@ -54,6 +54,16 @@ export const FIELD_SURVEY_COPY = {
   close: 'Close',
 } as const;
 
+/** Offline readiness (D01) — before field work without a connection. */
+export const OFFLINE_READINESS_COPY = {
+  readyTitle: 'Ready for offline work',
+  notReadyTitle: 'Not ready for offline work',
+  explanation:
+    'CaneGuard keeps the existing protected-session boundary: a password-only sign-in is not stored, so closing the app while offline returns you to the sign-in screen. Biometric unlock keeps the same unexpired account resumable offline; it never stores your password or ignores a rejected credential.',
+  passwordOnlyRestartLimit:
+    'Password-only sign-in: if CaneGuard closes while you are offline, you must sign in again when a connection returns. Turn on biometric unlock in Account security before field work to resume offline after a restart.',
+} as const;
+
 /** Floating office-updates pill on Home. */
 export function officeUpdatesPillLabel(count: number): string {
   return `${count} office ${count === 1 ? 'update' : 'updates'}`;

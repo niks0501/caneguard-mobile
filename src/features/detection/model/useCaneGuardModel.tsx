@@ -40,6 +40,7 @@ function useTensorflowModelFromAsset(
   assetModule: number,
   delegates: TensorflowModelDelegate[],
   started: boolean,
+  attempt: number,
 ): TensorflowPlugin {
   const [nativeModel, setNativeModel] = useState<TensorflowPlugin>({
     model: undefined,
@@ -89,7 +90,7 @@ function useTensorflowModelFromAsset(
     return () => {
       cancelled = true;
     };
-  }, [assetModule, delegates, started]);
+  }, [assetModule, attempt, delegates, started]);
 
   return nativeModel;
 }
@@ -99,10 +100,14 @@ type ModelRun = (input: ArrayBuffer[]) => Promise<ArrayBuffer[]>;
 /**
  * Starts the one-time model download and native load. The provider defers this
  * until the scan flow asks for it, so a cold start does not pay 8.9 MB of asset
- * I/O and a TFLite load for a screen the inspector has not opened. It is
- * idempotent: calling it more than once is a no-op after the first call.
+ * I/O and a TFLite load for a screen the inspector has not opened. Calling it
+ * again is a no-op; `retry` is the explicit recovery path after a load error.
  */
 type StartModelLoad = () => void;
+type RetryModelLoad = () => void;
+
+/** Why analysis setup is unavailable. Contract mismatches stay fail-closed. */
+export type ModelErrorKind = 'contract' | 'load';
 
 export type CaneGuardModelController = {
   /**
@@ -111,24 +116,29 @@ export type CaneGuardModelController = {
    * `error` as before.
    */
   start: StartModelLoad;
+  /** Reattempts a failed download/native load without changing the contract. */
+  retry: RetryModelLoad;
 } & (
   | {
       state: 'loading';
       model: undefined;
       run: ModelRun;
       error: null;
+      errorKind: null;
     }
   | {
       state: 'loaded';
       model: TfliteModel;
       run: ModelRun;
       error: null;
+      errorKind: null;
     }
   | {
       state: 'error';
       model: undefined;
       run: ModelRun;
       error: Error;
+      errorKind: ModelErrorKind;
     }
 );
 
@@ -136,11 +146,17 @@ const CaneGuardModelContext = createContext<CaneGuardModelController | null>(nul
 
 export function CaneGuardModelProvider({ children }: PropsWithChildren) {
   const [started, setStarted] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const start = useCallback(() => setStarted(true), []);
+  const retry = useCallback(() => {
+    setStarted(true);
+    setAttempt((current) => current + 1);
+  }, []);
   const nativeModel = useTensorflowModelFromAsset(
     MODEL_ASSET,
     CPU_DELEGATES,
     started,
+    attempt,
   );
   const contractError =
     nativeModel.state === 'loaded'
@@ -168,9 +184,11 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
       return {
         model: undefined,
         start,
+        retry,
         state: 'error',
         run,
         error: contractError,
+        errorKind: 'contract',
       };
     }
 
@@ -178,6 +196,7 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
       return {
         model: undefined,
         start,
+        retry,
         state: 'error',
         run,
         error: new InferenceError(
@@ -185,6 +204,7 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
           'The native runtime could not load the bundled Model V1 asset.',
           nativeModel.error,
         ),
+        errorKind: 'load',
       };
     }
 
@@ -192,20 +212,24 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
       return {
         model: nativeModel.model,
         start,
+        retry,
         state: 'loaded',
         run,
         error: null,
+        errorKind: null,
       };
     }
 
     return {
       model: undefined,
       start,
+      retry,
       state: 'loading',
       run,
       error: null,
+      errorKind: null,
     };
-  }, [contractError, nativeModel, run, start]);
+  }, [contractError, nativeModel, retry, run, start]);
 
   return (
     <CaneGuardModelContext.Provider value={modelState}>

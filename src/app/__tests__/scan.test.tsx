@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useReducer } from 'react';
@@ -7,7 +7,10 @@ import { Linking, Platform } from 'react-native';
 
 import ScanScreen from '@/app/(tabs)/scan';
 import { ToastProvider } from '@/components/ui/Toast';
-import { ScanSessionContext } from '@/features/detection/context/ScanSessionProvider';
+import {
+  ScanDraftContext,
+  ScanSessionContext,
+} from '@/features/detection/context/ScanSessionProvider';
 import {
   initialScanSessionState,
   scanSessionReducer,
@@ -82,6 +85,8 @@ function formattedImageResult(
   };
 }
 
+let mockDraftOverride: Record<string, unknown> | null = null;
+
 async function renderScan(initialState: ScanSessionState = initialScanSessionState) {
   function ScanHarness() {
     const [state, dispatch] = useReducer(
@@ -95,7 +100,14 @@ async function renderScan(initialState: ScanSessionState = initialScanSessionSta
     return (
       <ToastProvider>
         <ScanSessionContext.Provider value={{ state, dispatch }}>
-          <ScanScreen />
+          {mockDraftOverride ? (
+            <ScanDraftContext.Provider
+              value={mockDraftOverride as never}>
+              <ScanScreen />
+            </ScanDraftContext.Provider>
+          ) : (
+            <ScanScreen />
+          )}
         </ScanSessionContext.Provider>
       </ToastProvider>
     );
@@ -106,6 +118,7 @@ async function renderScan(initialState: ScanSessionState = initialScanSessionSta
 
 describe('ScanScreen', () => {
   beforeEach(() => {
+    mockDraftOverride = null;
     Object.defineProperty(Platform, 'OS', {
       configurable: true,
       value: originalPlatformOS,
@@ -495,5 +508,95 @@ describe('ScanScreen', () => {
       expect(screen.getByTestId('app-toast')).toHaveTextContent('Draft discarded');
       expect(mockRouterReplace).toHaveBeenCalledWith('/home');
     });
+  });
+
+  it('does not apply a delayed picker result for a previous owner', async () => {
+    let resolveLibrary!: (value: ImagePicker.ImagePickerResult) => void;
+    mockLaunchImageLibrary.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveLibrary = resolve;
+      }),
+    );
+    mockDraftOverride = {
+      discardSavedDraft: jest.fn(async () => true),
+      draftSavedAt: null,
+      draftStatus: 'idle',
+      flushSavedDraft: jest.fn(async () => true),
+      isOwnerCurrent: jest.fn(() => false),
+      ownerIdentity: 'old-owner',
+    };
+
+    await renderScan();
+    await fireEvent.press(screen.getByLabelText('Choose one image from the gallery'));
+
+    await act(async () => {
+      resolveLibrary(selectedImageResult());
+    });
+
+    expect(mockDispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SELECT_IMAGE' }),
+    );
+    expect(mockRouterPush).not.toHaveBeenCalledWith('/image-preview');
+  });
+
+  it('shows honest draft status and a resume entry for a saved scan', async () => {
+    mockDraftOverride = {
+      discardSavedDraft: jest.fn(async () => true),
+      draftSavedAt: '2026-10-23T08:30:00.000Z',
+      draftStatus: 'saved',
+      flushSavedDraft: jest.fn(async () => true),
+      isOwnerCurrent: jest.fn(() => true),
+      ownerIdentity: 'owner-1',
+    };
+
+    await renderScan({
+      ...initialScanSessionState,
+      sourceHeight: 480,
+      sourceType: 'gallery',
+      sourceUri: 'file:///saved-leaf.jpg',
+      sourceWidth: 640,
+      status: 'image-selected',
+    });
+
+    expect(screen.getByTestId('scan.draft-status')).toHaveTextContent(
+      /Saved on this device/,
+    );
+    expect(screen.getByText('Resume Saved Scan')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Take another photo to replace the selected image'),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Choose another image to replace the selected image'),
+    ).toBeOnTheScreen();
+  });
+
+  it('does not claim a kept draft after a failed checkpoint write', async () => {
+    const flushSavedDraft = jest.fn(async () => false);
+    mockDraftOverride = {
+      discardSavedDraft: jest.fn(async () => true),
+      draftSavedAt: null,
+      draftStatus: 'failed',
+      flushSavedDraft,
+      isOwnerCurrent: jest.fn(() => true),
+      ownerIdentity: 'owner-1',
+    };
+
+    await renderScan({
+      ...initialScanSessionState,
+      sourceHeight: 480,
+      sourceType: 'gallery',
+      sourceUri: 'file:///saved-leaf.jpg',
+      sourceWidth: 640,
+      status: 'image-selected',
+    });
+
+    await fireEvent.press(screen.getByTestId('scan.header-close'));
+    await fireEvent.press(screen.getByTestId('scan.cancel-dialog.cancel'));
+
+    expect(flushSavedDraft).toHaveBeenCalledTimes(1);
+    expect(mockRouterReplace).not.toHaveBeenCalledWith('/home');
+    expect(screen.getByTestId('scan.draft-status')).toHaveTextContent(
+      /Not saved on this device/,
+    );
   });
 });

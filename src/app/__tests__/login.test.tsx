@@ -73,6 +73,14 @@ describe('LoginScreen biometric fallback', () => {
     await render(<LoginScreen />);
 
     expect(screen.queryByTestId('auth.biometric-unlock')).not.toBeOnTheScreen();
+    // M09/D01: a password-only session explains the offline restart limit
+    // without implying that a password is stored for offline unlock.
+    expect(screen.getByTestId('auth.offline-restart-limit')).toHaveTextContent(
+      /Password-only sign-in/,
+    );
+    expect(screen.getByTestId('auth.offline-restart-limit')).toHaveTextContent(
+      /Turn on biometric unlock/,
+    );
   });
 
   it('disables the fallback button while its biometric prompt is loading', async () => {

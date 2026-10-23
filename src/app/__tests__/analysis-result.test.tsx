@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import AnalysisResultScreen from '@/app/analysis-result';
@@ -8,7 +8,10 @@ import type {
   ChecklistObservationId,
 } from '@/features/detection/checklist/checklistConsistency';
 import type { ModelLabel } from '@/features/detection/constants/modelContract';
-import { ScanSessionContext } from '@/features/detection/context/ScanSessionProvider';
+import {
+  ScanDraftContext,
+  ScanSessionContext,
+} from '@/features/detection/context/ScanSessionProvider';
 import {
   initialScanSessionState,
 } from '@/features/detection/context/scanSessionReducer';
@@ -20,12 +23,24 @@ import type {
 
 const mockDispatch = jest.fn<void, [ScanSessionAction]>();
 const mockSaveRecord = jest.fn();
+let mockSaveRecordError: string | null = null;
 let mockSaveRecordState = {
   status: 'ready' as 'ready' | 'saving' | 'saved' | 'failed',
   error: null,
   errorMessage: null as string | null,
+  getLastError: () => mockSaveRecordError,
   recordId: null as string | null,
   save: mockSaveRecord,
+};
+const mockFinalizeSavedDraft = jest.fn();
+const mockDraftValue = {
+  discardSavedDraft: jest.fn(async () => true),
+  draftSavedAt: null,
+  draftStatus: 'idle' as const,
+  finalizeSavedDraft: mockFinalizeSavedDraft,
+  flushSavedDraft: jest.fn(async () => true),
+  isOwnerCurrent: jest.fn(() => true),
+  ownerIdentity: null,
 };
 const mockRouterBack = router.back as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
@@ -109,7 +124,9 @@ async function renderResult(state: ScanSessionState) {
   return render(
     <ToastProvider>
       <ScanSessionContext.Provider value={{ state, dispatch: mockDispatch }}>
-        <AnalysisResultScreen />
+        <ScanDraftContext.Provider value={mockDraftValue}>
+          <AnalysisResultScreen />
+        </ScanDraftContext.Provider>
       </ScanSessionContext.Provider>
     </ToastProvider>,
   );
@@ -132,10 +149,12 @@ function collectTestIds(node: unknown, collected: string[] = []): string[] {
 describe('AnalysisResultScreen', () => {
   beforeEach(() => {
     mockSaveRecord.mockReset();
+    mockSaveRecordError = null;
     mockSaveRecordState = {
       status: 'ready',
       error: null,
       errorMessage: null,
+      getLastError: () => mockSaveRecordError,
       recordId: null,
       save: mockSaveRecord,
     };
@@ -234,17 +253,20 @@ describe('AnalysisResultScreen', () => {
       }),
     );
 
+    // M11: the actionable caution is visible before any disclosure is opened.
+    expect(screen.getByTestId('scan.result-caution')).toBeOnTheScreen();
+    expect(screen.getByText('Check before you report')).toBeOnTheScreen();
+    expect(
+      screen.getAllByText(
+        'The image resolution is low. Move closer and keep the affected area in focus.',
+      ).length,
+    ).toBeGreaterThan(0);
     expect(screen.queryByText('Image quality notice')).not.toBeOnTheScreen();
     await fireEvent.press(screen.getByLabelText('Show Why this result?'));
 
     expect(screen.getByText('Image quality notice')).toBeOnTheScreen();
     expect(
       screen.getByText('These warnings did not change the result.'),
-    ).toBeOnTheScreen();
-    expect(
-      screen.getByText(
-        'The image resolution is low. Move closer and keep the affected area in focus.',
-      ),
     ).toBeOnTheScreen();
     expect(screen.queryByLabelText('AI confidence 78%')).not.toBeOnTheScreen();
     expect(result.confidence).toBe(0.78);
@@ -309,6 +331,40 @@ describe('AnalysisResultScreen', () => {
       pathname: '/field-report',
       params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
     });
+    expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+    expect(screen.getByTestId('scan.result-screen')).toBeOnTheScreen();
+  });
+
+  it('keeps the result on screen after saving and finalizes it only when left', async () => {
+    mockSaveRecord.mockResolvedValue({ id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' });
+
+    const rendered = await renderResult(createCompletedState('rust', ['rust']));
+    await fireEvent.press(screen.getByLabelText('Save this scan on the device'));
+    await waitFor(() =>
+      expect(screen.getByTestId('app-toast')).toHaveTextContent('Scan saved'),
+    );
+
+    expect(mockSaveRecord).toHaveBeenCalledTimes(1);
+    expect(mockFinalizeSavedDraft).toHaveBeenCalledTimes(1);
+    expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+    expect(mockRouterDismissTo).not.toHaveBeenCalled();
+    expect(screen.getByTestId('scan.result-screen')).toBeOnTheScreen();
+
+    await act(async () => {
+      rendered.unmount();
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+  });
+
+  it('does not finalize an unsaved result when it is left', async () => {
+    const rendered = await renderResult(createCompletedState('rust', ['rust']));
+
+    await act(async () => {
+      rendered.unmount();
+    });
+
+    expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
   });
 
   it('opens the report from an already preserved scan without saving it again', async () => {
@@ -326,6 +382,7 @@ describe('AnalysisResultScreen', () => {
       pathname: '/field-report',
       params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
     });
+    expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
   });
 
   it('shows direct report progress while the scan is being preserved', async () => {
@@ -417,6 +474,96 @@ describe('AnalysisResultScreen', () => {
       screen.getByLabelText('Retry and save this scan on the device'),
     );
     expect(mockSaveRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a visible caution with high confidence and poor photo quality while reporting stays available', async () => {
+    await renderResult(
+      createCompletedState('rust', ['rust'], {
+        qualityAssessment: {
+          warnings: ['too-dark'],
+          meanLuminance: 30,
+          luminanceStandardDeviation: 28,
+        },
+        result: createResult('rust', 0.91),
+      }),
+    );
+
+    const caution = screen.getByTestId('scan.result-caution');
+    expect(caution).toBeOnTheScreen();
+    expect(caution).toHaveTextContent(/Check before you report/);
+    expect(caution).toHaveTextContent(/The image may be too dark/);
+    expect(caution).toHaveTextContent(/This caution does not change the result/);
+    expect(screen.getByTestId('scan.report-to-office')).toBeEnabled();
+    expect(screen.getByTestId('scan.new-scan')).toBeEnabled();
+    // The disclosure stays closed: the caution is not hidden behind it.
+    expect(screen.queryByText('Image quality notice')).not.toBeOnTheScreen();
+  });
+
+  it('shows the caution for conflicting observations even with high confidence', async () => {
+    await renderResult(createCompletedState('rust', ['mosaic'], {
+      result: createResult('rust', 0.93),
+    }));
+
+    const caution = screen.getByTestId('scan.result-caution');
+    expect(caution).toHaveTextContent(/selected symptom observations do not match/i);
+    expect(screen.getByTestId('scan.report-to-office')).toBeEnabled();
+  });
+
+  it('adds no extra caution for a clean, consistent result', async () => {
+    await renderResult(createCompletedState('rust', ['rust'], {
+      result: createResult('rust', 0.88),
+    }));
+
+    expect(screen.queryByTestId('scan.result-caution')).not.toBeOnTheScreen();
+  });
+
+  it('does not announce or leave the screen when Keep draft storage fails', async () => {
+    mockSaveRecord.mockResolvedValueOnce(null);
+    mockSaveRecordError =
+      'The record could not be saved. Your scan result is still available.';
+
+    await renderResult(createCompletedState('rust', ['rust']));
+    await fireEvent.press(screen.getByTestId('analysis-result.header-close'));
+    await fireEvent.press(
+      screen.getByTestId('analysis-result.cancel-dialog.cancel'),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('app-toast')).toHaveTextContent(
+        'The record could not be saved. Your scan result is still available.',
+      ),
+    );
+    expect(mockRouterDismissTo).not.toHaveBeenCalled();
+    expect(screen.getByTestId('scan.result-screen')).toBeOnTheScreen();
+  });
+
+  it('exits only after Keep draft persistence resolves', async () => {
+    let resolveSave!: (value: { id: string }) => void;
+    mockSaveRecord.mockReturnValueOnce(
+      new Promise<{ id: string }>((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
+
+    await renderResult(createCompletedState('rust', ['rust']));
+    fireEvent.press(screen.getByTestId('analysis-result.header-close'));
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('analysis-result.cancel-dialog'),
+      ).toBeOnTheScreen(),
+    );
+    fireEvent.press(screen.getByTestId('analysis-result.cancel-dialog.cancel'));
+    await waitFor(() => expect(mockSaveRecord).toHaveBeenCalledTimes(1));
+
+    expect(mockRouterDismissTo).not.toHaveBeenCalled();
+    expect(screen.queryByText('Scan saved')).not.toBeOnTheScreen();
+
+    await act(async () => {
+      resolveSave({ id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' });
+    });
+
+    await waitFor(() => expect(mockRouterDismissTo).toHaveBeenCalledWith('/home'));
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('Scan saved');
   });
 
   it('keeps an AI/checklist mismatch visible while reporting remains available', async () => {
@@ -538,7 +685,7 @@ describe('AnalysisResultScreen', () => {
       expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
       expect(screen.getByTestId('app-toast')).toHaveTextContent('Scan saved');
       expect(mockRouterDismissTo).toHaveBeenCalledWith('/home');
-      expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
     });
 
     it('resets scan session and routes home when Discard draft is chosen', async () => {

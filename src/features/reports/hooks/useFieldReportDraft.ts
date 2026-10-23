@@ -171,6 +171,10 @@ export function useFieldReportDraft(
   const saveInFlight = useRef<Promise<FieldReport> | null>(null);
   const finalizeInFlight = useRef(false);
   const locationCaptureInFlight = useRef(false);
+  // Increments whenever a newer location action supersedes an in-flight
+  // reading; a late native result is then discarded instead of persisted.
+  const locationAttempt = useRef(0);
+  const lastError = useRef<string | null>(null);
   const autoCaptureAttemptedFor = useRef<string | null>(null);
   const refreshGeneration = useRef(0);
   const refreshInput = useRef<{
@@ -204,29 +208,39 @@ export function useFieldReportDraft(
         !user ||
         locationCaptureInFlight.current ||
         finalizing ||
-        finalizeInFlight.current ||
-        saveInFlight.current
+        finalizeInFlight.current
       ) {
         return null;
       }
 
+      const attempt = ++locationAttempt.current;
+      const attemptStartedAt = new Date().toISOString();
       locationCaptureInFlight.current = true;
       setCapturingLocation(true);
       setLocationServicesDisabled(false);
       setSaved(false);
       setSubmissionIssues([]);
+      lastError.current = null;
       setState((current) => ({ ...current, errorMessage: null }));
       try {
         const result = await captureGpsLocation(expoForegroundLocationClient);
+        if (attempt !== locationAttempt.current) {
+          // Cancelled, superseded, or the owner changed while the reading ran.
+          return null;
+        }
         setLocationServicesDisabled(
           result.outcome === 'unavailable' &&
             result.reason === 'location_services_disabled',
         );
         const data = await saveGpsCapture(database, report.id, user.uuid, {
           ...result,
+          startedAt: attemptStartedAt,
           updatedAt: new Date().toISOString(),
         });
         if (!isCurrentInput() || !data) {
+          return null;
+        }
+        if (attempt !== locationAttempt.current) {
           return null;
         }
         setState({ data, errorMessage: null, loading: false });
@@ -237,7 +251,8 @@ export function useFieldReportDraft(
           'UPDATE_FAILED',
           'Saving the GPS result failed.',
         );
-        if (isCurrentInput()) {
+        if (attempt === locationAttempt.current && isCurrentInput()) {
+          lastError.current = getStorageErrorMessage(storageError);
           setState((current) => ({
             ...current,
             errorMessage: getStorageErrorMessage(storageError),
@@ -245,12 +260,26 @@ export function useFieldReportDraft(
         }
         return null;
       } finally {
-        locationCaptureInFlight.current = false;
-        setCapturingLocation(false);
+        if (attempt === locationAttempt.current) {
+          locationCaptureInFlight.current = false;
+          setCapturingLocation(false);
+        }
       }
     },
     [database, finalizing, isCurrentInput, user],
   );
+
+  const invalidateLocationAttempt = useCallback(() => {
+    locationAttempt.current += 1;
+    locationCaptureInFlight.current = false;
+    setCapturingLocation(false);
+  }, []);
+
+  const cancelLocationCapture = useCallback(() => {
+    // A foreground native read cannot be cancelled directly; invalidating the
+    // attempt makes any late result stale so it is never applied.
+    invalidateLocationAttempt();
+  }, [invalidateLocationAttempt]);
 
   const captureLocation = useCallback(async (): Promise<FieldReport | null> => {
     if (!state.data || !hasCurrentReport || !user) {
@@ -286,9 +315,9 @@ export function useFieldReportDraft(
     attemptAutomaticLocationCaptureRef.current = attemptAutomaticLocationCapture;
   }, [attemptAutomaticLocationCapture]);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<FieldReport | null> => {
     if (!isCurrentInput()) {
-      return;
+      return null;
     }
     const requestGeneration = ++refreshGeneration.current;
     const isCurrentRequest = () =>
@@ -301,7 +330,7 @@ export function useFieldReportDraft(
         errorMessage: 'This completed scan link is invalid.',
         loading: false,
       });
-      return;
+      return null;
     }
     if (!user) {
       setState({
@@ -309,7 +338,7 @@ export function useFieldReportDraft(
         errorMessage: 'Sign in before creating a Field Report.',
         loading: false,
       });
-      return;
+      return null;
     }
 
     setState({ data: null, errorMessage: null, loading: true });
@@ -322,7 +351,7 @@ export function useFieldReportDraft(
         user.uuid,
       );
       if (!isCurrentRequest()) {
-        return;
+        return null;
       }
       if (!existing && !createIfMissing) {
         setState({
@@ -330,7 +359,7 @@ export function useFieldReportDraft(
           errorMessage: 'This Field Report Draft could not be found.',
           loading: false,
         });
-        return;
+        return null;
       }
       const cachedReportId =
         reportId.current?.scanRecordId === scanRecordId &&
@@ -356,7 +385,7 @@ export function useFieldReportDraft(
             : {}),
         }));
       if (!isCurrentRequest()) {
-        return;
+        return null;
       }
       reportId.current = {
         id: data.id,
@@ -371,9 +400,10 @@ export function useFieldReportDraft(
         // failed attempts are preserved as evidence.
         void attemptAutomaticLocationCaptureRef.current(data);
       }
+      return data;
     } catch (error: unknown) {
       if (!isCurrentRequest()) {
-        return;
+        return null;
       }
       const storageError = toStorageError(
         error,
@@ -385,6 +415,7 @@ export function useFieldReportDraft(
         errorMessage: getStorageErrorMessage(storageError),
         loading: false,
       });
+      return null;
     }
   }, [createIfMissing, database, isCurrentInput, scanRecordId, user]);
 
@@ -405,7 +436,6 @@ export function useFieldReportDraft(
         !state.data ||
         !hasCurrentReport ||
         !user ||
-        capturingLocation ||
         finalizing ||
         finalizeInFlight.current
       ) {
@@ -415,6 +445,7 @@ export function useFieldReportDraft(
         return saveInFlight.current;
       }
 
+      lastError.current = null;
       setSaving(true);
       setSaved(false);
       setSubmissionIssues([]);
@@ -439,6 +470,7 @@ export function useFieldReportDraft(
           'UPDATE_FAILED',
           'Saving the Field Report draft failed.',
         );
+        lastError.current = getStorageErrorMessage(storageError);
         if (isCurrentInput()) {
           setState((current) => ({
             ...current,
@@ -456,7 +488,6 @@ export function useFieldReportDraft(
       }
     },
     [
-      capturingLocation,
       database,
       finalizing,
       hasCurrentReport,
@@ -473,7 +504,6 @@ export function useFieldReportDraft(
         !hasCurrentReport ||
         !user ||
         savingManualLocation ||
-        capturingLocation ||
         finalizing ||
         finalizeInFlight.current ||
         saveInFlight.current
@@ -481,6 +511,8 @@ export function useFieldReportDraft(
         return null;
       }
 
+      invalidateLocationAttempt();
+      lastError.current = null;
       setSavingManualLocation(true);
       setSaved(false);
       setSubmissionIssues([]);
@@ -510,6 +542,7 @@ export function useFieldReportDraft(
           'UPDATE_FAILED',
           'Saving the manual map location failed.',
         );
+        lastError.current = getStorageErrorMessage(storageError);
         if (isCurrentInput()) {
           setState((current) => ({
             ...current,
@@ -521,10 +554,10 @@ export function useFieldReportDraft(
         setSavingManualLocation(false);
       }
     }, [
-      capturingLocation,
       database,
       finalizing,
       hasCurrentReport,
+      invalidateLocationAttempt,
       isCurrentInput,
       savingManualLocation,
       state.data,
@@ -539,7 +572,6 @@ export function useFieldReportDraft(
         !hasCurrentReport ||
         !user ||
         savingManualLocation ||
-        capturingLocation ||
         finalizing ||
         finalizeInFlight.current ||
         saveInFlight.current
@@ -547,6 +579,8 @@ export function useFieldReportDraft(
         return null;
       }
 
+      invalidateLocationAttempt();
+      lastError.current = null;
       setSavingManualLocation(true);
       setSaved(false);
       setSubmissionIssues([]);
@@ -570,6 +604,7 @@ export function useFieldReportDraft(
           'UPDATE_FAILED',
           'Changing the report location failed.',
         );
+        lastError.current = getStorageErrorMessage(storageError);
         if (isCurrentInput()) {
           setState((current) => ({
             ...current,
@@ -582,10 +617,10 @@ export function useFieldReportDraft(
       }
     },
     [
-      capturingLocation,
       database,
       finalizing,
       hasCurrentReport,
+      invalidateLocationAttempt,
       isCurrentInput,
       savingManualLocation,
       state.data,
@@ -600,7 +635,6 @@ export function useFieldReportDraft(
         !hasCurrentReport ||
         !user ||
         savingManualLocation ||
-        capturingLocation ||
         finalizing ||
         finalizeInFlight.current ||
         saveInFlight.current
@@ -608,6 +642,8 @@ export function useFieldReportDraft(
         return null;
       }
 
+      invalidateLocationAttempt();
+      lastError.current = null;
       setSavingManualLocation(true);
       setSaved(false);
       setSubmissionIssues([]);
@@ -629,6 +665,7 @@ export function useFieldReportDraft(
           'UPDATE_FAILED',
           'Recording the unavailable location failed.',
         );
+        lastError.current = getStorageErrorMessage(storageError);
         if (isCurrentInput()) {
           setState((current) => ({
             ...current,
@@ -641,10 +678,10 @@ export function useFieldReportDraft(
       }
     },
     [
-      capturingLocation,
       database,
       finalizing,
       hasCurrentReport,
+      invalidateLocationAttempt,
       isCurrentInput,
       savingManualLocation,
       state.data,
@@ -684,6 +721,7 @@ export function useFieldReportDraft(
         return null;
       }
 
+      invalidateLocationAttempt();
       finalizeInFlight.current = true;
       setFinalizing(true);
       setSaved(false);
@@ -717,6 +755,7 @@ export function useFieldReportDraft(
           'UPDATE_FAILED',
           'Finalizing the Field Report failed.',
         );
+        lastError.current = getStorageErrorMessage(storageError);
         if (isCurrentInput()) {
           setState((current) => ({
             ...current,
@@ -733,6 +772,7 @@ export function useFieldReportDraft(
       database,
       finalizing,
       hasCurrentReport,
+      invalidateLocationAttempt,
       isCurrentInput,
       savingManualLocation,
       state.data,
@@ -762,8 +802,10 @@ export function useFieldReportDraft(
 
   return {
     ...visibleState,
+    cancelLocationCapture,
     captureLocation,
     capturingLocation: hasCurrentReport ? capturingLocation : false,
+    getLastOperationError: () => lastError.current,
     clearLocationUnavailable: clearUnavailableLocation,
     discardDraft,
     finalize,

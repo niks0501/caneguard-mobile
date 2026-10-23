@@ -109,6 +109,43 @@ export function isManagedFieldValidationPhotoUri(
   return Boolean(relative.length === 1 && filename && !filename.includes('..'));
 }
 
+/**
+ * A checkpoint may only hydrate a photo this owner still has on disk.
+ */
+export function fieldValidationPhotoExists(
+  uri: string,
+  ownerIdentity: string,
+): boolean {
+  try {
+    return isManagedFieldValidationPhotoUri(uri, ownerIdentity) && new File(uri).exists;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Lists the field validation photos this owner's partition holds, including
+ * copies no checkpoint and no completion names any more.
+ */
+export function listFieldValidationPhotoUris(ownerIdentity: string): string[] {
+  let entries: (File | Directory)[];
+  try {
+    entries = getFieldValidationPhotoDirectory(ownerIdentity).list();
+  } catch {
+    return [];
+  }
+  const uris: string[] = [];
+  for (const entry of entries) {
+    if (
+      entry instanceof File &&
+      isManagedFieldValidationPhotoUri(entry.uri, ownerIdentity)
+    ) {
+      uris.push(entry.uri);
+    }
+  }
+  return uris;
+}
+
 function isLegacyFieldValidationPhotoUri(uri: string): boolean {
   const directory = new Directory(
     Paths.document,

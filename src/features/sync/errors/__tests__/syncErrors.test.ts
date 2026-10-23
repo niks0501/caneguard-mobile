@@ -46,4 +46,41 @@ describe('synchronization retry policy', () => {
     });
     expect(toSyncError(new ApiHttpError(422, 'invalid')).retryable).toBe(false);
   });
+
+  describe('bounded validation detail (M13)', () => {
+    it('keeps a short field-level reason from a 422 response', () => {
+      const error = toSyncError(
+        new ApiHttpError(422, 'invalid', {
+          body: {
+            errors: {
+              affected_area_hectares: ['The affected area must be a number.'],
+              barangay: ['The barangay field is required.'],
+            },
+            farmer: 'Sensitive farmer text must not leak',
+          },
+        }),
+      );
+      expect(error.code).toBe('API_VALIDATION_FAILED');
+      expect(error.detail).toContain('affected_area_hectares:');
+      expect(error.detail).toContain('The affected area must be a number.');
+      expect(error.detail).not.toContain('Sensitive farmer text');
+      expect((error.detail ?? '').length).toBeLessThanOrEqual(300);
+    });
+
+    it('never copies a raw body or unbounded values', () => {
+      const longMessage = 'x'.repeat(2_000);
+      const error = toSyncError(
+        new ApiHttpError(422, 'invalid', {
+          body: { message: longMessage, token: 'secret-token' },
+        }),
+      );
+      expect(error.detail?.length).toBeLessThanOrEqual(300);
+      expect(error.detail).not.toContain('secret-token');
+    });
+
+    it('has no detail for a network failure', () => {
+      const error = toSyncError(new TypeError('network down'));
+      expect(error.detail).toBeNull();
+    });
+  });
 });

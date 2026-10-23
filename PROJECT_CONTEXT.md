@@ -80,15 +80,19 @@ Database code lives under `src/database/`. Record persistence and querying live 
 
 Persistent records include prediction data, class scores, symptoms, quality warnings, severity, barangay, model metadata, timings, managed-image metadata, and synchronization state.
 
+In-progress Scan, Field Report, and Field validation form values are checkpointed in the owner-scoped `local_drafts` table, keyed by owner, draft kind, and draft key. A checkpoint is local draft state, never an upload-queue entry or a submission.
+
 ### Field Report authoring
 
 A completed Scan Record may own zero or one separate Field Report. Field Reports
-can persist as incomplete local-only Drafts, resolve final coordinates through
-foreground GPS or an online-only manual-map fallback when GPS is not resolved,
-and finalize only after the strict submission gate validates the referenced scan
-evidence and required report fields. Manual-map coordinates retain
-`manual_map` provenance and never receive fabricated GPS accuracy; earlier
-GPS-attempt evidence remains separate.
+can persist as incomplete local-only Drafts, and every entered field is
+checkpointed for its owner while the inspector works. Finalization requires
+either foreground-GPS or online-only manual-map coordinates, or a bounded
+explicit unavailable-location reason with null coordinates, plus the strict
+submission gate over the referenced scan evidence and required report fields;
+barangay stays mandatory. Manual-map coordinates retain `manual_map` provenance
+and never receive fabricated GPS accuracy; earlier GPS-attempt evidence remains
+separate.
 
 Until all requirements pass, an incomplete submission remains an editable Draft
 and returns actionable missing requirements. Successful local finalization makes
@@ -134,10 +138,11 @@ A non-sensitive login-history marker routes returning users to the password form
 The client persists a random opaque installation UUID in SecureStore for API device identity; it does not use immutable hardware identifiers.
 Explicit logout always attempts server revocation and clears the active session,
 protected credential, and biometric preference. It does not delete local scan or
-report data; Settings provides an explicit owner-scoped **Clear local data**
-action for device handover or retention cleanup. When biometrics are disabled,
-or when a session expires, is reset, or is rejected authoritatively, the client
-also clears all protected entries.
+report data; Settings provides the owner-scoped **Clear downloaded office data**
+and **Remove all local records** actions. See
+`docs/security/mobile-security-fixes.md` for their retention contracts. When
+biometrics are disabled, or when a session expires, is reset, or is rejected
+authoritatively, the client also clears all protected entries.
 
 ### Synchronization
 
@@ -225,8 +230,10 @@ Authentication expects bearer tokens.
 
 The Model V1 mobile report endpoint accepts multipart form data including the stable
 Field Report client UUID, referenced Scan Record UUID/evidence, required P0
-report context, final coordinates and provenance, observation time, capture time,
-model evidence, and the persisted submission image. The local submission timestamp
+report context, location evidence, observation time, capture time, model
+evidence, and the persisted submission image. Location evidence is final
+coordinates with `gps` or `manual_map` provenance, or a bounded
+unavailable-location reason and no coordinates. The local submission timestamp
 is retained for mobile finalization and synchronization state but is not a v2
 multipart field. Manual-map uploads omit GPS accuracy. The
 authenticated submitter is derived from the bearer session rather than trusted
@@ -311,7 +318,7 @@ Do not run EAS build or submit automatically.
 - JS/TS-only changes may use the existing development build when its native runtime is still compatible.
 - Core scan, records, and report viewing behavior must remain useful offline.
 - Synchronization must tolerate unavailable networks and preserve retryable local state.
-- Backend synchronization requires a valid `field_reporter` session and a complete local report, including barangay, final coordinates, location source, and managed image.
+- Backend synchronization requires a valid `field_reporter` session and a complete local report, including barangay, resolved location evidence (coordinates with their source, or a bounded unavailable reason with no coordinates), and the managed image.
 - The bundled AI model is decision support, not a diagnostic authority.
 - The current bundled Model V1 contract and stable V2 report-upload contract support `healthy`, `mosaic`, `rust`, and `smut`; legacy V0 records and the legacy V1 report-upload contract remain three-class.
 - The P0 manual-map fallback is online-only. Direct third-party tile requests are disabled; production must configure a CaneGuard-owned HTTPS tile proxy with attribution and normal HTTP caching. It does not prefetch or expose offline map downloads.

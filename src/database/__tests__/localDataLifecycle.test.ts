@@ -20,6 +20,77 @@ import * as schema from '@/database/schema';
 import { getFieldValidationPhotoDirectory } from '@/features/assignments/services/fieldValidationPhotoStorage';
 import { getManagedScanImageDirectory } from '@/features/records/services/scanImageStorage';
 
+const mockFsFiles = new Map<string, { size: number }>();
+const mockFsDirectories = new Set<string>();
+
+jest.mock('expo-file-system', () => {
+  function joinParts(parts: unknown[]): string {
+    const values = parts.map((part) =>
+      typeof part === 'string' ? part : (part as { uri: string }).uri,
+    );
+    const [first, ...rest] = values;
+    return [
+      first.replace(/\/+$/, ''),
+      ...rest.map((value) => value.replace(/^\/+|\/+$/g, '')),
+    ]
+      .filter(Boolean)
+      .join('/');
+  }
+
+  class MockFile {
+    readonly uri: string;
+
+    constructor(...parts: unknown[]) {
+      this.uri = joinParts(parts);
+    }
+
+    get exists() {
+      return mockFsFiles.has(this.uri);
+    }
+
+    delete() {
+      if (!mockFsFiles.delete(this.uri)) {
+        throw new Error('File missing.');
+      }
+    }
+  }
+
+  class MockDirectory {
+    readonly uri: string;
+
+    constructor(...parts: unknown[]) {
+      this.uri = joinParts(parts);
+    }
+
+    get exists() {
+      return mockFsDirectories.has(this.uri);
+    }
+
+    create() {
+      mockFsDirectories.add(this.uri);
+    }
+
+    list() {
+      if (!mockFsDirectories.has(this.uri)) {
+        throw new Error('Directory missing.');
+      }
+      const prefix = `${this.uri}/`;
+      return [...mockFsFiles.keys()]
+        .filter(
+          (uri) =>
+            uri.startsWith(prefix) && !uri.slice(prefix.length).includes('/'),
+        )
+        .map((uri) => new MockFile(uri));
+    }
+  }
+
+  return {
+    Directory: MockDirectory,
+    File: MockFile,
+    Paths: { document: new MockDirectory('file:///documents') },
+  };
+});
+
 const OWNER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 const OTHER_OWNER_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
 const NOW = '2026-10-01T00:00:00.000Z';
@@ -272,6 +343,11 @@ function countRows(
 }
 
 describe('local data lifecycle', () => {
+  beforeEach(() => {
+    mockFsFiles.clear();
+    mockFsDirectories.clear();
+  });
+
   it('purges only old synchronized data for the requested owner', async () => {
     const { database, native } = openTestDatabase();
     const oldScanId = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
@@ -474,6 +550,60 @@ describe('local data lifecycle', () => {
 
     expect(countRows(native, 'local_drafts', OWNER_ID)).toBe(0);
     expect(countRows(native, 'local_drafts', OTHER_OWNER_ID)).toBe(1);
+    native.close();
+  });
+  it('counts saved draft checkpoints and unsent scans as unsent work', async () => {
+    const { database, native } = openTestDatabase();
+    const scanId = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+    insertScan(native, scanId, OWNER_ID, 'local_only', NOW);
+    insertLocalDraft(native, OWNER_ID, 'scan', 'current', NOW);
+
+    const preview = getLocalDataRemovalPreview(database, OWNER_ID);
+
+    expect(preview.scans).toBe(1);
+    expect(preview.unsentScans).toBe(1);
+    expect(preview.draftCheckpoints).toBe(1);
+    expect(preview.totalUnsent).toBe(2);
+    native.close();
+  });
+
+  it('removes leftover owner images that no record or draft names any more', async () => {
+    const { database, native } = openTestDatabase();
+    const scanId = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+    insertScan(native, scanId, OWNER_ID, 'local_only', NOW);
+    const scanDirectory = getManagedScanImageDirectory(OWNER_ID);
+    const photoDirectory = getFieldValidationPhotoDirectory(OWNER_ID);
+    mockFsDirectories.add(scanDirectory.uri);
+    mockFsDirectories.add(photoDirectory.uri);
+    mockFsFiles.set(`${scanDirectory.uri}/${scanId}.jpg`, { size: 10 });
+    mockFsFiles.set(`${scanDirectory.uri}/11111111-1111-4111-8111-111111111111.jpg`, { size: 10 });
+    mockFsFiles.set(`${photoDirectory.uri}/abandoned-visit.jpg`, { size: 10 });
+
+    const result = await clearLocalDataForOwner(database, OWNER_ID);
+
+    expect(result.imageCleanupErrors).toEqual([]);
+    expect(mockFsFiles.has(`${scanDirectory.uri}/${scanId}.jpg`)).toBe(false);
+    expect(mockFsFiles.has(`${scanDirectory.uri}/11111111-1111-4111-8111-111111111111.jpg`)).toBe(false);
+    expect(mockFsFiles.has(`${photoDirectory.uri}/abandoned-visit.jpg`)).toBe(false);
+    native.close();
+  });
+
+  it('keeps images that a surviving scan record still names during retention purging', async () => {
+    const { database, native } = openTestDatabase();
+    const scanId = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+    insertScan(native, scanId, OWNER_ID, 'synced', RECENT);
+    const scanDirectory = getManagedScanImageDirectory(OWNER_ID);
+    const photoDirectory = getFieldValidationPhotoDirectory(OWNER_ID);
+    mockFsDirectories.add(scanDirectory.uri);
+    mockFsDirectories.add(photoDirectory.uri);
+    mockFsFiles.set(`${scanDirectory.uri}/${scanId}.jpg`, { size: 10 });
+    mockFsFiles.set(`${scanDirectory.uri}/11111111-1111-4111-8111-111111111111.jpg`, { size: 10 });
+
+    const result = await purgeExpiredLocalData(database, OWNER_ID, new Date(NOW));
+
+    expect(result.imageCleanupErrors).toEqual([]);
+    expect(mockFsFiles.has(`${scanDirectory.uri}/${scanId}.jpg`)).toBe(true);
+    expect(mockFsFiles.has(`${scanDirectory.uri}/11111111-1111-4111-8111-111111111111.jpg`)).toBe(false);
     native.close();
   });
 });

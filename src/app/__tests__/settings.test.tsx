@@ -31,6 +31,7 @@ const preview = {
   totalRecords: 11,
   totalUnsent: 2,
   unsentBoundaries: 1,
+  unsentScans: 1,
   unsentVisits: 0,
   uploadInFlight: false,
   visits: 0,
@@ -178,6 +179,37 @@ describe('SettingsScreen', () => {
     expect(screen.getByTestId('app-toast')).toHaveTextContent(
       'Local records removed',
     );
+  });
+
+  it('does not claim saved scans reached the office when nothing is unsent', async () => {
+    jest.spyOn(Alert, 'alert');
+    jest.mocked(getLocalDataRemovalPreview).mockReturnValueOnce({
+      ...preview,
+      draftCheckpoints: 0,
+      scans: 2,
+      totalUnsent: 0,
+      unsentBoundaries: 0,
+      unsentScans: 0,
+      unsentVisits: 0,
+    });
+
+    await render(
+      <ToastProvider>
+        <SettingsScreen />
+      </ToastProvider>,
+    );
+    await fireEvent.press(screen.getByTestId('settings.remove-local-records'));
+
+    const call = jest
+      .mocked(Alert.alert)
+      .mock.calls.find((entry) => entry[0] === 'Remove all local records?');
+
+    expect(call?.[1]).toContain('2 saved scans');
+    expect(call?.[1]).not.toContain('not sent to the office');
+    expect(call?.[1]).toContain(
+      'Every listed report, visit and boundary has already reached the office.',
+    );
+    expect(call?.[1]).not.toContain('Everything listed has already reached the office.');
   });
 
   it('refuses permanent removal while an upload is in flight', async () => {

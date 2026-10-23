@@ -406,6 +406,54 @@ describe('FieldValidationScreen', () => {
       ).not.toBeOnTheScreen();
     });
 
+    it('ignores a photo copy that finishes after the photo was removed', async () => {
+      let resolvePersist!: (value: {
+        mimeType: string;
+        sizeBytes: number;
+        uri: string;
+      }) => void;
+      const persistDraftPhoto = jest.fn(
+        () =>
+          new Promise<{
+            mimeType: string;
+            sizeBytes: number;
+            uri: string;
+          }>((resolve) => {
+            resolvePersist = resolve;
+          }),
+      );
+      mockHook({ persistDraftPhoto });
+
+      await render(<FieldValidationScreen />);
+      await fireEvent.press(screen.getByTestId('field-validation.capture-photo'));
+
+      expect(
+        screen.getByLabelText('Fresh field validation photo'),
+      ).toBeOnTheScreen();
+      await fireEvent.press(screen.getByTestId('field-validation.remove-photo'));
+      expect(
+        screen.queryByLabelText('Fresh field validation photo'),
+      ).not.toBeOnTheScreen();
+
+      const copied = {
+        mimeType: 'image/jpeg',
+        sizeBytes: 4096,
+        uri: 'file:///managed/field-validation/owner/assignment-draft-2.jpg',
+      };
+      await act(async () => {
+        resolvePersist(copied);
+      });
+
+      expect(
+        screen.queryByLabelText('Fresh field validation photo'),
+      ).not.toBeOnTheScreen();
+      expect(deleteFieldValidationPhoto).toHaveBeenCalledWith(
+        copied.uri,
+        'd4f4c3b8-4f27-49c7-9ec7-3ab7ea6fc91d',
+      );
+      expect(saveDraftCheckpoint).not.toHaveBeenCalled();
+    });
+
     it('deletes a photo that never reached a checkpoint when it is removed', async () => {
       mockHook();
 

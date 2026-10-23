@@ -339,51 +339,66 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   // Hydrate state when draft loads or changes ID
   if (report.data && loadedReportId !== report.data.id) {
     setLoadedReportId(report.data.id);
-    setFarmerName(report.data.farmerOrFarmOwnerName ?? '');
-    setBarangay(report.data.barangay ?? '');
-    setProvince(report.data.province ?? defaultRegion?.province ?? '');
-    setMunicipality(report.data.municipality ?? defaultRegion?.municipality ?? '');
-    setAffectedAreaText(
-      report.data.affectedAreaHectares === null
-        ? ''
-        : formatDecimalInput(report.data.affectedAreaHectares),
-    );
-    setAffectedPortionText(
-      report.data.affectedPortionPercent === null
-        ? ''
-        : formatDecimalInput(report.data.affectedPortionPercent),
-    );
-    setAffectedAreaChoice(
-      report.data.affectedAreaMeasurementExplicit === true
-        ? report.data.affectedAreaMeasurement
-        : report.data.affectedAreaMeasurementExplicit === false
-          ? null
-          : report.data.affectedAreaHectares !== null
-            ? 'measured'
-            : null,
-    );
-    setAffectedPortionChoice(
-      report.data.affectedPortionMeasurementExplicit === true
-        ? report.data.affectedPortionMeasurement
-        : report.data.affectedPortionMeasurementExplicit === false
-          ? null
-          : report.data.affectedPortionPercent !== null
-            ? 'measured'
-            : null,
-    );
-    setVariety(report.data.sugarcaneVariety ?? '');
-    setCropAge(report.data.cropAge ?? '');
-    setCaneClass(report.data.caneClass ?? '');
-    setNotes(report.data.fieldNotes ?? '');
-    setMismatchDraft({
-      reportId: report.data.id,
+    const persistedValues: Omit<FieldReportFormCheckpoint, 'savedAt'> = {
+      affectedAreaChoice:
+        report.data.affectedAreaMeasurementExplicit === true
+          ? report.data.affectedAreaMeasurement
+          : report.data.affectedAreaMeasurementExplicit === false
+            ? null
+            : report.data.affectedAreaHectares !== null
+              ? 'measured'
+              : null,
+      affectedAreaText:
+        report.data.affectedAreaHectares === null
+          ? ''
+          : formatDecimalInput(report.data.affectedAreaHectares),
+      affectedPortionChoice:
+        report.data.affectedPortionMeasurementExplicit === true
+          ? report.data.affectedPortionMeasurement
+          : report.data.affectedPortionMeasurementExplicit === false
+            ? null
+            : report.data.affectedPortionPercent !== null
+              ? 'measured'
+              : null,
+      affectedPortionText:
+        report.data.affectedPortionPercent === null
+          ? ''
+          : formatDecimalInput(report.data.affectedPortionPercent),
+      barangay: report.data.barangay ?? '',
+      caneClass: report.data.caneClass ?? '',
+      cropAge: report.data.cropAge ?? '',
+      farmerName: report.data.farmerOrFarmOwnerName ?? '',
       mismatchReported: report.data.mismatchReported,
-      reporterConcernChoice: getReporterConcernChoice(
-        report.data.reporterSuspectedCondition ?? '',
-      ),
+      municipality: report.data.municipality ?? defaultRegion?.municipality ?? '',
+      notes: report.data.fieldNotes ?? '',
+      province: report.data.province ?? defaultRegion?.province ?? '',
       reporterObservationText: report.data.reporterObservationText ?? '',
       reporterSuspectedCondition: report.data.reporterSuspectedCondition ?? '',
+      step: currentStep,
+      variety: report.data.sugarcaneVariety ?? '',
+    };
+    setFarmerName(persistedValues.farmerName);
+    setBarangay(persistedValues.barangay);
+    setProvince(persistedValues.province);
+    setMunicipality(persistedValues.municipality);
+    setAffectedAreaText(persistedValues.affectedAreaText);
+    setAffectedPortionText(persistedValues.affectedPortionText);
+    setAffectedAreaChoice(persistedValues.affectedAreaChoice);
+    setAffectedPortionChoice(persistedValues.affectedPortionChoice);
+    setVariety(persistedValues.variety);
+    setCropAge(persistedValues.cropAge);
+    setCaneClass(persistedValues.caneClass);
+    setNotes(persistedValues.notes);
+    setMismatchDraft({
+      reportId: report.data.id,
+      mismatchReported: persistedValues.mismatchReported,
+      reporterConcernChoice: getReporterConcernChoice(
+        persistedValues.reporterSuspectedCondition,
+      ),
+      reporterObservationText: persistedValues.reporterObservationText,
+      reporterSuspectedCondition: persistedValues.reporterSuspectedCondition,
     });
+    setFormDraftSignature(checkpointSignature(persistedValues));
 
     // D02: unsaved form inputs are recoverable for the same owner. The
     // checkpoint only wins over the persisted Draft because an explicit save
@@ -435,16 +450,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   const activeAuthoringState = report.data?.authoringState ?? null;
   const ownerUuid = user?.uuid ?? null;
 
-  useEffect(() => {
-    if (
-      !ownerUuid ||
-      !activeReportId ||
-      activeAuthoringState !== 'draft' ||
-      loadedReportId !== activeReportId
-    ) {
-      return;
-    }
-    const checkpoint: FieldReportFormCheckpoint = {
+  const currentFormCheckpoint = useCallback(
+    (): Omit<FieldReportFormCheckpoint, 'savedAt'> => ({
       affectedAreaChoice,
       affectedAreaText,
       affectedPortionChoice,
@@ -459,10 +466,39 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       province,
       reporterObservationText: mismatchDraft.reporterObservationText,
       reporterSuspectedCondition: mismatchDraft.reporterSuspectedCondition,
-      savedAt: new Date().toISOString(),
       step: currentStep,
       variety,
-    };
+    }),
+    [
+      affectedAreaChoice,
+      affectedAreaText,
+      affectedPortionChoice,
+      affectedPortionText,
+      barangay,
+      caneClass,
+      cropAge,
+      currentStep,
+      farmerName,
+      mismatchDraft.mismatchReported,
+      mismatchDraft.reporterObservationText,
+      mismatchDraft.reporterSuspectedCondition,
+      municipality,
+      notes,
+      province,
+      variety,
+    ],
+  );
+
+  useEffect(() => {
+    if (
+      !ownerUuid ||
+      !activeReportId ||
+      activeAuthoringState !== 'draft' ||
+      loadedReportId !== activeReportId
+    ) {
+      return;
+    }
+    const checkpoint = currentFormCheckpoint();
     const signature = checkpointSignature(checkpoint);
     if (signature === formDraftSignature) {
       return;
@@ -484,36 +520,21 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   }, [
     activeAuthoringState,
     activeReportId,
-    affectedAreaChoice,
-    affectedAreaText,
-    affectedPortionChoice,
-    affectedPortionText,
-    barangay,
-    caneClass,
-    cropAge,
-    currentStep,
+    currentFormCheckpoint,
     database,
-    farmerName,
     formDraftSignature,
     loadedReportId,
-    mismatchDraft.mismatchReported,
-    mismatchDraft.reporterObservationText,
-    mismatchDraft.reporterSuspectedCondition,
-    municipality,
-    notes,
     ownerUuid,
-    province,
-    variety,
   ]);
 
   const clearFormCheckpoint = useCallback(() => {
     if (user && report.data) {
       deleteFieldReportFormCheckpoint(database, user.uuid, report.data.id);
-      setFormDraftSignature(null);
+      setFormDraftSignature(checkpointSignature(currentFormCheckpoint()));
     }
     setFormDraftStatus('idle');
     setFormDraftSavedAt(null);
-  }, [database, report.data, user]);
+  }, [currentFormCheckpoint, database, report.data, user]);
 
   // Values returned from the optional-details sheet route (F6). The sheet
   // passes the four fields back as params; applying them to this screen's
@@ -871,7 +892,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
 
   const handleLocationCapture = async () => {
     const res = await report.captureLocation();
-    if (res && res.finalLatitude !== null) {
+    if (res && res.gpsCaptureOutcome === 'resolved') {
       showToast(LOCATION_ADDED, 'success');
       return;
     }
@@ -2034,7 +2055,6 @@ function LocationCapture({
           testID="field-report.open-location-unavailable"
           accessibilityLabel="Continue without an exact location"
           onPress={() => {
-            setCorrecting(false);
             setShowUnavailable(true);
           }}
           disabled={saveInProgress}
@@ -2989,9 +3009,27 @@ export const SUBMISSION_REQUIREMENT_LABELS: Record<
   observation_time: 'Observation time',
 };
 
-function checkpointSignature(checkpoint: FieldReportFormCheckpoint): string {
-  const { savedAt: _savedAt, ...rest } = checkpoint;
-  return JSON.stringify(rest);
+function checkpointSignature(
+  checkpoint: Omit<FieldReportFormCheckpoint, 'savedAt'>,
+): string {
+  return JSON.stringify([
+    checkpoint.affectedAreaChoice,
+    checkpoint.affectedAreaText,
+    checkpoint.affectedPortionChoice,
+    checkpoint.affectedPortionText,
+    checkpoint.barangay,
+    checkpoint.caneClass,
+    checkpoint.cropAge,
+    checkpoint.farmerName,
+    checkpoint.mismatchReported,
+    checkpoint.municipality,
+    checkpoint.notes,
+    checkpoint.province,
+    checkpoint.reporterObservationText,
+    checkpoint.reporterSuspectedCondition,
+    checkpoint.step,
+    checkpoint.variety,
+  ]);
 }
 
 function formatFormDraftStatus(

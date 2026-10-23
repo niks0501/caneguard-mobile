@@ -12,10 +12,14 @@ import {
   mobileNotifications,
   scanRecords,
 } from '@/database/schema';
-import { deleteFieldValidationPhoto } from '@/features/assignments/services/fieldValidationPhotoStorage';
+import {
+  deleteFieldValidationPhoto,
+  listFieldValidationPhotoUris,
+} from '@/features/assignments/services/fieldValidationPhotoStorage';
 import { invalidateFieldValidationAssignmentsRefresh } from '@/features/assignments/services/refreshFieldValidationAssignments';
 import {
   deleteManagedScanImage,
+  listManagedScanImageUris,
   managedDisplayImageUri,
 } from '@/features/records/services/scanImageStorage';
 import { invalidateMobileNotificationsRefresh } from '@/features/notifications/services/refreshMobileNotifications';
@@ -51,6 +55,7 @@ export interface LocalDataRemovalPreview {
   totalRecords: number;
   totalUnsent: number;
   unsentBoundaries: number;
+  unsentScans: number;
   unsentVisits: number;
   uploadInFlight: boolean;
   visits: number;
@@ -99,6 +104,7 @@ function readRemovalPreview(
   ).length;
   const unsentVisits = visits.filter((row) => row.syncStatus !== 'synced').length;
   const unsentBoundaries = boundaries.filter((row) => row.status !== 'synced').length;
+  const unsentScans = scans.filter((row) => row.syncStatus !== 'synced').length;
   const uploadInFlight =
     reports.some((row) => row.syncStatus === 'syncing') ||
     visits.some((row) => row.syncStatus === 'syncing') ||
@@ -122,8 +128,14 @@ function readRemovalPreview(
       notifications.length +
       checkpoints.length,
     totalUnsent:
-      draftReports + finalizedUnsentReports + unsentVisits + unsentBoundaries,
+      draftReports +
+      finalizedUnsentReports +
+      unsentVisits +
+      unsentBoundaries +
+      unsentScans +
+      checkpoints.length,
     unsentBoundaries,
+    unsentScans,
     unsentVisits,
     uploadInFlight,
     visits: visits.length,
@@ -221,7 +233,10 @@ export async function clearLocalDataForOwner(
   }
 
   clearOwnerMobileDataStore(database, owner);
-  const imageCleanupErrors = cleanupImages(targets, owner);
+  const imageCleanupErrors = [
+    ...cleanupImages(targets, owner),
+    ...sweepOrphanedOwnerImages(database, owner),
+  ];
   emitSyncRecordsChanged();
   return { deletedRows, imageCleanupErrors };
 }
@@ -430,7 +445,10 @@ export async function purgeExpiredLocalData(
   if (deletedRows > 0) {
     clearOwnerMobileDataStore(database, owner, { cacheFetchedAt: 0 });
   }
-  const imageCleanupErrors = cleanupImages(targets, owner);
+  const imageCleanupErrors = [
+    ...cleanupImages(targets, owner),
+    ...sweepOrphanedOwnerImages(database, owner),
+  ];
   if (deletedRows > 0 || imageCleanupErrors.length > 0) {
     emitSyncRecordsChanged();
   }
@@ -529,8 +547,7 @@ async function readCleanupTargets(
 function cleanupImages(
   targets: ImageCleanupTargets,
   ownerIdentity: string,
-): StorageError[] {
-  const errors: StorageError[] = [];
+): StorageError[] {  const errors: StorageError[] = [];
   for (const uri of new Set(targets.draftScanImages)) {
     try {
       deleteManagedScanImage(uri, ownerIdentity);
@@ -589,4 +606,107 @@ function cleanupImages(
     }
   }
   return errors;
+}
+
+/**
+ * Removes owner image files that no draft checkpoint, scan record or completion
+ * names any more, so leftovers from interrupted drafts cannot survive cleanup.
+ */
+function sweepOrphanedOwnerImages(
+  database: CaneGuardDatabase,
+  owner: string,
+): StorageError[] {
+  const referenced = readReferencedImageUris(database, owner);
+  const errors: StorageError[] = [];
+  for (const uri of listManagedScanImageUris(owner)) {
+    if (referenced.has(uri)) {
+      continue;
+    }
+    try {
+      deleteManagedScanImage(uri, owner);
+    } catch (error: unknown) {
+      errors.push(
+        toStorageError(
+          error,
+          'IMAGE_DELETE_FAILED',
+          'A leftover scan image could not be removed during local-data cleanup.',
+        ),
+      );
+    }
+  }
+  for (const uri of listFieldValidationPhotoUris(owner)) {
+    if (referenced.has(uri)) {
+      continue;
+    }
+    try {
+      deleteFieldValidationPhoto(uri, owner);
+    } catch (error: unknown) {
+      errors.push(
+        toStorageError(
+          error,
+          'IMAGE_DELETE_FAILED',
+          'A leftover visit photo could not be removed during local-data cleanup.',
+        ),
+      );
+    }
+  }
+  return errors;
+}
+
+function readReferencedImageUris(
+  database: CaneGuardDatabase,
+  owner: string,
+): Set<string> {
+  const referenced = new Set<string>();
+  const scanRows = database
+    .select({
+      managedImageUri: scanRecords.managedImageUri,
+      submissionImageUri: scanRecords.submissionImageUri,
+    })
+    .from(scanRecords)
+    .where(eq(scanRecords.ownerIdentity, owner))
+    .all();
+  for (const row of scanRows) {
+    for (const uri of [row.managedImageUri, row.submissionImageUri]) {
+      if (!uri) {
+        continue;
+      }
+      referenced.add(uri);
+      const displayUri = managedDisplayImageUri(uri);
+      if (displayUri) {
+        referenced.add(displayUri);
+      }
+    }
+  }
+  const completionRows = database
+    .select({ freshPhotoUri: fieldValidationCompletions.freshPhotoUri })
+    .from(fieldValidationCompletions)
+    .where(eq(fieldValidationCompletions.ownerIdentity, owner))
+    .all();
+  for (const row of completionRows) {
+    if (row.freshPhotoUri) {
+      referenced.add(row.freshPhotoUri);
+    }
+  }
+  const draftRows = database
+    .select({ draftKey: localDrafts.draftKey, kind: localDrafts.kind })
+    .from(localDrafts)
+    .where(eq(localDrafts.ownerIdentity, owner))
+    .all();
+  for (const draft of draftRows) {
+    if (draft.kind === 'scan') {
+      const record = readScanDraftCheckpoint(database, owner);
+      if (record) {
+        referenced.add(record.checkpoint.managedImageUri);
+      }
+    }
+    if (draft.kind === 'field_validation') {
+      const record = readFieldValidationCheckpoint(database, owner, draft.draftKey);
+      const photo = record?.checkpoint.photo;
+      if (photo) {
+        referenced.add(photo.uri);
+      }
+    }
+  }
+  return referenced;
 }

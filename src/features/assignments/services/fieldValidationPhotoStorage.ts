@@ -123,6 +123,29 @@ export function fieldValidationPhotoExists(
   }
 }
 
+/**
+ * Lists the field validation photos this owner's partition holds, including
+ * copies no checkpoint and no completion names any more.
+ */
+export function listFieldValidationPhotoUris(ownerIdentity: string): string[] {
+  let entries: (File | Directory)[];
+  try {
+    entries = getFieldValidationPhotoDirectory(ownerIdentity).list();
+  } catch {
+    return [];
+  }
+  const uris: string[] = [];
+  for (const entry of entries) {
+    if (
+      entry instanceof File &&
+      isManagedFieldValidationPhotoUri(entry.uri, ownerIdentity)
+    ) {
+      uris.push(entry.uri);
+    }
+  }
+  return uris;
+}
+
 function isLegacyFieldValidationPhotoUri(uri: string): boolean {
   const directory = new Directory(
     Paths.document,

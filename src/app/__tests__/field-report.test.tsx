@@ -630,6 +630,100 @@ describe('FieldReportScreen', () => {
     );
   });
 
+  it('reports the outcome of this attempt instead of the saved location', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        gpsAccuracy: 4.2,
+        gpsCaptureOutcome: 'resolved',
+        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
+        locationSource: 'gps',
+      }),
+    };
+    mockCaptureLocation.mockResolvedValueOnce(
+      draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        gpsAccuracy: 4.2,
+        gpsCaptureOutcome: 'unavailable',
+        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
+        locationSource: 'gps',
+      }) as never,
+    );
+
+    await render(
+      <ToastProvider>
+        <FieldReportScreen />
+      </ToastProvider>,
+    );
+    await act(async () => undefined);
+    await goToStep(4);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Change the saved report location'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Retry location'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-report.confirm-location-replacement'));
+    });
+
+    expect(mockCaptureLocation).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('app-toast')).toHaveTextContent(
+      /Location could not be confirmed/,
+    );
+    expect(screen.getByTestId('app-toast')).not.toHaveTextContent('Location added');
+  });
+
+  it('lets a confirmed location be replaced by an explicit unavailable reason', async () => {
+    mockMarkLocationUnavailable.mockResolvedValueOnce(true as never);
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        gpsAccuracy: 4.2,
+        gpsCaptureOutcome: 'resolved',
+        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
+        locationSource: 'gps',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+    await goToStep(4);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Change the saved report location'));
+    });
+    expect(
+      screen.queryByTestId('field-report.location-unavailable-picker'),
+    ).not.toBeOnTheScreen();
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByLabelText('Continue without an exact location'),
+      );
+    });
+
+    expect(
+      screen.getByTestId('field-report.location-unavailable-picker'),
+    ).toBeOnTheScreen();
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByTestId('field-report.location-reason.services_unavailable'),
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Send without an exact location'));
+    });
+    expect(mockMarkLocationUnavailable).toHaveBeenCalledWith(
+      'services_unavailable',
+    );
+  });
+
   it('shows retained poor GPS evidence and offers retry', async () => {
     mockDraftState = {
       ...mockDraftState,
@@ -2392,6 +2486,23 @@ describe('FieldReportScreen', () => {
       );
     });
 
+    it('does not write a checkpoint for a Draft the inspector has not edited', async () => {
+      jest.useFakeTimers();
+      try {
+        await render(<FieldReportScreen />);
+        await act(async () => {
+          jest.advanceTimersByTime(800);
+        });
+
+        expect(mockWriteFormCheckpoint).not.toHaveBeenCalled();
+        expect(
+          screen.getByTestId('field-report.form-draft-status'),
+        ).not.toHaveTextContent(/Unsaved entries saved on this device/);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('checkpoints edits as the inspector types and clears it after an explicit save', async () => {
       jest.useFakeTimers();
       try {
@@ -2428,6 +2539,12 @@ describe('FieldReportScreen', () => {
           'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
           REPORT_ID,
         );
+
+        mockWriteFormCheckpoint.mockClear();
+        await act(async () => {
+          jest.advanceTimersByTime(800);
+        });
+        expect(mockWriteFormCheckpoint).not.toHaveBeenCalled();
       } finally {
         jest.useRealTimers();
       }

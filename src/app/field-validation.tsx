@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -57,6 +57,7 @@ export default function FieldValidationScreen() {
   const [photo, setPhoto] = useState<ValidationPhotoSelection | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [hydratedAssignmentId, setHydratedAssignmentId] = useState<string | null>(null);
+  const photoAttempt = useRef(0);
   const assignmentIdForDraft = state.assignment?.id ?? null;
   const completionForDraft = state.completion;
   const saveDraftCheckpoint = state.saveDraftCheckpoint;
@@ -139,9 +140,16 @@ export default function FieldValidationScreen() {
       if (!asset) {
         return;
       }
+      const attempt = ++photoAttempt.current;
       setPhoto({ artifact: null, asset, uri: asset.uri });
       // Copy into owner-scoped managed storage before promising recovery.
       const artifact = await state.persistDraftPhoto(asset);
+      if (photoAttempt.current !== attempt) {
+        if (artifact && state.ownerIdentity) {
+          deleteFieldValidationPhoto(artifact.uri, state.ownerIdentity);
+        }
+        return;
+      }
       if (!artifact) {
         const msg = 'The photo could not be saved on this device. It is attached for this visit only; recovery will not include it.';
         setFieldError(msg);
@@ -158,6 +166,7 @@ export default function FieldValidationScreen() {
   };
 
   const removePhoto = () => {
+    photoAttempt.current += 1;
     const removedArtifact = photo?.artifact ?? null;
     const checkpointPhoto = formDraft?.photo ?? null;
     setPhoto(null);
@@ -207,6 +216,7 @@ export default function FieldValidationScreen() {
     if (!followUpOutcome) {
       return;
     }
+    photoAttempt.current += 1;
     try {
       const result = await state.complete({
         fieldObservation: observation,

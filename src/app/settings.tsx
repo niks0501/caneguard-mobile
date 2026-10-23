@@ -93,13 +93,13 @@ export default function SettingsScreen() {
       `${preview.reports} report${preview.reports === 1 ? '' : 's'} (${preview.draftReports} draft, ${preview.finalizedUnsentReports} finalized but not sent)`,
       `${preview.visits} completed visit${preview.visits === 1 ? '' : 's'} (${preview.unsentVisits} not sent)`,
       `${preview.boundaries} boundar${preview.boundaries === 1 ? 'y' : 'ies'} (${preview.unsentBoundaries} not sent)`,
-      `${preview.scans} saved scan${preview.scans === 1 ? '' : 's'}`,
+      `${preview.scans} saved scan${preview.scans === 1 ? '' : 's'}${preview.unsentScans > 0 ? ` (${preview.unsentScans} not sent to the office)` : ''}`,
       `${preview.draftCheckpoints} saved draft checkpoint${preview.draftCheckpoints === 1 ? '' : 's'}`,
       `${preview.assignments} downloaded visit assignment${preview.assignments === 1 ? '' : 's'}`,
       `${preview.notifications} cached office update${preview.notifications === 1 ? '' : 's'}`,
       preview.totalUnsent > 0
         ? `⚠︎ ${preview.totalUnsent} item${preview.totalUnsent === 1 ? '' : 's'} on this device ${preview.totalUnsent === 1 ? 'has' : 'have'} not reached the office and will be lost permanently.`
-        : 'Everything listed has already reached the office.',
+        : 'Every listed report, visit and boundary has already reached the office.',
     ].join('\n');
 
   const confirmPermanentRemoval = (preview: LocalDataRemovalPreview) => {

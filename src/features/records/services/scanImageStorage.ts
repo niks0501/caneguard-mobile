@@ -284,6 +284,36 @@ export function managedImageExists(uri: string): boolean {
 }
 
 /**
+ * Lists the managed scan image files this owner's partition holds, including
+ * files no draft row, scan record or report names any more.
+ */
+export function listManagedScanImageUris(ownerIdentity: string): string[] {
+  let owner: string;
+  try {
+    owner = requireOwnerIdentity(ownerIdentity);
+  } catch {
+    return [];
+  }
+  let entries: (File | Directory)[];
+  try {
+    entries = getManagedScanImageDirectory(owner).list();
+  } catch {
+    return [];
+  }
+  const uris: string[] = [];
+  for (const entry of entries) {
+    if (
+      entry instanceof File &&
+      isManagedScanImageUri(entry.uri) &&
+      isManagedImageOwnedBy(entry.uri, owner)
+    ) {
+      uris.push(entry.uri);
+    }
+  }
+  return uris;
+}
+
+/**
  * The display derivative to render for a preserved scan image, or `null` when
  * the derivative has not been generated. Callers fall back to the preserved
  * original, so a missing derivative is never a broken image.

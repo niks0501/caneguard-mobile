@@ -214,7 +214,7 @@ export function useFieldReportDraft(
       }
 
       const attempt = ++locationAttempt.current;
-      const attemptStartedAt = report.updatedAt;
+      const attemptStartedAt = new Date().toISOString();
       locationCaptureInFlight.current = true;
       setCapturingLocation(true);
       setLocationServicesDisabled(false);
@@ -234,7 +234,7 @@ export function useFieldReportDraft(
         );
         const data = await saveGpsCapture(database, report.id, user.uuid, {
           ...result,
-          expectedUpdatedAt: attemptStartedAt,
+          startedAt: attemptStartedAt,
           updatedAt: new Date().toISOString(),
         });
         if (!isCurrentInput() || !data) {

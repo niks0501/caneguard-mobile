@@ -184,8 +184,9 @@ export async function saveGpsCapture(
       const existing = transaction
         .select({
           authoringState: fieldReports.authoringState,
+          gpsOutcomeRecordedAt: fieldReports.gpsOutcomeRecordedAt,
+          manualLocationSelectedAt: fieldReports.manualLocationSelectedAt,
           scanRecordId: fieldReports.scanRecordId,
-          updatedAt: fieldReports.updatedAt,
         })
         .from(fieldReports)
         .where(
@@ -214,13 +215,10 @@ export async function saveGpsCapture(
         throw new StorageError('UPDATE_FAILED', 'Only a Draft Field Report can capture location.');
       }
 
-      if (
-        input.expectedUpdatedAt !== undefined &&
-        existing.updatedAt !== input.expectedUpdatedAt
-      ) {
-        // The draft moved on while the reading was in flight (another location
-        // choice or a newer edit). Keep the newer state instead of applying a
-        // stale reading over it.
+      if (input.startedAt !== undefined && locationChangedSince(existing, input.startedAt)) {
+        // Another location choice or a newer attempt landed while this reading
+        // was in flight. Keep the newer state instead of applying a stale
+        // reading over it. Form-only edits are not location changes.
         const current = transaction
           .select()
           .from(fieldReports)
@@ -278,6 +276,21 @@ export async function saveGpsCapture(
   } catch (error: unknown) {
     throw toStorageError(error, 'UPDATE_FAILED', 'Saving the GPS result failed.');
   }
+}
+
+function locationChangedSince(
+  existing: {
+    gpsOutcomeRecordedAt: string | null;
+    manualLocationSelectedAt: string | null;
+  },
+  startedAt: string,
+): boolean {
+  return (
+    (existing.manualLocationSelectedAt !== null &&
+      existing.manualLocationSelectedAt > startedAt) ||
+    (existing.gpsOutcomeRecordedAt !== null &&
+      existing.gpsOutcomeRecordedAt > startedAt)
+  );
 }
 
 export async function saveManualMapLocation(

@@ -122,26 +122,31 @@ export function readScanDraftCheckpoint(
   database: CaneGuardDatabase,
   ownerIdentity: string,
 ): ScanDraftRecord | null {
-  const owner = requireOwnerIdentity(ownerIdentity);
-  const record = readLocalDraft<unknown>(
-    database,
-    owner,
-    SCAN_DRAFT_KIND,
-    SCAN_DRAFT_KEY,
-    SCAN_DRAFT_VERSION,
-  );
-  if (!record) {
+  try {
+    const owner = requireOwnerIdentity(ownerIdentity);
+    const record = readLocalDraft<unknown>(
+      database,
+      owner,
+      SCAN_DRAFT_KIND,
+      SCAN_DRAFT_KEY,
+      SCAN_DRAFT_VERSION,
+    );
+    if (!record) {
+      return null;
+    }
+    const checkpoint = parseScanDraftCheckpoint(record.payload, owner);
+    if (!checkpoint) {
+      return null;
+    }
+    if (!managedImageExists(checkpoint.managedImageUri)) {
+      deleteScanDraftCheckpoint(database, owner);
+      return null;
+    }
+    return { checkpoint, updatedAt: record.updatedAt };
+  } catch {
+    // A missing or still-migrating database must never break provider render.
     return null;
   }
-  const checkpoint = parseScanDraftCheckpoint(record.payload, owner);
-  if (!checkpoint) {
-    return null;
-  }
-  if (!managedImageExists(checkpoint.managedImageUri)) {
-    deleteScanDraftCheckpoint(database, owner);
-    return null;
-  }
-  return { checkpoint, updatedAt: record.updatedAt };
 }
 
 /**

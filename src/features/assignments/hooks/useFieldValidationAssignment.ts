@@ -156,9 +156,8 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
   const persistDraftPhoto = useCallback(
     async (asset: ImagePickerAsset): Promise<FieldValidationPhotoArtifact | null> => {
       if (!state.assignment || !session) return null;
-      const previous = formDraftRef.current?.photo ?? null;
       try {
-        const artifact = await persistFieldValidationPhoto({
+        return await persistFieldValidationPhoto({
           ownerIdentity: session.user.uuid,
           assignmentId: state.assignment.id,
           completionId: `draft-${randomUUID()}`,
@@ -166,10 +165,6 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
           mimeType: asset.mimeType,
           sourceUri: asset.uri,
         });
-        if (previous && previous.uri !== artifact.uri) {
-          deleteFieldValidationPhoto(previous.uri, session.user.uuid);
-        }
-        return artifact;
       } catch {
         return null;
       }
@@ -188,6 +183,7 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
         ...values,
         savedAt: new Date().toISOString(),
       };
+      const previousPhoto = formDraftRef.current?.photo ?? null;
       setDraftStatus('saving');
       try {
         await writeFieldValidationCheckpoint(
@@ -196,6 +192,11 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
           state.assignment.id,
           checkpoint,
         );
+        const nextPhotoUri = checkpoint.photo?.uri ?? null;
+        if (previousPhoto && previousPhoto.uri !== nextPhotoUri) {
+          deleteFieldValidationPhoto(previousPhoto.uri, session.user.uuid);
+        }
+        formDraftRef.current = checkpoint;
         setFormDraft(checkpoint);
         setDraftSavedAt(checkpoint.savedAt);
         setDraftStatus('saved');
@@ -212,23 +213,24 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
     if (!state.assignment || !session) return null;
     const completionId = randomUUID();
     setState((current) => ({ ...current, errorMessage: null, saving: true }));
-    let photoUri: string | null = null;
+    let createdPhotoUri: string | null = null;
     let completionSaved = false;
     try {
       const gps = await captureGpsLocation(expoForegroundLocationClient);
-      const photo = input.savedFreshPhoto
-        ? input.savedFreshPhoto
-        : input.freshPhoto
-          ? await persistFieldValidationPhoto({
-              ownerIdentity: session.user.uuid,
-              assignmentId: state.assignment.id,
-              completionId,
-              fileName: input.freshPhoto.fileName,
-              mimeType: input.freshPhoto.mimeType,
-              sourceUri: input.freshPhoto.uri,
-            })
-          : null;
-      photoUri = photo?.uri ?? null;
+      let photo: FieldValidationPhotoArtifact | null = null;
+      if (input.savedFreshPhoto) {
+        photo = input.savedFreshPhoto;
+      } else if (input.freshPhoto) {
+        photo = await persistFieldValidationPhoto({
+          ownerIdentity: session.user.uuid,
+          assignmentId: state.assignment.id,
+          completionId,
+          fileName: input.freshPhoto.fileName,
+          mimeType: input.freshPhoto.mimeType,
+          sourceUri: input.freshPhoto.uri,
+        });
+        createdPhotoUri = photo.uri;
+      }
       const gpsInput = gps.outcome === 'resolved' || gps.outcome === 'low_accuracy'
         ? {
             gpsAccuracy: gps.accuracy,
@@ -259,7 +261,7 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       // A distinct photo that was saved only for the draft is cleaned up unless
       // it became the completion's photo.
       const draftPhoto = formDraftRef.current?.photo ?? null;
-      deleteFieldValidationCheckpoint(
+      const checkpointDeleted = deleteFieldValidationCheckpoint(
         database,
         session.user.uuid,
         state.assignment.id,
@@ -268,7 +270,11 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       formDraftRef.current = null;
       setDraftStatus('idle');
       setDraftSavedAt(null);
-      if (draftPhoto && draftPhoto.uri !== (photo?.uri ?? null)) {
+      if (
+        checkpointDeleted &&
+        draftPhoto &&
+        draftPhoto.uri !== (photo?.uri ?? null)
+      ) {
         deleteFieldValidationPhoto(draftPhoto.uri, session.user.uuid);
       }
       await markCachedFieldValidationAssignmentInProgress(
@@ -283,8 +289,8 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       await refresh();
       return saved;
     } catch (error: unknown) {
-      if (photoUri && !completionSaved) {
-        deleteFieldValidationPhoto(photoUri, session.user.uuid);
+      if (createdPhotoUri && !completionSaved) {
+        deleteFieldValidationPhoto(createdPhotoUri, session.user.uuid);
       }
       const message = getStorageErrorMessage(toStorageError(error, 'UPDATE_FAILED', 'The field validation evidence could not be saved.'));
       if (mounted.current) setState((current) => ({ ...current, errorMessage: message, saving: false }));

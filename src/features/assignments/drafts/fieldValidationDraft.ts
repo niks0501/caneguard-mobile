@@ -7,6 +7,7 @@ import {
 } from '@/database/localDraftRepository';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import type { FieldValidationPhotoArtifact } from '@/features/assignments/services/fieldValidationPhotoStorage';
+import { fieldValidationPhotoExists } from '@/features/assignments/services/fieldValidationPhotoStorage';
 
 export const FIELD_VALIDATION_DRAFT_KIND = 'field_validation' as const;
 export const FIELD_VALIDATION_DRAFT_VERSION = 1;
@@ -64,7 +65,17 @@ export function readFieldValidationCheckpoint(
     return null;
   }
   const checkpoint = parseFieldValidationCheckpoint(record.payload);
-  return checkpoint ? { checkpoint, updatedAt: record.updatedAt } : null;
+  if (!checkpoint) {
+    return null;
+  }
+  const photo = checkpoint.photo;
+  if (photo && !fieldValidationPhotoExists(photo.uri, owner)) {
+    return {
+      checkpoint: { ...checkpoint, photo: null },
+      updatedAt: record.updatedAt,
+    };
+  }
+  return { checkpoint, updatedAt: record.updatedAt };
 }
 
 export function deleteFieldValidationCheckpoint(

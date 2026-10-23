@@ -31,6 +31,7 @@ let mockSaveRecordState = {
 };
 const mockRouterBack = router.back as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
+const mockRouterReplace = router.replace as jest.Mock;
 const mockRouterDismissTo = router.dismissTo as jest.Mock;
 
 jest.mock('@/features/records/hooks/useSaveCompletedScan', () => ({
@@ -312,10 +313,13 @@ describe('AnalysisResultScreen', () => {
     await fireEvent.press(screen.getByLabelText('Report this scan to the office'));
 
     expect(mockSaveRecord).toHaveBeenCalledTimes(1);
-    expect(mockRouterPush).toHaveBeenCalledWith({
+    expect(mockRouterReplace).toHaveBeenCalledWith({
       pathname: '/field-report',
       params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
     });
+    expect(mockRouterPush).not.toHaveBeenCalledWith(
+      expect.objectContaining({ pathname: '/field-report' }),
+    );
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
   });
 
@@ -342,7 +346,7 @@ describe('AnalysisResultScreen', () => {
     await fireEvent.press(screen.getByLabelText('Report this scan to the office'));
 
     expect(mockSaveRecord).not.toHaveBeenCalled();
-    expect(mockRouterPush).toHaveBeenCalledWith({
+    expect(mockRouterReplace).toHaveBeenCalledWith({
       pathname: '/field-report',
       params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
     });
@@ -360,11 +364,11 @@ describe('AnalysisResultScreen', () => {
     await fireEvent.press(screen.getByLabelText('Report this scan to the office'));
 
     expect(screen.getByLabelText('Opening Field Report')).toBeDisabled();
-    expect(mockRouterPush).not.toHaveBeenCalled();
+    expect(mockRouterReplace).not.toHaveBeenCalled();
 
     resolveSave({ id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' });
     await waitFor(() =>
-      expect(mockRouterPush).toHaveBeenCalledWith({
+      expect(mockRouterReplace).toHaveBeenCalledWith({
         pathname: '/field-report',
         params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
       }),
@@ -548,7 +552,7 @@ describe('AnalysisResultScreen', () => {
 
     await fireEvent.press(screen.getByLabelText('Report this scan to the office'));
 
-    expect(mockRouterPush).toHaveBeenCalledWith({
+    expect(mockRouterReplace).toHaveBeenCalledWith({
       pathname: '/field-report',
       params: { scanRecordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
     });

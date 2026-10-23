@@ -109,6 +109,20 @@ export function isManagedFieldValidationPhotoUri(
   return Boolean(relative.length === 1 && filename && !filename.includes('..'));
 }
 
+/**
+ * A checkpoint may only hydrate a photo this owner still has on disk.
+ */
+export function fieldValidationPhotoExists(
+  uri: string,
+  ownerIdentity: string,
+): boolean {
+  try {
+    return isManagedFieldValidationPhotoUri(uri, ownerIdentity) && new File(uri).exists;
+  } catch {
+    return false;
+  }
+}
+
 function isLegacyFieldValidationPhotoUri(uri: string): boolean {
   const directory = new Directory(
     Paths.document,

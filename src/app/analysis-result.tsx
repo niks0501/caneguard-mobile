@@ -158,7 +158,7 @@ export default function AnalysisResultScreen() {
       return;
     }
     dispatch({ type: 'RESET_SCAN' });
-    router.push({
+    router.replace({
       pathname: '/field-report',
       params: { scanRecordId: saved.id },
     } as unknown as Href);

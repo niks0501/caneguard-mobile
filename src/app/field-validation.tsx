@@ -32,7 +32,6 @@ import type { PreviousVisitContext as PreviousVisitContextValue } from '@/featur
 import { FIELD_VALIDATION_TEXT_MAX_LENGTH } from '@/features/assignments/domain/fieldValidationCompletionValidation';
 import { useFieldValidationAssignment } from '@/features/assignments/hooks/useFieldValidationAssignment';
 import type { FieldValidationPhotoArtifact } from '@/features/assignments/services/fieldValidationPhotoStorage';
-import { deleteFieldValidationPhoto } from '@/features/assignments/services/fieldValidationPhotoStorage';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -158,9 +157,6 @@ export default function FieldValidationScreen() {
   };
 
   const removePhoto = () => {
-    if (photo?.artifact && state.ownerIdentity) {
-      deleteFieldValidationPhoto(photo.artifact.uri, state.ownerIdentity);
-    }
     setPhoto(null);
     showToast('Photo removed', 'info');
   };

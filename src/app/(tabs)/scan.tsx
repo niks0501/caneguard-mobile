@@ -1,9 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -12,59 +11,50 @@ import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DECISION_SUPPORT_DISCLAIMER } from '@/constants/copy';
 import { ComponentTokens, Layout, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
+import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
 import { useScanSession } from '@/features/detection/context/useScanSession';
+import {
+  getPermissionDeniedMessage,
+  pickScanImage,
+  takePendingPickerSource,
+} from '@/features/detection/imagePicker/pickScanImage';
 import { readPickerOutcome } from '@/features/detection/imagePicker/readPickerOutcome';
 import type { ScanSourceType } from '@/features/detection/types';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 
-const PENDING_PICKER_SOURCE_KEY = '@caneguard/model-v0/pending-picker-source';
-
-const IMAGE_PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
-  mediaTypes: ['images'],
-  allowsEditing: false,
-  allowsMultipleSelection: false,
-  selectionLimit: 1,
-  base64: false,
-  exif: false,
-  quality: 1,
-};
-
 type ActiveOperation = ScanSourceType | 'recovery' | null;
 
-async function rememberPendingSource(sourceType: ScanSourceType) {
-  try {
-    await AsyncStorage.setItem(PENDING_PICKER_SOURCE_KEY, sourceType);
-  } catch {
-    // Pending-result recovery is best effort. No image URI or user content is persisted here.
+function getScanDraftStatusLabel(
+  status: 'idle' | 'saving' | 'saved' | 'failed',
+  savedAt: string | null,
+): string {
+  switch (status) {
+    case 'saving':
+      return 'Saving on this device…';
+    case 'saved':
+      return savedAt
+        ? `Saved on this device · ${new Date(savedAt).toLocaleTimeString()}. You can close CaneGuard and resume this scan.`
+        : 'Saved on this device. You can close CaneGuard and resume this scan.';
+    case 'failed':
+      return 'Not saved on this device. Your photo is still open here — try replacing it or keep this screen open.';
+    default:
+      return 'Not saved on this device yet.';
   }
 }
 
-async function takePendingSource() {
-  try {
-    const value = await AsyncStorage.getItem(PENDING_PICKER_SOURCE_KEY);
-    await AsyncStorage.removeItem(PENDING_PICKER_SOURCE_KEY);
-    return value === 'camera' || value === 'gallery' ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-async function clearPendingSource() {
-  try {
-    await AsyncStorage.removeItem(PENDING_PICKER_SOURCE_KEY);
-  } catch {
-    // The marker contains no user image data and can be safely overwritten on the next request.
-  }
-}
 
 export default function ScanScreen() {
   const theme = useTheme();
   const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
+  const draft = useScanDraft();
+  const draftOwner = draft.ownerIdentity;
   const [activeOperation, setActiveOperation] = useState<ActiveOperation>(
     Platform.OS === 'android' ? 'recovery' : null,
   );
+  const isOwnerCurrentRef = useRef(draft.isOwnerCurrent);
+  isOwnerCurrentRef.current = draft.isOwnerCurrent;
   const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
   const [cameraPermissionBlocked, setCameraPermissionBlocked] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -97,15 +87,17 @@ export default function ScanScreen() {
     }
 
     let isMounted = true;
+    const startingOwner = draftOwner;
 
     const recoverPendingResult = async () => {
       try {
         const [pendingResult, pendingSource] = await Promise.all([
           ImagePicker.getPendingResultAsync(),
-          takePendingSource(),
+          takePendingPickerSource(),
         ]);
 
-        if (!isMounted) {
+        // Never hand an interrupted selection to a different signed-in owner.
+        if (!isMounted || !isOwnerCurrentRef.current(startingOwner)) {
           return;
         }
 
@@ -119,7 +111,7 @@ export default function ScanScreen() {
           router.push('/image-preview');
         }
       } catch {
-        if (isMounted) {
+        if (isMounted && isOwnerCurrentRef.current(startingOwner)) {
           dispatch({
             type: 'SET_ERROR',
             payload: 'An interrupted image selection could not be recovered. Please try again.',
@@ -137,29 +129,41 @@ export default function ScanScreen() {
     return () => {
       isMounted = false;
     };
-  }, [applyPickerResult, dispatch]);
+  }, [applyPickerResult, dispatch, draftOwner]);
 
-  const pickFromGallery = async () => {
+  const chooseImage = async (sourceType: ScanSourceType) => {
     if (activeOperation) {
       return;
     }
 
+    const startingOwner = draft.ownerIdentity;
     dispatch({ type: 'CLEAR_ERROR' });
     setCameraPermissionDenied(false);
-    setActiveOperation('gallery');
-    await rememberPendingSource('gallery');
+    setCameraPermissionBlocked(false);
+    setActiveOperation(sourceType);
     let shouldOpenPreview = false;
 
+    const outcome = await pickScanImage(sourceType);
+
     try {
-      const result = await ImagePicker.launchImageLibraryAsync(IMAGE_PICKER_OPTIONS);
-      shouldOpenPreview = applyPickerResult(result, 'gallery');
-    } catch {
-      dispatch({
-        type: 'SET_ERROR',
-        payload: 'The gallery could not be opened. Please try again.',
-      });
+      // A delayed picker result must never populate another owner's session.
+      if (!isOwnerCurrentRef.current(startingOwner)) {
+        return;
+      }
+      if (outcome.kind === 'selected') {
+        dispatch({ type: 'SELECT_IMAGE', payload: outcome.image });
+        shouldOpenPreview = true;
+      } else if (outcome.kind === 'permission-denied') {
+        setCameraPermissionDenied(true);
+        setCameraPermissionBlocked(!outcome.canAskAgain);
+        dispatch({
+          type: 'SET_ERROR',
+          payload: getPermissionDeniedMessage(outcome.canAskAgain),
+        });
+      } else if (outcome.kind === 'error') {
+        dispatch({ type: 'SET_ERROR', payload: outcome.message });
+      }
     } finally {
-      await clearPendingSource();
       setActiveOperation(null);
     }
 
@@ -168,51 +172,12 @@ export default function ScanScreen() {
     }
   };
 
-  const captureWithCamera = async () => {
-    if (activeOperation) {
-      return;
-    }
+  const captureWithCamera = () => {
+    void chooseImage('camera');
+  };
 
-    dispatch({ type: 'CLEAR_ERROR' });
-    setActiveOperation('camera');
-    let shouldOpenPreview = false;
-
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-
-      if (!permission.granted) {
-        setCameraPermissionDenied(true);
-        setCameraPermissionBlocked(!permission.canAskAgain);
-        dispatch({
-          type: 'SET_ERROR',
-          payload: permission.canAskAgain
-            ? 'Camera access is needed to take a sugarcane photo. You can try the camera again.'
-            : 'Camera access is turned off. Open device settings to allow CaneGuard to use the camera.',
-        });
-        return;
-      }
-
-      setCameraPermissionDenied(false);
-      setCameraPermissionBlocked(false);
-      await rememberPendingSource('camera');
-      const result = await ImagePicker.launchCameraAsync({
-        ...IMAGE_PICKER_OPTIONS,
-        cameraType: ImagePicker.CameraType.back,
-      });
-      shouldOpenPreview = applyPickerResult(result, 'camera');
-    } catch {
-      dispatch({
-        type: 'SET_ERROR',
-        payload: 'The camera could not be opened. Please try again.',
-      });
-    } finally {
-      await clearPendingSource();
-      setActiveOperation(null);
-    }
-
-    if (shouldOpenPreview) {
-      router.push('/image-preview');
-    }
+  const pickFromGallery = () => {
+    void chooseImage('gallery');
   };
 
   const openDeviceSettings = () => {
@@ -237,15 +202,28 @@ export default function ScanScreen() {
   // Inside the tab navigator the href resolves to the already-mounted tab, so
   // `replace` is the tab-level switch here; `returnToTab` is a no-op in here
   // and is only for screens outside `(tabs)`.
-  const handleKeepDraft = () => {
+  const handleKeepDraft = async () => {
     setShowCancelConfirm(false);
+    const saved = await draft.flushSavedDraft();
+    if (!saved) {
+      showToast('Draft not saved on this device — try again', 'error');
+      return;
+    }
     showToast('Draft kept', 'info');
     router.replace('/home');
   };
 
-  const handleDiscardDraft = () => {
+  const handleDiscardDraft = async () => {
     setShowCancelConfirm(false);
-    dispatch({ type: 'RESET_SCAN' });
+    if (draft.ownerIdentity) {
+      const discarded = await draft.discardSavedDraft();
+      if (!discarded) {
+        showToast('Could not discard the saved scan — try again', 'error');
+        return;
+      }
+    } else {
+      dispatch({ type: 'RESET_SCAN' });
+    }
     showToast('Draft discarded', 'info');
     router.replace('/home');
   };
@@ -355,15 +333,67 @@ export default function ScanScreen() {
             <View style={styles.actions}>
               {state.sourceUri ? (
                 <>
+                  <View
+                    testID="scan.draft-status"
+                    style={[
+                      styles.draftStatus,
+                      {
+                        backgroundColor:
+                          draft.draftStatus === 'failed'
+                            ? theme.dangerBg
+                            : theme.surfaceMuted,
+                        borderColor:
+                          draft.draftStatus === 'failed' ? theme.danger : theme.border,
+                      },
+                    ]}>
+                    <Feather
+                      name={
+                        draft.draftStatus === 'saved'
+                          ? 'check-circle'
+                          : draft.draftStatus === 'failed'
+                            ? 'alert-triangle'
+                            : 'clock'
+                      }
+                      size={16}
+                      color={
+                        draft.draftStatus === 'saved'
+                          ? theme.success
+                          : draft.draftStatus === 'failed'
+                            ? theme.danger
+                            : theme.textSecondary
+                      }
+                    />
+                    <Text
+                      accessibilityLiveRegion="polite"
+                      style={[styles.draftStatusText, { color: theme.textSecondary }]}>
+                      {getScanDraftStatusLabel(draft.draftStatus, draft.draftSavedAt)}
+                    </Text>
+                  </View>
                   <AppButton
                     onPress={() => router.push('/image-preview')}
                     disabled={isBusy}
                     trailingIcon="arrow-right"
                     accessibilityLabel="Return to selected image preview">
-                    View Selected Image
+                    {draft.draftStatus === 'saved' ? 'Resume Saved Scan' : 'View Selected Image'}
                   </AppButton>
                   <AppButton
                     variant="secondary"
+                    onPress={captureWithCamera}
+                    disabled={isBusy}
+                    leadingIcon="camera"
+                    accessibilityLabel="Take another photo to replace the selected image">
+                    {activeOperation === 'camera' ? 'Opening camera…' : 'Take Another Photo'}
+                  </AppButton>
+                  <AppButton
+                    variant="secondary"
+                    onPress={pickFromGallery}
+                    disabled={isBusy}
+                    leadingIcon="image"
+                    accessibilityLabel="Choose another image to replace the selected image">
+                    {activeOperation === 'gallery' ? 'Opening gallery…' : 'Choose Another Image'}
+                  </AppButton>
+                  <AppButton
+                    variant="text"
                     onPress={startNewScan}
                     disabled={isBusy}
                     leadingIcon="rotate-ccw"
@@ -531,6 +561,19 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: Spacing.md,
+  },
+  draftStatus: {
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  draftStatusText: {
+    ...Typography.caption,
+    flex: 1,
   },
   guide: {
     borderWidth: 1,

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import AnalysisResultScreen from '@/app/analysis-result';
@@ -20,10 +20,12 @@ import type {
 
 const mockDispatch = jest.fn<void, [ScanSessionAction]>();
 const mockSaveRecord = jest.fn();
+let mockSaveRecordError: string | null = null;
 let mockSaveRecordState = {
   status: 'ready' as 'ready' | 'saving' | 'saved' | 'failed',
   error: null,
   errorMessage: null as string | null,
+  getLastError: () => mockSaveRecordError,
   recordId: null as string | null,
   save: mockSaveRecord,
 };
@@ -132,10 +134,12 @@ function collectTestIds(node: unknown, collected: string[] = []): string[] {
 describe('AnalysisResultScreen', () => {
   beforeEach(() => {
     mockSaveRecord.mockReset();
+    mockSaveRecordError = null;
     mockSaveRecordState = {
       status: 'ready',
       error: null,
       errorMessage: null,
+      getLastError: () => mockSaveRecordError,
       recordId: null,
       save: mockSaveRecord,
     };
@@ -234,17 +238,20 @@ describe('AnalysisResultScreen', () => {
       }),
     );
 
+    // M11: the actionable caution is visible before any disclosure is opened.
+    expect(screen.getByTestId('scan.result-caution')).toBeOnTheScreen();
+    expect(screen.getByText('Check before you report')).toBeOnTheScreen();
+    expect(
+      screen.getAllByText(
+        'The image resolution is low. Move closer and keep the affected area in focus.',
+      ).length,
+    ).toBeGreaterThan(0);
     expect(screen.queryByText('Image quality notice')).not.toBeOnTheScreen();
     await fireEvent.press(screen.getByLabelText('Show Why this result?'));
 
     expect(screen.getByText('Image quality notice')).toBeOnTheScreen();
     expect(
       screen.getByText('These warnings did not change the result.'),
-    ).toBeOnTheScreen();
-    expect(
-      screen.getByText(
-        'The image resolution is low. Move closer and keep the affected area in focus.',
-      ),
     ).toBeOnTheScreen();
     expect(screen.queryByLabelText('AI confidence 78%')).not.toBeOnTheScreen();
     expect(result.confidence).toBe(0.78);
@@ -417,6 +424,96 @@ describe('AnalysisResultScreen', () => {
       screen.getByLabelText('Retry and save this scan on the device'),
     );
     expect(mockSaveRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a visible caution with high confidence and poor photo quality while reporting stays available', async () => {
+    await renderResult(
+      createCompletedState('rust', ['rust'], {
+        qualityAssessment: {
+          warnings: ['too-dark'],
+          meanLuminance: 30,
+          luminanceStandardDeviation: 28,
+        },
+        result: createResult('rust', 0.91),
+      }),
+    );
+
+    const caution = screen.getByTestId('scan.result-caution');
+    expect(caution).toBeOnTheScreen();
+    expect(caution).toHaveTextContent(/Check before you report/);
+    expect(caution).toHaveTextContent(/The image may be too dark/);
+    expect(caution).toHaveTextContent(/This caution does not change the result/);
+    expect(screen.getByTestId('scan.report-to-office')).toBeEnabled();
+    expect(screen.getByTestId('scan.new-scan')).toBeEnabled();
+    // The disclosure stays closed: the caution is not hidden behind it.
+    expect(screen.queryByText('Image quality notice')).not.toBeOnTheScreen();
+  });
+
+  it('shows the caution for conflicting observations even with high confidence', async () => {
+    await renderResult(createCompletedState('rust', ['mosaic'], {
+      result: createResult('rust', 0.93),
+    }));
+
+    const caution = screen.getByTestId('scan.result-caution');
+    expect(caution).toHaveTextContent(/selected symptom observations do not match/i);
+    expect(screen.getByTestId('scan.report-to-office')).toBeEnabled();
+  });
+
+  it('adds no extra caution for a clean, consistent result', async () => {
+    await renderResult(createCompletedState('rust', ['rust'], {
+      result: createResult('rust', 0.88),
+    }));
+
+    expect(screen.queryByTestId('scan.result-caution')).not.toBeOnTheScreen();
+  });
+
+  it('does not announce or leave the screen when Keep draft storage fails', async () => {
+    mockSaveRecord.mockResolvedValueOnce(null);
+    mockSaveRecordError =
+      'The record could not be saved. Your scan result is still available.';
+
+    await renderResult(createCompletedState('rust', ['rust']));
+    await fireEvent.press(screen.getByTestId('analysis-result.header-close'));
+    await fireEvent.press(
+      screen.getByTestId('analysis-result.cancel-dialog.cancel'),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('app-toast')).toHaveTextContent(
+        'The record could not be saved. Your scan result is still available.',
+      ),
+    );
+    expect(mockRouterDismissTo).not.toHaveBeenCalled();
+    expect(screen.getByTestId('scan.result-screen')).toBeOnTheScreen();
+  });
+
+  it('exits only after Keep draft persistence resolves', async () => {
+    let resolveSave!: (value: { id: string }) => void;
+    mockSaveRecord.mockReturnValueOnce(
+      new Promise<{ id: string }>((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
+
+    await renderResult(createCompletedState('rust', ['rust']));
+    fireEvent.press(screen.getByTestId('analysis-result.header-close'));
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('analysis-result.cancel-dialog'),
+      ).toBeOnTheScreen(),
+    );
+    fireEvent.press(screen.getByTestId('analysis-result.cancel-dialog.cancel'));
+    await waitFor(() => expect(mockSaveRecord).toHaveBeenCalledTimes(1));
+
+    expect(mockRouterDismissTo).not.toHaveBeenCalled();
+    expect(screen.queryByText('Scan saved')).not.toBeOnTheScreen();
+
+    await act(async () => {
+      resolveSave({ id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' });
+    });
+
+    await waitFor(() => expect(mockRouterDismissTo).toHaveBeenCalledWith('/home'));
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('Scan saved');
   });
 
   it('keeps an AI/checklist mismatch visible while reporting remains available', async () => {

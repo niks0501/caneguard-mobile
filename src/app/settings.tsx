@@ -10,7 +10,13 @@ import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { FIELD_GUIDE_ENTRY_DESCRIPTION } from '@/constants/copy';
 import { ComponentTokens, Layout, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
-import { clearLocalDataForOwner } from '@/database/localDataLifecycle';
+import {
+  clearCachedOfficeDataForOwner,
+  clearLocalDataForOwner,
+  getLocalDataRemovalPreview,
+  type LocalDataRemovalPreview,
+} from '@/database/localDataLifecycle';
+import { OfflineReadinessCard } from '@/features/auth/components/OfflineReadinessCard';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
@@ -59,34 +65,125 @@ export default function SettingsScreen() {
   const database = useCaneGuardDatabase();
   const { logout, user } = useAuth();
   const [clearingLocalData, setClearingLocalData] = useState(false);
+  const [clearingCachedData, setClearingCachedData] = useState(false);
 
   const appVersion = Constants.expoConfig?.version ?? 'Unknown';
 
-  const clearLocalData = async () => {
+  const clearCachedData = async () => {
+    if (!user || clearingCachedData) {
+      return;
+    }
+    setClearingCachedData(true);
+    try {
+      const result = await clearCachedOfficeDataForOwner(database, user.uuid);
+      showToast('Downloaded office data cleared', 'success');
+      Alert.alert(
+        'Downloaded office data cleared',
+        `${result.deletedRows} downloaded ${result.deletedRows === 1 ? 'item was' : 'items were'} removed. Saved scans, drafts, unsent reports, boundaries and completed visits were kept on this device.`,
+      );
+    } catch {
+      showToast('Could not clear downloaded data', 'error');
+    } finally {
+      setClearingCachedData(false);
+    }
+  };
+
+  const describeRemovalPreview = (preview: LocalDataRemovalPreview): string =>
+    [
+      `${preview.reports} report${preview.reports === 1 ? '' : 's'} (${preview.draftReports} draft, ${preview.finalizedUnsentReports} finalized but not sent)`,
+      `${preview.visits} completed visit${preview.visits === 1 ? '' : 's'} (${preview.unsentVisits} not sent)`,
+      `${preview.boundaries} boundar${preview.boundaries === 1 ? 'y' : 'ies'} (${preview.unsentBoundaries} not sent)`,
+      `${preview.scans} saved scan${preview.scans === 1 ? '' : 's'}`,
+      `${preview.draftCheckpoints} saved draft checkpoint${preview.draftCheckpoints === 1 ? '' : 's'}`,
+      `${preview.assignments} downloaded visit assignment${preview.assignments === 1 ? '' : 's'}`,
+      `${preview.notifications} cached office update${preview.notifications === 1 ? '' : 's'}`,
+      preview.totalUnsent > 0
+        ? `⚠︎ ${preview.totalUnsent} item${preview.totalUnsent === 1 ? '' : 's'} on this device ${preview.totalUnsent === 1 ? 'has' : 'have'} not reached the office and will be lost permanently.`
+        : 'Everything listed has already reached the office.',
+    ].join('\n');
+
+  const confirmPermanentRemoval = (preview: LocalDataRemovalPreview) => {
+    if (preview.uploadInFlight) {
+      Alert.alert(
+        'An upload is still running',
+        'Wait for the current upload to finish, then review the local records again before removing anything.',
+      );
+      return;
+    }
+    Alert.alert(
+      'Remove all local records?',
+      `${describeRemovalPreview(preview)}\n\nThis cannot be undone. Server data and other accounts are not changed.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text:
+            preview.totalUnsent > 0
+              ? 'Continue without unsent work'
+              : 'Remove local records',
+          style: 'destructive',
+          onPress: () => {
+            if (preview.totalUnsent > 0) {
+              Alert.alert(
+                'Lose unsent work permanently?',
+                `${preview.totalUnsent} unsent item${preview.totalUnsent === 1 ? '' : 's'} will be deleted and cannot be sent afterwards.`,
+                [
+                  { text: 'Keep my work', style: 'cancel' },
+                  {
+                    text: 'Delete unsent work',
+                    style: 'destructive',
+                    onPress: () => void removeLocalData(preview),
+                  },
+                ],
+              );
+              return;
+            }
+            void removeLocalData(preview);
+          },
+        },
+      ],
+    );
+  };
+
+  const startPermanentRemoval = () => {
+    if (!user || clearingLocalData) {
+      return;
+    }
+    try {
+      confirmPermanentRemoval(getLocalDataRemovalPreview(database, user.uuid));
+    } catch {
+      showToast('Could not read local record counts', 'error');
+    }
+  };
+
+  const removeLocalData = async (expectedPreview: LocalDataRemovalPreview) => {
     if (!user || clearingLocalData) {
       return;
     }
     setClearingLocalData(true);
     try {
-      const result = await clearLocalDataForOwner(database, user.uuid);
+      const result = await clearLocalDataForOwner(database, user.uuid, {
+        expectedPreview,
+      });
       if (result.imageCleanupErrors.length > 0) {
-        showToast('Local data cleared with warnings', 'info');
+        showToast('Local records removed with warnings', 'info');
       } else {
-        showToast('Local data cleared', 'success');
+        showToast('Local records removed', 'success');
       }
       Alert.alert(
         result.imageCleanupErrors.length > 0
-          ? 'Local data cleared with cleanup warnings'
-          : 'Local data cleared',
+          ? 'Local records removed with cleanup warnings'
+          : 'Local records removed',
         result.imageCleanupErrors.length > 0
-          ? 'Your local records were removed, but one or more cached images could not be deleted yet.'
-          : 'Saved scans, report drafts, completed visits, and cached account data were removed from this device.',
+          ? 'Your local records were removed, but one or more saved images could not be deleted yet.'
+          : 'Saved scans, drafts, reports, boundaries, visits, and cached account data were removed from this device.',
       );
-    } catch {
-      showToast('Could not clear local data', 'error');
+    } catch (error: unknown) {
+      showToast('Could not remove local records', 'error');
       Alert.alert(
-        'Could not clear local data',
-        'CaneGuard could not remove all local records. Try again before handing this device to another user.',
+        'Could not remove local records',
+        error instanceof Error
+          ? error.message
+          : 'CaneGuard could not remove all local records. Review the counts and try again.',
       );
     } finally {
       setClearingLocalData(false);
@@ -117,6 +214,9 @@ export default function SettingsScreen() {
                 onToggle={setDarkMode}
               />
             </View>
+
+            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>FIELD READINESS</Text>
+            <OfflineReadinessCard />
 
             <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>FIELD GUIDE</Text>
 
@@ -184,7 +284,7 @@ export default function SettingsScreen() {
                   onPress={() =>
                     Alert.alert(
                       'Log out?',
-                      'Logging out revokes the server session and removes the protected credential. Pending scans remain owner-scoped on this device; use Clear local data before handing the device to another user.',
+                      'Logging out revokes the server session and removes the protected credential. Pending scans remain owner-scoped on this device; use Remove all local records before handing the device to another user.',
                       [
                         { text: 'Cancel', style: 'cancel' },
                         {
@@ -222,27 +322,41 @@ export default function SettingsScreen() {
                   <Text style={[styles.logoutText, { color: theme.danger }]}>Logout</Text>
                 </AppButton>
                 <AppButton
-                  testID="settings.clear-local-data"
+                  testID="settings.clear-cached-office-data"
                   variant="text"
-                  disabled={clearingLocalData}
+                  disabled={clearingCachedData}
                   onPress={() =>
                     Alert.alert(
-                      'Clear local data?',
-                      'This permanently removes saved scans, report drafts, completed visits, and cached account data from this device. It does not change data already sent to the office.',
+                      'Clear downloaded office data?',
+                      'This removes only data that can be downloaded again: visit assignments and office updates. Every saved scan, draft, unsent report, boundary and completed visit stays on this device.',
                       [
                         { text: 'Cancel', style: 'cancel' },
                         {
-                          text: clearingLocalData ? 'Clearing…' : 'Clear local data',
-                          style: 'destructive',
-                          onPress: () => void clearLocalData(),
+                          text: clearingCachedData
+                            ? 'Clearing…'
+                            : 'Clear downloaded data',
+                          onPress: () => void clearCachedData(),
                         },
                       ],
                     )
                   }
-                  accessibilityLabel="Clear local data from this device"
-                  style={styles.logoutButton}>
+                  accessibilityLabel="Clear downloaded office data only">
+                  <Text style={[styles.logoutText, { color: theme.primary }]}>
+                    {clearingCachedData
+                      ? 'Clearing downloaded data…'
+                      : 'Clear downloaded office data'}
+                  </Text>
+                </AppButton>
+                <AppButton
+                  testID="settings.remove-local-records"
+                  variant="text"
+                  disabled={clearingLocalData}
+                  onPress={startPermanentRemoval}
+                  accessibilityLabel="Remove all local records for this account">
                   <Text style={[styles.logoutText, { color: theme.danger }]}>
-                    {clearingLocalData ? 'Clearing local data…' : 'Clear local data'}
+                    {clearingLocalData
+                      ? 'Removing local records…'
+                      : 'Remove all local records'}
                   </Text>
                 </AppButton>
               </View>

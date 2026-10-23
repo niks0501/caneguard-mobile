@@ -28,6 +28,12 @@ export function scanSessionReducer(
       };
     case 'RESET_SCAN':
       return { ...initialScanSessionState };
+    case 'RESTORE_SCAN':
+      return {
+        ...initialScanSessionState,
+        ...action.payload,
+        errorMessage: null,
+      };
     case 'START_PREPROCESSING':
       return {
         ...state,

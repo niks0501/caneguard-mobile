@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { useToast } from '@/components/ui/Toast';
-import { FIELD_GUIDE_TITLE } from '@/constants/copy';
+import { FIELD_GUIDE_TITLE, OFFLINE_READINESS_COPY } from '@/constants/copy';
 import { ComponentTokens, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
@@ -126,7 +126,16 @@ export default function LoginScreen() {
                   accessibilityLabel="Unlock with biometrics">
                   {biometricLoading ? 'Unlocking...' : 'Unlock with biometrics'}
                 </AppButton>
-              ) : null}
+              ) : (
+                <View
+                  testID="auth.offline-restart-limit"
+                  style={[styles.offlineNote, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
+                  <Feather name="info" size={16} color={theme.warning} />
+                  <Text style={[styles.offlineNoteText, { color: theme.text }]}>
+                    {OFFLINE_READINESS_COPY.passwordOnlyRestartLimit}
+                  </Text>
+                </View>
+              )}
               <AppButton
                 testID="auth.forgot-password"
                 variant="text"
@@ -250,5 +259,7 @@ const styles = StyleSheet.create({
   signup: { ...Typography.bodySmall, fontWeight: '800' },
   footer: { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.lg, alignItems: 'center', gap: Spacing.sm },
   footerText: { ...Typography.caption },
+  offlineNote: { borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  offlineNoteText: { ...Typography.caption, flex: 1 },
   pressed: { opacity: 0.7 },
 });

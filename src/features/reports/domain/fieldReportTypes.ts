@@ -206,6 +206,12 @@ export type SaveGpsCaptureInput =
   | {
       accuracy: number;
       capturedAt: string;
+      /**
+       * The draft revision the attempt started from. A reading that returns
+       * after the inspector changed the location is dropped rather than
+       * overwriting the newer choice.
+       */
+      expectedUpdatedAt?: string;
       latitude: number;
       longitude: number;
       outcome: 'low_accuracy' | 'resolved';
@@ -213,6 +219,7 @@ export type SaveGpsCaptureInput =
     }
   | {
       capturedAt: string;
+      expectedUpdatedAt?: string;
       outcome: 'error' | 'permission_denied' | 'unavailable';
       reason?: GpsCaptureUnavailableReason;
       updatedAt: string;

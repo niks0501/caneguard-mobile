@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -31,8 +31,18 @@ import type { FieldValidationCompletion } from '@/features/assignments/domain/fi
 import type { PreviousVisitContext as PreviousVisitContextValue } from '@/features/assignments/domain/previousVisit';
 import { FIELD_VALIDATION_TEXT_MAX_LENGTH } from '@/features/assignments/domain/fieldValidationCompletionValidation';
 import { useFieldValidationAssignment } from '@/features/assignments/hooks/useFieldValidationAssignment';
+import type { FieldValidationPhotoArtifact } from '@/features/assignments/services/fieldValidationPhotoStorage';
+import { deleteFieldValidationPhoto } from '@/features/assignments/services/fieldValidationPhotoStorage';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
+
+interface ValidationPhotoSelection {
+  /** The URI rendered on screen (managed draft photo when it is saved). */
+  artifact: FieldValidationPhotoArtifact | null;
+  /** The picker asset, kept only while the managed copy is pending. */
+  asset: ImagePicker.ImagePickerAsset | null;
+  uri: string;
+}
 
 export default function FieldValidationScreen() {
   const theme = useTheme();
@@ -44,8 +54,60 @@ export default function FieldValidationScreen() {
   const [finding, setFinding] = useState('');
   const [action, setAction] = useState('');
   const [followUpOutcome, setFollowUpOutcome] = useState<FieldValidationFollowUpOutcome | null>(null);
-  const [photo, setPhoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [photo, setPhoto] = useState<ValidationPhotoSelection | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const hydratedAssignment = useRef<string | null>(null);
+
+  // Restore the owner-scoped checkpoint once per assignment. A completed visit
+  // is immutable and never hydrates a draft over its evidence.
+  useEffect(() => {
+    const id = state.assignment?.id ?? null;
+    if (!id || hydratedAssignment.current === id || state.completion) {
+      return;
+    }
+    hydratedAssignment.current = id;
+    const draft = state.formDraft;
+    if (!draft) {
+      return;
+    }
+    setObservation(draft.observation);
+    setFinding(draft.finding);
+    setAction(draft.action);
+    setFollowUpOutcome(draft.followUpOutcome);
+    setPhoto(draft.photo ? { artifact: draft.photo, asset: null, uri: draft.photo.uri } : null);
+    showToast('Restored your saved visit draft', 'info');
+  }, [showToast, state.assignment?.id, state.completion, state.formDraft]);
+
+  // Autosave an unfinished visit as a local checkpoint. Drafts never upload;
+  // completion stays an explicit action.
+  useEffect(() => {
+    const id = state.assignment?.id ?? null;
+    if (!id || state.completion) {
+      return;
+    }
+    if (!observation && !finding && !action && !followUpOutcome && !photo) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      void state.saveDraftCheckpoint({
+        action,
+        finding,
+        followUpOutcome,
+        observation,
+        photo: photo?.artifact ?? null,
+      });
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [
+    action,
+    finding,
+    followUpOutcome,
+    observation,
+    photo,
+    state.assignment?.id,
+    state.completion,
+    state.saveDraftCheckpoint,
+  ]);
 
   const capturePhoto = async () => {
     setFieldError(null);
@@ -67,10 +129,21 @@ export default function FieldValidationScreen() {
         quality: 1,
         cameraType: ImagePicker.CameraType.back,
       });
-      if (!result.canceled && result.assets[0]) {
-        setPhoto(result.assets[0]);
-        showToast('Photo attached', 'success');
+      const asset = !result.canceled ? result.assets[0] : null;
+      if (!asset) {
+        return;
       }
+      setPhoto({ artifact: null, asset, uri: asset.uri });
+      // Copy into owner-scoped managed storage before promising recovery.
+      const artifact = await state.persistDraftPhoto(asset);
+      if (!artifact) {
+        const msg = 'The photo could not be saved on this device. It is attached for this visit only; recovery will not include it.';
+        setFieldError(msg);
+        showToast('Photo not saved on this device', 'error');
+        return;
+      }
+      setPhoto({ artifact, asset, uri: artifact.uri });
+      showToast('Photo attached and saved on this device', 'success');
     } catch {
       const msg = 'The camera could not be opened. You can complete the visit without a fresh photo.';
       setFieldError(msg);
@@ -79,6 +152,9 @@ export default function FieldValidationScreen() {
   };
 
   const removePhoto = () => {
+    if (photo?.artifact && state.ownerIdentity) {
+      deleteFieldValidationPhoto(photo.artifact.uri, state.ownerIdentity);
+    }
     setPhoto(null);
     showToast('Photo removed', 'info');
   };
@@ -116,7 +192,9 @@ export default function FieldValidationScreen() {
         fieldFinding: finding,
         actionTaken: action,
         followUpOutcome,
-        freshPhoto: photo,
+        ...(photo?.artifact ? { savedFreshPhoto: photo.artifact } : {}),
+        freshPhoto:
+          photo && !photo.artifact ? photo.asset ?? undefined : null,
       });
       if (result) {
         showToast('Visit recorded', 'success');
@@ -146,6 +224,13 @@ export default function FieldValidationScreen() {
               {state.completion ? (
                 <CompletionStatus completion={state.completion} onRetry={() => void state.retry()} />
               ) : (
+                <>
+                <Text
+                  testID="field-validation.draft-status"
+                  accessibilityLiveRegion="polite"
+                  style={[styles.help, { color: theme.textSecondary }]}>
+                  {formatDraftStatus(state.draftStatus, state.draftSavedAt)}
+                </Text>
                 <EvidenceForm
                   observation={observation}
                   finding={finding}
@@ -160,6 +245,7 @@ export default function FieldValidationScreen() {
                   onCapturePhoto={() => void capturePhoto()}
                   onRemovePhoto={removePhoto}
                 />
+                </>
               )}
               {/* History stays reachable but never leads the visit, so the
                   inspector records fresh evidence first. Previous visit and
@@ -313,7 +399,7 @@ function completeConfirmMessage({
 function EvidenceForm({
   observation, finding, action, followUpOutcome, previousVisitAt, photo, onObservationChange, onFindingChange, onActionChange, onCapturePhoto, onRemovePhoto, onFollowUpOutcomeChange,
 }: {
-  observation: string; finding: string; action: string; followUpOutcome: FieldValidationFollowUpOutcome | null; previousVisitAt: string | null; photo: ImagePicker.ImagePickerAsset | null;
+  observation: string; finding: string; action: string; followUpOutcome: FieldValidationFollowUpOutcome | null; previousVisitAt: string | null; photo: ValidationPhotoSelection | null;
   onObservationChange: (value: string) => void; onFindingChange: (value: string) => void; onActionChange: (value: string) => void; onCapturePhoto: () => void; onRemovePhoto: () => void; onFollowUpOutcomeChange: (value: FieldValidationFollowUpOutcome) => void;
 }) {
   const theme = useTheme();
@@ -379,6 +465,24 @@ function CompletionStatus({ completion, onRetry }: { completion: FieldValidation
   );
 }
 
+
+function formatDraftStatus(
+  status: 'idle' | 'saving' | 'saved' | 'failed',
+  savedAt: string | null,
+): string {
+  switch (status) {
+    case 'saving':
+      return 'Saving draft on this device…';
+    case 'saved':
+      return savedAt
+        ? `Draft saved on this device · ${new Date(savedAt).toLocaleTimeString()}. You can leave this screen and resume later.`
+        : 'Draft saved on this device. You can leave this screen and resume later.';
+    case 'failed':
+      return 'Draft not saved on this device. Your entries stay on this screen — keep it open or try completing the visit.';
+    default:
+      return 'Draft not saved on this device yet.';
+  }
+}
 
 function formatTimestamp(value: string): string {
   return new Date(value).toLocaleString();

@@ -21,11 +21,18 @@ import type {
   FieldValidationCompletion,
   SaveFieldValidationCompletionInput,
 } from '@/features/assignments/domain/fieldValidationCompletionTypes';
+import {
+  deleteFieldValidationCheckpoint,
+  readFieldValidationCheckpoint,
+  writeFieldValidationCheckpoint,
+  type FieldValidationCheckpoint,
+} from '@/features/assignments/drafts/fieldValidationDraft';
 import { normalizeFieldValidationText } from '@/features/assignments/domain/fieldValidationCompletionValidation';
 import { findFieldReportById } from '@/features/reports/data/fieldReportRepository';
 import {
   deleteFieldValidationPhoto,
   persistFieldValidationPhoto,
+  type FieldValidationPhotoArtifact,
 } from '@/features/assignments/services/fieldValidationPhotoStorage';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { captureGpsLocation } from '@/features/reports/services/captureGpsLocation';
@@ -38,7 +45,11 @@ export interface CompleteFieldValidationInput {
   fieldObservation: string;
   freshPhoto?: ImagePickerAsset | null;
   followUpOutcome: FieldValidationFollowUpOutcome;
+  /** A draft photo already persisted in owner-scoped managed storage. */
+  savedFreshPhoto?: FieldValidationPhotoArtifact | null;
 }
+
+export type FieldValidationDraftStatus = 'idle' | 'saving' | 'saved' | 'failed';
 
 interface AssignmentState {
   assignment: FieldValidationAssignment | null;
@@ -65,6 +76,14 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
     loading: true,
     saving: false,
   });
+  const [formDraft, setFormDraft] = useState<FieldValidationCheckpoint | null>(
+    null,
+  );
+  const [draftStatus, setDraftStatus] =
+    useState<FieldValidationDraftStatus>('idle');
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const formDraftRef = useRef<FieldValidationCheckpoint | null>(null);
+  formDraftRef.current = formDraft;
 
   sessionRef.current = session;
 
@@ -92,6 +111,17 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       } catch {
         currentReporterConcern = null;
       }
+      const draftRecord = completion
+        ? null
+        : readFieldValidationCheckpoint(
+            database,
+            requestedSession.user.uuid,
+            assignment.id,
+          );
+      if (sessionRef.current?.token !== requestedSession.token || !mounted.current) return;
+      setFormDraft(draftRecord?.checkpoint ?? null);
+      setDraftSavedAt(draftRecord?.checkpoint.savedAt ?? null);
+      setDraftStatus(draftRecord ? 'saved' : 'idle');
       setState({
         assignment,
         completion,
@@ -121,6 +151,61 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
     }, [refresh]),
   );
 
+  const persistDraftPhoto = useCallback(
+    async (asset: ImagePickerAsset): Promise<FieldValidationPhotoArtifact | null> => {
+      if (!state.assignment || !session) return null;
+      const previous = formDraftRef.current?.photo ?? null;
+      try {
+        const artifact = await persistFieldValidationPhoto({
+          ownerIdentity: session.user.uuid,
+          assignmentId: state.assignment.id,
+          completionId: `draft-${randomUUID()}`,
+          fileName: asset.fileName,
+          mimeType: asset.mimeType,
+          sourceUri: asset.uri,
+        });
+        if (previous && previous.uri !== artifact.uri) {
+          deleteFieldValidationPhoto(previous.uri, session.user.uuid);
+        }
+        return artifact;
+      } catch {
+        return null;
+      }
+    },
+    [session, state.assignment],
+  );
+
+  const saveDraftCheckpoint = useCallback(
+    async (
+      values: Omit<FieldValidationCheckpoint, 'savedAt'>,
+    ): Promise<boolean> => {
+      if (!state.assignment || !session || state.completion) {
+        return false;
+      }
+      const checkpoint: FieldValidationCheckpoint = {
+        ...values,
+        savedAt: new Date().toISOString(),
+      };
+      setDraftStatus('saving');
+      try {
+        await writeFieldValidationCheckpoint(
+          database,
+          session.user.uuid,
+          state.assignment.id,
+          checkpoint,
+        );
+        setFormDraft(checkpoint);
+        setDraftSavedAt(checkpoint.savedAt);
+        setDraftStatus('saved');
+        return true;
+      } catch {
+        setDraftStatus('failed');
+        return false;
+      }
+    },
+    [database, session, state.assignment, state.completion],
+  );
+
   const complete = useCallback(async (input: CompleteFieldValidationInput): Promise<FieldValidationCompletion | null> => {
     if (!state.assignment || !session) return null;
     const completionId = randomUUID();
@@ -129,16 +214,18 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
     let completionSaved = false;
     try {
       const gps = await captureGpsLocation(expoForegroundLocationClient);
-      const photo = input.freshPhoto
-        ? await persistFieldValidationPhoto({
-            ownerIdentity: session.user.uuid,
-            assignmentId: state.assignment.id,
-            completionId,
-            fileName: input.freshPhoto.fileName,
-            mimeType: input.freshPhoto.mimeType,
-            sourceUri: input.freshPhoto.uri,
-          })
-        : null;
+      const photo = input.savedFreshPhoto
+        ? input.savedFreshPhoto
+        : input.freshPhoto
+          ? await persistFieldValidationPhoto({
+              ownerIdentity: session.user.uuid,
+              assignmentId: state.assignment.id,
+              completionId,
+              fileName: input.freshPhoto.fileName,
+              mimeType: input.freshPhoto.mimeType,
+              sourceUri: input.freshPhoto.uri,
+            })
+          : null;
       photoUri = photo?.uri ?? null;
       const gpsInput = gps.outcome === 'resolved' || gps.outcome === 'low_accuracy'
         ? {
@@ -166,6 +253,22 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       };
       const saved = await saveFieldValidationCompletion(database, completionInput);
       completionSaved = true;
+      // The visit is complete: its recovery checkpoint is no longer a draft.
+      // A distinct photo that was saved only for the draft is cleaned up unless
+      // it became the completion's photo.
+      const draftPhoto = formDraftRef.current?.photo ?? null;
+      deleteFieldValidationCheckpoint(
+        database,
+        session.user.uuid,
+        state.assignment.id,
+      );
+      setFormDraft(null);
+      formDraftRef.current = null;
+      setDraftStatus('idle');
+      setDraftSavedAt(null);
+      if (draftPhoto && draftPhoto.uri !== (photo?.uri ?? null)) {
+        deleteFieldValidationPhoto(draftPhoto.uri, session.user.uuid);
+      }
       await markCachedFieldValidationAssignmentInProgress(
         database,
         session.user.uuid,
@@ -201,6 +304,12 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
   return {
     ...state,
     complete,
+    draftSavedAt,
+    draftStatus,
+    formDraft,
+    ownerIdentity: session?.user.uuid ?? null,
+    persistDraftPhoto,
+    saveDraftCheckpoint,
     photoAccessToken: session?.token ?? null,
     previousVisitPhotoUrl:
       state.assignment?.previousVisit?.freshPhotoAvailable

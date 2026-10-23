@@ -115,6 +115,14 @@ function AuthenticatedHomeRoute() {
   return status === 'authenticated' ? <HomeScreen /> : null;
 }
 
+jest.mock('@react-native-community/netinfo', () => ({
+  __esModule: true,
+  default: {
+    addEventListener: jest.fn(() => () => undefined),
+    fetch: jest.fn(async () => ({ isConnected: true, isInternetReachable: true })),
+  },
+}));
+
 describe('AuthProvider', () => {
   const mockChangePassword = jest.mocked(changePassword);
   const mockDisableBiometricApi = jest.mocked(disableBiometricApi);

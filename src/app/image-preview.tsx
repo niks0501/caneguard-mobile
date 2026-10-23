@@ -8,9 +8,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
+import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
 import { useScanSession } from '@/features/detection/context/useScanSession';
+import {
+  getPermissionDeniedMessage,
+  pickScanImage,
+} from '@/features/detection/imagePicker/pickScanImage';
 import {
   getSessionStateErrorMessage,
   SessionStateError,
@@ -32,6 +38,7 @@ export default function ImagePreviewScreen() {
   const theme = useTheme();
   const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
+  const draft = useScanDraft();
   const modelState = useCaneGuardModel();
   const startModelLoad = modelState.start;
   // The model download and native load are deferred to this screen: it is the
@@ -41,8 +48,12 @@ export default function ImagePreviewScreen() {
   }, [startModelLoad]);
   const [isImageLoading, setIsImageLoading] = useState(Boolean(state.sourceUri));
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  const [replacementNotice, setReplacementNotice] = useState<string | null>(null);
   const analysisInFlight = useRef(false);
   const isMounted = useRef(true);
+  const isOwnerCurrentRef = useRef(draft.isOwnerCurrent);
+  isOwnerCurrentRef.current = draft.isOwnerCurrent;
   const isPreprocessing = state.status === 'preprocessing';
   const isRunning = state.status === 'running';
   const isFinalizing = state.status === 'finalizing';
@@ -59,30 +70,80 @@ export default function ImagePreviewScreen() {
     };
   }, []);
 
+  // An owner change abandons any in-flight analysis started by the previous
+  // account, so the next inspector is never blocked by it.
+  useEffect(() => {
+    analysisInFlight.current = false;
+  }, [draft.ownerIdentity]);
+
   const handleCancel = () => {
     setShowCancelConfirm(true);
   };
 
-  const handleKeepDraft = () => {
+  const handleKeepDraft = async () => {
     setShowCancelConfirm(false);
+    const saved = await draft.flushSavedDraft();
+    if (!saved) {
+      showToast('Draft not saved on this device — try again', 'error');
+      return;
+    }
     showToast('Draft kept', 'info');
     returnToTab('/home');
   };
 
-  const handleDiscardDraft = () => {
+  const handleDiscardDraft = async () => {
     setShowCancelConfirm(false);
-    dispatch({ type: 'RESET_SCAN' });
+    if (draft.ownerIdentity) {
+      const discarded = await draft.discardSavedDraft();
+      if (!discarded) {
+        showToast('Could not discard the saved scan — try again', 'error');
+        return;
+      }
+    } else {
+      dispatch({ type: 'RESET_SCAN' });
+    }
     showToast('Draft discarded', 'info');
     returnToTab('/home');
-  };
-
-  const returnToScan = () => {
-    returnToTab('/scan');
   };
 
   const startNewScan = () => {
     dispatch({ type: 'RESET_SCAN' });
     returnToTab('/scan');
+  };
+
+  const replaceImage = async (sourceType: 'camera' | 'gallery') => {
+    if (replacing || analysisInFlight.current) {
+      return;
+    }
+    const startingOwner = draft.ownerIdentity;
+    setReplacing(true);
+    setReplacementNotice(null);
+    try {
+      const outcome = await pickScanImage(sourceType);
+      if (!isMounted.current || !isOwnerCurrentRef.current(startingOwner)) {
+        return;
+      }
+      if (outcome.kind === 'selected') {
+        analysisInFlight.current = false;
+        dispatch({ type: 'SELECT_IMAGE', payload: outcome.image });
+        setImageLoadFailed(false);
+        setIsImageLoading(true);
+        setReplacementNotice(
+          'New image selected. The previous analysis result and symptom answers were cleared; the previous scan draft was replaced.',
+        );
+        showToast('Image replaced', 'success');
+      } else if (outcome.kind === 'permission-denied') {
+        setReplacementNotice(getPermissionDeniedMessage(outcome.canAskAgain));
+      } else if (outcome.kind === 'error') {
+        setReplacementNotice(outcome.message);
+      }
+      // A cancelled replacement keeps the current image and everything derived
+      // from it untouched.
+    } finally {
+      if (isMounted.current) {
+        setReplacing(false);
+      }
+    }
   };
 
   const analyzeImage = async () => {
@@ -98,6 +159,10 @@ export default function ImagePreviewScreen() {
       return;
     }
 
+    const startingOwner = draft.ownerIdentity;
+    const isCurrentWork = () =>
+      isMounted.current && isOwnerCurrentRef.current(startingOwner);
+
     analysisInFlight.current = true;
     dispatch({ type: 'START_PREPROCESSING' });
     let inferenceStarted = false;
@@ -108,7 +173,7 @@ export default function ImagePreviewScreen() {
         height: state.sourceHeight,
       });
 
-      if (!isMounted.current) {
+      if (!isCurrentWork()) {
         return;
       }
 
@@ -129,7 +194,7 @@ export default function ImagePreviewScreen() {
         preprocessingResult.preprocessMs,
       );
 
-      if (!isMounted.current) {
+      if (!isCurrentWork()) {
         return;
       }
 
@@ -138,7 +203,7 @@ export default function ImagePreviewScreen() {
         setTimeout(resolve, RESULT_PREPARATION_FEEDBACK_MS);
       });
 
-      if (!isMounted.current) {
+      if (!isCurrentWork()) {
         return;
       }
 
@@ -148,7 +213,7 @@ export default function ImagePreviewScreen() {
       });
       router.push('/symptom-checklist');
     } catch (error) {
-      if (!isMounted.current) {
+      if (!isCurrentWork()) {
         return;
       }
 
@@ -288,12 +353,33 @@ export default function ImagePreviewScreen() {
             </AppCard>
 
             <View style={styles.actions}>
-              <AppButton
-                variant="secondary"
-                onPress={returnToScan}
-                accessibilityLabel="Return to scan and replace the selected image">
-                Retake / Replace Image
-              </AppButton>
+              <DisclosureSection
+                testID="image-preview.replace"
+                title="Retake / Replace image"
+                summary="Camera or gallery">
+                <Text style={[styles.pipelineNotice, { color: theme.textSecondary }]}>
+                  The current image stays in place until you choose a replacement. A
+                  replacement clears the previous result and symptom answers.
+                </Text>
+                <AppButton
+                  testID="image-preview.replace-camera"
+                  variant="secondary"
+                  disabled={replacing || isAnalysisActive}
+                  onPress={() => void replaceImage('camera')}
+                  leadingIcon="camera"
+                  accessibilityLabel="Take another photo with the camera">
+                  Take another photo
+                </AppButton>
+                <AppButton
+                  testID="image-preview.replace-gallery"
+                  variant="secondary"
+                  disabled={replacing || isAnalysisActive}
+                  onPress={() => void replaceImage('gallery')}
+                  leadingIcon="image"
+                  accessibilityLabel="Choose another image from the gallery">
+                  Choose another image
+                </AppButton>
+              </DisclosureSection>
               <AppButton
                 testID="scan.analyze-image"
                 disabled={
@@ -334,6 +420,25 @@ export default function ImagePreviewScreen() {
                       ? 'Analysis Complete'
                       : 'Analyze'}
               </AppButton>
+              {modelState.state === 'error' && modelState.errorKind === 'load' ? (
+                <AppButton
+                  testID="image-preview.retry-model"
+                  variant="secondary"
+                  onPress={modelState.retry}
+                  disabled={replacing || isAnalysisActive}
+                  leadingIcon="refresh-cw"
+                  accessibilityLabel="Retry analysis setup">
+                  Retry analysis setup
+                </AppButton>
+              ) : null}
+              {replacementNotice ? (
+                <Text
+                  testID="image-preview.replacement-notice"
+                  accessibilityLiveRegion="polite"
+                  style={[styles.pipelineNotice, { color: theme.textSecondary }]}>
+                  {replacementNotice}
+                </Text>
+              ) : null}
               {isAnalysisActive ? (
                 <View accessibilityLiveRegion="polite" style={styles.progressRow}>
                   <ActivityIndicator

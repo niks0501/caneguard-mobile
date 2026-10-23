@@ -185,6 +185,7 @@ export async function saveGpsCapture(
         .select({
           authoringState: fieldReports.authoringState,
           scanRecordId: fieldReports.scanRecordId,
+          updatedAt: fieldReports.updatedAt,
         })
         .from(fieldReports)
         .where(
@@ -211,6 +212,24 @@ export async function saveGpsCapture(
       }
       if (existing.authoringState !== 'draft') {
         throw new StorageError('UPDATE_FAILED', 'Only a Draft Field Report can capture location.');
+      }
+
+      if (
+        input.expectedUpdatedAt !== undefined &&
+        existing.updatedAt !== input.expectedUpdatedAt
+      ) {
+        // The draft moved on while the reading was in flight (another location
+        // choice or a newer edit). Keep the newer state instead of applying a
+        // stale reading over it.
+        const current = transaction
+          .select()
+          .from(fieldReports)
+          .where(eq(fieldReports.id, id))
+          .get();
+        if (!current) {
+          throw new StorageError('UPDATE_FAILED', 'The Field Report could not be reloaded.');
+        }
+        return toFieldReport(current);
       }
 
       const attemptValues =

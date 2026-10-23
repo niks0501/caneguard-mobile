@@ -1,3 +1,4 @@
+import NetInfo from '@react-native-community/netinfo';
 import * as Device from 'expo-device';
 import type { PropsWithChildren } from 'react';
 import {
@@ -8,6 +9,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { AppState } from 'react-native';
 
 import {
   changeEmail as changeEmailApi,
@@ -90,6 +92,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [biometricLoading, setBiometricLoading] = useState(false);
   const verificationGeneration = useRef(0);
   const sessionRef = useRef<MobileSession | null>(null);
+  const sessionVerificationRef = useRef<SessionVerificationStatus>('idle');
+  const verificationRetryRef = useRef<Promise<void> | null>(null);
+  const lastVerificationRetryAt = useRef(0);
+  sessionVerificationRef.current = sessionVerification;
   const biometricPromptRef = useRef<Promise<BiometricAuthResult> | null>(null);
   const biometricEnableRef = useRef<Promise<boolean> | null>(null);
   const biometricUnlockRef = useRef<Promise<boolean> | null>(null);
@@ -221,6 +227,94 @@ export function AuthProvider({ children }: PropsWithChildren) {
     },
     [setCurrentSession],
   );
+
+  /**
+   * Retries a pending session verification after a transient failure (M10).
+   * It runs only while the current session is still the one that failed, never
+   * prompts for biometrics, and coalesces overlapping foreground/network
+   * events so reconnecting cannot start a request loop.
+   */
+  const retrySessionVerification = useCallback(async () => {
+    const activeSession = sessionRef.current;
+    if (!activeSession || sessionVerificationRef.current !== 'unavailable') {
+      return;
+    }
+    if (verificationRetryRef.current) {
+      return verificationRetryRef.current;
+    }
+    const now = Date.now();
+    if (now - lastVerificationRetryAt.current < 10_000) {
+      return;
+    }
+    lastVerificationRetryAt.current = now;
+
+    const generation = verificationGeneration.current;
+    const isCurrent = () =>
+      generation === verificationGeneration.current &&
+      sessionRef.current?.token === activeSession.token &&
+      sessionRef.current?.user.uuid === activeSession.user.uuid;
+
+    // `holder` lets the operation's own `finally` compare identities without
+    // reading the `operation` binding during its own initializer.
+    const holder: { current: Promise<void> | null } = { current: null };
+    const operation = (async () => {
+      try {
+        const user = await verifyMobileSession(activeSession.token);
+        if (!isCurrent()) {
+          return;
+        }
+        setCurrentSession({ ...activeSession, user });
+        setSessionVerification('verified');
+        setErrorMessage(null);
+      } catch (error: unknown) {
+        if (!isCurrent()) {
+          return;
+        }
+        if (isAuthoritativeSessionRejection(error)) {
+          await clearMobileSession().catch(() => undefined);
+          if (isCurrent()) {
+            setCurrentSession(null);
+            setStatus('unauthenticated');
+            setSessionVerification('idle');
+            setBiometricEnabled(false);
+            setErrorMessage('Your session expired. Sign in to resume pending uploads.');
+          }
+          return;
+        }
+        // Still offline or the office is still unavailable: keep the honest
+        // "working offline" state without prompting for biometrics.
+        setSessionVerification('unavailable');
+      } finally {
+        if (verificationRetryRef.current === holder.current) {
+          verificationRetryRef.current = null;
+        }
+      }
+    })();
+
+    holder.current = operation;
+    verificationRetryRef.current = operation;
+    return operation;
+  }, [setCurrentSession]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') {
+      return undefined;
+    }
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        void retrySessionVerification();
+      }
+    });
+    const unsubscribeNetwork = NetInfo.addEventListener((state) => {
+      if (state.isConnected === true && state.isInternetReachable !== false) {
+        void retrySessionVerification();
+      }
+    });
+    return () => {
+      appStateSubscription.remove();
+      unsubscribeNetwork();
+    };
+  }, [retrySessionVerification, status]);
 
   useEffect(() => {
     let active = true;

@@ -35,7 +35,7 @@ interface FormValues {
   sugarcaneVariety?: string;
 }
 
-const mockSave = jest.fn(async () => null);
+const mockSave = jest.fn(async () => draft());
 const mockCaptureLocation = jest.fn(async () => null);
 const mockFinalize = jest.fn<Promise<FieldReport | null>, [FormValues]>(
   async () => null,
@@ -55,12 +55,15 @@ let mockPossibleRecentMatchState: PossibleRecentMatchState = {
   loading: false,
 };
 const mockDiscardDraft = jest.fn(async () => true);
+const mockCancelLocationCapture = jest.fn();
 let mockDraftState: {
   data: FieldReport | null;
   errorMessage: string | null;
   loading: boolean;
+  cancelLocationCapture: typeof mockCancelLocationCapture;
   captureLocation: typeof mockCaptureLocation;
   capturingLocation: boolean;
+  getLastOperationError: () => string | null;
   discardDraft?: typeof mockDiscardDraft;
   finalize: typeof mockFinalize;
   finalizing: boolean;
@@ -280,9 +283,11 @@ describe('FieldReportScreen', () => {
       data: draft(),
       errorMessage: null,
       loading: false,
+      cancelLocationCapture: mockCancelLocationCapture,
       captureLocation: mockCaptureLocation,
       capturingLocation: false,
       discardDraft: mockDiscardDraft,
+      getLastOperationError: () => null,
       finalize: mockFinalize,
       finalizing: false,
       locationServicesDisabled: false,

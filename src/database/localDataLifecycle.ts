@@ -8,6 +8,7 @@ import {
   fieldSurveys,
   fieldValidationAssignments,
   fieldValidationCompletions,
+  localDrafts,
   mobileNotifications,
   scanRecords,
 } from '@/database/schema';
@@ -20,6 +21,8 @@ import {
 import { invalidateMobileNotificationsRefresh } from '@/features/notifications/services/refreshMobileNotifications';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { clearOwnerMobileDataStore } from '@/features/mobile-data/data/mobileDataStore';
+import { readFieldValidationCheckpoint } from '@/features/assignments/drafts/fieldValidationDraft';
+import { readScanDraftCheckpoint } from '@/features/detection/drafts/scanDraftCheckpoint';
 
 /** Keep completed, successfully synchronized local PII for a bounded period. */
 export const LOCAL_DATA_RETENTION_DAYS = 90;
@@ -30,13 +33,146 @@ export interface LocalDataCleanupResult {
 }
 
 interface ImageCleanupTargets {
+  draftScanImages: string[];
+  draftValidationPhotos: string[];
   managedScanImages: string[];
   fieldValidationPhotos: string[];
+}
+
+export interface LocalDataRemovalPreview {
+  assignments: number;
+  boundaries: number;
+  draftCheckpoints: number;
+  draftReports: number;
+  finalizedUnsentReports: number;
+  notifications: number;
+  reports: number;
+  scans: number;
+  totalRecords: number;
+  totalUnsent: number;
+  unsentBoundaries: number;
+  unsentVisits: number;
+  uploadInFlight: boolean;
+  visits: number;
+}
+
+/**
+ * Counts exactly what a permanent owner-data removal would delete. The same
+ * counts are recomputed inside the deletion transaction so a confirmation can
+ * never act on a stale list.
+ */
+export function getLocalDataRemovalPreview(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+): LocalDataRemovalPreview {
+  const owner = requireOwnerIdentity(ownerIdentity);
+  return readRemovalPreview(database, owner);
+}
+
+function readRemovalPreview(
+  database: Pick<CaneGuardDatabase, 'select'>,
+  owner: string,
+): LocalDataRemovalPreview {
+  const reports = database.select().from(fieldReports).where(eq(fieldReports.submitterIdentity, owner)).all();
+  const visits = database
+    .select()
+    .from(fieldValidationCompletions)
+    .where(eq(fieldValidationCompletions.ownerIdentity, owner))
+    .all();
+  const boundaries = database.select().from(fieldSurveys).where(eq(fieldSurveys.ownerIdentity, owner)).all();
+  const scans = database.select().from(scanRecords).where(eq(scanRecords.ownerIdentity, owner)).all();
+  const assignments = database
+    .select()
+    .from(fieldValidationAssignments)
+    .where(eq(fieldValidationAssignments.ownerIdentity, owner))
+    .all();
+  const notifications = database
+    .select()
+    .from(mobileNotifications)
+    .where(eq(mobileNotifications.ownerIdentity, owner))
+    .all();
+  const checkpoints = database.select().from(localDrafts).where(eq(localDrafts.ownerIdentity, owner)).all();
+
+  const draftReports = reports.filter((row) => row.authoringState === 'draft').length;
+  const finalizedUnsentReports = reports.filter(
+    (row) => row.authoringState === 'finalized' && row.syncStatus !== 'synced',
+  ).length;
+  const unsentVisits = visits.filter((row) => row.syncStatus !== 'synced').length;
+  const unsentBoundaries = boundaries.filter((row) => row.status !== 'synced').length;
+  const uploadInFlight =
+    reports.some((row) => row.syncStatus === 'syncing') ||
+    visits.some((row) => row.syncStatus === 'syncing') ||
+    boundaries.some((row) => row.status === 'syncing');
+
+  return {
+    assignments: assignments.length,
+    boundaries: boundaries.length,
+    draftCheckpoints: checkpoints.length,
+    draftReports,
+    finalizedUnsentReports,
+    notifications: notifications.length,
+    reports: reports.length,
+    scans: scans.length,
+    totalRecords:
+      reports.length +
+      visits.length +
+      boundaries.length +
+      scans.length +
+      assignments.length +
+      notifications.length +
+      checkpoints.length,
+    totalUnsent:
+      draftReports + finalizedUnsentReports + unsentVisits + unsentBoundaries,
+    unsentBoundaries,
+    unsentVisits,
+    uploadInFlight,
+    visits: visits.length,
+  };
+}
+
+/**
+ * Routine cleanup: removes only office data that can be downloaded again
+ * (cached assignments and notifications). Every scan, draft, local-only,
+ * pending and failed record — and its referenced image — is preserved.
+ */
+export async function clearCachedOfficeDataForOwner(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+): Promise<LocalDataCleanupResult> {
+  const owner = requireOwnerIdentity(ownerIdentity);
+  invalidateFieldValidationAssignmentsRefresh(database, owner);
+  invalidateMobileNotificationsRefresh(database, owner);
+  let deletedRows = 0;
+  try {
+    database.transaction((transaction) => {
+      deletedRows += transaction
+        .delete(fieldValidationAssignments)
+        .where(eq(fieldValidationAssignments.ownerIdentity, owner))
+        .run().changes;
+      deletedRows += transaction
+        .delete(mobileNotifications)
+        .where(eq(mobileNotifications.ownerIdentity, owner))
+        .run().changes;
+    });
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'DELETE_FAILED',
+      'Clearing downloaded office data failed.',
+    );
+  }
+  clearOwnerMobileDataStore(database, owner);
+  emitSyncRecordsChanged();
+  return { deletedRows, imageCleanupErrors: [] };
 }
 
 export async function clearLocalDataForOwner(
   database: CaneGuardDatabase,
   ownerIdentity: string,
+  options: {
+    expectedPreview?: LocalDataRemovalPreview;
+    refuseUploadInFlight?: boolean;
+  } = {},
 ): Promise<LocalDataCleanupResult> {
   const owner = requireOwnerIdentity(ownerIdentity);
   invalidateFieldValidationAssignmentsRefresh(database, owner);
@@ -45,6 +181,7 @@ export async function clearLocalDataForOwner(
   let deletedRows = 0;
 
   try {
+    validateRemovalConfirmation(database, owner, options);
     database.transaction((transaction) => {
       deletedRows += transaction
         .delete(fieldReports)
@@ -69,6 +206,10 @@ export async function clearLocalDataForOwner(
       deletedRows += transaction
         .delete(mobileNotifications)
         .where(eq(mobileNotifications.ownerIdentity, owner))
+        .run().changes;
+      deletedRows += transaction
+        .delete(localDrafts)
+        .where(eq(localDrafts.ownerIdentity, owner))
         .run().changes;
     });
   } catch (error: unknown) {
@@ -192,6 +333,8 @@ export async function purgeExpiredLocalData(
     .map((row) => row.id);
   const reportIds = expiredReportRows.map((row) => row.id);
   const targets: ImageCleanupTargets = {
+    draftScanImages: [],
+    draftValidationPhotos: [],
     managedScanImages: scanRows
       .filter((row) => scanIds.includes(row.id))
       .flatMap((row) => [row.managedImageUri, row.submissionImageUri])
@@ -294,6 +437,42 @@ export async function purgeExpiredLocalData(
   return { deletedRows, imageCleanupErrors };
 }
 
+function validateRemovalConfirmation(
+  database: CaneGuardDatabase,
+  owner: string,
+  options: {
+    expectedPreview?: LocalDataRemovalPreview;
+    refuseUploadInFlight?: boolean;
+  },
+): void {
+  const current = readRemovalPreview(database, owner);
+  if (options.refuseUploadInFlight !== false && current.uploadInFlight) {
+    throw toStorageError(
+      new Error('An upload is in progress.'),
+      'UPDATE_FAILED',
+      'An upload is still running. Wait for it to finish before removing local records.',
+    );
+  }
+  if (
+    options.expectedPreview &&
+    !sameRemovalPreview(current, options.expectedPreview)
+  ) {
+    throw toStorageError(
+      new Error('The local record list changed.'),
+      'DELETE_FAILED',
+      'Local records changed since the confirmation. Review the updated counts and confirm again.',
+    );
+  }
+}
+
+function sameRemovalPreview(
+  current: LocalDataRemovalPreview,
+  expected: LocalDataRemovalPreview,
+): boolean {
+  const keys = Object.keys(current) as (keyof LocalDataRemovalPreview)[];
+  return keys.every((key) => current[key] === expected[key]);
+}
+
 async function readCleanupTargets(
   database: CaneGuardDatabase,
   owner: string,
@@ -311,7 +490,33 @@ async function readCleanupTargets(
       .from(fieldValidationCompletions)
       .where(eq(fieldValidationCompletions.ownerIdentity, owner)),
   ]);
+  const draftScanImages: string[] = [];
+  const draftValidationPhotos: string[] = [];
+  const draftRows = database
+    .select({
+      draftKey: localDrafts.draftKey,
+      kind: localDrafts.kind,
+    })
+    .from(localDrafts)
+    .where(eq(localDrafts.ownerIdentity, owner))
+    .all();
+  for (const draft of draftRows) {
+    if (draft.kind === 'scan') {
+      const record = readScanDraftCheckpoint(database, owner);
+      if (record) {
+        draftScanImages.push(record.checkpoint.managedImageUri);
+      }
+    }
+    if (draft.kind === 'field_validation') {
+      const record = readFieldValidationCheckpoint(database, owner, draft.draftKey);
+      if (record?.checkpoint.photo) {
+        draftValidationPhotos.push(record.checkpoint.photo.uri);
+      }
+    }
+  }
   return {
+    draftScanImages,
+    draftValidationPhotos,
     managedScanImages: scanRows
       .flatMap((row) => [row.managedImageUri, row.submissionImageUri])
       .filter((uri): uri is string => Boolean(uri)),
@@ -326,6 +531,32 @@ function cleanupImages(
   ownerIdentity: string,
 ): StorageError[] {
   const errors: StorageError[] = [];
+  for (const uri of new Set(targets.draftScanImages)) {
+    try {
+      deleteManagedScanImage(uri, ownerIdentity);
+    } catch (error: unknown) {
+      errors.push(
+        toStorageError(
+          error,
+          'IMAGE_DELETE_FAILED',
+          'A saved scan draft image could not be removed during local-data cleanup.',
+        ),
+      );
+    }
+  }
+  for (const uri of new Set(targets.draftValidationPhotos)) {
+    try {
+      deleteFieldValidationPhoto(uri, ownerIdentity);
+    } catch (error: unknown) {
+      errors.push(
+        toStorageError(
+          error,
+          'IMAGE_DELETE_FAILED',
+          'A saved visit draft photo could not be removed during local-data cleanup.',
+        ),
+      );
+    }
+  }
   for (const uri of new Set(targets.managedScanImages)) {
     // The display derivative is deleted with the image it was generated from:
     // it is recorded nowhere else, so nothing would ever clean it up later.

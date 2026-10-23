@@ -19,7 +19,10 @@ describe('syncStatusCopy', () => {
   it('detects server unavailability the same way for every surface', () => {
     expect(isServerUnavailable('available', 'verified', true)).toBe(false);
     expect(isServerUnavailable('unavailable', 'verified', true)).toBe(true);
-    expect(isServerUnavailable('available', 'unavailable', true)).toBe(true);
+    // A current successful API observation clears the stale offline wording.
+    expect(isServerUnavailable('available', 'unavailable', true)).toBe(false);
+    expect(isServerUnavailable('unknown', 'unavailable', true)).toBe(true);
+    expect(isServerUnavailable('unavailable', 'verified', false)).toBe(false);
   });
 
   it('chooses one connection label for the panel', () => {
@@ -56,7 +59,7 @@ describe('syncStatusCopy', () => {
     expect(getSyncBadgeLabel({ apiReachability: 'available', isOnline: false })).toBe('Offline');
     expect(
       getSyncBadgeLabel({ apiReachability: 'available', isOnline: true, sessionVerification: 'unavailable' }),
-    ).toBe('Office unreachable');
+    ).toBe('Online');
     expect(getSyncBadgeLabel({ apiReachability: 'unknown', isOnline: true })).toBe(
       'Network available',
     );

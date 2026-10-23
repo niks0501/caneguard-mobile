@@ -23,6 +23,16 @@ const BUCKET_LABELS: Record<TodayVisitBucket, string> = {
   none: 'No date',
 };
 
+function formatLastUpdated(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? null
+    : `Last updated ${date.toLocaleString()}`;
+}
+
 export default function TodayScreen() {
   const theme = useTheme();
   const { showToast } = useToast();
@@ -31,6 +41,11 @@ export default function TodayScreen() {
     bucket,
     visits: state.visits.filter((visit) => bucketForVisit(visit, state.today) === bucket),
   })).filter(({ visits }) => visits.length > 0);
+  const lastUpdated = formatLastUpdated(state.lastSuccessfulAt);
+  const hasVisits = state.visits.length > 0;
+  const completedLabel = `${state.completedTodayCount} ${
+    state.completedTodayCount === 1 ? 'visit' : 'visits'
+  } completed today`;
 
   const handleRefresh = async () => {
     const success = await state.refresh();
@@ -47,19 +62,39 @@ export default function TodayScreen() {
         <BrandedScreenHeader title="Today's field work" subtitle="Visits ordered by due date and barangay." showBack={false} />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
-            {state.errorMessage ? (
-              <Text testID="today.refresh-message" style={[styles.refreshMessage, { color: theme.textSecondary }]}>{state.errorMessage}</Text>
+            {state.errorMessage || state.capabilityUnavailable ? (
+              <View
+                testID="today.refresh-error"
+                accessibilityLiveRegion="polite"
+                style={[styles.noticeCard, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
+                <Text style={[styles.noticeTitle, { color: theme.warning }]}>
+                  {state.capabilityUnavailable
+                    ? 'Visit assignments unavailable'
+                    : hasVisits
+                      ? 'Could not refresh visits'
+                      : 'Visits could not be refreshed'}
+                </Text>
+                <Text testID="today.refresh-message" style={[styles.noticeBody, { color: theme.text }]}>
+                  {state.capabilityUnavailable
+                    ? 'This server does not provide visit assignments. Any visits already downloaded stay on this device.'
+                    : hasVisits
+                      ? 'Showing the visits already downloaded on this device. Refresh when the connection returns.'
+                      : 'Nothing was downloaded on this refresh. Any saved visits stay on this device — this is not proof that the office assigned none.'}
+                </Text>
+              </View>
             ) : null}
-            {state.refreshing && state.visits.length === 0 ? (
-              <View style={styles.centered}><ActivityIndicator accessibilityLabel="Loading today's field work" color={theme.primary} /></View>
-            ) : state.visits.length === 0 ? (
-              <EmptyState
-                icon="clipboard"
-                title="No visits assigned yet"
-                message="Assignments from the office appear here after a refresh.">
-                <AppButton onPress={() => void handleRefresh()} leadingIcon="refresh-cw">Refresh assignments</AppButton>
-              </EmptyState>
-            ) : (
+
+            {lastUpdated ? (
+              <Text testID="today.last-updated" style={[styles.lastUpdated, { color: theme.textSecondary }]}>
+                {lastUpdated}
+              </Text>
+            ) : null}
+
+            {state.refreshing && !hasVisits && !state.errorMessage && !state.lastSuccessfulAt ? (
+              <View style={styles.centered}>
+                <ActivityIndicator accessibilityLabel="Loading today's field work" color={theme.primary} />
+              </View>
+            ) : hasVisits ? (
               <>
                 {groups.map(({ bucket, visits }) => (
                   <View key={bucket} testID={`today.bucket.${bucket}`} style={styles.group}>
@@ -79,11 +114,46 @@ export default function TodayScreen() {
                     ))}
                   </View>
                 ))}
-                {state.completedTodayCount > 0 ? (
-                  <Text testID="today.completed-count" style={[styles.completed, { color: theme.success }]}>{state.completedTodayCount} {state.completedTodayCount === 1 ? 'visit' : 'visits'} completed today</Text>
-                ) : null}
               </>
+            ) : state.capabilityUnavailable ? (
+              <EmptyState
+                icon="clipboard"
+                title="Visits are not available"
+                message="This server does not provide visit assignments for this account. Downloaded visits stay readable offline."
+                testID="today.state.capability-unavailable">
+                <AppButton onPress={() => void handleRefresh()} leadingIcon="refresh-cw">Refresh assignments</AppButton>
+              </EmptyState>
+            ) : state.errorMessage ? (
+              <EmptyState
+                icon="cloud-off"
+                title="No visits downloaded"
+                message="The last refresh did not complete, so CaneGuard cannot say whether the office assigned visits. Saved work on this device is unchanged."
+                testID="today.state.refresh-failed">
+                <AppButton onPress={() => void handleRefresh()} leadingIcon="refresh-cw">Refresh assignments</AppButton>
+              </EmptyState>
+            ) : state.completedTodayCount > 0 ? (
+              <EmptyState
+                icon="check-circle"
+                title="All today's visits completed"
+                message="You finished every open visit for today. New visits from the office appear here after a refresh."
+                testID="today.state.all-completed">
+                <AppButton onPress={() => void handleRefresh()} leadingIcon="refresh-cw">Refresh assignments</AppButton>
+              </EmptyState>
+            ) : (
+              <EmptyState
+                icon="clipboard"
+                title="No open visits"
+                message="Visits that are due, overdue, or upcoming appear here after a successful refresh."
+                testID="today.state.no-open-visits">
+                <AppButton onPress={() => void handleRefresh()} leadingIcon="refresh-cw">Refresh assignments</AppButton>
+              </EmptyState>
             )}
+
+            {state.completedTodayCount > 0 ? (
+              <Text testID="today.completed-count" style={[styles.completed, { color: theme.success }]}>
+                {completedLabel}
+              </Text>
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -97,6 +167,10 @@ const styles = StyleSheet.create({
   scrollContent: { alignItems: 'center', paddingBottom: Spacing.xl },
   content: { width: '100%', maxWidth: Layout.mobileMaxWidth, paddingHorizontal: ComponentTokens.screen.horizontalPadding, paddingVertical: Spacing.lg, gap: Spacing.lg },
   centered: { minHeight: 220, alignItems: 'center', justifyContent: 'center' },
+  noticeCard: { borderWidth: 1, borderRadius: Spacing.md, padding: Spacing.md, gap: Spacing.xs },
+  noticeTitle: { ...Typography.bodySmall, fontWeight: '800' },
+  noticeBody: { ...Typography.caption },
+  lastUpdated: { ...Typography.caption },
   refreshMessage: { ...Typography.caption },
   group: { gap: Spacing.sm },
   groupHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.xs },

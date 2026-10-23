@@ -1,5 +1,7 @@
 import type { ApiReachability } from '@/features/sync/providers/SyncProvider';
 import { FIELD_SURVEY_COPY } from '@/constants/copy';
+import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
+import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 
 /** Single-sourced sync status copy for offline field-survey submissions. */
 export const FIELD_SURVEY_SYNC_COPY = {
@@ -44,16 +46,19 @@ export function isServerUnavailable(
   sessionVerification?: string,
   isOnline?: boolean | null,
 ): boolean {
+  if (isOnline === false) {
+    // Offline has its own label; it is not evidence the office is unreachable.
+    return false;
+  }
+  // A current, successful API observation outranks an older verification
+  // attempt that failed while the phone was offline.
+  if (apiReachability === 'available') {
+    return false;
+  }
   if (sessionVerification === 'unavailable') {
     return true;
   }
-  if (isOnline === true && apiReachability === 'unavailable') {
-    return true;
-  }
-  if (apiReachability === 'unavailable') {
-    return true;
-  }
-  return false;
+  return apiReachability === 'unavailable';
 }
 
 export function getConnectionLabel(
@@ -136,4 +141,72 @@ export function getSyncRowSummary(input: SyncWordingInput): string {
     return 'Network available · Office status not checked';
   }
   return 'Office connected · All saved reports are sent';
+}
+
+export type ReportSyncAttemptKind =
+  | 'sent'
+  | 'sign-in'
+  | 'needs-attention'
+  | 'still-waiting';
+
+export interface ReportSyncAttemptOutcome {
+  kind: ReportSyncAttemptKind;
+  message: string;
+}
+
+/**
+ * Chooses the confirmation for one report after a manual send attempt. Success
+ * for a different report in the same batch is never success for this target,
+ * and a null/failed attempt never produces "Sent to office".
+ */
+export function getReportSyncAttemptOutcome(input: {
+  isOnline: boolean | null;
+  lastSyncErrorCode: string | null | undefined;
+  reportSyncStatus: string | null | undefined;
+  targetResult: SyncResult | null;
+}): ReportSyncAttemptOutcome {
+  const { isOnline, lastSyncErrorCode, reportSyncStatus, targetResult } = input;
+
+  if (
+    reportSyncStatus === 'synced' ||
+    targetResult?.status === 'synced' ||
+    targetResult?.status === 'already-synced'
+  ) {
+    return { kind: 'sent', message: 'Sent to office' };
+  }
+
+  const failedCode =
+    reportSyncStatus === 'failed'
+      ? lastSyncErrorCode ??
+        (targetResult?.status === 'failed' ? targetResult.error.code : null)
+      : targetResult?.status === 'failed'
+        ? targetResult.error.code
+        : null;
+
+  if (failedCode === 'AUTH_REQUIRED') {
+    return {
+      kind: 'sign-in',
+      message: 'Not sent — sign in again to send this report',
+    };
+  }
+  if (failedCode && !isAutoRetryableSyncErrorCode(failedCode)) {
+    return {
+      kind: 'needs-attention',
+      message: 'Not sent — this report needs attention before it can be sent',
+    };
+  }
+  if (failedCode) {
+    return {
+      kind: 'still-waiting',
+      message: 'Still waiting to send — CaneGuard will retry automatically',
+    };
+  }
+
+  return {
+    kind: 'still-waiting',
+    message:
+      isOnline === false
+        ? 'Still waiting to send — you are offline. This report stays on this device'
+        : 'Not confirmed as sent — check the status above before trying again',
+  };
 }

@@ -26,6 +26,7 @@ import {
 } from '@/features/detection/checklist/checklistConsistency';
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import { isBelowV1ConfidenceCautionThreshold } from '@/features/detection/constants/confidenceCaution';
+import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
 import { useScanSession } from '@/features/detection/context/useScanSession';
 import {
   getSessionStateErrorMessage,
@@ -85,23 +86,51 @@ export default function AnalysisResultScreen() {
   const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
   const saveRecord = useSaveCompletedScan(state);
+  const draft = useScanDraft();
   const [openingReport, setOpeningReport] = useState(false);
+  const [keepingDraft, setKeepingDraft] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const handleCancel = () => {
     setShowCancelConfirm(true);
   };
 
-  const handleKeepDraft = () => {
+  const handleKeepDraft = async () => {
+    if (keepingDraft) {
+      return;
+    }
     setShowCancelConfirm(false);
-    void persistScanForOutcome();
-    showToast('Scan saved', 'success');
-    returnToTab('/home');
+    setKeepingDraft(true);
+    try {
+      const saved = await persistScanForOutcome();
+      if (!saved) {
+        // A null result is a failure or busy, never success: keep the entered
+        // state visible and let the inspector retry from this screen.
+        showToast(
+          saveRecord.getLastError() ?? 'Scan not saved on this device — try again',
+          'error',
+        );
+        return;
+      }
+      showToast('Scan saved', 'success');
+      await draft.clearSavedDraft();
+      returnToTab('/home');
+    } finally {
+      setKeepingDraft(false);
+    }
   };
 
-  const handleDiscardDraft = () => {
+  const handleDiscardDraft = async () => {
     setShowCancelConfirm(false);
-    dispatch({ type: 'RESET_SCAN' });
+    if (draft.ownerIdentity) {
+      const discarded = await draft.discardSavedDraft();
+      if (!discarded) {
+        showToast('Could not discard the saved scan — try again', 'error');
+        return;
+      }
+    } else {
+      dispatch({ type: 'RESET_SCAN' });
+    }
     showToast('Scan discarded', 'info');
     returnToTab('/home');
   };
@@ -212,6 +241,9 @@ export default function AnalysisResultScreen() {
   );
   const consistencyPresentation = CONSISTENCY_PRESENTATION[consistency];
   const isLowScore = isBelowV1ConfidenceCautionThreshold(result.confidence);
+  const qualityWarnings = state.qualityAssessment?.warnings ?? [];
+  const checklistMismatch = consistency === 'inconsistent';
+  const showOutcomeCaution = qualityWarnings.length > 0 || checklistMismatch;
   const resultTitle = `Possible Condition: ${metadata.displayName}`;
 
   return (
@@ -272,6 +304,41 @@ export default function AnalysisResultScreen() {
                 </View>
               ) : null}
             </View>
+
+            {showOutcomeCaution ? (
+              <View
+                accessibilityRole="alert"
+                testID="scan.result-caution"
+                style={[
+                  styles.cautionCard,
+                  { backgroundColor: theme.warningBg, borderColor: theme.warning },
+                ]}>
+                <Feather name="alert-triangle" size={20} color={theme.warning} />
+                <View style={styles.cautionCopy}>
+                  <Text style={[styles.cautionTitle, { color: theme.warning }]}>
+                    Check before you report
+                  </Text>
+                  {checklistMismatch ? (
+                    <Text style={[styles.cautionBody, { color: theme.text }]}>
+                      Your selected symptom observations do not match this Possible
+                      Condition. Both are kept separately and this scan can still be
+                      reported.
+                    </Text>
+                  ) : null}
+                  {qualityWarnings.map((warning) => (
+                    <Text
+                      key={warning}
+                      style={[styles.cautionBody, { color: theme.text }]}>
+                      {getQualityWarningMessage(warning)}
+                    </Text>
+                  ))}
+                  <Text style={[styles.cautionBody, { color: theme.textSecondary }]}>
+                    This caution does not change the result. You can scan again for a
+                    clearer image, keep this scan, or continue to report it.
+                  </Text>
+                </View>
+              </View>
+            ) : null}
 
             <View
               testID="scan.outcome-panel"
@@ -566,6 +633,10 @@ const styles = StyleSheet.create({
   consistencyMessage: { ...Typography.bodySmall },
   caution: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
   cautionText: { ...Typography.caption, flex: 1 },
+  cautionCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
+  cautionCopy: { flex: 1, gap: Spacing.xs },
+  cautionTitle: { ...Typography.subheading },
+  cautionBody: { ...Typography.caption },
   disclaimer: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm, flexDirection: 'row', alignItems: 'flex-start' }, disclaimerText: { ...Typography.caption, flex: 1, lineHeight: 18 },
   saveCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
   outcomeActions: { gap: Spacing.sm },

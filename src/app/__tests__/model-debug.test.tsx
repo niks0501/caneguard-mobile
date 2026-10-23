@@ -34,9 +34,11 @@ describe('ModelDebugRoute', () => {
     });
     mockUseCaneGuardModel.mockReturnValue({
       start: jest.fn(),
+      retry: jest.fn(),
       state: 'loaded',
       model: {} as never,
       run: mockModelRun,
+      errorKind: null,
       error: null,
     });
     mockPreprocessImage.mockResolvedValue({

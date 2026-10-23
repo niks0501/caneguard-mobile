@@ -296,7 +296,7 @@ describe('ScanSessionProvider', () => {
       storedCheckpoint?.payload as { managedImageUri: string }
     ).managedImageUri;
 
-    mockCopyScanImageToManagedStorage.mockRejectedValueOnce(
+    mockCopyScanImageToManagedStorage.mockRejectedValue(
       new Error('The device is out of space.'),
     );
     await fireEvent.press(screen.getByLabelText('Select second test image'));
@@ -314,10 +314,11 @@ describe('ScanSessionProvider', () => {
 
     await fireEvent.press(screen.getByLabelText('Flush saved draft'));
     await waitFor(() => expect(screen.getByText('flush:false')).toBeOnTheScreen());
+    expect(mockCopyScanImageToManagedStorage).toHaveBeenCalledTimes(3);
   });
 
-  it('reports a kept draft as unsaved when the image copy failed', async () => {
-    mockCopyScanImageToManagedStorage.mockRejectedValueOnce(
+  it('reports a kept draft as unsaved when the image copy keeps failing', async () => {
+    mockCopyScanImageToManagedStorage.mockRejectedValue(
       new Error('The device is out of space.'),
     );
 
@@ -332,6 +333,101 @@ describe('ScanSessionProvider', () => {
 
     await waitFor(() => expect(screen.getByText('flush:false')).toBeOnTheScreen());
     expect(mockDraftRows.get(`${OWNER_A}:scan:current`)).toBeUndefined();
+  });
+
+  it('keeps the superseded image and checkpoint until the replacement is written', async () => {
+    await render(<Harness owner={OWNER_A} />);
+    await fireEvent.press(screen.getByLabelText('Select test image'));
+    await waitFor(() => expect(screen.getByText('draft:saved')).toBeOnTheScreen());
+    const storedImageUri = (
+      mockDraftRows.get(`${OWNER_A}:scan:current`)?.payload as {
+        managedImageUri: string;
+      }
+    ).managedImageUri;
+
+    jest
+      .mocked(saveLocalDraft)
+      .mockRejectedValueOnce(new Error('The checkpoint write failed.'));
+    await fireEvent.press(screen.getByLabelText('Select second test image'));
+    await waitFor(() =>
+      expect(screen.getByText('draft:failed')).toBeOnTheScreen(),
+    );
+
+    const replacementImageUri = `file:///managed/scan-images/${OWNER_A}/${
+      (
+        mockCopyScanImageToManagedStorage.mock.calls[1][0] as {
+          recordId: string;
+        }
+      ).recordId
+    }.jpg`;
+    expect(mockDeleteManagedScanImage).not.toHaveBeenCalledWith(
+      storedImageUri,
+      OWNER_A,
+    );
+    expect(mockDraftRows.get(`${OWNER_A}:scan:current`)?.payload).toMatchObject({
+      managedImageUri: storedImageUri,
+    });
+
+    await fireEvent.press(screen.getByLabelText('Flush saved draft'));
+    await waitFor(() => expect(screen.getByText('flush:true')).toBeOnTheScreen());
+    expect(mockDraftRows.get(`${OWNER_A}:scan:current`)?.payload).toMatchObject({
+      managedImageUri: replacementImageUri,
+    });
+  });
+
+  it('waits for the in-flight image copy before answering Keep draft', async () => {
+    let resolveCopy!: (value: unknown) => void;
+    mockCopyScanImageToManagedStorage.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveCopy = resolve;
+      }),
+    );
+
+    await render(<Harness owner={OWNER_A} />);
+    await fireEvent.press(screen.getByLabelText('Select test image'));
+    await fireEvent.press(screen.getByLabelText('Flush saved draft'));
+    expect(screen.queryByText('flush:false')).not.toBeOnTheScreen();
+
+    const managedUri = `file:///managed/scan-images/${OWNER_A}/${
+      (mockCopyScanImageToManagedStorage.mock.calls[0][0] as { recordId: string })
+        .recordId
+    }.jpg`;
+    resolveCopy({
+      extension: 'jpg',
+      managedUri,
+      mimeType: 'image/jpeg',
+      sizeBytes: 4096,
+      sourceHeight: 480,
+      sourceType: 'camera',
+      sourceWidth: 640,
+    });
+
+    await waitFor(() => expect(screen.getByText('flush:true')).toBeOnTheScreen());
+    expect(mockDraftRows.get(`${OWNER_A}:scan:current`)?.payload).toMatchObject({
+      managedImageUri: managedUri,
+    });
+  });
+
+  it('retries a failed image copy when the draft is kept', async () => {
+    mockCopyScanImageToManagedStorage.mockRejectedValueOnce(
+      new Error('The device is out of space.'),
+    );
+
+    await render(<Harness owner={OWNER_A} />);
+    await fireEvent.press(screen.getByLabelText('Select second test image'));
+    await waitFor(() =>
+      expect(screen.getByText('draft:failed')).toBeOnTheScreen(),
+    );
+    expect(mockCopyScanImageToManagedStorage).toHaveBeenCalledTimes(1);
+
+    await fireEvent.press(screen.getByLabelText('Flush saved draft'));
+
+    await waitFor(() => expect(screen.getByText('flush:true')).toBeOnTheScreen());
+    expect(mockCopyScanImageToManagedStorage).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('draft:saved')).toBeOnTheScreen();
+    expect(mockDraftRows.get(`${OWNER_A}:scan:current`)?.payload).toMatchObject({
+      managedImageUri: expect.stringContaining(`/scan-images/${OWNER_A}/`),
+    });
   });
 
   it('reports a kept draft as saved once the checkpoint is written', async () => {

@@ -26,7 +26,11 @@ import {
   writeScanDraftCheckpoint,
   type ScanDraftCheckpoint,
 } from '@/features/detection/drafts/scanDraftCheckpoint';
-import type { ScanSessionAction, ScanSessionState } from '@/features/detection/types';
+import type {
+  ScanSessionAction,
+  ScanSessionState,
+  ScanSourceType,
+} from '@/features/detection/types';
 import {
   copyScanImageToManagedStorage,
   deleteManagedScanImage,
@@ -61,6 +65,13 @@ export interface ScanDraftContextValue {
 }
 
 export const ScanDraftContext = createContext<ScanDraftContextValue | null>(null);
+
+interface ScanImageSelection {
+  sourceHeight: number | null;
+  sourceType: ScanSourceType;
+  sourceUri: string;
+  sourceWidth: number | null;
+}
 
 interface StoredDraftImage {
   draftId: string;
@@ -146,11 +157,14 @@ function ScanSessionOwner({
     initialDraft ? storedImageFrom(initialDraft.checkpoint) : null,
   );
   const imageOperation = useRef(0);
+  const lastSelectionAttempt = useRef<{
+    promise: Promise<boolean>;
+    selection: ScanImageSelection;
+  } | null>(null);
   const saveChain = useRef<Promise<void>>(Promise.resolve());
   const lastSignature = useRef<string | null>(
     initialDraft ? checkpointSignature(initialDraft.checkpoint) : null,
   );
-  const lastWriteOk = useRef(true);
   const mounted = useRef(true);
   const finalized = useRef(false);
 
@@ -166,14 +180,14 @@ function ScanSessionOwner({
   }, []);
 
   const persistCheckpoint = useCallback(
-    (owner: string) => {
+    (owner: string): Promise<boolean> => {
       const draft = draftImageRef.current;
       const currentState = stateRef.current;
       if (finalized.current || !draft || !owner) {
-        return Promise.resolve();
+        return Promise.resolve(false);
       }
       if (draft.sourceUri !== currentState.sourceUri) {
-        return Promise.resolve();
+        return Promise.resolve(false);
       }
       const checkpoint = buildScanDraftCheckpoint({
         draftId: draft.draftId,
@@ -184,47 +198,41 @@ function ScanSessionOwner({
         state: currentState,
       });
       if (!checkpoint) {
-        return Promise.resolve();
+        return Promise.resolve(false);
       }
       const signature = checkpointSignature(checkpoint);
       if (lastSignature.current === signature) {
-        return Promise.resolve();
+        return Promise.resolve(true);
       }
       if (mounted.current) {
         setDraftStatus('saving');
       }
-      saveChain.current = saveChain.current.then(async () => {
+      const write = saveChain.current.then(async (): Promise<boolean> => {
         try {
           await writeScanDraftCheckpoint(database, owner, checkpoint);
           lastSignature.current = signature;
-          lastWriteOk.current = true;
           if (mounted.current) {
             setDraftStatus('saved');
             setDraftSavedAt(checkpoint.savedAt);
           }
+          return true;
         } catch {
-          lastWriteOk.current = false;
           if (mounted.current) {
             setDraftStatus('failed');
           }
+          return false;
         }
       });
-      return saveChain.current;
+      saveChain.current = write.then(() => undefined);
+      return write;
     },
     [database],
   );
 
-  const persistSelectedImage = useCallback(
-    async (
-      payload: {
-        sourceHeight: number | null;
-        sourceType: 'camera' | 'gallery';
-        sourceUri: string;
-        sourceWidth: number | null;
-      },
-    ) => {
+  const copySelectedImage = useCallback(
+    async (payload: ScanImageSelection): Promise<boolean> => {
       if (!ownerIdentity) {
-        return;
+        return false;
       }
       const operation = ++imageOperation.current;
       if (mounted.current) {
@@ -244,7 +252,7 @@ function ScanSessionOwner({
         if (mounted.current) {
           setDraftStatus('failed');
         }
-        return;
+        return false;
       }
 
       // A newer selection or unmount makes this copy stale.
@@ -254,7 +262,7 @@ function ScanSessionOwner({
         } catch {
           // An orphaned owner-partitioned file is better than deleting nothing.
         }
-        return;
+        return false;
       }
 
       const previous = draftImageRef.current;
@@ -265,16 +273,29 @@ function ScanSessionOwner({
         managedImageUri: managed.managedUri,
         sourceUri: payload.sourceUri,
       };
-      if (previous && previous.managedImageUri !== managed.managedUri) {
+      const written = await persistCheckpoint(ownerIdentity);
+      if (written && previous && previous.managedImageUri !== managed.managedUri) {
         try {
           deleteManagedScanImage(previous.managedImageUri, ownerIdentity);
         } catch {
           // Best effort: the checkpoint now points at the replacement image.
         }
       }
-      await persistCheckpoint(ownerIdentity);
+      return written;
     },
     [ownerIdentity, persistCheckpoint],
+  );
+
+  const persistSelectedImage = useCallback(
+    (payload: ScanImageSelection): Promise<boolean> => {
+      const attempt = copySelectedImage(payload);
+      lastSelectionAttempt.current = {
+        promise: attempt,
+        selection: payload,
+      };
+      return attempt;
+    },
+    [copySelectedImage],
   );
 
   const dispatch = useCallback(
@@ -382,16 +403,30 @@ function ScanSessionOwner({
     if (!ownerIdentity) {
       return true;
     }
-    const draft = draftImageRef.current;
-    if (!draft) {
-      return stateRef.current.sourceUri === null;
+    const selection = stateRef.current.sourceUri;
+    if (selection === null) {
+      return true;
     }
-    if (draft.sourceUri !== stateRef.current.sourceUri) {
+    if (draftImageRef.current?.sourceUri !== selection) {
+      const attempt = lastSelectionAttempt.current;
+      if (attempt?.selection.sourceUri === selection) {
+        await attempt.promise;
+      }
+    }
+    if (draftImageRef.current?.sourceUri === selection) {
+      return persistCheckpoint(ownerIdentity);
+    }
+    const sourceType = stateRef.current.sourceType;
+    if (!sourceType) {
       return false;
     }
-    await persistCheckpoint(ownerIdentity);
-    return lastWriteOk.current;
-  }, [ownerIdentity, persistCheckpoint]);
+    return persistSelectedImage({
+      sourceHeight: stateRef.current.sourceHeight,
+      sourceType,
+      sourceUri: selection,
+      sourceWidth: stateRef.current.sourceWidth,
+    });
+  }, [ownerIdentity, persistCheckpoint, persistSelectedImage]);
 
   const isOwnerCurrent = useCallback(
     (owner: string | null) => owner !== null && owner === ownerIdentity,

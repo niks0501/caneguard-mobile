@@ -12,78 +12,29 @@ protected_paths:
 
 document:
   instructions: |
-    README.md owns setup and onboarding.
-    PROJECT_CHECKS.md owns verification commands.
+    README.md owns setup; PROJECT_CHECKS.md owns verification commands.
     PROJECT_STACK.md owns architecture and platform rules.
     docs/ owns detailed feature and operational guidance.
-    Update the existing authoritative document.
-    Avoid duplicated or unnecessary documentation.
+
+commands:
+  test: "npm test -- --runInBand src/features/sync/services/__tests__/syncFieldReport.test.ts"
 
 review:
+  conversation: false
   path_instructions:
     - path: "src/features/detection/**"
-      instructions: |
-        Preserve the TFLite model contract, preprocessing,
-        tensor shapes, labels, and inference semantics.
-        Browser tests cannot prove native inference correctness.
-
+      instructions: "Preserve TFLite preprocessing, tensor shapes, labels and inference semantics; browser evidence is not native proof."
     - path: "src/database/**"
-      instructions: |
-        Check persistence, transactional integrity,
-        ownership isolation, and migration compatibility.
-
+      instructions: "Preserve ownership isolation, atomic writes and existing persisted records."
     - path: "drizzle/**"
-      instructions: |
-        Preserve existing data and migration ordering.
-        Flag destructive or incompatible schema changes.
-
+      instructions: "Preserve migration ordering and existing data; flag destructive or incompatible changes."
     - path: "src/features/sync/**"
-      instructions: |
-        Check offline recovery, retry safety, idempotency,
-        and preservation of unsynchronized records.
-
-    - path: "src/features/auth/**"
-      instructions: |
-        Check session lifecycle, secure token handling,
-        expiration, authorization, and recovery behavior.
+      instructions: "Preserve unsynchronized reports, retry safety and idempotent uploads."
 
 test:
   instructions: |
-    Follow PROJECT_CHECKS.md for repository-specific commands.
-    Classify task intent and declare the validation tier in one line
-    in the report and status (for example, "Tier: T1-fast").
-
-    Validation Tiers:
-    - T0 (Docs-Only): Markdown files and docs/** only, or comments/docstrings
-      with no executable changes. Run the documented documentation checks.
-      No test suite or browser overhead.
-    - T1 (Fast Lane): Copy, non-critical config, styling, or dead code.
-      Run lint, typecheck, and a focused unit test. No browser check or server.
-    - T2 (Feature): Standard features and non-critical business logic.
-      Run the canonical fast gate. Run exactly one targeted browser/live check
-      only for browser-compatible user-visible UI or a live HTTP contract.
-    - T3 (High-Stakes): Detection/inference, database, sync, or authentication.
-      Run the full verification gate and relevant critical-path tests, plus an
-      independent adversarial review. Only human-owned or Secondmate-blessed
-      tests are proof; worker-written tests remain supplemental until blessed.
-      Follow the frozen T3 golden suite matrix in PROJECT_CHECKS.md. Do not
-      modify, delete, weaken, rename, or replace a frozen suite or its fixtures
-      without explicit Captain sign-off. Unverified behavior is NO-GO.
-
-    Live Verification & Environment Rules:
-    - Use chrome-devtools-axi only for browser-compatible user-visible UI or
-      live HTTP contracts. Never use browser checks for native-only behavior.
-      Give each run a unique CHROME_DEVTOOLS_AXI_SESSION derived from the
-      worktree, use isolated Chrome launch mode, and never set a shared port or
-      attach to another worker's browser. Use a free app port and do not
-      interrupt another run. Check the target revision, screenshot, console,
-      and network; clean up only resources owned by this run.
-    - Device emulators, ADB, agent-device, and staging checks are allowed only
-      when the task brief explicitly names them.
-    - Browser success does not prove native behavior.
-    - Ambiguous intent: report and wait for a decision; do not silently change
-      the tier. Escalate scope creep and prefer the smallest safe change.
-    - Report unsupported or unavailable verification as inconclusive, with
-      reasons and manual testing steps. Report defects as no-go; never mark
-      unverified behavior passed.
-    - Clean up only resources owned by this run.
+    Use PROJECT_CHECKS.md to select affected fast tests; full regression belongs in CI.
+    No interactive checks in no-mistakes; live acceptance needs explicit implementation-phase authorization.
+    For authorized browser-compatible UI acceptance, use npm run start -- --web --port <free-port> in an isolated session.
+    Browser/Jest mocks cannot prove TFLite, permissions, secure storage or device persistence; native acceptance is separate.
+    Record revision, command and actual evidence; unavailable required evidence is inconclusive, defects are no-go.

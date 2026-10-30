@@ -1,0 +1,94 @@
+name: QA over-the-air update
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-ota-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Classify candidate changes
+        id: candidate
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$REF" != "refs/heads/main" ]; then
+            echo "Manual QA updates must be dispatched from main; received $REF." >&2
+            exit 1
+          fi
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            BASE="${SHA}^"
+          else
+            BASE="$BEFORE"
+          fi
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "No prior main revision is available; skipping OTA publication."
+            exit 0
+          fi
+          FILES="$(git diff --name-only "$BASE...$SHA")"
+          echo "$FILES"
+          if printf '%s\n' "$FILES" | grep -Eq '^(app\.json|app\.config\.[^/]+|eas\.json|metro\.config\.[^/]+|babel\.config\.[^/]+|package\.json|package-lock\.json|android/|ios/|plugins/)'; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Native, runtime, build configuration, app version, or dependency changes require a human build-versus-update decision; skipping OTA publication."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node.js
+        if: steps.candidate.outputs.publish == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.candidate.outputs.publish == 'true'
+        run: npm ci
+
+      - name: Run free verification lane
+        if: steps.candidate.outputs.publish == 'true'
+        run: npm run verify:fast
+
+      - name: Write OTA signing key
+        if: steps.candidate.outputs.publish == 'true'
+        env:
+          EXPO_UPDATES_PRIVATE_KEY: ${{ secrets.EXPO_UPDATES_PRIVATE_KEY }}
+        run: |
+          if [ -z "$EXPO_UPDATES_PRIVATE_KEY" ]; then
+            echo "Required GitHub Actions secret EXPO_UPDATES_PRIVATE_KEY is missing; add the Expo Updates signing private key before publishing." >&2
+            exit 1
+          fi
+          umask 077
+          printf '%s\n' "$EXPO_UPDATES_PRIVATE_KEY" > "$RUNNER_TEMP/updates-key.pem"
+
+      - name: Publish signed update to QA channel
+        if: steps.candidate.outputs.publish == 'true'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: >-
+          npx --yes eas-cli@25.3.0 env:exec preview
+          "EXPO_NO_DOTENV=1 EXPO_PUBLIC_QA_MODE=true eas update --channel qa --environment preview --platform android --private-key-path \"\$RUNNER_TEMP/updates-key.pem\" --message \"qa/\${GITHUB_SHA:0:7}: \${GITHUB_EVENT_NAME}\" --non-interactive --json"
+
+      - name: Remove OTA signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/updates-key.pem"

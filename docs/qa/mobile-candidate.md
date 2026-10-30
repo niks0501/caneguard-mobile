@@ -198,9 +198,13 @@ EXPO_PUBLIC_QA_MODE=true \
 eas update \
   --channel qa \
   --environment preview \
+  --platform android \
+  --private-key-path "$EXPO_UPDATES_PRIVATE_KEY_PATH" \
   --message "qa/YYYY-MM-DD-NN: short change description" \
   --json | tee qa-mobile-update.json
 ```
+
+The private key corresponding to the configured `certs/certificate.pem` public certificate is required to sign updates. For local publication, set `EXPO_UPDATES_PRIVATE_KEY_PATH` to a secure local key-file path; never commit the private key. The automatic GitHub Actions publisher reads the key from the `EXPO_UPDATES_PRIVATE_KEY` repository secret, writes it temporarily under `$RUNNER_TEMP`, and removes the file after the job.
 
 The update command explicitly enables QA URL validation because `eas.json` build-profile `env` values are not used by `eas update`.
 
@@ -216,7 +220,7 @@ Do not publish a QA update to `development`, `preview`, or `production`.
 
 ## Delivery decision
 
-Classify the complete candidate diff before choosing an artifact.
+Classify the complete candidate diff before choosing an artifact. A person owns the build-versus-update decision using this table; the automatic `main` publisher only skips obvious app-version, native, runtime, build-configuration, and dependency changes. A skipped automatic publish is not a build decision—review the full diff and choose the appropriate delivery path.
 
 | Change class | Examples | Delivery |
 | --- | --- | --- |

@@ -25,7 +25,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -33,3 +33,32 @@ jobs:
 
       - name: Run fast verification
         run: npm run verify:fast
+
+  version-guard:
+    name: Protect app version
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Reject direct app-version edits
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git show "$BASE_SHA:app.json" > "$RUNNER_TEMP/base-app.json"
+          git show "$BASE_SHA:package.json" > "$RUNNER_TEMP/base-package.json"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const baseApp = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/base-app.json', 'utf8'));
+          const basePackage = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/base-package.json', 'utf8'));
+          const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          if (app.expo?.version !== baseApp.expo?.version || pkg.version !== basePackage.version) {
+            console.error('Pull requests may not edit app.json expo.version or package.json version. Use the manual Mobile build workflow to release a version.');
+            process.exit(1);
+          }
+          NODE

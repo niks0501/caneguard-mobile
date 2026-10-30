@@ -276,7 +276,7 @@ Native/device verification is especially important for:
 - authentication/session restoration;
 - report upload and retry behavior.
 
-Do not run EAS build/submit automatically.
+EAS builds run only through the manually dispatched `.github/workflows/build.yml` workflow; CI must never start a build from a pull request or push.
 
 ## EAS and deployment
 
@@ -289,7 +289,7 @@ Existing EAS profiles:
 
 The hybrid QA delivery procedure and release-record template live in `docs/qa/mobile-candidate.md` and `docs/qa/mobile-release-record.template.md`.
 
-Do not trigger EAS builds, submissions, or production updates without explicit user approval.
+Use the manual Mobile build workflow for QA or production builds; the production lane remains blocked until its EAS environment has `EXPO_PUBLIC_API_BASE_URL` and `EXPO_PUBLIC_AUTH_LINK_HOST`. CI may publish a signed OTA update to the `qa` channel automatically on changes merged to `main` when its native/build/dependency skip-list allows it; a manual update dispatch is also available. A person must choose build versus update using the delivery-decision table in `docs/qa/mobile-candidate.md` before dispatching. The production release workflow bumps `app.json` and `package.json`, creates an annotated `vX.Y.Z` tag, and pushes that commit to `main`; pull requests may not edit either version field directly.
 
 Treat changes to native dependencies or Expo native configuration as requiring development-build freshness before final device/E2E verification.
 

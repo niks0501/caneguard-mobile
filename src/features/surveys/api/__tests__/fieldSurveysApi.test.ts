@@ -11,6 +11,15 @@ const payload = {
   client_uuid: 'survey-client-1',
   polygon: { type: 'Polygon' as const, coordinates: [[[120, 14], [120.001, 14], [120.001, 14.001], [120, 14.001], [120, 14]]] },
   area_sqm: 5_000,
+  affected_area_polygons: [],
+  affected_area_sqm: 0,
+  measurement_provenance: {
+      method: 'wgs84-ellipsoid-geodesic' as const,
+    plot_area_sqm: 5_000,
+    affected_area_sqm: 0,
+    source_polygon_count: 0,
+    overlap_removed: false,
+  },
   captured_at: '2026-10-05T09:00:00.000Z',
   district_code: 'D-01',
 };

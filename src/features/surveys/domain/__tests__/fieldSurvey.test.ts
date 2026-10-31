@@ -1,5 +1,7 @@
 import {
+  measureAffectedAreas,
   ringArea,
+  validateSurveyPolygon,
   validateSurveyWaypoints,
   type SurveyWaypoint,
 } from '@/features/surveys/domain/fieldSurvey';
@@ -51,5 +53,37 @@ describe('field survey geometry', () => {
 
   it('calculates a closed ring without including the duplicate endpoint twice', () => {
     expect(ringArea([[120, 14], [120.002, 14], [120.002, 14.002], [120, 14.002], [120, 14]])).toBeGreaterThan(0);
+  });
+
+  it('rejects malformed and unclosed polygon rings without repairing their input', () => {
+    expect(validateSurveyPolygon({ type: 'Polygon', coordinates: [[[120, 14], [120.001, 14], [120, 14.001]]] })).toMatchObject({
+      valid: false,
+      error: { code: 'INVALID_POLYGON' },
+    });
+  });
+
+  it('rejects affected polygons outside the plot', () => {
+    const plot = { type: 'Polygon' as const, coordinates: [[[120, 14], [120.002, 14], [120.002, 14.002], [120, 14.002], [120, 14]]] };
+    const outside = { type: 'Polygon' as const, coordinates: [[[120.003, 14], [120.004, 14], [120.004, 14.001], [120.003, 14.001], [120.003, 14]]] };
+    expect(measureAffectedAreas(plot, [outside])).toMatchObject({ valid: false, error: { code: 'OUTSIDE_PLOT' } });
+  });
+
+  it('rejects self-crossing affected boundaries', () => {
+    const plot = { type: 'Polygon' as const, coordinates: [[[120, 14], [120.004, 14], [120.004, 14.004], [120, 14.004], [120, 14]]] };
+    const invalid = { type: 'Polygon' as const, coordinates: [[[120, 14], [120.002, 14.002], [120, 14.002], [120.002, 14], [120, 14]]] };
+    expect(measureAffectedAreas(plot, [invalid])).toMatchObject({ valid: false, error: { code: 'INVALID_POLYGON' } });
+  });
+
+  it('counts overlapping affected areas once and returns geodesic provenance', () => {
+    const plot = { type: 'Polygon' as const, coordinates: [[[120, 14], [120.004, 14], [120.004, 14.004], [120, 14.004], [120, 14]]] };
+    const areas = [
+      { type: 'Polygon' as const, coordinates: [[[120, 14], [120.002, 14], [120.002, 14.002], [120, 14.002], [120, 14]]] },
+      { type: 'Polygon' as const, coordinates: [[[120.001, 14], [120.003, 14], [120.003, 14.002], [120.001, 14.002], [120.001, 14]]] },
+    ];
+    const result = measureAffectedAreas(plot, areas);
+    expect(result).toMatchObject({
+      provenance: { method: 'wgs84-ellipsoid-geodesic', sourcePolygonCount: 2, overlapRemoved: true },
+    });
+    expect('areaSqm' in result && result.areaSqm).toBeCloseTo(71_716.5218, 1);
   });
 });

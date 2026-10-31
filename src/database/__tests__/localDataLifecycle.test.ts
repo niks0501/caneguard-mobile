@@ -119,6 +119,8 @@ const MIGRATIONS = [
   '0018_notification_advisory_content_cache.sql',
   '0019_add_field_surveys.sql',
   '0020_nasty_captain_midlands.sql',
+  '0021_field_survey_affected_areas.sql',
+  '0022_peaceful_titania.sql',
 ] as const;
 
 function readMigration(filename: string): string {

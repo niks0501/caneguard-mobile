@@ -1,8 +1,19 @@
 import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
 import type { SurveyPolygon } from '@/features/surveys/domain/fieldSurvey';
 
+export interface FieldSurveyMeasurementProvenance {
+  method: 'wgs84-ellipsoid-geodesic';
+  plot_area_sqm: number;
+  affected_area_sqm: number;
+  source_polygon_count: number;
+  overlap_removed: boolean;
+}
+
 export interface SubmitFieldSurveyPayload {
   area_sqm: number;
+  affected_area_polygons: SurveyPolygon[];
+  affected_area_sqm: number;
+  measurement_provenance: FieldSurveyMeasurementProvenance;
   captured_at: string;
   client_uuid: string;
   district_code: string;

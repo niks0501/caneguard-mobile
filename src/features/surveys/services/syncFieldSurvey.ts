@@ -1,6 +1,7 @@
 import type { CaneGuardDatabase } from '@/database/database';
 import { findOwnedFieldSurvey, updateFieldSurveySyncResult } from '@/features/surveys/data/fieldSurveyRepository';
-import { FieldSurveyValidationError, submitFieldSurvey } from '@/features/surveys/api/fieldSurveysApi';
+import { FieldSurveyValidationError, submitFieldSurvey, type FieldSurveyMeasurementProvenance } from '@/features/surveys/api/fieldSurveysApi';
+import { measureAffectedAreas, validateSurveyPolygon, type SurveyPolygon } from '@/features/surveys/domain/fieldSurvey';
 import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
 
 export type FieldSurveySyncResult =
@@ -26,6 +27,28 @@ export async function syncFieldSurvey(options: {
   }
   if (row.status === 'synced' && row.remoteId) return { status: 'already-synced', remoteId: row.remoteId };
 
+  let polygon: SurveyPolygon;
+  let affectedAreaPolygons: SurveyPolygon[];
+  try {
+    polygon = JSON.parse(row.polygonJson) as SurveyPolygon;
+    affectedAreaPolygons = JSON.parse(row.affectedAreaPolygonsJson ?? '[]') as SurveyPolygon[];
+  } catch {
+    return rejectInvalidLocalRecord(options, 'The saved boundary geometry is invalid. Recreate the boundary before syncing.');
+  }
+  const plotMeasurement = validateSurveyPolygon(polygon);
+  const affectedMeasurement = measureAffectedAreas(polygon, affectedAreaPolygons);
+  if (!plotMeasurement.valid || !affectedMeasurement.valid ||
+    Math.abs(plotMeasurement.areaSqm - row.areaSqm) > Math.max(0.01, row.areaSqm * 1e-10) ||
+    Math.abs(affectedMeasurement.areaSqm - (row.affectedAreaSqm ?? 0)) > Math.max(0.01, (row.affectedAreaSqm ?? 0) * 1e-10)) {
+    return rejectInvalidLocalRecord(options, 'The saved polygon measurements do not match their boundaries. Recreate the boundary before syncing.');
+  }
+  let measurementProvenance: FieldSurveyMeasurementProvenance;
+  try {
+    measurementProvenance = toWireProvenance(row.measurementProvenanceJson, affectedMeasurement.provenance);
+  } catch {
+    return rejectInvalidLocalRecord(options, 'The saved measurement provenance is invalid. Recreate the boundary before syncing.');
+  }
+
   updateFieldSurveySyncResult(options.database, row.clientUuid, options.ownerIdentity, { status: 'syncing' });
   try {
     let response;
@@ -34,8 +57,11 @@ export async function syncFieldSurvey(options: {
       try {
         response = await submitFieldSurvey({
           client_uuid: row.clientUuid,
-          polygon: JSON.parse(row.polygonJson),
+          polygon,
           area_sqm: row.areaSqm,
+          affected_area_polygons: affectedAreaPolygons,
+          affected_area_sqm: row.affectedAreaSqm ?? 0,
+          measurement_provenance: measurementProvenance,
           captured_at: row.capturedAt,
           district_code: row.districtCode,
         }, options.token);
@@ -68,6 +94,47 @@ export async function syncFieldSurvey(options: {
     });
     return { status: 'failed', error: syncError };
   }
+}
+
+function rejectInvalidLocalRecord(
+  options: { clientUuid: string; database: CaneGuardDatabase; ownerIdentity: string },
+  message: string,
+): FieldSurveySyncResult {
+  updateFieldSurveySyncResult(options.database, options.clientUuid, options.ownerIdentity, {
+    lastSyncErrorCode: 'INVALID_LOCAL_RECORD',
+    status: 'failed',
+  });
+  return { status: 'failed', error: new SyncError('INVALID_LOCAL_RECORD', message) };
+}
+
+function toWireProvenance(
+  storedJson: string | null,
+  computed: {
+    method: 'wgs84-ellipsoid-geodesic';
+    plotAreaSqm: number;
+    affectedAreaSqm: number;
+    sourcePolygonCount: number;
+    overlapRemoved: boolean;
+  },
+): FieldSurveyMeasurementProvenance {
+  if (storedJson) {
+    const stored = JSON.parse(storedJson) as typeof computed;
+    if (stored.method !== computed.method || stored.plotAreaSqm !== computed.plotAreaSqm ||
+      stored.affectedAreaSqm !== computed.affectedAreaSqm ||
+      stored.sourcePolygonCount !== computed.sourcePolygonCount ||
+      stored.overlapRemoved !== computed.overlapRemoved) {
+      throw new Error('Stored provenance no longer matches the validated geometry.');
+    }
+  }
+  // Legacy pending surveys predate provenance storage; use provenance
+  // recalculated from their preserved source polygons and persisted figures.
+  return {
+    method: computed.method,
+    plot_area_sqm: computed.plotAreaSqm,
+    affected_area_sqm: computed.affectedAreaSqm,
+    source_polygon_count: computed.sourcePolygonCount,
+    overlap_removed: computed.overlapRemoved,
+  };
 }
 
 function delay(milliseconds: number): Promise<void> {

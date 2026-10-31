@@ -599,6 +599,9 @@ export const fieldSurveys = sqliteTable(
     waypointsJson: text('waypoints_json').notNull(),
     polygonJson: text('polygon_json'),
     areaSqm: real('area_sqm'),
+    affectedAreaPolygonsJson: text('affected_area_polygons_json'),
+    affectedAreaSqm: real('affected_area_sqm'),
+    measurementProvenanceJson: text('measurement_provenance_json'),
     capturedAt: text('captured_at').notNull(),
     status: text('status').$type<FieldSurveyStatus>().notNull().default('draft'),
     remoteId: text('remote_id'),
@@ -622,6 +625,7 @@ export const fieldSurveys = sqliteTable(
       sql`${table.status} in ('draft', 'pending', 'syncing', 'synced', 'failed')`,
     ),
     check('field_surveys_area_check', sql`${table.areaSqm} is null or ${table.areaSqm} > 0`),
+    check('field_surveys_affected_area_check', sql`${table.affectedAreaSqm} is null or ${table.affectedAreaSqm} >= 0`),
     check('field_surveys_sync_attempt_check', sql`${table.syncAttemptCount} >= 0`),
   ],
 );

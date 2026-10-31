@@ -14,7 +14,7 @@ import type {
   FieldGuideSource,
   FieldGuideSourceId,
 } from '@/features/field-guide/domain/fieldGuideTypes';
-import { findFieldGuideSource } from '@/features/field-guide/constants/fieldGuideSources';
+import { sourcesForEntry } from '@/features/field-guide/constants/fieldGuideSources';
 import { useTheme } from '@/hooks/use-theme';
 
 export type FieldGuideSourcesProps = {
@@ -40,9 +40,7 @@ export function FieldGuideSources({ sourceIds, testID }: FieldGuideSourcesProps)
   const theme = useTheme();
   const [failedId, setFailedId] = useState<FieldGuideSourceId | null>(null);
 
-  const sources = sourceIds
-    .map((id) => findFieldGuideSource(id))
-    .filter((source): source is FieldGuideSource => source !== null);
+  const sources = sourcesForEntry(sourceIds);
 
   if (sources.length === 0) {
     return null;

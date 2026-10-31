@@ -447,7 +447,7 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
     summary:
       'Red-Striped Soft Scale Insect: a sap-sucking pest that builds up on the lower leaves and coats them in sticky honeydew and black mold.',
     conditionLabel: 'Insect pest',
-    scientificName: 'Pulvinaria tenuivalvata',
+    scientificName: 'Pulvinaria tenuivalata',
     signs: [
       'Small insects with red stripes, in young and adult stages, on the lower leaves first, then moving upward.',
       'Yellowing leaves, especially toward the base.',
@@ -476,7 +476,7 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
       'Ask the office before any chemical treatment rather than treating on your own.',
     ],
     detail:
-      'RSSI was first detected in Pampanga in 2022 and confirmed in parts of Negros in early 2025. It is treated as an area problem, not a single-farm problem: treating one field while the neighbours are infested invites reinvasion, so the Philippine response uses coordinated surveillance and reporting. Natural enemies, including parasitoid wasps and beneficial fungi, already help suppress it, which is one reason repeated broad-spectrum spraying is discouraged. The scientific name is shown as Pulvinaria tenuivalvata, with the spelling still to be confirmed against the SRA brochures.',
+      'RSSI was first detected in Pampanga in 2022 and confirmed in parts of Negros in early 2025. It is treated as an area problem, not a single-farm problem: treating one field while the neighbours are infested invites reinvasion, so the Philippine response uses coordinated surveillance and reporting. Natural enemies, including parasitoid wasps and beneficial fungi, already help suppress it, which is one reason repeated broad-spectrum spraying is discouraged. The scientific name is shown as Pulvinaria tenuivalata, with the spelling still to be confirmed against the SRA brochures.',
     guide: {
       intro:
         'The Red-Striped Soft Scale Insect is a sap-sucking pest, not a disease the app can detect. This page explains what to look for, why it is handled as an area problem, and what this guide deliberately leaves out until the SRA brochures arrive.',
@@ -486,7 +486,7 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
           heading: 'What RSSI is',
           paragraphs: [
             'RSSI is a soft scale insect that feeds on sugarcane sap. It has red stripes, and it builds up on the lower leaves before moving upward.',
-            'The scientific name used here is Pulvinaria tenuivalvata. Treat the name as provisional until it is confirmed against the SRA brochures, because more than one name for this insect has been in circulation.',
+            'The scientific name used here is Pulvinaria tenuivalata. Treat the name as provisional until it is confirmed against the SRA brochures, because more than one name for this insect has been in circulation.',
             'Feeding removes sap. The insect also produces sticky honeydew, and a black sooty mould grows on it, which blocks light and makes the cane look dirty.',
           ],
           sourceIds: ['sra-rssi-profile', 'sra-rssi-awareness'],

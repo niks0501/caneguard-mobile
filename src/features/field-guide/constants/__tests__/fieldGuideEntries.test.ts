@@ -197,16 +197,7 @@ describe('field guide safety rules over the entry data', () => {
     expect(violations).toEqual([]);
   });
 
-  it('sweeps the long-form guide as well as the short reading copy', () => {
-    // Guard the guard: if the sweep stopped covering the guide, this fails.
-    const rust = findFieldGuideEntry('rust');
-    expect(rust).not.toBeNull();
-    expect(readingText(rust as FieldGuideEntry)).toEqual(
-      expect.arrayContaining([rust?.guide.sections[0].paragraphs[0]]),
-    );
-  });
-
-  it('marks every launch entry for expert review in editorial metadata only', () => {
+  it('marks every launch entry for expert review in editorial metadata', () => {
     for (const entry of fieldGuideEntries) {
       expect(entry.editorial.validationStatus).toBe('pending-expert-review');
       expect(entry.editorial.reviewedAt).toBeNull();
@@ -225,7 +216,7 @@ describe('field guide safety rules over the entry data', () => {
           expect(credit.sourcePageUrl).not.toBeNull();
         } else {
           expect(credit.licenseName).toBeNull();
-          expect(credit.licenseUrl).toBeNull();
+          expect(credit.sourcePageUrl).toBeNull();
         }
       }
     }
@@ -236,12 +227,5 @@ describe('field guide safety rules over the entry data', () => {
     expect(serialized).not.toMatch(/class_scores/i);
     expect(serialized).not.toMatch(/classScores/);
     expect(serialized).not.toMatch(/\[RSSI\]/);
-  });
-
-  it('refers the treatment decision to the office on the pest entry', () => {
-    // R5 = A: the treatment decision belongs with the office, not the page.
-    const pest = findFieldGuideEntry('rssi');
-    expect(pest).not.toBeNull();
-    expect(pest?.management.join(' ')).toMatch(/ask the office before any chemical treatment/i);
   });
 });

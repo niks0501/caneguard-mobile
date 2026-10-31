@@ -21,6 +21,7 @@ import {
   FIELD_GUIDE_TITLE,
 } from '@/constants/copy';
 import { FieldGuidePhotoCredits } from '@/features/field-guide/components/FieldGuidePhotoCredits';
+import { FieldGuidePendingValidationNotice } from '@/features/field-guide/components/FieldGuidePendingValidationNotice';
 import { FieldGuideSources } from '@/features/field-guide/components/FieldGuideSources';
 import { findFieldGuideEntry } from '@/features/field-guide/constants/fieldGuideEntries';
 import type { FieldGuideGuideSection } from '@/features/field-guide/domain/fieldGuideTypes';
@@ -100,11 +101,17 @@ export default function FieldGuideGuideScreen() {
                 { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
               ]}>
               <Feather name="info" size={16} color={theme.primary} />
-              <Text
-                style={[styles.calloutText, { color: theme.textSecondary }]}
-                testID="field-guide.guide.disclaimer">
-                {FIELD_GUIDE_EDUCATION_DISCLAIMER}
-              </Text>
+              <View style={styles.calloutBody}>
+                <Text
+                  style={[styles.calloutText, { color: theme.textSecondary }]}
+                  testID="field-guide.guide.disclaimer">
+                  {FIELD_GUIDE_EDUCATION_DISCLAIMER}
+                </Text>
+                <FieldGuidePendingValidationNotice
+                  editorial={entry.editorial}
+                  testID="field-guide.guide.pending-validation"
+                />
+              </View>
             </View>
 
             <Text style={[styles.intro, { color: theme.text }]} testID="field-guide.guide.intro">
@@ -209,7 +216,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: Spacing.md,
   },
-  calloutText: { ...Typography.caption, flex: 1 },
+  calloutText: { ...Typography.caption },
+  calloutBody: { flex: 1 },
   intro: { ...Typography.body },
   sectionHeading: { ...Typography.subheading, marginBottom: Spacing.sm },
   paragraph: { ...Typography.bodySmall, marginBottom: Spacing.sm },

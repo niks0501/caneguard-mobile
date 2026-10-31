@@ -119,6 +119,13 @@ export const FIELD_GUIDE_SCIENTIFIC_NAME_LABEL = 'Scientific name';
 export const FIELD_GUIDE_EDUCATION_DISCLAIMER =
   'This guide is for education. It does not confirm a diagnosis — ask your agriculture officer to confirm what you see.';
 
+/**
+ * Release-gate marker rendered beside the education disclaimer on every
+ * reading surface while an entry's editorial record is still pending.
+ */
+export const FIELD_GUIDE_PENDING_VALIDATION_NOTICE =
+  'Pending expert validation: this agricultural guidance has not yet been approved by SRA or a qualified local expert.';
+
 /** Source rows. A missing document says so instead of showing a dead link. */
 export const FIELD_GUIDE_SOURCE_OPEN_LABEL = 'Read the original source';
 export const FIELD_GUIDE_SOURCE_INTERNET_REQUIRED =
@@ -130,7 +137,6 @@ export const FIELD_GUIDE_SOURCE_AWAITING_SUPPLY_NOTE =
   'The office has requested this document. This page will cite the exact pages once it arrives.';
 
 /** Photo credits. A blank record is labelled, never filled in by guesswork. */
-export const FIELD_GUIDE_CREDITS_TITLE = 'Photo credits';
 export const FIELD_GUIDE_CREDIT_MISSING =
   'Creator and licence are not recorded for this photo yet.';
 export const FIELD_GUIDE_CREDIT_CREATOR_LABEL = 'Photo by';

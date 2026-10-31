@@ -45,9 +45,7 @@ export type FieldGuideSourceId = string;
 export type FieldGuideImageCredit = {
   creator: string | null;
   licenseName: string | null;
-  licenseUrl: string | null;
   sourcePageUrl: string | null;
-  imageUrl: string | null;
   attribution: string | null;
   recorded: boolean;
 };

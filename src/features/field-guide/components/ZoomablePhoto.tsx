@@ -5,6 +5,7 @@ import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanima
 
 import { Spacing, Typography } from '@/constants/theme';
 import { FIELD_GUIDE_PHOTO_VIEWER_RESET } from '@/constants/copy';
+import { photoPanBounds } from '@/features/field-guide/domain/photoPanBounds';
 import { useTheme } from '@/hooks/use-theme';
 
 const MIN_SCALE = 1;
@@ -26,8 +27,9 @@ export type ZoomablePhotoProps = {
  * a single transform; the reset control is a plain button, so a reader who
  * cannot pinch still has a way back to the original view.
  *
- * Pan is clamped to the scaled image edges from the measured viewport, so the
- * photo cannot be dragged off screen and lost.
+ * Pan is clamped to the edges of the rendered, contain-fitted image from the
+ * measured viewport and the photo's own dimensions, so the photo cannot be
+ * dragged off screen and lost.
  */
 export function ZoomablePhoto({ caption, source, testID }: ZoomablePhotoProps) {
   const theme = useTheme();
@@ -39,6 +41,8 @@ export function ZoomablePhoto({ caption, source, testID }: ZoomablePhotoProps) {
   const savedY = useSharedValue(0);
   const viewportWidth = useSharedValue(0);
   const viewportHeight = useSharedValue(0);
+  const imageWidth = useSharedValue(0);
+  const imageHeight = useSharedValue(0);
 
   const reset = () => {
     scale.value = MIN_SCALE;
@@ -54,10 +58,15 @@ export function ZoomablePhoto({ caption, source, testID }: ZoomablePhotoProps) {
       'worklet';
       const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, savedScale.value * event.scale));
       scale.value = next;
-      const limitX = ((next - 1) * viewportWidth.value) / 2;
-      const limitY = ((next - 1) * viewportHeight.value) / 2;
-      translateX.value = Math.min(limitX, Math.max(-limitX, translateX.value));
-      translateY.value = Math.min(limitY, Math.max(-limitY, translateY.value));
+      const bounds = photoPanBounds(
+        next,
+        viewportWidth.value,
+        viewportHeight.value,
+        imageWidth.value,
+        imageHeight.value,
+      );
+      translateX.value = Math.min(bounds.x, Math.max(-bounds.x, translateX.value));
+      translateY.value = Math.min(bounds.y, Math.max(-bounds.y, translateY.value));
     })
     .onEnd(() => {
       'worklet';
@@ -69,10 +78,21 @@ export function ZoomablePhoto({ caption, source, testID }: ZoomablePhotoProps) {
   const pan = Gesture.Pan()
     .onUpdate((event) => {
       'worklet';
-      const limitX = ((scale.value - 1) * viewportWidth.value) / 2;
-      const limitY = ((scale.value - 1) * viewportHeight.value) / 2;
-      translateX.value = Math.min(limitX, Math.max(-limitX, savedX.value + event.translationX));
-      translateY.value = Math.min(limitY, Math.max(-limitY, savedY.value + event.translationY));
+      const bounds = photoPanBounds(
+        scale.value,
+        viewportWidth.value,
+        viewportHeight.value,
+        imageWidth.value,
+        imageHeight.value,
+      );
+      translateX.value = Math.min(
+        bounds.x,
+        Math.max(-bounds.x, savedX.value + event.translationX),
+      );
+      translateY.value = Math.min(
+        bounds.y,
+        Math.max(-bounds.y, savedY.value + event.translationY),
+      );
     })
     .onEnd(() => {
       'worklet';
@@ -121,6 +141,10 @@ export function ZoomablePhoto({ caption, source, testID }: ZoomablePhotoProps) {
               accessibilityLabel={caption}
               cachePolicy="memory-disk"
               contentFit="contain"
+              onLoad={(event) => {
+                imageWidth.value = event.source.width;
+                imageHeight.value = event.source.height;
+              }}
               source={source}
               style={styles.image}
             />

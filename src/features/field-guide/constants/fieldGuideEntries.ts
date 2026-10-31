@@ -54,9 +54,7 @@ function awaitingCredit(creator: string | null = null): FieldGuideImageCredit {
   return {
     creator,
     licenseName: null,
-    licenseUrl: null,
     sourcePageUrl: null,
-    imageUrl: null,
     attribution: null,
     recorded: false,
   };

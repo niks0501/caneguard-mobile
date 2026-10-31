@@ -7,6 +7,7 @@ import {
   FIELD_GUIDE_EDUCATION_DISCLAIMER,
   FIELD_GUIDE_GUIDE_SOURCES_TITLE,
   FIELD_GUIDE_NOT_FOUND_TITLE,
+  FIELD_GUIDE_PENDING_VALIDATION_NOTICE,
   FIELD_GUIDE_SOURCE_AWAITING_SUPPLY,
 } from '@/constants/copy';
 import { findFieldGuideEntry } from '@/features/field-guide/constants/fieldGuideEntries';
@@ -31,6 +32,9 @@ describe('FieldGuideGuideScreen', () => {
       expect(screen.getByTestId('field-guide.guide.screen')).toBeOnTheScreen();
       expect(screen.getByTestId('field-guide.guide.disclaimer')).toHaveTextContent(
         FIELD_GUIDE_EDUCATION_DISCLAIMER,
+      );
+      expect(screen.getByTestId('field-guide.guide.pending-validation')).toHaveTextContent(
+        FIELD_GUIDE_PENDING_VALIDATION_NOTICE,
       );
       expect(screen.getByTestId('field-guide.guide.intro')).toHaveTextContent(
         entry?.guide.intro ?? '',

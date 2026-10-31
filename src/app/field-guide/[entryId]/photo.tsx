@@ -16,6 +16,7 @@ import {
   FIELD_GUIDE_PHOTO_VIEWER_MISSING_TITLE,
 } from '@/constants/copy';
 import { FieldGuidePhotoCredits } from '@/features/field-guide/components/FieldGuidePhotoCredits';
+import { FieldGuidePendingValidationNotice } from '@/features/field-guide/components/FieldGuidePendingValidationNotice';
 import { ZoomablePhoto } from '@/features/field-guide/components/ZoomablePhoto';
 import { findFieldGuideEntry } from '@/features/field-guide/constants/fieldGuideEntries';
 import type { FieldGuideImage } from '@/features/field-guide/domain/fieldGuideTypes';
@@ -113,6 +114,10 @@ export default function FieldGuidePhotoScreen() {
         <Text style={[styles.disclaimer, { color: theme.textSecondary }]}>
           {FIELD_GUIDE_EDUCATION_DISCLAIMER}
         </Text>
+        <FieldGuidePendingValidationNotice
+          editorial={entry.editorial}
+          testID="field-guide.photo.pending-validation"
+        />
       </ScrollView>
     </SafeAreaView>
   );

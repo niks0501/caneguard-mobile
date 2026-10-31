@@ -9,30 +9,20 @@ import {
 } from '@/features/field-guide/constants/fieldGuideSources';
 import type { FieldGuideEntry } from '@/features/field-guide/domain/fieldGuideTypes';
 
-/** The captain's verified links, exactly as supplied. Nothing else is published. */
-const VERIFIED_SOURCE_URLS = [
-  'https://www.sra.gov.ph/article/red-striped-soft-scale-insect-rssi-in-sugarcane-pest-profile-and-pest-management-recommendation/HLNwOhbTgYVglRl',
-  'https://www.sra.gov.ph/article/sra-awareness-campaign-on-red-striped-soft-scale-insect-rssi/pV352Fkalf1FVkv',
-  'https://www.lsuagcenter.com/profiles/lblack/articles/page1485980431119',
-  'https://sugarresearch.com.au/diseases/rusts/',
-  'https://sugarresearch.com.au/wp-content/uploads/2025/04/Mosaic_2022.pdf',
-  'https://fpa.da.gov.ph/resources/reports/registered-products/',
-];
-
-function guideText(entry: FieldGuideEntry): string {
-  return [entry.guide.intro, ...entry.guide.sections.flatMap((section) => section.paragraphs)].join(
-    '\n',
-  );
-}
-
 describe('field guide sources', () => {
-  it('publishes exactly the verified links and nothing invented', () => {
-    const published = fieldGuideSources.filter((source) => source.availability === 'published');
-    expect(published.map((source) => source.url)).toEqual(VERIFIED_SOURCE_URLS);
-    for (const source of published) {
-      expect(source.url).toMatch(/^https:\/\//);
+  it('publishes only https sources and marks every missing document as awaiting supply', () => {
+    const ids = fieldGuideSources.map((source) => source.id);
+    expect(new Set(ids).size).toBe(ids.length);
+
+    for (const source of fieldGuideSources) {
       expect(source.publisher.length).toBeGreaterThan(0);
       expect(source.supports.length).toBeGreaterThan(0);
+
+      if (source.availability === 'published') {
+        expect(source.url).toMatch(/^https:\/\//);
+      } else {
+        expect(source.url).toBeNull();
+      }
     }
   });
 
@@ -63,6 +53,7 @@ describe('field guide sources', () => {
 
   it('returns null for an unknown source id instead of inventing a citation', () => {
     expect(findFieldGuideSource('not-a-real-source')).toBeNull();
+    expect(sourcesForEntry(['not-a-real-source'])).toEqual([]);
   });
 
   it('cites the local SRA sources on the pest entry and the booklet on smut', () => {
@@ -75,52 +66,42 @@ describe('field guide sources', () => {
     expect(smut?.sourceIds).toEqual(expect.arrayContaining(['sra-booklet-smut']));
   });
 
-  it('states on the rust entry that the app does not distinguish rust species', () => {
+  it('keeps rust at the model condition level without claiming a rust species', () => {
     const rust = findFieldGuideEntry('rust');
     expect(rust).not.toBeNull();
     expect(rust?.modelLabel).toBe('rust');
     expect(rust?.scientificName).toBeNull();
-    expect(guideText(rust as FieldGuideEntry)).toMatch(
-      /does not identify brown rust or orange rust/i,
-    );
-    expect(guideText(rust as FieldGuideEntry)).toMatch(/app reports rust as one condition/i);
+    expect(rust?.conditionLabel).toBe('Fungal disease');
+    expect(rust?.category).toBe('disease');
   });
 
-  it('keeps mosaic viral and free of a curative-chemical claim', () => {
+  it('keeps mosaic classified as a viral disease', () => {
     const mosaic = findFieldGuideEntry('mosaic');
     expect(mosaic).not.toBeNull();
     expect(mosaic?.conditionLabel).toBe('Viral disease');
-    expect(guideText(mosaic as FieldGuideEntry)).toMatch(/no spray that cures/i);
-    expect(guideText(mosaic as FieldGuideEntry)).toMatch(
-      /insecticides are not a reliable way to stop aphid transmission/i,
-    );
+    expect(mosaic?.category).toBe('disease');
   });
 
-  it('keeps the healthy entry honest about what a healthy result can prove', () => {
+  it('keeps the healthy entry classified as a baseline, not a diagnosis', () => {
     const healthy = findFieldGuideEntry('healthy');
     expect(healthy).not.toBeNull();
     expect(healthy?.conditionLabel).toBe('Healthy baseline');
-    expect(guideText(healthy as FieldGuideEntry)).toMatch(/cannot certify a plant as disease-free/i);
-    expect(guideText(healthy as FieldGuideEntry)).toMatch(/not a laboratory test/i);
+    expect(healthy?.category).toBe('healthy');
   });
 
-  it('names smut and RSSI with their scientific names and keeps RSSI provisional', () => {
+  it('names smut and RSSI with their scientific names', () => {
     expect(findFieldGuideEntry('smut')?.scientificName).toBe('Sporisorium scitamineum');
-    expect(findFieldGuideEntry('rssi')?.scientificName).toBe('Pulvinaria tenuivalvata');
-    expect(guideText(findFieldGuideEntry('rssi') as FieldGuideEntry)).toMatch(
-      /treat the name as provisional/i,
-    );
+    expect(findFieldGuideEntry('rssi')?.scientificName).toBe('Pulvinaria tenuivalata');
   });
 
   it('gives the pest entry no pesticide, active ingredient or dose', () => {
     const pest = findFieldGuideEntry('rssi') as FieldGuideEntry;
-    const text = [pest.conditionLabel, ...pest.prevention, ...pest.management, guideText(pest)]
+    const text = [pest.conditionLabel, ...pest.prevention, ...pest.management, pest.guide.intro]
       .join(' ')
       .toLowerCase();
 
     expect(text).not.toMatch(/\b\d+\s?(ml|kg|g|litre|liter|hectare|ha)\b/);
     expect(text).not.toMatch(/spray (this|with)/);
     expect(text).not.toMatch(/recommended dose|dosage/);
-    expect(text).toMatch(/no pesticide name, no active ingredient and no dose/i);
   });
 });

@@ -39,6 +39,7 @@ import {
   findFieldGuideEntry,
 } from '@/features/field-guide/constants/fieldGuideEntries';
 import { FieldGuidePhotoCredits } from '@/features/field-guide/components/FieldGuidePhotoCredits';
+import { FieldGuidePendingValidationNotice } from '@/features/field-guide/components/FieldGuidePendingValidationNotice';
 import { FieldGuideSources } from '@/features/field-guide/components/FieldGuideSources';
 import type { FieldGuideEntry, FieldGuideImage } from '@/features/field-guide/domain/fieldGuideTypes';
 import { useTheme } from '@/hooks/use-theme';
@@ -173,9 +174,15 @@ export default function FieldGuideEntryScreen() {
                 { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
               ]}>
               <Feather name="info" size={16} color={theme.primary} />
-              <Text style={[styles.calloutText, { color: theme.textSecondary }]}>
-                {FIELD_GUIDE_EDUCATION_DISCLAIMER}
-              </Text>
+              <View style={styles.calloutBody}>
+                <Text style={[styles.calloutText, { color: theme.textSecondary }]}>
+                  {FIELD_GUIDE_EDUCATION_DISCLAIMER}
+                </Text>
+                <FieldGuidePendingValidationNotice
+                  editorial={entry.editorial}
+                  testID={`field-guide.detail.${entry.id}.pending-validation`}
+                />
+              </View>
             </View>
 
             <Card variant="flat">
@@ -385,7 +392,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: Spacing.md,
   },
-  calloutText: { ...Typography.caption, flex: 1 },
+  calloutText: { ...Typography.caption },
+  calloutBody: { flex: 1 },
   sectionTitle: { ...Typography.subheading },
   sectionLabel: {
     ...Typography.label,

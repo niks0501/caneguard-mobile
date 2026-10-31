@@ -86,6 +86,12 @@ export function toSyncError(error: unknown): SyncError {
       );
     }
     if (error.status === 409) {
+      if (hasUnconfirmedDuplicateIdentity(error.body)) {
+        return new SyncError(
+          'NETWORK_REQUEST_FAILED',
+          'The server has not confirmed the saved upload yet.',
+        );
+      }
       return new SyncError(
         'API_VALIDATION_FAILED',
         'The server reported a conflicting upload identity. Review its saved details before retrying.',
@@ -162,6 +168,29 @@ export function getSyncErrorMessage(code: string | null): string | null {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
+}
+
+function hasUnconfirmedDuplicateIdentity(body: unknown): boolean {
+  if (!body || typeof body !== 'object') {
+    return false;
+  }
+  const record = body as Record<string, unknown>;
+  const data =
+    record.data && typeof record.data === 'object'
+      ? (record.data as Record<string, unknown>)
+      : null;
+
+  return [record.identity, record.completion, data?.identity, data?.completion]
+    .filter(
+      (identity): identity is Record<string, unknown> =>
+        Boolean(identity) && typeof identity === 'object',
+    )
+    .some((identity) => readConfirmedClientUuid(identity) === null);
+}
+
+function readConfirmedClientUuid(identity: Record<string, unknown>): string | null {
+  const value = identity.client_uuid;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
 const MAX_VALIDATION_DETAIL_LENGTH = 300;

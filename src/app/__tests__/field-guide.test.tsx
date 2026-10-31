@@ -4,17 +4,25 @@ import { router, useLocalSearchParams } from 'expo-router';
 import FieldGuideEntryScreen from '@/app/field-guide/[entryId]';
 import FieldGuideIndexScreen from '@/app/field-guide/index';
 import {
-  DECISION_SUPPORT_DISCLAIMER,
   FIELD_GUIDE_APP_CAN_CHECK,
   FIELD_GUIDE_APP_CANNOT_CHECK,
+  FIELD_GUIDE_CREDIT_MISSING,
+  FIELD_GUIDE_EDUCATION_DISCLAIMER,
   FIELD_GUIDE_INTRO,
   FIELD_GUIDE_NOT_FOUND_TITLE,
+  FIELD_GUIDE_READ_FULL_GUIDE,
+  FIELD_GUIDE_SCIENTIFIC_NAME_LABEL,
   FIELD_GUIDE_SECTION_DETAIL,
   FIELD_GUIDE_SECTION_IMPACT,
   FIELD_GUIDE_SECTION_MANAGEMENT,
+  FIELD_GUIDE_SECTION_PREVENTION,
   FIELD_GUIDE_SECTION_SIGNS,
+  FIELD_GUIDE_SECTION_SOURCES_AND_CREDITS,
   FIELD_GUIDE_SECTION_WHERE_TO_LOOK,
+  FIELD_GUIDE_SOURCE_AWAITING_SUPPLY,
+  fieldGuidePhotoOpenLabel,
 } from '@/constants/copy';
+import { findFieldGuideEntry } from '@/features/field-guide/constants/fieldGuideEntries';
 import { FIELD_GUIDE_LAUNCH_ENTRY_IDS } from '@/features/field-guide/domain/fieldGuideTypes';
 
 // Asset modules required at module scope, exactly as the entry data requires
@@ -58,7 +66,7 @@ describe('FieldGuideIndexScreen', () => {
     expect(screen.getByTestId('field-guide.screen')).toBeOnTheScreen();
     expect(screen.getByText('Field guide')).toBeOnTheScreen();
     expect(screen.getByText(FIELD_GUIDE_INTRO)).toBeOnTheScreen();
-    expect(screen.getByText(DECISION_SUPPORT_DISCLAIMER)).toBeOnTheScreen();
+    expect(screen.getByText(FIELD_GUIDE_EDUCATION_DISCLAIMER)).toBeOnTheScreen();
 
     expect(
       screen
@@ -133,7 +141,7 @@ describe('FieldGuideEntryScreen', () => {
     expect(screen.getByText(FIELD_GUIDE_SECTION_MANAGEMENT)).toBeOnTheScreen();
     expect(screen.getByText(FIELD_GUIDE_SECTION_DETAIL)).toBeOnTheScreen();
 
-    expect(screen.getByText(DECISION_SUPPORT_DISCLAIMER)).toBeOnTheScreen();
+    expect(screen.getByText(FIELD_GUIDE_EDUCATION_DISCLAIMER)).toBeOnTheScreen();
     expect(screen.getByTestId('field-guide.detail.rust.app-check')).toHaveTextContent(
       FIELD_GUIDE_APP_CAN_CHECK,
     );
@@ -211,6 +219,86 @@ describe('FieldGuideEntryScreen', () => {
     expect(
       screen.getByText('Clean, evenly green leaf blades on a healthy stool'),
     ).toBeOnTheScreen();
+  });
+
+  it.each(FIELD_GUIDE_LAUNCH_ENTRY_IDS)(
+    'shows the %s condition category and its prevention section',
+    async (id) => {
+      showEntry(id);
+      await render(<FieldGuideEntryScreen />);
+
+      const entry = findFieldGuideEntry(id);
+      expect(screen.getByTestId(`field-guide.detail.${id}.category`)).toHaveTextContent(
+        entry?.conditionLabel ?? '',
+      );
+      expect(screen.getByTestId(`field-guide.detail.${id}.summary`)).toHaveTextContent(
+        entry?.summary ?? '',
+      );
+      expect(screen.getByTestId(`field-guide.detail.${id}.prevention`)).toHaveTextContent(
+        FIELD_GUIDE_SECTION_PREVENTION,
+      );
+    },
+  );
+
+  it.each([
+    ['smut', 'Sporisorium scitamineum'],
+    ['rssi', 'Pulvinaria tenuivalvata'],
+  ] as const)('shows the scientific name on the %s entry', async (id, name) => {
+    showEntry(id);
+    await render(<FieldGuideEntryScreen />);
+
+    expect(screen.getByTestId(`field-guide.detail.${id}.scientific-name`)).toHaveTextContent(
+      `${FIELD_GUIDE_SCIENTIFIC_NAME_LABEL}: ${name}`,
+    );
+  });
+
+  it('shows no scientific name on the rust entry, because the app does not claim species', async () => {
+    showEntry('rust');
+    await render(<FieldGuideEntryScreen />);
+
+    expect(screen.queryByTestId('field-guide.detail.rust.scientific-name')).not.toBeOnTheScreen();
+  });
+
+  it.each(FIELD_GUIDE_LAUNCH_ENTRY_IDS)('opens the full guide from the %s entry', async (id) => {
+    showEntry(id);
+    await render(<FieldGuideEntryScreen />);
+
+    expect(screen.getByTestId(`field-guide.detail.${id}.full-guide`)).toHaveTextContent(
+      FIELD_GUIDE_READ_FULL_GUIDE,
+    );
+    await fireEvent.press(screen.getByTestId(`field-guide.detail.${id}.full-guide`));
+    expect(mockPush).toHaveBeenCalledWith(`/field-guide/${id}/guide`);
+  });
+
+  it('opens a photo in the full-screen viewer from the thumbnail', async () => {
+    showEntry('smut');
+    await render(<FieldGuideEntryScreen />);
+
+    expect(
+      screen.getByLabelText(
+        fieldGuidePhotoOpenLabel('A single long whip rising above the cane canopy'),
+      ),
+    ).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('field-guide.detail.smut.photo.1.open'));
+    expect(mockPush).toHaveBeenCalledWith('/field-guide/smut/photo?index=0');
+  });
+
+  it('keeps sources and photo credits behind a read-only disclosure', async () => {
+    showEntry('smut');
+    await render(<FieldGuideEntryScreen />);
+
+    const disclosure = screen.getByTestId('field-guide.detail.smut.sources');
+    expect(disclosure).toBeOnTheScreen();
+    expect(screen.getByText(FIELD_GUIDE_SECTION_SOURCES_AND_CREDITS)).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Show Sources and photo credits'));
+
+    // The booklet is cited but marked as not supplied, never as a dead link.
+    expect(screen.getByText(FIELD_GUIDE_SOURCE_AWAITING_SUPPLY)).toBeOnTheScreen();
+    // No photo has evidence-backed credit data yet, and the UI says so.
+    expect(screen.getAllByText(FIELD_GUIDE_CREDIT_MISSING)).toHaveLength(2);
+    expect(screen.getAllByText(/Photo by: Nikko/)).toHaveLength(2);
   });
 
   it('renders an honest not-found state for an unknown id instead of throwing', async () => {

@@ -158,7 +158,16 @@ export function AppNavigator() {
           with or without a session, exactly like the routes above.
         */}
         <Stack.Screen name="field-guide/index" />
-        <Stack.Screen name="field-guide/[entryId]" />
+        <Stack.Screen name="field-guide/[entryId]/index" />
+        <Stack.Screen name="field-guide/[entryId]/guide" />
+        <Stack.Screen
+          name="field-guide/[entryId]/photo"
+          options={{
+            presentation: 'fullScreenModal',
+            animation: 'fade',
+            gestureEnabled: true,
+          }}
+        />
         <Stack.Protected guard={__DEV__}>
           <Stack.Screen name="model-smoke-test" />
           <Stack.Screen name="model-debug" />

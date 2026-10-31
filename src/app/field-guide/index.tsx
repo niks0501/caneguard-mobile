@@ -10,7 +10,7 @@ import { ReferenceMedia } from '@/components/ui/ReferenceMedia';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import {
-  DECISION_SUPPORT_DISCLAIMER,
+  FIELD_GUIDE_EDUCATION_DISCLAIMER,
   FIELD_GUIDE_APP_CAN_CHECK,
   FIELD_GUIDE_APP_CANNOT_CHECK,
   FIELD_GUIDE_INTRO,
@@ -95,7 +95,7 @@ export default function FieldGuideIndexScreen() {
                   { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
                 ]}>
                 <Text style={[styles.disclaimerText, { color: theme.textSecondary }]}>
-                  {DECISION_SUPPORT_DISCLAIMER}
+                  {FIELD_GUIDE_EDUCATION_DISCLAIMER}
                 </Text>
               </View>
             </Card>

@@ -1,35 +1,45 @@
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { Card } from '@/components/ui/Card';
 import { ClampedText } from '@/components/ui/ClampedText';
+import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Pill, type PillVariant } from '@/components/ui/Pill';
 import { ReferenceMedia } from '@/components/ui/ReferenceMedia';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import {
-  DECISION_SUPPORT_DISCLAIMER,
   FIELD_GUIDE_APP_CAN_CHECK,
   FIELD_GUIDE_APP_CANNOT_CHECK,
   FIELD_GUIDE_APP_OBSERVATION_LABEL,
+  FIELD_GUIDE_EDUCATION_DISCLAIMER,
   FIELD_GUIDE_NOT_FOUND_ACTION,
   FIELD_GUIDE_NOT_FOUND_MESSAGE,
   FIELD_GUIDE_NOT_FOUND_TITLE,
+  FIELD_GUIDE_READ_FULL_GUIDE,
+  FIELD_GUIDE_SCIENTIFIC_NAME_LABEL,
   FIELD_GUIDE_SECTION_DETAIL,
   FIELD_GUIDE_SECTION_IMPACT,
   FIELD_GUIDE_SECTION_MANAGEMENT,
+  FIELD_GUIDE_SECTION_PREVENTION,
   FIELD_GUIDE_SECTION_SIGNS,
+  FIELD_GUIDE_SECTION_SOURCES_AND_CREDITS,
+  FIELD_GUIDE_SECTION_SOURCES_AND_CREDITS_SUMMARY,
   FIELD_GUIDE_SECTION_WHERE_TO_LOOK,
   FIELD_GUIDE_TITLE,
+  fieldGuidePhotoOpenLabel,
 } from '@/constants/copy';
 import {
   catalogObservationalWording,
   findFieldGuideEntry,
 } from '@/features/field-guide/constants/fieldGuideEntries';
+import { FieldGuidePhotoCredits } from '@/features/field-guide/components/FieldGuidePhotoCredits';
+import { FieldGuideSources } from '@/features/field-guide/components/FieldGuideSources';
 import type { FieldGuideEntry, FieldGuideImage } from '@/features/field-guide/domain/fieldGuideTypes';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -64,7 +74,8 @@ function bundledPhotos(
  *
  * Readable with no session, so it never reads from auth or an owner-scoped
  * store. An unknown route parameter renders an honest empty state instead of
- * throwing.
+ * throwing. Every photo is bundled, every citation is bundled, and the whole
+ * page renders with no internet connection.
  */
 export default function FieldGuideEntryScreen() {
   const theme = useTheme();
@@ -113,12 +124,26 @@ export default function FieldGuideEntryScreen() {
           <View style={styles.content}>
             <View style={styles.titleRow}>
               <Pill label={entry.shortName} variant={PILL_VARIANTS[entry.id] ?? 'default'} />
-              {entry.updatedAt ? (
-                <Text style={[styles.updatedAt, { color: theme.textSecondary }]}>
-                  {`Updated ${entry.updatedAt}`}
-                </Text>
-              ) : null}
+              <Text
+                style={[styles.conditionLabel, { color: theme.textSecondary }]}
+                testID={`field-guide.detail.${entry.id}.category`}>
+                {entry.conditionLabel}
+              </Text>
             </View>
+
+            {entry.scientificName ? (
+              <Text
+                style={[styles.scientificName, { color: theme.textSecondary }]}
+                testID={`field-guide.detail.${entry.id}.scientific-name`}>
+                {`${FIELD_GUIDE_SCIENTIFIC_NAME_LABEL}: ${entry.scientificName}`}
+              </Text>
+            ) : null}
+
+            <Text
+              style={[styles.summary, { color: theme.text }]}
+              testID={`field-guide.detail.${entry.id}.summary`}>
+              {entry.summary}
+            </Text>
 
             {photos.length > 0 ? (
               <View style={styles.photoList} testID={`field-guide.detail.${entry.id}.media`}>
@@ -126,6 +151,9 @@ export default function FieldGuideEntryScreen() {
                   <GalleryPhoto
                     key={photo.assetKey}
                     caption={photo.caption}
+                    onPress={() =>
+                      router.push(`/field-guide/${entry.id}/photo?index=${index}`)
+                    }
                     photo={photo.source}
                     testID={`field-guide.detail.${entry.id}.photo.${index + 1}`}
                   />
@@ -146,7 +174,7 @@ export default function FieldGuideEntryScreen() {
               ]}>
               <Feather name="info" size={16} color={theme.primary} />
               <Text style={[styles.calloutText, { color: theme.textSecondary }]}>
-                {DECISION_SUPPORT_DISCLAIMER}
+                {FIELD_GUIDE_EDUCATION_DISCLAIMER}
               </Text>
             </View>
 
@@ -198,6 +226,22 @@ export default function FieldGuideEntryScreen() {
             <Card variant="flat">
               <Text
                 style={[styles.sectionLabel, { color: theme.textSecondary }]}
+                testID={`field-guide.detail.${entry.id}.prevention`}>
+                {FIELD_GUIDE_SECTION_PREVENTION}
+              </Text>
+              <View style={styles.bulletList}>
+                {entry.prevention.map((action) => (
+                  <View key={action} style={styles.bulletRow}>
+                    <Feather name="shield" size={14} color={theme.primary} />
+                    <Text style={[styles.sectionBody, { color: theme.text }]}>{action}</Text>
+                  </View>
+                ))}
+              </View>
+            </Card>
+
+            <Card variant="flat">
+              <Text
+                style={[styles.sectionLabel, { color: theme.textSecondary }]}
                 testID={`field-guide.detail.${entry.id}.management`}>
                 {FIELD_GUIDE_SECTION_MANAGEMENT}
               </Text>
@@ -221,6 +265,29 @@ export default function FieldGuideEntryScreen() {
                 style={[styles.sectionBody, { color: theme.text }]}
               />
             </Card>
+
+            <AppButton
+              accessibilityLabel={`${FIELD_GUIDE_READ_FULL_GUIDE}: ${entry.displayName}`}
+              onPress={() => router.push(`/field-guide/${entry.id}/guide`)}
+              testID={`field-guide.detail.${entry.id}.full-guide`}
+              trailingIcon="arrow-right"
+              variant="secondary">
+              {FIELD_GUIDE_READ_FULL_GUIDE}
+            </AppButton>
+
+            <DisclosureSection
+              summary={FIELD_GUIDE_SECTION_SOURCES_AND_CREDITS_SUMMARY}
+              testID={`field-guide.detail.${entry.id}.sources`}
+              title={FIELD_GUIDE_SECTION_SOURCES_AND_CREDITS}>
+              <FieldGuideSources
+                sourceIds={entry.sourceIds}
+                testID={`field-guide.detail.${entry.id}.sources.list`}
+              />
+              <FieldGuidePhotoCredits
+                images={entry.images}
+                testID={`field-guide.detail.${entry.id}.credits`}
+              />
+            </DisclosureSection>
           </View>
         </ScrollView>
       </View>
@@ -243,10 +310,12 @@ function ReadingBlock({ body, label, testID }: { body: string; label: string; te
 
 function GalleryPhoto({
   caption,
+  onPress,
   photo,
   testID,
 }: {
   caption: string;
+  onPress: () => void;
   photo: number;
   testID: string;
 }) {
@@ -254,11 +323,16 @@ function GalleryPhoto({
 
   return (
     <View style={styles.photoFigure}>
-      <View
-        style={[
+      <Pressable
+        accessibilityLabel={fieldGuidePhotoOpenLabel(caption)}
+        accessibilityRole="imagebutton"
+        onPress={onPress}
+        style={({ pressed }) => [
           styles.photoFrame,
           { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-        ]}>
+          pressed && styles.pressed,
+        ]}
+        testID={`${testID}.open`}>
         <Image
           accessibilityLabel={caption}
           cachePolicy="memory-disk"
@@ -267,7 +341,10 @@ function GalleryPhoto({
           style={styles.photoImage}
           testID={testID}
         />
-      </View>
+        <View style={[styles.photoBadge, { backgroundColor: theme.surfaceElevated }]}>
+          <Feather name="maximize-2" size={14} color={theme.text} />
+        </View>
+      </Pressable>
       <Text style={[styles.photoCaption, { color: theme.textSecondary }]}>{caption}</Text>
     </View>
   );
@@ -297,7 +374,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.sm,
   },
-  updatedAt: { ...Typography.caption, flexShrink: 1, textAlign: 'right' },
+  conditionLabel: { ...Typography.caption, flexShrink: 1, textAlign: 'right' },
+  scientificName: { ...Typography.caption },
+  summary: { ...Typography.body },
   callout: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -326,6 +405,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   photoImage: { width: '100%', height: '100%' },
+  photoBadge: {
+    position: 'absolute',
+    right: Spacing.sm,
+    bottom: Spacing.sm,
+    borderRadius: Radius.full,
+    padding: Spacing.xs,
+  },
   photoCaption: { ...Typography.caption },
   bulletList: { gap: Spacing.sm },
   bulletRow: {
@@ -333,4 +419,5 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: Spacing.sm,
   },
+  pressed: { opacity: 0.82 },
 });

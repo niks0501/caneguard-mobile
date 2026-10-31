@@ -19,12 +19,17 @@ function readingText(entry: FieldGuideEntry): string[] {
     entry.id,
     entry.displayName,
     entry.shortName,
+    entry.conditionLabel,
+    ...(entry.scientificName ? [entry.scientificName] : []),
     entry.summary,
     ...entry.signs,
     entry.whereToLook,
     entry.impact,
+    ...entry.prevention,
     ...entry.management,
     entry.detail,
+    entry.guide.intro,
+    ...entry.guide.sections.flatMap((section) => [section.heading, ...section.paragraphs]),
     ...entry.images.map((image) => `${image.caption} ${image.subject}`),
   ];
 }
@@ -190,6 +195,40 @@ describe('field guide safety rules over the entry data', () => {
     }
 
     expect(violations).toEqual([]);
+  });
+
+  it('sweeps the long-form guide as well as the short reading copy', () => {
+    // Guard the guard: if the sweep stopped covering the guide, this fails.
+    const rust = findFieldGuideEntry('rust');
+    expect(rust).not.toBeNull();
+    expect(readingText(rust as FieldGuideEntry)).toEqual(
+      expect.arrayContaining([rust?.guide.sections[0].paragraphs[0]]),
+    );
+  });
+
+  it('marks every launch entry for expert review in editorial metadata only', () => {
+    for (const entry of fieldGuideEntries) {
+      expect(entry.editorial.validationStatus).toBe('pending-expert-review');
+      expect(entry.editorial.reviewedAt).toBeNull();
+      expect(entry.editorial.validationNote.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('gives every bundled photo a credit record that never invents a licence', () => {
+    for (const entry of fieldGuideEntries) {
+      for (const image of entry.images) {
+        const credit = image.credit;
+        expect(credit).toBeDefined();
+        if (credit.recorded) {
+          expect(credit.creator).not.toBeNull();
+          expect(credit.licenseName).not.toBeNull();
+          expect(credit.sourcePageUrl).not.toBeNull();
+        } else {
+          expect(credit.licenseName).toBeNull();
+          expect(credit.licenseUrl).toBeNull();
+        }
+      }
+    }
   });
 
   it('never emits RSSI as a model class score', () => {

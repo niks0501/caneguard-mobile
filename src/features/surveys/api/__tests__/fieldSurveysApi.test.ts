@@ -19,7 +19,6 @@ const payload = {
     affected_area_sqm: 0,
     source_polygon_count: 0,
     overlap_removed: false,
-    affected_area_waypoint_provenance: [],
   },
   captured_at: '2026-10-05T09:00:00.000Z',
   district_code: 'D-01',

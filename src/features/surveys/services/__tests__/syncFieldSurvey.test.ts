@@ -7,7 +7,7 @@ import { EMPTY_DATABASE } from '@/database/DatabaseProvider';
 import type { CaneGuardDatabase } from '@/database/database';
 import * as schema from '@/database/schema';
 import { apiRequest } from '@/features/shared/api/apiClient';
-import { markFieldSurveyPending, saveFieldSurveyDraft } from '@/features/surveys/data/fieldSurveyRepository';
+import { markFieldSurveyPending, findOwnedFieldSurvey, saveFieldSurveyDraft } from '@/features/surveys/data/fieldSurveyRepository';
 import { ringArea, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { syncFieldSurvey } from '@/features/surveys/services/syncFieldSurvey';
 
@@ -74,7 +74,7 @@ const affectedWaypoints: SurveyWaypoint[] = [
 ];
 
 describe('syncFieldSurvey upload contract', () => {
-  it('sends affected-area waypoint provenance inside measurement_provenance without a separate waypoint field', async () => {
+  it('uploads only the approved measurement provenance and keeps affected-area waypoint provenance local', async () => {
     const { database, native } = openDatabase();
     const draft = await saveFieldSurveyDraft(database, {
       capturedAt: '2026-10-31T02:03:00.000Z',
@@ -109,13 +109,20 @@ describe('syncFieldSurvey upload contract', () => {
     const request = jest.mocked(apiRequest).mock.calls[0][1];
     const body = JSON.parse(String(request?.body));
     expect(body).not.toHaveProperty('affected_area_waypoints');
-    expect(body.measurement_provenance.affected_area_waypoint_provenance).toEqual([
-      affectedWaypoints.map((waypoint) => ({
-        source: waypoint.source,
-        accuracy_meters: waypoint.accuracyMeters,
-        captured_at: waypoint.capturedAt,
-      })),
+    expect(Object.keys(body.measurement_provenance).sort()).toEqual([
+      'affected_area_sqm',
+      'method',
+      'overlap_removed',
+      'plot_area_sqm',
+      'source_polygon_count',
     ]);
+    expect(body.measurement_provenance).toMatchObject({
+      method: 'wgs84-ellipsoid-geodesic',
+      source_polygon_count: 1,
+      overlap_removed: false,
+    });
+    const pending = findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')!;
+    expect(pending.affectedAreaWaypointsJson).toEqual(JSON.stringify([affectedWaypoints]));
     native.close();
   });
 });

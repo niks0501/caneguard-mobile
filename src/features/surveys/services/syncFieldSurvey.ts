@@ -1,6 +1,6 @@
 import type { CaneGuardDatabase } from '@/database/database';
 import { findOwnedFieldSurvey, updateFieldSurveySyncResult } from '@/features/surveys/data/fieldSurveyRepository';
-import { FieldSurveyValidationError, submitFieldSurvey, type FieldSurveyAffectedAreaWaypoint, type FieldSurveyMeasurementProvenance } from '@/features/surveys/api/fieldSurveysApi';
+import { FieldSurveyValidationError, submitFieldSurvey, type FieldSurveyAffectedAreaWaypointProvenance, type FieldSurveyMeasurementProvenance } from '@/features/surveys/api/fieldSurveysApi';
 import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
 
@@ -45,7 +45,7 @@ export async function syncFieldSurvey(options: {
     Math.abs(affectedMeasurement.areaSqm - (row.affectedAreaSqm ?? 0)) > Math.max(0.01, (row.affectedAreaSqm ?? 0) * 1e-10)) {
     return rejectInvalidLocalRecord(options, 'The saved polygon measurements do not match their boundaries. Recreate the boundary before syncing.');
   }
-  let measurementProvenance: FieldSurveyMeasurementProvenance;
+  let measurementProvenance: Omit<FieldSurveyMeasurementProvenance, 'affected_area_waypoint_provenance'>;
   try {
     measurementProvenance = toWireProvenance(row.measurementProvenanceJson, affectedMeasurement.provenance);
   } catch {
@@ -64,8 +64,10 @@ export async function syncFieldSurvey(options: {
           area_sqm: row.areaSqm,
           affected_area_polygons: affectedAreaPolygons,
           affected_area_sqm: row.affectedAreaSqm ?? 0,
-          affected_area_waypoints: toWireAffectedAreaWaypoints(affectedAreaWaypoints),
-          measurement_provenance: measurementProvenance,
+          measurement_provenance: {
+            ...measurementProvenance,
+            affected_area_waypoint_provenance: toWireAffectedAreaWaypointProvenance(affectedAreaWaypoints),
+          },
           captured_at: row.capturedAt,
           district_code: row.districtCode,
         }, options.token);
@@ -120,7 +122,7 @@ function toWireProvenance(
     sourcePolygonCount: number;
     overlapRemoved: boolean;
   },
-): FieldSurveyMeasurementProvenance {
+): Omit<FieldSurveyMeasurementProvenance, 'affected_area_waypoint_provenance'> {
   if (storedJson) {
     const stored = JSON.parse(storedJson) as typeof computed;
     if (stored.method !== computed.method || stored.plotAreaSqm !== computed.plotAreaSqm ||
@@ -141,11 +143,9 @@ function toWireProvenance(
   };
 }
 
-function toWireAffectedAreaWaypoints(waypointSets: SurveyWaypoint[][]): FieldSurveyAffectedAreaWaypoint[][] {
+function toWireAffectedAreaWaypointProvenance(waypointSets: SurveyWaypoint[][]): FieldSurveyAffectedAreaWaypointProvenance[][] {
   return waypointSets.map((waypoints) =>
     waypoints.map((waypoint) => ({
-      latitude: waypoint.latitude,
-      longitude: waypoint.longitude,
       source: waypoint.source,
       accuracy_meters: waypoint.accuracyMeters,
       captured_at: waypoint.capturedAt,

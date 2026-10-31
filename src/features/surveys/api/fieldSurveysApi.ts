@@ -1,27 +1,25 @@
 import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
 import type { SurveyPolygon } from '@/features/surveys/domain/fieldSurvey';
 
+export interface FieldSurveyAffectedAreaWaypointProvenance {
+  source: 'map' | 'gps';
+  accuracy_meters: number | null;
+  captured_at: string;
+}
+
 export interface FieldSurveyMeasurementProvenance {
   method: 'wgs84-ellipsoid-geodesic';
   plot_area_sqm: number;
   affected_area_sqm: number;
   source_polygon_count: number;
   overlap_removed: boolean;
-}
-
-export interface FieldSurveyAffectedAreaWaypoint {
-  latitude: number;
-  longitude: number;
-  source: 'map' | 'gps';
-  accuracy_meters: number | null;
-  captured_at: string;
+  affected_area_waypoint_provenance: FieldSurveyAffectedAreaWaypointProvenance[][];
 }
 
 export interface SubmitFieldSurveyPayload {
   area_sqm: number;
   affected_area_polygons: SurveyPolygon[];
   affected_area_sqm: number;
-  affected_area_waypoints: FieldSurveyAffectedAreaWaypoint[][];
   measurement_provenance: FieldSurveyMeasurementProvenance;
   captured_at: string;
   client_uuid: string;

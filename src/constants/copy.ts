@@ -99,8 +99,63 @@ export const FIELD_GUIDE_ENTRY_DESCRIPTION = 'Read about sugarcane diseases and 
 export const FIELD_GUIDE_SECTION_SIGNS = 'Signs';
 export const FIELD_GUIDE_SECTION_WHERE_TO_LOOK = 'Where to look';
 export const FIELD_GUIDE_SECTION_IMPACT = 'Why it matters';
+export const FIELD_GUIDE_SECTION_PREVENTION = 'Prevention';
 export const FIELD_GUIDE_SECTION_MANAGEMENT = 'What you can do';
 export const FIELD_GUIDE_SECTION_DETAIL = 'More detail';
+export const FIELD_GUIDE_SECTION_SOURCES_AND_CREDITS = 'Sources and photo credits';
+export const FIELD_GUIDE_SECTION_SOURCES_AND_CREDITS_SUMMARY =
+  'Where this page comes from and who took the photos';
+
+/** The long-form, offline reading page behind every entry. */
+export const FIELD_GUIDE_READ_FULL_GUIDE = 'Read the full guide';
+export const FIELD_GUIDE_GUIDE_TITLE = 'Full guide';
+export const FIELD_GUIDE_GUIDE_SOURCES_TITLE = 'Sources for this guide';
+export const FIELD_GUIDE_SCIENTIFIC_NAME_LABEL = 'Scientific name';
+
+/**
+ * Gallery disclaimer. Distinct from `DECISION_SUPPORT_DISCLAIMER`, which is
+ * phrased for a scan result; the gallery is education, never a diagnosis.
+ */
+export const FIELD_GUIDE_EDUCATION_DISCLAIMER =
+  'This guide is for education. It does not confirm a diagnosis — ask your agriculture officer to confirm what you see.';
+
+/**
+ * Pending-review marker rendered beside the education disclaimer on every
+ * reading surface while an entry's editorial record is still pending.
+ */
+export const FIELD_GUIDE_PENDING_VALIDATION_NOTICE =
+  'Pending expert validation: this agricultural guidance has not yet been approved by SRA or a qualified local expert.';
+
+/** Source rows. A missing document says so instead of showing a dead link. */
+export const FIELD_GUIDE_SOURCE_OPEN_LABEL = 'Read the original source';
+export const FIELD_GUIDE_SOURCE_INTERNET_REQUIRED =
+  'Opens in your browser. Internet is required.';
+export const FIELD_GUIDE_SOURCE_OPEN_FAILED =
+  'Could not open the link. The guide still works offline.';
+export const FIELD_GUIDE_SOURCE_AWAITING_SUPPLY = 'Not supplied yet';
+export const FIELD_GUIDE_SOURCE_AWAITING_SUPPLY_NOTE =
+  'The office has requested this document. This page will cite the exact pages once it arrives.';
+
+/** Photo credits. A blank record is labelled, never filled in by guesswork. */
+export const FIELD_GUIDE_CREDIT_MISSING =
+  'Creator and licence are not recorded for this photo yet.';
+export const FIELD_GUIDE_CREDIT_CREATOR_LABEL = 'Photo by';
+export const FIELD_GUIDE_CREDIT_LICENSE_LABEL = 'Licence';
+export const FIELD_GUIDE_CREDIT_SOURCE_LABEL = 'Original page';
+
+/** Full-screen photo viewer. */
+export const FIELD_GUIDE_PHOTO_VIEWER_HINT = 'Pinch to zoom, then drag to move around the photo.';
+export const FIELD_GUIDE_PHOTO_VIEWER_RESET = 'Reset zoom';
+export const FIELD_GUIDE_PHOTO_VIEWER_CLOSE = 'Close photo';
+export const FIELD_GUIDE_PHOTO_VIEWER_MISSING_TITLE = 'Photo not available';
+export const FIELD_GUIDE_PHOTO_VIEWER_MISSING_MESSAGE =
+  'This photo is not bundled on this device.';
+export const FIELD_GUIDE_PHOTO_VIEWER_MISSING_ACTION = 'Back to the entry';
+
+/** Accessible label for a tappable photo thumbnail. */
+export function fieldGuidePhotoOpenLabel(caption: string): string {
+  return `Open the photo: ${caption}`;
+}
 
 /**
  * Per-entry app-capability line. RSSI is deliberately the honest "cannot"

@@ -110,12 +110,22 @@ export default function FieldSurveyScreen() {
           } catch {
             restoredWaypoints = [];
           }
+          let restoredActive: SurveyWaypoint[] = [];
+          try {
+            const parsedActive = JSON.parse(previous.activeAffectedWaypointsJson ?? '[]') as SurveyWaypoint[];
+            if (Array.isArray(parsedActive)) restoredActive = parsedActive;
+          } catch {
+            restoredActive = [];
+          }
           setAffectedAreas(restoredAreas);
           setAffectedAreaWaypointSets(restoredWaypoints);
+          setAffectedWaypoints(restoredActive);
+          if (restoredActive.length > 0) setDrawingAffectedArea(true);
         } catch {
           setWaypoints([]);
           setAffectedAreas([]);
           setAffectedAreaWaypointSets([]);
+          setAffectedWaypoints([]);
         }
         if (previous.fieldErrorsJson) {
           try {
@@ -153,6 +163,7 @@ export default function FieldSurveyScreen() {
       waypoints,
       affectedAreaPolygons: affectedAreas,
       affectedAreaWaypoints: affectedAreaWaypointSets,
+      activeAffectedWaypoints: affectedWaypoints,
       capturedAt: new Date().toISOString(),
     }).then(() => {
       if (!cancelled) setSaved(true);
@@ -160,7 +171,7 @@ export default function FieldSurveyScreen() {
       if (!cancelled) setSaved(false);
     });
     return () => { cancelled = true; };
-  }, [affectedAreas, affectedAreaWaypointSets, bootstrapped, clientUuid, database, districtCode, ready, session?.user.uuid, waypoints]);
+  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, bootstrapped, clientUuid, database, districtCode, ready, session?.user.uuid, waypoints]);
 
   function addOrMovePoint(latitude: number, longitude: number, source: 'map' | 'gps', accuracyMeters: number | null, capturedAt = new Date().toISOString()) {
     if (readOnlyPending || syncBusy) {

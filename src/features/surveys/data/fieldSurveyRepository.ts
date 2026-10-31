@@ -14,6 +14,7 @@ export interface FieldSurveyDraft {
   waypoints: SurveyWaypoint[];
   affectedAreaPolygons?: SurveyPolygon[];
   affectedAreaWaypoints?: SurveyWaypoint[][];
+  activeAffectedWaypoints?: SurveyWaypoint[];
 }
 
 export async function saveFieldSurveyDraft(
@@ -38,6 +39,7 @@ export async function saveFieldSurveyDraft(
         waypointsJson: JSON.stringify(input.waypoints),
         affectedAreaPolygonsJson: JSON.stringify(input.affectedAreaPolygons ?? []),
         affectedAreaWaypointsJson: JSON.stringify(input.affectedAreaWaypoints ?? []),
+        activeAffectedWaypointsJson: JSON.stringify(input.activeAffectedWaypoints ?? []),
         updatedAt: new Date().toISOString(),
       }).where(and(eq(fieldSurveys.clientUuid, input.clientUuid), eq(fieldSurveys.ownerIdentity, owner))).run();
     } else {
@@ -48,6 +50,7 @@ export async function saveFieldSurveyDraft(
         waypointsJson: JSON.stringify(input.waypoints),
         affectedAreaPolygonsJson: JSON.stringify(input.affectedAreaPolygons ?? []),
         affectedAreaWaypointsJson: JSON.stringify(input.affectedAreaWaypoints ?? []),
+        activeAffectedWaypointsJson: JSON.stringify(input.activeAffectedWaypoints ?? []),
         capturedAt: input.capturedAt,
         status: 'draft',
         createdAt: input.capturedAt,
@@ -121,6 +124,7 @@ export function markFieldSurveyPending(
     affectedAreaPolygonsJson: JSON.stringify(affectedAreaPolygons),
     affectedAreaSqm,
     affectedAreaWaypointsJson: JSON.stringify(affectedAreaWaypoints),
+    activeAffectedWaypointsJson: JSON.stringify([]),
     measurementProvenanceJson: JSON.stringify(affectedMeasurement.provenance),
     capturedAt,
     status: 'pending',

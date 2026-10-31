@@ -602,6 +602,7 @@ export const fieldSurveys = sqliteTable(
     affectedAreaPolygonsJson: text('affected_area_polygons_json'),
     affectedAreaSqm: real('affected_area_sqm'),
     affectedAreaWaypointsJson: text('affected_area_waypoints_json'),
+    activeAffectedWaypointsJson: text('active_affected_waypoints_json'),
     measurementProvenanceJson: text('measurement_provenance_json'),
     capturedAt: text('captured_at').notNull(),
     status: text('status').$type<FieldSurveyStatus>().notNull().default('draft'),

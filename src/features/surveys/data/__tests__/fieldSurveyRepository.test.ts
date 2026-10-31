@@ -25,6 +25,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
   native.exec(readFileSync('drizzle/0021_field_survey_affected_areas.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   native.exec(readFileSync('drizzle/0022_peaceful_titania.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   native.exec(readFileSync('drizzle/0023_affected_area_waypoints.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
+  native.exec(readFileSync('drizzle/0024_active_affected_waypoints.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   const client = {
     prepareSync(sql: string) {
       const statement = native.prepare(sql);
@@ -116,6 +117,29 @@ describe('field survey local repository', () => {
     const pending = findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')!;
     expect(JSON.parse(pending.affectedAreaWaypointsJson!)).toEqual([affectedWaypoints]);
     expect(JSON.parse(pending.affectedAreaWaypointsJson!)[0][1]).toMatchObject({ source: 'gps', accuracyMeters: 3.4 });
+    native.close();
+  });
+
+  it('retains unfinished affected waypoints in the draft and clears them on pending', async () => {
+    const { database, native } = openDatabase();
+    const active = [
+      { latitude: 14, longitude: 120, source: 'map' as const, accuracyMeters: null, capturedAt: '2026-10-05T09:00:00.000Z' },
+      { latitude: 14, longitude: 120.001, source: 'gps' as const, accuracyMeters: 3.4, capturedAt: '2026-10-05T09:00:01.000Z' },
+    ];
+    const draft = await saveFieldSurveyDraft(database, {
+      capturedAt: waypoint.capturedAt,
+      clientUuid: 'survey-unfinished',
+      districtCode: 'D-01',
+      ownerIdentity: 'owner-1',
+      waypoints: [waypoint],
+      activeAffectedWaypoints: active,
+    });
+    expect(JSON.parse(draft.activeAffectedWaypointsJson!)).toEqual(active);
+    expect(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')).toMatchObject({ status: 'draft' });
+    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt);
+    const pending = findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')!;
+    expect(pending.status).toBe('pending');
+    expect(JSON.parse(pending.activeAffectedWaypointsJson!)).toEqual([]);
     native.close();
   });
 

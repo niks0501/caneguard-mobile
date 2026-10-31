@@ -16,7 +16,8 @@ export type FieldGuidePhotoCreditsProps = {
 };
 
 /**
- * Per-photo credit block for the read-only credits disclosure.
+ * Per-photo credit block, rendered in the entry's read-only credits disclosure
+ * and under the open photo in the full-screen viewer.
  *
  * An incomplete record is labelled as incomplete. Nothing here guesses a
  * creator, a licence or an original page; those fields are filled in only when

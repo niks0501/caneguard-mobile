@@ -72,8 +72,9 @@ licence and original page into that photo's `credit` record and set
 `recorded: true`.
 
 The app now shows photo credits and sources in a read-only "Sources and photo
-credits" disclosure on the entry page and in the full guide, so credited
-photos no longer rely on the store listing alone. Keep the banned-word rule for
+credits" disclosure on the entry page and in the full guide, and under the
+photo in the full-screen viewer, so credited photos no longer rely on the
+store listing alone. Keep the banned-word rule for
 **reading copy** — signs, summaries, prevention and management text must never
 carry licence, provenance or manifest wording. Credit labels are drawn from
 `src/constants/copy.ts` and are the only place that wording belongs.

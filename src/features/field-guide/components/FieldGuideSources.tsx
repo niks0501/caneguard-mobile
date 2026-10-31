@@ -29,7 +29,8 @@ function sourceMeta(source: FieldGuideSource): string {
 }
 
 /**
- * Read-only citation list for one entry or one guide chapter.
+ * Read-only citation list for one entry, rendered once in that entry's
+ * "Sources and photo credits" disclosure.
  *
  * A published source keeps its URL as readable text so the citation still
  * works with no internet; opening the browser is optional and reports failure

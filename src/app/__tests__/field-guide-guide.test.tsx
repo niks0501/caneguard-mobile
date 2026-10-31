@@ -11,6 +11,7 @@ import {
   FIELD_GUIDE_SOURCE_AWAITING_SUPPLY,
 } from '@/constants/copy';
 import { findFieldGuideEntry } from '@/features/field-guide/constants/fieldGuideEntries';
+import { findFieldGuideSource } from '@/features/field-guide/constants/fieldGuideSources';
 import { FIELD_GUIDE_LAUNCH_ENTRY_IDS } from '@/features/field-guide/domain/fieldGuideTypes';
 
 const mockReplace = jest.mocked(router.replace);
@@ -76,6 +77,23 @@ describe('FieldGuideGuideScreen', () => {
       screen.getAllByText(FIELD_GUIDE_SOURCE_AWAITING_SUPPLY).length,
     ).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText(FIELD_GUIDE_CREDIT_MISSING)).toHaveLength(2);
+  });
+
+  it('lists each cited source once on the page, not once per chapter', async () => {
+    showEntry('rssi');
+    await render(<FieldGuideGuideScreen />);
+
+    await fireEvent.press(screen.getByLabelText('Show Sources and photo credits'));
+
+    const entry = findFieldGuideEntry('rssi');
+    const citedTitles = (entry?.sourceIds ?? []).map(
+      (id) => findFieldGuideSource(id)?.title ?? id,
+    );
+
+    expect(citedTitles.length).toBeGreaterThan(1);
+    for (const title of citedTitles) {
+      expect(screen.getAllByText(title)).toHaveLength(1);
+    }
   });
 
   it('marks a not-yet-supplied document instead of linking a dead page', async () => {

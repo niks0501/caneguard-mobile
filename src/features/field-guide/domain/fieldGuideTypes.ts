@@ -59,7 +59,10 @@ export type FieldGuideImage = {
   subject: 'leaf' | 'leaf-underside' | 'stalk' | 'shoot' | 'whole-plant' | 'insect';
   /** Provenance key into MANIFEST.csv; NEVER rendered in the UI. */
   assetKey: string;
-  /** Visible credit data; rendered only in the read-only credits disclosure. */
+  /**
+   * Visible credit data; rendered only in the read-only credits block on the
+   * entry, the full guide and the photo viewer.
+   */
   credit: FieldGuideImageCredit;
 };
 

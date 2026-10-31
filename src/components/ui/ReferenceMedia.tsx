@@ -24,8 +24,9 @@ export type ReferenceMediaProps = {
  * description-only state fills exactly the same frame instead of shrinking to
  * a text strip.
  *
- * Licensing and provenance are deliberately absent here: they belong in the
- * asset manifest, never in the inspector's field reference.
+ * Licensing and provenance are deliberately absent from this frame: credited
+ * photos show their credit in the entry's read-only credits block
+ * (`FieldGuidePhotoCredits`), never on the field reference itself.
  */
 export function ReferenceMedia({
   label,

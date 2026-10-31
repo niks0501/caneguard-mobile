@@ -24,6 +24,7 @@ import m0019 from './0019_add_field_surveys.sql';
 import m0020 from './0020_nasty_captain_midlands.sql';
 import m0021 from './0021_field_survey_affected_areas.sql';
 import m0022 from './0022_peaceful_titania.sql';
+import m0023 from './0023_affected_area_waypoints.sql';
 
   export default {
     journal,
@@ -50,7 +51,8 @@ m0018,
 m0019,
 m0020,
 m0021,
-m0022
+m0022,
+m0023
     }
   }
   

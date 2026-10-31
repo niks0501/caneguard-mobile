@@ -10,7 +10,7 @@ import { Card } from '@/components/ui/Card';
 import { ClampedText } from '@/components/ui/ClampedText';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Pill, type PillVariant } from '@/components/ui/Pill';
+import { Pill } from '@/components/ui/Pill';
 import { ReferenceMedia } from '@/components/ui/ReferenceMedia';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import {
@@ -38,19 +38,12 @@ import {
   catalogObservationalWording,
   findFieldGuideEntry,
 } from '@/features/field-guide/constants/fieldGuideEntries';
+import { FIELD_GUIDE_PILL_VARIANTS } from '@/features/field-guide/constants/fieldGuidePillVariants';
 import { FieldGuidePhotoCredits } from '@/features/field-guide/components/FieldGuidePhotoCredits';
 import { FieldGuidePendingValidationNotice } from '@/features/field-guide/components/FieldGuidePendingValidationNotice';
 import { FieldGuideSources } from '@/features/field-guide/components/FieldGuideSources';
 import type { FieldGuideEntry, FieldGuideImage } from '@/features/field-guide/domain/fieldGuideTypes';
 import { useTheme } from '@/hooks/use-theme';
-
-const PILL_VARIANTS: Record<string, PillVariant> = {
-  healthy: 'healthy',
-  mosaic: 'mosaic',
-  rust: 'rust',
-  smut: 'smut',
-  rssi: 'warning',
-};
 
 /**
  * The entry's bundled photos, in reading order. `FieldGuideImage.source` also
@@ -124,7 +117,7 @@ export default function FieldGuideEntryScreen() {
           showsVerticalScrollIndicator={false}>
           <View style={styles.content}>
             <View style={styles.titleRow}>
-              <Pill label={entry.shortName} variant={PILL_VARIANTS[entry.id] ?? 'default'} />
+              <Pill label={entry.shortName} variant={FIELD_GUIDE_PILL_VARIANTS[entry.id]} />
               <Text
                 style={[styles.conditionLabel, { color: theme.textSecondary }]}
                 testID={`field-guide.detail.${entry.id}.category`}>

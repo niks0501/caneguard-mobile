@@ -564,5 +564,5 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
   },
 };
 
-/** Release-gate metadata for every launch entry; exported for the proofs. */
+/** The pending-review status shared by every launch entry, rendered beside the education disclaimer. */
 export const fieldGuideEditorial: FieldGuideEditorial = PENDING_EXPERT_REVIEW;

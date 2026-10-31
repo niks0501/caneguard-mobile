@@ -61,16 +61,9 @@ export function FieldGuidePhotoCredits({ images, testID }: FieldGuidePhotoCredit
               ) : null}
             </>
           ) : (
-            <>
-              {image.credit.creator ? (
-                <Text style={[styles.line, { color: theme.textSecondary }]}>
-                  {`${FIELD_GUIDE_CREDIT_CREATOR_LABEL}: ${image.credit.creator}`}
-                </Text>
-              ) : null}
-              <Text style={[styles.line, { color: theme.textSecondary }]}>
-                {FIELD_GUIDE_CREDIT_MISSING}
-              </Text>
-            </>
+            <Text style={[styles.line, { color: theme.textSecondary }]}>
+              {FIELD_GUIDE_CREDIT_MISSING}
+            </Text>
           )}
         </View>
       ))}

@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { Card } from '@/components/ui/Card';
-import { Pill, type PillVariant } from '@/components/ui/Pill';
+import { Pill } from '@/components/ui/Pill';
 import { ReferenceMedia } from '@/components/ui/ReferenceMedia';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
@@ -18,6 +18,7 @@ import {
 } from '@/constants/copy';
 import { fieldGuideEntriesForCategory } from '@/features/field-guide/constants/fieldGuideEntries';
 import { fieldGuideEditorial } from '@/features/field-guide/constants/fieldGuideEntryContent';
+import { FIELD_GUIDE_PILL_VARIANTS } from '@/features/field-guide/constants/fieldGuidePillVariants';
 import { FieldGuidePendingValidationNotice } from '@/features/field-guide/components/FieldGuidePendingValidationNotice';
 import {
   FIELD_GUIDE_CATEGORY_ORDER,
@@ -30,14 +31,6 @@ const CATEGORY_HEADINGS: Record<FieldGuideCategory, string> = {
   healthy: 'Baseline',
   disease: 'Diseases',
   pest: 'Pests',
-};
-
-const PILL_VARIANTS: Record<string, PillVariant> = {
-  healthy: 'healthy',
-  mosaic: 'mosaic',
-  rust: 'rust',
-  smut: 'smut',
-  rssi: 'warning',
 };
 
 function appCheckLine(entry: FieldGuideEntry): string {
@@ -130,7 +123,7 @@ export default function FieldGuideIndexScreen() {
                         <View style={styles.cardHeader}>
                           <Pill
                             label={entry.shortName}
-                            variant={PILL_VARIANTS[entry.id] ?? 'default'}
+                            variant={FIELD_GUIDE_PILL_VARIANTS[entry.id]}
                           />
                           <Text style={[styles.cardCheck, { color: theme.textSecondary }]}>
                             {appCheckLine(entry)}

@@ -120,7 +120,7 @@ export const FIELD_GUIDE_EDUCATION_DISCLAIMER =
   'This guide is for education. It does not confirm a diagnosis — ask your agriculture officer to confirm what you see.';
 
 /**
- * Release-gate marker rendered beside the education disclaimer on every
+ * Pending-review marker rendered beside the education disclaimer on every
  * reading surface while an entry's editorial record is still pending.
  */
 export const FIELD_GUIDE_PENDING_VALIDATION_NOTICE =

@@ -303,9 +303,9 @@ describe('FieldGuideEntryScreen', () => {
 
     // The booklet is cited but marked as not supplied, never as a dead link.
     expect(screen.getByText(FIELD_GUIDE_SOURCE_AWAITING_SUPPLY)).toBeOnTheScreen();
-    // No photo has evidence-backed credit data yet, and the UI says so.
+    // No photo has evidence-backed credit data yet, so only the missing line renders.
     expect(screen.getAllByText(FIELD_GUIDE_CREDIT_MISSING)).toHaveLength(2);
-    expect(screen.getAllByText(/Photo by: Nikko/)).toHaveLength(2);
+    expect(screen.queryByText(/Photo by/)).not.toBeOnTheScreen();
   });
 
   it('renders an honest not-found state for an unknown id instead of throwing', async () => {

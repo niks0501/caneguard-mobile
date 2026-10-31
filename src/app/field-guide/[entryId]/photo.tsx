@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import {
   FIELD_GUIDE_EDUCATION_DISCLAIMER,
+  FIELD_GUIDE_NOT_FOUND_ACTION,
   FIELD_GUIDE_NOT_FOUND_MESSAGE,
   FIELD_GUIDE_NOT_FOUND_TITLE,
   FIELD_GUIDE_PHOTO_VIEWER_CLOSE,
@@ -44,7 +45,12 @@ export default function FieldGuidePhotoScreen() {
   const photos = entry ? entry.images.filter(isBundledPhoto) : [];
   const parsedIndex = Number.parseInt(index ?? '0', 10);
   const photo = Number.isInteger(parsedIndex) ? photos[parsedIndex] : undefined;
-  const backToEntry = () => router.replace(`/field-guide/${entry?.id ?? ''}`);
+  const backToGallery = () => router.replace('/field-guide');
+  const backToEntry = () => {
+    if (entry) {
+      router.replace(`/field-guide/${entry.id}`);
+    }
+  };
 
   if (!entry || !photo) {
     return (
@@ -60,9 +66,11 @@ export default function FieldGuidePhotoScreen() {
             }
             title={entry ? FIELD_GUIDE_PHOTO_VIEWER_MISSING_TITLE : FIELD_GUIDE_NOT_FOUND_TITLE}
             action={{
-              label: FIELD_GUIDE_PHOTO_VIEWER_MISSING_ACTION,
-              onPress: backToEntry,
-              icon: 'arrow-left',
+              label: entry
+                ? FIELD_GUIDE_PHOTO_VIEWER_MISSING_ACTION
+                : FIELD_GUIDE_NOT_FOUND_ACTION,
+              onPress: entry ? backToEntry : backToGallery,
+              icon: entry ? 'arrow-left' : 'book-open',
               testID: 'field-guide.photo.not-found.action',
             }}
             testID="field-guide.photo.not-found"

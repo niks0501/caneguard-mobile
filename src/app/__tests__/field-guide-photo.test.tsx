@@ -5,6 +5,7 @@ import FieldGuidePhotoScreen from '@/app/field-guide/[entryId]/photo';
 import {
   FIELD_GUIDE_CREDIT_MISSING,
   FIELD_GUIDE_EDUCATION_DISCLAIMER,
+  FIELD_GUIDE_NOT_FOUND_ACTION,
   FIELD_GUIDE_NOT_FOUND_TITLE,
   FIELD_GUIDE_PENDING_VALIDATION_NOTICE,
   FIELD_GUIDE_PHOTO_VIEWER_CLOSE,
@@ -80,5 +81,8 @@ describe('FieldGuidePhotoScreen', () => {
     await render(<FieldGuidePhotoScreen />);
 
     expect(screen.getByText(FIELD_GUIDE_NOT_FOUND_TITLE)).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByText(FIELD_GUIDE_NOT_FOUND_ACTION));
+    expect(mockReplace).toHaveBeenCalledWith('/field-guide');
   });
 });

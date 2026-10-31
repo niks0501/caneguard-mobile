@@ -7,7 +7,7 @@ import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { Card } from '@/components/ui/Card';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Pill, type PillVariant } from '@/components/ui/Pill';
+import { Pill } from '@/components/ui/Pill';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import {
   FIELD_GUIDE_EDUCATION_DISCLAIMER,
@@ -24,16 +24,9 @@ import { FieldGuidePhotoCredits } from '@/features/field-guide/components/FieldG
 import { FieldGuidePendingValidationNotice } from '@/features/field-guide/components/FieldGuidePendingValidationNotice';
 import { FieldGuideSources } from '@/features/field-guide/components/FieldGuideSources';
 import { findFieldGuideEntry } from '@/features/field-guide/constants/fieldGuideEntries';
+import { FIELD_GUIDE_PILL_VARIANTS } from '@/features/field-guide/constants/fieldGuidePillVariants';
 import type { FieldGuideGuideSection } from '@/features/field-guide/domain/fieldGuideTypes';
 import { useTheme } from '@/hooks/use-theme';
-
-const PILL_VARIANTS: Record<string, PillVariant> = {
-  healthy: 'healthy',
-  mosaic: 'mosaic',
-  rust: 'rust',
-  smut: 'smut',
-  rssi: 'warning',
-};
 
 /**
  * The full offline guide for one entry.
@@ -89,7 +82,7 @@ export default function FieldGuideGuideScreen() {
           showsVerticalScrollIndicator={false}>
           <View style={styles.content}>
             <View style={styles.titleRow}>
-              <Pill label={entry.shortName} variant={PILL_VARIANTS[entry.id] ?? 'default'} />
+              <Pill label={entry.shortName} variant={FIELD_GUIDE_PILL_VARIANTS[entry.id]} />
               <Text style={[styles.conditionLabel, { color: theme.textSecondary }]}>
                 {entry.conditionLabel}
               </Text>
@@ -173,12 +166,6 @@ function GuideSection({
           {paragraph}
         </Text>
       ))}
-      {section.sourceIds.length > 0 ? (
-        <FieldGuideSources
-          sourceIds={section.sourceIds}
-          testID={`field-guide.guide.${entryId}.section.${section.id}.sources`}
-        />
-      ) : null}
     </Card>
   );
 }

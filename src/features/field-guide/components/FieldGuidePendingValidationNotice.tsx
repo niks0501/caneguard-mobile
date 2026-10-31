@@ -11,7 +11,7 @@ export type FieldGuidePendingValidationNoticeProps = {
 };
 
 /**
- * Reader-facing release-gate marker. It is rendered beside the education
+ * Reader-facing pending-review marker. It is rendered beside the education
  * disclaimer only while the entry's editorial record is pending expert review,
  * and disappears once that record says the wording was reviewed.
  */

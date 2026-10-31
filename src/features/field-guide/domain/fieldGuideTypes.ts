@@ -80,9 +80,10 @@ export type FieldGuideGuide = {
 };
 
 /**
- * Editorial release metadata. It is never rendered as a production warning;
- * it is the release gate that keeps unvalidated agricultural wording out of
- * publication.
+ * Editorial status for one entry. While it is `pending-expert-review` the app
+ * shows a reader-visible marker beside the education disclaimer on the gallery
+ * index, the entry screen, the full guide and the photo viewer; the same record
+ * keeps the structured validation note and review date.
  */
 export type FieldGuideEditorial = {
   validationStatus: 'pending-expert-review' | 'expert-reviewed';
@@ -119,7 +120,7 @@ export type FieldGuideEntry = {
   guide: FieldGuideGuide;
   /** Sources cited by this entry, in display order. */
   sourceIds: readonly FieldGuideSourceId[];
-  /** Release-gate metadata, never rendered as a production warning. */
+  /** Structured validation status, also rendered as the pending-review marker. */
   editorial: FieldGuideEditorial;
   images: readonly FieldGuideImage[];
   /** True only when the AI model can produce this as a possible condition. */

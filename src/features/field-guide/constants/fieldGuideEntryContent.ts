@@ -26,9 +26,10 @@ export type FieldGuideEntryContent = {
 
 /**
  * Every entry is agricultural education written for the phone, and every one
- * is still waiting for a qualified local expert to approve the wording before
- * publication. The status lives here as release metadata, never as a warning
- * banner on the reading surface.
+ * is still waiting for a qualified local expert to approve the wording. The
+ * status is kept here as structured metadata and is also shown to readers as
+ * the pending-review marker beside the education disclaimer on every gallery
+ * surface.
  */
 const PENDING_EXPERT_REVIEW: FieldGuideEditorial = {
   validationStatus: 'pending-expert-review',

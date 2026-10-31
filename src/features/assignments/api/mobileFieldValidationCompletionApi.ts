@@ -46,6 +46,11 @@ export async function uploadMobileFieldValidationCompletion(
       ) {
         return { remoteId: existingRemoteId };
       }
+      if (!existingRemoteId) {
+        throw new ApiTransportError(
+          'The duplicate completion conflict response carried no completion identity.',
+        );
+      }
     }
     throw error;
   }

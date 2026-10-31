@@ -43,6 +43,11 @@ export async function uploadMobileReport(
       ) {
         return { remoteId: existingRemoteId };
       }
+      if (!existingRemoteId) {
+        throw new ApiTransportError(
+          'The duplicate report conflict response carried no report identity.',
+        );
+      }
     }
     throw error;
   }

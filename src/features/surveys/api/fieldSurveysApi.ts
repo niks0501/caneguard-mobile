@@ -1,6 +1,12 @@
 import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
 import type { SurveyPolygon } from '@/features/surveys/domain/fieldSurvey';
 
+export interface FieldSurveyAffectedAreaWaypointProvenance {
+  source: 'map' | 'gps';
+  accuracy_meters: number | null;
+  captured_at: string;
+}
+
 export interface FieldSurveyMeasurementProvenance {
   method: 'wgs84-ellipsoid-geodesic';
   plot_area_sqm: number;
@@ -8,6 +14,7 @@ export interface FieldSurveyMeasurementProvenance {
   source_polygon_count: number;
   overlap_removed: boolean;
   containment_tolerance_m: number;
+  affected_area_waypoint_provenance: FieldSurveyAffectedAreaWaypointProvenance[][];
 }
 
 export interface SubmitFieldSurveyPayload {

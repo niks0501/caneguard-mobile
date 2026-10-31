@@ -111,6 +111,7 @@ describe('syncFieldSurvey upload contract', () => {
     expect(body).not.toHaveProperty('affected_area_waypoints');
     expect(Object.keys(body.measurement_provenance).sort()).toEqual([
       'affected_area_sqm',
+      'affected_area_waypoint_provenance',
       'containment_tolerance_m',
       'method',
       'overlap_removed',
@@ -123,6 +124,13 @@ describe('syncFieldSurvey upload contract', () => {
       overlap_removed: false,
       containment_tolerance_m: 5,
     });
+    expect(body.measurement_provenance.affected_area_waypoint_provenance).toEqual([
+      affectedWaypoints.map((waypoint) => ({
+        source: waypoint.source,
+        accuracy_meters: waypoint.accuracyMeters,
+        captured_at: waypoint.capturedAt,
+      })),
+    ]);
     const pending = findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')!;
     expect(pending.affectedAreaWaypointsJson).toEqual(JSON.stringify([affectedWaypoints]));
     native.close();

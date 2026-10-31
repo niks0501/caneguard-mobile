@@ -15,17 +15,18 @@ describe('field survey affected-area migration', () => {
       1250, '2026-10-01T12:00:00.000Z', 'pending', '2026-10-01T12:00:00.000Z', '2026-10-01T12:00:00.000Z',
     );
 
-    for (const migration of ['0021_field_survey_affected_areas.sql', '0022_peaceful_titania.sql']) {
+    for (const migration of ['0021_field_survey_affected_areas.sql', '0022_peaceful_titania.sql', '0023_affected_area_waypoints.sql']) {
       database.exec(readFileSync(`drizzle/${migration}`, 'utf8').replaceAll('--> statement-breakpoint', ''));
     }
 
-    expect(database.prepare('SELECT client_uuid, polygon_json, area_sqm, affected_area_polygons_json, affected_area_sqm, measurement_provenance_json FROM field_surveys WHERE client_uuid = ?').get('legacy-survey')).toEqual({
+    expect(database.prepare('SELECT client_uuid, polygon_json, area_sqm, affected_area_polygons_json, affected_area_sqm, measurement_provenance_json, affected_area_waypoints_json FROM field_surveys WHERE client_uuid = ?').get('legacy-survey')).toEqual({
       client_uuid: 'legacy-survey',
       polygon_json: '{"type":"Polygon","coordinates":[]}',
       area_sqm: 1250,
       affected_area_polygons_json: null,
       affected_area_sqm: null,
       measurement_provenance_json: null,
+      affected_area_waypoints_json: null,
     });
     database.close();
   });

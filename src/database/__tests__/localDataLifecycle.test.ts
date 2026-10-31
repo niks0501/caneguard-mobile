@@ -121,6 +121,7 @@ const MIGRATIONS = [
   '0020_nasty_captain_midlands.sql',
   '0021_field_survey_affected_areas.sql',
   '0022_peaceful_titania.sql',
+  '0023_affected_area_waypoints.sql',
 ] as const;
 
 function readMigration(filename: string): string {

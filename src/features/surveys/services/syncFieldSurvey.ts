@@ -1,7 +1,7 @@
 import type { CaneGuardDatabase } from '@/database/database';
 import { findOwnedFieldSurvey, updateFieldSurveySyncResult } from '@/features/surveys/data/fieldSurveyRepository';
-import { FieldSurveyValidationError, submitFieldSurvey, type FieldSurveyMeasurementProvenance } from '@/features/surveys/api/fieldSurveysApi';
-import { measureAffectedAreas, validateSurveyPolygon, type SurveyPolygon } from '@/features/surveys/domain/fieldSurvey';
+import { FieldSurveyValidationError, submitFieldSurvey, type FieldSurveyAffectedAreaWaypoint, type FieldSurveyMeasurementProvenance } from '@/features/surveys/api/fieldSurveysApi';
+import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
 
 export type FieldSurveySyncResult =
@@ -29,15 +29,18 @@ export async function syncFieldSurvey(options: {
 
   let polygon: SurveyPolygon;
   let affectedAreaPolygons: SurveyPolygon[];
+  let affectedAreaWaypoints: SurveyWaypoint[][];
   try {
     polygon = JSON.parse(row.polygonJson) as SurveyPolygon;
     affectedAreaPolygons = JSON.parse(row.affectedAreaPolygonsJson ?? '[]') as SurveyPolygon[];
+    affectedAreaWaypoints = JSON.parse(row.affectedAreaWaypointsJson ?? '[]') as SurveyWaypoint[][];
   } catch {
     return rejectInvalidLocalRecord(options, 'The saved boundary geometry is invalid. Recreate the boundary before syncing.');
   }
   const plotMeasurement = validateSurveyPolygon(polygon);
   const affectedMeasurement = measureAffectedAreas(polygon, affectedAreaPolygons);
-  if (!plotMeasurement.valid || !affectedMeasurement.valid ||
+  const waypointProvenance = validateAffectedAreaWaypoints(affectedAreaPolygons, affectedAreaWaypoints);
+  if (!plotMeasurement.valid || !affectedMeasurement.valid || !waypointProvenance.valid ||
     Math.abs(plotMeasurement.areaSqm - row.areaSqm) > Math.max(0.01, row.areaSqm * 1e-10) ||
     Math.abs(affectedMeasurement.areaSqm - (row.affectedAreaSqm ?? 0)) > Math.max(0.01, (row.affectedAreaSqm ?? 0) * 1e-10)) {
     return rejectInvalidLocalRecord(options, 'The saved polygon measurements do not match their boundaries. Recreate the boundary before syncing.');
@@ -61,6 +64,7 @@ export async function syncFieldSurvey(options: {
           area_sqm: row.areaSqm,
           affected_area_polygons: affectedAreaPolygons,
           affected_area_sqm: row.affectedAreaSqm ?? 0,
+          affected_area_waypoints: toWireAffectedAreaWaypoints(affectedAreaWaypoints),
           measurement_provenance: measurementProvenance,
           captured_at: row.capturedAt,
           district_code: row.districtCode,
@@ -135,6 +139,18 @@ function toWireProvenance(
     source_polygon_count: computed.sourcePolygonCount,
     overlap_removed: computed.overlapRemoved,
   };
+}
+
+function toWireAffectedAreaWaypoints(waypointSets: SurveyWaypoint[][]): FieldSurveyAffectedAreaWaypoint[][] {
+  return waypointSets.map((waypoints) =>
+    waypoints.map((waypoint) => ({
+      latitude: waypoint.latitude,
+      longitude: waypoint.longitude,
+      source: waypoint.source,
+      accuracy_meters: waypoint.accuracyMeters,
+      captured_at: waypoint.capturedAt,
+    })),
+  );
 }
 
 function delay(milliseconds: number): Promise<void> {

@@ -24,6 +24,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
   native.exec(readFileSync('drizzle/0019_add_field_surveys.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   native.exec(readFileSync('drizzle/0021_field_survey_affected_areas.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   native.exec(readFileSync('drizzle/0022_peaceful_titania.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
+  native.exec(readFileSync('drizzle/0023_affected_area_waypoints.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   const client = {
     prepareSync(sql: string) {
       const statement = native.prepare(sql);
@@ -68,7 +69,13 @@ describe('field survey local repository', () => {
     expect(listOwnedFieldSurveys(database, 'owner-1')).toHaveLength(1);
 
     const provenance = { method: 'wgs84-ellipsoid-geodesic', plotAreaSqm, affectedAreaSqm: plotAreaSqm, sourcePolygonCount: 1, overlapRemoved: false };
-    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt, [polygon], plotAreaSqm);
+    const affectedWaypointsForPlot = [
+      { latitude: 14, longitude: 120, source: 'map' as const, accuracyMeters: null, capturedAt: '2026-10-05T09:00:00.000Z' },
+      { latitude: 14, longitude: 120.001, source: 'gps' as const, accuracyMeters: 3.4, capturedAt: '2026-10-05T09:00:01.000Z' },
+      { latitude: 14.001, longitude: 120.001, source: 'gps' as const, accuracyMeters: 3.1, capturedAt: '2026-10-05T09:00:02.000Z' },
+      { latitude: 14.001, longitude: 120, source: 'map' as const, accuracyMeters: null, capturedAt: '2026-10-05T09:00:03.000Z' },
+    ];
+    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt, [polygon], plotAreaSqm, [affectedWaypointsForPlot]);
     expect(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')).toMatchObject({ status: 'pending', areaSqm: plotAreaSqm, affectedAreaSqm: plotAreaSqm, capturedAt: waypoint.capturedAt });
     expect(JSON.parse(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')!.measurementProvenanceJson!)).toEqual(provenance);
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', {
@@ -84,6 +91,49 @@ describe('field survey local repository', () => {
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'synced', remoteId: 'remote-1' });
     expect(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')).toMatchObject({ status: 'synced', remoteId: 'remote-1', syncAttemptCount: 1 });
     expect(native.prepare('SELECT client_uuid FROM field_surveys').get()).toEqual({ client_uuid: 'survey-client-1' });
+    native.close();
+  });
+
+  it('retains affected-area waypoint provenance through draft and pending', async () => {
+    const { database, native } = openDatabase();
+    const affectedWaypoints = [
+      { latitude: 14, longitude: 120, source: 'map' as const, accuracyMeters: null, capturedAt: '2026-10-05T09:00:00.000Z' },
+      { latitude: 14, longitude: 120.001, source: 'gps' as const, accuracyMeters: 3.4, capturedAt: '2026-10-05T09:00:01.000Z' },
+      { latitude: 14.001, longitude: 120.001, source: 'gps' as const, accuracyMeters: 3.1, capturedAt: '2026-10-05T09:00:02.000Z' },
+      { latitude: 14.001, longitude: 120, source: 'map' as const, accuracyMeters: null, capturedAt: '2026-10-05T09:00:03.000Z' },
+    ];
+    const draft = await saveFieldSurveyDraft(database, {
+      capturedAt: waypoint.capturedAt,
+      clientUuid: 'survey-provenance',
+      districtCode: 'D-01',
+      ownerIdentity: 'owner-1',
+      waypoints: [waypoint],
+      affectedAreaPolygons: [polygon],
+      affectedAreaWaypoints: [affectedWaypoints],
+    });
+    expect(JSON.parse(draft.affectedAreaWaypointsJson!)).toEqual([affectedWaypoints]);
+    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt, [polygon], plotAreaSqm, [affectedWaypoints]);
+    const pending = findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')!;
+    expect(JSON.parse(pending.affectedAreaWaypointsJson!)).toEqual([affectedWaypoints]);
+    expect(JSON.parse(pending.affectedAreaWaypointsJson!)[0][1]).toMatchObject({ source: 'gps', accuracyMeters: 3.4 });
+    native.close();
+  });
+
+  it('rejects affected-area provenance that does not match its polygon', async () => {
+    const { database, native } = openDatabase();
+    const draft = await saveFieldSurveyDraft(database, {
+      capturedAt: waypoint.capturedAt,
+      clientUuid: 'survey-provenance-mismatch',
+      districtCode: 'D-01',
+      ownerIdentity: 'owner-1',
+      waypoints: [waypoint],
+    });
+    const mismatched = [
+      { latitude: 14.002, longitude: 120.002, source: 'gps' as const, accuracyMeters: 2.5, capturedAt: '2026-10-05T09:00:00.000Z' },
+      { latitude: 14.002, longitude: 120.003, source: 'gps' as const, accuracyMeters: 2.5, capturedAt: '2026-10-05T09:00:01.000Z' },
+      { latitude: 14.003, longitude: 120.003, source: 'gps' as const, accuracyMeters: 2.5, capturedAt: '2026-10-05T09:00:02.000Z' },
+    ];
+    expect(() => markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt, [polygon], plotAreaSqm, [mismatched])).toThrow(/provenance/i);
     native.close();
   });
 

@@ -139,12 +139,17 @@ export function measureAffectedAreas(
     };
   }
 
-  const plotRing = plot.coordinates[0];
   const geometries = [];
   for (const affected of affectedAreas) {
     const geometry = readValidPolygon(affected);
     if (!geometry) return affectedInvalid('INVALID_POLYGON', 'An affected-area boundary is invalid.');
-    if (!polygonCoversRing(plotRing, affected.coordinates[0])) {
+    let remainder;
+    try {
+      remainder = OverlayOp.difference(geometry, plotGeometry);
+    } catch {
+      return affectedInvalid('OUTSIDE_PLOT', 'Every affected area must remain within the plot boundary.');
+    }
+    if (!remainder || !remainder.isEmpty()) {
       return affectedInvalid('OUTSIDE_PLOT', 'Every affected area must remain within the plot boundary.');
     }
     geometries.push(geometry);
@@ -180,35 +185,23 @@ export function measureAffectedAreas(
   }
 }
 
-function polygonCoversRing(plotRing: number[][], affectedRing: number[][]): boolean {
-  const insideOrOnBoundary = (point: number[]) => {
-    let inside = false;
-    for (let index = 0, previous = plotRing.length - 2; index < plotRing.length - 1; previous = index, index += 1) {
-      const [x1, y1] = plotRing[previous];
-      const [x2, y2] = plotRing[index];
-      const cross = (point[0] - x1) * (y2 - y1) - (point[1] - y1) * (x2 - x1);
-      if (Math.abs(cross) < 1e-12 && point[0] >= Math.min(x1, x2) - 1e-12 && point[0] <= Math.max(x1, x2) + 1e-12 && point[1] >= Math.min(y1, y2) - 1e-12 && point[1] <= Math.max(y1, y2) + 1e-12) return true;
-      if ((y1 > point[1]) !== (y2 > point[1]) && point[0] < (x2 - x1) * (point[1] - y1) / (y2 - y1) + x1) inside = !inside;
-    }
-    return inside;
-  };
-  if (affectedRing.slice(0, -1).some((point) => !insideOrOnBoundary(point))) return false;
-  for (let affectedIndex = 0; affectedIndex < affectedRing.length - 1; affectedIndex += 1) {
-    const a = affectedRing[affectedIndex];
-    const b = affectedRing[affectedIndex + 1];
-    for (let plotIndex = 0; plotIndex < plotRing.length - 1; plotIndex += 1) {
-      const c = plotRing[plotIndex];
-      const d = plotRing[plotIndex + 1];
-      const orientation = (p: number[], q: number[], r: number[]) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
-      const o1 = orientation(a, b, c);
-      const o2 = orientation(a, b, d);
-      const o3 = orientation(c, d, a);
-      const o4 = orientation(c, d, b);
-      if (((o1 > 1e-12 && o2 < -1e-12) || (o1 < -1e-12 && o2 > 1e-12)) &&
-        ((o3 > 1e-12 && o4 < -1e-12) || (o3 < -1e-12 && o4 > 1e-12))) return false;
+export function validateAffectedAreaWaypoints(
+  polygons: SurveyPolygon[],
+  waypointSets: SurveyWaypoint[][],
+): { valid: true } | { valid: false; error: SurveyValidationError } {
+  if (!Array.isArray(waypointSets) || waypointSets.length !== polygons.length) {
+    return affectedInvalid('INVALID_POLYGON', 'Affected-area capture provenance does not match its boundary.');
+  }
+  for (let index = 0; index < polygons.length; index += 1) {
+    const waypoints = waypointSets[index];
+    if (!Array.isArray(waypoints) || waypoints.length === 0) return affectedInvalid('INVALID_POLYGON', 'Affected-area capture provenance does not match its boundary.');
+    const derived = validateSurveyWaypoints(waypoints);
+    if (!derived.valid) return affectedInvalid(derived.error.code, derived.error.message);
+    if (JSON.stringify(derived.polygon.coordinates) !== JSON.stringify(polygons[index].coordinates)) {
+      return affectedInvalid('INVALID_POLYGON', 'Affected-area capture provenance does not match its boundary.');
     }
   }
-  return true;
+  return { valid: true };
 }
 
 function readValidPolygon(polygon: SurveyPolygon): any | null {

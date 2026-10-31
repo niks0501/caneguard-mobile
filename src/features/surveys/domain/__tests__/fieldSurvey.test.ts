@@ -1,6 +1,7 @@
 import {
   measureAffectedAreas,
   ringArea,
+  validateAffectedAreaWaypoints,
   validateSurveyPolygon,
   validateSurveyWaypoints,
   type SurveyWaypoint,
@@ -72,6 +73,39 @@ describe('field survey geometry', () => {
     const plot = { type: 'Polygon' as const, coordinates: [[[120, 14], [120.004, 14], [120.004, 14.004], [120, 14.004], [120, 14]]] };
     const invalid = { type: 'Polygon' as const, coordinates: [[[120, 14], [120.002, 14.002], [120, 14.002], [120.002, 14], [120, 14]]] };
     expect(measureAffectedAreas(plot, [invalid])).toMatchObject({ valid: false, error: { code: 'INVALID_POLYGON' } });
+  });
+
+  it('rejects an affected rectangle that fills the notch of a U-shaped plot', () => {
+    const plot = {
+      type: 'Polygon' as const,
+      coordinates: [[[120, 14], [120.004, 14], [120.004, 14.004], [120.003, 14.004], [120.003, 14.001], [120.001, 14.001], [120.001, 14.004], [120, 14.004], [120, 14]]],
+    };
+    const notch = {
+      type: 'Polygon' as const,
+      coordinates: [[[120.001, 14.001], [120.003, 14.001], [120.003, 14.004], [120.001, 14.004], [120.001, 14.001]]],
+    };
+    expect(measureAffectedAreas(plot, [notch])).toMatchObject({ valid: false, error: { code: 'OUTSIDE_PLOT' } });
+  });
+
+  it('accepts an affected area fully inside the U-shaped plot arms', () => {
+    const plot = {
+      type: 'Polygon' as const,
+      coordinates: [[[120, 14], [120.004, 14], [120.004, 14.004], [120.003, 14.004], [120.003, 14.001], [120.001, 14.001], [120.001, 14.004], [120, 14.004], [120, 14]]],
+    };
+    const inside = {
+      type: 'Polygon' as const,
+      coordinates: [[[120, 14.0002], [120.0008, 14.0002], [120.0008, 14.0008], [120, 14.0008], [120, 14.0002]]],
+    };
+    expect(measureAffectedAreas(plot, [inside]).valid).toBe(true);
+  });
+
+  it('keeps affected-area waypoint provenance aligned with its polygon', () => {
+    const captured = waypoints([[120, 14], [120.001, 14], [120.001, 14.001]]);
+    const derived = validateSurveyWaypoints(captured);
+    expect(derived.valid).toBe(true);
+    if (!derived.valid) return;
+    expect(validateAffectedAreaWaypoints([derived.polygon], [captured])).toMatchObject({ valid: true });
+    expect(validateAffectedAreaWaypoints([derived.polygon], [waypoints([[120.002, 14], [120.003, 14], [120.003, 14.001]])])).toMatchObject({ valid: false });
   });
 
   it('counts overlapping affected areas once and returns geodesic provenance', () => {

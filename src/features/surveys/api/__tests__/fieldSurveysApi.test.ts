@@ -13,6 +13,7 @@ const payload = {
   area_sqm: 5_000,
   affected_area_polygons: [],
   affected_area_sqm: 0,
+  affected_area_waypoints: [],
   measurement_provenance: {
       method: 'wgs84-ellipsoid-geodesic' as const,
     plot_area_sqm: 5_000,

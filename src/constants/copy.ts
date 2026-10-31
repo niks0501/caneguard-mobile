@@ -35,6 +35,7 @@ export const FIELD_SURVEY_COPY = {
   affectedAreas: 'Affected areas',
   removeAffectedArea: 'Remove last affected area',
   affectedOutsidePlot: 'The affected area must stay inside the plot boundary.',
+  unfinishedAffectedArea: 'Finish or clear the affected-area boundary before syncing.',
   affectedAreaCount: (count: number) => `${count} affected ${count === 1 ? 'area' : 'areas'}`,
   mapAccessibility: 'Tap to add or move a boundary vertex',
   mapTileError: 'Some map tiles could not be loaded. You can still draw and measure the boundary over the coordinate-only map.',

@@ -4,7 +4,7 @@ import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import { fieldSurveys, type FieldSurveyRow } from '@/database/schema';
-import { measureAffectedAreas, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 
 export interface FieldSurveyDraft {
   capturedAt: string;
@@ -13,6 +13,7 @@ export interface FieldSurveyDraft {
   ownerIdentity: string;
   waypoints: SurveyWaypoint[];
   affectedAreaPolygons?: SurveyPolygon[];
+  affectedAreaWaypoints?: SurveyWaypoint[][];
 }
 
 export async function saveFieldSurveyDraft(
@@ -36,6 +37,7 @@ export async function saveFieldSurveyDraft(
         districtCode: input.districtCode,
         waypointsJson: JSON.stringify(input.waypoints),
         affectedAreaPolygonsJson: JSON.stringify(input.affectedAreaPolygons ?? []),
+        affectedAreaWaypointsJson: JSON.stringify(input.affectedAreaWaypoints ?? []),
         updatedAt: new Date().toISOString(),
       }).where(and(eq(fieldSurveys.clientUuid, input.clientUuid), eq(fieldSurveys.ownerIdentity, owner))).run();
     } else {
@@ -45,6 +47,7 @@ export async function saveFieldSurveyDraft(
         districtCode: input.districtCode,
         waypointsJson: JSON.stringify(input.waypoints),
         affectedAreaPolygonsJson: JSON.stringify(input.affectedAreaPolygons ?? []),
+        affectedAreaWaypointsJson: JSON.stringify(input.affectedAreaWaypoints ?? []),
         capturedAt: input.capturedAt,
         status: 'draft',
         createdAt: input.capturedAt,
@@ -89,6 +92,7 @@ export function markFieldSurveyPending(
   capturedAt: string,
   affectedAreaPolygons: SurveyPolygon[] = [],
   affectedAreaSqm = 0,
+  affectedAreaWaypoints: SurveyWaypoint[][] = [],
 ): void {
   const owner = requireOwnerIdentity(ownerIdentity);
   const row = findOwnedFieldSurvey(database, clientUuid, owner);
@@ -107,11 +111,16 @@ export function markFieldSurveyPending(
   if (!affectedMeasurement.valid || !Number.isFinite(affectedAreaSqm) || affectedAreaSqm < 0 || Math.abs(affectedMeasurement.areaSqm - affectedAreaSqm) > Math.max(0.01, affectedAreaSqm * 1e-10)) {
     throw new StorageError('INVALID_FIELD_REPORT', affectedMeasurement.valid ? 'The affected-area measurement does not match its boundary.' : affectedMeasurement.error.message);
   }
+  const provenanceCheck = validateAffectedAreaWaypoints(affectedAreaPolygons, affectedAreaWaypoints);
+  if (!provenanceCheck.valid) {
+    throw new StorageError('INVALID_FIELD_REPORT', provenanceCheck.error.message);
+  }
   database.update(fieldSurveys).set({
     polygonJson: JSON.stringify(polygon),
     areaSqm,
     affectedAreaPolygonsJson: JSON.stringify(affectedAreaPolygons),
     affectedAreaSqm,
+    affectedAreaWaypointsJson: JSON.stringify(affectedAreaWaypoints),
     measurementProvenanceJson: JSON.stringify(affectedMeasurement.provenance),
     capturedAt,
     status: 'pending',

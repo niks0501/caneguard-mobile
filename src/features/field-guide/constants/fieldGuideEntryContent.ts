@@ -103,7 +103,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'On a mature stalk you can expect roughly ten green leaves. Internode length and stalk colour change with variety, age and sunlight, so they are poor tests on their own.',
             'Compare plants within the same block and the same variety. A single odd plant is a reason to look closer, not a reason to treat the whole field.',
           ],
-          sourceIds: ['lsu-idm'],
         },
         {
           id: 'what-the-app-can-say',
@@ -113,7 +112,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Several serious sugarcane diseases are invisible or nearly invisible early, and a photo of one leaf says nothing about the roots, the soil or the rest of the block.',
             'If a block looks healthy on the phone but yields poorly, the cause is more likely soil, water, variety or an unseen disease. That question belongs with your agriculture officer.',
           ],
-          sourceIds: [],
         },
         {
           id: 'keeping-a-block-healthy',
@@ -123,7 +121,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Keep drains open, control weeds early and walk the field every month. Regular walking is what turns a small, treatable problem into something you noticed in time.',
             'Ask your agriculture officer for soil and fertiliser advice for your area. This guide does not give rates, because the right answer depends on your soil test and local recommendation.',
           ],
-          sourceIds: ['lsu-idm'],
         },
         {
           id: 'when-to-ask-for-help',
@@ -132,7 +129,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Ask for help when a whole block is yielding below its usual level, when growth is patchy for no clear reason, or when leaves change colour across many plants rather than a few.',
             'Bring the block name, the variety, the planting date and a few photos, including the underside of the leaves. That information is what makes a field visit useful.',
           ],
-          sourceIds: [],
         },
       ],
     },
@@ -182,7 +178,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'The pattern fades as leaves age, and it looks different from variety to variety. A dark red or purple stalked variety can even show the pattern on the stalk.',
             'Mosaic is caused by viruses. More than one virus can produce mosaic-like symptoms, which is one reason a photo alone cannot confirm which one is present.',
           ],
-          sourceIds: ['sra-mosaic', 'lsu-idm'],
         },
         {
           id: 'how-it-spreads',
@@ -192,7 +187,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Because the virus is inside the cane, a planted infected stalk starts an infected stool. That stool then becomes a source for aphids to spread the virus further.',
             'Mosaic is not spread by cane knives or harvesters. It does spread most quickly when young cane is growing at the same time as a burst of aphid activity.',
           ],
-          sourceIds: ['sra-mosaic'],
         },
         {
           id: 'what-it-can-be-confused-with',
@@ -201,7 +195,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Cold injury, nutrient problems and other virus diseases can all produce pale or mottled leaves. Symptoms that appear after a cold spell are a good reason to wait and look again before acting.',
             'Treat a mottled leaf as a reason to inspect the block, not as a confirmed diagnosis. If the cause matters for a seed decision, ask your agriculture officer.',
           ],
-          sourceIds: ['sra-mosaic'],
         },
         {
           id: 'prevention',
@@ -211,7 +204,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Keep fields and headlands free of grass weeds, and avoid planting maize or sorghum next to cane. Those grasses can host both the virus and the aphids that carry it.',
             'Inspect seed plots often and remove infected stools early, while the level of infection is still low.',
           ],
-          sourceIds: ['sra-mosaic', 'lsu-idm'],
         },
         {
           id: 'management-and-limits',
@@ -221,7 +213,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Roguing, which means digging out infected stools, can help in a seed plot with low infection. In a commercial field with widespread infection it rarely solves the problem.',
             'The long-term answer is to change to a more resistant variety and to replant with clean seed. Ask the office before replacing a block, because variety choice matters more than any single action.',
           ],
-          sourceIds: ['sra-mosaic', 'lsu-idm'],
         },
         {
           id: 'what-the-app-reports',
@@ -230,7 +221,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'The app can report a mosaic-like leaf pattern as one possible condition. It cannot test for a virus, name the virus or tell you how badly a block is infected.',
             'Use the result to decide where to look next. A confirmed answer needs a plant sample and a laboratory or agriculture officer.',
           ],
-          sourceIds: [],
         },
       ],
     },
@@ -279,7 +269,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Both start as small yellow flecks that lengthen into lesions running along the leaf. Spores then break through the leaf surface, usually on the underside, which gives it a rough, dusty look.',
             'The app reports rust as one condition. It does not tell brown rust from orange rust, and nothing on this page should be read as the app making that distinction.',
           ],
-          sourceIds: ['sra-rusts'],
         },
         {
           id: 'telling-them-apart',
@@ -289,7 +278,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Brown rust pustules are darker cinnamon-brown, more elongated and more evenly spread, and tend to sit nearer the leaf tip. It is favoured by cool nights with dew followed by warm days.',
             'The two overlap, and old orange rust can look like brown rust once the bright spores have gone. A field sample checked by an agriculture officer or laboratory is what confirms the species, and only that confirmation should drive a variety or treatment decision.',
           ],
-          sourceIds: ['sra-rusts'],
         },
         {
           id: 'spread-and-risk',
@@ -299,7 +287,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'The fungus does not need infected planting material to arrive: wind can bring it in. That is why clean seed alone cannot protect a block from rust.',
             'Heavy infection kills leaf area the plant needs for growth, so tonnage and sugar both fall. The size of the loss depends on the variety and on how early the infection starts.',
           ],
-          sourceIds: ['sra-rusts'],
         },
         {
           id: 'prevention',
@@ -309,7 +296,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Do not put one variety over the whole farm. A mix spreads the risk, and the fungus can change over time in ways that reduce a resistance.',
             'Walk fields during warm, humid weather and look at the underside of leaves, where the pustules are easiest to see.',
           ],
-          sourceIds: ['sra-rusts', 'lsu-idm'],
         },
         {
           id: 'management',
@@ -319,7 +305,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'This guide does not name a product, an active ingredient or a dose. Any chemical decision needs local advice based on the confirmed rust, the variety, the growth stage and Philippine registration.',
             'Note which varieties rust in your fields and share that with the office. Variety choice over the next planting is the most reliable long-term control.',
           ],
-          sourceIds: ['sra-rusts', 'lsu-idm'],
         },
         {
           id: 'what-the-app-reports',
@@ -328,7 +313,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'The app reports rust as one possible condition based on leaf appearance. It does not identify brown rust or orange rust, and it cannot confirm a diagnosis.',
             'If you need the species for a decision, say that clearly when you report the problem and ask for a sample to be checked.',
           ],
-          sourceIds: [],
         },
       ],
     },
@@ -378,7 +362,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Smut is caused by the fungus Sporisorium scitamineum. The fungus grows inside the cane rather than sitting on the surface, which is why an infected plant cannot be cured after planting.',
             'The disease is a whole-farm problem. A plant that looks normal can already carry the fungus, and the next ratoon can show the signs.',
           ],
-          sourceIds: ['sra-booklet-smut'],
         },
         {
           id: 'the-whip',
@@ -388,7 +371,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'The whip starts greyish and then releases a mass of black powdery spores. Each whip can produce an enormous number of spores, and they travel on the wind to neighbouring fields.',
             'A whip is the moment the disease becomes visible, not the moment it arrives. By the time whips appear, other plants in the block may already be infected.',
           ],
-          sourceIds: ['sra-booklet-smut'],
         },
         {
           id: 'other-signs',
@@ -397,7 +379,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Affected stools can look like grass: many thin shoots from one stool, narrow stiff leaves and thin stalks with shortened internodes.',
             'In a ratoon crop, a stool that is falling apart into many small shoots is another reason to look for a whip. These signs overlap with other problems, so they are a prompt to inspect, not a diagnosis.',
           ],
-          sourceIds: ['sra-booklet-smut'],
         },
         {
           id: 'how-it-spreads',
@@ -406,7 +387,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Smut spreads mainly through infected planting material and through spores carried on the wind. Moving cane from an affected block is the surest way to start the disease somewhere new.',
             'Because the fungus survives inside the plant, keeping an affected block as ratoon keeps the disease in the field for the next crop.',
           ],
-          sourceIds: ['sra-booklet-smut'],
         },
         {
           id: 'prevention',
@@ -416,7 +396,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Inspect new plantings often so a whip is found while there are still few of them. Clean tools and footwear when moving between fields as routine hygiene.',
             'Do not ratoon a badly affected block. Replant it with clean material, and ask the office which variety to use.',
           ],
-          sourceIds: ['sra-booklet-smut', 'lsu-idm'],
         },
         {
           id: 'management',
@@ -426,7 +405,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Pulling out whips alone is not enough once a block is heavily affected. The decision that matters is whether to keep the block as ratoon at all.',
             'This guide does not name a chemical treatment for smut. Ask your agriculture officer before any chemical decision.',
           ],
-          sourceIds: ['sra-booklet-smut', 'lsu-idm'],
         },
         {
           id: 'source-note',
@@ -435,7 +413,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'The primary source for this entry is the SRA booklet, pages 21 to 22. The booklet has been requested from the researcher and has not been supplied to this build, so the citation is shown as not supplied yet rather than as a finished reference.',
             'The whole entry stays marked for expert review until that booklet is checked and the wording is approved.',
           ],
-          sourceIds: ['sra-booklet-smut'],
         },
       ],
     },
@@ -490,7 +467,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'The scientific name used here is Pulvinaria tenuivalata. Treat the name as provisional until it is confirmed against the SRA brochures, because more than one name for this insect has been in circulation.',
             'Feeding removes sap. The insect also produces sticky honeydew, and a black sooty mould grows on it, which blocks light and makes the cane look dirty.',
           ],
-          sourceIds: ['sra-rssi-profile', 'sra-rssi-awareness'],
         },
         {
           id: 'where-to-look',
@@ -500,7 +476,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Look for yellowing toward the leaf base, sticky honeydew and black sooty mould. Sooty mould often appears only after the infestation is already established, so do not wait for it as your first sign.',
             'Walk the field weekly. Weekly checking is what makes early detection possible with a pest this hard to see.',
           ],
-          sourceIds: ['sra-rssi-awareness'],
         },
         {
           id: 'area-problem',
@@ -510,7 +485,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'That is why the Philippine response uses coordinated surveillance and reporting. Report a suspected infestation to the Sugar Regulatory Administration, the Department of Agriculture, PHILSURIN or your local agriculture officer straight away.',
             'Do not move cane plants or planting material out of an affected block, and clean tools, boots and clothing after working there.',
           ],
-          sourceIds: ['sra-rssi-profile', 'sra-rssi-awareness'],
         },
         {
           id: 'life-stages',
@@ -519,7 +493,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'This page does not yet describe the RSSI life stages, their timing or the best moment to act. That information belongs in the 2025 and 2026 SRA brochures, which have been requested but not supplied to this build.',
             'When the brochures arrive, the stage descriptions, timing and monitoring advice will be added here with their exact page references. Until then, the honest position is that this part of the guide is incomplete.',
           ],
-          sourceIds: ['sra-brochure-rssi-2025', 'sra-brochure-rssi-2026'],
         },
         {
           id: 'prevention-and-field-hygiene',
@@ -529,7 +502,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'Keep grassy weeds and volunteer cane down around field edges, because several weeds can host the insect. Protect natural enemies such as parasitoid wasps and beneficial fungi by avoiding unnecessary broad-spectrum spraying.',
             'Treat suspected infestations as something to report and confirm, not something to handle alone.',
           ],
-          sourceIds: ['sra-rssi-profile', 'sra-rssi-awareness'],
         },
         {
           id: 'management-and-treatment',
@@ -539,7 +511,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'The FPA Registered Products list is the official place to check what is registered. A registration entry is not a recommendation for RSSI, for your variety or for your field, and foreign product advice does not apply in the Philippines.',
             'Ask your agriculture officer or the SRA before treating, and keep the report and the field record together so the area response can see the whole picture.',
           ],
-          sourceIds: ['fpa-registered-products', 'sra-rssi-profile'],
         },
         {
           id: 'what-the-app-reports',
@@ -548,7 +519,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
             'The app cannot detect RSSI. It has four classes, and none of them is a pest, so a scan can never return an RSSI result.',
             'Record RSSI as something you observed in the field, with a photo and the block name. That record is what a follow-up visit can act on.',
           ],
-          sourceIds: [],
         },
       ],
     },

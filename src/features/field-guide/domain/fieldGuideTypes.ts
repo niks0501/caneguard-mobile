@@ -69,8 +69,6 @@ export type FieldGuideGuideSection = {
   id: string;
   heading: string;
   paragraphs: readonly string[];
-  /** Sources behind this section; may be empty for app-behaviour wording. */
-  sourceIds: readonly FieldGuideSourceId[];
 };
 
 /** The long-form reading page bundled with every entry. */

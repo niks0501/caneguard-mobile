@@ -40,14 +40,10 @@ describe('field guide sources', () => {
     expect(findFieldGuideSource('sra-booklet-smut')?.passage).toBe('pages 21-22');
   });
 
-  it('resolves every source id an entry or a guide chapter cites', () => {
+  it('resolves every source id an entry cites', () => {
     for (const entry of fieldGuideEntries) {
       expect(entry.sourceIds.length).toBeGreaterThan(0);
       expect(sourcesForEntry(entry.sourceIds)).toHaveLength(entry.sourceIds.length);
-
-      for (const section of entry.guide.sections) {
-        expect(sourcesForEntry(section.sourceIds)).toHaveLength(section.sourceIds.length);
-      }
     }
   });
 

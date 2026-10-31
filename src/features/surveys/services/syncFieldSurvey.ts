@@ -118,6 +118,7 @@ function toWireProvenance(
     affectedAreaSqm: number;
     sourcePolygonCount: number;
     overlapRemoved: boolean;
+    containmentToleranceMeters: number;
   },
 ): FieldSurveyMeasurementProvenance {
   if (storedJson) {
@@ -125,7 +126,9 @@ function toWireProvenance(
     if (stored.method !== computed.method || stored.plotAreaSqm !== computed.plotAreaSqm ||
       stored.affectedAreaSqm !== computed.affectedAreaSqm ||
       stored.sourcePolygonCount !== computed.sourcePolygonCount ||
-      stored.overlapRemoved !== computed.overlapRemoved) {
+      stored.overlapRemoved !== computed.overlapRemoved ||
+      (stored.containmentToleranceMeters !== undefined &&
+        stored.containmentToleranceMeters !== computed.containmentToleranceMeters)) {
       throw new Error('Stored provenance no longer matches the validated geometry.');
     }
   }
@@ -137,6 +140,7 @@ function toWireProvenance(
     affected_area_sqm: computed.affectedAreaSqm,
     source_polygon_count: computed.sourcePolygonCount,
     overlap_removed: computed.overlapRemoved,
+    containment_tolerance_m: computed.containmentToleranceMeters,
   };
 }
 

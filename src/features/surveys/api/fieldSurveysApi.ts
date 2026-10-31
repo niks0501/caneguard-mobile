@@ -7,6 +7,7 @@ export interface FieldSurveyMeasurementProvenance {
   affected_area_sqm: number;
   source_polygon_count: number;
   overlap_removed: boolean;
+  containment_tolerance_m: number;
 }
 
 export interface SubmitFieldSurveyPayload {

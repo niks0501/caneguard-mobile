@@ -1,6 +1,7 @@
 import GeographicLib from 'geographiclib-geodesic/geographiclib-geodesic.min.js';
 import GeoJSONReader from 'jsts/org/locationtech/jts/io/GeoJSONReader.js';
 import GeometryFactory from 'jsts/org/locationtech/jts/geom/GeometryFactory.js';
+import DistanceOp from 'jsts/org/locationtech/jts/operation/distance/DistanceOp.js';
 import IsValidOp from 'jsts/org/locationtech/jts/operation/valid/IsValidOp.js';
 import OverlayOp from 'jsts/org/locationtech/jts/operation/overlay/OverlayOp.js';
 
@@ -17,6 +18,7 @@ export interface SurveyMeasurementProvenance {
   affectedAreaSqm: number;
   sourcePolygonCount: number;
   overlapRemoved: boolean;
+  containmentToleranceMeters: number;
 }
 
 export interface AffectedAreaMeasurement {
@@ -44,6 +46,7 @@ const MIN_DISTINCT_VERTICES = 3;
 const MAX_SURVEY_VERTICES = 2_000;
 const MAX_AFFECTED_AREAS = 100;
 const MAX_TOTAL_AREA_VERTICES = 10_000;
+export const AFFECTED_AREA_CONTAINMENT_TOLERANCE_METERS = 5;
 const reader = new GeoJSONReader(new GeometryFactory());
 
 export function validateSurveyWaypoints(waypoints: SurveyWaypoint[]): SurveyValidation {
@@ -135,6 +138,7 @@ export function measureAffectedAreas(
         affectedAreaSqm: 0,
         sourcePolygonCount: 0,
         overlapRemoved: false,
+        containmentToleranceMeters: AFFECTED_AREA_CONTAINMENT_TOLERANCE_METERS,
       },
     };
   }
@@ -178,11 +182,39 @@ export function measureAffectedAreas(
         affectedAreaSqm: unionAreaSqm,
         sourcePolygonCount: geometries.length,
         overlapRemoved: unionAreaSqm < sourceAreaSqm - Math.max(0.01, sourceAreaSqm * 1e-10),
+        containmentToleranceMeters: AFFECTED_AREA_CONTAINMENT_TOLERANCE_METERS,
       },
     };
   } catch {
     return affectedInvalid('INVALID_POLYGON', 'Affected-area boundaries could not be combined. Check their points and try again.');
   }
+}
+
+export function snapAffectedAreaWaypoints(plot: SurveyPolygon, waypoints: SurveyWaypoint[]): SurveyWaypoint[] {
+  const plotGeometry = readValidPolygon(plot);
+  if (!plotGeometry || waypoints.length === 0) return waypoints;
+  const ring = plot.coordinates[0];
+  return waypoints.map((waypoint) => {
+    if (pointInRing(waypoint.longitude, waypoint.latitude, ring)) return waypoint;
+    let nearest;
+    try {
+      nearest = DistanceOp.nearestPoints(plotGeometry, reader.read({
+        type: 'Point',
+        coordinates: [waypoint.longitude, waypoint.latitude],
+      }));
+    } catch {
+      return waypoint;
+    }
+    const nearestPoint = nearest?.[0] as { x?: number; y?: number } | undefined;
+    const longitude = nearestPoint?.x;
+    const latitude = nearestPoint?.y;
+    if (typeof longitude !== 'number' || typeof latitude !== 'number' ||
+      !Number.isFinite(longitude) || !Number.isFinite(latitude)) return waypoint;
+    if (geodesicDistanceMeters(waypoint.latitude, waypoint.longitude, latitude, longitude) > AFFECTED_AREA_CONTAINMENT_TOLERANCE_METERS) {
+      return waypoint;
+    }
+    return { ...waypoint, latitude, longitude };
+  });
 }
 
 export function validateAffectedAreaWaypoints(
@@ -202,6 +234,23 @@ export function validateAffectedAreaWaypoints(
     }
   }
   return { valid: true };
+}
+
+function pointInRing(longitude: number, latitude: number, ring: number[][]): boolean {
+  let inside = false;
+  for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index, index += 1) {
+    const [x1, y1] = ring[index];
+    const [x2, y2] = ring[previous];
+    if ((y1 > latitude) !== (y2 > latitude) &&
+      longitude < ((x2 - x1) * (latitude - y1)) / (y2 - y1) + x1) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function geodesicDistanceMeters(fromLatitude: number, fromLongitude: number, toLatitude: number, toLongitude: number): number {
+  return GeographicLib.Geodesic.WGS84.Inverse(fromLatitude, fromLongitude, toLatitude, toLongitude).s12 ?? Number.POSITIVE_INFINITY;
 }
 
 function readValidPolygon(polygon: SurveyPolygon): any | null {

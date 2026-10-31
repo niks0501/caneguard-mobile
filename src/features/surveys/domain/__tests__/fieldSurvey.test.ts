@@ -1,6 +1,8 @@
 import {
+  AFFECTED_AREA_CONTAINMENT_TOLERANCE_METERS,
   measureAffectedAreas,
   ringArea,
+  snapAffectedAreaWaypoints,
   validateAffectedAreaWaypoints,
   validateSurveyPolygon,
   validateSurveyWaypoints,
@@ -116,8 +118,56 @@ describe('field survey geometry', () => {
     ];
     const result = measureAffectedAreas(plot, areas);
     expect(result).toMatchObject({
-      provenance: { method: 'wgs84-ellipsoid-geodesic', sourcePolygonCount: 2, overlapRemoved: true },
+      provenance: {
+        method: 'wgs84-ellipsoid-geodesic',
+        sourcePolygonCount: 2,
+        overlapRemoved: true,
+        containmentToleranceMeters: 5,
+      },
     });
     expect('areaSqm' in result && result.areaSqm).toBeCloseTo(71_716.5218, 1);
+  });
+
+  it('snaps affected vertices within the 5 m forgiveness zone onto the plot ring', () => {
+    const plot = { type: 'Polygon' as const, coordinates: [[[120, 14], [120.002, 14], [120.002, 14.002], [120, 14.002], [120, 14]]] };
+    const nearEdge = waypoints([[119.99997, 14], [120.002, 14], [120.002, 14.002], [119.99997, 14.002]]);
+    const snapped = snapAffectedAreaWaypoints(plot, nearEdge);
+    expect(snapped[0].longitude).toBeCloseTo(120, 6);
+    expect(snapped[3].longitude).toBeCloseTo(120, 6);
+    const snappedBoundary = validateSurveyWaypoints(snapped);
+    expect(snappedBoundary.valid).toBe(true);
+    if (!snappedBoundary.valid) return;
+    expect(measureAffectedAreas(plot, [snappedBoundary.polygon])).toMatchObject({
+      valid: true,
+      provenance: { containmentToleranceMeters: AFFECTED_AREA_CONTAINMENT_TOLERANCE_METERS },
+    });
+
+    const beyondZone = waypoints([[119.9999, 14], [120.002, 14], [120.002, 14.002], [119.9999, 14.002]]);
+    const unsnapped = snapAffectedAreaWaypoints(plot, beyondZone);
+    expect(unsnapped[0]).toEqual(beyondZone[0]);
+    expect(unsnapped[3]).toEqual(beyondZone[3]);
+    const outsideBoundary = validateSurveyWaypoints(unsnapped);
+    expect(outsideBoundary.valid).toBe(true);
+    if (!outsideBoundary.valid) return;
+    expect(measureAffectedAreas(plot, [outsideBoundary.polygon])).toMatchObject({ valid: false, error: { code: 'OUTSIDE_PLOT' } });
+  });
+
+  it('leaves interior affected vertices untouched when snapping', () => {
+    const plot = { type: 'Polygon' as const, coordinates: [[[120, 14], [120.002, 14], [120.002, 14.002], [120, 14.002], [120, 14]]] };
+    const interior = waypoints([[120.0005, 14.0005], [120.0015, 14.0005], [120.0015, 14.0015], [120.0005, 14.0015]]);
+    expect(snapAffectedAreaWaypoints(plot, interior)).toEqual(interior);
+  });
+
+  it('still rejects an affected rectangle filling the U-notch after snapping', () => {
+    const plot = {
+      type: 'Polygon' as const,
+      coordinates: [[[120, 14], [120.004, 14], [120.004, 14.004], [120.003, 14.004], [120.003, 14.001], [120.001, 14.001], [120.001, 14.004], [120, 14.004], [120, 14]]],
+    };
+    const notch = waypoints([[120.001, 14.001], [120.003, 14.001], [120.003, 14.004], [120.001, 14.004]]);
+    expect(snapAffectedAreaWaypoints(plot, notch)).toEqual(notch);
+    const boundary = validateSurveyWaypoints(notch);
+    expect(boundary.valid).toBe(true);
+    if (!boundary.valid) return;
+    expect(measureAffectedAreas(plot, [boundary.polygon])).toMatchObject({ valid: false, error: { code: 'OUTSIDE_PLOT' } });
   });
 });

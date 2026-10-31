@@ -31,7 +31,7 @@ import {
 } from '@/features/reports/domain/manualMap';
 import { listOwnedFieldSurveys, saveFieldSurveyDraft, markFieldSurveyPending } from '@/features/surveys/data/fieldSurveyRepository';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
-import { measureAffectedAreas, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
 
 const SURVEY_ZOOM = 17;
@@ -181,7 +181,8 @@ export default function FieldSurveyScreen() {
     const waypoint: SurveyWaypoint = { latitude, longitude, source, accuracyMeters, capturedAt };
     setSaved(false);
     if (drawingAffectedArea) {
-      setAffectedWaypoints((current) => [...current, waypoint]);
+      const snapped = validation.valid ? snapAffectedAreaWaypoints(validation.polygon, [waypoint])[0] : waypoint;
+      setAffectedWaypoints((current) => [...current, snapped]);
       return;
     }
     setWaypoints((current) => {
@@ -282,13 +283,14 @@ export default function FieldSurveyScreen() {
   }
 
   function finishAffectedArea() {
-    const candidate = validateSurveyWaypoints(affectedWaypoints);
-    if (!candidate.valid) {
-      setSyncMessage(candidate.error.message);
-      return;
-    }
     if (!validation.valid) {
       setSyncMessage(validation.error.message);
+      return;
+    }
+    const snappedWaypoints = snapAffectedAreaWaypoints(validation.polygon, affectedWaypoints);
+    const candidate = validateSurveyWaypoints(snappedWaypoints);
+    if (!candidate.valid) {
+      setSyncMessage(candidate.error.message);
       return;
     }
     const result = measureAffectedAreas(validation.polygon, [...affectedAreas, candidate.polygon]);
@@ -297,7 +299,7 @@ export default function FieldSurveyScreen() {
       return;
     }
     setAffectedAreas((current) => [...current, candidate.polygon]);
-    setAffectedAreaWaypointSets((current) => [...current, [...affectedWaypoints]]);
+    setAffectedAreaWaypointSets((current) => [...current, snappedWaypoints]);
     setAffectedWaypoints([]);
     setSaved(false);
     setSyncMessage(null);

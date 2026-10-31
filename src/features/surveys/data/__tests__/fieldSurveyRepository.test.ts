@@ -69,7 +69,7 @@ describe('field survey local repository', () => {
     expect(findOwnedFieldSurvey(database, 'survey-client-1', 'owner-2')).toBeNull();
     expect(listOwnedFieldSurveys(database, 'owner-1')).toHaveLength(1);
 
-    const provenance = { method: 'wgs84-ellipsoid-geodesic', plotAreaSqm, affectedAreaSqm: plotAreaSqm, sourcePolygonCount: 1, overlapRemoved: false };
+    const provenance = { method: 'wgs84-ellipsoid-geodesic', plotAreaSqm, affectedAreaSqm: plotAreaSqm, sourcePolygonCount: 1, overlapRemoved: false, containmentToleranceMeters: 5 };
     const affectedWaypointsForPlot = [
       { latitude: 14, longitude: 120, source: 'map' as const, accuracyMeters: null, capturedAt: '2026-10-05T09:00:00.000Z' },
       { latitude: 14, longitude: 120.001, source: 'gps' as const, accuracyMeters: 3.4, capturedAt: '2026-10-05T09:00:01.000Z' },

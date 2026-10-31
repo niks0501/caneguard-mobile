@@ -169,6 +169,13 @@
       "when": 1793441200000,
       "tag": "0023_affected_area_waypoints",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": 6,
+      "when": 1793441300000,
+      "tag": "0024_active_affected_waypoints",
+      "breakpoints": true
     }
   ]
 }

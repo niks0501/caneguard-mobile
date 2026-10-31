@@ -197,10 +197,6 @@ export default function FieldSurveyScreen() {
   function handleMapPress(event: { nativeEvent: { locationX: number; locationY: number } }) {
     const { locationX, locationY } = event.nativeEvent;
     const coordinate = coordinateAtViewportPoint(center, zoom, viewport.width, viewport.height, locationX, locationY);
-    if (drawingAffectedArea) {
-      addOrMovePoint(coordinate.latitude, coordinate.longitude, 'map', null);
-      return;
-    }
     addOrMovePoint(coordinate.latitude, coordinate.longitude, 'map', null);
   }
 

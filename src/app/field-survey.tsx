@@ -402,7 +402,7 @@ export default function FieldSurveyScreen() {
         </Pressable>
         </GestureDetector>
         {isOnline !== true ? <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.offlineMap}</Text> : tileFailures.some((key) => tiles.some((tile) => tile.key === key)) ? <Text style={[styles.help, { color: theme.warning }]}>{FIELD_SURVEY_COPY.mapTileError}</Text> : null}
-        <View style={styles.row}>
+        <View style={styles.actionGroup}>
           <AppButton leadingIcon="map-pin" variant={!drawingAffectedArea ? 'primary' : 'secondary'} disabled={readOnlyPending || syncBusy} onPress={() => { setDrawingAffectedArea(false); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
           <AppButton leadingIcon="map-pin" variant={drawingAffectedArea ? 'primary' : 'secondary'} disabled={readOnlyPending || syncBusy} onPress={() => { setDrawingAffectedArea(true); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
           <AppButton leadingIcon="crosshair" onPress={() => void captureGpsWaypoint()} disabled={gpsBusy || readOnlyPending || syncBusy}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.addGpsPoint}</AppButton>
@@ -444,6 +444,7 @@ const styles = StyleSheet.create({
   map: { width: '100%', height: 380, borderWidth: 1, borderRadius: Radius.lg, overflow: 'hidden' },
   mapLayer: { position: 'absolute', left: -SURVEY_MAP_OVERSCAN, top: -SURVEY_MAP_OVERSCAN },
   attribution: { position: 'absolute', right: Spacing.xs, bottom: Spacing.xs, paddingHorizontal: Spacing.xs, paddingVertical: Spacing.xs, borderRadius: Radius.xs, ...Typography.caption },
+  actionGroup: { gap: Spacing.sm },
   row: { flexDirection: 'row', gap: Spacing.sm },
   points: { gap: Spacing.sm },
   point: { padding: Spacing.sm, borderWidth: 1, borderRadius: Radius.sm, minWidth: 145 },

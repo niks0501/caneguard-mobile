@@ -4,7 +4,7 @@ import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import { fieldSurveys, type FieldSurveyRow } from '@/database/schema';
-import type { SurveyPolygon, SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 
 export interface FieldSurveyDraft {
   capturedAt: string;
@@ -12,6 +12,9 @@ export interface FieldSurveyDraft {
   districtCode: string;
   ownerIdentity: string;
   waypoints: SurveyWaypoint[];
+  affectedAreaPolygons?: SurveyPolygon[];
+  affectedAreaWaypoints?: SurveyWaypoint[][];
+  activeAffectedWaypoints?: SurveyWaypoint[];
 }
 
 export async function saveFieldSurveyDraft(
@@ -34,6 +37,9 @@ export async function saveFieldSurveyDraft(
       database.update(fieldSurveys).set({
         districtCode: input.districtCode,
         waypointsJson: JSON.stringify(input.waypoints),
+        affectedAreaPolygonsJson: JSON.stringify(input.affectedAreaPolygons ?? []),
+        affectedAreaWaypointsJson: JSON.stringify(input.affectedAreaWaypoints ?? []),
+        activeAffectedWaypointsJson: JSON.stringify(input.activeAffectedWaypoints ?? []),
         updatedAt: new Date().toISOString(),
       }).where(and(eq(fieldSurveys.clientUuid, input.clientUuid), eq(fieldSurveys.ownerIdentity, owner))).run();
     } else {
@@ -42,6 +48,9 @@ export async function saveFieldSurveyDraft(
         ownerIdentity: owner,
         districtCode: input.districtCode,
         waypointsJson: JSON.stringify(input.waypoints),
+        affectedAreaPolygonsJson: JSON.stringify(input.affectedAreaPolygons ?? []),
+        affectedAreaWaypointsJson: JSON.stringify(input.affectedAreaWaypoints ?? []),
+        activeAffectedWaypointsJson: JSON.stringify(input.activeAffectedWaypoints ?? []),
         capturedAt: input.capturedAt,
         status: 'draft',
         createdAt: input.capturedAt,
@@ -84,6 +93,9 @@ export function markFieldSurveyPending(
   polygon: SurveyPolygon,
   areaSqm: number,
   capturedAt: string,
+  affectedAreaPolygons: SurveyPolygon[] = [],
+  affectedAreaSqm = 0,
+  affectedAreaWaypoints: SurveyWaypoint[][] = [],
 ): void {
   const owner = requireOwnerIdentity(ownerIdentity);
   const row = findOwnedFieldSurvey(database, clientUuid, owner);
@@ -94,12 +106,26 @@ export function markFieldSurveyPending(
   if (row.lastSyncErrorCode === 'CLIENT_UUID_CONFLICT') {
     throw new StorageError('UPDATE_FAILED', 'Start a new boundary to submit with a fresh identity.');
   }
-  if (!Number.isFinite(areaSqm) || areaSqm <= 0) {
+  const plotMeasurement = validateSurveyPolygon(polygon);
+  if (!plotMeasurement.valid || !Number.isFinite(areaSqm) || areaSqm <= 0 || Math.abs(plotMeasurement.areaSqm - areaSqm) > Math.max(0.01, areaSqm * 1e-10)) {
     throw new StorageError('INVALID_FIELD_REPORT', 'The boundary has no valid measured area.');
+  }
+  const affectedMeasurement = measureAffectedAreas(polygon, affectedAreaPolygons);
+  if (!affectedMeasurement.valid || !Number.isFinite(affectedAreaSqm) || affectedAreaSqm < 0 || Math.abs(affectedMeasurement.areaSqm - affectedAreaSqm) > Math.max(0.01, affectedAreaSqm * 1e-10)) {
+    throw new StorageError('INVALID_FIELD_REPORT', affectedMeasurement.valid ? 'The affected-area measurement does not match its boundary.' : affectedMeasurement.error.message);
+  }
+  const provenanceCheck = validateAffectedAreaWaypoints(affectedAreaPolygons, affectedAreaWaypoints);
+  if (!provenanceCheck.valid) {
+    throw new StorageError('INVALID_FIELD_REPORT', provenanceCheck.error.message);
   }
   database.update(fieldSurveys).set({
     polygonJson: JSON.stringify(polygon),
     areaSqm,
+    affectedAreaPolygonsJson: JSON.stringify(affectedAreaPolygons),
+    affectedAreaSqm,
+    affectedAreaWaypointsJson: JSON.stringify(affectedAreaWaypoints),
+    activeAffectedWaypointsJson: JSON.stringify([]),
+    measurementProvenanceJson: JSON.stringify(affectedMeasurement.provenance),
     capturedAt,
     status: 'pending',
     fieldErrorsJson: null,

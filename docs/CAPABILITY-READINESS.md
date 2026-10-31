@@ -41,7 +41,11 @@ tests. "Implemented" does not mean "verified on a device":
   checklist, finalization, foreground sync and manual retry.
 - Field validation visits: owner-scoped drafts, completion evidence, follow-up
   outcome, optional fresh photo.
-- Offline field boundary surveys with local draft resume.
+- Offline field boundary surveys: plot and affected-area polygons drawn on the
+  coordinate map, affected areas accepted only when fully inside the plot
+  (concave boundaries included), overlaps counted once, and unfinished affected
+  points checkpointed with the draft so Submit stays blocked until they are
+  finished or cleared.
 - Today's field work, Activity, office updates, Field guide, Settings.
 
 ## Deployment-dependent behaviour

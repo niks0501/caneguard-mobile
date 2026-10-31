@@ -31,7 +31,7 @@ import {
 } from '@/features/reports/domain/manualMap';
 import { listOwnedFieldSurveys, saveFieldSurveyDraft, markFieldSurveyPending } from '@/features/surveys/data/fieldSurveyRepository';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
-import { validateSurveyWaypoints, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
 
 const SURVEY_ZOOM = 17;
@@ -47,6 +47,10 @@ export default function FieldSurveyScreen() {
   const [clientUuid, setClientUuid] = useState(() => randomUUID());
   const [districtCode, setDistrictCode] = useState('');
   const [waypoints, setWaypoints] = useState<SurveyWaypoint[]>([]);
+  const [affectedAreas, setAffectedAreas] = useState<SurveyPolygon[]>([]);
+  const [affectedAreaWaypointSets, setAffectedAreaWaypointSets] = useState<SurveyWaypoint[][]>([]);
+  const [affectedWaypoints, setAffectedWaypoints] = useState<SurveyWaypoint[]>([]);
+  const [drawingAffectedArea, setDrawingAffectedArea] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [center, setCenter] = useState<MapCoordinate>(DEFAULT_MANUAL_MAP_CENTER);
   const [zoom, setZoom] = useState(SURVEY_ZOOM);
@@ -75,6 +79,9 @@ export default function FieldSurveyScreen() {
   const [resumed, setResumed] = useState(false);
   const [readOnlyPending, setReadOnlyPending] = useState(false);
   const validation = useMemo(() => validateSurveyWaypoints(waypoints), [waypoints]);
+  const affectedMeasurement = useMemo(() => validation.valid
+    ? measureAffectedAreas(validation.polygon, affectedAreas)
+    : null, [affectedAreas, validation]);
   const tileTemplate = getConfiguredMapTileUrlTemplate();
   const tiles = useMemo(() => getMapTiles(
     center,
@@ -96,8 +103,29 @@ export default function FieldSurveyScreen() {
         setDistrictCode(previous.districtCode === 'UNSPECIFIED' ? '' : previous.districtCode);
         try {
           setWaypoints(JSON.parse(previous.waypointsJson) as SurveyWaypoint[]);
+          const restoredAreas = JSON.parse(previous.affectedAreaPolygonsJson ?? '[]') as SurveyPolygon[];
+          let restoredWaypoints: SurveyWaypoint[][] = [];
+          try {
+            restoredWaypoints = JSON.parse(previous.affectedAreaWaypointsJson ?? '[]') as SurveyWaypoint[][];
+          } catch {
+            restoredWaypoints = [];
+          }
+          let restoredActive: SurveyWaypoint[] = [];
+          try {
+            const parsedActive = JSON.parse(previous.activeAffectedWaypointsJson ?? '[]') as SurveyWaypoint[];
+            if (Array.isArray(parsedActive)) restoredActive = parsedActive;
+          } catch {
+            restoredActive = [];
+          }
+          setAffectedAreas(restoredAreas);
+          setAffectedAreaWaypointSets(restoredWaypoints);
+          setAffectedWaypoints(restoredActive);
+          if (restoredActive.length > 0) setDrawingAffectedArea(true);
         } catch {
           setWaypoints([]);
+          setAffectedAreas([]);
+          setAffectedAreaWaypointSets([]);
+          setAffectedWaypoints([]);
         }
         if (previous.fieldErrorsJson) {
           try {
@@ -133,6 +161,9 @@ export default function FieldSurveyScreen() {
       ownerIdentity: session.user.uuid,
       districtCode: districtCode.trim() || 'UNSPECIFIED',
       waypoints,
+      affectedAreaPolygons: affectedAreas,
+      affectedAreaWaypoints: affectedAreaWaypointSets,
+      activeAffectedWaypoints: affectedWaypoints,
       capturedAt: new Date().toISOString(),
     }).then(() => {
       if (!cancelled) setSaved(true);
@@ -140,7 +171,7 @@ export default function FieldSurveyScreen() {
       if (!cancelled) setSaved(false);
     });
     return () => { cancelled = true; };
-  }, [bootstrapped, clientUuid, database, districtCode, ready, session?.user.uuid, waypoints]);
+  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, bootstrapped, clientUuid, database, districtCode, ready, session?.user.uuid, waypoints]);
 
   function addOrMovePoint(latitude: number, longitude: number, source: 'map' | 'gps', accuracyMeters: number | null, capturedAt = new Date().toISOString()) {
     if (readOnlyPending || syncBusy) {
@@ -149,6 +180,11 @@ export default function FieldSurveyScreen() {
     }
     const waypoint: SurveyWaypoint = { latitude, longitude, source, accuracyMeters, capturedAt };
     setSaved(false);
+    if (drawingAffectedArea) {
+      const snapped = validation.valid ? snapAffectedAreaWaypoints(validation.polygon, [waypoint])[0] : waypoint;
+      setAffectedWaypoints((current) => [...current, snapped]);
+      return;
+    }
     setWaypoints((current) => {
       if (selectedIndex !== null && selectedIndex < current.length) {
         return current.map((point, index) => index === selectedIndex ? waypoint : point);
@@ -200,9 +236,17 @@ export default function FieldSurveyScreen() {
       setFieldErrors({ district_code: [FIELD_SURVEY_COPY.districtRequired] });
       return;
     }
+    if (affectedWaypoints.length > 0) {
+      setSyncMessage(FIELD_SURVEY_COPY.unfinishedAffectedArea);
+      return;
+    }
     setSaving(true);
     try {
-      markFieldSurveyPending(database, clientUuid, session.user.uuid, validation.polygon, validation.areaSqm, waypoints.at(-1)?.capturedAt ?? new Date().toISOString());
+      if (!affectedMeasurement?.valid) {
+        setSyncMessage(affectedMeasurement?.error.message ?? FIELD_SURVEY_COPY.affectedOutsidePlot);
+        return;
+      }
+      markFieldSurveyPending(database, clientUuid, session.user.uuid, validation.polygon, validation.areaSqm, waypoints.at(-1)?.capturedAt ?? new Date().toISOString(), affectedAreas, affectedMeasurement.areaSqm, affectedAreaWaypointSets);
       setSyncBusy(true);
       const result = await syncNow('after-save');
       const surveyResult = result?.results.find((item) => item.reportId === clientUuid);
@@ -238,6 +282,29 @@ export default function FieldSurveyScreen() {
     }
   }
 
+  function finishAffectedArea() {
+    if (!validation.valid) {
+      setSyncMessage(validation.error.message);
+      return;
+    }
+    const snappedWaypoints = snapAffectedAreaWaypoints(validation.polygon, affectedWaypoints);
+    const candidate = validateSurveyWaypoints(snappedWaypoints);
+    if (!candidate.valid) {
+      setSyncMessage(candidate.error.message);
+      return;
+    }
+    const result = measureAffectedAreas(validation.polygon, [...affectedAreas, candidate.polygon]);
+    if (!result.valid) {
+      setSyncMessage(result.error.message);
+      return;
+    }
+    setAffectedAreas((current) => [...current, candidate.polygon]);
+    setAffectedAreaWaypointSets((current) => [...current, snappedWaypoints]);
+    setAffectedWaypoints([]);
+    setSaved(false);
+    setSyncMessage(null);
+  }
+
   function removeSelected() {
     if (selectedIndex === null) return;
     setSaved(false);
@@ -264,6 +331,9 @@ export default function FieldSurveyScreen() {
           setClientUuid(randomUUID());
           setDistrictCode('');
           setWaypoints([]);
+          setAffectedAreas([]);
+          setAffectedAreaWaypointSets([]);
+          setAffectedWaypoints([]);
           setSelectedIndex(null);
           setFieldErrors({});
           setSyncMessage(null);
@@ -311,6 +381,17 @@ export default function FieldSurveyScreen() {
           )) : null}
           <Svg pointerEvents="none" width={viewport.width + SURVEY_MAP_OVERSCAN * 2} height={viewport.height + SURVEY_MAP_OVERSCAN * 2}>
             {waypoints.length >= 3 ? <Polygon points={ringPoints} fill="rgba(32, 128, 86, 0.22)" stroke={theme.primary} strokeWidth={3} /> : waypoints.length >= 2 ? <Polyline points={ringPoints} fill="none" stroke={theme.primary} strokeWidth={3} /> : null}
+            {affectedAreas.map((area, areaIndex) => {
+              const points = area.coordinates[0].map(([longitude, latitude]) => {
+                const projected = coordinateToViewportPoint(center, { longitude, latitude }, zoom, viewport.width, viewport.height);
+                return `${projected.x + SURVEY_MAP_OVERSCAN},${projected.y + SURVEY_MAP_OVERSCAN}`;
+              }).join(' ');
+              return <Polygon key={`affected-${areaIndex}`} points={points} fill="rgba(205, 112, 36, 0.28)" stroke={theme.warning} strokeWidth={3} />;
+            })}
+            {affectedWaypoints.length >= 2 ? <Polyline points={affectedWaypoints.map((point) => {
+              const projected = coordinateToViewportPoint(center, point, zoom, viewport.width, viewport.height);
+              return `${projected.x + SURVEY_MAP_OVERSCAN},${projected.y + SURVEY_MAP_OVERSCAN}`;
+            }).join(' ')} fill="none" stroke={theme.warning} strokeWidth={3} /> : null}
             {waypoints.map((point, index) => {
               const projected = coordinateToViewportPoint(center, point, zoom, viewport.width, viewport.height);
               return <Circle key={`${point.latitude}:${point.longitude}:${index}`} cx={projected.x + SURVEY_MAP_OVERSCAN} cy={projected.y + SURVEY_MAP_OVERSCAN} r={selectedIndex === index ? 9 : 7} fill={selectedIndex === index ? theme.warning : theme.primary} stroke="white" strokeWidth={2} />;
@@ -321,27 +402,31 @@ export default function FieldSurveyScreen() {
         </Pressable>
         </GestureDetector>
         {isOnline !== true ? <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.offlineMap}</Text> : tileFailures.some((key) => tiles.some((tile) => tile.key === key)) ? <Text style={[styles.help, { color: theme.warning }]}>{FIELD_SURVEY_COPY.mapTileError}</Text> : null}
-        <View style={styles.row}>
-          <AppButton leadingIcon="map-pin" onPress={() => { setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.drawMode}</AppButton>
+        <View style={styles.actionGroup}>
+          <AppButton leadingIcon="map-pin" variant={!drawingAffectedArea ? 'primary' : 'secondary'} disabled={readOnlyPending || syncBusy} onPress={() => { setDrawingAffectedArea(false); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
+          <AppButton leadingIcon="map-pin" variant={drawingAffectedArea ? 'primary' : 'secondary'} disabled={readOnlyPending || syncBusy} onPress={() => { setDrawingAffectedArea(true); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
           <AppButton leadingIcon="crosshair" onPress={() => void captureGpsWaypoint()} disabled={gpsBusy || readOnlyPending || syncBusy}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.addGpsPoint}</AppButton>
         </View>
         <View style={styles.row}>
-          <AppButton variant="secondary" leadingIcon="corner-up-left" disabled={!waypoints.length || readOnlyPending || syncBusy} onPress={() => { setSaved(false); setWaypoints((current) => current.slice(0, -1)); setSelectedIndex(null); }}>{FIELD_SURVEY_COPY.undo}</AppButton>
-          <AppButton variant="secondary" leadingIcon="trash-2" disabled={selectedIndex === null || readOnlyPending || syncBusy} onPress={removeSelected}>{FIELD_SURVEY_COPY.removeSelected}</AppButton>
+          <AppButton variant="secondary" leadingIcon="corner-up-left" disabled={!(drawingAffectedArea ? affectedWaypoints.length : waypoints.length) || readOnlyPending || syncBusy} onPress={() => { setSaved(false); if (drawingAffectedArea) setAffectedWaypoints((current) => current.slice(0, -1)); else setWaypoints((current) => current.slice(0, -1)); setSelectedIndex(null); }}>{FIELD_SURVEY_COPY.undo}</AppButton>
+          <AppButton variant="secondary" leadingIcon="trash-2" disabled={drawingAffectedArea || selectedIndex === null || readOnlyPending || syncBusy} onPress={removeSelected}>{FIELD_SURVEY_COPY.removeSelected}</AppButton>
         </View>
-        <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.pointsHeading} ({waypoints.length})</Text>
+        {drawingAffectedArea ? <AppButton variant="secondary" disabled={affectedWaypoints.length < 3 || readOnlyPending || syncBusy} onPress={finishAffectedArea}>{FIELD_SURVEY_COPY.finishAffectedArea}</AppButton> : null}
+        <Text style={[styles.label, { color: theme.text }]}>{drawingAffectedArea ? FIELD_SURVEY_COPY.affectedAreaBoundary : FIELD_SURVEY_COPY.pointsHeading} ({drawingAffectedArea ? affectedWaypoints.length : waypoints.length})</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.points}>
-          {waypoints.map((point, index) => <Pressable key={`${point.capturedAt}:${index}`} accessibilityRole="button" accessibilityLabel={FIELD_SURVEY_COPY.selectPoint(index + 1)} onPress={() => setSelectedIndex(index)} style={[styles.point, { borderColor: selectedIndex === index ? theme.primary : theme.border, backgroundColor: theme.surfaceElevated }]}>
+          {(drawingAffectedArea ? affectedWaypoints : waypoints).map((point, index) => <Pressable key={`${point.capturedAt}:${index}`} accessibilityRole="button" accessibilityLabel={FIELD_SURVEY_COPY.selectPoint(index + 1)} onPress={() => { if (!drawingAffectedArea) setSelectedIndex(index); }} style={[styles.point, { borderColor: !drawingAffectedArea && selectedIndex === index ? theme.primary : theme.border, backgroundColor: theme.surfaceElevated }]}>
             <Text style={[styles.pointTitle, { color: theme.text }]}>{index + 1} · {point.source === 'gps' ? FIELD_SURVEY_COPY.gps : FIELD_SURVEY_COPY.map}</Text>
             <Text style={[styles.pointCoord, { color: theme.textSecondary }]}>{point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}</Text>
             <Text style={[styles.pointCoord, { color: point.accuracyMeters === null ? theme.warning : theme.textSecondary }]}>{point.accuracyMeters === null ? FIELD_SURVEY_COPY.accuracyUnknown : `${FIELD_SURVEY_COPY.accuracy} ±${point.accuracyMeters.toFixed(1)} m`}</Text>
           </Pressable>)}
         </ScrollView>
-        <Text accessibilityLiveRegion="polite" testID="field-survey.area" style={[styles.area, { color: validation.valid ? theme.primaryDark : theme.textSecondary }]}>{screenValidation}</Text>
+        <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.affectedAreas} ({affectedAreas.length})</Text>
+        {affectedAreas.length ? <AppButton variant="secondary" disabled={readOnlyPending || syncBusy} onPress={() => { setAffectedAreas((current) => current.slice(0, -1)); setAffectedAreaWaypointSets((current) => current.slice(0, -1)); setSaved(false); }}>{FIELD_SURVEY_COPY.removeAffectedArea}</AppButton> : null}
+        <Text accessibilityLiveRegion="polite" testID="field-survey.area" style={[styles.area, { color: validation.valid ? theme.primaryDark : theme.textSecondary }]}>{screenValidation}{validation.valid && affectedMeasurement?.valid ? ` · ${affectedMeasurement.areaSqm.toFixed(0)} m² affected` : affectedMeasurement && !affectedMeasurement.valid ? ` · ${affectedMeasurement.error.message}` : ''}</Text>
         {saved ? <Text style={[styles.help, { color: theme.success }]}>{FIELD_SURVEY_SYNC_COPY.savedOffline}</Text> : <Text style={[styles.help, { color: theme.warning }]}>{FIELD_SURVEY_COPY.savingOffline}</Text>}
         {syncMessage ? <Text accessibilityLiveRegion="assertive" testID="field-survey.sync-status" style={[styles.help, { color: theme.info }]}>{syncMessage}</Text> : null}
         {Object.entries(fieldErrors).filter(([key]) => key !== 'district_code').map(([field, messages]) => <Text key={field} style={[styles.error, { color: theme.danger }]}>{field}: {messages.join(' ')}</Text>)}
-        <AppButton testID="field-survey.submit" leadingIcon="upload-cloud" disabled={!validation.valid || !saved || saving || syncBusy} onPress={() => void saveAndSync()}>{saving ? FIELD_SURVEY_SYNC_COPY.submitting : FIELD_SURVEY_SYNC_COPY.submit}</AppButton>
+        <AppButton testID="field-survey.submit" leadingIcon="upload-cloud" disabled={!validation.valid || !saved || saving || syncBusy || affectedWaypoints.length > 0} onPress={() => void saveAndSync()}>{saving ? FIELD_SURVEY_SYNC_COPY.submitting : FIELD_SURVEY_SYNC_COPY.submit}</AppButton>
         <AppButton variant="secondary" onPress={() => router.back()}>{FIELD_SURVEY_COPY.close}</AppButton>
       </ScrollView>
     </SafeAreaView>
@@ -359,6 +444,7 @@ const styles = StyleSheet.create({
   map: { width: '100%', height: 380, borderWidth: 1, borderRadius: Radius.lg, overflow: 'hidden' },
   mapLayer: { position: 'absolute', left: -SURVEY_MAP_OVERSCAN, top: -SURVEY_MAP_OVERSCAN },
   attribution: { position: 'absolute', right: Spacing.xs, bottom: Spacing.xs, paddingHorizontal: Spacing.xs, paddingVertical: Spacing.xs, borderRadius: Radius.xs, ...Typography.caption },
+  actionGroup: { gap: Spacing.sm },
   row: { flexDirection: 'row', gap: Spacing.sm },
   points: { gap: Spacing.sm },
   point: { padding: Spacing.sm, borderWidth: 1, borderRadius: Radius.sm, minWidth: 145 },

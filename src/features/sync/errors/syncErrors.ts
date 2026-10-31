@@ -1,3 +1,7 @@
+// SDK 57's global fetch wraps native transport failures in this class, but
+// expo/fetch does not re-export it. Use identity, not names or message matching.
+import { FetchError } from 'expo/src/winter/fetch/FetchErrors';
+
 import { ApiHttpError } from '@/features/shared/api/apiClient';
 
 export const SYNC_ERROR_CODES = [
@@ -107,7 +111,7 @@ export function toSyncError(error: unknown): SyncError {
     }
   }
 
-  if (error instanceof TypeError || isAbortError(error)) {
+  if (error instanceof TypeError || error instanceof FetchError || isAbortError(error)) {
     return new SyncError(
       'NETWORK_REQUEST_FAILED',
       'The upload connection failed.'

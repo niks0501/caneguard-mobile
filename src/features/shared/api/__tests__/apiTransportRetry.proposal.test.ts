@@ -202,7 +202,7 @@ describe('response transport retry classification (proposal)', () => {
     });
   });
 
-  it('retries an identity-less conflict response instead of stranding the report', async () => {
+  it('keeps a readable conflict without any identity terminal', async () => {
     const form = new FormData();
     form.append('client_uuid', 'client-report-uuid');
     fetchMock.mockResolvedValueOnce(
@@ -216,74 +216,46 @@ describe('response transport retry classification (proposal)', () => {
       (error: unknown) => error,
     );
 
+    expect(failure).not.toBeInstanceOf(ApiTransportError);
     expect(toSyncError(failure)).toMatchObject({
-      code: 'NETWORK_REQUEST_FAILED',
-      retryable: true,
+      code: 'API_VALIDATION_FAILED',
+      retryable: false,
     });
   });
 
-  it('retries a report conflict identity that omits the client UUID until identity confirms', async () => {
+  it('keeps a readable report identity without a client UUID terminal', async () => {
     const form = new FormData();
     form.append('client_uuid', 'client-report-uuid');
-    fetchMock
-      .mockResolvedValueOnce(
-        responseWithStatus(409, async () =>
-          JSON.stringify({ data: { identity: { uuid: 'server-report-uuid' } } }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        responseWithStatus(409, async () =>
-          JSON.stringify({
-            data: {
-              identity: {
-                uuid: 'server-report-uuid',
-                client_uuid: 'client-report-uuid',
-              },
-            },
-          }),
-        ),
-      );
+    fetchMock.mockResolvedValueOnce(
+      responseWithStatus(409, async () =>
+        JSON.stringify({ data: { identity: { uuid: 'server-report-uuid' } } }),
+      ),
+    );
 
     const partialIdentity = await uploadMobileReport(form, 'secure-token').then(
       () => null,
       (error: unknown) => error,
     );
-    expect(toSyncError(partialIdentity)).toMatchObject({
-      code: 'NETWORK_REQUEST_FAILED',
-      retryable: true,
-    });
 
-    await expect(uploadMobileReport(form, 'secure-token')).resolves.toEqual({
-      remoteId: 'server-report-uuid',
+    expect(partialIdentity).not.toBeInstanceOf(ApiTransportError);
+    expect(toSyncError(partialIdentity)).toMatchObject({
+      code: 'API_VALIDATION_FAILED',
+      retryable: false,
     });
-    expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(form);
   });
 
-  it('retries a completion conflict identity that omits the client UUID until identity confirms', async () => {
+  it('keeps a readable completion identity without a client UUID terminal', async () => {
     const completionId = '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f';
     const record = {
       completion: { id: completionId },
     } as unknown as FieldValidationCompletionUploadRecord;
     const form = new FormData();
     form.append('client_uuid', completionId);
-    fetchMock
-      .mockResolvedValueOnce(
-        responseWithStatus(409, async () =>
-          JSON.stringify({ data: { completion: { uuid: 'server-completion-uuid' } } }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        responseWithStatus(409, async () =>
-          JSON.stringify({
-            data: {
-              completion: {
-                uuid: 'server-completion-uuid',
-                client_uuid: completionId,
-              },
-            },
-          }),
-        ),
-      );
+    fetchMock.mockResolvedValueOnce(
+      responseWithStatus(409, async () =>
+        JSON.stringify({ data: { completion: { uuid: 'server-completion-uuid' } } }),
+      ),
+    );
 
     const partialIdentity = await uploadMobileFieldValidationCompletion(
       record,
@@ -293,14 +265,12 @@ describe('response transport retry classification (proposal)', () => {
       () => null,
       (error: unknown) => error,
     );
-    expect(toSyncError(partialIdentity)).toMatchObject({
-      code: 'NETWORK_REQUEST_FAILED',
-      retryable: true,
-    });
 
-    await expect(
-      uploadMobileFieldValidationCompletion(record, 'secure-token', form),
-    ).resolves.toEqual({ remoteId: 'server-completion-uuid' });
+    expect(partialIdentity).not.toBeInstanceOf(ApiTransportError);
+    expect(toSyncError(partialIdentity)).toMatchObject({
+      code: 'API_VALIDATION_FAILED',
+      retryable: false,
+    });
   });
 
   it('keeps a readable conflicting report identity terminal', async () => {

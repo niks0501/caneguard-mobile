@@ -23,8 +23,8 @@ function responseWithStatus(
   } as unknown as Response;
 }
 
-function responseWithBodyLoss(): Response {
-  return responseWithStatus(201, async () => {
+function responseWithBodyLoss(status = 201): Response {
+  return responseWithStatus(status, async () => {
     throw new Error('The network connection was lost.');
   });
 }
@@ -48,6 +48,37 @@ describe('response transport retry classification (proposal)', () => {
     expect(failure).toBeInstanceOf(ApiTransportError);
     expect(toSyncError(failure)).toMatchObject({
       code: 'NETWORK_REQUEST_FAILED',
+      retryable: true,
+    });
+  });
+
+  it('keeps a rejected upload terminal when its error body cannot be read', async () => {
+    const form = new FormData();
+    form.append('client_uuid', 'client-report-uuid');
+    fetchMock.mockResolvedValueOnce(responseWithBodyLoss(422));
+
+    const failure = await uploadMobileReport(form, 'secure-token').then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+    expect(failure).not.toBeInstanceOf(ApiTransportError);
+    expect(toSyncError(failure)).toMatchObject({
+      code: 'API_VALIDATION_FAILED',
+      retryable: false,
+    });
+  });
+
+  it('keeps an unreadable server error retryable at its known status', async () => {
+    fetchMock.mockResolvedValueOnce(responseWithBodyLoss(503));
+
+    const failure = await apiRequest('/api/v2/mobile/reports').then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+    expect(toSyncError(failure)).toMatchObject({
+      code: 'SERVER_ERROR',
       retryable: true,
     });
   });

@@ -190,6 +190,15 @@ async function readResponseBody(response: Response): Promise<unknown> {
   try {
     text = await response.text();
   } catch {
+    if (!response.ok) {
+      throw new ApiHttpError(
+        response.status,
+        `The server returned HTTP ${response.status}.`,
+        {
+          retryAfterMs: parseRetryAfter(response.headers.get('Retry-After')),
+        },
+      );
+    }
     throw new ApiTransportError('The server response could not be read.');
   }
   if (!text) {

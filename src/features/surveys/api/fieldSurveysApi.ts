@@ -17,6 +17,13 @@ export interface FieldSurveyMeasurementProvenance {
   affected_area_waypoint_provenance: FieldSurveyAffectedAreaWaypointProvenance[][];
 }
 
+/**
+ * Wire names of this payload are proposed and pending Web/API approval.
+ * `affected_area_polygons`, `affected_area_sqm`, and `measurement_provenance`
+ * must not be renamed or extended here before that approval; per-waypoint
+ * affected-area provenance travels inside `measurement_provenance` and never
+ * repeats coordinates.
+ */
 export interface SubmitFieldSurveyPayload {
   area_sqm: number;
   affected_area_polygons: SurveyPolygon[];

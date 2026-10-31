@@ -190,6 +190,12 @@ export function measureAffectedAreas(
   }
 }
 
+/**
+ * GPS forgiveness zone: a point outside the plot is pulled onto the nearest ring
+ * point only within `AFFECTED_AREA_CONTAINMENT_TOLERANCE_METERS`. Containment is
+ * still checked as an exact polygon difference, so a boundary that spans an
+ * excluded concave notch is rejected even after snapping.
+ */
 export function snapAffectedAreaWaypoints(plot: SurveyPolygon, waypoints: SurveyWaypoint[]): SurveyWaypoint[] {
   const plotGeometry = readValidPolygon(plot);
   if (!plotGeometry || waypoints.length === 0) return waypoints;

@@ -162,6 +162,13 @@
       "when": 1793440989096,
       "tag": "0022_peaceful_titania",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": 6,
+      "when": 1793441200000,
+      "tag": "0023_affected_area_waypoints",
+      "breakpoints": true
     }
   ]
 }

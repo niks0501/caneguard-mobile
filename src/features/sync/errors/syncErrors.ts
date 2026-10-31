@@ -2,7 +2,10 @@
 // expo/fetch does not re-export it. Use identity, not names or message matching.
 import { FetchError } from 'expo/src/winter/fetch/FetchErrors';
 
-import { ApiHttpError } from '@/features/shared/api/apiClient';
+import {
+  ApiHttpError,
+  ApiTransportError,
+} from '@/features/shared/api/apiClient';
 
 export const SYNC_ERROR_CODES = [
   'AUTH_REQUIRED',
@@ -111,7 +114,12 @@ export function toSyncError(error: unknown): SyncError {
     }
   }
 
-  if (error instanceof TypeError || error instanceof FetchError || isAbortError(error)) {
+  if (
+    error instanceof TypeError ||
+    error instanceof ApiTransportError ||
+    error instanceof FetchError ||
+    isAbortError(error)
+  ) {
     return new SyncError(
       'NETWORK_REQUEST_FAILED',
       'The upload connection failed.'

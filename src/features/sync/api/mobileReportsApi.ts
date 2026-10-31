@@ -1,4 +1,8 @@
-import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
+import {
+  ApiHttpError,
+  ApiTransportError,
+  apiRequest,
+} from '@/features/shared/api/apiClient';
 
 interface MobileReportResponse {
   data?: {
@@ -45,7 +49,9 @@ export async function uploadMobileReport(
   const remoteId = readRemoteId(response);
 
   if (!remoteId) {
-    throw new Error('The mobile report response did not include identity.uuid.');
+    throw new ApiTransportError(
+      'The mobile report response did not include identity.uuid.',
+    );
   }
   return { remoteId };
 }

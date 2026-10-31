@@ -1,4 +1,8 @@
-import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
+import {
+  ApiHttpError,
+  ApiTransportError,
+  apiRequest,
+} from '@/features/shared/api/apiClient';
 import type { FieldValidationCompletionUploadRecord } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 import { mapFieldValidationCompletionToMultipart } from '@/features/assignments/api/mobileFieldValidationCompletionMapper';
 
@@ -48,7 +52,9 @@ export async function uploadMobileFieldValidationCompletion(
 
   const remoteId = readRemoteId(response);
   if (!remoteId) {
-    throw new Error('The field validation completion response did not include completion.uuid.');
+    throw new ApiTransportError(
+      'The field validation completion response did not include completion.uuid.',
+    );
   }
   return { remoteId };
 }

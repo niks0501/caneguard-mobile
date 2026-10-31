@@ -20,6 +20,17 @@ export class ApiHttpError extends Error {
   }
 }
 
+/**
+ * The request may or may not have reached the server: no response body was
+ * obtained, so the caller cannot treat the outcome as terminal.
+ */
+export class ApiTransportError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ApiTransportError';
+  }
+}
+
 export function buildApiUrl(path: string): string {
   return buildRequestUrl(path);
 }
@@ -175,7 +186,12 @@ function buildRequestUrl(path: string): string {
 }
 
 async function readResponseBody(response: Response): Promise<unknown> {
-  const text = await response.text();
+  let text: string;
+  try {
+    text = await response.text();
+  } catch {
+    throw new ApiTransportError('The server response could not be read.');
+  }
   if (!text) {
     return null;
   }

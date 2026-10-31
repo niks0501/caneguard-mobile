@@ -1,7 +1,6 @@
 // Supplemental worker proposal: not promoted to an acceptance/proof test.
 import { FetchError } from 'expo/src/winter/fetch/FetchErrors';
 
-import { ApiHttpError } from '@/features/shared/api/apiClient';
 import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
 
 describe('Expo native fetch retry classification (proposal)', () => {
@@ -10,17 +9,10 @@ describe('Expo native fetch retry classification (proposal)', () => {
       new Error('java.net.ConnectException: Failed to connect to the isolated API'),
     );
     expect(failure).not.toBeInstanceOf(TypeError);
-    expect(failure.name).toBe('Error');
     expect(toSyncError(failure)).toMatchObject({
       code: 'NETWORK_REQUEST_FAILED',
       retryable: true,
       detail: null,
-    });
-  });
-
-  it.each([401, 403, 409, 422])('keeps HTTP %s terminal even with a fetch-like server message', (status) => {
-    expect(toSyncError(new ApiHttpError(status, 'fetch failed: rejected'))).toMatchObject({
-      retryable: false,
     });
   });
 

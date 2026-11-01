@@ -58,11 +58,26 @@ re-crops. Downscale only what ships.
 
 ## Manifest
 
-Add one row per dropped photo to `MANIFEST.csv`. Leave `status` empty; do not
-write `pending` or licence wording, because those words are banned from the
-app's user-facing copy by a build guard. If a licence requires a credit, record
-it in `attribution_text` and say where the credit should appear — until told
-otherwise the app puts required credits in the store listing only.
+Add one row per dropped photo to `MANIFEST.csv`. Leave `status` and
+`review_status` empty until a person has actually reviewed the file; those
+columns are the drop's own record, not app copy.
+
+Fill `source_page`, `source_image_id_or_url`, `author_or_org`, `license_name`,
+`license_evidence` and `attribution_text` as soon as the evidence exists. Do
+not guess any of them. The app reads a photo's credit from the typed entry data
+(`src/features/field-guide/constants/fieldGuideEntries.ts`), not from this CSV,
+and today every photo is marked as credit-not-recorded because no licence
+evidence has been supplied. When a credit is confirmed, copy the creator,
+licence and original page into that photo's `credit` record and set
+`recorded: true`.
+
+The app now shows photo credits and sources in a read-only "Sources and photo
+credits" disclosure on the entry page and in the full guide, and under the
+photo in the full-screen viewer, so credited photos no longer rely on the
+store listing alone. Keep the banned-word rule for
+**reading copy** — signs, summaries, prevention and management text must never
+carry licence, provenance or manifest wording. Credit labels are drawn from
+`src/constants/copy.ts` and are the only place that wording belongs.
 
 A dropped photo reaches a phone only when `FIELD_GUIDE_DROP_PHOTOS` in
 `src/features/field-guide/constants/fieldGuideEntries.ts` requires that exact

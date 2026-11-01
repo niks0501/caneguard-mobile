@@ -11,9 +11,10 @@ import {
   type FieldGuideEntry,
   type FieldGuideEntryId,
   type FieldGuideImage,
+  type FieldGuideImageCredit,
   type FieldGuideLaunchEntryId,
 } from '../domain/fieldGuideTypes';
-import { fieldGuideEntryContent } from './fieldGuideEntryContent';
+import { fieldGuideEditorial, fieldGuideEntryContent } from './fieldGuideEntryContent';
 
 /**
  * The gallery's own content module.
@@ -41,7 +42,22 @@ function bundledImage(
   if (!photo) {
     return [];
   }
-  return [{ source: photo, caption, subject, assetKey: `reference_${label}.jpg` }];
+  return [{ source: photo, caption, subject, assetKey: `reference_${label}.jpg`, credit: awaitingCredit() }];
+}
+
+/**
+ * A photo whose creator, licence and source page are not all recorded yet.
+ * The creator is passed only when the provenance file names one; nothing else
+ * is filled in by guesswork, and `recorded` stays false until evidence exists.
+ */
+function awaitingCredit(creator: string | null = null): FieldGuideImageCredit {
+  return {
+    creator,
+    licenseName: null,
+    sourcePageUrl: null,
+    attribution: null,
+    recorded: false,
+  };
 }
 
 /**
@@ -58,6 +74,7 @@ const FIELD_GUIDE_DROP_PHOTOS: Record<FieldGuideLaunchEntryId, readonly FieldGui
       caption: 'Clean, evenly green leaf blades on a healthy stool',
       subject: 'leaf',
       assetKey: 'healthy/01-healthy.jpg',
+      credit: awaitingCredit('Nikko'),
     },
   ],
   mosaic: [
@@ -66,6 +83,7 @@ const FIELD_GUIDE_DROP_PHOTOS: Record<FieldGuideLaunchEntryId, readonly FieldGui
       caption: 'Paler green streaking along an otherwise green leaf blade',
       subject: 'leaf',
       assetKey: 'mosaic/01-mosaic.jpg',
+      credit: awaitingCredit('Nikko'),
     },
   ],
   rust: [
@@ -74,6 +92,7 @@ const FIELD_GUIDE_DROP_PHOTOS: Record<FieldGuideLaunchEntryId, readonly FieldGui
       caption: 'Orange-brown rust pustules scattered over the leaf blade',
       subject: 'leaf',
       assetKey: 'rust/01-rust.jpg',
+      credit: awaitingCredit('Nikko'),
     },
   ],
   smut: [
@@ -82,12 +101,14 @@ const FIELD_GUIDE_DROP_PHOTOS: Record<FieldGuideLaunchEntryId, readonly FieldGui
       caption: 'A single long whip rising above the cane canopy',
       subject: 'shoot',
       assetKey: 'smut/01-smut.jpg',
+      credit: awaitingCredit('Nikko'),
     },
     {
       source: require('../../../../assets/images/field-guide/smut/02-smut.jpg'),
       caption: 'Several whips curling over a smut-affected block',
       subject: 'shoot',
       assetKey: 'smut/02-smut.jpg',
+      credit: awaitingCredit('Nikko'),
     },
   ],
   rssi: [
@@ -96,12 +117,14 @@ const FIELD_GUIDE_DROP_PHOTOS: Record<FieldGuideLaunchEntryId, readonly FieldGui
       caption: 'Red-striped scale insects clustered along the leaf blade',
       subject: 'insect',
       assetKey: 'rssi/01-rssi.jpg',
+      credit: awaitingCredit('Nikko'),
     },
     {
       source: require('../../../../assets/images/field-guide/rssi/02-rssi.jpg'),
       caption: 'A heavy colony of wax-covered scale insects on a leaf',
       subject: 'insect',
       assetKey: 'rssi/02-rssi.jpg',
+      credit: awaitingCredit('Nikko'),
     },
   ],
 };
@@ -132,14 +155,20 @@ function projectModelEntry(label: ModelLabel): FieldGuideEntry {
     id: label,
     category: label === 'healthy' ? 'healthy' : 'disease',
     displayName: referenceMedia[label].name,
-    shortName: referenceMedia[label].name,
+    shortName: content.shortName,
     modelLabel: label,
     summary: content.summary,
     signs: content.signs,
     whereToLook: content.whereToLook,
     impact: content.impact,
+    conditionLabel: content.conditionLabel,
+    scientificName: content.scientificName,
+    prevention: content.prevention,
     management: content.management,
     detail: content.detail,
+    guide: content.guide,
+    sourceIds: content.sourceIds,
+    editorial: fieldGuideEditorial,
     images: [
       ...(photoDescription
         ? bundledImage(label, photoDescription.caption, photoDescription.subject)
@@ -166,8 +195,14 @@ function projectPestEntry(): FieldGuideEntry {
     signs: content.signs,
     whereToLook: content.whereToLook,
     impact: content.impact,
+    conditionLabel: content.conditionLabel,
+    scientificName: content.scientificName,
+    prevention: content.prevention,
     management: content.management,
     detail: content.detail,
+    guide: content.guide,
+    sourceIds: content.sourceIds,
+    editorial: fieldGuideEditorial,
     images: FIELD_GUIDE_DROP_PHOTOS[FIELD_GUIDE_PEST_ENTRY_ID],
     // The app can only record RSSI as something the reporter says they saw.
     detectableByApp: false,

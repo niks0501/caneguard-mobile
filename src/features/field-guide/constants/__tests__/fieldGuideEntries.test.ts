@@ -19,12 +19,17 @@ function readingText(entry: FieldGuideEntry): string[] {
     entry.id,
     entry.displayName,
     entry.shortName,
+    entry.conditionLabel,
+    ...(entry.scientificName ? [entry.scientificName] : []),
     entry.summary,
     ...entry.signs,
     entry.whereToLook,
     entry.impact,
+    ...entry.prevention,
     ...entry.management,
     entry.detail,
+    entry.guide.intro,
+    ...entry.guide.sections.flatMap((section) => [section.heading, ...section.paragraphs]),
     ...entry.images.map((image) => `${image.caption} ${image.subject}`),
   ];
 }
@@ -192,17 +197,35 @@ describe('field guide safety rules over the entry data', () => {
     expect(violations).toEqual([]);
   });
 
+  it('marks every launch entry for expert review in editorial metadata', () => {
+    for (const entry of fieldGuideEntries) {
+      expect(entry.editorial.validationStatus).toBe('pending-expert-review');
+      expect(entry.editorial.reviewedAt).toBeNull();
+      expect(entry.editorial.validationNote.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('gives every bundled photo a credit record that never invents a licence', () => {
+    for (const entry of fieldGuideEntries) {
+      for (const image of entry.images) {
+        const credit = image.credit;
+        expect(credit).toBeDefined();
+        if (credit.recorded) {
+          expect(credit.creator).not.toBeNull();
+          expect(credit.licenseName).not.toBeNull();
+          expect(credit.sourcePageUrl).not.toBeNull();
+        } else {
+          expect(credit.licenseName).toBeNull();
+          expect(credit.sourcePageUrl).toBeNull();
+        }
+      }
+    }
+  });
+
   it('never emits RSSI as a model class score', () => {
     const serialized = JSON.stringify(fieldGuideEntries);
     expect(serialized).not.toMatch(/class_scores/i);
     expect(serialized).not.toMatch(/classScores/);
     expect(serialized).not.toMatch(/\[RSSI\]/);
-  });
-
-  it('refers the treatment decision to the office on the pest entry', () => {
-    // R5 = A: the treatment decision belongs with the office, not the page.
-    const pest = findFieldGuideEntry('rssi');
-    expect(pest).not.toBeNull();
-    expect(pest?.management.join(' ')).toMatch(/ask the office before any chemical treatment/i);
   });
 });

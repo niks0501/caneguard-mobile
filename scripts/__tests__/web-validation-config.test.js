@@ -1,3 +1,5 @@
+/* global describe, expect, it */
+
 const fs = require('node:fs');
 const path = require('node:path');
 

@@ -130,7 +130,7 @@ describe('CaneGuardDatabaseProvider on web', () => {
       expect(screen.getByText('Preparing local storage')).toBeOnTheScreen();
       expect(mockGetResources).not.toHaveBeenCalled();
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(60_000);
       });
 
@@ -184,7 +184,7 @@ describe('CaneGuardDatabaseProvider on web', () => {
         </CaneGuardDatabaseProvider>,
       );
 
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(60_000);
       });
       expect(screen.getByText('Local storage needs attention')).toBeOnTheScreen();
@@ -213,7 +213,9 @@ describe('CaneGuardDatabaseProvider on web', () => {
       </CaneGuardDatabaseProvider>,
     );
 
-    view.unmount();
+    await act(async () => {
+      view.unmount();
+    });
 
     await act(async () => {
       warmUp.resolve({ closeAsync });
@@ -305,7 +307,9 @@ describe('CaneGuardDatabaseProvider on web', () => {
     });
     expect(closeAsync).not.toHaveBeenCalled();
 
-    view.unmount();
+    await act(async () => {
+      view.unmount();
+    });
 
     expect(closeAsync).toHaveBeenCalledTimes(1);
   });

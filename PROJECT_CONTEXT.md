@@ -26,7 +26,7 @@ AI results are decision-support outputs only. User-facing copy must not present 
 - Backend: External CaneGuard HTTP API; the mobile repository does not contain the backend server
 - Database: Expo SQLite with Drizzle ORM; managed scan images are stored in app-controlled filesystem storage
 - External services: CaneGuard API via `EXPO_PUBLIC_API_BASE_URL`; Expo EAS Build/Update
-- Deployment target: Android-first mobile app; EAS development/preview APKs and production EAS builds. iOS and static web configuration also exist but are not the primary verified target.
+- Deployment target: Android-first mobile app; EAS development/preview APKs and production EAS builds. iOS and single-page web configuration also exist but are not the primary verified target.
 
 ## Architecture
 
@@ -341,7 +341,7 @@ cross-repository prerequisites.
 
 - Legacy V0 records retain three-class compatibility; see the Constraints section for the authoritative current Model V1 and V2 report-upload class boundary.
 - Native TFLite behavior cannot be fully validated by unit tests or Expo Go; a compatible development build and physical-device testing remain necessary.
-- iOS and static-web configurations exist, but the repository evidence is primarily Android-focused.
+- iOS and single-page web configurations exist, but the repository evidence is primarily Android-focused.
 - Mobile/backend synchronization is tightly coupled to the current multipart field names and response identity shape; backend contract changes require coordinated mobile updates.
 - Field-validation assignment, completion, and notification payloads are defined by `references/mobile-field-validation-assignment-v1.json`, `references/mobile-field-validation-completion-v1.json`, `references/mobile-notifications-v1.json`, and their matching web artifacts.
 Mobile completion evidence is persisted in SQLite with a retryable queue and synchronized through the owner-scoped assignment completion endpoint.

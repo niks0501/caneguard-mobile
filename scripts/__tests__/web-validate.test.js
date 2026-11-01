@@ -1,3 +1,5 @@
+/* global afterAll, beforeAll, describe, expect, it, jest */
+
 import { loginMobile } from '@/features/auth/api/mobileAuthApi';
 import { fetchAllMobileFieldValidationAssignments } from '@/features/assignments/api/mobileFieldValidationAssignmentsApi';
 import { fetchAllMobileNotifications } from '@/features/notifications/api/mobileNotificationsApi';

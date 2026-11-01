@@ -24,6 +24,9 @@ the Expo web dev server with:
 - `CANEGUARD_WEB_VALIDATE_TODAY` — the reference date the fixtures are built
   from. Set it (`CANEGUARD_WEB_VALIDATE_TODAY=2026-11-01 npm run web:validate`)
   for a pinned run; otherwise the local date the script starts on is used.
+  Accepted pins run from `1970-01-10` to `9999-12-31`; the fixtures derive
+  earlier days, so anything outside that window stops the script with the
+  one-line date error.
 
 Then:
 
@@ -49,7 +52,7 @@ and any other `GET` answers a well-formed empty page.
 | --- | --- | --- |
 | Single-page output | `app.json` (`web.output: "single"`) | The dev server cannot bundle the SQLite worker with the committed static output; a static graph fails with HTTP 500 `Worker chunk not found`. |
 | COOP/COEP | `metro.config.js` (`server.enhanceMiddleware`) | The web SQLite bridge uses `SharedArrayBuffer`, which needs a cross-origin-isolated page. The dev server now sends the headers, so no proxy is needed. |
-| Async warm-up | `src/database/DatabaseProvider.tsx` | The first synchronous SQLite open busy-waits while the SQLite worker is still starting, and a blocked main thread starves that startup. On web only, one async open runs first. Native is untouched. |
+| Async warm-up | `src/database/DatabaseProvider.tsx` | The first synchronous SQLite open busy-waits while the SQLite worker is still starting, and a blocked main thread starves that startup. On web only, one async open runs first, and the synchronous open is skipped unless it succeeds; a rejection or a 10-second timeout shows the retryable storage screen, and the warm-up connection is closed on retry and unmount. Native is untouched. |
 | Worker length fix | `validation/expo-sqlite/WorkerChannel.ts` | `expo-sqlite` 57 writes the sync result length into a byte view, so results longer than 255 bytes are read back truncated. Delete this copy and its Metro alias when the app moves to SDK 58, which fixes it upstream. |
 | Secure-store stand-in | `validation/expo-secure-store/ExpoSecureStore.web.ts` | `expo-secure-store` has no web implementation, so nobody can sign in on web. The stand-in keeps a fake session in `localStorage`. |
 | Stub API | `validation/stub-api/` | Fake account, two fake visits, read-only feeds. No write is persisted. |
@@ -91,3 +94,6 @@ stays generic. Typical causes:
 - `SyntaxError: Unterminated string in JSON` — the worker length fix is not
   applied; check the Metro alias in `metro.config.js`.
 - `NoModificationAllowedError` — a second tab on the same origin; close it.
+- `The web SQLite warm-up timed out.` — the async open never finished within 10
+  seconds; the storage screen is retryable. Close other tabs on the origin, then
+  use **Try Again**.

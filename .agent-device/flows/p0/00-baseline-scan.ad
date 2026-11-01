@@ -1,8 +1,11 @@
 context platform=android timeout=240000
 
-# INTENT: Discover supported reference classes, analyze a known Rust image,
-# and keep/reopen it locally as a scan-only observation without submitting.
+# INTENT: Analyze a known Rust image, and keep/reopen it locally as a
+# scan-only observation without submitting.
 # Converted from .maestro/p0/00-baseline-scan.yaml.
+# Field-guide reference-class coverage is no longer part of this flow (Home no
+# longer shows the disease-reference card); it is a PENDING device-phase
+# follow-up in a separate field-guide flow.
 # Preflow: stage-media. Private AUTH_EMAIL and AUTH_PASSWORD required.
 
 open "com.niks0501.caneguard" --relaunch --platform android

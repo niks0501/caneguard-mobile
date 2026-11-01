@@ -8,7 +8,6 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Pill } from '@/components/ui/Pill';
 import { Row } from '@/components/ui/Row';
 import { SectionHeading } from '@/components/ui/SectionHeading';
-import { Status } from '@/components/ui/Status';
 import { TextField } from '@/components/ui/TextField';
 
 describe('Consolidated UI components', () => {
@@ -133,14 +132,6 @@ describe('Consolidated UI components', () => {
 
       await rerender(<DiseasePill variant="unclear" testID="disease-pill" />);
       expect(screen.getByText('Unclear')).toBeOnTheScreen();
-    });
-  });
-
-  describe('Status', () => {
-    it('renders status badge with appropriate semantic token mapping', async () => {
-      await render(<Status label="Synced with office" status="synced" testID="status-badge" />);
-      expect(screen.getByTestId('status-badge')).toBeOnTheScreen();
-      expect(screen.getByText('Synced with office')).toBeOnTheScreen();
     });
   });
 

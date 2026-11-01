@@ -50,7 +50,7 @@ export function BottomNav({ activeTab, navigation, notificationCount = 0, state 
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.row, { backgroundColor: theme.surfaceElevated, borderTopColor: theme.divider, paddingBottom: Math.max(Spacing.sm, insets.bottom) }]}>
+      <View style={[styles.row, { backgroundColor: theme.background, borderTopColor: theme.divider, paddingBottom: Math.max(Spacing.sm, insets.bottom) }]}>
         {NAV_ITEMS.map((item) => {
           const active = selectedRoute ? selectedRoute === item.key : item.key === activeTab;
 
@@ -83,7 +83,7 @@ export function BottomNav({ activeTab, navigation, notificationCount = 0, state 
                     </Text>
                   </View>
                 ) : null}
-                {active ? <View style={[styles.activeLine, { backgroundColor: theme.accentDark }]} /> : null}
+                {active ? <View style={[styles.activeLine, { backgroundColor: theme.primary }]} /> : null}
               </View>
               <Text style={[styles.label, { color: active ? theme.primary : theme.textSecondary }]}>
                 {item.label}
@@ -143,11 +143,10 @@ const styles = StyleSheet.create({
     right: -8,
     top: -4,
   },
-  badgeText: { ...Typography.caption, fontWeight: '800' },
+  badgeText: { ...Typography.tabLabel },
   label: {
-    ...Typography.caption,
+    ...Typography.tabLabel,
     lineHeight: 14,
-    fontWeight: '700',
     textAlign: 'center',
   },
 });

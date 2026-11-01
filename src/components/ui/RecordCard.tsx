@@ -3,7 +3,6 @@ import { Image as ExpoImage } from 'expo-image';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { DiseasePill, type DiseasePillVariant } from '@/components/ui/DiseasePill';
 import { PERSONAL_SCAN_LOCAL_STATUS } from '@/constants/copy';
 import {
   ComponentTokens,
@@ -34,7 +33,6 @@ export function RecordCard({ activityType, onPress, record, testID }: RecordCard
   const thumbnailUri =
     managedDisplayImageUriIfPresent(record.managedImageUri) ?? record.managedImageUri;
   const savedAt = formatSavedAt(record.createdAt);
-  const variant = toPillVariant(record.predictedLabel);
   const syncPresentation = getSyncPresentation(record.syncStatus);
   const itemLabel = activityType ?? 'record';
 
@@ -118,7 +116,6 @@ export function RecordCard({ activityType, onPress, record, testID }: RecordCard
               </Text>
             ) : null}
           </View>
-          <DiseasePill variant={variant} />
         </View>
         <View style={styles.footer}>
           <View style={styles.status}>
@@ -199,15 +196,6 @@ export function getResultLabel(label: string): string {
     return 'Possible Condition: Smut';
   }
   return `Possible Condition: ${label}`;
-}
-
-function toPillVariant(label: string): DiseasePillVariant {
-  return label === 'healthy' ||
-    label === 'mosaic' ||
-    label === 'rust' ||
-    label === 'smut'
-    ? label
-    : 'unclear';
 }
 
 function formatSavedAt(value: string): string {

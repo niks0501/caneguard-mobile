@@ -92,7 +92,7 @@ export function BrandedScreenHeader({
   }
 
   return (
-    <View style={[styles.hero, { backgroundColor: theme.backgroundElement, borderBottomColor: theme.divider }]}>
+    <View style={[styles.hero, { backgroundColor: theme.background, borderBottomColor: theme.divider }]}>
       <View style={styles.content}>
         <View
           style={[
@@ -202,7 +202,6 @@ const styles = StyleSheet.create({
     ...Typography.heading,
     flex: 1,
     flexShrink: 1,
-    fontWeight: '800',
   },
   subtitle: {
     ...Typography.caption,

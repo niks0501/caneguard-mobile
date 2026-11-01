@@ -8,7 +8,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { ComponentTokens, Shadows } from '@/constants/theme';
+import { ComponentTokens } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type CardVariant = 'flat' | 'elevated' | 'interactive';
@@ -43,7 +43,6 @@ export function Card({
       backgroundColor: theme.surfaceElevated,
       borderColor: theme.border,
     },
-    (variant === 'elevated' || variant === 'interactive') && styles.elevated,
     style,
   ];
 
@@ -80,9 +79,6 @@ const styles = StyleSheet.create({
     padding: ComponentTokens.card.padding,
     borderRadius: ComponentTokens.card.borderRadius,
     borderWidth: 1,
-  },
-  elevated: {
-    ...Shadows.sm,
   },
   pressed: {
     opacity: 0.8,

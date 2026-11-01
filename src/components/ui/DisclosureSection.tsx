@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Radius, Spacing, Typography } from '@/constants/theme';
+import { Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type DisclosureSectionProps = {
@@ -27,7 +27,7 @@ export function DisclosureSection({
   return (
     <View
       testID={testID}
-      style={[styles.container, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+      style={[styles.container, { borderColor: theme.border }]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? `${action} ${title}`}
@@ -55,23 +55,23 @@ export function DisclosureSection({
 
 const styles = StyleSheet.create({
   container: {
-    borderWidth: 1,
-    borderRadius: Radius.lg,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
     overflow: 'hidden',
   },
   header: {
     minHeight: 56,
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.xs,
     paddingVertical: Spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
   },
   copy: { flex: 1, gap: 2 },
-  title: { ...Typography.bodySmall, fontWeight: '800' },
+  title: { ...Typography.bodySmall, fontWeight: '500' },
   hint: { ...Typography.caption },
   content: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.xs,
     paddingBottom: Spacing.md,
     gap: Spacing.md,
   },

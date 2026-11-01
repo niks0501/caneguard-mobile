@@ -28,20 +28,24 @@ export type PillProps = {
   accessibilityLabel?: string;
 };
 
+const NEUTRAL_VARIANT = { colorKey: 'text', backgroundKey: 'surfaceMuted', borderKey: 'border' } as const;
+
 const VARIANT_CONFIG: Record<
   PillVariant,
-  { colorKey: ThemeColor; backgroundKey: ThemeColor }
+  { colorKey: ThemeColor; backgroundKey: ThemeColor; borderKey?: ThemeColor }
 > = {
   default: { colorKey: 'primary', backgroundKey: 'surfaceMuted' },
   success: { colorKey: 'success', backgroundKey: 'successBg' },
   warning: { colorKey: 'warning', backgroundKey: 'warningBg' },
   danger: { colorKey: 'danger', backgroundKey: 'dangerBg' },
   info: { colorKey: 'info', backgroundKey: 'infoBg' },
-  healthy: { colorKey: 'healthy', backgroundKey: 'healthyBg' },
-  smut: { colorKey: 'smut', backgroundKey: 'smutBg' },
-  mosaic: { colorKey: 'mosaic', backgroundKey: 'mosaicBg' },
-  rust: { colorKey: 'rust', backgroundKey: 'rustBg' },
-  unclear: { colorKey: 'unclear', backgroundKey: 'unclearBg' },
+  // Disease names carry no hue: colour would read as a verdict, and the
+  // wording ("Possible Condition") already says the result is not certain.
+  healthy: NEUTRAL_VARIANT,
+  smut: NEUTRAL_VARIANT,
+  mosaic: NEUTRAL_VARIANT,
+  rust: NEUTRAL_VARIANT,
+  unclear: NEUTRAL_VARIANT,
 };
 
 export function Pill({
@@ -58,6 +62,7 @@ export function Pill({
   const config = VARIANT_CONFIG[variant] ?? VARIANT_CONFIG.default;
   const color = theme[config.colorKey];
   const bg = theme[config.backgroundKey];
+  const borderColor = theme[config.borderKey ?? config.colorKey];
 
   return (
     <View
@@ -65,7 +70,7 @@ export function Pill({
       style={[
         styles.pill,
         size === 'md' && styles.pillMd,
-        { backgroundColor: bg, borderColor: color },
+        { backgroundColor: bg, borderColor },
         style,
       ]}
       testID={testID}>
@@ -96,7 +101,7 @@ const styles = StyleSheet.create({
     minHeight: 36,
   },
   label: {
-    ...Typography.caption,
-    fontWeight: '700',
+    ...Typography.label,
+    letterSpacing: 0,
   },
 });

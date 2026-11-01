@@ -255,14 +255,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    borderWidth: 1.5,
-    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderRadius: Radius.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
   },
   message: {
     ...Typography.bodySmall,
-    fontWeight: '700',
+    fontWeight: '500',
     flex: 1,
   },
 });

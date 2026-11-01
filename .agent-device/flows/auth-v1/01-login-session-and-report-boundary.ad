@@ -41,7 +41,7 @@ back --settle
 wait "label=\"Settings\"" 30000
 back --settle
 wait "id=\"home.screen\"" 30000
-click "role=\"button\" label=\"Start Scan\""
+click "id=nav.scan"
 wait "id=\"scan.screen\"" 30000
 is visible "id=\"scan.choose-gallery\""
 screenshot --out "${AD_ARTIFACTS:-.agent-device/test-artifacts}/auth-v1-authenticated-report-boundary.png"

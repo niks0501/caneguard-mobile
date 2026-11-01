@@ -20,7 +20,7 @@ export type HomeAttentionCardProps = {
 };
 
 /**
- * Work-first Home list: what is owed today, above the capture action.
+ * Work-first Home list: what is owed today, under the Morning Note button.
  *
  * It renders nothing when there is no work waiting, so the list never becomes
  * ambient noise for a long-term inspector. Rows are plain, led by place, capped

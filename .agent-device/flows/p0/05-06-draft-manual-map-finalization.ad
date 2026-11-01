@@ -12,7 +12,9 @@ fill "id=auth.email-input" "${AUTH_EMAIL}"
 fill "id=auth.password-input" "${AUTH_PASSWORD}"
 click "id=auth.login-submit"
 wait "id=home.screen" 120000
-click "label=\"My Activity\""
+# PENDING device-phase re-verification: re-anchored from the removed Home quick
+# action label to the bottom-nav testID after the Phase 3 Home redesign.
+click "id=nav.activity"
 wait "id=activity.screen" 30000
 wait stable 1000 10000
 scroll down 0.25 --settle
@@ -56,7 +58,7 @@ fill "id=auth.email-input" "${AUTH_EMAIL}"
 fill "id=auth.password-input" "${AUTH_PASSWORD}"
 click "id=auth.login-submit"
 wait "id=home.screen" 120000
-click "label=\"My Activity\""
+click "id=nav.activity"
 wait "id=activity.screen" 30000
 wait stable 1000 10000
 scroll down 0.25 --settle

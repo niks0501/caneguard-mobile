@@ -14,9 +14,9 @@ export type ReferenceMediaEntry = {
 };
 
 /**
- * Single source of truth for the disease-reference media. Both the Home entry
- * card and the reference screen read from here so a class can never be
- * presented with different media in two places.
+ * Single source of truth for the disease-reference media. The field guide
+ * projects its model-linked entries (name and bundled photo) from here so a
+ * class can never be presented with different media in two places.
  *
  * Provenance for every photo is recorded in
  * `docs/features/caneguard-uiux-enhancement-handoff/assets-to-provide/ASSET-MANIFEST.csv`.

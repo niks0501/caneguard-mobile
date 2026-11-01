@@ -12,8 +12,8 @@ export type NoticeProps = {
 };
 
 /**
- * The shared quiet status line. Whisper renders as plain ink text with no box,
- * so normal states never draw attention.
+ * The shared quiet status line: plain ink text with no box or tint, so a normal
+ * state never draws attention.
  */
 export function Notice({ children, icon, testID }: NoticeProps) {
   const theme = useTheme();

@@ -1,4 +1,8 @@
-import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
+import {
+  ApiHttpError,
+  ApiTransportError,
+  apiRequest,
+} from '@/features/shared/api/apiClient';
 import type { FieldValidationCompletionUploadRecord } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 import { mapFieldValidationCompletionToMultipart } from '@/features/assignments/api/mobileFieldValidationCompletionMapper';
 
@@ -31,6 +35,10 @@ export async function uploadMobileFieldValidationCompletion(
       },
     );
   } catch (error: unknown) {
+    // Only a readable 409 pairing this completion's own client UUID with a
+    // server UUID confirms the upload landed. Any other readable 409
+    // (mismatched, partial, or identity-less) stays terminal; an unreadable
+    // body never reaches here.
     if (error instanceof ApiHttpError && error.status === 409) {
       const existingRemoteId = readRemoteId(error.body);
       const submittedClientUuid = readSubmittedClientUuid(form);
@@ -48,7 +56,11 @@ export async function uploadMobileFieldValidationCompletion(
 
   const remoteId = readRemoteId(response);
   if (!remoteId) {
-    throw new Error('The field validation completion response did not include completion.uuid.');
+    // Unconfirmed identity: retry with the same client UUID so the server's
+    // duplicate 409 can resolve it instead of stranding the saved completion.
+    throw new ApiTransportError(
+      'The field validation completion response did not include completion.uuid.',
+    );
   }
   return { remoteId };
 }

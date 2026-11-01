@@ -20,6 +20,17 @@ export class ApiHttpError extends Error {
   }
 }
 
+/**
+ * The request may or may not have reached the server: no response body was
+ * obtained, so the caller cannot treat the outcome as terminal.
+ */
+export class ApiTransportError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ApiTransportError';
+  }
+}
+
 export function buildApiUrl(path: string): string {
   return buildRequestUrl(path);
 }
@@ -175,7 +186,25 @@ function buildRequestUrl(path: string): string {
 }
 
 async function readResponseBody(response: Response): Promise<unknown> {
-  const text = await response.text();
+  let text: string;
+  try {
+    text = await response.text();
+  } catch {
+    // A success may already have been accepted and a 409 is the server's
+    // idempotent duplicate response, so an unreadable body for either stays
+    // retryable with the unchanged client UUID. Every other status keeps its
+    // status so terminal rejections (for example 422) never become retries.
+    if (response.ok || response.status === 409) {
+      throw new ApiTransportError('The server response could not be read.');
+    }
+    throw new ApiHttpError(
+      response.status,
+      `The server returned HTTP ${response.status}.`,
+      {
+        retryAfterMs: parseRetryAfter(response.headers.get('Retry-After')),
+      },
+    );
+  }
   if (!text) {
     return null;
   }

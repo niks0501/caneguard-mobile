@@ -1,5 +1,9 @@
 import { isSafeOwnerIdentity } from '@/database/ownerIdentity';
-import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
+import {
+  ApiHttpError,
+  ApiTransportError,
+  apiRequest,
+} from '@/features/shared/api/apiClient';
 import type {
   AuthActionResponse,
   EmailChangeInput,
@@ -497,7 +501,11 @@ function mapAuthError(
     }
   }
 
-  if (error instanceof TypeError || isAbortError(error)) {
+  if (
+    error instanceof TypeError ||
+    error instanceof ApiTransportError ||
+    isAbortError(error)
+  ) {
     return authError('SERVER_UNAVAILABLE');
   }
 

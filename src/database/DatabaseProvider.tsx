@@ -1,5 +1,5 @@
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
-import { openDatabaseAsync } from 'expo-sqlite';
+import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 import type { PropsWithChildren } from 'react';
 import {
   createContext,
@@ -77,19 +77,28 @@ function DatabaseConnectionAttempt({
   // while the SQLite web worker is still starting, and a blocked main thread
   // starves that startup, so the open times out on a cold page load. One async
   // open first gives the worker a turn to finish starting; every later sync call
-  // then behaves as it does on native. The warm-up connection is left open on
-  // purpose: closing it would race the sync open that follows.
+  // then behaves as it does on native. The warm-up connection is kept for the
+  // life of this attempt, because closing it before the sync open would race
+  // that open; the cleanup below closes it when the attempt ends.
   const [webWarm, setWebWarm] = useState<WebWarmState>(() =>
     Platform.OS === 'web' ? { status: 'warming' } : { status: 'ready' },
   );
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || webWarm.status !== 'warming') {
+    if (Platform.OS !== 'web') {
       return;
     }
 
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let warmDatabase: SQLiteDatabase | null = null;
+    const closeWarmDatabase = () => {
+      const database = warmDatabase;
+      warmDatabase = null;
+      if (database) {
+        void database.closeAsync().catch(() => undefined);
+      }
+    };
     const settle = (next: WebWarmState) => {
       if (!active) {
         return;
@@ -119,6 +128,7 @@ function DatabaseConnectionAttempt({
           void database.closeAsync().catch(() => undefined);
           return;
         }
+        warmDatabase = database;
         settle({ status: 'ready' });
       },
       fail,
@@ -127,8 +137,9 @@ function DatabaseConnectionAttempt({
     return () => {
       active = false;
       clearTimeout(timer);
+      closeWarmDatabase();
     };
-  }, [webWarm.status]);
+  }, []);
 
   useEffect(() => {
     if (!__DEV__ || webWarm.status !== 'failed') {

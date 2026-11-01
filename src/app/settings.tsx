@@ -348,7 +348,7 @@ export default function SettingsScreen() {
                 </AppButton>
                 <AppButton
                   testID="settings.remove-local-records"
-                  variant="text"
+                  variant="danger"
                   busy={clearingLocalData}
                   disabled={clearingLocalData}
                   onPress={startPermanentRemoval}

@@ -135,6 +135,58 @@ describe('SettingsScreen', () => {
     );
   });
 
+  it('keeps the clearing button in full ink with a spinner while office data clears', async () => {
+    jest.spyOn(Alert, 'alert');
+    type ClearResult = Awaited<ReturnType<typeof clearCachedOfficeDataForOwner>>;
+    let releaseClear: (result: ClearResult) => void = () => undefined;
+    jest.mocked(clearCachedOfficeDataForOwner).mockImplementationOnce(
+      () => new Promise<ClearResult>((resolve) => { releaseClear = resolve; }),
+    );
+
+    await render(
+      <ToastProvider>
+        <SettingsScreen />
+      </ToastProvider>,
+    );
+
+    await fireEvent.press(screen.getByTestId('settings.clear-cached-office-data'));
+    const alertCall = jest
+      .mocked(Alert.alert)
+      .mock.calls.find((call) => call[0] === 'Clear downloaded office data?');
+    const clearAction = alertCall?.[2]?.find(
+      (action) => action.text === 'Clear downloaded data',
+    );
+
+    await act(async () => {
+      clearAction?.onPress?.();
+    });
+
+    const clearingButton = screen.getByTestId('settings.clear-cached-office-data');
+    expect(screen.getByText('Clearing downloaded data…')).toHaveStyle({ color: 'primary' });
+    expect(
+      screen.getByTestId('settings.clear-cached-office-data.spinner'),
+    ).toBeOnTheScreen();
+    expect(clearingButton).toBeDisabled();
+    expect(clearingButton.props.accessibilityState).toEqual({ disabled: true, busy: true });
+
+    await act(async () => {
+      releaseClear({ deletedRows: 5, imageCleanupErrors: [] });
+    });
+
+    expect(screen.getByText('Clear downloaded office data')).toHaveStyle({ color: 'primary' });
+    expect(screen.queryByTestId('settings.clear-cached-office-data.spinner')).toBeNull();
+  });
+
+  it('keeps the irreversible local-records removal action in the danger treatment', async () => {
+    await render(<SettingsScreen />);
+
+    expect(screen.getByTestId('settings.remove-local-records')).toHaveStyle({
+      backgroundColor: 'dangerBg',
+      borderColor: 'danger',
+    });
+    expect(screen.getByText('Remove all local records')).toHaveStyle({ color: 'danger' });
+  });
+
   it('previews counts and requires an explicit unsent-loss acknowledgement before permanent removal', async () => {
     jest.spyOn(Alert, 'alert');
     await render(

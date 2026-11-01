@@ -90,7 +90,6 @@ export default function AnalysisResultScreen() {
   const [openingReport, setOpeningReport] = useState(false);
   const [keepingDraft, setKeepingDraft] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [dockHeight, setDockHeight] = useState(0);
   const savedRecord = useRef<string | null>(null);
 
   // The saved result stays visible while the inspector is on this screen; the
@@ -280,66 +279,10 @@ export default function AnalysisResultScreen() {
           onClosePress={handleCancel}
           closeTestID="analysis-result.header-close"
         />
-        <ActionDock
-          floating
-          onHeightChange={setDockHeight}
-          primary={
-            <AppButton
-              testID="scan.report-to-office"
-              busy={isSaving || openingReport}
-              onPress={() => void reportToOffice()}
-              disabled={isSaving || openingReport}
-              leadingIcon="send"
-              accessibilityLabel={
-                openingReport
-                  ? 'Opening Field Report'
-                  : isFailed
-                    ? 'Retry and report this scan to the office'
-                    : 'Report this scan to the office'
-              }>
-              {openingReport
-                ? 'Opening Field Report...'
-                : isSaving
-                  ? 'Saving scan...'
-                  : isFailed
-                    ? 'Retry and Report to Office'
-                    : 'Report to Office'}
-            </AppButton>
-          }
-          secondary={
-            <>
-              <AppButton
-                testID="scan.keep-as-scan-only"
-                busy={isSaving}
-                onPress={keepAsScanOnly}
-                disabled={isSaving}
-                leadingIcon={isFailed ? 'refresh-cw' : 'save'}
-                variant="secondary"
-                style={dockSecondaryButtonStyle}
-                accessibilityLabel={
-                  isFailed
-                    ? 'Retry and save this scan on the device'
-                    : 'Save this scan on the device'
-                }>
-                {isSaving ? 'Saving scan...' : isFailed ? 'Retry and Save Scan' : 'Save Scan'}
-              </AppButton>
-              <AppButton
-                testID="scan.new-scan"
-                onPress={startNewScan}
-                disabled={isSaving}
-                leadingIcon="refresh-cw"
-                variant="secondary"
-                style={dockSecondaryButtonStyle}
-                accessibilityLabel="Scan again with a new image">
-                Scan Again
-              </AppButton>
-            </>
-          }
-        />
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}>
-          <View style={[styles.content, { paddingBottom: Spacing.xl + dockHeight }]}>
+          <View style={styles.content}>
             <ExpoImage
               source={{ uri: state.sourceUri }}
               cachePolicy="memory-disk"
@@ -561,6 +504,60 @@ export default function AnalysisResultScreen() {
             </Text>
           </View>
         </ScrollView>
+        <ActionDock
+          primary={
+            <AppButton
+              testID="scan.report-to-office"
+              busy={isSaving || openingReport}
+              onPress={() => void reportToOffice()}
+              disabled={isSaving || openingReport}
+              leadingIcon="send"
+              accessibilityLabel={
+                openingReport
+                  ? 'Opening Field Report'
+                  : isFailed
+                    ? 'Retry and report this scan to the office'
+                    : 'Report this scan to the office'
+              }>
+              {openingReport
+                ? 'Opening Field Report...'
+                : isSaving
+                  ? 'Saving scan...'
+                  : isFailed
+                    ? 'Retry and Report to Office'
+                    : 'Report to Office'}
+            </AppButton>
+          }
+          secondary={
+            <>
+              <AppButton
+                testID="scan.keep-as-scan-only"
+                busy={isSaving}
+                onPress={keepAsScanOnly}
+                disabled={isSaving}
+                leadingIcon={isFailed ? 'refresh-cw' : 'save'}
+                variant="secondary"
+                style={dockSecondaryButtonStyle}
+                accessibilityLabel={
+                  isFailed
+                    ? 'Retry and save this scan on the device'
+                    : 'Save this scan on the device'
+                }>
+                {isSaving ? 'Saving scan...' : isFailed ? 'Retry and Save Scan' : 'Save Scan'}
+              </AppButton>
+              <AppButton
+                testID="scan.new-scan"
+                onPress={startNewScan}
+                disabled={isSaving}
+                leadingIcon="refresh-cw"
+                variant="secondary"
+                style={dockSecondaryButtonStyle}
+                accessibilityLabel="Scan again with a new image">
+                Scan Again
+              </AppButton>
+            </>
+          }
+        />
         <ConfirmDialog
           visible={showCancelConfirm}
           title="Cancel scan?"
@@ -602,7 +599,7 @@ function SectionCard({
 
 const styles = StyleSheet.create({
   safe: { flex: 1 }, root: { flex: 1 }, scrollContent: { alignItems: 'center' },
-  content: { width: '100%', maxWidth: Layout.mobileMaxWidth, paddingHorizontal: ComponentTokens.screen.horizontalPadding, paddingTop: Spacing.xl, gap: Spacing.lg },
+  content: { width: '100%', maxWidth: Layout.mobileMaxWidth, paddingHorizontal: ComponentTokens.screen.horizontalPadding, paddingVertical: Spacing.xl, gap: Spacing.lg },
   resultImage: { width: '100%', aspectRatio: 4 / 3, borderRadius: Radius.lg, borderWidth: 1 },
   resultBlock: { alignItems: 'stretch', gap: Spacing.sm },
   diseaseName: { ...Typography.title },

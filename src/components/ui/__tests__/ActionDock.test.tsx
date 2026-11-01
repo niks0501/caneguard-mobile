@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { StyleSheet, Text } from 'react-native';
+import { Text } from 'react-native';
 
 import { ActionDock } from '@/components/ui/ActionDock';
 import { AppButton } from '@/components/ui/AppButton';
@@ -51,23 +51,6 @@ describe('ActionDock', () => {
 
     await fireEvent.press(screen.getByTestId('dock.primary'));
     expect(onPress).toHaveBeenCalledTimes(1);
-  });
-
-  it('overlays the bottom edge and reports its height when floating', async () => {
-    const onHeightChange = jest.fn();
-    await render(
-      <ActionDock
-        floating
-        onHeightChange={onHeightChange}
-        primary={<AppButton onPress={noop}>Next</AppButton>}
-      />,
-    );
-
-    const dock = screen.getByTestId('action-dock');
-    expect(StyleSheet.flatten(dock.props.style)).toMatchObject({ position: 'absolute', bottom: 0 });
-
-    await fireEvent(dock, 'layout', { nativeEvent: { layout: { height: 132 } } });
-    expect(onHeightChange).toHaveBeenCalledWith(132);
   });
 });
 

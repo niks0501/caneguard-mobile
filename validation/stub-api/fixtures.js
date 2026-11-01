@@ -17,7 +17,7 @@ const FAKE_ACCOUNT = {
 const FAKE_PASSWORD = 'validation-only';
 const FAKE_TOKEN = 'validation-only-token';
 
-const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_KEY_PATTERN = /^(?!0000)\d{4}-\d{2}-\d{2}$/;
 
 function pad(value) {
   return String(value).padStart(2, '0');
@@ -38,9 +38,13 @@ function localDateKey(now = new Date()) {
 
 function addDays(dateKey, days) {
   const [year, month, day] = dateKey.split('-').map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  date.setUTCDate(date.getUTCDate() + days);
-  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day + days);
+  return [
+    String(date.getUTCFullYear()).padStart(4, '0'),
+    pad(date.getUTCMonth() + 1),
+    pad(date.getUTCDate()),
+  ].join('-');
 }
 
 function resolveTodayKey(env = process.env) {

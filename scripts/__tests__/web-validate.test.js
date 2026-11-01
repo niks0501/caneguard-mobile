@@ -10,6 +10,7 @@ const {
   FAKE_ACCOUNT,
   FAKE_PASSWORD,
   FAKE_TOKEN,
+  addDays,
   buildAssignments,
   resolveTodayKey,
 } = require('../../validation/stub-api/fixtures');
@@ -107,6 +108,27 @@ describe('resolveTodayKey', () => {
     expect(
       resolveTodayKey({ CANEGUARD_WEB_VALIDATE_TODAY: '2028-02-29' }),
     ).toBe('2028-02-29');
+    expect(() =>
+      resolveTodayKey({ CANEGUARD_WEB_VALIDATE_TODAY: '0000-01-01' }),
+    ).toThrow(/YYYY-MM-DD/);
+  });
+});
+
+describe('fixture date arithmetic', () => {
+  it('keeps years before 0100 when deriving visit dates', () => {
+    expect(addDays('0001-01-01', -2)).toBe('0000-12-30');
+    expect(addDays('0099-01-01', -1)).toBe('0098-12-31');
+
+    const visits = buildAssignments({ today: '0001-01-01' });
+
+    expect(visits.map((visit) => visit.target_visit_date)).toEqual([
+      '0000-12-30',
+      '0001-01-01',
+    ]);
+    expect(visits.map((visit) => visit.assigned_at)).toEqual([
+      '0000-12-23T02:00:00.000Z',
+      '0000-12-25T02:00:00.000Z',
+    ]);
   });
 });
 

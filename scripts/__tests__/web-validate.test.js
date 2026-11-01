@@ -108,27 +108,45 @@ describe('resolveTodayKey', () => {
     expect(
       resolveTodayKey({ CANEGUARD_WEB_VALIDATE_TODAY: '2028-02-29' }),
     ).toBe('2028-02-29');
-    expect(() =>
-      resolveTodayKey({ CANEGUARD_WEB_VALIDATE_TODAY: '0000-01-01' }),
-    ).toThrow(/YYYY-MM-DD/);
+  });
+});
+
+describe('fixture date window', () => {
+  const earliestToday = '1970-01-10';
+
+  it('rejects pinned dates outside the practical window', () => {
+    for (const key of ['1970-01-09', '1969-12-31', '0001-01-01', '0000-01-01']) {
+      expect(() =>
+        resolveTodayKey({ CANEGUARD_WEB_VALIDATE_TODAY: key }),
+      ).toThrow(/YYYY-MM-DD/);
+    }
+    expect(
+      resolveTodayKey({ CANEGUARD_WEB_VALIDATE_TODAY: earliestToday }),
+    ).toBe(earliestToday);
+    expect(
+      resolveTodayKey({ CANEGUARD_WEB_VALIDATE_TODAY: '9999-12-31' }),
+    ).toBe('9999-12-31');
+  });
+
+  it('keeps derived dates inside the window at its floor', () => {
+    const visits = buildAssignments({ today: earliestToday });
+    const derived = visits.flatMap((visit) => [
+      visit.target_visit_date,
+      visit.assigned_at.slice(0, 10),
+      visit.case.captured_at.slice(0, 10),
+    ]);
+
+    for (const dateKey of derived) {
+      expect(dateKey >= '1970-01-01').toBe(true);
+    }
+    expect(derived).toContain('1970-01-01');
   });
 });
 
 describe('fixture date arithmetic', () => {
-  it('keeps years before 0100 when deriving visit dates', () => {
+  it('keeps years before 0100 when adding days', () => {
     expect(addDays('0001-01-01', -2)).toBe('0000-12-30');
     expect(addDays('0099-01-01', -1)).toBe('0098-12-31');
-
-    const visits = buildAssignments({ today: '0001-01-01' });
-
-    expect(visits.map((visit) => visit.target_visit_date)).toEqual([
-      '0000-12-30',
-      '0001-01-01',
-    ]);
-    expect(visits.map((visit) => visit.assigned_at)).toEqual([
-      '0000-12-23T02:00:00.000Z',
-      '0000-12-25T02:00:00.000Z',
-    ]);
   });
 });
 

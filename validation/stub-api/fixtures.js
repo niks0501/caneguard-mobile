@@ -17,7 +17,7 @@ const FAKE_ACCOUNT = {
 const FAKE_PASSWORD = 'validation-only';
 const FAKE_TOKEN = 'validation-only-token';
 
-const DATE_KEY_PATTERN = /^(?!0000)\d{4}-\d{2}-\d{2}$/;
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function pad(value) {
   return String(value).padStart(2, '0');
@@ -47,10 +47,18 @@ function addDays(dateKey, days) {
   ].join('-');
 }
 
+const MIN_FIXTURE_DATE_KEY = '1970-01-01';
+const FIXTURE_BACKSTEP_DAYS = 9;
+const MIN_TODAY_KEY = addDays(MIN_FIXTURE_DATE_KEY, FIXTURE_BACKSTEP_DAYS);
+
 function resolveTodayKey(env = process.env) {
   const pinned = env.CANEGUARD_WEB_VALIDATE_TODAY?.trim();
   if (pinned) {
-    if (!DATE_KEY_PATTERN.test(pinned) || !isCalendarDate(pinned)) {
+    if (
+      !DATE_KEY_PATTERN.test(pinned) ||
+      pinned < MIN_TODAY_KEY ||
+      !isCalendarDate(pinned)
+    ) {
       throw new Error('CANEGUARD_WEB_VALIDATE_TODAY must be a YYYY-MM-DD date.');
     }
     return pinned;

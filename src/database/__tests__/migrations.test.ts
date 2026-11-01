@@ -666,6 +666,10 @@ describe('CaneGuard database migrations', () => {
       '0018_notification_advisory_content_cache',
       '0019_add_field_surveys',
       '0020_nasty_captain_midlands',
+      '0021_field_survey_affected_areas',
+      '0022_peaceful_titania',
+      '0023_affected_area_waypoints',
+      '0024_active_affected_waypoints',
     ]);
     expect(Object.keys(migrationBundle.migrations)).toEqual([
       'm0000',
@@ -689,6 +693,10 @@ describe('CaneGuard database migrations', () => {
       'm0018',
       'm0019',
       'm0020',
+      'm0021',
+      'm0022',
+      'm0023',
+      'm0024',
     ]);
     expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
       migration0,
@@ -712,6 +720,10 @@ describe('CaneGuard database migrations', () => {
       migration18,
       migration19,
       migration20,
+      readMigration('0021_field_survey_affected_areas.sql'),
+      readMigration('0022_peaceful_titania.sql'),
+      readMigration('0023_affected_area_waypoints.sql'),
+      readMigration('0024_active_affected_waypoints.sql'),
     ]);
   });
 });

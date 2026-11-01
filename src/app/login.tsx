@@ -219,8 +219,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing['2xl'],
     paddingBottom: Spacing.xl,
-    borderBottomLeftRadius: Radius.xl,
-    borderBottomRightRadius: Radius.xl,
+    borderBottomLeftRadius: Radius.lg,
+    borderBottomRightRadius: Radius.lg,
   },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   medallion: {
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
   card: {
     borderWidth: 1,
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg,
     padding: Spacing.xl,
     gap: Spacing.xl,
     ...Shadows.md,

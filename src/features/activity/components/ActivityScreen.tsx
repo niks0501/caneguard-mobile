@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
   badgeText: { ...Typography.caption, fontWeight: '800' },
   refreshScope: { gap: Spacing.sm },
   refreshMessage: { ...Typography.caption },
-  todayEntry: { minHeight: 66, borderWidth: 1, borderRadius: Radius.xl, padding: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  todayEntry: { minHeight: 66, borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   todayEntryIcon: { width: 40, height: 40, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
   todayEntryCopy: { flex: 1, gap: Spacing.xs },
   todayEntryTitle: { ...Typography.bodySmall, fontWeight: '800' },
@@ -661,7 +661,7 @@ const styles = StyleSheet.create({
   count: { ...Typography.label, letterSpacing: 0.8 },
   stateCard: {
     minHeight: 220,
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg,
     borderWidth: 1,
     padding: Spacing.xl,
     alignItems: 'center',

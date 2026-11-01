@@ -9,40 +9,39 @@ const base = {
   accent: '#D6CC99',
   accentDark: '#B8AD73',
   text: '#1F2A21',
-  muted: '#4B5563',
-  border: '#DDE5DE',
+  border: '#DDD8C9',
   success: '#2E6D38',
-  warning: '#9C4B00',
-  danger: '#B94040',
+  warning: '#8A4A06',
+  danger: '#9B2F2F',
   info: '#2E6FA3',
 } as const;
 
 export const Colors = {
   light: {
     text: base.text,
-    background: '#FFFFFF',
-    backgroundElement: '#F7F9F7',
-    backgroundSelected: '#EEF2EE',
-    textSecondary: base.muted,
+    background: '#F8F5EE',
+    backgroundElement: '#F3EFE4',
+    backgroundSelected: '#ECE7D9',
+    textSecondary: '#4A5650',
     primary: base.primary,
     primaryDark: base.primaryDark,
     primaryLight: base.primaryLight,
     onPrimary: '#FFFFFF',
     accent: base.accent,
     accentDark: base.accentDark,
-    surface: '#F7F9F7',
-    surfaceElevated: '#FFFFFF',
-    surfaceMuted: '#EEF2EE',
+    surface: '#F3EFE4',
+    surfaceElevated: '#FFFDF8',
+    surfaceMuted: '#EFEADD',
     border: base.border,
-    divider: '#E8EEE9',
-    dividerOn: '#DDE5DE',
+    divider: '#E7E2D4',
+    dividerOn: base.border,
     guideIcon: base.warning,
     success: base.success,
     successBg: '#E8F5E9',
     warning: base.warning,
-    warningBg: '#FFF3E0',
+    warningBg: '#F7EBD3',
     danger: base.danger,
-    dangerBg: '#FFEBEE',
+    dangerBg: '#F6E3DE',
     info: base.info,
     infoBg: '#E3F2FD',
     healthy: '#2E7D32',
@@ -109,15 +108,18 @@ export const Fonts = Platform.select({
   },
 });
 
+// Two weights only (400 reads, 500 emphasises). 14px is the floor for anything
+// read; `tabLabel` (12px) is reserved for bottom-tab labels and count badges.
 export const Typography = {
-  display: { fontSize: 34, lineHeight: 42, fontWeight: '800' },
-  title: { fontSize: 28, lineHeight: 36, fontWeight: '800' },
-  heading: { fontSize: 22, lineHeight: 30, fontWeight: '700' },
-  subheading: { fontSize: 18, lineHeight: 26, fontWeight: '700' },
-  body: { fontSize: 16, lineHeight: 24, fontWeight: '500' },
-  bodySmall: { fontSize: 14, lineHeight: 20, fontWeight: '500' },
-  caption: { fontSize: 12, lineHeight: 16, fontWeight: '600' },
-  label: { fontSize: 12, lineHeight: 16, fontWeight: '700', letterSpacing: 0.4 },
+  display: { fontSize: 34, lineHeight: 42, fontWeight: '500' },
+  title: { fontSize: 28, lineHeight: 36, fontWeight: '500' },
+  heading: { fontSize: 22, lineHeight: 30, fontWeight: '500' },
+  subheading: { fontSize: 18, lineHeight: 26, fontWeight: '500' },
+  body: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
+  bodySmall: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
+  caption: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
+  label: { fontSize: 14, lineHeight: 20, fontWeight: '500', letterSpacing: 0.4 },
+  tabLabel: { fontSize: 12, lineHeight: 16, fontWeight: '500' },
 } as const;
 
 export const Spacing = {
@@ -134,13 +136,12 @@ export const Spacing = {
   '6xl': 64,
 } as const;
 
+// Three radii: sm (8), md (12), lg (16); `full` is for circles and pills.
 export const Radius = {
   none: 0,
-  xs: 6,
-  sm: 10,
+  sm: 8,
   md: 12,
   lg: 16,
-  xl: 20,
   full: 999,
 } as const;
 

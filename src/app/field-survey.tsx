@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   input: { ...Typography.body, minHeight: 48, borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: Spacing.md },
   map: { width: '100%', height: 380, borderWidth: 1, borderRadius: Radius.lg, overflow: 'hidden' },
   mapLayer: { position: 'absolute', left: -SURVEY_MAP_OVERSCAN, top: -SURVEY_MAP_OVERSCAN },
-  attribution: { position: 'absolute', right: Spacing.xs, bottom: Spacing.xs, paddingHorizontal: Spacing.xs, paddingVertical: Spacing.xs, borderRadius: Radius.xs, ...Typography.caption },
+  attribution: { position: 'absolute', right: Spacing.xs, bottom: Spacing.xs, paddingHorizontal: Spacing.xs, paddingVertical: Spacing.xs, borderRadius: Radius.sm, ...Typography.caption },
   actionGroup: { gap: Spacing.sm },
   row: { flexDirection: 'row', gap: Spacing.sm },
   points: { gap: Spacing.sm },

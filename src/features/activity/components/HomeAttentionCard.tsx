@@ -47,8 +47,7 @@ export function HomeAttentionCard({
     <Card
       accessibilityLiveRegion="polite"
       style={styles.card}
-      testID="home.needs-attention"
-      variant="elevated">
+      testID="home.needs-attention">
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.primaryDark }]}>Needs attention</Text>
         <View style={[styles.count, { backgroundColor: theme.primary }]}>

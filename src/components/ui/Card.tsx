@@ -8,14 +8,11 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { ComponentTokens, Shadows } from '@/constants/theme';
+import { ComponentTokens } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-
-export type CardVariant = 'flat' | 'elevated' | 'interactive';
 
 export type CardProps = {
   children: ReactNode;
-  variant?: CardVariant;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   testID?: string;
@@ -32,10 +29,8 @@ export function Card({
   onPress,
   style,
   testID,
-  variant = 'flat',
 }: CardProps) {
   const theme = useTheme();
-  const isInteractive = variant === 'interactive' || Boolean(onPress);
 
   const cardStyle = [
     styles.card,
@@ -43,11 +38,10 @@ export function Card({
       backgroundColor: theme.surfaceElevated,
       borderColor: theme.border,
     },
-    (variant === 'elevated' || variant === 'interactive') && styles.elevated,
     style,
   ];
 
-  if (isInteractive && onPress) {
+  if (onPress) {
     return (
       <Pressable
         accessibilityLabel={accessibilityLabel}
@@ -80,9 +74,6 @@ const styles = StyleSheet.create({
     padding: ComponentTokens.card.padding,
     borderRadius: ComponentTokens.card.borderRadius,
     borderWidth: 1,
-  },
-  elevated: {
-    ...Shadows.sm,
   },
   pressed: {
     opacity: 0.8,

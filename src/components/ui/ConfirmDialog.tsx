@@ -55,8 +55,7 @@ export function ConfirmDialog({
         },
         style,
       ]}
-      testID={testID}
-      variant="elevated">
+      testID={testID}>
       <View style={styles.header}>
         <Feather
           name={destructive ? 'alert-triangle' : 'help-circle'}

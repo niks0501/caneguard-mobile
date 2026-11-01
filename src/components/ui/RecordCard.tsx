@@ -3,7 +3,6 @@ import { Image as ExpoImage } from 'expo-image';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { DiseasePill, type DiseasePillVariant } from '@/components/ui/DiseasePill';
 import { PERSONAL_SCAN_LOCAL_STATUS } from '@/constants/copy';
 import {
   ComponentTokens,
@@ -34,7 +33,6 @@ export function RecordCard({ activityType, onPress, record, testID }: RecordCard
   const thumbnailUri =
     managedDisplayImageUriIfPresent(record.managedImageUri) ?? record.managedImageUri;
   const savedAt = formatSavedAt(record.createdAt);
-  const variant = toPillVariant(record.predictedLabel);
   const syncPresentation = getSyncPresentation(record.syncStatus);
   const itemLabel = activityType ?? 'record';
 
@@ -118,7 +116,6 @@ export function RecordCard({ activityType, onPress, record, testID }: RecordCard
               </Text>
             ) : null}
           </View>
-          <DiseasePill variant={variant} />
         </View>
         <View style={styles.footer}>
           <View style={styles.status}>
@@ -201,15 +198,6 @@ export function getResultLabel(label: string): string {
   return `Possible Condition: ${label}`;
 }
 
-function toPillVariant(label: string): DiseasePillVariant {
-  return label === 'healthy' ||
-    label === 'mosaic' ||
-    label === 'rust' ||
-    label === 'smut'
-    ? label
-    : 'unclear';
-}
-
 function formatSavedAt(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -248,7 +236,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.xs,
   },
-  activityTypeText: { ...Typography.caption, fontWeight: '800' },
+  activityTypeText: { ...Typography.label },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -256,7 +244,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   copy: { flex: 1, gap: Spacing.xs },
-  result: { ...Typography.bodySmall, fontWeight: '800' },
+  result: { ...Typography.bodySmall, fontWeight: '500' },
   date: { ...Typography.caption },
   location: { ...Typography.caption },
   footer: {
@@ -265,14 +253,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.sm,
   },
-  confidence: { ...Typography.caption, fontWeight: '800' },
   status: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
     flexShrink: 1,
   },
-  statusText: { ...Typography.caption, fontWeight: '700', flexShrink: 1 },
+  statusText: { ...Typography.caption, fontWeight: '500', flexShrink: 1 },
   authorityStatus: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -75,13 +75,21 @@ describe('web validation Metro gate', () => {
     ).toBeNull();
   });
 
-  it('refuses the secure-store stand-in when the API is not the loopback stub', () => {
+  it('refuses the secure-store stand-in for any API but the stub base URL', () => {
     for (const apiBaseUrl of [
       undefined,
       'https://api.example.test',
+      'http://localhost:8210',
+      'http://[::1]:8210',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:80',
       'https://127.0.0.1:8210',
       'http://192.168.1.5:8210',
       'http://127.0.0.1.evil.test:8210',
+      'http://127.0.0.1:8210/api',
+      'http://127.0.0.1:8210/?proxied=1',
+      'http://127.0.0.1:8210/#fragment',
+      'http://user:pass@127.0.0.1:8210',
     ]) {
       expect(
         resolveSecureStore({
@@ -92,11 +100,11 @@ describe('web validation Metro gate', () => {
     }
   });
 
-  it('accepts the loopback stub API host names', () => {
+  it('accepts only the stub base URL', () => {
     for (const apiBaseUrl of [
       'http://127.0.0.1:8210',
-      'http://localhost:8210',
-      'http://[::1]:8210',
+      'http://127.0.0.1:8210/',
+      ' http://127.0.0.1:8210 ',
     ]) {
       expect(
         resolveSecureStore({

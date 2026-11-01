@@ -1,5 +1,10 @@
 const path = require('node:path');
 
+const {
+  DEFAULT_STUB_API_HOST,
+  DEFAULT_STUB_API_PORT,
+} = require('../validation/stub-api/server');
+
 /**
  * Shared gate for the browser validation route (`npm run web:validate`).
  *
@@ -11,12 +16,13 @@ const path = require('node:path');
  * - `validation/expo-secure-store/ExpoSecureStore.web.ts` keeps a validation
  *   session in `localStorage` so a fake account can reach Home and Activity. It
  *   is a deliberate security downgrade, so it is gated on an explicit env flag,
- *   only applied to a loopback stub API, and never applied to a release build.
+ *   only applied to the fixed stub base URL, and never applied to a release
+ *   build.
  */
 
 const WEB_VALIDATION_FLAG = 'EXPO_PUBLIC_WEB_VALIDATION';
 const RELEASE_EAS_PROFILES = ['preview', 'qa', 'production'];
-const STUB_API_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
+const STUB_API_BASE_URL = `http://${DEFAULT_STUB_API_HOST}:${DEFAULT_STUB_API_PORT}`;
 
 const SECURE_STORE_STAND_IN_PATH = path.join(
   __dirname,
@@ -45,7 +51,7 @@ function isWebValidationEnabled(env = process.env) {
   return env[WEB_VALIDATION_FLAG] === '1' && !isReleaseBuild(env);
 }
 
-/** Only a loopback stub endpoint is approved to receive a fake session. */
+/** Only the fixed stub base URL is approved to receive a fake session. */
 function isStubApiBaseUrl(value) {
   if (typeof value !== 'string') {
     return false;
@@ -58,7 +64,14 @@ function isStubApiBaseUrl(value) {
     return false;
   }
 
-  return url.protocol === 'http:' && STUB_API_HOSTNAMES.has(url.hostname);
+  return (
+    url.origin === STUB_API_BASE_URL &&
+    url.pathname === '/' &&
+    !url.search &&
+    !url.hash &&
+    !url.username &&
+    !url.password
+  );
 }
 
 /**

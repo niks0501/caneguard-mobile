@@ -12,8 +12,9 @@
  * - web only: Metro rewrites `./ExpoSecureStore` for the `web` platform alone;
  * - env gated: it requires `EXPO_PUBLIC_WEB_VALIDATION=1`;
  * - stub API only: `scripts/web-validation-config.js` refuses the rewrite unless
- *   `EXPO_PUBLIC_API_BASE_URL` is a loopback stub endpoint, so a real session
- *   can never be kept in `localStorage`;
+ *   `EXPO_PUBLIC_API_BASE_URL` is the fixed stub base URL
+ *   (`http://127.0.0.1:8210`), so no localStorage session can reach a proxy or
+ *   a real server;
  * - excluded from release builds: `scripts/web-validation-config.js` refuses the
  *   rewrite when `EAS_BUILD_PROFILE` is `preview`, `qa` or `production`, or when
  *   `NODE_ENV` is `production`, and `scripts/__tests__/web-validation-config.test.js`

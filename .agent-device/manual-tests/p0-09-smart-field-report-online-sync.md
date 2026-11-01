@@ -15,8 +15,9 @@ verbatim alongside the original scan, location, and affected-area evidence.
   needs internet access; the reference list must include Batangas/Nasugbu/Wawa.
 
 ## Steps and expected results
-1. Sign in on Mobile, Start Scan, choose the Rust fixture, Analyze, mark Rust,
-   and continue. **Expect:** Possible result: Rust, with checklist evidence.
+1. Sign in on Mobile, open Scan from the bottom nav, choose the Rust fixture,
+   Analyze, mark Rust, and continue. **Expect:** Possible result: Rust, with
+   checklist evidence.
 2. Tap Report to Office. **Expect:** an incomplete Draft with inherited scan
    context; denied GPS offers Pin Location on Online Map.
 3. Open the map, wait for tiles, place a pin and confirm it. **Expect:** return

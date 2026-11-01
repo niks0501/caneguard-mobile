@@ -23,7 +23,7 @@ export interface HomeAttention {
  *
  * Both sources are owner-scoped local caches that refresh on focus, so the card
  * paints from cache immediately and still works with no connectivity. Upload
- * work is deliberately excluded: the Home sync row already reports it, and the
+ * work is deliberately excluded: the Home sync line already reports it, and the
  * same pending upload must never appear twice on one screen.
  */
 export function useHomeAttention(): HomeAttention {

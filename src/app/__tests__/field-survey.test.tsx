@@ -93,6 +93,50 @@ function submitDisabled() {
   return submitButton().props.accessibilityState.disabled as boolean;
 }
 
+type RenderedNode = {
+  type: string;
+  props: Record<string, unknown>;
+  children: (RenderedNode | string)[];
+};
+
+function collectTestIds(node: unknown, collected: string[] = []): string[] {
+  if (Array.isArray(node)) {
+    node.forEach((child) => collectTestIds(child, collected));
+    return collected;
+  }
+  if (!node || typeof node !== 'object') return collected;
+  const element = node as RenderedNode;
+  if (typeof element.props?.testID === 'string') collected.push(element.props.testID);
+  element.children?.forEach((child) => collectTestIds(child, collected));
+  return collected;
+}
+
+function findRenderedNode(
+  node: RenderedNode | string | null | undefined,
+  predicate: (node: RenderedNode) => boolean,
+): RenderedNode | null {
+  if (!node || typeof node === 'string') return null;
+  if (predicate(node)) return node;
+  for (const child of node.children) {
+    const match = findRenderedNode(child, predicate);
+    if (match) return match;
+  }
+  return null;
+}
+
+function findRenderedParent(
+  root: RenderedNode,
+  target: RenderedNode,
+): RenderedNode | null {
+  for (const child of root.children) {
+    if (typeof child === 'string') continue;
+    if (child === target) return root;
+    const match = findRenderedParent(child, target);
+    if (match) return match;
+  }
+  return null;
+}
+
 beforeEach(() => {
   mockListSurveys.mockReturnValue([]);
   mockSaveDraft.mockResolvedValue(draftRow());
@@ -165,4 +209,33 @@ it('keeps the in-screen Close control available beside the docked submit', async
   await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.close));
 
   expect(router.back).toHaveBeenCalledTimes(1);
+});
+
+it('keeps the map first and the docked actions outside the details scroll', async () => {
+  await render(<FieldSurveyScreen />);
+  await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
+
+  const tree = screen.toJSON() as unknown as RenderedNode;
+  const order = collectTestIds(tree);
+  expect(order).toContain('field-survey.map');
+
+  // The map owns the top of the screen; district details and notes scroll
+  // beneath it.
+  expect(order.indexOf('field-survey.map')).toBeLessThan(
+    order.indexOf('field-survey.district-code'),
+  );
+
+  const scroll = findRenderedNode(tree, (node) => node.type === 'RCTScrollView');
+  const dock = findRenderedNode(tree, (node) => node.props.testID === 'action-dock');
+  expect(scroll).not.toBeNull();
+  expect(dock).not.toBeNull();
+
+  // Submit stays on the thumb line: a sibling rendered after the scroll
+  // content, never inside it.
+  expect(findRenderedParent(tree, dock!)).toBe(findRenderedParent(tree, scroll!));
+  const siblings = findRenderedParent(tree, dock!)!.children;
+  expect(siblings.indexOf(dock!)).toBeGreaterThan(siblings.indexOf(scroll!));
+  expect(collectTestIds(scroll)).toContain('field-survey.district-code');
+  expect(collectTestIds(scroll!)).not.toContain('field-survey.submit');
+  expect(collectTestIds(dock)).toContain('field-survey.submit');
 });

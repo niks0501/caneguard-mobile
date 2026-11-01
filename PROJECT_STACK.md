@@ -182,7 +182,7 @@ Key rules:
 - cards/lists instead of dense tables;
 - accessible icon-only controls;
 - clear touch targets;
-- one primary action per screen when practical;
+- one primary action per task screen, docked as the bottom thumb line through `src/components/ui/ActionDock.tsx`;
 - pair status colors with text; disease names stay text-only and hue-less, because colour on a disease label reads as a verdict;
 - status colour has three ranks only: plain ink for a normal state, amber for worth a look, red only for something the inspector must fix; show at most one coloured status block per screen. Sync tone mapping lives in `src/features/sync/utils/syncStatusCopy.ts` and quiet status lines use `src/components/ui/Notice.tsx`;
 - keep captured images visually important in scan/result flows.

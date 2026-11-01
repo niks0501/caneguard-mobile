@@ -136,7 +136,7 @@ async function renderResult(state: ScanSessionState) {
 type RenderedNode = {
   type: string;
   props: Record<string, unknown>;
-  children: Array<RenderedNode | string>;
+  children: (RenderedNode | string)[];
 };
 
 function collectTestIds(node: unknown, collected: string[] = []): string[] {

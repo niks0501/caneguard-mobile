@@ -77,6 +77,7 @@ export function AppButton({
           backgroundColor: theme.surfaceMuted,
           borderColor: theme.primaryLight,
           borderWidth: 1,
+          paddingHorizontal: ComponentTokens.button.paddingHorizontal,
         },
         pressed && !disabled && styles.pressed,
         style,

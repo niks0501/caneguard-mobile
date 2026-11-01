@@ -77,4 +77,16 @@ describe('AppButton busy state', () => {
     expect(style.opacity).toBeUndefined();
     expect(screen.getByText('Choose an observation')).toHaveStyle({ color: 'textSecondary' });
   });
+
+  it.each(VARIANTS)('keeps the muted %s label clear of its outline', async (variant) => {
+    await render(
+      <AppButton variant={variant} testID="btn" disabled onPress={noop}>
+        Change location
+      </AppButton>,
+    );
+
+    const style = flatStyle('btn');
+    expect(style.borderWidth).toBe(1);
+    expect(style.paddingHorizontal).toBeGreaterThan(0);
+  });
 });

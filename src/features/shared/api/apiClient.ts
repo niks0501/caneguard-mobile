@@ -190,6 +190,10 @@ async function readResponseBody(response: Response): Promise<unknown> {
   try {
     text = await response.text();
   } catch {
+    // A success may already have been accepted and a 409 is the server's
+    // idempotent duplicate response, so an unreadable body for either stays
+    // retryable with the unchanged client UUID. Every other status keeps its
+    // status so terminal rejections (for example 422) never become retries.
     if (response.ok || response.status === 409) {
       throw new ApiTransportError('The server response could not be read.');
     }

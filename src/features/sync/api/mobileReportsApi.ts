@@ -32,6 +32,10 @@ export async function uploadMobileReport(
       },
     );
   } catch (error: unknown) {
+    // Only a readable 409 pairing this report's own client UUID with a server
+    // UUID confirms the upload landed. Any other readable 409 (mismatched,
+    // partial, or identity-less) stays terminal; an unreadable body never
+    // reaches here.
     if (error instanceof ApiHttpError && error.status === 409) {
       const existingRemoteId = readRemoteId(error.body);
       const submittedClientUuid = readSubmittedClientUuid(form);
@@ -49,6 +53,8 @@ export async function uploadMobileReport(
   const remoteId = readRemoteId(response);
 
   if (!remoteId) {
+    // Unconfirmed identity: retry with the same client UUID so the server's
+    // duplicate 409 can resolve it instead of stranding the saved report.
     throw new ApiTransportError(
       'The mobile report response did not include identity.uuid.',
     );

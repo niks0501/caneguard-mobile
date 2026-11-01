@@ -29,6 +29,7 @@ export function useHomeAttention(): HomeAttention {
   const assignments = useFieldValidationAssignments();
   const notifications = useMobileNotifications();
   const destinations = useNotificationDestinations(notifications.notifications);
+  const today = getLocalDateKey();
 
   const items = useMemo(
     () =>
@@ -38,9 +39,9 @@ export function useHomeAttention(): HomeAttention {
         notifications: notifications.notifications,
         pendingUploadCount: 0,
         syncErrorMessage: null,
-        today: getLocalDateKey(),
+        today,
       }).items,
-    [assignments.assignments, destinations, notifications.notifications],
+    [assignments.assignments, destinations, notifications.notifications, today],
   );
 
   return {

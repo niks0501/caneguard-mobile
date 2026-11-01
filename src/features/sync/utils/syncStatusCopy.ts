@@ -282,7 +282,7 @@ export function getHomeSyncNote(input: SyncWordingInput): string | null {
       : 'Cannot reach the office.';
   }
   if (isSyncing) {
-    return 'Sending saved reports…';
+    return counts ? `Sending ${counts}…` : 'Sending saved reports…';
   }
   if (counts) {
     return `${capitalize(counts)} waiting to send.`;

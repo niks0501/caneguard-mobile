@@ -14,6 +14,7 @@ let mockSessionVerification: 'idle' | 'pending' | 'verified' | 'unavailable' = '
 let mockAttentionItems: NeedsAttentionItem[] = [];
 let mockPendingCount = 1;
 let mockSyncError: string | null = null;
+let mockIsSyncing = false;
 const mockMarkRead = jest.fn(async () => undefined);
 let mockUnreadCount = 0;
 const mockOpenOfficeUpdates = jest.fn();
@@ -54,7 +55,7 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
     get isOnline() {
       return mockIsOnline;
     },
-    isSyncing: false,
+    isSyncing: mockIsSyncing,
     lastSuccessfulSyncAt: null,
     get pendingCount() {
       return mockPendingCount;
@@ -80,6 +81,7 @@ describe('HomeScreen', () => {
     mockPendingCount = 1;
     mockSyncError = null;
     mockUnreadCount = 0;
+    mockIsSyncing = false;
   });
 
   it('leads with one sentence and one button, and drops the dashboard furniture', async () => {
@@ -121,6 +123,10 @@ describe('HomeScreen', () => {
     mockSyncError = 'Upload failed';
     await view.rerender(<HomeScreen />);
     expect(screen.getByTestId('home.note')).toHaveTextContent('2 reports waiting to send.');
+
+    mockIsSyncing = true;
+    await view.rerender(<HomeScreen />);
+    expect(screen.getByTestId('home.note')).toHaveTextContent('Sending 2 reports…');
   });
 
   it('keeps the send state quiet under a work sentence and links it to Activity', async () => {

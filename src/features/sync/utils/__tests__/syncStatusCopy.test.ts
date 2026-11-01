@@ -179,10 +179,20 @@ describe('getHomeSyncNote', () => {
     );
   });
 
-  it('names sending in progress', () => {
+  it('keeps the unsent count visible while sending', () => {
     expect(getHomeSyncNote({ ...base, isSyncing: true, pendingCount: 2 })).toBe(
-      'Sending saved reports…',
+      'Sending 2 reports…',
     );
+    expect(
+      getHomeSyncNote({
+        ...base,
+        isSyncing: true,
+        pendingCount: 2,
+        pendingReportsCount: 1,
+        pendingSurveysCount: 1,
+      }),
+    ).toBe('Sending 1 boundary, 1 report…');
+    expect(getHomeSyncNote({ ...base, isSyncing: true })).toBe('Sending saved reports…');
   });
 
   it('keeps connection states ahead of sending in progress', () => {

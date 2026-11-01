@@ -8,10 +8,12 @@ context platform=android timeout=900000
 # connection), with AUTH_EMAIL/AUTH_PASSWORD set for a verified
 # field-reporter account.
 #
-# Conversion note: the home quick-action buttons sit inside a collapsed
-# scroll region, so the label assertions become find+click navigation
-# anchors (My Activity -> Activity screen -> back), which proves the same
-# affordances deterministically.
+# Conversion note: the Phase 3 Morning Note Home no longer renders the
+# quick-action buttons or the connection badge, so Home -> Activity uses the
+# bottom-nav testID anchor (Activity screen -> back), which proves the same
+# affordance deterministically.
+# PENDING device-phase re-verification: these anchors changed with the Phase 3
+# Home redesign and have not been replayed on a device.
 
 open "com.niks0501.caneguard" --relaunch --platform android
 wait "label=\"Get started with CaneGuard\"" 180000
@@ -22,8 +24,7 @@ fill "id=\"auth.email-input\"" "${AUTH_EMAIL}"
 fill "id=\"auth.password-input\"" "${AUTH_PASSWORD}"
 click "id=\"auth.login-submit\""
 wait "id=\"home.screen\"" 120000
-is visible "id=\"home.connection-status\""
-click "role=\"button\" label=\"My Activity\""
+click "id=nav.activity"
 wait "id=\"activity.screen\"" 30000
 back --settle
 wait "id=\"home.screen\"" 30000

@@ -184,13 +184,14 @@ Key rules:
 - clear touch targets;
 - one primary action per screen when practical;
 - pair status colors with text; disease names stay text-only and hue-less, because colour on a disease label reads as a verdict;
+- status colour has three ranks only: plain ink for a normal state, amber for worth a look, red only for something the inspector must fix; show at most one coloured status block per screen. Sync tone mapping lives in `src/features/sync/utils/syncStatusCopy.ts` and quiet status lines use `src/components/ui/Notice.tsx`;
 - keep captured images visually important in scan/result flows.
 
 Required product language:
 
 - prefer `Possible disease` over `Diagnosis`;
 - prefer `Confidence` over `Accuracy`;
-- use `Pending sync` until a real upload attempt fails;
+- saved but unsent work reads `Waiting to send`; only a real failed upload attempt reads `Could not send`;
 - do not describe AI outputs as expert-confirmed results.
 
 AI result screens should retain the decision-support disclaimer.

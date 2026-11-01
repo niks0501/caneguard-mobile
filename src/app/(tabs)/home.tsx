@@ -18,9 +18,9 @@ import {
 } from '@/features/notifications/components/OfficeUpdatesPill';
 import { useOfficeUpdates } from '@/features/notifications/providers/OfficeUpdatesProvider';
 import { notificationDestinationRoute } from '@/features/notifications/services/resolveNotificationDestination';
-import { getSyncBadgeLabel } from '@/features/sync/utils/syncStatusCopy';
+import { getConnectionTone, getSyncBadgeLabel, SYNC_TONE_COLOR } from '@/features/sync/utils/syncStatusCopy';
 import { useSync } from '@/features/sync/hooks/useSync';
-import { DECISION_SUPPORT_DISCLAIMER, FIELD_GUIDE_ENTRY_TITLE, FIELD_SURVEY_COPY } from '@/constants/copy';
+import { FIELD_GUIDE_ENTRY_TITLE, FIELD_SURVEY_COPY } from '@/constants/copy';
 import {
   ComponentTokens,
   Layout,
@@ -53,21 +53,15 @@ export default function HomeScreen() {
   const [dismissedUpdateCount, setDismissedUpdateCount] = useState(0);
   const showOfficeUpdatesPill = unreadCount > dismissedUpdateCount;
   const activeVisitItems = attention.items.filter((item) => item.kind === 'assignment');
-  const dueTodayCount = activeVisitItems.filter((item) => item.meta === 'Visit due today').length;
-  const overdueCount = activeVisitItems.filter((item) => item.meta.startsWith('Visit was due')).length;
-  const serverUnavailable =
-    sessionVerification === 'unavailable' || apiReachability === 'unavailable';
+  const dueTodayCount = activeVisitItems.filter((item) => item.visitBucket === 'today').length;
+  const overdueCount = activeVisitItems.filter((item) => item.visitBucket === 'overdue').length;
   const badgeLabel = getSyncBadgeLabel({ apiReachability, isOnline, sessionVerification });
-  const badgeColors = isOnline === false
-    ? { backgroundColor: theme.warningBg, color: theme.warning }
-    : serverUnavailable
-      ? { backgroundColor: theme.dangerBg, color: theme.danger }
-      : isOnline === true
-        ? apiReachability === 'unknown'
-          ? { backgroundColor: theme.infoBg, color: theme.info }
-          : { backgroundColor: theme.successBg, color: theme.success }
-        : { backgroundColor: theme.infoBg, color: theme.info };
-  const connectionBadge = { ...badgeColors, label: badgeLabel };
+  // Offline, online and checking are all ordinary: plain ink, no tinted pill.
+  // Only an unreachable office is worth a look (Note amber).
+  const connectionBadge = {
+    color: theme[SYNC_TONE_COLOR[getConnectionTone({ apiReachability, isOnline, sessionVerification })]],
+    label: badgeLabel,
+  };
   const actions: QuickAction[] = [
     {
       title: FIELD_SURVEY_COPY.quickActionTitle,
@@ -152,8 +146,7 @@ export default function HomeScreen() {
                     <Text style={[styles.name, { color: theme.primaryDark }]}>{user?.name ?? 'Field Inspector'}</Text>
                   </View>
                   <View style={styles.heroActions}>
-                    <View style={[styles.online, { backgroundColor: connectionBadge.backgroundColor }]}>
-                      <View style={[styles.onlineDot, { backgroundColor: connectionBadge.color }]} />
+                    <View style={styles.online}>
                       <Text
                         accessibilityRole="text"
                         accessibilityLabel={connectionBadge.label}
@@ -222,7 +215,7 @@ export default function HomeScreen() {
                     <Feather name="arrow-right" size={20} color={theme.primary} />
                   </View>
                   <Text style={[styles.referenceIntro, { color: theme.textSecondary }]}>
-                    Observational references for the four sugarcane conditions CaneGuard can check, plus the RSSI pest it can only record as something you saw. {DECISION_SUPPORT_DISCLAIMER}
+                    Observational references for the four sugarcane conditions CaneGuard can check, plus the RSSI pest it can only record as something you saw.
                   </Text>
                   <View style={styles.referencePillsRow}>
                     {MODEL_LABELS.map((key) => (
@@ -356,14 +349,12 @@ const styles = StyleSheet.create({
   heroActions: { flexDirection: 'row', flexShrink: 0, alignItems: 'center', gap: Spacing.sm },
   online: {
     minHeight: 30,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
     alignItems: 'center',
     flexDirection: 'row',
     gap: Spacing.xs,
   },
-  onlineDot: { width: 6, height: 6, borderRadius: Radius.full },
-  onlineText: { ...Typography.caption, fontWeight: '800' },
+  onlineText: { ...Typography.caption, fontWeight: '500' },
   profile: { width: 48, height: 48, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   content: {
     paddingHorizontal: ComponentTokens.screen.horizontalPadding,

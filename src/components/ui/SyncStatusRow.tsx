@@ -1,12 +1,14 @@
 import { Feather } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Radius, Spacing, Typography } from '@/constants/theme';
+import { Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useSync } from '@/features/sync/hooks/useSync';
 import {
+  getConnectionTone,
   getSyncRowSummary,
   isServerUnavailable,
+  SYNC_TONE_COLOR,
 } from '@/features/sync/utils/syncStatusCopy';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -39,13 +41,15 @@ export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
           : sync.isOnline === false
             ? 'wifi-off'
             : 'check-circle';
-  const iconColor = apiUnavailable
-    ? theme.danger
-    : sync.isOnline === null
-      ? theme.info
-      : hasPendingReports || sync.isOnline === false
-        ? theme.warning
-        : theme.success;
+  // Offline, waiting and sent are ordinary in the field and stay in ink.
+  // An unreachable office or a sync error is a Note.
+  const tone = getConnectionTone({
+    apiReachability: sync.apiReachability,
+    hasError: Boolean(sync.errorMessage),
+    isOnline: sync.isOnline,
+    sessionVerification,
+  });
+  const iconColor = theme[SYNC_TONE_COLOR[tone]];
   const summary = getSyncRowSummary({
     apiReachability: sync.apiReachability,
     isOnline: sync.isOnline,
@@ -66,17 +70,15 @@ export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
       onPress={onPress}
       style={({ pressed }) => [
         styles.row,
-        { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+        { borderColor: theme.border },
         pressed && styles.pressed,
       ]}>
-      <View style={[styles.icon, { backgroundColor: theme.surfaceElevated }]}>
-        <Feather name={icon} size={18} color={iconColor} />
-      </View>
+      <Feather name={icon} size={18} color={iconColor} />
       <View style={styles.copy}>
         <Text style={[styles.title, { color: theme.primaryDark }]}>Report status</Text>
-        <Text style={[styles.summary, { color: theme.textSecondary }]}>{summary}</Text>
+        <Text style={[styles.summary, { color: tone === 'note' ? theme.warning : theme.textSecondary }]}>{summary}</Text>
         {sync.errorMessage ? (
-          <Text style={[styles.error, { color: theme.danger }]}>{sync.errorMessage}</Text>
+          <Text style={[styles.error, { color: theme.warning }]}>{sync.errorMessage}</Text>
         ) : null}
       </View>
       <Feather name="chevron-right" size={18} color={theme.textSecondary} />
@@ -87,24 +89,17 @@ export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
 const styles = StyleSheet.create({
   row: {
     minHeight: 64,
-    borderWidth: 1,
-    borderRadius: Radius.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  icon: {
-    width: 34,
-    height: 34,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   copy: { flex: 1, gap: 2 },
-  title: { ...Typography.bodySmall, fontWeight: '800' },
+  title: { ...Typography.bodySmall, fontWeight: '500' },
   summary: { ...Typography.caption },
-  error: { ...Typography.caption, fontWeight: '700' },
+  error: { ...Typography.caption, fontWeight: '500' },
   pressed: { opacity: 0.74 },
 });

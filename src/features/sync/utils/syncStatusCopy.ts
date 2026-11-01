@@ -16,6 +16,44 @@ export const FIELD_SURVEY_SYNC_COPY = {
   submitting: 'Syncing measurement…',
 } as const;
 
+/**
+ * Voice map: how loud a sync state may be. Whisper is plain ink for normal
+ * field conditions, Note (amber) is worth a look, Stop (red) is only for what
+ * the inspector must fix. Colour never means "all fine".
+ */
+export type SyncTone = 'whisper' | 'note' | 'stop';
+
+export const SYNC_TONE_COLOR = {
+  whisper: 'textSecondary',
+  note: 'warning',
+  stop: 'danger',
+} as const satisfies Record<SyncTone, 'textSecondary' | 'warning' | 'danger'>;
+
+export type SyncToneColorKey = (typeof SYNC_TONE_COLOR)[SyncTone];
+
+/** Meta line for a saved upload that could not be sent yet. */
+export const UPLOAD_FAILED_META = 'Could not send';
+
+/**
+ * Tone for the phone's connection. Offline, checking and unsent work are
+ * ordinary in the field. An unreachable office or a sync error message earns a
+ * Note; Stop is reserved for what the inspector must fix.
+ */
+export function getConnectionTone(input: {
+  apiReachability: ApiReachability;
+  hasError?: boolean;
+  isOnline: boolean | null;
+  sessionVerification?: string;
+}): SyncTone {
+  if (
+    input.hasError ||
+    isServerUnavailable(input.apiReachability, input.sessionVerification, input.isOnline)
+  ) {
+    return 'note';
+  }
+  return 'whisper';
+}
+
 export type SyncWordingInput = {
   apiReachability: ApiReachability;
   isOnline: boolean | null;

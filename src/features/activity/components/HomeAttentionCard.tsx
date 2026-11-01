@@ -9,6 +9,7 @@ import {
   type NeedsAttentionItem,
   type NeedsAttentionKind,
 } from '@/features/activity/domain/needsAttention';
+import { SYNC_TONE_COLOR } from '@/features/sync/utils/syncStatusCopy';
 import { useTheme } from '@/hooks/use-theme';
 
 const KIND_ICONS: Record<NeedsAttentionKind, keyof typeof Feather.glyphMap> = {
@@ -108,6 +109,7 @@ const AttentionRow = memo(function AttentionRow({
   onOpen: (item: NeedsAttentionItem) => void;
 }) {
   const theme = useTheme();
+  const tone = item.tone ?? 'whisper';
   const actionable = Boolean(
     item.destination && item.destination.kind !== 'unavailable',
   );
@@ -135,7 +137,7 @@ const AttentionRow = memo(function AttentionRow({
         <Text numberOfLines={2} style={[styles.itemMessage, { color: theme.textSecondary }]}>
           {item.message}
         </Text>
-        <Text style={[styles.itemMeta, { color: theme.warning }]}>{item.meta}</Text>
+        <Text style={[styles.itemMeta, { color: theme[SYNC_TONE_COLOR[tone]] }]}>{item.meta}</Text>
       </View>
       {actionable ? (
         <Feather name="chevron-right" size={18} color={theme.textSecondary} />
@@ -174,7 +176,7 @@ const styles = StyleSheet.create({
   copy: { flex: 1, gap: Spacing.xs },
   itemTitle: { ...Typography.bodySmall, fontWeight: '800' },
   itemMessage: { ...Typography.caption },
-  itemMeta: { ...Typography.caption, fontWeight: '700' },
+  itemMeta: { ...Typography.caption, fontWeight: '500' },
   more: {
     minHeight: 44,
     flexDirection: 'row',

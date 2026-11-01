@@ -15,6 +15,7 @@ import { managedDisplayImageUriIfPresent } from '@/features/records/services/sca
 import type { SyncStatus } from '@/database/schema';
 import { getAuthorityReviewPresentation } from '@/features/reports/domain/reportReviewTypes';
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
+import { SYNC_TONE_COLOR, type SyncToneColorKey } from '@/features/sync/utils/syncStatusCopy';
 import { useTheme } from '@/hooks/use-theme';
 
 type RecordCardProps = {
@@ -77,10 +78,7 @@ export function RecordCard({ activityType, onPress, record, testID }: RecordCard
             style={[
               styles.activityType,
               {
-                backgroundColor:
-                  activityType === 'report'
-                    ? theme.infoBg
-                    : theme.surfaceMuted,
+                backgroundColor: theme.surfaceMuted,
               },
             ]}>
             <Feather
@@ -140,11 +138,11 @@ export function RecordCard({ activityType, onPress, record, testID }: RecordCard
             testID={`record-card.authority-status.${record.id}`}
             accessibilityLabel={`Authority review: ${getAuthorityReviewPresentation(record.authorityReview.rawStatus).label}`}
             style={styles.authorityStatus}>
-            <Feather name="shield" size={14} color={theme.info} />
+            <Feather name="shield" size={14} color={theme.textSecondary} />
             <Text
               numberOfLines={1}
               ellipsizeMode="tail"
-              style={[styles.statusText, { color: theme.info }]}>
+              style={[styles.statusText, { color: theme.textSecondary }]}>
               {getAuthorityReviewPresentation(record.authorityReview.rawStatus).label}
             </Text>
           </View>
@@ -158,27 +156,37 @@ export function getSyncPresentation(
   status: SyncStatus,
   lastSyncErrorCode: string | null = null,
 ): {
-  color: 'danger' | 'info' | 'success' | 'warning';
+  color: SyncToneColorKey;
   icon: keyof typeof Feather.glyphMap;
   label: string;
 } {
+  // Normal states whisper in ink; only a failure the inspector must act on
+  // (sign in again, could not send) is Stop red.
   switch (status) {
     case 'local_only':
-      return { color: 'info', icon: 'smartphone', label: PERSONAL_SCAN_LOCAL_STATUS };
+      return {
+        color: SYNC_TONE_COLOR.whisper,
+        icon: 'smartphone',
+        label: PERSONAL_SCAN_LOCAL_STATUS,
+      };
     case 'pending':
-      return { color: 'warning', icon: 'clock', label: 'Waiting to send' };
+      return { color: SYNC_TONE_COLOR.whisper, icon: 'clock', label: 'Waiting to send' };
     case 'syncing':
-      return { color: 'info', icon: 'upload-cloud', label: 'Sending to office' };
+      return { color: SYNC_TONE_COLOR.whisper, icon: 'upload-cloud', label: 'Sending to office' };
     case 'synced':
-      return { color: 'success', icon: 'check-circle', label: 'Sent to office' };
+      return { color: SYNC_TONE_COLOR.whisper, icon: 'check-circle', label: 'Sent to office' };
     case 'failed':
       if (lastSyncErrorCode === 'AUTH_REQUIRED') {
-        return { color: 'danger', icon: 'lock', label: 'Sign in again to send' };
+        return { color: SYNC_TONE_COLOR.stop, icon: 'lock', label: 'Sign in again to send' };
       }
       if (isAutoRetryableSyncErrorCode(lastSyncErrorCode)) {
-        return { color: 'info', icon: 'clock', label: 'Waiting to send' };
+        return { color: SYNC_TONE_COLOR.whisper, icon: 'clock', label: 'Waiting to send' };
       }
-      return { color: 'danger', icon: 'alert-triangle', label: 'Could not send — try again' };
+      return {
+        color: SYNC_TONE_COLOR.stop,
+        icon: 'alert-triangle',
+        label: 'Could not send — try again',
+      };
   }
 }
 

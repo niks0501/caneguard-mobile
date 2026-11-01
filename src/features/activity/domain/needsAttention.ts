@@ -1,10 +1,13 @@
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import {
   assignmentDueMeta,
+  bucketForVisit,
   compareVisits,
   isActiveFieldValidationAssignment,
+  type TodayVisitBucket,
 } from '@/features/assignments/domain/todayVisits';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
+import { UPLOAD_FAILED_META, type SyncTone } from '@/features/sync/utils/syncStatusCopy';
 import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
 
 export type NeedsAttentionKind = 'assignment' | 'notification' | 'upload';
@@ -16,6 +19,8 @@ export interface NeedsAttentionItem {
   message: string;
   meta: string;
   title: string;
+  tone?: SyncTone;
+  visitBucket?: TodayVisitBucket;
 }
 
 export interface NeedsAttentionSummary {
@@ -85,6 +90,7 @@ function unreadNotificationItems(input: {
             ? 'This case is not stored on this device'
             : notification.referenceCode ?? 'Case activity',
         title: notification.title,
+        tone: 'whisper' as const,
       };
     });
 }
@@ -98,14 +104,19 @@ function assignmentItems(input: {
       isActiveFieldValidationAssignment(assignment),
     )
     .sort(compareVisits)
-    .map((assignment) => ({
-      destination: { kind: 'assignment' as const, assignmentId: assignment.id },
-      id: `assignment-${assignment.id}`,
-      kind: 'assignment' as const,
-      message: `${assignment.case.barangay} · submitted by ${assignment.submitter.name}`,
-      meta: assignmentDueMeta(assignment, input.today),
-      title: `Field visit for ${assignment.referenceCode}`,
-    }));
+    .map((assignment) => {
+      const visitBucket = bucketForVisit(assignment, input.today);
+      return {
+        destination: { kind: 'assignment' as const, assignmentId: assignment.id },
+        id: `assignment-${assignment.id}`,
+        kind: 'assignment' as const,
+        message: `${assignment.case.barangay} · submitted by ${assignment.submitter.name}`,
+        meta: assignmentDueMeta(assignment, input.today),
+        title: `Field visit for ${assignment.referenceCode}`,
+        tone: visitBucket === 'overdue' ? 'note' : 'whisper',
+        visitBucket,
+      };
+    });
 }
 
 function uploadItems(input: {
@@ -120,11 +131,11 @@ function uploadItems(input: {
   const failed = Boolean(input.syncErrorMessage);
   const reportsCount = input.pendingReportsCount ?? input.pendingUploadCount;
   const completionsCount = input.pendingCompletionsCount ?? 0;
-  let nounPhrase = `${input.pendingUploadCount} ${input.pendingUploadCount === 1 ? 'report needs' : 'reports need'}`;
+  let nounPhrase = `${input.pendingUploadCount} ${input.pendingUploadCount === 1 ? 'report' : 'reports'}`;
   if (completionsCount > 0 && reportsCount === 0) {
-    nounPhrase = `${completionsCount} ${completionsCount === 1 ? 'field visit needs' : 'field visits need'}`;
+    nounPhrase = `${completionsCount} ${completionsCount === 1 ? 'field visit' : 'field visits'}`;
   } else if (completionsCount > 0 && reportsCount > 0) {
-    nounPhrase = `${input.pendingUploadCount} ${input.pendingUploadCount === 1 ? 'item needs' : 'items need'}`;
+    nounPhrase = `${input.pendingUploadCount} ${input.pendingUploadCount === 1 ? 'item' : 'items'}`;
   }
   return [
     {
@@ -133,12 +144,13 @@ function uploadItems(input: {
       kind: 'upload',
       message: failed
         ? input.syncErrorMessage ??
-          'Some items could not be uploaded yet. They stay saved on this device.'
+          'Some items could not be sent yet. They stay saved on this device.'
         : completionsCount > 0 && reportsCount === 0
-          ? 'Completed field visits saved on this device are waiting to be uploaded.'
-          : 'Reports saved on this device are waiting to be uploaded.',
-      meta: failed ? 'Upload problem' : 'Waiting to upload',
-      title: `${nounPhrase} synchronization`,
+          ? 'Completed field visits saved on this device are waiting to send.'
+          : 'Reports saved on this device are waiting to send.',
+      meta: failed ? UPLOAD_FAILED_META : 'Waiting to send',
+      title: `${nounPhrase} waiting to send`,
+      tone: failed ? 'note' : 'whisper',
     },
   ];
 }

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
@@ -6,7 +6,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type NoticeProps = {
-  children: ReactNode;
+  children: ReactElement | ReactElement[];
   icon?: keyof typeof Feather.glyphMap;
   testID?: string;
 };

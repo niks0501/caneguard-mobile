@@ -10,12 +10,13 @@ const path = require('node:path');
  *   is removed when the app moves to SDK 58.
  * - `validation/expo-secure-store/ExpoSecureStore.web.ts` keeps a validation
  *   session in `localStorage` so a fake account can reach Home and Activity. It
- *   is a deliberate security downgrade, so it is gated on an explicit env flag
- *   and never applied to a release build.
+ *   is a deliberate security downgrade, so it is gated on an explicit env flag,
+ *   only applied to a loopback stub API, and never applied to a release build.
  */
 
 const WEB_VALIDATION_FLAG = 'EXPO_PUBLIC_WEB_VALIDATION';
 const RELEASE_EAS_PROFILES = ['preview', 'qa', 'production'];
+const STUB_API_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
 const SECURE_STORE_STAND_IN_PATH = path.join(
   __dirname,
@@ -44,6 +45,22 @@ function isWebValidationEnabled(env = process.env) {
   return env[WEB_VALIDATION_FLAG] === '1' && !isReleaseBuild(env);
 }
 
+/** Only a loopback stub endpoint is approved to receive a fake session. */
+function isStubApiBaseUrl(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  let url;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    return false;
+  }
+
+  return url.protocol === 'http:' && STUB_API_HOSTNAMES.has(url.hostname);
+}
+
 /**
  * Returns the absolute path a module request must be rewritten to, or null.
  * Metro calls this before it resolves anything, so the returned module replaces
@@ -60,7 +77,8 @@ function resolveWebValidationAlias(
   if (
     moduleName === './ExpoSecureStore' &&
     originModulePath.includes('expo-secure-store') &&
-    isWebValidationEnabled(env)
+    isWebValidationEnabled(env) &&
+    isStubApiBaseUrl(env.EXPO_PUBLIC_API_BASE_URL)
   ) {
     return SECURE_STORE_STAND_IN_PATH;
   }

@@ -14,7 +14,10 @@ const {
 } = require('../../validation/expo-sqlite/WorkerChannel');
 
 const repoRoot = path.join(__dirname, '..', '..');
-const enabledEnv = { EXPO_PUBLIC_WEB_VALIDATION: '1' };
+const enabledEnv = {
+  EXPO_PUBLIC_API_BASE_URL: 'http://127.0.0.1:8210',
+  EXPO_PUBLIC_WEB_VALIDATION: '1',
+};
 
 function resolveSecureStore(env, platform = 'web') {
   return resolveWebValidationAlias(
@@ -67,7 +70,41 @@ describe('web validation Metro gate', () => {
   it('applies the secure-store stand-in only when the validation flag is set', () => {
     expect(resolveSecureStore(enabledEnv)).toBe(SECURE_STORE_STAND_IN_PATH);
     expect(resolveSecureStore({})).toBeNull();
-    expect(resolveSecureStore({ EXPO_PUBLIC_WEB_VALIDATION: 'true' })).toBeNull();
+    expect(
+      resolveSecureStore({ ...enabledEnv, EXPO_PUBLIC_WEB_VALIDATION: 'true' }),
+    ).toBeNull();
+  });
+
+  it('refuses the secure-store stand-in when the API is not the loopback stub', () => {
+    for (const apiBaseUrl of [
+      undefined,
+      'https://api.example.test',
+      'https://127.0.0.1:8210',
+      'http://192.168.1.5:8210',
+      'http://127.0.0.1.evil.test:8210',
+    ]) {
+      expect(
+        resolveSecureStore({
+          ...enabledEnv,
+          EXPO_PUBLIC_API_BASE_URL: apiBaseUrl,
+        }),
+      ).toBeNull();
+    }
+  });
+
+  it('accepts the loopback stub API host names', () => {
+    for (const apiBaseUrl of [
+      'http://127.0.0.1:8210',
+      'http://localhost:8210',
+      'http://[::1]:8210',
+    ]) {
+      expect(
+        resolveSecureStore({
+          ...enabledEnv,
+          EXPO_PUBLIC_API_BASE_URL: apiBaseUrl,
+        }),
+      ).toBe(SECURE_STORE_STAND_IN_PATH);
+    }
   });
 
   it.each(['preview', 'qa', 'production'])(

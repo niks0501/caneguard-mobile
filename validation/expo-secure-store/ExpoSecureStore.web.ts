@@ -11,12 +11,15 @@
  *
  * - web only: Metro rewrites `./ExpoSecureStore` for the `web` platform alone;
  * - env gated: it requires `EXPO_PUBLIC_WEB_VALIDATION=1`;
+ * - stub API only: `scripts/web-validation-config.js` refuses the rewrite unless
+ *   `EXPO_PUBLIC_API_BASE_URL` is a loopback stub endpoint, so a real session
+ *   can never be kept in `localStorage`;
  * - excluded from release builds: `scripts/web-validation-config.js` refuses the
  *   rewrite when `EAS_BUILD_PROFILE` is `preview`, `qa` or `production`, or when
  *   `NODE_ENV` is `production`, and `scripts/__tests__/web-validation-config.test.js`
  *   pins that gate;
- * - fake accounts only: it is meant to be used against the deterministic stub
- *   API in `validation/stub-api`, never against a real server.
+ * - fake accounts only: it is only ever used against the deterministic stub API
+ *   in `validation/stub-api`, never against a real server.
  *
  * It stores values in `localStorage` in plain text. Nothing else in the product
  * may import it, and no real credential may pass through it.

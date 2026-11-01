@@ -55,10 +55,11 @@ and any other `GET` answers a well-formed empty page.
 | Stub API | `validation/stub-api/` | Fake account, two fake visits, read-only feeds. No write is persisted. |
 
 The stand-in is deliberately narrow: web platform only, requires
-`EXPO_PUBLIC_WEB_VALIDATION=1`, is refused for `preview`, `qa` and `production`
-builds (`EAS_BUILD_PROFILE`) and for `NODE_ENV=production`, and is only ever
-pointed at the stub API with fake accounts. Never sign in to a real server with
-it. The gate is pinned by `scripts/__tests__/web-validation-config.test.js`.
+`EXPO_PUBLIC_WEB_VALIDATION=1` and a loopback `EXPO_PUBLIC_API_BASE_URL` (the
+launcher pins it to the stub), and is refused for `preview`, `qa` and
+`production` builds (`EAS_BUILD_PROFILE`), for `NODE_ENV=production`, and for
+any API that is not the loopback stub. Never sign in to a real server with it.
+The gate is pinned by `scripts/__tests__/web-validation-config.test.js`.
 
 ## What this route proves
 

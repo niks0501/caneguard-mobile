@@ -248,3 +248,53 @@ export function getReportSyncAttemptOutcome(input: {
         : 'Not confirmed as sent — check the status above before trying again',
   };
 }
+
+function formatPendingCounts(input: SyncWordingInput): string {
+  const {
+    pendingCompletionsCount = 0,
+    pendingCount,
+    pendingReportsCount = pendingCount,
+    pendingSurveysCount = 0,
+  } = input;
+  return formatPendingSummary(
+    pendingCount,
+    pendingReportsCount,
+    pendingCompletionsCount,
+    pendingSurveysCount,
+  ).replace(/ waiting to send$/, '');
+}
+
+/**
+ * The one-sentence send state for the Home Morning Note, or null when nothing
+ * is worth saying. Unsent counts always stay visible so silence is never read
+ * as doubt. These sentences are proposals awaiting owner review.
+ */
+export function getHomeSyncNote(
+  input: SyncWordingInput & { hasError?: boolean },
+): string | null {
+  const { apiReachability, hasError = false, isOnline, isSyncing = false, pendingCount, sessionVerification } = input;
+  const counts = pendingCount > 0 ? formatPendingCounts(input) : null;
+
+  if (hasError && counts) {
+    return `${capitalize(counts)} could not send.`;
+  }
+  if (isOnline === false) {
+    return counts ? `Working offline. ${capitalize(counts)} waiting to send.` : 'Working offline.';
+  }
+  if (isServerUnavailable(apiReachability, sessionVerification, isOnline)) {
+    return counts
+      ? `Cannot reach the office. ${capitalize(counts)} waiting to send.`
+      : 'Cannot reach the office.';
+  }
+  if (isSyncing) {
+    return 'Sending saved reports…';
+  }
+  if (counts) {
+    return `${capitalize(counts)} waiting to send.`;
+  }
+  return null;
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}

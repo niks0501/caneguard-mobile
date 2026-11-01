@@ -266,7 +266,7 @@ describe('AuthProvider', () => {
     }
 
     await waitFor(() =>
-      expect(screen.getByText('Office unreachable')).toBeOnTheScreen(),
+      expect(screen.getByText('Cannot reach the office.')).toBeOnTheScreen(),
     );
   });
 

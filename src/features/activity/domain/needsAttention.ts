@@ -13,14 +13,18 @@ import type { NotificationDestination } from '@/features/notifications/services/
 export type NeedsAttentionKind = 'assignment' | 'notification' | 'upload';
 
 export interface NeedsAttentionItem {
+  /** Visit urgency, set on assignment items only. */
+  bucket?: TodayVisitBucket;
   destination: NotificationDestination | null;
   id: string;
   kind: NeedsAttentionKind;
   message: string;
   meta: string;
+  /** Where the visit is (barangay), set on assignment items only. */
+  place?: string;
   title: string;
+  /** How loud this item may be: ordinary work whispers, overdue work is a note. */
   tone?: SyncTone;
-  visitBucket?: TodayVisitBucket;
 }
 
 export interface NeedsAttentionSummary {
@@ -104,17 +108,18 @@ function assignmentItems(input: {
       isActiveFieldValidationAssignment(assignment),
     )
     .sort(compareVisits)
-    .map((assignment) => {
-      const visitBucket = bucketForVisit(assignment, input.today);
+    .map((assignment): NeedsAttentionItem => {
+      const bucket = bucketForVisit(assignment, input.today);
       return {
+        bucket,
         destination: { kind: 'assignment' as const, assignmentId: assignment.id },
         id: `assignment-${assignment.id}`,
         kind: 'assignment' as const,
         message: `${assignment.case.barangay} · submitted by ${assignment.submitter.name}`,
         meta: assignmentDueMeta(assignment, input.today),
+        place: assignment.case.barangay,
         title: `Field visit for ${assignment.referenceCode}`,
-        tone: visitBucket === 'overdue' ? 'note' : 'whisper',
-        visitBucket,
+        tone: bucket === 'overdue' ? 'note' : 'whisper',
       };
     });
 }

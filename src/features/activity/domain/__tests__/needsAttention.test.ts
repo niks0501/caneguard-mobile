@@ -152,6 +152,24 @@ describe('buildNeedsAttention', () => {
     ]);
   });
 
+  it('carries the place and visit urgency on assignment items only', () => {
+    const summary = build({
+      assignments: [
+        assignment({ id: 'overdue', targetVisitDate: '2026-09-01' }),
+        assignment({ id: 'today', targetVisitDate: TODAY }),
+        assignment({ id: 'undated', targetVisitDate: null }),
+      ],
+      notifications: [notification()],
+    });
+
+    const visits = summary.items.filter((item) => item.kind === 'assignment');
+    expect(visits.map((item) => item.bucket)).toEqual(['overdue', 'today', 'none']);
+    expect(visits.every((item) => typeof item.place === 'string' && item.place.length > 0)).toBe(true);
+    const update = summary.items.find((item) => item.kind === 'notification');
+    expect(update?.place).toBeUndefined();
+    expect(update?.bucket).toBeUndefined();
+  });
+
   it('sorts assignments by due date with undated rows last', () => {
     const summary = build({
       assignments: [

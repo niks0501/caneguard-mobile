@@ -132,9 +132,9 @@ describe('listed row memoization', () => {
       </RerenderHost>,
     );
 
-    // Sanity: the rows render (a kind icon each, plus a chevron on the
-    // actionable one), so the counter can see row renders at all.
-    expect(featherRenders).toBeGreaterThanOrEqual(ITEMS.length);
+    // Sanity: the rows render (a chevron on each actionable one), so the
+    // counter can see row renders at all.
+    expect(featherRenders).toBeGreaterThan(0);
 
     featherRenders = 0;
     await pressHostTimes(RERENDERS);

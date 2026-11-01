@@ -1,0 +1,139 @@
+# Browser validation route
+
+The two validation routes are **web first** and **phone second**. Web is the
+default because it needs no attached device; the phone stays the only proof for
+native behaviour. This page covers the web route only: how to start it, what it
+can and cannot prove, and the `expo export` fallback.
+
+Validation scaffolding is not product behaviour: it is web-only, env-gated, and
+never part of a release build. Native paths are unchanged.
+
+## Quick start
+
+```bash
+npm run web:validate               # dev server on :8199 with the stub API on :8210
+npm run web:validate -- --port 8230 --api-port 8231
+```
+
+The script starts the deterministic stub API (`validation/stub-api`) and then
+the Expo web dev server with:
+
+- `EXPO_PUBLIC_WEB_VALIDATION=1` — enables the validation-only secure-store
+  stand-in (see below);
+- `EXPO_PUBLIC_API_BASE_URL` — pointed at the local stub, overriding any value
+  already in the environment on purpose;
+- `CANEGUARD_WEB_VALIDATE_TODAY` — the reference date the fixtures are built
+  from. Set it (`CANEGUARD_WEB_VALIDATE_TODAY=2026-11-01 npm run web:validate`)
+  for a pinned run; otherwise the local date the script starts on is used.
+
+Then:
+
+1. Open **`http://127.0.0.1:8199/login`**, not `/`. Under the single-page web
+   output, `/` is answered by the manifest handler, which runs before the Metro
+   middleware that adds COOP/COEP, so `SharedArrayBuffer` stays undefined there.
+   `/login` and the other routes get the headers.
+2. Sign in with the fake account printed at startup
+   (`inspector@validation.invalid` / `validation-only`).
+3. Use **one browser profile per origin**. A second same-origin tab fails on the
+   OPFS lock (`NoModificationAllowedError`), which surfaces as a storage error.
+   A password sign-in keeps its session in memory only, so a page reload returns
+   to `/login`; navigate inside the app instead of reloading.
+
+The stub seeds two active visits: `CG-LAB-0001` (Balayan, due today) and
+`CG-LAB-0002` (Mabini, due two days ago). Home should lead with "One visit
+today. One is overdue." and "Open next visit". The notification feed is empty,
+and any other `GET` answers a well-formed empty page.
+
+## Why the flags exist
+
+| Piece | File | What it does |
+| --- | --- | --- |
+| Single-page output | `app.json` (`web.output: "single"`) | The dev server cannot bundle the SQLite worker with the committed static output; a static graph fails with HTTP 500 `Worker chunk not found`. |
+| COOP/COEP | `metro.config.js` (`server.enhanceMiddleware`) | The web SQLite bridge uses `SharedArrayBuffer`, which needs a cross-origin-isolated page. The dev server now sends the headers, so no proxy is needed. A static export still needs them from its own server. |
+| Async warm-up | `src/database/DatabaseProvider.tsx` | The first synchronous SQLite open busy-waits while the SQLite worker is still starting, and a blocked main thread starves that startup. On web only, one async open runs first. Native is untouched. |
+| Worker length fix | `validation/expo-sqlite/WorkerChannel.ts` | `expo-sqlite` 57 writes the sync result length into a byte view, so results longer than 255 bytes are read back truncated. Delete this copy and its Metro alias when the app moves to SDK 58, which fixes it upstream. |
+| Secure-store stand-in | `validation/expo-secure-store/ExpoSecureStore.web.ts` | `expo-secure-store` has no web implementation, so nobody can sign in on web. The stand-in keeps a fake session in `localStorage`. |
+| Stub API | `validation/stub-api/` | Fake account, two fake visits, read-only feeds. No write is persisted. |
+
+The stand-in is deliberately narrow: web platform only, requires
+`EXPO_PUBLIC_WEB_VALIDATION=1`, is refused for `preview`, `qa` and `production`
+builds (`EAS_BUILD_PROFILE`) and for `NODE_ENV=production`, and is only ever
+pointed at the stub API with fake accounts. Never sign in to a real server with
+it. The gate is pinned by `scripts/__tests__/web-validation-config.test.js`.
+
+## What this route proves
+
+- that the app renders, routes and reads its cached records in a browser
+  (Home, Activity, Visits, notifications list);
+- that the web data path returns complete records, so "All clear." is not hiding
+  a failed refresh.
+
+It cannot prove anything native: TFLite inference, camera, permissions,
+biometrics, secure storage, notifications delivery or device persistence. Those
+remain `npm run e2e` / agent-device work with an attached device.
+
+Validation runs are recorded as `inconclusive` for product acceptance by policy:
+a browser check is implementation-phase evidence, not a device acceptance gate.
+
+## Fallback: static export with a COOP/COEP server
+
+If the dev server will not bundle for some future reason, `expo export` still
+serves the public screens. It is a fallback, not the default route.
+
+```bash
+EXPO_PUBLIC_API_BASE_URL=https://api.example.test \
+  npx expo export --platform web --output-dir .expo/web-export
+```
+
+Then serve `.expo/web-export` **with COOP and COEP**, for example:
+
+```js
+// scripts-static-server.mjs — throwaway, not committed
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { extname, join, normalize } from 'node:path';
+
+const root = process.argv[2];
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
+
+createServer(async (req, res) => {
+  const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^\/+/, '');
+  const file = join(root, path || 'index.html');
+  const target = (await stat(file).catch(() => null))?.isDirectory() ? join(file, 'index.html') : file;
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  res.setHeader('Content-Type', types[extname(target)] ?? 'application/octet-stream');
+  createReadStream(target).on('error', () => res.writeHead(404).end()).pipe(res);
+}).listen(8220, '127.0.0.1');
+```
+
+Notes for this path:
+
+- `EXPO_PUBLIC_API_BASE_URL` must be `https` outside a development build
+  (`src/config/env.ts`), so the stub API cannot be used here; expect the public
+  screens only.
+- A cold full-page load can hit the storage timeout once; one **Retry** reaches
+  the public screens. The async warm-up still applies, so a later full load may
+  not need the retry.
+- The diagnosis run measured this fallback with the previous static output: two
+  of two cold loads timed out once and one Retry worked. With the current
+  single-page output the export should behave like the dev server, but that
+  combination was not measured; treat the export as a fallback and re-measure if
+  you rely on it.
+
+## Reading a failure
+
+With this route in place, `/` misbehaviour is a routing mistake, not a bug. If
+the storage screen appears, the dev console now prints the underlying cause next
+to `[storage:DATABASE_OPEN_FAILED] Local database open failed.` The cause is a
+single bounded line containing only the error name and message; user-facing copy
+stays generic. Typical causes:
+
+- `ReferenceError: SharedArrayBuffer is not defined` — opened `/` instead of
+  `/login/…`, or a static server without COOP/COEP.
+- `Sync operation timeout` — the worker never got a turn; check the async
+  warm-up still runs before the sync open.
+- `SyntaxError: Unterminated string in JSON` — the worker length fix is not
+  applied; check the Metro alias in `metro.config.js`.
+- `NoModificationAllowedError` — a second tab on the same origin; close it.

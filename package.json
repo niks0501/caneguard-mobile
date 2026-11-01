@@ -74,6 +74,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "web:validate": "node ./scripts/web-validate.js",
     "lint": "expo lint",
     "pretypecheck": "node ./scripts/generate-expo-router-types.js",
     "typecheck": "tsc --noEmit",

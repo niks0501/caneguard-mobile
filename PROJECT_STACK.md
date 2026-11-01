@@ -173,7 +173,7 @@ The report multipart mapper is an external-contract boundary. Treat its field na
 
 Use `src/constants/theme.ts` as the token source before adding hard-coded design values.
 
-Follow `.ai/design-system.md` for CaneGuard-specific UI direction.
+This section defines CaneGuard-specific UI direction; `src/constants/theme.ts` owns the token scale.
 
 Key rules:
 
@@ -183,7 +183,7 @@ Key rules:
 - accessible icon-only controls;
 - clear touch targets;
 - one primary action per screen when practical;
-- pair status/disease colors with text;
+- pair status colors with text; disease names stay text-only and hue-less, because colour on a disease label reads as a verdict;
 - keep captured images visually important in scan/result flows.
 
 Required product language:
@@ -305,5 +305,4 @@ For repository-specific behavior, prefer these local sources over generic advice
 - `src/features/**`
 - `src/database/**`
 - `src/features/detection/constants/modelContract.ts`
-- `.ai/design-system.md`
 - project tests and migrations

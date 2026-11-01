@@ -7,7 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { HomeAttentionCard } from '@/features/activity/components/HomeAttentionCard';
 import { buildMorningNote } from '@/features/activity/domain/morningNote';
-import type { NeedsAttentionItem } from '@/features/activity/domain/needsAttention';
+import {
+  firstActionableAttentionItem,
+  type NeedsAttentionItem,
+} from '@/features/activity/domain/needsAttention';
 import { useHomeAttention } from '@/features/activity/hooks/useHomeAttention';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
@@ -43,7 +46,6 @@ export default function HomeScreen() {
   const showOfficeUpdatesPill = unreadCount > dismissedUpdateCount;
   const syncNote = getHomeSyncNote({
     apiReachability: sync.apiReachability,
-    hasError: Boolean(sync.errorMessage),
     isOnline: sync.isOnline,
     isSyncing: sync.isSyncing,
     pendingCompletionsCount: sync.pendingCompletionsCount,
@@ -71,13 +73,13 @@ export default function HomeScreen() {
     },
     [markAttentionRead],
   );
-  const firstItem = attention.items[0];
+  const primaryItem = firstActionableAttentionItem(attention.items);
   const onPrimaryAction = () => {
-    if (firstItem) {
-      openAttentionItem(firstItem);
-    } else {
+    if (note.action === 'scan' || !primaryItem) {
       router.push('/scan');
+      return;
     }
+    openAttentionItem(primaryItem);
   };
 
   return (

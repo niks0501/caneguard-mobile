@@ -269,15 +269,10 @@ function formatPendingCounts(input: SyncWordingInput): string {
  * is worth saying. Unsent counts always stay visible so silence is never read
  * as doubt. These sentences are proposals awaiting owner review.
  */
-export function getHomeSyncNote(
-  input: SyncWordingInput & { hasError?: boolean },
-): string | null {
-  const { apiReachability, hasError = false, isOnline, isSyncing = false, pendingCount, sessionVerification } = input;
+export function getHomeSyncNote(input: SyncWordingInput): string | null {
+  const { apiReachability, isOnline, isSyncing = false, pendingCount, sessionVerification } = input;
   const counts = pendingCount > 0 ? formatPendingCounts(input) : null;
 
-  if (hasError && counts) {
-    return `${capitalize(counts)} could not send.`;
-  }
   if (isOnline === false) {
     return counts ? `Working offline. ${capitalize(counts)} waiting to send.` : 'Working offline.';
   }

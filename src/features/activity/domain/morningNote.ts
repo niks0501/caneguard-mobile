@@ -1,5 +1,8 @@
 import { HOME_NOTE_COPY } from '@/constants/copy';
-import type { NeedsAttentionItem } from '@/features/activity/domain/needsAttention';
+import {
+  firstActionableAttentionItem,
+  type NeedsAttentionItem,
+} from '@/features/activity/domain/needsAttention';
 
 export type MorningNoteAction = 'visit' | 'update' | 'scan';
 
@@ -22,7 +25,9 @@ function countWord(count: number): string {
 /**
  * Chooses the Home sentence and button from the same work the old Home card
  * showed, in the same work-first order: visits, then office updates, then the
- * send state, then "All clear.". Pure, so each state can be pinned in a test.
+ * send state, then "All clear.". The button acts on the first item that can
+ * actually be opened here, so it never advertises a dead end. Pure, so each
+ * state can be pinned in a test.
  */
 export function buildMorningNote(
   items: readonly NeedsAttentionItem[],
@@ -32,10 +37,10 @@ export function buildMorningNote(
   const updates = items.filter((item) => item.kind === 'notification');
   const dueToday = visits.filter((item) => item.bucket === 'today').length;
   const overdue = visits.filter((item) => item.bucket === 'overdue').length;
-  const first = items[0];
-  const action: MorningNoteAction = !first
+  const primary = firstActionableAttentionItem(items);
+  const action: MorningNoteAction = !primary
     ? 'scan'
-    : first.kind === 'notification'
+    : primary.kind === 'notification'
       ? 'update'
       : 'visit';
   const actionLabel = {

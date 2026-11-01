@@ -120,7 +120,7 @@ describe('HomeScreen', () => {
     mockApiReachability = 'available';
     mockSyncError = 'Upload failed';
     await view.rerender(<HomeScreen />);
-    expect(screen.getByTestId('home.note')).toHaveTextContent('2 reports could not send.');
+    expect(screen.getByTestId('home.note')).toHaveTextContent('2 reports waiting to send.');
   });
 
   it('keeps the send state quiet under a work sentence and links it to Activity', async () => {
@@ -159,6 +159,57 @@ describe('HomeScreen', () => {
     expect(screen.queryByTestId('home.needs-attention')).not.toBeOnTheScreen();
   });
 
+  it('opens the first item that can be opened from the button', async () => {
+    mockPendingCount = 0;
+    mockAttentionItems = [
+      {
+        id: 'notification-456',
+        kind: 'notification',
+        title: 'Authority update: Case #456',
+        message: 'Review completed by regional office',
+        meta: 'This case is not stored on this device',
+        destination: { kind: 'unavailable' },
+      },
+      visitItem('assignment-3', 'Balayan', 'overdue', 'assign-789'),
+    ];
+
+    await render(<HomeScreen />);
+
+    expect(screen.getByTestId('home.primary-action')).toHaveTextContent('Open next visit');
+
+    await fireEvent.press(screen.getByTestId('home.primary-action'));
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/field-validation',
+      params: { assignmentId: 'assign-789' },
+    });
+  });
+
+  it('offers a scan when no attention item can be opened', async () => {
+    mockPendingCount = 0;
+    mockAttentionItems = [
+      {
+        id: 'notification-456',
+        kind: 'notification',
+        title: 'Authority update: Case #456',
+        message: 'Review completed by regional office',
+        meta: 'This case is not stored on this device',
+        destination: { kind: 'unavailable' },
+      },
+    ];
+
+    await render(<HomeScreen />);
+
+    expect(screen.getByTestId('home.note')).toHaveTextContent('One office update to read.');
+    expect(screen.getByTestId('home.primary-action')).toHaveTextContent('Start a scan');
+    expect(screen.getByTestId('home.attention.notification-456')).toHaveProp(
+      'accessibilityState',
+      { disabled: true },
+    );
+
+    await fireEvent.press(screen.getByTestId('home.primary-action'));
+    expect(mockRouterPush).toHaveBeenCalledWith('/scan');
+  });
+
   it('opens the first item from the button and lists capped rows led by place', async () => {
     mockAttentionItems = [
       visitItem('assignment-1', 'Mabini', 'today', 'assign-123'),
@@ -182,6 +233,7 @@ describe('HomeScreen', () => {
     // Home is capped at HOME_ATTENTION_ROW_LIMIT (2 rows); a visit leads with its place.
     expect(screen.getByText('Mabini')).toBeOnTheScreen();
     expect(screen.queryByText('Field visit: Mabini')).not.toBeOnTheScreen();
+    expect(screen.getByText('CG-assign-123')).toBeOnTheScreen();
     expect(screen.getByText('Authority update: Case #456')).toBeOnTheScreen();
     expect(screen.queryByText('Balayan')).not.toBeOnTheScreen();
     expect(screen.getByText('See all 3 in Activity')).toBeOnTheScreen();
@@ -270,6 +322,7 @@ function visitItem(
     message: `${place} · submitted by Ana Reporter`,
     meta: bucket === 'today' ? 'Visit due today' : 'Visit was due 2026-09-01',
     place,
+    referenceCode: `CG-${assignmentId}`,
     destination: { kind: 'assignment', assignmentId },
   };
 }

@@ -22,6 +22,8 @@ export interface NeedsAttentionItem {
   meta: string;
   /** Where the visit is (barangay), set on assignment items only. */
   place?: string;
+  /** The case reference, set on assignment items only. */
+  referenceCode?: string;
   title: string;
   /** How loud this item may be: ordinary work whispers, overdue work is a note. */
   tone?: SyncTone;
@@ -40,6 +42,24 @@ export const NEEDS_ATTENTION_ROW_LIMIT = 3;
  * line, so the work-first card never grows into a second inbox.
  */
 export const HOME_ATTENTION_ROW_LIMIT = 2;
+
+/**
+ * Whether tapping an item can lead anywhere on this device. One definition, so
+ * the Home button and the Home rows never disagree about what is tappable.
+ */
+export function isActionableAttentionItem(item: NeedsAttentionItem): boolean {
+  return Boolean(item.destination && item.destination.kind !== 'unavailable');
+}
+
+/**
+ * The item the single Home button acts on: the first one that can actually be
+ * opened. Null when every item is informational.
+ */
+export function firstActionableAttentionItem(
+  items: readonly NeedsAttentionItem[],
+): NeedsAttentionItem | null {
+  return items.find(isActionableAttentionItem) ?? null;
+}
 
 /**
  * Build the Needs Attention block: unread office updates, active/due field
@@ -118,6 +138,7 @@ function assignmentItems(input: {
         message: `${assignment.case.barangay} · submitted by ${assignment.submitter.name}`,
         meta: assignmentDueMeta(assignment, input.today),
         place: assignment.case.barangay,
+        referenceCode: assignment.referenceCode,
         title: `Field visit for ${assignment.referenceCode}`,
         tone: bucket === 'overdue' ? 'note' : 'whisper',
       };

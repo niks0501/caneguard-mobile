@@ -6,6 +6,7 @@ import { HOME_NOTE_COPY } from '@/constants/copy';
 import { Spacing, Typography } from '@/constants/theme';
 import {
   HOME_ATTENTION_ROW_LIMIT,
+  isActionableAttentionItem,
   type NeedsAttentionItem,
 } from '@/features/activity/domain/needsAttention';
 import { SYNC_TONE_COLOR } from '@/features/sync/utils/syncStatusCopy';
@@ -88,9 +89,8 @@ const AttentionRow = memo(function AttentionRow({
   onOpen: (item: NeedsAttentionItem) => void;
 }) {
   const theme = useTheme();
-  const actionable = Boolean(
-    item.destination && item.destination.kind !== 'unavailable',
-  );
+  const actionable = isActionableAttentionItem(item);
+  const supporting = item.place ? item.referenceCode : item.meta;
   // The one meta line carries the tone: ordinary work whispers, an overdue visit
   // or an unsent report is a note.
   const metaColor = theme[SYNC_TONE_COLOR[item.tone ?? 'whisper']];
@@ -115,6 +115,11 @@ const AttentionRow = memo(function AttentionRow({
         <Text numberOfLines={2} style={[styles.detail, { color: item.place ? metaColor : theme.textSecondary }]}>
           {item.place ? item.meta : item.message}
         </Text>
+        {supporting ? (
+          <Text numberOfLines={2} style={[styles.supporting, { color: item.place ? theme.textSecondary : metaColor }]}>
+            {supporting}
+          </Text>
+        ) : null}
       </View>
       {actionable ? (
         <Feather name="chevron-right" size={18} color={theme.textSecondary} />
@@ -136,6 +141,7 @@ const styles = StyleSheet.create({
   copy: { flex: 1, gap: Spacing.xs },
   lead: { ...Typography.body, fontWeight: '500' },
   detail: { ...Typography.bodySmall },
+  supporting: { ...Typography.caption },
   more: {
     minHeight: 44,
     flexDirection: 'row',

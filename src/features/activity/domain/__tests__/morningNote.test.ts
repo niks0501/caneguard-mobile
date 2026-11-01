@@ -23,6 +23,21 @@ const UPDATE: NeedsAttentionItem = {
   title: 'Update',
 };
 
+const UPLOAD: NeedsAttentionItem = {
+  destination: null,
+  id: 'upload-pending',
+  kind: 'upload',
+  message: 'Reports saved on this device are waiting to be uploaded.',
+  meta: 'Waiting to upload',
+  title: '1 report synchronization',
+};
+
+const READABLE_UPDATE: NeedsAttentionItem = {
+  ...UPDATE,
+  destination: { kind: 'field_report', scanRecordId: 'scan-1' },
+  id: 'notification-2',
+};
+
 describe('buildMorningNote', () => {
   it('says all clear and offers a scan when nothing is waiting', () => {
     expect(buildMorningNote([], null)).toEqual({
@@ -68,13 +83,33 @@ describe('buildMorningNote', () => {
     });
   });
 
-  it('offers to read an office update when it is the first item', () => {
-    const note = buildMorningNote([UPDATE], null);
+  it('offers to read an office update when an actionable update comes first', () => {
+    const note = buildMorningNote([READABLE_UPDATE], null);
     expect(note).toMatchObject({
       action: 'update',
       actionLabel: 'Read office update',
       headline: 'One office update to read.',
     });
+  });
+
+  it('offers a scan instead of an update that cannot be opened here', () => {
+    const note = buildMorningNote([UPDATE], null);
+    expect(note).toMatchObject({
+      action: 'scan',
+      actionLabel: 'Start a scan',
+      headline: 'One office update to read.',
+    });
+  });
+
+  it('acts on the first item that can actually be opened', () => {
+    const note = buildMorningNote([UPDATE, UPLOAD, visit('today', 'a')], null);
+    expect(note).toMatchObject({
+      action: 'visit',
+      actionLabel: 'Open next visit',
+      headline: 'One visit today.',
+    });
+    expect(buildMorningNote([UPDATE, READABLE_UPDATE], null).action).toBe('update');
+    expect(buildMorningNote([UPLOAD], null).action).toBe('scan');
   });
 
   it('falls back to digits beyond ten', () => {

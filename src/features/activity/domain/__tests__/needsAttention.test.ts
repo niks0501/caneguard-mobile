@@ -152,10 +152,10 @@ describe('buildNeedsAttention', () => {
     ]);
   });
 
-  it('carries the place and visit urgency on assignment items only', () => {
+  it('carries the place, case reference and visit urgency on assignment items only', () => {
     const summary = build({
       assignments: [
-        assignment({ id: 'overdue', targetVisitDate: '2026-09-01' }),
+        assignment({ id: 'overdue', targetVisitDate: '2026-09-01', referenceCode: 'CG-2026-0001' }),
         assignment({ id: 'today', targetVisitDate: TODAY }),
         assignment({ id: 'undated', targetVisitDate: null }),
       ],
@@ -165,9 +165,15 @@ describe('buildNeedsAttention', () => {
     const visits = summary.items.filter((item) => item.kind === 'assignment');
     expect(visits.map((item) => item.bucket)).toEqual(['overdue', 'today', 'none']);
     expect(visits.every((item) => typeof item.place === 'string' && item.place.length > 0)).toBe(true);
+    expect(visits.map((item) => item.referenceCode)).toEqual([
+      'CG-2026-0001',
+      'CG-2026-0001',
+      'CG-2026-0001',
+    ]);
     const update = summary.items.find((item) => item.kind === 'notification');
     expect(update?.place).toBeUndefined();
     expect(update?.bucket).toBeUndefined();
+    expect(update?.referenceCode).toBeUndefined();
   });
 
   it('sorts assignments by due date with undated rows last', () => {

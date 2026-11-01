@@ -179,12 +179,23 @@ describe('getHomeSyncNote', () => {
     );
   });
 
-  it('names failed sends and sending in progress', () => {
-    expect(getHomeSyncNote({ ...base, hasError: true, pendingCount: 2 })).toBe(
-      '2 reports could not send.',
-    );
+  it('names sending in progress', () => {
     expect(getHomeSyncNote({ ...base, isSyncing: true, pendingCount: 2 })).toBe(
       'Sending saved reports…',
     );
+  });
+
+  it('keeps connection states ahead of sending in progress', () => {
+    expect(getHomeSyncNote({ ...base, isOnline: false, isSyncing: true, pendingCount: 2 })).toBe(
+      'Working offline. 2 reports waiting to send.',
+    );
+    expect(
+      getHomeSyncNote({
+        ...base,
+        apiReachability: 'unavailable',
+        isSyncing: true,
+        pendingCount: 2,
+      }),
+    ).toBe('Cannot reach the office. 2 reports waiting to send.');
   });
 });

@@ -114,7 +114,13 @@ function DatabaseConnectionAttempt({
       WEB_STORAGE_WARM_TIMEOUT_MS,
     );
     void openDatabaseAsync(CANEGUARD_DATABASE_FILENAME).then(
-      () => settle({ status: 'ready' }),
+      (database) => {
+        if (!active) {
+          void database.closeAsync().catch(() => undefined);
+          return;
+        }
+        settle({ status: 'ready' });
+      },
       fail,
     );
 

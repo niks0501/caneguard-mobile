@@ -64,7 +64,8 @@ describe('CaneGuardDatabaseProvider on web', () => {
   });
 
   it('warms the web SQLite worker before the first synchronous open', async () => {
-    const warmUp = createDeferred<unknown>();
+    const closeAsync = jest.fn().mockResolvedValue(undefined);
+    const warmUp = createDeferred<{ closeAsync: typeof closeAsync }>();
     mockOpenDatabaseAsync.mockReturnValue(warmUp.promise as never);
 
     await render(
@@ -78,13 +79,14 @@ describe('CaneGuardDatabaseProvider on web', () => {
     expect(mockGetResources).not.toHaveBeenCalled();
 
     await act(async () => {
-      warmUp.resolve({});
+      warmUp.resolve({ closeAsync });
       await warmUp.promise;
     });
 
     await waitFor(() => {
       expect(screen.getByText('Application content')).toBeOnTheScreen();
     });
+    expect(closeAsync).not.toHaveBeenCalled();
     expect(mockGetResources).toHaveBeenCalledTimes(1);
   });
 
@@ -165,6 +167,59 @@ describe('CaneGuardDatabaseProvider on web', () => {
     );
 
     consoleError.mockRestore();
+  });
+
+  it('closes a warm-up connection that resolves after the timeout', async () => {
+    jest.useFakeTimers();
+    try {
+      const closeAsync = jest.fn().mockResolvedValue(undefined);
+      const warmUp = createDeferred<{ closeAsync: typeof closeAsync }>();
+      mockOpenDatabaseAsync.mockReturnValue(warmUp.promise as never);
+
+      await render(
+        <CaneGuardDatabaseProvider>
+          <Text>Application content</Text>
+        </CaneGuardDatabaseProvider>,
+      );
+
+      act(() => {
+        jest.advanceTimersByTime(60_000);
+      });
+      expect(screen.getByText('Local storage needs attention')).toBeOnTheScreen();
+
+      await act(async () => {
+        warmUp.resolve({ closeAsync });
+        await warmUp.promise;
+      });
+
+      expect(closeAsync).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('Local storage needs attention')).toBeOnTheScreen();
+      expect(mockGetResources).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('closes a warm-up connection that resolves after the attempt unmounts', async () => {
+    const closeAsync = jest.fn().mockResolvedValue(undefined);
+    const warmUp = createDeferred<{ closeAsync: typeof closeAsync }>();
+    mockOpenDatabaseAsync.mockReturnValue(warmUp.promise as never);
+
+    const view = await render(
+      <CaneGuardDatabaseProvider>
+        <Text>Application content</Text>
+      </CaneGuardDatabaseProvider>,
+    );
+
+    view.unmount();
+
+    await act(async () => {
+      warmUp.resolve({ closeAsync });
+      await warmUp.promise;
+    });
+
+    expect(closeAsync).toHaveBeenCalledTimes(1);
+    expect(mockGetResources).not.toHaveBeenCalled();
   });
 
   it('restarts the web warm-up when the user retries', async () => {

@@ -92,12 +92,12 @@ describe('buildMorningNote', () => {
     });
   });
 
-  it('offers a scan instead of an update that cannot be opened here', () => {
+  it('offers a scan and says nothing when every update is unopenable', () => {
     const note = buildMorningNote([UPDATE], null);
     expect(note).toMatchObject({
       action: 'scan',
       actionLabel: 'Start a scan',
-      headline: 'One office update to read.',
+      headline: 'All clear.',
     });
   });
 
@@ -110,6 +110,31 @@ describe('buildMorningNote', () => {
     });
     expect(buildMorningNote([UPDATE, READABLE_UPDATE], null).action).toBe('update');
     expect(buildMorningNote([UPLOAD], null).action).toBe('scan');
+  });
+
+  it('leads with the office update the button will open', () => {
+    const note = buildMorningNote([READABLE_UPDATE, visit('today', 'a')], null);
+    expect(note).toMatchObject({
+      action: 'update',
+      actionLabel: 'Read office update',
+      headline: 'One office update to read.',
+    });
+  });
+
+  it('leads with the visit the button will open when updates cannot be opened', () => {
+    const note = buildMorningNote([UPDATE, visit('overdue', 'a')], null);
+    expect(note).toMatchObject({
+      action: 'visit',
+      actionLabel: 'Open next visit',
+      headline: 'One visit is overdue.',
+    });
+  });
+
+  it('counts only the office updates that can be opened', () => {
+    expect(
+      buildMorningNote([READABLE_UPDATE, UPDATE, { ...READABLE_UPDATE, id: 'notification-3' }], null)
+        .headline,
+    ).toBe('Two office updates to read.');
   });
 
   it('falls back to digits beyond ten', () => {

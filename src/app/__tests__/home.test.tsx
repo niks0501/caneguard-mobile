@@ -205,7 +205,7 @@ describe('HomeScreen', () => {
 
     await render(<HomeScreen />);
 
-    expect(screen.getByTestId('home.note')).toHaveTextContent('One office update to read.');
+    expect(screen.getByTestId('home.note')).toHaveTextContent('All clear.');
     expect(screen.getByTestId('home.primary-action')).toHaveTextContent('Start a scan');
     expect(screen.getByTestId('home.attention.notification-456')).toHaveProp(
       'accessibilityState',
@@ -214,6 +214,33 @@ describe('HomeScreen', () => {
 
     await fireEvent.press(screen.getByTestId('home.primary-action'));
     expect(mockRouterPush).toHaveBeenCalledWith('/scan');
+  });
+
+  it('leads with the office update its button will open', async () => {
+    mockPendingCount = 0;
+    mockAttentionItems = [
+      {
+        id: 'notification-456',
+        kind: 'notification',
+        title: 'Authority update: Case #456',
+        message: 'Review completed by regional office',
+        meta: 'CG-456',
+        destination: { kind: 'field_report', scanRecordId: 'scan-456' },
+      },
+      visitItem('assignment-1', 'Mabini', 'today', 'assign-123'),
+    ];
+
+    await render(<HomeScreen />);
+
+    expect(screen.getByTestId('home.note')).toHaveTextContent('One office update to read.');
+    const primary = screen.getByTestId('home.primary-action');
+    expect(primary).toHaveTextContent('Read office update');
+
+    await fireEvent.press(primary);
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/field-report',
+      params: { scanRecordId: 'scan-456' },
+    });
   });
 
   it('opens the first item from the button and lists capped rows led by place', async () => {

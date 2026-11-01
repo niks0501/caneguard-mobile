@@ -1,6 +1,6 @@
 import { HOME_NOTE_COPY } from '@/constants/copy';
 import {
-  firstActionableAttentionItem,
+  isActionableAttentionItem,
   type NeedsAttentionItem,
 } from '@/features/activity/domain/needsAttention';
 
@@ -25,19 +25,20 @@ function countWord(count: number): string {
 /**
  * Chooses the Home sentence and button from the same work the old Home card
  * showed, in the same work-first order: visits, then office updates, then the
- * send state, then "All clear.". The button acts on the first item that can
- * actually be opened here, so it never advertises a dead end. Pure, so each
- * state can be pinned in a test.
+ * send state, then "All clear.". Only work that can be opened here counts, and
+ * the first such item decides both the button and the sentence that leads, so
+ * the two never disagree. Pure, so each state can be pinned in a test.
  */
 export function buildMorningNote(
   items: readonly NeedsAttentionItem[],
   syncNote: string | null,
 ): MorningNote {
-  const visits = items.filter((item) => item.kind === 'assignment');
-  const updates = items.filter((item) => item.kind === 'notification');
+  const work = items.filter(isActionableAttentionItem);
+  const primary = work[0];
+  const visits = work.filter((item) => item.kind === 'assignment');
+  const updates = work.filter((item) => item.kind === 'notification');
   const dueToday = visits.filter((item) => item.bucket === 'today').length;
   const overdue = visits.filter((item) => item.bucket === 'overdue').length;
-  const primary = firstActionableAttentionItem(items);
   const action: MorningNoteAction = !primary
     ? 'scan'
     : primary.kind === 'notification'
@@ -50,19 +51,21 @@ export function buildMorningNote(
   }[action];
 
   let headline: string | null = null;
-  if (dueToday > 0) {
-    headline = [
-      HOME_NOTE_COPY.visitsToday(countWord(dueToday)),
-      overdue > 0 ? HOME_NOTE_COPY.alsoOverdue(countWord(overdue)) : null,
-    ]
-      .filter(Boolean)
-      .join(' ');
-  } else if (overdue > 0) {
-    headline = HOME_NOTE_COPY.visitsOverdue(countWord(overdue));
-  } else if (visits.length > 0) {
-    headline = HOME_NOTE_COPY.nothingDueToday;
-  } else if (updates.length > 0) {
+  if (action === 'update') {
     headline = HOME_NOTE_COPY.officeUpdates(countWord(updates.length));
+  } else if (action === 'visit') {
+    if (dueToday > 0) {
+      headline = [
+        HOME_NOTE_COPY.visitsToday(countWord(dueToday)),
+        overdue > 0 ? HOME_NOTE_COPY.alsoOverdue(countWord(overdue)) : null,
+      ]
+        .filter(Boolean)
+        .join(' ');
+    } else if (overdue > 0) {
+      headline = HOME_NOTE_COPY.visitsOverdue(countWord(overdue));
+    } else {
+      headline = HOME_NOTE_COPY.nothingDueToday;
+    }
   }
 
   if (headline) {

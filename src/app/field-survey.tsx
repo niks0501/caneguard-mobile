@@ -405,7 +405,7 @@ export default function FieldSurveyScreen() {
         <View style={styles.actionGroup}>
           <AppButton leadingIcon="map-pin" variant={!drawingAffectedArea ? 'primary' : 'secondary'} disabled={readOnlyPending || syncBusy} onPress={() => { setDrawingAffectedArea(false); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
           <AppButton leadingIcon="map-pin" variant={drawingAffectedArea ? 'primary' : 'secondary'} disabled={readOnlyPending || syncBusy} onPress={() => { setDrawingAffectedArea(true); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
-          <AppButton leadingIcon="crosshair" onPress={() => void captureGpsWaypoint()} disabled={gpsBusy || readOnlyPending || syncBusy}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.addGpsPoint}</AppButton>
+          <AppButton leadingIcon="crosshair" onPress={() => void captureGpsWaypoint()} busy={gpsBusy} disabled={gpsBusy || readOnlyPending || syncBusy}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.addGpsPoint}</AppButton>
         </View>
         <View style={styles.row}>
           <AppButton variant="secondary" leadingIcon="corner-up-left" disabled={!(drawingAffectedArea ? affectedWaypoints.length : waypoints.length) || readOnlyPending || syncBusy} onPress={() => { setSaved(false); if (drawingAffectedArea) setAffectedWaypoints((current) => current.slice(0, -1)); else setWaypoints((current) => current.slice(0, -1)); setSelectedIndex(null); }}>{FIELD_SURVEY_COPY.undo}</AppButton>
@@ -426,7 +426,7 @@ export default function FieldSurveyScreen() {
         {saved ? <Text style={[styles.help, { color: theme.success }]}>{FIELD_SURVEY_SYNC_COPY.savedOffline}</Text> : <Text style={[styles.help, { color: theme.warning }]}>{FIELD_SURVEY_COPY.savingOffline}</Text>}
         {syncMessage ? <Text accessibilityLiveRegion="assertive" testID="field-survey.sync-status" style={[styles.help, { color: theme.info }]}>{syncMessage}</Text> : null}
         {Object.entries(fieldErrors).filter(([key]) => key !== 'district_code').map(([field, messages]) => <Text key={field} style={[styles.error, { color: theme.danger }]}>{field}: {messages.join(' ')}</Text>)}
-        <AppButton testID="field-survey.submit" leadingIcon="upload-cloud" disabled={!validation.valid || !saved || saving || syncBusy || affectedWaypoints.length > 0} onPress={() => void saveAndSync()}>{saving ? FIELD_SURVEY_SYNC_COPY.submitting : FIELD_SURVEY_SYNC_COPY.submit}</AppButton>
+        <AppButton testID="field-survey.submit" leadingIcon="upload-cloud" busy={saving} disabled={!validation.valid || !saved || saving || syncBusy || affectedWaypoints.length > 0} onPress={() => void saveAndSync()}>{saving ? FIELD_SURVEY_SYNC_COPY.submitting : FIELD_SURVEY_SYNC_COPY.submit}</AppButton>
         <AppButton variant="secondary" onPress={() => router.back()}>{FIELD_SURVEY_COPY.close}</AppButton>
       </ScrollView>
     </SafeAreaView>

@@ -1166,6 +1166,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                       <AppButton
                         testID="field-report.retry-sync"
                         onPress={() => void retrySync()}
+                        busy={retrying}
                         disabled={
                           retrying || sync.isSyncing || sync.isOnline !== true
                         }
@@ -1932,6 +1933,7 @@ function LocationCapture({
         <AppButton
           testID="field-report.capture-gps"
           onPress={requestCapture}
+          busy={capturing}
           disabled={capturing || saveInProgress}
           leadingIcon="crosshair"
           accessibilityLabel={capturing ? 'Adding location' : presentation.actionLabel}>
@@ -2048,6 +2050,7 @@ function LocationCapture({
                 onMarkUnavailable(unavailableReason);
               }
             }}
+            busy={markingUnavailable}
             disabled={!unavailableReason || markingUnavailable || saveInProgress}
             variant="secondary"
             leadingIcon="map-pin">
@@ -2749,6 +2752,7 @@ function AuthorityReviewSection({
       <AppButton
         testID="field-report.refresh-authority-status"
         onPress={() => void status.refresh()}
+        busy={status.refreshing}
         disabled={status.refreshing}
         leadingIcon="refresh-cw"
         variant="secondary"

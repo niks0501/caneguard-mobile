@@ -27,8 +27,15 @@ describe('Design spine static guards', () => {
 
       // Text contrast on background & surface
       expect(contrastRatio(palette.text, palette.background)).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(palette.textSecondary, palette.background)).toBeGreaterThanOrEqual(4.5);
       expect(contrastRatio(palette.text, palette.surfaceElevated)).toBeGreaterThanOrEqual(4.5);
+      for (const surface of [
+        palette.background,
+        palette.surface,
+        palette.surfaceMuted,
+        palette.surfaceElevated,
+      ]) {
+        expect(contrastRatio(palette.textSecondary, surface)).toBeGreaterThanOrEqual(4.5);
+      }
 
       // Status pairings on their background containers
       expect(contrastRatio(palette.success, palette.successBg)).toBeGreaterThanOrEqual(4.5);
@@ -42,10 +49,10 @@ describe('Design spine static guards', () => {
       expect(contrastRatio(palette.guideIcon, palette.warningBg)).toBeGreaterThanOrEqual(4.5);
 
       // Disease state pills
-      expect(contrastRatio(palette.healthy, palette.healthyBg)).toBeGreaterThanOrEqual(3.0);
-      expect(contrastRatio(palette.smut, palette.smutBg)).toBeGreaterThanOrEqual(3.0);
-      expect(contrastRatio(palette.mosaic, palette.mosaicBg)).toBeGreaterThanOrEqual(3.0);
-      expect(contrastRatio(palette.rust, palette.rustBg)).toBeGreaterThanOrEqual(3.0);
+      expect(contrastRatio(palette.healthy, palette.healthyBg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(palette.smut, palette.smutBg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(palette.mosaic, palette.mosaicBg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(palette.rust, palette.rustBg)).toBeGreaterThanOrEqual(4.5);
     }
   });
 

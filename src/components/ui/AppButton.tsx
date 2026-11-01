@@ -61,21 +61,23 @@ export function AppButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        isPrimary && {
-          backgroundColor: muted ? theme.surfaceMuted : theme.primary,
-          ...(muted ? { borderColor: theme.border, borderWidth: 1 } : null),
-        },
+        isPrimary && { backgroundColor: theme.primary },
         variant === 'secondary' && {
           backgroundColor: theme.surfaceMuted,
-          borderColor: muted ? theme.divider : theme.border,
+          borderColor: theme.border,
           borderWidth: 1,
         },
         isDanger && {
-          backgroundColor: muted ? theme.surfaceMuted : theme.dangerBg,
-          borderColor: muted ? theme.divider : theme.danger,
+          backgroundColor: theme.dangerBg,
+          borderColor: theme.danger,
           borderWidth: 1,
         },
         isText && styles.textButton,
+        muted && {
+          backgroundColor: theme.surfaceMuted,
+          borderColor: theme.primaryLight,
+          borderWidth: 1,
+        },
         pressed && !disabled && styles.pressed,
         style,
       ]}>
@@ -95,7 +97,7 @@ export function AppButton({
           ]}>
           {children}
         </Text>
-        {trailingIcon ? (
+        {trailingIcon && !busy ? (
           <Feather
             name={trailingIcon}
             size={18}

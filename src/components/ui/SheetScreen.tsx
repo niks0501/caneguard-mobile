@@ -128,6 +128,7 @@ export function SheetScreen({
           <AppButton
             testID={submitTestID}
             onPress={onSubmit}
+            busy={submitLoading}
             disabled={submitDisabled || submitLoading}
             style={styles.footerButton}>
             {submitLoading ? submitLoadingLabel : submitLabel}

@@ -88,6 +88,7 @@ export function AccountSecurityScreen() {
           <AppButton
             testID="account-security.enable-biometric"
             onPress={() => void enableBiometrics()}
+            busy={biometricLoading || busyAction === 'biometric-enable'}
             disabled={
               Boolean(busyAction) ||
               biometricLoading ||

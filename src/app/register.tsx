@@ -108,6 +108,7 @@ export default function RegisterScreen() {
             testID="register.resend-verification"
             variant="secondary"
             onPress={() => void resend()}
+            busy={resending}
             disabled={resending}
             leadingIcon="send">
             {resending ? 'Sending...' : 'Resend verification email'}
@@ -162,6 +163,7 @@ export default function RegisterScreen() {
           <AppButton
             testID="register.submit"
             onPress={() => void submit()}
+            busy={submitting}
             disabled={
               submitting ||
               !email.trim() ||

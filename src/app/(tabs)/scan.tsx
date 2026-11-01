@@ -381,6 +381,7 @@ export default function ScanScreen() {
                   <AppButton
                     variant="secondary"
                     onPress={captureWithCamera}
+                    busy={activeOperation === 'camera'}
                     disabled={isBusy}
                     leadingIcon="camera"
                     accessibilityLabel="Take another photo to replace the selected image">
@@ -389,6 +390,7 @@ export default function ScanScreen() {
                   <AppButton
                     variant="secondary"
                     onPress={pickFromGallery}
+                    busy={activeOperation === 'gallery'}
                     disabled={isBusy}
                     leadingIcon="image"
                     accessibilityLabel="Choose another image to replace the selected image">
@@ -407,6 +409,7 @@ export default function ScanScreen() {
                 <>
                   <AppButton
                     onPress={captureWithCamera}
+                    busy={activeOperation === 'camera'}
                     disabled={isBusy}
                     leadingIcon="camera"
                     trailingIcon="arrow-right"
@@ -417,6 +420,7 @@ export default function ScanScreen() {
                     testID="scan.choose-gallery"
                     variant="secondary"
                     onPress={pickFromGallery}
+                    busy={activeOperation === 'gallery'}
                     disabled={isBusy}
                     leadingIcon="image"
                     trailingIcon="arrow-right"

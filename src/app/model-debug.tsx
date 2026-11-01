@@ -208,6 +208,7 @@ function ModelDebugScreen() {
               key={fixture.id}
               testID={`model-debug.run-${fixture.id}`}
               variant="secondary"
+              busy={activeFixtureId === fixture.id}
               disabled={
                 activeFixtureId !== null || modelState.state !== 'loaded'
               }

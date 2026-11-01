@@ -1,5 +1,6 @@
 import { randomUUID } from 'expo-crypto';
 import { Image as ExpoImage } from 'expo-image';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -8,7 +9,7 @@ import Animated from 'react-native-reanimated';
 import Svg, { Circle, Polygon, Polyline } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ActionDock } from '@/components/ui/ActionDock';
+import { ActionDock, dockSecondaryButtonStyle } from '@/components/ui/ActionDock';
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { useTheme } from '@/hooks/use-theme';
@@ -452,6 +453,7 @@ export default function FieldSurveyScreen() {
             </>
           }
           primary={<AppButton testID="field-survey.submit" leadingIcon="upload-cloud" busy={saving} disabled={!validation.valid || !saved || saving || syncBusy || affectedWaypoints.length > 0} onPress={() => void saveAndSync()}>{saving ? FIELD_SURVEY_SYNC_COPY.submitting : FIELD_SURVEY_SYNC_COPY.submit}</AppButton>}
+          secondary={<AppButton variant="secondary" style={dockSecondaryButtonStyle} onPress={() => router.back()}>{FIELD_SURVEY_COPY.close}</AppButton>}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>

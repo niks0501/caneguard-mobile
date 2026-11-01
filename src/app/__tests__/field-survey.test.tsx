@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
 
 import FieldSurveyScreen from '@/app/field-survey';
 import { FIELD_SURVEY_COPY } from '@/constants/copy';
@@ -155,4 +156,13 @@ it('keeps restored unfinished affected waypoints and blocks submit until they ar
 
   await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.affectedAreaBoundary} (0)`)).toBeTruthy());
   await waitFor(() => expect(submitDisabled()).toBe(false));
+});
+
+it('keeps the in-screen Close control available beside the docked submit', async () => {
+  await render(<FieldSurveyScreen />);
+  await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
+
+  await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.close));
+
+  expect(router.back).toHaveBeenCalledTimes(1);
 });

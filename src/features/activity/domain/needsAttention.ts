@@ -1,11 +1,13 @@
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import {
   assignmentDueMeta,
+  bucketForVisit,
   compareVisits,
   isActiveFieldValidationAssignment,
+  type TodayVisitBucket,
 } from '@/features/assignments/domain/todayVisits';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
-import type { SyncTone } from '@/features/sync/utils/syncStatusCopy';
+import { UPLOAD_FAILED_META, type SyncTone } from '@/features/sync/utils/syncStatusCopy';
 import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
 
 export type NeedsAttentionKind = 'assignment' | 'notification' | 'upload';
@@ -17,6 +19,8 @@ export interface NeedsAttentionItem {
   message: string;
   meta: string;
   title: string;
+  tone?: SyncTone;
+  visitBucket?: TodayVisitBucket;
 }
 
 export interface NeedsAttentionSummary {
@@ -24,22 +28,6 @@ export interface NeedsAttentionSummary {
   items: NeedsAttentionItem[];
   total: number;
 }
-
-/**
- * Voice for an attention row: a failed upload is Stop, an overdue visit is a
- * Note, and everything else (unread updates, waiting uploads, upcoming visits)
- * whispers in ink.
- */
-export function getAttentionTone(item: NeedsAttentionItem): SyncTone {
-  if (item.kind === 'upload') {
-    return item.meta === UPLOAD_FAILED_META ? 'stop' : 'whisper';
-  }
-  return item.kind === 'assignment' && item.meta.startsWith('Visit was due')
-    ? 'note'
-    : 'whisper';
-}
-
-const UPLOAD_FAILED_META = 'Could not send';
 
 export const NEEDS_ATTENTION_ROW_LIMIT = 3;
 
@@ -102,6 +90,7 @@ function unreadNotificationItems(input: {
             ? 'This case is not stored on this device'
             : notification.referenceCode ?? 'Case activity',
         title: notification.title,
+        tone: 'whisper' as const,
       };
     });
 }
@@ -115,14 +104,19 @@ function assignmentItems(input: {
       isActiveFieldValidationAssignment(assignment),
     )
     .sort(compareVisits)
-    .map((assignment) => ({
-      destination: { kind: 'assignment' as const, assignmentId: assignment.id },
-      id: `assignment-${assignment.id}`,
-      kind: 'assignment' as const,
-      message: `${assignment.case.barangay} · submitted by ${assignment.submitter.name}`,
-      meta: assignmentDueMeta(assignment, input.today),
-      title: `Field visit for ${assignment.referenceCode}`,
-    }));
+    .map((assignment) => {
+      const visitBucket = bucketForVisit(assignment, input.today);
+      return {
+        destination: { kind: 'assignment' as const, assignmentId: assignment.id },
+        id: `assignment-${assignment.id}`,
+        kind: 'assignment' as const,
+        message: `${assignment.case.barangay} · submitted by ${assignment.submitter.name}`,
+        meta: assignmentDueMeta(assignment, input.today),
+        title: `Field visit for ${assignment.referenceCode}`,
+        tone: visitBucket === 'overdue' ? 'note' : 'whisper',
+        visitBucket,
+      };
+    });
 }
 
 function uploadItems(input: {
@@ -156,6 +150,7 @@ function uploadItems(input: {
           : 'Reports saved on this device are waiting to send.',
       meta: failed ? UPLOAD_FAILED_META : 'Waiting to send',
       title: `${nounPhrase} waiting to send`,
+      tone: failed ? 'note' : 'whisper',
     },
   ];
 }

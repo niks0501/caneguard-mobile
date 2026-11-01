@@ -5,7 +5,6 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card } from '@/components/ui/Card';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import {
-  getAttentionTone,
   HOME_ATTENTION_ROW_LIMIT,
   type NeedsAttentionItem,
   type NeedsAttentionKind,
@@ -110,6 +109,7 @@ const AttentionRow = memo(function AttentionRow({
   onOpen: (item: NeedsAttentionItem) => void;
 }) {
   const theme = useTheme();
+  const tone = item.tone ?? 'whisper';
   const actionable = Boolean(
     item.destination && item.destination.kind !== 'unavailable',
   );
@@ -137,7 +137,7 @@ const AttentionRow = memo(function AttentionRow({
         <Text numberOfLines={2} style={[styles.itemMessage, { color: theme.textSecondary }]}>
           {item.message}
         </Text>
-        <Text style={[styles.itemMeta, { color: theme[SYNC_TONE_COLOR[getAttentionTone(item)]] }]}>{item.meta}</Text>
+        <Text style={[styles.itemMeta, { color: theme[SYNC_TONE_COLOR[tone]] }]}>{item.meta}</Text>
       </View>
       {actionable ? (
         <Feather name="chevron-right" size={18} color={theme.textSecondary} />

@@ -53,8 +53,8 @@ export default function HomeScreen() {
   const [dismissedUpdateCount, setDismissedUpdateCount] = useState(0);
   const showOfficeUpdatesPill = unreadCount > dismissedUpdateCount;
   const activeVisitItems = attention.items.filter((item) => item.kind === 'assignment');
-  const dueTodayCount = activeVisitItems.filter((item) => item.meta === 'Visit due today').length;
-  const overdueCount = activeVisitItems.filter((item) => item.meta.startsWith('Visit was due')).length;
+  const dueTodayCount = activeVisitItems.filter((item) => item.visitBucket === 'today').length;
+  const overdueCount = activeVisitItems.filter((item) => item.visitBucket === 'overdue').length;
   const badgeLabel = getSyncBadgeLabel({ apiReachability, isOnline, sessionVerification });
   // Offline, online and checking are all ordinary: plain ink, no tinted pill.
   // Only an unreachable office is worth a look (Note amber).

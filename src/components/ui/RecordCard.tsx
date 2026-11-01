@@ -15,7 +15,7 @@ import { managedDisplayImageUriIfPresent } from '@/features/records/services/sca
 import type { SyncStatus } from '@/database/schema';
 import { getAuthorityReviewPresentation } from '@/features/reports/domain/reportReviewTypes';
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
-import { getRecordSyncTone, SYNC_TONE_COLOR, type SyncToneColorKey } from '@/features/sync/utils/syncStatusCopy';
+import { SYNC_TONE_COLOR, type SyncToneColorKey } from '@/features/sync/utils/syncStatusCopy';
 import { useTheme } from '@/hooks/use-theme';
 
 type RecordCardProps = {
@@ -162,24 +162,31 @@ export function getSyncPresentation(
 } {
   // Normal states whisper in ink; only a failure the inspector must act on
   // (sign in again, could not send) is Stop red.
-  const color = SYNC_TONE_COLOR[getRecordSyncTone(status, lastSyncErrorCode)];
   switch (status) {
     case 'local_only':
-      return { color, icon: 'smartphone', label: PERSONAL_SCAN_LOCAL_STATUS };
+      return {
+        color: SYNC_TONE_COLOR.whisper,
+        icon: 'smartphone',
+        label: PERSONAL_SCAN_LOCAL_STATUS,
+      };
     case 'pending':
-      return { color, icon: 'clock', label: 'Waiting to send' };
+      return { color: SYNC_TONE_COLOR.whisper, icon: 'clock', label: 'Waiting to send' };
     case 'syncing':
-      return { color, icon: 'upload-cloud', label: 'Sending to office' };
+      return { color: SYNC_TONE_COLOR.whisper, icon: 'upload-cloud', label: 'Sending to office' };
     case 'synced':
-      return { color, icon: 'check-circle', label: 'Sent to office' };
+      return { color: SYNC_TONE_COLOR.whisper, icon: 'check-circle', label: 'Sent to office' };
     case 'failed':
       if (lastSyncErrorCode === 'AUTH_REQUIRED') {
-        return { color, icon: 'lock', label: 'Sign in again to send' };
+        return { color: SYNC_TONE_COLOR.stop, icon: 'lock', label: 'Sign in again to send' };
       }
       if (isAutoRetryableSyncErrorCode(lastSyncErrorCode)) {
-        return { color, icon: 'clock', label: 'Waiting to send' };
+        return { color: SYNC_TONE_COLOR.whisper, icon: 'clock', label: 'Waiting to send' };
       }
-      return { color, icon: 'alert-triangle', label: 'Could not send — try again' };
+      return {
+        color: SYNC_TONE_COLOR.stop,
+        icon: 'alert-triangle',
+        label: 'Could not send — try again',
+      };
   }
 }
 

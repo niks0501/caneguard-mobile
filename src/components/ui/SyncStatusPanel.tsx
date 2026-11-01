@@ -81,7 +81,7 @@ export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } 
         </Text>
       ) : null}
       {sync.errorMessage ? (
-        <Text style={[styles.error, { color: theme.danger }]}>
+        <Text style={[styles.error, { color: theme.warning }]}>
           {sync.errorMessage}
         </Text>
       ) : null}

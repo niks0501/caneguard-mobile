@@ -31,23 +31,13 @@ export const SYNC_TONE_COLOR = {
 
 export type SyncToneColorKey = (typeof SYNC_TONE_COLOR)[SyncTone];
 
-/** Tone for a stored report/scan sync status; mirrors the list-row labels. */
-export function getRecordSyncTone(
-  status: 'local_only' | 'pending' | 'syncing' | 'synced' | 'failed',
-  lastSyncErrorCode: string | null = null,
-): SyncTone {
-  if (status !== 'failed') {
-    return 'whisper';
-  }
-  return lastSyncErrorCode !== 'AUTH_REQUIRED' && isAutoRetryableSyncErrorCode(lastSyncErrorCode)
-    ? 'whisper'
-    : 'stop';
-}
+/** Meta line for a saved upload that could not be sent yet. */
+export const UPLOAD_FAILED_META = 'Could not send';
 
 /**
  * Tone for the phone's connection. Offline, checking and unsent work are
- * ordinary in the field. Only an unreachable office earns a Note, and a sync
- * error message earns a Stop.
+ * ordinary in the field. An unreachable office or a sync error message earns a
+ * Note; Stop is reserved for what the inspector must fix.
  */
 export function getConnectionTone(input: {
   apiReachability: ApiReachability;
@@ -55,12 +45,13 @@ export function getConnectionTone(input: {
   isOnline: boolean | null;
   sessionVerification?: string;
 }): SyncTone {
-  if (input.hasError) {
-    return 'stop';
+  if (
+    input.hasError ||
+    isServerUnavailable(input.apiReachability, input.sessionVerification, input.isOnline)
+  ) {
+    return 'note';
   }
-  return isServerUnavailable(input.apiReachability, input.sessionVerification, input.isOnline)
-    ? 'note'
-    : 'whisper';
+  return 'whisper';
 }
 
 export type SyncWordingInput = {

@@ -42,7 +42,7 @@ export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
             ? 'wifi-off'
             : 'check-circle';
   // Offline, waiting and sent are ordinary in the field and stay in ink.
-  // An unreachable office is a Note; a sync error is a Stop.
+  // An unreachable office or a sync error is a Note.
   const tone = getConnectionTone({
     apiReachability: sync.apiReachability,
     hasError: Boolean(sync.errorMessage),
@@ -78,7 +78,7 @@ export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
         <Text style={[styles.title, { color: theme.primaryDark }]}>Report status</Text>
         <Text style={[styles.summary, { color: tone === 'note' ? theme.warning : theme.textSecondary }]}>{summary}</Text>
         {sync.errorMessage ? (
-          <Text style={[styles.error, { color: theme.danger }]}>{sync.errorMessage}</Text>
+          <Text style={[styles.error, { color: theme.warning }]}>{sync.errorMessage}</Text>
         ) : null}
       </View>
       <Feather name="chevron-right" size={18} color={theme.textSecondary} />

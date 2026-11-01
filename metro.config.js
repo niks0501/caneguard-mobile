@@ -76,8 +76,7 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
  * The web SQLite bridge in `expo-sqlite` 57 talks to its worker through
  * `SharedArrayBuffer`, which browsers only expose to cross-origin-isolated
  * pages. Serving COOP/COEP from the dev server gives validators that isolation
- * without a proxy. A static export needs the same two headers from whatever
- * serves the files; see `docs/qa/web-validation.md`.
+ * without a proxy.
  */
 const previousEnhanceMiddleware = config.server?.enhanceMiddleware;
 config.server = config.server ?? {};

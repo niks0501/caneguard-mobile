@@ -14,7 +14,7 @@
  * The dev server is served with COOP/COEP from `metro.config.js`, so load
  * `/login` (not `/`) and use one browser profile per origin: a second tab on the
  * same origin fails on the OPFS lock. `docs/qa/web-validation.md` covers the
- * `expo export` fallback, limits and the check proposal.
+ * route and its limits.
  */
 
 const { spawn } = require('node:child_process');

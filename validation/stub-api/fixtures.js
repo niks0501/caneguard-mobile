@@ -23,6 +23,14 @@ function pad(value) {
   return String(value).padStart(2, '0');
 }
 
+function isCalendarDate(dateKey) {
+  const date = new Date(`${dateKey}T00:00:00Z`);
+  return (
+    !Number.isNaN(date.getTime()) &&
+    date.toISOString().slice(0, 10) === dateKey
+  );
+}
+
 /** Local calendar date, matching the app's own "today" for a same-host run. */
 function localDateKey(now = new Date()) {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
@@ -38,7 +46,7 @@ function addDays(dateKey, days) {
 function resolveTodayKey(env = process.env) {
   const pinned = env.CANEGUARD_WEB_VALIDATE_TODAY?.trim();
   if (pinned) {
-    if (!DATE_KEY_PATTERN.test(pinned) || Number.isNaN(Date.parse(`${pinned}T00:00:00Z`))) {
+    if (!DATE_KEY_PATTERN.test(pinned) || !isCalendarDate(pinned)) {
       throw new Error('CANEGUARD_WEB_VALIDATE_TODAY must be a YYYY-MM-DD date.');
     }
     return pinned;

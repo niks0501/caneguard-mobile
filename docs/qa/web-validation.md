@@ -2,8 +2,8 @@
 
 The two validation routes are **web first** and **phone second**. Web is the
 default because it needs no attached device; the phone stays the only proof for
-native behaviour. This page covers the web route only: how to start it, what it
-can and cannot prove, and the `expo export` fallback.
+native behaviour. This page covers the web route only: how to start it and what
+it can and cannot prove.
 
 Validation scaffolding is not product behaviour: it is web-only, env-gated, and
 never part of a release build. Native paths are unchanged.
@@ -49,7 +49,7 @@ and any other `GET` answers a well-formed empty page.
 | Piece | File | What it does |
 | --- | --- | --- |
 | Single-page output | `app.json` (`web.output: "single"`) | The dev server cannot bundle the SQLite worker with the committed static output; a static graph fails with HTTP 500 `Worker chunk not found`. |
-| COOP/COEP | `metro.config.js` (`server.enhanceMiddleware`) | The web SQLite bridge uses `SharedArrayBuffer`, which needs a cross-origin-isolated page. The dev server now sends the headers, so no proxy is needed. A static export still needs them from its own server. |
+| COOP/COEP | `metro.config.js` (`server.enhanceMiddleware`) | The web SQLite bridge uses `SharedArrayBuffer`, which needs a cross-origin-isolated page. The dev server now sends the headers, so no proxy is needed. |
 | Async warm-up | `src/database/DatabaseProvider.tsx` | The first synchronous SQLite open busy-waits while the SQLite worker is still starting, and a blocked main thread starves that startup. On web only, one async open runs first. Native is untouched. |
 | Worker length fix | `validation/expo-sqlite/WorkerChannel.ts` | `expo-sqlite` 57 writes the sync result length into a byte view, so results longer than 255 bytes are read back truncated. Delete this copy and its Metro alias when the app moves to SDK 58, which fixes it upstream. |
 | Secure-store stand-in | `validation/expo-secure-store/ExpoSecureStore.web.ts` | `expo-secure-store` has no web implementation, so nobody can sign in on web. The stand-in keeps a fake session in `localStorage`. |
@@ -75,53 +75,6 @@ remain `npm run e2e` / agent-device work with an attached device.
 Validation runs are recorded as `inconclusive` for product acceptance by policy:
 a browser check is implementation-phase evidence, not a device acceptance gate.
 
-## Fallback: static export with a COOP/COEP server
-
-If the dev server will not bundle for some future reason, `expo export` still
-serves the public screens. It is a fallback, not the default route.
-
-```bash
-EXPO_PUBLIC_API_BASE_URL=https://api.example.test \
-  npx expo export --platform web --output-dir .expo/web-export
-```
-
-Then serve `.expo/web-export` **with COOP and COEP**, for example:
-
-```js
-// scripts-static-server.mjs — throwaway, not committed
-import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
-import { createServer } from 'node:http';
-import { extname, join, normalize } from 'node:path';
-
-const root = process.argv[2];
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
-
-createServer(async (req, res) => {
-  const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^\/+/, '');
-  const file = join(root, path || 'index.html');
-  const target = (await stat(file).catch(() => null))?.isDirectory() ? join(file, 'index.html') : file;
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  res.setHeader('Content-Type', types[extname(target)] ?? 'application/octet-stream');
-  createReadStream(target).on('error', () => res.writeHead(404).end()).pipe(res);
-}).listen(8220, '127.0.0.1');
-```
-
-Notes for this path:
-
-- `EXPO_PUBLIC_API_BASE_URL` must be `https` outside a development build
-  (`src/config/env.ts`), so the stub API cannot be used here; expect the public
-  screens only.
-- A cold full-page load can hit the storage timeout once; one **Retry** reaches
-  the public screens. The async warm-up still applies, so a later full load may
-  not need the retry.
-- The diagnosis run measured this fallback with the previous static output: two
-  of two cold loads timed out once and one Retry worked. With the current
-  single-page output the export should behave like the dev server, but that
-  combination was not measured; treat the export as a fallback and re-measure if
-  you rely on it.
-
 ## Reading a failure
 
 With this route in place, `/` misbehaviour is a routing mistake, not a bug. If
@@ -131,7 +84,7 @@ single bounded line containing only the error name and message; user-facing copy
 stays generic. Typical causes:
 
 - `ReferenceError: SharedArrayBuffer is not defined` — opened `/` instead of
-  `/login/…`, or a static server without COOP/COEP.
+  `/login/…`.
 - `Sync operation timeout` — the worker never got a turn; check the async
   warm-up still runs before the sync open.
 - `SyntaxError: Unterminated string in JSON` — the worker length fix is not

@@ -122,6 +122,18 @@ describe('resolveTodayKey', () => {
       resolveTodayKey({ CANEGUARD_WEB_VALIDATE_TODAY: '11/01/2026' }),
     ).toThrow(/YYYY-MM-DD/);
   });
+
+  it('rejects a date that does not exist on the calendar', () => {
+    expect(() =>
+      resolveTodayKey({ CANEGUARD_WEB_VALIDATE_TODAY: '2026-02-31' }),
+    ).toThrow(/YYYY-MM-DD/);
+    expect(() =>
+      resolveTodayKey({ CANEGUARD_WEB_VALIDATE_TODAY: '2026-02-29' }),
+    ).toThrow(/YYYY-MM-DD/);
+    expect(
+      resolveTodayKey({ CANEGUARD_WEB_VALIDATE_TODAY: '2028-02-29' }),
+    ).toBe('2028-02-29');
+  });
 });
 
 describe('main', () => {

@@ -385,6 +385,7 @@ function CompletionActions({
       {fieldError ? <Text testID="field-validation.error" accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>{fieldError}</Text> : null}
       <AppButton
         testID="field-validation.complete"
+        busy={saving}
         onPress={() => {
           if (onReview()) {
             setShowConfirm(true);

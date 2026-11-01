@@ -1556,6 +1556,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                         ) : (
                           <AppButton
                             testID="field-report.finalize"
+                            busy={report.finalizing}
                             onPress={handleFinalize}
                             disabled={report.saving || report.capturingLocation || report.finalizing}
                             leadingIcon="check-circle"
@@ -1570,6 +1571,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
 
                       <AppButton
                         testID="field-report.save-draft"
+                        busy={report.saving}
                         onPress={handleSave}
                         variant="secondary"
                         disabled={report.saving || report.finalizing}

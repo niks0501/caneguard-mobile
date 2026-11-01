@@ -416,6 +416,7 @@ export default function AnalysisResultScreen() {
               <View style={styles.outcomeActions}>
                 <AppButton
                   testID="scan.report-to-office"
+                  busy={saveRecord.status === 'saving' || openingReport}
                   onPress={() => void reportToOffice()}
                   disabled={saveRecord.status === 'saving' || openingReport}
                   leadingIcon="send"
@@ -436,6 +437,7 @@ export default function AnalysisResultScreen() {
                 </AppButton>
                 <AppButton
                   testID="scan.keep-as-scan-only"
+                  busy={saveRecord.status === 'saving'}
                   onPress={keepAsScanOnly}
                   disabled={saveRecord.status === 'saving'}
                   leadingIcon={saveRecord.status === 'failed' ? 'refresh-cw' : 'save'}

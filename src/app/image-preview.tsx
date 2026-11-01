@@ -390,6 +390,7 @@ export default function ImagePreviewScreen() {
               ) : (
                 <AppButton
                   testID="scan.analyze-image"
+                  busy={isPreprocessing || isRunning || isFinalizing}
                   disabled={
                     isImageLoading ||
                     imageLoadFailed ||

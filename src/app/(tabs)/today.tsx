@@ -103,7 +103,7 @@ export default function TodayScreen() {
                       <Text style={[styles.groupCount, { color: theme.textSecondary }]}>{visits.length}</Text>
                     </View>
                     {visits.map((assignment) => (
-                      <View key={assignment.id} testID={`today.visit.${assignment.id}`} style={styles.visit}>
+                      <View key={assignment.id} testID={`today.visit.${assignment.id}`}>
                         <AssignmentCard
                           assignment={assignment}
                           dueState={bucket}
@@ -169,13 +169,12 @@ const styles = StyleSheet.create({
   centered: { minHeight: 220, alignItems: 'center', justifyContent: 'center' },
   noticeCard: { borderWidth: 1, borderRadius: Spacing.md, padding: Spacing.md, gap: Spacing.xs },
   noticeTitle: { ...Typography.bodySmall, fontWeight: '800' },
-  noticeBody: { ...Typography.caption },
+  noticeBody: { ...Typography.bodySmall },
   lastUpdated: { ...Typography.caption },
   refreshMessage: { ...Typography.caption },
   group: { gap: Spacing.sm },
   groupHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.xs },
   groupTitle: { ...Typography.subheading, fontWeight: '800' },
   groupCount: { ...Typography.caption, fontWeight: '800' },
-  visit: { gap: Spacing.xs },
   completed: { ...Typography.bodySmall, fontWeight: '800', textAlign: 'center' },
 });

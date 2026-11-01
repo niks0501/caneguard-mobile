@@ -13,14 +13,20 @@ import type { NotificationDestination } from '@/features/notifications/services/
 export type NeedsAttentionKind = 'assignment' | 'notification' | 'upload';
 
 export interface NeedsAttentionItem {
+  /** Visit urgency, set on assignment items only. */
+  bucket?: TodayVisitBucket;
   destination: NotificationDestination | null;
   id: string;
   kind: NeedsAttentionKind;
   message: string;
   meta: string;
+  /** Where the visit is (barangay), set on assignment items only. */
+  place?: string;
+  /** The case reference, set on assignment items only. */
+  referenceCode?: string;
   title: string;
+  /** How loud this item may be: ordinary work whispers, overdue work is a note. */
   tone?: SyncTone;
-  visitBucket?: TodayVisitBucket;
 }
 
 export interface NeedsAttentionSummary {
@@ -36,6 +42,24 @@ export const NEEDS_ATTENTION_ROW_LIMIT = 3;
  * line, so the work-first card never grows into a second inbox.
  */
 export const HOME_ATTENTION_ROW_LIMIT = 2;
+
+/**
+ * Whether tapping an item can lead anywhere on this device. One definition, so
+ * the Home button and the Home rows never disagree about what is tappable.
+ */
+export function isActionableAttentionItem(item: NeedsAttentionItem): boolean {
+  return Boolean(item.destination && item.destination.kind !== 'unavailable');
+}
+
+/**
+ * The item the single Home button acts on: the first one that can actually be
+ * opened. Null when every item is informational.
+ */
+export function firstActionableAttentionItem(
+  items: readonly NeedsAttentionItem[],
+): NeedsAttentionItem | null {
+  return items.find(isActionableAttentionItem) ?? null;
+}
 
 /**
  * Build the Needs Attention block: unread office updates, active/due field
@@ -104,17 +128,19 @@ function assignmentItems(input: {
       isActiveFieldValidationAssignment(assignment),
     )
     .sort(compareVisits)
-    .map((assignment) => {
-      const visitBucket = bucketForVisit(assignment, input.today);
+    .map((assignment): NeedsAttentionItem => {
+      const bucket = bucketForVisit(assignment, input.today);
       return {
+        bucket,
         destination: { kind: 'assignment' as const, assignmentId: assignment.id },
         id: `assignment-${assignment.id}`,
         kind: 'assignment' as const,
         message: `${assignment.case.barangay} · submitted by ${assignment.submitter.name}`,
         meta: assignmentDueMeta(assignment, input.today),
+        place: assignment.case.barangay,
+        referenceCode: assignment.referenceCode,
         title: `Field visit for ${assignment.referenceCode}`,
-        tone: visitBucket === 'overdue' ? 'note' : 'whisper',
-        visitBucket,
+        tone: bucket === 'overdue' ? 'note' : 'whisper',
       };
     });
 }

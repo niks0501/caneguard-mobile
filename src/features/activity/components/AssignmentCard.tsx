@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DiseasePill, type DiseasePillVariant } from '@/components/ui/DiseasePill';
 import { ASSIGNMENT_PHOTO_PLACEHOLDER } from '@/constants/copy';
-import { ComponentTokens, Radius, Spacing, Typography } from '@/constants/theme';
+import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useAssignmentPhotoUri } from '@/features/activity/hooks/useAssignmentPhoto';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import {
@@ -34,6 +34,10 @@ export function AssignmentCard({
   const target = assignment.targetVisitDate
     ? formatDate(assignment.targetVisitDate)
     : 'No target visit date';
+  const dueLine = dueState
+    ? formatTodayDueLine(assignment, today ?? getLocalDateKey())
+    : target;
+  const progress = stateLabel(assignment.fieldValidationState);
 
   return (
     <Pressable
@@ -43,44 +47,33 @@ export function AssignmentCard({
       onPress={onPress}
       style={({ pressed }) => [pressed && styles.pressed]}
       testID={testID}>
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
-        ]}>
-        <View style={styles.body}>
-          <AssignmentPhoto
-            referenceCode={assignment.referenceCode}
-            uri={photoUri}
-          />
-          <View style={styles.titleBlock}>
-            <View style={[styles.assignmentTag, { backgroundColor: theme.infoBg }]}>
-              <Feather name="clipboard" size={14} color={theme.primary} />
-              <Text style={[styles.assignmentTagText, { color: theme.primary }]}>Assignment</Text>
-            </View>
-            <Text
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={[styles.reference, { color: theme.primaryDark }]}>
-              {assignment.referenceCode}
-            </Text>
-            <Text
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={[styles.location, { color: theme.textSecondary }]}>
-              {assignment.case.barangay}
-            </Text>
-          </View>
-        </View>
-        <DiseasePill variant={variant} />
-        <View style={[styles.details, { borderTopColor: theme.divider }]}>
-          {dueState ? (
-            <Detail label="Due" value={formatTodayDueLine(assignment, today ?? getLocalDateKey())} theme={theme} />
-          ) : (
-            <Detail label="Visit" value={target} theme={theme} />
-          )}
-          <Detail label="Submitted by" value={assignment.submitter.name} theme={theme} />
-          <Detail label="Status" value={stateLabel(assignment.fieldValidationState)} theme={theme} />
+      <View style={[styles.row, { borderBottomColor: theme.divider }]}>
+        <AssignmentPhoto
+          referenceCode={assignment.referenceCode}
+          uri={photoUri}
+        />
+        <View style={styles.copy}>
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[styles.place, { color: theme.text }]}>
+            {assignment.case.barangay}
+          </Text>
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[styles.due, { color: theme.text }]}>
+            {dueLine}
+          </Text>
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[styles.reference, { color: theme.textSecondary }]}>
+            {progress === 'Assigned'
+              ? assignment.referenceCode
+              : `${assignment.referenceCode} · ${progress}`}
+          </Text>
+          <DiseasePill variant={variant} />
         </View>
       </View>
     </Pressable>
@@ -138,28 +131,6 @@ function AssignmentPhoto({
   );
 }
 
-function Detail({
-  label,
-  theme,
-  value,
-}: {
-  label: string;
-  theme: ReturnType<typeof useTheme>;
-  value: string;
-}) {
-  return (
-    <View style={styles.detail}>
-      <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>{label}</Text>
-      <Text
-        numberOfLines={1}
-        ellipsizeMode="tail"
-        style={[styles.detailValue, { color: theme.primaryDark }]}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
 function stateLabel(state: FieldValidationAssignment['fieldValidationState']): string {
   switch (state) {
     case 'assigned':
@@ -188,13 +159,13 @@ function toPillVariant(label: string): DiseasePillVariant {
 
 const styles = StyleSheet.create({
   pressed: { opacity: 0.72 },
-  card: {
-    borderRadius: ComponentTokens.card.borderRadius,
-    borderWidth: 1,
-    padding: Spacing.md,
+  row: {
+    paddingVertical: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: Spacing.md,
   },
-  body: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
   photo: {
     width: 72,
     height: 72,
@@ -211,25 +182,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xs,
   },
   photoPlaceholderLabel: { ...Typography.caption, textAlign: 'center' },
-  titleBlock: { flex: 1, gap: Spacing.xs },
-  assignmentTag: {
-    alignSelf: 'flex-start',
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  assignmentTagText: { ...Typography.caption, fontWeight: '800' },
-  reference: { ...Typography.subheading, fontWeight: '800' },
-  location: { ...Typography.bodySmall },
-  details: {
-    borderTopWidth: 1,
-    paddingTop: Spacing.sm,
-    gap: Spacing.sm,
-  },
-  detail: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.md },
-  detailLabel: { ...Typography.caption, flexShrink: 0 },
-  detailValue: { ...Typography.caption, fontWeight: '800', textAlign: 'right', flex: 1 },
+  copy: { flex: 1, gap: Spacing.xs },
+  place: { ...Typography.subheading },
+  due: { ...Typography.body },
+  reference: { ...Typography.bodySmall },
 });

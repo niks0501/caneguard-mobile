@@ -87,20 +87,35 @@ describe('AssignmentCard', () => {
     mockUseAssignmentPhotoUri.mockReturnValue(null);
   });
 
-  it('renders exactly one due row when a due state is shown', async () => {
+  it('leads with the place and shows exactly one due line when a due state is shown', async () => {
     await render(
       <AssignmentCard assignment={ASSIGNMENT} dueState="today" today="2026-08-20" />,
     );
 
-    expect(screen.getByText('Due')).toBeOnTheScreen();
-    expect(screen.queryByText('Visit')).not.toBeOnTheScreen();
+    expect(screen.getByText('Mabini')).toBeOnTheScreen();
+    expect(screen.getByText(/^Due today/)).toBeOnTheScreen();
+    expect(screen.queryByText('Due')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Assignment')).not.toBeOnTheScreen();
   });
 
-  it('renders the visit row when no due state is shown', async () => {
+  it('shows the target visit date when no due state is shown', async () => {
     await render(<AssignmentCard assignment={ASSIGNMENT} />);
 
-    expect(screen.getByText('Visit')).toBeOnTheScreen();
-    expect(screen.queryByText('Due')).not.toBeOnTheScreen();
+    expect(screen.getByText('Mabini')).toBeOnTheScreen();
+    expect(screen.queryByText('Visit')).not.toBeOnTheScreen();
+    expect(screen.queryByText(/^Due/)).not.toBeOnTheScreen();
+  });
+
+  it('keeps the reference code as a quiet line and names a non-default state', async () => {
+    const view = await render(<AssignmentCard assignment={ASSIGNMENT} />);
+    expect(screen.getByText(ASSIGNMENT.referenceCode)).toBeOnTheScreen();
+
+    await view.rerender(
+      <AssignmentCard
+        assignment={{ ...ASSIGNMENT, fieldValidationState: 'in_progress' }}
+      />,
+    );
+    expect(screen.getByText(`${ASSIGNMENT.referenceCode} · In progress`)).toBeOnTheScreen();
   });
 
   it('keeps the same-person warning off the list row', async () => {
@@ -118,8 +133,7 @@ describe('AssignmentCard', () => {
 
     expect(screen.getByText(LONG_ASSIGNMENT.referenceCode)).toHaveProp('numberOfLines', 1);
     expect(screen.getByText(LONG_ASSIGNMENT.case.barangay)).toHaveProp('numberOfLines', 1);
-    expect(screen.getByText(LONG_ASSIGNMENT.submitter.name)).toHaveProp('numberOfLines', 1);
-    expect(screen.getByText('Assigned')).toHaveProp('numberOfLines', 1);
+    expect(screen.queryByText(LONG_ASSIGNMENT.submitter.name)).not.toBeOnTheScreen();
   });
 
   it('renders the same bounded line structure for short and long content', async () => {

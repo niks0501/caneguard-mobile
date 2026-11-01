@@ -215,7 +215,7 @@ describe('ActivityScreen', () => {
 
     expect(screen.queryByTestId('activity.notifications')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('activity.needs-attention')).not.toBeOnTheScreen();
-    expect(screen.getByTestId('activity.today-entry')).toBeOnTheScreen();
+    expect(screen.queryByTestId('activity.today-entry')).not.toBeOnTheScreen();
 
     await fireEvent.press(screen.getByTestId('activity.notifications-open'));
 
@@ -260,7 +260,7 @@ describe('ActivityScreen', () => {
     expect(screen.getByText(/Saved content is still available/)).toBeOnTheScreen();
   });
 
-  it('omits the Needs-you section from Activity and routes active visits to Today via activity.today-entry', async () => {
+  it('omits the Needs-you section and the duplicate Today entry from Activity', async () => {
     mockAssignmentsState = {
       ...mockAssignmentsState,
       assignments: Array.from({ length: 5 }, (_, index) => ({
@@ -273,14 +273,8 @@ describe('ActivityScreen', () => {
 
     expect(screen.queryByTestId('activity.needs-attention')).not.toBeOnTheScreen();
     expect(screen.queryByLabelText(/attention items/)).not.toBeOnTheScreen();
-
-    const todayEntry = screen.getByTestId('activity.today-entry');
-    expect(todayEntry).toBeOnTheScreen();
-    expect(screen.getByText("Today's visits")).toBeOnTheScreen();
-    expect(screen.getByText('5 assigned visits in due-date order')).toBeOnTheScreen();
-
-    await fireEvent.press(todayEntry);
-    expect(mockRouterPush).toHaveBeenCalledWith('/today');
+    expect(screen.queryByTestId('activity.today-entry')).not.toBeOnTheScreen();
+    expect(screen.queryByText("Today's visits")).not.toBeOnTheScreen();
   });
 
   it('orders history timeline by reverse chronological timestamp', async () => {

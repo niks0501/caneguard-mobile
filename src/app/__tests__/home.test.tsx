@@ -12,6 +12,9 @@ let mockIsOnline: boolean | null = true;
 let mockApiReachability: 'unknown' | 'available' | 'unavailable' = 'unknown';
 let mockSessionVerification: 'idle' | 'pending' | 'verified' | 'unavailable' = 'idle';
 let mockAttentionItems: NeedsAttentionItem[] = [];
+let mockPendingCount = 1;
+let mockSyncError: string | null = null;
+let mockIsSyncing = false;
 const mockMarkRead = jest.fn(async () => undefined);
 let mockUnreadCount = 0;
 const mockOpenOfficeUpdates = jest.fn();
@@ -46,13 +49,22 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({
     apiReachability: mockApiReachability,
-    errorMessage: null,
+    get errorMessage() {
+      return mockSyncError;
+    },
     get isOnline() {
       return mockIsOnline;
     },
-    isSyncing: false,
+    isSyncing: mockIsSyncing,
     lastSuccessfulSyncAt: null,
-    pendingCount: 1,
+    get pendingCount() {
+      return mockPendingCount;
+    },
+    get pendingReportsCount() {
+      return mockPendingCount;
+    },
+    pendingSurveysCount: 0,
+    pendingCompletionsCount: 0,
     syncNow: jest.fn(async () => null),
   }),
 }));
@@ -66,109 +78,174 @@ describe('HomeScreen', () => {
     mockIsOnline = true;
     mockSessionVerification = 'idle';
     mockAttentionItems = [];
+    mockPendingCount = 1;
+    mockSyncError = null;
     mockUnreadCount = 0;
+    mockIsSyncing = false;
   });
 
-  it('renders separate network and API connection states without a location line', async () => {
-    const connectionStates: {
-      apiReachability: 'unknown' | 'available' | 'unavailable';
-      isOnline: boolean | null;
-      label: string;
-    }[] = [
-      { apiReachability: 'available', isOnline: true, label: 'Online' },
-      { apiReachability: 'unknown', isOnline: true, label: 'Network available' },
-      { apiReachability: 'unavailable', isOnline: true, label: 'Office unreachable' },
-      { apiReachability: 'unknown', isOnline: false, label: 'Offline' },
-      { apiReachability: 'unknown', isOnline: null, label: 'Checking connection' },
-    ];
-
-    for (const state of connectionStates) {
-      mockApiReachability = state.apiReachability;
-      mockIsOnline = state.isOnline;
-      const rendered = await render(<HomeScreen />);
-
-      expect(screen.getByText('Ari Santos')).toBeOnTheScreen();
-      expect(screen.queryByText('Nikko Selwyn')).not.toBeOnTheScreen();
-      expect(screen.getAllByText(state.label).length).toBeGreaterThan(0);
-      expect(screen.queryByText('Brgy. Cogunan, Nasugbu, Batangas')).not.toBeOnTheScreen();
-
-      await rendered.unmount();
-    }
-  });
-
-  it('exposes cached-session server unavailability as an accessible Home state', async () => {
-    mockSessionVerification = 'unavailable';
-
+  it('leads with one sentence and one button, and drops the dashboard furniture', async () => {
+    mockPendingCount = 0;
     await render(<HomeScreen />);
 
-    expect(screen.getByTestId('home.connection-status')).toHaveProp(
-      'accessibilityLabel',
-      'Office unreachable',
+    expect(screen.getByTestId('home.note')).toHaveTextContent('All clear.');
+    expect(screen.getByTestId('home.primary-action')).toHaveTextContent('Start a scan');
+    expect(screen.queryByTestId('home.connection-status')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('home.today-visits')).not.toBeOnTheScreen();
+    expect(screen.queryByText('QUICK ACTIONS')).not.toBeOnTheScreen();
+    expect(screen.queryByText('My Activity')).not.toBeOnTheScreen();
+    expect(screen.queryByText(/decision support/i)).not.toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('home.primary-action'));
+    expect(mockRouterPush).toHaveBeenCalledWith('/scan');
+  });
+
+  it('states the send state in the sentence, keeping unsent counts visible', async () => {
+    mockPendingCount = 0;
+    mockIsOnline = false;
+    const view = await render(<HomeScreen />);
+    expect(screen.getByTestId('home.note')).toHaveTextContent('Working offline.');
+
+    mockPendingCount = 2;
+    await view.rerender(<HomeScreen />);
+    expect(screen.getByTestId('home.note')).toHaveTextContent(
+      'Working offline. 2 reports waiting to send.',
     );
-    expect(screen.getByText('Office unreachable')).toBeOnTheScreen();
+
+    mockIsOnline = true;
+    mockApiReachability = 'unavailable';
+    await view.rerender(<HomeScreen />);
+    expect(screen.getByTestId('home.note')).toHaveTextContent(
+      'Cannot reach the office. 2 reports waiting to send.',
+    );
+
+    mockApiReachability = 'available';
+    mockSyncError = 'Upload failed';
+    await view.rerender(<HomeScreen />);
+    expect(screen.getByTestId('home.note')).toHaveTextContent('2 reports waiting to send.');
+
+    mockIsSyncing = true;
+    await view.rerender(<HomeScreen />);
+    expect(screen.getByTestId('home.note')).toHaveTextContent('Sending 2 reports…');
   });
 
-  it('shows only the supported education reference classes and links to the field guide', async () => {
+  it('keeps the send state quiet under a work sentence and links it to Activity', async () => {
+    mockAttentionItems = [visitItem('assignment-1', 'Mabini', 'today')];
+    mockIsOnline = false;
     await render(<HomeScreen />);
 
-    expect(screen.getByText('FIELD GUIDE')).toBeOnTheScreen();
-    expect(screen.getByText('Field guide — diseases and pests')).toBeOnTheScreen();
-    expect(screen.getByText('Healthy')).toBeOnTheScreen();
-    expect(screen.getByText('Mosaic')).toBeOnTheScreen();
-    expect(screen.getByText('Rust')).toBeOnTheScreen();
-    expect(screen.getByText('Smut')).toBeOnTheScreen();
-    expect(screen.queryByText(/Downy Mildew/i)).not.toBeOnTheScreen();
-    expect(
-      screen.getByText(
-        /Observational references for the four sugarcane conditions CaneGuard can check/i,
-      ),
-    ).toBeOnTheScreen();
-
-    await fireEvent.press(screen.getByTestId('home.disease-reference'));
-    expect(mockRouterPush).toHaveBeenCalledWith('/field-guide');
-  });
-
-  it('keeps the live sync row linked to Activity without adding a sync shortcut', async () => {
-    await render(<HomeScreen />);
-
-    expect(screen.getByText('1 report waiting to send')).toBeOnTheScreen();
-    expect(screen.queryByText('Sync Queue')).not.toBeOnTheScreen();
-    expect(screen.queryByText('Help & FAQ')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('home.note')).toHaveTextContent('One visit today.');
+    expect(screen.getByTestId('home.sync-status')).toHaveTextContent(
+      'Working offline. 1 report waiting to send.',
+    );
 
     await fireEvent.press(screen.getByTestId('home.sync-status'));
     expect(mockRouterPush).toHaveBeenCalledWith('/activity');
   });
 
-  it('shows CaneGuard server unavailability separately from phone network state', async () => {
-    mockApiReachability = 'unavailable';
-    mockIsOnline = true;
-
+  it('keeps Measure a plot and the Field guide as quiet links', async () => {
     await render(<HomeScreen />);
 
-    expect(screen.getByText('Office unreachable')).toBeOnTheScreen();
-    expect(
-      screen.getByText('1 report waiting to send · Cannot reach the office'),
-    ).toBeOnTheScreen();
-    expect(screen.queryByText('Online')).not.toBeOnTheScreen();
+    expect(screen.getByText('Measure a plot')).toBeOnTheScreen();
+    expect(screen.getByText('Field guide')).toBeOnTheScreen();
+    expect(screen.queryByText('FIELD GUIDE')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Rust')).not.toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('home.field-survey'));
+    expect(mockRouterPush).toHaveBeenCalledWith('/field-survey');
+
+    await fireEvent.press(screen.getByTestId('home.disease-reference'));
+    expect(mockRouterPush).toHaveBeenCalledWith('/field-guide');
   });
 
-  it('omits the Needs attention card when there are no attention items', async () => {
+  it('omits the Up next list when there are no attention items', async () => {
     mockAttentionItems = [];
     await render(<HomeScreen />);
 
     expect(screen.queryByTestId('home.needs-attention')).not.toBeOnTheScreen();
   });
 
-  it('renders capped attention items, total count, and navigates from card', async () => {
+  it('opens the first item that can be opened from the button', async () => {
+    mockPendingCount = 0;
     mockAttentionItems = [
       {
-        id: 'assignment-1',
-        kind: 'assignment',
-        title: 'Field visit: Juan Dela Cruz',
-        message: 'Mabini, Nasugbu, Batangas',
-        meta: 'Visit due today',
-        destination: { kind: 'assignment', assignmentId: 'assign-123' },
+        id: 'notification-456',
+        kind: 'notification',
+        title: 'Authority update: Case #456',
+        message: 'Review completed by regional office',
+        meta: 'This case is not stored on this device',
+        destination: { kind: 'unavailable' },
       },
+      visitItem('assignment-3', 'Balayan', 'overdue', 'assign-789'),
+    ];
+
+    await render(<HomeScreen />);
+
+    expect(screen.getByTestId('home.primary-action')).toHaveTextContent('Open next visit');
+
+    await fireEvent.press(screen.getByTestId('home.primary-action'));
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/field-validation',
+      params: { assignmentId: 'assign-789' },
+    });
+  });
+
+  it('offers a scan when no attention item can be opened', async () => {
+    mockPendingCount = 0;
+    mockAttentionItems = [
+      {
+        id: 'notification-456',
+        kind: 'notification',
+        title: 'Authority update: Case #456',
+        message: 'Review completed by regional office',
+        meta: 'This case is not stored on this device',
+        destination: { kind: 'unavailable' },
+      },
+    ];
+
+    await render(<HomeScreen />);
+
+    expect(screen.getByTestId('home.note')).toHaveTextContent('All clear.');
+    expect(screen.getByTestId('home.primary-action')).toHaveTextContent('Start a scan');
+    expect(screen.getByTestId('home.attention.notification-456')).toHaveProp(
+      'accessibilityState',
+      { disabled: true },
+    );
+
+    await fireEvent.press(screen.getByTestId('home.primary-action'));
+    expect(mockRouterPush).toHaveBeenCalledWith('/scan');
+  });
+
+  it('leads with the office update its button will open', async () => {
+    mockPendingCount = 0;
+    mockAttentionItems = [
+      {
+        id: 'notification-456',
+        kind: 'notification',
+        title: 'Authority update: Case #456',
+        message: 'Review completed by regional office',
+        meta: 'CG-456',
+        destination: { kind: 'field_report', scanRecordId: 'scan-456' },
+      },
+      visitItem('assignment-1', 'Mabini', 'today', 'assign-123'),
+    ];
+
+    await render(<HomeScreen />);
+
+    expect(screen.getByTestId('home.note')).toHaveTextContent('One office update to read.');
+    const primary = screen.getByTestId('home.primary-action');
+    expect(primary).toHaveTextContent('Read office update');
+
+    await fireEvent.press(primary);
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/field-report',
+      params: { scanRecordId: 'scan-456' },
+    });
+  });
+
+  it('opens the first item from the button and lists capped rows led by place', async () => {
+    mockAttentionItems = [
+      visitItem('assignment-1', 'Mabini', 'today', 'assign-123'),
       {
         id: 'notification-456',
         kind: 'notification',
@@ -177,34 +254,25 @@ describe('HomeScreen', () => {
         meta: '2 hours ago',
         destination: { kind: 'field_report', scanRecordId: 'scan-456' },
       },
-      {
-        id: 'assignment-3',
-        kind: 'assignment',
-        title: 'Field visit: Maria Santos',
-        message: 'Balayan, Batangas',
-        meta: 'Visit was due 2026-09-01',
-        destination: { kind: 'assignment', assignmentId: 'assign-789' },
-      },
+      visitItem('assignment-3', 'Balayan', 'overdue', 'assign-789'),
     ];
 
     await render(<HomeScreen />);
 
+    expect(screen.getByTestId('home.note')).toHaveTextContent('One visit today. One is overdue.');
+    expect(screen.getByTestId('home.primary-action')).toHaveTextContent('Open next visit');
     expect(screen.getByTestId('home.needs-attention')).toBeOnTheScreen();
-    expect(screen.getByText('Needs attention')).toBeOnTheScreen();
-    expect(screen.getByText('3')).toBeOnTheScreen();
 
-    // Home is capped at HOME_ATTENTION_ROW_LIMIT (2 rows)
-    expect(screen.getByText('Field visit: Juan Dela Cruz')).toBeOnTheScreen();
+    // Home is capped at HOME_ATTENTION_ROW_LIMIT (2 rows); a visit leads with its place.
+    expect(screen.getByText('Mabini')).toBeOnTheScreen();
+    expect(screen.queryByText('Field visit: Mabini')).not.toBeOnTheScreen();
+    expect(screen.getByText('CG-assign-123')).toBeOnTheScreen();
     expect(screen.getByText('Authority update: Case #456')).toBeOnTheScreen();
-    expect(screen.queryByText('Field visit: Maria Santos')).not.toBeOnTheScreen();
-
-    // "See all" button is rendered
-    expect(screen.getByTestId('home.needs-attention.see-all')).toBeOnTheScreen();
+    expect(screen.queryByText('Balayan')).not.toBeOnTheScreen();
     expect(screen.getByText('See all 3 in Activity')).toBeOnTheScreen();
 
-    // Tapping assignment routes to field validation
-    await fireEvent.press(screen.getByTestId('home.attention.assignment-1'));
-    expect(mockRouterPush).toHaveBeenCalledWith({
+    await fireEvent.press(screen.getByTestId('home.primary-action'));
+    expect(mockRouterPush).toHaveBeenLastCalledWith({
       pathname: '/field-validation',
       params: { assignmentId: 'assign-123' },
     });
@@ -271,4 +339,23 @@ function scrollBottomPadding(): number {
   return StyleSheet.flatten(
     screen.getByTestId('home.scroll').props.contentContainerStyle,
   ).paddingBottom;
+}
+
+function visitItem(
+  id: string,
+  place: string,
+  bucket: 'today' | 'overdue',
+  assignmentId = `assign-${id}`,
+): NeedsAttentionItem {
+  return {
+    bucket,
+    id,
+    kind: 'assignment',
+    title: `Field visit: ${place}`,
+    message: `${place} · submitted by Ana Reporter`,
+    meta: bucket === 'today' ? 'Visit due today' : 'Visit was due 2026-09-01',
+    place,
+    referenceCode: `CG-${assignmentId}`,
+    destination: { kind: 'assignment', assignmentId },
+  };
 }

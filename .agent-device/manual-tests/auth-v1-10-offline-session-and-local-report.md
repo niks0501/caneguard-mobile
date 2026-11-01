@@ -24,9 +24,10 @@ This replaces `auth-v1/10-offline-session-and-local-report.ad`.
 3. In Android Settings → Apps → CaneGuard, Force stop, then reopen CaneGuard.
    **Expect:** local unlock is required; the app must not silently bypass it.
 4. Complete the supported native biometric prompt. **Expect:** Home shows
-   Offline without attempting online password authentication.
-5. Start Scan, choose the Rust fixture, Analyze, select Rust in the checklist,
-   and continue. **Expect:** Possible result: Rust using the local model.
+   Working offline without attempting online password authentication.
+5. Open Scan from the bottom nav, choose the Rust fixture, Analyze, select Rust
+   in the checklist, and continue. **Expect:** Possible result: Rust using the
+   local model.
 6. Choose Keep as scan only, then open the saved record. **Expect:** Scan saved
    on this device, Rust evidence, Local only, and no office submission UUID.
 7. Restore airplane mode off and Wi-Fi on. Sign into the local Web staff

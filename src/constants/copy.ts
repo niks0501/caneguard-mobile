@@ -180,3 +180,26 @@ export const FIELD_GUIDE_NOT_FOUND_TITLE = 'Entry not found';
 export const FIELD_GUIDE_NOT_FOUND_MESSAGE =
   'This field guide entry is not available on this device.';
 export const FIELD_GUIDE_NOT_FOUND_ACTION = 'Back to field guide';
+
+/**
+ * Home "Morning Note" wording. These sentences are proposals awaiting owner
+ * review; the app has no i18n layer, so any Filipino or Tagalog wording is a
+ * separate decision. Sync-derived sentences live in `syncStatusCopy.ts`.
+ */
+export const HOME_NOTE_COPY = {
+  allClear: 'All clear.',
+  nothingDueToday: 'Nothing due today.',
+  openNextVisit: 'Open next visit',
+  readOfficeUpdate: 'Read office update',
+  startScan: 'Start a scan',
+  upNext: 'Up next',
+  measurePlotLink: FIELD_SURVEY_COPY.quickActionTitle,
+  fieldGuideLink: 'Field guide',
+  fieldGuideLabel: 'Open the field guide for sugarcane diseases and pests',
+  visitsToday: (count: string) => `${count} ${count === 'One' ? 'visit' : 'visits'} today.`,
+  visitsOverdue: (count: string) =>
+    `${count} ${count === 'One' ? 'visit is' : 'visits are'} overdue.`,
+  alsoOverdue: (count: string) => `${count} ${count === 'One' ? 'is' : 'are'} overdue.`,
+  officeUpdates: (count: string) =>
+    `${count} office ${count === 'One' ? 'update' : 'updates'} to read.`,
+} as const;

@@ -2,6 +2,7 @@ import { SyncError } from '@/features/sync/errors/syncErrors';
 import {
   formatPendingSummary,
   getConnectionLabel,
+  getHomeSyncNote,
   getReportSyncAttemptOutcome,
   getSyncBadgeLabel,
   getSyncRowSummary,
@@ -152,5 +153,59 @@ describe('syncStatusCopy', () => {
       expect(outcome.kind).toBe('still-waiting');
       expect(outcome.message).not.toContain('Sent to office');
     });
+  });
+});
+
+describe('getHomeSyncNote', () => {
+  const base = { apiReachability: 'available' as const, isOnline: true, pendingCount: 0 };
+
+  it('is silent when everything is sent', () => {
+    expect(getHomeSyncNote(base)).toBeNull();
+    expect(getHomeSyncNote({ ...base, apiReachability: 'unknown' })).toBeNull();
+    expect(getHomeSyncNote({ ...base, isOnline: null })).toBeNull();
+  });
+
+  it('keeps unsent counts visible in every state that has any', () => {
+    expect(getHomeSyncNote({ ...base, pendingCount: 1 })).toBe('1 report waiting to send.');
+    expect(getHomeSyncNote({ ...base, pendingCount: 2, pendingReportsCount: 1, pendingSurveysCount: 1 })).toBe(
+      '1 boundary, 1 report waiting to send.',
+    );
+    expect(getHomeSyncNote({ ...base, isOnline: false })).toBe('Working offline.');
+    expect(getHomeSyncNote({ ...base, isOnline: false, pendingCount: 2 })).toBe(
+      'Working offline. 2 reports waiting to send.',
+    );
+    expect(getHomeSyncNote({ ...base, apiReachability: 'unavailable', pendingCount: 1 })).toBe(
+      'Cannot reach the office. 1 report waiting to send.',
+    );
+  });
+
+  it('keeps the unsent count visible while sending', () => {
+    expect(getHomeSyncNote({ ...base, isSyncing: true, pendingCount: 2 })).toBe(
+      'Sending 2 reports…',
+    );
+    expect(
+      getHomeSyncNote({
+        ...base,
+        isSyncing: true,
+        pendingCount: 2,
+        pendingReportsCount: 1,
+        pendingSurveysCount: 1,
+      }),
+    ).toBe('Sending 1 boundary, 1 report…');
+    expect(getHomeSyncNote({ ...base, isSyncing: true })).toBe('Sending saved reports…');
+  });
+
+  it('keeps connection states ahead of sending in progress', () => {
+    expect(getHomeSyncNote({ ...base, isOnline: false, isSyncing: true, pendingCount: 2 })).toBe(
+      'Working offline. 2 reports waiting to send.',
+    );
+    expect(
+      getHomeSyncNote({
+        ...base,
+        apiReachability: 'unavailable',
+        isSyncing: true,
+        pendingCount: 2,
+      }),
+    ).toBe('Cannot reach the office. 2 reports waiting to send.');
   });
 });

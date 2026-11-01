@@ -36,7 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'home', label: 'Home', icon: 'home' },
   { key: 'scan', label: 'Scan', icon: 'camera' },
   { key: 'activity', label: 'Activity', icon: 'activity' },
-  { key: 'today', label: "Today's visits", icon: 'calendar' },
+  { key: 'today', label: 'Visits', icon: 'calendar' },
 ];
 
 /**

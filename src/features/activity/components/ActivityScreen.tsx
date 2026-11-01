@@ -264,8 +264,6 @@ export default function ActivityScreen() {
 
   const listHeader = (
     <View style={styles.content}>
-      <TodayEntry activeVisitCount={assignments.assignments.filter((assignment) => assignment.fieldValidationState === 'assigned' || assignment.fieldValidationState === 'in_progress').length} />
-
       <View style={styles.searchRow}>
         <View
           style={[
@@ -409,7 +407,7 @@ export default function ActivityScreen() {
         <BrandedScreenHeader
           title="Activity"
           showBack={false}
-          subtitle="One place for your field work. Reports and scans stay on this device."
+          subtitle="Reports and scans on this device."
           action={
             <Pressable
               testID="activity.notifications-open"
@@ -468,25 +466,6 @@ function syncSummary(sync: { isOnline: boolean | null; isSyncing: boolean; pendi
     return `${sync.pendingCount} waiting to send`;
   }
   return 'All sent';
-}
-
-function TodayEntry({ activeVisitCount }: { activeVisitCount: number }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      testID="activity.today-entry"
-      accessibilityRole="button"
-      accessibilityLabel="Open Today's visits"
-      onPress={() => router.push('/today' as never)}
-      style={({ pressed }) => [styles.todayEntry, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }, pressed && styles.pressed]}>
-      <View style={[styles.todayEntryIcon, { backgroundColor: theme.surfaceMuted }]}><Feather name="calendar" size={20} color={theme.primary} /></View>
-      <View style={styles.todayEntryCopy}>
-        <Text style={[styles.todayEntryTitle, { color: theme.primaryDark }]}>Today&apos;s visits</Text>
-        <Text style={[styles.todayEntryBody, { color: theme.textSecondary }]}>{activeVisitCount ? `${activeVisitCount} assigned visit${activeVisitCount === 1 ? '' : 's'} in due-date order` : 'Open your assigned visits'}</Text>
-      </View>
-      <Feather name="chevron-right" size={18} color={theme.textSecondary} />
-    </Pressable>
-  );
 }
 
 function formatActivityCount(
@@ -624,11 +603,6 @@ const styles = StyleSheet.create({
   badgeText: { ...Typography.caption, fontWeight: '800' },
   refreshScope: { gap: Spacing.sm },
   refreshMessage: { ...Typography.caption },
-  todayEntry: { minHeight: 66, borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  todayEntryIcon: { width: 40, height: 40, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
-  todayEntryCopy: { flex: 1, gap: Spacing.xs },
-  todayEntryTitle: { ...Typography.bodySmall, fontWeight: '800' },
-  todayEntryBody: { ...Typography.caption },
   searchRow: { flexDirection: 'row', gap: Spacing.sm },
   search: {
     minHeight: 54,

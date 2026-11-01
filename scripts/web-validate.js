@@ -107,7 +107,14 @@ async function main(argv = process.argv.slice(2), baseEnv = process.env) {
     return 0;
   }
 
-  const today = resolveTodayKey(baseEnv);
+  let today;
+  try {
+    today = resolveTodayKey(baseEnv);
+  } catch (error) {
+    console.error(`[web:validate] ${error.message}`);
+    return 2;
+  }
+
   let stub;
   try {
     stub = await startStubServer({
@@ -174,6 +181,7 @@ if (require.main === module) {
 
 module.exports = {
   buildWebValidationEnv,
+  main,
   parseArgs,
   resolveExpoCommand,
 };

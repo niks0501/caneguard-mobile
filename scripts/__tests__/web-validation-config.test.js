@@ -8,6 +8,10 @@ const {
   isWebValidationEnabled,
   resolveWebValidationAlias,
 } = require('../web-validation-config');
+const {
+  invokeWorkerSync,
+  sendWorkerResult,
+} = require('../../validation/expo-sqlite/WorkerChannel');
 
 const repoRoot = path.join(__dirname, '..', '..');
 const enabledEnv = { EXPO_PUBLIC_WEB_VALIDATION: '1' };
@@ -114,10 +118,28 @@ describe('web validation Metro gate', () => {
 });
 
 describe('vendored expo-sqlite worker bridge', () => {
-  it('writes the full result length instead of only its low byte', () => {
-    const source = fs.readFileSync(SQLITE_WORKER_CHANNEL_PATH, 'utf8');
+  function createWorker(result) {
+    return {
+      postMessage(message) {
+        sendWorkerResult({
+          error: null,
+          id: message.id,
+          result,
+          syncTrait: {
+            lockBuffer: message.lockBuffer,
+            resultBuffer: message.resultBuffer,
+          },
+        });
+      },
+    };
+  }
 
-    expect(source).toContain('new Uint32Array(resultBuffer, 0, 1)[0] = length;');
-    expect(source).not.toContain('resultArray.set(new Uint32Array([length]), 0);');
+  it('reads a sync result longer than 255 bytes back intact', () => {
+    const result = { rows: [{ notes: 'x'.repeat(400) }] };
+
+    expect(JSON.stringify(result).length).toBeGreaterThan(255);
+    expect(
+      invokeWorkerSync(createWorker(result), 'exec', { source: 'select 1' }),
+    ).toEqual(result);
   });
 });

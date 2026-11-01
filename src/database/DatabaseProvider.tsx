@@ -47,6 +47,8 @@ interface DatabaseContextValue {
 
 const DatabaseContext = createContext<DatabaseContextValue | null>(null);
 
+const WEB_STORAGE_WARM_TIMEOUT_MS = 10_000;
+
 export function CaneGuardDatabaseProvider({ children }: PropsWithChildren) {
   const [attempt, setAttempt] = useState(0);
 
@@ -82,18 +84,25 @@ function DatabaseConnectionAttempt({
     }
 
     let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const settle = () => {
+      if (!active) {
+        return;
+      }
+      active = false;
+      clearTimeout(timer);
+      setWebStorageWarm(true);
+    };
+    timer = setTimeout(settle, WEB_STORAGE_WARM_TIMEOUT_MS);
     void openDatabaseAsync(CANEGUARD_DATABASE_FILENAME)
       // A warm-up failure is not reported here: the synchronous open below
       // surfaces the same failure to the user, once, through the normal path.
       .catch(() => undefined)
-      .finally(() => {
-        if (active) {
-          setWebStorageWarm(true);
-        }
-      });
+      .finally(settle);
 
     return () => {
       active = false;
+      clearTimeout(timer);
     };
   }, [webStorageWarm]);
 
@@ -185,9 +194,15 @@ function DatabaseMigrationGate({
   );
 
   useEffect(() => {
-    if (__DEV__ && error) {
-      console.error(`[storage:${error.code}] Local database migration failed.`);
+    if (!__DEV__ || !error) {
+      return;
     }
+    const cause = describeStorageErrorCause(error.cause);
+    console.error(
+      `[storage:${error.code}] Local database migration failed.${
+        cause ? ` Cause: ${cause}` : ''
+      }`,
+    );
   }, [error]);
 
   const value = useMemo<DatabaseContextValue>(

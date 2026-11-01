@@ -13,7 +13,7 @@ const {
   buildAssignments,
   resolveTodayKey,
 } = require('../../validation/stub-api/fixtures');
-const { buildWebValidationEnv, parseArgs } = require('../web-validate');
+const { buildWebValidationEnv, main, parseArgs } = require('../web-validate');
 
 /**
  * Jest's React Native environment installs Expo's native fetch, which has no
@@ -121,6 +121,21 @@ describe('resolveTodayKey', () => {
     expect(() =>
       resolveTodayKey({ CANEGUARD_WEB_VALIDATE_TODAY: '11/01/2026' }),
     ).toThrow(/YYYY-MM-DD/);
+  });
+});
+
+describe('main', () => {
+  it('reports a malformed pinned date in one line and exits with code 2', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation();
+
+    await expect(
+      main([], { CANEGUARD_WEB_VALIDATE_TODAY: '11/01/2026' }),
+    ).resolves.toBe(2);
+    expect(consoleError).toHaveBeenCalledWith(
+      '[web:validate] CANEGUARD_WEB_VALIDATE_TODAY must be a YYYY-MM-DD date.',
+    );
+
+    consoleError.mockRestore();
   });
 });
 

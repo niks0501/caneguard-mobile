@@ -59,6 +59,7 @@ describe('CaneGuardDatabaseProvider on web', () => {
   beforeEach(() => {
     currentPlatform = 'web';
     mockGetResources.mockReturnValue(resources);
+    mockOpenDatabaseAsync.mockResolvedValue({} as never);
     mockUseMigrations.mockReturnValue({ success: true });
   });
 
@@ -108,6 +109,31 @@ describe('CaneGuardDatabaseProvider on web', () => {
     expect(mockGetResources).toHaveBeenCalledTimes(1);
   });
 
+  it('falls through to the synchronous open when the warm-up never settles', async () => {
+    jest.useFakeTimers();
+    try {
+      mockOpenDatabaseAsync.mockReturnValue(new Promise(() => undefined) as never);
+
+      await render(
+        <CaneGuardDatabaseProvider>
+          <Text>Application content</Text>
+        </CaneGuardDatabaseProvider>,
+      );
+
+      expect(screen.getByText('Preparing local storage')).toBeOnTheScreen();
+      expect(mockGetResources).not.toHaveBeenCalled();
+
+      act(() => {
+        jest.advanceTimersByTime(60_000);
+      });
+
+      expect(screen.getByText('Application content')).toBeOnTheScreen();
+      expect(mockGetResources).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('logs the underlying open failure cause without leaking it to the screen', async () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation();
     const cause = new Error('Sync operation timeout');
@@ -121,10 +147,35 @@ describe('CaneGuardDatabaseProvider on web', () => {
       </CaneGuardDatabaseProvider>,
     );
 
-    expect(screen.getByText('Local storage needs attention')).toBeOnTheScreen();
+    await waitFor(() => {
+      expect(screen.getByText('Local storage needs attention')).toBeOnTheScreen();
+    });
     expect(screen.queryByText(/Sync operation timeout/)).not.toBeOnTheScreen();
     expect(consoleError).toHaveBeenCalledWith(
       expect.stringContaining('Cause: Error: Sync operation timeout'),
+    );
+    consoleError.mockRestore();
+  });
+
+  it('logs the underlying migration failure cause without leaking it to the screen', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation();
+    const cause = new Error('Unterminated string in JSON');
+    mockUseMigrations.mockReturnValue({ error: cause, success: false });
+
+    await render(
+      <CaneGuardDatabaseProvider>
+        <Text>Application content</Text>
+      </CaneGuardDatabaseProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Local storage needs attention')).toBeOnTheScreen();
+    });
+    expect(screen.queryByText(/Unterminated string/)).not.toBeOnTheScreen();
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '[storage:MIGRATION_FAILED] Local database migration failed. Cause: Error: Unterminated string in JSON',
+      ),
     );
 
     consoleError.mockRestore();

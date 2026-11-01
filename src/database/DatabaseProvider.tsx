@@ -49,6 +49,11 @@ const DatabaseContext = createContext<DatabaseContextValue | null>(null);
 
 const WEB_STORAGE_WARM_TIMEOUT_MS = 10_000;
 
+type WebWarmState =
+  | { status: 'warming' }
+  | { status: 'ready' }
+  | { status: 'failed'; error: StorageError };
+
 export function CaneGuardDatabaseProvider({ children }: PropsWithChildren) {
   const [attempt, setAttempt] = useState(0);
 
@@ -74,39 +79,68 @@ function DatabaseConnectionAttempt({
   // open first gives the worker a turn to finish starting; every later sync call
   // then behaves as it does on native. The warm-up connection is left open on
   // purpose: closing it would race the sync open that follows.
-  const [webStorageWarm, setWebStorageWarm] = useState(
-    () => Platform.OS !== 'web',
+  const [webWarm, setWebWarm] = useState<WebWarmState>(() =>
+    Platform.OS === 'web' ? { status: 'warming' } : { status: 'ready' },
   );
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || webStorageWarm) {
+    if (Platform.OS !== 'web' || webWarm.status !== 'warming') {
       return;
     }
 
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const settle = () => {
+    const settle = (next: WebWarmState) => {
       if (!active) {
         return;
       }
       active = false;
       clearTimeout(timer);
-      setWebStorageWarm(true);
+      setWebWarm(next);
     };
-    timer = setTimeout(settle, WEB_STORAGE_WARM_TIMEOUT_MS);
-    void openDatabaseAsync(CANEGUARD_DATABASE_FILENAME)
-      // A warm-up failure is not reported here: the synchronous open below
-      // surfaces the same failure to the user, once, through the normal path.
-      .catch(() => undefined)
-      .finally(settle);
+    const fail = (cause: unknown) => {
+      settle({
+        status: 'failed',
+        error: toStorageError(
+          cause,
+          'DATABASE_OPEN_FAILED',
+          'CaneGuard SQLite initialization failed.',
+        ),
+      });
+    };
+
+    timer = setTimeout(
+      () => fail(new Error('The web SQLite warm-up timed out.')),
+      WEB_STORAGE_WARM_TIMEOUT_MS,
+    );
+    void openDatabaseAsync(CANEGUARD_DATABASE_FILENAME).then(
+      () => settle({ status: 'ready' }),
+      fail,
+    );
 
     return () => {
       active = false;
       clearTimeout(timer);
     };
-  }, [webStorageWarm]);
+  }, [webWarm.status]);
 
-  if (!webStorageWarm) {
+  useEffect(() => {
+    if (!__DEV__ || webWarm.status !== 'failed') {
+      return;
+    }
+    const cause = describeStorageErrorCause(webWarm.error.cause);
+    console.error(
+      `[storage:${webWarm.error.code}] Local database open failed.${
+        cause ? ` Cause: ${cause}` : ''
+      }`,
+    );
+  }, [webWarm]);
+
+  if (webWarm.status === 'failed') {
+    return <DatabaseInitializationView error={webWarm.error} onRetry={onRetry} />;
+  }
+
+  if (webWarm.status === 'warming') {
     return <DatabaseInitializationView error={null} onRetry={onRetry} />;
   }
 

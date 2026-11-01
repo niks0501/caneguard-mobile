@@ -1,6 +1,6 @@
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { openDatabaseAsync } from 'expo-sqlite';
-import { act, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Platform, Text } from 'react-native';
 
 import { CaneGuardDatabaseProvider } from '@/database/DatabaseProvider';
@@ -88,7 +88,7 @@ describe('CaneGuardDatabaseProvider on web', () => {
     expect(mockGetResources).toHaveBeenCalledTimes(1);
   });
 
-  it('still reaches the synchronous open when the warm-up fails', async () => {
+  it('shows the retryable storage error when the warm-up fails', async () => {
     const warmUp = createDeferred<unknown>();
     mockOpenDatabaseAsync.mockReturnValue(warmUp.promise as never);
 
@@ -99,17 +99,20 @@ describe('CaneGuardDatabaseProvider on web', () => {
     );
 
     await act(async () => {
-      warmUp.reject(new Error('Sync operation timeout'));
+      warmUp.reject(new Error('Worker startup failed'));
       await warmUp.promise.catch(() => undefined);
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Application content')).toBeOnTheScreen();
+      expect(screen.getByText('Local storage needs attention')).toBeOnTheScreen();
     });
-    expect(mockGetResources).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByLabelText('Retry local storage initialization'),
+    ).toBeOnTheScreen();
+    expect(mockGetResources).not.toHaveBeenCalled();
   });
 
-  it('falls through to the synchronous open when the warm-up never settles', async () => {
+  it('shows the retryable storage error when the warm-up never settles', async () => {
     jest.useFakeTimers();
     try {
       mockOpenDatabaseAsync.mockReturnValue(new Promise(() => undefined) as never);
@@ -127,11 +130,71 @@ describe('CaneGuardDatabaseProvider on web', () => {
         jest.advanceTimersByTime(60_000);
       });
 
-      expect(screen.getByText('Application content')).toBeOnTheScreen();
-      expect(mockGetResources).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('Local storage needs attention')).toBeOnTheScreen();
+      expect(
+        screen.getByLabelText('Retry local storage initialization'),
+      ).toBeOnTheScreen();
+      expect(mockGetResources).not.toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('logs the warm-up failure cause without leaking it to the screen', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation();
+    const warmUp = createDeferred<unknown>();
+    mockOpenDatabaseAsync.mockReturnValue(warmUp.promise as never);
+
+    await render(
+      <CaneGuardDatabaseProvider>
+        <Text>Application content</Text>
+      </CaneGuardDatabaseProvider>,
+    );
+
+    await act(async () => {
+      warmUp.reject(new Error('Worker startup failed'));
+      await warmUp.promise.catch(() => undefined);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Local storage needs attention')).toBeOnTheScreen();
+    });
+    expect(screen.queryByText(/Worker startup failed/)).not.toBeOnTheScreen();
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining('Cause: Error: Worker startup failed'),
+    );
+
+    consoleError.mockRestore();
+  });
+
+  it('restarts the web warm-up when the user retries', async () => {
+    const warmUp = createDeferred<unknown>();
+    mockOpenDatabaseAsync
+      .mockReturnValueOnce(warmUp.promise as never)
+      .mockResolvedValueOnce({} as never);
+
+    await render(
+      <CaneGuardDatabaseProvider>
+        <Text>Application content</Text>
+      </CaneGuardDatabaseProvider>,
+    );
+
+    await act(async () => {
+      warmUp.reject(new Error('Worker startup failed'));
+      await warmUp.promise.catch(() => undefined);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Local storage needs attention')).toBeOnTheScreen();
+    });
+
+    fireEvent.press(screen.getByLabelText('Retry local storage initialization'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Application content')).toBeOnTheScreen();
+    });
+    expect(mockOpenDatabaseAsync).toHaveBeenCalledTimes(2);
+    expect(mockGetResources).toHaveBeenCalledTimes(1);
   });
 
   it('logs the underlying open failure cause without leaking it to the screen', async () => {

@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import {
   buildNeedsAttention,
@@ -29,7 +30,27 @@ export function useHomeAttention(): HomeAttention {
   const assignments = useFieldValidationAssignments();
   const notifications = useMobileNotifications();
   const destinations = useNotificationDestinations(notifications.notifications);
-  const today = getLocalDateKey();
+  const [today, setToday] = useState(getLocalDateKey);
+
+  useEffect(() => {
+    const now = new Date();
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const timer = setTimeout(
+      () => setToday(getLocalDateKey()),
+      nextMidnight.getTime() - now.getTime(),
+    );
+    return () => clearTimeout(timer);
+  }, [today]);
+
+  useEffect(() => {
+    let previousState: AppStateStatus | null = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const becameActive = nextState === 'active' && previousState !== 'active';
+      previousState = nextState;
+      if (becameActive) setToday(getLocalDateKey());
+    });
+    return () => subscription.remove();
+  }, []);
 
   const items = useMemo(
     () =>

@@ -68,6 +68,14 @@ type TimelineItem =
 const NO_ASSIGNMENTS: FieldValidationAssignment[] = [];
 const NO_RECORDS: ScanRecordListItem[] = [];
 
+/**
+ * Spacing between two history rows. FlashList measures the separator as part of
+ * the row that owns it, so the row heights stay stable while scrolling.
+ */
+function TimelineSeparator() {
+  return <View style={styles.timelineSeparator} />;
+}
+
 export default function ActivityScreen() {
   const theme = useTheme();
   const [activeFilter, setActiveFilter] = useState<CurrentActivityFilter>('all');
@@ -433,6 +441,7 @@ export default function ActivityScreen() {
             testID="activity.timeline"
             data={timeline}
             getItemType={getItemType}
+            ItemSeparatorComponent={TimelineSeparator}
             keyExtractor={keyExtractor}
             keyboardShouldPersistTaps="handled"
             ListFooterComponent={listFooter}
@@ -571,6 +580,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: ComponentTokens.screen.horizontalPadding,
   },
+  timelineSeparator: { height: Spacing.md },
   bell: {
     width: 44,
     height: 44,

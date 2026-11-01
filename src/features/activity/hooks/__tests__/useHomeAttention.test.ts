@@ -1,4 +1,5 @@
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import { useHomeAttention } from '@/features/activity/hooks/useHomeAttention';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
@@ -21,6 +22,9 @@ const mockUseAssignments = jest.mocked(useFieldValidationAssignments);
 const mockUseNotifications = jest.mocked(useMobileNotifications);
 const mockUseDestinations = jest.mocked(useNotificationDestinations);
 const mockGetLocalDateKey = jest.mocked(getLocalDateKey);
+const { getLocalDateKey: actualGetLocalDateKey } = jest.requireActual<
+  typeof import('@/features/assignments/domain/todayVisits')
+>('@/features/assignments/domain/todayVisits');
 
 describe('useHomeAttention', () => {
   const mockMarkRead = jest.fn(async () => undefined);
@@ -158,7 +162,7 @@ describe('useHomeAttention', () => {
     expect(result.current.items).toHaveLength(0);
   });
 
-  it('recomputes day-dependent visit buckets when the local date changes', async () => {
+  async function renderUpcomingVisitHook() {
     mockUseAssignments.mockReturnValue({
       assignments: [
         {
@@ -212,16 +216,57 @@ describe('useHomeAttention', () => {
       unreadCount: 0,
     });
     mockUseDestinations.mockReturnValue(new Map());
+    return renderHook(() => useHomeAttention());
+  }
 
-    const { result, rerender } = await renderHook(() => useHomeAttention());
+  it('rolls the visit buckets over at local midnight while Home stays open', async () => {
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date(2026, 8, 20, 23, 59, 30));
+      mockGetLocalDateKey.mockImplementation(actualGetLocalDateKey);
 
-    expect(result.current.items[0].bucket).toBe('upcoming');
-    expect(result.current.items[0].meta).toBe('Visit due 2026-09-21');
+      const { result } = await renderUpcomingVisitHook();
+      expect(result.current.items[0].bucket).toBe('upcoming');
+      expect(result.current.items[0].meta).toBe('Visit due 2026-09-21');
 
-    mockGetLocalDateKey.mockReturnValue('2026-09-21');
-    await rerender(undefined);
+      await act(async () => {
+        jest.advanceTimersByTime(31_000);
+      });
 
-    expect(result.current.items[0].bucket).toBe('today');
-    expect(result.current.items[0].meta).toBe('Visit due today');
+      expect(result.current.items[0].bucket).toBe('today');
+      expect(result.current.items[0].meta).toBe('Visit due today');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('refreshes the day-dependent work when the app returns to the foreground', async () => {
+    let onAppStateChange: ((status: AppStateStatus) => void) | null = null;
+    const remove = jest.fn();
+    const addEventListener = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_event, listener) => {
+        onAppStateChange = listener;
+        return { remove } as never;
+      });
+
+    try {
+      const { result, unmount } = await renderUpcomingVisitHook();
+      expect(result.current.items[0].bucket).toBe('upcoming');
+
+      mockGetLocalDateKey.mockReturnValue('2026-09-21');
+      await act(async () => {
+        onAppStateChange?.('background');
+        onAppStateChange?.('active');
+      });
+
+      expect(result.current.items[0].bucket).toBe('today');
+      expect(result.current.items[0].meta).toBe('Visit due today');
+
+      await unmount();
+      expect(remove).toHaveBeenCalled();
+    } finally {
+      addEventListener.mockRestore();
+    }
   });
 });

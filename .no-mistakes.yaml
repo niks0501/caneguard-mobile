@@ -35,6 +35,6 @@ test:
   instructions: |
     Use PROJECT_CHECKS.md to select affected fast tests; full regression belongs in CI.
     No interactive checks in no-mistakes; live acceptance needs explicit implementation-phase authorization.
-    For authorized browser-compatible UI acceptance, use npm run start -- --web --port <free-port> in an isolated session.
+    For authorized browser-compatible UI acceptance, use npm run web:validate (stub API and fake accounts only) in an isolated session and open /login, not /; see docs/qa/web-validation.md.
     Browser/Jest mocks cannot prove TFLite, permissions, secure storage or device persistence; native acceptance is separate.
     Record revision, command and actual evidence; unavailable required evidence is inconclusive, defects are no-go.

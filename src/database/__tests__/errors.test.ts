@@ -1,4 +1,5 @@
 import {
+  describeStorageErrorCause,
   getStorageErrorMessage,
   STORAGE_ERROR_CODES,
   StorageError,
@@ -38,4 +39,32 @@ describe('storage errors', () => {
       expect(message).not.toMatch(/\b(?:SQL|SELECT|INSERT|DELETE|stack)\b/i);
     },
   );
+});
+
+describe('storage error cause description', () => {
+  it('describes an error cause on one bounded line', () => {
+    const cause = new Error('Sync operation timeout');
+
+    expect(describeStorageErrorCause(cause)).toBe('Error: Sync operation timeout');
+  });
+
+  it('reads the message of a non-Error object cause', () => {
+    expect(describeStorageErrorCause({ message: 'NoModificationAllowedError' })).toBe(
+      'Error: NoModificationAllowedError',
+    );
+  });
+
+  it('collapses newlines and caps the length', () => {
+    const description = describeStorageErrorCause(
+      new Error(`first line\nsecond line ${'x'.repeat(500)}`),
+    );
+
+    expect(description).not.toMatch(/\n/);
+    expect(description).toHaveLength(241);
+  });
+
+  it('has nothing to say about a missing cause', () => {
+    expect(describeStorageErrorCause(undefined)).toBeNull();
+    expect(describeStorageErrorCause(null)).toBeNull();
+  });
 });

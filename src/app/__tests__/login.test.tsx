@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import LoginScreen from '@/app/login';
@@ -108,6 +108,49 @@ describe('LoginScreen biometric fallback', () => {
       expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
       expect(screen.getByTestId('app-toast')).toHaveTextContent('Signed in');
     });
+  });
+
+  it('keeps the submit label in full ink with a spinner while a password sign-in is in flight', async () => {
+    let releaseLogin: (authenticated: boolean) => void = () => undefined;
+    const login = jest.fn(
+      () => new Promise<boolean>((resolve) => { releaseLogin = resolve; }),
+    );
+    setAuthValue({ biometricEnabled: true, login });
+
+    await render(
+      <ToastProvider>
+        <LoginScreen />
+      </ToastProvider>,
+    );
+
+    await fireEvent.changeText(screen.getByTestId('auth.email-input'), 'ana.example.test');
+    await fireEvent.changeText(screen.getByTestId('auth.password-input'), 'secret');
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('auth.login-submit'));
+    });
+
+    const submit = screen.getByTestId('auth.login-submit');
+    expect(screen.getByText('Signing In...')).toHaveStyle({ color: 'background' });
+    expect(screen.getByTestId('auth.login-submit.spinner')).toBeOnTheScreen();
+    expect(submit).toBeDisabled();
+    expect(submit.props.accessibilityState).toEqual({ disabled: true, busy: true });
+
+    // The sibling fallback is idle-disabled, not busy: muted ink and no spinner.
+    expect(screen.getByTestId('auth.biometric-unlock')).toBeDisabled();
+    expect(screen.queryByTestId('auth.biometric-unlock.spinner')).toBeNull();
+    expect(screen.getByText('Unlock with biometrics')).toHaveStyle({ color: 'textSecondary' });
+
+    // A second tap while the sign-in is in flight must not start another attempt.
+    await fireEvent.press(submit);
+    expect(login).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      releaseLogin(false);
+    });
+
+    expect(screen.getByText('Login')).toHaveStyle({ color: 'background' });
+    expect(screen.queryByTestId('auth.login-submit.spinner')).toBeNull();
   });
 
   it('keeps the open field guide entry point on the login screen', async () => {

@@ -110,6 +110,7 @@ export default function LoginScreen() {
               <AppButton
                 testID="auth.login-submit"
                 onPress={() => void submit()}
+                busy={submitting}
                 disabled={submitting || !email.trim() || !password}
                 leadingIcon="log-in"
                 trailingIcon="arrow-right"
@@ -121,6 +122,7 @@ export default function LoginScreen() {
                   testID="auth.biometric-unlock"
                   variant="secondary"
                   onPress={() => void handleBiometricUnlock()}
+                  busy={biometricLoading}
                   disabled={submitting || biometricLoading}
                   leadingIcon="shield"
                   accessibilityLabel="Unlock with biometrics">

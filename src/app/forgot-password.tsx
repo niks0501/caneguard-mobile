@@ -85,6 +85,7 @@ export default function ForgotPasswordScreen() {
           <AppButton
             testID="forgot-password.submit"
             onPress={() => void submit()}
+            busy={submitting}
             disabled={submitting || !email.trim()}>
             {submitting ? 'Sending...' : 'Send recovery link'}
           </AppButton>

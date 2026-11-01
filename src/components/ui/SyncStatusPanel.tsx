@@ -84,6 +84,7 @@ export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } 
         <AppButton
           variant="secondary"
           onPress={() => void handleManualSync()}
+          busy={sync.isSyncing}
           disabled={
             sync.isSyncing || sync.isOnline !== true || sync.pendingCount === 0
           }

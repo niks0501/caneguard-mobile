@@ -295,6 +295,7 @@ export default function RecordDetailsScreen() {
               />
               <AppButton
                 onPress={confirmDelete}
+                busy={deleting}
                 disabled={deleting}
                 variant="secondary"
                 leadingIcon="trash-2"
@@ -384,6 +385,7 @@ export default function RecordDetailsScreen() {
                   fieldReport.data?.syncStatus === 'failed' ? (
                     <AppButton
                       onPress={() => void retrySync()}
+                      busy={retrying}
                       disabled={retrying || sync.isSyncing || sync.isOnline !== true}
                       leadingIcon="refresh-cw"
                       accessibilityLabel={

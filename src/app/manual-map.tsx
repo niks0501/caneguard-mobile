@@ -166,6 +166,7 @@ export default function ManualMapScreen() {
                           ? 'Saving manual map location'
                           : 'Confirm manual map location'
                       }
+                      busy={report.savingManualLocation}
                       disabled={
                         !selection ||
                         isOnline !== true ||
@@ -202,6 +203,7 @@ export default function ManualMapScreen() {
                           ? 'Saving manual map location'
                           : 'Confirm manual map location'
                       }
+                      busy={report.savingManualLocation}
                       disabled={
                         !selection ||
                         isOnline !== true ||

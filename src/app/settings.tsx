@@ -324,6 +324,7 @@ export default function SettingsScreen() {
                 <AppButton
                   testID="settings.clear-cached-office-data"
                   variant="text"
+                  busy={clearingCachedData}
                   disabled={clearingCachedData}
                   onPress={() =>
                     Alert.alert(
@@ -341,23 +342,20 @@ export default function SettingsScreen() {
                     )
                   }
                   accessibilityLabel="Clear downloaded office data only">
-                  <Text style={[styles.logoutText, { color: theme.primary }]}>
-                    {clearingCachedData
-                      ? 'Clearing downloaded data…'
-                      : 'Clear downloaded office data'}
-                  </Text>
+                  {clearingCachedData
+                    ? 'Clearing downloaded data…'
+                    : 'Clear downloaded office data'}
                 </AppButton>
                 <AppButton
                   testID="settings.remove-local-records"
-                  variant="text"
+                  variant="danger"
+                  busy={clearingLocalData}
                   disabled={clearingLocalData}
                   onPress={startPermanentRemoval}
                   accessibilityLabel="Remove all local records for this account">
-                  <Text style={[styles.logoutText, { color: theme.danger }]}>
-                    {clearingLocalData
-                      ? 'Removing local records…'
-                      : 'Remove all local records'}
-                  </Text>
+                  {clearingLocalData
+                    ? 'Removing local records…'
+                    : 'Remove all local records'}
                 </AppButton>
               </View>
             </View>

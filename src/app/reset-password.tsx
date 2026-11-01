@@ -127,6 +127,7 @@ export default function ResetPasswordScreen() {
           <AppButton
             testID="reset-password.submit"
             onPress={() => void submit()}
+            busy={submitting}
             disabled={
               submitting ||
               !email.trim() ||

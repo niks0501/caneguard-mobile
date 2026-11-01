@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Feather } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { ComponentTokens, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -12,6 +12,8 @@ type AppButtonProps = {
   onPress: () => void;
   variant?: AppButtonVariant;
   disabled?: boolean;
+  /** Work is in progress: keeps the active fill and full-ink label and shows a spinner. Implies disabled. */
+  busy?: boolean;
   accessibilityLabel?: string;
   testID?: string;
   style?: StyleProp<ViewStyle>;
@@ -23,7 +25,8 @@ export function AppButton({
   children,
   onPress,
   variant = 'primary',
-  disabled,
+  disabled: disabledProp,
+  busy = false,
   accessibilityLabel,
   testID,
   style,
@@ -31,59 +34,75 @@ export function AppButton({
   trailingIcon,
 }: AppButtonProps) {
   const theme = useTheme();
+  const disabled = disabledProp || busy;
+  // A busy button keeps its active look; only an idle disabled button is muted.
+  const muted = disabled && !busy;
   const isPrimary = variant === 'primary';
   const isText = variant === 'text';
   const isDanger = variant === 'danger';
+
+  const labelColor = muted
+    ? theme.textSecondary
+    : isPrimary
+      ? theme.background
+      : isDanger
+        ? theme.danger
+        : isText
+          ? theme.primary
+          : theme.primaryDark;
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ disabled }}
+      accessibilityState={busy ? { disabled: true, busy: true } : { disabled }}
       testID={testID}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        isPrimary && { backgroundColor: disabled ? theme.primaryLight : theme.primary },
+        isPrimary && { backgroundColor: theme.primary },
         variant === 'secondary' && {
-          backgroundColor: disabled ? theme.surfaceMuted : theme.surfaceMuted,
-          borderColor: disabled ? theme.divider : theme.border,
+          backgroundColor: theme.surfaceMuted,
+          borderColor: theme.border,
           borderWidth: 1,
         },
         isDanger && {
-          backgroundColor: disabled ? theme.surfaceMuted : theme.dangerBg,
-          borderColor: disabled ? theme.divider : theme.danger,
+          backgroundColor: theme.dangerBg,
+          borderColor: theme.danger,
           borderWidth: 1,
         },
         isText && styles.textButton,
+        muted && {
+          backgroundColor: theme.surfaceMuted,
+          borderColor: theme.primaryLight,
+          borderWidth: 1,
+          paddingHorizontal: ComponentTokens.button.paddingHorizontal,
+        },
         pressed && !disabled && styles.pressed,
-        disabled && styles.disabled,
         style,
       ]}>
       <View style={styles.content}>
-        {leadingIcon ? (
+        {busy ? <ActivityIndicator size="small" color={labelColor} testID={testID ? `${testID}.spinner` : undefined} /> : null}
+        {leadingIcon && !busy ? (
           <Feather
             name={leadingIcon}
             size={18}
-            color={isPrimary ? theme.background : isDanger ? theme.danger : theme.primaryDark}
+            color={labelColor}
           />
         ) : null}
         <Text
           style={[
             styles.label,
-            { color: isPrimary ? theme.background : theme.primaryDark },
-            isDanger && { color: disabled ? theme.textSecondary : theme.danger },
-            isText && { color: disabled ? theme.textSecondary : theme.primary },
-            disabled && { color: theme.textSecondary },
+            { color: labelColor },
           ]}>
           {children}
         </Text>
-        {trailingIcon ? (
+        {trailingIcon && !busy ? (
           <Feather
             name={trailingIcon}
             size={18}
-            color={isPrimary ? theme.background : isDanger ? theme.danger : theme.primaryDark}
+            color={labelColor}
           />
         ) : null}
       </View>
@@ -120,8 +139,5 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.78,
-  },
-  disabled: {
-    opacity: 0.55,
   },
 });

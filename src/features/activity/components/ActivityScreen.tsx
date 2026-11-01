@@ -353,6 +353,7 @@ export default function ActivityScreen() {
       {records.hasMore ? (
         <AppButton
           onPress={() => void records.loadMore()}
+          busy={records.loadingMore}
           disabled={records.loadingMore}
           variant="secondary">
           {records.loadingMore ? 'Loading...' : 'Load More'}
@@ -368,6 +369,7 @@ export default function ActivityScreen() {
             <AppButton
               testID="activity.refresh-all"
               onPress={() => void refreshAll(buildRefreshTargets())}
+              busy={refreshingAll}
               disabled={refreshingAll}
               variant="secondary"
               leadingIcon="refresh-cw"

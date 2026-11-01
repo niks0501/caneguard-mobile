@@ -35,6 +35,7 @@ Device, emulator, ADB, Agent Device, and staging checks are not routine gates. R
 - test suite: `npm test`
 - coverage: `npm run test:coverage`
 - database schema: `npm run db:check`
+- browser validation route: `npm run web:validate` (stub API on `:8210`, web dev server on `:8199`) — see [`docs/qa/web-validation.md`](docs/qa/web-validation.md) for what it can and cannot prove
 - E2E: `npm run e2e` (separate escalated native/device gate)
 
 ## Manual verification

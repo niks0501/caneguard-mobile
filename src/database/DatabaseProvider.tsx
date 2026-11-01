@@ -1,4 +1,5 @@
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
+import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 import type { PropsWithChildren } from 'react';
 import {
   createContext,
@@ -7,16 +8,25 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import migrations from '../../drizzle/migrations';
 import {
+  CANEGUARD_DATABASE_FILENAME,
   clearCaneGuardDatabaseResourcesForRetry,
   getCaneGuardDatabaseResources,
   type CaneGuardDatabase,
   type CaneGuardDatabaseResources,
 } from '@/database/database';
 import {
+  describeStorageErrorCause,
   getStorageErrorMessage,
   StorageError,
   toStorageError,
@@ -37,6 +47,13 @@ interface DatabaseContextValue {
 
 const DatabaseContext = createContext<DatabaseContextValue | null>(null);
 
+const WEB_STORAGE_WARM_TIMEOUT_MS = 10_000;
+
+type WebWarmState =
+  | { status: 'warming' }
+  | { status: 'ready' }
+  | { status: 'failed'; error: StorageError };
+
 export function CaneGuardDatabaseProvider({ children }: PropsWithChildren) {
   const [attempt, setAttempt] = useState(0);
 
@@ -56,6 +73,103 @@ function DatabaseConnectionAttempt({
   children,
   onRetry,
 }: PropsWithChildren<{ onRetry: () => void }>) {
+  // On web the first synchronous SQLite call busy-waits on a `SharedArrayBuffer`
+  // while the SQLite web worker is still starting, and a blocked main thread
+  // starves that startup, so the open times out on a cold page load. One async
+  // open first gives the worker a turn to finish starting; every later sync call
+  // then behaves as it does on native. The warm-up connection is kept for the
+  // life of this attempt, because closing it before the sync open would race
+  // that open; the cleanup below closes it when the attempt ends.
+  const [webWarm, setWebWarm] = useState<WebWarmState>(() =>
+    Platform.OS === 'web' ? { status: 'warming' } : { status: 'ready' },
+  );
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      return;
+    }
+
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let warmDatabase: SQLiteDatabase | null = null;
+    const closeWarmDatabase = () => {
+      const database = warmDatabase;
+      warmDatabase = null;
+      if (database) {
+        void database.closeAsync().catch(() => undefined);
+      }
+    };
+    const settle = (next: WebWarmState) => {
+      if (!active) {
+        return;
+      }
+      active = false;
+      clearTimeout(timer);
+      setWebWarm(next);
+    };
+    const fail = (cause: unknown) => {
+      settle({
+        status: 'failed',
+        error: toStorageError(
+          cause,
+          'DATABASE_OPEN_FAILED',
+          'CaneGuard SQLite initialization failed.',
+        ),
+      });
+    };
+
+    timer = setTimeout(
+      () => fail(new Error('The web SQLite warm-up timed out.')),
+      WEB_STORAGE_WARM_TIMEOUT_MS,
+    );
+    void openDatabaseAsync(CANEGUARD_DATABASE_FILENAME).then(
+      (database) => {
+        if (!active) {
+          void database.closeAsync().catch(() => undefined);
+          return;
+        }
+        warmDatabase = database;
+        settle({ status: 'ready' });
+      },
+      fail,
+    );
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      closeWarmDatabase();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!__DEV__ || webWarm.status !== 'failed') {
+      return;
+    }
+    const cause = describeStorageErrorCause(webWarm.error.cause);
+    console.error(
+      `[storage:${webWarm.error.code}] Local database open failed.${
+        cause ? ` Cause: ${cause}` : ''
+      }`,
+    );
+  }, [webWarm]);
+
+  if (webWarm.status === 'failed') {
+    return <DatabaseInitializationView error={webWarm.error} onRetry={onRetry} />;
+  }
+
+  if (webWarm.status === 'warming') {
+    return <DatabaseInitializationView error={null} onRetry={onRetry} />;
+  }
+
+  return (
+    <DatabaseResourcesAttempt onRetry={onRetry}>{children}</DatabaseResourcesAttempt>
+  );
+}
+
+function DatabaseResourcesAttempt({
+  children,
+  onRetry,
+}: PropsWithChildren<{ onRetry: () => void }>) {
   const [resourcesResult] = useState(() => {
     try {
       return { resources: getCaneGuardDatabaseResources(), error: null };
@@ -72,9 +186,18 @@ function DatabaseConnectionAttempt({
   });
 
   useEffect(() => {
-    if (__DEV__ && resourcesResult.error) {
-      console.error(`[storage:${resourcesResult.error.code}] Local database open failed.`);
+    if (!__DEV__ || !resourcesResult.error) {
+      return;
     }
+    // The cause is what makes the next failure diagnose itself: four different
+    // web failures render the same generic screen. Only the cause's name and
+    // message are logged, never a request body, credential or record value.
+    const cause = describeStorageErrorCause(resourcesResult.error.cause);
+    console.error(
+      `[storage:${resourcesResult.error.code}] Local database open failed.${
+        cause ? ` Cause: ${cause}` : ''
+      }`,
+    );
   }, [resourcesResult.error]);
 
   if (!resourcesResult.resources) {
@@ -122,9 +245,15 @@ function DatabaseMigrationGate({
   );
 
   useEffect(() => {
-    if (__DEV__ && error) {
-      console.error(`[storage:${error.code}] Local database migration failed.`);
+    if (!__DEV__ || !error) {
+      return;
     }
+    const cause = describeStorageErrorCause(error.cause);
+    console.error(
+      `[storage:${error.code}] Local database migration failed.${
+        cause ? ` Cause: ${cause}` : ''
+      }`,
+    );
   }, [error]);
 
   const value = useMemo<DatabaseContextValue>(

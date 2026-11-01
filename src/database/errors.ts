@@ -62,6 +62,47 @@ export function getStorageErrorMessage(error: StorageError): string {
   return USER_MESSAGES[error.code];
 }
 
+const MAX_CAUSE_DESCRIPTION_LENGTH = 240;
+
+/**
+ * Builds a bounded, single-line description of a stored error cause for the
+ * developer log. The user-facing message stays generic, and only the cause's
+ * name and message are read, so no request body, credential or record value is
+ * ever echoed into the console.
+ */
+export function describeStorageErrorCause(cause: unknown): string | null {
+  if (cause === null || cause === undefined) {
+    return null;
+  }
+
+  let name: string;
+  let message: string;
+
+  if (cause instanceof Error) {
+    name = cause.name;
+    message = cause.message;
+  } else if (typeof cause === 'object') {
+    const record = cause as { message?: unknown; name?: unknown };
+    name = typeof record.name === 'string' && record.name ? record.name : 'Error';
+    message = typeof record.message === 'string' ? record.message : '';
+  } else {
+    name = typeof cause;
+    message = String(cause);
+  }
+
+  const collapsed = `${name}${message ? `: ${message}` : ''}`
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!collapsed) {
+    return null;
+  }
+
+  return collapsed.length > MAX_CAUSE_DESCRIPTION_LENGTH
+    ? `${collapsed.slice(0, MAX_CAUSE_DESCRIPTION_LENGTH)}…`
+    : collapsed;
+}
+
 export function toStorageError(
   error: unknown,
   code: StorageErrorCode,

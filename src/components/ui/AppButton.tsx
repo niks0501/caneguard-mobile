@@ -14,6 +14,8 @@ type AppButtonProps = {
   disabled?: boolean;
   /** Work is in progress: keeps the active fill and full-ink label and shows a spinner. Implies disabled. */
   busy?: boolean;
+  /** Marks a toggle-style button as the current choice for assistive technology. */
+  selected?: boolean;
   accessibilityLabel?: string;
   testID?: string;
   style?: StyleProp<ViewStyle>;
@@ -27,6 +29,7 @@ export function AppButton({
   variant = 'primary',
   disabled: disabledProp,
   busy = false,
+  selected,
   accessibilityLabel,
   testID,
   style,
@@ -55,7 +58,11 @@ export function AppButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={busy ? { disabled: true, busy: true } : { disabled }}
+      accessibilityState={{
+        disabled,
+        ...(busy ? { busy: true } : {}),
+        ...(selected === undefined ? {} : { selected }),
+      }}
       testID={testID}
       disabled={disabled}
       onPress={onPress}

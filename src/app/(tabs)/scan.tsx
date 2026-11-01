@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ActionDock, dockSecondaryButtonStyle } from '@/components/ui/ActionDock';
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -331,104 +332,72 @@ export default function ScanScreen() {
               </View>
             </View>
 
-            <View style={styles.actions}>
-              {state.sourceUri ? (
-                <>
-                  <View
-                    testID="scan.draft-status"
-                    style={[
-                      styles.draftStatus,
-                      {
-                        backgroundColor:
-                          draft.draftStatus === 'failed'
-                            ? theme.dangerBg
-                            : theme.surfaceMuted,
-                        borderColor:
-                          draft.draftStatus === 'failed' ? theme.danger : theme.border,
-                      },
-                    ]}>
-                    <Feather
-                      name={
-                        draft.draftStatus === 'saved'
-                          ? 'check-circle'
-                          : draft.draftStatus === 'failed'
-                            ? 'alert-triangle'
-                            : 'clock'
-                      }
-                      size={16}
-                      color={
-                        draft.draftStatus === 'saved'
-                          ? theme.success
-                          : draft.draftStatus === 'failed'
-                            ? theme.danger
-                            : theme.textSecondary
-                      }
-                    />
-                    <Text
-                      accessibilityLiveRegion="polite"
-                      style={[styles.draftStatusText, { color: theme.textSecondary }]}>
-                      {getScanDraftStatusLabel(draft.draftStatus, draft.draftSavedAt)}
-                    </Text>
-                  </View>
-                  <AppButton
-                    onPress={() => router.push('/image-preview')}
-                    disabled={isBusy}
-                    trailingIcon="arrow-right"
-                    accessibilityLabel="Return to selected image preview">
-                    {draft.draftStatus === 'saved' ? 'Resume Saved Scan' : 'View Selected Image'}
-                  </AppButton>
-                  <AppButton
-                    variant="secondary"
-                    onPress={captureWithCamera}
-                    busy={activeOperation === 'camera'}
-                    disabled={isBusy}
-                    leadingIcon="camera"
-                    accessibilityLabel="Take another photo to replace the selected image">
-                    {activeOperation === 'camera' ? 'Opening camera…' : 'Take Another Photo'}
-                  </AppButton>
-                  <AppButton
-                    variant="secondary"
-                    onPress={pickFromGallery}
-                    busy={activeOperation === 'gallery'}
-                    disabled={isBusy}
-                    leadingIcon="image"
-                    accessibilityLabel="Choose another image to replace the selected image">
-                    {activeOperation === 'gallery' ? 'Opening gallery…' : 'Choose Another Image'}
-                  </AppButton>
-                  <AppButton
-                    variant="text"
-                    onPress={startNewScan}
-                    disabled={isBusy}
-                    leadingIcon="rotate-ccw"
-                    accessibilityLabel="Clear the current scan and start again">
-                    Start New Scan
-                  </AppButton>
-                </>
-              ) : (
-                <>
-                  <AppButton
-                    onPress={captureWithCamera}
-                    busy={activeOperation === 'camera'}
-                    disabled={isBusy}
-                    leadingIcon="camera"
-                    trailingIcon="arrow-right"
-                    accessibilityLabel="Capture a photo with the camera">
-                    {cameraLabel}
-                  </AppButton>
-                  <AppButton
-                    testID="scan.choose-gallery"
-                    variant="secondary"
-                    onPress={pickFromGallery}
-                    busy={activeOperation === 'gallery'}
-                    disabled={isBusy}
-                    leadingIcon="image"
-                    trailingIcon="arrow-right"
-                    accessibilityLabel="Choose one image from the gallery">
-                    {galleryLabel}
-                  </AppButton>
-                </>
-              )}
-            </View>
+            {state.sourceUri ? (
+              <View style={styles.actions}>
+                <View
+                  testID="scan.draft-status"
+                  style={[
+                    styles.draftStatus,
+                    {
+                      backgroundColor:
+                        draft.draftStatus === 'failed'
+                          ? theme.dangerBg
+                          : theme.surfaceMuted,
+                      borderColor:
+                        draft.draftStatus === 'failed' ? theme.danger : theme.border,
+                    },
+                  ]}>
+                  <Feather
+                    name={
+                      draft.draftStatus === 'saved'
+                        ? 'check-circle'
+                        : draft.draftStatus === 'failed'
+                          ? 'alert-triangle'
+                          : 'clock'
+                    }
+                    size={16}
+                    color={
+                      draft.draftStatus === 'saved'
+                        ? theme.success
+                        : draft.draftStatus === 'failed'
+                          ? theme.danger
+                          : theme.textSecondary
+                    }
+                  />
+                  <Text
+                    accessibilityLiveRegion="polite"
+                    style={[styles.draftStatusText, { color: theme.textSecondary }]}>
+                    {getScanDraftStatusLabel(draft.draftStatus, draft.draftSavedAt)}
+                  </Text>
+                </View>
+                <AppButton
+                  variant="secondary"
+                  onPress={captureWithCamera}
+                  busy={activeOperation === 'camera'}
+                  disabled={isBusy}
+                  leadingIcon="camera"
+                  accessibilityLabel="Take another photo to replace the selected image">
+                  {activeOperation === 'camera' ? 'Opening camera…' : 'Take Another Photo'}
+                </AppButton>
+                <AppButton
+                  variant="secondary"
+                  onPress={pickFromGallery}
+                  busy={activeOperation === 'gallery'}
+                  disabled={isBusy}
+                  leadingIcon="image"
+                  accessibilityLabel="Choose another image to replace the selected image">
+                  {activeOperation === 'gallery' ? 'Opening gallery…' : 'Choose Another Image'}
+                </AppButton>
+                <AppButton
+                  variant="text"
+                  onPress={startNewScan}
+                  disabled={isBusy}
+                  leadingIcon="rotate-ccw"
+                  accessibilityLabel="Clear the current scan and start again">
+                  Start New Scan
+                </AppButton>
+              </View>
+            ) : null}
 
             <View
               style={[
@@ -456,6 +425,44 @@ export default function ScanScreen() {
             </View>
           </View>
         </ScrollView>
+        <ActionDock
+          primary={
+            state.sourceUri ? (
+              <AppButton
+                onPress={() => router.push('/image-preview')}
+                disabled={isBusy}
+                trailingIcon="arrow-right"
+                accessibilityLabel="Return to selected image preview">
+                {draft.draftStatus === 'saved' ? 'Resume Saved Scan' : 'View Selected Image'}
+              </AppButton>
+            ) : (
+              <AppButton
+                onPress={captureWithCamera}
+                busy={activeOperation === 'camera'}
+                disabled={isBusy}
+                leadingIcon="camera"
+                trailingIcon="arrow-right"
+                accessibilityLabel="Capture a photo with the camera">
+                {cameraLabel}
+              </AppButton>
+            )
+          }
+          secondary={
+            state.sourceUri ? undefined : (
+              <AppButton
+                testID="scan.choose-gallery"
+                variant="secondary"
+                onPress={pickFromGallery}
+                busy={activeOperation === 'gallery'}
+                disabled={isBusy}
+                leadingIcon="image"
+                style={dockSecondaryButtonStyle}
+                accessibilityLabel="Choose one image from the gallery">
+                {galleryLabel}
+              </AppButton>
+            )
+          }
+        />
         <ConfirmDialog
           visible={showCancelConfirm}
           title="Cancel scan?"

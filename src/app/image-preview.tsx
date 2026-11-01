@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ActionDock, dockSecondaryButtonStyle } from '@/components/ui/ActionDock';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -379,63 +380,6 @@ export default function ImagePreviewScreen() {
                   Choose another image
                 </AppButton>
               </DisclosureSection>
-              {analysisComplete ? (
-                <AppButton
-                  testID="image-preview.view-result"
-                  onPress={() => router.push('/analysis-result')}
-                  leadingIcon="arrow-right"
-                  accessibilityLabel="View the analysis result">
-                  View Analysis Result
-                </AppButton>
-              ) : (
-                <AppButton
-                  testID="scan.analyze-image"
-                  busy={isPreprocessing || isRunning || isFinalizing}
-                  disabled={
-                    isImageLoading ||
-                    imageLoadFailed ||
-                    isPreprocessing ||
-                    isRunning ||
-                    isFinalizing ||
-                    modelState.state !== 'loaded'
-                  }
-                  onPress={() => {
-                    void analyzeImage();
-                  }}
-                  leadingIcon="search"
-                  accessibilityLabel={
-                    isFinalizing
-                      ? 'Preparing analysis result'
-                      : isRunning
-                        ? 'Analyzing image'
-                        : isPreprocessing
-                          ? 'Image preparation in progress'
-                          : modelState.state === 'loading'
-                            ? 'Getting ready'
-                            : modelState.state === 'error'
-                              ? 'Check unavailable'
-                              : 'Analyze selected image'
-                  }>
-                  {isFinalizing
-                    ? 'Preparing Result…'
-                    : isRunning
-                      ? 'Analyzing…'
-                      : isPreprocessing
-                        ? 'Preparing Image…'
-                        : 'Analyze'}
-                </AppButton>
-              )}
-              {modelState.state === 'error' && modelState.errorKind === 'load' ? (
-                <AppButton
-                  testID="image-preview.retry-model"
-                  variant="secondary"
-                  onPress={modelState.retry}
-                  disabled={replacing || isAnalysisActive}
-                  leadingIcon="refresh-cw"
-                  accessibilityLabel="Retry analysis setup">
-                  Retry analysis setup
-                </AppButton>
-              ) : null}
               {replacementNotice ? (
                 <Text
                   testID="image-preview.replacement-notice"
@@ -486,7 +430,7 @@ export default function ImagePreviewScreen() {
               ) : null}
               <AppButton
                 testID="image-preview.cancel"
-                variant="secondary"
+                variant="text"
                 onPress={handleCancel}
                 leadingIcon="x"
                 accessibilityLabel="Cancel scan and return home">
@@ -501,6 +445,70 @@ export default function ImagePreviewScreen() {
             </View>
           </View>
         </ScrollView>
+        <ActionDock
+          primary={
+            analysisComplete ? (
+                <AppButton
+                  testID="image-preview.view-result"
+                  onPress={() => router.push('/analysis-result')}
+                  leadingIcon="arrow-right"
+                  accessibilityLabel="View the analysis result">
+                  View Analysis Result
+                </AppButton>
+              ) : (
+                <AppButton
+                  testID="scan.analyze-image"
+                  busy={isPreprocessing || isRunning || isFinalizing}
+                  disabled={
+                    isImageLoading ||
+                    imageLoadFailed ||
+                    isPreprocessing ||
+                    isRunning ||
+                    isFinalizing ||
+                    modelState.state !== 'loaded'
+                  }
+                  onPress={() => {
+                    void analyzeImage();
+                  }}
+                  leadingIcon="search"
+                  accessibilityLabel={
+                    isFinalizing
+                      ? 'Preparing analysis result'
+                      : isRunning
+                        ? 'Analyzing image'
+                        : isPreprocessing
+                          ? 'Image preparation in progress'
+                          : modelState.state === 'loading'
+                            ? 'Getting ready'
+                            : modelState.state === 'error'
+                              ? 'Check unavailable'
+                              : 'Analyze selected image'
+                  }>
+                  {isFinalizing
+                    ? 'Preparing Result…'
+                    : isRunning
+                      ? 'Analyzing…'
+                      : isPreprocessing
+                        ? 'Preparing Image…'
+                        : 'Analyze'}
+                </AppButton>
+              )
+          }
+          secondary={
+            modelState.state === 'error' && modelState.errorKind === 'load' ? (
+                <AppButton
+                  testID="image-preview.retry-model"
+                  variant="secondary"
+                  style={dockSecondaryButtonStyle}
+                  onPress={modelState.retry}
+                  disabled={replacing || isAnalysisActive}
+                  leadingIcon="refresh-cw"
+                  accessibilityLabel="Retry analysis setup">
+                  Retry analysis setup
+                </AppButton>
+              ) : null
+          }
+        />
         <ConfirmDialog
           visible={showCancelConfirm}
           title="Cancel scan?"

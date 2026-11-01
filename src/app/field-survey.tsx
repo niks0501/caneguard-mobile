@@ -2,12 +2,14 @@ import { randomUUID } from 'expo-crypto';
 import { Image as ExpoImage } from 'expo-image';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import Svg, { Circle, Polygon, Polyline } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ActionDock, dockSecondaryButtonStyle } from '@/components/ui/ActionDock';
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { useTheme } from '@/hooks/use-theme';
@@ -68,6 +70,7 @@ export default function FieldSurveyScreen() {
     viewport,
     zoom,
   });
+  const [pointsOpen, setPointsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [gpsBusy, setGpsBusy] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
@@ -322,50 +325,27 @@ export default function FieldSurveyScreen() {
     return <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}><ActivityIndicator color={theme.primary} /></SafeAreaView>;
   }
 
+  const pointCount = drawingAffectedArea ? affectedWaypoints.length : waypoints.length;
+  const controlsLocked = readOnlyPending || syncBusy;
+  const areaReadout = `${screenValidation}${validation.valid && affectedMeasurement?.valid ? ` · ${affectedMeasurement.areaSqm.toFixed(0)} m² affected` : affectedMeasurement && !affectedMeasurement.valid ? ` · ${affectedMeasurement.error.message}` : ''}`;
+
   return (
     <SafeAreaView testID="field-survey.screen" style={[styles.safe, { backgroundColor: theme.background}]} edges={['top', 'bottom']}>
       <BrandedScreenHeader title={FIELD_SURVEY_COPY.title} />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={[styles.intro, { color: theme.textSecondary }]}>{resumed ? FIELD_SURVEY_COPY.resumedSurvey : FIELD_SURVEY_COPY.intro}</Text>
-        {resumed ? <AppButton variant="secondary" onPress={() => {
-          setClientUuid(randomUUID());
-          setDistrictCode('');
-          setWaypoints([]);
-          setAffectedAreas([]);
-          setAffectedAreaWaypointSets([]);
-          setAffectedWaypoints([]);
-          setSelectedIndex(null);
-          setFieldErrors({});
-          setSyncMessage(null);
-          setSaved(false);
-          setResumed(false);
-          setReadOnlyPending(false);
-        }}>{readOnlyPending ? FIELD_SURVEY_COPY.startNewBoundaryAfterRejection : FIELD_SURVEY_COPY.newSurvey}</AppButton> : null}
-        <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.districtLabel}</Text>
-        <TextInput
-          accessibilityLabel={FIELD_SURVEY_COPY.districtLabel}
-          testID="field-survey.district-code"
-          value={districtCode}
-          editable={!readOnlyPending && !syncBusy}
-          onChangeText={(value) => { setSaved(false); setFieldErrors((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'district_code'))); setDistrictCode(value); }}
-          autoCapitalize="characters"
-          placeholder={FIELD_SURVEY_COPY.districtPlaceholder}
-          placeholderTextColor={theme.textSecondary}
-          style={[styles.input, { color: theme.text, borderColor: fieldErrors.district_code ? theme.danger : theme.border, backgroundColor: theme.surfaceElevated }]}
-        />
-        {fieldErrors.district_code?.map((message) => <Text key={message} style={[styles.error, { color: theme.danger }]}>{message}</Text>)}
-        <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.mapHeading}</Text>
-        <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.mapHelp}</Text>
-        <GestureDetector gesture={mapGesture}>
-        <Pressable
-          disabled={readOnlyPending || syncBusy}
-          testID="field-survey.map"
-          accessibilityRole="imagebutton"
-          accessibilityLabel={FIELD_SURVEY_COPY.mapAccessibility}
-          onPress={handleMapPress}
-          onLayout={(event) => setViewport({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}
-          style={[styles.map, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
-        >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'android' ? 'height' : 'padding'}
+        style={styles.body}>
+        <View style={styles.mapSection}>
+          <GestureDetector gesture={mapGesture}>
+            <Pressable
+              disabled={controlsLocked}
+              testID="field-survey.map"
+              accessibilityRole="imagebutton"
+              accessibilityLabel={FIELD_SURVEY_COPY.mapAccessibility}
+              onPress={handleMapPress}
+              onLayout={(event) => setViewport({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}
+              style={[styles.map, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+            >
           <Animated.View pointerEvents="none" style={[styles.mapLayer, { width: viewport.width + SURVEY_MAP_OVERSCAN * 2, height: viewport.height + SURVEY_MAP_OVERSCAN * 2 }, layerStyle]}>
           {isOnline === true ? tiles.map((tile) => (
             <ExpoImage
@@ -399,56 +379,111 @@ export default function FieldSurveyScreen() {
           </Svg>
           </Animated.View>
           {tiles.length > 0 && isOnline === true ? <Text pointerEvents="none" style={[styles.attribution, { color: theme.text, backgroundColor: theme.surfaceElevated }]}>{FIELD_SURVEY_COPY.mapAttribution}</Text> : null}
-        </Pressable>
-        </GestureDetector>
-        {isOnline !== true ? <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.offlineMap}</Text> : tileFailures.some((key) => tiles.some((tile) => tile.key === key)) ? <Text style={[styles.help, { color: theme.warning }]}>{FIELD_SURVEY_COPY.mapTileError}</Text> : null}
-        <View style={styles.actionGroup}>
-          <AppButton leadingIcon="map-pin" variant={!drawingAffectedArea ? 'primary' : 'secondary'} disabled={readOnlyPending || syncBusy} onPress={() => { setDrawingAffectedArea(false); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
-          <AppButton leadingIcon="map-pin" variant={drawingAffectedArea ? 'primary' : 'secondary'} disabled={readOnlyPending || syncBusy} onPress={() => { setDrawingAffectedArea(true); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
-          <AppButton leadingIcon="crosshair" onPress={() => void captureGpsWaypoint()} busy={gpsBusy} disabled={gpsBusy || readOnlyPending || syncBusy}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.addGpsPoint}</AppButton>
+            </Pressable>
+          </GestureDetector>
+          <View pointerEvents="box-none" style={styles.floatingControls}>
+            <AppButton leadingIcon="map-pin" variant="secondary" selected={!drawingAffectedArea} style={[styles.floatingButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { setDrawingAffectedArea(false); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
+            <AppButton leadingIcon="map-pin" variant="secondary" selected={drawingAffectedArea} style={[styles.floatingButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { setDrawingAffectedArea(true); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
+            <AppButton leadingIcon="crosshair" variant="secondary" style={styles.floatingButton} onPress={() => void captureGpsWaypoint()} busy={gpsBusy} disabled={gpsBusy || controlsLocked}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.addGpsPoint}</AppButton>
+          </View>
         </View>
+        {isOnline !== true ? <Text style={[styles.mapNote, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.offlineMap}</Text> : tileFailures.some((key) => tiles.some((tile) => tile.key === key)) ? <Text style={[styles.mapNote, { color: theme.warning }]}>{FIELD_SURVEY_COPY.mapTileError}</Text> : null}
         <View style={styles.row}>
-          <AppButton variant="secondary" leadingIcon="corner-up-left" disabled={!(drawingAffectedArea ? affectedWaypoints.length : waypoints.length) || readOnlyPending || syncBusy} onPress={() => { setSaved(false); if (drawingAffectedArea) setAffectedWaypoints((current) => current.slice(0, -1)); else setWaypoints((current) => current.slice(0, -1)); setSelectedIndex(null); }}>{FIELD_SURVEY_COPY.undo}</AppButton>
-          <AppButton variant="secondary" leadingIcon="trash-2" disabled={drawingAffectedArea || selectedIndex === null || readOnlyPending || syncBusy} onPress={removeSelected}>{FIELD_SURVEY_COPY.removeSelected}</AppButton>
+          <AppButton variant="secondary" leadingIcon="corner-up-left" style={styles.toolButton} disabled={!pointCount || controlsLocked} onPress={() => { setSaved(false); if (drawingAffectedArea) setAffectedWaypoints((current) => current.slice(0, -1)); else setWaypoints((current) => current.slice(0, -1)); setSelectedIndex(null); }}>{FIELD_SURVEY_COPY.undo}</AppButton>
+          <AppButton variant="secondary" leadingIcon="trash-2" style={styles.toolButton} disabled={drawingAffectedArea || selectedIndex === null || controlsLocked} onPress={removeSelected}>{FIELD_SURVEY_COPY.removeSelected}</AppButton>
         </View>
-        {drawingAffectedArea ? <AppButton variant="secondary" disabled={affectedWaypoints.length < 3 || readOnlyPending || syncBusy} onPress={finishAffectedArea}>{FIELD_SURVEY_COPY.finishAffectedArea}</AppButton> : null}
-        <Text style={[styles.label, { color: theme.text }]}>{drawingAffectedArea ? FIELD_SURVEY_COPY.affectedAreaBoundary : FIELD_SURVEY_COPY.pointsHeading} ({drawingAffectedArea ? affectedWaypoints.length : waypoints.length})</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.points}>
-          {(drawingAffectedArea ? affectedWaypoints : waypoints).map((point, index) => <Pressable key={`${point.capturedAt}:${index}`} accessibilityRole="button" accessibilityLabel={FIELD_SURVEY_COPY.selectPoint(index + 1)} onPress={() => { if (!drawingAffectedArea) setSelectedIndex(index); }} style={[styles.point, { borderColor: !drawingAffectedArea && selectedIndex === index ? theme.primary : theme.border, backgroundColor: theme.surfaceElevated }]}>
-            <Text style={[styles.pointTitle, { color: theme.text }]}>{index + 1} · {point.source === 'gps' ? FIELD_SURVEY_COPY.gps : FIELD_SURVEY_COPY.map}</Text>
-            <Text style={[styles.pointCoord, { color: theme.textSecondary }]}>{point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}</Text>
-            <Text style={[styles.pointCoord, { color: point.accuracyMeters === null ? theme.warning : theme.textSecondary }]}>{point.accuracyMeters === null ? FIELD_SURVEY_COPY.accuracyUnknown : `${FIELD_SURVEY_COPY.accuracy} ±${point.accuracyMeters.toFixed(1)} m`}</Text>
-          </Pressable>)}
+        {drawingAffectedArea ? <AppButton variant="secondary" style={styles.toolButton} disabled={affectedWaypoints.length < 3 || controlsLocked} onPress={finishAffectedArea}>{FIELD_SURVEY_COPY.finishAffectedArea}</AppButton> : null}
+        <ScrollView style={styles.details} contentContainerStyle={styles.detailsContent} keyboardShouldPersistTaps="handled">
+          <Text style={[styles.intro, { color: theme.textSecondary }]}>{resumed ? FIELD_SURVEY_COPY.resumedSurvey : FIELD_SURVEY_COPY.intro}</Text>
+        {resumed ? <AppButton variant="secondary" onPress={() => {
+          setClientUuid(randomUUID());
+          setDistrictCode('');
+          setWaypoints([]);
+          setAffectedAreas([]);
+          setAffectedAreaWaypointSets([]);
+          setAffectedWaypoints([]);
+          setSelectedIndex(null);
+          setFieldErrors({});
+          setSyncMessage(null);
+          setSaved(false);
+          setResumed(false);
+          setReadOnlyPending(false);
+        }}>{readOnlyPending ? FIELD_SURVEY_COPY.startNewBoundaryAfterRejection : FIELD_SURVEY_COPY.newSurvey}</AppButton> : null}
+          <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.districtLabel}</Text>
+          <TextInput
+            accessibilityLabel={FIELD_SURVEY_COPY.districtLabel}
+            testID="field-survey.district-code"
+            value={districtCode}
+            editable={!readOnlyPending && !syncBusy}
+            onChangeText={(value) => { setSaved(false); setFieldErrors((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'district_code'))); setDistrictCode(value); }}
+            autoCapitalize="characters"
+            placeholder={FIELD_SURVEY_COPY.districtPlaceholder}
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.input, { color: theme.text, borderColor: fieldErrors.district_code ? theme.danger : theme.border, backgroundColor: theme.surfaceElevated }]}
+          />
+          {fieldErrors.district_code?.map((message) => <Text key={message} style={[styles.error, { color: theme.danger }]}>{message}</Text>)}
+          <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.mapHelp}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: pointsOpen }}
+            onPress={() => setPointsOpen((value) => !value)}
+            style={styles.pointsToggle}>
+            <Text style={[styles.label, styles.pointsToggleLabel, { color: theme.text }]}>{drawingAffectedArea ? FIELD_SURVEY_COPY.affectedAreaBoundary : FIELD_SURVEY_COPY.pointsHeading} ({pointCount})</Text>
+            <Feather name={pointsOpen ? 'chevron-up' : 'chevron-down'} size={20} color={theme.textSecondary} />
+          </Pressable>
+          {pointsOpen ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.points}>
+              {(drawingAffectedArea ? affectedWaypoints : waypoints).map((point, index) => <Pressable key={`${point.capturedAt}:${index}`} accessibilityRole="button" accessibilityLabel={FIELD_SURVEY_COPY.selectPoint(index + 1)} onPress={() => { if (!drawingAffectedArea) setSelectedIndex(index); }} style={[styles.point, { borderColor: !drawingAffectedArea && selectedIndex === index ? theme.primary : theme.border, backgroundColor: theme.surfaceElevated }]}>
+                <Text style={[styles.pointTitle, { color: theme.text }]}>{index + 1} · {point.source === 'gps' ? FIELD_SURVEY_COPY.gps : FIELD_SURVEY_COPY.map}</Text>
+                <Text style={[styles.pointCoord, { color: theme.textSecondary }]}>{point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}</Text>
+                <Text style={[styles.pointCoord, { color: point.accuracyMeters === null ? theme.warning : theme.textSecondary }]}>{point.accuracyMeters === null ? FIELD_SURVEY_COPY.accuracyUnknown : `${FIELD_SURVEY_COPY.accuracy} ±${point.accuracyMeters.toFixed(1)} m`}</Text>
+              </Pressable>)}
+            </ScrollView>
+          ) : null}
+          <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.affectedAreas} ({affectedAreas.length})</Text>
+          {affectedAreas.length ? <AppButton variant="secondary" disabled={controlsLocked} onPress={() => { setAffectedAreas((current) => current.slice(0, -1)); setAffectedAreaWaypointSets((current) => current.slice(0, -1)); setSaved(false); }}>{FIELD_SURVEY_COPY.removeAffectedArea}</AppButton> : null}
         </ScrollView>
-        <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.affectedAreas} ({affectedAreas.length})</Text>
-        {affectedAreas.length ? <AppButton variant="secondary" disabled={readOnlyPending || syncBusy} onPress={() => { setAffectedAreas((current) => current.slice(0, -1)); setAffectedAreaWaypointSets((current) => current.slice(0, -1)); setSaved(false); }}>{FIELD_SURVEY_COPY.removeAffectedArea}</AppButton> : null}
-        <Text accessibilityLiveRegion="polite" testID="field-survey.area" style={[styles.area, { color: validation.valid ? theme.primaryDark : theme.textSecondary }]}>{screenValidation}{validation.valid && affectedMeasurement?.valid ? ` · ${affectedMeasurement.areaSqm.toFixed(0)} m² affected` : affectedMeasurement && !affectedMeasurement.valid ? ` · ${affectedMeasurement.error.message}` : ''}</Text>
-        {saved ? <Text style={[styles.help, { color: theme.success }]}>{FIELD_SURVEY_SYNC_COPY.savedOffline}</Text> : <Text style={[styles.help, { color: theme.warning }]}>{FIELD_SURVEY_COPY.savingOffline}</Text>}
-        {syncMessage ? <Text accessibilityLiveRegion="assertive" testID="field-survey.sync-status" style={[styles.help, { color: theme.info }]}>{syncMessage}</Text> : null}
-        {Object.entries(fieldErrors).filter(([key]) => key !== 'district_code').map(([field, messages]) => <Text key={field} style={[styles.error, { color: theme.danger }]}>{field}: {messages.join(' ')}</Text>)}
-        <AppButton testID="field-survey.submit" leadingIcon="upload-cloud" busy={saving} disabled={!validation.valid || !saved || saving || syncBusy || affectedWaypoints.length > 0} onPress={() => void saveAndSync()}>{saving ? FIELD_SURVEY_SYNC_COPY.submitting : FIELD_SURVEY_SYNC_COPY.submit}</AppButton>
-        <AppButton variant="secondary" onPress={() => router.back()}>{FIELD_SURVEY_COPY.close}</AppButton>
-      </ScrollView>
+        <ActionDock
+          note={
+            <>
+              <Text accessibilityLiveRegion="polite" testID="field-survey.area" style={[styles.area, { color: validation.valid ? theme.primaryDark : theme.textSecondary }]}>{areaReadout}</Text>
+              {saved ? <Text style={[styles.help, { color: theme.success }]}>{FIELD_SURVEY_SYNC_COPY.savedOffline}</Text> : <Text style={[styles.help, { color: theme.warning }]}>{FIELD_SURVEY_COPY.savingOffline}</Text>}
+              {syncMessage ? <Text accessibilityLiveRegion="assertive" testID="field-survey.sync-status" style={[styles.help, { color: theme.info }]}>{syncMessage}</Text> : null}
+              {Object.entries(fieldErrors).filter(([key]) => key !== 'district_code').map(([field, messages]) => <Text key={field} style={[styles.error, { color: theme.danger }]}>{field}: {messages.join(' ')}</Text>)}
+            </>
+          }
+          primary={<AppButton testID="field-survey.submit" leadingIcon="upload-cloud" busy={saving} disabled={!validation.valid || !saved || saving || syncBusy || affectedWaypoints.length > 0} onPress={() => void saveAndSync()}>{saving ? FIELD_SURVEY_SYNC_COPY.submitting : FIELD_SURVEY_SYNC_COPY.submit}</AppButton>}
+          secondary={<AppButton variant="secondary" style={dockSecondaryButtonStyle} onPress={() => router.back()}>{FIELD_SURVEY_COPY.close}</AppButton>}
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing['2xl'] },
-  intro: { ...Typography.body },
-  label: { ...Typography.label, marginTop: Spacing.sm },
+  body: { flex: 1 },
+  mapSection: { flex: 1, minHeight: 240 },
+  details: { flexGrow: 0, flexShrink: 1, maxHeight: 190 },
+  detailsContent: { padding: Spacing.lg, gap: Spacing.sm },
+  intro: { ...Typography.bodySmall },
+  label: { ...Typography.label, marginTop: Spacing.xs },
   help: { ...Typography.bodySmall },
-  error: { ...Typography.bodySmall, fontWeight: '700' },
+  mapNote: { ...Typography.bodySmall, paddingHorizontal: Spacing.lg, paddingTop: Spacing.xs },
+  error: { ...Typography.bodySmall, fontWeight: '500' },
   input: { ...Typography.body, minHeight: 48, borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: Spacing.md },
-  map: { width: '100%', height: 380, borderWidth: 1, borderRadius: Radius.lg, overflow: 'hidden' },
+  map: { flex: 1, borderWidth: 1, borderRadius: Radius.lg, overflow: 'hidden', marginHorizontal: Spacing.lg, marginTop: Spacing.sm },
   mapLayer: { position: 'absolute', left: -SURVEY_MAP_OVERSCAN, top: -SURVEY_MAP_OVERSCAN },
   attribution: { position: 'absolute', right: Spacing.xs, bottom: Spacing.xs, paddingHorizontal: Spacing.xs, paddingVertical: Spacing.xs, borderRadius: Radius.sm, ...Typography.caption },
-  actionGroup: { gap: Spacing.sm },
-  row: { flexDirection: 'row', gap: Spacing.sm },
+  floatingControls: { position: 'absolute', top: Spacing.md + Spacing.sm, left: Spacing.lg + Spacing.sm, gap: Spacing.xs, alignItems: 'flex-start' },
+  floatingButton: { minHeight: 44, paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md },
+  toolButton: { flex: 1, minHeight: 44, paddingVertical: Spacing.xs },
+  row: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm },
+  pointsToggle: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  pointsToggleLabel: { marginTop: 0, flex: 1 },
   points: { gap: Spacing.sm },
   point: { padding: Spacing.sm, borderWidth: 1, borderRadius: Radius.sm, minWidth: 145 },
   pointTitle: { ...Typography.label },
   pointCoord: { ...Typography.caption },
-  area: { ...Typography.heading, textAlign: 'center' },
+  area: { ...Typography.subheading, textAlign: 'center' },
 });

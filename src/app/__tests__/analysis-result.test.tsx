@@ -133,6 +133,12 @@ async function renderResult(state: ScanSessionState) {
 }
 
 
+type RenderedNode = {
+  type: string;
+  props: Record<string, unknown>;
+  children: (RenderedNode | string)[];
+};
+
 function collectTestIds(node: unknown, collected: string[] = []): string[] {
   if (Array.isArray(node)) {
     node.forEach((child) => collectTestIds(child, collected));
@@ -144,6 +150,32 @@ function collectTestIds(node: unknown, collected: string[] = []): string[] {
   if (typeof testID === 'string') collected.push(testID);
   collectTestIds(record.children, collected);
   return collected;
+}
+
+function findRenderedNode(
+  node: RenderedNode | string | null | undefined,
+  predicate: (node: RenderedNode) => boolean,
+): RenderedNode | null {
+  if (!node || typeof node === 'string') return null;
+  if (predicate(node)) return node;
+  for (const child of node.children) {
+    const match = findRenderedNode(child, predicate);
+    if (match) return match;
+  }
+  return null;
+}
+
+function findRenderedParent(
+  root: RenderedNode,
+  target: RenderedNode,
+): RenderedNode | null {
+  for (const child of root.children) {
+    if (typeof child === 'string') continue;
+    if (child === target) return root;
+    const match = findRenderedParent(child, target);
+    if (match) return match;
+  }
+  return null;
 }
 
 describe('AnalysisResultScreen', () => {
@@ -616,7 +648,7 @@ describe('AnalysisResultScreen', () => {
     expect(mockRouterPush).toHaveBeenCalledWith('/field-guide/rust');
   });
 
-  it('places the three decisions before every explanation disclosure', async () => {
+  it('keeps the three decisions docked after the scroll content and outside every explanation disclosure', async () => {
     await renderResult(createCompletedState('rust', ['rust'], {
       qualityAssessment: {
         warnings: ['low-resolution'],
@@ -626,17 +658,36 @@ describe('AnalysisResultScreen', () => {
       result: createResult('rust', 0.42),
     }));
 
-    const order = collectTestIds(screen.toJSON());
-    const reportIndex = order.indexOf('scan.report-to-office');
-    const keepIndex = order.indexOf('scan.keep-as-scan-only');
-    const scanAgainIndex = order.indexOf('scan.new-scan');
-    const whyIndex = order.indexOf('scan.why-this-result');
+    const tree = screen.toJSON() as RenderedNode;
+    const scroll = findRenderedNode(tree, (node) => node.type === 'RCTScrollView');
+    const dock = findRenderedNode(tree, (node) => node.props.testID === 'action-dock');
 
-    expect(reportIndex).toBeGreaterThan(-1);
-    expect(keepIndex).toBeGreaterThan(reportIndex);
-    expect(scanAgainIndex).toBeGreaterThan(keepIndex);
-    expect(whyIndex).toBeGreaterThan(scanAgainIndex);
-    expect(order).not.toContain('scan.technical-details');
+    expect(scroll).not.toBeNull();
+    expect(dock).not.toBeNull();
+
+    // The dock is a sibling rendered after the scroll content, so it keeps the
+    // bottom thumb line and stays reachable without scrolling.
+    const scrollParent = findRenderedParent(tree, scroll!);
+    const dockParent = findRenderedParent(tree, dock!);
+    expect(dockParent).toBe(scrollParent);
+    const siblings = dockParent!.children;
+    expect(siblings.indexOf(dock!)).toBeGreaterThan(siblings.indexOf(scroll!));
+
+    const decisions = [
+      'scan.report-to-office',
+      'scan.keep-as-scan-only',
+      'scan.new-scan',
+    ];
+    const dockTestIds = collectTestIds(dock);
+    expect(dockTestIds).toContain('action-dock');
+    expect(dockTestIds.filter((id) => decisions.includes(id))).toEqual(decisions);
+
+    const scrollTestIds = collectTestIds(scroll);
+    decisions.forEach((decision) => expect(scrollTestIds).not.toContain(decision));
+
+    // Every explanation disclosure stays inside the scroll content.
+    expect(scrollTestIds).toContain('scan.why-this-result');
+    expect(collectTestIds(tree)).not.toContain('scan.technical-details');
 
     expect(screen.queryByText('Image quality notice')).not.toBeOnTheScreen();
     expect(screen.queryByText('v1.0-mobilenetv2')).not.toBeOnTheScreen();

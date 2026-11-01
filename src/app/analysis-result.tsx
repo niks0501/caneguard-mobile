@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ActionDock, dockSecondaryButtonStyle } from '@/components/ui/ActionDock';
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -15,7 +16,6 @@ import {
   ComponentTokens,
   Layout,
   Radius,
-  Shadows,
   Spacing,
   Typography,
   type ThemeColor,
@@ -261,8 +261,11 @@ export default function AnalysisResultScreen() {
   const isLowScore = isBelowV1ConfidenceCautionThreshold(result.confidence);
   const qualityWarnings = state.qualityAssessment?.warnings ?? [];
   const checklistMismatch = consistency === 'inconsistent';
-  const showOutcomeCaution = qualityWarnings.length > 0 || checklistMismatch;
+  const showOutcomeCaution = isLowScore || qualityWarnings.length > 0 || checklistMismatch;
   const resultTitle = `Possible Condition: ${metadata.displayName}`;
+  const isSaving = saveRecord.status === 'saving';
+  const isFailed = saveRecord.status === 'failed';
+  const isSaved = saveRecord.status === 'saved';
 
   return (
     <SafeAreaView
@@ -276,7 +279,9 @@ export default function AnalysisResultScreen() {
           onClosePress={handleCancel}
           closeTestID="analysis-result.header-close"
         />
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
             <ExpoImage
               source={{ uri: state.sourceUri }}
@@ -285,9 +290,7 @@ export default function AnalysisResultScreen() {
               accessibilityLabel="Selected sugarcane image used for analysis"
               style={[styles.resultImage, { borderColor: theme.border }]}
             />
-            <View
-              testID="scan.decision-card"
-              style={[styles.resultCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
+            <View testID="scan.decision-card" style={styles.resultBlock}>
               <Pill
                 label="AI screening result"
                 icon={metadata.icon}
@@ -303,39 +306,27 @@ export default function AnalysisResultScreen() {
                 style={[styles.advisory, { color: theme.textSecondary }]}>
                 {result.decisionSupportWording ?? metadata.decisionSupportWording}
               </Text>
-              {isLowScore ? (
-                <View
-                  accessibilityRole="alert"
-                  testID="scan.low-confidence-guidance"
-                  style={[
-                    styles.caution,
-                    {
-                      backgroundColor: theme.warningBg,
-                      borderColor: theme.warning,
-                    },
-                  ]}>
-                  <Feather name="alert-triangle" size={20} color={theme.warning} />
-                  <Text style={[styles.cautionText, { color: theme.text }]}>
-                    This result is not conclusive. You can still report it, keep it
-                    as a scan, or scan again for a clearer image.
-                  </Text>
-                </View>
-              ) : null}
             </View>
 
+            {/* One voice: every caution about this result is one Note, so a
+                screen reader announces it once and nothing it said before is lost. */}
             {showOutcomeCaution ? (
               <View
                 accessibilityRole="alert"
                 testID="scan.result-caution"
-                style={[
-                  styles.cautionCard,
-                  { backgroundColor: theme.warningBg, borderColor: theme.warning },
-                ]}>
-                <Feather name="alert-triangle" size={20} color={theme.warning} />
+                style={[styles.cautionCard, { backgroundColor: theme.warningBg }]}>
+                <Feather name="alert-triangle" size={22} color={theme.warning} />
                 <View style={styles.cautionCopy}>
                   <Text style={[styles.cautionTitle, { color: theme.warning }]}>
                     Check before you report
                   </Text>
+                  {isLowScore ? (
+                    <Text
+                      testID="scan.low-confidence-guidance"
+                      style={[styles.cautionBody, { color: theme.text }]}>
+                      This result is not conclusive. You can still report it, keep it as a scan, or scan again for a clearer image.
+                    </Text>
+                  ) : null}
                   {checklistMismatch ? (
                     <Text style={[styles.cautionBody, { color: theme.text }]}>
                       Your selected symptom observations do not match this Possible
@@ -350,156 +341,47 @@ export default function AnalysisResultScreen() {
                       {getQualityWarningMessage(warning)}
                     </Text>
                   ))}
-                  <Text style={[styles.cautionBody, { color: theme.textSecondary }]}>
-                    This caution does not change the result. You can scan again for a
-                    clearer image, keep this scan, or continue to report it.
-                  </Text>
+                  {!isLowScore ? (
+                    <Text style={[styles.cautionBody, { color: theme.textSecondary }]}>
+                      This caution does not change the result. You can scan again for a
+                      clearer image, keep this scan, or continue to report it.
+                    </Text>
+                  ) : null}
                 </View>
               </View>
             ) : null}
 
             <View
               testID="scan.outcome-panel"
-              accessibilityLiveRegion={saveRecord.status === 'failed' ? 'assertive' : 'polite'}
-              style={[
-                styles.saveCard,
-                {
-                  backgroundColor:
-                    saveRecord.status === 'saved'
-                      ? theme.successBg
-                      : saveRecord.status === 'failed'
-                        ? theme.dangerBg
-                        : theme.surfaceElevated,
-                  borderColor:
-                    saveRecord.status === 'saved'
-                      ? theme.success
-                      : saveRecord.status === 'failed'
-                        ? theme.danger
-                        : theme.border,
-                },
-              ]}>
+              accessibilityLiveRegion={isFailed ? 'assertive' : 'polite'}
+              style={styles.outcome}>
               <View
-                testID={saveRecord.status === 'saved' ? 'scan.record-saved' : undefined}
-                style={styles.saveHeading}>
+                testID={isSaved ? 'scan.record-saved' : undefined}
+                style={styles.outcomeHeading}>
                 <Feather
-                  name={
-                    saveRecord.status === 'saved'
-                      ? 'check-circle'
-                      : saveRecord.status === 'failed'
-                        ? 'alert-triangle'
-                        : 'navigation'
-                  }
-                  size={22}
-                  color={
-                    saveRecord.status === 'saved'
-                      ? theme.success
-                      : saveRecord.status === 'failed'
-                        ? theme.danger
-                        : theme.primary
-                  }
+                  name={isSaved ? 'check-circle' : isFailed ? 'alert-triangle' : 'navigation'}
+                  size={20}
+                  color={isFailed ? theme.danger : isSaved ? theme.success : theme.primary}
                 />
-                <Text style={[styles.saveTitle, { color: theme.primaryDark }]}>
-                  {saveRecord.status === 'saved'
+                <Text
+                  style={[
+                    styles.outcomeTitle,
+                    { color: isFailed ? theme.danger : theme.primaryDark },
+                  ]}>
+                  {isSaved
                     ? 'Scan saved on this device'
-                    : saveRecord.status === 'failed'
+                    : isFailed
                       ? 'Choose another action'
                       : 'Choose what happens next'}
                 </Text>
               </View>
-              <Text style={[styles.saveMessage, { color: theme.textSecondary }]}>
-                {saveRecord.status === 'saved'
+              <Text style={[styles.outcomeMessage, { color: theme.textSecondary }]}>
+                {isSaved
                   ? 'This scan is saved on this device. Reporting it to the office is a separate choice.'
-                  : saveRecord.status === 'failed'
+                  : isFailed
                     ? saveRecord.errorMessage ?? 'The scan could not be saved on this device.'
                     : 'Report to Office saves this scan and opens a short Field Report Draft. Save Scan stores the scan on this device without sending a report.'}
               </Text>
-              <View style={styles.outcomeActions}>
-                <AppButton
-                  testID="scan.report-to-office"
-                  busy={saveRecord.status === 'saving' || openingReport}
-                  onPress={() => void reportToOffice()}
-                  disabled={saveRecord.status === 'saving' || openingReport}
-                  leadingIcon="send"
-                  accessibilityLabel={
-                    openingReport
-                      ? 'Opening Field Report'
-                      : saveRecord.status === 'failed'
-                        ? 'Retry and report this scan to the office'
-                        : 'Report this scan to the office'
-                  }>
-                  {openingReport
-                    ? 'Opening Field Report...'
-                    : saveRecord.status === 'saving'
-                      ? 'Saving scan...'
-                      : saveRecord.status === 'failed'
-                        ? 'Retry and Report to Office'
-                        : 'Report to Office'}
-                </AppButton>
-                <AppButton
-                  testID="scan.keep-as-scan-only"
-                  busy={saveRecord.status === 'saving'}
-                  onPress={keepAsScanOnly}
-                  disabled={saveRecord.status === 'saving'}
-                  leadingIcon={saveRecord.status === 'failed' ? 'refresh-cw' : 'save'}
-                  variant="secondary"
-                  accessibilityLabel={
-                    saveRecord.status === 'failed'
-                      ? 'Retry and save this scan on the device'
-                      : 'Save this scan on the device'
-                  }>
-                  {saveRecord.status === 'saving'
-                    ? 'Saving scan...'
-                    : saveRecord.status === 'failed'
-                      ? 'Retry and Save Scan'
-                      : 'Save Scan'}
-                </AppButton>
-                <AppButton
-                  testID="scan.new-scan"
-                  onPress={startNewScan}
-                  disabled={saveRecord.status === 'saving'}
-                  leadingIcon="refresh-cw"
-                  variant="secondary"
-                  accessibilityLabel="Scan again with a new image">
-                  Scan Again
-                </AppButton>
-                <DisclosureSection
-                  testID="scan.more-actions"
-                  title="More actions"
-                  summary={saveRecord.status === 'saved' && saveRecord.recordId ? '3 more actions' : '2 more actions'}>
-                  <AppButton
-                    testID="scan.view-disease-reference"
-                    onPress={() => router.push(`/field-guide/${result.predictedLabel}`)}
-                    leadingIcon="book-open"
-                    variant="secondary"
-                    accessibilityLabel="Open the field guide for this condition">
-                    Field Guide
-                  </AppButton>
-                  <AppButton
-                    testID="analysis-result.cancel"
-                    onPress={handleCancel}
-                    disabled={saveRecord.status === 'saving'}
-                    variant="secondary"
-                    leadingIcon="x"
-                    accessibilityLabel="Cancel scan and return home">
-                    Cancel Scan
-                  </AppButton>
-                  {saveRecord.status === 'saved' && saveRecord.recordId ? (
-                    <AppButton
-                      testID="scan.open-saved-record"
-                      onPress={() =>
-                        router.push({
-                          pathname: '/record-details',
-                          params: { id: saveRecord.recordId! },
-                        } as unknown as Href)
-                      }
-                      leadingIcon="folder"
-                      variant="text"
-                      accessibilityLabel="Open the saved local scan">
-                      Open Saved Scan
-                    </AppButton>
-                  ) : null}
-                </DisclosureSection>
-              </View>
             </View>
 
             <DisclosureSection testID="scan.why-this-result" title="Why this result?">
@@ -514,7 +396,6 @@ export default function AnalysisResultScreen() {
 
               <View
                 testID="scan.checklist-consistency"
-                accessibilityRole={consistency === 'inconsistent' ? 'alert' : undefined}
                 style={[
                   styles.consistencyCard,
                   {
@@ -541,9 +422,8 @@ export default function AnalysisResultScreen() {
                 </View>
               </View>
 
-              {state.qualityAssessment?.warnings.length ? (
+              {qualityWarnings.length ? (
                 <View
-                  accessibilityRole="alert"
                   style={[
                     styles.qualityCard,
                     {
@@ -559,7 +439,7 @@ export default function AnalysisResultScreen() {
                     <Text style={[styles.qualityIndependence, { color: theme.text }]}>
                       These warnings did not change the result.
                     </Text>
-                    {state.qualityAssessment.warnings.map((warning) => (
+                    {qualityWarnings.map((warning) => (
                       <View key={warning} style={styles.qualityWarning}>
                         <View
                           style={[
@@ -581,14 +461,103 @@ export default function AnalysisResultScreen() {
               ) : null}
             </DisclosureSection>
 
-            <View style={[styles.disclaimer, { backgroundColor: theme.infoBg, borderColor: theme.info }]}>
-              <Feather name="info" size={19} color={theme.info} />
-              <Text style={[styles.disclaimerText, { color: theme.text }]}>
-                {DECISION_SUPPORT_DISCLAIMER}
-              </Text>
-            </View>
+            <DisclosureSection
+              testID="scan.more-actions"
+              title="More actions"
+              summary={isSaved && saveRecord.recordId ? '3 more actions' : '2 more actions'}>
+              <AppButton
+                testID="scan.view-disease-reference"
+                onPress={() => router.push(`/field-guide/${result.predictedLabel}`)}
+                leadingIcon="book-open"
+                variant="secondary"
+                accessibilityLabel="Open the field guide for this condition">
+                Field Guide
+              </AppButton>
+              <AppButton
+                testID="analysis-result.cancel"
+                onPress={handleCancel}
+                disabled={isSaving}
+                variant="text"
+                leadingIcon="x"
+                accessibilityLabel="Cancel scan and return home">
+                Cancel Scan
+              </AppButton>
+              {isSaved && saveRecord.recordId ? (
+                <AppButton
+                  testID="scan.open-saved-record"
+                  onPress={() =>
+                    router.push({
+                      pathname: '/record-details',
+                      params: { id: saveRecord.recordId! },
+                    } as unknown as Href)
+                  }
+                  leadingIcon="folder"
+                  variant="text"
+                  accessibilityLabel="Open the saved local scan">
+                  Open Saved Scan
+                </AppButton>
+              ) : null}
+            </DisclosureSection>
+
+            <Text style={[styles.disclaimerText, { color: theme.textSecondary }]}>
+              {DECISION_SUPPORT_DISCLAIMER}
+            </Text>
           </View>
         </ScrollView>
+        <ActionDock
+          primary={
+            <AppButton
+              testID="scan.report-to-office"
+              busy={isSaving || openingReport}
+              onPress={() => void reportToOffice()}
+              disabled={isSaving || openingReport}
+              leadingIcon="send"
+              accessibilityLabel={
+                openingReport
+                  ? 'Opening Field Report'
+                  : isFailed
+                    ? 'Retry and report this scan to the office'
+                    : 'Report this scan to the office'
+              }>
+              {openingReport
+                ? 'Opening Field Report...'
+                : isSaving
+                  ? 'Saving scan...'
+                  : isFailed
+                    ? 'Retry and Report to Office'
+                    : 'Report to Office'}
+            </AppButton>
+          }
+          secondary={
+            <>
+              <AppButton
+                testID="scan.keep-as-scan-only"
+                busy={isSaving}
+                onPress={keepAsScanOnly}
+                disabled={isSaving}
+                leadingIcon={isFailed ? 'refresh-cw' : 'save'}
+                variant="secondary"
+                style={dockSecondaryButtonStyle}
+                accessibilityLabel={
+                  isFailed
+                    ? 'Retry and save this scan on the device'
+                    : 'Save this scan on the device'
+                }>
+                {isSaving ? 'Saving scan...' : isFailed ? 'Retry and Save Scan' : 'Save Scan'}
+              </AppButton>
+              <AppButton
+                testID="scan.new-scan"
+                onPress={startNewScan}
+                disabled={isSaving}
+                leadingIcon="refresh-cw"
+                variant="secondary"
+                style={dockSecondaryButtonStyle}
+                accessibilityLabel="Scan again with a new image">
+                Scan Again
+              </AppButton>
+            </>
+          }
+        />
         <ConfirmDialog
           visible={showCancelConfirm}
           title="Cancel scan?"
@@ -632,18 +601,17 @@ const styles = StyleSheet.create({
   safe: { flex: 1 }, root: { flex: 1 }, scrollContent: { alignItems: 'center' },
   content: { width: '100%', maxWidth: Layout.mobileMaxWidth, paddingHorizontal: ComponentTokens.screen.horizontalPadding, paddingVertical: Spacing.xl, gap: Spacing.lg },
   resultImage: { width: '100%', aspectRatio: 4 / 3, borderRadius: Radius.lg, borderWidth: 1 },
-  resultCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.xl, alignItems: 'stretch', gap: Spacing.md, ...Shadows.md },
-  diseasePill: { borderRadius: Radius.full, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, alignSelf: 'flex-start' }, diseasePillText: { ...Typography.caption, fontWeight: '800' },
-  diseaseName: { ...Typography.title, fontWeight: '800' },
-  resultMessage: { ...Typography.body, fontWeight: '700' },
+  resultBlock: { alignItems: 'stretch', gap: Spacing.sm },
+  diseaseName: { ...Typography.title },
+  resultMessage: { ...Typography.body, fontWeight: '500' },
   description: { ...Typography.bodySmall },
-  advisory: { ...Typography.bodySmall, fontWeight: '700' },
+  advisory: { ...Typography.body },
   sectionCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
   sectionTitle: { ...Typography.subheading },
   qualityCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
   qualityCopy: { flex: 1, gap: Spacing.sm },
   qualityTitle: { ...Typography.subheading },
-  qualityIndependence: { ...Typography.bodySmall, fontWeight: '700' },
+  qualityIndependence: { ...Typography.bodySmall, fontWeight: '500' },
   qualityWarning: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
   qualityBullet: { width: 6, height: 6, marginTop: 7, borderRadius: Radius.full },
   qualityWarningText: { ...Typography.caption, flex: 1 },
@@ -651,18 +619,15 @@ const styles = StyleSheet.create({
   consistencyCopy: { flex: 1, gap: Spacing.xs },
   consistencyTitle: { ...Typography.subheading },
   consistencyMessage: { ...Typography.bodySmall },
-  caution: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
-  cautionText: { ...Typography.caption, flex: 1 },
-  cautionCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
-  cautionCopy: { flex: 1, gap: Spacing.xs },
+  cautionCard: { borderRadius: Radius.lg, padding: Spacing.lg, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
+  cautionCopy: { flex: 1, gap: Spacing.sm },
   cautionTitle: { ...Typography.subheading },
-  cautionBody: { ...Typography.caption },
-  disclaimer: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm, flexDirection: 'row', alignItems: 'flex-start' }, disclaimerText: { ...Typography.caption, flex: 1, lineHeight: 18 },
-  saveCard: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
-  outcomeActions: { gap: Spacing.sm },
-  saveHeading: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  saveTitle: { ...Typography.subheading, flex: 1 },
-  saveMessage: { ...Typography.bodySmall },
+  cautionBody: { ...Typography.body },
+  disclaimerText: { ...Typography.bodySmall },
+  outcome: { gap: Spacing.xs },
+  outcomeHeading: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  outcomeTitle: { ...Typography.body, fontWeight: '500', flex: 1 },
+  outcomeMessage: { ...Typography.bodySmall },
   recoveryContent: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
   recoveryCard: { width: '100%', maxWidth: Layout.mobileMaxWidth, borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.xl, gap: Spacing.md, alignItems: 'center' },
   recoveryIcon: { width: 48, height: 48, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },

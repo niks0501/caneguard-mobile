@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
   mapAttribution: {
     position: 'absolute',
     zIndex: 5,
-    borderRadius: Radius.xs,
+    borderRadius: Radius.sm,
     paddingHorizontal: Spacing.xs,
     paddingVertical: Spacing.xs,
     opacity: 0.88,

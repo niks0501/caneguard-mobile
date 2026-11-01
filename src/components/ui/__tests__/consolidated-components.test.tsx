@@ -12,7 +12,7 @@ import { TextField } from '@/components/ui/TextField';
 
 describe('Consolidated UI components', () => {
   describe('Card', () => {
-    it('renders children with flat variant by default', async () => {
+    it('renders children by default', async () => {
       await render(
         <Card testID="test-card">
           <Text>Card Content</Text>

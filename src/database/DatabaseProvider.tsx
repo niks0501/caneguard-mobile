@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     borderWidth: 1,
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg,
     padding: Spacing['2xl'],
   },
   title: {

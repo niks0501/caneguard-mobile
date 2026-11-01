@@ -1,1 +1,1 @@
-export { Card, AppCard, type CardProps, type CardVariant } from '@/components/ui/Card';
+export { Card, AppCard, type CardProps } from '@/components/ui/Card';

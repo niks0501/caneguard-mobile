@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: Layout.mobileMaxWidth,
     borderWidth: 1,
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg,
     padding: Spacing.xl,
     gap: Spacing.md,
     alignItems: 'center',

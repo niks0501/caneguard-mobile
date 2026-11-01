@@ -136,15 +136,12 @@ export const Spacing = {
   '6xl': 64,
 } as const;
 
-// Three radii: sm (8), md (12), lg (16). `xs`/`xl` alias the nearest of the three
-// so existing call sites keep working; `full` is for circles and pills.
+// Three radii: sm (8), md (12), lg (16); `full` is for circles and pills.
 export const Radius = {
   none: 0,
-  xs: 8,
   sm: 8,
   md: 12,
   lg: 16,
-  xl: 16,
   full: 999,
 } as const;
 

@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
   uploadCard: {
     padding: Spacing.md,
     borderWidth: 1,
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg,
     ...Shadows.sm,
   },
   dropZone: {
@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
   },
   guide: {
     borderWidth: 1,
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg,
     padding: Spacing.lg,
     gap: Spacing.md,
     ...Shadows.sm,

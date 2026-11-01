@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
   quickCard: {
     minHeight: 78,
     borderWidth: 1,
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg,
     padding: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
   referenceHeading: { gap: Spacing.xs },
   referenceEntryCard: {
     borderWidth: 1,
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg,
     padding: Spacing.lg,
     gap: Spacing.sm,
     ...Shadows.sm,

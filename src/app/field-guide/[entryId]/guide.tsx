@@ -156,7 +156,6 @@ function GuideSection({
 
   return (
     <Card
-      variant="flat"
       testID={`field-guide.guide.${entryId}.section.${section.id}`}>
       <Text style={[styles.sectionHeading, { color: theme.primaryDark }]}>
         {`${index}. ${section.heading}`}

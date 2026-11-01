@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 1,
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg,
     padding: ComponentTokens.card.padding,
     gap: Spacing.md,
   },

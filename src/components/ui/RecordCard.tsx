@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.xs,
   },
-  activityTypeText: { ...Typography.caption, fontWeight: '800' },
+  activityTypeText: { ...Typography.label },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   copy: { flex: 1, gap: Spacing.xs },
-  result: { ...Typography.bodySmall, fontWeight: '800' },
+  result: { ...Typography.bodySmall, fontWeight: '500' },
   date: { ...Typography.caption },
   location: { ...Typography.caption },
   footer: {
@@ -253,14 +253,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.sm,
   },
-  confidence: { ...Typography.caption, fontWeight: '800' },
   status: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
     flexShrink: 1,
   },
-  statusText: { ...Typography.caption, fontWeight: '700', flexShrink: 1 },
+  statusText: { ...Typography.caption, fontWeight: '500', flexShrink: 1 },
   authorityStatus: {
     flexDirection: 'row',
     alignItems: 'center',

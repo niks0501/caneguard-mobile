@@ -178,7 +178,7 @@ export default function FieldGuideEntryScreen() {
               </View>
             </View>
 
-            <Card variant="flat">
+            <Card>
               <Text
                 style={[styles.sectionTitle, { color: theme.primaryDark }]}
                 testID={`field-guide.detail.${entry.id}.app-check`}>
@@ -196,7 +196,7 @@ export default function FieldGuideEntryScreen() {
               ) : null}
             </Card>
 
-            <Card variant="flat">
+            <Card>
               <Text
                 style={[styles.sectionLabel, { color: theme.textSecondary }]}
                 testID={`field-guide.detail.${entry.id}.signs`}>
@@ -223,7 +223,7 @@ export default function FieldGuideEntryScreen() {
               testID={`field-guide.detail.${entry.id}.impact`}
             />
 
-            <Card variant="flat">
+            <Card>
               <Text
                 style={[styles.sectionLabel, { color: theme.textSecondary }]}
                 testID={`field-guide.detail.${entry.id}.prevention`}>
@@ -239,7 +239,7 @@ export default function FieldGuideEntryScreen() {
               </View>
             </Card>
 
-            <Card variant="flat">
+            <Card>
               <Text
                 style={[styles.sectionLabel, { color: theme.textSecondary }]}
                 testID={`field-guide.detail.${entry.id}.management`}>
@@ -255,7 +255,7 @@ export default function FieldGuideEntryScreen() {
               </View>
             </Card>
 
-            <Card variant="flat">
+            <Card>
               <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
                 {FIELD_GUIDE_SECTION_DETAIL}
               </Text>
@@ -299,7 +299,7 @@ function ReadingBlock({ body, label, testID }: { body: string; label: string; te
   const theme = useTheme();
 
   return (
-    <Card variant="flat">
+    <Card>
       <Text style={[styles.sectionLabel, { color: theme.textSecondary }]} testID={testID}>
         {label}
       </Text>

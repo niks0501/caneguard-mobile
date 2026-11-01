@@ -11,11 +11,8 @@ import {
 import { ComponentTokens } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-export type CardVariant = 'flat' | 'elevated' | 'interactive';
-
 export type CardProps = {
   children: ReactNode;
-  variant?: CardVariant;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   testID?: string;
@@ -32,10 +29,8 @@ export function Card({
   onPress,
   style,
   testID,
-  variant = 'flat',
 }: CardProps) {
   const theme = useTheme();
-  const isInteractive = variant === 'interactive' || Boolean(onPress);
 
   const cardStyle = [
     styles.card,
@@ -46,7 +41,7 @@ export function Card({
     style,
   ];
 
-  if (isInteractive && onPress) {
+  if (onPress) {
     return (
       <Pressable
         accessibilityLabel={accessibilityLabel}

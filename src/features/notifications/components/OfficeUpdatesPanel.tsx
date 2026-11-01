@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   },
   scrim: { backgroundColor: 'rgba(16, 23, 17, 0.45)' },
   card: {
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg,
     borderWidth: 1,
     maxHeight: '72%',
     maxWidth: Layout.mobileMaxWidth,

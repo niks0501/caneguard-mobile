@@ -44,8 +44,7 @@ export function EmptyState({
         { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
         style,
       ]}
-      testID={testID}
-      variant="flat">
+      testID={testID}>
       <Feather name={icon} size={28} color={theme.primary} />
       <Text style={[styles.title, { color: theme.primaryDark }]}>{title}</Text>
       <Text style={[styles.message, { color: theme.textSecondary }]}>{message}</Text>

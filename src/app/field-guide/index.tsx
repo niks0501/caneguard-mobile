@@ -76,7 +76,7 @@ export default function FieldGuideIndexScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
           <View style={styles.content}>
-            <Card style={styles.introCard} variant="flat">
+            <Card style={styles.introCard}>
               <View style={styles.introHeading}>
                 <Feather name="book-open" size={20} color={theme.primary} />
                 <Text style={[styles.eyebrow, { color: theme.textSecondary }]}>
@@ -118,8 +118,7 @@ export default function FieldGuideIndexScreen() {
                         accessibilityLabel={`Open the ${entry.displayName} field guide entry`}
                         onPress={() => router.push(`/field-guide/${entry.id}`)}
                         style={styles.card}
-                        testID={`field-guide.entry.${entry.id}`}
-                        variant="interactive">
+                        testID={`field-guide.entry.${entry.id}`}>
                         <View style={styles.cardHeader}>
                           <Pill
                             label={entry.shortName}

@@ -12,7 +12,6 @@ never part of a release build. Native paths are unchanged.
 
 ```bash
 npm run web:validate               # dev server on :8199 with the stub API on :8210
-npm run web:validate -- --port 8230 --api-port 8231
 ```
 
 The script starts the deterministic stub API (`validation/stub-api`) and then

@@ -13,7 +13,7 @@ const {
   buildAssignments,
   resolveTodayKey,
 } = require('../../validation/stub-api/fixtures');
-const { buildWebValidationEnv, main, parseArgs } = require('../web-validate');
+const { buildWebValidationEnv, main } = require('../web-validate');
 
 /**
  * Jest's React Native environment installs Expo's native fetch, which has no
@@ -75,32 +75,6 @@ jest.mock('@/config/env', () => ({
 
 const TODAY = '2026-11-01';
 
-describe('parseArgs', () => {
-  it('defaults the dev server and the stub API apart', () => {
-    expect(parseArgs([])).toEqual({
-      apiPort: 8210,
-      host: '127.0.0.1',
-      port: 8199,
-    });
-  });
-
-  it('accepts explicit ports', () => {
-    expect(parseArgs(['--port', '8230', '--api-port', '8231'])).toMatchObject({
-      apiPort: 8231,
-      port: 8230,
-    });
-  });
-
-  it('rejects a non-numeric or out-of-range port', () => {
-    expect(() => parseArgs(['--port', 'web'])).toThrow(/integer port/);
-    expect(() => parseArgs(['--api-port', '0'])).toThrow(/integer port/);
-  });
-
-  it('rejects unknown options', () => {
-    expect(() => parseArgs(['--browser'])).toThrow(/Unknown option/);
-  });
-});
-
 describe('buildWebValidationEnv', () => {
   it('pins the stub API and the validation flag', () => {
     const env = buildWebValidationEnv({
@@ -141,7 +115,7 @@ describe('main', () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation();
 
     await expect(
-      main([], { CANEGUARD_WEB_VALIDATE_TODAY: '11/01/2026' }),
+      main({ CANEGUARD_WEB_VALIDATE_TODAY: '11/01/2026' }),
     ).resolves.toBe(2);
     expect(consoleError).toHaveBeenCalledWith(
       '[web:validate] CANEGUARD_WEB_VALIDATE_TODAY must be a YYYY-MM-DD date.',

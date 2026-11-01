@@ -3,8 +3,7 @@
 /**
  * One entry point for the browser validation route.
  *
- *   npm run web:validate               # stub API + dev server, defaults below
- *   npm run web:validate -- --port 8230
+ *   npm run web:validate               # stub API + dev server on :8210 and :8199
  *
  * It starts the deterministic stub API (`validation/stub-api`), then the Expo
  * web dev server with the validation flag, the stub as the API base URL, and the
@@ -35,33 +34,6 @@ const {
 const DEFAULT_WEB_PORT = 8199;
 const VALIDATION_FLAG = 'EXPO_PUBLIC_WEB_VALIDATION';
 
-function parsePort(value, flag) {
-  const port = Number(value);
-  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-    throw new Error(`${flag} needs an integer port between 1 and 65535.`);
-  }
-  return port;
-}
-
-function parseArgs(argv = []) {
-  const options = { apiPort: DEFAULT_STUB_API_PORT, host: DEFAULT_STUB_API_HOST, port: DEFAULT_WEB_PORT };
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === '--port') {
-      options.port = parsePort(argv[++index], '--port');
-    } else if (arg === '--api-port') {
-      options.apiPort = parsePort(argv[++index], '--api-port');
-    } else if (arg === '--help' || arg === '-h') {
-      options.help = true;
-    } else {
-      throw new Error(`Unknown option: ${arg}`);
-    }
-  }
-
-  return options;
-}
-
 /**
  * The app must talk to the stub, and the stand-in must be on. An externally set
  * `EXPO_PUBLIC_API_BASE_URL` is overridden on purpose: mixing a real API with
@@ -82,31 +54,18 @@ function resolveExpoCommand() {
   return fs.existsSync(localExpo) ? localExpo : null;
 }
 
-function printInstructions({ apiPort, port }) {
+function printInstructions() {
   console.log('');
-  console.log(`[web:validate] stub API       http://${DEFAULT_STUB_API_HOST}:${apiPort}`);
+  console.log(`[web:validate] stub API       http://${DEFAULT_STUB_API_HOST}:${DEFAULT_STUB_API_PORT}`);
   console.log(`[web:validate] fake account   ${FAKE_ACCOUNT.email} / ${FAKE_PASSWORD}`);
-  console.log(`[web:validate] open           http://${DEFAULT_STUB_API_HOST}:${port}/login`);
+  console.log(`[web:validate] open           http://${DEFAULT_STUB_API_HOST}:${DEFAULT_WEB_PORT}/login`);
   console.log('[web:validate] open /login, not / — the single-page manifest at / skips COOP/COEP.');
   console.log('[web:validate] one browser profile per origin; never a second tab on the same origin.');
   console.log('[web:validate] fake account, stub API and fake records only.');
   console.log('');
 }
 
-async function main(argv = process.argv.slice(2), baseEnv = process.env) {
-  let options;
-  try {
-    options = parseArgs(argv);
-  } catch (error) {
-    console.error(`[web:validate] ${error.message}`);
-    return 2;
-  }
-
-  if (options.help) {
-    console.log('Usage: npm run web:validate [-- --port 8199] [--api-port 8210]');
-    return 0;
-  }
-
+async function main(baseEnv = process.env) {
   let today;
   try {
     today = resolveTodayKey(baseEnv);
@@ -118,9 +77,9 @@ async function main(argv = process.argv.slice(2), baseEnv = process.env) {
   let stub;
   try {
     stub = await startStubServer({
-      host: options.host,
+      host: DEFAULT_STUB_API_HOST,
       log: (line) => console.log(`[web:validate] stub ${line}`),
-      port: options.apiPort,
+      port: DEFAULT_STUB_API_PORT,
       today,
     });
   } catch (error) {
@@ -136,10 +95,10 @@ async function main(argv = process.argv.slice(2), baseEnv = process.env) {
   const expoCli = resolveExpoCommand();
   const command = expoCli ?? (process.platform === 'win32' ? 'npx.cmd' : 'npx');
   const args = expoCli
-    ? ['start', '--web', '--port', String(options.port)]
-    : ['--no-install', 'expo', 'start', '--web', '--port', String(options.port)];
+    ? ['start', '--web', '--port', String(DEFAULT_WEB_PORT)]
+    : ['--no-install', 'expo', 'start', '--web', '--port', String(DEFAULT_WEB_PORT)];
 
-  printInstructions({ apiPort: options.apiPort, port: options.port });
+  printInstructions();
   console.log(`[web:validate] seeded visits: ${stub.visits
     .map((visit) => `${visit.reference_code} (${visit.case.barangay}, due ${visit.target_visit_date})`)
     .join(', ')}`);
@@ -182,6 +141,5 @@ if (require.main === module) {
 module.exports = {
   buildWebValidationEnv,
   main,
-  parseArgs,
   resolveExpoCommand,
 };

@@ -5,6 +5,8 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ActionDock } from '@/components/ui/ActionDock';
 import { AppButton } from '@/components/ui/AppButton';
 import { getResultLabel } from '@/components/ui/RecordCard';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
@@ -249,6 +252,9 @@ export default function FieldValidationScreen() {
             <AppButton onPress={() => void state.refresh()} leadingIcon="refresh-cw">Try Again</AppButton>
           </View>
         ) : state.assignment ? (
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'android' ? 'height' : 'padding'}
+            style={styles.root}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
             <View style={styles.content}>
               <VisitContext assignment={state.assignment} />
@@ -290,19 +296,26 @@ export default function FieldValidationScreen() {
                 previousVisitPhotoUrl={state.previousVisitPhotoUrl}
               />
               {state.completion ? null : (
-                <CompletionActions
-                  saving={state.saving}
-                  fieldError={fieldError ?? state.errorMessage}
-                  followUpOutcome={followUpOutcome}
-                  hasPhoto={photo !== null}
-                  targetVisitDate={state.assignment.targetVisitDate}
-                  onReview={reviewSubmit}
-                  onConfirm={() => void confirmSubmit()}
-                />
+                <Text style={[styles.help, { color: theme.textSecondary }]}>{CASE_CLOSE_NOTICE}</Text>
               )}
-              <Text style={[styles.disclaimer, { color: theme.textSecondary }]}>{DECISION_SUPPORT_DISCLAIMER} Location is added automatically when available and never blocks saving. A fresh field photo is recommended but optional.</Text>
+              <View style={styles.footnotes}>
+                <Text style={[styles.help, { color: theme.textSecondary }]}>{DECISION_SUPPORT_DISCLAIMER}</Text>
+                <Text style={[styles.help, { color: theme.textSecondary }]}>Location is added automatically when available and never blocks saving. A fresh field photo is recommended but optional.</Text>
+              </View>
             </View>
           </ScrollView>
+          {state.completion ? null : (
+            <CompletionActions
+              saving={state.saving}
+              fieldError={fieldError ?? state.errorMessage}
+              followUpOutcome={followUpOutcome}
+              hasPhoto={photo !== null}
+              targetVisitDate={state.assignment.targetVisitDate}
+              onReview={reviewSubmit}
+              onConfirm={() => void confirmSubmit()}
+            />
+          )}
+          </KeyboardAvoidingView>
         ) : null}
       </View>
     </SafeAreaView>
@@ -380,21 +393,29 @@ function CompletionActions({
   const theme = useTheme();
   const [showConfirm, setShowConfirm] = useState(false);
   return (
-    <View testID="field-validation.actions" style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
-      <Text style={[styles.help, { color: theme.textSecondary }]}>{CASE_CLOSE_NOTICE}</Text>
-      {fieldError ? <Text testID="field-validation.error" accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>{fieldError}</Text> : null}
-      <AppButton
-        testID="field-validation.complete"
-        busy={saving}
-        onPress={() => {
-          if (onReview()) {
-            setShowConfirm(true);
-          }
-        }}
-        disabled={saving}
-        leadingIcon="check-circle">
-        {saving ? 'Saving validation...' : 'Complete field validation'}
-      </AppButton>
+    <>
+      <ActionDock
+        testID="field-validation.actions"
+        note={
+          fieldError ? (
+            <Text testID="field-validation.error" accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>{fieldError}</Text>
+          ) : null
+        }
+        primary={
+          <AppButton
+            testID="field-validation.complete"
+            busy={saving}
+            onPress={() => {
+              if (onReview()) {
+                setShowConfirm(true);
+              }
+            }}
+            disabled={saving}
+            leadingIcon="check-circle">
+            {saving ? 'Saving validation...' : 'Complete field validation'}
+          </AppButton>
+        }
+      />
       <ConfirmDialog
         visible={showConfirm}
         title="Complete this visit?"
@@ -410,7 +431,7 @@ function CompletionActions({
         }}
         onCancel={() => setShowConfirm(false)}
       />
-    </View>
+    </>
   );
 }
 
@@ -530,7 +551,7 @@ const styles = StyleSheet.create({
   heading: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   title: { ...Typography.subheading, fontWeight: '800' },
   help: { ...Typography.bodySmall },
-  disclaimer: { ...Typography.caption },
+  footnotes: { gap: Spacing.sm },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.md },
   rowLabel: { ...Typography.caption, flexShrink: 0 },
   rowValue: { ...Typography.bodySmall, fontWeight: '700', textAlign: 'right', flex: 1 },

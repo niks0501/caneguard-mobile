@@ -18,6 +18,7 @@ import {
 import Animated, { SlideInLeft, SlideInRight } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ActionDock, dockSecondaryButtonStyle } from '@/components/ui/ActionDock';
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -1050,6 +1051,11 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       ? user.name
       : report.data?.submitterIdentity ?? null;
 
+  const showRetrySync =
+    report.data?.authoringState === 'finalized' &&
+    (report.data.syncStatus === 'pending' ||
+      (report.data.syncStatus === 'failed' && syncAttention?.action !== 'support'));
+
   return (
     <SafeAreaView
       testID="field-report.screen"
@@ -1144,40 +1150,6 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                         onShare={() => void shareSupportReference(report.data!)}
                       />
                     ) : null}
-
-                    {report.data.syncStatus === 'pending' ||
-                    (report.data.syncStatus === 'failed' &&
-                      syncAttention?.action !== 'support') ? (
-                      <AppButton
-                        testID="field-report.retry-sync"
-                        onPress={() => void retrySync()}
-                        busy={retrying}
-                        disabled={
-                          retrying || sync.isSyncing || sync.isOnline !== true
-                        }
-                        leadingIcon="refresh-cw"
-                        accessibilityLabel={
-                          retrying
-                            ? 'Trying to send the Field Report again'
-                            : syncAttention?.action === 'automatic-retry'
-                              ? 'Try sending this Field Report again'
-                              : 'Send Field Report'
-                        }>
-                        {retrying
-                          ? 'Sending…'
-                          : syncAttention?.action === 'automatic-retry'
-                            ? 'Try Sending Again'
-                            : 'Send Report'}
-                      </AppButton>
-                    ) : null}
-
-                    <AppButton
-                      testID="field-report.return-home"
-                      onPress={handleFinalizedBack}
-                      variant="secondary"
-                      leadingIcon="home">
-                      Return Home
-                    </AppButton>
 
                     <InheritedScanEvidence
                       record={record.data}
@@ -1516,71 +1488,15 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                       )}
                     </Animated.View>
 
-                    {/* Step Navigation Controls */}
-                    <View style={styles.wizardNav}>
-                      <View style={styles.wizardNavRow}>
-                        {currentStep > 1 ? (
-                          <AppButton
-                            testID="field-report.wizard-prev"
-                            onPress={() => goToStep(currentStep - 1)}
-                            variant="secondary"
-                            leadingIcon="arrow-left"
-                            style={styles.wizardNavButton}
-                            accessibilityLabel={`Go back to step ${currentStep - 1}`}>
-                            Previous
-                          </AppButton>
-                        ) : null}
-                        {currentStep < 5 ? (
-                          <AppButton
-                            testID="field-report.wizard-next"
-                            onPress={() => goToStep(currentStep + 1)}
-                            trailingIcon="arrow-right"
-                            style={styles.wizardNavButton}
-                            accessibilityLabel={`Go to step ${currentStep + 1}`}>
-                            Next
-                          </AppButton>
-                        ) : (
-                          <AppButton
-                            testID="field-report.finalize"
-                            busy={report.finalizing}
-                            onPress={handleFinalize}
-                            disabled={report.saving || report.capturingLocation || report.finalizing}
-                            leadingIcon="check-circle"
-                            style={styles.wizardNavButton}
-                            accessibilityLabel={
-                              report.finalizing ? 'Finalizing Field Report' : 'Finalize Field Report'
-                            }>
-                            {report.finalizing ? 'Finalizing Report…' : 'Finalize Report'}
-                          </AppButton>
-                        )}
-                      </View>
-
-                      <AppButton
-                        testID="field-report.save-draft"
-                        busy={report.saving}
-                        onPress={handleSave}
-                        variant="secondary"
-                        disabled={report.saving || report.finalizing}
-                        leadingIcon="save"
-                        accessibilityLabel={
-                          report.finalizing
-                            ? 'Save Field Report draft unavailable while finalizing'
-                            : report.saving
-                              ? 'Saving Field Report draft'
-                              : 'Save Field Report draft'
-                        }>
-                        {report.saving ? 'Saving Draft...' : 'Save Draft'}
-                      </AppButton>
-
-                      <AppButton
-                        testID="field-report.cancel"
-                        onPress={handleCancel}
-                        variant="secondary"
-                        leadingIcon="x"
-                        accessibilityLabel="Cancel field report and return home">
-                        Cancel Report
-                      </AppButton>
-                    </View>
+                    {/* Step navigation and Save Draft are docked below the scroll area. */}
+                    <AppButton
+                      testID="field-report.cancel"
+                      onPress={handleCancel}
+                      variant="text"
+                      leadingIcon="x"
+                      accessibilityLabel="Cancel field report and return home">
+                      Cancel Report
+                    </AppButton>
                   </>
                 )}
 
@@ -1635,6 +1551,112 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
               </View>
               </HelpHintGroup>
             </ScrollView>
+            {report.data.authoringState === 'finalized' ? (
+              <ActionDock
+                primary={
+                  showRetrySync ? (
+                    <AppButton
+                      testID="field-report.retry-sync"
+                      onPress={() => void retrySync()}
+                      busy={retrying}
+                      disabled={
+                        retrying || sync.isSyncing || sync.isOnline !== true
+                      }
+                      leadingIcon="refresh-cw"
+                      accessibilityLabel={
+                        retrying
+                          ? 'Trying to send the Field Report again'
+                          : syncAttention?.action === 'automatic-retry'
+                            ? 'Try sending this Field Report again'
+                            : 'Send Field Report'
+                      }>
+                      {retrying
+                        ? 'Sending…'
+                        : syncAttention?.action === 'automatic-retry'
+                          ? 'Try Sending Again'
+                          : 'Send Report'}
+                    </AppButton>
+                  ) : (
+                    <AppButton
+                      testID="field-report.return-home"
+                      onPress={handleFinalizedBack}
+                      leadingIcon="home">
+                      Return Home
+                    </AppButton>
+                  )
+                }
+                secondary={
+                  showRetrySync ? (
+                    <AppButton
+                      testID="field-report.return-home"
+                      onPress={handleFinalizedBack}
+                      variant="secondary"
+                      style={dockSecondaryButtonStyle}
+                      leadingIcon="home">
+                      Return Home
+                    </AppButton>
+                  ) : null
+                }
+              />
+            ) : (
+              <ActionDock
+                primary={
+                  currentStep < 5 ? (
+                    <AppButton
+                      testID="field-report.wizard-next"
+                      onPress={() => goToStep(currentStep + 1)}
+                      trailingIcon="arrow-right"
+                      accessibilityLabel={`Go to step ${currentStep + 1}`}>
+                      Next
+                    </AppButton>
+                  ) : (
+                    <AppButton
+                      testID="field-report.finalize"
+                      busy={report.finalizing}
+                      onPress={handleFinalize}
+                      disabled={report.saving || report.capturingLocation || report.finalizing}
+                      leadingIcon="check-circle"
+                      accessibilityLabel={
+                        report.finalizing ? 'Finalizing Field Report' : 'Finalize Field Report'
+                      }>
+                      {report.finalizing ? 'Finalizing Report…' : 'Finalize Report'}
+                    </AppButton>
+                  )
+                }
+                secondary={
+                  <>
+                    {currentStep > 1 ? (
+                      <AppButton
+                        testID="field-report.wizard-prev"
+                        onPress={() => goToStep(currentStep - 1)}
+                        variant="secondary"
+                        leadingIcon="arrow-left"
+                        style={dockSecondaryButtonStyle}
+                        accessibilityLabel={`Go back to step ${currentStep - 1}`}>
+                        Previous
+                      </AppButton>
+                    ) : null}
+                    <AppButton
+                      testID="field-report.save-draft"
+                      busy={report.saving}
+                      onPress={handleSave}
+                      variant="secondary"
+                      style={dockSecondaryButtonStyle}
+                      disabled={report.saving || report.finalizing}
+                      leadingIcon="save"
+                      accessibilityLabel={
+                        report.finalizing
+                          ? 'Save Field Report draft unavailable while finalizing'
+                          : report.saving
+                            ? 'Saving Field Report draft'
+                            : 'Save Field Report draft'
+                      }>
+                      {report.saving ? 'Saving Draft...' : 'Save Draft'}
+                    </AppButton>
+                  </>
+                }
+              />
+            )}
           </KeyboardAvoidingView>
         ) : null}
         <ConfirmDialog

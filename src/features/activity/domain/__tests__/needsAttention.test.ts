@@ -172,12 +172,12 @@ describe('buildNeedsAttention', () => {
     expect(build({ pendingUploadCount: 0, syncErrorMessage: 'failed' }).total).toBe(0);
 
     const failed = build({ pendingUploadCount: 1, syncErrorMessage: 'Server unreachable' });
-    expect(failed.items[0].meta).toBe('Upload problem');
+    expect(failed.items[0].meta).toBe('Could not send');
     expect(failed.items[0].message).toBe('Server unreachable');
 
     const pending = build({ pendingUploadCount: 3, syncErrorMessage: null });
-    expect(pending.items[0].title).toBe('3 reports need synchronization');
-    expect(pending.items[0].meta).toBe('Waiting to upload');
+    expect(pending.items[0].title).toBe('3 reports waiting to send');
+    expect(pending.items[0].meta).toBe('Waiting to send');
 
     const visitsOnly = build({
       pendingUploadCount: 1,
@@ -185,7 +185,7 @@ describe('buildNeedsAttention', () => {
       pendingCompletionsCount: 1,
       syncErrorMessage: null,
     });
-    expect(visitsOnly.items[0].title).toBe('1 field visit needs synchronization');
+    expect(visitsOnly.items[0].title).toBe('1 field visit waiting to send');
 
     const mixed = build({
       pendingUploadCount: 2,
@@ -193,7 +193,7 @@ describe('buildNeedsAttention', () => {
       pendingCompletionsCount: 1,
       syncErrorMessage: null,
     });
-    expect(mixed.items[0].title).toBe('2 items need synchronization');
+    expect(mixed.items[0].title).toBe('2 items waiting to send');
   });
 
   it('reports every item while exposing how many rows collapse', () => {

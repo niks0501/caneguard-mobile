@@ -7,7 +7,9 @@ import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useSync } from '@/features/sync/hooks/useSync';
 import {
   getConnectionLabel,
+  getConnectionTone,
   isServerUnavailable,
+  SYNC_TONE_COLOR,
 } from '@/features/sync/utils/syncStatusCopy';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -43,13 +45,16 @@ export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } 
       : sync.isOnline === null
         ? 'wifi'
         : 'wifi-off';
-  const iconColor = apiUnavailable
-    ? theme.danger
-    : sync.isOnline === true
-      ? theme.success
-      : sync.isOnline === null
-        ? theme.info
-        : theme.warning;
+  // Offline, checking and online are ordinary: ink. Unreachable office is a Note.
+  const iconColor =
+    theme[
+      SYNC_TONE_COLOR[
+        getConnectionTone({
+          apiReachability: sync.apiReachability,
+          isOnline: sync.isOnline,
+        })
+      ]
+    ];
 
   return (
     <View
@@ -117,8 +122,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   copy: { flex: 1, gap: Spacing.xs },
-  title: { ...Typography.bodySmall, fontWeight: '800' },
+  title: { ...Typography.bodySmall, fontWeight: '500' },
   summary: { ...Typography.caption },
   detail: { ...Typography.caption },
-  error: { ...Typography.caption, fontWeight: '700' },
+  error: { ...Typography.caption, fontWeight: '500' },
 });

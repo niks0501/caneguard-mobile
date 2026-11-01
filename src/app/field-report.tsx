@@ -23,6 +23,7 @@ import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { HelpHintGroup } from '@/components/ui/HelpHint';
+import { Notice } from '@/components/ui/Notice';
 import { getResultLabel, getSyncPresentation } from '@/components/ui/RecordCard';
 import { Row } from '@/components/ui/Row';
 import { TextField } from '@/components/ui/TextField';
@@ -1099,26 +1100,10 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
               contentContainerStyle={styles.scrollContent}>
               <HelpHintGroup>
               <View style={styles.content}>
-                <View
+                {/* A draft or finalized report is a normal state: plain ink, no box. */}
+                <Notice
                   testID="field-report.authoring-status"
-                  style={[
-                    styles.statusCard,
-                    {
-                      backgroundColor:
-                        report.data.authoringState === 'finalized'
-                          ? theme.successBg
-                          : theme.warningBg,
-                      borderColor:
-                        report.data.authoringState === 'finalized'
-                          ? theme.success
-                          : theme.warning,
-                    },
-                  ]}>
-                  <Feather
-                    name={report.data.authoringState === 'finalized' ? 'check-circle' : 'edit-3'}
-                    size={20}
-                    color={report.data.authoringState === 'finalized' ? theme.success : theme.warning}
-                  />
+                  icon={report.data.authoringState === 'finalized' ? 'check-circle' : 'edit-3'}>
                   <View style={styles.statusCopy}>
                     <Text style={[styles.statusTitle, { color: theme.text }]}>
                       {report.data.authoringState === 'finalized'
@@ -1131,7 +1116,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                         : 'Save incomplete information now and return later. Drafts are saved only on this device and are not sent.'}
                     </Text>
                   </View>
-                </View>
+                </Notice>
 
                 {report.data.authoringState === 'draft' ? (
                   <Text
@@ -3081,14 +3066,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: ComponentTokens.screen.horizontalPadding,
     paddingVertical: Spacing.xl,
     gap: Spacing.lg,
-  },
-  statusCard: {
-    borderWidth: 1,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.md,
   },
   statusCopy: { flex: 1, gap: Spacing.xs },
   statusTitle: { ...Typography.subheading, fontWeight: '800' },

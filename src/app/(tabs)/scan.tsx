@@ -9,7 +9,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { DECISION_SUPPORT_DISCLAIMER } from '@/constants/copy';
 import { ComponentTokens, Layout, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
 import { useScanSession } from '@/features/detection/context/useScanSession';
@@ -455,17 +454,6 @@ export default function ScanScreen() {
                 </View>
               ))}
             </View>
-
-            <View
-              style={[
-                styles.disclaimer,
-                { backgroundColor: theme.warningBg, borderColor: theme.accent },
-              ]}>
-              <Feather name="info" size={18} color={theme.guideIcon} />
-              <Text style={[styles.disclaimerText, { color: theme.text }]}>
-                {DECISION_SUPPORT_DISCLAIMER}
-              </Text>
-            </View>
           </View>
         </ScrollView>
         <ConfirmDialog
@@ -617,18 +605,5 @@ const styles = StyleSheet.create({
   guideText: {
     ...Typography.bodySmall,
     flex: 1,
-  },
-  disclaimer: {
-    borderWidth: 1,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    alignItems: 'flex-start',
-  },
-  disclaimerText: {
-    ...Typography.caption,
-    flex: 1,
-    lineHeight: 18,
   },
 });

@@ -5,10 +5,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card } from '@/components/ui/Card';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import {
+  getAttentionTone,
   HOME_ATTENTION_ROW_LIMIT,
   type NeedsAttentionItem,
   type NeedsAttentionKind,
 } from '@/features/activity/domain/needsAttention';
+import { SYNC_TONE_COLOR } from '@/features/sync/utils/syncStatusCopy';
 import { useTheme } from '@/hooks/use-theme';
 
 const KIND_ICONS: Record<NeedsAttentionKind, keyof typeof Feather.glyphMap> = {
@@ -135,7 +137,7 @@ const AttentionRow = memo(function AttentionRow({
         <Text numberOfLines={2} style={[styles.itemMessage, { color: theme.textSecondary }]}>
           {item.message}
         </Text>
-        <Text style={[styles.itemMeta, { color: theme.warning }]}>{item.meta}</Text>
+        <Text style={[styles.itemMeta, { color: theme[SYNC_TONE_COLOR[getAttentionTone(item)]] }]}>{item.meta}</Text>
       </View>
       {actionable ? (
         <Feather name="chevron-right" size={18} color={theme.textSecondary} />
@@ -174,7 +176,7 @@ const styles = StyleSheet.create({
   copy: { flex: 1, gap: Spacing.xs },
   itemTitle: { ...Typography.bodySmall, fontWeight: '800' },
   itemMessage: { ...Typography.caption },
-  itemMeta: { ...Typography.caption, fontWeight: '700' },
+  itemMeta: { ...Typography.caption, fontWeight: '500' },
   more: {
     minHeight: 44,
     flexDirection: 'row',

@@ -12,13 +12,20 @@ export const LOCATION_ADDED = 'Location added';
 
 export const LOCATION_CLOSER_READING_ACTION = 'Try for a closer reading';
 
-/** Accuracy at or below this many meters needs no closer-reading offer. */
-export const LOCATION_CLOSE_READING_METERS = 5;
+function formatSavedAccuracy(accuracyMeters: number): string {
+  return `about ±${Math.max(1, Math.round(accuracyMeters))} m`;
+}
 
 export function locationAddedWithAccuracy(accuracyMeters: number | null): string {
   return accuracyMeters === null
     ? LOCATION_ADDED
-    : `${LOCATION_ADDED} · about ±${Math.max(1, Math.round(accuracyMeters))} m`;
+    : `${LOCATION_ADDED} · ${formatSavedAccuracy(accuracyMeters)}`;
+}
+
+export function locationKeptAfterRetry(accuracyMeters: number | null): string {
+  return accuracyMeters === null
+    ? 'Could not get a new reading. Your saved location is kept.'
+    : `Could not get a new reading. Your saved location is kept · ${formatSavedAccuracy(accuracyMeters)}.`;
 }
 
 export const LOCATION_UNCONFIRMED = 'Location could not be confirmed';

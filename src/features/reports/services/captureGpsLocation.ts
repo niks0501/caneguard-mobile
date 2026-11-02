@@ -2,9 +2,6 @@ import type { GpsCaptureUnavailableReason } from '@/features/reports/domain/fiel
 
 export const PREFERRED_GPS_ACCURACY_METERS = 5;
 
-/** Upper bound on readings taken inside one bounded capture. */
-export const MAX_GPS_SAMPLES = 5;
-
 /**
  * Bound for one foreground capture. A native promise that never settles must
  * not keep the report, the draft save, or the validation visit waiting.
@@ -68,11 +65,7 @@ export async function captureGpsLocation(
     } finally {
       best.closed = true;
     }
-    if (!isCoordinate(position.latitude, -90, 90) ||
-        !isCoordinate(position.longitude, -180, 180) ||
-        position.accuracy === null ||
-        !Number.isFinite(position.accuracy) ||
-        position.accuracy < 0) {
+    if (!isUsableReading(position)) {
       return {
         capturedAt: attemptedAt,
         outcome: 'unavailable',
@@ -120,11 +113,12 @@ export async function captureGpsLocation(
 }
 
 type ForegroundPosition = Awaited<ReturnType<ForegroundLocationClient['getCurrentPosition']>>;
+type UsablePosition = ForegroundPosition & { accuracy: number };
 
 interface BestReading {
   /** Set once the bounded capture ended so abandoned sampling stops. */
   closed: boolean;
-  position: ForegroundPosition | null;
+  position: UsablePosition | null;
 }
 
 /**
@@ -143,7 +137,7 @@ async function sampleBestPosition(
   if (!(await client.hasServicesEnabled())) {
     throw new GpsServicesDisabledError();
   }
-  for (let sample = 0; sample < MAX_GPS_SAMPLES && !best.closed; sample += 1) {
+  while (!best.closed) {
     let position: ForegroundPosition;
     try {
       position = await client.getCurrentPosition();
@@ -159,17 +153,17 @@ async function sampleBestPosition(
       }
       return position;
     }
-    if (!best.position || position.accuracy! < best.position.accuracy!) {
+    if (!best.position || position.accuracy < best.position.accuracy) {
       best.position = position;
     }
-    if (position.accuracy! <= PREFERRED_GPS_ACCURACY_METERS) {
+    if (position.accuracy <= PREFERRED_GPS_ACCURACY_METERS) {
       break;
     }
   }
   return best.position as ForegroundPosition;
 }
 
-function isUsableReading(position: ForegroundPosition): boolean {
+function isUsableReading(position: ForegroundPosition): position is UsablePosition {
   return (
     isCoordinate(position.latitude, -90, 90) &&
     isCoordinate(position.longitude, -180, 180) &&

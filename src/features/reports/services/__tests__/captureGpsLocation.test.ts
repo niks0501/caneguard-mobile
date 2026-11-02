@@ -23,6 +23,10 @@ function client(
 }
 
 describe('captureGpsLocation', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('resolves a one-shot reading at the preferred quality target', async () => {
     const locationClient = client();
 
@@ -37,16 +41,23 @@ describe('captureGpsLocation', () => {
   });
 
   it('returns a poor reading as attempt evidence instead of resolved GPS', async () => {
-    const locationClient = client({
-      getCurrentPosition: jest.fn(async () => ({
+    jest.useFakeTimers();
+    const getCurrentPosition = jest.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      return {
         accuracy: 42,
         latitude: 14.0667,
         longitude: 120.6319,
         timestamp: NOW.getTime(),
-      })),
+      };
     });
 
-    await expect(captureGpsLocation(locationClient, () => NOW)).resolves.toMatchObject({
+    const pending = captureGpsLocation(client({ getCurrentPosition }), () => NOW, {
+      timeoutMs: 1_000,
+    });
+    await jest.advanceTimersByTimeAsync(1_000);
+
+    await expect(pending).resolves.toMatchObject({
       accuracy: 42,
       outcome: 'low_accuracy',
     });
@@ -67,8 +78,8 @@ describe('captureGpsLocation', () => {
     expect(getCurrentPosition).toHaveBeenCalledTimes(3);
   });
 
-  it('returns the best low-accuracy reading after the sample budget', async () => {
-    const accuracies = [30, 12, 18, 25, 40, 2];
+  it('keeps sampling past five readings to reach the preferred accuracy within the bound', async () => {
+    const accuracies = [30, 30, 30, 30, 30, 4];
     const getCurrentPosition = jest.fn(async () => ({
       accuracy: accuracies.shift() as number,
       latitude: 14.0667,
@@ -78,8 +89,8 @@ describe('captureGpsLocation', () => {
 
     await expect(
       captureGpsLocation(client({ getCurrentPosition }), () => NOW),
-    ).resolves.toMatchObject({ accuracy: 12, outcome: 'low_accuracy' });
-    expect(getCurrentPosition).toHaveBeenCalledTimes(5);
+    ).resolves.toMatchObject({ accuracy: 4, outcome: 'resolved' });
+    expect(getCurrentPosition).toHaveBeenCalledTimes(6);
   });
 
   it('returns the best reading kept when the 15 second bound elapses', async () => {
@@ -158,10 +169,6 @@ describe('captureGpsLocation', () => {
   });
 
   describe('bounded foreground attempts', () => {
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
     it('exits Adding location when the native reading never settles', async () => {
       jest.useFakeTimers();
       const locationClient = client({

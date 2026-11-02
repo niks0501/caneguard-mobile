@@ -39,9 +39,9 @@ import {
 import {
   LOCATION_ADDED,
   LOCATION_CLOSER_READING_ACTION,
-  LOCATION_CLOSE_READING_METERS,
   LOCATION_UNCONFIRMED,
   locationAddedWithAccuracy,
+  locationKeptAfterRetry,
 } from '@/constants/copy';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
@@ -65,6 +65,7 @@ import {
   getMissingSubmissionRequirements,
 } from '@/features/reports/domain/fieldReportValidation';
 import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
+import { PREFERRED_GPS_ACCURACY_METERS } from '@/features/reports/services/captureGpsLocation';
 import {
   deleteFieldReportFormCheckpoint,
   readFieldReportFormCheckpoint,
@@ -908,11 +909,24 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       return;
     }
     if (res.gpsCaptureOutcome === 'resolved') {
-      showToast(LOCATION_ADDED, 'success');
+      showToast(locationAddedWithAccuracy(res.gpsAccuracy), 'success');
       return;
     }
     if (res.gpsCaptureOutcome === 'low_accuracy' && hasSavedGpsCoordinates(res)) {
       showToast(locationAddedWithAccuracy(res.gpsAccuracy), 'success');
+      return;
+    }
+    if (
+      res.finalLatitude !== null &&
+      res.finalLongitude !== null &&
+      (res.locationSource === 'gps' || res.locationSource === 'manual_map')
+    ) {
+      showToast(
+        locationKeptAfterRetry(
+          res.locationSource === 'gps' ? res.gpsAccuracy : null,
+        ),
+        'info',
+      );
       return;
     }
     if (res.locationSource === 'unavailable') {
@@ -2579,7 +2593,7 @@ function needsCloserReading(fieldReport: FieldReport): boolean {
   return (
     hasSavedGpsCoordinates(fieldReport) &&
     fieldReport.gpsAccuracy !== null &&
-    fieldReport.gpsAccuracy > LOCATION_CLOSE_READING_METERS
+    fieldReport.gpsAccuracy > PREFERRED_GPS_ACCURACY_METERS
   );
 }
 

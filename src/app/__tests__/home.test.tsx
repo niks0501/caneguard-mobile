@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { StyleSheet } from 'react-native';
 
@@ -9,6 +9,7 @@ import { OFFICE_UPDATES_PILL_CLEARANCE } from '@/features/notifications/componen
 import type { NeedsAttentionItem } from '@/features/activity/domain/needsAttention';
 
 let mockIsOnline: boolean | null = true;
+let mockUserName: string | null = 'Ari Santos';
 let mockApiReachability: 'unknown' | 'available' | 'unavailable' = 'unknown';
 let mockSessionVerification: 'idle' | 'pending' | 'verified' | 'unavailable' = 'idle';
 let mockAttentionItems: NeedsAttentionItem[] = [];
@@ -40,7 +41,9 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
     sessionVerification: mockSessionVerification,
     user: {
       email: 'ari@example.test',
-      name: 'Ari Santos',
+      get name() {
+        return mockUserName;
+      },
       role: 'field_reporter',
       uuid: 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
     },
@@ -76,6 +79,7 @@ describe('HomeScreen', () => {
     jest.clearAllMocks();
     mockApiReachability = 'unknown';
     mockIsOnline = true;
+    mockUserName = 'Ari Santos';
     mockSessionVerification = 'idle';
     mockAttentionItems = [];
     mockPendingCount = 1;
@@ -143,19 +147,213 @@ describe('HomeScreen', () => {
     expect(mockRouterPush).toHaveBeenCalledWith('/activity');
   });
 
-  it('keeps Measure a plot and the Field guide as quiet links', async () => {
+  it('shows Measure a plot and the Field guide as tool tiles', async () => {
     await render(<HomeScreen />);
 
     expect(screen.getByText('Measure a plot')).toBeOnTheScreen();
     expect(screen.getByText('Field guide')).toBeOnTheScreen();
     expect(screen.queryByText('FIELD GUIDE')).not.toBeOnTheScreen();
-    expect(screen.queryByText('Rust')).not.toBeOnTheScreen();
 
     await fireEvent.press(screen.getByTestId('home.field-survey'));
     expect(mockRouterPush).toHaveBeenCalledWith('/field-survey');
 
     await fireEvent.press(screen.getByTestId('home.disease-reference'));
     expect(mockRouterPush).toHaveBeenCalledWith('/field-guide');
+  });
+
+  it('adds a header band, an offline chip only while offline, and a Start a scan tile under a visit button', async () => {
+    mockAttentionItems = [
+      {
+        id: 'assignment-1',
+        kind: 'assignment',
+        bucket: 'overdue',
+        title: 'Field validation',
+        message: 'Visit',
+        meta: 'Overdue',
+        destination: { kind: 'assignment', assignmentId: 'a1' },
+      } as NeedsAttentionItem,
+    ];
+    const view = await render(<HomeScreen />);
+
+    expect(screen.getByTestId('home.greeting')).toHaveTextContent(/^Good (morning|afternoon|evening), Ari$/);
+    expect(screen.queryByTestId('home.offline-chip')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('home.glance.overdue')).toHaveTextContent('1Overdue');
+    expect(screen.getByTestId('home.glance.waiting')).toHaveTextContent('1Waiting to send');
+    expect(screen.getByTestId('home.start-scan')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('home.glance.waiting'));
+    expect(mockRouterPush).toHaveBeenCalledWith('/activity');
+
+    mockIsOnline = false;
+    await view.rerender(<HomeScreen />);
+    expect(screen.getByTestId('home.offline-chip')).toBeOnTheScreen();
+  });
+
+  it('hides the glance strip and the scan tile when there is nothing to show', async () => {
+    mockPendingCount = 0;
+    await render(<HomeScreen />);
+
+    expect(screen.queryByTestId('home.glance')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('home.start-scan')).not.toBeOnTheScreen();
+  });
+
+  it('keeps the header on the current clock as the hour turns over', async () => {
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date(2026, 10, 2, 9, 0));
+      await render(<HomeScreen />);
+
+      expect(screen.getByTestId('home.date')).toHaveTextContent('Monday 2 November');
+      expect(screen.getByTestId('home.greeting')).toHaveTextContent('Good morning, Ari');
+
+      for (let hour = 0; hour < 3; hour += 1) {
+        await act(async () => {
+          jest.advanceTimersByTime(60 * 60 * 1000);
+        });
+      }
+
+      expect(screen.getByTestId('home.date')).toHaveTextContent('Monday 2 November');
+      expect(screen.getByTestId('home.greeting')).toHaveTextContent('Good afternoon, Ari');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('moves the greeting and date on through the evening and past midnight', async () => {
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date(2026, 10, 2, 9, 0));
+      await render(<HomeScreen />);
+
+      expect(screen.getByTestId('home.greeting')).toHaveTextContent('Good morning, Ari');
+      expect(screen.getByTestId('home.date')).toHaveTextContent('Monday 2 November');
+
+      // Nine hourly ticks: 12:00 (afternoon), 18:00 (evening), 00:00 (new day).
+      for (let step = 0; step < 9; step += 1) {
+        await act(async () => {
+          jest.advanceTimersByTime(60 * 60 * 1000);
+        });
+      }
+
+      expect(screen.getByTestId('home.greeting')).toHaveTextContent('Good evening, Ari');
+      expect(screen.getByTestId('home.date')).toHaveTextContent('Monday 2 November');
+
+      for (let step = 0; step < 6; step += 1) {
+        await act(async () => {
+          jest.advanceTimersByTime(60 * 60 * 1000);
+        });
+      }
+
+      expect(screen.getByTestId('home.greeting')).toHaveTextContent('Good morning, Ari');
+      expect(screen.getByTestId('home.date')).toHaveTextContent('Tuesday 3 November');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('greets without a name when the profile has none', async () => {
+    mockUserName = null;
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date(2026, 10, 2, 14, 0));
+      await render(<HomeScreen />);
+
+      expect(screen.getByTestId('home.greeting')).toHaveTextContent(/^Good afternoon$/);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('opens Visits from the today and overdue cells', async () => {
+    mockAttentionItems = [
+      visitItem('assignment-1', 'Mabini', 'today'),
+      visitItem('assignment-2', 'Balayan', 'overdue'),
+    ];
+    await render(<HomeScreen />);
+
+    expect(screen.getByTestId('home.glance.today')).toHaveTextContent('1Visits today');
+    expect(screen.getByTestId('home.glance.overdue')).toHaveTextContent('1Overdue');
+
+    await fireEvent.press(screen.getByTestId('home.glance.today'));
+    expect(mockRouterPush).toHaveBeenLastCalledWith('/today');
+
+    await fireEvent.press(screen.getByTestId('home.glance.overdue'));
+    expect(mockRouterPush).toHaveBeenLastCalledWith('/today');
+  });
+
+  it('keeps the Offline chip off while connectivity is still unknown', async () => {
+    mockIsOnline = null;
+    mockPendingCount = 2;
+    const view = await render(<HomeScreen />);
+
+    expect(screen.getByTestId('home.header-band')).toBeOnTheScreen();
+    expect(screen.queryByTestId('home.offline-chip')).not.toBeOnTheScreen();
+
+    mockIsOnline = false;
+    await view.rerender(<HomeScreen />);
+    expect(screen.getByTestId('home.offline-chip')).toHaveTextContent('Offline');
+  });
+
+  it('opens the scan tile when the visit button leads', async () => {
+    mockAttentionItems = [visitItem('assignment-1', 'Mabini', 'today')];
+    await render(<HomeScreen />);
+
+    expect(screen.getByTestId('home.primary-action')).toHaveTextContent('Open next visit');
+
+    await fireEvent.press(screen.getByTestId('home.start-scan'));
+    expect(mockRouterPush).toHaveBeenLastCalledWith('/scan');
+  });
+
+  it('shows all four signs with a reference-photo cue and opens each entry', async () => {
+    await render(<HomeScreen />);
+
+    for (const [id, name] of [
+      ['healthy', 'Healthy'],
+      ['mosaic', 'Mosaic'],
+      ['rust', 'Rust'],
+      ['smut', 'Smut'],
+    ] as const) {
+      const card = screen.getByTestId(`home.sign.${id}`);
+      const cardScreen = within(card);
+      expect(cardScreen.getByText(name)).toBeOnTheScreen();
+      expect(cardScreen.getByText('Reference photo')).toBeOnTheScreen();
+
+      // A one-line sign: the card is 200pt wide, so the announced name plus sign
+      // has to stay short enough to sit on a single line instead of a clipped sentence.
+      const announced = card.props.accessibilityLabel as string;
+      expect(announced.startsWith(`${name}. `)).toBe(true);
+      expect(announced.length).toBeLessThanOrEqual(32);
+
+      await fireEvent.press(card);
+      expect(mockRouterPush).toHaveBeenLastCalledWith(`/field-guide/${id}`);
+    }
+  });
+
+  it('shows the Know the signs strip and opens a field-guide entry', async () => {
+    await render(<HomeScreen />);
+
+    expect(screen.getByText('Know the signs')).toBeOnTheScreen();
+    expect(screen.getAllByText('Reference photo')).toHaveLength(4);
+    expect(screen.getByText('Even green leaves')).toBeOnTheScreen();
+    expect(screen.getByText('Pale green mottling')).toBeOnTheScreen();
+    expect(screen.getByText('Orange pustules beneath')).toBeOnTheScreen();
+    expect(screen.getByText('Dark whip on the shoot')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('home.sign.rust'));
+    expect(mockRouterPush).toHaveBeenCalledWith('/field-guide/rust');
+  });
+
+  it('keeps the Morning Note and its button above the new home furniture', async () => {
+    mockAttentionItems = [visitItem('assignment-1', 'Mabini', 'today')];
+    const view = await render(<HomeScreen />);
+
+    const order = renderedTestIds(view.toJSON());
+    const index = (id: string) => order.indexOf(id);
+
+    expect(index('home.note')).toBeGreaterThanOrEqual(0);
+    expect(index('home.note')).toBeLessThan(index('home.primary-action'));
+    expect(index('home.primary-action')).toBeLessThan(index('home.glance'));
+    expect(index('home.glance')).toBeLessThan(index('home.start-scan'));
+    expect(index('home.start-scan')).toBeLessThan(index('home.signs'));
   });
 
   it('omits the Up next list when there are no attention items', async () => {
@@ -335,8 +533,20 @@ describe('HomeScreen', () => {
   });
 });
 
-function scrollBottomPadding(): number {
-  return StyleSheet.flatten(
+/** Test IDs of the rendered nodes, in the order the screen paints them top to bottom. */
+function renderedTestIds(node: unknown, found: string[] = []): string[] {
+  if (Array.isArray(node)) {
+    for (const child of node) renderedTestIds(child, found);
+    return found;
+  }
+  if (!node || typeof node !== 'object') return found;
+  const element = node as { children?: unknown; props?: { testID?: string } };
+  if (element.props?.testID) found.push(element.props.testID);
+  renderedTestIds(element.children, found);
+  return found;
+}
+
+function scrollBottomPadding(): number {  return StyleSheet.flatten(
     screen.getByTestId('home.scroll').props.contentContainerStyle,
   ).paddingBottom;
 }

@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -12,6 +12,9 @@ import {
   type NeedsAttentionItem,
 } from '@/features/activity/domain/needsAttention';
 import { useHomeAttention } from '@/features/activity/hooks/useHomeAttention';
+import { HomeGlanceStrip } from '@/features/home/components/HomeGlanceStrip';
+import { HomeHeaderBand } from '@/features/home/components/HomeHeaderBand';
+import { HomeSignsStrip, HomeToolTiles } from '@/features/home/components/HomeFieldTools';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
   OfficeUpdatesPill,
@@ -30,6 +33,7 @@ import {
   Spacing,
   Typography,
 } from '@/constants/theme';
+import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function HomeScreen() {
@@ -38,7 +42,7 @@ export default function HomeScreen() {
   const logoSource = colorScheme === 'dark'
     ? require('../../../assets/cane_guard_logo_onDark.png')
     : require('../../../assets/cane_guard_logo.png');
-  const { sessionVerification } = useAuth();
+  const { sessionVerification, user } = useAuth();
   const sync = useSync();
   const attention = useHomeAttention();
   const { open: openOfficeUpdates, unreadCount } = useOfficeUpdates();
@@ -55,6 +59,17 @@ export default function HomeScreen() {
     sessionVerification,
   });
   const note = buildMorningNote(attention.items, syncNote);
+  const now = useNow();
+  const visitCounts = useMemo(() => {
+    let today = 0;
+    let overdue = 0;
+    for (const item of attention.items) {
+      if (item.kind !== 'assignment') continue;
+      if (item.bucket === 'today') today += 1;
+      else if (item.bucket === 'overdue') overdue += 1;
+    }
+    return { overdue, today };
+  }, [attention.items]);
 
   // Stable identity so the memoized attention rows can skip re-rendering when
   // only unrelated Home state changes.
@@ -121,6 +136,10 @@ export default function HomeScreen() {
               </Pressable>
             </View>
 
+            <View style={styles.band}>
+              <HomeHeaderBand isOffline={sync.isOnline === false} name={user?.name} now={now} />
+            </View>
+
             <View style={styles.content}>
               <View style={styles.note}>
                 <Text
@@ -153,21 +172,43 @@ export default function HomeScreen() {
                 total={attention.total}
               />
 
-              <View style={styles.links}>
-                <QuietLink
-                  label={HOME_NOTE_COPY.measurePlotLink}
-                  icon="map"
-                  onPress={() => router.push('/field-survey' as Href)}
-                  testID="home.field-survey"
-                />
-                <QuietLink
-                  accessibilityLabel={HOME_NOTE_COPY.fieldGuideLabel}
-                  label={HOME_NOTE_COPY.fieldGuideLink}
-                  icon="book-open"
-                  onPress={() => router.push('/field-guide')}
-                  testID="home.disease-reference"
-                />
-              </View>
+              <HomeGlanceStrip
+                overdue={visitCounts.overdue}
+                onOpenActivity={() => router.push('/activity' as Href)}
+                onOpenVisits={() => router.push('/today' as Href)}
+                today={visitCounts.today}
+                waiting={sync.pendingCount}
+              />
+
+              <HomeToolTiles
+                tiles={[
+                  ...(note.action === 'scan'
+                    ? []
+                    : [
+                        {
+                          icon: 'camera' as const,
+                          label: HOME_NOTE_COPY.startScan,
+                          onPress: () => router.push('/scan'),
+                          testID: 'home.start-scan',
+                        },
+                      ]),
+                  {
+                    icon: 'map',
+                    label: HOME_NOTE_COPY.measurePlotLink,
+                    onPress: () => router.push('/field-survey' as Href),
+                    testID: 'home.field-survey',
+                  },
+                  {
+                    accessibilityLabel: HOME_NOTE_COPY.fieldGuideLabel,
+                    icon: 'book-open',
+                    label: HOME_NOTE_COPY.fieldGuideLink,
+                    onPress: () => router.push('/field-guide'),
+                    testID: 'home.disease-reference',
+                  },
+                ]}
+              />
+
+              <HomeSignsStrip onOpenEntry={(id) => router.push(`/field-guide/${id}` as Href)} />
             </View>
           </View>
         </ScrollView>
@@ -182,34 +223,6 @@ export default function HomeScreen() {
         ) : null}
       </View>
     </SafeAreaView>
-  );
-}
-
-function QuietLink({
-  accessibilityLabel,
-  icon,
-  label,
-  onPress,
-  testID,
-}: {
-  accessibilityLabel?: string;
-  icon: keyof typeof Feather.glyphMap;
-  label: string;
-  onPress: () => void;
-  testID: string;
-}) {
-  const theme = useTheme();
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      onPress={onPress}
-      testID={testID}
-      style={({ pressed }) => [styles.link, pressed && styles.pressed]}>
-      <Feather name={icon} size={18} color={theme.primary} />
-      <Text style={[styles.linkText, { color: theme.primary }]}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -242,22 +255,18 @@ const styles = StyleSheet.create({
     letterSpacing: -0.16,
   },
   profile: { width: 48, height: 48, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  band: {
+    paddingHorizontal: ComponentTokens.screen.horizontalPadding,
+    paddingTop: Spacing.md,
+  },
   content: {
     paddingHorizontal: ComponentTokens.screen.horizontalPadding,
-    paddingTop: Spacing['3xl'],
+    paddingTop: Spacing['2xl'],
     gap: Spacing['2xl'],
   },
   note: { gap: Spacing.sm },
   // The phone's own serif, large enough to read at arm's length outdoors.
   noteText: { ...Typography.display, fontFamily: Fonts?.serif, fontWeight: '400' },
   syncLine: { ...Typography.body },
-  links: { gap: Spacing.xs },
-  link: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  linkText: { ...Typography.body, fontWeight: '500' },
   pressed: { opacity: 0.74 },
 });

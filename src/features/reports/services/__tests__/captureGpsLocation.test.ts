@@ -147,12 +147,45 @@ describe('captureGpsLocation', () => {
       })),
     });
 
-    await expect(captureGpsLocation(locationClient, () => NOW)).resolves.toEqual({
+    await expect(
+      captureGpsLocation(locationClient, () => NOW, { timeoutMs: 5 }),
+    ).resolves.toMatchObject({
       capturedAt: NOW.toISOString(),
       outcome: 'unavailable',
       reason: 'reading_unavailable',
+      timedOut: true,
     });
     expect(locationClient.hasServicesEnabled).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps sampling after an unreadable position to find a usable reading', async () => {
+    const readings: {
+      accuracy: number | null;
+      latitude: number;
+      longitude: number;
+      timestamp: number;
+    }[] = [
+      {
+        accuracy: null,
+        latitude: 14.0667,
+        longitude: 120.6319,
+        timestamp: NOW.getTime(),
+      },
+      {
+        accuracy: 4,
+        latitude: 14.0667,
+        longitude: 120.6319,
+        timestamp: NOW.getTime(),
+      },
+    ];
+    const getCurrentPosition = jest.fn(
+      async () => readings.shift() as (typeof readings)[number],
+    );
+
+    await expect(
+      captureGpsLocation(client({ getCurrentPosition }), () => NOW),
+    ).resolves.toMatchObject({ accuracy: 4, outcome: 'resolved' });
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
   });
 
   it('maps a native capture failure to a retryable error', async () => {

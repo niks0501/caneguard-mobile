@@ -53,7 +53,7 @@ export async function captureGpsLocation(
 
   try {
     const best: BestReading = { closed: false, position: null };
-    let position: ForegroundPosition;
+    let position: UsablePosition | null;
     try {
       position = await withForegroundTimeout(sampleBestPosition(client, best), timeoutMs);
     } catch (error) {
@@ -65,7 +65,7 @@ export async function captureGpsLocation(
     } finally {
       best.closed = true;
     }
-    if (!isUsableReading(position)) {
+    if (!position) {
       return {
         capturedAt: attemptedAt,
         outcome: 'unavailable',
@@ -129,7 +129,7 @@ interface BestReading {
 async function sampleBestPosition(
   client: ForegroundLocationClient,
   best: BestReading,
-): Promise<ForegroundPosition> {
+): Promise<UsablePosition | null> {
   const permission = await client.requestForegroundPermission();
   if (permission !== 'granted') {
     throw new GpsPermissionDeniedError();
@@ -147,20 +147,17 @@ async function sampleBestPosition(
       }
       throw error;
     }
-    if (!isUsableReading(position)) {
-      if (best.position) {
+    if (isUsableReading(position)) {
+      if (!best.position || position.accuracy < best.position.accuracy) {
+        best.position = position;
+      }
+      if (position.accuracy <= PREFERRED_GPS_ACCURACY_METERS) {
         break;
       }
-      return position;
     }
-    if (!best.position || position.accuracy < best.position.accuracy) {
-      best.position = position;
-    }
-    if (position.accuracy <= PREFERRED_GPS_ACCURACY_METERS) {
-      break;
-    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
   }
-  return best.position as ForegroundPosition;
+  return best.position;
 }
 
 function isUsableReading(position: ForegroundPosition): position is UsablePosition {

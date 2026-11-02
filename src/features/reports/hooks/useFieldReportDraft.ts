@@ -58,6 +58,7 @@ export function useFieldReportForScan(scanRecordId: string | null) {
     submitterIdentity: string | null;
   }>({ scanRecordId: null, submitterIdentity: null });
   const submitterIdentity = user?.uuid ?? null;
+  const canSeeFieldReport = user?.role === 'field_reporter';
   useEffect(() => {
     refreshInput.current = { scanRecordId, submitterIdentity };
   }, [scanRecordId, submitterIdentity]);
@@ -81,6 +82,16 @@ export function useFieldReportForScan(scanRecordId: string | null) {
       setState({
         data: null,
         errorMessage: 'This saved record link is invalid.',
+        hasOtherOwnerReport: false,
+        loading: false,
+      });
+      return;
+    }
+    if (!canSeeFieldReport) {
+      setDataOwnerIdentity(submitterIdentity);
+      setState({
+        data: null,
+        errorMessage: null,
         hasOtherOwnerReport: false,
         loading: false,
       });
@@ -118,7 +129,14 @@ export function useFieldReportForScan(scanRecordId: string | null) {
         loading: false,
       });
     }
-  }, [database, isCurrentInput, scanRecordId, submitterIdentity, user]);
+  }, [
+    canSeeFieldReport,
+    database,
+    isCurrentInput,
+    scanRecordId,
+    submitterIdentity,
+    user,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -129,8 +147,14 @@ export function useFieldReportForScan(scanRecordId: string | null) {
     void refresh();
   });
 
-  const visibleState =
-    dataOwnerIdentity === submitterIdentity
+  const visibleState = !canSeeFieldReport
+    ? {
+        data: null,
+        errorMessage: null,
+        hasOtherOwnerReport: false,
+        loading: false,
+      }
+    : dataOwnerIdentity === submitterIdentity
       ? state
       : {
           data: null,

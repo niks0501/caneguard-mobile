@@ -8,12 +8,16 @@ import {
   deleteFieldReportDraft,
   finalizeFieldReport,
   findFieldReportByScanRecordId,
+  hasFieldReportOwnedByAnotherSubmitter,
   saveFieldReportDraft,
   saveGpsCapture,
   setLocationUnavailable,
 } from '@/features/reports/data/fieldReportRepository';
 import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
-import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
+import {
+  useFieldReportDraft,
+  useFieldReportForScan,
+} from '@/features/reports/hooks/useFieldReportDraft';
 import { captureGpsLocation } from '@/features/reports/services/captureGpsLocation';
 
 const DATABASE = {};
@@ -631,6 +635,41 @@ describe('useFieldReportDraft', () => {
       });
       await finalizePromise;
     });
+  });
+});
+
+describe('useFieldReportForScan', () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+  });
+
+  it('does not load a Field Report for a farmer', async () => {
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'farmer' },
+    } as never);
+
+    const { result } = await renderHook(() => useFieldReportForScan(SCAN_A));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.data).toBeNull();
+    expect(result.current.hasOtherOwnerReport).toBe(false);
+    expect(mockFindFieldReportByScanRecordId).not.toHaveBeenCalled();
+    expect(hasFieldReportOwnedByAnotherSubmitter).not.toHaveBeenCalled();
+  });
+
+  it('loads the Field Report for an inspector', async () => {
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
+    } as never);
+    mockFindFieldReportByScanRecordId.mockResolvedValue(
+      createdReport(REPORT_A, SCAN_A),
+    );
+    jest.mocked(hasFieldReportOwnedByAnotherSubmitter).mockResolvedValue(false);
+
+    const { result } = await renderHook(() => useFieldReportForScan(SCAN_A));
+
+    await waitFor(() => expect(result.current.data?.id).toBe(REPORT_A));
+    expect(result.current.hasOtherOwnerReport).toBe(false);
   });
 });
 

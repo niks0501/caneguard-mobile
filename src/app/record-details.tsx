@@ -46,6 +46,7 @@ import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
 import { getSyncErrorMessage } from '@/features/sync/errors/syncErrors';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDateTime } from '@/lib/formatters';
 
 const CONSISTENCY_LABELS: Record<
   ScanRecordDetails['checklistConsistency'],
@@ -642,7 +643,7 @@ function getObservationLabel(key: string): string {
 
 function formatSavedAt(value: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? value : formatDateTime(date);
 }
 
 const styles = StyleSheet.create({

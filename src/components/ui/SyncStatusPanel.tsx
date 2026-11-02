@@ -12,6 +12,7 @@ import {
   SYNC_TONE_COLOR,
 } from '@/features/sync/utils/syncStatusCopy';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDateTime } from '@/lib/formatters';
 
 export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } = {}) {
   const theme = useTheme();
@@ -106,7 +107,7 @@ export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } 
 
 function formatDate(value: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? value : formatDateTime(date);
 }
 
 const styles = StyleSheet.create({

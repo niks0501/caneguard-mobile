@@ -92,6 +92,7 @@ import {
   supportShareMessage,
 } from '@/features/sync/utils/syncAttention';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDateTime, formatTime } from '@/lib/formatters';
 
 const MAX_AFFECTED_AREA_HECTARES = 10_000;
 
@@ -2537,14 +2538,14 @@ function getGpsPresentation(fieldReport: FieldReport): {
 function describeConfirmedLocation(fieldReport: FieldReport): string {
   if (fieldReport.locationSource === 'manual_map') {
     const selectedAt = fieldReport.manualLocationSelectedAt
-      ? new Date(fieldReport.manualLocationSelectedAt).toLocaleString()
+      ? formatDateTime(fieldReport.manualLocationSelectedAt)
       : null;
     return selectedAt
       ? `Saved from the map on ${selectedAt}. GPS accuracy does not apply to a map pin.`
       : 'Saved from the map. GPS accuracy does not apply to a map pin.';
   }
   const attemptedAt = fieldReport.gpsAttemptedAt
-    ? new Date(fieldReport.gpsAttemptedAt).toLocaleString()
+    ? formatDateTime(fieldReport.gpsAttemptedAt)
     : null;
   const accuracy =
     fieldReport.gpsAccuracy !== null
@@ -3093,7 +3094,7 @@ function formatFormDraftStatus(
       return 'Saving on this device…';
     case 'saved':
       return savedAt
-        ? `Unsaved entries saved on this device · ${new Date(savedAt).toLocaleTimeString()}. Drafts are not sent.`
+        ? `Unsaved entries saved on this device · ${formatTime(savedAt)}. Drafts are not sent.`
         : 'Unsaved entries saved on this device. Drafts are not sent.';
     case 'failed':
       return 'Not saved on this device. The last good draft is unchanged — keep this screen open or save again.';
@@ -3103,7 +3104,7 @@ function formatFormDraftStatus(
 }
 
 function formatTimestamp(value: string): string {
-  return new Date(value).toLocaleString();
+  return formatDateTime(value, value);
 }
 
 const styles = StyleSheet.create({

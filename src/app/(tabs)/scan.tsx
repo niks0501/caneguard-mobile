@@ -22,6 +22,7 @@ import { readPickerOutcome } from '@/features/detection/imagePicker/readPickerOu
 import type { ScanSourceType } from '@/features/detection/types';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
+import { formatTime } from '@/lib/formatters';
 
 type ActiveOperation = ScanSourceType | 'recovery' | null;
 
@@ -34,7 +35,7 @@ function getScanDraftStatusLabel(
       return 'Saving on this device…';
     case 'saved':
       return savedAt
-        ? `Saved on this device · ${new Date(savedAt).toLocaleTimeString()}. You can close CaneGuard and resume this scan.`
+        ? `Saved on this device · ${formatTime(savedAt)}. You can close CaneGuard and resume this scan.`
         : 'Saved on this device. You can close CaneGuard and resume this scan.';
     case 'failed':
       return 'Not saved on this device. Your photo is still open here — try replacing it or keep this screen open.';

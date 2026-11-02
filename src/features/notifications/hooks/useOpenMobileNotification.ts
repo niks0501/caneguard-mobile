@@ -27,9 +27,10 @@ export function useOpenMobileNotification({
     (notification: MobileNotification) => {
       const destination = destinations.get(notification.id);
       const hasDetail = Boolean(notification.content || notification.advisory);
-      if (!hasDetail && (!destination || destination.kind === 'unavailable')) return;
+      const openable = hasDetail || (destination && destination.kind !== 'unavailable');
 
       void markRead(notification.id);
+      if (!openable) return;
       onClose();
 
       if (hasDetail) {

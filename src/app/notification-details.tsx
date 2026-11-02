@@ -21,6 +21,7 @@ import { useMobileNotifications } from '@/features/notifications/hooks/useMobile
 import { useNotificationDestinations } from '@/features/notifications/hooks/useNotificationDestinations';
 import { notificationDestinationRoute } from '@/features/notifications/services/resolveNotificationDestination';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDate } from '@/lib/formatters';
 
 export default function NotificationDetailsScreen() {
   const theme = useTheme();
@@ -80,7 +81,7 @@ export default function NotificationDetailsScreen() {
                 ) : null}
                 <Text style={[styles.meta, { color: theme.textSecondary }]}>
                   {notification.referenceCode ?? 'Office update'}
-                  {notification.createdAt ? ` · ${formatDate(notification.createdAt)}` : ''}
+                  {notification.createdAt ? ` · ${formatDate(notification.createdAt, 'Recently')}` : ''}
                 </Text>
               </View>
 
@@ -122,11 +123,6 @@ export default function NotificationDetailsScreen() {
   );
 }
 
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Recently';
-  return new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium' }).format(date);
-}
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },

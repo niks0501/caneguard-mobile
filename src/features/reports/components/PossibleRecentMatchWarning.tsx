@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import type { PossibleRecentMatch } from '@/features/reports/domain/possibleMatch';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDateTime } from '@/lib/formatters';
 
 export function PossibleRecentMatchWarning({
   match,
@@ -41,7 +42,7 @@ export function PossibleRecentMatchWarning({
 }
 
 function formatTimestamp(value: string): string {
-  return new Date(value).toLocaleString();
+  return formatDateTime(value, value);
 }
 
 const styles = StyleSheet.create({

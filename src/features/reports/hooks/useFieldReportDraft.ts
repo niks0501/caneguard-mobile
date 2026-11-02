@@ -30,6 +30,9 @@ import { captureGpsLocation } from '@/features/reports/services/captureGpsLocati
 import { expoForegroundLocationClient } from '@/features/reports/services/expoForegroundLocationClient';
 import { useSyncRecordsRefresh } from '@/features/sync/hooks/useSyncRecordsRevision';
 
+const FIELD_REPORT_ROLE_ERROR =
+  'Only Field Inspector accounts can access Field Reports.';
+
 interface FieldReportState {
   data: FieldReport | null;
   errorMessage: string | null;
@@ -369,7 +372,7 @@ export function useFieldReportDraft(
     if (!canAuthorReports) {
       setState({
         data: null,
-        errorMessage: 'Only Field Inspector accounts can access Field Reports.',
+        errorMessage: FIELD_REPORT_ROLE_ERROR,
         loading: false,
       });
       return null;
@@ -832,7 +835,7 @@ export function useFieldReportDraft(
   );
 
   const discardDraft = useCallback(async (): Promise<boolean> => {
-    if (!state.data || !hasCurrentReport || !user) {
+    if (!state.data || !hasCurrentReport || !user || !canAuthorReports) {
       return false;
     }
     try {
@@ -844,10 +847,22 @@ export function useFieldReportDraft(
     } catch {
       return false;
     }
-  }, [database, hasCurrentReport, isCurrentInput, state.data, user]);
+  }, [
+    canAuthorReports,
+    database,
+    hasCurrentReport,
+    isCurrentInput,
+    state.data,
+    user,
+  ]);
 
-  const visibleState =
-    state.data && !hasCurrentReport
+  const visibleState = !canAuthorReports
+    ? {
+        data: null,
+        errorMessage: user ? FIELD_REPORT_ROLE_ERROR : state.errorMessage,
+        loading: false,
+      }
+    : state.data && !hasCurrentReport
       ? { data: null, errorMessage: null, loading: true }
       : state;
 

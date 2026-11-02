@@ -798,4 +798,31 @@ describe('useFieldReportDraft automatic location capture (D5)', () => {
     expect(mockDeleteFieldReportDraft).toHaveBeenCalledWith(DATABASE, REPORT_A, SUBMITTER_ID);
     expect(result.current.data).toBeNull();
   });
+
+  it('hides and refuses to discard a draft after the account is demoted', async () => {
+    mockFindFieldReportByScanRecordId.mockResolvedValue(createdReport(REPORT_A, SCAN_A));
+    mockDeleteFieldReportDraft.mockResolvedValue(undefined);
+
+    const { result, rerender } = await renderHook(
+      ({ scanRecordId }: ScanProps) => useFieldReportDraft(scanRecordId),
+      { initialProps: { scanRecordId: SCAN_A } },
+    );
+    await waitFor(() => expect(result.current.data?.id).toBe(REPORT_A));
+
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'farmer' },
+    } as never);
+    await rerender({ scanRecordId: SCAN_A });
+
+    expect(result.current.data).toBeNull();
+    expect(result.current.errorMessage).toMatch(/Only Field Inspector/);
+
+    let discarded: boolean | undefined;
+    await act(async () => {
+      discarded = await result.current.discardDraft();
+    });
+
+    expect(discarded).toBe(false);
+    expect(mockDeleteFieldReportDraft).not.toHaveBeenCalled();
+  });
 });

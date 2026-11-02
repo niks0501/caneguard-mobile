@@ -108,6 +108,10 @@ guidance:
 - [`docs/features/caneguard-uiux-enhancement-handoff/00-FINAL-DECISIONS.md`](features/caneguard-uiux-enhancement-handoff/00-FINAL-DECISIONS.md)
   — records a three-class model decision that Model V1 has since superseded
   (Smut is a current supported class).
+- [`docs/features/caneguard-uiux-enhancement-handoff/03-SCREEN-SPECS.md`](features/caneguard-uiux-enhancement-handoff/03-SCREEN-SPECS.md)
+  — specifies a three-class Home education section (Healthy, Mosaic, Rust) and
+  at most two secondary shortcuts; the current Home shows all four model classes
+  in its photo strip and its tool tiles follow the code, not this spec.
 - [`docs/features/caneGuard-p0-implementation-phases/P0-07-Field-Report-Synchronization-and-API.md`](features/caneGuard-p0-implementation-phases/P0-07-Field-Report-Synchronization-and-API.md)
   — records the P0 requirement for final coordinates; the current contract also
   supports an explicit unavailable-location reason with null coordinates.

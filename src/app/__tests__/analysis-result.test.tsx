@@ -354,6 +354,73 @@ describe('AnalysisResultScreen', () => {
     expect(screen.getByTestId('scan.new-scan')).toBeOnTheScreen();
   });
 
+  it('uses farmer wording for low-confidence and checklist cautions', async () => {
+    mockUserRole = 'farmer';
+    await renderResult(
+      createCompletedState('rust', ['mosaic'], {
+        result: createResult('rust', 0.42),
+      }),
+    );
+
+    expect(screen.getByText('Check before you save')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'This result is not conclusive. You can still keep it as a scan, or scan again for a clearer image.',
+      ),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Your selected symptom observations do not match this Possible Condition. Both are kept separately.',
+      ),
+    ).toBeOnTheScreen();
+    expect(
+      screen.queryByText(/report it|can still be reported|reported to the office/i),
+    ).not.toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Show Why this result?'));
+    expect(
+      screen.getByText(
+        "The reporter's observation does not match the Possible Condition. Both are kept separately.",
+      ),
+    ).toBeOnTheScreen();
+  });
+
+  it('uses farmer wording for a high-confidence quality caution', async () => {
+    mockUserRole = 'farmer';
+    await renderResult(
+      createCompletedState('rust', ['rust'], {
+        result: createResult('rust', 0.91),
+        qualityAssessment: {
+          warnings: ['too-dark'],
+          meanLuminance: 30,
+          luminanceStandardDeviation: 28,
+        },
+      }),
+    );
+
+    expect(
+      screen.getByText(
+        'This caution does not change the result. You can scan again for a clearer image or keep this scan.',
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText(/continue to report/i)).not.toBeOnTheScreen();
+  });
+
+  it('does not mention reporting to a farmer after saving the scan', async () => {
+    mockUserRole = 'farmer';
+    mockSaveRecordState = {
+      ...mockSaveRecordState,
+      status: 'saved',
+      recordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+    };
+    await renderResult(createCompletedState('rust', ['rust']));
+
+    expect(screen.getByText('This scan is saved on this device.')).toBeOnTheScreen();
+    expect(
+      screen.queryByText(/Reporting it to the office/),
+    ).not.toBeOnTheScreen();
+  });
+
   it('offers separate report and scan-only outcomes while preserving local evidence', async () => {
     await renderResult(createCompletedState('rust', ['rust']));
 

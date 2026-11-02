@@ -66,6 +66,7 @@ export default function RecordDetailsScreen() {
   const fieldReport = useFieldReportForScan(id);
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
+  const canReportToOffice = user?.role === 'field_reporter';
   const sync = useSync();
   const [imageUnavailable, setImageUnavailable] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -219,6 +220,7 @@ export default function RecordDetailsScreen() {
                 />
               </View>
 
+              {canReportToOffice ? (
               <Section title="Field report">
                 <Text style={[styles.reportMessage, { color: theme.textSecondary }]}>
                   {getFieldReportAction(
@@ -271,6 +273,7 @@ export default function RecordDetailsScreen() {
                       ).label}
                 </AppButton>
               </Section>
+              ) : null}
 
               {deleteError ? (
                 <Text

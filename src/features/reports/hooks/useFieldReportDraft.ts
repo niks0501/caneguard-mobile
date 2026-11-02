@@ -186,6 +186,7 @@ export function useFieldReportDraft(
   // every render when a caller passes a fresh object literal.
   const regionDefaultsRef = useRef(regionDefaults);
   const submitterIdentity = user?.uuid ?? null;
+  const canAuthorReports = user?.role === 'field_reporter';
   useEffect(() => {
     refreshInput.current = { scanRecordId, submitterIdentity };
   }, [scanRecordId, submitterIdentity]);
@@ -206,6 +207,7 @@ export function useFieldReportDraft(
     async (report: FieldReport): Promise<FieldReport | null> => {
       if (
         !user ||
+        !canAuthorReports ||
         locationCaptureInFlight.current ||
         finalizing ||
         finalizeInFlight.current
@@ -266,7 +268,7 @@ export function useFieldReportDraft(
         }
       }
     },
-    [database, finalizing, isCurrentInput, user],
+    [canAuthorReports, database, finalizing, isCurrentInput, user],
   );
 
   const invalidateLocationAttempt = useCallback(() => {
@@ -340,6 +342,14 @@ export function useFieldReportDraft(
       });
       return null;
     }
+    if (!canAuthorReports) {
+      setState({
+        data: null,
+        errorMessage: 'Only Field Inspector accounts can access Field Reports.',
+        loading: false,
+      });
+      return null;
+    }
 
     setState({ data: null, errorMessage: null, loading: true });
     setSaved(false);
@@ -367,14 +377,6 @@ export function useFieldReportDraft(
           ? reportId.current.id
           : null;
       const reportIdForScan = existing?.id ?? cachedReportId ?? randomUUID();
-      if (!existing && user.role !== 'field_reporter') {
-        setState({
-          data: null,
-          errorMessage: 'Only Field Inspector accounts can create Field Reports.',
-          loading: false,
-        });
-        return null;
-      }
       const data =
         existing ??
         (await createOrGetFieldReportDraft(database, {
@@ -425,7 +427,14 @@ export function useFieldReportDraft(
       });
       return null;
     }
-  }, [createIfMissing, database, isCurrentInput, scanRecordId, user]);
+  }, [
+    canAuthorReports,
+    createIfMissing,
+    database,
+    isCurrentInput,
+    scanRecordId,
+    user,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -444,6 +453,7 @@ export function useFieldReportDraft(
         !state.data ||
         !hasCurrentReport ||
         !user ||
+        !canAuthorReports ||
         finalizing ||
         finalizeInFlight.current
       ) {
@@ -496,6 +506,7 @@ export function useFieldReportDraft(
       }
     },
     [
+      canAuthorReports,
       database,
       finalizing,
       hasCurrentReport,
@@ -511,6 +522,7 @@ export function useFieldReportDraft(
         !state.data ||
         !hasCurrentReport ||
         !user ||
+        !canAuthorReports ||
         savingManualLocation ||
         finalizing ||
         finalizeInFlight.current ||
@@ -562,6 +574,7 @@ export function useFieldReportDraft(
         setSavingManualLocation(false);
       }
     }, [
+      canAuthorReports,
       database,
       finalizing,
       hasCurrentReport,
@@ -579,6 +592,7 @@ export function useFieldReportDraft(
         !state.data ||
         !hasCurrentReport ||
         !user ||
+        !canAuthorReports ||
         savingManualLocation ||
         finalizing ||
         finalizeInFlight.current ||
@@ -625,6 +639,7 @@ export function useFieldReportDraft(
       }
     },
     [
+      canAuthorReports,
       database,
       finalizing,
       hasCurrentReport,
@@ -642,6 +657,7 @@ export function useFieldReportDraft(
         !state.data ||
         !hasCurrentReport ||
         !user ||
+        !canAuthorReports ||
         savingManualLocation ||
         finalizing ||
         finalizeInFlight.current ||
@@ -686,6 +702,7 @@ export function useFieldReportDraft(
       }
     },
     [
+      canAuthorReports,
       database,
       finalizing,
       hasCurrentReport,
@@ -720,6 +737,7 @@ export function useFieldReportDraft(
         !state.data ||
         !hasCurrentReport ||
         !user ||
+        !canAuthorReports ||
         finalizing ||
         savingManualLocation ||
         capturingLocation ||
@@ -776,6 +794,7 @@ export function useFieldReportDraft(
         setFinalizing(false);
       }
     }, [
+      canAuthorReports,
       capturingLocation,
       database,
       finalizing,

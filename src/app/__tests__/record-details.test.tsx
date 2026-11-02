@@ -93,7 +93,7 @@ const DETAILS: ScanRecordDetails = {
 describe('RecordDetailsScreen', () => {
   beforeEach(() => {
     jest.mocked(useAuth).mockReturnValue({
-      user: { uuid: SUBMITTER_ID },
+      user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
     } as never);
     mockUseLocalSearchParams.mockReturnValue({ id: RECORD_ID });
     mockDetailsState = {
@@ -175,6 +175,17 @@ describe('RecordDetailsScreen', () => {
     };
     await view.rerender(<RecordDetailsScreen />);
     expect(screen.getByLabelText('Resume Field Report draft')).toBeOnTheScreen();
+  });
+
+  it('does not offer a Field Report action to a farmer', async () => {
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'farmer' },
+    } as never);
+
+    await render(<RecordDetailsScreen />);
+
+    expect(screen.queryByTestId('records.open-field-report')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Create Field Report draft')).not.toBeOnTheScreen();
   });
 
   it('opens a finalized Field Report without presenting it as an editable Draft', async () => {

@@ -181,6 +181,22 @@ describe('useFieldReportDraft', () => {
     );
   });
 
+  it('denies a farmer access to an existing Field Report Draft', async () => {
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'farmer' },
+    } as never);
+    mockFindFieldReportByScanRecordId.mockResolvedValue(
+      createdReport(REPORT_A, SCAN_A),
+    );
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.data).toBeNull();
+    expect(result.current.errorMessage).toMatch(/Only Field Inspector/);
+    expect(mockCreateOrGetFieldReportDraft).not.toHaveBeenCalled();
+  });
+
   it('ignores a stale refresh when the scan changes while loading', async () => {
     let resolveScanA: ((report: FieldReport | null) => void) | undefined;
     mockFindFieldReportByScanRecordId.mockImplementation(

@@ -89,6 +89,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const mounted = useRef(true);
   const sessionToken = session?.token;
   const submitterIdentity = session?.user.uuid;
+  const canSyncFieldReports = session?.user.role === 'field_reporter';
   const sessionKey = session ? `${session.token}:${session.user.uuid}` : null;
   const sessionRef = useRef<MobileSession | null>(session);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -159,10 +160,14 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
     const [reportCount, surveyCount, completionCount, reportLastSyncedAt, surveyLastSyncedAt, completionLastSyncedAt] =
       await Promise.all([
-        countUnsyncedFieldReports(database, requestedSubmitterIdentity),
+        canSyncFieldReports
+          ? countUnsyncedFieldReports(database, requestedSubmitterIdentity)
+          : Promise.resolve(0),
         countUnsyncedFieldSurveys(database, requestedSubmitterIdentity),
         countUnsyncedFieldValidationCompletions(database, requestedSubmitterIdentity),
-        findLastSuccessfulFieldReportSyncAt(database, requestedSubmitterIdentity),
+        canSyncFieldReports
+          ? findLastSuccessfulFieldReportSyncAt(database, requestedSubmitterIdentity)
+          : Promise.resolve(null),
         findLastSuccessfulFieldSurveySyncAt(database, requestedSubmitterIdentity),
         findLastSuccessfulFieldValidationCompletionSyncAt(database, requestedSubmitterIdentity),
       ]);
@@ -181,7 +186,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       setPendingCompletionsCount(completionCount);
       setLastSuccessfulSyncAt(lastSyncedAt);
     }
-  }, [database, sessionToken, submitterIdentity]);
+  }, [canSyncFieldReports, database, sessionToken, submitterIdentity]);
 
   const syncNow = useCallback(
     async (
@@ -215,12 +220,14 @@ export function SyncProvider({ children }: PropsWithChildren) {
         sessionRef.current?.token === initiatingSession.token &&
         sessionRef.current?.user.uuid === initiatingSession.user.uuid;
       try {
-        const reportResult = await syncPendingFieldReports({
-          database,
-          source,
-          submitterIdentity: initiatingSession.user.uuid,
-          token: initiatingSession.token,
-        });
+        const reportResult = canSyncFieldReports
+          ? await syncPendingFieldReports({
+              database,
+              source,
+              submitterIdentity: initiatingSession.user.uuid,
+              token: initiatingSession.token,
+            })
+          : null;
         const surveyResult = await syncPendingFieldSurveys({
           database,
           source,
@@ -233,7 +240,11 @@ export function SyncProvider({ children }: PropsWithChildren) {
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
-        const result = mergeSyncBatchResults(reportResult, surveyResult, completionResult);
+        const result = mergeSyncBatchResults(
+          ...(reportResult ? [reportResult] : []),
+          surveyResult,
+          completionResult,
+        );
         if (!isInitiatingSessionCurrent()) {
           return result;
         }
@@ -289,6 +300,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
     },
     [
       authStatus,
+      canSyncFieldReports,
       clearRetryTimer,
       database,
       markSessionExpired,
@@ -306,14 +318,18 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
   const retryReport = useCallback(
     async (reportId: string) => {
-      if (authStatus !== 'authenticated' || !submitterIdentity) {
+      if (
+        authStatus !== 'authenticated' ||
+        !submitterIdentity ||
+        !canSyncFieldReports
+      ) {
         return null;
       }
       await findFieldReportUploadRecord(database, reportId, submitterIdentity);
       await markFieldReportPending(database, reportId, submitterIdentity);
       return syncNow('manual');
     },
-    [authStatus, database, submitterIdentity, syncNow],
+    [authStatus, canSyncFieldReports, database, submitterIdentity, syncNow],
   );
 
   const retryFieldValidationCompletion = useCallback(
@@ -500,8 +516,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
       isSyncing:
         syncState.sessionKey === sessionKey ? syncState.isSyncing : false,
       lastSuccessfulSyncAt,
-      pendingCount,
-      pendingReportsCount,
+      pendingCount: canSyncFieldReports
+        ? pendingCount
+        : pendingSurveysCount + pendingCompletionsCount,
+      pendingReportsCount: canSyncFieldReports ? pendingReportsCount : 0,
       pendingSurveysCount,
       pendingCompletionsCount,
       retryFieldValidationCompletion,
@@ -509,6 +527,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       syncNow,
     }),
     [
+      canSyncFieldReports,
       isOnline,
       lastSuccessfulSyncAt,
       pendingCount,

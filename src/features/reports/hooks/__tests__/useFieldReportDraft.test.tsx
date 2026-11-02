@@ -201,6 +201,37 @@ describe('useFieldReportDraft', () => {
     expect(mockCreateOrGetFieldReportDraft).not.toHaveBeenCalled();
   });
 
+  it('does not create a draft when the account is demoted during the lookup', async () => {
+    let resolveLookup: ((report: FieldReport | null) => void) | undefined;
+    mockFindFieldReportByScanRecordId.mockReturnValue(
+      new Promise<FieldReport | null>((resolve) => {
+        resolveLookup = resolve;
+      }),
+    );
+
+    const { result, rerender } = await renderHook(
+      ({ scanRecordId }: ScanProps) => useFieldReportDraft(scanRecordId),
+      { initialProps: { scanRecordId: SCAN_A } },
+    );
+    await waitFor(() =>
+      expect(mockFindFieldReportByScanRecordId).toHaveBeenCalled(),
+    );
+
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'farmer' },
+    } as never);
+    await rerender({ scanRecordId: SCAN_A });
+
+    await act(async () => {
+      resolveLookup?.(null);
+      await Promise.resolve();
+    });
+
+    expect(mockCreateOrGetFieldReportDraft).not.toHaveBeenCalled();
+    expect(result.current.data).toBeNull();
+    expect(result.current.errorMessage).toMatch(/Only Field Inspector/);
+  });
+
   it('ignores a stale refresh when the scan changes while loading', async () => {
     let resolveScanA: ((report: FieldReport | null) => void) | undefined;
     mockFindFieldReportByScanRecordId.mockImplementation(

@@ -97,7 +97,7 @@ describe('useLocalReport', () => {
       expect(mockGetLocalReportSummary).toHaveBeenCalledWith(
         DATABASE,
         SUBMITTER_A,
-        { dateRange: undefined },
+        { dateRange: undefined, includeFieldReports: false },
       ),
     );
 

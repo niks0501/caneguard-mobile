@@ -418,6 +418,65 @@ describe('scan record write repository', () => {
     native.close();
   });
 
+  it('hides Field Report-derived list metadata when reports are not visible', async () => {
+    const { database, native } = openTestDatabase();
+    await insertScanRecord(database, validInput({ barangay: 'Wawa' }));
+    native
+      .prepare(`
+        INSERT INTO field_reports (
+          id, scan_record_id, authoring_state, submitter_identity,
+          barangay, sync_status, authority_status_raw, authority_updated_at,
+          observed_at, created_at, updated_at
+        ) VALUES (?, ?, 'finalized', ?, ?, 'failed', 'verified', ?, ?, ?, ?)
+      `)
+      .run(
+        '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+        RECORD_ID,
+        SUBMITTER_ID,
+        'Lumbangan',
+        '2026-08-10T01:00:00.000Z',
+        '2026-07-25T05:30:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+      );
+
+    await expect(
+      listScanRecords(database, {}, SUBMITTER_ID, false),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        authorityReview: null,
+        barangay: 'Wawa',
+        hasFieldReport: false,
+        syncStatus: 'local_only',
+      }),
+    ]);
+    await expect(
+      listScanRecords(database, { hasFieldReport: true }, SUBMITTER_ID, false),
+    ).resolves.toEqual([]);
+    await expect(
+      listScanRecords(database, { hasFieldReport: false }, SUBMITTER_ID, false),
+    ).resolves.toHaveLength(1);
+    await expect(
+      listScanRecords(database, { syncStatus: 'failed' }, SUBMITTER_ID, false),
+    ).resolves.toEqual([]);
+    await expect(
+      listScanRecords(database, { syncStatus: 'local_only' }, SUBMITTER_ID, false),
+    ).resolves.toHaveLength(1);
+    await expect(
+      listScanRecords(database, { barangay: 'Lumbangan' }, SUBMITTER_ID, false),
+    ).resolves.toEqual([]);
+    await expect(
+      listScanRecords(database, { barangay: 'wawa' }, SUBMITTER_ID, false),
+    ).resolves.toHaveLength(1);
+    await expect(
+      listScanRecords(database, { search: 'Lumbangan' }, SUBMITTER_ID, false),
+    ).resolves.toEqual([]);
+    await expect(
+      listScanRecords(database, { search: 'wawa' }, SUBMITTER_ID, false),
+    ).resolves.toHaveLength(1);
+    native.close();
+  });
+
   it('counts only the authenticated submitter Field Reports in the pending summary', async () => {
     const { database, native } = openTestDatabase();
     await insertScanRecord(database, validInput());
@@ -441,6 +500,16 @@ describe('scan record write repository', () => {
     await expect(getLocalReportSummary(database, SUBMITTER_ID)).resolves.toMatchObject({
       totalSavedScans: 1,
       pendingSyncRecords: 1,
+    });
+    await expect(getLocalReportSummary(database, SUBMITTER_ID, { includeFieldReports: false })).resolves.toMatchObject({
+      pendingSyncRecords: 0,
+      recentRecords: [
+        expect.objectContaining({
+          barangay: 'Wawa',
+          hasFieldReport: false,
+          syncStatus: 'local_only',
+        }),
+      ],
     });
     await expect(getLocalReportSummary(database, OTHER_SUBMITTER_ID)).resolves.toMatchObject({
       totalSavedScans: 0,

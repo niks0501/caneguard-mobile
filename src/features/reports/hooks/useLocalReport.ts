@@ -18,6 +18,7 @@ interface LocalReportState {
 }
 
 interface LocalReportInput {
+  canSeeFieldReports: boolean;
   dateFrom?: string;
   dateTo?: string;
   submitterIdentity: string | null;
@@ -26,6 +27,7 @@ interface LocalReportInput {
 export function useLocalReport(dateRange?: DateRange) {
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
+  const canSeeFieldReports = user?.role === 'field_reporter';
   const dateFrom = dateRange?.from;
   const dateTo = dateRange?.to;
   const submitterIdentity = user?.uuid ?? null;
@@ -35,6 +37,7 @@ export function useLocalReport(dateRange?: DateRange) {
     loading: true,
   });
   const initialInput: LocalReportInput = {
+    canSeeFieldReports,
     dateFrom,
     dateTo,
     submitterIdentity,
@@ -44,18 +47,25 @@ export function useLocalReport(dateRange?: DateRange) {
   const [appliedInput, setAppliedInput] = useState<LocalReportInput>(initialInput);
 
   useEffect(() => {
-    currentInput.current = { dateFrom, dateTo, submitterIdentity };
+    currentInput.current = {
+      canSeeFieldReports,
+      dateFrom,
+      dateTo,
+      submitterIdentity,
+    };
     requestGeneration.current += 1;
-  }, [dateFrom, dateTo, submitterIdentity]);
+  }, [canSeeFieldReports, dateFrom, dateTo, submitterIdentity]);
 
   const isCurrentInput = useCallback(
     () =>
+      currentInput.current.canSeeFieldReports === canSeeFieldReports &&
       currentInput.current.dateFrom === dateFrom &&
       currentInput.current.dateTo === dateTo &&
       currentInput.current.submitterIdentity === submitterIdentity,
-    [dateFrom, dateTo, submitterIdentity],
+    [canSeeFieldReports, dateFrom, dateTo, submitterIdentity],
   );
   const hasCurrentState =
+    appliedInput.canSeeFieldReports === canSeeFieldReports &&
     appliedInput.dateFrom === dateFrom &&
     appliedInput.dateTo === dateTo &&
     appliedInput.submitterIdentity === submitterIdentity;
@@ -85,6 +95,7 @@ export function useLocalReport(dateRange?: DateRange) {
         {
           dateRange:
             dateFrom || dateTo ? { from: dateFrom, to: dateTo } : undefined,
+          includeFieldReports: canSeeFieldReports,
         },
       );
       if (!isCurrentRequest()) {
@@ -108,7 +119,15 @@ export function useLocalReport(dateRange?: DateRange) {
         loading: false,
       });
     }
-  }, [database, dateFrom, dateTo, isCurrentInput, setAppliedInput, submitterIdentity]);
+  }, [
+    canSeeFieldReports,
+    database,
+    dateFrom,
+    dateTo,
+    isCurrentInput,
+    setAppliedInput,
+    submitterIdentity,
+  ]);
 
   useSyncRecordsRefresh(() => {
     void refresh();

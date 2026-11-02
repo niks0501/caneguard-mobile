@@ -40,6 +40,10 @@ export function useScanRecords(query: ScanRecordQuery) {
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
   const submitterIdentity = user?.uuid;
+  const canSeeFieldReports = user?.role === 'field_reporter';
+  const readScope = submitterIdentity
+    ? `${submitterIdentity}:${canSeeFieldReports ? 'reports' : 'scans'}`
+    : null;
   const {
     barangay,
     hasFieldReport,
@@ -81,8 +85,8 @@ export function useScanRecords(query: ScanRecordQuery) {
         predictedLabel,
         search,
         syncStatus,
-      }, submitterIdentity);
-      setDataOwnerIdentity(submitterIdentity);
+      }, submitterIdentity, canSeeFieldReports);
+      setDataOwnerIdentity(readScope);
       setState({ data, errorMessage: null, loading: false });
     } catch (error: unknown) {
       const storageError = toStorageError(
@@ -90,7 +94,7 @@ export function useScanRecords(query: ScanRecordQuery) {
         'QUERY_FAILED',
         'Listing scan records failed.',
       );
-      setDataOwnerIdentity(submitterIdentity);
+      setDataOwnerIdentity(readScope);
       setState((current) => ({
         ...current,
         data: [],
@@ -99,6 +103,7 @@ export function useScanRecords(query: ScanRecordQuery) {
       }));
     }
   }, [
+    canSeeFieldReports,
     database,
     barangay,
     dateFrom,
@@ -107,6 +112,7 @@ export function useScanRecords(query: ScanRecordQuery) {
     limit,
     offset,
     predictedLabel,
+    readScope,
     search,
     syncStatus,
     submitterIdentity,
@@ -122,7 +128,7 @@ export function useScanRecords(query: ScanRecordQuery) {
   );
 
   const visibleState =
-    dataOwnerIdentity === submitterIdentity
+    dataOwnerIdentity === readScope
       ? state
       : { data: [], errorMessage: null, loading: true };
 
@@ -203,6 +209,10 @@ export function usePaginatedScanRecords(
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
   const submitterIdentity = user?.uuid;
+  const canSeeFieldReports = user?.role === 'field_reporter';
+  const readScope = submitterIdentity
+    ? `${submitterIdentity}:${canSeeFieldReports ? 'reports' : 'scans'}`
+    : null;
   const {
     barangay,
     hasFieldReport,
@@ -228,6 +238,7 @@ export function usePaginatedScanRecords(
     barangay,
     dateFrom,
     dateTo,
+    fieldReportsVisible: canSeeFieldReports,
     hasFieldReport,
     normalizedPageSize,
     predictedLabel,
@@ -264,7 +275,7 @@ export function usePaginatedScanRecords(
       }
       const cached = ownerStore?.timeline.get(timelineKey);
       if (!append && !force && isFresh(cached)) {
-        setDataOwnerIdentity(submitterIdentity);
+        setDataOwnerIdentity(readScope);
         setState({
           data: cached?.data ?? [],
           errorMessage: null,
@@ -300,12 +311,12 @@ export function usePaginatedScanRecords(
           predictedLabel,
           search,
           syncStatus,
-        }, submitterIdentity);
+        }, submitterIdentity, canSeeFieldReports);
 
         if (requestId.current !== currentRequestId) {
           return false;
         }
-        setDataOwnerIdentity(submitterIdentity);
+        setDataOwnerIdentity(readScope);
 
         const nextData = append ? [...(ownerStore?.timeline.get(timelineKey)?.data ?? []), ...page] : page;
         const hasMore = page.length === normalizedPageSize;
@@ -330,7 +341,7 @@ export function usePaginatedScanRecords(
           'QUERY_FAILED',
           'Listing scan records failed.',
         );
-        setDataOwnerIdentity(submitterIdentity);
+        setDataOwnerIdentity(readScope);
         setState((current) => ({
           ...current,
           errorMessage: getStorageErrorMessage(storageError),
@@ -341,6 +352,7 @@ export function usePaginatedScanRecords(
       }
     },
     [
+      canSeeFieldReports,
       database,
       barangay,
       dateFrom,
@@ -348,6 +360,7 @@ export function usePaginatedScanRecords(
       hasFieldReport,
       normalizedPageSize,
       predictedLabel,
+      readScope,
       search,
       syncStatus,
       submitterIdentity,
@@ -395,7 +408,7 @@ export function usePaginatedScanRecords(
   );
 
   const visibleState =
-    dataOwnerIdentity === submitterIdentity
+    dataOwnerIdentity === readScope
       ? state
       : {
           ...state,

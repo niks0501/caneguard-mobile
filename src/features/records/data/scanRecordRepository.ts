@@ -39,11 +39,12 @@ import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 export function createScanRecordRepository(
   database: CaneGuardDatabase,
   submitterIdentity: string,
+  includeFieldReports = true,
 ): ScanRecordRepository {
   const owner = requireOwnerIdentity(submitterIdentity);
   return {
     insert: (input) => insertScanRecord(database, { ...input, ownerIdentity: owner }),
-    list: (query) => listScanRecords(database, query, owner),
+    list: (query) => listScanRecords(database, query, owner, includeFieldReports),
     findById: (id) => findScanRecordById(database, id, owner),
     deleteById: (id) => deleteScanRecordById(database, id, owner),
     listManagedImageUris: () => listManagedImageUris(database, owner),
@@ -54,9 +55,13 @@ export async function listScanRecords(
   database: CaneGuardDatabase,
   query: ScanRecordQuery = {},
   submitterIdentity: string,
+  includeFieldReports = true,
 ): Promise<ScanRecordListItem[]> {
   const owner = requireOwnerIdentity(submitterIdentity);
-  const conditions = [eq(scanRecords.ownerIdentity, owner), ...buildConditions(query)];
+  const conditions = [
+    eq(scanRecords.ownerIdentity, owner),
+    ...buildConditions(query, includeFieldReports),
+  ];
   const limit = Math.min(
     Math.max(Math.trunc(query.limit ?? DEFAULT_RECORD_PAGE_SIZE), 1),
     MAX_RECORD_PAGE_SIZE,
@@ -66,25 +71,45 @@ export async function listScanRecords(
   try {
     const rows = await database
       .select({
-        authorityFeedback: fieldReports.authorityFeedback,
-        authorityFetchedAt: fieldReports.authorityFetchedAt,
-        authorityReferenceCode: fieldReports.authorityReferenceCode,
-        authorityReviewedAt: fieldReports.authorityReviewedAt,
-        authorityStatusRaw: fieldReports.authorityStatusRaw,
-        authorityUpdatedAt: fieldReports.authorityUpdatedAt,
-        hasFieldReport: sql<number>`case when ${fieldReports.id} is null then 0 else 1 end`,
+        authorityFeedback: includeFieldReports
+          ? fieldReports.authorityFeedback
+          : sql<null>`null`,
+        authorityFetchedAt: includeFieldReports
+          ? fieldReports.authorityFetchedAt
+          : sql<null>`null`,
+        authorityReferenceCode: includeFieldReports
+          ? fieldReports.authorityReferenceCode
+          : sql<null>`null`,
+        authorityReviewedAt: includeFieldReports
+          ? fieldReports.authorityReviewedAt
+          : sql<null>`null`,
+        authorityStatusRaw: includeFieldReports
+          ? fieldReports.authorityStatusRaw
+          : sql<null>`null`,
+        authorityUpdatedAt: includeFieldReports
+          ? fieldReports.authorityUpdatedAt
+          : sql<null>`null`,
+        hasFieldReport: includeFieldReports
+          ? sql<number>`case when ${fieldReports.id} is null then 0 else 1 end`
+          : sql<number>`0`,
         id: scanRecords.id,
         managedImageUri: scanRecords.managedImageUri,
         predictedLabel: scanRecords.predictedLabel,
         confidence: scanRecords.confidence,
-        barangay: sql<string | null>`coalesce(${fieldReports.barangay}, ${scanRecords.barangay})`,
-        syncStatus: sql<ScanRecordListItem['syncStatus']>`coalesce(${fieldReports.syncStatus}, 'local_only')`,
+        barangay: includeFieldReports
+          ? sql<string | null>`coalesce(${fieldReports.barangay}, ${scanRecords.barangay})`
+          : scanRecords.barangay,
+        syncStatus: includeFieldReports
+          ? sql<ScanRecordListItem['syncStatus']>`coalesce(${fieldReports.syncStatus}, 'local_only')`
+          : sql<ScanRecordListItem['syncStatus']>`'local_only'`,
         createdAt: scanRecords.createdAt,
       })
       .from(scanRecords)
       .leftJoin(
         fieldReports,
-        buildFieldReportJoinCondition(submitterIdentity),
+        includeFieldReports
+          ? buildFieldReportJoinCondition(submitterIdentity)
+          : sql`0`,
       )
       .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(scanRecords.createdAt))
@@ -245,7 +270,10 @@ export async function listManagedImageUris(
   }
 }
 
-function buildConditions(query: ScanRecordQuery): SQL[] {
+function buildConditions(
+  query: ScanRecordQuery,
+  includeFieldReports: boolean,
+): SQL[] {
   const conditions: SQL[] = [];
 
   if (query.predictedLabel) {
@@ -253,19 +281,32 @@ function buildConditions(query: ScanRecordQuery): SQL[] {
   }
   if (query.syncStatus) {
     conditions.push(
-      sql`coalesce(${fieldReports.syncStatus}, 'local_only') = ${query.syncStatus}`,
+      includeFieldReports
+        ? sql`coalesce(${fieldReports.syncStatus}, 'local_only') = ${query.syncStatus}`
+        : query.syncStatus === 'local_only'
+          ? sql`1 = 1`
+          : sql`1 = 0`,
     );
   }
   if (query.hasFieldReport !== undefined) {
-    conditions.push(
-      query.hasFieldReport
-        ? sql`${fieldReports.id} is not null`
-        : sql`${fieldReports.id} is null`,
-    );
+    if (!includeFieldReports) {
+      if (query.hasFieldReport) {
+        conditions.push(sql`1 = 0`);
+      }
+    } else {
+      conditions.push(
+        query.hasFieldReport
+          ? sql`${fieldReports.id} is not null`
+          : sql`${fieldReports.id} is null`,
+      );
+    }
   }
   if (query.barangay?.trim()) {
+    const barangay = query.barangay.trim().toLowerCase();
     conditions.push(
-      sql`instr(lower(coalesce(${fieldReports.barangay}, ${scanRecords.barangay}, '')), ${query.barangay.trim().toLowerCase()}) > 0`,
+      includeFieldReports
+        ? sql`instr(lower(coalesce(${fieldReports.barangay}, ${scanRecords.barangay}, '')), ${barangay}) > 0`
+        : sql`instr(lower(coalesce(${scanRecords.barangay}, '')), ${barangay}) > 0`,
     );
   }
   if (query.dateRange?.from) {
@@ -279,7 +320,9 @@ function buildConditions(query: ScanRecordQuery): SQL[] {
     conditions.push(
       or(
         sql`instr(lower(${scanRecords.predictedLabel}), ${search}) > 0`,
-        sql`instr(lower(coalesce(${fieldReports.barangay}, ${scanRecords.barangay}, '')), ${search}) > 0`,
+        includeFieldReports
+          ? sql`instr(lower(coalesce(${fieldReports.barangay}, ${scanRecords.barangay}, '')), ${search}) > 0`
+          : sql`instr(lower(coalesce(${scanRecords.barangay}, '')), ${search}) > 0`,
       )!,
     );
   }

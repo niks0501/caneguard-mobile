@@ -57,19 +57,25 @@ export function useFieldReportForScan(scanRecordId: string | null) {
   >(null);
   const refreshGeneration = useRef(0);
   const refreshInput = useRef<{
+    canSeeFieldReport: boolean;
     scanRecordId: string | null;
     submitterIdentity: string | null;
-  }>({ scanRecordId: null, submitterIdentity: null });
+  }>({ canSeeFieldReport: false, scanRecordId: null, submitterIdentity: null });
   const submitterIdentity = user?.uuid ?? null;
   const canSeeFieldReport = user?.role === 'field_reporter';
   useEffect(() => {
-    refreshInput.current = { scanRecordId, submitterIdentity };
-  }, [scanRecordId, submitterIdentity]);
+    refreshInput.current = {
+      canSeeFieldReport,
+      scanRecordId,
+      submitterIdentity,
+    };
+  }, [canSeeFieldReport, scanRecordId, submitterIdentity]);
   const isCurrentInput = useCallback(
     () =>
+      refreshInput.current.canSeeFieldReport === canSeeFieldReport &&
       refreshInput.current.scanRecordId === scanRecordId &&
       refreshInput.current.submitterIdentity === submitterIdentity,
-    [scanRecordId, submitterIdentity],
+    [canSeeFieldReport, scanRecordId, submitterIdentity],
   );
   const refresh = useCallback(async () => {
     if (!isCurrentInput()) {
@@ -205,9 +211,10 @@ export function useFieldReportDraft(
   const autoCaptureAttemptedFor = useRef<string | null>(null);
   const refreshGeneration = useRef(0);
   const refreshInput = useRef<{
+    canAuthorReports: boolean;
     scanRecordId: string | null;
     submitterIdentity: string | null;
-  }>({ scanRecordId: null, submitterIdentity: null });
+  }>({ canAuthorReports: false, scanRecordId: null, submitterIdentity: null });
   // `regionDefaults` is only read while creating a brand-new Draft; holding
   // it in a ref keeps `refresh` stable so the focus effect does not re-run on
   // every render when a caller passes a fresh object literal.
@@ -215,16 +222,21 @@ export function useFieldReportDraft(
   const submitterIdentity = user?.uuid ?? null;
   const canAuthorReports = user?.role === 'field_reporter';
   useEffect(() => {
-    refreshInput.current = { scanRecordId, submitterIdentity };
-  }, [scanRecordId, submitterIdentity]);
+    refreshInput.current = {
+      canAuthorReports,
+      scanRecordId,
+      submitterIdentity,
+    };
+  }, [canAuthorReports, scanRecordId, submitterIdentity]);
   useEffect(() => {
     regionDefaultsRef.current = regionDefaults;
   }, [regionDefaults]);
   const isCurrentInput = useCallback(
     () =>
+      refreshInput.current.canAuthorReports === canAuthorReports &&
       refreshInput.current.scanRecordId === scanRecordId &&
       refreshInput.current.submitterIdentity === submitterIdentity,
-    [scanRecordId, submitterIdentity],
+    [canAuthorReports, scanRecordId, submitterIdentity],
   );
   const hasCurrentReport =
     state.data?.scanRecordId === scanRecordId &&

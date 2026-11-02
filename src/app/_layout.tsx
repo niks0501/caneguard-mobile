@@ -148,7 +148,6 @@ export function AppNavigator() {
         <Stack.Protected guard={status === 'unauthenticated'}>
           <Stack.Screen name="index" />
           <Stack.Screen name="login" />
-          <Stack.Screen name="register" />
         </Stack.Protected>
         <Stack.Screen name="forgot-password" />
         <Stack.Screen name="reset-password" />

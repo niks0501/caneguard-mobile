@@ -194,6 +194,28 @@ describe('mobile authentication API', () => {
     });
   });
 
+  it('maps a disabled-registration refusal to its own code, never SESSION_EXPIRED', async () => {
+    fetchMock.mockResolvedValueOnce(csrfResponse()).mockResolvedValueOnce(
+      response(403, {
+        message: 'Public self-registration is disabled. Contact your CaneGuard administrator to request an authorized account.',
+        code: 'REGISTRATION_DISABLED',
+      }),
+    );
+
+    await expect(
+      registerMobile({
+        email: 'new@caneguard.test',
+        name: 'New Reporter',
+        password: 'long-enough-passphrase',
+      }),
+    ).rejects.toMatchObject({
+      code: 'REGISTRATION_DISABLED',
+      status: 403,
+      message:
+        'Public self-registration is disabled. Contact your CaneGuard administrator to request an authorized account.',
+    });
+  });
+
   it('parses registration and sends only the approved fields', async () => {
     fetchMock
       .mockResolvedValueOnce(csrfResponse())

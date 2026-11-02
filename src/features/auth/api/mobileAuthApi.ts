@@ -35,6 +35,7 @@ export type MobileAuthErrorCode =
   | 'INVALID_RESPONSE'
   | 'INVALID_VERIFICATION_LINK'
   | 'RATE_LIMITED'
+  | 'REGISTRATION_DISABLED'
   | 'SERVER_UNAVAILABLE'
   | 'SESSION_EXPIRED'
   | 'STEP_UP_REQUIRED'
@@ -431,6 +432,8 @@ function mapAuthError(
         return authError('INVALID_RESET_TOKEN', error.status);
       case 'INVALID_VERIFICATION_LINK':
         return authError('INVALID_VERIFICATION_LINK', error.status);
+      case 'REGISTRATION_DISABLED':
+        return authError('REGISTRATION_DISABLED', error.status);
       case 'STEP_UP_REQUIRED':
         return authError('STEP_UP_REQUIRED', error.status);
       case 'UNAUTHENTICATED':
@@ -533,6 +536,8 @@ const AUTH_ERROR_MESSAGES: Record<MobileAuthErrorCode, string> = {
   INVALID_VERIFICATION_LINK:
     'This email-verification link is invalid or expired. Request a new link.',
   RATE_LIMITED: 'Too many requests. Wait a moment and try again.',
+  REGISTRATION_DISABLED:
+    'Public self-registration is disabled. Contact your CaneGuard administrator to request an authorized account.',
   SERVER_UNAVAILABLE:
     'CaneGuard could not reach the server. Please check your connection and try again.',
   SESSION_EXPIRED: 'Your CaneGuard session is no longer valid.',

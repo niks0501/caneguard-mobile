@@ -243,6 +243,8 @@ export async function saveGpsCapture(
               gpsAttemptedAt: input.capturedAt,
             }
           : {};
+      // A retry that reads less accurately than the saved GPS fix keeps the
+      // better fix; the new reading is kept only as attempt evidence.
       const keepsSavedFix =
         'latitude' in input &&
         existing.locationSource === 'gps' &&

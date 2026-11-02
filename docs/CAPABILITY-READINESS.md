@@ -1,6 +1,6 @@
 # CaneGuard Mobile — current capability and readiness index
 
-**Status:** current guidance. Last reviewed: 2 November 2026.
+**Status:** current guidance. Last reviewed: 3 November 2026.
 **Applies to:** this repository (`caneguard-mobile`) at the revision recorded in
 [`docs/RELEASE-EVIDENCE.md`](RELEASE-EVIDENCE.md).
 

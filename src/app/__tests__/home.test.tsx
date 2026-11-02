@@ -143,19 +143,63 @@ describe('HomeScreen', () => {
     expect(mockRouterPush).toHaveBeenCalledWith('/activity');
   });
 
-  it('keeps Measure a plot and the Field guide as quiet links', async () => {
+  it('shows Measure a plot and the Field guide as tool tiles', async () => {
     await render(<HomeScreen />);
 
     expect(screen.getByText('Measure a plot')).toBeOnTheScreen();
     expect(screen.getByText('Field guide')).toBeOnTheScreen();
     expect(screen.queryByText('FIELD GUIDE')).not.toBeOnTheScreen();
-    expect(screen.queryByText('Rust')).not.toBeOnTheScreen();
 
     await fireEvent.press(screen.getByTestId('home.field-survey'));
     expect(mockRouterPush).toHaveBeenCalledWith('/field-survey');
 
     await fireEvent.press(screen.getByTestId('home.disease-reference'));
     expect(mockRouterPush).toHaveBeenCalledWith('/field-guide');
+  });
+
+  it('adds a header band, an offline chip only while offline, and a Start a scan tile under a visit button', async () => {
+    mockAttentionItems = [
+      {
+        id: 'assignment-1',
+        kind: 'assignment',
+        bucket: 'overdue',
+        title: 'Field validation',
+        message: 'Visit',
+        meta: 'Overdue',
+        destination: { kind: 'assignment', assignmentId: 'a1' },
+      } as NeedsAttentionItem,
+    ];
+    const view = await render(<HomeScreen />);
+
+    expect(screen.getByTestId('home.greeting')).toHaveTextContent(/^Good (morning|afternoon|evening), Ari$/);
+    expect(screen.queryByTestId('home.offline-chip')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('home.glance.overdue')).toHaveTextContent('1Overdue');
+    expect(screen.getByTestId('home.glance.waiting')).toHaveTextContent('1Waiting to send');
+    expect(screen.getByTestId('home.start-scan')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('home.glance.waiting'));
+    expect(mockRouterPush).toHaveBeenCalledWith('/activity');
+
+    mockIsOnline = false;
+    await view.rerender(<HomeScreen />);
+    expect(screen.getByTestId('home.offline-chip')).toBeOnTheScreen();
+  });
+
+  it('hides the glance strip and the scan tile when there is nothing to show', async () => {
+    mockPendingCount = 0;
+    await render(<HomeScreen />);
+
+    expect(screen.queryByTestId('home.glance')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('home.start-scan')).not.toBeOnTheScreen();
+  });
+
+  it('shows the Know the signs strip and opens a field-guide entry', async () => {
+    await render(<HomeScreen />);
+
+    expect(screen.getByText('Know the signs')).toBeOnTheScreen();
+    expect(screen.getAllByText('Reference photo')).toHaveLength(4);
+    await fireEvent.press(screen.getByTestId('home.sign.rust'));
+    expect(mockRouterPush).toHaveBeenCalledWith('/field-guide/rust');
   });
 
   it('omits the Up next list when there are no attention items', async () => {

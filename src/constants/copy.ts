@@ -202,4 +202,16 @@ export const HOME_NOTE_COPY = {
   alsoOverdue: (count: string) => `${count} ${count === 'One' ? 'is' : 'are'} overdue.`,
   officeUpdates: (count: string) =>
     `${count} office ${count === 'One' ? 'update' : 'updates'} to read.`,
+  greeting: {
+    morning: 'Good morning',
+    afternoon: 'Good afternoon',
+    evening: 'Good evening',
+  },
+  offlineChip: 'Offline',
+  glanceHeading: 'Today at a glance',
+  glanceToday: 'Visits today',
+  glanceOverdue: 'Overdue',
+  glanceWaiting: 'Waiting to send',
+  signsHeading: 'Know the signs',
+  referencePhoto: 'Reference photo',
 } as const;

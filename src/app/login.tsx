@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { useToast } from '@/components/ui/Toast';
-import { FIELD_GUIDE_TITLE, OFFLINE_READINESS_COPY } from '@/constants/copy';
+import { ACCOUNT_REQUEST_HINT, FIELD_GUIDE_TITLE, OFFLINE_READINESS_COPY } from '@/constants/copy';
 import { ComponentTokens, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
@@ -147,13 +147,9 @@ export default function LoginScreen() {
               </AppButton>
             </View>
 
-            <View style={styles.signupRow}>
-              <View style={[styles.rule, { backgroundColor: theme.accent }]} />
-              <Pressable accessibilityRole="button" onPress={() => router.push('/register')} style={({ pressed }) => [styles.signupButton, pressed && styles.pressed]}>
-                <Text style={[styles.signup, { color: theme.primaryDark }]}>Create an account</Text>
-              </Pressable>
-              <View style={[styles.rule, { backgroundColor: theme.accent }]} />
-            </View>
+            <Text testID="auth.account-hint" style={[styles.accountHint, { color: theme.textSecondary }]}>
+              {ACCOUNT_REQUEST_HINT}
+            </Text>
 
             {/*
               The gallery needs no account, and a returning signed-out visitor
@@ -255,10 +251,7 @@ const styles = StyleSheet.create({
   errorRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   error: { ...Typography.bodySmall, fontWeight: '700', flexShrink: 1 },
   trailingButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  signupRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  signupButton: { minHeight: 48, flexShrink: 1, alignItems: 'center', justifyContent: 'center' },
-  rule: { height: 1, flex: 1 },
-  signup: { ...Typography.bodySmall, fontWeight: '800' },
+  accountHint: { ...Typography.bodySmall, textAlign: 'center' },
   footer: { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.lg, alignItems: 'center', gap: Spacing.sm },
   footerText: { ...Typography.caption },
   offlineNote: { borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },

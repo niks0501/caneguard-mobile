@@ -49,8 +49,22 @@ describe('public auth entry', () => {
 
     expect(screen.queryByTestId('screen-container.scroll-view')).toBeNull();
     expect(screen.getByLabelText('CaneGuard Logo')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Get started with CaneGuard')).toBeOnTheScreen();
-    expect(screen.getByLabelText('I already have an account')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Sign in to CaneGuard')).toBeOnTheScreen();
+    expect(screen.getByText('Need an account? Ask your municipal agriculture office.')).toBeOnTheScreen();
+  });
+
+  it('makes Sign in the primary action and offers no register path', async () => {
+    mockUseAuth.mockReturnValue({
+      hasCompletedLogin: false,
+      status: 'unauthenticated',
+    } as unknown as ReturnType<typeof useAuth>);
+
+    await render(<SplashScreen />);
+
+    expect(screen.queryByText('Get Started')).toBeNull();
+    await fireEvent.press(screen.getByTestId('welcome.sign-in'));
+    expect(mockPush).toHaveBeenCalledWith('/login');
+    expect(mockPush).not.toHaveBeenCalledWith('/register');
   });
 
   it('offers the field guide as a third action that needs no account', async () => {

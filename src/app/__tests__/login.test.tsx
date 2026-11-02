@@ -46,6 +46,17 @@ function setAuthValue(overrides: Record<string, unknown> = {}) {
   } as unknown as ReturnType<typeof useAuth>);
 }
 
+describe('LoginScreen account request', () => {
+  it('points to the municipal office instead of a sign-up path', async () => {
+    setAuthValue();
+
+    await render(<LoginScreen />);
+
+    expect(screen.getByText('Need an account? Ask your municipal agriculture office.')).toBeOnTheScreen();
+    expect(screen.queryByText('Create an account')).toBeNull();
+  });
+});
+
 describe('LoginScreen biometric fallback', () => {
   it('shows one accessible fallback button when biometric unlock is configured', async () => {
     const unlockWithBiometrics = jest.fn(async () => true);

@@ -5,7 +5,7 @@ import { Image, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { AppButton } from '@/components/ui/AppButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { Spacing, Typography } from '@/constants/theme';
-import { FIELD_GUIDE_TITLE } from '@/constants/copy';
+import { ACCOUNT_REQUEST_HINT, FIELD_GUIDE_TITLE } from '@/constants/copy';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -38,15 +38,15 @@ export default function SplashScreen() {
       </View>
 
       <View style={styles.actions}>
-        <AppButton onPress={() => router.push('/register')} accessibilityLabel="Get started with CaneGuard">
-          Get Started
-        </AppButton>
         <AppButton
-          variant="text"
+          testID="welcome.sign-in"
           onPress={() => router.push('/login')}
-          accessibilityLabel="I already have an account">
-          I already have an account
+          accessibilityLabel="Sign in to CaneGuard">
+          Sign in
         </AppButton>
+        <Text testID="welcome.account-hint" style={[styles.accountHint, { color: theme.textSecondary }]}>
+          {ACCOUNT_REQUEST_HINT}
+        </Text>
         {/*
           Readable with no account. Repeated on the login screen because a
           returning signed-out visitor is redirected there before they can use
@@ -85,6 +85,10 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...Typography.body,
+    textAlign: 'center',
+  },
+  accountHint: {
+    ...Typography.bodySmall,
     textAlign: 'center',
   },
   actions: {

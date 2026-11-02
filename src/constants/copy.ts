@@ -8,6 +8,9 @@ export const DECISION_SUPPORT_DISCLAIMER =
 export const CASE_CLOSE_NOTICE =
   'Completing this visit saves your field findings. It does not verify or close the case.';
 
+export const ACCOUNT_REQUEST_HINT =
+  'Need an account? Ask your municipal agriculture office.';
+
 export const LOCATION_ADDED = 'Location added';
 
 export const LOCATION_CLOSER_READING_ACTION = 'Try for a closer reading';

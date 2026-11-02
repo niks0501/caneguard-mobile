@@ -76,8 +76,7 @@ It cannot prove anything native: TFLite inference, camera, permissions,
 biometrics, secure storage, notifications delivery or device persistence. Those
 remain `npm run e2e` / agent-device work with an attached device.
 
-Validation runs are recorded as `inconclusive` for product acceptance by policy:
-a browser check is implementation-phase evidence, not a device acceptance gate.
+Validation runs count as product acceptance evidence for exactly what this route proves above; only the native-only items still need `npm run e2e` / agent-device with an attached device.
 
 ## Reading a failure
 

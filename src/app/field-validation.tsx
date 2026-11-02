@@ -38,6 +38,7 @@ import type { FieldValidationPhotoArtifact } from '@/features/assignments/servic
 import { deleteFieldValidationPhoto } from '@/features/assignments/services/fieldValidationPhotoStorage';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDateTime, formatTime } from '@/lib/formatters';
 
 interface ValidationPhotoSelection {
   /** The URI rendered on screen (managed draft photo when it is saved). */
@@ -528,7 +529,7 @@ function formatDraftStatus(
       return 'Saving draft on this device…';
     case 'saved':
       return savedAt
-        ? `Draft saved on this device · ${new Date(savedAt).toLocaleTimeString()}. You can leave this screen and resume later.`
+        ? `Draft saved on this device · ${formatTime(savedAt)}. You can leave this screen and resume later.`
         : 'Draft saved on this device. You can leave this screen and resume later.';
     case 'failed':
       return 'Draft not saved on this device. Your entries stay on this screen — keep it open or try completing the visit.';
@@ -538,7 +539,7 @@ function formatDraftStatus(
 }
 
 function formatTimestamp(value: string): string {
-  return new Date(value).toLocaleString();
+  return formatDateTime(value, value);
 }
 
 const styles = StyleSheet.create({

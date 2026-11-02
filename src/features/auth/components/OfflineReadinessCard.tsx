@@ -5,6 +5,7 @@ import { OFFLINE_READINESS_COPY } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useOfflineReadiness } from '@/features/auth/hooks/useOfflineReadiness';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDateTime } from '@/lib/formatters';
 
 /**
  * "Before you go offline" readiness check (D01). It explains the existing
@@ -14,7 +15,7 @@ export function OfflineReadinessCard() {
   const theme = useTheme();
   const readiness = useOfflineReadiness();
   const expiresLabel = readiness.sessionExpiresAt
-    ? new Date(readiness.sessionExpiresAt).toLocaleString()
+    ? formatDateTime(readiness.sessionExpiresAt)
     : null;
 
   const checks = [

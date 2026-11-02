@@ -6,6 +6,7 @@ import {
   type FieldValidationFollowUpOutcome,
 } from '@/database/schema';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDate } from '@/lib/formatters';
 
 export const OUTCOME_LABELS: Record<FieldValidationFollowUpOutcome, string> = {
   improved: 'Improved',
@@ -34,7 +35,7 @@ export function FollowUpOutcomeControl({
   return (
     <View testID="field-validation.outcome-group" style={styles.container}>
       <Text style={[styles.title, { color: theme.text }]}>Follow-up outcome</Text>
-      <Text style={[styles.dateLine, { color: theme.textSecondary }]}>{previousVisitAt ? `Compared with ${formatDate(previousVisitAt)}` : 'No previous visit on record'}</Text>
+      <Text style={[styles.dateLine, { color: theme.textSecondary }]}>{previousVisitAt ? `Compared with ${formatDate(previousVisitAt, previousVisitAt)}` : 'No previous visit on record'}</Text>
       <View style={styles.grid}>
         {FIELD_VALIDATION_FOLLOW_UP_OUTCOMES.map((outcome) => {
           const selected = value === outcome;
@@ -64,12 +65,6 @@ export function FollowUpOutcomeControl({
   );
 }
 
-function formatDate(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleDateString(undefined, { dateStyle: 'medium' });
-}
 
 const styles = StyleSheet.create({
   container: { gap: Spacing.sm },

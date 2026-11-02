@@ -14,6 +14,7 @@ import {
   type TodayVisitBucket,
 } from '@/features/assignments/domain/todayVisits';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDateKey } from '@/lib/formatters';
 
 export function AssignmentCard({
   assignment,
@@ -145,10 +146,7 @@ function stateLabel(state: FieldValidationAssignment['fieldValidationState']): s
 }
 
 function formatDate(value: string): string {
-  const date = new Date(`${value}T00:00:00`);
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleDateString(undefined, { dateStyle: 'medium' });
+  return formatDateKey(value);
 }
 
 function toPillVariant(label: string): DiseasePillVariant {

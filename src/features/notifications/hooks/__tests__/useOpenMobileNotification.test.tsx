@@ -82,7 +82,7 @@ describe('useOpenMobileNotification', () => {
     });
   });
 
-  it('leaves a case that has nowhere to go unacknowledged and untouched', async () => {
+  it('marks a case with nowhere to go read once, without closing or navigating', async () => {
     const { markRead, onClose, result } = await renderOpenNotification({
       destinations: new Map([[NOTIFICATION.id, { kind: 'unavailable' }]]),
     });
@@ -91,7 +91,8 @@ describe('useOpenMobileNotification', () => {
       result.current(NOTIFICATION);
     });
 
-    expect(markRead).not.toHaveBeenCalled();
+    expect(markRead).toHaveBeenCalledTimes(1);
+    expect(markRead).toHaveBeenCalledWith(NOTIFICATION.id);
     expect(onClose).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
   });

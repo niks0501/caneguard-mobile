@@ -10,6 +10,7 @@ import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDateTime } from '@/lib/formatters';
 
 const ENROLLMENT_SUCCESS_MESSAGE =
   'This installation is enrolled with a fresh server session. Existing sessions on other device identities are unchanged.';
@@ -188,7 +189,7 @@ function formatExpiry(expiresAt: string | null | undefined): string {
   if (!Number.isFinite(timestamp)) {
     return 'Session expiry is unavailable. Sign in again to establish a server session.';
   }
-  return `Session expires ${new Date(timestamp).toLocaleString()}. Biometric unlock does not extend it.`;
+  return `Session expires ${formatDateTime(timestamp)}. Biometric unlock does not extend it.`;
 }
 
 const styles = StyleSheet.create({

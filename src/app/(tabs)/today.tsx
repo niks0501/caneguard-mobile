@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
@@ -15,6 +15,7 @@ import {
 import { useTodayVisits } from '@/features/assignments/hooks/useTodayVisits';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDateTime } from '@/lib/formatters';
 
 const BUCKET_LABELS: Record<TodayVisitBucket, string> = {
   overdue: 'Overdue',
@@ -27,10 +28,8 @@ function formatLastUpdated(value: string | null): string | null {
   if (!value) {
     return null;
   }
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? null
-    : `Last updated ${date.toLocaleString()}`;
+  const formatted = formatDateTime(value);
+  return formatted ? `Last updated ${formatted}` : null;
 }
 
 export default function TodayScreen() {
@@ -60,7 +59,18 @@ export default function TodayScreen() {
     <SafeAreaView testID="today.screen" style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
       <View style={styles.root}>
         <BrandedScreenHeader title="Today's field work" subtitle="Visits ordered by due date and barangay." showBack={false} />
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          testID="today.scroll"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={state.refreshing}
+              onRefresh={() => void handleRefresh()}
+              tintColor={theme.primary}
+              colors={[theme.primary]}
+            />
+          }>
           <View style={styles.content}>
             {state.errorMessage || state.capabilityUnavailable ? (
               <View

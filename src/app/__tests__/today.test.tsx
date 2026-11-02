@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import TodayScreen from '@/app/(tabs)/today';
 import { ToastProvider } from '@/components/ui/Toast';
@@ -153,5 +153,16 @@ describe("TodayScreen empty states", () => {
 
     await fireEvent.press(screen.getByText('Refresh assignments'));
     expect(mockRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes by pulling the list down once visits are listed', async () => {
+    await renderToday({ visits: [assignment('a1')], assignments: [assignment('a1')] });
+    const control = screen.getByTestId('today.scroll').props.refreshControl;
+    await act(async () => {
+      await control.props.onRefresh();
+    });
+
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+    expect(mockShowToast).toHaveBeenCalledWith('Assignments refreshed', 'info');
   });
 });

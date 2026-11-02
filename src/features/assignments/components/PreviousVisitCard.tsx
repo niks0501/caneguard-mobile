@@ -10,6 +10,7 @@ import { Radius, Spacing, Typography } from '@/constants/theme';
 import { OUTCOME_LABELS } from '@/features/assignments/components/FollowUpOutcomeControl';
 import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDate } from '@/lib/formatters';
 
 export function PreviousVisitCard({
   currentReporterConcern,
@@ -117,7 +118,7 @@ function ContextRow({ label, value }: { label: string; value: ReactNode }) {
 }
 
 function formatTimestamp(value: string): string {
-  return new Date(value).toLocaleDateString(undefined, { dateStyle: 'medium' });
+  return formatDate(value, value);
 }
 
 const styles = StyleSheet.create({

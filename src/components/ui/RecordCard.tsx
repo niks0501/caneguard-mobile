@@ -17,6 +17,7 @@ import { getAuthorityReviewPresentation } from '@/features/reports/domain/report
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import { SYNC_TONE_COLOR, type SyncToneColorKey } from '@/features/sync/utils/syncStatusCopy';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDateTime } from '@/lib/formatters';
 
 type RecordCardProps = {
   activityType?: 'report' | 'scan';
@@ -211,10 +212,7 @@ function formatSavedAt(value: string): string {
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  return date.toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+  return formatDateTime(date);
 }
 
 const styles = StyleSheet.create({

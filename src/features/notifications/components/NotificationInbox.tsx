@@ -6,6 +6,7 @@ import type { MobileNotification } from '@/features/notifications/domain/notific
 import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDate } from '@/lib/formatters';
 
 /**
  * The panel is a content-sized card capped at 72% of the viewport, so its list
@@ -172,7 +173,7 @@ const NotificationRow = memo(function NotificationRow({
         <Text style={[styles.meta, { color: theme.textSecondary }]}>
           {destination?.kind === 'unavailable'
             ? 'This case is not stored on this device'
-            : `${notification.referenceCode ?? 'Case activity'}${notification.createdAt ? ` · ${formatDate(notification.createdAt)}` : ''}`}
+            : `${notification.referenceCode ?? 'Case activity'}${notification.createdAt ? ` · ${formatDate(notification.createdAt, 'Recently')}` : ''}`}
         </Text>
       </View>
       {actionable ? (
@@ -182,11 +183,6 @@ const NotificationRow = memo(function NotificationRow({
   );
 });
 
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Recently';
-  return new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium' }).format(date);
-}
 
 const styles = StyleSheet.create({
   container: { gap: Spacing.md },

@@ -1,9 +1,6 @@
 name: QA over-the-air update
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:

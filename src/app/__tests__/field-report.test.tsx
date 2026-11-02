@@ -630,7 +630,7 @@ describe('FieldReportScreen', () => {
     );
   });
 
-  it('reports the outcome of this attempt instead of the saved location', async () => {
+  it('reports a failed retry without claiming the saved location was lost', async () => {
     mockDraftState = {
       ...mockDraftState,
       data: draft({
@@ -672,6 +672,9 @@ describe('FieldReportScreen', () => {
 
     expect(mockCaptureLocation).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('app-toast')).toHaveTextContent(
+      'Could not get a new reading. Your saved location is kept · about ±4 m.',
+    );
+    expect(screen.getByTestId('app-toast')).not.toHaveTextContent(
       /Location could not be confirmed/,
     );
     expect(screen.getByTestId('app-toast')).not.toHaveTextContent('Location added');
@@ -812,7 +815,7 @@ describe('FieldReportScreen', () => {
     expect(screen.getByLabelText('Retry location')).toBeOnTheScreen();
   });
 
-  it('does not block finalization on poor GPS accuracy and keeps retry available', async () => {
+  it('shows a saved low-accuracy GPS fix as Location added with its accuracy and offers a closer reading', async () => {
     mockDraftState = {
       ...mockDraftState,
       data: draft({
@@ -834,15 +837,140 @@ describe('FieldReportScreen', () => {
 
     await goToStep(4);
     expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
-      /Location could not be confirmed/,
+      'Location added · about ±38 m',
     );
-    expect(screen.getByLabelText('Retry location')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Choose location on map')).toBeOnTheScreen();
+    expect(screen.queryByText(/Location could not be confirmed/)).not.toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.confirmed-location')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Try for a closer reading')).toBeOnTheScreen();
 
     await goToStep(5);
     expect(screen.queryByTestId('field-report.ready.final_coordinates')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.ready.location_source')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.ready.gps_accuracy')).not.toBeOnTheScreen();
+  });
+
+  it('runs the closer-reading retry for a saved fix in one tap', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        locationSource: 'gps',
+        gpsAccuracy: 38,
+        gpsCaptureOutcome: 'low_accuracy',
+        gpsOutcomeRecordedAt: '2026-08-10T01:04:00.000Z',
+      }),
+    };
+    mockCaptureLocation.mockResolvedValueOnce(
+      draft({
+        finalLatitude: 14.0668,
+        finalLongitude: 120.632,
+        gpsAccuracy: 6,
+        gpsCaptureOutcome: 'low_accuracy',
+        gpsAttemptedAt: '2026-08-10T01:09:00.000Z',
+        locationSource: 'gps',
+      }) as never,
+    );
+
+    await render(
+      <ToastProvider>
+        <FieldReportScreen />
+      </ToastProvider>,
+    );
+    await act(async () => undefined);
+    await goToStep(4);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Try for a closer reading'));
+    });
+
+    expect(mockCaptureLocation).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByTestId('field-report.location-replacement-dialog'),
+    ).not.toBeOnTheScreen();
+    expect(screen.getByTestId('app-toast')).toHaveTextContent(
+      'Location added · about ±6 m',
+    );
+  });
+
+  it('does not offer a closer reading once the saved fix meets the target accuracy', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        locationSource: 'gps',
+        gpsAccuracy: 5,
+        gpsCaptureOutcome: 'resolved',
+        gpsOutcomeRecordedAt: '2026-08-10T01:04:00.000Z',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    await goToStep(4);
+    expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
+      'Location added · about ±5 m',
+    );
+    expect(screen.getByTestId('field-report.confirmed-location')).toBeOnTheScreen();
+    expect(
+      screen.queryByLabelText('Try for a closer reading'),
+    ).not.toBeOnTheScreen();
+    expect(screen.getByLabelText('Change the saved report location')).toBeOnTheScreen();
+  });
+
+  it('toasts Location added with accuracy when a capture saves a low-accuracy fix', async () => {
+    mockCaptureLocation.mockResolvedValueOnce(
+      draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        gpsAccuracy: 8,
+        gpsCaptureOutcome: 'low_accuracy',
+        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
+        locationSource: 'gps',
+      }) as never,
+    );
+
+    await render(
+      <ToastProvider>
+        <FieldReportScreen />
+      </ToastProvider>,
+    );
+    await act(async () => undefined);
+    await goToStep(4);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Add location'));
+    });
+
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('Location added · about ±8 m');
+    expect(screen.getByTestId('app-toast')).not.toHaveTextContent(/could not be confirmed/);
+  });
+
+  it('toasts Location added with accuracy when a capture resolves a GPS fix', async () => {
+    mockCaptureLocation.mockResolvedValueOnce(
+      draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        gpsAccuracy: 4.2,
+        gpsCaptureOutcome: 'resolved',
+        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
+        locationSource: 'gps',
+      }) as never,
+    );
+
+    await render(
+      <ToastProvider>
+        <FieldReportScreen />
+      </ToastProvider>,
+    );
+    await act(async () => undefined);
+    await goToStep(4);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Add location'));
+    });
+
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('Location added · about ±4 m');
+    expect(screen.getByTestId('app-toast')).not.toHaveTextContent(/could not be confirmed/);
   });
 
   it('prompts to enable location services and opens device settings', async () => {
@@ -1273,6 +1401,46 @@ describe('FieldReportScreen', () => {
     expect(screen.getByLabelText('Finalize Field Report')).toBeOnTheScreen();
   });
 
+  it('shows the saved GPS accuracy in the finalize confirmation', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        farmerOrFarmOwnerName: 'Maria Santos',
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        gpsAccuracy: 38,
+        gpsCaptureOutcome: 'low_accuracy',
+        gpsOutcomeRecordedAt: '2026-08-10T01:04:00.000Z',
+        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
+        locationSource: 'gps',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+    await goToStep(2);
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-area-input'),
+        '1.25',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-portion-input'),
+        '40',
+      );
+    });
+    await goToStep(5);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+    });
+
+    expect(screen.getByTestId('field-report.confirm-finalize-dialog')).toHaveTextContent(
+      /Location: Location added · about ±38 m\./,
+    );
+  });
+
   it('keeps the finalize gate open with the error when finalization fails', async () => {
     mockFinalize.mockResolvedValueOnce(null);
     mockDraftState = {
@@ -1611,7 +1779,7 @@ describe('FieldReportScreen', () => {
       ),
     ).toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.finalize')).not.toBeOnTheScreen();
-    expect(screen.getByText('Location added')).toBeOnTheScreen();
+    expect(screen.getByText('Location added · about ±4 m')).toBeOnTheScreen();
     expect(screen.getByText('0.5 ha')).toBeOnTheScreen();
     expect(screen.getByText('30%')).toBeOnTheScreen();
 

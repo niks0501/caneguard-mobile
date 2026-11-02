@@ -184,7 +184,11 @@ export async function saveGpsCapture(
       const existing = transaction
         .select({
           authoringState: fieldReports.authoringState,
+          finalLatitude: fieldReports.finalLatitude,
+          finalLongitude: fieldReports.finalLongitude,
+          gpsAccuracy: fieldReports.gpsAccuracy,
           gpsOutcomeRecordedAt: fieldReports.gpsOutcomeRecordedAt,
+          locationSource: fieldReports.locationSource,
           manualLocationSelectedAt: fieldReports.manualLocationSelectedAt,
           scanRecordId: fieldReports.scanRecordId,
         })
@@ -239,8 +243,17 @@ export async function saveGpsCapture(
               gpsAttemptedAt: input.capturedAt,
             }
           : {};
+      // A retry that reads less accurately than the saved GPS fix keeps the
+      // better fix; the new reading is kept only as attempt evidence.
+      const keepsSavedFix =
+        'latitude' in input &&
+        existing.locationSource === 'gps' &&
+        existing.finalLatitude !== null &&
+        existing.finalLongitude !== null &&
+        existing.gpsAccuracy !== null &&
+        input.accuracy > existing.gpsAccuracy;
       const finalValues =
-        'latitude' in input
+        'latitude' in input && !keepsSavedFix
           ? {
               finalLatitude: input.latitude,
               finalLongitude: input.longitude,

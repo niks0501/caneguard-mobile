@@ -1,6 +1,6 @@
 # CaneGuard Mobile — current capability and readiness index
 
-**Status:** current guidance. Last reviewed: 23 October 2026.
+**Status:** current guidance. Last reviewed: 3 November 2026.
 **Applies to:** this repository (`caneguard-mobile`) at the revision recorded in
 [`docs/RELEASE-EVIDENCE.md`](RELEASE-EVIDENCE.md).
 
@@ -66,15 +66,24 @@ not proven by unit tests:
 
 ## Location behaviour
 
-- Foreground GPS is the primary source and is bounded to 15 seconds per attempt.
-- If GPS is slow, denied, weak, or services are off, the inspector can retry,
+- Foreground GPS is the primary source. One bounded foreground capture samples
+  readings for up to 15 seconds, keeps the most accurate one and stops early
+  once a reading reaches the 5 m target.
+- In a Field Report Draft, a reading that saved final coordinates always reads
+  as **Location added** with its device-reported accuracy, including one worse
+  than the 5 m target; that worse-than-target fix also offers a one-tap **Try for
+  a closer reading** retry.
+- A later capture never replaces a saved GPS fix with a less accurate one, and a
+  capture that returns nothing keeps the saved fix.
+- If GPS is slow, denied, unusable, or services are off, the inspector can retry,
   choose a point on the map while online, or record an **explicit unavailable
   reason**. An unavailable location has null coordinates and no invented
   accuracy.
 - A manual map pin has no GPS accuracy. The earlier GPS attempt stays as
   evidence on the report.
-- A draft location can be corrected with an explicit replacement confirmation;
-  finalized reports stay read-only.
+- Correcting a saved draft location asks for an explicit replacement
+  confirmation, while a closer-reading retry keeps GPS provenance and runs in one
+  tap; finalized reports stay read-only.
 - Location never blocks saving a Draft, and a pending reading cannot overwrite a
   newer manual or unavailable choice.
 

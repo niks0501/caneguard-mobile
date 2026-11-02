@@ -419,6 +419,41 @@ describe('Field Report draft repository', () => {
     native.close();
   });
 
+  it('keeps a saved GPS fix when a retry reports a less accurate reading', async () => {
+    const { database, native } = openTestDatabase();
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
+      accuracy: 8,
+      capturedAt: '2026-08-10T01:04:00.000Z',
+      latitude: 14.066,
+      longitude: 120.631,
+      outcome: 'low_accuracy',
+      updatedAt: '2026-08-10T01:04:01.000Z',
+    });
+
+    await expect(
+      saveGpsCapture(database, REPORT_ID, SUBMITTER_ID, {
+        accuracy: 12,
+        capturedAt: '2026-08-10T01:05:00.000Z',
+        latitude: 14.0667,
+        longitude: 120.6319,
+        outcome: 'low_accuracy',
+        updatedAt: '2026-08-10T01:05:01.000Z',
+      }),
+    ).resolves.toMatchObject({
+      finalLatitude: 14.066,
+      finalLongitude: 120.631,
+      gpsAccuracy: 8,
+      locationSource: 'gps',
+      gpsAttemptLatitude: 14.0667,
+      gpsAttemptLongitude: 120.6319,
+      gpsAttemptAccuracy: 12,
+      gpsAttemptedAt: '2026-08-10T01:05:00.000Z',
+      gpsCaptureOutcome: 'low_accuracy',
+    });
+    native.close();
+  });
+
   it.each(['permission_denied', 'unavailable', 'error'] as const)(
     'records %s without deleting existing Draft content',
     async (outcome) => {

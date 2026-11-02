@@ -46,6 +46,9 @@ tests. "Implemented" does not mean "verified on a device":
   (concave boundaries included), overlaps counted once, and unfinished affected
   points checkpointed with the draft so Submit stays blocked until they are
   finished or cleared.
+- Home: the Morning Note sentence and its one button, the greeting and date
+  band with an Offline chip while offline, the "Today at a glance" strip, icon
+  tool tiles, and the four-class "Know the signs" photo strip.
 - Today's field work, Activity, office updates, Field guide, Settings.
 
 ## Deployment-dependent behaviour
@@ -110,8 +113,8 @@ guidance:
   (Smut is a current supported class).
 - [`docs/features/caneguard-uiux-enhancement-handoff/03-SCREEN-SPECS.md`](features/caneguard-uiux-enhancement-handoff/03-SCREEN-SPECS.md)
   — specifies a three-class Home education section (Healthy, Mosaic, Rust) and
-  at most two secondary shortcuts; the current Home shows all four model classes
-  in its photo strip and its tool tiles follow the code, not this spec.
+  at most two secondary shortcuts, both since superseded by the current Home and
+  the four-class model contract above.
 - [`docs/features/caneGuard-p0-implementation-phases/P0-07-Field-Report-Synchronization-and-API.md`](features/caneGuard-p0-implementation-phases/P0-07-Field-Report-Synchronization-and-API.md)
   — records the P0 requirement for final coordinates; the current contract also
   supports an explicit unavailable-location reason with null coordinates.

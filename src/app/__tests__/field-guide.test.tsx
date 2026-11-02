@@ -10,7 +10,6 @@ import {
   FIELD_GUIDE_EDUCATION_DISCLAIMER,
   FIELD_GUIDE_INTRO,
   FIELD_GUIDE_NOT_FOUND_TITLE,
-  FIELD_GUIDE_PENDING_VALIDATION_NOTICE,
   FIELD_GUIDE_READ_FULL_GUIDE,
   FIELD_GUIDE_SCIENTIFIC_NAME_LABEL,
   FIELD_GUIDE_SECTION_DETAIL,
@@ -68,9 +67,6 @@ describe('FieldGuideIndexScreen', () => {
     expect(screen.getByText('Field guide')).toBeOnTheScreen();
     expect(screen.getByText(FIELD_GUIDE_INTRO)).toBeOnTheScreen();
     expect(screen.getByText(FIELD_GUIDE_EDUCATION_DISCLAIMER)).toBeOnTheScreen();
-    expect(screen.getByTestId('field-guide.index.pending-validation')).toHaveTextContent(
-      FIELD_GUIDE_PENDING_VALIDATION_NOTICE,
-    );
 
     expect(
       screen
@@ -146,9 +142,6 @@ describe('FieldGuideEntryScreen', () => {
     expect(screen.getByText(FIELD_GUIDE_SECTION_DETAIL)).toBeOnTheScreen();
 
     expect(screen.getByText(FIELD_GUIDE_EDUCATION_DISCLAIMER)).toBeOnTheScreen();
-    expect(screen.getByTestId('field-guide.detail.rust.pending-validation')).toHaveTextContent(
-      FIELD_GUIDE_PENDING_VALIDATION_NOTICE,
-    );
     expect(screen.getByTestId('field-guide.detail.rust.app-check')).toHaveTextContent(
       FIELD_GUIDE_APP_CAN_CHECK,
     );
@@ -249,7 +242,7 @@ describe('FieldGuideEntryScreen', () => {
 
   it.each([
     ['smut', 'Sporisorium scitamineum'],
-    ['rssi', 'Pulvinaria tenuivalata'],
+    ['rssi', 'Pulvinaria tenuivalvata'],
   ] as const)('shows the scientific name on the %s entry', async (id, name) => {
     showEntry(id);
     await render(<FieldGuideEntryScreen />);

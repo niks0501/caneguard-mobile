@@ -7,7 +7,6 @@ import {
   FIELD_GUIDE_EDUCATION_DISCLAIMER,
   FIELD_GUIDE_NOT_FOUND_ACTION,
   FIELD_GUIDE_NOT_FOUND_TITLE,
-  FIELD_GUIDE_PENDING_VALIDATION_NOTICE,
   FIELD_GUIDE_PHOTO_VIEWER_CLOSE,
   FIELD_GUIDE_PHOTO_VIEWER_HINT,
   FIELD_GUIDE_PHOTO_VIEWER_MISSING_TITLE,
@@ -41,9 +40,6 @@ describe('FieldGuidePhotoScreen', () => {
     expect(screen.getByText(FIELD_GUIDE_PHOTO_VIEWER_HINT)).toBeOnTheScreen();
     expect(screen.getByText(FIELD_GUIDE_CREDIT_MISSING)).toBeOnTheScreen();
     expect(screen.getByText(FIELD_GUIDE_EDUCATION_DISCLAIMER)).toBeOnTheScreen();
-    expect(screen.getByTestId('field-guide.photo.pending-validation')).toHaveTextContent(
-      FIELD_GUIDE_PENDING_VALIDATION_NOTICE,
-    );
   });
 
   it('selects the photo the reader tapped', async () => {

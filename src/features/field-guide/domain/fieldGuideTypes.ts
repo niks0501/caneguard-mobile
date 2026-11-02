@@ -80,18 +80,6 @@ export type FieldGuideGuide = {
   sections: readonly FieldGuideGuideSection[];
 };
 
-/**
- * Editorial status for one entry. While it is `pending-expert-review` the app
- * shows a reader-visible marker beside the education disclaimer on the gallery
- * index, the entry screen, the full guide and the photo viewer; the same record
- * keeps the structured validation note and review date.
- */
-export type FieldGuideEditorial = {
-  validationStatus: 'pending-expert-review' | 'expert-reviewed';
-  validationNote: string;
-  reviewedAt: string | null;
-};
-
 export type FieldGuideEntry = {
   id: FieldGuideEntryId;
   category: FieldGuideCategory;
@@ -122,7 +110,6 @@ export type FieldGuideEntry = {
   /** Sources cited by this entry, in display order. */
   sourceIds: readonly FieldGuideSourceId[];
   /** Structured validation status, also rendered as the pending-review marker. */
-  editorial: FieldGuideEditorial;
   images: readonly FieldGuideImage[];
   /** True only when the AI model can produce this as a possible condition. */
   detectableByApp: boolean;

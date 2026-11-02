@@ -17,9 +17,7 @@ import {
   FIELD_GUIDE_TITLE,
 } from '@/constants/copy';
 import { fieldGuideEntriesForCategory } from '@/features/field-guide/constants/fieldGuideEntries';
-import { fieldGuideEditorial } from '@/features/field-guide/constants/fieldGuideEntryContent';
 import { FIELD_GUIDE_PILL_VARIANTS } from '@/features/field-guide/constants/fieldGuidePillVariants';
-import { FieldGuidePendingValidationNotice } from '@/features/field-guide/components/FieldGuidePendingValidationNotice';
 import {
   FIELD_GUIDE_CATEGORY_ORDER,
   type FieldGuideCategory,
@@ -92,10 +90,6 @@ export default function FieldGuideIndexScreen() {
                 <Text style={[styles.disclaimerText, { color: theme.textSecondary }]}>
                   {FIELD_GUIDE_EDUCATION_DISCLAIMER}
                 </Text>
-                <FieldGuidePendingValidationNotice
-                  editorial={fieldGuideEditorial}
-                  testID="field-guide.index.pending-validation"
-                />
               </View>
             </Card>
 

@@ -197,14 +197,6 @@ describe('field guide safety rules over the entry data', () => {
     expect(violations).toEqual([]);
   });
 
-  it('marks every launch entry for expert review in editorial metadata', () => {
-    for (const entry of fieldGuideEntries) {
-      expect(entry.editorial.validationStatus).toBe('pending-expert-review');
-      expect(entry.editorial.reviewedAt).toBeNull();
-      expect(entry.editorial.validationNote.length).toBeGreaterThan(0);
-    }
-  });
-
   it('gives every bundled photo a credit record that never invents a licence', () => {
     for (const entry of fieldGuideEntries) {
       for (const image of entry.images) {

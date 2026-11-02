@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { StyleSheet } from 'react-native';
 
@@ -193,11 +193,37 @@ describe('HomeScreen', () => {
     expect(screen.queryByTestId('home.start-scan')).not.toBeOnTheScreen();
   });
 
+  it('keeps the header on the current clock as the hour turns over', async () => {
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date(2026, 10, 2, 9, 0));
+      await render(<HomeScreen />);
+
+      expect(screen.getByTestId('home.date')).toHaveTextContent('Monday 2 November');
+      expect(screen.getByTestId('home.greeting')).toHaveTextContent('Good morning, Ari');
+
+      for (let hour = 0; hour < 3; hour += 1) {
+        await act(async () => {
+          jest.advanceTimersByTime(60 * 60 * 1000);
+        });
+      }
+
+      expect(screen.getByTestId('home.date')).toHaveTextContent('Monday 2 November');
+      expect(screen.getByTestId('home.greeting')).toHaveTextContent('Good afternoon, Ari');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('shows the Know the signs strip and opens a field-guide entry', async () => {
     await render(<HomeScreen />);
 
     expect(screen.getByText('Know the signs')).toBeOnTheScreen();
     expect(screen.getAllByText('Reference photo')).toHaveLength(4);
+    expect(screen.getByText('Even green leaves')).toBeOnTheScreen();
+    expect(screen.getByText('Pale green mottling')).toBeOnTheScreen();
+    expect(screen.getByText('Orange pustules beneath')).toBeOnTheScreen();
+    expect(screen.getByText('Dark whip on the shoot')).toBeOnTheScreen();
     await fireEvent.press(screen.getByTestId('home.sign.rust'));
     expect(mockRouterPush).toHaveBeenCalledWith('/field-guide/rust');
   });

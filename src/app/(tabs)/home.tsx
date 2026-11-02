@@ -33,6 +33,7 @@ import {
   Spacing,
   Typography,
 } from '@/constants/theme';
+import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function HomeScreen() {
@@ -58,7 +59,7 @@ export default function HomeScreen() {
     sessionVerification,
   });
   const note = buildMorningNote(attention.items, syncNote);
-  const now = useMemo(() => new Date(), []);
+  const now = useNow();
   const visitCounts = useMemo(() => {
     let today = 0;
     let overdue = 0;

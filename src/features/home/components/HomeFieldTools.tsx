@@ -45,7 +45,9 @@ const SIGN_ENTRY_IDS = ['healthy', 'mosaic', 'rust', 'smut'] as const;
 const signEntries = SIGN_ENTRY_IDS.flatMap((id) => {
   const entry = fieldGuideEntries.find((candidate) => candidate.id === id);
   const photo = entry?.images[0];
-  return entry && photo ? [{ id, name: entry.shortName, sign: entry.signs[0], photo }] : [];
+  return entry && photo
+    ? [{ id, name: entry.shortName, sign: HOME_NOTE_COPY.signPhrases[id], photo }]
+    : [];
 });
 
 /** Horizontal strip of reference photos with one sign each; tapping opens that field-guide entry. */

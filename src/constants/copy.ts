@@ -214,4 +214,10 @@ export const HOME_NOTE_COPY = {
   glanceWaiting: 'Waiting to send',
   signsHeading: 'Know the signs',
   referencePhoto: 'Reference photo',
+  signPhrases: {
+    healthy: 'Even green leaves',
+    mosaic: 'Pale green mottling',
+    rust: 'Orange pustules beneath',
+    smut: 'Dark whip on the shoot',
+  },
 } as const;

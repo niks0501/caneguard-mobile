@@ -22,9 +22,9 @@ Source of truth: `MODEL_LABELS` in
 
 The scan output is labelled **Possible Condition** and is decision support, not
 a diagnosis. Low-confidence results and photo-quality or checklist cautions are
-shown to the inspector; none of them alter the model scores. Fixed QA fixtures
-are deterministic oracles, not evidence of field accuracy, and a browser or
-mocked test is never native inference proof.
+shown to every signed-in account; none of them alter the model scores. Fixed QA
+fixtures are deterministic oracles, not evidence of field accuracy, and a browser
+or mocked test is never native inference proof.
 
 ## Implemented mobile screens
 

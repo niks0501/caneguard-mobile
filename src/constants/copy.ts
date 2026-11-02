@@ -144,13 +144,6 @@ export const FIELD_GUIDE_SCIENTIFIC_NAME_LABEL = 'Scientific name';
 export const FIELD_GUIDE_EDUCATION_DISCLAIMER =
   'This guide is for education. It does not confirm a diagnosis — ask your agriculture officer to confirm what you see.';
 
-/**
- * Pending-review marker rendered beside the education disclaimer on every
- * reading surface while an entry's editorial record is still pending.
- */
-export const FIELD_GUIDE_PENDING_VALIDATION_NOTICE =
-  'Pending expert validation: this agricultural guidance has not yet been approved by SRA or a qualified local expert.';
-
 /** Source rows. A missing document says so instead of showing a dead link. */
 export const FIELD_GUIDE_SOURCE_OPEN_LABEL = 'Read the original source';
 export const FIELD_GUIDE_SOURCE_INTERNET_REQUIRED =

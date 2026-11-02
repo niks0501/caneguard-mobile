@@ -87,7 +87,7 @@ describe('field guide sources', () => {
 
   it('names smut and RSSI with their scientific names', () => {
     expect(findFieldGuideEntry('smut')?.scientificName).toBe('Sporisorium scitamineum');
-    expect(findFieldGuideEntry('rssi')?.scientificName).toBe('Pulvinaria tenuivalata');
+    expect(findFieldGuideEntry('rssi')?.scientificName).toBe('Pulvinaria tenuivalvata');
   });
 
   it('gives the pest entry no pesticide, active ingredient or dose', () => {

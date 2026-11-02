@@ -7,9 +7,7 @@ import type { FieldGuideSource, FieldGuideSourceId } from '../domain/fieldGuideT
  * `published`. Researcher-supplied documents that are still missing are
  * registered as `awaiting-supply` with `url: null`, so the reading surface can
  * show the citation and an honest "not supplied yet" row instead of a dead
- * link or a silently omitted source. None of these records asserts that the
- * wording of every entry has been checked against the full text: the editorial
- * record on each entry stays `pending-expert-review` until that happens.
+ * link or a silently omitted source.
  */
 const SOURCES: readonly FieldGuideSource[] = [
   {

@@ -14,7 +14,7 @@ import {
   type FieldGuideImageCredit,
   type FieldGuideLaunchEntryId,
 } from '../domain/fieldGuideTypes';
-import { fieldGuideEditorial, fieldGuideEntryContent } from './fieldGuideEntryContent';
+import { fieldGuideEntryContent } from './fieldGuideEntryContent';
 
 /**
  * The gallery's own content module.
@@ -168,7 +168,6 @@ function projectModelEntry(label: ModelLabel): FieldGuideEntry {
     detail: content.detail,
     guide: content.guide,
     sourceIds: content.sourceIds,
-    editorial: fieldGuideEditorial,
     images: [
       ...(photoDescription
         ? bundledImage(label, photoDescription.caption, photoDescription.subject)
@@ -202,7 +201,6 @@ function projectPestEntry(): FieldGuideEntry {
     detail: content.detail,
     guide: content.guide,
     sourceIds: content.sourceIds,
-    editorial: fieldGuideEditorial,
     images: FIELD_GUIDE_DROP_PHOTOS[FIELD_GUIDE_PEST_ENTRY_ID],
     // The app can only record RSSI as something the reporter says they saw.
     detectableByApp: false,

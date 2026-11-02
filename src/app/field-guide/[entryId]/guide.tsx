@@ -21,7 +21,6 @@ import {
   FIELD_GUIDE_TITLE,
 } from '@/constants/copy';
 import { FieldGuidePhotoCredits } from '@/features/field-guide/components/FieldGuidePhotoCredits';
-import { FieldGuidePendingValidationNotice } from '@/features/field-guide/components/FieldGuidePendingValidationNotice';
 import { FieldGuideSources } from '@/features/field-guide/components/FieldGuideSources';
 import { findFieldGuideEntry } from '@/features/field-guide/constants/fieldGuideEntries';
 import { FIELD_GUIDE_PILL_VARIANTS } from '@/features/field-guide/constants/fieldGuidePillVariants';
@@ -100,10 +99,6 @@ export default function FieldGuideGuideScreen() {
                   testID="field-guide.guide.disclaimer">
                   {FIELD_GUIDE_EDUCATION_DISCLAIMER}
                 </Text>
-                <FieldGuidePendingValidationNotice
-                  editorial={entry.editorial}
-                  testID="field-guide.guide.pending-validation"
-                />
               </View>
             </View>
 

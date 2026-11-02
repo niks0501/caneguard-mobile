@@ -1,5 +1,4 @@
 import type {
-  FieldGuideEditorial,
   FieldGuideGuide,
   FieldGuideLaunchEntryId,
   FieldGuideSourceId,
@@ -22,20 +21,6 @@ export type FieldGuideEntryContent = {
   contentVersion: string;
   /** Null for the bundled seed; ISO date once refreshed from the office. */
   updatedAt: string | null;
-};
-
-/**
- * Every entry is agricultural education written for the phone, and every one
- * is still waiting for a qualified local expert to approve the wording. The
- * status is kept here as structured metadata and is also shown to readers as
- * the pending-review marker beside the education disclaimer on every gallery
- * surface.
- */
-const PENDING_EXPERT_REVIEW: FieldGuideEditorial = {
-  validationStatus: 'pending-expert-review',
-  validationNote:
-    'Agricultural wording, source mapping and advisory limits need approval from SRA or a qualified local expert before publication.',
-  reviewedAt: null,
 };
 
 /**
@@ -411,7 +396,6 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
           heading: 'About this entry’s source',
           paragraphs: [
             'The primary source for this entry is the SRA booklet, pages 21 to 22. The booklet has been requested from the researcher and has not been supplied to this build, so the citation is shown as not supplied yet rather than as a finished reference.',
-            'The whole entry stays marked for expert review until that booklet is checked and the wording is approved.',
           ],
         },
       ],
@@ -425,7 +409,7 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
     summary:
       'Red-Striped Soft Scale Insect: a sap-sucking pest that builds up on the lower leaves and coats them in sticky honeydew and black mold.',
     conditionLabel: 'Insect pest',
-    scientificName: 'Pulvinaria tenuivalata',
+    scientificName: 'Pulvinaria tenuivalvata',
     signs: [
       'Small insects with red stripes, in young and adult stages, on the lower leaves first, then moving upward.',
       'Yellowing leaves, especially toward the base.',
@@ -454,7 +438,7 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
       'Ask the office before any chemical treatment rather than treating on your own.',
     ],
     detail:
-      'RSSI was first detected in Pampanga in 2022 and confirmed in parts of Negros in early 2025. It is treated as an area problem, not a single-farm problem: treating one field while the neighbours are infested invites reinvasion, so the Philippine response uses coordinated surveillance and reporting. Natural enemies, including parasitoid wasps and beneficial fungi, already help suppress it, which is one reason repeated broad-spectrum spraying is discouraged. The scientific name is shown as Pulvinaria tenuivalata, with the spelling still to be confirmed against the SRA brochures.',
+      'RSSI was first detected in Pampanga in 2022 and confirmed in parts of Negros in early 2025. It is treated as an area problem, not a single-farm problem: treating one field while the neighbours are infested invites reinvasion, so the Philippine response uses coordinated surveillance and reporting. Natural enemies, including parasitoid wasps and beneficial fungi, already help suppress it, which is one reason repeated broad-spectrum spraying is discouraged. The scientific name is Pulvinaria tenuivalvata.',
     guide: {
       intro:
         'The Red-Striped Soft Scale Insect is a sap-sucking pest, not a disease the app can detect. This page explains what to look for, why it is handled as an area problem, and what this guide deliberately leaves out until the SRA brochures arrive.',
@@ -464,7 +448,7 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
           heading: 'What RSSI is',
           paragraphs: [
             'RSSI is a soft scale insect that feeds on sugarcane sap. It has red stripes, and it builds up on the lower leaves before moving upward.',
-            'The scientific name used here is Pulvinaria tenuivalata. Treat the name as provisional until it is confirmed against the SRA brochures, because more than one name for this insect has been in circulation.',
+            'The scientific name is Pulvinaria tenuivalvata.',
             'Feeding removes sap. The insect also produces sticky honeydew, and a black sooty mould grows on it, which blocks light and makes the cane look dirty.',
           ],
         },
@@ -533,6 +517,3 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
     updatedAt: null,
   },
 };
-
-/** The pending-review status shared by every launch entry, rendered beside the education disclaimer. */
-export const fieldGuideEditorial: FieldGuideEditorial = PENDING_EXPERT_REVIEW;

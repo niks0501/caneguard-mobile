@@ -40,7 +40,6 @@ import {
 } from '@/features/field-guide/constants/fieldGuideEntries';
 import { FIELD_GUIDE_PILL_VARIANTS } from '@/features/field-guide/constants/fieldGuidePillVariants';
 import { FieldGuidePhotoCredits } from '@/features/field-guide/components/FieldGuidePhotoCredits';
-import { FieldGuidePendingValidationNotice } from '@/features/field-guide/components/FieldGuidePendingValidationNotice';
 import { FieldGuideSources } from '@/features/field-guide/components/FieldGuideSources';
 import type { FieldGuideEntry, FieldGuideImage } from '@/features/field-guide/domain/fieldGuideTypes';
 import { useTheme } from '@/hooks/use-theme';
@@ -171,10 +170,6 @@ export default function FieldGuideEntryScreen() {
                 <Text style={[styles.calloutText, { color: theme.textSecondary }]}>
                   {FIELD_GUIDE_EDUCATION_DISCLAIMER}
                 </Text>
-                <FieldGuidePendingValidationNotice
-                  editorial={entry.editorial}
-                  testID={`field-guide.detail.${entry.id}.pending-validation`}
-                />
               </View>
             </View>
 

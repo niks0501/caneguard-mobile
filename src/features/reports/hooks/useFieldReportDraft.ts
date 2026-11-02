@@ -367,6 +367,14 @@ export function useFieldReportDraft(
           ? reportId.current.id
           : null;
       const reportIdForScan = existing?.id ?? cachedReportId ?? randomUUID();
+      if (!existing && user.role !== 'field_reporter') {
+        setState({
+          data: null,
+          errorMessage: 'Only Field Inspector accounts can create Field Reports.',
+          loading: false,
+        });
+        return null;
+      }
       const data =
         existing ??
         (await createOrGetFieldReportDraft(database, {
@@ -374,7 +382,7 @@ export function useFieldReportDraft(
           scanRecordId,
           createdAt: new Date().toISOString(),
           submitterIdentity: user.uuid,
-          submitterRole: user.role,
+          submitterRole: 'field_reporter',
           // D2: seed province/municipality from the cached region list instead
           // of the hardcoded schema defaults when a default region is known.
           ...(regionDefaultsRef.current

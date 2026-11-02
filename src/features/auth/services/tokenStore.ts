@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 
 import type { MobileSession, MobileUser } from '@/features/auth/types';
+import { isMobileUserRole } from '@/features/auth/types';
 
 const LEGACY_SESSION_KEY = 'caneguard.mobile.session.v1';
 const PROTECTED_SESSION_KEY = 'caneguard.mobile.session.protected.v1';
@@ -251,7 +252,7 @@ function isMobileUser(value: unknown): value is MobileUser {
     user.name.trim().length > 0 &&
     typeof user.email === 'string' &&
     user.email.trim().length > 0 &&
-    user.role === 'field_reporter'
+    isMobileUserRole(user.role)
   );
 }
 

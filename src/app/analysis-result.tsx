@@ -26,6 +26,7 @@ import {
 } from '@/features/detection/checklist/checklistConsistency';
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import { isBelowV1ConfidenceCautionThreshold } from '@/features/detection/constants/confidenceCaution';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
 import { useScanSession } from '@/features/detection/context/useScanSession';
 import {
@@ -85,6 +86,8 @@ export default function AnalysisResultScreen() {
   const theme = useTheme();
   const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
+  const { user } = useAuth();
+  const canReportToOffice = user?.role === 'field_reporter';
   const saveRecord = useSaveCompletedScan(state);
   const draft = useScanDraft();
   const [openingReport, setOpeningReport] = useState(false);
@@ -380,7 +383,9 @@ export default function AnalysisResultScreen() {
                   ? 'This scan is saved on this device. Reporting it to the office is a separate choice.'
                   : isFailed
                     ? saveRecord.errorMessage ?? 'The scan could not be saved on this device.'
-                    : 'Report to Office saves this scan and opens a short Field Report Draft. Save Scan stores the scan on this device without sending a report.'}
+                    : canReportToOffice
+                      ? 'Report to Office saves this scan and opens a short Field Report Draft. Save Scan stores the scan on this device without sending a report.'
+                      : 'Save Scan stores this scan on this device.'}
               </Text>
             </View>
 
@@ -506,6 +511,7 @@ export default function AnalysisResultScreen() {
         </ScrollView>
         <ActionDock
           primary={
+            canReportToOffice ? (
             <AppButton
               testID="scan.report-to-office"
               busy={isSaving || openingReport}
@@ -527,9 +533,25 @@ export default function AnalysisResultScreen() {
                     ? 'Retry and Report to Office'
                     : 'Report to Office'}
             </AppButton>
+            ) : (
+              <AppButton
+                testID="scan.keep-as-scan-only"
+                busy={isSaving}
+                onPress={keepAsScanOnly}
+                disabled={isSaving}
+                leadingIcon={isFailed ? 'refresh-cw' : 'save'}
+                accessibilityLabel={
+                  isFailed
+                    ? 'Retry and save this scan on the device'
+                    : 'Save this scan on the device'
+                }>
+                {isSaving ? 'Saving scan...' : isFailed ? 'Retry and Save Scan' : 'Save Scan'}
+              </AppButton>
+            )
           }
           secondary={
             <>
+              {canReportToOffice ? (
               <AppButton
                 testID="scan.keep-as-scan-only"
                 busy={isSaving}
@@ -545,6 +567,7 @@ export default function AnalysisResultScreen() {
                 }>
                 {isSaving ? 'Saving scan...' : isFailed ? 'Retry and Save Scan' : 'Save Scan'}
               </AppButton>
+              ) : null}
               <AppButton
                 testID="scan.new-scan"
                 onPress={startNewScan}

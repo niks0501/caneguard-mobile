@@ -46,6 +46,11 @@ const mockRouterBack = router.back as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
 const mockRouterDismissTo = router.dismissTo as jest.Mock;
 
+let mockUserRole: 'field_reporter' | 'farmer' = 'field_reporter';
+jest.mock('@/features/auth/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { role: mockUserRole, uuid: 'user-1' } }),
+}));
+
 jest.mock('@/features/records/hooks/useSaveCompletedScan', () => ({
   useSaveCompletedScan: () => mockSaveRecordState,
 }));
@@ -181,6 +186,7 @@ function findRenderedParent(
 describe('AnalysisResultScreen', () => {
   beforeEach(() => {
     mockSaveRecord.mockReset();
+    mockUserRole = 'field_reporter';
     mockSaveRecordError = null;
     mockSaveRecordState = {
       status: 'ready',
@@ -337,6 +343,15 @@ describe('AnalysisResultScreen', () => {
 
     expect(mockRouterBack).toHaveBeenCalledTimes(1);
     expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+  });
+
+  it('offers farmers personal scan saving without any Field Report path', async () => {
+    mockUserRole = 'farmer';
+    await renderResult(createCompletedState('rust', ['rust'], { result: createResult('rust') }));
+
+    expect(screen.queryByTestId('scan.report-to-office')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('scan.keep-as-scan-only')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.new-scan')).toBeOnTheScreen();
   });
 
   it('offers separate report and scan-only outcomes while preserving local evidence', async () => {

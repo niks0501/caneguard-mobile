@@ -1,4 +1,11 @@
-export type MobileUserRole = 'field_reporter';
+export type MobileUserRole = 'field_reporter' | 'farmer';
+
+/** Only inspectors may author, validate, upload or review official Field Reports. */
+export type FieldReportSubmitterRole = 'field_reporter';
+
+export function isMobileUserRole(value: unknown): value is MobileUserRole {
+  return value === 'field_reporter' || value === 'farmer';
+}
 
 export interface MobileUser {
   email: string;

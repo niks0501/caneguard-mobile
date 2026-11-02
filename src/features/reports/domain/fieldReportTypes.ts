@@ -6,7 +6,7 @@ import type {
   MeasurementProvenance,
   SyncStatus,
 } from '@/database/schema';
-import type { MobileUserRole } from '@/features/auth/types';
+import type { FieldReportSubmitterRole } from '@/features/auth/types';
 import type { AuthorityReviewSnapshot } from '@/features/reports/domain/reportReviewTypes';
 
 export type {
@@ -80,7 +80,7 @@ export interface FieldReport {
   scanRecordId: string;
   submittedAt: string | null;
   submitterIdentity: string | null;
-  submitterRole: MobileUserRole | null;
+  submitterRole: FieldReportSubmitterRole | null;
   sugarcaneVariety: string | null;
   syncAttemptCount: number;
   syncStatus: SyncStatus;
@@ -94,7 +94,7 @@ export interface CreateFieldReportDraftInput {
   province?: string;
   scanRecordId: string;
   submitterIdentity: string;
-  submitterRole: MobileUserRole;
+  submitterRole: FieldReportSubmitterRole;
 }
 
 export interface SaveFieldReportDraftInput {

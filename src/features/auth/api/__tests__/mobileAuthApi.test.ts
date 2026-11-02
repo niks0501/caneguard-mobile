@@ -120,6 +120,22 @@ describe('mobile authentication API', () => {
     }
   });
 
+  it('accepts a farmer account at sign-in and rejects unknown roles', async () => {
+    fetchMock.mockResolvedValueOnce(
+      response(200, { ...TOKEN_RESPONSE, user: { ...TOKEN_RESPONSE.user, role: 'farmer' } }),
+    );
+    await expect(
+      loginMobile({ deviceName: 'Phone', email: 'f@caneguard.test', password: 'entered-password' }),
+    ).resolves.toMatchObject({ user: { role: 'farmer' } });
+
+    fetchMock.mockResolvedValueOnce(
+      response(200, { ...TOKEN_RESPONSE, user: { ...TOKEN_RESPONSE.user, role: 'admin' } }),
+    );
+    await expect(
+      loginMobile({ deviceName: 'Phone', email: 'a@caneguard.test', password: 'entered-password' }),
+    ).rejects.toMatchObject({ code: 'INVALID_RESPONSE' });
+  });
+
   it('maps authoritative session rejection responses separately from outages', async () => {
     fetchMock.mockResolvedValueOnce(response(401, { message: 'Expired' }));
     await expect(verifyMobileSession('test-session-value')).rejects.toMatchObject({
@@ -129,7 +145,7 @@ describe('mobile authentication API', () => {
     fetchMock.mockResolvedValueOnce(response(403, { code: 'FORBIDDEN' }));
     await expect(verifyMobileSession('test-session-value')).rejects.toMatchObject({
       code: 'FORBIDDEN_ROLE',
-      message: 'Only Field Inspector accounts can sign in to CaneGuard Mobile.',
+      message: 'This account type cannot sign in to CaneGuard Mobile.',
     });
   });
 

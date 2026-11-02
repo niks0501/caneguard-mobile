@@ -2452,7 +2452,7 @@ function describeReportLocation(report: FieldReport | null): string {
     report.finalLatitude !== null &&
     report.finalLongitude !== null
   ) {
-    return LOCATION_ADDED;
+    return locationAddedWithAccuracy(report.gpsAccuracy);
   }
   return 'No location yet';
 }
@@ -2624,7 +2624,9 @@ function formatLocationSummary(fieldReport: FieldReport): string {
   if (fieldReport.locationSource === 'manual_map') {
     return 'Added from map';
   }
-  return fieldReport.locationSource === 'gps' ? LOCATION_ADDED : 'Not provided';
+  return fieldReport.locationSource === 'gps'
+    ? locationAddedWithAccuracy(fieldReport.gpsAccuracy)
+    : 'Not provided';
 }
 
 function previewMeasurementValue(

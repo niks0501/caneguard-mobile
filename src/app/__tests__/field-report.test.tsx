@@ -1377,6 +1377,46 @@ describe('FieldReportScreen', () => {
     expect(screen.getByLabelText('Finalize Field Report')).toBeOnTheScreen();
   });
 
+  it('shows the saved GPS accuracy in the finalize confirmation', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        farmerOrFarmOwnerName: 'Maria Santos',
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        gpsAccuracy: 38,
+        gpsCaptureOutcome: 'low_accuracy',
+        gpsOutcomeRecordedAt: '2026-08-10T01:04:00.000Z',
+        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
+        locationSource: 'gps',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+    await goToStep(2);
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-area-input'),
+        '1.25',
+      );
+    });
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.affected-portion-input'),
+        '40',
+      );
+    });
+    await goToStep(5);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+    });
+
+    expect(screen.getByTestId('field-report.confirm-finalize-dialog')).toHaveTextContent(
+      /Location: Location added · about ±38 m\./,
+    );
+  });
+
   it('keeps the finalize gate open with the error when finalization fails', async () => {
     mockFinalize.mockResolvedValueOnce(null);
     mockDraftState = {
@@ -1715,7 +1755,7 @@ describe('FieldReportScreen', () => {
       ),
     ).toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.finalize')).not.toBeOnTheScreen();
-    expect(screen.getByText('Location added')).toBeOnTheScreen();
+    expect(screen.getByText('Location added · about ±4 m')).toBeOnTheScreen();
     expect(screen.getByText('0.5 ha')).toBeOnTheScreen();
     expect(screen.getByText('30%')).toBeOnTheScreen();
 

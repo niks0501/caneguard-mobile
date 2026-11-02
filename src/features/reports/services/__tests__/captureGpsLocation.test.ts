@@ -1,6 +1,7 @@
 import {
   captureGpsLocation,
   FOREGROUND_GPS_TIMEOUT_MS,
+  GPS_SAMPLE_INTERVAL_MS,
   type ForegroundLocationClient,
 } from '@/features/reports/services/captureGpsLocation';
 
@@ -138,6 +139,7 @@ describe('captureGpsLocation', () => {
   });
 
   it('distinguishes an unreadable position as unavailable without blaming services', async () => {
+    jest.useFakeTimers();
     const locationClient = client({
       getCurrentPosition: jest.fn(async () => ({
         accuracy: null,
@@ -147,9 +149,10 @@ describe('captureGpsLocation', () => {
       })),
     });
 
-    await expect(
-      captureGpsLocation(locationClient, () => NOW, { timeoutMs: 5 }),
-    ).resolves.toMatchObject({
+    const pending = captureGpsLocation(locationClient, () => NOW);
+    await jest.advanceTimersByTimeAsync(FOREGROUND_GPS_TIMEOUT_MS);
+
+    await expect(pending).resolves.toMatchObject({
       capturedAt: NOW.toISOString(),
       outcome: 'unavailable',
       reason: 'reading_unavailable',
@@ -158,7 +161,28 @@ describe('captureGpsLocation', () => {
     expect(locationClient.hasServicesEnabled).toHaveBeenCalledTimes(1);
   });
 
+  it('paces repeated readings instead of rereading immediately', async () => {
+    jest.useFakeTimers();
+    const getCurrentPosition = jest.fn(async () => ({
+      accuracy: null as number | null,
+      latitude: 14.0667,
+      longitude: 120.6319,
+      timestamp: NOW.getTime(),
+    }));
+
+    const pending = captureGpsLocation(client({ getCurrentPosition }), () => NOW);
+    await jest.advanceTimersByTimeAsync(GPS_SAMPLE_INTERVAL_MS - 1);
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+
+    await jest.advanceTimersByTimeAsync(1);
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
+
+    await jest.advanceTimersByTimeAsync(FOREGROUND_GPS_TIMEOUT_MS);
+    await expect(pending).resolves.toMatchObject({ outcome: 'unavailable' });
+  });
+
   it('keeps sampling after an unreadable position to find a usable reading', async () => {
+    jest.useFakeTimers();
     const readings: {
       accuracy: number | null;
       latitude: number;
@@ -182,9 +206,13 @@ describe('captureGpsLocation', () => {
       async () => readings.shift() as (typeof readings)[number],
     );
 
-    await expect(
-      captureGpsLocation(client({ getCurrentPosition }), () => NOW),
-    ).resolves.toMatchObject({ accuracy: 4, outcome: 'resolved' });
+    const pending = captureGpsLocation(client({ getCurrentPosition }), () => NOW);
+    await jest.advanceTimersByTimeAsync(GPS_SAMPLE_INTERVAL_MS);
+
+    await expect(pending).resolves.toMatchObject({
+      accuracy: 4,
+      outcome: 'resolved',
+    });
     expect(getCurrentPosition).toHaveBeenCalledTimes(2);
   });
 

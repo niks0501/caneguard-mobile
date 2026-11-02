@@ -2,6 +2,9 @@ import type { GpsCaptureUnavailableReason } from '@/features/reports/domain/fiel
 
 export const PREFERRED_GPS_ACCURACY_METERS = 5;
 
+/** Delay between successive readings inside one bounded capture. */
+export const GPS_SAMPLE_INTERVAL_MS = 250;
+
 /**
  * Bound for one foreground capture. A native promise that never settles must
  * not keep the report, the draft save, or the validation visit waiting.
@@ -155,7 +158,9 @@ async function sampleBestPosition(
         break;
       }
     }
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await new Promise<void>((resolve) =>
+      setTimeout(resolve, GPS_SAMPLE_INTERVAL_MS),
+    );
   }
   return best.position;
 }

@@ -7,7 +7,7 @@
 - focused test: `npm test -- --runInBand <test-file>`
 - agent-facing fast gate: `npm run verify:fast`
 
-`verify:fast` composes lint, TypeScript, and the existing Jest/jest-expo suite. Coverage is not a gate or a quality signal; `npm run test:coverage` is an on-demand report. The gate does not start Metro, an emulator, Agent Device, or any E2E flow.
+`verify:fast` composes lint, TypeScript, and the existing Jest/jest-expo suite. Coverage is not a gate or a quality signal; `npm run test:coverage` is an on-demand report. The gate itself starts no Metro, emulator, Agent Device, or E2E flow; the tiered validation around it starts them whenever the tier calls for it.
 
 ## Adaptive validation tiers
 
@@ -28,7 +28,7 @@ The suites and oracle below are frozen. A T3 claim is proved only by human-owned
 | Database / migrations | `src/database/__tests__/migrations.test.ts` |
 | Sync / local outbox | `src/features/reports/data/__tests__/fieldReportRepository.test.ts`, `src/features/sync/services/__tests__/syncFieldReport.test.ts`, and `src/features/sync/services/__tests__/syncPendingFieldReports.test.ts` |
 
-Device, emulator, ADB, Agent Device, and staging checks are not routine gates. Run them only when the task brief explicitly requests them. Browser checks cannot prove native behavior.
+Device, emulator, ADB, Agent Device, and staging checks run whenever the tier or task justifies them. Browser checks cannot prove native behavior.
 
 ## Broader checks
 
@@ -45,7 +45,7 @@ Native-boundary behavior such as biometrics, image picker, permissions, secure s
 ## Rules
 
 - Run targeted tests before `npm run verify:fast`.
-- Do not run E2E as part of `verify:fast`.
+- Run E2E alongside `verify:fast` when the tier justifies it (T2 and above), using the emulator or an attached device.
 - Mirror tests are not behavior evidence: tests that copy or reimplement production source or structure do not prove production behavior.
 - Run only commands that actually exist in `package.json` or project scripts.
 - Prefer deterministic emulator/ADB mechanisms over repeated attempts to fight native dialogs.

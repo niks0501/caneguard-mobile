@@ -812,7 +812,7 @@ describe('FieldReportScreen', () => {
     expect(screen.getByLabelText('Retry location')).toBeOnTheScreen();
   });
 
-  it('does not block finalization on poor GPS accuracy and keeps retry available', async () => {
+  it('shows a saved low-accuracy GPS fix as Location added with its accuracy and offers a closer reading', async () => {
     mockDraftState = {
       ...mockDraftState,
       data: draft({
@@ -834,15 +834,43 @@ describe('FieldReportScreen', () => {
 
     await goToStep(4);
     expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
-      /Location could not be confirmed/,
+      'Location added · about ±38 m',
     );
-    expect(screen.getByLabelText('Retry location')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Choose location on map')).toBeOnTheScreen();
+    expect(screen.queryByText(/Location could not be confirmed/)).not.toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.confirmed-location')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Try for a closer reading')).toBeOnTheScreen();
 
     await goToStep(5);
     expect(screen.queryByTestId('field-report.ready.final_coordinates')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.ready.location_source')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.ready.gps_accuracy')).not.toBeOnTheScreen();
+  });
+
+  it('toasts Location added with accuracy when a capture saves a low-accuracy fix', async () => {
+    mockCaptureLocation.mockResolvedValueOnce(
+      draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        gpsAccuracy: 8,
+        gpsCaptureOutcome: 'low_accuracy',
+        gpsAttemptedAt: '2026-08-10T01:04:00.000Z',
+        locationSource: 'gps',
+      }) as never,
+    );
+
+    await render(
+      <ToastProvider>
+        <FieldReportScreen />
+      </ToastProvider>,
+    );
+    await act(async () => undefined);
+    await goToStep(4);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Add location'));
+    });
+
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('Location added · about ±8 m');
+    expect(screen.getByTestId('app-toast')).not.toHaveTextContent(/could not be confirmed/);
   });
 
   it('prompts to enable location services and opens device settings', async () => {

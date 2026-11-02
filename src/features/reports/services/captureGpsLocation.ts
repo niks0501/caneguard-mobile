@@ -2,8 +2,11 @@ import type { GpsCaptureUnavailableReason } from '@/features/reports/domain/fiel
 
 export const PREFERRED_GPS_ACCURACY_METERS = 5;
 
+/** Upper bound on readings taken inside one bounded capture. */
+export const MAX_GPS_SAMPLES = 5;
+
 /**
- * Bound for one foreground reading. A native promise that never settles must
+ * Bound for one foreground capture. A native promise that never settles must
  * not keep the report, the draft save, or the validation visit waiting.
  */
 export const FOREGROUND_GPS_TIMEOUT_MS = 15_000;
@@ -52,7 +55,19 @@ export async function captureGpsLocation(
   const timeoutMs = options.timeoutMs ?? FOREGROUND_GPS_TIMEOUT_MS;
 
   try {
-    const position = await withForegroundTimeout(readForegroundPosition(client), timeoutMs);
+    const best: BestReading = { closed: false, position: null };
+    let position: ForegroundPosition;
+    try {
+      position = await withForegroundTimeout(sampleBestPosition(client, best), timeoutMs);
+    } catch (error) {
+      if (error instanceof GpsTimeoutError && best.position) {
+        position = best.position;
+      } else {
+        throw error;
+      }
+    } finally {
+      best.closed = true;
+    }
     if (!isCoordinate(position.latitude, -90, 90) ||
         !isCoordinate(position.longitude, -180, 180) ||
         position.accuracy === null ||
@@ -104,7 +119,23 @@ export async function captureGpsLocation(
   }
 }
 
-async function readForegroundPosition(client: ForegroundLocationClient) {
+type ForegroundPosition = Awaited<ReturnType<ForegroundLocationClient['getCurrentPosition']>>;
+
+interface BestReading {
+  /** Set once the bounded capture ended so abandoned sampling stops. */
+  closed: boolean;
+  position: ForegroundPosition | null;
+}
+
+/**
+ * Best-of sampling: keep the most accurate reading and stop early once one
+ * reaches the preferred target. If the bound elapses first, the caller's
+ * timeout returns whatever best reading was kept.
+ */
+async function sampleBestPosition(
+  client: ForegroundLocationClient,
+  best: BestReading,
+): Promise<ForegroundPosition> {
   const permission = await client.requestForegroundPermission();
   if (permission !== 'granted') {
     throw new GpsPermissionDeniedError();
@@ -112,7 +143,40 @@ async function readForegroundPosition(client: ForegroundLocationClient) {
   if (!(await client.hasServicesEnabled())) {
     throw new GpsServicesDisabledError();
   }
-  return client.getCurrentPosition();
+  for (let sample = 0; sample < MAX_GPS_SAMPLES && !best.closed; sample += 1) {
+    let position: ForegroundPosition;
+    try {
+      position = await client.getCurrentPosition();
+    } catch (error) {
+      if (best.position) {
+        break;
+      }
+      throw error;
+    }
+    if (!isUsableReading(position)) {
+      if (best.position) {
+        break;
+      }
+      return position;
+    }
+    if (!best.position || position.accuracy! < best.position.accuracy!) {
+      best.position = position;
+    }
+    if (position.accuracy! <= PREFERRED_GPS_ACCURACY_METERS) {
+      break;
+    }
+  }
+  return best.position as ForegroundPosition;
+}
+
+function isUsableReading(position: ForegroundPosition): boolean {
+  return (
+    isCoordinate(position.latitude, -90, 90) &&
+    isCoordinate(position.longitude, -180, 180) &&
+    position.accuracy !== null &&
+    Number.isFinite(position.accuracy) &&
+    position.accuracy >= 0
+  );
 }
 
 class GpsTimeoutError extends Error {}

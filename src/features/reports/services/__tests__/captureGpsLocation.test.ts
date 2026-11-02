@@ -52,6 +52,54 @@ describe('captureGpsLocation', () => {
     });
   });
 
+  it('keeps the best of several readings and stops early at the preferred accuracy', async () => {
+    const accuracies = [20, 9, 4.5, 1];
+    const getCurrentPosition = jest.fn(async () => ({
+      accuracy: accuracies.shift() as number,
+      latitude: 14.0667,
+      longitude: 120.6319,
+      timestamp: NOW.getTime(),
+    }));
+
+    await expect(
+      captureGpsLocation(client({ getCurrentPosition }), () => NOW),
+    ).resolves.toMatchObject({ accuracy: 4.5, outcome: 'resolved' });
+    expect(getCurrentPosition).toHaveBeenCalledTimes(3);
+  });
+
+  it('returns the best low-accuracy reading after the sample budget', async () => {
+    const accuracies = [30, 12, 18, 25, 40, 2];
+    const getCurrentPosition = jest.fn(async () => ({
+      accuracy: accuracies.shift() as number,
+      latitude: 14.0667,
+      longitude: 120.6319,
+      timestamp: NOW.getTime(),
+    }));
+
+    await expect(
+      captureGpsLocation(client({ getCurrentPosition }), () => NOW),
+    ).resolves.toMatchObject({ accuracy: 12, outcome: 'low_accuracy' });
+    expect(getCurrentPosition).toHaveBeenCalledTimes(5);
+  });
+
+  it('returns the best reading kept when the 15 second bound elapses', async () => {
+    jest.useFakeTimers();
+    const getCurrentPosition = jest
+      .fn()
+      .mockResolvedValueOnce({
+        accuracy: 14,
+        latitude: 14.0667,
+        longitude: 120.6319,
+        timestamp: NOW.getTime(),
+      })
+      .mockImplementation(() => new Promise<never>(() => undefined));
+
+    const pending = captureGpsLocation(client({ getCurrentPosition }), () => NOW);
+    await jest.advanceTimersByTimeAsync(FOREGROUND_GPS_TIMEOUT_MS);
+
+    await expect(pending).resolves.toMatchObject({ accuracy: 14, outcome: 'low_accuracy' });
+  });
+
   it('stops before accessing location when foreground permission is denied', async () => {
     const locationClient = client({
       requestForegroundPermission: jest.fn(async () => 'denied'),

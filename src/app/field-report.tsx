@@ -36,7 +36,13 @@ import {
   Spacing,
   Typography,
 } from '@/constants/theme';
-import { LOCATION_ADDED, LOCATION_UNCONFIRMED } from '@/constants/copy';
+import {
+  LOCATION_ADDED,
+  LOCATION_CLOSER_READING_ACTION,
+  LOCATION_CLOSE_READING_METERS,
+  LOCATION_UNCONFIRMED,
+  locationAddedWithAccuracy,
+} from '@/constants/copy';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
@@ -903,6 +909,10 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     }
     if (res.gpsCaptureOutcome === 'resolved') {
       showToast(LOCATION_ADDED, 'success');
+      return;
+    }
+    if (res.gpsCaptureOutcome === 'low_accuracy' && hasSavedGpsCoordinates(res)) {
+      showToast(locationAddedWithAccuracy(res.gpsAccuracy), 'success');
       return;
     }
     if (res.locationSource === 'unavailable') {
@@ -1924,6 +1934,17 @@ function LocationCapture({
             variant="text">
             Change location
           </AppButton>
+          {needsCloserReading(fieldReport) && !capturing ? (
+            <AppButton
+              testID="field-report.closer-reading"
+              accessibilityLabel={LOCATION_CLOSER_READING_ACTION}
+              onPress={onCapture}
+              disabled={saveInProgress || markingUnavailable}
+              leadingIcon="crosshair"
+              variant="secondary">
+              {LOCATION_CLOSER_READING_ACTION}
+            </AppButton>
+          ) : null}
         </>
       ) : null}
       {capturing ? (
@@ -2464,20 +2485,18 @@ function getGpsPresentation(fieldReport: FieldReport): {
       message: 'Location added from the map.',
     };
   }
+  if (hasSavedGpsCoordinates(fieldReport)) {
+    return {
+      actionLabel: needsCloserReading(fieldReport)
+        ? LOCATION_CLOSER_READING_ACTION
+        : 'Retry location',
+      message: locationAddedWithAccuracy(fieldReport.gpsAccuracy),
+    };
+  }
   if (fieldReport.gpsCaptureOutcome === 'low_accuracy') {
     return {
       actionLabel: 'Retry location',
       message: `${LOCATION_UNCONFIRMED}. You can retry location or choose on map.`,
-    };
-  }
-  if (
-    fieldReport.locationSource === 'gps' &&
-    fieldReport.finalLatitude !== null &&
-    fieldReport.finalLongitude !== null
-  ) {
-    return {
-      actionLabel: 'Retry location',
-      message: LOCATION_ADDED,
     };
   }
 
@@ -2542,17 +2561,26 @@ function isLocationConfirmed(fieldReport: FieldReport): boolean {
   ) {
     return true;
   }
-  if (fieldReport.gpsCaptureOutcome === 'low_accuracy') {
-    return false;
-  }
-  if (
-    fieldReport.locationSource === 'gps' &&
-    fieldReport.finalLatitude !== null &&
-    fieldReport.finalLongitude !== null
-  ) {
+  if (hasSavedGpsCoordinates(fieldReport)) {
     return true;
   }
   return fieldReport.gpsCaptureOutcome === 'resolved';
+}
+
+function hasSavedGpsCoordinates(fieldReport: FieldReport): boolean {
+  return (
+    fieldReport.locationSource === 'gps' &&
+    fieldReport.finalLatitude !== null &&
+    fieldReport.finalLongitude !== null
+  );
+}
+
+function needsCloserReading(fieldReport: FieldReport): boolean {
+  return (
+    hasSavedGpsCoordinates(fieldReport) &&
+    fieldReport.gpsAccuracy !== null &&
+    fieldReport.gpsAccuracy > LOCATION_CLOSE_READING_METERS
+  );
 }
 
 function canUseManualMap(fieldReport: FieldReport): boolean {

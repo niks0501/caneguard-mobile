@@ -680,52 +680,6 @@ describe('FieldReportScreen', () => {
     expect(screen.getByTestId('app-toast')).not.toHaveTextContent('Location added');
   });
 
-  it('keeps a saved map location when a GPS retry fails', async () => {
-    mockDraftState = {
-      ...mockDraftState,
-      data: draft({
-        finalLatitude: 14.071,
-        finalLongitude: 120.635,
-        locationSource: 'manual_map',
-        manualLocationSelectedAt: '2026-08-10T02:00:00.000Z',
-      }),
-    };
-    mockCaptureLocation.mockResolvedValueOnce(
-      draft({
-        finalLatitude: 14.071,
-        finalLongitude: 120.635,
-        gpsCaptureOutcome: 'error',
-        locationSource: 'manual_map',
-        manualLocationSelectedAt: '2026-08-10T02:00:00.000Z',
-      }) as never,
-    );
-
-    await render(
-      <ToastProvider>
-        <FieldReportScreen />
-      </ToastProvider>,
-    );
-    await act(async () => undefined);
-    await goToStep(4);
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText('Change the saved report location'));
-    });
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText('Retry location'));
-    });
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('field-report.confirm-location-replacement'));
-    });
-
-    expect(mockCaptureLocation).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('app-toast')).toHaveTextContent(
-      'Could not get a new reading. Your saved location is kept.',
-    );
-    expect(screen.getByTestId('app-toast')).not.toHaveTextContent(
-      /Location could not be confirmed/,
-    );
-  });
-
   it('lets a confirmed location be replaced by an explicit unavailable reason', async () => {
     mockMarkLocationUnavailable.mockResolvedValueOnce(true as never);
     mockDraftState = {

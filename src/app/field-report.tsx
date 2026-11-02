@@ -916,17 +916,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       showToast(locationAddedWithAccuracy(res.gpsAccuracy), 'success');
       return;
     }
-    if (
-      res.finalLatitude !== null &&
-      res.finalLongitude !== null &&
-      (res.locationSource === 'gps' || res.locationSource === 'manual_map')
-    ) {
-      showToast(
-        locationKeptAfterRetry(
-          res.locationSource === 'gps' ? res.gpsAccuracy : null,
-        ),
-        'info',
-      );
+    if (hasSavedGpsCoordinates(res)) {
+      showToast(locationKeptAfterRetry(res.gpsAccuracy), 'info');
       return;
     }
     if (res.locationSource === 'unavailable') {

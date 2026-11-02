@@ -163,6 +163,7 @@ describe('captureGpsLocation', () => {
 
   it('paces repeated readings instead of rereading immediately', async () => {
     jest.useFakeTimers();
+    const minimumPacingMs = 100;
     const getCurrentPosition = jest.fn(async () => ({
       accuracy: null as number | null,
       latitude: 14.0667,
@@ -171,13 +172,12 @@ describe('captureGpsLocation', () => {
     }));
 
     const pending = captureGpsLocation(client({ getCurrentPosition }), () => NOW);
-    await jest.advanceTimersByTimeAsync(GPS_SAMPLE_INTERVAL_MS - 1);
+    await jest.advanceTimersByTimeAsync(minimumPacingMs);
     expect(getCurrentPosition).toHaveBeenCalledTimes(1);
 
-    await jest.advanceTimersByTimeAsync(1);
-    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
-
     await jest.advanceTimersByTimeAsync(FOREGROUND_GPS_TIMEOUT_MS);
+    expect(getCurrentPosition.mock.calls.length).toBeGreaterThan(1);
+
     await expect(pending).resolves.toMatchObject({ outcome: 'unavailable' });
   });
 

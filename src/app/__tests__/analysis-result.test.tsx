@@ -15,6 +15,8 @@ import {
 import {
   initialScanSessionState,
 } from '@/features/detection/context/scanSessionReducer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LANGUAGE_STORAGE_KEY, LanguagePreferenceProvider } from '@/providers/LanguagePreferenceProvider';
 import type {
   DetectionResult,
   ScanSessionAction,
@@ -128,11 +130,13 @@ function createCompletedState(
 async function renderResult(state: ScanSessionState) {
   return render(
     <ToastProvider>
-      <ScanSessionContext.Provider value={{ state, dispatch: mockDispatch }}>
-        <ScanDraftContext.Provider value={mockDraftValue}>
-          <AnalysisResultScreen />
-        </ScanDraftContext.Provider>
-      </ScanSessionContext.Provider>
+      <LanguagePreferenceProvider>
+        <ScanSessionContext.Provider value={{ state, dispatch: mockDispatch }}>
+          <ScanDraftContext.Provider value={mockDraftValue}>
+            <AnalysisResultScreen />
+          </ScanDraftContext.Provider>
+        </ScanSessionContext.Provider>
+      </LanguagePreferenceProvider>
     </ToastProvider>,
   );
 }
@@ -352,6 +356,92 @@ describe('AnalysisResultScreen', () => {
     expect(screen.queryByTestId('scan.report-to-office')).not.toBeOnTheScreen();
     expect(screen.getByTestId('scan.keep-as-scan-only')).toBeOnTheScreen();
     expect(screen.getByTestId('scan.new-scan')).toBeOnTheScreen();
+  });
+
+  describe('Result uncertain (farmer, below the V1 cutoff)', () => {
+    beforeEach(async () => {
+      await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, 'en');
+      mockDispatch.mockReset();
+      mockRouterPush.mockReset();
+      mockRouterDismissTo.mockReset();
+    });
+
+    // Proves: below the cutoff a farmer sees Result uncertain, the four steps, and the closest match as a smaller line.
+    it('shows the uncertain card with steps and the closest match for a farmer below the cutoff', async () => {
+      mockUserRole = 'farmer';
+      await renderResult(createCompletedState('rust', ['rust'], { result: createResult('rust', 0.42) }));
+
+      expect(screen.getByTestId('scan.result-title')).toHaveTextContent('Result uncertain');
+      for (const step of [
+        'Take a closer photo',
+        'Use better light',
+        'Keep the leaf in view',
+        'Compare with the Field Guide',
+      ]) {
+        expect(screen.getByText(step)).toBeOnTheScreen();
+      }
+      expect(screen.getByTestId('scan.closest-match')).toHaveTextContent('Closest match: Rust');
+      expect(screen.queryByText(/Possible Condition: Rust/)).not.toBeOnTheScreen();
+    });
+
+    // Proves: the uncertain card uses the Tagalog farmer copy when the farmer's language is Tagalog.
+    it('shows the Tagalog uncertain title for a Tagalog farmer', async () => {
+      await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, 'tl');
+      mockUserRole = 'farmer';
+      await renderResult(createCompletedState('rust', ['rust'], { result: createResult('rust', 0.42) }));
+
+      await waitFor(() =>
+        expect(screen.getByTestId('scan.result-title')).toHaveTextContent('Hindi tiyak ang resulta'),
+      );
+    });
+
+    // Proves: saving stays allowed and the predicted label is unchanged under Result uncertain.
+    it('keeps saving available and the result unchanged', async () => {
+      mockUserRole = 'farmer';
+      const state = createCompletedState('rust', ['rust'], { result: createResult('rust', 0.42) });
+      await renderResult(state);
+
+      expect(screen.getByTestId('scan.keep-as-scan-only')).toBeEnabled();
+      expect(state.result?.predictedLabel).toBe('rust');
+    });
+
+    // Proves: a farmer at or above the cutoff keeps the normal Possible Condition card.
+    it('keeps the normal card for a farmer above the cutoff', async () => {
+      mockUserRole = 'farmer';
+      await renderResult(createCompletedState('rust', ['rust'], { result: createResult('rust', 0.78) }));
+
+      expect(screen.getByTestId('scan.result-title')).toHaveTextContent('Possible Condition: Rust');
+      expect(screen.queryByTestId('scan.result-uncertain')).not.toBeOnTheScreen();
+      expect(screen.queryByTestId('scan.retake-photo')).not.toBeOnTheScreen();
+    });
+
+    // Proves: the inspector branch below the cutoff is unchanged (no Result uncertain card).
+    it('does not change the inspector card below the cutoff', async () => {
+      mockUserRole = 'field_reporter';
+      await renderResult(createCompletedState('rust', ['rust'], { result: createResult('rust', 0.42) }));
+
+      expect(screen.getByTestId('scan.result-title')).toHaveTextContent('Possible Condition: Rust');
+      expect(screen.queryByTestId('scan.result-uncertain')).not.toBeOnTheScreen();
+    });
+
+    // Proves: Retake Photo resets the session (the follow-up seam) and returns to scan.
+    it('retakes through the session reset and returns to scan', async () => {
+      mockUserRole = 'farmer';
+      await renderResult(createCompletedState('rust', ['rust'], { result: createResult('rust', 0.42) }));
+
+      await fireEvent.press(screen.getByTestId('scan.retake-photo'));
+      expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+      expect(mockRouterDismissTo).toHaveBeenCalledWith('/scan');
+    });
+
+    // Proves: Review Signs opens the Field Guide entry for the predicted label.
+    it('opens the Field Guide entry for the predicted label', async () => {
+      mockUserRole = 'farmer';
+      await renderResult(createCompletedState('mosaic', ['mosaic'], { result: createResult('mosaic', 0.42) }));
+
+      await fireEvent.press(screen.getByTestId('scan.review-signs'));
+      expect(mockRouterPush).toHaveBeenCalledWith('/field-guide/mosaic');
+    });
   });
 
   it('uses farmer wording for low-confidence and checklist cautions', async () => {

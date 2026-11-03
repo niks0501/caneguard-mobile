@@ -34,10 +34,12 @@ import {
   SessionStateError,
 } from '@/features/detection/context/sessionErrors';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
+import { getRetakeAction } from '@/features/detection/retake';
 import { returnToTab } from '@/features/navigation/returnToTab';
 import { useSaveCompletedScan } from '@/features/records/hooks/useSaveCompletedScan';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
+import { useFarmerCopy } from '@/providers/LanguagePreferenceProvider';
 
 const CONSISTENCY_PRESENTATION: Record<
   ChecklistConsistency,
@@ -151,6 +153,11 @@ export default function AnalysisResultScreen() {
 
   const startNewScan = () => {
     dispatch({ type: 'RESET_SCAN' });
+    returnToTab('/scan');
+  };
+
+  const retakePhoto = () => {
+    dispatch(getRetakeAction(state));
     returnToTab('/scan');
   };
 
@@ -269,6 +276,7 @@ export default function AnalysisResultScreen() {
   const qualityWarnings = state.qualityAssessment?.warnings ?? [];
   const checklistMismatch = consistency === 'inconsistent';
   const showOutcomeCaution = isLowScore || qualityWarnings.length > 0 || checklistMismatch;
+  const showUncertainCard = isLowScore && user?.role === 'farmer';
   const resultTitle = `Possible Condition: ${metadata.displayName}`;
   const isSaving = saveRecord.status === 'saving';
   const isFailed = saveRecord.status === 'failed';
@@ -321,11 +329,20 @@ export default function AnalysisResultScreen() {
                 icon={metadata.icon}
                 variant={metadata.themeToken.foreground}
               />
-              <Text
-                testID="scan.result-title"
-                style={[styles.diseaseName, { color: theme.primaryDark }]}>
-                {resultTitle}
-              </Text>
+              {showUncertainCard ? (
+                <UncertainResult
+                  closestMatch={metadata.displayName}
+                  onRetake={retakePhoto}
+                  onReviewSigns={() => router.push(`/field-guide/${result.predictedLabel}`)}
+                  disabled={isSaving}
+                />
+              ) : (
+                <Text
+                  testID="scan.result-title"
+                  style={[styles.diseaseName, { color: theme.primaryDark }]}>
+                  {resultTitle}
+                </Text>
+              )}
               <Text
                 testID="scan.decision-support-wording"
                 style={[styles.advisory, { color: theme.textSecondary }]}>
@@ -598,6 +615,53 @@ export default function AnalysisResultScreen() {
   );
 }
 
+function UncertainResult({
+  closestMatch,
+  disabled,
+  onRetake,
+  onReviewSigns,
+}: {
+  closestMatch: string;
+  disabled: boolean;
+  onRetake: () => void;
+  onReviewSigns: () => void;
+}) {
+  const theme = useTheme();
+  const copy = useFarmerCopy().resultUncertain;
+  const steps = [copy.stepCloser, copy.stepLight, copy.stepLeafInView, copy.stepCompare];
+
+  return (
+    <View testID="scan.result-uncertain" style={styles.uncertain}>
+      <Text
+        accessibilityRole="header"
+        testID="scan.result-title"
+        style={[styles.diseaseName, { color: theme.primaryDark }]}>
+        {copy.title}
+      </Text>
+      <Text style={[styles.advisory, { color: theme.textSecondary }]}>{copy.intro}</Text>
+      {steps.map((step) => (
+        <View key={step} style={styles.qualityWarning}>
+          <View style={[styles.qualityBullet, { backgroundColor: theme.primary }]} />
+          <Text style={[styles.qualityWarningText, { color: theme.text }]}>{step}</Text>
+        </View>
+      ))}
+      <AppButton testID="scan.retake-photo" leadingIcon="camera" disabled={disabled} onPress={onRetake}>
+        {copy.retakePhoto}
+      </AppButton>
+      <AppButton
+        testID="scan.review-signs"
+        leadingIcon="book-open"
+        variant="secondary"
+        onPress={onReviewSigns}>
+        {copy.reviewSigns}
+      </AppButton>
+      <Text testID="scan.closest-match" style={[styles.qualityWarningText, { color: theme.textSecondary }]}>
+        {copy.closestMatchLabel} {closestMatch}
+      </Text>
+    </View>
+  );
+}
+
 function SectionCard({
   title,
   children,
@@ -645,6 +709,7 @@ const styles = StyleSheet.create({
   cautionCopy: { flex: 1, gap: Spacing.sm },
   cautionTitle: { ...Typography.subheading },
   cautionBody: { ...Typography.body },
+  uncertain: { gap: Spacing.sm },
   disclaimerText: { ...Typography.bodySmall },
   outcome: { gap: Spacing.xs },
   outcomeHeading: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },

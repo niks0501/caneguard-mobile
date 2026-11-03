@@ -424,7 +424,7 @@ describe('AnalysisResultScreen', () => {
       expect(screen.queryByTestId('scan.result-uncertain')).not.toBeOnTheScreen();
     });
 
-    // Proves: Retake Photo resets the session (the follow-up seam) and returns to scan.
+    // Proves: Retake Photo resets the session and returns to scan.
     it('retakes through the session reset and returns to scan', async () => {
       mockUserRole = 'farmer';
       await renderResult(createCompletedState('rust', ['rust'], { result: createResult('rust', 0.42) }));

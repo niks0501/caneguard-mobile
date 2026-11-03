@@ -34,7 +34,6 @@ import {
   SessionStateError,
 } from '@/features/detection/context/sessionErrors';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
-import { getRetakeAction } from '@/features/detection/retake';
 import { returnToTab } from '@/features/navigation/returnToTab';
 import { useSaveCompletedScan } from '@/features/records/hooks/useSaveCompletedScan';
 import { useToast } from '@/components/ui/Toast';
@@ -153,11 +152,6 @@ export default function AnalysisResultScreen() {
 
   const startNewScan = () => {
     dispatch({ type: 'RESET_SCAN' });
-    returnToTab('/scan');
-  };
-
-  const retakePhoto = () => {
-    dispatch(getRetakeAction(state));
     returnToTab('/scan');
   };
 
@@ -332,7 +326,7 @@ export default function AnalysisResultScreen() {
               {showUncertainCard ? (
                 <UncertainResult
                   closestMatch={metadata.displayName}
-                  onRetake={retakePhoto}
+                  onRetake={startNewScan}
                   onReviewSigns={() => router.push(`/field-guide/${result.predictedLabel}`)}
                   disabled={isSaving}
                 />

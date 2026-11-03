@@ -14,6 +14,9 @@ let mockApiReachability: 'unknown' | 'available' | 'unavailable' = 'unknown';
 let mockSessionVerification: 'idle' | 'pending' | 'verified' | 'unavailable' = 'idle';
 let mockAttentionItems: NeedsAttentionItem[] = [];
 let mockPendingCount = 1;
+let mockRole: 'field_reporter' | 'farmer' = 'field_reporter';
+let mockInspectorWorkWaiting = false;
+let mockLanguage: 'en' | 'tl' = 'en';
 let mockSyncError: string | null = null;
 let mockIsSyncing = false;
 const mockMarkRead = jest.fn(async () => undefined);
@@ -44,7 +47,9 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
       get name() {
         return mockUserName;
       },
-      role: 'field_reporter',
+      get role() {
+        return mockRole;
+      },
       uuid: 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
     },
   }),
@@ -57,6 +62,9 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
     },
     get isOnline() {
       return mockIsOnline;
+    },
+    get inspectorWorkWaiting() {
+      return mockInspectorWorkWaiting;
     },
     isSyncing: mockIsSyncing,
     lastSuccessfulSyncAt: null,
@@ -72,11 +80,50 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
   }),
 }));
 
+jest.mock('@/providers/LanguagePreferenceProvider', () => ({
+  useLanguagePreference: () => ({ language: mockLanguage }),
+}));
+
 const mockRouterPush = router.push as jest.Mock;
 
 describe('HomeScreen', () => {
+  it('shows the inspector-work sentence, never a number, to a farmer session', async () => {
+    mockRole = 'farmer';
+    mockInspectorWorkWaiting = true;
+    mockPendingCount = 5;
+    await render(<HomeScreen />);
+    const node = screen.getByTestId('home.inspector-work-waiting');
+    expect(node).toHaveTextContent(
+      'Some saved inspector work is waiting for an inspector to sign in on this phone.',
+    );
+    expect(node.props.children).not.toMatch(/\d/);
+  });
+
+  it('shows the Tagalog sentence when the farmer language is Tagalog', async () => {
+    mockRole = 'farmer';
+    mockInspectorWorkWaiting = true;
+    mockLanguage = 'tl';
+    await render(<HomeScreen />);
+    expect(screen.getByTestId('home.inspector-work-waiting')).toHaveTextContent(/teleponong ito/);
+  });
+
+  it('hides the sentence for a farmer when no inspector work is waiting', async () => {
+    mockRole = 'farmer';
+    await render(<HomeScreen />);
+    expect(screen.queryByTestId('home.inspector-work-waiting')).toBeNull();
+  });
+
+  it('never shows the farmer sentence to inspectors', async () => {
+    mockInspectorWorkWaiting = true;
+    await render(<HomeScreen />);
+    expect(screen.queryByTestId('home.inspector-work-waiting')).toBeNull();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRole = 'field_reporter';
+    mockInspectorWorkWaiting = false;
+    mockLanguage = 'en';
     mockApiReachability = 'unknown';
     mockIsOnline = true;
     mockUserName = 'Ari Santos';

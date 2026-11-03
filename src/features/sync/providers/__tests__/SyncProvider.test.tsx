@@ -18,6 +18,7 @@ import {
   findLastSuccessfulFieldReportSyncAt,
   resetStaleSyncingFieldReports,
 } from '@/features/reports/data/fieldReportSyncRepository';
+import { hasUnsentInspectorWork } from '@/features/sync/data/inspectorWorkWaiting';
 import { SyncError } from '@/features/sync/errors/syncErrors';
 import {
   SyncContext,
@@ -63,6 +64,9 @@ jest.mock('@/features/reports/data/fieldReportSyncRepository', () => ({
   resetStaleSyncingFieldReports: jest.fn(),
   SYNC_RETRY_COOLDOWN_MS: 60_000,
 }));
+jest.mock('@/features/sync/data/inspectorWorkWaiting', () => ({
+  hasUnsentInspectorWork: jest.fn(async () => false),
+}));
 jest.mock('@/features/sync/services/syncPendingFieldReports', () => ({
   syncPendingFieldReports: jest.fn(),
 }));
@@ -104,6 +108,11 @@ function SyncReportsProbe() {
       {`${sync?.pendingCount ?? 'none'}:${sync?.pendingReportsCount ?? 'none'}:${sync?.pendingSurveysCount ?? 'none'}:${sync?.pendingCompletionsCount ?? 'none'}:${sync?.lastSuccessfulSyncAt ?? 'none'}`}
     </Text>
   );
+}
+
+function InspectorWorkProbe() {
+  const sync = useContext(SyncContext);
+  return <Text testID="inspector-work">{String(sync?.inspectorWorkWaiting)}</Text>;
 }
 
 function SyncApiHealthProbe() {
@@ -252,6 +261,42 @@ describe('SyncProvider foreground triggers', () => {
         '0:0:0:0:none',
       ),
     );
+  });
+
+  it('flags unsent inspector work as a plain yes/no for a farmer session', async () => {
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: { token: 'farmer-token', user: { uuid: SUBMITTER_ID, role: 'farmer' } },
+      markSessionExpired: jest.fn(async () => undefined),
+    } as never);
+    jest.mocked(hasUnsentInspectorWork).mockResolvedValue(true);
+
+    await render(
+      <SyncProvider>
+        <InspectorWorkProbe />
+        <SyncReportsProbe />
+      </SyncProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('inspector-work')).toHaveTextContent('true'));
+    expect(screen.getByTestId('sync-reports-state')).toHaveTextContent('0:0:0:0:none');
+    expect(countUnsyncedFieldReports).not.toHaveBeenCalled();
+    jest.mocked(hasUnsentInspectorWork).mockResolvedValue(false);
+  });
+
+  it('never raises the inspector-work flag for an inspector session', async () => {
+    jest.mocked(hasUnsentInspectorWork).mockResolvedValue(true);
+
+    await render(
+      <SyncProvider>
+        <InspectorWorkProbe />
+      </SyncProvider>,
+    );
+
+    await waitFor(() => expect(countUnsyncedFieldReports).toHaveBeenCalled());
+    expect(screen.getByTestId('inspector-work')).toHaveTextContent('false');
+    expect(hasUnsentInspectorWork).not.toHaveBeenCalled();
+    jest.mocked(hasUnsentInspectorWork).mockResolvedValue(false);
   });
 
   it('leaves queued official records unsent after a farmer demotion', async () => {

@@ -6,6 +6,7 @@ import {
   getReportSyncAttemptOutcome,
   getSyncBadgeLabel,
   getSyncRowSummary,
+  INSPECTOR_WORK_WAITING_COPY,
   isServerUnavailable,
 } from '@/features/sync/utils/syncStatusCopy';
 
@@ -207,5 +208,17 @@ describe('getHomeSyncNote', () => {
         pendingCount: 2,
       }),
     ).toBe('Cannot reach the office. 2 reports waiting to send.');
+  });
+});
+
+describe('INSPECTOR_WORK_WAITING_COPY', () => {
+  it('is a plain sentence with no number in either language', () => {
+    for (const text of Object.values(INSPECTOR_WORK_WAITING_COPY)) {
+      expect(text.length).toBeGreaterThan(0);
+      expect(text).not.toMatch(/\d/);
+    }
+    expect(INSPECTOR_WORK_WAITING_COPY.en).toBe(
+      'Some saved inspector work is waiting for an inspector to sign in on this phone.',
+    );
   });
 });

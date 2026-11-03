@@ -23,6 +23,7 @@ import {
   useThemePreference,
 } from '@/providers/ThemePreferenceProvider';
 import { startCrashReporting } from '@/features/observability/startCrashReporting';
+import { WebValidationSeed } from '../../validation/web-validation/WebValidationSeed';
 
 // Crash and release-health reporting must be installed before the first screen
 // renders. It stays disabled unless the build supplied EXPO_PUBLIC_SENTRY_DSN.
@@ -42,6 +43,7 @@ export default function RootLayout() {
                   <CaneGuardModelProvider>
                     <SyncProvider>
                       <OfficeUpdatesProvider>
+                        <WebValidationSeed />
                         <AppNavigator />
                       </OfficeUpdatesProvider>
                     </SyncProvider>

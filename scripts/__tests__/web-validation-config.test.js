@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
+  FILE_SYSTEM_STAND_IN_PATH,
   SECURE_STORE_STAND_IN_PATH,
   SQLITE_WORKER_CHANNEL_PATH,
   isReleaseBuild,
@@ -31,6 +32,23 @@ function resolveSecureStore(env, platform = 'web') {
         'expo-secure-store',
         'build',
         'SecureStore.js',
+      ),
+      platform,
+    },
+    env,
+  );
+}
+
+function resolveFileSystem(env, platform = 'web') {
+  return resolveWebValidationAlias(
+    {
+      moduleName: './ExpoFileSystem',
+      originModulePath: path.join(
+        repoRoot,
+        'node_modules',
+        'expo-file-system',
+        'src',
+        'File.ts',
       ),
       platform,
     },
@@ -67,6 +85,7 @@ describe('web validation Metro gate', () => {
   it('ships the files the aliases point at', () => {
     expect(fs.existsSync(SECURE_STORE_STAND_IN_PATH)).toBe(true);
     expect(fs.existsSync(SQLITE_WORKER_CHANNEL_PATH)).toBe(true);
+    expect(fs.existsSync(FILE_SYSTEM_STAND_IN_PATH)).toBe(true);
   });
 
   it('applies the secure-store stand-in only when the validation flag is set', () => {
@@ -138,9 +157,25 @@ describe('web validation Metro gate', () => {
     expect(resolveSecureStore(env)).toBeNull();
   });
 
-  it('never applies either alias on a native platform', () => {
+  it('applies the file-system stand-in only to the validation web route', () => {
+    expect(resolveFileSystem(enabledEnv)).toBe(FILE_SYSTEM_STAND_IN_PATH);
+    expect(resolveFileSystem({})).toBeNull();
+    expect(
+      resolveFileSystem({
+        ...enabledEnv,
+        EXPO_PUBLIC_API_BASE_URL: 'https://api.example.test',
+      }),
+    ).toBeNull();
+    expect(
+      resolveFileSystem({ ...enabledEnv, EAS_BUILD_PROFILE: 'production' }),
+    ).toBeNull();
+  });
+
+  it('never applies any alias on a native platform', () => {
     expect(resolveSecureStore(enabledEnv, 'ios')).toBeNull();
     expect(resolveSecureStore(enabledEnv, 'android')).toBeNull();
+    expect(resolveFileSystem(enabledEnv, 'ios')).toBeNull();
+    expect(resolveFileSystem(enabledEnv, 'android')).toBeNull();
     expect(resolveWorkerChannel(enabledEnv, 'ios')).toBeNull();
     expect(resolveWorkerChannel(enabledEnv, 'android')).toBeNull();
   });

@@ -1,10 +1,11 @@
 /**
  * Deterministic fixtures for the browser validation stub API.
  *
- * Everything here is fake: the account, the two assignments and the dates. The
- * fixtures stay stable for a whole run so a validator sees the same Home each
- * time. `CANEGUARD_WEB_VALIDATE_TODAY=YYYY-MM-DD` pins the reference day; the
- * default is the local date the script starts on.
+ * Everything here is fake: the accounts, the two assignments, the farmer's
+ * saved checks and the dates. The fixtures stay stable for a whole run so a
+ * validator sees the same Home and Activity each time.
+ * `CANEGUARD_WEB_VALIDATE_TODAY=YYYY-MM-DD` pins the reference day; the default
+ * is the local date the script starts on.
  */
 
 const FAKE_ACCOUNT = {
@@ -14,8 +15,16 @@ const FAKE_ACCOUNT = {
   uuid: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
 };
 
+const FAKE_FARMER_ACCOUNT = {
+  email: 'farmer@validation.invalid',
+  name: 'Validation Farmer',
+  role: 'farmer',
+  uuid: 'f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c',
+};
+
 const FAKE_PASSWORD = 'validation-only';
 const FAKE_TOKEN = 'validation-only-token';
+const FAKE_FARMER_TOKEN = 'validation-only-farmer-token';
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -144,8 +153,53 @@ function buildAssignments({ today }) {
   ];
 }
 
-function buildUser() {
-  return { ...FAKE_ACCOUNT };
+function buildUser(account = FAKE_ACCOUNT) {
+  return { ...account };
+}
+
+const FIRST_CHECK_ID = 'a1111111-1111-4111-8111-111111111111';
+const SECOND_CHECK_ID = 'b2222222-2222-4222-8222-222222222222';
+const THIRD_CHECK_ID = 'c3333333-3333-4333-8333-333333333333';
+
+/**
+ * One plant checked three times: the first check and two follow-ups, oldest
+ * first. The follow-ups carry the farmer's own words and link to the first
+ * check, so date-ordered history, the retained note after deleting the first
+ * check, and the singleton-history case can all be driven in a browser.
+ */
+function buildScanRecords({ today }) {
+  return [
+    {
+      confidence: 0.91,
+      createdAt: timestamp(addDays(today, -8), '01:00:00.000Z'),
+      followsUpScanId: null,
+      id: FIRST_CHECK_ID,
+      imageAsset: 'dev-assets/model-fixtures/v1-mosaic.jpg',
+      imageFileName: `${FIRST_CHECK_ID}.jpg`,
+      personalNote: null,
+      predictedLabel: 'mosaic',
+    },
+    {
+      confidence: 0.83,
+      createdAt: timestamp(addDays(today, -4), '02:00:00.000Z'),
+      followsUpScanId: FIRST_CHECK_ID,
+      id: SECOND_CHECK_ID,
+      imageAsset: 'dev-assets/model-fixtures/v1-rust.jpg',
+      imageFileName: `${SECOND_CHECK_ID}.jpg`,
+      personalNote: 'Leaves look darker at the edges since the first check.',
+      predictedLabel: 'rust',
+    },
+    {
+      confidence: 0.76,
+      createdAt: timestamp(addDays(today, -1), '03:00:00.000Z'),
+      followsUpScanId: FIRST_CHECK_ID,
+      id: THIRD_CHECK_ID,
+      imageAsset: 'dev-assets/model-fixtures/v1-healthy.jpg',
+      imageFileName: `${THIRD_CHECK_ID}.jpg`,
+      personalNote: 'New pale streaks on the middle leaves.',
+      predictedLabel: 'healthy',
+    },
+  ];
 }
 
 function emptyPage(syncBefore) {
@@ -159,10 +213,16 @@ function emptyPage(syncBefore) {
 
 module.exports = {
   FAKE_ACCOUNT,
+  FAKE_FARMER_ACCOUNT,
+  FAKE_FARMER_TOKEN,
   FAKE_PASSWORD,
   FAKE_TOKEN,
+  FIRST_CHECK_ID,
+  SECOND_CHECK_ID,
+  THIRD_CHECK_ID,
   addDays,
   buildAssignments,
+  buildScanRecords,
   buildUser,
   emptyPage,
   resolveTodayKey,

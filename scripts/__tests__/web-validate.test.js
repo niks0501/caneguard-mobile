@@ -10,10 +10,13 @@ const {
 } = require('../../validation/stub-api/server');
 const {
   FAKE_ACCOUNT,
+  FAKE_FARMER_ACCOUNT,
+  FAKE_FARMER_TOKEN,
   FAKE_PASSWORD,
   FAKE_TOKEN,
   addDays,
   buildAssignments,
+  buildScanRecords,
   resolveTodayKey,
 } = require('../../validation/stub-api/fixtures');
 const { buildWebValidationEnv, main } = require('../web-validate');
@@ -42,7 +45,8 @@ function createNodeFetch(nodeHttp) {
           const chunks = [];
           response.on('data', (chunk) => chunks.push(chunk));
           response.on('end', () => {
-            const body = Buffer.concat(chunks).toString('utf8');
+            const raw = Buffer.concat(chunks);
+            const body = raw.toString('utf8');
             const byName = new Map(
               Object.entries(response.headers).map(([key, value]) => [
                 key.toLowerCase(),
@@ -50,6 +54,8 @@ function createNodeFetch(nodeHttp) {
               ]),
             );
             resolve({
+              arrayBuffer: async () =>
+                raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength),
               headers: { get: (name) => byName.get(String(name).toLowerCase()) ?? null },
               json: async () => (body ? JSON.parse(body) : null),
               ok: response.statusCode >= 200 && response.statusCode < 300,
@@ -208,6 +214,17 @@ describe('browser validation stub API', () => {
     expect(session.user).toEqual(FAKE_ACCOUNT);
   });
 
+  it('signs in the fake farmer through the app auth client', async () => {
+    const session = await loginMobile({
+      deviceName: 'web validation',
+      email: FAKE_FARMER_ACCOUNT.email,
+      password: FAKE_PASSWORD,
+    });
+
+    expect(session.token).toBe(FAKE_FARMER_TOKEN);
+    expect(session.user).toEqual(FAKE_FARMER_ACCOUNT);
+  });
+
   it('rejects a wrong password with the app error code', async () => {
     await expect(
       loginMobile({
@@ -243,6 +260,65 @@ describe('browser validation stub API', () => {
         targetVisitDate: TODAY,
       },
     ]);
+  });
+
+  it('seeds the farmer first check and its follow-ups in date order', () => {
+    const records = buildScanRecords({ today: TODAY });
+
+    expect(records.map((record) => record.predictedLabel)).toEqual([
+      'mosaic',
+      'rust',
+      'healthy',
+    ]);
+    expect(records.map((record) => record.followsUpScanId)).toEqual([
+      null,
+      records[0].id,
+      records[0].id,
+    ]);
+    expect(records.map((record) => record.createdAt.slice(0, 10))).toEqual([
+      '2026-10-24',
+      '2026-10-28',
+      '2026-10-31',
+    ]);
+    expect(records[1].personalNote).toBeTruthy();
+    expect(records[2].personalNote).toBeTruthy();
+  });
+
+  it('serves a seeded farmer scan image for the record screen', async () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const first = buildScanRecords({ today: TODAY })[0];
+    const expected = fs.readFileSync(
+      path.join(__dirname, '..', '..', first.imageAsset),
+    );
+
+    const response = await fetch(
+      `${stub.baseUrl}/caneguard/scan-images/${FAKE_FARMER_ACCOUNT.uuid}/${first.imageFileName}`,
+    );
+    const body = Buffer.from(await response.arrayBuffer());
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('image/jpeg');
+    expect(body.equals(expected)).toBe(true);
+  });
+
+  it('keeps a newly captured validation image available for the run', async () => {
+    const pathname = `/caneguard/scan-images/${FAKE_FARMER_ACCOUNT.uuid}/d4444444-4444-4444-8444-444444444444.jpg`;
+    const uploaded = new Uint8Array([0xff, 0xd8, 0xff, 0x01, 0x02]);
+    const publishUrl = new URL('/__validation__/files', stub.baseUrl);
+    publishUrl.searchParams.set('path', pathname);
+
+    const publish = await fetch(publishUrl, {
+      body: uploaded,
+      headers: { 'Content-Type': 'image/jpeg' },
+      method: 'PUT',
+    });
+    const served = await fetch(`${stub.baseUrl}${pathname}`);
+    const body = new Uint8Array(await served.arrayBuffer());
+
+    expect(publish.status).toBe(204);
+    expect(served.status).toBe(200);
+    expect([...body]).toEqual([...uploaded]);
   });
 
   it('serves an empty notification feed the app can parse', async () => {

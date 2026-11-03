@@ -8,7 +8,7 @@ const {
 /**
  * Shared gate for the browser validation route (`npm run web:validate`).
  *
- * Two web-only Metro rewrites live behind it:
+ * Three web-only Metro rewrites live behind it:
  *
  * - `validation/expo-sqlite/WorkerChannel.ts` fixes the 255-byte sync result
  *   length bug in `expo-sqlite` 57. It keeps the app's reads honest on web and
@@ -18,6 +18,9 @@ const {
  *   is a deliberate security downgrade, so it is gated on an explicit env flag,
  *   only applied to the fixed stub base URL, and never applied to a release
  *   build.
+ * - `validation/expo-file-system/ExpoFileSystem.web.ts` keeps the farmer
+ *   follow-up images in memory and on the stub so the Check Again flow can run
+ *   in a browser. It uses the same flag, stub-only and release-build gates.
  */
 
 const WEB_VALIDATION_FLAG = 'EXPO_PUBLIC_WEB_VALIDATION';
@@ -37,6 +40,13 @@ const SQLITE_WORKER_CHANNEL_PATH = path.join(
   'validation',
   'expo-sqlite',
   'WorkerChannel.ts',
+);
+const FILE_SYSTEM_STAND_IN_PATH = path.join(
+  __dirname,
+  '..',
+  'validation',
+  'expo-file-system',
+  'ExpoFileSystem.web.ts',
 );
 
 function isReleaseBuild(env = process.env) {
@@ -97,6 +107,15 @@ function resolveWebValidationAlias(
   }
 
   if (
+    moduleName === './ExpoFileSystem' &&
+    originModulePath.includes('expo-file-system') &&
+    isWebValidationEnabled(env) &&
+    isStubApiBaseUrl(env.EXPO_PUBLIC_API_BASE_URL)
+  ) {
+    return FILE_SYSTEM_STAND_IN_PATH;
+  }
+
+  if (
     moduleName === './WorkerChannel' &&
     originModulePath.includes('expo-sqlite')
   ) {
@@ -107,6 +126,7 @@ function resolveWebValidationAlias(
 }
 
 module.exports = {
+  FILE_SYSTEM_STAND_IN_PATH,
   SECURE_STORE_STAND_IN_PATH,
   SQLITE_WORKER_CHANNEL_PATH,
   WEB_VALIDATION_FLAG,

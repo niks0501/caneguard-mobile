@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import FieldSurveyScreen from '@/app/field-survey';
@@ -10,6 +10,7 @@ import {
 } from '@/features/surveys/data/fieldSurveyRepository';
 import type { FieldSurveyRow } from '@/database/schema';
 import type { SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
 
 jest.mock('expo-crypto', () => ({
   randomUUID: () => '3f1de2d8-2ca9-4c26-9e37-2f4c5f6f7a10',
@@ -39,6 +40,7 @@ jest.mock('@/features/surveys/data/fieldSurveyRepository', () => ({
 const mockSaveDraft = jest.mocked(saveFieldSurveyDraft);
 const mockListSurveys = jest.mocked(listOwnedFieldSurveys);
 const mockMarkPending = jest.mocked(markFieldSurveyPending);
+const mockCaptureWaypoint = jest.mocked(captureSurveyWaypoint);
 
 const PLOT_WAYPOINTS: SurveyWaypoint[] = [
   { latitude: 14.1, longitude: 121.1, source: 'gps', accuracyMeters: 4, capturedAt: '2026-10-31T01:00:00.000Z' },
@@ -141,6 +143,95 @@ beforeEach(() => {
   mockListSurveys.mockReturnValue([]);
   mockSaveDraft.mockResolvedValue(draftRow());
   mockMarkPending.mockReturnValue(undefined);
+  mockCaptureWaypoint.mockReset();
+  mockCaptureWaypoint.mockResolvedValue({ status: 'unavailable' });
+});
+
+it('recaptures the named point even when a point ahead of it is removed while sampling', async () => {
+  const boundary: SurveyWaypoint[] = [
+    PLOT_WAYPOINTS[0],
+    { ...PLOT_WAYPOINTS[1], accuracyMeters: 22 },
+    PLOT_WAYPOINTS[2],
+    PLOT_WAYPOINTS[3],
+  ];
+  mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(boundary) })]);
+
+  await render(<FieldSurveyScreen />);
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.recapturePoint(2))).toBeTruthy());
+
+  let resolveCapture!: (value: Awaited<ReturnType<typeof captureSurveyWaypoint>>) => void;
+  mockCaptureWaypoint.mockImplementation(() => new Promise((resolve) => { resolveCapture = resolve; }));
+  await act(async () => {
+    fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.recapturePoint(2)));
+  });
+
+  await act(async () => {
+    fireEvent.press(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`));
+  });
+  await act(async () => {
+    fireEvent.press(screen.getByLabelText(FIELD_SURVEY_COPY.selectPoint(1)));
+  });
+  await act(async () => {
+    fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.removeSelected));
+  });
+  await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (3)`)).toBeTruthy());
+
+  await act(async () => {
+    resolveCapture({
+      status: 'captured',
+      waypoint: { latitude: 14.1004, longitude: 121.1004, accuracyMeters: 3, capturedAt: '2026-10-31T03:00:00.000Z', source: 'gps' },
+    });
+  });
+
+  await waitFor(() => {
+    const saved = mockSaveDraft.mock.lastCall?.[1];
+    expect(saved?.waypoints.map((point) => [point.latitude, point.longitude, point.accuracyMeters])).toEqual([
+      [14.1004, 121.1004, 3],
+      [PLOT_WAYPOINTS[2].latitude, PLOT_WAYPOINTS[2].longitude, 4],
+      [PLOT_WAYPOINTS[3].latitude, PLOT_WAYPOINTS[3].longitude, 4],
+    ]);
+  });
+});
+
+it('drops a boundary capture when the affected-area mode is opened while sampling', async () => {
+  mockListSurveys.mockReturnValue([draftRow()]);
+
+  await render(<FieldSurveyScreen />);
+  await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+  let resolveCapture!: (value: Awaited<ReturnType<typeof captureSurveyWaypoint>>) => void;
+  mockCaptureWaypoint.mockImplementation(() => new Promise((resolve) => { resolveCapture = resolve; }));
+  await act(async () => {
+    fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.addGpsPoint));
+  });
+  await act(async () => {
+    fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.affectedAreaBoundary));
+  });
+
+  await act(async () => {
+    resolveCapture({
+      status: 'captured',
+      waypoint: { latitude: 14.0995, longitude: 121.0995, accuracyMeters: 3, capturedAt: '2026-10-31T04:00:00.000Z', source: 'gps' },
+    });
+  });
+
+  await waitFor(() => {
+    const saved = mockSaveDraft.mock.lastCall?.[1];
+    expect(saved?.waypoints.map((point) => [point.latitude, point.longitude])).toEqual(
+      PLOT_WAYPOINTS.map((point) => [point.latitude, point.longitude]),
+    );
+    expect(saved?.activeAffectedWaypoints).toEqual([]);
+  });
+});
+
+it('reports a boundary drawn only on the map as unmeasured without offering recapture', async () => {
+  const mapped = PLOT_WAYPOINTS.map((point) => ({ ...point, accuracyMeters: null, source: 'map' as const }));
+  mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(mapped) })]);
+
+  await render(<FieldSurveyScreen />);
+
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.qualityState.manual)).toBeTruthy());
+  expect(screen.queryByText(FIELD_SURVEY_COPY.recapturePoint(1))).toBeNull();
 });
 
 it('keeps captured affected-waypoint provenance when the affected mode button is tapped again', async () => {

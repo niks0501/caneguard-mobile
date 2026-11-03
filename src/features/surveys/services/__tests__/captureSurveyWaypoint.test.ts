@@ -18,8 +18,24 @@ function client(overrides: Partial<ForegroundLocationClient> = {}): ForegroundLo
 }
 
 describe('captureSurveyWaypoint', () => {
-  it('treats readings without a reported accuracy as unavailable after the sample window', async () => {
-    await expect(captureSurveyWaypoint(client(), undefined, 50)).resolves.toEqual({ status: 'unavailable' });
+  it('keeps valid GPS coordinates when the device reports unknown accuracy', async () => {
+    await expect(captureSurveyWaypoint(client(), undefined, 50)).resolves.toEqual({
+      status: 'captured',
+      waypoint: {
+        accuracyMeters: null,
+        capturedAt: '2026-10-05T09:00:00.000Z',
+        latitude: 14.123,
+        longitude: 120.456,
+        source: 'gps',
+      },
+    });
+  });
+
+  it('prefers a measured reading over an unmeasured fallback in the same window', async () => {
+    const readings: (number | null)[] = [null, null, 7];
+    const getCurrentPosition = jest.fn(async () => ({ accuracy: readings.shift() ?? 7, latitude: 14.123, longitude: 120.456, timestamp: Date.parse('2026-10-05T09:00:00.000Z') }));
+    const result = await captureSurveyWaypoint(client({ getCurrentPosition }), undefined, 1500);
+    expect(result).toMatchObject({ status: 'captured', waypoint: { accuracyMeters: 7 } });
   });
 
   it('keeps the reading with the lowest accuracy value across the window', async () => {

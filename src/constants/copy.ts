@@ -80,7 +80,7 @@ export const FIELD_SURVEY_COPY = {
   qualityPlotArea: 'Plot area',
   qualityPoints: 'Boundary points',
   qualityAffected: (sqm: number, percent: number) => `${Math.round(sqm).toLocaleString()} m² affected (${percent.toFixed(1)}%)`,
-  qualityState: { good: 'GPS: Good', acceptable: 'GPS: Acceptable', low_accuracy: 'GPS: Low accuracy' },
+  qualityState: { good: 'GPS: Good', acceptable: 'GPS: Acceptable', low_accuracy: 'GPS: Low accuracy', manual: 'GPS: Not measured' },
   qualityWorst: (point: number, meters: number | null) => meters === null
     ? `Worst point: ${point} · accuracy unknown`
     : `Worst point: ${point} · ±${meters.toFixed(1)} m`,

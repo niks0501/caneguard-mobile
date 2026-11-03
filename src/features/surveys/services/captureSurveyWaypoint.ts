@@ -15,8 +15,23 @@ export async function captureSurveyWaypoint(
 ): Promise<SurveyWaypointCaptureResult> {
   const result = await captureGpsLocation(client, now, { timeoutMs });
   if (result.outcome === 'permission_denied') return { status: 'permission_denied' };
-  if (result.outcome === 'unavailable' && result.reason === 'location_services_disabled') {
-    return { status: 'services_disabled' };
+  if (result.outcome === 'unavailable') {
+    if (result.reason === 'location_services_disabled') return { status: 'services_disabled' };
+    // A device that reports coordinates without an accuracy still yields a
+    // usable point; the missing measurement is recorded as provenance.
+    if (result.fallback) {
+      return {
+        status: 'captured',
+        waypoint: {
+          latitude: result.fallback.latitude,
+          longitude: result.fallback.longitude,
+          accuracyMeters: null,
+          capturedAt: result.fallback.capturedAt,
+          source: 'gps',
+        },
+      };
+    }
+    return { status: 'unavailable' };
   }
   if (result.outcome !== 'resolved' && result.outcome !== 'low_accuracy') return { status: 'unavailable' };
   // Poor accuracy never blocks the point; the actual value is kept as provenance.

@@ -28,6 +28,7 @@ import m0023 from './0023_affected_area_waypoints.sql';
 import m0024 from './0024_active_affected_waypoints.sql';
 import m0025 from './0025_field_survey_author_role.sql';
 import m0026 from './0026_scan_follow_up_check.sql';
+import m0027 from './0027_loud_rachel_grey.sql';
 
   export default {
     journal,
@@ -58,7 +59,8 @@ m0022,
 m0023,
 m0024,
 m0025,
-m0026
+m0026,
+m0027
     }
   }
   

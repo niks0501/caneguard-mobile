@@ -44,7 +44,7 @@ export interface CompleteFieldValidationInput {
   fieldFinding: string;
   fieldObservation: string;
   freshPhoto?: ImagePickerAsset | null;
-  followUpOutcome: FieldValidationFollowUpOutcome;
+  followUpOutcome: FieldValidationFollowUpOutcome | null;
   /** A draft photo already persisted in owner-scoped managed storage. */
   savedFreshPhoto?: FieldValidationPhotoArtifact | null;
 }

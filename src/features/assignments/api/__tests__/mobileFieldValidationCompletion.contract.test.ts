@@ -8,7 +8,7 @@ interface Contract {
   contract: string;
   version: number;
   wire: { method: string; path: string };
-  fields: Record<string, { required: boolean; type: string; wire_type: string }>;
+  fields: Record<string, { required: boolean; nullable?: boolean; type: string; wire_type: string }>;
 }
 
 const contract = JSON.parse(
@@ -89,6 +89,19 @@ describe('mobile-field-validation-completion-v1 producer contract', () => {
         'gps_accuracy',
         'fresh_photo',
       ]);
+    } finally {
+      global.FormData = original;
+    }
+  });
+
+  it('omits follow_up_outcome from the wire when null, as the contract allows', () => {
+    expect(contract.fields.follow_up_outcome).toMatchObject({ required: false, nullable: true });
+    const original = global.FormData;
+    global.FormData = TestFormData as unknown as typeof FormData;
+    try {
+      const form = mapFieldValidationCompletionToMultipart({ completion: { ...completion, followUpOutcome: null } });
+      const names = (form as unknown as TestFormData).parts.map(([name]) => name);
+      expect(names).not.toContain('follow_up_outcome');
     } finally {
       global.FormData = original;
     }

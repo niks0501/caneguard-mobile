@@ -10,7 +10,7 @@ export interface FieldValidationCompletion {
   createdAt: string;
   fieldFinding: string;
   fieldObservation: string;
-  followUpOutcome: FieldValidationFollowUpOutcome;
+  followUpOutcome: FieldValidationFollowUpOutcome | null;
   freshPhotoMimeType: string | null;
   freshPhotoSizeBytes: number | null;
   freshPhotoUri: string | null;
@@ -37,7 +37,7 @@ export interface SaveFieldValidationCompletionInput {
   assignmentId: string;
   fieldFinding: string;
   fieldObservation: string;
-  followUpOutcome: FieldValidationFollowUpOutcome;
+  followUpOutcome: FieldValidationFollowUpOutcome | null;
   freshPhotoMimeType?: string | null;
   freshPhotoSizeBytes?: number | null;
   freshPhotoUri?: string | null;

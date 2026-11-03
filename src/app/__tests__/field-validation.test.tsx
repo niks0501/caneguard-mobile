@@ -72,6 +72,21 @@ describe('FieldValidationScreen', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('requires fresh observation, finding, and action before saving offline completion', async () => {
+    jest.mocked(useFieldValidationAssignment).mockReturnValue({
+      ...state,
+      complete,
+      previousVisit: {
+        referenceCode: 'CG-2026-0000',
+        visitedAt: '2026-07-01T00:00:00.000Z',
+        reporterSuspectedCondition: null,
+        authorityClassifiedCondition: null,
+        actionTaken: 'Earlier action',
+        followUpOutcome: null,
+        fieldObservation: null,
+        fieldFinding: null,
+        freshPhotoAvailable: false,
+      },
+    } as never);
     await render(<FieldValidationScreen />);
 
     await fireEvent.press(screen.getByTestId('field-validation.complete'));
@@ -104,6 +119,18 @@ describe('FieldValidationScreen', () => {
       followUpOutcome: 'improved',
       freshPhoto: null,
     });
+  });
+
+  it('completes a first visit with no follow-up outcome and sends null', async () => {
+    jest.mocked(useFieldValidationAssignment).mockReturnValue({ ...state, complete } as never);
+    await render(<FieldValidationScreen />);
+    await fireEvent.changeText(screen.getByTestId('field-validation.observation-input'), 'Leaves show fresh lesions.');
+    await fireEvent.changeText(screen.getByTestId('field-validation.finding-input'), 'Field finding recorded for office review.');
+    await fireEvent.changeText(screen.getByTestId('field-validation.action-input'), 'Provided field guidance.');
+    await fireEvent.press(screen.getByTestId('field-validation.complete'));
+    expect(screen.queryByTestId('field-validation.error')).toBeNull();
+    await fireEvent.press(screen.getByTestId('field-validation.confirm-complete'));
+    expect(complete).toHaveBeenCalledWith(expect.objectContaining({ followUpOutcome: null }));
   });
 
   it('leads with visit context and fresh observation before submitted AI evidence', async () => {

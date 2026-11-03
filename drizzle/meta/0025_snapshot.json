@@ -539,7 +539,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'field_reporter'"
+          "default": "'farmer'"
         },
         "remote_id": {
           "name": "remote_id",

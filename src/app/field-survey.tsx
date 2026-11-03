@@ -34,6 +34,7 @@ import {
 import { listOwnedFieldSurveys, saveFieldSurveyDraft, markFieldSurveyPending } from '@/features/surveys/data/fieldSurveyRepository';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
 import { measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { assessBoundaryQuality } from '@/features/surveys/domain/boundaryQuality';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
 
 const SURVEY_ZOOM = 17;
@@ -226,6 +227,25 @@ export default function FieldSurveyScreen() {
     }
   }
 
+  async function recaptureWorstPoint(index: number) {
+    if (controlsLocked) return;
+    setGpsBusy(true);
+    try {
+      const result = await captureSurveyWaypoint(expoForegroundLocationClient);
+      if (result.status !== 'captured') {
+        setSyncMessage(FIELD_SURVEY_COPY.gpsUnavailable);
+        return;
+      }
+      // Replaces only the named point; every other point keeps its measurement.
+      setSaved(false);
+      setWaypoints((current) => current.map((point, i) => i === index ? result.waypoint : point));
+    } catch {
+      setSyncMessage(FIELD_SURVEY_COPY.gpsUnavailable);
+    } finally {
+      setGpsBusy(false);
+    }
+  }
+
   async function saveAndSync() {
     if (!session?.token || !session.user.uuid || !ready || !database || database === EMPTY_DATABASE) {
       setSyncMessage(FIELD_SURVEY_SYNC_COPY.signInRequired);
@@ -327,6 +347,7 @@ export default function FieldSurveyScreen() {
 
   const pointCount = drawingAffectedArea ? affectedWaypoints.length : waypoints.length;
   const controlsLocked = readOnlyPending || syncBusy;
+  const quality = assessBoundaryQuality(waypoints);
   const areaReadout = `${screenValidation}${validation.valid && affectedMeasurement?.valid ? ` · ${affectedMeasurement.areaSqm.toFixed(0)} m² affected` : affectedMeasurement && !affectedMeasurement.valid ? ` · ${affectedMeasurement.error.message}` : ''}`;
 
   return (
@@ -439,6 +460,16 @@ export default function FieldSurveyScreen() {
                 <Text style={[styles.pointCoord, { color: point.accuracyMeters === null ? theme.warning : theme.textSecondary }]}>{point.accuracyMeters === null ? FIELD_SURVEY_COPY.accuracyUnknown : `${FIELD_SURVEY_COPY.accuracy} ±${point.accuracyMeters.toFixed(1)} m`}</Text>
               </Pressable>)}
             </ScrollView>
+          ) : null}
+          {validation.valid && !drawingAffectedArea ? (
+            <View testID="field-survey.quality" style={[styles.point, { borderColor: theme.border, backgroundColor: theme.surfaceElevated }]}>
+              <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.boundaryQualityTitle}</Text>
+              <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.qualityPlotArea}: {Math.round(validation.areaSqm).toLocaleString()} m² · {FIELD_SURVEY_COPY.qualityPoints}: {quality.pointCount}</Text>
+              <Text style={[styles.help, { color: quality.state === 'good' ? theme.success : theme.warning }]}>{FIELD_SURVEY_COPY.qualityState[quality.state]}</Text>
+              {quality.worst ? <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.qualityWorst(quality.worst.index + 1, quality.worst.accuracyMeters)}</Text> : null}
+              {affectedMeasurement?.valid ? <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.qualityAffected(affectedMeasurement.areaSqm, (affectedMeasurement.areaSqm / validation.areaSqm) * 100)}</Text> : null}
+              {quality.state === 'low_accuracy' && quality.worst ? <AppButton variant="secondary" leadingIcon="crosshair" disabled={gpsBusy || controlsLocked} busy={gpsBusy} onPress={() => void recaptureWorstPoint(quality.worst!.index)}>{FIELD_SURVEY_COPY.recapturePoint(quality.worst.index + 1)}</AppButton> : null}
+            </View>
           ) : null}
           <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.affectedAreas} ({affectedAreas.length})</Text>
           {affectedAreas.length ? <AppButton variant="secondary" disabled={controlsLocked} onPress={() => { setAffectedAreas((current) => current.slice(0, -1)); setAffectedAreaWaypointSets((current) => current.slice(0, -1)); setSaved(false); }}>{FIELD_SURVEY_COPY.removeAffectedArea}</AppButton> : null}

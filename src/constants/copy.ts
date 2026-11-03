@@ -76,6 +76,15 @@ export const FIELD_SURVEY_COPY = {
   gpsPermissionDenied: 'Location permission is off. You can continue by drawing on the map.',
   gpsDisabled: 'Turn on device location to capture a GPS point. Your draft is unchanged.',
   gpsUnavailable: 'Could not read a GPS point. Your draft is unchanged.',
+  boundaryQualityTitle: 'Boundary Quality',
+  qualityPlotArea: 'Plot area',
+  qualityPoints: 'Boundary points',
+  qualityAffected: (sqm: number, percent: number) => `${Math.round(sqm).toLocaleString()} m² affected (${percent.toFixed(1)}%)`,
+  qualityState: { good: 'GPS: Good', acceptable: 'GPS: Acceptable', low_accuracy: 'GPS: Low accuracy' },
+  qualityWorst: (point: number, meters: number | null) => meters === null
+    ? `Worst point: ${point} · accuracy unknown`
+    : `Worst point: ${point} · ±${meters.toFixed(1)} m`,
+  recapturePoint: (point: number) => `Recapture point ${point}`,
   tapToDraw: 'Tap the map to add points. Select a point below to move it.',
   savingOffline: 'Saving boundary draft…',
   saveFailed: 'The boundary could not be saved. Your previous draft is unchanged.',

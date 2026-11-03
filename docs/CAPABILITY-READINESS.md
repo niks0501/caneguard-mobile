@@ -37,8 +37,9 @@ tests. "Implemented" does not mean "verified on a device":
 - Scan capture from camera or gallery, image preview, on-device analysis,
   guided symptom checklist, and the Possible Condition result.
 - Saved scan records and record details.
-- Field Report Draft: five-step form, local autosave checkpoints, readiness
-  checklist, finalization, foreground sync and manual retry.
+- Field Report Draft (Field Inspector accounts only): five-step form, local
+  autosave checkpoints, readiness checklist, finalization, foreground sync and
+  manual retry.
 - Field validation visits: owner-scoped drafts, completion evidence, follow-up
   outcome, optional fresh photo.
 - Offline field boundary surveys: plot and affected-area polygons drawn on the

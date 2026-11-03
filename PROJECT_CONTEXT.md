@@ -168,6 +168,10 @@ Sync may be triggered:
 - when network connectivity is restored; or
 - manually.
 
+A `farmer` session does not synchronize: it reports no pending count and no
+last successful sync time, and its queued Field Reports, field surveys, and
+field-validation completions stay on the device.
+
 Only one pending-report synchronization batch should run at a time. Field
 Reports retain explicit sync states:
 

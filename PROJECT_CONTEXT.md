@@ -6,7 +6,7 @@ Facts specific to CaneGuard Mobile. Keep this file concise and update it when th
 
 CaneGuard Mobile is an Android-first React Native field application for collecting sugarcane observations and providing on-device AI-assisted disease classification.
 
-The app lets authenticated field reporters:
+The app accepts two account roles. A `field_reporter` (Field Inspector) can:
 
 - capture or select a sugarcane image;
 - assess basic image quality;
@@ -15,6 +15,10 @@ The app lets authenticated field reporters:
 - save completed scan records locally for offline use;
 - review local records and report summaries; and
 - synchronize eligible reports and their images to the CaneGuard web/backend API.
+
+A `farmer` can sign in and run the same personal scanning path, keeping
+completed scans on the device, but official Field Reports stay inspector-only: a
+farmer session cannot open, author, or synchronize one.
 
 AI results are decision-support outputs only. User-facing copy must not present them as confirmed diagnoses or expert validation.
 
@@ -105,6 +109,9 @@ Record remains the read-only source of AI and image evidence used to build the
 upload. Draft authoring, finalization, retry, and synchronization remain scoped
 to the authenticated submitter that created the Field Report.
 
+Field Report access also requires the `field_reporter` role, so a session
+demoted to `farmer` loses access to drafts it created earlier.
+
 Scans queued by earlier app versions are not uploaded until a signed-in reporter
 completes the new required Field Report fields. That upgrade reuses the Scan
 Record UUID as the Field Report client UUID for server idempotency. Legacy scans
@@ -116,7 +123,10 @@ again.
 Authentication lives under `src/features/auth/`.
 
 The mobile client authenticates against the CaneGuard API.
-Only users returned with the `field_reporter` role are accepted for mobile synchronization.
+Sign-in accepts the `field_reporter` and `farmer` roles, validated by
+`isMobileUserRole` in `src/features/auth/types.ts`; any other role is rejected as
+an unsupported account type. Only users returned with the `field_reporter` role
+are accepted for mobile synchronization.
 
 Mobile bearer sessions receive a finite local safety expiry. When the API returns
 `expires_at: null`, the client applies the 30-day `LOCAL_SESSION_MAX_AGE_MS`
@@ -158,6 +168,10 @@ Sync may be triggered:
 - when network connectivity is restored; or
 - manually.
 
+A `farmer` session does not synchronize: it reports no pending count and no
+last successful sync time, and its queued Field Reports, field surveys, and
+field-validation completions stay on the device.
+
 Only one pending-report synchronization batch should run at a time. Field
 Reports retain explicit sync states:
 
@@ -188,7 +202,8 @@ and stores the returned remote UUID and successful sync time on Field Report.
 
 - Authentication uses bearer tokens from the CaneGuard backend.
 - Password and protected mobile sessions use Expo SecureStore. `keychainAccessible` is an iOS Keychain control; Android protection for the protected session comes from SecureStore `requireAuthentication`/Keystore binding.
-- Only backend users with role `field_reporter` are accepted by the mobile client.
+- The mobile client accepts only the account roles listed under
+  [Authentication](#authentication); Field Report access stays inspector-only.
 - `EXPO_PUBLIC_API_BASE_URL` is configuration, not a secret. Never place API credentials or tokens in public Expo environment variables.
 - `EXPO_PUBLIC_QA_MODE=true` enables the QA-only validation that the API URL uses public HTTPS rather than a loopback host.
 - Production and QA API configuration must use HTTPS; plain HTTP is accepted only in development.

@@ -52,6 +52,7 @@ const mockRouterDismissTo = router.dismissTo as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
 const DETAILS: ScanRecordDetails = {
   authorityReview: null,
+  hasLinkedFieldReport: false,
   id: RECORD_ID,
   ownerIdentity: SUBMITTER_ID,
   managedImageUri: `file:///documents/caneguard/scan-images/${RECORD_ID}.jpg`,
@@ -93,7 +94,7 @@ const DETAILS: ScanRecordDetails = {
 describe('RecordDetailsScreen', () => {
   beforeEach(() => {
     jest.mocked(useAuth).mockReturnValue({
-      user: { uuid: SUBMITTER_ID },
+      user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
     } as never);
     mockUseLocalSearchParams.mockReturnValue({ id: RECORD_ID });
     mockDetailsState = {
@@ -175,6 +176,17 @@ describe('RecordDetailsScreen', () => {
     };
     await view.rerender(<RecordDetailsScreen />);
     expect(screen.getByLabelText('Resume Field Report draft')).toBeOnTheScreen();
+  });
+
+  it('does not offer a Field Report action to a farmer', async () => {
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'farmer' },
+    } as never);
+
+    await render(<RecordDetailsScreen />);
+
+    expect(screen.queryByTestId('records.open-field-report')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Create Field Report draft')).not.toBeOnTheScreen();
   });
 
   it('opens a finalized Field Report without presenting it as an editable Draft', async () => {
@@ -319,6 +331,49 @@ describe('RecordDetailsScreen', () => {
     expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
   });
 
+  it('hides delete for a demoted inspector when the scan has a linked Field Report', async () => {
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'farmer' },
+    } as never);
+    mockDetailsState = {
+      ...mockDetailsState,
+      data: { ...DETAILS, hasLinkedFieldReport: true },
+    };
+
+    await render(<RecordDetailsScreen />);
+
+    expect(
+      screen.queryByLabelText('Delete this local record and saved image'),
+    ).not.toBeOnTheScreen();
+  });
+
+  it('lets a farmer delete a standalone scan but keeps the delete policy enforced', async () => {
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'farmer' },
+    } as never);
+    mockDetailsState = {
+      ...mockDetailsState,
+      data: { ...DETAILS, hasLinkedFieldReport: false },
+    };
+
+    await render(
+      <ToastProvider>
+        <RecordDetailsScreen />
+      </ToastProvider>,
+    );
+    await fireEvent.press(
+      screen.getByLabelText('Delete this local record and saved image'),
+    );
+    await fireEvent.press(screen.getByTestId('records.confirm-delete.confirm'));
+
+    expect(mockDeleteScanRecord).toHaveBeenCalledWith(
+      mockDatabase,
+      RECORD_ID,
+      SUBMITTER_ID,
+      { allowLinkedFieldReportDeletion: false },
+    );
+  });
+
   it('requires one confirmation and deletes before returning to records', async () => {
     await render(
       <ToastProvider>
@@ -340,6 +395,7 @@ describe('RecordDetailsScreen', () => {
       mockDatabase,
       RECORD_ID,
       SUBMITTER_ID,
+      { allowLinkedFieldReportDeletion: true },
     );
     expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
     expect(screen.getByTestId('app-toast')).toHaveTextContent('Record deleted');

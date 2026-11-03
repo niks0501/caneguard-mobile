@@ -23,7 +23,10 @@ import {
   SyncContext,
   SyncProvider,
 } from '@/features/sync/providers/SyncProvider';
-import { syncPendingFieldReports } from '@/features/sync/services/syncPendingFieldReports';
+import {
+  syncPendingFieldReports,
+  type SyncBatchResult,
+} from '@/features/sync/services/syncPendingFieldReports';
 import { countUnsyncedFieldSurveys, findLastSuccessfulFieldSurveySyncAt, resetStaleSyncingFieldSurveys } from '@/features/surveys/data/fieldSurveySyncRepository';
 import { syncPendingFieldSurveys } from '@/features/surveys/services/syncPendingFieldSurveys';
 
@@ -94,6 +97,15 @@ function SyncStateProbe() {
   );
 }
 
+function SyncReportsProbe() {
+  const sync = useContext(SyncContext);
+  return (
+    <Text testID="sync-reports-state">
+      {`${sync?.pendingCount ?? 'none'}:${sync?.pendingReportsCount ?? 'none'}:${sync?.pendingSurveysCount ?? 'none'}:${sync?.pendingCompletionsCount ?? 'none'}:${sync?.lastSuccessfulSyncAt ?? 'none'}`}
+    </Text>
+  );
+}
+
 function SyncApiHealthProbe() {
   const sync = useContext(SyncContext);
   return (
@@ -115,7 +127,7 @@ describe('SyncProvider foreground triggers', () => {
     jest.mocked(useCaneGuardDatabase).mockReturnValue({} as never);
     jest.mocked(useAuth).mockReturnValue({
       status: 'authenticated',
-      session: { token: 'secure-token', user: { uuid: SUBMITTER_ID } },
+      session: { token: 'secure-token', user: { uuid: SUBMITTER_ID, role: 'field_reporter' } },
       markSessionExpired: jest.fn(async () => undefined),
     } as never);
     jest.mocked(countUnsyncedFieldReports).mockResolvedValue(1);
@@ -197,6 +209,158 @@ describe('SyncProvider foreground triggers', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('does not sync or count official records for a farmer session', async () => {
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: {
+        token: 'farmer-token',
+        user: { uuid: SUBMITTER_ID, role: 'farmer' },
+      },
+      markSessionExpired: jest.fn(async () => undefined),
+    } as never);
+    jest.mocked(countUnsyncedFieldReports).mockResolvedValue(3);
+    jest.mocked(countUnsyncedFieldSurveys).mockReturnValue(2);
+    jest.mocked(countUnsyncedFieldValidationCompletions).mockResolvedValue(1);
+
+    await render(
+      <SyncProvider>
+        <SyncReportsProbe />
+      </SyncProvider>,
+    );
+    await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+
+    await act(async () => {
+      networkListener(ONLINE);
+      await Promise.resolve();
+    });
+
+    expect(syncPendingFieldReports).not.toHaveBeenCalled();
+    expect(syncPendingFieldSurveys).not.toHaveBeenCalled();
+    expect(syncPendingFieldValidationCompletions).not.toHaveBeenCalled();
+    expect(countUnsyncedFieldReports).not.toHaveBeenCalled();
+    expect(countUnsyncedFieldSurveys).not.toHaveBeenCalled();
+    expect(countUnsyncedFieldValidationCompletions).not.toHaveBeenCalled();
+    expect(findLastSuccessfulFieldReportSyncAt).not.toHaveBeenCalled();
+    expect(findLastSuccessfulFieldSurveySyncAt).not.toHaveBeenCalled();
+    expect(
+      findLastSuccessfulFieldValidationCompletionSyncAt,
+    ).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByTestId('sync-reports-state')).toHaveTextContent(
+        '0:0:0:0:none',
+      ),
+    );
+  });
+
+  it('leaves queued official records unsent after a farmer demotion', async () => {
+    jest.mocked(countUnsyncedFieldReports).mockResolvedValue(2);
+    jest.mocked(countUnsyncedFieldSurveys).mockReturnValue(1);
+    jest.mocked(countUnsyncedFieldValidationCompletions).mockResolvedValue(1);
+    jest.mocked(findLastSuccessfulFieldReportSyncAt).mockResolvedValue(
+      '2026-08-10T01:00:00.000Z',
+    );
+    jest.mocked(findLastSuccessfulFieldSurveySyncAt).mockReturnValue(
+      '2026-08-10T01:00:00.000Z',
+    );
+    jest.mocked(
+      findLastSuccessfulFieldValidationCompletionSyncAt,
+    ).mockResolvedValue('2026-08-10T01:00:00.000Z');
+
+    const view = await render(
+      <SyncProvider>
+        <SyncReportsProbe />
+      </SyncProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('sync-reports-state')).toHaveTextContent(
+        /^4:2:1:1:/,
+      ),
+    );
+
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: {
+        token: 'secure-token',
+        user: { uuid: SUBMITTER_ID, role: 'farmer' },
+      },
+      markSessionExpired: jest.fn(async () => undefined),
+    } as never);
+    await view.rerender(
+      <SyncProvider>
+        <SyncReportsProbe />
+      </SyncProvider>,
+    );
+
+    await act(async () => {
+      networkListener(ONLINE);
+      await Promise.resolve();
+    });
+
+    expect(syncPendingFieldReports).not.toHaveBeenCalled();
+    expect(syncPendingFieldSurveys).not.toHaveBeenCalled();
+    expect(syncPendingFieldValidationCompletions).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByTestId('sync-reports-state')).toHaveTextContent(
+        '0:0:0:0:none',
+      ),
+    );
+  });
+
+  it('stops later uploads when the session is demoted during a report sync', async () => {
+    let finishReport!: (result: SyncBatchResult) => void;
+    jest.mocked(syncPendingFieldReports).mockReturnValueOnce(
+      new Promise<SyncBatchResult>((resolve) => {
+        finishReport = resolve;
+      }),
+    );
+
+    const view = await render(
+      <SyncProvider>
+        <SyncReportsProbe />
+      </SyncProvider>,
+    );
+    await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+
+    await act(async () => {
+      networkListener(ONLINE);
+      await Promise.resolve();
+    });
+    await waitFor(() =>
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(1),
+    );
+
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: {
+        token: 'secure-token',
+        user: { uuid: SUBMITTER_ID, role: 'farmer' },
+      },
+      markSessionExpired: jest.fn(async () => undefined),
+    } as never);
+    await view.rerender(
+      <SyncProvider>
+        <SyncReportsProbe />
+      </SyncProvider>,
+    );
+
+    await act(async () => {
+      finishReport({
+        attempted: 1,
+        authRequired: false,
+        failed: 0,
+        haltReason: 'empty',
+        results: [],
+        source: 'startup',
+        synced: 1,
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(syncPendingFieldSurveys).not.toHaveBeenCalled();
+    expect(syncPendingFieldValidationCompletions).not.toHaveBeenCalled();
   });
 
   it('uploads when connectivity returns and when the app resumes', async () => {
@@ -506,7 +670,7 @@ describe('SyncProvider foreground triggers', () => {
       status: 'authenticated',
       session: {
         token: 'first-token',
-        user: { uuid: SUBMITTER_ID },
+        user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
       },
       markSessionExpired: markFirstSessionExpired,
     } as never);
@@ -533,7 +697,7 @@ describe('SyncProvider foreground triggers', () => {
       status: 'authenticated',
       session: {
         token: 'second-token',
-        user: { uuid: OTHER_SUBMITTER_ID },
+        user: { uuid: OTHER_SUBMITTER_ID, role: 'field_reporter' },
       },
       markSessionExpired: markSecondSessionExpired,
     } as never);
@@ -598,7 +762,7 @@ describe('SyncProvider foreground triggers', () => {
 
     jest.mocked(useAuth).mockReturnValue({
       status: 'authenticated',
-      session: { token: 'second-token', user: { uuid: OTHER_SUBMITTER_ID } },
+      session: { token: 'second-token', user: { uuid: OTHER_SUBMITTER_ID, role: 'field_reporter' } },
       markSessionExpired: jest.fn(async () => undefined),
     } as never);
     jest.mocked(resetStaleSyncingFieldReports).mockResolvedValue();

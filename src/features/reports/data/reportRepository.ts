@@ -27,6 +27,7 @@ export const DEFAULT_RECENT_RECORD_LIMIT = 3;
 
 export interface LocalReportOptions {
   dateRange?: DateRange;
+  includeFieldReports?: boolean;
   lowScoreThreshold?: number;
   recentLimit?: number;
 }
@@ -34,10 +35,14 @@ export interface LocalReportOptions {
 export function createReportRepository(
   database: CaneGuardDatabase,
   submitterIdentity: string,
+  includeFieldReports = true,
 ): ReportRepository {
   return {
     getLocalSummary: (options) =>
-      getLocalReportSummary(database, submitterIdentity, options),
+      getLocalReportSummary(database, submitterIdentity, {
+        ...options,
+        includeFieldReports,
+      }),
   };
 }
 
@@ -47,6 +52,7 @@ export async function getLocalReportSummary(
   options: LocalReportOptions = {},
 ): Promise<LocalReportSummary> {
   const owner = requireOwnerIdentity(submitterIdentity);
+  const includeFieldReports = options.includeFieldReports ?? true;
   const lowScoreThreshold =
     options.lowScoreThreshold ?? V1_CONFIDENCE_CAUTION_THRESHOLD;
   const recentLimit = Math.min(
@@ -98,12 +104,15 @@ export async function getLocalReportSummary(
           limit: recentLimit,
         },
         owner,
+        includeFieldReports,
       ),
-      database
-        .select({ count: count() })
-        .from(fieldReports)
-        .where(buildPendingReportCondition(options.dateRange, submitterIdentity))
-        .get(),
+      includeFieldReports
+        ? database
+            .select({ count: count() })
+            .from(fieldReports)
+            .where(buildPendingReportCondition(options.dateRange, submitterIdentity))
+            .get()
+        : Promise.resolve({ count: 0 }),
     ]);
 
     return {

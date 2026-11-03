@@ -29,7 +29,7 @@ const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 
 beforeEach(() => {
   jest.mocked(useAuth).mockReturnValue({
-    user: { uuid: SUBMITTER_ID },
+    user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
   } as never);
 });
 
@@ -76,12 +76,14 @@ describe('usePaginatedScanRecords', () => {
       mockDatabase,
       expect.objectContaining({ limit: 2, offset: 0 }),
       SUBMITTER_ID,
+      true,
     );
     expect(mockListScanRecords).toHaveBeenNthCalledWith(
       2,
       mockDatabase,
       expect.objectContaining({ limit: 2, offset: 2 }),
       SUBMITTER_ID,
+      true,
     );
   });
 
@@ -112,6 +114,7 @@ describe('usePaginatedScanRecords', () => {
         predictedLabel: 'rust',
       }),
       SUBMITTER_ID,
+      true,
     );
   });
 

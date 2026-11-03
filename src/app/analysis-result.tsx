@@ -26,6 +26,7 @@ import {
 } from '@/features/detection/checklist/checklistConsistency';
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import { isBelowV1ConfidenceCautionThreshold } from '@/features/detection/constants/confidenceCaution';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
 import { useScanSession } from '@/features/detection/context/useScanSession';
 import {
@@ -85,6 +86,8 @@ export default function AnalysisResultScreen() {
   const theme = useTheme();
   const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
+  const { user } = useAuth();
+  const canReportToOffice = user?.role === 'field_reporter';
   const saveRecord = useSaveCompletedScan(state);
   const draft = useScanDraft();
   const [openingReport, setOpeningReport] = useState(false);
@@ -258,6 +261,10 @@ export default function AnalysisResultScreen() {
     state.selectedSymptoms,
   );
   const consistencyPresentation = CONSISTENCY_PRESENTATION[consistency];
+  const consistencyMessage =
+    consistency === 'inconsistent' && !canReportToOffice
+      ? "The reporter's observation does not match the Possible Condition. Both are kept separately."
+      : consistencyPresentation.message;
   const isLowScore = isBelowV1ConfidenceCautionThreshold(result.confidence);
   const qualityWarnings = state.qualityAssessment?.warnings ?? [];
   const checklistMismatch = consistency === 'inconsistent';
@@ -266,6 +273,24 @@ export default function AnalysisResultScreen() {
   const isSaving = saveRecord.status === 'saving';
   const isFailed = saveRecord.status === 'failed';
   const isSaved = saveRecord.status === 'saved';
+
+  const saveScanButton = (
+    <AppButton
+      testID="scan.keep-as-scan-only"
+      busy={isSaving}
+      onPress={keepAsScanOnly}
+      disabled={isSaving}
+      leadingIcon={isFailed ? 'refresh-cw' : 'save'}
+      variant={canReportToOffice ? 'secondary' : 'primary'}
+      style={canReportToOffice ? dockSecondaryButtonStyle : undefined}
+      accessibilityLabel={
+        isFailed
+          ? 'Retry and save this scan on the device'
+          : 'Save this scan on the device'
+      }>
+      {isSaving ? 'Saving scan...' : isFailed ? 'Retry and Save Scan' : 'Save Scan'}
+    </AppButton>
+  );
 
   return (
     <SafeAreaView
@@ -318,20 +343,22 @@ export default function AnalysisResultScreen() {
                 <Feather name="alert-triangle" size={22} color={theme.warning} />
                 <View style={styles.cautionCopy}>
                   <Text style={[styles.cautionTitle, { color: theme.warning }]}>
-                    Check before you report
+                    {canReportToOffice ? 'Check before you report' : 'Check before you save'}
                   </Text>
                   {isLowScore ? (
                     <Text
                       testID="scan.low-confidence-guidance"
                       style={[styles.cautionBody, { color: theme.text }]}>
-                      This result is not conclusive. You can still report it, keep it as a scan, or scan again for a clearer image.
+                      {canReportToOffice
+                        ? 'This result is not conclusive. You can still report it, keep it as a scan, or scan again for a clearer image.'
+                        : 'This result is not conclusive. You can still keep it as a scan, or scan again for a clearer image.'}
                     </Text>
                   ) : null}
                   {checklistMismatch ? (
                     <Text style={[styles.cautionBody, { color: theme.text }]}>
-                      Your selected symptom observations do not match this Possible
-                      Condition. Both are kept separately and this scan can still be
-                      reported.
+                      {canReportToOffice
+                        ? 'Your selected symptom observations do not match this Possible Condition. Both are kept separately and this scan can still be reported.'
+                        : 'Your selected symptom observations do not match this Possible Condition. Both are kept separately.'}
                     </Text>
                   ) : null}
                   {qualityWarnings.map((warning) => (
@@ -343,8 +370,9 @@ export default function AnalysisResultScreen() {
                   ))}
                   {!isLowScore ? (
                     <Text style={[styles.cautionBody, { color: theme.textSecondary }]}>
-                      This caution does not change the result. You can scan again for a
-                      clearer image, keep this scan, or continue to report it.
+                      {canReportToOffice
+                        ? 'This caution does not change the result. You can scan again for a clearer image, keep this scan, or continue to report it.'
+                        : 'This caution does not change the result. You can scan again for a clearer image or keep this scan.'}
                     </Text>
                   ) : null}
                 </View>
@@ -377,10 +405,14 @@ export default function AnalysisResultScreen() {
               </View>
               <Text style={[styles.outcomeMessage, { color: theme.textSecondary }]}>
                 {isSaved
-                  ? 'This scan is saved on this device. Reporting it to the office is a separate choice.'
+                  ? canReportToOffice
+                    ? 'This scan is saved on this device. Reporting it to the office is a separate choice.'
+                    : 'This scan is saved on this device.'
                   : isFailed
                     ? saveRecord.errorMessage ?? 'The scan could not be saved on this device.'
-                    : 'Report to Office saves this scan and opens a short Field Report Draft. Save Scan stores the scan on this device without sending a report.'}
+                    : canReportToOffice
+                      ? 'Report to Office saves this scan and opens a short Field Report Draft. Save Scan stores the scan on this device without sending a report.'
+                      : 'Save Scan stores this scan on this device.'}
               </Text>
             </View>
 
@@ -417,7 +449,7 @@ export default function AnalysisResultScreen() {
                     {consistencyPresentation.title}
                   </Text>
                   <Text style={[styles.consistencyMessage, { color: theme.text }]}>
-                    {consistencyPresentation.message}
+                    {consistencyMessage}
                   </Text>
                 </View>
               </View>
@@ -506,45 +538,35 @@ export default function AnalysisResultScreen() {
         </ScrollView>
         <ActionDock
           primary={
-            <AppButton
-              testID="scan.report-to-office"
-              busy={isSaving || openingReport}
-              onPress={() => void reportToOffice()}
-              disabled={isSaving || openingReport}
-              leadingIcon="send"
-              accessibilityLabel={
-                openingReport
-                  ? 'Opening Field Report'
-                  : isFailed
-                    ? 'Retry and report this scan to the office'
-                    : 'Report this scan to the office'
-              }>
-              {openingReport
-                ? 'Opening Field Report...'
-                : isSaving
-                  ? 'Saving scan...'
-                  : isFailed
-                    ? 'Retry and Report to Office'
-                    : 'Report to Office'}
-            </AppButton>
+            canReportToOffice ? (
+              <AppButton
+                testID="scan.report-to-office"
+                busy={isSaving || openingReport}
+                onPress={() => void reportToOffice()}
+                disabled={isSaving || openingReport}
+                leadingIcon="send"
+                accessibilityLabel={
+                  openingReport
+                    ? 'Opening Field Report'
+                    : isFailed
+                      ? 'Retry and report this scan to the office'
+                      : 'Report this scan to the office'
+                }>
+                {openingReport
+                  ? 'Opening Field Report...'
+                  : isSaving
+                    ? 'Saving scan...'
+                    : isFailed
+                      ? 'Retry and Report to Office'
+                      : 'Report to Office'}
+              </AppButton>
+            ) : (
+              saveScanButton
+            )
           }
           secondary={
             <>
-              <AppButton
-                testID="scan.keep-as-scan-only"
-                busy={isSaving}
-                onPress={keepAsScanOnly}
-                disabled={isSaving}
-                leadingIcon={isFailed ? 'refresh-cw' : 'save'}
-                variant="secondary"
-                style={dockSecondaryButtonStyle}
-                accessibilityLabel={
-                  isFailed
-                    ? 'Retry and save this scan on the device'
-                    : 'Save this scan on the device'
-                }>
-                {isSaving ? 'Saving scan...' : isFailed ? 'Retry and Save Scan' : 'Save Scan'}
-              </AppButton>
+              {canReportToOffice ? saveScanButton : null}
               <AppButton
                 testID="scan.new-scan"
                 onPress={startNewScan}

@@ -67,6 +67,9 @@ export default function RecordDetailsScreen() {
   const fieldReport = useFieldReportForScan(id);
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
+  const canReportToOffice = user?.role === 'field_reporter';
+  const deleteBlockedByLinkedReport =
+    !canReportToOffice && record.data?.hasLinkedFieldReport === true;
   const sync = useSync();
   const [imageUnavailable, setImageUnavailable] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -107,14 +110,16 @@ export default function RecordDetailsScreen() {
   };
 
   const performDelete = async () => {
-    if (!id || !user || deleting) {
+    if (!id || !user || deleting || deleteBlockedByLinkedReport) {
       return;
     }
     setDeleting(true);
     setDeleteError(null);
 
     try {
-      const result = await deleteScanRecord(database, id, user.uuid);
+      const result = await deleteScanRecord(database, id, user.uuid, {
+        allowLinkedFieldReportDeletion: canReportToOffice,
+      });
       if (result.imageCleanupError) {
         Alert.alert(
           'Record deleted',
@@ -220,6 +225,7 @@ export default function RecordDetailsScreen() {
                 />
               </View>
 
+              {canReportToOffice ? (
               <Section title="Field report">
                 <Text style={[styles.reportMessage, { color: theme.textSecondary }]}>
                   {getFieldReportAction(
@@ -272,6 +278,7 @@ export default function RecordDetailsScreen() {
                       ).label}
                 </AppButton>
               </Section>
+              ) : null}
 
               {deleteError ? (
                 <Text
@@ -294,15 +301,17 @@ export default function RecordDetailsScreen() {
                 onCancel={() => setShowDeleteConfirm(false)}
                 testID="records.confirm-delete"
               />
-              <AppButton
-                onPress={confirmDelete}
-                busy={deleting}
-                disabled={deleting}
-                variant="secondary"
-                leadingIcon="trash-2"
-                accessibilityLabel="Delete this local record and saved image">
-                {deleting ? 'Deleting...' : 'Delete Local Record'}
-              </AppButton>
+              {deleteBlockedByLinkedReport ? null : (
+                <AppButton
+                  onPress={confirmDelete}
+                  busy={deleting}
+                  disabled={deleting}
+                  variant="secondary"
+                  leadingIcon="trash-2"
+                  accessibilityLabel="Delete this local record and saved image">
+                  {deleting ? 'Deleting...' : 'Delete Local Record'}
+                </AppButton>
+              )}
 
               <Section title="Observation context">
                 <DetailRow

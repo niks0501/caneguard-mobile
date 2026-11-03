@@ -67,12 +67,14 @@ export function mapScanRecordDetails(
   row: ScanRecordRow,
   children: {
     classScores: ScanClassScoreRow[];
+    hasLinkedFieldReport: boolean;
     qualityWarnings: ScanQualityWarningRow[];
     symptoms: ScanSymptomRow[];
   },
 ): ScanRecordDetails {
   return {
     ...mapScanRecordListItem(row),
+    hasLinkedFieldReport: children.hasLinkedFieldReport,
     syncStatus: 'local_only',
     ownerIdentity: row.ownerIdentity,
     imageMimeType: row.imageMimeType,

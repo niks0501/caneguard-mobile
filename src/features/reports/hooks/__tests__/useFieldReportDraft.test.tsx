@@ -8,12 +8,16 @@ import {
   deleteFieldReportDraft,
   finalizeFieldReport,
   findFieldReportByScanRecordId,
+  hasFieldReportOwnedByAnotherSubmitter,
   saveFieldReportDraft,
   saveGpsCapture,
   setLocationUnavailable,
 } from '@/features/reports/data/fieldReportRepository';
 import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
-import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
+import {
+  useFieldReportDraft,
+  useFieldReportForScan,
+} from '@/features/reports/hooks/useFieldReportDraft';
 import { captureGpsLocation } from '@/features/reports/services/captureGpsLocation';
 
 const DATABASE = {};
@@ -179,6 +183,53 @@ describe('useFieldReportDraft', () => {
       DATABASE,
       expect.objectContaining({ id: REPORT_B, scanRecordId: SCAN_B }),
     );
+  });
+
+  it('denies a farmer access to an existing Field Report Draft', async () => {
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'farmer' },
+    } as never);
+    mockFindFieldReportByScanRecordId.mockResolvedValue(
+      createdReport(REPORT_A, SCAN_A),
+    );
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.data).toBeNull();
+    expect(result.current.errorMessage).toMatch(/Only Field Inspector/);
+    expect(mockCreateOrGetFieldReportDraft).not.toHaveBeenCalled();
+  });
+
+  it('does not create a draft when the account is demoted during the lookup', async () => {
+    let resolveLookup: ((report: FieldReport | null) => void) | undefined;
+    mockFindFieldReportByScanRecordId.mockReturnValue(
+      new Promise<FieldReport | null>((resolve) => {
+        resolveLookup = resolve;
+      }),
+    );
+
+    const { result, rerender } = await renderHook(
+      ({ scanRecordId }: ScanProps) => useFieldReportDraft(scanRecordId),
+      { initialProps: { scanRecordId: SCAN_A } },
+    );
+    await waitFor(() =>
+      expect(mockFindFieldReportByScanRecordId).toHaveBeenCalled(),
+    );
+
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'farmer' },
+    } as never);
+    await rerender({ scanRecordId: SCAN_A });
+
+    await act(async () => {
+      resolveLookup?.(null);
+      await Promise.resolve();
+    });
+
+    expect(mockCreateOrGetFieldReportDraft).not.toHaveBeenCalled();
+    expect(result.current.data).toBeNull();
+    expect(result.current.errorMessage).toMatch(/Only Field Inspector/);
   });
 
   it('ignores a stale refresh when the scan changes while loading', async () => {
@@ -618,6 +669,41 @@ describe('useFieldReportDraft', () => {
   });
 });
 
+describe('useFieldReportForScan', () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+  });
+
+  it('does not load a Field Report for a farmer', async () => {
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'farmer' },
+    } as never);
+
+    const { result } = await renderHook(() => useFieldReportForScan(SCAN_A));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.data).toBeNull();
+    expect(result.current.hasOtherOwnerReport).toBe(false);
+    expect(mockFindFieldReportByScanRecordId).not.toHaveBeenCalled();
+    expect(hasFieldReportOwnedByAnotherSubmitter).not.toHaveBeenCalled();
+  });
+
+  it('loads the Field Report for an inspector', async () => {
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
+    } as never);
+    mockFindFieldReportByScanRecordId.mockResolvedValue(
+      createdReport(REPORT_A, SCAN_A),
+    );
+    jest.mocked(hasFieldReportOwnedByAnotherSubmitter).mockResolvedValue(false);
+
+    const { result } = await renderHook(() => useFieldReportForScan(SCAN_A));
+
+    await waitFor(() => expect(result.current.data?.id).toBe(REPORT_A));
+    expect(result.current.hasOtherOwnerReport).toBe(false);
+  });
+});
+
 describe('useFieldReportDraft automatic location capture (D5)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -742,5 +828,32 @@ describe('useFieldReportDraft automatic location capture (D5)', () => {
     expect(discarded).toBe(true);
     expect(mockDeleteFieldReportDraft).toHaveBeenCalledWith(DATABASE, REPORT_A, SUBMITTER_ID);
     expect(result.current.data).toBeNull();
+  });
+
+  it('hides and refuses to discard a draft after the account is demoted', async () => {
+    mockFindFieldReportByScanRecordId.mockResolvedValue(createdReport(REPORT_A, SCAN_A));
+    mockDeleteFieldReportDraft.mockResolvedValue(undefined);
+
+    const { result, rerender } = await renderHook(
+      ({ scanRecordId }: ScanProps) => useFieldReportDraft(scanRecordId),
+      { initialProps: { scanRecordId: SCAN_A } },
+    );
+    await waitFor(() => expect(result.current.data?.id).toBe(REPORT_A));
+
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'farmer' },
+    } as never);
+    await rerender({ scanRecordId: SCAN_A });
+
+    expect(result.current.data).toBeNull();
+    expect(result.current.errorMessage).toMatch(/Only Field Inspector/);
+
+    let discarded: boolean | undefined;
+    await act(async () => {
+      discarded = await result.current.discardDraft();
+    });
+
+    expect(discarded).toBe(false);
+    expect(mockDeleteFieldReportDraft).not.toHaveBeenCalled();
   });
 });

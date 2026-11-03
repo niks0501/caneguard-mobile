@@ -13,6 +13,7 @@ export async function deleteScanRecord(
   id: string,
   submitterIdentity: string,
   dependencies: {
+    allowLinkedFieldReportDeletion?: boolean;
     deleteImage?: typeof deleteManagedScanImage;
     deleteRecord?: typeof deleteScanRecordById;
   } = {},
@@ -23,6 +24,7 @@ export async function deleteScanRecord(
     database,
     id,
     submitterIdentity,
+    dependencies.allowLinkedFieldReportDeletion ?? true,
   );
   const imageUris = [
     ...new Set(

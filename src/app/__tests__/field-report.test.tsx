@@ -141,6 +141,7 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
 
 const mockScan: ScanRecordDetails = {
   authorityReview: null,
+  hasLinkedFieldReport: false,
   id: SCAN_ID,
   ownerIdentity: 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
   managedImageUri: `file:///caneguard/scan-images/${SCAN_ID}.jpg`,

@@ -5,6 +5,7 @@ import { mapFieldReportToMultipart } from '@/features/sync/mappers/reportMultipa
 
 const SCAN: ScanRecordDetails = {
   authorityReview: null,
+  hasLinkedFieldReport: false,
   id: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
   ownerIdentity: 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
   managedImageUri: 'file:///documents/caneguard/scan-images/a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17/2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2.jpg',

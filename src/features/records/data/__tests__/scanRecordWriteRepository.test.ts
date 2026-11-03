@@ -413,8 +413,70 @@ describe('scan record write repository', () => {
       listScanRecords(database, { hasFieldReport: false }, SUBMITTER_ID),
     ).resolves.toEqual([]);
     await expect(
+      findScanRecordById(database, RECORD_ID, SUBMITTER_ID),
+    ).resolves.toMatchObject({ hasLinkedFieldReport: true });
+    await expect(
       listScanRecords(database, {}, OTHER_SUBMITTER_ID),
     ).resolves.toEqual([]);
+    native.close();
+  });
+
+  it('hides Field Report-derived list metadata when reports are not visible', async () => {
+    const { database, native } = openTestDatabase();
+    await insertScanRecord(database, validInput({ barangay: 'Wawa' }));
+    native
+      .prepare(`
+        INSERT INTO field_reports (
+          id, scan_record_id, authoring_state, submitter_identity,
+          barangay, sync_status, authority_status_raw, authority_updated_at,
+          observed_at, created_at, updated_at
+        ) VALUES (?, ?, 'finalized', ?, ?, 'failed', 'verified', ?, ?, ?, ?)
+      `)
+      .run(
+        '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+        RECORD_ID,
+        SUBMITTER_ID,
+        'Lumbangan',
+        '2026-08-10T01:00:00.000Z',
+        '2026-07-25T05:30:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+      );
+
+    await expect(
+      listScanRecords(database, {}, SUBMITTER_ID, false),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        authorityReview: null,
+        barangay: 'Wawa',
+        hasFieldReport: false,
+        syncStatus: 'local_only',
+      }),
+    ]);
+    await expect(
+      listScanRecords(database, { hasFieldReport: true }, SUBMITTER_ID, false),
+    ).resolves.toEqual([]);
+    await expect(
+      listScanRecords(database, { hasFieldReport: false }, SUBMITTER_ID, false),
+    ).resolves.toHaveLength(1);
+    await expect(
+      listScanRecords(database, { syncStatus: 'failed' }, SUBMITTER_ID, false),
+    ).resolves.toEqual([]);
+    await expect(
+      listScanRecords(database, { syncStatus: 'local_only' }, SUBMITTER_ID, false),
+    ).resolves.toHaveLength(1);
+    await expect(
+      listScanRecords(database, { barangay: 'Lumbangan' }, SUBMITTER_ID, false),
+    ).resolves.toEqual([]);
+    await expect(
+      listScanRecords(database, { barangay: 'wawa' }, SUBMITTER_ID, false),
+    ).resolves.toHaveLength(1);
+    await expect(
+      listScanRecords(database, { search: 'Lumbangan' }, SUBMITTER_ID, false),
+    ).resolves.toEqual([]);
+    await expect(
+      listScanRecords(database, { search: 'wawa' }, SUBMITTER_ID, false),
+    ).resolves.toHaveLength(1);
     native.close();
   });
 
@@ -442,6 +504,16 @@ describe('scan record write repository', () => {
       totalSavedScans: 1,
       pendingSyncRecords: 1,
     });
+    await expect(getLocalReportSummary(database, SUBMITTER_ID, { includeFieldReports: false })).resolves.toMatchObject({
+      pendingSyncRecords: 0,
+      recentRecords: [
+        expect.objectContaining({
+          barangay: 'Wawa',
+          hasFieldReport: false,
+          syncStatus: 'local_only',
+        }),
+      ],
+    });
     await expect(getLocalReportSummary(database, OTHER_SUBMITTER_ID)).resolves.toMatchObject({
       totalSavedScans: 0,
       pendingSyncRecords: 0,
@@ -455,6 +527,7 @@ describe('scan record write repository', () => {
     const revisionBeforeDelete = getSyncRecordsRevision();
 
     await expect(findScanRecordById(database, RECORD_ID, SUBMITTER_ID)).resolves.toMatchObject({
+      hasLinkedFieldReport: false,
       id: RECORD_ID,
       predictedLabel: 'rust',
       classScores: [
@@ -611,6 +684,54 @@ describe('scan record write repository', () => {
     await expect(
       deleteScanRecordById(database, RECORD_ID, SUBMITTER_ID),
     ).resolves.toMatchObject({ managedImageUri: expect.any(String) });
+    native.close();
+  });
+
+  it('refuses to cascade-delete a linked Field Report for a demoted inspector', async () => {
+    const { database, native } = openTestDatabase();
+    await insertScanRecord(database, validInput());
+    native
+      .prepare(`
+        INSERT INTO field_reports (
+          id, scan_record_id, submitter_identity, submitter_role,
+          observed_at, created_at, updated_at
+        ) VALUES (?, ?, ?, 'field_reporter', ?, ?, ?)
+      `)
+      .run(
+        '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+        RECORD_ID,
+        SUBMITTER_ID,
+        '2026-07-25T05:30:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+        '2026-08-10T01:00:00.000Z',
+      );
+
+    await expect(
+      deleteScanRecordById(database, RECORD_ID, SUBMITTER_ID, false),
+    ).rejects.toMatchObject<Partial<StorageError>>({ code: 'DELETE_FAILED' });
+    expect(
+      native.prepare('SELECT count(*) AS count FROM scan_records').get(),
+    ).toEqual({ count: 1 });
+    expect(
+      native.prepare('SELECT count(*) AS count FROM field_reports').get(),
+    ).toEqual({ count: 1 });
+
+    await insertScanRecord(
+      database,
+      validInput({
+        id: SECOND_RECORD_ID,
+        managedImageUri: `${MANAGED_ROOT}/${SECOND_RECORD_ID}.jpg`,
+      }),
+    );
+    await expect(
+      deleteScanRecordById(database, SECOND_RECORD_ID, SUBMITTER_ID, false),
+    ).resolves.toMatchObject({ managedImageUri: expect.any(String) });
+    expect(
+      native.prepare('SELECT count(*) AS count FROM scan_records').get(),
+    ).toEqual({ count: 1 });
+    expect(
+      native.prepare('SELECT count(*) AS count FROM field_reports').get(),
+    ).toEqual({ count: 1 });
     native.close();
   });
 

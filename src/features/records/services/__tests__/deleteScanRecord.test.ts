@@ -36,6 +36,7 @@ describe('deleteScanRecord', () => {
       database,
       RECORD_ID,
       SUBMITTER_ID,
+      true,
     );
     expect(deleteRecord.mock.invocationCallOrder[0]).toBeLessThan(
       deleteImage.mock.invocationCallOrder[0],

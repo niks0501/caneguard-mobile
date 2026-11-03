@@ -46,6 +46,11 @@ const mockRouterBack = router.back as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
 const mockRouterDismissTo = router.dismissTo as jest.Mock;
 
+let mockUserRole: 'field_reporter' | 'farmer' = 'field_reporter';
+jest.mock('@/features/auth/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { role: mockUserRole, uuid: 'user-1' } }),
+}));
+
 jest.mock('@/features/records/hooks/useSaveCompletedScan', () => ({
   useSaveCompletedScan: () => mockSaveRecordState,
 }));
@@ -181,6 +186,7 @@ function findRenderedParent(
 describe('AnalysisResultScreen', () => {
   beforeEach(() => {
     mockSaveRecord.mockReset();
+    mockUserRole = 'field_reporter';
     mockSaveRecordError = null;
     mockSaveRecordState = {
       status: 'ready',
@@ -337,6 +343,82 @@ describe('AnalysisResultScreen', () => {
 
     expect(mockRouterBack).toHaveBeenCalledTimes(1);
     expect(mockDispatch).not.toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+  });
+
+  it('offers farmers personal scan saving without any Field Report path', async () => {
+    mockUserRole = 'farmer';
+    await renderResult(createCompletedState('rust', ['rust'], { result: createResult('rust') }));
+
+    expect(screen.queryByTestId('scan.report-to-office')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('scan.keep-as-scan-only')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.new-scan')).toBeOnTheScreen();
+  });
+
+  it('uses farmer wording for low-confidence and checklist cautions', async () => {
+    mockUserRole = 'farmer';
+    await renderResult(
+      createCompletedState('rust', ['mosaic'], {
+        result: createResult('rust', 0.42),
+      }),
+    );
+
+    expect(screen.getByText('Check before you save')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'This result is not conclusive. You can still keep it as a scan, or scan again for a clearer image.',
+      ),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Your selected symptom observations do not match this Possible Condition. Both are kept separately.',
+      ),
+    ).toBeOnTheScreen();
+    expect(
+      screen.queryByText(/report it|can still be reported|reported to the office/i),
+    ).not.toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Show Why this result?'));
+    expect(
+      screen.getByText(
+        "The reporter's observation does not match the Possible Condition. Both are kept separately.",
+      ),
+    ).toBeOnTheScreen();
+  });
+
+  it('uses farmer wording for a high-confidence quality caution', async () => {
+    mockUserRole = 'farmer';
+    await renderResult(
+      createCompletedState('rust', ['rust'], {
+        result: createResult('rust', 0.91),
+        qualityAssessment: {
+          warnings: ['too-dark'],
+          meanLuminance: 30,
+          luminanceStandardDeviation: 28,
+        },
+      }),
+    );
+
+    expect(
+      screen.getByText(
+        'This caution does not change the result. You can scan again for a clearer image or keep this scan.',
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText(/continue to report/i)).not.toBeOnTheScreen();
+  });
+
+  it('does not mention reporting to a farmer after saving the scan', async () => {
+    mockUserRole = 'farmer';
+    mockSaveRecordState = {
+      ...mockSaveRecordState,
+      status: 'saved',
+      recordId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+    };
+    await renderResult(createCompletedState('rust', ['rust']));
+
+    expect(screen.getByText('This scan is saved on this device.')).toBeOnTheScreen();
+    expect(
+      screen.queryByText(/Reporting it to the office/),
+    ).not.toBeOnTheScreen();
   });
 
   it('offers separate report and scan-only outcomes while preserving local evidence', async () => {

@@ -30,6 +30,9 @@ import { captureGpsLocation } from '@/features/reports/services/captureGpsLocati
 import { expoForegroundLocationClient } from '@/features/reports/services/expoForegroundLocationClient';
 import { useSyncRecordsRefresh } from '@/features/sync/hooks/useSyncRecordsRevision';
 
+const FIELD_REPORT_ROLE_ERROR =
+  'Only Field Inspector accounts can access Field Reports.';
+
 interface FieldReportState {
   data: FieldReport | null;
   errorMessage: string | null;
@@ -54,18 +57,25 @@ export function useFieldReportForScan(scanRecordId: string | null) {
   >(null);
   const refreshGeneration = useRef(0);
   const refreshInput = useRef<{
+    canSeeFieldReport: boolean;
     scanRecordId: string | null;
     submitterIdentity: string | null;
-  }>({ scanRecordId: null, submitterIdentity: null });
+  }>({ canSeeFieldReport: false, scanRecordId: null, submitterIdentity: null });
   const submitterIdentity = user?.uuid ?? null;
+  const canSeeFieldReport = user?.role === 'field_reporter';
   useEffect(() => {
-    refreshInput.current = { scanRecordId, submitterIdentity };
-  }, [scanRecordId, submitterIdentity]);
+    refreshInput.current = {
+      canSeeFieldReport,
+      scanRecordId,
+      submitterIdentity,
+    };
+  }, [canSeeFieldReport, scanRecordId, submitterIdentity]);
   const isCurrentInput = useCallback(
     () =>
+      refreshInput.current.canSeeFieldReport === canSeeFieldReport &&
       refreshInput.current.scanRecordId === scanRecordId &&
       refreshInput.current.submitterIdentity === submitterIdentity,
-    [scanRecordId, submitterIdentity],
+    [canSeeFieldReport, scanRecordId, submitterIdentity],
   );
   const refresh = useCallback(async () => {
     if (!isCurrentInput()) {
@@ -81,6 +91,16 @@ export function useFieldReportForScan(scanRecordId: string | null) {
       setState({
         data: null,
         errorMessage: 'This saved record link is invalid.',
+        hasOtherOwnerReport: false,
+        loading: false,
+      });
+      return;
+    }
+    if (!canSeeFieldReport) {
+      setDataOwnerIdentity(submitterIdentity);
+      setState({
+        data: null,
+        errorMessage: null,
         hasOtherOwnerReport: false,
         loading: false,
       });
@@ -118,7 +138,14 @@ export function useFieldReportForScan(scanRecordId: string | null) {
         loading: false,
       });
     }
-  }, [database, isCurrentInput, scanRecordId, submitterIdentity, user]);
+  }, [
+    canSeeFieldReport,
+    database,
+    isCurrentInput,
+    scanRecordId,
+    submitterIdentity,
+    user,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -129,8 +156,14 @@ export function useFieldReportForScan(scanRecordId: string | null) {
     void refresh();
   });
 
-  const visibleState =
-    dataOwnerIdentity === submitterIdentity
+  const visibleState = !canSeeFieldReport
+    ? {
+        data: null,
+        errorMessage: null,
+        hasOtherOwnerReport: false,
+        loading: false,
+      }
+    : dataOwnerIdentity === submitterIdentity
       ? state
       : {
           data: null,
@@ -178,25 +211,32 @@ export function useFieldReportDraft(
   const autoCaptureAttemptedFor = useRef<string | null>(null);
   const refreshGeneration = useRef(0);
   const refreshInput = useRef<{
+    canAuthorReports: boolean;
     scanRecordId: string | null;
     submitterIdentity: string | null;
-  }>({ scanRecordId: null, submitterIdentity: null });
+  }>({ canAuthorReports: false, scanRecordId: null, submitterIdentity: null });
   // `regionDefaults` is only read while creating a brand-new Draft; holding
   // it in a ref keeps `refresh` stable so the focus effect does not re-run on
   // every render when a caller passes a fresh object literal.
   const regionDefaultsRef = useRef(regionDefaults);
   const submitterIdentity = user?.uuid ?? null;
+  const canAuthorReports = user?.role === 'field_reporter';
   useEffect(() => {
-    refreshInput.current = { scanRecordId, submitterIdentity };
-  }, [scanRecordId, submitterIdentity]);
+    refreshInput.current = {
+      canAuthorReports,
+      scanRecordId,
+      submitterIdentity,
+    };
+  }, [canAuthorReports, scanRecordId, submitterIdentity]);
   useEffect(() => {
     regionDefaultsRef.current = regionDefaults;
   }, [regionDefaults]);
   const isCurrentInput = useCallback(
     () =>
+      refreshInput.current.canAuthorReports === canAuthorReports &&
       refreshInput.current.scanRecordId === scanRecordId &&
       refreshInput.current.submitterIdentity === submitterIdentity,
-    [scanRecordId, submitterIdentity],
+    [canAuthorReports, scanRecordId, submitterIdentity],
   );
   const hasCurrentReport =
     state.data?.scanRecordId === scanRecordId &&
@@ -206,6 +246,7 @@ export function useFieldReportDraft(
     async (report: FieldReport): Promise<FieldReport | null> => {
       if (
         !user ||
+        !canAuthorReports ||
         locationCaptureInFlight.current ||
         finalizing ||
         finalizeInFlight.current
@@ -266,7 +307,7 @@ export function useFieldReportDraft(
         }
       }
     },
-    [database, finalizing, isCurrentInput, user],
+    [canAuthorReports, database, finalizing, isCurrentInput, user],
   );
 
   const invalidateLocationAttempt = useCallback(() => {
@@ -340,6 +381,14 @@ export function useFieldReportDraft(
       });
       return null;
     }
+    if (!canAuthorReports) {
+      setState({
+        data: null,
+        errorMessage: FIELD_REPORT_ROLE_ERROR,
+        loading: false,
+      });
+      return null;
+    }
 
     setState({ data: null, errorMessage: null, loading: true });
     setSaved(false);
@@ -374,7 +423,7 @@ export function useFieldReportDraft(
           scanRecordId,
           createdAt: new Date().toISOString(),
           submitterIdentity: user.uuid,
-          submitterRole: user.role,
+          submitterRole: 'field_reporter',
           // D2: seed province/municipality from the cached region list instead
           // of the hardcoded schema defaults when a default region is known.
           ...(regionDefaultsRef.current
@@ -417,7 +466,14 @@ export function useFieldReportDraft(
       });
       return null;
     }
-  }, [createIfMissing, database, isCurrentInput, scanRecordId, user]);
+  }, [
+    canAuthorReports,
+    createIfMissing,
+    database,
+    isCurrentInput,
+    scanRecordId,
+    user,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -436,6 +492,7 @@ export function useFieldReportDraft(
         !state.data ||
         !hasCurrentReport ||
         !user ||
+        !canAuthorReports ||
         finalizing ||
         finalizeInFlight.current
       ) {
@@ -488,6 +545,7 @@ export function useFieldReportDraft(
       }
     },
     [
+      canAuthorReports,
       database,
       finalizing,
       hasCurrentReport,
@@ -503,6 +561,7 @@ export function useFieldReportDraft(
         !state.data ||
         !hasCurrentReport ||
         !user ||
+        !canAuthorReports ||
         savingManualLocation ||
         finalizing ||
         finalizeInFlight.current ||
@@ -554,6 +613,7 @@ export function useFieldReportDraft(
         setSavingManualLocation(false);
       }
     }, [
+      canAuthorReports,
       database,
       finalizing,
       hasCurrentReport,
@@ -571,6 +631,7 @@ export function useFieldReportDraft(
         !state.data ||
         !hasCurrentReport ||
         !user ||
+        !canAuthorReports ||
         savingManualLocation ||
         finalizing ||
         finalizeInFlight.current ||
@@ -617,6 +678,7 @@ export function useFieldReportDraft(
       }
     },
     [
+      canAuthorReports,
       database,
       finalizing,
       hasCurrentReport,
@@ -634,6 +696,7 @@ export function useFieldReportDraft(
         !state.data ||
         !hasCurrentReport ||
         !user ||
+        !canAuthorReports ||
         savingManualLocation ||
         finalizing ||
         finalizeInFlight.current ||
@@ -678,6 +741,7 @@ export function useFieldReportDraft(
       }
     },
     [
+      canAuthorReports,
       database,
       finalizing,
       hasCurrentReport,
@@ -712,6 +776,7 @@ export function useFieldReportDraft(
         !state.data ||
         !hasCurrentReport ||
         !user ||
+        !canAuthorReports ||
         finalizing ||
         savingManualLocation ||
         capturingLocation ||
@@ -768,6 +833,7 @@ export function useFieldReportDraft(
         setFinalizing(false);
       }
     }, [
+      canAuthorReports,
       capturingLocation,
       database,
       finalizing,
@@ -781,7 +847,7 @@ export function useFieldReportDraft(
   );
 
   const discardDraft = useCallback(async (): Promise<boolean> => {
-    if (!state.data || !hasCurrentReport || !user) {
+    if (!state.data || !hasCurrentReport || !user || !canAuthorReports) {
       return false;
     }
     try {
@@ -793,10 +859,22 @@ export function useFieldReportDraft(
     } catch {
       return false;
     }
-  }, [database, hasCurrentReport, isCurrentInput, state.data, user]);
+  }, [
+    canAuthorReports,
+    database,
+    hasCurrentReport,
+    isCurrentInput,
+    state.data,
+    user,
+  ]);
 
-  const visibleState =
-    state.data && !hasCurrentReport
+  const visibleState = !canAuthorReports
+    ? {
+        data: null,
+        errorMessage: user ? FIELD_REPORT_ROLE_ERROR : state.errorMessage,
+        loading: false,
+      }
+    : state.data && !hasCurrentReport
       ? { data: null, errorMessage: null, loading: true }
       : state;
 

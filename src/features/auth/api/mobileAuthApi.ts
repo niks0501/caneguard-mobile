@@ -16,6 +16,7 @@ import type {
   PasswordChangeInput,
   ResetPasswordInput,
 } from '@/features/auth/types';
+import { isMobileUserRole } from '@/features/auth/types';
 
 interface MobileTokenResponse {
   expires_at?: unknown;
@@ -107,7 +108,7 @@ export function parseMobileUser(value: unknown): MobileUser {
   ) {
     throw invalidResponseError();
   }
-  if (value.role !== 'field_reporter') {
+  if (!isMobileUserRole(value.role)) {
     throw authError('FORBIDDEN_ROLE');
   }
   return value as unknown as MobileUser;
@@ -528,7 +529,7 @@ function authError(
 
 const AUTH_ERROR_MESSAGES: Record<MobileAuthErrorCode, string> = {
   EMAIL_NOT_VERIFIED: 'Verify your email address before signing in to CaneGuard.',
-  FORBIDDEN_ROLE: 'Only Field Inspector accounts can sign in to CaneGuard Mobile.',
+  FORBIDDEN_ROLE: 'This account type cannot sign in to CaneGuard Mobile.',
   INVALID_CREDENTIALS: 'The email or password is incorrect.',
   INVALID_RESET_TOKEN:
     'This recovery link is invalid, expired, or already used. Request a new link.',
@@ -561,7 +562,7 @@ function isMobileUser(value: unknown): value is MobileUser {
       value.name.trim().length > 0 &&
       typeof value.email === 'string' &&
       value.email.trim().length > 0 &&
-      value.role === 'field_reporter',
+      isMobileUserRole(value.role),
   );
 }
 

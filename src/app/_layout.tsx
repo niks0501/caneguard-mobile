@@ -36,19 +36,19 @@ export default function RootLayout() {
       <ThemePreferenceProvider>
         <AuthProvider>
           <LanguagePreferenceProvider>
-          <ToastProvider>
-            <CaneGuardDatabaseProvider>
-              <ScanSessionProvider>
-                <CaneGuardModelProvider>
-                  <SyncProvider>
-                    <OfficeUpdatesProvider>
-                      <AppNavigator />
-                    </OfficeUpdatesProvider>
-                  </SyncProvider>
-                </CaneGuardModelProvider>
-              </ScanSessionProvider>
-            </CaneGuardDatabaseProvider>
-          </ToastProvider>
+            <ToastProvider>
+              <CaneGuardDatabaseProvider>
+                <ScanSessionProvider>
+                  <CaneGuardModelProvider>
+                    <SyncProvider>
+                      <OfficeUpdatesProvider>
+                        <AppNavigator />
+                      </OfficeUpdatesProvider>
+                    </SyncProvider>
+                  </CaneGuardModelProvider>
+                </ScanSessionProvider>
+              </CaneGuardDatabaseProvider>
+            </ToastProvider>
           </LanguagePreferenceProvider>
         </AuthProvider>
       </ThemePreferenceProvider>

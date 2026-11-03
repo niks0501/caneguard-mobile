@@ -53,6 +53,17 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
   useAuth: () => ({ user: { role: mockUserRole, uuid: 'user-1' } }),
 }));
 
+// Default saved scan carries no personal note, so the card's note slot stays empty.
+const mockScanCardRecord = {
+  createdAt: '2026-11-03T08:00:00.000Z',
+  id: '3f2b8c1e-aaaa-4bbb-8ccc-123456789abc',
+  managedImageUri: 'file:///managed/scan.jpg',
+  predictedLabel: 'rust',
+};
+jest.mock('@/features/records/hooks/useRecords', () => ({
+  useScanRecordDetails: () => ({ data: mockScanCardRecord, loading: false, errorMessage: null }),
+}));
+
 jest.mock('@/features/records/hooks/useSaveCompletedScan', () => ({
   useSaveCompletedScan: () => mockSaveRecordState,
 }));
@@ -356,6 +367,45 @@ describe('AnalysisResultScreen', () => {
     expect(screen.queryByTestId('scan.report-to-office')).not.toBeOnTheScreen();
     expect(screen.getByTestId('scan.keep-as-scan-only')).toBeOnTheScreen();
     expect(screen.getByTestId('scan.new-scan')).toBeOnTheScreen();
+  });
+
+  describe('Scan Card after save', () => {
+    beforeEach(async () => {
+      await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, 'en');
+    });
+    const savedState = () => {
+      mockSaveRecordState = { ...mockSaveRecordState, status: 'saved', recordId: mockScanCardRecord.id };
+    };
+
+    // Proves: after a farmer's scan saves, the card renders from the local record (photo, date, condition, CG-P- ID).
+    it('shows the Scan Card for a farmer once the scan is saved', async () => {
+      mockUserRole = 'farmer';
+      savedState();
+      await renderResult(createCompletedState('rust', ['rust'], { result: createResult('rust') }));
+
+      expect(screen.getByTestId('scan.card')).toBeOnTheScreen();
+      expect(screen.getByTestId('scan.card.photo')).toBeOnTheScreen();
+      expect(screen.getByTestId('scan.card.condition')).toHaveTextContent('Possible Condition: Rust');
+      expect(screen.queryByTestId('scan.card.note')).not.toBeOnTheScreen();
+      expect(screen.getByTestId('scan.card.id')).toHaveTextContent(/Scan ID: CG-P-\d{6}$/);
+    });
+
+    // Proves: the Scan Card is a farmer-only surface; inspectors never see it.
+    it('never shows the Scan Card to an inspector', async () => {
+      mockUserRole = 'field_reporter';
+      savedState();
+      await renderResult(createCompletedState('rust', ['rust'], { result: createResult('rust') }));
+
+      expect(screen.queryByTestId('scan.card')).not.toBeOnTheScreen();
+    });
+
+    // Proves: no card appears before the scan has saved.
+    it('does not show the Scan Card before the scan is saved', async () => {
+      mockUserRole = 'farmer';
+      await renderResult(createCompletedState('rust', ['rust'], { result: createResult('rust') }));
+
+      expect(screen.queryByTestId('scan.card')).not.toBeOnTheScreen();
+    });
   });
 
   describe('Result uncertain (farmer, below the V1 cutoff)', () => {

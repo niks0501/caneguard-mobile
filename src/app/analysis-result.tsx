@@ -36,6 +36,7 @@ import {
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import { returnToTab } from '@/features/navigation/returnToTab';
 import { FollowUpComparison } from '@/features/records/components/FollowUpComparison';
+import { WhatNowCard } from '@/features/records/components/WhatNowCard';
 import { SavedScanCard } from '@/features/records/components/ScanCard';
 import { useSaveCompletedScan } from '@/features/records/hooks/useSaveCompletedScan';
 import { useToast } from '@/components/ui/Toast';
@@ -461,6 +462,26 @@ export default function AnalysisResultScreen() {
                       : 'Save Scan stores this scan on this device.'}
               </Text>
             </View>
+
+            {user?.role === 'farmer' ? (
+              <WhatNowCard
+                label={result.predictedLabel}
+                saved={isSaved}
+                saving={isSaving}
+                onSave={() => void keepAsScanOnly()}
+                onCheckAgain={
+                  isSaved && saveRecord.recordId
+                    ? () => {
+                        dispatch({
+                          type: 'START_FOLLOW_UP',
+                          payload: { scanId: state.followUpOf ?? saveRecord.recordId! },
+                        });
+                        returnToTab('/scan');
+                      }
+                    : undefined
+                }
+              />
+            ) : null}
 
             {user?.role === 'farmer' && isSaved && saveRecord.recordId ? (
               <SavedScanCard recordId={saveRecord.recordId} />

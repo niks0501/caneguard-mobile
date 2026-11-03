@@ -1,22 +1,21 @@
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import {
-  MODEL_INPUT,
-  MODEL_VERSION,
+  ACTIVE_MODEL,
+  MODEL_LABELS,
+  type ModelContract,
+  type ModelLabel,
 } from '@/features/detection/constants/modelContract';
 import {
   asInferenceError,
   InferenceError,
 } from '@/features/detection/model/inferenceErrors';
-import { postprocessOutput } from '@/features/detection/model/postprocessOutput';
-import type { DetectionResult } from '@/features/detection/types';
+import {
+  postprocessOutput,
+  type PostprocessedOutput,
+} from '@/features/detection/model/postprocessOutput';
+import type { ClassScore, DetectionResult } from '@/features/detection/types';
 
 const FLOAT32_BYTES = Float32Array.BYTES_PER_ELEMENT;
-const EXPECTED_INPUT_BYTE_LENGTH =
-  MODEL_INPUT.shape.reduce<number>(
-    (total, dimension) => total * dimension,
-    1,
-  ) *
-  FLOAT32_BYTES;
 
 export interface InferenceRunner {
   run(input: ArrayBuffer[]): Promise<ArrayBuffer[]>;
@@ -26,17 +25,34 @@ function now(): number {
   return globalThis.performance?.now() ?? Date.now();
 }
 
-export async function runInference(
+function isScanLabel(label: string): label is ModelLabel {
+  return (MODEL_LABELS as readonly string[]).includes(label);
+}
+
+export type ModelInferenceOutput = PostprocessedOutput & {
+  rawOutput: number[];
+  timings: DetectionResult['timings'];
+};
+
+/**
+ * Model-layer inference for any model contract: returns every declared output
+ * (V2: Healthy, Mosaic, Rust, Smut, RSSI) without scan-flow label assumptions.
+ */
+export async function runModelInference(
   model: InferenceRunner,
   inputBuffer: ArrayBuffer,
   preprocessMs: number,
+  contract: ModelContract = ACTIVE_MODEL,
   clock: () => number = now,
-  onRawOutput?: (rawOutput: readonly number[]) => void,
-): Promise<DetectionResult> {
-  if (inputBuffer.byteLength !== EXPECTED_INPUT_BYTE_LENGTH) {
+): Promise<ModelInferenceOutput> {
+  const expectedInputByteLength =
+    contract.input.shape.reduce<number>((total, dimension) => total * dimension, 1) *
+    FLOAT32_BYTES;
+
+  if (inputBuffer.byteLength !== expectedInputByteLength) {
     throw new InferenceError(
       'INPUT_BUFFER_MISMATCH',
-      `Expected ${EXPECTED_INPUT_BYTE_LENGTH} input bytes, received ${inputBuffer.byteLength}.`,
+      `Expected ${expectedInputByteLength} input bytes, received ${inputBuffer.byteLength}.`,
     );
   }
 
@@ -65,18 +81,59 @@ export async function runInference(
     );
   }
 
-  const mappedOutput = postprocessOutput(outputBuffers[0]);
-  onRawOutput?.(Array.from(new Float32Array(outputBuffers[0])));
+  const mappedOutput = postprocessOutput(outputBuffers[0], contract);
 
   return {
     ...mappedOutput,
+    rawOutput: Array.from(new Float32Array(outputBuffers[0])),
     timings: {
       preprocessMs,
       inferenceMs,
       totalMs: preprocessMs + inferenceMs,
     },
-    modelVersion: MODEL_VERSION,
-    decisionSupportWording:
-      diseaseCatalog[mappedOutput.predictedLabel].decisionSupportWording,
+  };
+}
+
+/**
+ * Scan-flow inference. The scan flow, records and sync still carry four
+ * labels, so a model whose outputs go beyond them (V2's RSSI) is refused until
+ * the display/storage follow-up supports it.
+ */
+export async function runInference(
+  model: InferenceRunner,
+  inputBuffer: ArrayBuffer,
+  preprocessMs: number,
+  clock: () => number = now,
+  onRawOutput?: (rawOutput: readonly number[]) => void,
+): Promise<DetectionResult> {
+  const output = await runModelInference(
+    model,
+    inputBuffer,
+    preprocessMs,
+    ACTIVE_MODEL,
+    clock,
+  );
+  const scores: ClassScore[] = [];
+
+  for (const { label, score } of output.scores) {
+    if (!isScanLabel(label)) {
+      throw new InferenceError(
+        'LABEL_MAPPING_FAILED',
+        `Model ${ACTIVE_MODEL.id.toUpperCase()} output "${label}" is not supported by the scan flow yet.`,
+      );
+    }
+    scores.push({ label, score });
+  }
+
+  const predictedLabel = scores[0].label;
+  onRawOutput?.(output.rawOutput);
+
+  return {
+    predictedLabel,
+    confidence: output.confidence,
+    scores,
+    timings: output.timings,
+    modelVersion: ACTIVE_MODEL.version,
+    decisionSupportWording: diseaseCatalog[predictedLabel].decisionSupportWording,
   };
 }

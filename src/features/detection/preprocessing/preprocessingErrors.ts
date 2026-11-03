@@ -8,6 +8,7 @@ export type PreprocessingErrorCode =
   | 'image-manipulation-failed'
   | 'missing-encoded-image'
   | 'jpeg-decode-failed'
+  | 'png-decode-failed'
   | 'dimension-mismatch'
   | 'channel-mismatch'
   | 'element-count-mismatch'
@@ -24,6 +25,7 @@ function getPreprocessingStage(
       return 'image-manipulation';
     case 'missing-encoded-image':
     case 'jpeg-decode-failed':
+    case 'png-decode-failed':
     case 'dimension-mismatch':
     case 'channel-mismatch':
       return 'image-decoding';
@@ -63,6 +65,7 @@ export function getPreprocessingErrorMessage(error: unknown): string {
     case 'missing-encoded-image':
       return 'The selected image could not be resized. Please replace it and try again.';
     case 'jpeg-decode-failed':
+    case 'png-decode-failed':
     case 'dimension-mismatch':
     case 'channel-mismatch':
       return 'The resized image could not be decoded correctly. Please replace it and try again.';

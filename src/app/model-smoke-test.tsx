@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { ActivityIndicator, Image as NativeImage, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image as NativeImage, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useEffect, useState } from 'react';
 
 import { AppCard } from '@/components/ui/AppCard';
@@ -11,6 +11,7 @@ import {
   MODEL_LABELS,
   MODEL_VERSION,
 } from '@/features/detection/constants/modelContract';
+import { ModelV2ParityPanel } from '@/features/detection/components/ModelV2ParityPanel';
 import { compareV1QaOutput, getV1QaExpectedOutput } from '@/features/detection/model/v1Qa';
 import { runInference } from '@/features/detection/model/runInference';
 import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
@@ -42,6 +43,7 @@ function DevelopmentModelSmokeTestScreen() {
   const modelState = useCaneGuardModel();
   const startModelLoad = modelState.start;
   const [verification, setVerification] = useState<SmokeVerification | null>(null);
+  const [showV2Parity, setShowV2Parity] = useState(false);
 
   // Development harness: it works on the model itself, so it starts the load.
   useEffect(() => {
@@ -223,6 +225,16 @@ function DevelopmentModelSmokeTestScreen() {
             </Text>
           </View>
         ) : null}
+      </AppCard>
+
+      <AppCard style={styles.card}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setShowV2Parity(true)}
+          disabled={showV2Parity}>
+          <Text style={[styles.statusTitle, { color: theme.info }]}>Run Model V2 parity (9 PNG examples)</Text>
+        </Pressable>
+        {showV2Parity ? <ModelV2ParityPanel /> : null}
       </AppCard>
 
       <Text style={[styles.note, { color: theme.textSecondary }]}>

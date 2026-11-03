@@ -10,6 +10,7 @@ import {
   Spacing,
   Typography,
 } from '@/constants/theme';
+import type { FarmerScanState } from '@/features/records/domain/scanState';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { managedDisplayImageUriIfPresent } from '@/features/records/services/scanImageStorage';
 import type { SyncStatus } from '@/database/schema';
@@ -23,10 +24,18 @@ type RecordCardProps = {
   activityType?: 'report' | 'scan';
   onPress: () => void;
   record: ScanRecordListItem;
+  /** Farmer My Scans state; replaces the device and sync status line. */
+  scanState?: { label: string; state: FarmerScanState };
   testID?: string;
 };
 
-export function RecordCard({ activityType, onPress, record, testID }: RecordCardProps) {
+const FARMER_STATE_ICON: Record<FarmerScanState, keyof typeof Feather.glyphMap> = {
+  needs_checking: 'eye',
+  followed_up: 'repeat',
+  saved: 'check-circle',
+};
+
+export function RecordCard({ activityType, onPress, record, scanState, testID }: RecordCardProps) {
   const theme = useTheme();
   const [imageUnavailable, setImageUnavailable] = useState(false);
   // Prefer the small display derivative this save wrote. It is absent for
@@ -117,24 +126,43 @@ export function RecordCard({ activityType, onPress, record, testID }: RecordCard
           </View>
         </View>
         <View style={styles.footer}>
-          <View style={styles.status}>
-            <Feather
-              name={syncPresentation.icon}
-              size={14}
-              color={theme[syncPresentation.color]}
-            />
-            <Text
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={[
-                styles.statusText,
-                { color: theme[syncPresentation.color] },
-              ]}>
-              {syncPresentation.label}
-            </Text>
-          </View>
+          {scanState ? (
+            <View
+              testID={`record-card.state.${record.id}`}
+              accessibilityLabel={scanState.label}
+              style={styles.status}>
+              <Feather
+                name={FARMER_STATE_ICON[scanState.state]}
+                size={14}
+                color={theme.textSecondary}
+              />
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={[styles.statusText, { color: theme.textSecondary }]}>
+                {scanState.label}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.status}>
+              <Feather
+                name={syncPresentation.icon}
+                size={14}
+                color={theme[syncPresentation.color]}
+              />
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={[
+                  styles.statusText,
+                  { color: theme[syncPresentation.color] },
+                ]}>
+                {syncPresentation.label}
+              </Text>
+            </View>
+          )}
         </View>
-        {record.syncStatus === 'synced' && record.authorityReview ? (
+        {!scanState && record.syncStatus === 'synced' && record.authorityReview ? (
           <View
             testID={`record-card.authority-status.${record.id}`}
             accessibilityLabel={`Authority review: ${getAuthorityReviewPresentation(record.authorityReview.rawStatus).label}`}

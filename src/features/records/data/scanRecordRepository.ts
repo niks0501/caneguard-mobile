@@ -35,6 +35,7 @@ import {
   type ScanRecordListItem,
   type ScanRecordQuery,
 } from '@/features/records/domain/recordTypes';
+import type { ScanThreadRow } from '@/features/records/domain/scanState';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 export function createScanRecordRepository(
@@ -219,6 +220,28 @@ export async function listScanCheckHistory(
     return rows.map((item) => ({ ...item, isOriginal: item.id === originalId }));
   } catch (error: unknown) {
     throw toStorageError(error, 'QUERY_FAILED', 'Reading the check history failed.');
+  }
+}
+
+/** Every check of an owner with its follow-up link, used to compute farmer scan states. */
+export async function listScanThreadRows(
+  database: CaneGuardDatabase,
+  submitterIdentity: string,
+): Promise<ScanThreadRow[]> {
+  const owner = requireOwnerIdentity(submitterIdentity);
+  try {
+    return await database
+      .select({
+        confidence: scanRecords.confidence,
+        createdAt: scanRecords.createdAt,
+        followsUpScanId: scanRecords.followsUpScanId,
+        id: scanRecords.id,
+        predictedLabel: scanRecords.predictedLabel,
+      })
+      .from(scanRecords)
+      .where(eq(scanRecords.ownerIdentity, owner));
+  } catch (error: unknown) {
+    throw toStorageError(error, 'QUERY_FAILED', 'Reading scan states failed.');
   }
 }
 

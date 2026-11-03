@@ -2,8 +2,9 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { router } from 'expo-router';
 
-import SettingsScreen from '@/app/settings';
+import SettingsScreenBase from '@/app/settings';
 import { ToastProvider } from '@/components/ui/Toast';
+import { LanguagePreferenceProvider } from '@/providers/LanguagePreferenceProvider';
 import {
   clearCachedOfficeDataForOwner,
   clearLocalDataForOwner,
@@ -65,6 +66,14 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
   }),
 }));
 
+function SettingsScreen() {
+  return (
+    <LanguagePreferenceProvider>
+      <SettingsScreenBase />
+    </LanguagePreferenceProvider>
+  );
+}
+
 describe('SettingsScreen', () => {
   it('presents honest active settings without dead Coming later rows', async () => {
     await render(<SettingsScreen />);
@@ -74,6 +83,7 @@ describe('SettingsScreen', () => {
     expect(screen.queryByText('Sync Alerts')).not.toBeOnTheScreen();
     expect(screen.queryByText('Office Advisories')).not.toBeOnTheScreen();
 
+    expect(screen.getByText('Language / Wika')).toBeOnTheScreen();
     const darkMode = screen.getByLabelText('Dark Mode');
     expect(darkMode).toBeEnabled();
     expect(screen.getByTestId('settings.disease-reference')).toBeOnTheScreen();

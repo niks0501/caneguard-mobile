@@ -128,6 +128,25 @@ describe('RecordDetailsScreen Check Again', () => {
     expect(screen.queryByTestId('records.check-history')).toBeNull();
   });
 
+  it('keeps a note visible when deleting the first check left it alone in the history', async () => {
+    jest.mocked(useLocalSearchParams).mockReturnValue({ id: FOLLOW_UP_ID });
+    mockDetails = { ...details(FOLLOW_UP_ID, null), personalNote: 'Tips look yellow.' };
+    mockHistory = [
+      historyItem(FOLLOW_UP_ID, '2026-10-15T02:00:00.000Z', true, 'Tips look yellow.'),
+    ];
+
+    await renderAs('farmer');
+
+    expect(screen.getByTestId('records.check-history')).toBeTruthy();
+    expect(screen.getByText('Tips look yellow.')).toBeTruthy();
+  });
+
+  it('leaves a lone check without a note out of the history view', async () => {
+    await renderAs('farmer');
+
+    expect(screen.queryByTestId('records.check-history')).toBeNull();
+  });
+
   it('lists the checks in the order given, with notes, and no trend or percentage text', async () => {
     mockHistory = [
       historyItem(ORIGINAL_ID, '2026-10-01T02:00:00.000Z', true, null),

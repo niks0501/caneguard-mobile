@@ -163,7 +163,7 @@ describe('ScanScreen', () => {
     });
     expect(AsyncStorage.setItem).toHaveBeenCalledWith(
       '@caneguard/model-v0/pending-picker-source',
-      'gallery',
+      JSON.stringify({ followUpOf: null, sourceType: 'gallery' }),
     );
     expect(mockDispatch).toHaveBeenCalledWith({
       type: 'SELECT_IMAGE',
@@ -384,6 +384,42 @@ describe('ScanScreen', () => {
     expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
       '@caneguard/model-v0/pending-picker-source',
     );
+  });
+
+  it('keeps the Check Again of an interrupted Android capture', async () => {
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: 'android',
+    });
+    mockGetPendingResult.mockResolvedValue(selectedImageResult('content://recovered/leaf'));
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(
+      JSON.stringify({
+        followUpOf: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2',
+        sourceType: 'camera',
+      }),
+    );
+
+    await renderScan({
+      ...initialScanSessionState,
+      followUpOf: null,
+    });
+
+    await waitFor(() => {
+      expect(mockRouterPush).toHaveBeenCalledWith('/image-preview');
+    });
+    expect(mockDispatch).toHaveBeenNthCalledWith(1, {
+      type: 'START_FOLLOW_UP',
+      payload: { scanId: '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2' },
+    });
+    expect(mockDispatch).toHaveBeenNthCalledWith(2, {
+      type: 'SELECT_IMAGE',
+      payload: {
+        sourceUri: 'content://recovered/leaf',
+        sourceWidth: 1920,
+        sourceHeight: 1080,
+        sourceType: 'camera',
+      },
+    });
   });
 
   it.each(supportedImageFormats)(

@@ -97,13 +97,18 @@ export default function AnalysisResultScreen() {
   const [keepingDraft, setKeepingDraft] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const savedRecord = useRef<string | null>(null);
+  const savedSessionUri = useRef<string | null>(null);
 
   // The saved result stays visible while the inspector is on this screen; the
-  // session is finalized once this entry leaves the stack.
+  // session is finalized once this entry leaves the stack. A Check Again or a
+  // newer scan started meanwhile owns the live session and keeps its state.
   useEffect(() => {
     return () => {
       if (savedRecord.current) {
-        dispatch({ type: 'RESET_SCAN' });
+        dispatch({
+          type: 'RESET_SCAN',
+          payload: { sessionUri: savedSessionUri.current },
+        });
       }
     };
   }, [dispatch]);
@@ -163,15 +168,18 @@ export default function AnalysisResultScreen() {
   };
 
   const persistScanForOutcome = async () => {
-    if (saveRecord.status === 'saved' && saveRecord.recordId) {
-      savedRecord.current = saveRecord.recordId;
+    const markSaved = (id: string) => {
+      savedRecord.current = id;
+      savedSessionUri.current = state.sourceUri;
       draft.finalizeSavedDraft();
+    };
+    if (saveRecord.status === 'saved' && saveRecord.recordId) {
+      markSaved(saveRecord.recordId);
       return { id: saveRecord.recordId };
     }
     const saved = await saveRecord.save();
     if (saved) {
-      savedRecord.current = saved.id;
-      draft.finalizeSavedDraft();
+      markSaved(saved.id);
     }
     return saved;
   };

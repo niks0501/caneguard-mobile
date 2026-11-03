@@ -22,6 +22,9 @@ export function FarmerCheckAgain({ record }: { record: ScanRecordDetails }) {
   const history = useScanCheckHistory(record.id, true);
   // Every follow-up links to the first check, so history stays one flat list.
   const originalId = record.followsUpScanId ?? record.id;
+  // A check keeps its note even when deleting the first check leaves it alone.
+  const showHistory =
+    history.length > 1 || history.some((item) => Boolean(item.personalNote));
 
   const startCheckAgain = () => {
     dispatch({ type: 'START_FOLLOW_UP', payload: { scanId: originalId } });
@@ -40,7 +43,7 @@ export function FarmerCheckAgain({ record }: { record: ScanRecordDetails }) {
           {copy.action}
         </AppButton>
       </View>
-      {history.length > 1 ? (
+      {showHistory ? (
         <CheckHistorySection
           currentId={record.id}
           history={history}

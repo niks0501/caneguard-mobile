@@ -41,4 +41,29 @@ describe('scan session Check Again state', () => {
     });
     expect(picked.followUpOf ?? null).toBeNull();
   });
+
+  it('keeps a newer Check Again when the saved result screen resets the session it owned', () => {
+    // The saved result screen unmounts after Check Again already started a new
+    // session; its reset names the photo it saved and must leave the new one.
+    const started = scanSessionReducer(initialScanSessionState, {
+      type: 'START_FOLLOW_UP',
+      payload: { scanId: ORIGINAL_ID },
+    });
+    const picked = scanSessionReducer(started, { type: 'SELECT_IMAGE', payload: IMAGE });
+
+    const afterLateReset = scanSessionReducer(picked, {
+      type: 'RESET_SCAN',
+      payload: { sessionUri: 'file:///saved-result.jpg' },
+    });
+
+    expect(afterLateReset.followUpOf).toBe(ORIGINAL_ID);
+    expect(afterLateReset.sourceUri).toBe(IMAGE.sourceUri);
+
+    const afterOwnReset = scanSessionReducer(picked, {
+      type: 'RESET_SCAN',
+      payload: { sessionUri: IMAGE.sourceUri },
+    });
+    expect(afterOwnReset.sourceUri).toBeNull();
+    expect(afterOwnReset.followUpOf ?? null).toBeNull();
+  });
 });

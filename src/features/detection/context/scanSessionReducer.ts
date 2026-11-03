@@ -15,6 +15,17 @@ export const initialScanSessionState: ScanSessionState = {
   errorMessage: null,
 };
 
+/**
+ * A session-scoped reset only clears the session that still shows `sessionUri`.
+ * A screen that resets after it lost the session must never clear a newer one.
+ */
+export function resetAppliesToSession(
+  state: Pick<ScanSessionState, 'sourceUri'>,
+  payload: { sessionUri: string | null } | undefined,
+): boolean {
+  return !payload || payload.sessionUri === state.sourceUri;
+}
+
 export function scanSessionReducer(
   state: ScanSessionState,
   action: ScanSessionAction,
@@ -29,7 +40,9 @@ export function scanSessionReducer(
         status: 'image-selected',
       };
     case 'RESET_SCAN':
-      return { ...initialScanSessionState };
+      return resetAppliesToSession(state, action.payload)
+        ? { ...initialScanSessionState }
+        : state;
     case 'START_FOLLOW_UP':
       return { ...initialScanSessionState, followUpOf: action.payload.scanId };
     case 'SET_PERSONAL_NOTE':

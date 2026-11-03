@@ -94,7 +94,7 @@ export default function ScanScreen() {
 
     const recoverPendingResult = async () => {
       try {
-        const [pendingResult, pendingSource] = await Promise.all([
+        const [pendingResult, pendingLaunch] = await Promise.all([
           ImagePicker.getPendingResultAsync(),
           takePendingPickerSource(),
         ]);
@@ -104,14 +104,23 @@ export default function ScanScreen() {
           return;
         }
 
-        if (pendingResult && !pendingSource) {
+        if (pendingResult && !pendingLaunch) {
           dispatch({
             type: 'SET_ERROR',
             payload:
               'An interrupted image selection was found, but its source could not be verified. Please choose the image again.',
           });
-        } else if (pendingResult && pendingSource && applyPickerResult(pendingResult, pendingSource)) {
-          router.push('/image-preview');
+        } else if (pendingResult && pendingLaunch) {
+          // The interrupted capture keeps the Check Again it was taken for.
+          if (pendingLaunch.followUpOf) {
+            dispatch({
+              type: 'START_FOLLOW_UP',
+              payload: { scanId: pendingLaunch.followUpOf },
+            });
+          }
+          if (applyPickerResult(pendingResult, pendingLaunch.sourceType)) {
+            router.push('/image-preview');
+          }
         }
       } catch {
         if (isMounted && isOwnerCurrentRef.current(startingOwner)) {
@@ -146,7 +155,9 @@ export default function ScanScreen() {
     setActiveOperation(sourceType);
     let shouldOpenPreview = false;
 
-    const outcome = await pickScanImage(sourceType);
+    const outcome = await pickScanImage(sourceType, {
+      followUpOf: state.followUpOf ?? null,
+    });
 
     try {
       // A delayed picker result must never populate another owner's session.

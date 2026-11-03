@@ -70,7 +70,7 @@ export type ScanSessionAction =
         sourceType: ScanSourceType;
       };
     }
-  | { type: 'RESET_SCAN' }
+  | { type: 'RESET_SCAN'; payload?: { sessionUri: string | null } }
   | { type: 'START_FOLLOW_UP'; payload: { scanId: string } }
   | { type: 'SET_PERSONAL_NOTE'; payload: string }
   | { type: 'START_PREPROCESSING' }

@@ -12,8 +12,9 @@ import {
 } from '@/features/detection/constants/modelContract';
 
 describe('Model V1 contract', () => {
-  it('keeps the supported labels in the same order as the bundled label file', () => {
-    const labelsPath = join(process.cwd(), 'assets/models/labels.txt');
+  it('keeps the supported labels in the same order as the bundled V1 label file', () => {
+    // labels.txt is replaced when a newer model artifact is uploaded; V1 keeps its own frozen file.
+    const labelsPath = join(process.cwd(), 'assets/models/labels-v1.txt');
     const bundledLabels = readFileSync(labelsPath, 'utf8').trim().split(/\r?\n/);
 
     expect(MODEL_LABELS).toEqual(['healthy', 'mosaic', 'rust', 'smut']);

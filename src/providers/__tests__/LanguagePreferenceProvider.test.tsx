@@ -2,7 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, render, screen, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
-import { FARMER_COPY } from '@/constants/copy';
 import {
   LANGUAGE_STORAGE_KEY,
   LanguagePreferenceProvider,
@@ -39,13 +38,15 @@ describe('LanguagePreferenceProvider', () => {
   it('defaults to Tagalog for farmers and English for inspectors', async () => {
     const view = await mount();
     await waitFor(() => expect(api.isHydrated).toBe(true));
-    expect(screen.getByTestId('greeting').props.children).toBe(FARMER_COPY.tl.greeting.morning);
+    expect(api.language).toBe('tl');
+    expect(screen.getByTestId('greeting').props.children).toBe('Magandang umaga');
     await view.unmount();
 
     mockRole = 'field_reporter';
     await mount();
     await waitFor(() => expect(api.isHydrated).toBe(true));
-    expect(screen.getByTestId('greeting').props.children).toBe(FARMER_COPY.en.greeting.morning);
+    expect(api.language).toBe('en');
+    expect(screen.getByTestId('greeting').props.children).toBe('Good morning');
   });
 
   it('persists the choice across a restart', async () => {
@@ -68,7 +69,7 @@ describe('LanguagePreferenceProvider', () => {
     await waitFor(() => expect(api.isHydrated).toBe(true));
 
     expect(api.language).toBe('en');
-    expect(screen.getByTestId('greeting').props.children).toBe(FARMER_COPY.en.greeting.morning);
+    expect(screen.getByTestId('greeting').props.children).toBe('Good morning');
     await view.unmount();
   });
 

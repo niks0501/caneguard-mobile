@@ -255,7 +255,6 @@ export type FarmerCopyBlock = {
     fieldGuide: string;
     openSettings: string;
   };
-  status: { offline: string };
   settings: { languageLabel: string; languageDescription: string; english: string; tagalog: string };
 };
 
@@ -272,7 +271,6 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       fieldGuide: 'Field guide',
       openSettings: 'Settings',
     },
-    status: { offline: 'Offline' },
     settings: {
       languageLabel: 'Language / Wika',
       languageDescription: 'Choose the language for farmer screens',
@@ -292,7 +290,6 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       fieldGuide: 'Gabay sa bukid',
       openSettings: 'Mga setting',
     },
-    status: { offline: 'Walang internet' },
     settings: {
       languageLabel: 'Language / Wika',
       languageDescription: 'Piliin ang wika para sa mga screen ng magsasaka',

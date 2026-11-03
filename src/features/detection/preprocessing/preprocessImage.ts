@@ -1,6 +1,6 @@
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
-import { MODEL_INPUT } from '@/features/detection/constants/modelContract';
+import { ACTIVE_MODEL, MODEL_INPUT } from '@/features/detection/constants/modelContract';
 import { createInputTensor } from '@/features/detection/preprocessing/createInputTensor';
 import { decodeJpeg } from '@/features/detection/preprocessing/decodeJpeg';
 import {
@@ -114,6 +114,7 @@ export async function preprocessImage(
     width: number | null;
     height: number | null;
   } = { width: null, height: null },
+  padValue: number = ACTIVE_MODEL.input.letterboxValue,
 ): Promise<PreprocessingResult> {
   if (!sourceUri.trim()) {
     throw new PreprocessingError('invalid-source-uri', 'A source image URI is required.');
@@ -154,6 +155,7 @@ export async function preprocessImage(
       rgbPixels,
       decodedImage.width,
       decodedImage.height,
+      padValue,
     );
     const tensor = createInputTensor(
       letterboxed.pixels,

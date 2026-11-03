@@ -1,7 +1,4 @@
-import {
-  MODEL_INPUT,
-  MODEL_OUTPUT,
-} from '@/features/detection/constants/modelContract';
+import { ACTIVE_MODEL, type ModelContract } from '@/features/detection/constants/modelContract';
 import { InferenceError } from '@/features/detection/model/inferenceErrors';
 
 type TensorMetadata = {
@@ -17,7 +14,7 @@ export type ModelMetadata = {
 
 function tensorMatches(
   actual: TensorMetadata,
-  expected: typeof MODEL_INPUT | typeof MODEL_OUTPUT,
+  expected: { name: string; dataType: string; shape: readonly number[] },
 ) {
   return (
     actual.name === expected.name &&
@@ -27,18 +24,21 @@ function tensorMatches(
   );
 }
 
-export function validateModelContract(model: ModelMetadata): InferenceError | null {
-  if (model.inputs.length !== 1 || !tensorMatches(model.inputs[0], MODEL_INPUT)) {
+export function validateModelContract(
+  model: ModelMetadata,
+  contract: ModelContract = ACTIVE_MODEL,
+): InferenceError | null {
+  if (model.inputs.length !== 1 || !tensorMatches(model.inputs[0], contract.input)) {
     return new InferenceError(
       'MODEL_CONTRACT_MISMATCH',
-      `Model input does not match the Model V1 contract. Received: ${JSON.stringify(model.inputs)}`,
+      `Model input does not match the Model ${contract.id.toUpperCase()} contract. Received: ${JSON.stringify(model.inputs)}`,
     );
   }
 
-  if (model.outputs.length !== 1 || !tensorMatches(model.outputs[0], MODEL_OUTPUT)) {
+  if (model.outputs.length !== 1 || !tensorMatches(model.outputs[0], contract.output)) {
     return new InferenceError(
       'MODEL_CONTRACT_MISMATCH',
-      `Model output does not match the Model V1 contract. Received: ${JSON.stringify(model.outputs)}`,
+      `Model output does not match the Model ${contract.id.toUpperCase()} contract. Received: ${JSON.stringify(model.outputs)}`,
     );
   }
 

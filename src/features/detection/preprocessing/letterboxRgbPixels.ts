@@ -1,4 +1,4 @@
-import { MODEL_INPUT } from '@/features/detection/constants/modelContract';
+import { ACTIVE_MODEL, MODEL_INPUT } from '@/features/detection/constants/modelContract';
 import { PreprocessingError } from '@/features/detection/preprocessing/preprocessingErrors';
 
 const [, TARGET_HEIGHT, TARGET_WIDTH, TARGET_CHANNELS] = MODEL_INPUT.shape;
@@ -74,12 +74,14 @@ export function createLetterboxGeometry(
 
 /**
  * Places an already bilinear-resized RGB image into the centered model canvas.
- * Padding is float32 127.5 so it is not quantized to 127 or 128.
+ * Padding is the active model's float32 letterbox value (V2: black 0; V1:
+ * 127.5, never quantized to 127 or 128).
  */
 export function letterboxRgbPixels(
   rgbPixels: ArrayLike<number>,
   resizedWidth: number,
   resizedHeight: number,
+  padValue: number = ACTIVE_MODEL.input.letterboxValue,
 ): { pixels: Float32Array; geometry: LetterboxGeometry } {
   const geometry = createLetterboxGeometry(resizedWidth, resizedHeight);
   const expectedElementCount = resizedWidth * resizedHeight * TARGET_CHANNELS;
@@ -92,7 +94,7 @@ export function letterboxRgbPixels(
   }
 
   const pixels = new Float32Array(TARGET_WIDTH * TARGET_HEIGHT * TARGET_CHANNELS);
-  pixels.fill(MODEL_INPUT.letterboxValue);
+  pixels.fill(padValue);
 
   for (let row = 0; row < resizedHeight; row += 1) {
     const sourceRowStart = row * resizedWidth * TARGET_CHANNELS;

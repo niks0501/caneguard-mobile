@@ -15,12 +15,23 @@ import {
   type PropsWithChildren,
 } from 'react';
 
+import {
+  ACTIVE_MODEL_ID,
+  MODEL_CONTRACTS,
+  type ModelId,
+} from '@/features/detection/constants/modelContract';
 import { InferenceError } from '@/features/detection/model/inferenceErrors';
 import { validateModelContract } from '@/features/detection/model/validateModelContract';
 
-// Metro resolves bundled non-code assets through a static require.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const MODEL_ASSET = require('../../../../assets/models/caneguard_v1_mobilenetv2_float32.tflite') as number;
+// Metro resolves bundled non-code assets through a static require, so both
+// artifacts stay bundled; the provider's `modelId` (default `ACTIVE_MODEL_ID`)
+// picks one.
+const MODEL_ASSETS: Record<ModelId, number> = {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  v1: require('../../../../assets/models/caneguard_v1_mobilenetv2_float32.tflite') as number,
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  v2: require('../../../../assets/models/caneguard_v2.tflite') as number,
+};
 const CPU_DELEGATES: TensorflowModelDelegate[] = [];
 
 /**
@@ -99,7 +110,7 @@ type ModelRun = (input: ArrayBuffer[]) => Promise<ArrayBuffer[]>;
 
 /**
  * Starts the one-time model download and native load. The provider defers this
- * until the scan flow asks for it, so a cold start does not pay 8.9 MB of asset
+ * until the scan flow asks for it, so a cold start does not pay the model asset
  * I/O and a TFLite load for a screen the inspector has not opened. Calling it
  * again is a no-op; `retry` is the explicit recovery path after a load error.
  */
@@ -144,7 +155,11 @@ export type CaneGuardModelController = {
 
 const CaneGuardModelContext = createContext<CaneGuardModelController | null>(null);
 
-export function CaneGuardModelProvider({ children }: PropsWithChildren) {
+export function CaneGuardModelProvider({
+  children,
+  modelId = ACTIVE_MODEL_ID,
+}: PropsWithChildren<{ modelId?: ModelId }>) {
+  const contract = MODEL_CONTRACTS[modelId];
   const [started, setStarted] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const start = useCallback(() => setStarted(true), []);
@@ -153,14 +168,14 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
     setAttempt((current) => current + 1);
   }, []);
   const nativeModel = useTensorflowModelFromAsset(
-    MODEL_ASSET,
+    MODEL_ASSETS[modelId],
     CPU_DELEGATES,
     started,
     attempt,
   );
   const contractError =
     nativeModel.state === 'loaded'
-      ? validateModelContract(nativeModel.model)
+      ? validateModelContract(nativeModel.model, contract)
       : null;
   const loadedModel =
     nativeModel.state === 'loaded' && !contractError
@@ -171,13 +186,13 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
       if (!loadedModel) {
         throw new InferenceError(
           'MODEL_NOT_READY',
-          'The Model V1 TensorFlow Lite runtime is not loaded.',
+          `The Model ${contract.id.toUpperCase()} TensorFlow Lite runtime is not loaded.`,
         );
       }
 
       return loadedModel.run(input);
     },
-    [loadedModel],
+    [contract, loadedModel],
   );
   const modelState = useMemo<CaneGuardModelController>(() => {
     if (contractError) {
@@ -201,7 +216,7 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
         run,
         error: new InferenceError(
           'MODEL_LOAD_FAILED',
-          'The native runtime could not load the bundled Model V1 asset.',
+          `The native runtime could not load the bundled Model ${contract.id.toUpperCase()} asset.`,
           nativeModel.error,
         ),
         errorKind: 'load',
@@ -229,7 +244,7 @@ export function CaneGuardModelProvider({ children }: PropsWithChildren) {
       error: null,
       errorKind: null,
     };
-  }, [contractError, nativeModel, retry, run, start]);
+  }, [contract, contractError, nativeModel, retry, run, start]);
 
   return (
     <CaneGuardModelContext.Provider value={modelState}>

@@ -1,18 +1,22 @@
 import {
-  MODEL_LABELS,
-  MODEL_OUTPUT,
+  ACTIVE_MODEL,
+  type ModelContract,
+  type ModelOutputLabel,
 } from '@/features/detection/constants/modelContract';
 import { InferenceError } from '@/features/detection/model/inferenceErrors';
 import { softmax } from '@/features/detection/model/softmax';
-import type { ClassScore, DetectionResult } from '@/features/detection/types';
 
 const FLOAT32_BYTES = Float32Array.BYTES_PER_ELEMENT;
 const PROBABILITY_SUM_TOLERANCE = 0.001;
 
-export type PostprocessedOutput = Pick<
-  DetectionResult,
-  'predictedLabel' | 'confidence' | 'scores'
->;
+export type ModelOutputScore = { label: ModelOutputLabel; score: number };
+
+/** Model-layer result: every output the artifact declares, best first. */
+export type PostprocessedOutput = {
+  predictedLabel: ModelOutputLabel;
+  confidence: number;
+  scores: ModelOutputScore[];
+};
 
 function normalizeScores(
   values: readonly number[],
@@ -45,15 +49,24 @@ function normalizeScores(
   return [...values];
 }
 
-export function postprocessOutput(outputBuffer: ArrayBuffer): PostprocessedOutput {
-  if (MODEL_OUTPUT.dataType !== 'float32') {
+/**
+ * Maps a float32 output buffer to labelled scores. Outputs are probabilities
+ * (both artifacts embed softmax), so no further softmax is applied.
+ */
+export function postprocessOutput(
+  outputBuffer: ArrayBuffer,
+  contract: ModelContract = ACTIVE_MODEL,
+): PostprocessedOutput {
+  const modelName = contract.id.toUpperCase();
+
+  if (contract.output.dataType !== 'float32') {
     throw new InferenceError(
       'OUTPUT_VALUE_INVALID',
-      `Unsupported Model V1 output type: ${MODEL_OUTPUT.dataType}.`,
+      `Unsupported Model ${modelName} output type: ${contract.output.dataType}.`,
     );
   }
 
-  const expectedByteLength = MODEL_LABELS.length * FLOAT32_BYTES;
+  const expectedByteLength = contract.labels.length * FLOAT32_BYTES;
 
   if (outputBuffer.byteLength !== expectedByteLength) {
     throw new InferenceError(
@@ -63,17 +76,14 @@ export function postprocessOutput(outputBuffer: ArrayBuffer): PostprocessedOutpu
   }
 
   const rawValues = Array.from(new Float32Array(outputBuffer));
-  const probabilities = normalizeScores(
-    rawValues,
-    MODEL_OUTPUT.interpretation,
-  );
-  const scores = probabilities.map<ClassScore>((score, index) => {
-    const label = MODEL_LABELS[index];
+  const probabilities = normalizeScores(rawValues, contract.output.interpretation);
+  const scores = probabilities.map<ModelOutputScore>((score, index) => {
+    const label = contract.labels[index];
 
     if (!label) {
       throw new InferenceError(
         'LABEL_MAPPING_FAILED',
-        `No Model V1 label exists for output index ${index}.`,
+        `No Model ${modelName} label exists for output index ${index}.`,
       );
     }
 
@@ -87,7 +97,7 @@ export function postprocessOutput(outputBuffer: ArrayBuffer): PostprocessedOutpu
   if (!topScore) {
     throw new InferenceError(
       'LABEL_MAPPING_FAILED',
-      'The output tensor did not map to any Model V1 label.',
+      `The output tensor did not map to any Model ${modelName} label.`,
     );
   }
 

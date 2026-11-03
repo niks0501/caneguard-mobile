@@ -24,6 +24,8 @@ export type BottomNavProps = {
   navigation?: TabNavigation;
   /** Unread office updates, shown on the Activity tab. */
   notificationCount?: number;
+  /** Tabs left out of the bar, for example Visits on a farmer session. */
+  hiddenTabs?: readonly NavTab[];
 };
 
 type NavItem = {
@@ -43,7 +45,13 @@ const NAV_ITEMS: NavItem[] = [
  * The tab bar is intentionally a presenter. The navigator owns route state
  * and focus; this component only renders it and dispatches tab navigation.
  */
-export function BottomNav({ activeTab, navigation, notificationCount = 0, state }: BottomNavProps) {
+export function BottomNav({
+  activeTab,
+  hiddenTabs,
+  navigation,
+  notificationCount = 0,
+  state,
+}: BottomNavProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const selectedRoute = state?.routes[state.index]?.name;
@@ -51,7 +59,7 @@ export function BottomNav({ activeTab, navigation, notificationCount = 0, state 
   return (
     <View style={styles.wrap}>
       <View style={[styles.row, { backgroundColor: theme.background, borderTopColor: theme.divider, paddingBottom: Math.max(Spacing.sm, insets.bottom) }]}>
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => !hiddenTabs?.includes(item.key)).map((item) => {
           const active = selectedRoute ? selectedRoute === item.key : item.key === activeTab;
 
           return (

@@ -22,7 +22,7 @@ import {
 } from '@/features/notifications/components/OfficeUpdatesPill';
 import { useOfficeUpdates } from '@/features/notifications/providers/OfficeUpdatesProvider';
 import { notificationDestinationRoute } from '@/features/notifications/services/resolveNotificationDestination';
-import { getHomeSyncNote } from '@/features/sync/utils/syncStatusCopy';
+import { getHomeSyncNote, INSPECTOR_WORK_WAITING_COPY } from '@/features/sync/utils/syncStatusCopy';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { HOME_NOTE_COPY } from '@/constants/copy';
 import {
@@ -35,6 +35,7 @@ import {
 } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
+import { useLanguagePreference } from '@/providers/LanguagePreferenceProvider';
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -44,6 +45,8 @@ export default function HomeScreen() {
     : require('../../../assets/cane_guard_logo.png');
   const { sessionVerification, user } = useAuth();
   const sync = useSync();
+  const { language } = useLanguagePreference();
+  const showInspectorWorkWaiting = user?.role === 'farmer' && sync.inspectorWorkWaiting;
   const attention = useHomeAttention();
   const { open: openOfficeUpdates, unreadCount } = useOfficeUpdates();
   const [dismissedUpdateCount, setDismissedUpdateCount] = useState(0);
@@ -160,6 +163,15 @@ export default function HomeScreen() {
                   </Pressable>
                 ) : null}
               </View>
+
+              {showInspectorWorkWaiting ? (
+                <Text
+                  accessibilityLiveRegion="polite"
+                  testID="home.inspector-work-waiting"
+                  style={[styles.syncLine, { color: theme.textSecondary }]}>
+                  {INSPECTOR_WORK_WAITING_COPY[language]}
+                </Text>
+              ) : null}
 
               <AppButton testID="home.primary-action" onPress={onPrimaryAction}>
                 {note.actionLabel}

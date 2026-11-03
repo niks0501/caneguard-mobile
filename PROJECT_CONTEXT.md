@@ -179,7 +179,9 @@ Sync may be triggered:
 
 A `farmer` session does not synchronize: it reports no pending count and no
 last successful sync time, and its queued Field Reports, field surveys, and
-field-validation completions stay on the device.
+field-validation completions stay on the device. Instead, it reports a yes/no
+inspector-work-waiting flag for unsent inspector-authored work held on the
+phone, with no count and no record detail.
 
 Only one pending-report synchronization batch should run at a time. Field
 Reports retain explicit sync states:

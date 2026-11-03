@@ -4,9 +4,11 @@ import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import { fieldSurveys, type FieldSurveyRow } from '@/database/schema';
+import type { MobileUserRole } from '@/features/auth/types';
 import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 
 export interface FieldSurveyDraft {
+  authorRole: MobileUserRole;
   capturedAt: string;
   clientUuid: string;
   districtCode: string;
@@ -35,6 +37,7 @@ export async function saveFieldSurveyDraft(
   try {
     if (existing) {
       database.update(fieldSurveys).set({
+        authorRole: input.authorRole,
         districtCode: input.districtCode,
         waypointsJson: JSON.stringify(input.waypoints),
         affectedAreaPolygonsJson: JSON.stringify(input.affectedAreaPolygons ?? []),
@@ -53,6 +56,7 @@ export async function saveFieldSurveyDraft(
         activeAffectedWaypointsJson: JSON.stringify(input.activeAffectedWaypoints ?? []),
         capturedAt: input.capturedAt,
         status: 'draft',
+        authorRole: input.authorRole,
         createdAt: input.capturedAt,
         updatedAt: input.capturedAt,
       }).run();

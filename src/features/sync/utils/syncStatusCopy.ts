@@ -1,5 +1,5 @@
 import type { ApiReachability } from '@/features/sync/providers/SyncProvider';
-import { FIELD_SURVEY_COPY } from '@/constants/copy';
+import { FIELD_SURVEY_COPY, type FarmerLanguage } from '@/constants/copy';
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 
@@ -15,6 +15,17 @@ export const FIELD_SURVEY_SYNC_COPY = {
   submit: 'Save and sync measurement',
   submitting: 'Syncing measurement…',
 } as const;
+
+/**
+ * Farmer-session notice that inspector work is saved on this shared phone. It
+ * is a plain yes/no sentence: never a count, a record name or report content,
+ * and deliberately worded apart from the future "Ask an inspector to look"
+ * queue so farmers do not mix up the two.
+ */
+export const INSPECTOR_WORK_WAITING_COPY: Record<FarmerLanguage, string> = {
+  en: 'Some saved inspector work is waiting for an inspector to sign in on this phone.',
+  tl: 'May naka-save na gawain ng inspektor na naghihintay na mag-sign in ang isang inspektor sa teleponong ito.',
+};
 
 /**
  * Voice map: how loud a sync state may be. Whisper is plain ink for normal

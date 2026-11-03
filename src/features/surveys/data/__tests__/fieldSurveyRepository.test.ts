@@ -26,6 +26,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
   native.exec(readFileSync('drizzle/0022_peaceful_titania.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   native.exec(readFileSync('drizzle/0023_affected_area_waypoints.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   native.exec(readFileSync('drizzle/0024_active_affected_waypoints.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
+  native.exec(readFileSync('drizzle/0025_field_survey_author_role.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   const client = {
     prepareSync(sql: string) {
       const statement = native.prepare(sql);
@@ -59,6 +60,7 @@ describe('field survey local repository', () => {
   it('persists owner-scoped offline drafts and retains one client UUID through sync retries', async () => {
     const { database, native } = openDatabase();
     const draft = await saveFieldSurveyDraft(database, {
+      authorRole: 'field_reporter',
       capturedAt: waypoint.capturedAt,
       clientUuid: 'survey-client-1',
       districtCode: 'D-01',
@@ -104,6 +106,7 @@ describe('field survey local repository', () => {
       { latitude: 14.001, longitude: 120, source: 'map' as const, accuracyMeters: null, capturedAt: '2026-10-05T09:00:03.000Z' },
     ];
     const draft = await saveFieldSurveyDraft(database, {
+      authorRole: 'field_reporter',
       capturedAt: waypoint.capturedAt,
       clientUuid: 'survey-provenance',
       districtCode: 'D-01',
@@ -127,6 +130,7 @@ describe('field survey local repository', () => {
       { latitude: 14, longitude: 120.001, source: 'gps' as const, accuracyMeters: 3.4, capturedAt: '2026-10-05T09:00:01.000Z' },
     ];
     const draft = await saveFieldSurveyDraft(database, {
+      authorRole: 'field_reporter',
       capturedAt: waypoint.capturedAt,
       clientUuid: 'survey-unfinished',
       districtCode: 'D-01',
@@ -146,6 +150,7 @@ describe('field survey local repository', () => {
   it('rejects affected-area provenance that does not match its polygon', async () => {
     const { database, native } = openDatabase();
     const draft = await saveFieldSurveyDraft(database, {
+      authorRole: 'field_reporter',
       capturedAt: waypoint.capturedAt,
       clientUuid: 'survey-provenance-mismatch',
       districtCode: 'D-01',
@@ -164,6 +169,7 @@ describe('field survey local repository', () => {
   it('rejects a pending measurement that does not match its polygon geometry', async () => {
     const { database, native } = openDatabase();
     const draft = await saveFieldSurveyDraft(database, {
+      authorRole: 'field_reporter',
       capturedAt: waypoint.capturedAt,
       clientUuid: 'survey-invalid-measurement',
       districtCode: 'D-01',
@@ -178,6 +184,7 @@ describe('field survey local repository', () => {
   it('selects only owner-scoped due retryable surveys and recovers stale uploads', async () => {
     const { database, native } = openDatabase();
     const draft = await saveFieldSurveyDraft(database, {
+      authorRole: 'field_reporter',
       capturedAt: waypoint.capturedAt,
       clientUuid: 'survey-client-2',
       districtCode: 'D-01',
@@ -199,6 +206,7 @@ describe('field survey local repository', () => {
   it('requires a new client identity after the server rejects a survey UUID', async () => {
     const { database, native } = openDatabase();
     const draft = await saveFieldSurveyDraft(database, {
+      authorRole: 'field_reporter',
       capturedAt: waypoint.capturedAt,
       clientUuid: 'survey-client-3',
       districtCode: 'D-01',
@@ -208,7 +216,7 @@ describe('field survey local repository', () => {
     markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt);
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'failed', lastSyncErrorCode: 'CLIENT_UUID_CONFLICT' });
     expect(() => markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt)).toThrow(/fresh identity/i);
-    await expect(saveFieldSurveyDraft(database, { capturedAt: waypoint.capturedAt, clientUuid: draft.clientUuid, districtCode: 'D-01', ownerIdentity: 'owner-1', waypoints: [waypoint] })).rejects.toThrow(/cannot be edited/i);
+    await expect(saveFieldSurveyDraft(database, { authorRole: 'field_reporter', capturedAt: waypoint.capturedAt, clientUuid: draft.clientUuid, districtCode: 'D-01', ownerIdentity: 'owner-1', waypoints: [waypoint] })).rejects.toThrow(/cannot be edited/i);
     native.close();
   });
 });

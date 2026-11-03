@@ -29,6 +29,7 @@ import {
   resetStaleSyncingFieldReports,
   SYNC_RETRY_COOLDOWN_MS,
 } from '@/features/reports/data/fieldReportSyncRepository';
+import { hasUnsentInspectorWork } from '@/features/sync/data/inspectorWorkWaiting';
 import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 import {
   syncPendingFieldReports,
@@ -44,6 +45,8 @@ interface SyncContextValue {
   apiReachability: ApiReachability;
   errorMessage: string | null;
   isOnline: boolean | null;
+  /** Yes/no only, and true only for a farmer session: no count, no details. */
+  inspectorWorkWaiting: boolean;
   isSyncing: boolean;
   lastSuccessfulSyncAt: string | null;
   pendingCount: number;
@@ -76,6 +79,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
     isSyncing: false,
     sessionKey: null,
   });
+  const [inspectorWorkWaiting, setInspectorWorkWaiting] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingReportsCount, setPendingReportsCount] = useState(0);
   const [pendingCompletionsCount, setPendingCompletionsCount] = useState(0);
@@ -90,6 +94,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const sessionToken = session?.token;
   const submitterIdentity = session?.user.uuid;
   const canSyncOfficialRecords = session?.user.role === 'field_reporter';
+  const isFarmerSession = session?.user.role === 'farmer';
   const sessionKey = session ? `${session.token}:${session.user.uuid}` : null;
   const sessionRef = useRef<MobileSession | null>(session);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -172,6 +177,15 @@ export function SyncProvider({ children }: PropsWithChildren) {
         setPendingCompletionsCount(0);
         setLastSuccessfulSyncAt(null);
       }
+      if (isFarmerSession) {
+        const waiting = await hasUnsentInspectorWork(database).catch(() => false);
+        if (
+          mounted.current &&
+          isSameSession(sessionRef.current, requestedToken, requestedSubmitterIdentity)
+        ) {
+          setInspectorWorkWaiting(waiting);
+        }
+      }
       return;
     }
 
@@ -199,7 +213,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       setPendingCompletionsCount(completionCount);
       setLastSuccessfulSyncAt(lastSyncedAt);
     }
-  }, [canSyncOfficialRecords, database, sessionToken, submitterIdentity]);
+  }, [canSyncOfficialRecords, database, isFarmerSession, sessionToken, submitterIdentity]);
 
   const syncNow = useCallback(
     async (
@@ -542,6 +556,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
           : 'unknown',
       errorMessage:
         syncState.sessionKey === sessionKey ? syncState.errorMessage : null,
+      inspectorWorkWaiting: isFarmerSession ? inspectorWorkWaiting : false,
       isOnline,
       isSyncing:
         syncState.sessionKey === sessionKey ? syncState.isSyncing : false,
@@ -560,6 +575,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
     }),
     [
       canSyncOfficialRecords,
+      inspectorWorkWaiting,
+      isFarmerSession,
       isOnline,
       lastSuccessfulSyncAt,
       pendingCount,

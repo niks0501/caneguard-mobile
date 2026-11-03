@@ -36,6 +36,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
     '0022_peaceful_titania.sql',
     '0023_affected_area_waypoints.sql',
     '0024_active_affected_waypoints.sql',
+    '0025_field_survey_author_role.sql',
   ]) {
     native.exec(readFileSync(`drizzle/${migration}`, 'utf8').replaceAll('--> statement-breakpoint', ''));
   }
@@ -77,6 +78,7 @@ describe('syncFieldSurvey upload contract', () => {
   it('uploads only the approved measurement provenance and keeps affected-area waypoint provenance local', async () => {
     const { database, native } = openDatabase();
     const draft = await saveFieldSurveyDraft(database, {
+      authorRole: 'field_reporter',
       capturedAt: '2026-10-31T02:03:00.000Z',
       clientUuid: 'survey-wire-provenance',
       districtCode: 'D-01',

@@ -25,6 +25,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
     '0022_peaceful_titania.sql',
     '0023_affected_area_waypoints.sql',
     '0024_active_affected_waypoints.sql',
+    '0025_field_survey_author_role.sql',
   ]) {
     native.exec(readFileSync(`drizzle/${migration}`, 'utf8').replaceAll('--> statement-breakpoint', ''));
   }
@@ -68,6 +69,7 @@ const affectedWaypoints: SurveyWaypoint[] = [
 
 async function pendingSurvey(database: CaneGuardDatabase, clientUuid: string) {
   const draft = await saveFieldSurveyDraft(database, {
+    authorRole: 'field_reporter',
     capturedAt: '2026-10-31T02:03:00.000Z',
     clientUuid,
     districtCode: 'D-01',

@@ -7,9 +7,9 @@ import { fieldReports, fieldSurveys, fieldValidationCompletions } from '@/databa
 const UNSENT = ['pending', 'syncing', 'failed'] as const;
 
 /**
- * Yes/no only: does this phone hold any unsent inspector work, whoever saved
- * it? Deliberately returns a boolean so no count or detail can reach a farmer
- * session that reads it.
+ * Yes/no only: does this phone hold any unsent work an inspector authored,
+ * whoever saved it? Deliberately returns a boolean so no count or detail can
+ * reach a farmer session that reads it.
  */
 export async function hasUnsentInspectorWork(database: CaneGuardDatabase): Promise<boolean> {
   try {
@@ -23,7 +23,12 @@ export async function hasUnsentInspectorWork(database: CaneGuardDatabase): Promi
       database
         .select({ one: sql<number>`1` })
         .from(fieldSurveys)
-        .where(inArray(fieldSurveys.status, UNSENT))
+        .where(
+          and(
+            eq(fieldSurveys.authorRole, 'field_reporter'),
+            inArray(fieldSurveys.status, UNSENT),
+          ),
+        )
         .limit(1)
         .get(),
       database

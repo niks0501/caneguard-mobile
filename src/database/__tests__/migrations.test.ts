@@ -26,6 +26,7 @@ const migration17 = readMigration('0017_silky_rick_jones.sql');
 const migration18 = readMigration('0018_notification_advisory_content_cache.sql');
 const migration19 = readMigration('0019_add_field_surveys.sql');
 const migration20 = readMigration('0020_nasty_captain_midlands.sql');
+const migration25 = readMigration('0025_field_survey_author_role.sql');
 const migrationJournal = migrationBundle.journal;
 
 function readMigration(filename: string): string {
@@ -175,6 +176,48 @@ describe('CaneGuard database migrations', () => {
         status, created_at, updated_at
       ) VALUES ('survey-1', 'owner-1', 'D-01', '[]', 'now', 'unknown', 'now', 'now')
     `).run()).toThrow();
+    database.close();
+  });
+
+  it('records who authored a field survey so farmer work stays distinct from inspector work', () => {
+    const database = openDatabase();
+    applyLatest(database);
+    applyFieldSurveyMigrations(database);
+    database.exec(migration25);
+    const insertSurvey = database.prepare(`
+      INSERT INTO field_surveys (
+        client_uuid, owner_identity, district_code, waypoints_json, captured_at,
+        status, created_at, updated_at
+      ) VALUES (?, 'owner-1', 'D-01', '[]', 'now', 'pending', 'now', 'now')
+    `);
+
+    insertSurvey.run('legacy-survey');
+    expect(
+      database.prepare('SELECT author_role FROM field_surveys WHERE client_uuid = ?').get('legacy-survey'),
+    ).toEqual({ author_role: 'field_reporter' });
+
+    database
+      .prepare(`
+        INSERT INTO field_surveys (
+          client_uuid, owner_identity, district_code, waypoints_json, captured_at,
+          status, author_role, created_at, updated_at
+        ) VALUES ('farmer-survey', 'owner-2', 'D-01', '[]', 'now', 'pending', 'farmer', 'now', 'now')
+      `)
+      .run();
+    expect(
+      database.prepare('SELECT author_role FROM field_surveys WHERE client_uuid = ?').get('farmer-survey'),
+    ).toEqual({ author_role: 'farmer' });
+
+    expect(() =>
+      database
+        .prepare(`
+          INSERT INTO field_surveys (
+            client_uuid, owner_identity, district_code, waypoints_json, captured_at,
+            status, author_role, created_at, updated_at
+          ) VALUES ('unknown-role', 'owner-3', 'D-01', '[]', 'now', 'pending', 'admin', 'now', 'now')
+        `)
+        .run(),
+    ).toThrow();
     database.close();
   });
 
@@ -670,6 +713,7 @@ describe('CaneGuard database migrations', () => {
       '0022_peaceful_titania',
       '0023_affected_area_waypoints',
       '0024_active_affected_waypoints',
+      '0025_field_survey_author_role',
     ]);
     expect(Object.keys(migrationBundle.migrations)).toEqual([
       'm0000',
@@ -697,6 +741,7 @@ describe('CaneGuard database migrations', () => {
       'm0022',
       'm0023',
       'm0024',
+      'm0025',
     ]);
     expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
       migration0,
@@ -724,6 +769,7 @@ describe('CaneGuard database migrations', () => {
       readMigration('0022_peaceful_titania.sql'),
       readMigration('0023_affected_area_waypoints.sql'),
       readMigration('0024_active_affected_waypoints.sql'),
+      migration25,
     ]);
   });
 });

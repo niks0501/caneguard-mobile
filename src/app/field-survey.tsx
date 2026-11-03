@@ -162,6 +162,7 @@ export default function FieldSurveyScreen() {
     void saveFieldSurveyDraft(database, {
       clientUuid,
       ownerIdentity: session.user.uuid,
+      authorRole: session.user.role,
       districtCode: districtCode.trim() || 'UNSPECIFIED',
       waypoints,
       affectedAreaPolygons: affectedAreas,

@@ -11,6 +11,7 @@ import {
 } from 'drizzle-orm/sqlite-core';
 
 import { LEGACY_UNASSIGNED_OWNER_IDENTITY } from '@/database/ownerIdentity';
+import type { MobileUserRole } from '@/features/auth/types';
 import type { ChecklistConsistency } from '@/features/detection/checklist/checklistConsistency';
 import type { ReportedSeverity, ScanSourceType } from '@/features/detection/types';
 
@@ -606,6 +607,7 @@ export const fieldSurveys = sqliteTable(
     measurementProvenanceJson: text('measurement_provenance_json'),
     capturedAt: text('captured_at').notNull(),
     status: text('status').$type<FieldSurveyStatus>().notNull().default('draft'),
+    authorRole: text('author_role').$type<MobileUserRole>().notNull().default('field_reporter'),
     remoteId: text('remote_id'),
     fieldErrorsJson: text('field_errors_json'),
     syncAttemptCount: integer('sync_attempt_count').notNull().default(0),
@@ -625,6 +627,10 @@ export const fieldSurveys = sqliteTable(
     check(
       'field_surveys_status_check',
       sql`${table.status} in ('draft', 'pending', 'syncing', 'synced', 'failed')`,
+    ),
+    check(
+      'field_surveys_author_role_check',
+      sql`${table.authorRole} in ('field_reporter', 'farmer')`,
     ),
     check('field_surveys_area_check', sql`${table.areaSqm} is null or ${table.areaSqm} > 0`),
     check('field_surveys_affected_area_check', sql`${table.affectedAreaSqm} is null or ${table.affectedAreaSqm} >= 0`),

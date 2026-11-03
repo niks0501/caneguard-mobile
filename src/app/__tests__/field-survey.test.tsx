@@ -22,7 +22,7 @@ jest.mock('@/database/DatabaseProvider', () => {
   };
 });
 jest.mock('@/features/auth/hooks/useAuth', () => ({
-  useAuth: () => ({ session: { token: 'test-session-token', user: { uuid: 'owner-1' } } }),
+  useAuth: () => ({ session: { token: 'test-session-token', user: { role: 'field_reporter', uuid: 'owner-1' } } }),
 }));
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({ isOnline: true, syncNow: jest.fn(async () => ({ results: [] })) }),

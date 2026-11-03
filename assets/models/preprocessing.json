@@ -1,0 +1,33 @@
+{
+  "input_shape": [
+    1,
+    224,
+    224,
+    3
+  ],
+  "input_dtype": "float32",
+  "channel_order": "RGB",
+  "input_range": [
+    0,
+    255
+  ],
+  "external_normalization": false,
+  "internal_normalization": "pixel / 127.5 - 1",
+  "resize": "Apply EXIF orientation; convert RGB; preserve aspect ratio; bilinear resize; center on 224x224 black canvas. Match PIL ImageOps.pad.",
+  "output_shape": [
+    1,
+    5
+  ],
+  "output_dtype": "float32",
+  "output": "softmax class probabilities",
+  "classes": [
+    "Healthy",
+    "Mosaic",
+    "Rust",
+    "Smut",
+    "RSSI"
+  ],
+  "warning": "Do not divide input by 255 or apply MobileNet normalization again.",
+  "runtime": "Use a direct TensorFlow Lite/LiteRT Interpreter. Task Library metadata is not embedded.",
+  "tflite_sha256": "349fe1b903e1ab3bef7cb7ad5fa83c8375ac4d73bae0b8fa4e27e7c1ff57ad86"
+}

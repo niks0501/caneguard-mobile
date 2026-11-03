@@ -23,7 +23,10 @@ import {
   SyncContext,
   SyncProvider,
 } from '@/features/sync/providers/SyncProvider';
-import { syncPendingFieldReports } from '@/features/sync/services/syncPendingFieldReports';
+import {
+  syncPendingFieldReports,
+  type SyncBatchResult,
+} from '@/features/sync/services/syncPendingFieldReports';
 import { countUnsyncedFieldSurveys, findLastSuccessfulFieldSurveySyncAt, resetStaleSyncingFieldSurveys } from '@/features/surveys/data/fieldSurveySyncRepository';
 import { syncPendingFieldSurveys } from '@/features/surveys/services/syncPendingFieldSurveys';
 
@@ -303,6 +306,61 @@ describe('SyncProvider foreground triggers', () => {
         '0:0:0:0:none',
       ),
     );
+  });
+
+  it('stops later uploads when the session is demoted during a report sync', async () => {
+    let finishReport!: (result: SyncBatchResult) => void;
+    jest.mocked(syncPendingFieldReports).mockReturnValueOnce(
+      new Promise<SyncBatchResult>((resolve) => {
+        finishReport = resolve;
+      }),
+    );
+
+    const view = await render(
+      <SyncProvider>
+        <SyncReportsProbe />
+      </SyncProvider>,
+    );
+    await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+
+    await act(async () => {
+      networkListener(ONLINE);
+      await Promise.resolve();
+    });
+    await waitFor(() =>
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(1),
+    );
+
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: {
+        token: 'secure-token',
+        user: { uuid: SUBMITTER_ID, role: 'farmer' },
+      },
+      markSessionExpired: jest.fn(async () => undefined),
+    } as never);
+    await view.rerender(
+      <SyncProvider>
+        <SyncReportsProbe />
+      </SyncProvider>,
+    );
+
+    await act(async () => {
+      finishReport({
+        attempted: 1,
+        authRequired: false,
+        failed: 0,
+        haltReason: 'empty',
+        results: [],
+        source: 'startup',
+        synced: 1,
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(syncPendingFieldSurveys).not.toHaveBeenCalled();
+    expect(syncPendingFieldValidationCompletions).not.toHaveBeenCalled();
   });
 
   it('uploads when connectivity returns and when the app resumes', async () => {

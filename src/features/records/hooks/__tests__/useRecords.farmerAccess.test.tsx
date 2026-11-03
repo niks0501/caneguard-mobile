@@ -144,7 +144,7 @@ function insertFieldReport(native: DatabaseSync): void {
         id, scan_record_id, authoring_state, submitter_identity,
         barangay, sync_status, authority_status_raw, authority_updated_at,
         observed_at, created_at, updated_at
-      ) VALUES (?, ?, 'finalized', ?, ?, 'failed', 'verified', ?, ?, ?, ?)
+      ) VALUES (?, ?, 'finalized', ?, ?, 'failed', 'verified_by_staff', ?, ?, ?, ?)
     `)
     .run(
       REPORT_ID,
@@ -210,6 +210,35 @@ it('returns a scan-only summary for a farmer from the real repository', async ()
         syncStatus: 'local_only',
       }),
     ],
+  });
+  native.close();
+});
+
+it('returns inspector report projections from the real repository', async () => {
+  const { database, native } = openTestDatabase();
+  mockDatabase = database;
+  await insertScanRecord(database, validInput());
+  insertFieldReport(native);
+  jest.mocked(useAuth).mockReturnValue({
+    user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
+  } as never);
+
+  const { result } = await renderHook(() =>
+    usePaginatedScanRecords({}, 10),
+  );
+  await act(async () => {
+    mockFocusCallback?.();
+  });
+
+  await waitFor(() => expect(result.current.data).toHaveLength(1));
+  expect(result.current.data[0]).toMatchObject({
+    authorityReview: expect.objectContaining({
+      rawStatus: 'verified_by_staff',
+      statusLabel: 'Verified by staff',
+    }),
+    barangay: 'Lumbangan',
+    hasFieldReport: true,
+    syncStatus: 'failed',
   });
   native.close();
 });

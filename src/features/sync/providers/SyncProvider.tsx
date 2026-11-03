@@ -236,19 +236,34 @@ export function SyncProvider({ children }: PropsWithChildren) {
       const isInitiatingSessionCurrent = () =>
         sessionRef.current?.token === initiatingSession.token &&
         sessionRef.current?.user.uuid === initiatingSession.user.uuid;
+      const canContinueOfficialRecordSync = () =>
+        isInitiatingSessionCurrent() &&
+        sessionRef.current?.user.role === 'field_reporter';
       try {
+        if (!canContinueOfficialRecordSync()) {
+          await refreshPendingCount();
+          return null;
+        }
         const reportResult = await syncPendingFieldReports({
           database,
           source,
           submitterIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
+        if (!canContinueOfficialRecordSync()) {
+          await refreshPendingCount();
+          return null;
+        }
         const surveyResult = await syncPendingFieldSurveys({
           database,
           source,
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
+        if (!canContinueOfficialRecordSync()) {
+          await refreshPendingCount();
+          return null;
+        }
         const completionResult = await syncPendingFieldValidationCompletions({
           database,
           source,

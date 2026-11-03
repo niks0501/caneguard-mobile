@@ -14,7 +14,10 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 export type { FarmerLanguage };
 
 type LanguagePreferenceContextValue = {
-  /** Effective language: the saved choice, else Tagalog for farmers and English otherwise. */
+  /**
+   * Effective language: English for every non-farmer session; for farmers the saved
+   * choice, else Tagalog.
+   */
   language: FarmerLanguage;
   isHydrated: boolean;
   setLanguage: (language: FarmerLanguage) => void;
@@ -33,7 +36,9 @@ export function LanguagePreferenceProvider({ children }: PropsWithChildren) {
   const [preferredLanguage, setPreferredLanguage] = useState<FarmerLanguage | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const persistenceQueue = useRef<Promise<void>>(Promise.resolve());
-  const language = preferredLanguage ?? (user?.role === 'farmer' ? 'tl' : 'en');
+  const hasSelectedLanguage = useRef(false);
+  const language: FarmerLanguage =
+    user?.role === 'farmer' ? preferredLanguage ?? 'tl' : 'en';
 
   useEffect(() => {
     let isMounted = true;
@@ -42,7 +47,7 @@ export function LanguagePreferenceProvider({ children }: PropsWithChildren) {
       try {
         const storedLanguage = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
 
-        if (isMounted && isFarmerLanguage(storedLanguage)) {
+        if (isMounted && !hasSelectedLanguage.current && isFarmerLanguage(storedLanguage)) {
           setPreferredLanguage(storedLanguage);
         }
       } catch (error: unknown) {
@@ -62,6 +67,7 @@ export function LanguagePreferenceProvider({ children }: PropsWithChildren) {
   }, []);
 
   function setLanguage(nextLanguage: FarmerLanguage) {
+    hasSelectedLanguage.current = true;
     setPreferredLanguage(nextLanguage);
 
     persistenceQueue.current = persistenceQueue.current

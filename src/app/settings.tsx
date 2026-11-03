@@ -115,6 +115,7 @@ export default function SettingsScreen() {
   const { isDarkMode, setDarkMode } = useThemePreference();
   const database = useCaneGuardDatabase();
   const { logout, user } = useAuth();
+  const isFarmer = user?.role === 'farmer';
   const [clearingLocalData, setClearingLocalData] = useState(false);
   const [clearingCachedData, setClearingCachedData] = useState(false);
 
@@ -264,7 +265,7 @@ export default function SettingsScreen() {
                 value={isDarkMode}
                 onToggle={setDarkMode}
               />
-              <LanguageRow />
+              {isFarmer ? <LanguageRow /> : null}
             </View>
 
             <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>FIELD READINESS</Text>

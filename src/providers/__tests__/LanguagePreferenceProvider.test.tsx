@@ -59,4 +59,37 @@ describe('LanguagePreferenceProvider', () => {
     await waitFor(() => expect(api.isHydrated).toBe(true));
     expect(api.language).toBe('en');
   });
+
+  it('keeps an inspector on English even when Tagalog was saved', async () => {
+    await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, 'tl');
+    mockRole = 'field_reporter';
+
+    const view = await mount();
+    await waitFor(() => expect(api.isHydrated).toBe(true));
+
+    expect(api.language).toBe('en');
+    expect(screen.getByTestId('greeting').props.children).toBe(FARMER_COPY.en.greeting.morning);
+    await view.unmount();
+  });
+
+  it('keeps a choice made while the saved preference is still loading', async () => {
+    let resolveStoredLanguage: (value: string | null) => void = () => undefined;
+    const getItemSpy = jest.spyOn(AsyncStorage, 'getItem').mockReturnValueOnce(
+      new Promise<string | null>((resolve) => {
+        resolveStoredLanguage = resolve;
+      }),
+    );
+
+    const view = await mount();
+    await act(async () => api.setLanguage('en'));
+    await act(async () => {
+      resolveStoredLanguage('tl');
+    });
+    await waitFor(() => expect(api.isHydrated).toBe(true));
+
+    expect(api.language).toBe('en');
+    await waitFor(async () => expect(await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('en'));
+    await view.unmount();
+    getItemSpy.mockRestore();
+  });
 });

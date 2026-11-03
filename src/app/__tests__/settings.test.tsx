@@ -53,6 +53,7 @@ const mockReadinessSession = {
   token: 'token-1',
   user: { uuid: 'user-uuid-1' },
 };
+let mockRole: 'farmer' | 'field_reporter' = 'field_reporter';
 jest.mock('@/features/auth/hooks/useAuth', () => ({
   useAuth: () => ({
     biometricEnabled: true,
@@ -62,6 +63,7 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
       uuid: 'user-uuid-1',
       name: 'Ana Reyes',
       email: 'ana.example.test',
+      role: mockRole,
     },
   }),
 }));
@@ -75,6 +77,10 @@ function SettingsScreen() {
 }
 
 describe('SettingsScreen', () => {
+  beforeEach(() => {
+    mockRole = 'field_reporter';
+  });
+
   it('presents honest active settings without dead Coming later rows', async () => {
     await render(<SettingsScreen />);
 
@@ -83,11 +89,33 @@ describe('SettingsScreen', () => {
     expect(screen.queryByText('Sync Alerts')).not.toBeOnTheScreen();
     expect(screen.queryByText('Office Advisories')).not.toBeOnTheScreen();
 
-    expect(screen.getByText('Language / Wika')).toBeOnTheScreen();
+    expect(screen.queryByText('Language / Wika')).not.toBeOnTheScreen();
     const darkMode = screen.getByLabelText('Dark Mode');
     expect(darkMode).toBeEnabled();
     expect(screen.getByTestId('settings.disease-reference')).toBeOnTheScreen();
     expect(screen.getByText('Account security')).toBeOnTheScreen();
+  });
+
+  it('offers the language switch to farmers and switches the copy', async () => {
+    mockRole = 'farmer';
+    await render(<SettingsScreen />);
+
+    expect(screen.getByText('Language / Wika')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Piliin ang wika para sa mga screen ng magsasaka'),
+    ).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('settings.language.en'));
+
+    expect(
+      screen.getByText('Choose the language for farmer screens'),
+    ).toBeOnTheScreen();
+    expect(screen.getByTestId('settings.language.en').props.accessibilityState).toEqual({
+      selected: true,
+    });
+    expect(screen.getByTestId('settings.language.tl').props.accessibilityState).toEqual({
+      selected: false,
+    });
   });
 
   it('links to the field guide', async () => {

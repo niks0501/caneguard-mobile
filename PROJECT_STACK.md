@@ -85,14 +85,7 @@ Source of truth:
 
 `src/features/detection/constants/modelContract.ts`
 
-Current active contract:
-
-- model version: `v1.0-mobilenetv2`;
-- input: float32 `[1, 224, 224, 3]`;
-- RGB / NHWC with aspect-ratio-preserving bilinear letterbox and `127.5` padding;
-- labels, in fixed output order: `healthy`, `mosaic`, `rust`, `smut`;
-- raw mobile input values `0..255` (the model internally rescales);
-- output: float32 `[1, 4]` softmax probability vector.
+The active contract's field values and the bundled-but-inactive Model V2 identity are owned by [`PROJECT_CONTEXT.md` — Model contract](PROJECT_CONTEXT.md#model-contract); read them there instead of restating them.
 
 When changing the model artifact, preprocessing, tensor interpretation, labels, or postprocessing:
 

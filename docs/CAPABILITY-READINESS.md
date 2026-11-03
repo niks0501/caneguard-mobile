@@ -21,10 +21,14 @@ Source of truth: `MODEL_LABELS` in
 `src/features/detection/constants/modelContract.ts`.
 
 The scan output is labelled **Possible Condition** and is decision support, not
-a diagnosis. Low-confidence results and photo-quality or checklist cautions are
-shown to every signed-in account; none of them alter the model scores. Fixed QA
-fixtures are deterministic oracles, not evidence of field accuracy, and a browser
-or mocked test is never native inference proof.
+a diagnosis. Below the frozen V1 confidence caution cutoff, a `farmer` session
+sees **Result uncertain** as the result title, with guided retake steps,
+**Retake Photo**, **Review Signs**, and the closest match as a smaller line;
+saving stays available and the model scores are unchanged. The low-confidence,
+photo-quality, and checklist cautions stay visible to every signed-in account
+and never alter the model scores. Fixed QA fixtures are deterministic oracles,
+not evidence of field accuracy, and a browser or mocked test is never native
+inference proof.
 
 ## Implemented mobile screens
 
@@ -35,7 +39,8 @@ tests. "Implemented" does not mean "verified on a device":
 - Biometric unlock, device enrollment, and password/email change (Account
   security).
 - Scan capture from camera or gallery, image preview, on-device analysis,
-  guided symptom checklist, and the Possible Condition result.
+  guided symptom checklist, and the result card (Possible Condition, or Result
+  uncertain for a farmer below the cutoff).
 - Saved scan records and record details.
 - Field Report Draft (Field Inspector accounts only): five-step form, local
   autosave checkpoints, readiness checklist, finalization, foreground sync and

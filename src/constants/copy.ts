@@ -269,6 +269,17 @@ export type FarmerCopyBlock = {
     openSettings: string;
   };
   settings: { languageLabel: string; languageDescription: string; english: string; tagalog: string };
+  resultUncertain: {
+    title: string;
+    intro: string;
+    stepCloser: string;
+    stepLight: string;
+    stepLeafInView: string;
+    stepCompare: string;
+    retakePhoto: string;
+    reviewSigns: string;
+    closestMatchLabel: string;
+  };
 };
 
 export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
@@ -290,6 +301,17 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       english: 'English',
       tagalog: 'Tagalog',
     },
+    resultUncertain: {
+      title: 'Result uncertain',
+      intro: 'Try these steps for a clearer photo. You can still save this scan.',
+      stepCloser: 'Take a closer photo',
+      stepLight: 'Use better light',
+      stepLeafInView: 'Keep the leaf in view',
+      stepCompare: 'Compare with the Field Guide',
+      retakePhoto: 'Retake Photo',
+      reviewSigns: 'Review Signs',
+      closestMatchLabel: 'Closest match:',
+    },
   },
   tl: {
     greeting: {
@@ -308,6 +330,17 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       languageDescription: 'Piliin ang wika para sa mga screen ng magsasaka',
       english: 'Ingles',
       tagalog: 'Tagalog',
+    },
+    resultUncertain: {
+      title: 'Hindi tiyak ang resulta',
+      intro: 'Subukan ang mga hakbang na ito para sa mas malinaw na litrato. Puwede mo pa ring i-save ang scan na ito.',
+      stepCloser: 'Kumuha ng mas malapit na litrato',
+      stepLight: 'Gumamit ng mas maliwanag na ilaw',
+      stepLeafInView: 'Panatilihing kita ang dahon',
+      stepCompare: 'Ihambing sa Gabay sa bukid',
+      retakePhoto: 'Kunin Muli ang Litrato',
+      reviewSigns: 'Suriin ang mga Palatandaan',
+      closestMatchLabel: 'Pinakamalapit na tugma:',
     },
   },
 };

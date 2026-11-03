@@ -319,6 +319,28 @@ export type FarmerCopyBlock = {
     loadError: string;
     retryLoad: string;
   };
+  myScans: {
+    title: string;
+    subtitle: string;
+    searchLabel: string;
+    searchPlaceholder: string;
+    filterAll: string;
+    stateNeedsChecking: string;
+    stateFollowedUp: string;
+    stateSaved: string;
+    countOne: string;
+    countMany: string;
+    emptyTitle: string;
+    emptyMessage: string;
+    noMatchTitle: string;
+    noMatchMessage: string;
+    clearFilters: string;
+    loading: string;
+    loadError: string;
+    retryLoad: string;
+    loadMore: string;
+    startScan: string;
+  };
 };
 
 export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
@@ -391,6 +413,28 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       loadError: 'We could not load your Scan Card from this device.',
       retryLoad: 'Try again',
     },
+    myScans: {
+      title: 'My Scans',
+      subtitle: 'Your saved scans on this phone.',
+      searchLabel: 'Search my scans',
+      searchPlaceholder: 'Search result or barangay',
+      filterAll: 'All',
+      stateNeedsChecking: 'Needs checking',
+      stateFollowedUp: 'Followed up',
+      stateSaved: 'Saved',
+      countOne: '1 scan',
+      countMany: '{count} scans',
+      emptyTitle: 'No scans yet',
+      emptyMessage: 'Scan a leaf and it will be saved here.',
+      noMatchTitle: 'No matching scans',
+      noMatchMessage: 'Try a different search or show all scans.',
+      clearFilters: 'Show all scans',
+      loading: 'Getting your scans…',
+      loadError: 'We could not read your scans on this phone.',
+      retryLoad: 'Try again',
+      loadMore: 'Show more',
+      startScan: 'Start a scan',
+    },
   },
   tl: {
     greeting: {
@@ -460,6 +504,28 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       loading: 'Kinukuha ang iyong Scan Card…',
       loadError: 'Hindi namin makuha ang iyong Scan Card sa device na ito.',
       retryLoad: 'Subukan muli',
+    },
+    myScans: {
+      title: 'Aking mga Scan',
+      subtitle: 'Ang mga na-save mong scan sa teleponong ito.',
+      searchLabel: 'Hanapin ang aking mga scan',
+      searchPlaceholder: 'Hanapin ang resulta o barangay',
+      filterAll: 'Lahat',
+      stateNeedsChecking: 'Kailangang suriin',
+      stateFollowedUp: 'Nasundan na',
+      stateSaved: 'Na-save',
+      countOne: '1 scan',
+      countMany: '{count} scan',
+      emptyTitle: 'Wala pang scan',
+      emptyMessage: 'Mag-scan ng dahon at mase-save ito dito.',
+      noMatchTitle: 'Walang tugmang scan',
+      noMatchMessage: 'Subukan ang ibang hanap o ipakita ang lahat ng scan.',
+      clearFilters: 'Ipakita ang lahat ng scan',
+      loading: 'Kinukuha ang iyong mga scan…',
+      loadError: 'Hindi namin mabasa ang iyong mga scan sa teleponong ito.',
+      retryLoad: 'Subukan muli',
+      loadMore: 'Magpakita pa',
+      startScan: 'Mag-scan',
     },
   },
 };

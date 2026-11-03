@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { router, type Href } from 'expo-router';
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -49,6 +49,8 @@ import { useMobileNotifications } from '@/features/notifications/hooks/useMobile
 import { useOfficeUpdates } from '@/features/notifications/providers/OfficeUpdatesProvider';
 import { useSync } from '@/features/sync/hooks/useSync';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
+import { AuthContext } from '@/features/auth/providers/AuthProvider';
+import MyScansScreen from '@/features/activity/components/MyScansScreen';
 import { useTheme } from '@/hooks/use-theme';
 
 type TimelineItem =
@@ -76,7 +78,13 @@ function TimelineSeparator() {
   return <View style={styles.timelineSeparator} />;
 }
 
+/** Farmers see My Scans; every other role keeps the inspector Activity screen. */
 export default function ActivityScreen() {
+  const role = useContext(AuthContext)?.user?.role;
+  return role === 'farmer' ? <MyScansScreen /> : <InspectorActivityScreen />;
+}
+
+function InspectorActivityScreen() {
   const theme = useTheme();
   const [activeFilter, setActiveFilter] = useState<CurrentActivityFilter>('all');
   const [searchInput, setSearchInput] = useState('');

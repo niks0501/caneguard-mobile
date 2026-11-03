@@ -27,6 +27,7 @@ interface FixtureModule {
 
 // The stub fixtures are plain CommonJS so the same data serves the Node stub
 // and the validation-only browser seeder.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const fixtures = require('../stub-api/fixtures') as FixtureModule;
 
 function buildInput(

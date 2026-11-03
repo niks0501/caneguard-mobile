@@ -53,7 +53,8 @@ async function publishToStub(
   const publishUrl = new URL('/__validation__/files', API_BASE_URL);
   publishUrl.searchParams.set('path', pathname);
   const response = await fetch(publishUrl.toString(), {
-    body: bytes,
+    // A fresh view keeps the request body as an `ArrayBuffer` for `fetch`.
+    body: new Uint8Array(bytes).buffer,
     headers: {
       'Content-Type': mimeType ?? 'application/octet-stream',
     },

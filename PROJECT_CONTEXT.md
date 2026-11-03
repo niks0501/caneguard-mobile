@@ -18,7 +18,9 @@ The app accepts two account roles. A `field_reporter` (Field Inspector) can:
 
 A `farmer` can sign in and run the same personal scanning path, keeping
 completed scans on the device, but official Field Reports stay inspector-only: a
-farmer session cannot open, author, or synchronize one.
+farmer session cannot open, author, or synchronize one. From a saved personal
+scan a farmer can also start a Check Again and save the new check as a follow-up
+of the first check; the record screen then lists the plant's checks.
 
 AI results are decision-support outputs only. User-facing copy must not present them as confirmed diagnoses or expert validation.
 
@@ -91,7 +93,11 @@ completed scan
 
 Database code lives under `src/database/`. Record persistence and querying live under `src/features/records/`.
 
-Persistent records include prediction data, class scores, symptoms, quality warnings, severity, barangay, model metadata, timings, managed-image metadata, and synchronization state.
+Persistent records include prediction data, class scores, symptoms, quality warnings, severity, barangay, model metadata, timings, managed-image metadata, and synchronization state. A Check Again follow-up also stores `follows_up_scan_id`, the first check it follows, and the farmer's `personal_note`.
+
+A follow-up may link only to the first check of the same owner, never to another
+follow-up. Deleting the first check clears the link (`ON DELETE SET NULL`) and
+keeps the surviving follow-up and its note.
 
 In-progress Scan, Field Report, and Field validation form values are checkpointed in the owner-scoped `local_drafts` table, keyed by owner, draft kind, and draft key. A checkpoint is local draft state, never an upload-queue entry or a submission.
 

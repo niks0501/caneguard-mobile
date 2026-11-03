@@ -43,14 +43,15 @@ Then:
    A password sign-in keeps its session in memory only, so a page reload returns
    to `/login`; navigate inside the app instead of reloading.
 
-The stub seeds two active visits: `CG-LAB-0001` (Balayan, due today) and
-`CG-LAB-0002` (Mabini, due two days ago). Home should lead with "One visit
-today. One is overdue." and "Open next visit". The farmer account also gets one
-seeded plant checked three times (a first check plus two follow-ups, each with
-its own image and date; the follow-ups carry notes) so the first-check history
-and the retained-note case are visible immediately. Seeding is recorded in this browser profile, so a check
-the validator deletes stays deleted; use a fresh profile or clear site data for a
-fresh seed. The notification feed is empty, and any other `GET` answers a
+The stub gives the inspector two active visits: `CG-LAB-0001` (Balayan, due
+today) and `CG-LAB-0002` (Mabini, due two days ago). Inspector Home should lead
+with "One visit today. One is overdue." and "Open next visit". The farmer
+account gets no visits; instead it gets one seeded plant checked three times (a
+first check plus two follow-ups, each with its own image and date; the
+follow-ups carry notes) so the first-check history and the retained-note case
+are visible immediately. Seeding is recorded in this browser profile, so a check
+the validator deletes stays deleted; use a fresh profile or clear site data for
+a fresh seed. The notification feed is empty, and any other `GET` answers a
 well-formed empty page.
 
 ## Why the flags exist
@@ -66,12 +67,12 @@ well-formed empty page.
 | Web model stub | `src/features/detection/model/useCaneGuardModel.web.tsx` | Without a native TFLite runtime the web bundle fails closed. On the validation route only (`__DEV__`, flag and fixed stub origin) a fixed deterministic output lets a captured photo reach the result screen. Native inference is untouched. |
 | File-system stand-in | `validation/expo-file-system/ExpoFileSystem.web.ts` | Keeps validation scan images in memory, mirrors new captures to the stub, and restores their metadata after a reload so a saved draft checkpoint can be recovered. Same flag, stub-only and release-build gates as the secure-store stand-in. |
 
-The stand-in is deliberately narrow: web platform only, requires
+The stand-ins are deliberately narrow: web platform only, each requires
 `EXPO_PUBLIC_WEB_VALIDATION=1` and `EXPO_PUBLIC_API_BASE_URL` set to the stub base
-URL (`http://127.0.0.1:8210`), and is refused for `preview`, `qa` and
+URL (`http://127.0.0.1:8210`), and each is refused for `preview`, `qa` and
 `production` builds (`EAS_BUILD_PROFILE`), for `NODE_ENV=production`, and for
 any other API, including another loopback host or port. Never sign in to a real
-server with it. The gate is pinned by
+server with them. The gate is pinned by
 `scripts/__tests__/web-validation-config.test.js`.
 
 ## What this route proves

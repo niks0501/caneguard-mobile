@@ -1,9 +1,9 @@
 import { PreprocessingError } from '@/features/detection/preprocessing/preprocessingErrors';
 
 /**
- * Minimal dependency-free PNG decoder for the V2 parity fixtures: 8-bit RGB or
- * RGBA, non-interlaced. It returns the exact stored pixels (no resize, no
- * re-encode, no color management) as interleaved RGB.
+ * Minimal dependency-free PNG decoder for the V2 parity fixtures: 8-bit RGB,
+ * non-interlaced. It returns the exact stored pixels (no resize, no re-encode,
+ * no color management) as interleaved RGB.
  */
 export interface DecodedPng {
   width: number;
@@ -215,7 +215,6 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let width = 0;
   let height = 0;
-  let channels = 0;
   const idat: Uint8Array[] = [];
   let offset = 8;
 
@@ -229,10 +228,9 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
       width = view.getUint32(offset - 12 - length + 8);
       height = view.getUint32(offset - 12 - length + 12);
       const [bitDepth, colorType, , , interlace] = data.subarray(8, 13);
-      if (bitDepth !== 8 || (colorType !== 2 && colorType !== 6) || interlace !== 0) {
-        fail('Only 8-bit non-interlaced RGB/RGBA PNGs are supported.');
+      if (bitDepth !== 8 || colorType !== 2 || interlace !== 0) {
+        fail('Only 8-bit non-interlaced RGB PNGs are supported.');
       }
-      channels = colorType === 2 ? 3 : 4;
     } else if (type === 'IDAT') {
       idat.push(data);
     } else if (type === 'IEND') {
@@ -250,7 +248,7 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
   }
 
   const raw = inflateZlib(compressed);
-  const stride = width * channels;
+  const stride = width * 3;
   if (raw.length < (stride + 1) * height) fail('PNG pixel data is truncated.');
 
   const pixels = new Uint8Array(stride * height);
@@ -259,9 +257,9 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
     const source = row * (stride + 1) + 1;
     const target = row * stride;
     for (let i = 0; i < stride; i += 1) {
-      const left = i >= channels ? pixels[target + i - channels] : 0;
+      const left = i >= 3 ? pixels[target + i - 3] : 0;
       const up = row > 0 ? pixels[target - stride + i] : 0;
-      const upLeft = row > 0 && i >= channels ? pixels[target - stride + i - channels] : 0;
+      const upLeft = row > 0 && i >= 3 ? pixels[target - stride + i - 3] : 0;
       let predictor: number;
       switch (filter) {
         case 0: predictor = 0; break;
@@ -275,13 +273,5 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
     }
   }
 
-  if (channels === 3) return { width, height, rgb: pixels };
-
-  const rgb = new Uint8Array(width * height * 3);
-  for (let i = 0, j = 0; i < pixels.length; i += 4, j += 3) {
-    rgb[j] = pixels[i];
-    rgb[j + 1] = pixels[i + 1];
-    rgb[j + 2] = pixels[i + 2];
-  }
-  return { width, height, rgb };
+  return { width, height, rgb: pixels };
 }

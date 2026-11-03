@@ -6,6 +6,7 @@ import { deflateSync } from 'node:zlib';
 import { decodePng, inflateZlib } from '@/features/detection/preprocessing/decodePng';
 
 const FIXTURES = join(__dirname, '../../../../../dev-assets/model-fixtures/v2-parity');
+const IHDR_COLOR_TYPE_INDEX = 8 + 4 + 4 + 9;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { PNG } = require('pngjs') as { PNG: { sync: { read(b: Buffer): { width: number; height: number; data: Buffer } } } };
 
@@ -34,5 +35,12 @@ describe('decodePng', () => {
     const payload = Buffer.from('caneguard '.repeat(500));
     expect(Buffer.from(inflateZlib(new Uint8Array(deflateSync(payload))))).toEqual(payload);
     expect(() => decodePng(new Uint8Array(40))).toThrow(/Not a PNG/);
+  });
+
+  it('rejects PNGs whose IHDR colour type is not RGB', () => {
+    const bytes = Buffer.from(readFileSync(join(FIXTURES, files[0])));
+    expect(bytes[IHDR_COLOR_TYPE_INDEX]).toBe(2);
+    bytes[IHDR_COLOR_TYPE_INDEX] = 6;
+    expect(() => decodePng(new Uint8Array(bytes))).toThrow(/RGB PNGs/);
   });
 });

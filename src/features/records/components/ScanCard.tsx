@@ -1,6 +1,7 @@
 import { Image as ExpoImage } from 'expo-image';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { AppButton } from '@/components/ui/AppButton';
 import { ClampedText } from '@/components/ui/ClampedText';
 import { ComponentTokens, Radius, Spacing, Typography } from '@/constants/theme';
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
@@ -15,6 +16,7 @@ export interface ScanCardRecord {
   createdAt: string;
   id: string;
   managedImageUri: string;
+  /** The record's saved personal note (Check Again lane); rendered only when present. */
   personalNote?: string | null;
   predictedLabel: string;
 }
@@ -62,15 +64,29 @@ export function ScanCard({ record }: { record: ScanCardRecord }) {
 export function SavedScanCard({ recordId }: { recordId: string }) {
   const copy = useFarmerCopy().scanCard;
   const theme = useTheme();
-  const { data } = useScanRecordDetails(recordId);
-  if (!data) {
+  const { data, loading, refresh } = useScanRecordDetails(recordId);
+  if (data) {
+    return <ScanCard record={data} />;
+  }
+  if (loading) {
     return (
       <Text testID="scan.card.loading" style={{ color: theme.textSecondary }}>
         {copy.loading}
       </Text>
     );
   }
-  return <ScanCard record={data} />;
+  return (
+    <View testID="scan.card.error" style={styles.loadFailure}>
+      <Text testID="scan.card.error-message" style={{ color: theme.danger }}>{copy.loadError}</Text>
+      <AppButton
+        testID="scan.card.retry"
+        variant="secondary"
+        leadingIcon="refresh-cw"
+        onPress={() => void refresh()}>
+        {copy.retryLoad}
+      </AppButton>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -83,6 +99,7 @@ const styles = StyleSheet.create({
   title: { ...Typography.subheading },
   image: { width: '100%', aspectRatio: 4 / 3, borderRadius: Radius.lg, borderWidth: 1 },
   line: { ...Typography.body },
+  loadFailure: { gap: Spacing.sm },
   note: { gap: Spacing.xs },
   noteLabel: { ...Typography.bodySmall },
   id: { ...Typography.body, fontWeight: '600' },

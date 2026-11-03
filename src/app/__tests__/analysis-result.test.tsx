@@ -53,12 +53,12 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
   useAuth: () => ({ user: { role: mockUserRole, uuid: 'user-1' } }),
 }));
 
+// Default saved scan carries no personal note, so the card's note slot stays empty.
 const mockScanCardRecord = {
   createdAt: '2026-11-03T08:00:00.000Z',
   id: '3f2b8c1e-aaaa-4bbb-8ccc-123456789abc',
   managedImageUri: 'file:///managed/scan.jpg',
   predictedLabel: 'rust',
-  personalNote: 'Lower leaves near the canal',
 };
 jest.mock('@/features/records/hooks/useRecords', () => ({
   useScanRecordDetails: () => ({ data: mockScanCardRecord, loading: false, errorMessage: null }),
@@ -377,7 +377,7 @@ describe('AnalysisResultScreen', () => {
       mockSaveRecordState = { ...mockSaveRecordState, status: 'saved', recordId: mockScanCardRecord.id };
     };
 
-    // Proves: after a farmer's scan saves, the card renders from the local record (photo, date, condition, note, CG-P- ID).
+    // Proves: after a farmer's scan saves, the card renders from the local record (photo, date, condition, CG-P- ID).
     it('shows the Scan Card for a farmer once the scan is saved', async () => {
       mockUserRole = 'farmer';
       savedState();
@@ -386,7 +386,7 @@ describe('AnalysisResultScreen', () => {
       expect(screen.getByTestId('scan.card')).toBeOnTheScreen();
       expect(screen.getByTestId('scan.card.photo')).toBeOnTheScreen();
       expect(screen.getByTestId('scan.card.condition')).toHaveTextContent('Possible Condition: Rust');
-      expect(screen.getByTestId('scan.card.note')).toHaveTextContent('Lower leaves near the canal');
+      expect(screen.queryByTestId('scan.card.note')).not.toBeOnTheScreen();
       expect(screen.getByTestId('scan.card.id')).toHaveTextContent(/Scan ID: CG-P-\d{6}$/);
     });
 

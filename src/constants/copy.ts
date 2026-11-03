@@ -307,6 +307,8 @@ export type FarmerCopyBlock = {
     noteLabel: string;
     scanIdLabel: string;
     loading: string;
+    loadError: string;
+    retryLoad: string;
   };
 };
 
@@ -368,6 +370,8 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       noteLabel: 'Your note',
       scanIdLabel: 'Scan ID',
       loading: 'Loading your Scan Card…',
+      loadError: 'We could not load your Scan Card from this device.',
+      retryLoad: 'Try again',
     },
   },
   tl: {
@@ -427,6 +431,8 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       noteLabel: 'Iyong tala',
       scanIdLabel: 'Scan ID',
       loading: 'Kinukuha ang iyong Scan Card…',
+      loadError: 'Hindi namin makuha ang iyong Scan Card sa device na ito.',
+      retryLoad: 'Subukan muli',
     },
   },
 };

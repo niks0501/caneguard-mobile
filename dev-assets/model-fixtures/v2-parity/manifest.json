@@ -1,0 +1,310 @@
+{
+  "keras_sha256": "f8947274ceba06a9b49dfa7bf1d601b17f4e7b3b130ba5d321ce8a54e5111b3a",
+  "tflite_sha256": "349fe1b903e1ab3bef7cb7ad5fa83c8375ac4d73bae0b8fa4e27e7c1ff57ad86",
+  "weights_unchanged": true,
+  "weight_tensor_digest": "e48bc65a8b40f8c657d9a7ae678ca61597bd5ed7328fe634f46254daef059cf4",
+  "feature_layer": "out_relu",
+  "tensorflow": "2.21.0",
+  "keras": "3.13.2",
+  "examples": [
+    {
+      "image_id": "CG-HLT-FLD-S007-P001-I001",
+      "class_name": "Healthy",
+      "predicted_class": "Healthy",
+      "kind": "correct",
+      "source_file_id": "1FtH9GHTWpYuippX5PqhbS8RjKpwP2G59",
+      "sha256": "510c34fbcc930e0a231a0f0c2cff223763b190180db0ee8e71121af8c989a8c3",
+      "keras_confidence": 0.936187744140625,
+      "keras_probabilities": [
+        0.936187744140625,
+        0.0026233606040477753,
+        0.0005747491959482431,
+        0.006585345137864351,
+        0.05402877554297447
+      ],
+      "tflite_probabilities": [
+        0.9361873865127563,
+        0.0026233920361846685,
+        0.0005747430259361863,
+        0.006585282739251852,
+        0.054029181599617004
+      ],
+      "keras_tflite_max_absolute_difference": 4.0605664253234863e-07,
+      "stored_prediction_max_absolute_difference": 4.0445702553099094e-07,
+      "target": "predicted-class pre-softmax logit",
+      "feature_shape": [
+        1,
+        7,
+        7,
+        1280
+      ],
+      "model_input_sha256": "3ec914ebe18e8d31a8a613a32f9c96b72bb9ce592f8f3af9054e03d6e3c7bddb"
+    },
+    {
+      "image_id": "CG-HLT-FLD-S007-P005-I001",
+      "class_name": "Healthy",
+      "predicted_class": "Smut",
+      "kind": "incorrect",
+      "source_file_id": "1uqs2d5lP3-qJT7GfAUtNYOIkYjgXbDky",
+      "sha256": "9b7db332b9b4d61bd10e8a9a8f0ed8d2673ab893f2c6ea0dceda8e0d78cdf399",
+      "keras_confidence": 0.8685678243637085,
+      "keras_probabilities": [
+        0.11138948798179626,
+        0.00022899254690855742,
+        4.6038261643843725e-05,
+        0.8685678243637085,
+        0.01976766809821129
+      ],
+      "tflite_probabilities": [
+        0.11138927936553955,
+        0.0002289981784997508,
+        4.6039000153541565e-05,
+        0.868567705154419,
+        0.019767925143241882
+      ],
+      "keras_tflite_max_absolute_difference": 2.5704503059387207e-07,
+      "stored_prediction_max_absolute_difference": 2.5690178871023983e-07,
+      "target": "predicted-class pre-softmax logit",
+      "feature_shape": [
+        1,
+        7,
+        7,
+        1280
+      ],
+      "model_input_sha256": "c22d0bed4f3b618bca5d39fe8395116d25fc057a6e6a635c606c9cbc4a855685"
+    },
+    {
+      "image_id": "CG-MOS-FLD-S007-P006-I001",
+      "class_name": "Mosaic",
+      "predicted_class": "Mosaic",
+      "kind": "correct",
+      "source_file_id": "1KZMuqzCdQK2fIx3PM8ZvUSa-JlTKqZCv",
+      "sha256": "cf2a212af0bdf7468e00db02e5afba48f6d49b3b8c9e793b00f3e1749855cba0",
+      "keras_confidence": 0.8269383907318115,
+      "keras_probabilities": [
+        0.038875777274370193,
+        0.8269383907318115,
+        0.012015747837722301,
+        0.0022787556517869234,
+        0.11989126354455948
+      ],
+      "tflite_probabilities": [
+        0.03887524828314781,
+        0.8269392251968384,
+        0.012015501968562603,
+        0.00227871211245656,
+        0.11989124864339828
+      ],
+      "keras_tflite_max_absolute_difference": 8.344650268554688e-07,
+      "stored_prediction_max_absolute_difference": 8.092681884619424e-07,
+      "target": "predicted-class pre-softmax logit",
+      "feature_shape": [
+        1,
+        7,
+        7,
+        1280
+      ],
+      "model_input_sha256": "10ea54ac06e57271f7a60fe3951ed1aba873567d41be178ddcd9c5de94d18e12"
+    },
+    {
+      "image_id": "CG-MOS-FLD-S007-P001-I001",
+      "class_name": "Mosaic",
+      "predicted_class": "Healthy",
+      "kind": "incorrect",
+      "source_file_id": "1A5yzRIc-F8pfUBVhZdbtVbB081s3pFdX",
+      "sha256": "950ffe0ef969db5c28af39562a0fef4899d2de83fc7e8aa2161f171c27399dad",
+      "keras_confidence": 0.7322842478752136,
+      "keras_probabilities": [
+        0.7322842478752136,
+        0.027687998488545418,
+        0.0005025205318816006,
+        0.023731427267193794,
+        0.21579377353191376
+      ],
+      "tflite_probabilities": [
+        0.7322874069213867,
+        0.027688508853316307,
+        0.0005025104619562626,
+        0.023730924353003502,
+        0.21579064428806305
+      ],
+      "keras_tflite_max_absolute_difference": 3.159046173095703e-06,
+      "stored_prediction_max_absolute_difference": 3.1521247864096935e-06,
+      "target": "predicted-class pre-softmax logit",
+      "feature_shape": [
+        1,
+        7,
+        7,
+        1280
+      ],
+      "model_input_sha256": "1f9bff3e21c5214d7a0db81819aeca3153607a9f2b45065d815de592855dc8a2"
+    },
+    {
+      "image_id": "CG-RST-ONL-S001-P180-I001",
+      "class_name": "Rust",
+      "predicted_class": "Rust",
+      "kind": "correct",
+      "source_file_id": "1p2RDQq0V2dJstDKSkZNfGUYWszTuuB6S",
+      "sha256": "ccf6eca4458630c3800deb426accf6a1944864ea9ed3c4679f88875717ed9240",
+      "keras_confidence": 0.7199862003326416,
+      "keras_probabilities": [
+        0.0025933494325727224,
+        0.00040454496047459543,
+        0.7199862003326416,
+        0.0007184140849858522,
+        0.2762974798679352
+      ],
+      "tflite_probabilities": [
+        0.0025933284778147936,
+        0.0004045420791953802,
+        0.7199838161468506,
+        0.0007184189162217081,
+        0.2762998640537262
+      ],
+      "keras_tflite_max_absolute_difference": 2.384185791015625e-06,
+      "stored_prediction_max_absolute_difference": 2.4003326416499604e-06,
+      "target": "predicted-class pre-softmax logit",
+      "feature_shape": [
+        1,
+        7,
+        7,
+        1280
+      ],
+      "model_input_sha256": "48d705623f2f229ec731592e69326a9eb11f109edd087292908c4f7b1cf6f0a2"
+    },
+    {
+      "image_id": "CG-RST-FLD-S007-P001-I001",
+      "class_name": "Rust",
+      "predicted_class": "Mosaic",
+      "kind": "incorrect",
+      "source_file_id": "1GL3DVjBbFNh9MVUwn13-5cucmJODAj8O",
+      "sha256": "1e6112434847786896d8163f3d833017aa9b882e08f0577eaabcd6d9de4689f3",
+      "keras_confidence": 0.5835856795310974,
+      "keras_probabilities": [
+        0.24193407595157623,
+        0.5835856795310974,
+        0.04969559982419014,
+        0.04060765728354454,
+        0.08417699486017227
+      ],
+      "tflite_probabilities": [
+        0.24193094670772552,
+        0.5835886597633362,
+        0.049695614725351334,
+        0.040607474744319916,
+        0.08417730778455734
+      ],
+      "keras_tflite_max_absolute_difference": 3.129243850708008e-06,
+      "stored_prediction_max_absolute_difference": 3.1259515762271928e-06,
+      "target": "predicted-class pre-softmax logit",
+      "feature_shape": [
+        1,
+        7,
+        7,
+        1280
+      ],
+      "model_input_sha256": "74f7bd02b8c53c524fabd706383f9ae1e9e17e5bca0160e5f84005312ec22a26"
+    },
+    {
+      "image_id": "CG-SMT-FLD-S007-P001-I001",
+      "class_name": "Smut",
+      "predicted_class": "Smut",
+      "kind": "correct",
+      "source_file_id": "1vmMYKKcFw6ULcgoFd4UPa7-L3vPmu6ps",
+      "sha256": "51846aa61e3805a20d7e82298c0310ef4b2da903894aae955ae8b18ec078e90a",
+      "keras_confidence": 0.9818735122680664,
+      "keras_probabilities": [
+        0.008467922918498516,
+        0.0002576103725004941,
+        0.0010468142572790384,
+        0.9818735122680664,
+        0.008354097604751587
+      ],
+      "tflite_probabilities": [
+        0.008467919193208218,
+        0.00025761182769201696,
+        0.001046795747242868,
+        0.9818735122680664,
+        0.008354089222848415
+      ],
+      "keras_tflite_max_absolute_difference": 1.8510036170482635e-08,
+      "stored_prediction_max_absolute_difference": 1.8557279038520363e-08,
+      "target": "predicted-class pre-softmax logit",
+      "feature_shape": [
+        1,
+        7,
+        7,
+        1280
+      ],
+      "model_input_sha256": "2952e5ffd7867e9ba92f7cf12c83c05aca1911e068f3e45d506ad45927611d29"
+    },
+    {
+      "image_id": "CG-RSSI-FLD-S007-P001-I001",
+      "class_name": "RSSI",
+      "predicted_class": "RSSI",
+      "kind": "correct",
+      "source_file_id": "1DJQpowUzctEUxRLI7blA9jXn_tOszidm",
+      "sha256": "967854915c553e8ff888630aa56355fa8f8ab7c8f6aeaa0546441ad4826fa9e3",
+      "keras_confidence": 0.8628315329551697,
+      "keras_probabilities": [
+        0.006765321828424931,
+        0.0021072758827358484,
+        0.030365874990820885,
+        0.0979299247264862,
+        0.8628315329551697
+      ],
+      "tflite_probabilities": [
+        0.006765331141650677,
+        0.002107309876009822,
+        0.03036566451191902,
+        0.09793049097061157,
+        0.8628311157226562
+      ],
+      "keras_tflite_max_absolute_difference": 5.662441253662109e-07,
+      "stored_prediction_max_absolute_difference": 5.652735137889886e-07,
+      "target": "predicted-class pre-softmax logit",
+      "feature_shape": [
+        1,
+        7,
+        7,
+        1280
+      ],
+      "model_input_sha256": "ebd5dd51aa923dec14fd13f8c648802667711740ba4247697148498ceccb39c4"
+    },
+    {
+      "image_id": "CG-RSSI-FLD-S007-P003-I001",
+      "class_name": "RSSI",
+      "predicted_class": "Smut",
+      "kind": "incorrect",
+      "source_file_id": "14uC4ZijoHvIgAdv_ZUof6Zk5Th8RrEbe",
+      "sha256": "665769d3ea558c924d7105196288d71cb042c3b30fe9f1c17958d4429fe36d20",
+      "keras_confidence": 0.9526497721672058,
+      "keras_probabilities": [
+        0.0002560269786044955,
+        1.1836128578579519e-05,
+        0.001156006008386612,
+        0.9526497721672058,
+        0.04592638835310936
+      ],
+      "tflite_probabilities": [
+        0.0002560256398282945,
+        1.1836383237096015e-05,
+        0.001156006706878543,
+        0.9526494145393372,
+        0.04592673480510712
+      ],
+      "keras_tflite_max_absolute_difference": 3.5762786865234375e-07,
+      "stored_prediction_max_absolute_difference": 3.721672058309977e-07,
+      "target": "predicted-class pre-softmax logit",
+      "feature_shape": [
+        1,
+        7,
+        7,
+        1280
+      ],
+      "model_input_sha256": "d6ba52982cf994b90ee16926623bd1c72318096418a44fa3758aad038e40b2a7"
+    }
+  ],
+  "selection_rule": "One correct and one incorrect case per class where available; prefer FLD then lowest image ID. Smut had no errors, giving nine examples. These are illustrative, not a representative localization evaluation.",
+  "limitation": "Grad-CAM indicates sensitivity of the predicted-class score; it does not verify a lesion, disease cause, or expert agreement."
+}

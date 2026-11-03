@@ -1,6 +1,6 @@
 # CaneGuard Mobile — current capability and readiness index
 
-**Status:** current guidance. Last reviewed: 3 November 2026.
+**Status:** current guidance. Last reviewed: 4 November 2026.
 **Applies to:** this repository (`caneguard-mobile`) at the revision recorded in
 [`docs/RELEASE-EVIDENCE.md`](RELEASE-EVIDENCE.md).
 
@@ -49,7 +49,9 @@ tests. "Implemented" does not mean "verified on a device":
   finished or cleared.
 - Home: the Morning Note sentence and its one button, the greeting and date
   band with an Offline chip while offline, the "Today at a glance" strip, icon
-  tool tiles, and the four-class "Know the signs" photo strip.
+  tool tiles, and the four-class "Know the signs" photo strip. A farmer session
+  also sees one plain sentence when the phone holds saved inspector work that
+  is waiting for an inspector to sign in; it never shows a count or detail.
 - Today's field work, Activity, office updates, Field guide, Settings
   (including the farmer **Language / Wika** switch).
 

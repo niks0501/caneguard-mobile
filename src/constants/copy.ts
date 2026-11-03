@@ -239,7 +239,10 @@ export const HOME_NOTE_COPY = {
 
 /**
  * Farmer-facing copy in both supported languages. `FarmerCopyBlock` is the one
- * shared shape, so a string missing from either language fails the type check.
+ * shared shape for these per-screen blocks, so a string missing from either
+ * language fails the type check. Sync status wording is the exception: it is
+ * bilingual but single-sourced in
+ * `src/features/sync/utils/syncStatusCopy.ts`.
  * Inspector screens, Field Guide entry text and model decision-support lines
  * stay English and do not live here. Words such as "Validated", "Confirmed",
  * "Resolved" and "Diagnosis" (and their Tagalog equivalents) never appear in

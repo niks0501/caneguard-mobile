@@ -175,7 +175,7 @@ export default function FieldSurveyScreen() {
       if (!cancelled) setSaved(false);
     });
     return () => { cancelled = true; };
-  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, bootstrapped, clientUuid, database, districtCode, ready, session?.user.uuid, waypoints]);
+  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, bootstrapped, clientUuid, database, districtCode, ready, session?.user.role, session?.user.uuid, waypoints]);
 
   function addOrMovePoint(latitude: number, longitude: number, source: 'map' | 'gps', accuracyMeters: number | null, capturedAt = new Date().toISOString()) {
     if (readOnlyPending || syncBusy) {

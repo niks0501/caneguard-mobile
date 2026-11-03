@@ -79,13 +79,13 @@ Use the configured import aliases:
 
 ## Detection and model rules
 
-The bundled TFLite model is a versioned application contract.
+The active bundled TFLite model is a versioned application contract. `ACTIVE_MODEL_ID` in the source below selects it; another bundled artifact is not active until that constant changes.
 
 Source of truth:
 
 `src/features/detection/constants/modelContract.ts`
 
-Current contract:
+Current active contract:
 
 - model version: `v1.0-mobilenetv2`;
 - input: float32 `[1, 224, 224, 3]`;

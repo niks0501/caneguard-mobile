@@ -77,7 +77,7 @@ camera/gallery
 
 Detection code lives under `src/features/detection/`.
 
-The current bundled model contract is defined in `src/features/detection/constants/modelContract.ts` and is the source of truth for model version, filename, SHA-256, labels, input tensor, and output tensor.
+The bundled model contracts are defined in `src/features/detection/constants/modelContract.ts` and are the source of truth for contract id, model version, filename, SHA-256, labels, input tensor, and output tensor.
 
 ### Local persistence
 
@@ -282,7 +282,9 @@ A successful report upload must return a remote identity UUID.
 
 ### Model contract
 
-Current bundled model:
+`modelContract.ts` defines the active Model V1 contract plus the bundled, inactive Model V2 contract. `ACTIVE_MODEL_ID` selects the model the live scan flow loads, so changing that constant is the V1/V2 switch and the rollback path.
+
+Active model:
 
 - Version: `v1.0-mobilenetv2`
 - File: `assets/models/caneguard_v1_mobilenetv2_float32.tflite`
@@ -292,7 +294,9 @@ Current bundled model:
 - Mobile input values remain raw `0..255`; the model internally applies `x / 127.5 - 1.0`
 - Output: float32 `[1, 4]` softmax probabilities
 
-Treat `modelContract.ts`, the bundled artifact, labels, parity fixtures, preprocessing, and model tests as one compatibility surface.
+Bundled but not active: Model V2 (`assets/models/caneguard_v2.tflite`) outputs five classes in `Healthy`, `Mosaic`, `Rust`, `Smut`, `RSSI` order with black `0` letterbox padding. `assets/models/labels.txt` carries those five labels, and the V1 identifiers are its lowercase first four in the same order. The V2 artifact identity is bound to `assets/models/preprocessing.json` and `dev-assets/model-fixtures/v2-parity/manifest.json`; do not hand-copy its hash. The live scan flow stays on V1 until the display/storage/sync follow-up can carry the fifth output, so V2 runs only from the developer `model-smoke-test` parity panel and `src/features/detection/model/__tests__/v2Model.test.ts`.
+
+Treat `modelContract.ts`, the bundled artifacts, labels, parity fixtures, preprocessing, and model tests as one compatibility surface.
 
 ### Local database
 

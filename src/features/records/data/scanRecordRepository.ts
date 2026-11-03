@@ -46,7 +46,8 @@ export function createScanRecordRepository(
     insert: (input) => insertScanRecord(database, { ...input, ownerIdentity: owner }),
     list: (query) => listScanRecords(database, query, owner, includeFieldReports),
     findById: (id) => findScanRecordById(database, id, owner),
-    deleteById: (id) => deleteScanRecordById(database, id, owner),
+    deleteById: (id) =>
+      deleteScanRecordById(database, id, owner, includeFieldReports),
     listManagedImageUris: () => listManagedImageUris(database, owner),
   };
 }
@@ -139,7 +140,7 @@ export async function findScanRecordById(
       throw new StorageError('RECORD_NOT_FOUND', 'The scan record does not exist.');
     }
 
-    const [classScores, symptoms, qualityWarnings] = await Promise.all([
+    const [classScores, symptoms, qualityWarnings, linkedFieldReport] = await Promise.all([
       database
         .select()
         .from(scanClassScores)
@@ -155,10 +156,17 @@ export async function findScanRecordById(
         .from(scanQualityWarnings)
         .where(eq(scanQualityWarnings.scanRecordId, id))
         .orderBy(asc(scanQualityWarnings.warningKey)),
+      database
+        .select({ id: fieldReports.id })
+        .from(fieldReports)
+        .where(eq(fieldReports.scanRecordId, id))
+        .limit(1)
+        .get(),
     ]);
 
     return mapScanRecordDetails(row, {
       classScores,
+      hasLinkedFieldReport: Boolean(linkedFieldReport),
       symptoms,
       qualityWarnings,
     });
@@ -171,6 +179,7 @@ export async function deleteScanRecordById(
   database: CaneGuardDatabase,
   id: string,
   submitterIdentity: string,
+  allowLinkedFieldReportDeletion = true,
 ): Promise<{ managedImageUri: string | null; submissionImageUri?: string | null }> {
   const owner = requireOwnerIdentity(submitterIdentity);
   try {
@@ -179,6 +188,7 @@ export async function deleteScanRecordById(
         .select({
           managedImageUri: scanRecords.managedImageUri,
           submissionImageUri: scanRecords.submissionImageUri,
+          reportId: fieldReports.id,
           reportSubmitterIdentity: fieldReports.submitterIdentity,
         })
         .from(scanRecords)
@@ -192,6 +202,12 @@ export async function deleteScanRecordById(
         throw new StorageError(
           'RECORD_NOT_FOUND',
           'The scan record does not exist.',
+        );
+      }
+      if (!allowLinkedFieldReportDeletion && row.reportId) {
+        throw new StorageError(
+          'DELETE_FAILED',
+          'A scan record linked to an official Field Report cannot be deleted from this account.',
         );
       }
       if (

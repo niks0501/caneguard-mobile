@@ -42,6 +42,7 @@ export interface StoredClassScore {
 }
 
 export interface ScanRecordDetails extends ScanRecordListItem {
+  hasLinkedFieldReport: boolean;
   ownerIdentity: string;
   checklistConsistency: ChecklistConsistency;
   classScores: StoredClassScore[];

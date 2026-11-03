@@ -25,7 +25,7 @@ export function validateFieldValidationCompletionInput(
   if (!isGpsOutcome(input.gpsOutcome)) {
     invalid('GPS outcome is invalid.');
   }
-  if (!isFollowUpOutcome(input.followUpOutcome)) {
+  if (input.followUpOutcome != null && !isFollowUpOutcome(input.followUpOutcome)) {
     invalid('Follow-up outcome is invalid.');
   }
 

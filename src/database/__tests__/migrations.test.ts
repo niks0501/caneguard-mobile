@@ -27,6 +27,7 @@ const migration18 = readMigration('0018_notification_advisory_content_cache.sql'
 const migration19 = readMigration('0019_add_field_surveys.sql');
 const migration20 = readMigration('0020_nasty_captain_midlands.sql');
 const migration25 = readMigration('0025_field_survey_author_role.sql');
+const migration27 = readMigration('0027_loud_rachel_grey.sql');
 const migrationJournal = migrationBundle.journal;
 
 function readMigration(filename: string): string {
@@ -647,6 +648,26 @@ describe('CaneGuard database migrations', () => {
     database.close();
   });
 
+  it('stores a null follow-up outcome but still rejects unknown values', () => {
+    const database = openDatabase();
+    applyLatest(database);
+    applyFieldSurveyMigrations(database);
+    database.exec(migration27);
+    const insert = database.prepare(`
+      INSERT INTO field_validation_completions (
+        id, owner_identity, assignment_id, report_uuid, field_observation,
+        field_finding, action_taken, follow_up_outcome, visited_at, gps_outcome,
+        gps_attempted_at, created_at, updated_at
+      ) VALUES (?, 'o', ?, 'r', 'obs', 'fin', 'act', ?, 't', 'unavailable', 't', 't', 't')
+    `);
+    insert.run('c1', 'a1', null);
+    expect(database.prepare('SELECT follow_up_outcome FROM field_validation_completions').get()).toEqual({
+      follow_up_outcome: null,
+    });
+    expect(() => insert.run('c2', 'a2', 'bogus')).toThrow();
+    database.close();
+  });
+
   it('defaults follow-up outcome when an existing completion crosses the migration', () => {
     const database = openDatabase();
     applyLatest(database);
@@ -717,6 +738,7 @@ describe('CaneGuard database migrations', () => {
       '0024_active_affected_waypoints',
       '0025_field_survey_author_role',
       '0026_scan_follow_up_check',
+      '0027_loud_rachel_grey',
     ]);
     expect(Object.keys(migrationBundle.migrations)).toEqual([
       'm0000',
@@ -746,6 +768,7 @@ describe('CaneGuard database migrations', () => {
       'm0024',
       'm0025',
       'm0026',
+      'm0027',
     ]);
     expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
       migration0,
@@ -775,6 +798,7 @@ describe('CaneGuard database migrations', () => {
       readMigration('0024_active_affected_waypoints.sql'),
       migration25,
       readMigration('0026_scan_follow_up_check.sql'),
+      migration27,
     ]);
   });
 });

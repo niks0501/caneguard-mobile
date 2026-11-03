@@ -206,7 +206,7 @@ export default function FieldValidationScreen() {
       showToast(msg, 'error');
       return false;
     }
-    if (!followUpOutcome) {
+    if (!followUpOutcome && state.previousVisit) {
       const msg = 'Choose the follow-up outcome before completing this visit.';
       setFieldError(msg);
       showToast(msg, 'error');
@@ -217,7 +217,7 @@ export default function FieldValidationScreen() {
   };
 
   const confirmSubmit = async () => {
-    if (!followUpOutcome) {
+    if (!followUpOutcome && state.previousVisit) {
       return;
     }
     photoAttempt.current += 1;

@@ -159,7 +159,7 @@ async function sampleBestPosition(
     try {
       position = await client.getCurrentPosition();
     } catch (error) {
-      if (best.position) {
+      if (best.position || best.fallback) {
         break;
       }
       throw error;

@@ -20,11 +20,11 @@ describe('assessBoundaryQuality', () => {
   it('names the unmeasured point when only the missing accuracy makes the boundary low', () => {
     expect(assessBoundaryQuality([point(3), point(null)])).toMatchObject({ state: 'low_accuracy', worst: { index: 1, accuracyMeters: null } });
   });
-  it('ignores map-traced points in the GPS state and in recapture targeting', () => {
-    expect(assessBoundaryQuality([mapPoint(), point(4), mapPoint()])).toEqual({ state: 'good', pointCount: 3, worst: null });
-    expect(assessBoundaryQuality([mapPoint(), point(null)])).toMatchObject({ state: 'low_accuracy', worst: { index: 1, accuracyMeters: null } });
+  it('counts tap-placed vertices as unknown but never names one for recapture', () => {
+    expect(assessBoundaryQuality([mapPoint(), point(4), mapPoint()])).toEqual({ state: 'low_accuracy', pointCount: 3, worst: { index: 1, accuracyMeters: 4 } });
+    expect(assessBoundaryQuality([mapPoint(), point(30)])).toMatchObject({ state: 'low_accuracy', worst: { index: 1, accuracyMeters: 30 } });
   });
-  it('reports a map-only boundary as unmeasured instead of low accuracy', () => {
-    expect(assessBoundaryQuality([mapPoint(), mapPoint(), mapPoint()])).toEqual({ state: 'manual', pointCount: 3, worst: null });
+  it('reports a map-only boundary as low accuracy with nothing to recapture', () => {
+    expect(assessBoundaryQuality([mapPoint(), mapPoint(), mapPoint()])).toEqual({ state: 'low_accuracy', pointCount: 3, worst: null });
   });
 });

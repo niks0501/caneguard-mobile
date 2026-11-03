@@ -215,6 +215,7 @@ it('drops a boundary capture when the affected-area mode is opened while samplin
     });
   });
 
+  expect(await screen.findByText(FIELD_SURVEY_COPY.gpsCaptureCancelled)).toBeTruthy();
   await waitFor(() => {
     const saved = mockSaveDraft.mock.lastCall?.[1];
     expect(saved?.waypoints.map((point) => [point.latitude, point.longitude])).toEqual(
@@ -224,13 +225,58 @@ it('drops a boundary capture when the affected-area mode is opened while samplin
   });
 });
 
-it('reports a boundary drawn only on the map as unmeasured without offering recapture', async () => {
+it('reports a cancelled recapture when the named point is removed while sampling', async () => {
+  const boundary: SurveyWaypoint[] = [
+    PLOT_WAYPOINTS[0],
+    { ...PLOT_WAYPOINTS[1], accuracyMeters: 22 },
+    PLOT_WAYPOINTS[2],
+    PLOT_WAYPOINTS[3],
+  ];
+  mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(boundary) })]);
+
+  await render(<FieldSurveyScreen />);
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.recapturePoint(2))).toBeTruthy());
+
+  let resolveCapture!: (value: Awaited<ReturnType<typeof captureSurveyWaypoint>>) => void;
+  mockCaptureWaypoint.mockImplementation(() => new Promise((resolve) => { resolveCapture = resolve; }));
+  await act(async () => {
+    fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.recapturePoint(2)));
+  });
+  await act(async () => {
+    fireEvent.press(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`));
+  });
+  await act(async () => {
+    fireEvent.press(screen.getByLabelText(FIELD_SURVEY_COPY.selectPoint(2)));
+  });
+  await act(async () => {
+    fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.removeSelected));
+  });
+  await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (3)`)).toBeTruthy());
+
+  await act(async () => {
+    resolveCapture({
+      status: 'captured',
+      waypoint: { latitude: 14.1009, longitude: 121.1009, accuracyMeters: 25, capturedAt: '2026-10-31T05:00:00.000Z', source: 'gps' },
+    });
+  });
+
+  expect(await screen.findByText(FIELD_SURVEY_COPY.gpsCaptureCancelled)).toBeTruthy();
+  expect(screen.queryByText(FIELD_SURVEY_COPY.gpsAccuracyWeak(25))).toBeNull();
+  const saved = mockSaveDraft.mock.lastCall?.[1];
+  expect(saved?.waypoints.map((point) => [point.latitude, point.longitude, point.accuracyMeters])).toEqual([
+    [PLOT_WAYPOINTS[0].latitude, PLOT_WAYPOINTS[0].longitude, 4],
+    [PLOT_WAYPOINTS[2].latitude, PLOT_WAYPOINTS[2].longitude, 4],
+    [PLOT_WAYPOINTS[3].latitude, PLOT_WAYPOINTS[3].longitude, 4],
+  ]);
+});
+
+it('reports a boundary drawn only on the map as low accuracy without offering recapture', async () => {
   const mapped = PLOT_WAYPOINTS.map((point) => ({ ...point, accuracyMeters: null, source: 'map' as const }));
   mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(mapped) })]);
 
   await render(<FieldSurveyScreen />);
 
-  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.qualityState.manual)).toBeTruthy());
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.qualityState.low_accuracy)).toBeTruthy());
   expect(screen.queryByText(FIELD_SURVEY_COPY.recapturePoint(1))).toBeNull();
 });
 

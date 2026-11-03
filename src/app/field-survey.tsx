@@ -98,8 +98,8 @@ export default function FieldSurveyScreen() {
   const [resumed, setResumed] = useState(false);
   const [readOnlyPending, setReadOnlyPending] = useState(false);
   const controlsLocked = readOnlyPending || syncBusy;
-  const liveFormRef = useRef({ affectedAreaCount: 0, controlsLocked, drawingAffectedArea });
-  liveFormRef.current = { affectedAreaCount: affectedAreas.length, controlsLocked, drawingAffectedArea };
+  const liveFormRef = useRef({ affectedAreaCount: 0, controlsLocked, drawingAffectedArea, waypoints });
+  liveFormRef.current = { affectedAreaCount: affectedAreas.length, controlsLocked, drawingAffectedArea, waypoints };
   const validation = useMemo(() => validateSurveyWaypoints(waypoints), [waypoints]);
   const affectedMeasurement = useMemo(() => validation.valid
     ? measureAffectedAreas(validation.polygon, affectedAreas)
@@ -206,8 +206,14 @@ export default function FieldSurveyScreen() {
       setSyncMessage(FIELD_SURVEY_SYNC_COPY.pendingLocked);
       return false;
     }
-    if (live.drawingAffectedArea !== target.affectedArea) return false;
-    return !target.affectedArea || live.affectedAreaCount === target.areaCount;
+    if (live.drawingAffectedArea === target.affectedArea
+      && (!target.affectedArea
+        ? target.replace === null || live.waypoints.includes(target.replace)
+        : live.affectedAreaCount === target.areaCount)) {
+      return true;
+    }
+    setSyncMessage(FIELD_SURVEY_COPY.gpsCaptureCancelled);
+    return false;
   }
 
   function applyCapturedWaypoint(target: WaypointCaptureTarget, waypoint: SurveyWaypoint) {
@@ -217,11 +223,9 @@ export default function FieldSurveyScreen() {
       setAffectedWaypoints((current) => [...current, snapped]);
       return;
     }
-    setWaypoints((current) => {
-      if (!target.replace) return [...current, waypoint];
-      if (!current.includes(target.replace)) return current;
-      return current.map((point) => point === target.replace ? waypoint : point);
-    });
+    setWaypoints((current) => target.replace
+      ? current.map((point) => point === target.replace ? waypoint : point)
+      : [...current, waypoint]);
   }
 
   function addOrMovePoint(latitude: number, longitude: number, source: 'map' | 'gps', accuracyMeters: number | null, capturedAt = new Date().toISOString()) {
@@ -505,7 +509,7 @@ export default function FieldSurveyScreen() {
             <View testID="field-survey.quality" style={[styles.point, { borderColor: theme.border, backgroundColor: theme.surfaceElevated }]}>
               <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.boundaryQualityTitle}</Text>
               <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.qualityPlotArea}: {Math.round(validation.areaSqm).toLocaleString()} m² · {FIELD_SURVEY_COPY.qualityPoints}: {quality.pointCount}</Text>
-              <Text style={[styles.help, { color: quality.state === 'good' ? theme.success : quality.state === 'manual' ? theme.textSecondary : theme.warning }]}>{FIELD_SURVEY_COPY.qualityState[quality.state]}</Text>
+              <Text style={[styles.help, { color: quality.state === 'good' ? theme.success : theme.warning }]}>{FIELD_SURVEY_COPY.qualityState[quality.state]}</Text>
               {quality.worst ? <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.qualityWorst(quality.worst.index + 1, quality.worst.accuracyMeters)}</Text> : null}
               {affectedMeasurement?.valid ? <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.qualityAffected(affectedMeasurement.areaSqm, (affectedMeasurement.areaSqm / validation.areaSqm) * 100)}</Text> : null}
               {quality.state === 'low_accuracy' && quality.worst ? <AppButton variant="secondary" leadingIcon="crosshair" disabled={gpsBusy || controlsLocked} busy={gpsBusy} onPress={() => { const worst = quality.worst; if (worst) void recaptureWorstPoint(waypoints[worst.index]); }}>{FIELD_SURVEY_COPY.recapturePoint(quality.worst.index + 1)}</AppButton> : null}

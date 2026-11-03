@@ -38,6 +38,23 @@ describe('captureSurveyWaypoint', () => {
     expect(result).toMatchObject({ status: 'captured', waypoint: { accuracyMeters: 7 } });
   });
 
+  it('keeps the unmeasured reading when a later sample fails', async () => {
+    const getCurrentPosition = jest.fn()
+      .mockResolvedValueOnce({ accuracy: null, latitude: 14.123, longitude: 120.456, timestamp: Date.parse('2026-10-05T09:00:00.000Z') })
+      .mockRejectedValueOnce(new Error('native failure'));
+    const result = await captureSurveyWaypoint(client({ getCurrentPosition }), undefined, 1500);
+    expect(result).toEqual({
+      status: 'captured',
+      waypoint: {
+        accuracyMeters: null,
+        capturedAt: '2026-10-05T09:00:00.000Z',
+        latitude: 14.123,
+        longitude: 120.456,
+        source: 'gps',
+      },
+    });
+  });
+
   it('keeps the reading with the lowest accuracy value across the window', async () => {
     const readings = [12, 7, 9];
     const getCurrentPosition = jest.fn(async () => ({ accuracy: readings.shift() ?? 9, latitude: 14 + (readings.length) / 1000, longitude: 120, timestamp: Date.now() }));

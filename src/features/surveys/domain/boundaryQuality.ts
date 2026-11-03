@@ -3,47 +3,48 @@ import type { SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 
 export const ACCEPTABLE_GPS_ACCURACY_METERS = 10;
 
-export type BoundaryGpsState = 'good' | 'acceptable' | 'low_accuracy' | 'manual';
+export type BoundaryGpsState = 'good' | 'acceptable' | 'low_accuracy';
 
 export interface BoundaryQuality {
   state: BoundaryGpsState;
   pointCount: number;
   /**
-   * Worst measured GPS reading, or the first GPS point without a reported
-   * accuracy when that is the only reason the boundary is not good; null when
-   * no GPS point needs recapture (including boundaries drawn only on the map).
+   * Numerically worst real GPS reading; unknown accuracy ranks worst only when
+   * no reading is worse than the acceptable threshold. Tap-placed map vertices
+   * are never named, so they are never offered for recapture.
    */
   worst: { index: number; accuracyMeters: number | null } | null;
 }
 
 export function assessBoundaryQuality(waypoints: SurveyWaypoint[]): BoundaryQuality {
-  let worstMeasuredIndex = -1;
-  let worstMeasuredAccuracy = -1;
-  let unknownAccuracyIndex = -1;
-  let gpsPointCount = 0;
+  let worstAccuracy = -1;
+  let unknownIndex = -1;
+  let worstGpsIndex = -1;
+  let worstGpsAccuracy = -1;
+  let unknownGpsIndex = -1;
   waypoints.forEach((point, index) => {
-    if (point.source !== 'gps') return;
-    gpsPointCount += 1;
     if (point.accuracyMeters === null) {
-      if (unknownAccuracyIndex < 0) unknownAccuracyIndex = index;
-      return;
+      if (unknownIndex < 0) unknownIndex = index;
+    } else if (point.accuracyMeters > worstAccuracy) {
+      worstAccuracy = point.accuracyMeters;
     }
-    if (point.accuracyMeters > worstMeasuredAccuracy) {
-      worstMeasuredAccuracy = point.accuracyMeters;
-      worstMeasuredIndex = index;
+    if (point.source !== 'gps') return;
+    if (point.accuracyMeters === null) {
+      if (unknownGpsIndex < 0) unknownGpsIndex = index;
+    } else if (point.accuracyMeters > worstGpsAccuracy) {
+      worstGpsAccuracy = point.accuracyMeters;
+      worstGpsIndex = index;
     }
   });
-  const state: BoundaryGpsState = gpsPointCount === 0
-    ? 'manual'
-    : worstMeasuredAccuracy > ACCEPTABLE_GPS_ACCURACY_METERS || unknownAccuracyIndex >= 0
-      ? 'low_accuracy'
-      : worstMeasuredAccuracy > PREFERRED_GPS_ACCURACY_METERS ? 'acceptable' : 'good';
-  const worst = worstMeasuredAccuracy > ACCEPTABLE_GPS_ACCURACY_METERS
-    ? { index: worstMeasuredIndex, accuracyMeters: worstMeasuredAccuracy }
-    : state === 'manual' || state === 'good'
+  const state: BoundaryGpsState = worstAccuracy > ACCEPTABLE_GPS_ACCURACY_METERS || unknownIndex >= 0
+    ? 'low_accuracy'
+    : worstAccuracy > PREFERRED_GPS_ACCURACY_METERS ? 'acceptable' : 'good';
+  const worst = worstGpsAccuracy > ACCEPTABLE_GPS_ACCURACY_METERS
+    ? { index: worstGpsIndex, accuracyMeters: worstGpsAccuracy }
+    : state === 'good'
       ? null
-      : unknownAccuracyIndex >= 0
-        ? { index: unknownAccuracyIndex, accuracyMeters: null }
-        : { index: worstMeasuredIndex, accuracyMeters: worstMeasuredAccuracy };
+      : unknownGpsIndex >= 0
+        ? { index: unknownGpsIndex, accuracyMeters: null }
+        : worstGpsIndex >= 0 ? { index: worstGpsIndex, accuracyMeters: worstGpsAccuracy } : null;
   return { state, pointCount: waypoints.length, worst };
 }

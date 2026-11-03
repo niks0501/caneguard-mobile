@@ -607,7 +607,7 @@ export const fieldSurveys = sqliteTable(
     measurementProvenanceJson: text('measurement_provenance_json'),
     capturedAt: text('captured_at').notNull(),
     status: text('status').$type<FieldSurveyStatus>().notNull().default('draft'),
-    authorRole: text('author_role').$type<MobileUserRole>().notNull().default('field_reporter'),
+    authorRole: text('author_role').$type<MobileUserRole>().notNull().default('farmer'),
     remoteId: text('remote_id'),
     fieldErrorsJson: text('field_errors_json'),
     syncAttemptCount: integer('sync_attempt_count').notNull().default(0),

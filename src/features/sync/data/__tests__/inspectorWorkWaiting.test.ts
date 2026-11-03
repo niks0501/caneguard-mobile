@@ -88,6 +88,27 @@ describe('hasUnsentInspectorWork', () => {
     native.close();
   });
 
+  it('stays silent for a boundary saved before authorship was recorded', async () => {
+    const { database, native } = openDatabase();
+    native
+      .prepare(`
+        INSERT INTO field_surveys (
+          client_uuid, owner_identity, district_code, waypoints_json, captured_at,
+          status, created_at, updated_at
+        ) VALUES (?, ?, 'D-01', '[]', ?, 'pending', ?, ?)
+      `)
+      .run(
+        'legacy-survey',
+        'inspector-1',
+        waypoint.capturedAt,
+        waypoint.capturedAt,
+        waypoint.capturedAt,
+      );
+
+    await expect(hasUnsentInspectorWork(database)).resolves.toBe(false);
+    native.close();
+  });
+
   it('reports an inspector-saved boundary waiting on the phone', async () => {
     const { database, native } = openDatabase();
     await savePendingSurvey(database, {

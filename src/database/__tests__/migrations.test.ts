@@ -179,34 +179,36 @@ describe('CaneGuard database migrations', () => {
     database.close();
   });
 
-  it('records who authored a field survey so farmer work stays distinct from inspector work', () => {
+  it('treats surveys saved before authorship was recorded as not inspector work', () => {
     const database = openDatabase();
     applyLatest(database);
     applyFieldSurveyMigrations(database);
-    database.exec(migration25);
-    const insertSurvey = database.prepare(`
-      INSERT INTO field_surveys (
-        client_uuid, owner_identity, district_code, waypoints_json, captured_at,
-        status, created_at, updated_at
-      ) VALUES (?, 'owner-1', 'D-01', '[]', 'now', 'pending', 'now', 'now')
-    `);
+    database
+      .prepare(`
+        INSERT INTO field_surveys (
+          client_uuid, owner_identity, district_code, waypoints_json, captured_at,
+          status, created_at, updated_at
+        ) VALUES ('legacy-survey', 'owner-1', 'D-01', '[]', 'now', 'pending', 'now', 'now')
+      `)
+      .run();
 
-    insertSurvey.run('legacy-survey');
+    database.exec(migration25);
+
     expect(
       database.prepare('SELECT author_role FROM field_surveys WHERE client_uuid = ?').get('legacy-survey'),
-    ).toEqual({ author_role: 'field_reporter' });
+    ).toEqual({ author_role: 'farmer' });
 
     database
       .prepare(`
         INSERT INTO field_surveys (
           client_uuid, owner_identity, district_code, waypoints_json, captured_at,
           status, author_role, created_at, updated_at
-        ) VALUES ('farmer-survey', 'owner-2', 'D-01', '[]', 'now', 'pending', 'farmer', 'now', 'now')
+        ) VALUES ('inspector-survey', 'owner-2', 'D-01', '[]', 'now', 'pending', 'field_reporter', 'now', 'now')
       `)
       .run();
     expect(
-      database.prepare('SELECT author_role FROM field_surveys WHERE client_uuid = ?').get('farmer-survey'),
-    ).toEqual({ author_role: 'farmer' });
+      database.prepare('SELECT author_role FROM field_surveys WHERE client_uuid = ?').get('inspector-survey'),
+    ).toEqual({ author_role: 'field_reporter' });
 
     expect(() =>
       database

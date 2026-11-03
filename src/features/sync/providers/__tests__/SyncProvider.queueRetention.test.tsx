@@ -7,7 +7,7 @@ import {
 } from 'node:sqlite';
 
 import NetInfo from '@react-native-community/netinfo';
-import { act, render, screen, waitFor } from '@testing-library/react-native';
+import { act, render, waitFor } from '@testing-library/react-native';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
 import type { SQLiteDatabase, SQLiteStatement } from 'expo-sqlite';
 import { AppState, Text } from 'react-native';

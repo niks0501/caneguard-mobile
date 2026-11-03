@@ -40,14 +40,23 @@ AI results are decision-support outputs only. User-facing copy must not present 
 
 1. `ThemePreferenceProvider`
 2. `AuthProvider`
-3. `CaneGuardDatabaseProvider`
-4. `ScanSessionProvider`
-5. `CaneGuardModelProvider`
-6. `SyncProvider`
+3. `LanguagePreferenceProvider`
+4. `ToastProvider`
+5. `CaneGuardDatabaseProvider`
+6. `ScanSessionProvider`
+7. `CaneGuardModelProvider`
+8. `SyncProvider`
+9. `OfficeUpdatesProvider`
 
 Expo Router protected routes separate unauthenticated screens from authenticated application screens.
 Password recovery and email-verification routes remain public so deep links can be handled even when protected session material exists.
 Development-only routes expose model and storage diagnostics.
+
+### Farmer language layer
+
+Farmer-facing copy is bilingual through `FARMER_COPY` in `src/constants/copy.ts`; its `FarmerCopyBlock` type is the single shape both languages must satisfy. `useFarmerCopy()` in `src/providers/LanguagePreferenceProvider.tsx` returns the active block, and the chosen language persists in AsyncStorage under `caneguard.language`.
+
+A `farmer` session reads Tagalog until it chooses English in Settings → **Language / Wika**; any other account reads English whatever preference is saved. Inspector screens, Field Guide entry text, and model decision-support lines stay English and are not part of `FARMER_COPY`.
 
 ### Detection flow
 

@@ -17,6 +17,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { AuthProvider } from '@/features/auth/providers/AuthProvider';
 import { SyncProvider } from '@/features/sync/providers/SyncProvider';
 import { ToastProvider } from '@/components/ui/Toast';
+import { LanguagePreferenceProvider } from '@/providers/LanguagePreferenceProvider';
 import {
   ThemePreferenceProvider,
   useThemePreference,
@@ -34,19 +35,21 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.gestureRoot}>
       <ThemePreferenceProvider>
         <AuthProvider>
-          <ToastProvider>
-            <CaneGuardDatabaseProvider>
-              <ScanSessionProvider>
-                <CaneGuardModelProvider>
-                  <SyncProvider>
-                    <OfficeUpdatesProvider>
-                      <AppNavigator />
-                    </OfficeUpdatesProvider>
-                  </SyncProvider>
-                </CaneGuardModelProvider>
-              </ScanSessionProvider>
-            </CaneGuardDatabaseProvider>
-          </ToastProvider>
+          <LanguagePreferenceProvider>
+            <ToastProvider>
+              <CaneGuardDatabaseProvider>
+                <ScanSessionProvider>
+                  <CaneGuardModelProvider>
+                    <SyncProvider>
+                      <OfficeUpdatesProvider>
+                        <AppNavigator />
+                      </OfficeUpdatesProvider>
+                    </SyncProvider>
+                  </CaneGuardModelProvider>
+                </ScanSessionProvider>
+              </CaneGuardDatabaseProvider>
+            </ToastProvider>
+          </LanguagePreferenceProvider>
         </AuthProvider>
       </ThemePreferenceProvider>
     </GestureHandlerRootView>

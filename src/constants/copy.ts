@@ -236,3 +236,65 @@ export const HOME_NOTE_COPY = {
     smut: 'Dark whip on the shoot',
   },
 } as const;
+
+/**
+ * Farmer-facing copy in both supported languages. `FarmerCopyBlock` is the one
+ * shared shape, so a string missing from either language fails the type check.
+ * Inspector screens, Field Guide entry text and model decision-support lines
+ * stay English and do not live here. Words such as "Validated", "Confirmed",
+ * "Resolved" and "Diagnosis" (and their Tagalog equivalents) never appear in
+ * farmer copy; `farmerCopy.test.ts` enforces this for both languages.
+ */
+export type FarmerLanguage = 'en' | 'tl';
+
+export type FarmerCopyBlock = {
+  greeting: { morning: string; afternoon: string; evening: string };
+  actions: {
+    startScan: string;
+    measurePlot: string;
+    fieldGuide: string;
+    openSettings: string;
+  };
+  settings: { languageLabel: string; languageDescription: string; english: string; tagalog: string };
+};
+
+export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
+  en: {
+    greeting: {
+      morning: 'Good morning',
+      afternoon: 'Good afternoon',
+      evening: 'Good evening',
+    },
+    actions: {
+      startScan: 'Start a scan',
+      measurePlot: 'Measure a plot',
+      fieldGuide: 'Field guide',
+      openSettings: 'Settings',
+    },
+    settings: {
+      languageLabel: 'Language / Wika',
+      languageDescription: 'Choose the language for farmer screens',
+      english: 'English',
+      tagalog: 'Tagalog',
+    },
+  },
+  tl: {
+    greeting: {
+      morning: 'Magandang umaga',
+      afternoon: 'Magandang hapon',
+      evening: 'Magandang gabi',
+    },
+    actions: {
+      startScan: 'Magsimula ng pag-scan',
+      measurePlot: 'Sukatin ang bukid',
+      fieldGuide: 'Gabay sa bukid',
+      openSettings: 'Mga setting',
+    },
+    settings: {
+      languageLabel: 'Language / Wika',
+      languageDescription: 'Piliin ang wika para sa mga screen ng magsasaka',
+      english: 'Ingles',
+      tagalog: 'Tagalog',
+    },
+  },
+};

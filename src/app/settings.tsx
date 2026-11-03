@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
-import { FIELD_GUIDE_ENTRY_DESCRIPTION } from '@/constants/copy';
+import { FARMER_COPY, FIELD_GUIDE_ENTRY_DESCRIPTION } from '@/constants/copy';
 import { ComponentTokens, Layout, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import {
@@ -20,6 +20,7 @@ import { OfflineReadinessCard } from '@/features/auth/components/OfflineReadines
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
+import { useLanguagePreference, type FarmerLanguage } from '@/providers/LanguagePreferenceProvider';
 import { useThemePreference } from '@/providers/ThemePreferenceProvider';
 
 
@@ -58,12 +59,63 @@ function ToggleRow({ label, description, value, onToggle }: ToggleRowProps) {
   );
 }
 
+function LanguageRow() {
+  const theme = useTheme();
+  const { language, setLanguage } = useLanguagePreference();
+  const copy = FARMER_COPY[language].settings;
+  const options: { value: FarmerLanguage; label: string }[] = [
+    { value: 'tl', label: copy.tagalog },
+    { value: 'en', label: copy.english },
+  ];
+
+  return (
+    <View style={[styles.menuRow, { borderBottomColor: theme.divider }]}>
+      <View style={styles.toggleCopy}>
+        <Text style={[styles.menuLabel, { color: theme.text }]}>{copy.languageLabel}</Text>
+        <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>
+          {copy.languageDescription}
+        </Text>
+        <View style={styles.languageOptions}>
+          {options.map((option) => {
+            const selected = option.value === language;
+            return (
+              <Pressable
+                key={option.value}
+                testID={`settings.language.${option.value}`}
+                accessibilityRole="radio"
+                accessibilityLabel={option.label}
+                accessibilityState={{ selected }}
+                onPress={() => setLanguage(option.value)}
+                style={[
+                  styles.languageChip,
+                  {
+                    borderColor: selected ? theme.primary : theme.border,
+                    backgroundColor: selected ? theme.primary : 'transparent',
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.languageChipText,
+                    { color: selected ? theme.surfaceElevated : theme.text },
+                  ]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export default function SettingsScreen() {
   const theme = useTheme();
   const { showToast } = useToast();
   const { isDarkMode, setDarkMode } = useThemePreference();
   const database = useCaneGuardDatabase();
   const { logout, user } = useAuth();
+  const isFarmer = user?.role === 'farmer';
   const [clearingLocalData, setClearingLocalData] = useState(false);
   const [clearingCachedData, setClearingCachedData] = useState(false);
 
@@ -213,6 +265,7 @@ export default function SettingsScreen() {
                 value={isDarkMode}
                 onToggle={setDarkMode}
               />
+              {isFarmer ? <LanguageRow /> : null}
             </View>
 
             <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>FIELD READINESS</Text>
@@ -462,6 +515,22 @@ const styles = StyleSheet.create({
   logoutText: {
     ...Typography.body,
     fontWeight: '800',
+  },
+  languageOptions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  languageChip: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+    borderWidth: 1,
+    borderRadius: ComponentTokens.card.borderRadius,
+  },
+  languageChipText: {
+    ...Typography.bodySmall,
+    fontWeight: '700',
   },
   pressed: {
     opacity: 0.72,

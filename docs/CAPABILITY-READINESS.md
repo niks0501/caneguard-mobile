@@ -50,7 +50,8 @@ tests. "Implemented" does not mean "verified on a device":
 - Home: the Morning Note sentence and its one button, the greeting and date
   band with an Offline chip while offline, the "Today at a glance" strip, icon
   tool tiles, and the four-class "Know the signs" photo strip.
-- Today's field work, Activity, office updates, Field guide, Settings.
+- Today's field work, Activity, office updates, Field guide, Settings
+  (including the farmer **Language / Wika** switch).
 
 ## Deployment-dependent behaviour
 

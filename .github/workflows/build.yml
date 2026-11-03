@@ -8,6 +8,8 @@ on:
         type: choice
         required: true
         options:
+          - development
+          - preview
           - qa
           - production
       bump:
@@ -81,6 +83,18 @@ jobs:
           git commit -m "chore(release): v$VERSION"
           git tag -a "v$VERSION" -m "v$VERSION"
           git push origin HEAD:main --follow-tags
+
+      - name: Build development client Android APK
+        if: inputs.lane == 'development'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx --yes eas-cli@25.3.0 env:exec development 'EXPO_NO_DOTENV=1 eas build --platform android --profile development --non-interactive --no-wait --json'
+
+      - name: Build preview Android APK
+        if: inputs.lane == 'preview'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx --yes eas-cli@25.3.0 env:exec preview 'EXPO_NO_DOTENV=1 eas build --platform android --profile preview --non-interactive --no-wait --json'
 
       - name: Build QA Android APK
         if: inputs.lane == 'qa'

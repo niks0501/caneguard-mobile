@@ -36,7 +36,8 @@ import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { FarmerCheckAgain } from '@/features/records/components/FarmerCheckAgain';
+import { FarmerCheckAgain, useStartCheckAgain } from '@/features/records/components/FarmerCheckAgain';
+import { WhatNowCard } from '@/features/records/components/WhatNowCard';
 import { possibleConditionLine } from '@/features/records/components/possibleConditionLine';
 import { returnToTab } from '@/features/navigation/returnToTab';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
@@ -73,6 +74,10 @@ export default function RecordDetailsScreen() {
   const canReportToOffice = user?.role === 'field_reporter';
   const canCheckAgain = user?.role === 'farmer';
   const farmerCopy = useFarmerCopy();
+  const startCheckAgain = useStartCheckAgain({
+    id: record.data?.id ?? '',
+    followsUpScanId: record.data?.followsUpScanId ?? null,
+  });
   const deleteBlockedByLinkedReport =
     !canReportToOffice && record.data?.hasLinkedFieldReport === true;
   const sync = useSync();
@@ -294,7 +299,16 @@ export default function RecordDetailsScreen() {
               </Section>
               ) : null}
 
-              {canCheckAgain ? <FarmerCheckAgain record={record.data} /> : null}
+              {canCheckAgain ? (
+                <>
+                  <WhatNowCard
+                    label={record.data.predictedLabel}
+                    saved
+                    onCheckAgain={startCheckAgain}
+                  />
+                  <FarmerCheckAgain record={record.data} hideAction />
+                </>
+              ) : null}
 
               {deleteError ? (
                 <Text

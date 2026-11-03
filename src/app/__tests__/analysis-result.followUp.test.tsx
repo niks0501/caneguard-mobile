@@ -138,3 +138,37 @@ describe('AnalysisResultScreen Check Again', () => {
     expect(screen.queryByTestId('scan.save-follow-up')).toBeNull();
   });
 });
+
+describe('AnalysisResultScreen What now? card', () => {
+  beforeEach(() => {
+    mockDispatch.mockClear();
+    mockSave.mockClear();
+    mockSaveState = {
+      status: 'ready',
+      error: null,
+      errorMessage: null,
+      getLastError: () => null,
+      recordId: null,
+      save: mockSave,
+    };
+  });
+
+  // Proves: the farmer result screen shows the What now? card with Save Scan, and Save Scan uses the normal save path.
+  it('shows the card to a farmer and saves through it', async () => {
+    await renderResult(followUpState({ followUpOf: null }));
+    expect(screen.getByTestId('scan.what-now')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('scan.what-now.save'));
+    await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1));
+  });
+
+  // Proves: once saved, the card offers Check again, linked to the first check of this plant.
+  it('starts a follow-up from the card after saving', async () => {
+    mockSaveState = { ...mockSaveState, status: 'saved', recordId: 'new-record' };
+    await renderResult(followUpState({ followUpOf: null }));
+    await fireEvent.press(screen.getByTestId('records.check-again'));
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'START_FOLLOW_UP',
+      payload: { scanId: 'new-record' },
+    });
+  });
+});

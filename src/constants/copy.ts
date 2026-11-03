@@ -299,6 +299,15 @@ export type FarmerCopyBlock = {
     retrySaveFollowUp: string;
     followUpSaved: string;
   };
+  whatNow: {
+    title: string;
+    checkSigns: string;
+    comparePhotos: string;
+    saveScan: string;
+    saving: string;
+    saved: string;
+    checkAgain: string;
+  };
   scanCard: {
     title: string;
     photoLabel: string;
@@ -362,6 +371,15 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       retrySaveFollowUp: 'Retry and Save Follow-Up',
       followUpSaved: 'Follow-up saved on this device.',
     },
+    whatNow: {
+      title: 'What now?',
+      checkSigns: 'Check the signs',
+      comparePhotos: 'Compare photos',
+      saveScan: 'Save Scan',
+      saving: 'Saving scan...',
+      saved: 'Saved',
+      checkAgain: 'Check again in a few days',
+    },
     scanCard: {
       title: 'Scan Card',
       photoLabel: 'Scan photo',
@@ -422,6 +440,15 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       savingFollowUp: 'Sine-save ang follow-up...',
       retrySaveFollowUp: 'Subukang muli at I-save ang Follow-Up',
       followUpSaved: 'Na-save ang follow-up sa device na ito.',
+    },
+    whatNow: {
+      title: 'Ano ang susunod?',
+      checkSigns: 'Suriin ang mga palatandaan',
+      comparePhotos: 'Ihambing ang mga litrato',
+      saveScan: 'I-save ang Scan',
+      saving: 'Sine-save ang scan...',
+      saved: 'Na-save',
+      checkAgain: 'Suriin muli sa loob ng ilang araw',
     },
     scanCard: {
       title: 'Scan Card',

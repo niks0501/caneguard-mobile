@@ -13,6 +13,7 @@ import {
 } from '@/features/activity/domain/needsAttention';
 import { useHomeAttention } from '@/features/activity/hooks/useHomeAttention';
 import { HomeGlanceStrip } from '@/features/home/components/HomeGlanceStrip';
+import { HomeMyScansCard } from '@/features/home/components/HomeMyScansCard';
 import { HomeHeaderBand } from '@/features/home/components/HomeHeaderBand';
 import { HomeSignsStrip, HomeToolTiles } from '@/features/home/components/HomeFieldTools';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -46,7 +47,8 @@ export default function HomeScreen() {
   const { sessionVerification, user } = useAuth();
   const sync = useSync();
   const { language } = useLanguagePreference();
-  const showInspectorWorkWaiting = user?.role === 'farmer' && sync.inspectorWorkWaiting;
+  const isFarmer = user?.role === 'farmer';
+  const showInspectorWorkWaiting = isFarmer && sync.inspectorWorkWaiting;
   const attention = useHomeAttention();
   const { open: openOfficeUpdates, unreadCount } = useOfficeUpdates();
   const [dismissedUpdateCount, setDismissedUpdateCount] = useState(0);
@@ -61,7 +63,8 @@ export default function HomeScreen() {
     pendingSurveysCount: sync.pendingSurveysCount,
     sessionVerification,
   });
-  const note = buildMorningNote(attention.items, syncNote);
+  // Farmers have no visits or office work, so their note never leads with them.
+  const note = buildMorningNote(isFarmer ? [] : attention.items, syncNote);
   const now = useNow();
   const visitCounts = useMemo(() => {
     let today = 0;
@@ -177,20 +180,26 @@ export default function HomeScreen() {
                 {note.actionLabel}
               </AppButton>
 
-              <HomeAttentionCard
-                items={attention.items}
-                onOpenItem={openAttentionItem}
-                onSeeAll={() => router.push('/activity' as Href)}
-                total={attention.total}
-              />
+              {isFarmer ? (
+                <HomeMyScansCard onOpen={() => router.push('/activity' as Href)} />
+              ) : (
+                <>
+                  <HomeAttentionCard
+                    items={attention.items}
+                    onOpenItem={openAttentionItem}
+                    onSeeAll={() => router.push('/activity' as Href)}
+                    total={attention.total}
+                  />
 
-              <HomeGlanceStrip
-                overdue={visitCounts.overdue}
-                onOpenActivity={() => router.push('/activity' as Href)}
-                onOpenVisits={() => router.push('/today' as Href)}
-                today={visitCounts.today}
-                waiting={sync.pendingCount}
-              />
+                  <HomeGlanceStrip
+                    overdue={visitCounts.overdue}
+                    onOpenActivity={() => router.push('/activity' as Href)}
+                    onOpenVisits={() => router.push('/today' as Href)}
+                    today={visitCounts.today}
+                    waiting={sync.pendingCount}
+                  />
+                </>
+              )}
 
               <HomeToolTiles
                 tiles={[
@@ -204,12 +213,16 @@ export default function HomeScreen() {
                           testID: 'home.start-scan',
                         },
                       ]),
-                  {
-                    icon: 'map',
-                    label: HOME_NOTE_COPY.measurePlotLink,
-                    onPress: () => router.push('/field-survey' as Href),
-                    testID: 'home.field-survey',
-                  },
+                  ...(isFarmer
+                    ? []
+                    : [
+                        {
+                          icon: 'map' as const,
+                          label: HOME_NOTE_COPY.measurePlotLink,
+                          onPress: () => router.push('/field-survey' as Href),
+                          testID: 'home.field-survey',
+                        },
+                      ]),
                   {
                     accessibilityLabel: HOME_NOTE_COPY.fieldGuideLabel,
                     icon: 'book-open',

@@ -54,6 +54,10 @@ export interface ScanSessionState {
   selectedSymptoms: ChecklistObservationId[];
   reportedSeverity: ReportedSeverity | null;
   errorMessage: string | null;
+  /** Set when this scan is a Check Again of the saved scan with this id. */
+  followUpOf?: string | null;
+  /** The farmer's own words about what they see now (follow-up only). */
+  personalNote?: string | null;
 }
 
 export type ScanSessionAction =
@@ -67,6 +71,8 @@ export type ScanSessionAction =
       };
     }
   | { type: 'RESET_SCAN' }
+  | { type: 'START_FOLLOW_UP'; payload: { scanId: string } }
+  | { type: 'SET_PERSONAL_NOTE'; payload: string }
   | { type: 'START_PREPROCESSING' }
   | {
       type: 'COMPLETE_PREPROCESSING';

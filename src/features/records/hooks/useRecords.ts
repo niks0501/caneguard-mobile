@@ -6,10 +6,12 @@ import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
   findScanRecordById,
+  listScanCheckHistory,
   listScanRecords,
 } from '@/features/records/data/scanRecordRepository';
 import {
   MAX_RECORD_PAGE_SIZE,
+  type ScanCheckHistoryItem,
   type ScanRecordDetails,
   type ScanRecordListItem,
   type ScanRecordQuery,
@@ -200,6 +202,38 @@ export function useScanRecordDetails(id: string | null) {
       : { data: null, errorMessage: null, loading: true };
 
   return { ...visibleState, refresh };
+}
+
+/** The first check and its follow-ups for a saved scan, oldest first. */
+export function useScanCheckHistory(id: string | null, enabled: boolean) {
+  const database = useCaneGuardDatabase();
+  const { user } = useAuth();
+  const ownerIdentity = user?.uuid ?? null;
+  const [history, setHistory] = useState<ScanCheckHistoryItem[]>([]);
+
+  const refresh = useCallback(async () => {
+    if (!enabled || !id || !ownerIdentity) {
+      setHistory([]);
+      return;
+    }
+    try {
+      setHistory(await listScanCheckHistory(database, id, ownerIdentity));
+    } catch {
+      // The history is a secondary view; the record itself reports its own errors.
+      setHistory([]);
+    }
+  }, [database, enabled, id, ownerIdentity]);
+  useSyncRecordsRefresh(() => {
+    void refresh();
+  });
+
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+    }, [refresh]),
+  );
+
+  return history;
 }
 
 export function usePaginatedScanRecords(

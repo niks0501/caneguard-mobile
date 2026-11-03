@@ -306,7 +306,7 @@ function ScanSessionOwner({
         void persistSelectedImage(action.payload);
         return;
       }
-      if (action.type === 'RESET_SCAN') {
+      if (action.type === 'RESET_SCAN' || action.type === 'START_FOLLOW_UP') {
         finalized.current = false;
         rawDispatch(action);
         const trackedImage = draftImageRef.current;

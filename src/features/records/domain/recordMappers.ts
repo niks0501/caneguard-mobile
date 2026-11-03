@@ -75,6 +75,8 @@ export function mapScanRecordDetails(
   return {
     ...mapScanRecordListItem(row),
     hasLinkedFieldReport: children.hasLinkedFieldReport,
+    followsUpScanId: row.followsUpScanId,
+    personalNote: row.personalNote,
     syncStatus: 'local_only',
     ownerIdentity: row.ownerIdentity,
     imageMimeType: row.imageMimeType,

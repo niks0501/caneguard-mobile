@@ -88,6 +88,7 @@ function openTestDatabase(): {
   native.exec(readMigration('0007_familiar_old_lace.sql'));
   native.exec(readMigration('0012_dapper_sumo.sql'));
   native.exec(readMigration('0013_v1_local_scan_migration.sql'));
+  native.exec(readMigration('0026_scan_follow_up_check.sql'));
   const client = {
     prepareSync(sql: string) {
       return createStatementAdapter(native.prepare(sql));

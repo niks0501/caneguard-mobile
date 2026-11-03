@@ -24,10 +24,16 @@ export function scanSessionReducer(
       return {
         ...initialScanSessionState,
         ...action.payload,
+        // A Check Again keeps its link when the farmer picks or retakes the photo.
+        ...(state.followUpOf ? { followUpOf: state.followUpOf } : {}),
         status: 'image-selected',
       };
     case 'RESET_SCAN':
       return { ...initialScanSessionState };
+    case 'START_FOLLOW_UP':
+      return { ...initialScanSessionState, followUpOf: action.payload.scanId };
+    case 'SET_PERSONAL_NOTE':
+      return { ...state, personalNote: action.payload };
     case 'START_PREPROCESSING':
       return {
         ...state,

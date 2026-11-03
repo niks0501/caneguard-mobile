@@ -17,9 +17,10 @@ import type {
 import type { QualityWarning } from '@/features/detection/validation/assessImageQuality';
 import { StorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
-import type {
-  CompletedScanDraft,
-  SaveCompletedScanInput,
+import {
+  MAX_PERSONAL_NOTE_LENGTH,
+  type CompletedScanDraft,
+  type SaveCompletedScanInput,
 } from '@/features/records/domain/recordTypes';
 import { isManagedSourceScanImageUriForRecord } from '@/features/records/services/scanImageStorage';
 import { isValidSubmissionImageMetadata } from '@/features/sync/constants/mobileReportUploadContract';
@@ -89,12 +90,19 @@ export function createCompletedScanDraft(
     preprocessMs: state.result.timings.preprocessMs,
     inferenceMs: state.result.timings.inferenceMs,
     totalMs: state.result.timings.totalMs,
+    followsUpScanId: state.followUpOf ?? null,
+    personalNote: state.followUpOf ? normalizePersonalNote(state.personalNote) : null,
     createdAt: timestamp!,
     updatedAt: timestamp!,
   };
 
   validateCompletedScanDraft(draft);
   return draft;
+}
+
+function normalizePersonalNote(note: string | null | undefined): string | null {
+  const trimmed = note?.trim() ?? '';
+  return trimmed ? trimmed : null;
 }
 
 export function validateCompletedScanDraft(draft: CompletedScanDraft): void {
@@ -146,6 +154,14 @@ export function validateCompletedScanDraft(draft: CompletedScanDraft): void {
     new Set(draft.qualityWarnings).size !== draft.qualityWarnings.length
   ) {
     invalid('The image-quality warning keys are invalid.');
+  }
+  if (draft.followsUpScanId != null) {
+    if (!UUID_V4_PATTERN.test(draft.followsUpScanId) || draft.followsUpScanId === draft.id) {
+      invalid('The follow-up link is invalid.');
+    }
+  }
+  if (draft.personalNote != null && draft.personalNote.length > MAX_PERSONAL_NOTE_LENGTH) {
+    invalid('The personal note is too long.');
   }
   validateUtcTimestamp(draft.createdAt);
   validateUtcTimestamp(draft.updatedAt);

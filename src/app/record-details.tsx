@@ -36,6 +36,7 @@ import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { FarmerCheckAgain } from '@/features/records/components/FarmerCheckAgain';
 import { returnToTab } from '@/features/navigation/returnToTab';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import type { SyncStatus } from '@/database/schema';
@@ -68,6 +69,7 @@ export default function RecordDetailsScreen() {
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
   const canReportToOffice = user?.role === 'field_reporter';
+  const canCheckAgain = user?.role === 'farmer';
   const deleteBlockedByLinkedReport =
     !canReportToOffice && record.data?.hasLinkedFieldReport === true;
   const sync = useSync();
@@ -279,6 +281,8 @@ export default function RecordDetailsScreen() {
                 </AppButton>
               </Section>
               ) : null}
+
+              {canCheckAgain ? <FarmerCheckAgain record={record.data} /> : null}
 
               {deleteError ? (
                 <Text

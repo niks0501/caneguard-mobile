@@ -35,6 +35,7 @@ import {
 } from '@/features/detection/context/sessionErrors';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import { returnToTab } from '@/features/navigation/returnToTab';
+import { FollowUpComparison } from '@/features/records/components/FollowUpComparison';
 import { useSaveCompletedScan } from '@/features/records/hooks/useSaveCompletedScan';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
@@ -89,6 +90,7 @@ export default function AnalysisResultScreen() {
   const { state, dispatch } = useScanSession();
   const { user } = useAuth();
   const canReportToOffice = user?.role === 'field_reporter';
+  const isFollowUp = user?.role === 'farmer' && Boolean(state.followUpOf);
   const saveRecord = useSaveCompletedScan(state);
   const draft = useScanDraft();
   const [openingReport, setOpeningReport] = useState(false);
@@ -151,7 +153,12 @@ export default function AnalysisResultScreen() {
   };
 
   const startNewScan = () => {
-    dispatch({ type: 'RESET_SCAN' });
+    // Scanning again before saving a follow-up keeps it a follow-up.
+    if (isFollowUp && state.followUpOf && !savedRecord.current) {
+      dispatch({ type: 'START_FOLLOW_UP', payload: { scanId: state.followUpOf } });
+    } else {
+      dispatch({ type: 'RESET_SCAN' });
+    }
     returnToTab('/scan');
   };
 
@@ -276,7 +283,13 @@ export default function AnalysisResultScreen() {
   const isFailed = saveRecord.status === 'failed';
   const isSaved = saveRecord.status === 'saved';
 
-  const saveScanButton = (
+  const saveScanButton = isFollowUp ? (
+    <FollowUpSaveButton
+      failed={isFailed}
+      onPress={keepAsScanOnly}
+      saving={isSaving}
+    />
+  ) : (
     <AppButton
       testID="scan.keep-as-scan-only"
       busy={isSaving}
@@ -310,13 +323,26 @@ export default function AnalysisResultScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
-            <ExpoImage
-              source={{ uri: state.sourceUri }}
-              cachePolicy="memory-disk"
-              contentFit="cover"
-              accessibilityLabel="Selected sugarcane image used for analysis"
-              style={[styles.resultImage, { borderColor: theme.border }]}
-            />
+            {isFollowUp ? null : (
+              <ExpoImage
+                source={{ uri: state.sourceUri }}
+                cachePolicy="memory-disk"
+                contentFit="cover"
+                accessibilityLabel="Selected sugarcane image used for analysis"
+                style={[styles.resultImage, { borderColor: theme.border }]}
+              />
+            )}
+            {isFollowUp && state.followUpOf ? (
+              <FollowUpComparison
+                newPredictedLabel={result.predictedLabel}
+                newSourceUri={state.sourceUri}
+                note={state.personalNote ?? ''}
+                noteEditable={!isSaved && !isSaving}
+                onNoteChange={(value) => dispatch({ type: 'SET_PERSONAL_NOTE', payload: value })}
+                originalId={state.followUpOf}
+                saved={isSaved}
+              />
+            ) : null}
             <View testID="scan.decision-card" style={styles.resultBlock}>
               <Pill
                 label="AI screening result"
@@ -653,6 +679,28 @@ function UncertainResult({
         {copy.closestMatchLabel} {closestMatch}
       </Text>
     </View>
+  );
+}
+
+function FollowUpSaveButton({
+  failed,
+  onPress,
+  saving,
+}: {
+  failed: boolean;
+  onPress: () => void;
+  saving: boolean;
+}) {
+  const copy = useFarmerCopy().checkAgain;
+  return (
+    <AppButton
+      testID="scan.save-follow-up"
+      busy={saving}
+      onPress={onPress}
+      disabled={saving}
+      leadingIcon={failed ? 'refresh-cw' : 'save'}>
+      {saving ? copy.savingFollowUp : failed ? copy.retrySaveFollowUp : copy.saveFollowUp}
+    </AppButton>
   );
 }
 

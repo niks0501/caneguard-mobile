@@ -280,6 +280,25 @@ export type FarmerCopyBlock = {
     reviewSigns: string;
     closestMatchLabel: string;
   };
+  checkAgain: {
+    action: string;
+    actionHint: string;
+    historyHeading: string;
+    firstCheck: string;
+    thisCheck: string;
+    compareHeading: string;
+    firstPhoto: string;
+    newPhoto: string;
+    firstPhotoUnavailable: string;
+    possibleCondition: string;
+    compareNotice: string;
+    noteLabel: string;
+    notePlaceholder: string;
+    saveFollowUp: string;
+    savingFollowUp: string;
+    retrySaveFollowUp: string;
+    followUpSaved: string;
+  };
 };
 
 export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
@@ -312,6 +331,26 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       reviewSigns: 'Review Signs',
       closestMatchLabel: 'Closest match:',
     },
+    checkAgain: {
+      action: 'Check again',
+      actionHint: 'Take a new photo of this plant and keep it with this scan.',
+      historyHeading: 'Your checks',
+      firstCheck: 'First check',
+      thisCheck: 'Viewing now',
+      compareHeading: 'Compare with your first photo',
+      firstPhoto: 'First photo',
+      newPhoto: 'New photo',
+      firstPhotoUnavailable: 'The first photo is not on this device.',
+      possibleCondition: 'Possible Condition',
+      compareNotice:
+        'The two photos are shown side by side for you to look at. CaneGuard does not compare the two results for you.',
+      noteLabel: 'What do you see now?',
+      notePlaceholder: 'Write it in your own words',
+      saveFollowUp: 'Save Follow-Up',
+      savingFollowUp: 'Saving follow-up...',
+      retrySaveFollowUp: 'Retry and Save Follow-Up',
+      followUpSaved: 'Follow-up saved on this device.',
+    },
   },
   tl: {
     greeting: {
@@ -341,6 +380,26 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       retakePhoto: 'Kunin Muli ang Litrato',
       reviewSigns: 'Suriin ang mga Palatandaan',
       closestMatchLabel: 'Pinakamalapit na tugma:',
+    },
+    checkAgain: {
+      action: 'Suriin muli',
+      actionHint: 'Kumuha ng bagong litrato ng halamang ito at itabi ito sa scan na ito.',
+      historyHeading: 'Mga pagsusuri mo',
+      firstCheck: 'Unang pagsusuri',
+      thisCheck: 'Tinitingnan ngayon',
+      compareHeading: 'Ihambing sa unang litrato mo',
+      firstPhoto: 'Unang litrato',
+      newPhoto: 'Bagong litrato',
+      firstPhotoUnavailable: 'Wala na sa device na ito ang unang litrato.',
+      possibleCondition: 'Posibleng kondisyon',
+      compareNotice:
+        'Magkatabi ang dalawang litrato para tingnan mo. Hindi pinaghahambing ng CaneGuard ang dalawang resulta para sa iyo.',
+      noteLabel: 'Ano ang nakikita mo ngayon?',
+      notePlaceholder: 'Isulat sa sarili mong salita',
+      saveFollowUp: 'I-save ang Follow-Up',
+      savingFollowUp: 'Sine-save ang follow-up...',
+      retrySaveFollowUp: 'Subukang muli at I-save ang Follow-Up',
+      followUpSaved: 'Na-save ang follow-up sa device na ito.',
     },
   },
 };

@@ -124,6 +124,7 @@ const MIGRATIONS = [
   '0023_affected_area_waypoints.sql',
   '0024_active_affected_waypoints.sql',
   '0025_field_survey_author_role.sql',
+  '0026_scan_follow_up_check.sql',
 ] as const;
 
 function readMigration(filename: string): string {

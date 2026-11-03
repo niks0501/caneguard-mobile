@@ -183,6 +183,13 @@
       "when": 1793441400000,
       "tag": "0025_field_survey_author_role",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1793714710958,
+      "tag": "0026_scan_follow_up_check",
+      "breakpoints": true
     }
   ]
 }

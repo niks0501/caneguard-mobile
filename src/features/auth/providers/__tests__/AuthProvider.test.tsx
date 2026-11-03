@@ -14,6 +14,7 @@ import {
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { AuthProvider } from '@/features/auth/providers/AuthProvider';
 import HomeScreen from '@/app/(tabs)/home';
+import { LanguagePreferenceProvider } from '@/providers/LanguagePreferenceProvider';
 import {
   clearLegacyMobileSession,
   clearMobileSession,
@@ -242,7 +243,9 @@ describe('AuthProvider', () => {
     await act(async () => {
       render(
         <AuthProvider>
-          <AuthenticatedHomeRoute />
+          <LanguagePreferenceProvider>
+            <AuthenticatedHomeRoute />
+          </LanguagePreferenceProvider>
         </AuthProvider>,
       );
       await Promise.resolve();

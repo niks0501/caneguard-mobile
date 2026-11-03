@@ -32,7 +32,6 @@ const FIXTURES: Record<string, number> = {
   'CG-RST-ONL-S001-P180-I001': require('../../../../dev-assets/model-fixtures/v2-parity/CG-RST-ONL-S001-P180-I001.png'),
   'CG-SMT-FLD-S007-P001-I001': require('../../../../dev-assets/model-fixtures/v2-parity/CG-SMT-FLD-S007-P001-I001.png'),
 };
-/* eslint-enable @typescript-eslint/no-require-imports */
 
 type PanelState =
   | { state: 'running' }

@@ -40,6 +40,11 @@ export type GpsCaptureResult =
       reason: GpsCaptureUnavailableReason;
       /** The bounded foreground attempt ended before the native reading did. */
       timedOut?: boolean;
+      /**
+       * Valid coordinates that arrived without a reported accuracy. Never a
+       * measured fix, so callers keep them only as a last resort.
+       */
+      fallback?: { capturedAt: string; latitude: number; longitude: number };
     };
 
 export interface GpsCaptureOptions {
@@ -53,9 +58,9 @@ export async function captureGpsLocation(
 ): Promise<GpsCaptureResult> {
   const attemptedAt = now().toISOString();
   const timeoutMs = options.timeoutMs ?? FOREGROUND_GPS_TIMEOUT_MS;
+  const best: BestReading = { closed: false, fallback: null, position: null };
 
   try {
-    const best: BestReading = { closed: false, position: null };
     let position: UsablePosition | null;
     try {
       position = await withForegroundTimeout(sampleBestPosition(client, best), timeoutMs);
@@ -69,20 +74,12 @@ export async function captureGpsLocation(
       best.closed = true;
     }
     if (!position) {
-      return {
-        capturedAt: attemptedAt,
-        outcome: 'unavailable',
-        reason: 'reading_unavailable',
-      };
+      return unreadableCapture(attemptedAt, best);
     }
 
-    const recordedDate = new Date(position.timestamp);
-    const capturedAt = Number.isNaN(recordedDate.getTime())
-      ? attemptedAt
-      : recordedDate.toISOString();
     return {
       accuracy: position.accuracy,
-      capturedAt,
+      capturedAt: captureTimestamp(position.timestamp, attemptedAt),
       latitude: position.latitude,
       longitude: position.longitude,
       outcome:
@@ -104,15 +101,30 @@ export async function captureGpsLocation(
     if (error instanceof GpsTimeoutError) {
       // The late native result is abandoned, not persisted: callers treat a
       // timed-out attempt as stale evidence with an explicit reason.
-      return {
-        capturedAt: attemptedAt,
-        outcome: 'unavailable',
-        reason: 'reading_unavailable',
-        timedOut: true,
-      };
+      return { ...unreadableCapture(attemptedAt, best), timedOut: true };
     }
     return { capturedAt: attemptedAt, outcome: 'error' };
   }
+}
+
+function unreadableCapture(
+  attemptedAt: string,
+  best: BestReading,
+): Extract<GpsCaptureResult, { outcome: 'unavailable' }> {
+  return {
+    capturedAt: attemptedAt,
+    outcome: 'unavailable',
+    reason: 'reading_unavailable',
+    ...(best.fallback
+      ? {
+          fallback: {
+            capturedAt: captureTimestamp(best.fallback.timestamp, attemptedAt),
+            latitude: best.fallback.latitude,
+            longitude: best.fallback.longitude,
+          },
+        }
+      : {}),
+  };
 }
 
 type ForegroundPosition = Awaited<ReturnType<ForegroundLocationClient['getCurrentPosition']>>;
@@ -121,6 +133,8 @@ type UsablePosition = ForegroundPosition & { accuracy: number };
 interface BestReading {
   /** Set once the bounded capture ended so abandoned sampling stops. */
   closed: boolean;
+  /** Coordinates seen without a reported accuracy; kept only as a last resort. */
+  fallback: ForegroundPosition | null;
   position: UsablePosition | null;
 }
 
@@ -145,7 +159,7 @@ async function sampleBestPosition(
     try {
       position = await client.getCurrentPosition();
     } catch (error) {
-      if (best.position) {
+      if (best.position || best.fallback) {
         break;
       }
       throw error;
@@ -157,6 +171,8 @@ async function sampleBestPosition(
       if (position.accuracy <= PREFERRED_GPS_ACCURACY_METERS) {
         break;
       }
+    } else if (position.accuracy === null && isLocated(position)) {
+      best.fallback = position;
     }
     await new Promise<void>((resolve) =>
       setTimeout(resolve, GPS_SAMPLE_INTERVAL_MS),
@@ -167,12 +183,25 @@ async function sampleBestPosition(
 
 function isUsableReading(position: ForegroundPosition): position is UsablePosition {
   return (
-    isCoordinate(position.latitude, -90, 90) &&
-    isCoordinate(position.longitude, -180, 180) &&
+    isLocated(position) &&
     position.accuracy !== null &&
     Number.isFinite(position.accuracy) &&
     position.accuracy >= 0
   );
+}
+
+function isLocated(position: ForegroundPosition): boolean {
+  return (
+    isCoordinate(position.latitude, -90, 90) &&
+    isCoordinate(position.longitude, -180, 180)
+  );
+}
+
+function captureTimestamp(timestamp: number, attemptedAt: string): string {
+  const recorded = new Date(timestamp);
+  return Number.isNaN(recorded.getTime())
+    ? attemptedAt
+    : recorded.toISOString();
 }
 
 class GpsTimeoutError extends Error {}

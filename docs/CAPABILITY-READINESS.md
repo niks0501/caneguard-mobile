@@ -46,7 +46,14 @@ tests. "Implemented" does not mean "verified on a device":
   coordinate map, affected areas accepted only when fully inside the plot
   (concave boundaries included), overlaps counted once, and unfinished affected
   points checkpointed with the draft so Submit stays blocked until they are
-  finished or cleared.
+  finished or cleared. Each boundary point keeps the best reading from its own
+  bounded GPS sample, every point is kept as measurement provenance, and a
+  completed plot shows a **Boundary Quality** panel with plot area, boundary
+  point count, affected area, and one of three GPS states: **Good** when every
+  point is 5 m or better, **Acceptable** when some points are 5 to 10 m, and
+  **Low accuracy** when any point is worse than 10 m or unknown. Low accuracy
+  names the worst point and offers one **Recapture** button for exactly that
+  point; poor accuracy never blocks saving.
 - Home: the Morning Note sentence and its one button, the greeting and date
   band with an Offline chip while offline, the "Today at a glance" strip, icon
   tool tiles, and the four-class "Know the signs" photo strip. A farmer session
@@ -71,8 +78,8 @@ not proven by unit tests:
 ## Location behaviour
 
 - Foreground GPS is the primary source. One bounded foreground capture samples
-  readings for up to 15 seconds, keeps the most accurate one and stops early
-  once a reading reaches the 5 m target.
+  readings for up to 15 seconds (8 seconds for a boundary survey point), keeps
+  the most accurate one and stops early once a reading reaches the 5 m target.
 - In a Field Report Draft, a reading that saved final coordinates always reads
   as **Location added** with its device-reported accuracy, including one worse
   than the 5 m target; that worse-than-target fix also offers a one-tap **Try for

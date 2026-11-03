@@ -1,5 +1,8 @@
-import type { ForegroundLocationClient } from '@/features/reports/services/captureGpsLocation';
+import { captureGpsLocation, type ForegroundLocationClient } from '@/features/reports/services/captureGpsLocation';
 import type { SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+
+/** Survey points sample up to this long; the shared sampler stops early at the preferred accuracy. */
+export const SURVEY_GPS_SAMPLE_WINDOW_MS = 8_000;
 
 export type SurveyWaypointCaptureResult =
   | { status: 'captured'; waypoint: SurveyWaypoint }
@@ -8,28 +11,38 @@ export type SurveyWaypointCaptureResult =
 export async function captureSurveyWaypoint(
   client: ForegroundLocationClient,
   now: () => Date = () => new Date(),
+  timeoutMs: number = SURVEY_GPS_SAMPLE_WINDOW_MS,
 ): Promise<SurveyWaypointCaptureResult> {
-  try {
-    if (await client.requestForegroundPermission() !== 'granted') return { status: 'permission_denied' };
-    if (!(await client.hasServicesEnabled())) return { status: 'services_disabled' };
-    const position = await client.getCurrentPosition();
-    if (!Number.isFinite(position.latitude) || position.latitude < -90 || position.latitude > 90 ||
-      !Number.isFinite(position.longitude) || position.longitude < -180 || position.longitude > 180 ||
-      (position.accuracy !== null && (!Number.isFinite(position.accuracy) || position.accuracy < 0))) {
-      return { status: 'unavailable' };
+  const result = await captureGpsLocation(client, now, { timeoutMs });
+  if (result.outcome === 'permission_denied') return { status: 'permission_denied' };
+  if (result.outcome === 'unavailable') {
+    if (result.reason === 'location_services_disabled') return { status: 'services_disabled' };
+    // A device that reports coordinates without an accuracy still yields a
+    // usable point; the missing measurement is recorded as provenance.
+    if (result.fallback) {
+      return {
+        status: 'captured',
+        waypoint: {
+          latitude: result.fallback.latitude,
+          longitude: result.fallback.longitude,
+          accuracyMeters: null,
+          capturedAt: result.fallback.capturedAt,
+          source: 'gps',
+        },
+      };
     }
-    const timestamp = new Date(position.timestamp);
-    return {
-      status: 'captured',
-      waypoint: {
-        latitude: position.latitude,
-        longitude: position.longitude,
-        accuracyMeters: position.accuracy,
-        capturedAt: Number.isNaN(timestamp.getTime()) ? now().toISOString() : timestamp.toISOString(),
-        source: 'gps',
-      },
-    };
-  } catch {
     return { status: 'unavailable' };
   }
+  if (result.outcome !== 'resolved' && result.outcome !== 'low_accuracy') return { status: 'unavailable' };
+  // Poor accuracy never blocks the point; the actual value is kept as provenance.
+  return {
+    status: 'captured',
+    waypoint: {
+      latitude: result.latitude,
+      longitude: result.longitude,
+      accuracyMeters: result.accuracy,
+      capturedAt: result.capturedAt,
+      source: 'gps',
+    },
+  };
 }

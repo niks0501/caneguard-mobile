@@ -41,7 +41,10 @@ tests. "Implemented" does not mean "verified on a device":
 - Scan capture from camera or gallery, image preview, on-device analysis,
   guided symptom checklist, and the result card (Possible Condition, or Result
   uncertain for a farmer below the cutoff).
-- Saved scan records and record details.
+- Saved scan records and record details, plus the farmer Check Again follow-up:
+  a new photo beside the first photo with each check's own date and Possible
+  Condition line, the farmer's own note, and the plant's checks in date order.
+  No trend label, better/worse claim, score comparison, or reminder.
 - Field Report Draft (Field Inspector accounts only): five-step form, local
   autosave checkpoints, readiness checklist, finalization, foreground sync and
   manual retry.

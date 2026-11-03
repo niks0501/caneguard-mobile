@@ -1,3 +1,5 @@
+import { and, eq } from 'drizzle-orm';
+
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
@@ -30,11 +32,38 @@ export async function insertScanRecord(
 
   try {
     database.transaction((transaction) => {
+      const ownerIdentity = requireOwnerIdentity(input.ownerIdentity);
+      if (input.followsUpScanId) {
+        // A follow-up must follow an original check owned by the same account.
+        const original = transaction
+          .select({
+            ownerIdentity: scanRecords.ownerIdentity,
+            followsUpScanId: scanRecords.followsUpScanId,
+          })
+          .from(scanRecords)
+          .where(eq(scanRecords.id, input.followsUpScanId))
+          .get();
+        if (!original || original.ownerIdentity !== ownerIdentity) {
+          throw new StorageError(
+            'INVALID_SCAN_RECORD',
+            'The scan being followed up is not available to this account.',
+          );
+        }
+        if (original.followsUpScanId) {
+          throw new StorageError(
+            'INVALID_SCAN_RECORD',
+            'A follow-up must link to the first check, not to another follow-up.',
+          );
+        }
+      }
+
       transaction
         .insert(scanRecords)
         .values({
           id: input.id,
-          ownerIdentity: requireOwnerIdentity(input.ownerIdentity),
+          ownerIdentity,
+          followsUpScanId: input.followsUpScanId ?? null,
+          personalNote: input.personalNote ?? null,
           managedImageUri: input.managedImageUri,
           imageMimeType: input.imageMimeType,
           imageSizeBytes: input.imageSizeBytes,
@@ -100,9 +129,6 @@ export async function insertScanRecord(
           .run();
       }
     });
-
-    emitSyncRecordsChanged();
-    return { id: input.id };
   } catch (error: unknown) {
     if (isDuplicateRecordError(error)) {
       throw new StorageError('DUPLICATE_RECORD', 'The scan record ID already exists.', {
@@ -110,11 +136,54 @@ export async function insertScanRecord(
       });
     }
 
-    throw toStorageError(
-      error,
-      'SAVE_TRANSACTION_FAILED',
-      'The scan record transaction failed.',
-    );
+    if (!(await isOwnedRecordOnDevice(database, input))) {
+      throw toStorageError(
+        error,
+        'SAVE_TRANSACTION_FAILED',
+        'The scan record transaction failed.',
+      );
+    }
+
+    // The record is on the device even though the driver reported an error, so
+    // the write is a success; telling the farmer it failed loses a saved scan.
+  }
+
+  notifyRecordsChanged();
+  return { id: input.id };
+}
+
+async function isOwnedRecordOnDevice(
+  database: CaneGuardDatabase,
+  input: SaveCompletedScanInput,
+): Promise<boolean> {
+  try {
+    const row = await database
+      .select({ id: scanRecords.id })
+      .from(scanRecords)
+      .where(
+        and(
+          eq(scanRecords.id, input.id),
+          eq(scanRecords.ownerIdentity, requireOwnerIdentity(input.ownerIdentity)),
+        ),
+      )
+      .get();
+    return Boolean(row);
+  } catch {
+    return false;
+  }
+}
+
+function notifyRecordsChanged(): void {
+  // A saved record must never be reported as failed because a list refresh
+  // subscriber threw after the transaction committed.
+  try {
+    emitSyncRecordsChanged();
+  } catch {
+    if (__DEV__) {
+      console.warn(
+        '[records:SYNC_NOTICE_FAILED] The saved scan was not announced to list subscribers.',
+      );
+    }
   }
 }
 

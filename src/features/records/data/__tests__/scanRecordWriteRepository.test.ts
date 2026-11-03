@@ -25,7 +25,10 @@ import {
   getManagedScanImageDirectory,
   getSubmissionImageUri,
 } from '@/features/records/services/scanImageStorage';
-import { getSyncRecordsRevision } from '@/features/sync/services/syncEvents';
+import {
+  getSyncRecordsRevision,
+  subscribeSyncRecords,
+} from '@/features/sync/services/syncEvents';
 
 const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
 const SECOND_RECORD_ID = 'c863a5af-e9ad-44fe-a0dc-73f9d3436cac';
@@ -56,6 +59,7 @@ function openTestDatabase(): {
   native.exec(readMigration('0007_familiar_old_lace.sql'));
   native.exec(readMigration('0012_dapper_sumo.sql'));
   native.exec(readMigration('0013_v1_local_scan_migration.sql'));
+  native.exec(readMigration('0026_scan_follow_up_check.sql'));
   const client = {
     prepareSync(sql: string) {
       return createStatementAdapter(native.prepare(sql));
@@ -205,6 +209,57 @@ describe('scan record write repository', () => {
     expect(
       native.prepare('SELECT count(*) AS count FROM scan_records').get(),
     ).toEqual({ count: 0 });
+    native.close();
+  });
+
+  it('reports a save as saved when the driver throws after the record is committed', async () => {
+    const { database, native } = openTestDatabase();
+    const revisionBefore = getSyncRecordsRevision();
+    const runTransaction = database.transaction.bind(database) as unknown as (
+      callback: (transaction: unknown) => void,
+    ) => void;
+    // The write reaches the database and then the driver reports an error, which
+    // is how a lost commit acknowledgement looks to the caller.
+    const commitLostDatabase = new Proxy(database, {
+      get(target, property, receiver) {
+        if (property !== 'transaction') {
+          return Reflect.get(target, property, receiver);
+        }
+        return (callback: (transaction: unknown) => void) => {
+          runTransaction(callback);
+          throw new Error('commit acknowledgement lost');
+        };
+      },
+    });
+
+    await expect(
+      insertScanRecord(commitLostDatabase, validInput()),
+    ).resolves.toEqual({ id: RECORD_ID });
+
+    expect(
+      native.prepare('SELECT count(*) AS count FROM scan_records').get(),
+    ).toEqual({ count: 1 });
+    expect(getSyncRecordsRevision()).toBe(revisionBefore + 1);
+    native.close();
+  });
+
+  it('keeps a committed save when a records-changed listener fails', async () => {
+    const { database, native } = openTestDatabase();
+    const unsubscribe = subscribeSyncRecords(() => {
+      throw new Error('records-changed listener failed');
+    });
+
+    try {
+      await expect(insertScanRecord(database, validInput())).resolves.toEqual({
+        id: RECORD_ID,
+      });
+    } finally {
+      unsubscribe();
+    }
+
+    expect(
+      native.prepare('SELECT count(*) AS count FROM scan_records').get(),
+    ).toEqual({ count: 1 });
     native.close();
   });
 

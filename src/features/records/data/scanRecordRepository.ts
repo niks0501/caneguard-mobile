@@ -30,6 +30,7 @@ import {
 import {
   DEFAULT_RECORD_PAGE_SIZE,
   MAX_RECORD_PAGE_SIZE,
+  type ScanCheckHistoryItem,
   type ScanRecordDetails,
   type ScanRecordListItem,
   type ScanRecordQuery,
@@ -48,6 +49,7 @@ export function createScanRecordRepository(
     findById: (id) => findScanRecordById(database, id, owner),
     deleteById: (id) =>
       deleteScanRecordById(database, id, owner, includeFieldReports),
+    listCheckHistory: (id) => listScanCheckHistory(database, id, owner),
     listManagedImageUris: () => listManagedImageUris(database, owner),
   };
 }
@@ -172,6 +174,51 @@ export async function findScanRecordById(
     });
   } catch (error: unknown) {
     throw toStorageError(error, 'QUERY_FAILED', 'Reading a scan record failed.');
+  }
+}
+
+/**
+ * The checks that belong with `id`: the first check and every follow-up of it,
+ * oldest first. Returns just the record itself when it has no follow-ups.
+ */
+export async function listScanCheckHistory(
+  database: CaneGuardDatabase,
+  id: string,
+  submitterIdentity: string,
+): Promise<ScanCheckHistoryItem[]> {
+  const owner = requireOwnerIdentity(submitterIdentity);
+  try {
+    const row = await database
+      .select({ id: scanRecords.id, followsUpScanId: scanRecords.followsUpScanId })
+      .from(scanRecords)
+      .where(and(eq(scanRecords.id, id), eq(scanRecords.ownerIdentity, owner)))
+      .get();
+    if (!row) {
+      throw new StorageError('RECORD_NOT_FOUND', 'The scan record does not exist.');
+    }
+    const originalId = row.followsUpScanId ?? row.id;
+    const rows = await database
+      .select({
+        id: scanRecords.id,
+        createdAt: scanRecords.createdAt,
+        managedImageUri: scanRecords.managedImageUri,
+        personalNote: scanRecords.personalNote,
+        predictedLabel: scanRecords.predictedLabel,
+      })
+      .from(scanRecords)
+      .where(
+        and(
+          eq(scanRecords.ownerIdentity, owner),
+          or(
+            eq(scanRecords.id, originalId),
+            eq(scanRecords.followsUpScanId, originalId),
+          ),
+        ),
+      )
+      .orderBy(asc(scanRecords.createdAt), asc(scanRecords.id));
+    return rows.map((item) => ({ ...item, isOriginal: item.id === originalId }));
+  } catch (error: unknown) {
+    throw toStorageError(error, 'QUERY_FAILED', 'Reading the check history failed.');
   }
 }
 

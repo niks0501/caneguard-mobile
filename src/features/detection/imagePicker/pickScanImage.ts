@@ -23,21 +23,61 @@ export type ScanPickOutcome =
   | PickerOutcome
   | { kind: 'permission-denied'; canAskAgain: boolean };
 
-/** Records the picker source so an Android process kill can label the result. */
-export async function rememberPendingPickerSource(sourceType: ScanSourceType) {
+/** A picker launch, remembered durably so an Android process kill can recover it. */
+export interface PendingPickerLaunch {
+  /** Set when the launch belonged to a Check Again of that saved scan. */
+  followUpOf: string | null;
+  sourceType: ScanSourceType;
+}
+
+/**
+ * Records the picker launch so an Android process kill can label the result and
+ * keep its Check Again link. No image URI or note text is persisted here.
+ */
+export async function rememberPendingPickerSource(
+  sourceType: ScanSourceType,
+  followUpOf: string | null = null,
+) {
   try {
-    await AsyncStorage.setItem(PENDING_PICKER_SOURCE_KEY, sourceType);
+    await AsyncStorage.setItem(
+      PENDING_PICKER_SOURCE_KEY,
+      JSON.stringify({ followUpOf, sourceType }),
+    );
   } catch {
-    // Pending-result recovery is best effort. No image URI or user content is
-    // persisted here.
+    // Pending-result recovery is best effort.
   }
 }
 
-export async function takePendingPickerSource(): Promise<ScanSourceType | null> {
+export async function takePendingPickerSource(): Promise<PendingPickerLaunch | null> {
   try {
     const value = await AsyncStorage.getItem(PENDING_PICKER_SOURCE_KEY);
     await AsyncStorage.removeItem(PENDING_PICKER_SOURCE_KEY);
-    return value === 'camera' || value === 'gallery' ? value : null;
+    return parsePendingPickerSource(value);
+  } catch {
+    return null;
+  }
+}
+
+function parsePendingPickerSource(value: string | null): PendingPickerLaunch | null {
+  if (value === 'camera' || value === 'gallery') {
+    // A marker written before the link was recorded has no follow-up context.
+    return { followUpOf: null, sourceType: value };
+  }
+  if (!value) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(value) as Partial<PendingPickerLaunch> | null;
+    if (!parsed || (parsed.sourceType !== 'camera' && parsed.sourceType !== 'gallery')) {
+      return null;
+    }
+    return {
+      followUpOf:
+        typeof parsed.followUpOf === 'string' && parsed.followUpOf.length > 0
+          ? parsed.followUpOf
+          : null,
+      sourceType: parsed.sourceType,
+    };
   } catch {
     return null;
   }
@@ -59,6 +99,7 @@ export async function clearPendingPickerSource() {
  */
 export async function pickScanImage(
   sourceType: ScanSourceType,
+  options: { followUpOf?: string | null } = {},
 ): Promise<ScanPickOutcome> {
   if (sourceType === 'camera') {
     try {
@@ -79,7 +120,7 @@ export async function pickScanImage(
     }
   }
 
-  await rememberPendingPickerSource(sourceType);
+  await rememberPendingPickerSource(sourceType, options.followUpOf ?? null);
   try {
     const result =
       sourceType === 'camera'

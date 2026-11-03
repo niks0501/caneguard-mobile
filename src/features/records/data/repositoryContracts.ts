@@ -2,6 +2,7 @@ import type {
   DateRange,
   LocalReportSummary,
   SaveCompletedScanInput,
+  ScanCheckHistoryItem,
   ScanRecordDetails,
   ScanRecordListItem,
   ScanRecordQuery,
@@ -18,6 +19,7 @@ export interface ScanRecordRepository extends ScanRecordWriteRepository {
   }>;
   findById(id: string): Promise<ScanRecordDetails>;
   list(query: ScanRecordQuery): Promise<ScanRecordListItem[]>;
+  listCheckHistory(id: string): Promise<ScanCheckHistoryItem[]>;
   listManagedImageUris(): Promise<string[]>;
 }
 

@@ -41,7 +41,11 @@ export interface StoredClassScore {
   score: number;
 }
 
+export const MAX_PERSONAL_NOTE_LENGTH = 500;
+
 export interface ScanRecordDetails extends ScanRecordListItem {
+  followsUpScanId?: string | null;
+  personalNote?: string | null;
   hasLinkedFieldReport: boolean;
   ownerIdentity: string;
   checklistConsistency: ChecklistConsistency;
@@ -70,6 +74,17 @@ export interface ScanRecordDetails extends ScanRecordListItem {
   updatedAt: string;
 }
 
+/** One check in a scan's Check Again history, in date order. */
+export interface ScanCheckHistoryItem {
+  createdAt: string;
+  id: string;
+  managedImageUri: string;
+  personalNote?: string | null;
+  predictedLabel: string;
+  /** True for the first check that later checks follow up. */
+  isOriginal: boolean;
+}
+
 export interface RecordsByLabel {
   count: number;
   label: string;
@@ -92,11 +107,13 @@ export interface CompletedScanDraft {
   confidence: number;
   createdAt: string;
   decisionSupportWording: string;
+  followsUpScanId?: string | null;
   id: string;
   imageSourceType: ScanSourceType;
   inferenceMs: number;
   modelVersion: string;
   predictedLabel: ModelLabel;
+  personalNote?: string | null;
   preprocessMs: number;
   qualityWarnings: QualityWarning[];
   reportedSeverity: ReportedSeverity | null;

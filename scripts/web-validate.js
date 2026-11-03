@@ -27,6 +27,7 @@ const {
 } = require('../validation/stub-api/server');
 const {
   FAKE_ACCOUNT,
+  FAKE_FARMER_ACCOUNT,
   FAKE_PASSWORD,
   resolveTodayKey,
 } = require('../validation/stub-api/fixtures');
@@ -57,7 +58,9 @@ function resolveExpoCommand() {
 function printInstructions() {
   console.log('');
   console.log(`[web:validate] stub API       http://${DEFAULT_STUB_API_HOST}:${DEFAULT_STUB_API_PORT}`);
-  console.log(`[web:validate] fake account   ${FAKE_ACCOUNT.email} / ${FAKE_PASSWORD}`);
+  console.log(`[web:validate] fake inspector ${FAKE_ACCOUNT.email} / ${FAKE_PASSWORD}`);
+  console.log(`[web:validate] fake farmer    ${FAKE_FARMER_ACCOUNT.email} / ${FAKE_PASSWORD}`);
+  console.log('[web:validate] farmer scans   first check plus two follow-ups are seeded');
   console.log(`[web:validate] open           http://${DEFAULT_STUB_API_HOST}:${DEFAULT_WEB_PORT}/login`);
   console.log('[web:validate] open /login, not / — the single-page manifest at / skips COOP/COEP.');
   console.log('[web:validate] one browser profile per origin; never a second tab on the same origin.');

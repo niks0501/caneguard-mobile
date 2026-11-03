@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  type AnySQLiteColumn,
   check,
   index,
   integer,
@@ -140,6 +141,13 @@ export const scanRecords = sqliteTable(
     lastSyncErrorCode: text('last_sync_error_code'),
     lastSyncAttemptAt: text('last_sync_attempt_at'),
     lastSyncedAt: text('last_synced_at'),
+    /** Check Again link: the first check this scan follows up. Cleared if that scan is deleted. */
+    followsUpScanId: text('follows_up_scan_id').references(
+      (): AnySQLiteColumn => scanRecords.id,
+      { onDelete: 'set null' },
+    ),
+    /** The farmer's own words about what they see now on a follow-up check. */
+    personalNote: text('personal_note'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
@@ -149,6 +157,7 @@ export const scanRecords = sqliteTable(
       table.createdAt,
     ),
     index('scan_records_created_at_idx').on(table.createdAt),
+    index('scan_records_follows_up_idx').on(table.followsUpScanId),
     index('scan_records_label_created_at_idx').on(table.predictedLabel, table.createdAt),
     index('scan_records_sync_created_at_idx').on(table.syncStatus, table.createdAt),
     index('scan_records_barangay_created_at_idx').on(table.barangay, table.createdAt),

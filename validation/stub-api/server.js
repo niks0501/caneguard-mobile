@@ -1,26 +1,38 @@
 /**
  * Deterministic stub API for the browser validation route.
  *
- * It exists so `npm run web:validate` can drive Home, Activity and Visits in a
- * browser without a real backend, a real account or real data. It answers only
- * the endpoints those screens read during a read-only walkthrough; anything
- * else gets an empty page, and no write is ever persisted.
+ * It exists so `npm run web:validate` can drive Home, Activity, Visits and the
+ * farmer Check Again flow in a browser without a real backend, a real account
+ * or real data. It answers the endpoints those screens read; anything else gets
+ * an empty page. The only write it keeps is a validation image held in memory,
+ * so a newly captured follow-up photo can be rendered until the run ends.
  *
- * The token, password and account in `fixtures.js` are fake and printed at
+ * The tokens, password and accounts in `fixtures.js` are fake and printed at
  * startup on purpose. Never point the app at this server with a real session.
  */
 
+const fs = require('node:fs');
 const http = require('node:http');
+const path = require('node:path');
 
 const {
   FAKE_ACCOUNT,
+  FAKE_FARMER_ACCOUNT,
+  FAKE_FARMER_TOKEN,
   FAKE_PASSWORD,
   FAKE_TOKEN,
   buildAssignments,
+  buildScanRecords,
   buildUser,
   emptyPage,
   resolveTodayKey,
 } = require('./fixtures');
+
+const REPO_ROOT = path.join(__dirname, '..', '..');
+const VALIDATION_FILES_PATH = '/__validation__/files';
+const SCAN_IMAGE_PREFIX = '/caneguard/scan-images/';
+const SCAN_IMAGE_PATH_PATTERN =
+  /^\/caneguard\/scan-images\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+\.(?:jpg|jpeg|png|webp|img)$/;
 
 const DEFAULT_STUB_API_HOST = '127.0.0.1';
 const DEFAULT_STUB_API_PORT = 8210;
@@ -32,15 +44,28 @@ const NOTIFICATIONS_PATH = '/api/v1/mobile/notifications';
 const NOTIFICATIONS_READ_ALL_PATH = '/api/v1/mobile/notifications/read-all';
 const SESSION_SECONDS = 30 * 24 * 60 * 60;
 const MAX_BODY_BYTES = 64 * 1024;
+const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+
+const ACCOUNT_BY_EMAIL = new Map([
+  [FAKE_ACCOUNT.email, { account: FAKE_ACCOUNT, token: FAKE_TOKEN }],
+  [
+    FAKE_FARMER_ACCOUNT.email,
+    { account: FAKE_FARMER_ACCOUNT, token: FAKE_FARMER_TOKEN },
+  ],
+]);
+const ACCOUNT_BY_TOKEN = new Map(
+  [...ACCOUNT_BY_EMAIL.values()].map(({ account, token }) => [token, account]),
+);
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader(
     'Access-Control-Allow-Headers',
     'Accept, Authorization, Content-Type, X-XSRF-TOKEN',
   );
   res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 }
 
 function sendJson(res, status, body) {
@@ -52,52 +77,130 @@ function sendJson(res, status, body) {
   res.end(payload);
 }
 
-function readJsonBody(req) {
+function readBodyBuffer(req, maxBytes) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
     req.on('data', (chunk) => {
       size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
+      if (size > maxBytes) {
         reject(new Error('The stub request body is too large.'));
         req.destroy();
         return;
       }
       chunks.push(chunk);
     });
-    req.on('end', () => {
-      const raw = Buffer.concat(chunks).toString('utf8');
-      if (!raw.trim()) {
-        resolve(null);
-        return;
-      }
-      try {
-        resolve(JSON.parse(raw));
-      } catch {
-        reject(new Error('The stub request body is not JSON.'));
-      }
-    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
 }
 
-function isAuthorized(req) {
-  return req.headers.authorization === `Bearer ${FAKE_TOKEN}`;
+async function readJsonBody(req) {
+  const raw = (await readBodyBuffer(req, MAX_BODY_BYTES)).toString('utf8');
+  if (!raw.trim()) {
+    return null;
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error('The stub request body is not JSON.');
+  }
+}
+
+function authorizedAccount(req) {
+  const header = req.headers.authorization;
+  if (typeof header !== 'string' || !header.startsWith('Bearer ')) {
+    return null;
+  }
+  return ACCOUNT_BY_TOKEN.get(header.slice('Bearer '.length)) ?? null;
+}
+
+function sendImage(res, body, contentType = 'image/jpeg') {
+  setCorsHeaders(res);
+  res.statusCode = 200;
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Content-Length', body.length);
+  res.end(body);
 }
 
 function isRecord(value) {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
-function createRequestHandler({ log = () => {}, syncBefore, visits }) {
+function createRequestHandler({
+  log = () => {},
+  seedImageAssets = new Map(),
+  syncBefore,
+  validationFiles = new Map(),
+  visits,
+}) {
   return async function handleRequest(req, res) {
-    const pathname = new URL(req.url ?? '/', 'http://stub.local').pathname;
+    const requestUrl = new URL(req.url ?? '/', 'http://stub.local');
+    const pathname = requestUrl.pathname;
     log(`${req.method} ${pathname}`);
 
     if (req.method === 'OPTIONS') {
       setCorsHeaders(res);
       res.statusCode = 204;
       res.end();
+      return;
+    }
+
+    if (pathname === VALIDATION_FILES_PATH && req.method === 'PUT') {
+      const requestedPath = requestUrl.searchParams.get('path') ?? '';
+      if (!SCAN_IMAGE_PATH_PATTERN.test(requestedPath)) {
+        sendJson(res, 400, {
+          code: 'VALIDATION_ERROR',
+          message: 'The validation file path is outside the seeded image store.',
+        });
+        return;
+      }
+      let body;
+      try {
+        body = await readBodyBuffer(req, MAX_IMAGE_BYTES);
+      } catch (error) {
+        sendJson(res, 400, {
+          code: 'VALIDATION_ERROR',
+          message: error.message,
+        });
+        return;
+      }
+      if (body.length === 0) {
+        sendJson(res, 400, {
+          code: 'VALIDATION_ERROR',
+          message: 'The validation image is empty.',
+        });
+        return;
+      }
+      validationFiles.set(requestedPath, {
+        body,
+        contentType: req.headers['content-type'] ?? 'image/jpeg',
+      });
+      setCorsHeaders(res);
+      res.statusCode = 204;
+      res.end();
+      return;
+    }
+
+    if (pathname.startsWith(SCAN_IMAGE_PREFIX) && req.method === 'GET') {
+      const uploaded = validationFiles.get(pathname);
+      if (uploaded) {
+        sendImage(res, uploaded.body, uploaded.contentType);
+        return;
+      }
+      const asset = seedImageAssets.get(pathname);
+      if (asset) {
+        try {
+          sendImage(res, fs.readFileSync(path.join(REPO_ROOT, asset)));
+          return;
+        } catch {
+          // Fall through to the normal not-found response.
+        }
+      }
+      sendJson(res, 404, {
+        code: 'NOT_FOUND',
+        message: 'The validation image is not available.',
+      });
       return;
     }
 
@@ -115,7 +218,8 @@ function createRequestHandler({ log = () => {}, syncBefore, visits }) {
       const password = isRecord(body) && typeof body.password === 'string'
         ? body.password
         : '';
-      if (email !== FAKE_ACCOUNT.email || password !== FAKE_PASSWORD) {
+      const entry = ACCOUNT_BY_EMAIL.get(email);
+      if (!entry || password !== FAKE_PASSWORD) {
         sendJson(res, 401, {
           code: 'INVALID_CREDENTIALS',
           message: 'The email or password is incorrect.',
@@ -124,22 +228,23 @@ function createRequestHandler({ log = () => {}, syncBefore, visits }) {
       }
       sendJson(res, 200, {
         expires_at: new Date(Date.now() + SESSION_SECONDS * 1000).toISOString(),
-        token: FAKE_TOKEN,
+        token: entry.token,
         token_type: 'Bearer',
-        user: buildUser(),
+        user: buildUser(entry.account),
       });
       return;
     }
 
     if (pathname === ME_PATH && req.method === 'GET') {
-      if (!isAuthorized(req)) {
+      const account = authorizedAccount(req);
+      if (!account) {
         sendJson(res, 401, {
           code: 'UNAUTHENTICATED',
           message: 'The validation session is not signed in.',
         });
         return;
       }
-      sendJson(res, 200, { user: buildUser() });
+      sendJson(res, 200, { user: buildUser(account) });
       return;
     }
 
@@ -149,7 +254,8 @@ function createRequestHandler({ log = () => {}, syncBefore, visits }) {
     }
 
     if (pathname === ASSIGNMENTS_PATH && req.method === 'GET') {
-      if (!isAuthorized(req)) {
+      const account = authorizedAccount(req);
+      if (!account) {
         sendJson(res, 401, {
           code: 'UNAUTHENTICATED',
           message: 'The validation session is not signed in.',
@@ -157,7 +263,7 @@ function createRequestHandler({ log = () => {}, syncBefore, visits }) {
         return;
       }
       sendJson(res, 200, {
-        data: visits,
+        data: account.role === 'field_reporter' ? visits : [],
         links: { next: null },
         meta: { per_page: 100 },
         sync: { before: syncBefore },
@@ -166,7 +272,7 @@ function createRequestHandler({ log = () => {}, syncBefore, visits }) {
     }
 
     if (pathname === NOTIFICATIONS_PATH && req.method === 'GET') {
-      if (!isAuthorized(req)) {
+      if (!authorizedAccount(req)) {
         sendJson(res, 401, {
           code: 'UNAUTHENTICATED',
           message: 'The validation session is not signed in.',
@@ -178,7 +284,7 @@ function createRequestHandler({ log = () => {}, syncBefore, visits }) {
     }
 
     if (pathname === NOTIFICATIONS_READ_ALL_PATH && req.method === 'POST') {
-      if (!isAuthorized(req)) {
+      if (!authorizedAccount(req)) {
         sendJson(res, 401, {
           code: 'UNAUTHENTICATED',
           message: 'The validation session is not signed in.',
@@ -217,7 +323,22 @@ function startStubServer(options = {}) {
   } = options;
   const syncBefore = new Date().toISOString();
   const visits = buildAssignments({ today });
-  const server = http.createServer(createRequestHandler({ log, syncBefore, visits }));
+  const seedImageAssets = new Map(
+    buildScanRecords({ today }).map((record) => [
+      `${SCAN_IMAGE_PREFIX}${FAKE_FARMER_ACCOUNT.uuid}/${record.imageFileName}`,
+      record.imageAsset,
+    ]),
+  );
+  const validationFiles = new Map();
+  const server = http.createServer(
+    createRequestHandler({
+      log,
+      seedImageAssets,
+      syncBefore,
+      validationFiles,
+      visits,
+    }),
+  );
 
   return new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -233,6 +354,7 @@ function startStubServer(options = {}) {
         server,
         syncBefore,
         today,
+        validationFiles,
         visits,
       });
     });

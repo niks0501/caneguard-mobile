@@ -17,6 +17,7 @@ import type { CaneGuardDatabase } from '@/database/database';
 import { AuthContext } from '@/features/auth/providers/AuthProvider';
 import {
   initialScanSessionState,
+  resetAppliesToSession,
   scanSessionReducer,
 } from '@/features/detection/context/scanSessionReducer';
 import {
@@ -105,6 +106,8 @@ export function ScanSessionProvider({ children }: PropsWithChildren) {
 function restoredSessionState(checkpoint: ScanDraftCheckpoint): ScanSessionState {
   return {
     ...initialScanSessionState,
+    followUpOf: checkpoint.followUpOf,
+    personalNote: checkpoint.personalNote,
     preprocessMs: checkpoint.preprocessMs,
     qualityAssessment: checkpoint.qualityAssessment,
     reportedSeverity: checkpoint.reportedSeverity,
@@ -306,9 +309,16 @@ function ScanSessionOwner({
         void persistSelectedImage(action.payload);
         return;
       }
-      if (action.type === 'RESET_SCAN') {
+      if (action.type === 'RESET_SCAN' || action.type === 'START_FOLLOW_UP') {
+        const applies =
+          action.type === 'START_FOLLOW_UP'
+            ? true
+            : resetAppliesToSession(stateRef.current, action.payload);
         finalized.current = false;
         rawDispatch(action);
+        if (!applies) {
+          return;
+        }
         const trackedImage = draftImageRef.current;
         draftImageRef.current = null;
         imageOperation.current += 1;
@@ -352,6 +362,8 @@ function ScanSessionOwner({
   }, [
     ownerIdentity,
     persistCheckpoint,
+    state.followUpOf,
+    state.personalNote,
     state.reportedSeverity,
     state.result,
     state.selectedSymptoms,
@@ -472,6 +484,8 @@ function ScanSessionOwner({
 
 function checkpointSignature(checkpoint: {
   draftId: string;
+  followUpOf: string | null;
+  personalNote: string | null;
   qualityAssessment: unknown;
   reportedSeverity: string | null;
   result: { confidence: number; predictedLabel: string } | null;
@@ -486,6 +500,8 @@ function checkpointSignature(checkpoint: {
     checkpoint.selectedSymptoms,
     checkpoint.reportedSeverity,
     checkpoint.qualityAssessment,
+    checkpoint.followUpOf,
+    checkpoint.personalNote,
   ]);
 }
 

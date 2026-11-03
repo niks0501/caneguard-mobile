@@ -15,6 +15,17 @@ export const initialScanSessionState: ScanSessionState = {
   errorMessage: null,
 };
 
+/**
+ * A session-scoped reset only clears the session that still shows `sessionUri`.
+ * A screen that resets after it lost the session must never clear a newer one.
+ */
+export function resetAppliesToSession(
+  state: Pick<ScanSessionState, 'sourceUri'>,
+  payload: { sessionUri: string | null } | undefined,
+): boolean {
+  return !payload || payload.sessionUri === state.sourceUri;
+}
+
 export function scanSessionReducer(
   state: ScanSessionState,
   action: ScanSessionAction,
@@ -24,10 +35,18 @@ export function scanSessionReducer(
       return {
         ...initialScanSessionState,
         ...action.payload,
+        // A Check Again keeps its link when the farmer picks or retakes the photo.
+        ...(state.followUpOf ? { followUpOf: state.followUpOf } : {}),
         status: 'image-selected',
       };
     case 'RESET_SCAN':
-      return { ...initialScanSessionState };
+      return resetAppliesToSession(state, action.payload)
+        ? { ...initialScanSessionState }
+        : state;
+    case 'START_FOLLOW_UP':
+      return { ...initialScanSessionState, followUpOf: action.payload.scanId };
+    case 'SET_PERSONAL_NOTE':
+      return { ...state, personalNote: action.payload };
     case 'START_PREPROCESSING':
       return {
         ...state,

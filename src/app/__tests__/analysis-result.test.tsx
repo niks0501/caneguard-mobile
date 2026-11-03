@@ -558,7 +558,10 @@ describe('AnalysisResultScreen', () => {
       rendered.unmount();
     });
 
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'RESET_SCAN' });
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'RESET_SCAN',
+      payload: { sessionUri: 'file:///result-leaf.jpg' },
+    });
   });
 
   it('does not finalize an unsaved result when it is left', async () => {

@@ -417,7 +417,7 @@ describe('ImagePreviewScreen', () => {
       screen.getByLabelText('Choose another image from the gallery'),
     );
 
-    expect(mockPickScanImage).toHaveBeenCalledWith('gallery');
+    expect(mockPickScanImage).toHaveBeenCalledWith('gallery', { followUpOf: null });
     expect(mockDispatch).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: 'SELECT_IMAGE' }),
     );

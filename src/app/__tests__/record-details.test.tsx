@@ -31,6 +31,13 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
 }));
 jest.mock('@/features/records/hooks/useRecords', () => ({
   useScanRecordDetails: jest.fn(() => mockDetailsState),
+  useScanCheckHistory: jest.fn(() => []),
+}));
+jest.mock('@/features/detection/context/useScanSession', () => ({
+  useScanSession: () => ({ dispatch: jest.fn(), state: {} }),
+}));
+jest.mock('@/providers/LanguagePreferenceProvider', () => ({
+  useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY.en,
 }));
 jest.mock('@/features/records/services/deleteScanRecord', () => ({
   deleteScanRecord: jest.fn(),

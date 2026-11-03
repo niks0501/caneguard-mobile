@@ -120,7 +120,9 @@ export default function ImagePreviewScreen() {
     setReplacing(true);
     setReplacementNotice(null);
     try {
-      const outcome = await pickScanImage(sourceType);
+      const outcome = await pickScanImage(sourceType, {
+        followUpOf: state.followUpOf ?? null,
+      });
       if (!isMounted.current || !isOwnerCurrentRef.current(startingOwner)) {
         return;
       }

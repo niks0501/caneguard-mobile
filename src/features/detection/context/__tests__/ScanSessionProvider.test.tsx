@@ -13,6 +13,8 @@ import type { MobileSession } from '@/features/auth/types';
 
 const OWNER_A = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 const OWNER_B = '51214146-7439-48e0-aef4-d0e003f194b4';
+const ORIGINAL_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+const NOTE = 'Tips look yellow.';
 
 let mockUuidCounter = 0;
 jest.mock('expo-crypto', () => ({
@@ -91,6 +93,8 @@ function SessionProbe() {
       <Text>{`draft:${draft.draftStatus}`}</Text>
       <Text>{`owner:${draft.ownerIdentity ?? 'none'}`}</Text>
       <Text>{`symptoms:${state.selectedSymptoms.join(',')}`}</Text>
+      <Text>{`followUp:${state.followUpOf ?? 'none'}`}</Text>
+      <Text>{`note:${state.personalNote ?? 'none'}`}</Text>
       <Text>{`flush:${flushResult}`}</Text>
       <Pressable
         accessibilityRole="button"
@@ -147,6 +151,18 @@ function SessionProbe() {
         accessibilityRole="button"
         accessibilityLabel="Reset test scan"
         onPress={() => dispatch({ type: 'RESET_SCAN' })}
+      />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Start check again"
+        onPress={() =>
+          dispatch({ type: 'START_FOLLOW_UP', payload: { scanId: ORIGINAL_ID } })
+        }
+      />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Write note"
+        onPress={() => dispatch({ type: 'SET_PERSONAL_NOTE', payload: NOTE })}
       />
     </>
   );
@@ -477,6 +493,57 @@ describe('ScanSessionProvider', () => {
     await fireEvent.press(screen.getByLabelText('Flush saved draft'));
     await waitFor(() => expect(screen.getByText('flush:true')).toBeOnTheScreen());
     expect(mockDraftRows.get(`${OWNER_A}:scan:current`)).toBeDefined();
+  });
+
+  it('resumes a follow-up with its note after a restart', async () => {
+    mockDraftRows.set(`${OWNER_A}:scan:current`, {
+      payload: {
+        draftId: '00000000-0000-4000-8000-000000000888',
+        followUpOf: ORIGINAL_ID,
+        imageMimeType: 'image/jpeg',
+        imageSizeBytes: 4096,
+        managedImageUri: `file:///managed/scan-images/${OWNER_A}/restored.jpg`,
+        personalNote: NOTE,
+        preprocessMs: null,
+        qualityAssessment: null,
+        reportedSeverity: null,
+        result: null,
+        savedAt: '2026-10-23T08:00:00.000Z',
+        selectedSymptoms: [],
+        sourceHeight: 480,
+        sourceType: 'camera',
+        sourceWidth: 640,
+        status: 'image-selected',
+      },
+      updatedAt: '2026-10-23T08:00:00.000Z',
+      version: 1,
+    });
+
+    await render(<Harness owner={OWNER_A} />);
+
+    expect(screen.getByText(`followUp:${ORIGINAL_ID}`)).toBeOnTheScreen();
+    expect(screen.getByText(`note:${NOTE}`)).toBeOnTheScreen();
+  });
+
+  it('checkpoints a follow-up started on the result screen and the note written for it', async () => {
+    await render(<Harness owner={OWNER_A} />);
+
+    await fireEvent.press(screen.getByLabelText('Start check again'));
+    await fireEvent.press(screen.getByLabelText('Select test image'));
+    await waitFor(() => expect(screen.getByText('draft:saved')).toBeOnTheScreen());
+    expect(mockDraftRows.get(`${OWNER_A}:scan:current`)?.payload).toMatchObject({
+      followUpOf: ORIGINAL_ID,
+      personalNote: null,
+    });
+
+    await fireEvent.press(screen.getByLabelText('Write note'));
+    await waitFor(() => expect(screen.getByText(`note:${NOTE}`)).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(mockDraftRows.get(`${OWNER_A}:scan:current`)?.payload).toMatchObject({
+        followUpOf: ORIGINAL_ID,
+        personalNote: NOTE,
+      }),
+    );
   });
 
   it('keeps a saved scan out of the resumable draft checkpoint', async () => {

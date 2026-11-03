@@ -19,6 +19,7 @@ import {
   isManagedScanImageUri,
   managedImageExists,
 } from '@/features/records/services/scanImageStorage';
+import { MAX_PERSONAL_NOTE_LENGTH } from '@/features/records/domain/recordTypes';
 import type { ImageQualityAssessment, QualityWarning } from '@/features/detection/validation/assessImageQuality';
 
 export const SCAN_DRAFT_KIND = 'scan' as const;
@@ -37,12 +38,15 @@ const REPORTED_SEVERITIES: readonly ReportedSeverity[] = [
   'Severe',
 ];
 const MAX_SYMPTOMS = 12;
+const MAX_FOLLOW_UP_ID_LENGTH = 64;
 
 export interface ScanDraftCheckpoint {
   draftId: string;
+  followUpOf: string | null;
   imageMimeType: string | null;
   imageSizeBytes: number | null;
   managedImageUri: string;
+  personalNote: string | null;
   preprocessMs: number | null;
   qualityAssessment: ImageQualityAssessment | null;
   reportedSeverity: ReportedSeverity | null;
@@ -83,9 +87,11 @@ export function buildScanDraftCheckpoint(input: {
   const completed = state.result !== null && state.status === 'completed';
   return {
     draftId: input.draftId,
+    followUpOf: sanitizeFollowUpId(state.followUpOf),
     imageMimeType: input.imageMimeType,
     imageSizeBytes: input.imageSizeBytes,
     managedImageUri: input.managedImageUri,
+    personalNote: sanitizePersonalNote(state.personalNote),
     preprocessMs: state.preprocessMs,
     qualityAssessment: sanitizeQualityAssessment(state.qualityAssessment),
     reportedSeverity: sanitizeSeverity(state.reportedSeverity),
@@ -212,12 +218,14 @@ export function parseScanDraftCheckpoint(
   }
   return {
     draftId: value.draftId,
+    followUpOf: sanitizeFollowUpId(value.followUpOf),
     imageMimeType: typeof value.imageMimeType === 'string' ? value.imageMimeType : null,
     imageSizeBytes:
       typeof value.imageSizeBytes === 'number' && Number.isFinite(value.imageSizeBytes)
         ? value.imageSizeBytes
         : null,
     managedImageUri: value.managedImageUri,
+    personalNote: sanitizePersonalNote(value.personalNote),
     preprocessMs:
       typeof value.preprocessMs === 'number' && Number.isFinite(value.preprocessMs)
         ? value.preprocessMs
@@ -241,6 +249,20 @@ function isManagedImageOwnedBy(uri: string, ownerIdentity: string): boolean {
 
 function finiteOrNull(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function sanitizeFollowUpId(value: unknown): string | null {
+  return typeof value === 'string' &&
+    value.length > 0 &&
+    value.length <= MAX_FOLLOW_UP_ID_LENGTH
+    ? value
+    : null;
+}
+
+function sanitizePersonalNote(value: unknown): string | null {
+  return typeof value === 'string'
+    ? value.slice(0, MAX_PERSONAL_NOTE_LENGTH)
+    : null;
 }
 
 function sanitizeSymptoms(value: unknown): ChecklistObservationId[] {

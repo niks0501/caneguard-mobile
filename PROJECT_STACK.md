@@ -130,7 +130,7 @@ Use the shared API client and existing auth service/provider.
 
 - Bearer sessions belong in Expo SecureStore.
 - Do not store auth tokens in AsyncStorage, source code, logs, or `EXPO_PUBLIC_*` values.
-- The only approved exception is the web-only browser validation stand-in in `validation/expo-secure-store/`, which keeps a fake session in `localStorage`. It is env-gated, refused for anything but the stub API, excluded from release builds, and never used for a real credential; see [`docs/qa/web-validation.md`](docs/qa/web-validation.md).
+- The only approved exception is the web-only browser validation scaffolding in `validation/` and the validation-only web model stub. It is env-gated, refused for anything but the stub API, excluded from release builds, and never used for a real credential, real data, or real inference; see [`docs/qa/web-validation.md`](docs/qa/web-validation.md).
 - Only the roles listed under [`PROJECT_CONTEXT.md` — Authentication](PROJECT_CONTEXT.md#authentication) may sign in to the mobile app.
 - Treat session restoration and expiration as normal lifecycle states.
 - Keep auth/network errors mapped to recoverable user-facing states.

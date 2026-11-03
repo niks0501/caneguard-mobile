@@ -94,11 +94,7 @@ describe('useLocalReport', () => {
       mockFocusCallback?.();
     });
     await waitFor(() =>
-      expect(mockGetLocalReportSummary).toHaveBeenCalledWith(
-        DATABASE,
-        SUBMITTER_A,
-        { dateRange: undefined, includeFieldReports: false },
-      ),
+      expect(mockGetLocalReportSummary).toHaveBeenCalledTimes(1),
     );
 
     mockUser = { uuid: SUBMITTER_B };

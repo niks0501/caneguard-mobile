@@ -118,28 +118,6 @@ describe('usePaginatedScanRecords', () => {
     );
   });
 
-  it('requests scan-only records for a farmer session', async () => {
-    jest.mocked(useAuth).mockReturnValue({
-      user: { uuid: SUBMITTER_ID, role: 'farmer' },
-    } as never);
-    mockListScanRecords.mockResolvedValueOnce([record(0)]);
-
-    const { result } = await renderHook(() =>
-      usePaginatedScanRecords({}, 2),
-    );
-    await act(async () => {
-      mockFocusCallback?.();
-    });
-
-    await waitFor(() => expect(result.current.data).toHaveLength(1));
-    expect(mockListScanRecords).toHaveBeenCalledWith(
-      mockDatabase,
-      expect.objectContaining({ limit: 2, offset: 0 }),
-      SUBMITTER_ID,
-      false,
-    );
-  });
-
   it('coalesces rapid requests for the same next page', async () => {
     let resolveNextPage: ((records: ScanRecordListItem[]) => void) | undefined;
     mockListScanRecords

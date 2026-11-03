@@ -98,7 +98,7 @@ function SyncReportsProbe() {
   const sync = useContext(SyncContext);
   return (
     <Text testID="sync-reports-state">
-      {`${sync?.pendingCount ?? 'none'}:${sync?.pendingReportsCount ?? 'none'}`}
+      {`${sync?.pendingCount ?? 'none'}:${sync?.pendingReportsCount ?? 'none'}:${sync?.pendingSurveysCount ?? 'none'}:${sync?.pendingCompletionsCount ?? 'none'}:${sync?.lastSuccessfulSyncAt ?? 'none'}`}
     </Text>
   );
 }
@@ -208,7 +208,7 @@ describe('SyncProvider foreground triggers', () => {
     }
   });
 
-  it('does not sync or count Field Reports for a farmer session', async () => {
+  it('does not sync or count official records for a farmer session', async () => {
     jest.mocked(useAuth).mockReturnValue({
       status: 'authenticated',
       session: {
@@ -219,6 +219,7 @@ describe('SyncProvider foreground triggers', () => {
     } as never);
     jest.mocked(countUnsyncedFieldReports).mockResolvedValue(3);
     jest.mocked(countUnsyncedFieldSurveys).mockReturnValue(2);
+    jest.mocked(countUnsyncedFieldValidationCompletions).mockResolvedValue(1);
 
     await render(
       <SyncProvider>
@@ -226,26 +227,81 @@ describe('SyncProvider foreground triggers', () => {
       </SyncProvider>,
     );
     await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
-    await waitFor(() => expect(countUnsyncedFieldSurveys).toHaveBeenCalled());
 
     await act(async () => {
       networkListener(ONLINE);
       await Promise.resolve();
     });
 
+    expect(syncPendingFieldReports).not.toHaveBeenCalled();
+    expect(syncPendingFieldSurveys).not.toHaveBeenCalled();
+    expect(syncPendingFieldValidationCompletions).not.toHaveBeenCalled();
+    expect(countUnsyncedFieldReports).not.toHaveBeenCalled();
+    expect(countUnsyncedFieldSurveys).not.toHaveBeenCalled();
+    expect(countUnsyncedFieldValidationCompletions).not.toHaveBeenCalled();
+    expect(findLastSuccessfulFieldReportSyncAt).not.toHaveBeenCalled();
+    expect(findLastSuccessfulFieldSurveySyncAt).not.toHaveBeenCalled();
+    expect(
+      findLastSuccessfulFieldValidationCompletionSyncAt,
+    ).not.toHaveBeenCalled();
     await waitFor(() =>
-      expect(syncPendingFieldSurveys).toHaveBeenCalledWith(
-        expect.objectContaining({
-          ownerIdentity: SUBMITTER_ID,
-          source: 'startup',
-        }),
+      expect(screen.getByTestId('sync-reports-state')).toHaveTextContent(
+        '0:0:0:0:none',
       ),
     );
-    expect(syncPendingFieldReports).not.toHaveBeenCalled();
-    expect(countUnsyncedFieldReports).not.toHaveBeenCalled();
-    expect(findLastSuccessfulFieldReportSyncAt).not.toHaveBeenCalled();
+  });
+
+  it('leaves queued official records unsent after a farmer demotion', async () => {
+    jest.mocked(countUnsyncedFieldReports).mockResolvedValue(2);
+    jest.mocked(countUnsyncedFieldSurveys).mockReturnValue(1);
+    jest.mocked(countUnsyncedFieldValidationCompletions).mockResolvedValue(1);
+    jest.mocked(findLastSuccessfulFieldReportSyncAt).mockResolvedValue(
+      '2026-08-10T01:00:00.000Z',
+    );
+    jest.mocked(findLastSuccessfulFieldSurveySyncAt).mockReturnValue(
+      '2026-08-10T01:00:00.000Z',
+    );
+    jest.mocked(
+      findLastSuccessfulFieldValidationCompletionSyncAt,
+    ).mockResolvedValue('2026-08-10T01:00:00.000Z');
+
+    const view = await render(
+      <SyncProvider>
+        <SyncReportsProbe />
+      </SyncProvider>,
+    );
     await waitFor(() =>
-      expect(screen.getByTestId('sync-reports-state')).toHaveTextContent('2:0'),
+      expect(screen.getByTestId('sync-reports-state')).toHaveTextContent(
+        /^4:2:1:1:/,
+      ),
+    );
+
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: {
+        token: 'secure-token',
+        user: { uuid: SUBMITTER_ID, role: 'farmer' },
+      },
+      markSessionExpired: jest.fn(async () => undefined),
+    } as never);
+    await view.rerender(
+      <SyncProvider>
+        <SyncReportsProbe />
+      </SyncProvider>,
+    );
+
+    await act(async () => {
+      networkListener(ONLINE);
+      await Promise.resolve();
+    });
+
+    expect(syncPendingFieldReports).not.toHaveBeenCalled();
+    expect(syncPendingFieldSurveys).not.toHaveBeenCalled();
+    expect(syncPendingFieldValidationCompletions).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByTestId('sync-reports-state')).toHaveTextContent(
+        '0:0:0:0:none',
+      ),
     );
   });
 

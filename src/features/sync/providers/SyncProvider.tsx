@@ -89,7 +89,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const mounted = useRef(true);
   const sessionToken = session?.token;
   const submitterIdentity = session?.user.uuid;
-  const canSyncFieldReports = session?.user.role === 'field_reporter';
+  const canSyncOfficialRecords = session?.user.role === 'field_reporter';
   const sessionKey = session ? `${session.token}:${session.user.uuid}` : null;
   const sessionRef = useRef<MobileSession | null>(session);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -157,17 +157,30 @@ export function SyncProvider({ children }: PropsWithChildren) {
       }
       return;
     }
+    if (!canSyncOfficialRecords) {
+      if (
+        mounted.current &&
+        isSameSession(
+          sessionRef.current,
+          requestedToken,
+          requestedSubmitterIdentity,
+        )
+      ) {
+        setPendingCount(0);
+        setPendingReportsCount(0);
+        setPendingSurveysCount(0);
+        setPendingCompletionsCount(0);
+        setLastSuccessfulSyncAt(null);
+      }
+      return;
+    }
 
     const [reportCount, surveyCount, completionCount, reportLastSyncedAt, surveyLastSyncedAt, completionLastSyncedAt] =
       await Promise.all([
-        canSyncFieldReports
-          ? countUnsyncedFieldReports(database, requestedSubmitterIdentity)
-          : Promise.resolve(0),
+        countUnsyncedFieldReports(database, requestedSubmitterIdentity),
         countUnsyncedFieldSurveys(database, requestedSubmitterIdentity),
         countUnsyncedFieldValidationCompletions(database, requestedSubmitterIdentity),
-        canSyncFieldReports
-          ? findLastSuccessfulFieldReportSyncAt(database, requestedSubmitterIdentity)
-          : Promise.resolve(null),
+        findLastSuccessfulFieldReportSyncAt(database, requestedSubmitterIdentity),
         findLastSuccessfulFieldSurveySyncAt(database, requestedSubmitterIdentity),
         findLastSuccessfulFieldValidationCompletionSyncAt(database, requestedSubmitterIdentity),
       ]);
@@ -186,7 +199,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       setPendingCompletionsCount(completionCount);
       setLastSuccessfulSyncAt(lastSyncedAt);
     }
-  }, [canSyncFieldReports, database, sessionToken, submitterIdentity]);
+  }, [canSyncOfficialRecords, database, sessionToken, submitterIdentity]);
 
   const syncNow = useCallback(
     async (
@@ -209,6 +222,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
         await refreshPendingCount();
         return null;
       }
+      if (!canSyncOfficialRecords) {
+        await refreshPendingCount();
+        return null;
+      }
 
       setSyncState((current) => ({
         ...current,
@@ -220,14 +237,12 @@ export function SyncProvider({ children }: PropsWithChildren) {
         sessionRef.current?.token === initiatingSession.token &&
         sessionRef.current?.user.uuid === initiatingSession.user.uuid;
       try {
-        const reportResult = canSyncFieldReports
-          ? await syncPendingFieldReports({
-              database,
-              source,
-              submitterIdentity: initiatingSession.user.uuid,
-              token: initiatingSession.token,
-            })
-          : null;
+        const reportResult = await syncPendingFieldReports({
+          database,
+          source,
+          submitterIdentity: initiatingSession.user.uuid,
+          token: initiatingSession.token,
+        });
         const surveyResult = await syncPendingFieldSurveys({
           database,
           source,
@@ -240,11 +255,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
-        const result = mergeSyncBatchResults(
-          ...(reportResult ? [reportResult] : []),
-          surveyResult,
-          completionResult,
-        );
+        const result = mergeSyncBatchResults(reportResult, surveyResult, completionResult);
         if (!isInitiatingSessionCurrent()) {
           return result;
         }
@@ -300,7 +311,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
     },
     [
       authStatus,
-      canSyncFieldReports,
+      canSyncOfficialRecords,
       clearRetryTimer,
       database,
       markSessionExpired,
@@ -321,7 +332,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       if (
         authStatus !== 'authenticated' ||
         !submitterIdentity ||
-        !canSyncFieldReports
+        !canSyncOfficialRecords
       ) {
         return null;
       }
@@ -329,12 +340,16 @@ export function SyncProvider({ children }: PropsWithChildren) {
       await markFieldReportPending(database, reportId, submitterIdentity);
       return syncNow('manual');
     },
-    [authStatus, canSyncFieldReports, database, submitterIdentity, syncNow],
+    [authStatus, canSyncOfficialRecords, database, submitterIdentity, syncNow],
   );
 
   const retryFieldValidationCompletion = useCallback(
     async (completionId: string) => {
-      if (authStatus !== 'authenticated' || !submitterIdentity) {
+      if (
+        authStatus !== 'authenticated' ||
+        !submitterIdentity ||
+        !canSyncOfficialRecords
+      ) {
         return null;
       }
       await markFieldValidationCompletionPending(
@@ -344,7 +359,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       );
       return syncNow('manual');
     },
-    [authStatus, database, submitterIdentity, syncNow],
+    [authStatus, canSyncOfficialRecords, database, submitterIdentity, syncNow],
   );
 
   useEffect(() => {
@@ -515,19 +530,21 @@ export function SyncProvider({ children }: PropsWithChildren) {
       isOnline,
       isSyncing:
         syncState.sessionKey === sessionKey ? syncState.isSyncing : false,
-      lastSuccessfulSyncAt,
-      pendingCount: canSyncFieldReports
-        ? pendingCount
-        : pendingSurveysCount + pendingCompletionsCount,
-      pendingReportsCount: canSyncFieldReports ? pendingReportsCount : 0,
-      pendingSurveysCount,
-      pendingCompletionsCount,
+      lastSuccessfulSyncAt: canSyncOfficialRecords
+        ? lastSuccessfulSyncAt
+        : null,
+      pendingCount: canSyncOfficialRecords ? pendingCount : 0,
+      pendingReportsCount: canSyncOfficialRecords ? pendingReportsCount : 0,
+      pendingSurveysCount: canSyncOfficialRecords ? pendingSurveysCount : 0,
+      pendingCompletionsCount: canSyncOfficialRecords
+        ? pendingCompletionsCount
+        : 0,
       retryFieldValidationCompletion,
       retryReport,
       syncNow,
     }),
     [
-      canSyncFieldReports,
+      canSyncOfficialRecords,
       isOnline,
       lastSuccessfulSyncAt,
       pendingCount,

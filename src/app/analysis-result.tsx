@@ -36,6 +36,7 @@ import {
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import { returnToTab } from '@/features/navigation/returnToTab';
 import { FollowUpComparison } from '@/features/records/components/FollowUpComparison';
+import { SavedScanCard } from '@/features/records/components/ScanCard';
 import { useSaveCompletedScan } from '@/features/records/hooks/useSaveCompletedScan';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
@@ -460,6 +461,10 @@ export default function AnalysisResultScreen() {
                       : 'Save Scan stores this scan on this device.'}
               </Text>
             </View>
+
+            {user?.role === 'farmer' && isSaved && saveRecord.recordId ? (
+              <SavedScanCard recordId={saveRecord.recordId} />
+            ) : null}
 
             <DisclosureSection testID="scan.why-this-result" title="Why this result?">
               <SectionCard title="About this result">

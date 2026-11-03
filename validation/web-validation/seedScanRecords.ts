@@ -115,4 +115,3 @@ export async function seedValidationScanRecords({
 
   return inserted;
 }
-

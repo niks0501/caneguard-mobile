@@ -99,7 +99,9 @@ export default function FieldSurveyScreen() {
   const [readOnlyPending, setReadOnlyPending] = useState(false);
   const controlsLocked = readOnlyPending || syncBusy;
   const liveFormRef = useRef({ affectedAreaCount: 0, controlsLocked, drawingAffectedArea, waypoints });
-  liveFormRef.current = { affectedAreaCount: affectedAreas.length, controlsLocked, drawingAffectedArea, waypoints };
+  useEffect(() => {
+    liveFormRef.current = { affectedAreaCount: affectedAreas.length, controlsLocked, drawingAffectedArea, waypoints };
+  }, [affectedAreas.length, controlsLocked, drawingAffectedArea, waypoints]);
   const validation = useMemo(() => validateSurveyWaypoints(waypoints), [waypoints]);
   const affectedMeasurement = useMemo(() => validation.valid
     ? measureAffectedAreas(validation.polygon, affectedAreas)

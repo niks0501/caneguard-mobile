@@ -45,6 +45,11 @@ tests. "Implemented" does not mean "verified on a device":
   a new photo beside the first photo with each check's own date and Possible
   Condition line, the farmer's own note, and the plant's checks in date order.
   No trend label, better/worse claim, score comparison, or reminder.
+- Saved scan records and record details, plus a farmer-only **Scan Card** on the
+  analysis result after a local save: scan photo, date, **Possible Condition**,
+  and a `CG-P-` scan ID derived from the scan UUID. It renders from the local
+  record with no server round-trip; the note slot shows the record's saved
+  personal note only when one is present, and nothing captures a note here.
 - Field Report Draft (Field Inspector accounts only): five-step form, local
   autosave checkpoints, readiness checklist, finalization, foreground sync and
   manual retry.

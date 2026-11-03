@@ -42,8 +42,9 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
 jest.mock('@/features/detection/context/useScanSession', () => ({
   useScanSession: () => ({ dispatch: mockDispatch, state: {} }),
 }));
+let mockLanguage: 'en' | 'tl' = 'en';
 jest.mock('@/providers/LanguagePreferenceProvider', () => ({
-  useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY.en,
+  useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY[mockLanguage],
 }));
 
 const COPY = FARMER_COPY.en.checkAgain;
@@ -94,6 +95,7 @@ async function renderAs(role: 'farmer' | 'field_reporter') {
 
 describe('RecordDetailsScreen Check Again', () => {
   beforeEach(() => {
+    mockLanguage = 'en';
     mockDispatch.mockClear();
     (router.dismissTo as jest.Mock).mockClear();
     jest.mocked(useLocalSearchParams).mockReturnValue({ id: ORIGINAL_ID });
@@ -126,6 +128,24 @@ describe('RecordDetailsScreen Check Again', () => {
     await renderAs('field_reporter');
     expect(screen.queryByTestId('records.check-again')).toBeNull();
     expect(screen.queryByTestId('records.check-history')).toBeNull();
+  });
+
+  it("shows a farmer record's Possible Condition heading in the farmer's language", async () => {
+    mockLanguage = 'tl';
+    await renderAs('farmer');
+
+    expect(screen.getByTestId('records.result-title')).toHaveTextContent(
+      `${FARMER_COPY.tl.checkAgain.possibleCondition}: Rust`,
+    );
+  });
+
+  it('keeps an inspector record title in English whatever language the farmer saved', async () => {
+    mockLanguage = 'tl';
+    await renderAs('field_reporter');
+
+    expect(screen.getByTestId('records.result-title')).toHaveTextContent(
+      'Possible Condition: Rust',
+    );
   });
 
   it('keeps a note visible when deleting the first check left it alone in the history', async () => {

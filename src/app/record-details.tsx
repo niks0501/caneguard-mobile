@@ -37,6 +37,7 @@ import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklist
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { FarmerCheckAgain } from '@/features/records/components/FarmerCheckAgain';
+import { possibleConditionLine } from '@/features/records/components/possibleConditionLine';
 import { returnToTab } from '@/features/navigation/returnToTab';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import type { SyncStatus } from '@/database/schema';
@@ -48,6 +49,7 @@ import { getSyncErrorMessage } from '@/features/sync/errors/syncErrors';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime } from '@/lib/formatters';
+import { useFarmerCopy } from '@/providers/LanguagePreferenceProvider';
 
 const CONSISTENCY_LABELS: Record<
   ScanRecordDetails['checklistConsistency'],
@@ -70,6 +72,7 @@ export default function RecordDetailsScreen() {
   const { user } = useAuth();
   const canReportToOffice = user?.role === 'field_reporter';
   const canCheckAgain = user?.role === 'farmer';
+  const farmerCopy = useFarmerCopy();
   const deleteBlockedByLinkedReport =
     !canReportToOffice && record.data?.hasLinkedFieldReport === true;
   const sync = useSync();
@@ -216,10 +219,19 @@ export default function RecordDetailsScreen() {
                     borderColor: theme.border,
                   },
                 ]}>
+                {/* A farmer's record follows their language, so its Possible
+                    Condition heading is the FARMER_COPY one shared with the
+                    Check Again comparison and history. Inspectors keep the
+                    English result label whatever preference is saved. */}
                 <Text
                   testID="records.result-title"
                   style={[styles.result, { color: theme.primaryDark }]}>
-                  {getResultLabel(record.data.predictedLabel)}
+                  {canCheckAgain
+                    ? possibleConditionLine(
+                        farmerCopy.checkAgain.possibleCondition,
+                        record.data.predictedLabel,
+                      )
+                    : getResultLabel(record.data.predictedLabel)}
                 </Text>
                 <RecordSyncStatus
                   errorCode={synchronizationMetadata?.lastSyncErrorCode}

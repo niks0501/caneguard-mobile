@@ -58,7 +58,7 @@ Development-only routes expose model and storage diagnostics.
 
 Farmer-facing copy is bilingual through `FARMER_COPY` in `src/constants/copy.ts`; its `FarmerCopyBlock` type is the single shape both languages must satisfy. `useFarmerCopy()` in `src/providers/LanguagePreferenceProvider.tsx` returns the active block, and the chosen language persists in AsyncStorage under `caneguard.language`.
 
-A `farmer` session reads Tagalog until it chooses English in Settings → **Language / Wika**; any other account reads English whatever preference is saved. Inspector screens, Field Guide entry text, and model decision-support lines stay English and are not part of `FARMER_COPY`.
+A `farmer` session reads Tagalog until it chooses English in Settings → **Language / Wika**; any other account reads English whatever preference is saved. The Possible Condition heading on a farmer's saved record is the same `FARMER_COPY` heading the Check Again comparison and check history use, so it follows that language; an inspector's record keeps the English result label. Inspector screens, Field Guide entry text, and model decision-support lines stay English and are not part of `FARMER_COPY`.
 
 ### Detection flow
 

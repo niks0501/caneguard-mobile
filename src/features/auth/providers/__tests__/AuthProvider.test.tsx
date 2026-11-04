@@ -341,6 +341,7 @@ describe('AuthProvider', () => {
     mockVerify.mockResolvedValueOnce({
       ...SESSION.user,
       name: 'Verified later',
+      capabilities: ['report:submit'],
     });
 
     const { result } = await renderHook(() => useAuth(), { wrapper });
@@ -367,10 +368,59 @@ describe('AuthProvider', () => {
       expect(result.current.sessionVerification).toBe('verified'),
     );
     expect(result.current.user?.name).toBe('Verified later');
+    expect(result.current.user?.capabilities).toEqual(['report:submit']);
     expect(result.current.status).toBe('authenticated');
     // Recovery reuses the current session; it never asks for biometrics again.
     expect(mockBiometricAuth).toHaveBeenCalledTimes(1);
     expect(mockVerify).toHaveBeenCalledTimes(2);
+  });
+
+  it('withholds stored capabilities until /me verifies the restored session', async () => {
+    const storedSession = {
+      ...SESSION,
+      user: {
+        ...SESSION.user,
+        capabilities: ['report:submit', 'assignment:complete'],
+      },
+    };
+    prepareProtectedStartup(storedSession);
+    mockVerify
+      .mockRejectedValueOnce(
+        new MobileAuthError(
+          'SERVER_UNAVAILABLE',
+          'CaneGuard could not reach the server.',
+        ),
+      )
+      .mockRejectedValueOnce(
+        new MobileAuthError(
+          'SERVER_UNAVAILABLE',
+          'CaneGuard could not reach the server.',
+        ),
+      );
+
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() =>
+      expect(result.current.sessionVerification).toBe('unavailable'),
+    );
+    expect(result.current.user?.capabilities).toEqual([]);
+
+    const listener = jest
+      .mocked(NetInfo.addEventListener)
+      .mock.calls.map(([handler]) => handler)
+      .pop();
+
+    await act(async () => {
+      listener?.({
+        isConnected: true,
+        isInternetReachable: true,
+      } as never);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(mockVerify).toHaveBeenCalledTimes(2));
+    expect(result.current.user?.capabilities).toEqual([]);
+    expect(result.current.sessionVerification).toBe('unavailable');
   });
 
   it('expires the same session when the retried verification is rejected', async () => {

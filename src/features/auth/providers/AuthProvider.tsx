@@ -185,13 +185,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (isAuthoritativeSessionRejection(error)) {
           throw error;
         }
-        return {
-          session: {
-            ...tokenSession,
-            user: { ...tokenSession.user, capabilities: [] },
-          },
-          verified: false,
-        };
+        return { session: unverifiedSession(tokenSession), verified: false };
       }
     },
     [],
@@ -212,7 +206,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (typeof markMobileLoginCompleted === 'function') {
         void markMobileLoginCompleted();
       }
-      setCurrentSession(stored);
+      setCurrentSession(unverifiedSession(stored));
       setStatus('authenticated');
       setSessionVerification('pending');
       setErrorMessage(null);
@@ -246,7 +240,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
 
         if (isCurrent()) {
-          setCurrentSession(stored);
+          setCurrentSession(unverifiedSession(stored));
           setStatus('authenticated');
           setSessionVerification('unavailable');
           setErrorMessage(
@@ -314,6 +308,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
         // Still offline or the office is still unavailable: keep the honest
         // "working offline" state without prompting for biometrics.
+        setCurrentSession(unverifiedSession(activeSession));
         setSessionVerification('unavailable');
       } finally {
         if (verificationRetryRef.current === holder.current) {
@@ -921,6 +916,13 @@ function shouldDisableBiometricUnlock(unlock: BiometricAuthResult): boolean {
     !unlock.success &&
     (unlock.code === 'NOT_AVAILABLE' || unlock.code === 'NOT_ENROLLED')
   );
+}
+
+function unverifiedSession(session: MobileSession): MobileSession {
+  return {
+    ...session,
+    user: { ...session.user, capabilities: [] },
+  };
 }
 
 function isAuthoritativeSessionRejection(error: unknown): boolean {

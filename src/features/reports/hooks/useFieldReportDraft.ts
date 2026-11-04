@@ -766,6 +766,7 @@ export function useFieldReportDraft(
       cropAge?: string;
       farmerOrFarmOwnerName: string;
       fieldNotes?: string | null;
+      fieldSurveyClientUuid?: string | null;
       mismatchReported?: boolean | null;
       reporterObservationText?: string | null;
       reporterSuspectedCondition?: string | null;

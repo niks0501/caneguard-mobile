@@ -111,6 +111,7 @@ export function normalizeFinalizeFieldReportInput(
   cropAge: string | null;
   farmerOrFarmOwnerName: string | null;
   fieldNotes: string | null;
+  fieldSurveyClientUuid: string | null;
   mismatchReported: boolean | null;
   reporterObservationText: string | null;
   reporterSuspectedCondition: string | null;
@@ -142,6 +143,7 @@ export function normalizeFinalizeFieldReportInput(
     cropAge: values.cropAge ?? null,
     farmerOrFarmOwnerName: values.farmerOrFarmOwnerName ?? null,
     fieldNotes: values.fieldNotes ?? null,
+    fieldSurveyClientUuid: values.fieldSurveyClientUuid ?? null,
     mismatchReported: values.mismatchReported ?? null,
     reporterObservationText: values.reporterObservationText ?? null,
     reporterSuspectedCondition: values.reporterSuspectedCondition ?? null,
@@ -315,6 +317,7 @@ export function normalizeFieldReportDraftInput(
   cropAge?: string | null;
   farmerOrFarmOwnerName?: string | null;
   fieldNotes?: string | null;
+  fieldSurveyClientUuid?: string | null;
   mismatchReported?: boolean | null;
   reporterObservationText?: string | null;
   reporterSuspectedCondition?: string | null;
@@ -382,6 +385,9 @@ export function normalizeFieldReportDraftInput(
             MAX_FIELD_NOTES_LENGTH,
           ),
         }),
+    ...(input.fieldSurveyClientUuid === undefined
+      ? {}
+      : { fieldSurveyClientUuid: normalizeOptionalText(input.fieldSurveyClientUuid, 64) }),
     ...(input.mismatchReported === undefined
       ? {}
       : { mismatchReported: normalizeMismatchReported(input.mismatchReported) }),

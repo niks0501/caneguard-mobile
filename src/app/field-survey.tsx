@@ -1,7 +1,7 @@
 import { canAuthorInspectorWork } from '@/features/auth/capabilities';
 import { randomUUID } from 'expo-crypto';
 import { Image as ExpoImage } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -32,7 +32,7 @@ import {
   getMapTiles,
   type MapCoordinate,
 } from '@/features/reports/domain/manualMap';
-import { listOwnedFieldSurveys, saveFieldSurveyDraft, markFieldSurveyPending } from '@/features/surveys/data/fieldSurveyRepository';
+import { findOwnedFieldSurvey, listOwnedFieldSurveys, saveFieldSurveyDraft, markFieldSurveyPending } from '@/features/surveys/data/fieldSurveyRepository';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
 import { measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { assessBoundaryQuality } from '@/features/surveys/domain/boundaryQuality';
@@ -63,6 +63,8 @@ export default function FieldSurveyScreen() {
   const { database, ready } = useDatabaseState();
   const { session } = useAuth();
   const canAuthorSurvey = canAuthorInspectorWork(session?.user);
+  const requestedSurveyId = useLocalSearchParams<{ surveyId?: string | string[] }>().surveyId;
+  const surveyId = Array.isArray(requestedSurveyId) ? requestedSurveyId[0] : requestedSurveyId;
   const { isOnline, syncNow } = useSync();
   const [clientUuid, setClientUuid] = useState(() => randomUUID());
   const [districtCode, setDistrictCode] = useState('');
@@ -122,8 +124,9 @@ export default function FieldSurveyScreen() {
     let cancelled = false;
     void Promise.resolve().then(() => {
       if (cancelled) return;
-      const previous = listOwnedFieldSurveys(database, session.user.uuid)
-        .find((row) => row.status !== 'synced');
+      // A report link opens that exact boundary; otherwise resume the open draft.
+      const previous = (surveyId ? findOwnedFieldSurvey(database, surveyId, session.user.uuid) : null)
+        ?? listOwnedFieldSurveys(database, session.user.uuid).find((row) => row.status !== 'synced');
       if (previous) {
         setClientUuid(previous.clientUuid);
         setDistrictCode(previous.districtCode === 'UNSPECIFIED' ? '' : previous.districtCode);
@@ -165,7 +168,7 @@ export default function FieldSurveyScreen() {
         setResumed(true);
         const identityRejected = previous.lastSyncErrorCode === 'CLIENT_UUID_CONFLICT';
         const correctionNeeded = previous.lastSyncErrorCode === 'VALIDATION_FAILED' || previous.lastSyncErrorCode === 'API_VALIDATION_FAILED';
-        setReadOnlyPending(previous.status === 'pending' || previous.status === 'syncing' || (previous.status === 'failed' && !correctionNeeded));
+        setReadOnlyPending(previous.status === 'synced' || previous.status === 'pending' || previous.status === 'syncing' || (previous.status === 'failed' && !correctionNeeded));
         if (identityRejected) setSyncMessage(FIELD_SURVEY_SYNC_COPY.identityRejected);
         else if (previous.status === 'pending' || previous.status === 'syncing') setSyncMessage(FIELD_SURVEY_SYNC_COPY.pendingLocked);
       }
@@ -177,7 +180,7 @@ export default function FieldSurveyScreen() {
       }
     });
     return () => { cancelled = true; };
-  }, [database, ready, session?.user.uuid]);
+  }, [database, ready, session?.user.uuid, surveyId]);
 
   useEffect(() => {
     if (!canAuthorSurvey || !bootstrapped || !ready || !database || !session?.user.uuid) return;

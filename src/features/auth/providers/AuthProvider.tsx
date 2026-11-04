@@ -170,20 +170,28 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [clearLocalSession]);
 
   /**
-   * Capabilities come from /me, not the issued token. A token session is only
-   * accepted as verified once that request succeeds; a transient failure keeps
-   * the session fail-closed and pending re-verification.
+   * Only /me grants capabilities. A token response cannot, so an unverified
+   * acceptance keeps the session with an empty capability list (fail-closed)
+   * and leaves it pending re-verification.
    */
   const acceptTokenSession = useCallback(
-    async (tokenSession: MobileSession): Promise<MobileSession | null> => {
+    async (
+      tokenSession: MobileSession,
+    ): Promise<{ session: MobileSession; verified: boolean }> => {
       try {
         const user = await verifyMobileSession(tokenSession.token);
-        return { ...tokenSession, user };
+        return { session: { ...tokenSession, user }, verified: true };
       } catch (error: unknown) {
         if (isAuthoritativeSessionRejection(error)) {
           throw error;
         }
-        return null;
+        return {
+          session: {
+            ...tokenSession,
+            user: { ...tokenSession.user, capabilities: [] },
+          },
+          verified: false,
+        };
       }
     },
     [],
@@ -498,8 +506,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
             Device.modelName?.trim() ||
             'CaneGuard mobile device',
         });
-        const verifiedSession = await acceptTokenSession(issuedSession);
-        const nextSession = verifiedSession ?? issuedSession;
+        const acceptance = await acceptTokenSession(issuedSession);
+        const nextSession = acceptance.session;
         try {
           if (biometricEnabled) {
             // A password fallback refreshes the protected credential without
@@ -526,7 +534,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setHasCompletedLogin(true);
         setCurrentSession(nextSession);
         setStatus('authenticated');
-        setSessionVerification(verifiedSession ? 'verified' : 'unavailable');
+        setSessionVerification(acceptance.verified ? 'verified' : 'unavailable');
         return true;
       } catch (error: unknown) {
         if (issuedSession && isAuthoritativeSessionRejection(error)) {
@@ -779,8 +787,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
           deviceId,
           deviceName,
         });
-        const verifiedSession = await acceptTokenSession(enrolledSession);
-        const nextSession = verifiedSession ?? enrolledSession;
+        const acceptance = await acceptTokenSession(enrolledSession);
+        const nextSession = acceptance.session;
         try {
           if (biometricEnabled) {
             await saveProtectedMobileSession(nextSession);
@@ -795,7 +803,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
         setCurrentSession(nextSession);
         setStatus('authenticated');
-        setSessionVerification(verifiedSession ? 'verified' : 'unavailable');
+        setSessionVerification(acceptance.verified ? 'verified' : 'unavailable');
         setErrorMessage(null);
         return true;
       } catch (error: unknown) {

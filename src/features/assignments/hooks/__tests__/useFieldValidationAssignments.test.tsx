@@ -38,10 +38,10 @@ const mockListCached = jest.mocked(listCachedFieldValidationAssignments);
 const mockRefreshAssignments = jest.mocked(refreshFieldValidationAssignments);
 const markSessionExpired = jest.fn(async () => undefined);
 
-const CAPABLE_SESSION = {
+const READ_SESSION = {
   token: 'token-1',
   user: {
-    capabilities: ['report:submit', 'assignment:complete'],
+    capabilities: ['assignment:read'],
     role: 'field_reporter',
     uuid: OWNER_ID,
   },
@@ -59,10 +59,10 @@ describe('useFieldValidationAssignments capabilities', () => {
     } as never);
   });
 
-  it('withdraws cached assignments when the session no longer holds assignment:complete', async () => {
+  it('keeps cached assignments visible on the read grant and withdraws them without it', async () => {
     mockUseAuth.mockReturnValue({
       markSessionExpired,
-      session: CAPABLE_SESSION,
+      session: READ_SESSION,
       status: 'authenticated',
     } as never);
 
@@ -74,8 +74,8 @@ describe('useFieldValidationAssignments capabilities', () => {
     mockUseAuth.mockReturnValue({
       markSessionExpired,
       session: {
-        ...CAPABLE_SESSION,
-        user: { ...CAPABLE_SESSION.user, capabilities: [] },
+        ...READ_SESSION,
+        user: { ...READ_SESSION.user, capabilities: [] },
       },
       status: 'authenticated',
     } as never);
@@ -88,12 +88,15 @@ describe('useFieldValidationAssignments capabilities', () => {
     expect(mockRefreshAssignments).not.toHaveBeenCalled();
   });
 
-  it('never reads the assignment cache without assignment:complete', async () => {
+  it('never reads the assignment cache without assignment:read', async () => {
     mockUseAuth.mockReturnValue({
       markSessionExpired,
       session: {
-        ...CAPABLE_SESSION,
-        user: { ...CAPABLE_SESSION.user, capabilities: ['report:submit'] },
+        ...READ_SESSION,
+        user: {
+          ...READ_SESSION.user,
+          capabilities: ['report:submit', 'assignment:complete'],
+        },
       },
       status: 'authenticated',
     } as never);

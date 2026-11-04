@@ -121,15 +121,19 @@ describe('mobile authentication API', () => {
     }
   });
 
-  // Proposal (unpromoted): proves /me capabilities are read and fail closed when absent or malformed.
-  it('keeps /me capabilities and grants nothing when they are absent or malformed', async () => {
+  // Proposal (unpromoted): proves /me capabilities are read and that a malformed list grants nothing.
+  it('keeps a well-formed /me capability list and grants nothing from a malformed one', async () => {
     fetchMock
+      .mockResolvedValueOnce(response(200, { user: { ...USER, capabilities: ['report:submit'] } }))
       .mockResolvedValueOnce(response(200, { user: { ...USER, capabilities: undefined } }))
-      .mockResolvedValueOnce(response(200, { user: { ...USER, capabilities: ['report:submit', 7, null] } }))
-      .mockResolvedValueOnce(response(200, { user: { ...USER, capabilities: 'report:submit' } }));
+      .mockResolvedValueOnce(response(200, { user: { ...USER, capabilities: 'report:submit' } }))
+      .mockResolvedValueOnce(response(200, { user: { ...USER, capabilities: ['report:submit', 7] } }))
+      .mockResolvedValueOnce(response(200, { user: { ...USER, capabilities: [null] } }));
 
-    await expect(verifyMobileSession('t')).resolves.toMatchObject({ capabilities: [] });
     await expect(verifyMobileSession('t')).resolves.toMatchObject({ capabilities: ['report:submit'] });
+    await expect(verifyMobileSession('t')).resolves.toMatchObject({ capabilities: [] });
+    await expect(verifyMobileSession('t')).resolves.toMatchObject({ capabilities: [] });
+    await expect(verifyMobileSession('t')).resolves.toMatchObject({ capabilities: [] });
     await expect(verifyMobileSession('t')).resolves.toMatchObject({ capabilities: [] });
   });
 

@@ -249,7 +249,10 @@ describe('AuthProvider', () => {
   it('keeps a signed-in session fail-closed when /me is unreachable after login', async () => {
     mockLogin.mockResolvedValueOnce({
       ...SESSION,
-      user: { ...SESSION.user, capabilities: [] },
+      user: {
+        ...SESSION.user,
+        capabilities: ['report:submit', 'assignment:complete'],
+      },
     });
     mockVerify.mockRejectedValueOnce(
       new MobileAuthError(
@@ -858,6 +861,39 @@ describe('AuthProvider', () => {
       'assignment:complete',
     ]);
     expect(result.current.sessionVerification).toBe('verified');
+  });
+
+  it('keeps enrollment fail-closed when /me is unreachable after rotation', async () => {
+    mockLogin.mockResolvedValueOnce(SESSION);
+    const rotatedSession = {
+      ...SESSION,
+      token: 'rotated-session-value',
+    };
+    mockEnroll.mockResolvedValueOnce({
+      ...rotatedSession,
+      user: { ...rotatedSession.user, capabilities: ['assignment:complete'] },
+    });
+    mockVerify
+      .mockResolvedValueOnce(SESSION.user)
+      .mockRejectedValueOnce(
+        new MobileAuthError(
+          'SERVER_UNAVAILABLE',
+          'CaneGuard could not reach the server.',
+        ),
+      );
+
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+    await act(async () => {
+      await result.current.login('field@caneguard.test', 'password');
+      await expect(
+        result.current.enrollMobileDevice('current-password', 'Test installation'),
+      ).resolves.toBe(true);
+    });
+
+    expect(result.current.session?.token).toBe(rotatedSession.token);
+    expect(result.current.user?.capabilities).toEqual([]);
+    expect(result.current.sessionVerification).toBe('unavailable');
   });
 
   it('clears credentials when a security step-up receives authoritative rejection', async () => {

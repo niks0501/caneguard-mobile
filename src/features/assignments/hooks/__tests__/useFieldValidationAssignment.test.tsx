@@ -301,7 +301,7 @@ describe('useFieldValidationAssignment visit drafts', () => {
       session: {
         token: 'token-1',
         user: {
-          capabilities: ['report:submit'],
+          capabilities: ['assignment:read'],
           role: 'field_reporter',
           uuid: OWNER_ID,
         },

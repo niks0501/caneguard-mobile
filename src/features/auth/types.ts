@@ -10,6 +10,9 @@ export function isMobileUserRole(value: unknown): value is MobileUserRole {
 export interface MobileUser {
   email: string;
   name: string;
+  // Server-granted abilities from /mobile/auth/me. Sessions stored before this
+  // field existed omit it and grant nothing until the next verification.
+  capabilities?: string[];
   role: MobileUserRole;
   uuid: string;
 }

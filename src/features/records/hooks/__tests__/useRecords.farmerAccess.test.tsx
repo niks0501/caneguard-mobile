@@ -221,7 +221,7 @@ it('returns inspector report projections from the real repository', async () => 
   await insertScanRecord(database, validInput());
   insertFieldReport(native);
   jest.mocked(useAuth).mockReturnValue({
-    user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
+    user: { uuid: SUBMITTER_ID, role: 'field_reporter', capabilities: ['report:submit'] },
   } as never);
 
   const { result } = await renderHook(() =>
@@ -241,5 +241,53 @@ it('returns inspector report projections from the real repository', async () => 
     hasFieldReport: true,
     syncStatus: 'failed',
   });
+  native.close();
+});
+
+it('keeps report projections for an inspector who lost authoring capability', async () => {
+  const { database, native } = openTestDatabase();
+  mockDatabase = database;
+  await insertScanRecord(database, validInput());
+  insertFieldReport(native);
+  jest.mocked(useAuth).mockReturnValue({
+    user: { uuid: SUBMITTER_ID, role: 'field_reporter', capabilities: [] },
+  } as never);
+
+  const { result } = await renderHook(() =>
+    usePaginatedScanRecords({}, 10),
+  );
+  await act(async () => {
+    mockFocusCallback?.();
+  });
+
+  await waitFor(() => expect(result.current.data).toHaveLength(1));
+  expect(result.current.data[0]).toMatchObject({
+    authorityReview: expect.objectContaining({
+      rawStatus: 'verified_by_staff',
+      statusLabel: 'Verified by staff',
+    }),
+    barangay: 'Lumbangan',
+    hasFieldReport: true,
+    syncStatus: 'failed',
+  });
+  native.close();
+});
+
+it('counts pending historical field reports for an inspector who lost authoring capability', async () => {
+  const { database, native } = openTestDatabase();
+  mockDatabase = database;
+  await insertScanRecord(database, validInput());
+  insertFieldReport(native);
+  jest.mocked(useAuth).mockReturnValue({
+    user: { uuid: SUBMITTER_ID, role: 'field_reporter', capabilities: [] },
+  } as never);
+
+  const { result } = await renderHook(() => useLocalReport());
+  await act(async () => {
+    mockFocusCallback?.();
+  });
+
+  await waitFor(() => expect(result.current.data).not.toBeNull());
+  expect(result.current.data).toMatchObject({ pendingSyncRecords: 1 });
   native.close();
 });

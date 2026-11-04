@@ -1,3 +1,4 @@
+import { canAuthorInspectorWork } from '@/features/auth/capabilities';
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
@@ -71,7 +72,7 @@ export default function RecordDetailsScreen() {
   const fieldReport = useFieldReportForScan(id);
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
-  const canReportToOffice = user?.role === 'field_reporter';
+  const canReportToOffice = canAuthorInspectorWork(user);
   const canCheckAgain = user?.role === 'farmer';
   const farmerCopy = useFarmerCopy();
   const startCheckAgain = useStartCheckAgain({

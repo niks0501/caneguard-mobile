@@ -37,6 +37,7 @@ function csrfResponse(): Response {
 }
 
 const USER = {
+  capabilities: ['report:submit', 'assignment:read'],
   uuid: 'user-uuid',
   name: 'Field Reporter',
   email: 'field@caneguard.test',
@@ -118,6 +119,22 @@ describe('mobile authentication API', () => {
       const headers = call[1]?.headers as Headers;
       expect(headers.get('Authorization')).toBe('Bearer test-session-value');
     }
+  });
+
+  // Proposal (unpromoted): proves /me capabilities are read and that a malformed list grants nothing.
+  it('keeps a well-formed /me capability list and grants nothing from a malformed one', async () => {
+    fetchMock
+      .mockResolvedValueOnce(response(200, { user: { ...USER, capabilities: ['report:submit'] } }))
+      .mockResolvedValueOnce(response(200, { user: { ...USER, capabilities: undefined } }))
+      .mockResolvedValueOnce(response(200, { user: { ...USER, capabilities: 'report:submit' } }))
+      .mockResolvedValueOnce(response(200, { user: { ...USER, capabilities: ['report:submit', 7] } }))
+      .mockResolvedValueOnce(response(200, { user: { ...USER, capabilities: [null] } }));
+
+    await expect(verifyMobileSession('t')).resolves.toMatchObject({ capabilities: ['report:submit'] });
+    await expect(verifyMobileSession('t')).resolves.toMatchObject({ capabilities: [] });
+    await expect(verifyMobileSession('t')).resolves.toMatchObject({ capabilities: [] });
+    await expect(verifyMobileSession('t')).resolves.toMatchObject({ capabilities: [] });
+    await expect(verifyMobileSession('t')).resolves.toMatchObject({ capabilities: [] });
   });
 
   it('accepts a farmer account at sign-in and rejects unknown roles', async () => {

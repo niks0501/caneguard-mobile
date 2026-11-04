@@ -135,6 +135,7 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
       name: 'Ana Reyes',
       email: 'ana@example.test',
       role: 'field_reporter',
+      capabilities: ['report:submit'],
     },
   }),
 }));

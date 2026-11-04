@@ -138,7 +138,7 @@ describe('useFieldReportDraft', () => {
     // queues must not leak between tests.
     jest.resetAllMocks();
     jest.mocked(useAuth).mockReturnValue({
-      user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
+      user: { uuid: SUBMITTER_ID, role: 'field_reporter', capabilities: ['report:submit'] },
     } as never);
     mockFindFieldReportByScanRecordId.mockResolvedValue(null);
     // Persistent default: every test creates exactly one Draft (id REPORT_A).
@@ -192,6 +192,22 @@ describe('useFieldReportDraft', () => {
     mockFindFieldReportByScanRecordId.mockResolvedValue(
       createdReport(REPORT_A, SCAN_A),
     );
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.data).toBeNull();
+    expect(result.current.errorMessage).toMatch(/Only Field Inspector/);
+    expect(mockCreateOrGetFieldReportDraft).not.toHaveBeenCalled();
+  });
+
+  // Proposal (unpromoted): proves a field reporter without server capabilities (no pilot-district
+  // membership) gets no inspector authoring and creates no offline draft.
+  it('denies a field reporter without report:submit capability', async () => {
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'field_reporter', capabilities: [] },
+    } as never);
+    mockFindFieldReportByScanRecordId.mockResolvedValue(null);
 
     const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
 
@@ -690,7 +706,7 @@ describe('useFieldReportForScan', () => {
 
   it('loads the Field Report for an inspector', async () => {
     jest.mocked(useAuth).mockReturnValue({
-      user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
+      user: { uuid: SUBMITTER_ID, role: 'field_reporter', capabilities: ['report:submit'] },
     } as never);
     mockFindFieldReportByScanRecordId.mockResolvedValue(
       createdReport(REPORT_A, SCAN_A),
@@ -708,7 +724,7 @@ describe('useFieldReportDraft automatic location capture (D5)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.mocked(useAuth).mockReturnValue({
-      user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
+      user: { uuid: SUBMITTER_ID, role: 'field_reporter', capabilities: ['report:submit'] },
     } as never);
     mockFindFieldReportByScanRecordId.mockResolvedValue(null);
     mockRandomUUID.mockReset().mockReturnValue(REPORT_A);

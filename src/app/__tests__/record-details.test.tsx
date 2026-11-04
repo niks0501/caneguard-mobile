@@ -101,7 +101,7 @@ const DETAILS: ScanRecordDetails = {
 describe('RecordDetailsScreen', () => {
   beforeEach(() => {
     jest.mocked(useAuth).mockReturnValue({
-      user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
+      user: { uuid: SUBMITTER_ID, role: 'field_reporter', capabilities: ['report:submit'] },
     } as never);
     mockUseLocalSearchParams.mockReturnValue({ id: RECORD_ID });
     mockDetailsState = {

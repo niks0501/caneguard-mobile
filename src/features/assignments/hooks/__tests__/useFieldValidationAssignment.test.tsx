@@ -131,7 +131,14 @@ describe('useFieldValidationAssignment visit drafts', () => {
     jest.resetAllMocks();
     mockRandomUUID.mockReturnValue('9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f');
     mockUseAuth.mockReturnValue({
-      session: { token: 'token-1', user: { uuid: OWNER_ID } },
+      session: {
+        token: 'token-1',
+        user: {
+          capabilities: ['assignment:complete'],
+          role: 'field_reporter',
+          uuid: OWNER_ID,
+        },
+      },
       status: 'authenticated',
     } as never);
     mockUseSync.mockReturnValue({
@@ -287,6 +294,45 @@ describe('useFieldValidationAssignment visit drafts', () => {
       REPLACEMENT_PHOTO.uri,
       OWNER_ID,
     );
+  });
+
+  it('refuses to open or record a cached assignment without assignment:complete', async () => {
+    mockUseAuth.mockReturnValue({
+      session: {
+        token: 'token-1',
+        user: {
+          capabilities: ['assignment:read'],
+          role: 'field_reporter',
+          uuid: OWNER_ID,
+        },
+      },
+      status: 'authenticated',
+    } as never);
+
+    const { result } = await renderAssignment();
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.canComplete).toBe(false);
+    expect(result.current.assignment).toBeNull();
+    expect(mockFindAssignment).not.toHaveBeenCalled();
+    await expect(result.current.persistDraftPhoto({ uri: 'file:///picker/leaf.jpg' } as never)).resolves.toBeNull();
+    await expect(result.current.saveDraftCheckpoint({
+      action: 'Advised removal.',
+      finding: 'Lesions consistent with Rust.',
+      followUpOutcome: 'improved',
+      observation: 'Fresh pustules on lower leaves.',
+      photo: null,
+    })).resolves.toBe(false);
+    await expect(result.current.complete({
+      actionTaken: 'Advised removal.',
+      fieldFinding: 'Lesions consistent with Rust.',
+      fieldObservation: 'Fresh pustules on lower leaves.',
+      followUpOutcome: 'improved',
+    })).resolves.toBeNull();
+
+    expect(mockPersistPhoto).not.toHaveBeenCalled();
+    expect(mockWriteCheckpoint).not.toHaveBeenCalled();
+    expect(mockSaveCompletion).not.toHaveBeenCalled();
   });
 
   it('keeps the draft photo when the completed visit cannot clear its checkpoint', async () => {

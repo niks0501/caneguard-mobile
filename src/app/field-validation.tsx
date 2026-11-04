@@ -24,7 +24,7 @@ import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { HelpHintGroup } from '@/components/ui/HelpHint';
 import { Row } from '@/components/ui/Row';
 import { TextField } from '@/components/ui/TextField';
-import { CASE_CLOSE_NOTICE, DECISION_SUPPORT_DISCLAIMER } from '@/constants/copy';
+import { CASE_CLOSE_NOTICE, DECISION_SUPPORT_DISCLAIMER, FIELD_VALIDATION_UNAVAILABLE } from '@/constants/copy';
 import { FollowUpOutcomeControl, OUTCOME_LABELS } from '@/features/assignments/components/FollowUpOutcomeControl';
 import { PreviousVisitCard } from '@/features/assignments/components/PreviousVisitCard';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
@@ -240,6 +240,19 @@ export default function FieldValidationScreen() {
       showToast('Could not save visit — please try again', 'error');
     }
   };
+
+  if (!state.canComplete) {
+    return (
+      <SafeAreaView testID="field-validation.unavailable" style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
+        <View style={styles.root}>
+          <BrandedScreenHeader title="Field validation" />
+          <View style={styles.centered}>
+            <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_VALIDATION_UNAVAILABLE}</Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView testID="field-validation.screen" style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>

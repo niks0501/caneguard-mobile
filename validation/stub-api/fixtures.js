@@ -9,6 +9,13 @@
  */
 
 const FAKE_ACCOUNT = {
+  capabilities: [
+    'report:submit',
+    'report:status',
+    'assignment:read',
+    'assignment:complete',
+    'notification:read',
+  ],
   email: 'inspector@validation.invalid',
   name: 'Validation Inspector',
   role: 'field_reporter',
@@ -16,6 +23,7 @@ const FAKE_ACCOUNT = {
 };
 
 const FAKE_FARMER_ACCOUNT = {
+  capabilities: [],
   email: 'farmer@validation.invalid',
   name: 'Validation Farmer',
   role: 'farmer',

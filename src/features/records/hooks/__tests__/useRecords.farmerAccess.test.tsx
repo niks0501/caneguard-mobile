@@ -221,7 +221,7 @@ it('returns inspector report projections from the real repository', async () => 
   await insertScanRecord(database, validInput());
   insertFieldReport(native);
   jest.mocked(useAuth).mockReturnValue({
-    user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
+    user: { uuid: SUBMITTER_ID, role: 'field_reporter', capabilities: ['report:submit'] },
   } as never);
 
   const { result } = await renderHook(() =>

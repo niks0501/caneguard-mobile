@@ -57,7 +57,7 @@ describe('usePossibleRecentMatch', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseAuth.mockReturnValue({
-      user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
+      user: { uuid: SUBMITTER_ID, role: 'field_reporter', capabilities: ['report:submit'] },
     } as never);
   });
 

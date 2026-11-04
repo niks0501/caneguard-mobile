@@ -1,3 +1,4 @@
+import { REPORT_SUBMIT_CAPABILITY } from '@/features/auth/capabilities';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -42,7 +43,10 @@ export function useScanRecords(query: ScanRecordQuery) {
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
   const submitterIdentity = user?.uuid;
-  const canSeeFieldReports = user?.role === 'field_reporter';
+  const canSeeFieldReports = Boolean(
+    user?.role === 'field_reporter' &&
+    user.capabilities?.includes(REPORT_SUBMIT_CAPABILITY),
+  );
   const readScope = submitterIdentity
     ? `${submitterIdentity}:${canSeeFieldReports ? 'reports' : 'scans'}`
     : null;
@@ -243,7 +247,10 @@ export function usePaginatedScanRecords(
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
   const submitterIdentity = user?.uuid;
-  const canSeeFieldReports = user?.role === 'field_reporter';
+  const canSeeFieldReports = Boolean(
+    user?.role === 'field_reporter' &&
+    user.capabilities?.includes(REPORT_SUBMIT_CAPABILITY),
+  );
   const readScope = submitterIdentity
     ? `${submitterIdentity}:${canSeeFieldReports ? 'reports' : 'scans'}`
     : null;

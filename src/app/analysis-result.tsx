@@ -1,3 +1,4 @@
+import { canAuthorInspectorWork } from '@/features/auth/capabilities';
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { router, type Href } from 'expo-router';
@@ -91,7 +92,7 @@ export default function AnalysisResultScreen() {
   const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
   const { user } = useAuth();
-  const canReportToOffice = user?.role === 'field_reporter';
+  const canReportToOffice = canAuthorInspectorWork(user);
   const isFollowUp = user?.role === 'farmer' && Boolean(state.followUpOf);
   const saveRecord = useSaveCompletedScan(state);
   const draft = useScanDraft();

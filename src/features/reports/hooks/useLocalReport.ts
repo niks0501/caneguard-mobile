@@ -1,3 +1,4 @@
+import { canAuthorInspectorWork } from '@/features/auth/capabilities';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -27,7 +28,7 @@ interface LocalReportInput {
 export function useLocalReport(dateRange?: DateRange) {
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
-  const canSeeFieldReports = user?.role === 'field_reporter';
+  const canSeeFieldReports = canAuthorInspectorWork(user);
   const dateFrom = dateRange?.from;
   const dateTo = dateRange?.to;
   const submitterIdentity = user?.uuid ?? null;

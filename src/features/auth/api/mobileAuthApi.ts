@@ -16,6 +16,7 @@ import type {
   PasswordChangeInput,
   ResetPasswordInput,
 } from '@/features/auth/types';
+import { normalizeCapabilities } from '@/features/auth/capabilities';
 import { isMobileUserRole } from '@/features/auth/types';
 
 interface MobileTokenResponse {
@@ -90,7 +91,7 @@ export function parseMobileSessionResponse(
     deviceId: normalizeOptionalDeviceId(deviceId),
     expiresAt: expiresAt === null ? localSessionExpiry() : expiresAt,
     token,
-    user: value.user,
+    user: parseMobileUser(value.user),
   };
 }
 
@@ -111,7 +112,10 @@ export function parseMobileUser(value: unknown): MobileUser {
   if (!isMobileUserRole(value.role)) {
     throw authError('FORBIDDEN_ROLE');
   }
-  return value as unknown as MobileUser;
+  return {
+    ...(value as unknown as MobileUser),
+    capabilities: normalizeCapabilities(value.capabilities),
+  };
 }
 
 export function parseRegistrationResponse(

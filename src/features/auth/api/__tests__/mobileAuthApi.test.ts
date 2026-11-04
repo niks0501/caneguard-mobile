@@ -37,6 +37,7 @@ function csrfResponse(): Response {
 }
 
 const USER = {
+  capabilities: ['report:submit', 'assignment:read'],
   uuid: 'user-uuid',
   name: 'Field Reporter',
   email: 'field@caneguard.test',
@@ -118,6 +119,18 @@ describe('mobile authentication API', () => {
       const headers = call[1]?.headers as Headers;
       expect(headers.get('Authorization')).toBe('Bearer test-session-value');
     }
+  });
+
+  // Proposal (unpromoted): proves /me capabilities are read and fail closed when absent or malformed.
+  it('keeps /me capabilities and grants nothing when they are absent or malformed', async () => {
+    fetchMock
+      .mockResolvedValueOnce(response(200, { user: { ...USER, capabilities: undefined } }))
+      .mockResolvedValueOnce(response(200, { user: { ...USER, capabilities: ['report:submit', 7, null] } }))
+      .mockResolvedValueOnce(response(200, { user: { ...USER, capabilities: 'report:submit' } }));
+
+    await expect(verifyMobileSession('t')).resolves.toMatchObject({ capabilities: [] });
+    await expect(verifyMobileSession('t')).resolves.toMatchObject({ capabilities: ['report:submit'] });
+    await expect(verifyMobileSession('t')).resolves.toMatchObject({ capabilities: [] });
   });
 
   it('accepts a farmer account at sign-in and rejects unknown roles', async () => {

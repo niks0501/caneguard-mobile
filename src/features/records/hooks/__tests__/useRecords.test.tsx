@@ -29,7 +29,7 @@ const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 
 beforeEach(() => {
   jest.mocked(useAuth).mockReturnValue({
-    user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
+    user: { uuid: SUBMITTER_ID, role: 'field_reporter', capabilities: ['report:submit'] },
   } as never);
 });
 

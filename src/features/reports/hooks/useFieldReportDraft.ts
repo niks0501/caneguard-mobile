@@ -1,3 +1,4 @@
+import { canAuthorInspectorWork } from '@/features/auth/capabilities';
 import { randomUUID } from 'expo-crypto';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -62,7 +63,7 @@ export function useFieldReportForScan(scanRecordId: string | null) {
     submitterIdentity: string | null;
   }>({ canSeeFieldReport: false, scanRecordId: null, submitterIdentity: null });
   const submitterIdentity = user?.uuid ?? null;
-  const canSeeFieldReport = user?.role === 'field_reporter';
+  const canSeeFieldReport = canAuthorInspectorWork(user);
   useEffect(() => {
     refreshInput.current = {
       canSeeFieldReport,
@@ -220,7 +221,7 @@ export function useFieldReportDraft(
   // every render when a caller passes a fresh object literal.
   const regionDefaultsRef = useRef(regionDefaults);
   const submitterIdentity = user?.uuid ?? null;
-  const canAuthorReports = user?.role === 'field_reporter';
+  const canAuthorReports = canAuthorInspectorWork(user);
   useEffect(() => {
     refreshInput.current = {
       canAuthorReports,

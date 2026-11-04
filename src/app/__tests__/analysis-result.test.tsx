@@ -50,7 +50,7 @@ const mockRouterDismissTo = router.dismissTo as jest.Mock;
 
 let mockUserRole: 'field_reporter' | 'farmer' = 'field_reporter';
 jest.mock('@/features/auth/hooks/useAuth', () => ({
-  useAuth: () => ({ user: { role: mockUserRole, uuid: 'user-1' } }),
+  useAuth: () => ({ user: { capabilities: mockUserRole === 'field_reporter' ? ['report:submit'] : [], role: mockUserRole, uuid: 'user-1' } }),
 }));
 
 // Default saved scan carries no personal note, so the card's note slot stays empty.

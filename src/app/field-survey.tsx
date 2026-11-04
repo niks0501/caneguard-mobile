@@ -1,3 +1,4 @@
+import { canAuthorInspectorWork } from '@/features/auth/capabilities';
 import { randomUUID } from 'expo-crypto';
 import { Image as ExpoImage } from 'expo-image';
 import { router } from 'expo-router';
@@ -61,6 +62,7 @@ export default function FieldSurveyScreen() {
   const { showToast } = useToast();
   const { database, ready } = useDatabaseState();
   const { session } = useAuth();
+  const canAuthorSurvey = canAuthorInspectorWork(session?.user);
   const { isOnline, syncNow } = useSync();
   const [clientUuid, setClientUuid] = useState(() => randomUUID());
   const [districtCode, setDistrictCode] = useState('');
@@ -178,7 +180,7 @@ export default function FieldSurveyScreen() {
   }, [database, ready, session?.user.uuid]);
 
   useEffect(() => {
-    if (!bootstrapped || !ready || !database || !session?.user.uuid) return;
+    if (!canAuthorSurvey || !bootstrapped || !ready || !database || !session?.user.uuid) return;
     let cancelled = false;
     void saveFieldSurveyDraft(database, {
       clientUuid,
@@ -196,7 +198,7 @@ export default function FieldSurveyScreen() {
       if (!cancelled) setSaved(false);
     });
     return () => { cancelled = true; };
-  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, bootstrapped, clientUuid, database, districtCode, ready, session?.user.role, session?.user.uuid, waypoints]);
+  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, bootstrapped, canAuthorSurvey, clientUuid, database, districtCode, ready, session?.user.role, session?.user.uuid, waypoints]);
 
   function captureTargetForNewPoint(): WaypointCaptureTarget {
     if (drawingAffectedArea) return { affectedArea: true, areaCount: affectedAreas.length };
@@ -295,7 +297,7 @@ export default function FieldSurveyScreen() {
   }
 
   async function saveAndSync() {
-    if (!session?.token || !session.user.uuid || !ready || !database || database === EMPTY_DATABASE) {
+    if (!canAuthorSurvey || !session?.token || !session.user.uuid || !ready || !database || database === EMPTY_DATABASE) {
       setSyncMessage(FIELD_SURVEY_SYNC_COPY.signInRequired);
       return;
     }
@@ -396,6 +398,17 @@ export default function FieldSurveyScreen() {
   const pointCount = drawingAffectedArea ? affectedWaypoints.length : waypoints.length;
   const quality = assessBoundaryQuality(waypoints);
   const areaReadout = `${screenValidation}${validation.valid && affectedMeasurement?.valid ? ` · ${affectedMeasurement.areaSqm.toFixed(0)} m² affected` : affectedMeasurement && !affectedMeasurement.valid ? ` · ${affectedMeasurement.error.message}` : ''}`;
+
+  if (!canAuthorSurvey) {
+    return (
+      <SafeAreaView testID="field-survey.unavailable" style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
+        <BrandedScreenHeader title={FIELD_SURVEY_COPY.title} />
+        <View style={styles.body}>
+          <Text style={{ color: theme.text, padding: 16 }}>{FIELD_SURVEY_COPY.unavailable}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView testID="field-survey.screen" style={[styles.safe, { backgroundColor: theme.background}]} edges={['top', 'bottom']}>

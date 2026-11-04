@@ -102,10 +102,26 @@ describe('normalizeFieldReportDraftInput', () => {
     });
   });
 
-  it('rejects field notes longer than the intentionally stricter 120-character mobile limit', () => {
+  it('accepts field notes up to the contract 5000-character maximum', () => {
+    expect(
+      normalizeFieldReportDraftInput({
+        fieldNotes: 'x'.repeat(5_000),
+        updatedAt: NOW,
+      }).fieldNotes,
+    ).toHaveLength(5_000);
+  });
+
+  it('keeps an explicit empty owner name as Owner not known instead of unanswered', () => {
+    expect(
+      normalizeFieldReportDraftInput({ farmerOrFarmOwnerName: '  ', updatedAt: NOW })
+        .farmerOrFarmOwnerName,
+    ).toBe('');
+  });
+
+  it('rejects field notes longer than the contract 5000-character maximum', () => {
     expect(() =>
       normalizeFieldReportDraftInput({
-        fieldNotes: 'x'.repeat(121),
+        fieldNotes: 'x'.repeat(5_001),
         updatedAt: NOW,
       }),
     ).toThrow(

@@ -7,6 +7,7 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { TextField } from '@/components/ui/TextField';
 import { Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { FIELD_NOTES_MAX_LENGTH } from '@/features/reports/domain/fieldReportValidation';
 
 function firstParam(value: string | string[] | undefined): string {
   if (Array.isArray(value)) {
@@ -117,6 +118,7 @@ export function FieldReportDetailsSheet() {
           helpHintText="Anything else the office should know about this field."
           value={notes}
           onChangeText={setNotes}
+          maxLength={FIELD_NOTES_MAX_LENGTH}
           placeholder="Optional"
           autoCapitalize="sentences"
         />

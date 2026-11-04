@@ -47,9 +47,8 @@ const MAX_AFFECTED_AREA_HECTARES = 10_000;
 const MAX_FARMER_NAME_LENGTH = 160;
 const MAX_REGION_TEXT_LENGTH = 120;
 const MAX_SUGARCANE_DETAIL_LENGTH = 100;
-// Field notes retain the existing 120-character mobile ceiling versus v1's
-// 5,000-character maximum.
-const MAX_FIELD_NOTES_LENGTH = 120;
+// Matches the contract's 5,000-character field notes maximum.
+const MAX_FIELD_NOTES_LENGTH = 5_000;
 const MAX_CHECKLIST_CONSISTENCY_LENGTH = 40;
 const MAX_REPORTED_SEVERITY_LENGTH = 20;
 const MAX_REPORTER_SUSPECTED_CONDITION_LENGTH = 120;
@@ -108,6 +107,7 @@ export function mapFieldReportToMultipart(
   for (const warning of scanRecord.qualityWarnings) {
     form.append('quality_warnings[]', warning);
   }
+  // '' is the wire form of null ("Owner not known"); the server normalizes it.
   form.append('farmer_or_farm_owner_name', report.farmerOrFarmOwnerName!.trim());
   appendOptionalText(form, 'province', report.province);
   appendOptionalText(form, 'municipality', report.municipality);
@@ -191,7 +191,11 @@ function validateReport(
   if (report.authoringState !== 'finalized' || report.syncStatus === 'local_only') {
     invalid('Only a finalized Field Report can be uploaded.');
   }
-  validateRequiredText(
+  // '' is the explicit "Owner not known" answer; null means never answered.
+  if (report.farmerOrFarmOwnerName === null || report.farmerOrFarmOwnerName === undefined) {
+    invalid('Farmer or farm reference is required.');
+  }
+  validateOptionalText(
     report.farmerOrFarmOwnerName,
     'Farmer or farm reference',
     MAX_FARMER_NAME_LENGTH,

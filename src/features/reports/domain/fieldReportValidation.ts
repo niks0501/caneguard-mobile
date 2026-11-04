@@ -23,7 +23,9 @@ const MAX_NAME_LENGTH = 160;
 const MAX_BARANGAY_LENGTH = 120;
 const MAX_REGION_TEXT_LENGTH = 120;
 const MAX_SUGARCANE_DETAIL_LENGTH = 100;
-const MAX_FIELD_NOTES_LENGTH = 120;
+/** Matches the contract's 5,000-character field notes maximum. */
+export const FIELD_NOTES_MAX_LENGTH = 5_000;
+const MAX_FIELD_NOTES_LENGTH = FIELD_NOTES_MAX_LENGTH;
 const MAX_REPORTER_SUSPECTED_CONDITION_LENGTH = 120;
 const MAX_REPORTER_OBSERVATION_TEXT_LENGTH = 1_000;
 const MAX_AFFECTED_AREA_HECTARES = 10_000;
@@ -231,7 +233,8 @@ export function getMissingSubmissionRequirements(
     missing.push('class_scores');
   }
   if (!evidence.checklistConsistency?.trim()) missing.push('symptom_checklist');
-  if (!report.farmerOrFarmOwnerName?.trim()) {
+  // An empty string is the explicit "Owner not known" answer; null is unanswered.
+  if (report.farmerOrFarmOwnerName == null) {
     missing.push('farmer_or_farm_owner_name');
   }
   if (!report.submitterIdentity?.trim()) missing.push('submitter_identity');
@@ -330,10 +333,16 @@ export function normalizeFieldReportDraftInput(
     ...(input.farmerOrFarmOwnerName === undefined
       ? {}
       : {
-          farmerOrFarmOwnerName: normalizeOptionalText(
-            input.farmerOrFarmOwnerName,
-            MAX_NAME_LENGTH,
-          ),
+          // '' stays '' so "Owner not known" survives; the wire maps it to null.
+          farmerOrFarmOwnerName:
+            input.farmerOrFarmOwnerName === null
+              ? null
+              : input.farmerOrFarmOwnerName.trim() === ''
+                ? ''
+                : normalizeOptionalText(
+                    input.farmerOrFarmOwnerName,
+                    MAX_NAME_LENGTH,
+                  ),
         }),
     ...(input.province === undefined
       ? {}

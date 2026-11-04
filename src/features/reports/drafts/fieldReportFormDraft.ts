@@ -12,7 +12,7 @@ export const FIELD_REPORT_FORM_DRAFT_VERSION = 1;
 
 const PROVENANCES: readonly MeasurementProvenance[] = ['measured', 'not_measured'];
 const MAX_SHORT_TEXT = 500;
-const MAX_NOTES = 4000;
+const MAX_NOTES = 5000;
 
 export interface FieldReportFormCheckpoint {
   affectedAreaChoice: MeasurementProvenance | null;
@@ -23,6 +23,7 @@ export interface FieldReportFormCheckpoint {
   caneClass: string;
   cropAge: string;
   farmerName: string;
+  ownerUnknown?: boolean;
   mismatchReported: boolean | null;
   municipality: string;
   notes: string;
@@ -130,6 +131,7 @@ function parseFieldReportFormCheckpoint(
     caneClass: boundedText(value.caneClass, MAX_SHORT_TEXT),
     cropAge: boundedText(value.cropAge, MAX_SHORT_TEXT),
     farmerName: boundedText(value.farmerName, MAX_SHORT_TEXT),
+    ownerUnknown: value.ownerUnknown === true,
     mismatchReported: value.mismatchReported ?? null,
     municipality: boundedText(value.municipality, MAX_SHORT_TEXT),
     notes: boundedText(value.notes, MAX_NOTES),

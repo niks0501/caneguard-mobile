@@ -35,6 +35,12 @@ describe('FieldReportDetailsSheet', () => {
     expect(screen.getByTestId('field-report.cane-class-input')).toHaveProp('value', 'Plant cane');
   });
 
+  it('allows field notes up to the contract 5000-character maximum', async () => {
+    await render(<FieldReportDetailsRoute />);
+
+    expect(screen.getByTestId('field-report.notes-input')).toHaveProp('maxLength', 5_000);
+  });
+
   it('returns edited values to the review step on save', async () => {
     await render(<FieldReportDetailsRoute />);
 

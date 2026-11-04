@@ -389,6 +389,31 @@ describe('FieldReportScreen', () => {
     );
   });
 
+  it('saves an empty owner name when Owner not known is chosen', async () => {
+    await render(<FieldReportScreen />);
+    await goToStep(2);
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByTestId('field-report.farmer-name-input'),
+        'Maria Santos',
+      );
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-report.owner-unknown'));
+    });
+    expect(screen.getByTestId('field-report.farmer-name-input')).toHaveProp(
+      'editable',
+      false,
+    );
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
+    });
+
+    expect(mockSave).toHaveBeenCalledWith(
+      expectFormValues({ farmerOrFarmOwnerName: '' }),
+    );
+  });
+
   it('accepts a local farm reference in place of a farmer name', async () => {
     await render(<FieldReportScreen />);
     await goToStep(2);

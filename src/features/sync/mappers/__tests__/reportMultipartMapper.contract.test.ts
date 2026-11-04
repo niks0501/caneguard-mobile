@@ -311,7 +311,8 @@ describe('mobile-report-upload-v2 producer contract', () => {
     ['sugarcane variety above mobile maximum', { report: { sugarcaneVariety: 'x'.repeat(101) } }],
     ['crop age above mobile maximum', { report: { cropAge: 'x'.repeat(101) } }],
     ['cane class above mobile maximum', { report: { caneClass: 'x'.repeat(101) } }],
-    ['field notes above intentionally stricter mobile maximum', { report: { fieldNotes: 'x'.repeat(121) } }],
+    ['field notes above contract maximum', { report: { fieldNotes: 'x'.repeat(5_001) } }],
+    ['unanswered owner name', { report: { farmerOrFarmOwnerName: null } }],
     ['model version above canonical maximum', { scan: { modelVersion: 'x'.repeat(101) } }],
     ['invalid observed timestamp', { report: { observedAt: 'not-a-date' } }],
     ['invalid captured timestamp', { scan: { createdAt: 'not-a-date' } }],
@@ -378,15 +379,10 @@ describe('mobile-report-upload-v2 producer contract', () => {
   });
 
   it('documents the intentionally stricter mobile subset of widened v2 fields', () => {
-    const fieldNotesAtV2Maximum = replacePart(
-      map({ fieldNotes: 'x'.repeat(120) }),
-      'field_notes',
-      'x'.repeat(5_000),
-    );
-    expectCanonicalV2(fieldNotesAtV2Maximum);
-    expect(() => map({ fieldNotes: 'x'.repeat(5_000) })).toThrow(
-      expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }),
-    );
+    expectCanonicalV2(map({ fieldNotes: 'x'.repeat(5_000) }));
+    const unknownOwner = map({ farmerOrFarmOwnerName: '' });
+    expectCanonicalV2(unknownOwner);
+    expect(parts(unknownOwner)).toContainEqual(['farmer_or_farm_owner_name', '']);
 
     const affectedAreaAboveMobileCeiling = replacePart(
       map({ affectedAreaHectares: 1 }),

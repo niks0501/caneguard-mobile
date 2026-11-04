@@ -63,7 +63,8 @@ tests. "Implemented" does not mean "verified on a device":
   finalization, foreground sync and manual retry. The Review step carries an
   optional **Plot boundary** card that lists the recently measured boundaries
   saved on this phone with district, hectares, and send status, attaches one to
-  the report, removes the link, and opens that boundary in Measure.
+  the report, removes the link, and opens that boundary in Measure. The card is
+  locked once the report is finalized.
 - Field validation visits: owner-scoped drafts, completion evidence, follow-up
   outcome, optional fresh photo. The downloaded visit list needs
   `assignment:read`; opening and completing a visit needs `assignment:complete`.

@@ -8,9 +8,7 @@ import { Radius, Spacing, Typography } from '@/constants/theme';
 import type { FieldSurveyRow } from '@/database/schema';
 import { useTheme } from '@/hooks/use-theme';
 import {
-  validateSurveyPolygon,
   validateSurveyWaypoints,
-  type SurveyPolygon,
   type SurveyWaypoint,
 } from '@/features/surveys/domain/fieldSurvey';
 
@@ -36,12 +34,7 @@ function measuredAreaSqm(row: FieldSurveyRow): number | null {
     const measured = validateSurveyWaypoints(
       JSON.parse(row.waypointsJson) as SurveyWaypoint[],
     );
-    if (measured.valid) return measured.areaSqm;
-    if (row.polygonJson) {
-      const submitted = validateSurveyPolygon(JSON.parse(row.polygonJson) as SurveyPolygon);
-      if (submitted.valid) return submitted.areaSqm;
-    }
-    return null;
+    return measured.valid ? measured.areaSqm : null;
   } catch {
     return null;
   }

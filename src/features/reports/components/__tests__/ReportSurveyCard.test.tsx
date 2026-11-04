@@ -197,6 +197,26 @@ describe('ReportSurveyCard', () => {
     expect(hectaresShownFor('field-report.survey-attach.current')).toBe(WIDER_HECTARES);
   });
 
+  it('hides a boundary whose current waypoints are no longer usable', async () => {
+    await render(
+      <ReportSurveyCard
+        attachedSurvey={null}
+        attachedUuid={null}
+        onAttach={jest.fn()}
+        onOpenMeasure={jest.fn()}
+        surveys={[
+          survey({
+            clientUuid: 'corrected-but-broken',
+            status: 'failed',
+            waypointsJson: JSON.stringify(MEASURED_WAYPOINTS.slice(0, 2)),
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.queryByTestId('field-report.survey-attach.corrected-but-broken')).toBeNull();
+  });
+
   it('labels a boundary that could not be sent without calling it pending', async () => {
     await render(
       <ReportSurveyCard

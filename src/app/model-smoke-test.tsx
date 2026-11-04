@@ -7,6 +7,7 @@ import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { IconSize, Radius, Spacing, Typography } from '@/constants/theme';
 import {
+  MODEL_CONTRACTS,
   MODEL_FILENAME,
   MODEL_LABELS,
   MODEL_VERSION,
@@ -14,10 +15,14 @@ import {
 import { ModelV2ParityPanel } from '@/features/detection/components/ModelV2ParityPanel';
 import { compareV1QaOutput, getV1QaExpectedOutput } from '@/features/detection/model/v1Qa';
 import { runInference } from '@/features/detection/model/runInference';
-import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
+import {
+  CaneGuardModelProvider,
+  useCaneGuardModel,
+} from '@/features/detection/model/useCaneGuardModel';
 import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
 import { useTheme } from '@/hooks/use-theme';
 
+const V1_CONTRACT = MODEL_CONTRACTS.v1;
 const HEALTHY_FIXTURE = require('../../dev-assets/model-fixtures/v1-healthy.jpg') as number;
 const HEALTHY_FIXTURE_DIMENSIONS = { width: 3000, height: 4000 };
 
@@ -35,7 +40,11 @@ export default function ModelSmokeTestScreen() {
     return null;
   }
 
-  return <DevelopmentModelSmokeTestScreen />;
+  return (
+    <CaneGuardModelProvider modelId={V1_CONTRACT.id}>
+      <DevelopmentModelSmokeTestScreen />
+    </CaneGuardModelProvider>
+  );
 }
 
 function DevelopmentModelSmokeTestScreen() {
@@ -67,6 +76,7 @@ function DevelopmentModelSmokeTestScreen() {
         const preprocessing = await preprocessImage(
           resolvedAsset.uri,
           HEALTHY_FIXTURE_DIMENSIONS,
+          V1_CONTRACT.input.letterboxValue,
         );
         let rawOutput: number[] = [];
         await runInference(
@@ -77,6 +87,7 @@ function DevelopmentModelSmokeTestScreen() {
           (values) => {
             rawOutput = [...values];
           },
+          V1_CONTRACT,
         );
 
         if (cancelled) {

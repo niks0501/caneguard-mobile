@@ -1,11 +1,15 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
 import { Image as NativeImage } from 'react-native';
 
 import ModelDebugRoute from '@/app/model-debug';
+import { MODEL_CONTRACTS } from '@/features/detection/constants/modelContract';
 import { runInference } from '@/features/detection/model/runInference';
 import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
 import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
 import type { DetectionResult } from '@/features/detection/types';
+
+const mockProviderModelIds: (string | undefined)[] = [];
 
 jest.mock('@/features/detection/preprocessing/preprocessImage', () => ({
   preprocessImage: jest.fn(),
@@ -17,6 +21,16 @@ jest.mock('@/features/detection/model/runInference', () => ({
 
 jest.mock('@/features/detection/model/useCaneGuardModel', () => ({
   useCaneGuardModel: jest.fn(),
+  CaneGuardModelProvider: ({
+    modelId,
+    children,
+  }: {
+    modelId?: string;
+    children: ReactNode;
+  }) => {
+    mockProviderModelIds.push(modelId);
+    return children;
+  },
 }));
 
 const mockPreprocessImage = jest.mocked(preprocessImage);
@@ -26,6 +40,7 @@ const mockModelRun = jest.fn<Promise<ArrayBuffer[]>, [ArrayBuffer[]]>();
 
 describe('ModelDebugRoute', () => {
   beforeEach(() => {
+    mockProviderModelIds.length = 0;
     jest.spyOn(NativeImage, 'resolveAssetSource').mockReturnValue({
       uri: 'asset://healthy-fixture',
       width: 3000,
@@ -110,10 +125,13 @@ describe('ModelDebugRoute', () => {
       expect(mockPreprocessImage).toHaveBeenCalledWith(
         'asset://healthy-fixture',
         { width: 3000, height: 4000 },
+        MODEL_CONTRACTS.v1.input.letterboxValue,
       );
       expect(mockRunInference).toHaveBeenCalledTimes(1);
       expect(screen.getByText('[0.700000, 0.200000, 0.090000, 0.010000]')).toBeOnTheScreen();
     });
+    expect(mockRunInference.mock.calls[0][5]).toBe(MODEL_CONTRACTS.v1);
+    expect(new Set(mockProviderModelIds)).toEqual(new Set([MODEL_CONTRACTS.v1.id]));
 
     expect(screen.getByTestId('model-debug.last-fixture')).toHaveTextContent('healthy');
     expect(screen.getByTestId('model-debug.actual-top1')).toHaveTextContent('healthy');

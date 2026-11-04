@@ -303,7 +303,7 @@ describe('ImagePreviewScreen', () => {
     expect(screen.getByTestId('scan.analyze-image')).toBeDisabled();
     expect(
       screen.getByText(
-        'This app and the bundled model are not compatible. Rebuild the app with the expected Model V1 asset.',
+        'This app and the bundled model are not compatible. Rebuild the app with the expected bundled model asset.',
       ),
     ).toBeOnTheScreen();
   });

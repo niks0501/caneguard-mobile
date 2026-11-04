@@ -1,3 +1,4 @@
+import { MODEL_CONTRACTS } from '@/features/detection/constants/modelContract';
 import {
   calculateAspectPreservingResize,
   createLetterboxGeometry,
@@ -24,7 +25,12 @@ describe('letterbox preprocessing geometry', () => {
   it('centers resized RGB pixels and fills both sides with float32 127.5', () => {
     const geometry = createLetterboxGeometry(2, 1);
     const source = new Uint8Array([10, 20, 30, 40, 50, 60]);
-    const result = letterboxRgbPixels(source, 2, 1);
+    const result = letterboxRgbPixels(
+      source,
+      2,
+      1,
+      MODEL_CONTRACTS.v1.input.letterboxValue,
+    );
     const values = result.pixels;
 
     expect(geometry).toEqual({

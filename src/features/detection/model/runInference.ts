@@ -95,9 +95,10 @@ export async function runModelInference(
 }
 
 /**
- * Scan-flow inference. The scan flow, records and sync still carry four
- * labels, so a model whose outputs go beyond them (V2's RSSI) is refused until
- * the display/storage follow-up supports it.
+ * Scan-flow inference. The scan flow, records and sync carry four labels, so a
+ * scan whose top class goes beyond them (V2's RSSI) is refused until the
+ * display/storage follow-up supports it. `contract` pins diagnostic callers to
+ * an explicit model; the scan flow itself keeps the active one.
  */
 export async function runInference(
   model: InferenceRunner,
@@ -105,24 +106,32 @@ export async function runInference(
   preprocessMs: number,
   clock: () => number = now,
   onRawOutput?: (rawOutput: readonly number[]) => void,
+  contract: ModelContract = ACTIVE_MODEL,
 ): Promise<DetectionResult> {
   const output = await runModelInference(
     model,
     inputBuffer,
     preprocessMs,
-    ACTIVE_MODEL,
+    contract,
     clock,
   );
   const scores: ClassScore[] = [];
 
+  // The scan flow, records and sync carry four labels. A model output beyond
+  // them (V2's RSSI) is an error when it is the top class; otherwise it is
+  // dropped from the scores without renormalizing the remaining ones.
+  const topLabel = output.scores[0]?.label;
+  if (topLabel === undefined || !isScanLabel(topLabel)) {
+    throw new InferenceError(
+      'LABEL_MAPPING_FAILED',
+      `Model ${contract.id.toUpperCase()} output "${topLabel}" is not supported by the scan flow yet.`,
+    );
+  }
+
   for (const { label, score } of output.scores) {
-    if (!isScanLabel(label)) {
-      throw new InferenceError(
-        'LABEL_MAPPING_FAILED',
-        `Model ${ACTIVE_MODEL.id.toUpperCase()} output "${label}" is not supported by the scan flow yet.`,
-      );
+    if (isScanLabel(label)) {
+      scores.push({ label, score });
     }
-    scores.push({ label, score });
   }
 
   const predictedLabel = scores[0].label;
@@ -133,7 +142,7 @@ export async function runInference(
     confidence: output.confidence,
     scores,
     timings: output.timings,
-    modelVersion: ACTIVE_MODEL.version,
+    modelVersion: contract.version,
     decisionSupportWording: diseaseCatalog[predictedLabel].decisionSupportWording,
   };
 }

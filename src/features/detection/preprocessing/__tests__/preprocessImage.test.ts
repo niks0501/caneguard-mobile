@@ -1,5 +1,6 @@
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
+import { MODEL_CONTRACTS } from '@/features/detection/constants/modelContract';
 import { decodeJpeg } from '@/features/detection/preprocessing/decodeJpeg';
 import { PreprocessingError } from '@/features/detection/preprocessing/preprocessingErrors';
 import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
@@ -43,7 +44,11 @@ describe('preprocessImage', () => {
       height: 224,
     });
 
-    const result = await preprocessImage('content://selected-leaf');
+    const result = await preprocessImage(
+      'content://selected-leaf',
+      undefined,
+      MODEL_CONTRACTS.v1.input.letterboxValue,
+    );
 
     expect(mockManipulateAsync).toHaveBeenCalledWith(
       'content://selected-leaf',
@@ -90,10 +95,14 @@ describe('preprocessImage', () => {
       height: 224,
     });
 
-    const result = await preprocessImage('content://portrait', {
-      width: 3000,
-      height: 4000,
-    });
+    const result = await preprocessImage(
+      'content://portrait',
+      {
+        width: 3000,
+        height: 4000,
+      },
+      MODEL_CONTRACTS.v1.input.letterboxValue,
+    );
     const values = new Float32Array(result.inputBuffer);
 
     expect(mockManipulateAsync).toHaveBeenCalledWith(
@@ -141,7 +150,11 @@ describe('preprocessImage', () => {
       height: 224,
     });
 
-    const result = await preprocessImage('content://unknown-dimensions');
+    const result = await preprocessImage(
+      'content://unknown-dimensions',
+      undefined,
+      MODEL_CONTRACTS.v1.input.letterboxValue,
+    );
 
     expect(mockManipulateAsync).toHaveBeenNthCalledWith(
       1,

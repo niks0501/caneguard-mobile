@@ -11,7 +11,7 @@ import {
   MODEL_V2_SHA256,
 } from '@/features/detection/constants/modelContract';
 import { postprocessOutput } from '@/features/detection/model/postprocessOutput';
-import { runModelInference } from '@/features/detection/model/runInference';
+import { runInference, runModelInference } from '@/features/detection/model/runInference';
 import { validateModelContract } from '@/features/detection/model/validateModelContract';
 import {
   compareV2Parity,
@@ -55,8 +55,9 @@ describe('Model V2 contract', () => {
     expect(v2.output.shape).toEqual([1, 5]);
   });
 
-  it('keeps the live scan flow on V1 until the follow-up flips the selector', () => {
-    expect(ACTIVE_MODEL.id).toBe('v1');
+  it('points the live scan flow at V2 while V1 stays registered for rollback', () => {
+    expect(ACTIVE_MODEL.id).toBe('v2');
+    expect(MODEL_CONTRACTS.v1.filename).toBe('caneguard_v1_mobilenetv2_float32.tflite');
   });
 
   it('validates V2 tensors and rejects V1 tensors against the V2 contract', () => {
@@ -117,11 +118,26 @@ describe('V2 parity comparison', () => {
 });
 
 describe('V2 letterbox padding', () => {
-  it('pads with black 0 when given the V2 value and keeps the V1 default', () => {
+  it('pads with black 0 by default (V2) and 127.5 when the V1 value is passed', () => {
     const source = new Uint8Array([10, 20, 30, 40, 50, 60]);
     const black = letterboxRgbPixels(source, 2, 1, v2.input.letterboxValue);
     expect(black.pixels[0]).toBe(0);
     expect(Array.from(black.pixels.slice((111 * 224 + 111) * 3, (111 * 224 + 111) * 3 + 6))).toEqual([10, 20, 30, 40, 50, 60]);
-    expect(letterboxRgbPixels(source, 2, 1).pixels[0]).toBe(127.5);
+    expect(letterboxRgbPixels(source, 2, 1).pixels[0]).toBe(0);
+    expect(letterboxRgbPixels(source, 2, 1, MODEL_CONTRACTS.v1.input.letterboxValue).pixels[0]).toBe(127.5);
+  });
+});
+
+describe('Live scan flow on V2', () => {
+  it('runs the active V2 contract and drops a non-top RSSI score and errors when RSSI is the top class', async () => {
+    const run = (values: number[]) =>
+      runInference({ run: jest.fn().mockResolvedValue([floatBuffer(values)]) }, new ArrayBuffer(602_112), 0);
+    const ok = await run([0.7, 0.1, 0.1, 0.05, 0.05]);
+    expect(ok.predictedLabel).toBe('healthy');
+    expect(ok.modelVersion).toBe('v2.0-mobilenetv2');
+    expect(ok.scores.map((s) => s.label)).toEqual(['healthy', 'mosaic', 'rust', 'smut']);
+    expect(ok.confidence).toBeCloseTo(0.7, 6);
+    expect(ok.scores[1].score).toBeCloseTo(0.1, 6);
+    await expect(run([0.1, 0.1, 0.1, 0.1, 0.6])).rejects.toMatchObject({ code: 'LABEL_MAPPING_FAILED' });
   });
 });

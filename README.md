@@ -44,7 +44,7 @@ Failed uploads preserve the local report and image for retry.
 Only an authenticated `field_reporter` session can synchronize mobile reports.
 A registered `farmer` account can sign in and keep personal scans on the device, while official Field Reports stay restricted to `field_reporter` accounts that the API also grants the `report:submit` capability (see [Mobile project context](PROJECT_CONTEXT.md#inspector-capabilities)).
 
-The Model V1 mobile upload endpoint is `POST /api/v3/mobile/reports`. Possible-match lookup remains local-first for offline use; status reads use `GET /api/v3/mobile/reports/statuses`. Endpoint and payload details are owned by [Mobile project context](PROJECT_CONTEXT.md#external-contracts).
+The mobile report upload endpoint is `POST /api/v3/mobile/reports`. Possible-match lookup remains local-first for offline use; status reads use `GET /api/v3/mobile/reports/statuses`. Endpoint and payload details are owned by [Mobile project context](PROJECT_CONTEXT.md#external-contracts).
 The Web/API review flow uses the same remote report identity and exposes the resulting review status back to Mobile.
 The image roles and multipart compatibility contract remain owned by the Web/API repository, so this README keeps those details brief and links to the authoritative documents below.
 
@@ -431,7 +431,7 @@ If migrations fail, confirm the MySQL service, database names, `caneguard_app` g
 
 - [Web/API full README](https://github.com/niks0501/caneguard-web/blob/main/README.md) for the companion installation, Laravel setup, database procedure, API startup, and Web/API validation.
 - [Mobile Agent Device workspace guide](.agent-device/README.md) for the Android Studio emulator, Windows-hosted ADB server, flow behavior, and evidence handling.
-- [Current capability and readiness](docs/CAPABILITY-READINESS.md) for implemented screens, the four current model classes, location behaviour, and deployment-dependent services.
+- [Current capability and readiness](docs/CAPABILITY-READINESS.md) for implemented screens, the current model classes and scan output, location behaviour, and deployment-dependent services.
 - [Release evidence record](docs/RELEASE-EVIDENCE.md) for the candidate revision and native/cross-system evidence status.
 - [Mobile project context](PROJECT_CONTEXT.md) for architecture and external contracts.
 - [Mobile project stack](PROJECT_STACK.md) for native-runtime compatibility and verification rules.

@@ -1,3 +1,4 @@
+import { MODEL_CONTRACTS } from '@/features/detection/constants/modelContract';
 import { postprocessOutput } from '@/features/detection/model/postprocessOutput';
 
 function float32Buffer(values: readonly number[]): ArrayBuffer {
@@ -6,7 +7,10 @@ function float32Buffer(values: readonly number[]): ArrayBuffer {
 
 describe('postprocessOutput', () => {
   it('maps probabilities to labels, sorts scores, and preserves raw confidence', () => {
-    const result = postprocessOutput(float32Buffer([0.1, 0.1, 0.2, 0.6]));
+    const result = postprocessOutput(
+      float32Buffer([0.1, 0.1, 0.2, 0.6]),
+      MODEL_CONTRACTS.v1,
+    );
 
     expect(result.predictedLabel).toBe('smut');
     expect(result.confidence).toBeCloseTo(0.6);
@@ -19,9 +23,9 @@ describe('postprocessOutput', () => {
   });
 
   it('rejects an output with the wrong byte length', () => {
-    expect(() => postprocessOutput(float32Buffer([0.5, 0.5]))).toThrow(
-      expect.objectContaining({ code: 'OUTPUT_SIZE_MISMATCH' }),
-    );
+    expect(() =>
+      postprocessOutput(float32Buffer([0.5, 0.5]), MODEL_CONTRACTS.v1),
+    ).toThrow(expect.objectContaining({ code: 'OUTPUT_SIZE_MISMATCH' }));
   });
 
   it.each([
@@ -30,8 +34,8 @@ describe('postprocessOutput', () => {
     ['out-of-range probability', [-0.1, 0.2, 0.3, 0.6]],
     ['invalid probability sum', [0.1, 0.2, 0.3, 0.1]],
   ])('rejects %s values', (_caseName, values) => {
-    expect(() => postprocessOutput(float32Buffer(values))).toThrow(
-      expect.objectContaining({ code: 'OUTPUT_VALUE_INVALID' }),
-    );
+    expect(() =>
+      postprocessOutput(float32Buffer(values), MODEL_CONTRACTS.v1),
+    ).toThrow(expect.objectContaining({ code: 'OUTPUT_VALUE_INVALID' }));
   });
 });

@@ -1,5 +1,8 @@
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
-import { MODEL_INPUT } from '@/features/detection/constants/modelContract';
+import {
+  MODEL_CONTRACTS,
+  MODEL_INPUT,
+} from '@/features/detection/constants/modelContract';
 import { InferenceError } from '@/features/detection/model/inferenceErrors';
 import {
   runInference,
@@ -24,6 +27,23 @@ function createRunner(output = float32Buffer([0.1, 0.1, 0.2, 0.6])) {
   } satisfies InferenceRunner;
 }
 
+function runV1Inference(
+  runner: InferenceRunner,
+  input: ArrayBuffer,
+  preprocessMs: number,
+  clock?: () => number,
+  onRawOutput?: (rawOutput: readonly number[]) => void,
+) {
+  return runInference(
+    runner,
+    input,
+    preprocessMs,
+    clock,
+    onRawOutput,
+    MODEL_CONTRACTS.v1,
+  );
+}
+
 describe('runInference', () => {
   it('runs one input tensor and returns a timed DetectionResult', async () => {
     const runner = createRunner();
@@ -32,7 +52,7 @@ describe('runInference', () => {
     const observeRawOutput = jest.fn();
 
     await expect(
-      runInference(runner, input, 40, clock, observeRawOutput),
+      runV1Inference(runner, input, 40, clock, observeRawOutput),
     ).resolves.toEqual({
       predictedLabel: 'smut',
       confidence: expect.closeTo(0.6),
@@ -62,7 +82,9 @@ describe('runInference', () => {
   it('blocks a mismatched input before calling the native model', async () => {
     const runner = createRunner();
 
-    await expect(runInference(runner, new ArrayBuffer(4), 1)).rejects.toEqual(
+    await expect(
+      runV1Inference(runner, new ArrayBuffer(4), 1),
+    ).rejects.toEqual(
       expect.objectContaining({ code: 'INPUT_BUFFER_MISMATCH' }),
     );
     expect(runner.run).not.toHaveBeenCalled();
@@ -76,7 +98,7 @@ describe('runInference', () => {
     };
 
     await expect(
-      runInference(runner, new ArrayBuffer(INPUT_BYTE_LENGTH), 1),
+      runV1Inference(runner, new ArrayBuffer(INPUT_BYTE_LENGTH), 1),
     ).rejects.toEqual(expect.objectContaining({ code: 'MODEL_NOT_READY' }));
   });
 
@@ -86,7 +108,7 @@ describe('runInference', () => {
     };
 
     await expect(
-      runInference(runner, new ArrayBuffer(INPUT_BYTE_LENGTH), 1),
+      runV1Inference(runner, new ArrayBuffer(INPUT_BYTE_LENGTH), 1),
     ).rejects.toEqual(expect.objectContaining({ code: 'MODEL_RUN_FAILED' }));
   });
 
@@ -103,7 +125,7 @@ describe('runInference', () => {
     };
 
     await expect(
-      runInference(runner, new ArrayBuffer(INPUT_BYTE_LENGTH), 1),
+      runV1Inference(runner, new ArrayBuffer(INPUT_BYTE_LENGTH), 1),
     ).rejects.toEqual(expect.objectContaining({ code }));
   });
 
@@ -113,7 +135,7 @@ describe('runInference', () => {
 
     for (let index = 0; index < 10; index += 1) {
       results.push(
-        await runInference(
+        await runV1Inference(
           runner,
           new ArrayBuffer(INPUT_BYTE_LENGTH),
           1,

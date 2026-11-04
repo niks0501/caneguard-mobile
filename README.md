@@ -435,5 +435,5 @@ If migrations fail, confirm the MySQL service, database names, `caneguard_app` g
 - [Release evidence record](docs/RELEASE-EVIDENCE.md) for the candidate revision and native/cross-system evidence status.
 - [Mobile project context](PROJECT_CONTEXT.md) for architecture and external contracts.
 - [Mobile project stack](PROJECT_STACK.md) for native-runtime compatibility and verification rules.
-- [Mobile upload contract mirror](references/mobile-report-upload-v2.json) for the concise machine-readable producer boundary.
+- [Mobile upload contract mirror](references/mobile-report-upload-v3.json) for the concise machine-readable producer boundary.
 - [P0-07 synchronization design](docs/features/caneGuard-p0-implementation-phases/P0-07-Field-Report-Synchronization-and-API.md) for advanced sync and API details.

@@ -52,7 +52,7 @@ type MultipartPart = [string, unknown];
 
 const CANONICAL = JSON.parse(
   readFileSync(
-    resolve(__dirname, '../../../../../references/mobile-report-upload-v2.json'),
+    resolve(__dirname, '../../../../../references/mobile-report-upload-v3.json'),
     'utf8',
   ),
 ) as CanonicalContract;
@@ -166,11 +166,11 @@ afterAll(() => {
   global.FormData = OriginalFormData;
 });
 
-describe('mobile-report-upload-v2 producer contract', () => {
+describe('mobile-report-upload-v3 producer contract', () => {
   it('proves a complete mobile payload is inside the canonical artifact', () => {
-    expect(CANONICAL.contract).toBe('mobile-report-upload-v2');
-    expect(CANONICAL.version).toBe(2);
-    expectCanonicalV2(map());
+    expect(CANONICAL.contract).toBe('mobile-report-upload-v3');
+    expect(CANONICAL.version).toBe(3);
+    expectCanonicalV3(map());
   });
 
   it('never sends server-owned authority review snapshot fields', () => {
@@ -206,7 +206,7 @@ describe('mobile-report-upload-v2 producer contract', () => {
       reporterObservationText: 'RSSI concern was observed in the field.',
     });
 
-    expectCanonicalV2(form);
+    expectCanonicalV3(form);
     expect(scalarValue(parts(form), 'reporter_suspected_condition')).toBe('RSSI');
     expect(scalarValue(parts(form), 'predicted_label')).toBe('rust');
     expect(
@@ -219,7 +219,7 @@ describe('mobile-report-upload-v2 producer contract', () => {
       modelVersion: 'v2.0-cane-model',
       classScores: [...SCAN.classScores, { label: 'wilt', score: 0.1 }],
     });
-    expectCanonicalV2(form);
+    expectCanonicalV3(form);
     expect(scalarValue(parts(form), 'model_version')).toBe('v2.0-cane-model');
     expect(scalarValue(parts(form), 'class_scores[wilt]')).toBe('0.1');
   });
@@ -233,7 +233,7 @@ describe('mobile-report-upload-v2 producer contract', () => {
       locationUnavailableReason: 'offline_no_map',
     });
 
-    expectCanonicalV2(form);
+    expectCanonicalV3(form);
     expect(scalarValue(parts(form), 'location_source')).toBe('unavailable');
     expect(scalarValue(parts(form), 'location_unavailable_reason')).toBe(
       'offline_no_map',
@@ -250,7 +250,7 @@ describe('mobile-report-upload-v2 producer contract', () => {
       reporterObservationText: 'RSSI concern was observed in the field.',
     });
 
-    expectCanonicalV2(form);
+    expectCanonicalV3(form);
     expect(scalarValue(parts(form), 'mismatch_reported')).toBe('0');
     expect(scalarValue(parts(form), 'reporter_suspected_condition')).toBe('RSSI');
     expect(scalarValue(parts(form), 'predicted_label')).toBe('rust');
@@ -260,20 +260,20 @@ describe('mobile-report-upload-v2 producer contract', () => {
     const form = map() as unknown as TestFormData;
     form.append('submitted_at', REPORT.submittedAt);
     expect(() =>
-      expectCanonicalV2(form as unknown as FormData),
+      expectCanonicalV3(form as unknown as FormData),
     ).toThrow(/undeclared multipart field.*submitted_at/i);
 
     const withoutImage = formFromParts(
       parts(map()).filter(([name]) => name !== 'image'),
     );
-    expect(() => expectCanonicalV2(withoutImage)).toThrow(
+    expect(() => expectCanonicalV3(withoutImage)).toThrow(
       /required canonical field "image" is missing/i,
     );
 
     const withoutSymptoms = formFromParts(
       parts(map()).filter(([name]) => name !== 'symptom_keys[]'),
     );
-    expect(() => expectCanonicalV2(withoutSymptoms)).toThrow(
+    expect(() => expectCanonicalV3(withoutSymptoms)).toThrow(
       /required canonical field "symptom_keys" is missing/i,
     );
   });
@@ -375,13 +375,13 @@ describe('mobile-report-upload-v2 producer contract', () => {
       totalMs: 999_999_999,
     };
 
-    expectCanonicalV2(map(boundaryReport, boundaryScan));
+    expectCanonicalV3(map(boundaryReport, boundaryScan));
   });
 
   it('documents the intentionally stricter mobile subset of widened v2 fields', () => {
-    expectCanonicalV2(map({ fieldNotes: 'x'.repeat(5_000) }));
+    expectCanonicalV3(map({ fieldNotes: 'x'.repeat(5_000) }));
     const unknownOwner = map({ farmerOrFarmOwnerName: '' });
-    expectCanonicalV2(unknownOwner);
+    expectCanonicalV3(unknownOwner);
     expect(parts(unknownOwner)).toContainEqual(['farmer_or_farm_owner_name', '']);
 
     const affectedAreaAboveMobileCeiling = replacePart(
@@ -389,7 +389,7 @@ describe('mobile-report-upload-v2 producer contract', () => {
       'affected_area_hectares',
       '10001',
     );
-    expectCanonicalV2(affectedAreaAboveMobileCeiling);
+    expectCanonicalV3(affectedAreaAboveMobileCeiling);
     expect(() => map({ affectedAreaHectares: 10_001 })).toThrow(
       expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }),
     );
@@ -474,7 +474,7 @@ function replacePart(form: FormData, name: string, value: unknown): FormData {
   );
 }
 
-function expectCanonicalV2(form: FormData): void {
+function expectCanonicalV3(form: FormData): void {
   const formParts = parts(form);
   const undeclared = formParts
     .map(([name]) => name)

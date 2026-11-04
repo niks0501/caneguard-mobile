@@ -1,13 +1,13 @@
 {
-  "$id": "https://github.com/niks0501/caneguard-web/blob/main/docs/contracts/mobile-report-upload-v2.json",
+  "$id": "https://github.com/niks0501/caneguard-web/blob/main/docs/contracts/mobile-report-upload-v3.json",
   "artifact_format": "caneguard-multipart-contract",
-  "contract": "mobile-report-upload-v2",
-  "version": 2,
+  "contract": "mobile-report-upload-v3",
+  "version": 3,
   "status": "stable",
   "owner": "niks0501/caneguard-web/api",
   "wire": {
     "method": "POST",
-    "path": "/api/v2/mobile/reports",
+    "path": "/api/v3/mobile/reports",
     "content_type": "multipart/form-data",
     "undeclared_fields": "ignored"
   },
@@ -51,7 +51,8 @@
       "preprocess_ms",
       "inference_ms",
       "total_ms",
-      "scan_record_client_uuid"
+      "scan_record_client_uuid",
+      "field_survey_client_uuid"
     ],
     "server_derived": [
       "uuid",
@@ -188,7 +189,8 @@
         "healthy",
         "mosaic",
         "rust",
-        "smut"
+        "smut",
+        "rssi"
       ]
     },
     "confidence": {
@@ -213,7 +215,12 @@
           "rule": "model_class_keys",
           "field": "model_version",
           "value": "v1.0-mobilenetv2",
-          "required_keys": ["healthy", "mosaic", "rust", "smut"],
+          "required_keys": [
+            "healthy",
+            "mosaic",
+            "rust",
+            "smut"
+          ],
           "additional_properties": false
         }
       ],
@@ -523,6 +530,16 @@
         "empty_string": "null"
       }
     },
+    "field_survey_client_uuid": {
+      "wire_type": "text",
+      "type": "uuid",
+      "required": false,
+      "nullable": true,
+      "format": "uuid",
+      "normalization": {
+        "empty_string": "null"
+      }
+    },
     "sugarcane_variety": {
       "wire_type": "text",
       "type": "string",
@@ -624,7 +641,9 @@
       "required": true,
       "nullable": false,
       "max_length": 100,
-      "known_values": ["v1.0-mobilenetv2"],
+      "known_values": [
+        "v1.0-mobilenetv2"
+      ],
       "unrecognised_value_policy": "persist_as_submitted"
     },
     "preprocess_ms": {
@@ -665,7 +684,7 @@
       "Accepting additional values for an existing enum without changing existing value meanings.",
       "Increasing a text maximum or numeric maximum, or lowering a numeric minimum, without changing persistence semantics.",
       "Adding an accepted image format without removing or changing existing formats.",
-      "Increasing the image hard maximum only when every existing v2 consumer remains safe with the wider value.",
+      "Increasing the image hard maximum only when every existing v3 consumer remains safe with the wider value.",
       "Accepting optional measurement provenance while preserving existing numeric optionality.",
       "Accepting the additional location_source value unavailable for reports submitted without an exact coordinate.",
       "Recording why a location was unavailable while keeping barangay mandatory."
@@ -677,6 +696,6 @@
       "Changing enum meaning, disease classes, conditional location requirements, server-derived metadata, or persistence semantics.",
       "Removing an existing image format or lowering the 10 MiB hard maximum."
     ],
-    "approved_conditional_location_change": "D-02 (round-2 board): coordinates are required when location_source declares gps or manual_map instead of when location_source is merely present. Existing gps and manual_map payloads already send coordinates, so this is a widening; unavailable payloads omit them deliberately."
+    "v3_introduction": "v3 is v2 plus the optional nullable field_survey_client_uuid. Every other field, bound, encoding, location rule and persistence meaning is identical to v2, and the v2 endpoint and artifact are unchanged."
   }
 }

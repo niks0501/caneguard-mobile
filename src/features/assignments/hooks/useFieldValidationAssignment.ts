@@ -3,6 +3,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ImagePickerAsset } from 'expo-image-picker';
 
+import { FIELD_VALIDATION_UNAVAILABLE } from '@/constants/copy';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import {
@@ -34,6 +35,7 @@ import {
   persistFieldValidationPhoto,
   type FieldValidationPhotoArtifact,
 } from '@/features/assignments/services/fieldValidationPhotoStorage';
+import { canCompleteFieldValidation } from '@/features/auth/capabilities';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { captureGpsLocation } from '@/features/reports/services/captureGpsLocation';
 import { expoForegroundLocationClient } from '@/features/reports/services/expoForegroundLocationClient';
@@ -65,6 +67,7 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
   const database = useCaneGuardDatabase();
   const { session, status: authStatus } = useAuth();
   const sync = useSync();
+  const canComplete = canCompleteFieldValidation(session?.user);
   const mounted = useRef(true);
   const sessionRef = useRef(session);
   const [state, setState] = useState<AssignmentState>({
@@ -91,6 +94,10 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
 
   const refresh = useCallback(async () => {
     const requestedSession = session;
+    if (!canComplete) {
+      setState({ assignment: null, completion: null, currentReporterConcern: null, errorMessage: FIELD_VALIDATION_UNAVAILABLE, loading: false, previousVisit: null, saving: false });
+      return;
+    }
     if (!assignmentId || authStatus !== 'authenticated' || !requestedSession) {
       setState({ assignment: null, completion: null, currentReporterConcern: null, errorMessage: 'Sign in to open this assignment.', loading: false, previousVisit: null, saving: false });
       return;
@@ -141,7 +148,7 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
         loading: false,
       }));
     }
-  }, [assignmentId, authStatus, database, session]);
+  }, [assignmentId, authStatus, canComplete, database, session]);
 
   useFocusEffect(
     useCallback(() => {
@@ -155,7 +162,7 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
 
   const persistDraftPhoto = useCallback(
     async (asset: ImagePickerAsset): Promise<FieldValidationPhotoArtifact | null> => {
-      if (!state.assignment || !session) return null;
+      if (!canComplete || !state.assignment || !session) return null;
       try {
         return await persistFieldValidationPhoto({
           ownerIdentity: session.user.uuid,
@@ -169,14 +176,14 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
         return null;
       }
     },
-    [session, state.assignment],
+    [canComplete, session, state.assignment],
   );
 
   const saveDraftCheckpoint = useCallback(
     async (
       values: Omit<FieldValidationCheckpoint, 'savedAt'>,
     ): Promise<boolean> => {
-      if (!state.assignment || !session || state.completion) {
+      if (!canComplete || !state.assignment || !session || state.completion) {
         return false;
       }
       const checkpoint: FieldValidationCheckpoint = {
@@ -206,11 +213,11 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
         return false;
       }
     },
-    [database, session, state.assignment, state.completion],
+    [canComplete, database, session, state.assignment, state.completion],
   );
 
   const complete = useCallback(async (input: CompleteFieldValidationInput): Promise<FieldValidationCompletion | null> => {
-    if (!state.assignment || !session) return null;
+    if (!canComplete || !state.assignment || !session) return null;
     const completionId = randomUUID();
     setState((current) => ({ ...current, errorMessage: null, saving: true }));
     let createdPhotoUri: string | null = null;
@@ -296,10 +303,10 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       if (mounted.current) setState((current) => ({ ...current, errorMessage: message, saving: false }));
       return null;
     }
-  }, [database, refresh, session, state.assignment, sync]);
+  }, [canComplete, database, refresh, session, state.assignment, sync]);
 
   const retry = useCallback(async () => {
-    if (!state.completion || sync.isOnline !== true) return;
+    if (!canComplete || !state.completion || sync.isOnline !== true) return;
     setState((current) => ({ ...current, errorMessage: null, saving: true }));
     try {
       await sync.retryFieldValidationCompletion(state.completion.id);
@@ -307,10 +314,11 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
     } catch (error: unknown) {
       if (mounted.current) setState((current) => ({ ...current, errorMessage: getStorageErrorMessage(toStorageError(error, 'UPDATE_FAILED', 'Retrying field validation synchronization failed.')), saving: false }));
     }
-  }, [refresh, state.completion, sync]);
+  }, [canComplete, refresh, state.completion, sync]);
 
   return {
     ...state,
+    canComplete,
     complete,
     draftSavedAt,
     draftStatus,

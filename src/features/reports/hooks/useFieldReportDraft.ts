@@ -63,7 +63,7 @@ export function useFieldReportForScan(scanRecordId: string | null) {
     submitterIdentity: string | null;
   }>({ canSeeFieldReport: false, scanRecordId: null, submitterIdentity: null });
   const submitterIdentity = user?.uuid ?? null;
-  const canSeeFieldReport = canAuthorInspectorWork(user);
+  const canSeeFieldReport = user?.role === 'field_reporter';
   useEffect(() => {
     refreshInput.current = {
       canSeeFieldReport,

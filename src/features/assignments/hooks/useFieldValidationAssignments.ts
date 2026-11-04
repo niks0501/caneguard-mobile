@@ -1,4 +1,4 @@
-import { canAuthorInspectorWork } from '@/features/auth/capabilities';
+import { canCompleteFieldValidation } from '@/features/auth/capabilities';
 import { useFocusEffect } from 'expo-router';
 import { AppState, type AppStateStatus } from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -33,7 +33,7 @@ interface AssignmentState {
 export function useFieldValidationAssignments(enabled = true) {
   const database = useCaneGuardDatabase();
   const { markSessionExpired, session, status: authStatus } = useAuth();
-  const canRead = canAuthorInspectorWork(session?.user);
+  const canRead = canCompleteFieldValidation(session?.user);
   const [state, setState] = useState<AssignmentState>({
     assignments: [],
     capabilityUnavailable: false,
@@ -219,10 +219,12 @@ export function useFieldValidationAssignments(enabled = true) {
     state.sessionKey === sessionKey
       ? {
           ...state,
-          assignments: ownerStore?.assignments?.value ?? state.assignments,
+          assignments: canRead
+            ? ownerStore?.assignments?.value ?? state.assignments
+            : [],
         }
       : {
-          assignments: ownerStore?.assignments?.value ?? [],
+          assignments: canRead ? ownerStore?.assignments?.value ?? [] : [],
           capabilityUnavailable: false,
           errorMessage: null,
           lastSuccessfulAt: null,

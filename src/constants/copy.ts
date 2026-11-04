@@ -35,6 +35,9 @@ export const LOCATION_UNCONFIRMED = 'Location could not be confirmed';
 
 export const PERSONAL_SCAN_LOCAL_STATUS = 'On this device · not sent';
 
+export const FIELD_VALIDATION_UNAVAILABLE =
+  'Field validation needs an active inspector assignment to the pilot district. Ask your office to check your account.';
+
 export const FIELD_SURVEY_COPY = {
   unavailable: 'Boundary surveys need an active inspector assignment to the pilot district. Ask your office to check your account.',
   title: 'Measure a field boundary',

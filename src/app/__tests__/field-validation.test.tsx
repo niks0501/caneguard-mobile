@@ -32,6 +32,7 @@ jest.mock('@/features/assignments/services/fieldValidationPhotoStorage', () => (
 
 const complete = jest.fn(async () => null);
 const state = {
+  canComplete: true,
   assignment: {
     id: '3fbd7f77-7d6b-4eb0-a1c7-b673f5a2f39f',
     ownerIdentity: 'd4f4c3b8-4f27-49c7-9ec7-3ab7ea6fc91d',
@@ -70,6 +71,22 @@ jest.mocked(useFieldValidationAssignment).mockReturnValue({ ...state, complete }
 
 describe('FieldValidationScreen', () => {
   beforeEach(() => jest.clearAllMocks());
+
+  it('replaces the visit form with an unavailable notice without assignment:complete', async () => {
+    jest.mocked(useFieldValidationAssignment).mockReturnValueOnce({
+      ...state,
+      assignment: null,
+      canComplete: false,
+      complete,
+    } as never);
+
+    await render(<FieldValidationScreen />);
+
+    expect(screen.getByTestId('field-validation.unavailable')).toBeOnTheScreen();
+    expect(screen.getByText(/active inspector assignment to the pilot district/)).toBeOnTheScreen();
+    expect(screen.queryByTestId('field-validation.observation-input')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('field-validation.complete')).not.toBeOnTheScreen();
+  });
 
   it('requires fresh observation, finding, and action before saving offline completion', async () => {
     jest.mocked(useFieldValidationAssignment).mockReturnValue({

@@ -6,6 +6,7 @@ import type { MobileUser } from './types';
  * A role alone is not enough; a missing or empty list means no authoring.
  */
 export const REPORT_SUBMIT_CAPABILITY = 'report:submit';
+export const ASSIGNMENT_COMPLETE_CAPABILITY = 'assignment:complete';
 
 export function hasCapability(
   user: Pick<MobileUser, 'capabilities'> | null | undefined,
@@ -20,6 +21,15 @@ export function canAuthorInspectorWork(
   return (
     user?.role === 'field_reporter' &&
     hasCapability(user, REPORT_SUBMIT_CAPABILITY)
+  );
+}
+
+export function canCompleteFieldValidation(
+  user: Pick<MobileUser, 'capabilities' | 'role'> | null | undefined,
+): boolean {
+  return (
+    user?.role === 'field_reporter' &&
+    hasCapability(user, ASSIGNMENT_COMPLETE_CAPABILITY)
   );
 }
 

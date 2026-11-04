@@ -160,6 +160,7 @@ describe('AuthProvider', () => {
     mockLogout.mockResolvedValue(undefined);
     mockLogin.mockReset();
     mockVerify.mockReset();
+    mockVerify.mockResolvedValue(SESSION.user);
     mockClearLegacy.mockReset();
     mockClearLegacy.mockResolvedValue(false);
     mockLoginHistory.mockReset();
@@ -216,6 +217,59 @@ describe('AuthProvider', () => {
     expect(mockMarkLogin).toHaveBeenCalledTimes(1);
     expect(result.current.hasCompletedLogin).toBe(true);
     expect(result.current.status).toBe('authenticated');
+  });
+
+  it('applies the /me capabilities when the login response omits them', async () => {
+    mockLogin.mockResolvedValueOnce({
+      ...SESSION,
+      user: { ...SESSION.user, capabilities: [] },
+    });
+    mockVerify.mockResolvedValueOnce({
+      ...SESSION.user,
+      capabilities: ['report:submit', 'assignment:complete'],
+    });
+
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+
+    await act(async () => {
+      await expect(
+        result.current.login('field@caneguard.test', 'password'),
+      ).resolves.toBe(true);
+    });
+
+    expect(mockVerify).toHaveBeenCalledWith(SESSION.token);
+    expect(result.current.user?.capabilities).toEqual([
+      'report:submit',
+      'assignment:complete',
+    ]);
+    expect(result.current.sessionVerification).toBe('verified');
+  });
+
+  it('keeps a signed-in session fail-closed when /me is unreachable after login', async () => {
+    mockLogin.mockResolvedValueOnce({
+      ...SESSION,
+      user: { ...SESSION.user, capabilities: [] },
+    });
+    mockVerify.mockRejectedValueOnce(
+      new MobileAuthError(
+        'SERVER_UNAVAILABLE',
+        'CaneGuard could not reach the server.',
+      ),
+    );
+
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+
+    await act(async () => {
+      await expect(
+        result.current.login('field@caneguard.test', 'password'),
+      ).resolves.toBe(true);
+    });
+
+    expect(result.current.status).toBe('authenticated');
+    expect(result.current.sessionVerification).toBe('unavailable');
+    expect(result.current.user?.capabilities).toEqual([]);
   });
 
   it('does not silently restore an unprotected session on cold start', async () => {
@@ -702,6 +756,7 @@ describe('AuthProvider', () => {
     expect(protectedSession).toBeNull();
     expect(mockLogout).toHaveBeenCalledWith(SESSION.token);
     await firstProvider.unmount();
+    mockVerify.mockClear();
 
     const coldStart = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() =>
@@ -768,6 +823,41 @@ describe('AuthProvider', () => {
     });
     expect(mockSaveProtected).not.toHaveBeenCalled();
     expect(result.current.session).toEqual(rotatedSession);
+  });
+
+  it('applies the /me capabilities after enrollment rotates the session', async () => {
+    mockLogin.mockResolvedValueOnce(SESSION);
+    const rotatedSession = {
+      ...SESSION,
+      token: 'rotated-session-value',
+    };
+    mockEnroll.mockResolvedValueOnce({
+      ...rotatedSession,
+      user: { ...rotatedSession.user, capabilities: [] },
+    });
+    mockVerify
+      .mockResolvedValueOnce(SESSION.user)
+      .mockResolvedValueOnce({
+        ...SESSION.user,
+        capabilities: ['report:submit', 'assignment:complete'],
+      });
+
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+    await act(async () => {
+      await result.current.login('field@caneguard.test', 'password');
+      await expect(
+        result.current.enrollMobileDevice('current-password', 'Test installation'),
+      ).resolves.toBe(true);
+    });
+
+    expect(mockVerify).toHaveBeenCalledWith(rotatedSession.token);
+    expect(result.current.session?.token).toBe(rotatedSession.token);
+    expect(result.current.user?.capabilities).toEqual([
+      'report:submit',
+      'assignment:complete',
+    ]);
+    expect(result.current.sessionVerification).toBe('verified');
   });
 
   it('clears credentials when a security step-up receives authoritative rejection', async () => {

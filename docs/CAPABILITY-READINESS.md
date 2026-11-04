@@ -52,7 +52,10 @@ tests. "Implemented" does not mean "verified on a device":
   personal note); the analysis result never captures a note itself.
 - Field Report Draft (Field Inspector accounts holding the `report:submit`
   capability): five-step form, local autosave checkpoints, readiness checklist,
-  finalization, foreground sync and manual retry.
+  finalization, foreground sync and manual retry. The Review step carries an
+  optional **Plot boundary** card that lists the boundaries measured on this
+  phone with district, hectares, and send status, attaches one to the report,
+  removes the link, and opens that boundary in Measure.
 - Field validation visits: owner-scoped drafts, completion evidence, follow-up
   outcome, optional fresh photo. The downloaded visit list needs
   `assignment:read`; opening and completing a visit needs `assignment:complete`.
@@ -69,7 +72,10 @@ tests. "Implemented" does not mean "verified on a device":
   point is 5 m or better, **Acceptable** when some points are 5 to 10 m, and
   **Low accuracy** when any point is worse than 10 m or unknown. Low accuracy
   names the worst point and offers one **Recapture** button for exactly that
-  point; poor accuracy never blocks saving.
+  point; poor accuracy never blocks saving. Opened from a report it restores
+  that exact saved boundary rather than the open draft, shows a sent boundary
+  read-only, and leaves the report card to say when the linked boundary is no
+  longer saved on the phone.
 - Home: the Morning Note sentence and its one button, the greeting and date
   band with an Offline chip while offline, the "Today at a glance" strip, icon
   tool tiles, and the four-class "Know the signs" photo strip. A farmer session

@@ -9,7 +9,7 @@ import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel'
 import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
 import type { DetectionResult } from '@/features/detection/types';
 
-const mockProviderModelIds: Array<string | undefined> = [];
+const mockProviderModelIds: (string | undefined)[] = [];
 
 jest.mock('@/features/detection/preprocessing/preprocessImage', () => ({
   preprocessImage: jest.fn(),

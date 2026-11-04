@@ -85,7 +85,7 @@ Source of truth:
 
 `src/features/detection/constants/modelContract.ts`
 
-The active contract's field values and the bundled-but-inactive Model V2 identity are owned by [`PROJECT_CONTEXT.md` — Model contract](PROJECT_CONTEXT.md#model-contract); read them there instead of restating them.
+The bundled contracts' field values and which one is active are owned by [`PROJECT_CONTEXT.md` — Model contract](PROJECT_CONTEXT.md#model-contract); read them there instead of restating them.
 
 When changing the model artifact, preprocessing, tensor interpretation, labels, or postprocessing:
 

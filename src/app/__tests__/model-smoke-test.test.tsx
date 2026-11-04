@@ -12,7 +12,7 @@ import { runInference } from '@/features/detection/model/runInference';
 import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
 import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
 
-const mockProviderModelIds: Array<string | undefined> = [];
+const mockProviderModelIds: (string | undefined)[] = [];
 
 jest.mock('@/features/detection/model/useCaneGuardModel', () => ({
   useCaneGuardModel: jest.fn(),

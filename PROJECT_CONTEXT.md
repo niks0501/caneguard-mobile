@@ -328,19 +328,22 @@ A successful report upload must return a remote identity UUID.
 
 ### Model contract
 
-`modelContract.ts` defines the active Model V1 contract plus the bundled, inactive Model V2 contract. `ACTIVE_MODEL_ID` selects the model the live scan flow loads, so changing that constant is the V1/V2 switch and the rollback path.
+`modelContract.ts` defines the active Model V2 contract plus the bundled, inactive Model V1 contract. `ACTIVE_MODEL_ID` selects the model the live scan flow loads, so changing that constant is the V1/V2 switch and the rollback path. Model-layer functions also accept an explicit contract.
 
 Active model:
 
-- Version: `v1.0-mobilenetv2`
-- File: `assets/models/caneguard_v1_mobilenetv2_float32.tflite`
-- SHA-256: `9ebad12450866b47abc94ffb6b820048c1759e3f3e728a71775af42a0541bae7`
-- Labels, in fixed output order: `healthy`, `mosaic`, `rust`, `smut`
-- Input: float32 `[1, 224, 224, 3]`, RGB/NHWC, aspect-ratio-preserving bilinear letterbox with padding `127.5`
+- Version: `v2.0-mobilenetv2`
+- File: `assets/models/caneguard_v2.tflite`
+- Labels, in fixed output order: `healthy`, `mosaic`, `rust`, `smut`, `rssi`
+- Input: float32 `[1, 224, 224, 3]`, RGB/NHWC, aspect-ratio-preserving bilinear letterbox with padding `0`
 - Mobile input values remain raw `0..255`; the model internally applies `x / 127.5 - 1.0`
-- Output: float32 `[1, 4]` softmax probabilities
+- Output: float32 `[1, 5]` softmax probabilities
 
-Bundled but not active: Model V2 (`assets/models/caneguard_v2.tflite`) outputs five classes in `Healthy`, `Mosaic`, `Rust`, `Smut`, `RSSI` order with black `0` letterbox padding. `assets/models/labels.txt` carries those five labels, and the V1 identifiers are its lowercase first four in the same order. The V2 artifact identity is bound to `MODEL_V2_SHA256`, the `tflite_sha256` in `assets/models/preprocessing.json`, and the `tflite_sha256` in `dev-assets/model-fixtures/v2-parity/manifest.json`; `src/features/detection/model/__tests__/v2Model.test.ts` asserts all three agree, so do not restate the hash in prose. The live scan flow stays on V1 until the display/storage/sync follow-up can carry the fifth output, so V2 runs only from the developer `model-smoke-test` parity panel and `src/features/detection/model/__tests__/v2Model.test.ts`.
+The V2 artifact identity is bound to `MODEL_V2_SHA256`, the `tflite_sha256` in `assets/models/preprocessing.json`, and the `tflite_sha256` in `dev-assets/model-fixtures/v2-parity/manifest.json`; `src/features/detection/model/__tests__/v2Model.test.ts` asserts all three agree, so do not restate the hash in prose. `assets/models/labels.txt` carries the five output labels in the order above.
+
+Scan output stays four-class: the scan flow, stored records, and sync carry `healthy`, `mosaic`, `rust`, and `smut`. `runInference` therefore fails the scan with `LABEL_MAPPING_FAILED` when `rssi` is the top class, and otherwise drops the `rssi` entry without renormalizing the remaining scores. Carrying the fifth output through display/storage/sync is still the follow-up that would relax this.
+
+Bundled but not active: Model V1 (`assets/models/caneguard_v1_mobilenetv2_float32.tflite`) outputs four classes in `healthy`, `mosaic`, `rust`, `smut` order with padding `127.5`. The `MODEL_*` constants, `ModelLabel`, the V1 QA oracle, the V1 confidence-caution artifact, and stored-record/sync validation keep that V1 meaning, and the developer `model-debug` and `model-smoke-test` routes pin it explicitly rather than following `ACTIVE_MODEL_ID`.
 
 Treat `modelContract.ts`, the bundled artifacts, labels, parity fixtures, preprocessing, and model tests as one compatibility surface.
 
@@ -402,7 +405,7 @@ Do not run EAS build or submit automatically.
 - Synchronization must tolerate unavailable networks and preserve retryable local state.
 - Backend synchronization requires a valid `field_reporter` session and a complete local report, including barangay, resolved location evidence (coordinates with their source, or a bounded unavailable reason with no coordinates), and the managed image.
 - The bundled AI model is decision support, not a diagnostic authority.
-- The current bundled Model V1 contract and stable V2 report-upload contract support `healthy`, `mosaic`, `rust`, and `smut`; legacy V0 records and the legacy V1 report-upload contract remain three-class.
+- The scan output and the stable V2 report-upload contract support `healthy`, `mosaic`, `rust`, and `smut`; the active Model V2's fifth `rssi` output is refused when it is the top class and dropped otherwise. Legacy V0 records and the legacy V1 report-upload contract remain three-class.
 - The P0 manual-map fallback is online-only. Direct third-party tile requests are disabled; production must configure a CaneGuard-owned HTTPS tile proxy with attribution and normal HTTP caching. It does not prefetch or expose offline map downloads.
 - Preserve compatibility with existing SQLite data and generated Drizzle migrations.
 - Avoid unnecessary native dependencies when Expo-supported APIs already satisfy the requirement.
@@ -421,7 +424,7 @@ cross-repository prerequisites.
 
 ## Known debt or limitations
 
-- Legacy V0 records retain three-class compatibility; see the Constraints section for the authoritative current Model V1 and V2 report-upload class boundary.
+- Legacy V0 records retain three-class compatibility; see the Constraints section for the authoritative scan-output and V2 report-upload class boundary.
 - Native TFLite behavior cannot be fully validated by unit tests or Expo Go; a compatible development build and physical-device testing remain necessary.
 - iOS and single-page web configurations exist, but the repository evidence is primarily Android-focused.
 - Mobile/backend synchronization is tightly coupled to the current multipart field names and response identity shape; backend contract changes require coordinated mobile updates.

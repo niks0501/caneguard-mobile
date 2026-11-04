@@ -8,17 +8,25 @@ This is the one place to check what the mobile app currently does, what depends
 on deployment configuration, and which older plans are historical. When a
 document disagrees with this index, this index and the source win.
 
-## Model classes (exactly four)
+## Model classes (four in scan output)
 
-Model V1 supports **exactly four** classes, in this order:
+The live scan flow runs the Model V2 artifact, which also scores a fifth **RSSI**
+class. Scan results, stored records, and sync carry **exactly four** classes, in
+this order:
 
 1. Healthy
 2. Mosaic
 3. Rust
 4. Smut
 
-Source of truth: `MODEL_LABELS` in
-`src/features/detection/constants/modelContract.ts`.
+A scan whose top class is RSSI ends in a scan error instead of a result, and a
+lower-ranked RSSI entry is dropped without renormalizing the four scores shown.
+Expect that error until a follow-up carries the fifth class end to end.
+
+Source of truth: `MODEL_LABELS` and `ACTIVE_MODEL_ID` in
+`src/features/detection/constants/modelContract.ts`; the contract field values
+are owned by
+[`PROJECT_CONTEXT.md` — Model contract](../PROJECT_CONTEXT.md#model-contract).
 
 The scan output is labelled **Possible Condition** and is decision support, not
 a diagnosis. Below the frozen V1 confidence caution cutoff, a `farmer` session

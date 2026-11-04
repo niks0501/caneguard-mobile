@@ -55,6 +55,8 @@ export interface FieldReport {
   /** Backward-compatible field name; the value may be any usable farmer/farm reference. */
   farmerOrFarmOwnerName: string | null;
   fieldNotes: string | null;
+  /** Client UUID of the boundary survey measured on this phone; sent with the upload (v3). */
+  fieldSurveyClientUuid?: string | null;
   mismatchReported: boolean | null;
   reporterObservationText: string | null;
   reporterSuspectedCondition: string | null;

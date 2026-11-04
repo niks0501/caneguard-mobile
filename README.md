@@ -44,7 +44,7 @@ Failed uploads preserve the local report and image for retry.
 Only an authenticated `field_reporter` session can synchronize mobile reports.
 A registered `farmer` account can sign in and keep personal scans on the device, while official Field Reports stay restricted to `field_reporter` accounts that the API also grants the `report:submit` capability (see [Mobile project context](PROJECT_CONTEXT.md#inspector-capabilities)).
 
-The Model V1 mobile upload endpoint is `POST /api/v2/mobile/reports`. Possible-match lookup remains local-first for offline use; status reads use `GET /api/v2/mobile/reports/statuses`.
+The Model V1 mobile upload endpoint is `POST /api/v3/mobile/reports`. Possible-match lookup remains local-first for offline use; status reads use `GET /api/v3/mobile/reports/statuses`. Endpoint and payload details are owned by [Mobile project context](PROJECT_CONTEXT.md#external-contracts).
 The Web/API review flow uses the same remote report identity and exposes the resulting review status back to Mobile.
 The image roles and multipart compatibility contract remain owned by the Web/API repository, so this README keeps those details brief and links to the authoritative documents below.
 

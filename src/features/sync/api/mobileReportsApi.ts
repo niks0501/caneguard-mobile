@@ -23,7 +23,7 @@ export async function uploadMobileReport(
   let response: MobileReportResponse;
   try {
     response = await apiRequest<MobileReportResponse>(
-      '/api/v2/mobile/reports',
+      '/api/v3/mobile/reports',
       {
         method: 'POST',
         body: form,

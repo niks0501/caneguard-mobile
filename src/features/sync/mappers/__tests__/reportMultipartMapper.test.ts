@@ -160,6 +160,19 @@ describe('Field Report multipart mapper', () => {
     ).toThrow(expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }));
   });
 
+  // PROPOSAL (intent: send the boundary survey identifier with each upload).
+  it('sends field_survey_client_uuid when the report is linked to a survey', () => {
+    const surveyId = '90b2b84c-92c3-4cd6-b50f-cb0933e1a3aa';
+    const parts = (map({ ...REPORT, fieldSurveyClientUuid: surveyId }) as unknown as { _parts: [string, unknown][] })._parts;
+    expect(new Map(parts).get('field_survey_client_uuid')).toBe(surveyId);
+  });
+
+  // PROPOSAL (intent: send the boundary survey identifier with each upload).
+  it('omits field_survey_client_uuid when the report has no linked survey', () => {
+    const parts = (map() as unknown as { _parts: [string, unknown][] })._parts;
+    expect(new Map(parts).has('field_survey_client_uuid')).toBe(false);
+  });
+
   it('uses the stable Field Report identity and includes accepted P0 context plus scan evidence', () => {
     const parts = (map() as unknown as { _parts: [string, unknown][] })._parts;
     const values = new Map(parts);

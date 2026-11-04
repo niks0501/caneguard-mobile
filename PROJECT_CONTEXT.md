@@ -290,8 +290,8 @@ Current mobile endpoints:
 - `POST /api/v1/auth/password`
 - `PATCH /api/v1/auth/email`
 - `POST /api/v1/auth/biometric/disable`
-- `POST /api/v2/mobile/reports`
-- `GET /api/v2/mobile/reports/statuses`
+- `POST /api/v3/mobile/reports`
+- `GET /api/v3/mobile/reports/statuses`
 - `GET /api/v1/mobile/assignments`
 - `POST /api/v1/mobile/assignments/{assignment}/completion`
 - `GET /api/v1/mobile/notifications`
@@ -299,15 +299,23 @@ Current mobile endpoints:
 Authentication expects bearer tokens.
 
 The Model V1 mobile report endpoint accepts multipart form data including the stable
-Field Report client UUID, referenced Scan Record UUID/evidence, required P0
-report context, location evidence, observation time, capture time, model
-evidence, and the persisted submission image. Location evidence is final
+Field Report client UUID, referenced Scan Record UUID/evidence, the optional
+`field_survey_client_uuid` of the boundary survey measured on this phone,
+required P0 report context, location evidence, observation time, capture time,
+model evidence, and the persisted submission image. Location evidence is final
 coordinates with `gps` or `manual_map` provenance, or a bounded
 unavailable-location reason and no coordinates. The local submission timestamp
-is retained for mobile finalization and synchronization state but is not a v2
+is retained for mobile finalization and synchronization state but is not a
 multipart field. Manual-map uploads omit GPS accuracy. The
 authenticated submitter is derived from the bearer session rather than trusted
 from client-claimed identity/role fields.
+
+The status feed reports each report's owner-scoped review row plus an optional
+`advisory` object (`uuid`, `code`, `title`, `content`, `status` of `validated`
+or `retired`, and `selected_at`) when the office has selected one. Mobile
+validates the advisory when present and treats an absent one as no advisory;
+the feed stays the owner of review status and never mutates the report
+submission.
 
 The assignment feed is owner-scoped to the authenticated field reporter and returns the complete current assignment snapshot through the `sync.before` and `links.next` pagination boundary. Mobile requests it only when the session carries `assignment:read`.
 Mobile caches assignment snapshots separately from locally authored Scan Records and Field Reports so a server assignment can materialize even when the assignee did not submit the case.

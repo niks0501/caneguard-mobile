@@ -7,7 +7,7 @@
 
 ## Decision
 
-CaneGuard Mobile consumes the existing owner-scoped `GET /api/v2/mobile/reports/statuses` feed and stores one nullable, server-owned current authority-review snapshot on each local Field Report. The snapshot is a cache of server state; it is never a replacement for authoring or delivery state and it cannot mutate the report submission.
+CaneGuard Mobile consumes the existing owner-scoped `GET /api/v3/mobile/reports/statuses` feed and stores one nullable, server-owned current authority-review snapshot on each local Field Report. The snapshot is a cache of server state; it is never a replacement for authoring or delivery state and it cannot mutate the report submission.
 
 The captain authorized starting P1 while P0 physical testing continues. This ADR does not change, replace, or weaken any P0 evidence, gate, payload-retention work, or synchronization contract.
 
@@ -23,10 +23,10 @@ Field Reports retain three independent axes:
 
 ## Wire contract
 
-The mobile client uses the established v2 endpoint with the authenticated Field Reporter bearer token and the existing `report:status` capability:
+The mobile client uses the v3 endpoint with the authenticated Field Reporter bearer token and the existing `report:status` capability:
 
 ```text
-GET /api/v2/mobile/reports/statuses
+GET /api/v3/mobile/reports/statuses
   ?per_page=100
   [&updated_after=<ISO-8601 server update boundary>]
 ```
@@ -43,16 +43,18 @@ Each paginated response is validated before any local write. The consumed page e
       "review_status": "verified_by_staff",
       "review_notes": "Latest plain-text note or null",
       "reviewed_at": "2026-08-13T12:00:00.000Z",
+      "advisory": null,
       "updated_at": "2026-08-13T12:00:00.000Z"
     }
   ],
-  "links": { "next": "https://api.example.test/api/v2/mobile/reports/statuses?..." }
+  "links": { "next": "https://api.example.test/api/v3/mobile/reports/statuses?..." }
   "meta": { "sync_before": "2026-08-13T12:05:00.000Z" }
 }
 ```
 
 - `data` must be an array. `uuid`, `client_uuid`, `review_status`, and `updated_at` must be nonblank strings; `updated_at` must be a valid timestamp.
 - `reference_code` and `reviewed_at` may be `null`; non-null values must have the expected string type and valid timestamp for `reviewed_at`.
+- `advisory` may be `null` or absent; when present it must be an object with nonblank `uuid`, `code`, `title`, and `content` strings, an ISO-8601 `selected_at`, and a `status` of `validated` or `retired`. A missing or `null` advisory is not an error, and the advisory never changes the stored review-status snapshot.
 - `review_notes` may be `null`; nonblank notes are treated as plain text and are limited to the established server contract maximum of 1000 characters. Blank notes are not feedback.
 - `links.next` is either `null` or an absolute continuation URL. Every continuation must remain on the configured API origin and API path boundary. Cursor pages are followed until `next` is `null`; loops, malformed URLs, or a changed checkpoint fail the refresh.
 - `meta.sync_before` is the server checkpoint. It must be a valid timestamp, must remain identical on every page, and bounds the complete refresh. A continuation must not move that boundary.

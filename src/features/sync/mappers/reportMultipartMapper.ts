@@ -77,6 +77,9 @@ export function mapFieldReportToMultipart(
   const form = new FormData();
   form.append('client_uuid', report.id);
   form.append('scan_record_client_uuid', scanRecord.id);
+  if (report.fieldSurveyClientUuid) {
+    form.append('field_survey_client_uuid', report.fieldSurveyClientUuid);
+  }
   form.append('image_source_type', scanRecord.imageSourceType);
   appendNumber(form, 'source_width', scanRecord.sourceWidth);
   appendNumber(form, 'source_height', scanRecord.sourceHeight);

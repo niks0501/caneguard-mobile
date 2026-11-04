@@ -396,17 +396,33 @@ it('keeps a synced boundary saved instead of autosaving it again', async () => {
   expect(mockFindSurvey).toHaveBeenCalledWith(expect.anything(), synced.clientUuid, 'owner-1');
   expect(mockSaveDraft).not.toHaveBeenCalled();
   expect(screen.queryByText(FIELD_SURVEY_COPY.savingOffline)).toBeNull();
+  expect(submitDisabled()).toBe(true);
 });
 
-it('does not resume another boundary when the requested survey is missing', async () => {
+it('still allows resubmitting a boundary that is only waiting to send', async () => {
+  const pending = draftRow({ status: 'pending' });
+  mockFindSurvey.mockReturnValue(pending);
+  mockUseLocalSearchParams.mockReturnValue({ surveyId: pending.clientUuid });
+
+  await render(<FieldSurveyScreen />);
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_SYNC_COPY.savedOffline)).toBeTruthy());
+
+  expect(submitDisabled()).toBe(false);
+});
+
+it('does not resume another boundary or save a draft when the requested survey is missing', async () => {
   mockListSurveys.mockReturnValue([draftRow({ clientUuid: 'other-draft' })]);
   mockFindSurvey.mockReturnValue(null);
   mockUseLocalSearchParams.mockReturnValue({ surveyId: 'requested-but-gone' });
 
   await render(<FieldSurveyScreen />);
   await waitFor(() => expect(mockFindSurvey).toHaveBeenCalled());
+  await act(async () => undefined);
 
   expect(mockListSurveys).not.toHaveBeenCalled();
+  expect(mockSaveDraft).not.toHaveBeenCalled();
+  expect(screen.queryByText(FIELD_SURVEY_SYNC_COPY.savedOffline)).toBeNull();
+  expect(screen.queryByText(FIELD_SURVEY_COPY.savingOffline)).toBeNull();
   expect(screen.queryByText(FIELD_SURVEY_COPY.resumedSurvey)).toBeNull();
   expect(screen.getByText(FIELD_SURVEY_COPY.intro)).toBeTruthy();
   expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (0)`)).toBeTruthy();

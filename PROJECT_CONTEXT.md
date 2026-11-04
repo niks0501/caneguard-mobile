@@ -298,7 +298,7 @@ Current mobile endpoints:
 
 Authentication expects bearer tokens.
 
-The Model V1 mobile report endpoint accepts multipart form data including the stable
+The mobile report upload endpoint accepts multipart form data including the stable
 Field Report client UUID, referenced Scan Record UUID/evidence, the optional
 `field_survey_client_uuid` of the boundary survey measured on this phone,
 required P0 report context, location evidence, observation time, capture time,

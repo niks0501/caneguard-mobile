@@ -38,19 +38,26 @@ jest.mock('expo-image', () => {
   };
 });
 
-jest.mock('expo-router', () => ({
-  router: {
-    back: jest.fn(),
-    canGoBack: jest.fn(() => true),
-    dismissTo: jest.fn(),
-    navigate: jest.fn(),
-    push: jest.fn(),
-    replace: jest.fn(),
-    setParams: jest.fn(),
-  },
-  useFocusEffect: (callback) => callback(),
-  useLocalSearchParams: jest.fn(() => ({})),
-}));
+jest.mock('expo-router', () => {
+  const React = require('react');
+
+  return {
+    router: {
+      back: jest.fn(),
+      canGoBack: jest.fn(() => true),
+      dismissTo: jest.fn(),
+      navigate: jest.fn(),
+      push: jest.fn(),
+      replace: jest.fn(),
+      setParams: jest.fn(),
+    },
+    // The real hook runs the callback from an effect once the screen is focused.
+    // Running it during render turns an ordinary state update into a render-phase
+    // update, which React retries until it throws "Too many re-renders".
+    useFocusEffect: (callback) => React.useEffect(() => callback(), [callback]),
+    useLocalSearchParams: jest.fn(() => ({})),
+  };
+});
 
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');

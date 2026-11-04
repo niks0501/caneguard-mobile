@@ -592,6 +592,7 @@ export async function finalizeFieldReport(
           cropAge: values.cropAge,
           farmerOrFarmOwnerName: values.farmerOrFarmOwnerName,
           fieldNotes: values.fieldNotes,
+          ...(values.fieldSurveyClientUuid === undefined ? {} : { fieldSurveyClientUuid: values.fieldSurveyClientUuid }),
           mismatchReported: values.mismatchReported,
           reporterObservationText: values.reporterObservationText,
           reporterSuspectedCondition: values.reporterSuspectedCondition,

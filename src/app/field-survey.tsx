@@ -1,7 +1,7 @@
 import { canAuthorInspectorWork } from '@/features/auth/capabilities';
 import { randomUUID } from 'expo-crypto';
 import { Image as ExpoImage } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -32,7 +32,7 @@ import {
   getMapTiles,
   type MapCoordinate,
 } from '@/features/reports/domain/manualMap';
-import { listOwnedFieldSurveys, saveFieldSurveyDraft, markFieldSurveyPending } from '@/features/surveys/data/fieldSurveyRepository';
+import { findOwnedFieldSurvey, listOwnedFieldSurveys, saveFieldSurveyDraft, markFieldSurveyPending } from '@/features/surveys/data/fieldSurveyRepository';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
 import { measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { assessBoundaryQuality } from '@/features/surveys/domain/boundaryQuality';
@@ -63,6 +63,8 @@ export default function FieldSurveyScreen() {
   const { database, ready } = useDatabaseState();
   const { session } = useAuth();
   const canAuthorSurvey = canAuthorInspectorWork(session?.user);
+  const requestedSurveyId = useLocalSearchParams<{ surveyId?: string | string[] }>().surveyId;
+  const surveyId = Array.isArray(requestedSurveyId) ? requestedSurveyId[0] : requestedSurveyId;
   const { isOnline, syncNow } = useSync();
   const [clientUuid, setClientUuid] = useState(() => randomUUID());
   const [districtCode, setDistrictCode] = useState('');
@@ -99,7 +101,9 @@ export default function FieldSurveyScreen() {
   const [bootstrapped, setBootstrapped] = useState(false);
   const [resumed, setResumed] = useState(false);
   const [readOnlyPending, setReadOnlyPending] = useState(false);
-  const controlsLocked = readOnlyPending || syncBusy;
+  const [submitLocked, setSubmitLocked] = useState(false);
+  const [awaitingSurveyStart, setAwaitingSurveyStart] = useState(false);
+  const controlsLocked = readOnlyPending || syncBusy || awaitingSurveyStart;
   const liveFormRef = useRef({ affectedAreaCount: 0, controlsLocked, drawingAffectedArea, waypoints });
   useEffect(() => {
     liveFormRef.current = { affectedAreaCount: affectedAreas.length, controlsLocked, drawingAffectedArea, waypoints };
@@ -122,8 +126,15 @@ export default function FieldSurveyScreen() {
     let cancelled = false;
     void Promise.resolve().then(() => {
       if (cancelled) return;
-      const previous = listOwnedFieldSurveys(database, session.user.uuid)
-        .find((row) => row.status !== 'synced');
+      // A report link opens that exact boundary; otherwise resume the open draft.
+      const requested = surveyId
+        ? findOwnedFieldSurvey(database, surveyId, session.user.uuid)
+        : null;
+      const previous = requested
+        ?? (surveyId
+          ? null
+          : (listOwnedFieldSurveys(database, session.user.uuid).find((row) => row.status !== 'synced') ?? null));
+      setAwaitingSurveyStart(previous === null && Boolean(surveyId));
       if (previous) {
         setClientUuid(previous.clientUuid);
         setDistrictCode(previous.districtCode === 'UNSPECIFIED' ? '' : previous.districtCode);
@@ -165,7 +176,8 @@ export default function FieldSurveyScreen() {
         setResumed(true);
         const identityRejected = previous.lastSyncErrorCode === 'CLIENT_UUID_CONFLICT';
         const correctionNeeded = previous.lastSyncErrorCode === 'VALIDATION_FAILED' || previous.lastSyncErrorCode === 'API_VALIDATION_FAILED';
-        setReadOnlyPending(previous.status === 'pending' || previous.status === 'syncing' || (previous.status === 'failed' && !correctionNeeded));
+        setReadOnlyPending(previous.status === 'synced' || previous.status === 'pending' || previous.status === 'syncing' || (previous.status === 'failed' && !correctionNeeded));
+        setSubmitLocked(previous.status === 'synced' || previous.remoteId !== null || identityRejected);
         if (identityRejected) setSyncMessage(FIELD_SURVEY_SYNC_COPY.identityRejected);
         else if (previous.status === 'pending' || previous.status === 'syncing') setSyncMessage(FIELD_SURVEY_SYNC_COPY.pendingLocked);
       }
@@ -177,10 +189,11 @@ export default function FieldSurveyScreen() {
       }
     });
     return () => { cancelled = true; };
-  }, [database, ready, session?.user.uuid]);
+  }, [database, ready, session?.user.uuid, surveyId]);
 
   useEffect(() => {
-    if (!canAuthorSurvey || !bootstrapped || !ready || !database || !session?.user.uuid) return;
+    if (!canAuthorSurvey || !bootstrapped || !ready || !database || !session?.user.uuid || readOnlyPending) return;
+    if (awaitingSurveyStart) return;
     let cancelled = false;
     void saveFieldSurveyDraft(database, {
       clientUuid,
@@ -198,7 +211,7 @@ export default function FieldSurveyScreen() {
       if (!cancelled) setSaved(false);
     });
     return () => { cancelled = true; };
-  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, bootstrapped, canAuthorSurvey, clientUuid, database, districtCode, ready, session?.user.role, session?.user.uuid, waypoints]);
+  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, awaitingSurveyStart, bootstrapped, canAuthorSurvey, clientUuid, database, districtCode, readOnlyPending, ready, session?.user.role, session?.user.uuid, waypoints]);
 
   function captureTargetForNewPoint(): WaypointCaptureTarget {
     if (drawingAffectedArea) return { affectedArea: true, areaCount: affectedAreas.length };
@@ -234,8 +247,8 @@ export default function FieldSurveyScreen() {
   }
 
   function addOrMovePoint(latitude: number, longitude: number, source: 'map' | 'gps', accuracyMeters: number | null, capturedAt = new Date().toISOString()) {
-    if (readOnlyPending || syncBusy) {
-      setSyncMessage(FIELD_SURVEY_SYNC_COPY.pendingLocked);
+    if (controlsLocked) {
+      if (!awaitingSurveyStart) setSyncMessage(FIELD_SURVEY_SYNC_COPY.pendingLocked);
       return;
     }
     applyCapturedWaypoint(captureTargetForNewPoint(), { latitude, longitude, source, accuracyMeters, capturedAt });
@@ -328,11 +341,13 @@ export default function FieldSurveyScreen() {
         setSyncMessage(FIELD_SURVEY_SYNC_COPY.offline);
       } else if (surveyResult?.status === 'synced' || surveyResult?.status === 'already-synced') {
         setReadOnlyPending(true);
+        setSubmitLocked(true);
         setSyncMessage(FIELD_SURVEY_SYNC_COPY.synced);
         showToast(FIELD_SURVEY_SYNC_COPY.synced, 'success');
       } else if (surveyResult?.status === 'failed') {
         if (surveyResult.error.code === 'CLIENT_UUID_CONFLICT') {
           setReadOnlyPending(true);
+          setSubmitLocked(true);
           setSyncMessage(FIELD_SURVEY_SYNC_COPY.identityRejected);
         } else if (surveyResult.error.code === 'API_VALIDATION_FAILED') {
           setReadOnlyPending(false);
@@ -476,7 +491,7 @@ export default function FieldSurveyScreen() {
         {drawingAffectedArea ? <AppButton variant="secondary" style={styles.toolButton} disabled={affectedWaypoints.length < 3 || controlsLocked} onPress={finishAffectedArea}>{FIELD_SURVEY_COPY.finishAffectedArea}</AppButton> : null}
         <ScrollView style={styles.details} contentContainerStyle={styles.detailsContent} keyboardShouldPersistTaps="handled">
           <Text style={[styles.intro, { color: theme.textSecondary }]}>{resumed ? FIELD_SURVEY_COPY.resumedSurvey : FIELD_SURVEY_COPY.intro}</Text>
-        {resumed ? <AppButton variant="secondary" onPress={() => {
+        {resumed || awaitingSurveyStart ? <AppButton variant="secondary" onPress={() => {
           setClientUuid(randomUUID());
           setDistrictCode('');
           setWaypoints([]);
@@ -489,13 +504,15 @@ export default function FieldSurveyScreen() {
           setSaved(false);
           setResumed(false);
           setReadOnlyPending(false);
+          setSubmitLocked(false);
+          setAwaitingSurveyStart(false);
         }}>{readOnlyPending ? FIELD_SURVEY_COPY.startNewBoundaryAfterRejection : FIELD_SURVEY_COPY.newSurvey}</AppButton> : null}
           <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.districtLabel}</Text>
           <TextInput
             accessibilityLabel={FIELD_SURVEY_COPY.districtLabel}
             testID="field-survey.district-code"
             value={districtCode}
-            editable={!readOnlyPending && !syncBusy}
+            editable={!controlsLocked}
             onChangeText={(value) => { setSaved(false); setFieldErrors((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'district_code'))); setDistrictCode(value); }}
             autoCapitalize="characters"
             placeholder={FIELD_SURVEY_COPY.districtPlaceholder}
@@ -538,12 +555,12 @@ export default function FieldSurveyScreen() {
           note={
             <>
               <Text accessibilityLiveRegion="polite" testID="field-survey.area" style={[styles.area, { color: validation.valid ? theme.primaryDark : theme.textSecondary }]}>{areaReadout}</Text>
-              {saved ? <Text style={[styles.help, { color: theme.success }]}>{FIELD_SURVEY_SYNC_COPY.savedOffline}</Text> : <Text style={[styles.help, { color: theme.warning }]}>{FIELD_SURVEY_COPY.savingOffline}</Text>}
+              {awaitingSurveyStart ? null : saved ? <Text style={[styles.help, { color: theme.success }]}>{FIELD_SURVEY_SYNC_COPY.savedOffline}</Text> : <Text style={[styles.help, { color: theme.warning }]}>{FIELD_SURVEY_COPY.savingOffline}</Text>}
               {syncMessage ? <Text accessibilityLiveRegion="assertive" testID="field-survey.sync-status" style={[styles.help, { color: theme.info }]}>{syncMessage}</Text> : null}
               {Object.entries(fieldErrors).filter(([key]) => key !== 'district_code').map(([field, messages]) => <Text key={field} style={[styles.error, { color: theme.danger }]}>{field}: {messages.join(' ')}</Text>)}
             </>
           }
-          primary={<AppButton testID="field-survey.submit" leadingIcon="upload-cloud" busy={saving} disabled={!validation.valid || !saved || saving || syncBusy || affectedWaypoints.length > 0} onPress={() => void saveAndSync()}>{saving ? FIELD_SURVEY_SYNC_COPY.submitting : FIELD_SURVEY_SYNC_COPY.submit}</AppButton>}
+          primary={<AppButton testID="field-survey.submit" leadingIcon="upload-cloud" busy={saving} disabled={submitLocked || !validation.valid || !saved || saving || syncBusy || affectedWaypoints.length > 0} onPress={() => void saveAndSync()}>{saving ? FIELD_SURVEY_SYNC_COPY.submitting : FIELD_SURVEY_SYNC_COPY.submit}</AppButton>}
           secondary={<AppButton variant="secondary" style={dockSecondaryButtonStyle} onPress={() => router.back()}>{FIELD_SURVEY_COPY.close}</AppButton>}
         />
       </KeyboardAvoidingView>

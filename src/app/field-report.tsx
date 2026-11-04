@@ -45,10 +45,13 @@ import {
 } from '@/constants/copy';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
+import type { FieldSurveyRow } from '@/database/schema';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { findOwnedFieldSurvey, listOwnedFieldSurveys } from '@/features/surveys/data/fieldSurveyRepository';
 import { returnToTab } from '@/features/navigation/returnToTab';
 import { BarangayPicker } from '@/features/reports/components/BarangayPicker';
+import { ReportSurveyCard } from '@/features/reports/components/ReportSurveyCard';
 import { PossibleRecentMatchWarning } from '@/features/reports/components/PossibleRecentMatchWarning';
 import { RegionPicker } from '@/features/reports/components/RegionPicker';
 import { formatDecimalInput, parseDecimalInput } from '@/features/reports/domain/decimalInput';
@@ -174,6 +177,19 @@ function concernValueForChoice(
     : currentValue;
 }
 
+function sameSurveyRow(
+  current: FieldSurveyRow | null,
+  next: FieldSurveyRow | null,
+): boolean {
+  return (
+    current === next ||
+    (current !== null &&
+      next !== null &&
+      current.clientUuid === next.clientUuid &&
+      current.updatedAt === next.updatedAt)
+  );
+}
+
 interface FieldReportFormValues {
   affectedAreaHectares?: number | null;
   affectedAreaMeasurement?: MeasurementProvenance;
@@ -184,6 +200,7 @@ interface FieldReportFormValues {
   cropAge?: string;
   farmerOrFarmOwnerName: string;
   fieldNotes?: string;
+  fieldSurveyClientUuid?: string | null;
   mismatchReported: boolean | null;
   reporterObservationText: string;
   reporterSuspectedCondition: string;
@@ -298,6 +315,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   const [cropAge, setCropAge] = useState(report.data?.cropAge ?? '');
   const [caneClass, setCaneClass] = useState(report.data?.caneClass ?? '');
   const [notes, setNotes] = useState(report.data?.fieldNotes ?? '');
+  const attachedSurveyUuid = report.data?.fieldSurveyClientUuid ?? null;
   const [fieldErrors, setFieldErrors] = useState<{
     affectedArea?: string;
     affectedPortion?: string;
@@ -694,10 +712,59 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       cropAge,
       caneClass,
       fieldNotes: notes,
+      fieldSurveyClientUuid: attachedSurveyUuid,
       mismatchReported: mismatchDraft.mismatchReported,
       reporterObservationText: mismatchDraft.reporterObservationText,
       reporterSuspectedCondition: mismatchDraft.reporterSuspectedCondition,
     };
+  };
+
+  const [savedSurveys, setSavedSurveys] = useState<FieldSurveyRow[]>([]);
+  const [attachedSurvey, setAttachedSurvey] = useState<FieldSurveyRow | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) {
+        setSavedSurveys((current) => (current.length === 0 ? current : []));
+        setAttachedSurvey((current) => (current === null ? current : null));
+        return;
+      }
+      let surveys: FieldSurveyRow[] = [];
+      try {
+        surveys = listOwnedFieldSurveys(database, user.uuid);
+      } catch {
+        // Attaching is optional; a failed read must never block the report.
+        surveys = [];
+      }
+      setSavedSurveys((current) =>
+        current.length === surveys.length &&
+        current.every((row, index) => sameSurveyRow(row, surveys[index]))
+          ? current
+          : surveys,
+      );
+      let attached: FieldSurveyRow | null = null;
+      try {
+        attached = attachedSurveyUuid
+          ? findOwnedFieldSurvey(database, attachedSurveyUuid, user.uuid)
+          : null;
+      } catch {
+        attached = null;
+      }
+      setAttachedSurvey((current) => (sameSurveyRow(current, attached) ? current : attached));
+    }, [attachedSurveyUuid, database, user]),
+  );
+
+  const handleAttachSurvey = (clientUuid: string | null) => {
+    // Persist at once so the link survives leaving the form before Save.
+    void report.save({ fieldSurveyClientUuid: clientUuid });
+  };
+
+  const handleOpenMeasure = (clientUuid: string | null) => {
+    router.push(
+      clientUuid
+        ? { pathname: '/field-survey', params: { surveyId: clientUuid } }
+        : { pathname: '/field-survey' },
+    );
   };
 
   const handleCancel = () => {
@@ -1490,6 +1557,15 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                           <ReadyToSubmitChecklist
                             missing={missingRequirements}
                             onJumpToStep={goToStep}
+                          />
+
+                          <ReportSurveyCard
+                            attachedSurvey={attachedSurvey}
+                            attachedUuid={attachedSurveyUuid}
+                            disabled={report.saving || report.finalizing}
+                            onAttach={handleAttachSurvey}
+                            onOpenMeasure={handleOpenMeasure}
+                            surveys={savedSurveys}
                           />
 
                           <View style={[styles.detailsCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>

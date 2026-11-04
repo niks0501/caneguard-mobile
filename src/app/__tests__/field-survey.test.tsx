@@ -1,9 +1,10 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import FieldSurveyScreen from '@/app/field-survey';
 import { FIELD_SURVEY_COPY } from '@/constants/copy';
 import {
+  findOwnedFieldSurvey,
   listOwnedFieldSurveys,
   markFieldSurveyPending,
   saveFieldSurveyDraft,
@@ -11,6 +12,7 @@ import {
 import type { FieldSurveyRow } from '@/database/schema';
 import type { SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
+import { FIELD_SURVEY_SYNC_COPY } from '@/features/sync/utils/syncStatusCopy';
 
 jest.mock('expo-crypto', () => ({
   randomUUID: () => '3f1de2d8-2ca9-4c26-9e37-2f4c5f6f7a10',
@@ -32,15 +34,18 @@ jest.mock('@/features/surveys/services/captureSurveyWaypoint', () => ({
   captureSurveyWaypoint: jest.fn(),
 }));
 jest.mock('@/features/surveys/data/fieldSurveyRepository', () => ({
+  findOwnedFieldSurvey: jest.fn(),
   listOwnedFieldSurveys: jest.fn(),
   saveFieldSurveyDraft: jest.fn(),
   markFieldSurveyPending: jest.fn(),
 }));
 
 const mockSaveDraft = jest.mocked(saveFieldSurveyDraft);
+const mockFindSurvey = jest.mocked(findOwnedFieldSurvey);
 const mockListSurveys = jest.mocked(listOwnedFieldSurveys);
 const mockMarkPending = jest.mocked(markFieldSurveyPending);
 const mockCaptureWaypoint = jest.mocked(captureSurveyWaypoint);
+const mockUseLocalSearchParams = jest.mocked(useLocalSearchParams);
 
 const PLOT_WAYPOINTS: SurveyWaypoint[] = [
   { latitude: 14.1, longitude: 121.1, source: 'gps', accuracyMeters: 4, capturedAt: '2026-10-31T01:00:00.000Z' },
@@ -141,10 +146,12 @@ function findRenderedParent(
 
 beforeEach(() => {
   mockListSurveys.mockReturnValue([]);
+  mockFindSurvey.mockReturnValue(null);
   mockSaveDraft.mockResolvedValue(draftRow());
   mockMarkPending.mockReturnValue(undefined);
   mockCaptureWaypoint.mockReset();
   mockCaptureWaypoint.mockResolvedValue({ status: 'unavailable' });
+  mockUseLocalSearchParams.mockReturnValue({});
 });
 
 it('recaptures the named point even when a point ahead of it is removed while sampling', async () => {
@@ -375,4 +382,73 @@ it('keeps the map first and the docked actions outside the details scroll', asyn
   expect(collectTestIds(scroll)).toContain('field-survey.district-code');
   expect(collectTestIds(scroll!)).not.toContain('field-survey.submit');
   expect(collectTestIds(dock)).toContain('field-survey.submit');
+});
+
+it('keeps a synced boundary saved instead of autosaving it again', async () => {
+  const synced = draftRow({ status: 'synced', remoteId: 'remote-1' });
+  mockFindSurvey.mockReturnValue(synced);
+  mockUseLocalSearchParams.mockReturnValue({ surveyId: synced.clientUuid });
+  mockSaveDraft.mockRejectedValue(new Error('A submitted field survey cannot be edited.'));
+
+  await render(<FieldSurveyScreen />);
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_SYNC_COPY.savedOffline)).toBeTruthy());
+
+  expect(mockFindSurvey).toHaveBeenCalledWith(expect.anything(), synced.clientUuid, 'owner-1');
+  expect(mockSaveDraft).not.toHaveBeenCalled();
+  expect(screen.queryByText(FIELD_SURVEY_COPY.savingOffline)).toBeNull();
+  expect(submitDisabled()).toBe(true);
+});
+
+it('still allows resubmitting a boundary that is only waiting to send', async () => {
+  const pending = draftRow({ status: 'pending' });
+  mockFindSurvey.mockReturnValue(pending);
+  mockUseLocalSearchParams.mockReturnValue({ surveyId: pending.clientUuid });
+
+  await render(<FieldSurveyScreen />);
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_SYNC_COPY.savedOffline)).toBeTruthy());
+
+  expect(submitDisabled()).toBe(false);
+});
+
+it('does not resume another boundary or save a draft when the requested survey is missing', async () => {
+  mockListSurveys.mockReturnValue([draftRow({ clientUuid: 'other-draft' })]);
+  mockFindSurvey.mockReturnValue(null);
+  mockUseLocalSearchParams.mockReturnValue({ surveyId: 'requested-but-gone' });
+
+  await render(<FieldSurveyScreen />);
+  await waitFor(() => expect(mockFindSurvey).toHaveBeenCalled());
+  await act(async () => undefined);
+
+  expect(mockListSurveys).not.toHaveBeenCalled();
+  expect(mockSaveDraft).not.toHaveBeenCalled();
+  expect(screen.queryByText(FIELD_SURVEY_SYNC_COPY.savedOffline)).toBeNull();
+  expect(screen.queryByText(FIELD_SURVEY_COPY.savingOffline)).toBeNull();
+  expect(screen.queryByText(FIELD_SURVEY_COPY.resumedSurvey)).toBeNull();
+  expect(screen.getByText(FIELD_SURVEY_COPY.intro)).toBeTruthy();
+  expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (0)`)).toBeTruthy();
+});
+
+it('only saves a missing linked survey after the user starts a new boundary', async () => {
+  mockFindSurvey.mockReturnValue(null);
+  mockUseLocalSearchParams.mockReturnValue({ surveyId: 'requested-but-gone' });
+
+  await render(<FieldSurveyScreen />);
+  await waitFor(() => expect(mockFindSurvey).toHaveBeenCalled());
+  await act(async () => undefined);
+
+  expect(screen.getByTestId('field-survey.district-code').props.editable).toBe(false);
+
+  await act(async () => {
+    fireEvent.changeText(screen.getByTestId('field-survey.district-code'), 'D9');
+  });
+  await act(async () => undefined);
+
+  expect(mockSaveDraft).not.toHaveBeenCalled();
+  expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (0)`)).toBeTruthy();
+
+  await act(async () => {
+    fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.newSurvey));
+  });
+
+  await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
 });

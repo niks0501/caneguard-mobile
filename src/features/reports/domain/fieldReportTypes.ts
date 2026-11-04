@@ -111,6 +111,8 @@ export interface SaveFieldReportDraftInput {
   /** Accepts a farmer/owner name, farm name, or usable local farm identifier. */
   farmerOrFarmOwnerName?: string;
   fieldNotes?: string | null;
+  /** Client UUID of the saved boundary survey attached to this report; null detaches. */
+  fieldSurveyClientUuid?: string | null;
   mismatchReported?: boolean | null;
   reporterObservationText?: string | null;
   reporterSuspectedCondition?: string | null;
@@ -142,6 +144,8 @@ export interface FinalizeFieldReportInput {
   /** Accepts a farmer/owner name, farm name, or usable local farm identifier. */
   farmerOrFarmOwnerName: string;
   fieldNotes?: string | null;
+  /** Client UUID of the saved boundary survey attached to this report; null detaches. */
+  fieldSurveyClientUuid?: string | null;
   mismatchReported?: boolean | null;
   reporterObservationText?: string | null;
   reporterSuspectedCondition?: string | null;

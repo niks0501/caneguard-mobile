@@ -261,6 +261,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   // Form values in component state so they survive step transitions
   const [loadedReportId, setLoadedReportId] = useState<string | null>(null);
   const [farmerName, setFarmerName] = useState(report.data?.farmerOrFarmOwnerName ?? '');
+  // '' stored on the report is the explicit "Owner not known" answer (sent as null).
+  const [ownerUnknown, setOwnerUnknown] = useState(report.data?.farmerOrFarmOwnerName === '');
   const [barangay, setBarangay] = useState(report.data?.barangay ?? '');
   const [province, setProvince] = useState(report.data?.province ?? defaultRegion?.province ?? '');
   const [municipality, setMunicipality] = useState(report.data?.municipality ?? defaultRegion?.municipality ?? '');
@@ -378,6 +380,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       caneClass: report.data.caneClass ?? '',
       cropAge: report.data.cropAge ?? '',
       farmerName: report.data.farmerOrFarmOwnerName ?? '',
+      ownerUnknown: report.data.farmerOrFarmOwnerName === '',
       mismatchReported: report.data.mismatchReported,
       municipality: report.data.municipality ?? defaultRegion?.municipality ?? '',
       notes: report.data.fieldNotes ?? '',
@@ -388,6 +391,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       variety: report.data.sugarcaneVariety ?? '',
     };
     setFarmerName(persistedValues.farmerName);
+    setOwnerUnknown(persistedValues.ownerUnknown === true);
     setBarangay(persistedValues.barangay);
     setProvince(persistedValues.province);
     setMunicipality(persistedValues.municipality);
@@ -425,6 +429,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     if (checkpoint) {
       const saved = checkpoint.checkpoint;
       setFarmerName(saved.farmerName);
+      setOwnerUnknown(saved.ownerUnknown === true);
       setBarangay(saved.barangay);
       setProvince(saved.province || defaultRegion?.province || '');
       setMunicipality(saved.municipality || defaultRegion?.municipality || '');
@@ -470,6 +475,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       caneClass,
       cropAge,
       farmerName: farmerName,
+      ownerUnknown,
       mismatchReported: mismatchDraft.mismatchReported,
       municipality,
       notes,
@@ -489,6 +495,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       cropAge,
       currentStep,
       farmerName,
+      ownerUnknown,
       mismatchDraft.mismatchReported,
       mismatchDraft.reporterObservationText,
       mismatchDraft.reporterSuspectedCondition,
@@ -680,7 +687,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       affectedPortionPercent: affectedPortion,
       affectedPortionMeasurement: portionMeasurement,
       barangay,
-      farmerOrFarmOwnerName: farmerName,
+      farmerOrFarmOwnerName: ownerUnknown ? '' : farmerName,
       province,
       municipality,
       sugarcaneVariety: variety,
@@ -1009,7 +1016,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       getMissingSubmissionRequirements(
         {
           ...report.data,
-          farmerOrFarmOwnerName: farmerName.trim() || null,
+          farmerOrFarmOwnerName: ownerUnknown ? '' : farmerName.trim() || null,
           barangay: barangay.trim() || null,
           province: province.trim(),
           municipality: municipality.trim(),
@@ -1056,6 +1063,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     affectedPortionText,
     barangay,
     farmerName,
+    ownerUnknown,
     municipality,
     province,
     record.data,
@@ -1280,7 +1288,19 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                             onChangeText={setFarmerName}
                             placeholder="Farmer, farm name, or local farm ID"
                             autoCapitalize="words"
+                            editable={!ownerUnknown}
                           />
+                          <AppButton
+                            testID="field-report.owner-unknown"
+                            variant={ownerUnknown ? 'primary' : 'secondary'}
+                            selected={ownerUnknown}
+                            leadingIcon={ownerUnknown ? 'check-square' : 'square'}
+                            onPress={() => {
+                              setOwnerUnknown(!ownerUnknown);
+                              setFarmerName('');
+                            }}>
+                            Owner not known
+                          </AppButton>
                           <Text style={[styles.helpText, { color: theme.textSecondary }]}>
                             Use a farmer or owner name, farm name, or another usable local farm
                             reference.
@@ -2694,7 +2714,7 @@ function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
     <View
       testID="field-report.submission-section"
       style={[styles.formCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
-      <EvidenceRow label="Farmer or farm reference" value={fieldReport.farmerOrFarmOwnerName ?? 'Not provided'} />
+      <EvidenceRow label="Farmer or farm reference" value={fieldReport.farmerOrFarmOwnerName === '' ? 'Owner not known' : (fieldReport.farmerOrFarmOwnerName ?? 'Not provided')} />
       <EvidenceRow label="Area" value={`${fieldReport.barangay ?? 'Not provided'}, ${fieldReport.municipality}, ${fieldReport.province}`} />
       <EvidenceRow
         label="Affected area"
@@ -3074,6 +3094,7 @@ function checkpointSignature(
     checkpoint.caneClass,
     checkpoint.cropAge,
     checkpoint.farmerName,
+    checkpoint.ownerUnknown ?? false,
     checkpoint.mismatchReported,
     checkpoint.municipality,
     checkpoint.notes,

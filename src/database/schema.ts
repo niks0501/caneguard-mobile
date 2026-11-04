@@ -447,6 +447,7 @@ export const fieldReports = sqliteTable(
     affectedPortionMeasurement: text('affected_portion_measurement')
       .$type<MeasurementProvenance>(),
     fieldNotes: text('field_notes'),
+    fieldSurveyClientUuid: text('field_survey_client_uuid'),
     mismatchReported: integer('mismatch_reported', { mode: 'boolean' }),
     reporterSuspectedCondition: text('reporter_suspected_condition'),
     reporterObservationText: text('reporter_observation_text'),

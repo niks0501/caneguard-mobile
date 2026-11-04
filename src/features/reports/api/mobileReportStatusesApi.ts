@@ -1,8 +1,11 @@
 import { apiBaseUrl } from '@/config/env';
 import { ApiHttpError, apiRequest } from '@/features/shared/api/apiClient';
-import type { AuthorityReviewStatusUpdate } from '@/features/reports/domain/reportReviewTypes';
+import type {
+  AuthorityReviewStatusUpdate,
+  MobileReportAdvisory,
+} from '@/features/reports/domain/reportReviewTypes';
 
-const STATUS_PATH = '/api/v2/mobile/reports/statuses';
+const STATUS_PATH = '/api/v3/mobile/reports/statuses';
 const PAGE_SIZE = 100;
 const MAX_PAGES = 500;
 const MAX_FEEDBACK_LENGTH = 1_000;
@@ -167,6 +170,7 @@ function parseStatusItem(value: unknown): AuthorityReviewStatusUpdate {
   }
 
   return {
+    advisory: parseAdvisory(value.advisory),
     clientUuid,
     feedback: rawFeedback?.trim() || null,
     referenceCode: referenceCode?.trim() || null,
@@ -174,6 +178,50 @@ function parseStatusItem(value: unknown): AuthorityReviewStatusUpdate {
     remoteUuid,
     rawStatus,
     statusUpdatedAt,
+  };
+}
+
+function parseAdvisory(value: unknown): MobileReportAdvisory | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (!isRecord(value)) {
+    throw new ReportStatusesApiError(
+      'MALFORMED_RESPONSE',
+      'The authority review feed advisory is invalid.',
+    );
+  }
+  const status = requireNonBlankString(value.status, 'advisory.status');
+  const deliveryState = requireNonBlankString(
+    value.delivery_state,
+    'advisory.delivery_state',
+  );
+  if (status !== 'validated' && status !== 'retired') {
+    throw new ReportStatusesApiError(
+      'MALFORMED_RESPONSE',
+      'The authority review feed advisory status is invalid.',
+    );
+  }
+  if (
+    deliveryState !== 'pending' &&
+    deliveryState !== 'delivered' &&
+    deliveryState !== 'acknowledged'
+  ) {
+    throw new ReportStatusesApiError(
+      'MALFORMED_RESPONSE',
+      'The authority review feed advisory delivery state is invalid.',
+    );
+  }
+  return {
+    code: requireNonBlankString(value.code, 'advisory.code'),
+    content: requireNonBlankString(value.content, 'advisory.content'),
+    deliveredAt: optionalTimestamp(value.delivered_at, 'advisory.delivered_at'),
+    deliveryState,
+    selectedAt: requireTimestamp(value.selected_at, 'advisory.selected_at'),
+    status,
+    title: requireNonBlankString(value.title, 'advisory.title'),
+    uuid: requireNonBlankString(value.uuid, 'advisory.uuid'),
+    validatedAt: optionalTimestamp(value.validated_at, 'advisory.validated_at'),
   };
 }
 

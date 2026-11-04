@@ -28,7 +28,21 @@ export interface AuthorityReviewSnapshot {
   statusUpdatedAt: string;
 }
 
+export interface MobileReportAdvisory {
+  code: string;
+  content: string;
+  deliveredAt: string | null;
+  deliveryState: 'pending' | 'delivered' | 'acknowledged';
+  selectedAt: string;
+  status: 'validated' | 'retired';
+  title: string;
+  uuid: string;
+  validatedAt: string | null;
+}
+
 export interface AuthorityReviewStatusUpdate {
+  /** v3 office advisory; null when none has been selected. */
+  advisory?: MobileReportAdvisory | null;
   clientUuid: string;
   feedback: string | null;
   referenceCode: string | null;

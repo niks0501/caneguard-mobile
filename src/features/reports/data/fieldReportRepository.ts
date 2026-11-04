@@ -1188,6 +1188,7 @@ function toFieldReport(row: typeof fieldReports.$inferSelect): FieldReport {
   return {
     id: row.id,
     scanRecordId: row.scanRecordId,
+    fieldSurveyClientUuid: row.fieldSurveyClientUuid,
     authorityReview: row.authorityStatusRaw
       ? toAuthorityReviewSnapshot(
           {

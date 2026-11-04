@@ -66,8 +66,52 @@ describe('mobile report statuses API', () => {
     });
   });
 
+  // PROPOSAL (intent: read the advisory field on status).
+  it('surfaces a v3 advisory and reads an absent advisory as null', async () => {
+    request.mockResolvedValueOnce(
+      page([
+        item({
+          advisory: {
+            uuid: 'adv-1',
+            code: 'SMUT-01',
+            title: 'Rogue smutted stools',
+            content: 'Remove and burn affected stools.',
+            status: 'validated',
+            selected_at: '2026-08-13T12:01:00.000Z',
+            delivery_state: 'delivered',
+            delivered_at: '2026-08-13T12:02:00.000Z',
+            validated_at: '2026-08-13T11:00:00.000Z',
+          },
+        }),
+        item({ uuid: 'remote-2', client_uuid: 'client-2' }),
+      ]),
+    );
+
+    const result = await fetchAllMobileReportStatuses({ token: 't' });
+    expect(result.updates[0].advisory).toEqual({
+      uuid: 'adv-1',
+      code: 'SMUT-01',
+      title: 'Rogue smutted stools',
+      content: 'Remove and burn affected stools.',
+      status: 'validated',
+      selectedAt: '2026-08-13T12:01:00.000Z',
+      deliveryState: 'delivered',
+      deliveredAt: '2026-08-13T12:02:00.000Z',
+      validatedAt: '2026-08-13T11:00:00.000Z',
+    });
+    expect(result.updates[1].advisory).toBeNull();
+  });
+
+  // PROPOSAL (intent: read the advisory field on status).
+  it('rejects a malformed advisory as a malformed response', async () => {
+    request.mockResolvedValueOnce(page([item({ advisory: { uuid: 'adv-1', status: 'bogus' } })]));
+    await expect(fetchAllMobileReportStatuses({ token: 't' })).rejects.toMatchObject({
+      code: 'MALFORMED_RESPONSE',
+    });
+  });
+
   it('follows every cursor page with one server checkpoint and preserves unknown statuses', async () => {
-    const next = `http://127.0.0.1:8000/api/v2/mobile/reports/statuses?cursor=next&sync_before=${encodeURIComponent(CHECKPOINT)}`;
+    const next = `http://127.0.0.1:8000/api/v3/mobile/reports/statuses?cursor=next&sync_before=${encodeURIComponent(CHECKPOINT)}`;
     request
       .mockResolvedValueOnce(page([item({ review_status: 'future_state' })], next))
       .mockResolvedValueOnce(page([
@@ -105,14 +149,14 @@ describe('mobile report statuses API', () => {
     );
     expect(request).toHaveBeenNthCalledWith(
       2,
-      '/api/v2/mobile/reports/statuses?cursor=next&sync_before=' + encodeURIComponent(CHECKPOINT),
+      '/api/v3/mobile/reports/statuses?cursor=next&sync_before=' + encodeURIComponent(CHECKPOINT),
       expect.objectContaining({ token: 'secure-token' }),
     );
   });
 
   it('rejects a cross-origin or path-boundary continuation before sending it', async () => {
     request.mockResolvedValueOnce(
-      page([], 'https://evil.example.test/api/v2/mobile/reports/statuses?cursor=steal'),
+      page([], 'https://evil.example.test/api/v3/mobile/reports/statuses?cursor=steal'),
     );
 
     await expect(fetchAllMobileReportStatuses({ token: 'secure-token' })).rejects.toMatchObject<Partial<ReportStatusesApiError>>({
@@ -123,7 +167,7 @@ describe('mobile report statuses API', () => {
 
   it('rejects a same-origin continuation outside the status endpoint', async () => {
     request.mockResolvedValueOnce(
-      page([], 'http://127.0.0.1:8000/api/v2/mobile/reports/other?cursor=steal'),
+      page([], 'http://127.0.0.1:8000/api/v3/mobile/reports/other?cursor=steal'),
     );
 
     await expect(fetchAllMobileReportStatuses({ token: 'secure-token' })).rejects.toMatchObject({
@@ -133,7 +177,7 @@ describe('mobile report statuses API', () => {
   });
 
   it('rejects a changed server checkpoint', async () => {
-    const next = `http://127.0.0.1:8000/api/v2/mobile/reports/statuses?cursor=next&sync_before=${encodeURIComponent(CHECKPOINT)}`;
+    const next = `http://127.0.0.1:8000/api/v3/mobile/reports/statuses?cursor=next&sync_before=${encodeURIComponent(CHECKPOINT)}`;
     request
       .mockResolvedValueOnce(page([], next))
       .mockResolvedValueOnce(page([], null, '2026-08-13T12:06:00.000Z'));
@@ -193,7 +237,7 @@ describe('mobile report statuses API', () => {
   });
 
   it('rejects a later malformed page without returning earlier valid items', async () => {
-    const next = `http://127.0.0.1:8000/api/v2/mobile/reports/statuses?cursor=later&sync_before=${encodeURIComponent(CHECKPOINT)}`;
+    const next = `http://127.0.0.1:8000/api/v3/mobile/reports/statuses?cursor=later&sync_before=${encodeURIComponent(CHECKPOINT)}`;
     request
       .mockResolvedValueOnce(page([item()], next))
       .mockResolvedValueOnce(page([{ uuid: 'remote-2' }]));

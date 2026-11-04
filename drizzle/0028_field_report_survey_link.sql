@@ -1,0 +1,1 @@
+ALTER TABLE `field_reports` ADD `field_survey_client_uuid` text;

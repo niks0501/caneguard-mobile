@@ -15,7 +15,7 @@ describe('mobile Field Report API', () => {
       remoteId: 'server-report-uuid',
     });
     expect(apiRequest).toHaveBeenCalledWith(
-      '/api/v2/mobile/reports',
+      '/api/v3/mobile/reports',
       expect.objectContaining({ token: 'secure-token' }),
     );
   });

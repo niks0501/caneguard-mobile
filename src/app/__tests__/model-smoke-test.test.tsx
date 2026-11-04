@@ -1,8 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
 import { Image as NativeImage } from 'react-native';
 
 import ModelSmokeTestScreen from '@/app/model-smoke-test';
 import {
+  MODEL_CONTRACTS,
   MODEL_INPUT,
   MODEL_OUTPUT,
 } from '@/features/detection/constants/modelContract';
@@ -10,8 +12,20 @@ import { runInference } from '@/features/detection/model/runInference';
 import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
 import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
 
+const mockProviderModelIds: Array<string | undefined> = [];
+
 jest.mock('@/features/detection/model/useCaneGuardModel', () => ({
   useCaneGuardModel: jest.fn(),
+  CaneGuardModelProvider: ({
+    modelId,
+    children,
+  }: {
+    modelId?: string;
+    children: ReactNode;
+  }) => {
+    mockProviderModelIds.push(modelId);
+    return children;
+  },
 }));
 
 jest.mock('@/features/detection/preprocessing/preprocessImage', () => ({
@@ -29,6 +43,7 @@ const mockRunInference = jest.mocked(runInference);
 
 describe('ModelSmokeTestScreen', () => {
   beforeEach(() => {
+    mockProviderModelIds.length = 0;
     jest.spyOn(NativeImage, 'resolveAssetSource').mockReturnValue({
       uri: 'asset://v1-healthy',
       width: 3000,
@@ -123,6 +138,13 @@ describe('ModelSmokeTestScreen', () => {
     expect(screen.getByText('float32 [1, 224, 224, 3]')).toBeOnTheScreen();
     expect(screen.getByText('float32 [1, 4]')).toBeOnTheScreen();
     await waitFor(() => expect(mockRunInference).toHaveBeenCalledTimes(1));
+    expect(new Set(mockProviderModelIds)).toEqual(new Set([MODEL_CONTRACTS.v1.id]));
+    expect(mockPreprocessImage).toHaveBeenCalledWith(
+      'asset://v1-healthy',
+      { width: 3000, height: 4000 },
+      MODEL_CONTRACTS.v1.input.letterboxValue,
+    );
+    expect(mockRunInference.mock.calls[0][5]).toBe(MODEL_CONTRACTS.v1);
     expect(screen.getByText('Actual top-1')).toBeOnTheScreen();
   });
 

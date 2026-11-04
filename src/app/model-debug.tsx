@@ -14,13 +14,17 @@ import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Spacing, Typography } from '@/constants/theme';
 import {
+  MODEL_CONTRACTS,
   MODEL_INPUT,
   MODEL_LABELS,
   MODEL_VERSION,
 } from '@/features/detection/constants/modelContract';
 import { compareV1QaOutput } from '@/features/detection/model/v1Qa';
 import { runInference } from '@/features/detection/model/runInference';
-import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
+import {
+  CaneGuardModelProvider,
+  useCaneGuardModel,
+} from '@/features/detection/model/useCaneGuardModel';
 import {
   preprocessImage,
   type PreprocessingResult,
@@ -35,6 +39,8 @@ type Fixture = {
   width: number;
   height: number;
 };
+
+const V1_CONTRACT = MODEL_CONTRACTS.v1;
 
 const FIXTURES: readonly Fixture[] = [
   {
@@ -80,7 +86,11 @@ export default function ModelDebugRoute() {
     return null;
   }
 
-  return <ModelDebugScreen />;
+  return (
+    <CaneGuardModelProvider modelId={V1_CONTRACT.id}>
+      <ModelDebugScreen />
+    </CaneGuardModelProvider>
+  );
 }
 
 function ModelDebugScreen() {
@@ -111,10 +121,14 @@ function ModelDebugScreen() {
         throw new Error(`Fixture ${fixture.id} did not resolve to a local URI.`);
       }
 
-      const preprocessing = await preprocessImage(resolvedAsset.uri, {
-        width: fixture.width,
-        height: fixture.height,
-      });
+      const preprocessing = await preprocessImage(
+        resolvedAsset.uri,
+        {
+          width: fixture.width,
+          height: fixture.height,
+        },
+        V1_CONTRACT.input.letterboxValue,
+      );
       let rawOutput: number[] = [];
       const result = await runInference(
         modelState,
@@ -124,6 +138,7 @@ function ModelDebugScreen() {
         (values) => {
           rawOutput = [...values];
         },
+        V1_CONTRACT,
       );
 
       setDebugRun({

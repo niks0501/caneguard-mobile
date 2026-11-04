@@ -95,9 +95,10 @@ export async function runModelInference(
 }
 
 /**
- * Scan-flow inference. The scan flow, records and sync still carry four
- * labels, so a scan whose top class goes beyond them (V2's RSSI) is refused
- * until the display/storage follow-up supports it.
+ * Scan-flow inference. The scan flow, records and sync carry four labels, so a
+ * scan whose top class goes beyond them (V2's RSSI) is refused until the
+ * display/storage follow-up supports it. `contract` pins diagnostic callers to
+ * an explicit model; the scan flow itself keeps the active one.
  */
 export async function runInference(
   model: InferenceRunner,
@@ -105,12 +106,13 @@ export async function runInference(
   preprocessMs: number,
   clock: () => number = now,
   onRawOutput?: (rawOutput: readonly number[]) => void,
+  contract: ModelContract = ACTIVE_MODEL,
 ): Promise<DetectionResult> {
   const output = await runModelInference(
     model,
     inputBuffer,
     preprocessMs,
-    ACTIVE_MODEL,
+    contract,
     clock,
   );
   const scores: ClassScore[] = [];
@@ -122,7 +124,7 @@ export async function runInference(
   if (topLabel === undefined || !isScanLabel(topLabel)) {
     throw new InferenceError(
       'LABEL_MAPPING_FAILED',
-      `Model ${ACTIVE_MODEL.id.toUpperCase()} output "${topLabel}" is not supported by the scan flow yet.`,
+      `Model ${contract.id.toUpperCase()} output "${topLabel}" is not supported by the scan flow yet.`,
     );
   }
 
@@ -140,7 +142,7 @@ export async function runInference(
     confidence: output.confidence,
     scores,
     timings: output.timings,
-    modelVersion: ACTIVE_MODEL.version,
+    modelVersion: contract.version,
     decisionSupportWording: diseaseCatalog[predictedLabel].decisionSupportWording,
   };
 }

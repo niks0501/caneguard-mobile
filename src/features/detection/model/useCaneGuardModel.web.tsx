@@ -6,6 +6,10 @@ import {
   type PropsWithChildren,
 } from 'react';
 
+import {
+  ACTIVE_MODEL,
+  type ModelOutputLabel,
+} from '@/features/detection/constants/modelContract';
 import { InferenceError } from '@/features/detection/model/inferenceErrors';
 import { isWebValidationRuntimeEnabled } from '../../../../validation/web-validation/runtime';
 
@@ -44,15 +48,23 @@ export type CaneGuardModelController = {
 
 const WEB_MODEL_ERROR = new InferenceError(
   'MODEL_LOAD_FAILED',
-  'The native Model V1 runtime is available in the Android development build, not the web bundle.',
+  `The native Model ${ACTIVE_MODEL.id.toUpperCase()} runtime is available in the Android development build, not the web bundle.`,
 );
 
 // A fixed deterministic result: the validation model never inspects pixels.
-const VALIDATION_PROBABILITIES = [0.05, 0.1, 0.8, 0.05] as const;
+const VALIDATION_TOP_LABEL: ModelOutputLabel = 'rust';
+const VALIDATION_TOP_PROBABILITY = 0.8;
 
 function runValidationModel(): ArrayBuffer[] {
-  const output = new Float32Array(VALIDATION_PROBABILITIES);
-  return [output.buffer];
+  const { labels } = ACTIVE_MODEL;
+  const remainingProbability =
+    (1 - VALIDATION_TOP_PROBABILITY) / (labels.length - 1);
+  const probabilities = labels.map((label) =>
+    label === VALIDATION_TOP_LABEL
+      ? VALIDATION_TOP_PROBABILITY
+      : remainingProbability,
+  );
+  return [new Float32Array(probabilities).buffer];
 }
 
 const CaneGuardModelContext = createContext<CaneGuardModelController | null>(null);

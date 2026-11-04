@@ -107,7 +107,7 @@ export function ReportSurveyCard({ attachedSurvey, attachedUuid, disabled, onAtt
         testID="field-report.survey-open"
         variant="secondary"
         leadingIcon="map"
-        onPress={() => onOpenMeasure(attachedSurvey ? attachedSurvey.clientUuid : null)}>
+        onPress={() => onOpenMeasure(attachedUuid)}>
         {attachedSurvey ? FIELD_SURVEY_COPY.linkOpen : FIELD_SURVEY_COPY.linkMeasure}
       </AppButton>
       {attachedUuid ? (

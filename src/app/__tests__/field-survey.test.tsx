@@ -397,3 +397,17 @@ it('keeps a synced boundary saved instead of autosaving it again', async () => {
   expect(mockSaveDraft).not.toHaveBeenCalled();
   expect(screen.queryByText(FIELD_SURVEY_COPY.savingOffline)).toBeNull();
 });
+
+it('does not resume another boundary when the requested survey is missing', async () => {
+  mockListSurveys.mockReturnValue([draftRow({ clientUuid: 'other-draft' })]);
+  mockFindSurvey.mockReturnValue(null);
+  mockUseLocalSearchParams.mockReturnValue({ surveyId: 'requested-but-gone' });
+
+  await render(<FieldSurveyScreen />);
+  await waitFor(() => expect(mockFindSurvey).toHaveBeenCalled());
+
+  expect(mockListSurveys).not.toHaveBeenCalled();
+  expect(screen.queryByText(FIELD_SURVEY_COPY.resumedSurvey)).toBeNull();
+  expect(screen.getByText(FIELD_SURVEY_COPY.intro)).toBeTruthy();
+  expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (0)`)).toBeTruthy();
+});

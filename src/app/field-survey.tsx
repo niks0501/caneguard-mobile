@@ -125,8 +125,9 @@ export default function FieldSurveyScreen() {
     void Promise.resolve().then(() => {
       if (cancelled) return;
       // A report link opens that exact boundary; otherwise resume the open draft.
-      const previous = (surveyId ? findOwnedFieldSurvey(database, surveyId, session.user.uuid) : null)
-        ?? listOwnedFieldSurveys(database, session.user.uuid).find((row) => row.status !== 'synced');
+      const previous = surveyId
+        ? findOwnedFieldSurvey(database, surveyId, session.user.uuid)
+        : (listOwnedFieldSurveys(database, session.user.uuid).find((row) => row.status !== 'synced') ?? null);
       if (previous) {
         setClientUuid(previous.clientUuid);
         setDistrictCode(previous.districtCode === 'UNSPECIFIED' ? '' : previous.districtCode);

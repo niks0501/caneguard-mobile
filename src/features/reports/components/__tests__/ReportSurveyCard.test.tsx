@@ -92,16 +92,19 @@ describe('ReportSurveyCard', () => {
   });
 
   it('reports an attached boundary that is no longer saved on this phone', async () => {
+    const onOpenMeasure = jest.fn();
     await render(
       <ReportSurveyCard
         attachedSurvey={null}
         attachedUuid="gone-survey"
         onAttach={jest.fn()}
-        onOpenMeasure={jest.fn()}
+        onOpenMeasure={onOpenMeasure}
         surveys={[]}
       />,
     );
     expect(screen.getByText(FIELD_SURVEY_COPY.linkMissing)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('field-report.survey-open'));
+    expect(onOpenMeasure).toHaveBeenCalledWith('gone-survey');
   });
 
   it('offers a drawn draft whose measured area is only in its saved waypoints', async () => {

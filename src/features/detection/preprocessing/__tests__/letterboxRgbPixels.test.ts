@@ -1,9 +1,4 @@
-// Pins the V1 rollback contract as the active model for this suite.
-jest.mock('@/features/detection/constants/modelContract', () => {
-  const actual = jest.requireActual('@/features/detection/constants/modelContract');
-  return { ...actual, ACTIVE_MODEL_ID: 'v1', ACTIVE_MODEL: actual.MODEL_CONTRACTS.v1 };
-});
-
+import { MODEL_CONTRACTS } from '@/features/detection/constants/modelContract';
 import {
   calculateAspectPreservingResize,
   createLetterboxGeometry,
@@ -30,7 +25,12 @@ describe('letterbox preprocessing geometry', () => {
   it('centers resized RGB pixels and fills both sides with float32 127.5', () => {
     const geometry = createLetterboxGeometry(2, 1);
     const source = new Uint8Array([10, 20, 30, 40, 50, 60]);
-    const result = letterboxRgbPixels(source, 2, 1);
+    const result = letterboxRgbPixels(
+      source,
+      2,
+      1,
+      MODEL_CONTRACTS.v1.input.letterboxValue,
+    );
     const values = result.pixels;
 
     expect(geometry).toEqual({

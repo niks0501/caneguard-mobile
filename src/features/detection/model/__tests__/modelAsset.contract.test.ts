@@ -1,13 +1,8 @@
-// Pins the V1 rollback contract as the active model for this suite.
-jest.mock('@/features/detection/constants/modelContract', () => {
-  const actual = jest.requireActual('@/features/detection/constants/modelContract');
-  return { ...actual, ACTIVE_MODEL_ID: 'v1', ACTIVE_MODEL: actual.MODEL_CONTRACTS.v1 };
-});
-
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
+  MODEL_CONTRACTS,
   MODEL_FILENAME,
   MODEL_INPUT,
   MODEL_OUTPUT,
@@ -200,7 +195,7 @@ describe('bundled Model V1 TFLite asset (host fixture)', () => {
     // The asset names must match the frozen contract names for a loaded model.
     expect(metadata.inputs[0].name).toBe(MODEL_INPUT.name);
     expect(metadata.outputs[0].name).toBe(MODEL_OUTPUT.name);
-    expect(validateModelContract(metadata)).toBeNull();
+    expect(validateModelContract(metadata, MODEL_CONTRACTS.v1)).toBeNull();
   });
 
   it('fails closed when the parsed metadata drifts from the contract', () => {
@@ -216,6 +211,8 @@ describe('bundled Model V1 TFLite asset (host fixture)', () => {
         shape: tensor.shape,
       })),
     };
-    expect(validateModelContract(drifted)?.code).toBe('MODEL_CONTRACT_MISMATCH');
+    expect(
+      validateModelContract(drifted, MODEL_CONTRACTS.v1)?.code,
+    ).toBe('MODEL_CONTRACT_MISMATCH');
   });
 });

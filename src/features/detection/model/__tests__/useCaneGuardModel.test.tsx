@@ -1,9 +1,3 @@
-// Pins the V1 rollback contract as the active model for this suite.
-jest.mock('@/features/detection/constants/modelContract', () => {
-  const actual = jest.requireActual('@/features/detection/constants/modelContract');
-  return { ...actual, ACTIVE_MODEL_ID: 'v1', ACTIVE_MODEL: actual.MODEL_CONTRACTS.v1 };
-});
-
 import {
   fireEvent,
   render,
@@ -120,7 +114,7 @@ describe('CaneGuardModelProvider', () => {
 
   it('does not download or load the model until a screen starts it', async () => {
     await render(
-      <CaneGuardModelProvider>
+      <CaneGuardModelProvider modelId="v1">
         <ModelStateProbe autoStart={false} />
       </CaneGuardModelProvider>,
     );
@@ -142,7 +136,7 @@ describe('CaneGuardModelProvider', () => {
 
   it('downloads the static model asset to a local file, then loads it with the CPU delegate', async () => {
     await render(
-      <CaneGuardModelProvider>
+      <CaneGuardModelProvider modelId="v1">
         <ModelStateProbe />
       </CaneGuardModelProvider>,
     );
@@ -160,7 +154,7 @@ describe('CaneGuardModelProvider', () => {
 
   it('provides a loaded model when its tensor metadata matches the contract', async () => {
     await render(
-      <CaneGuardModelProvider>
+      <CaneGuardModelProvider modelId="v1">
         <ModelStateProbe />
       </CaneGuardModelProvider>,
     );
@@ -170,7 +164,7 @@ describe('CaneGuardModelProvider', () => {
 
   it('runs inference through the reusable loaded model', async () => {
     await render(
-      <CaneGuardModelProvider>
+      <CaneGuardModelProvider modelId="v1">
         <ModelStateProbe />
       </CaneGuardModelProvider>,
     );
@@ -188,7 +182,7 @@ describe('CaneGuardModelProvider', () => {
     mockAssetDownloadAsync.mockReturnValue(new Promise(() => {}));
 
     await render(
-      <CaneGuardModelProvider>
+      <CaneGuardModelProvider modelId="v1">
         <ModelStateProbe />
       </CaneGuardModelProvider>,
     );
@@ -205,7 +199,7 @@ describe('CaneGuardModelProvider', () => {
     );
 
     await render(
-      <CaneGuardModelProvider>
+      <CaneGuardModelProvider modelId="v1">
         <ModelStateProbe />
       </CaneGuardModelProvider>,
     );
@@ -221,7 +215,7 @@ describe('CaneGuardModelProvider', () => {
     mockLoadTensorflowModel.mockRejectedValue(new Error('Native model failed'));
 
     await render(
-      <CaneGuardModelProvider>
+      <CaneGuardModelProvider modelId="v1">
         <ModelStateProbe />
       </CaneGuardModelProvider>,
     );
@@ -237,7 +231,7 @@ describe('CaneGuardModelProvider', () => {
     mockAssetDownloadAsync.mockRejectedValue(new Error('Download failed'));
 
     await render(
-      <CaneGuardModelProvider>
+      <CaneGuardModelProvider modelId="v1">
         <ModelStateProbe />
       </CaneGuardModelProvider>,
     );
@@ -255,7 +249,7 @@ describe('CaneGuardModelProvider', () => {
       mockAssetDownloadAsync.mockRejectedValueOnce(new Error('Download failed'));
 
       await render(
-        <CaneGuardModelProvider>
+        <CaneGuardModelProvider modelId="v1">
           <ModelStateProbe />
         </CaneGuardModelProvider>,
       );
@@ -285,7 +279,7 @@ describe('CaneGuardModelProvider', () => {
       );
 
       await render(
-        <CaneGuardModelProvider>
+        <CaneGuardModelProvider modelId="v1">
           <ModelStateProbe />
         </CaneGuardModelProvider>,
       );
@@ -319,7 +313,7 @@ describe('CaneGuardModelProvider', () => {
       );
 
       await render(
-        <CaneGuardModelProvider>
+        <CaneGuardModelProvider modelId="v1">
           <ModelStateProbe />
         </CaneGuardModelProvider>,
       );

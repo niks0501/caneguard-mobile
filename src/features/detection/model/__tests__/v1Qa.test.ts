@@ -1,9 +1,3 @@
-// Pins the V1 rollback contract as the active model for this suite.
-jest.mock('@/features/detection/constants/modelContract', () => {
-  const actual = jest.requireActual('@/features/detection/constants/modelContract');
-  return { ...actual, ACTIVE_MODEL_ID: 'v1', ACTIVE_MODEL: actual.MODEL_CONTRACTS.v1 };
-});
-
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -12,6 +6,7 @@ import { join } from 'node:path';
 import qaExpectedOutputs from '../../../../../qa/expected-v1-outputs.json';
 
 import {
+  MODEL_CONTRACTS,
   MODEL_INPUT,
   MODEL_LABELS,
   MODEL_OUTPUT,
@@ -87,6 +82,9 @@ describe('Model V1 QA oracle', () => {
         runner,
         new ArrayBuffer(INPUT_BYTE_LENGTH),
         1,
+        undefined,
+        undefined,
+        MODEL_CONTRACTS.v1,
       );
       const parity = compareV1QaOutput(
         fixture.fixture_id as V1QaFixtureId,
@@ -110,9 +108,10 @@ describe('Model V1 QA oracle', () => {
         ),
       );
 
-      expect(postprocessOutput(float32Buffer(probabilities)).predictedLabel).toBe(
-        fixture.expected_top1_class,
-      );
+      expect(
+        postprocessOutput(float32Buffer(probabilities), MODEL_CONTRACTS.v1)
+          .predictedLabel,
+      ).toBe(fixture.expected_top1_class);
     },
   );
 });

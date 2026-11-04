@@ -1,10 +1,5 @@
-// Pins the V1 rollback contract as the active model for this suite.
-jest.mock('@/features/detection/constants/modelContract', () => {
-  const actual = jest.requireActual('@/features/detection/constants/modelContract');
-  return { ...actual, ACTIVE_MODEL_ID: 'v1', ACTIVE_MODEL: actual.MODEL_CONTRACTS.v1 };
-});
-
 import {
+  MODEL_CONTRACTS,
   MODEL_INPUT,
   MODEL_OUTPUT,
 } from '@/features/detection/constants/modelContract';
@@ -35,7 +30,7 @@ function createMetadata(overrides: Partial<ModelMetadata> = {}): ModelMetadata {
 
 describe('validateModelContract', () => {
   it('accepts the exact Model V1 tensor metadata', () => {
-    expect(validateModelContract(createMetadata())).toBeNull();
+    expect(validateModelContract(createMetadata(), MODEL_CONTRACTS.v1)).toBeNull();
   });
 
   it.each([
@@ -53,7 +48,9 @@ describe('validateModelContract', () => {
       [{ name: MODEL_INPUT.name, dataType: MODEL_INPUT.dataType, shape: [1, 256, 256, 3] }],
     ],
   ])('rejects a %s', (_caseName, inputs) => {
-    expect(validateModelContract(createMetadata({ inputs }))).toEqual(
+    expect(
+      validateModelContract(createMetadata({ inputs }), MODEL_CONTRACTS.v1),
+    ).toEqual(
       expect.objectContaining({
         message: expect.stringContaining('Model input does not match'),
       }),
@@ -75,7 +72,9 @@ describe('validateModelContract', () => {
       [{ name: MODEL_OUTPUT.name, dataType: MODEL_OUTPUT.dataType, shape: [1, 3] }],
     ],
   ])('rejects a %s', (_caseName, outputs) => {
-    expect(validateModelContract(createMetadata({ outputs }))).toEqual(
+    expect(
+      validateModelContract(createMetadata({ outputs }), MODEL_CONTRACTS.v1),
+    ).toEqual(
       expect.objectContaining({
         message: expect.stringContaining('Model output does not match'),
       }),

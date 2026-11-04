@@ -16,6 +16,10 @@ The app accepts two account roles. A `field_reporter` (Field Inspector) can:
 - review local records and report summaries; and
 - synchronize eligible reports and their images to the CaneGuard web/backend API.
 
+Role alone does not authorize the inspector-only work above: the API must also
+return the matching capabilities on `GET /api/v1/mobile/auth/me`. See
+[Authentication](#authentication).
+
 A `farmer` can sign in and run the same personal scanning path, keeping
 completed scans on the device, but official Field Reports stay inspector-only: a
 farmer session cannot open, author, or synchronize one. From a saved personal
@@ -124,8 +128,11 @@ Record remains the read-only source of AI and image evidence used to build the
 upload. Draft authoring, finalization, retry, and synchronization remain scoped
 to the authenticated submitter that created the Field Report.
 
-Field Report access also requires the `field_reporter` role, so a session
-demoted to `farmer` loses access to drafts it created earlier.
+Field Report authoring also requires the `field_reporter` role and the
+server-granted `report:submit` capability, so a session demoted to `farmer`, or
+one whose pilot-district capability was withdrawn, cannot create, edit, or
+finalize a draft. Reports already authored stay readable without that
+capability.
 
 Scans queued by earlier app versions are not uploaded until a signed-in reporter
 completes the new required Field Report fields. That upgrade reuses the Scan
@@ -142,6 +149,35 @@ Sign-in accepts the `field_reporter` and `farmer` roles, validated by
 `isMobileUserRole` in `src/features/auth/types.ts`; any other role is rejected as
 an unsupported account type. Only users returned with the `field_reporter` role
 are accepted for mobile synchronization.
+
+#### Inspector capabilities
+
+`field_reporter` is the account role, not the authoring grant. The server decides
+who may do inspector work by pilot-district membership and reports the result as
+a `capabilities` string array on `GET /api/v1/mobile/auth/me`.
+`src/features/auth/capabilities.ts` owns the capability constants and the checks
+the app gates on:
+
+- `report:submit` — Field Report draft authoring and finalization; boundary
+  survey authoring uses the same shared inspector-authoring check.
+- `assignment:read` — the downloaded assignment/visit feed.
+- `assignment:complete` — opening a validation visit and recording its photo,
+  checkpoint, and completion.
+
+Reading work that was already authored is not capability-gated: an inspector who
+loses `report:submit` keeps the Field Report projections, authority status, and
+pending-report counts for reports they already created, and loses only the
+authoring controls.
+
+Only a successful `/me` grants capabilities. Password login, device enrollment,
+and a restored biometric session all accept their session through the same `/me`
+verification in `AuthProvider`, and a token response never grants any. When
+`/me` is unavailable the session is still installed, but with an empty capability
+list, and it is re-verified on retry, foreground, or network restore; offline
+authoring therefore stays unavailable until that verification succeeds. A
+missing, non-array, or partly malformed `capabilities` value grants nothing, and a
+session restored from an older app version carries no capabilities until its
+next verification.
 
 Mobile bearer sessions receive a finite local safety expiry. When the API returns
 `expires_at: null`, the client applies the 30-day `LOCAL_SESSION_MAX_AGE_MS`
@@ -220,7 +256,9 @@ and stores the returned remote UUID and successful sync time on Field Report.
 - Authentication uses bearer tokens from the CaneGuard backend.
 - Password and protected mobile sessions use Expo SecureStore. `keychainAccessible` is an iOS Keychain control; Android protection for the protected session comes from SecureStore `requireAuthentication`/Keystore binding.
 - The mobile client accepts only the account roles listed under
-  [Authentication](#authentication); Field Report access stays inspector-only.
+  [Authentication](#authentication); Field Report access stays inspector-only,
+  and inspector authoring additionally requires the server-granted capabilities
+  described there.
 - `EXPO_PUBLIC_API_BASE_URL` is configuration, not a secret. Never place API credentials or tokens in public Expo environment variables.
 - `EXPO_PUBLIC_QA_MODE=true` enables the QA-only validation that the API URL uses public HTTPS rather than a loopback host.
 - Production and QA API configuration must use HTTPS; plain HTTP is accepted only in development.
@@ -271,7 +309,7 @@ multipart field. Manual-map uploads omit GPS accuracy. The
 authenticated submitter is derived from the bearer session rather than trusted
 from client-claimed identity/role fields.
 
-The assignment feed is owner-scoped to the authenticated field reporter and returns the complete current assignment snapshot through the `sync.before` and `links.next` pagination boundary.
+The assignment feed is owner-scoped to the authenticated field reporter and returns the complete current assignment snapshot through the `sync.before` and `links.next` pagination boundary. Mobile requests it only when the session carries `assignment:read`.
 Mobile caches assignment snapshots separately from locally authored Scan Records and Field Reports so a server assignment can materialize even when the assignee did not submit the case.
 
 The notification feed is owner-scoped to the authenticated field reporter and returns a complete durable attention snapshot through the same checkpoint/pagination boundary.

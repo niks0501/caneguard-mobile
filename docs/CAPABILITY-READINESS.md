@@ -50,12 +50,15 @@ tests. "Implemented" does not mean "verified on a device":
   scan UUID. It renders from the local record with no server round-trip. A note
   appears when the saved record already carries one (a Check Again follow-up's
   personal note); the analysis result never captures a note itself.
-- Field Report Draft (Field Inspector accounts only): five-step form, local
-  autosave checkpoints, readiness checklist, finalization, foreground sync and
-  manual retry.
+- Field Report Draft (Field Inspector accounts holding the `report:submit`
+  capability): five-step form, local autosave checkpoints, readiness checklist,
+  finalization, foreground sync and manual retry.
 - Field validation visits: owner-scoped drafts, completion evidence, follow-up
-  outcome, optional fresh photo.
-- Offline field boundary surveys: plot and affected-area polygons drawn on the
+  outcome, optional fresh photo. The downloaded visit list needs
+  `assignment:read`; opening and completing a visit needs `assignment:complete`.
+  Without it the screen shows an unavailable notice instead of the visit form.
+- Offline field boundary surveys (authoring needs the `report:submit`
+  capability): plot and affected-area polygons drawn on the
   coordinate map, affected areas accepted only when fully inside the plot
   (concave boundaries included), overlaps counted once, and unfinished affected
   points checkpointed with the draft so Submit stays blocked until they are
@@ -116,6 +119,10 @@ not proven by unit tests:
 - A password-only sign-in is not stored: closing the app while offline returns
   to the sign-in screen.
 - A biometric-protected session can restore the same unexpired owner offline.
+  Until `/me` verifies, that session carries no capabilities, so inspector
+  authoring stays unavailable; already-authored records stay readable. The
+  capability contract is owned by
+  [`PROJECT_CONTEXT.md` — Inspector capabilities](../PROJECT_CONTEXT.md#inspector-capabilities).
 - Settings shows a **Ready for offline work** / **Not ready for offline work**
   readiness card that reads ready only when a protected session is configured,
   unexpired, and visits are downloaded. Sign-in explains the password-only

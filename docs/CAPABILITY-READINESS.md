@@ -53,9 +53,9 @@ tests. "Implemented" does not mean "verified on a device":
 - Field Report Draft (Field Inspector accounts holding the `report:submit`
   capability): five-step form, local autosave checkpoints, readiness checklist,
   finalization, foreground sync and manual retry. The Review step carries an
-  optional **Plot boundary** card that lists the boundaries measured on this
-  phone with district, hectares, and send status, attaches one to the report,
-  removes the link, and opens that boundary in Measure.
+  optional **Plot boundary** card that lists the recently measured boundaries
+  saved on this phone with district, hectares, and send status, attaches one to
+  the report, removes the link, and opens that boundary in Measure.
 - Field validation visits: owner-scoped drafts, completion evidence, follow-up
   outcome, optional fresh photo. The downloaded visit list needs
   `assignment:read`; opening and completing a visit needs `assignment:complete`.

@@ -1,0 +1,1 @@
+ALTER TABLE `scan_records` ADD `personal_place` text;

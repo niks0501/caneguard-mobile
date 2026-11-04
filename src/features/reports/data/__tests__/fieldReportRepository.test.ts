@@ -94,6 +94,7 @@ function openTestDatabase(): {
     '0013_v1_local_scan_migration.sql',
     '0014_safe_songbird.sql',
     '0028_field_report_survey_link.sql',
+    '0029_scan_personal_place.sql',
   ]) {
     native.exec(readMigration(migration));
   }

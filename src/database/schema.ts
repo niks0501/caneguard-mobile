@@ -148,6 +148,8 @@ export const scanRecords = sqliteTable(
     ),
     /** The farmer's own words about what they see now on a follow-up check. */
     personalNote: text('personal_note'),
+    /** Optional place in the farmer's own words; never GPS, never uploaded. */
+    personalPlace: text('personal_place'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },

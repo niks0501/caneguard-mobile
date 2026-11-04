@@ -18,6 +18,11 @@ const savedScanRecordWithNote = {
   personalNote: 'Seen after rain',
 };
 
+jest.mock('expo-location', () => ({
+  requestForegroundPermissionsAsync: jest.fn(),
+  getCurrentPositionAsync: jest.fn(),
+}));
+
 let mockDetailsState: {
   data: ScanCardRecord | null;
   errorMessage: string | null;
@@ -54,6 +59,47 @@ describe('ScanCard', () => {
     expect(screen.getByTestId('scan.card.note')).toHaveTextContent('Seen after rain');
     expect(screen.getByTestId('scan.card.id')).toHaveTextContent(/CG-P-\d{6}/);
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  // Proposal - proves "card shows exactly the agreed fields": photo, condition, AI-only line, date, place, note, scan ID, footer; no Check Again history.
+  it('shows exactly the agreed fields, including the AI-only line and footer', async () => {
+    await renderCard(
+      <ScanCard record={{ ...savedScanRecordWithNote, personalPlace: 'North field' }} />,
+    );
+    const copy = FARMER_COPY.en.scanCard;
+
+    expect(screen.getByTestId('scan.card.photo')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.card.condition')).toHaveTextContent('Possible Condition: Smut');
+    expect(screen.getByTestId('scan.card.ai-line')).toHaveTextContent(copy.aiOnlyLine);
+    expect(screen.getByTestId('scan.card.date')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.card.place')).toHaveTextContent('Place: North field');
+    expect(screen.getByTestId('scan.card.note')).toHaveTextContent('Seen after rain');
+    expect(screen.getByTestId('scan.card.id')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.card.footer')).toHaveTextContent(copy.footer);
+    expect(screen.queryByText(/check again|follow-up/i)).not.toBeOnTheScreen();
+  });
+
+  // Proposal - proves "an empty place is omitted": blank or whitespace place renders no place row.
+  it('omits the place when it is empty or blank', async () => {
+    await renderCard(<ScanCard record={{ ...savedScanRecord, personalPlace: '   ' }} />);
+    expect(screen.queryByTestId('scan.card.place')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('scan.card.footer')).toBeOnTheScreen();
+  });
+
+  // Proposal - proves "no GPS or location API is touched": rendering the card never calls expo-location.
+  it('never touches a location API', async () => {
+    const Location = jest.requireMock('expo-location') as Record<string, jest.Mock>;
+    await renderCard(<ScanCard record={{ ...savedScanRecord, personalPlace: 'Near the mill' }} />);
+    for (const fn of Object.values(Location)) {
+      if (typeof fn === 'function' && 'mock' in fn) expect(fn).not.toHaveBeenCalled();
+    }
+  });
+
+  // Proposal - proves tl/en key parity for the new scanCard copy.
+  it('keeps en and tl scanCard keys in parity', () => {
+    expect(Object.keys(FARMER_COPY.tl.scanCard).sort()).toEqual(
+      Object.keys(FARMER_COPY.en.scanCard).sort(),
+    );
   });
 
   // Proves: the card stays clean (no empty note block) when the record carries no note.

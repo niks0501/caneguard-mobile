@@ -19,6 +19,7 @@ import { StorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import {
   MAX_PERSONAL_NOTE_LENGTH,
+  MAX_PERSONAL_PLACE_LENGTH,
   type CompletedScanDraft,
   type SaveCompletedScanInput,
 } from '@/features/records/domain/recordTypes';
@@ -92,6 +93,7 @@ export function createCompletedScanDraft(
     totalMs: state.result.timings.totalMs,
     followsUpScanId: state.followUpOf ?? null,
     personalNote: state.followUpOf ? normalizePersonalNote(state.personalNote) : null,
+    personalPlace: normalizePersonalNote(state.personalPlace),
     createdAt: timestamp!,
     updatedAt: timestamp!,
   };
@@ -162,6 +164,9 @@ export function validateCompletedScanDraft(draft: CompletedScanDraft): void {
   }
   if (draft.personalNote != null && draft.personalNote.length > MAX_PERSONAL_NOTE_LENGTH) {
     invalid('The personal note is too long.');
+  }
+  if (draft.personalPlace != null && draft.personalPlace.length > MAX_PERSONAL_PLACE_LENGTH) {
+    invalid('The personal place is too long.');
   }
   validateUtcTimestamp(draft.createdAt);
   validateUtcTimestamp(draft.updatedAt);

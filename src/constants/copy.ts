@@ -333,6 +333,11 @@ export type FarmerCopyBlock = {
     dateLabel: string;
     possibleConditionLabel: string;
     noteLabel: string;
+    placeLabel: string;
+    placeCardLabel: string;
+    placePlaceholder: string;
+    aiOnlyLine: string;
+    footer: string;
     scanIdLabel: string;
     loading: string;
     loadError: string;
@@ -427,6 +432,12 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       dateLabel: 'Date',
       possibleConditionLabel: 'Possible Condition',
       noteLabel: 'Your note',
+      placeLabel: 'Place (optional)',
+      placeCardLabel: 'Place',
+      placePlaceholder: 'Where you scanned, in your own words',
+      aiOnlyLine: 'This result is for decision support only. It does not decide what is wrong with your crop.',
+      footer:
+        'This is your own scan. The inspector decides if a report is needed.',
       scanIdLabel: 'Scan ID',
       loading: 'Loading your Scan Card…',
       loadError: 'We could not load your Scan Card from this device.',
@@ -519,6 +530,13 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       dateLabel: 'Petsa',
       possibleConditionLabel: 'Posibleng Kondisyon',
       noteLabel: 'Iyong tala',
+      placeLabel: 'Lugar (opsyonal)',
+      placeCardLabel: 'Lugar',
+      placePlaceholder: 'Kung saan ka nag-scan, sa sarili mong salita',
+      aiOnlyLine:
+        'Pantulong lamang sa pasya ang resultang ito. Hindi nito sinasabi kung ano ang tiyak na sakit.',
+      footer:
+        'Ito ang sarili mong scan. Ang inspektor ang magpapasya kung kailangan ng ulat.',
       scanIdLabel: 'Scan ID',
       loading: 'Kinukuha ang iyong Scan Card…',
       loadError: 'Hindi namin makuha ang iyong Scan Card sa device na ito.',

@@ -18,6 +18,8 @@ export interface ScanCardRecord {
   managedImageUri: string;
   /** The record's saved personal note (Check Again lane); rendered only when present. */
   personalNote?: string | null;
+  /** The farmer's optional place in their own words; rendered only when present. */
+  personalPlace?: string | null;
   predictedLabel: string;
 }
 
@@ -28,6 +30,7 @@ export function ScanCard({ record }: { record: ScanCardRecord }) {
   const metadata = diseaseCatalog[record.predictedLabel as ModelLabel];
   const date = new Date(record.createdAt);
   const note = record.personalNote?.trim();
+  const place = record.personalPlace?.trim();
 
   return (
     <View
@@ -47,6 +50,14 @@ export function ScanCard({ record }: { record: ScanCardRecord }) {
       <Text testID="scan.card.condition" style={[styles.line, { color: theme.text }]}>
         {copy.possibleConditionLabel}: {metadata?.displayName ?? record.predictedLabel}
       </Text>
+      <Text testID="scan.card.ai-line" style={[styles.line, { color: theme.textSecondary }]}>
+        {copy.aiOnlyLine}
+      </Text>
+      {place ? (
+        <Text testID="scan.card.place" style={[styles.line, { color: theme.text }]}>
+          {copy.placeCardLabel}: {place}
+        </Text>
+      ) : null}
       {note ? (
         <View style={styles.note}>
           <Text style={[styles.noteLabel, { color: theme.textSecondary }]}>{copy.noteLabel}</Text>
@@ -55,6 +66,9 @@ export function ScanCard({ record }: { record: ScanCardRecord }) {
       ) : null}
       <Text testID="scan.card.id" style={[styles.id, { color: theme.primaryDark }]}>
         {copy.scanIdLabel}: {getScanCardId(record.id)}
+      </Text>
+      <Text testID="scan.card.footer" style={[styles.footer, { color: theme.textSecondary }]}>
+        {copy.footer}
       </Text>
     </View>
   );
@@ -102,5 +116,6 @@ const styles = StyleSheet.create({
   loadFailure: { gap: Spacing.sm },
   note: { gap: Spacing.xs },
   noteLabel: { ...Typography.bodySmall },
+  footer: { ...Typography.caption },
   id: { ...Typography.body, fontWeight: '600' },
 });

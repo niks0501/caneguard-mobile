@@ -12,6 +12,7 @@ import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { Pill } from '@/components/ui/Pill';
+import { TextField } from '@/components/ui/TextField';
 import { DECISION_SUPPORT_DISCLAIMER } from '@/constants/copy';
 import {
   ComponentTokens,
@@ -36,6 +37,7 @@ import {
 } from '@/features/detection/context/sessionErrors';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import { returnToTab } from '@/features/navigation/returnToTab';
+import { MAX_PERSONAL_PLACE_LENGTH } from '@/features/records/domain/recordTypes';
 import { FollowUpComparison } from '@/features/records/components/FollowUpComparison';
 import { WhatNowCard } from '@/features/records/components/WhatNowCard';
 import { SavedScanCard } from '@/features/records/components/ScanCard';
@@ -93,6 +95,7 @@ export default function AnalysisResultScreen() {
   const { state, dispatch } = useScanSession();
   const { user } = useAuth();
   const canReportToOffice = canAuthorInspectorWork(user);
+  const scanCardCopy = useFarmerCopy().scanCard;
   const isFollowUp = user?.role === 'farmer' && Boolean(state.followUpOf);
   const saveRecord = useSaveCompletedScan(state);
   const draft = useScanDraft();
@@ -352,6 +355,17 @@ export default function AnalysisResultScreen() {
                 onNoteChange={(value) => dispatch({ type: 'SET_PERSONAL_NOTE', payload: value })}
                 originalId={state.followUpOf}
                 saved={isSaved}
+              />
+ ) : null}
+            {user?.role === 'farmer' ? (
+              <TextField
+                testID="scan.place"
+                label={scanCardCopy.placeLabel}
+                placeholder={scanCardCopy.placePlaceholder}
+                value={state.personalPlace ?? ''}
+                onChangeText={(value) => dispatch({ type: 'SET_PERSONAL_PLACE', payload: value })}
+                maxLength={MAX_PERSONAL_PLACE_LENGTH}
+                editable={!isSaved && !isSaving}
               />
             ) : null}
             <View testID="scan.decision-card" style={styles.resultBlock}>

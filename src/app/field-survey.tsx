@@ -276,8 +276,8 @@ export default function FieldSurveyScreen() {
   function handleMapPress(event: GestureResponderEvent) {
     // Web press events carry no locationX/locationY; resolve the tap the same
     // way the online map picker does instead of writing NaN vertices.
-    const native = event.nativeEvent as GestureResponderEvent['nativeEvent'] & { offsetX?: number; offsetY?: number };
-    const { locationX, locationY, offsetX, offsetY } = native;
+    const native = event.nativeEvent as GestureResponderEvent['nativeEvent'] & { clientX?: number; clientY?: number; offsetX?: number; offsetY?: number };
+    const { clientX, clientY, locationX, locationY, offsetX, offsetY, pageX, pageY } = native;
     if (Number.isFinite(locationX) && Number.isFinite(locationY)) {
       addMapPointAt({ x: locationX, y: locationY });
       return;
@@ -288,7 +288,11 @@ export default function FieldSurveyScreen() {
     const node = mapRef.current;
     if (process.env.NODE_ENV !== 'test' && node && typeof node.measureInWindow === 'function') {
       node.measureInWindow((x, y) => {
-        const point = viewportPointFromPressEvent(event, { x, y });
+        // On web measureInWindow is viewport-relative, so pair it with clientX/Y (pageX/Y include page scroll).
+        const point = viewportPointFromPressEvent({
+          ...event,
+          nativeEvent: { ...native, pageX: clientX ?? pageX, pageY: clientY ?? pageY },
+        }, { x, y });
         if (Number.isFinite(point.x) && Number.isFinite(point.y)) addMapPointAt(point);
         else fallback();
       });

@@ -192,36 +192,19 @@ function parseAdvisory(value: unknown): MobileReportAdvisory | null {
     );
   }
   const status = requireNonBlankString(value.status, 'advisory.status');
-  const deliveryState = requireNonBlankString(
-    value.delivery_state,
-    'advisory.delivery_state',
-  );
   if (status !== 'validated' && status !== 'retired') {
     throw new ReportStatusesApiError(
       'MALFORMED_RESPONSE',
       'The authority review feed advisory status is invalid.',
     );
   }
-  if (
-    deliveryState !== 'pending' &&
-    deliveryState !== 'delivered' &&
-    deliveryState !== 'acknowledged'
-  ) {
-    throw new ReportStatusesApiError(
-      'MALFORMED_RESPONSE',
-      'The authority review feed advisory delivery state is invalid.',
-    );
-  }
   return {
     code: requireNonBlankString(value.code, 'advisory.code'),
     content: requireNonBlankString(value.content, 'advisory.content'),
-    deliveredAt: optionalTimestamp(value.delivered_at, 'advisory.delivered_at'),
-    deliveryState,
     selectedAt: requireTimestamp(value.selected_at, 'advisory.selected_at'),
     status,
     title: requireNonBlankString(value.title, 'advisory.title'),
     uuid: requireNonBlankString(value.uuid, 'advisory.uuid'),
-    validatedAt: optionalTimestamp(value.validated_at, 'advisory.validated_at'),
   };
 }
 

@@ -31,13 +31,10 @@ export interface AuthorityReviewSnapshot {
 export interface MobileReportAdvisory {
   code: string;
   content: string;
-  deliveredAt: string | null;
-  deliveryState: 'pending' | 'delivered' | 'acknowledged';
   selectedAt: string;
   status: 'validated' | 'retired';
   title: string;
   uuid: string;
-  validatedAt: string | null;
 }
 
 export interface AuthorityReviewStatusUpdate {

@@ -66,8 +66,12 @@ describe('mobile report statuses API', () => {
     });
   });
 
-  // PROPOSAL (intent: read the advisory field on status).
-  it('surfaces a v3 advisory and reads an absent advisory as null', async () => {
+  // Intent: read the advisory field on status.
+  // Oracle: references/mobile-notifications-v1.json declares the advisory
+  // payload as exactly uuid/code/title/content/status/selected_at with no
+  // delivery state, so a contract-shaped advisory must still sync review
+  // statuses instead of failing the whole feed closed.
+  it('surfaces a contract-shaped advisory without blocking review status', async () => {
     request.mockResolvedValueOnce(
       page([
         item({
@@ -78,9 +82,6 @@ describe('mobile report statuses API', () => {
             content: 'Remove and burn affected stools.',
             status: 'validated',
             selected_at: '2026-08-13T12:01:00.000Z',
-            delivery_state: 'delivered',
-            delivered_at: '2026-08-13T12:02:00.000Z',
-            validated_at: '2026-08-13T11:00:00.000Z',
           },
         }),
         item({ uuid: 'remote-2', client_uuid: 'client-2' }),
@@ -88,6 +89,10 @@ describe('mobile report statuses API', () => {
     );
 
     const result = await fetchAllMobileReportStatuses({ token: 't' });
+    expect(result.updates[0]).toMatchObject({
+      clientUuid: 'client-1',
+      rawStatus: 'verified_by_staff',
+    });
     expect(result.updates[0].advisory).toEqual({
       uuid: 'adv-1',
       code: 'SMUT-01',
@@ -95,9 +100,6 @@ describe('mobile report statuses API', () => {
       content: 'Remove and burn affected stools.',
       status: 'validated',
       selectedAt: '2026-08-13T12:01:00.000Z',
-      deliveryState: 'delivered',
-      deliveredAt: '2026-08-13T12:02:00.000Z',
-      validatedAt: '2026-08-13T11:00:00.000Z',
     });
     expect(result.updates[1].advisory).toBeNull();
   });

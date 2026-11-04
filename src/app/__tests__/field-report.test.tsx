@@ -1677,6 +1677,19 @@ describe('FieldReportScreen', () => {
     expect(mockSyncNow).toHaveBeenCalledWith('after-save');
   });
 
+  it('keeps survey attach controls off a finalized report', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({ authoringState: 'finalized', syncStatus: 'pending' }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    expect(screen.queryByTestId('field-report.survey-card')).toBeNull();
+    expect(screen.queryByTestId('field-report.survey-remove')).toBeNull();
+  });
+
   it('starts foreground synchronization after successful local finalization', async () => {
     const finalized = draft({
       authoringState: 'finalized',

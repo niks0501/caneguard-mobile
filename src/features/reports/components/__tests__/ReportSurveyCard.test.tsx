@@ -4,25 +4,28 @@ import { FIELD_SURVEY_COPY } from '@/constants/copy';
 import { ReportSurveyCard } from '@/features/reports/components/ReportSurveyCard';
 import type { FieldSurveyRow } from '@/database/schema';
 
-// A roughly one-hectare plot near 14°N, 121°E: 0.001° of latitude is about
-// 111 m and 0.001° of longitude about 108 m, so its geodesic area is close to
-// 12,000 m². The concrete hectares text is not asserted here because that
-// rounds within a few metres of a cent-hectare boundary; instead the same
-// geometry must display the same area whether it is stored as a polygon or
-// only as saved waypoints.
+// Two quadrilateral plots near 14°N, 121°E, sized so the expected hectares stay
+// far from a cent-hectare rounding edge. Expected areas are computed
+// independently of the app: the WGS84 ellipsoid zone integral
+// dA = a²(1−e²) cosφ / (1−e² sin²φ)² dφ dλ over the plot's latitude and
+// longitude spans gives 25,100.8 m² for 0.001° × 0.0021° (2.51 ha) and
+// 50,201.6 m² for 0.002° × 0.0021° (5.02 ha).
+const MEASURED_HECTARES = '2.51 ha';
+const WIDER_HECTARES = '5.02 ha';
+
 const MEASURED_WAYPOINTS = [
   { latitude: 14, longitude: 121, accuracyMeters: null, capturedAt: '2026-01-01T00:00:00.000Z', source: 'map' },
-  { latitude: 14, longitude: 121.001, accuracyMeters: null, capturedAt: '2026-01-01T00:00:01.000Z', source: 'map' },
-  { latitude: 14.001, longitude: 121.001, accuracyMeters: null, capturedAt: '2026-01-01T00:00:02.000Z', source: 'map' },
+  { latitude: 14, longitude: 121.0021, accuracyMeters: null, capturedAt: '2026-01-01T00:00:01.000Z', source: 'map' },
+  { latitude: 14.001, longitude: 121.0021, accuracyMeters: null, capturedAt: '2026-01-01T00:00:02.000Z', source: 'map' },
   { latitude: 14.001, longitude: 121, accuracyMeters: null, capturedAt: '2026-01-01T00:00:03.000Z', source: 'map' },
 ];
 
-// The same plot redrawn taller: twice the north-south span, so its area cannot
-// be confused with MEASURED_WAYPOINTS.
+// The same plot redrawn with twice the north-south span, so its area cannot be
+// confused with MEASURED_WAYPOINTS.
 const WIDER_WAYPOINTS = [
   { latitude: 14, longitude: 121, accuracyMeters: null, capturedAt: '2026-01-02T00:00:00.000Z', source: 'map' },
-  { latitude: 14, longitude: 121.001, accuracyMeters: null, capturedAt: '2026-01-02T00:00:01.000Z', source: 'map' },
-  { latitude: 14.002, longitude: 121.001, accuracyMeters: null, capturedAt: '2026-01-02T00:00:02.000Z', source: 'map' },
+  { latitude: 14, longitude: 121.0021, accuracyMeters: null, capturedAt: '2026-01-02T00:00:01.000Z', source: 'map' },
+  { latitude: 14.002, longitude: 121.0021, accuracyMeters: null, capturedAt: '2026-01-02T00:00:02.000Z', source: 'map' },
   { latitude: 14.002, longitude: 121, accuracyMeters: null, capturedAt: '2026-01-02T00:00:03.000Z', source: 'map' },
 ];
 
@@ -134,11 +137,9 @@ describe('ReportSurveyCard', () => {
       />,
     );
 
-    expect(hectaresShownFor('field-report.survey-attach.draft-measured')).toBe(
-      hectaresShownFor('field-report.survey-attach.measured-from-polygon'),
-    );
-    expect(hectaresShownFor('field-report.survey-attach.draft-measured')).toMatch(
-      /^\d+\.\d\d ha$/,
+    expect(hectaresShownFor('field-report.survey-attach.draft-measured')).toBe(MEASURED_HECTARES);
+    expect(hectaresShownFor('field-report.survey-attach.measured-from-polygon')).toBe(
+      MEASURED_HECTARES,
     );
 
     await fireEvent.press(screen.getByTestId('field-report.survey-attach.draft-measured'));
@@ -192,9 +193,8 @@ describe('ReportSurveyCard', () => {
       />,
     );
 
-    expect(hectaresShownFor('field-report.survey-attach.corrected')).toBe(
-      hectaresShownFor('field-report.survey-attach.current'),
-    );
+    expect(hectaresShownFor('field-report.survey-attach.corrected')).toBe(WIDER_HECTARES);
+    expect(hectaresShownFor('field-report.survey-attach.current')).toBe(WIDER_HECTARES);
   });
 
   it('labels a boundary that could not be sent without calling it pending', async () => {

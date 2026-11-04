@@ -1,3 +1,9 @@
+// Pins the V1 rollback contract as the active model for this suite.
+jest.mock('@/features/detection/constants/modelContract', () => {
+  const actual = jest.requireActual('@/features/detection/constants/modelContract');
+  return { ...actual, ACTIVE_MODEL_ID: 'v1', ACTIVE_MODEL: actual.MODEL_CONTRACTS.v1 };
+});
+
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 import { decodeJpeg } from '@/features/detection/preprocessing/decodeJpeg';

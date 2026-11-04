@@ -139,11 +139,10 @@ export const MODEL_CONTRACTS = {
 export type ModelId = keyof typeof MODEL_CONTRACTS;
 
 /**
- * Model the live scan flow loads. It stays `'v1'` until the display/storage/
- * sync follow-up can carry the fifth (RSSI) output; V2 is exercised explicitly
- * (developer smoke test) by passing `modelId: 'v2'` to the model provider.
- * Flipping this constant is the V1/V2 switch and the rollback path.
+ * Model the live scan flow loads. Setting this to `'v1'` is the rollback path.
+ * Until the display/storage/sync follow-up carries the fifth (RSSI) output,
+ * the scan flow errors when RSSI is V2's top class and drops it otherwise.
  */
-export const ACTIVE_MODEL_ID: ModelId = 'v1' as ModelId;
+export const ACTIVE_MODEL_ID: ModelId = 'v2' as ModelId;
 
 export const ACTIVE_MODEL: ModelContract = MODEL_CONTRACTS[ACTIVE_MODEL_ID];

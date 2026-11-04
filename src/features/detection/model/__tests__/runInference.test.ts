@@ -1,3 +1,9 @@
+// Pins the V1 rollback contract as the active model for this suite.
+jest.mock('@/features/detection/constants/modelContract', () => {
+  const actual = jest.requireActual('@/features/detection/constants/modelContract');
+  return { ...actual, ACTIVE_MODEL_ID: 'v1', ACTIVE_MODEL: actual.MODEL_CONTRACTS.v1 };
+});
+
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import { MODEL_INPUT } from '@/features/detection/constants/modelContract';
 import { InferenceError } from '@/features/detection/model/inferenceErrors';

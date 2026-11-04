@@ -45,9 +45,10 @@ import {
 } from '@/constants/copy';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
+import type { FieldSurveyRow } from '@/database/schema';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { listOwnedFieldSurveys } from '@/features/surveys/data/fieldSurveyRepository';
+import { findOwnedFieldSurvey, listOwnedFieldSurveys } from '@/features/surveys/data/fieldSurveyRepository';
 import { returnToTab } from '@/features/navigation/returnToTab';
 import { BarangayPicker } from '@/features/reports/components/BarangayPicker';
 import { ReportSurveyCard } from '@/features/reports/components/ReportSurveyCard';
@@ -176,6 +177,19 @@ function concernValueForChoice(
     : currentValue;
 }
 
+function sameSurveyRow(
+  current: FieldSurveyRow | null,
+  next: FieldSurveyRow | null,
+): boolean {
+  return (
+    current === next ||
+    (current !== null &&
+      next !== null &&
+      current.clientUuid === next.clientUuid &&
+      current.updatedAt === next.updatedAt)
+  );
+}
+
 interface FieldReportFormValues {
   affectedAreaHectares?: number | null;
   affectedAreaMeasurement?: MeasurementProvenance;
@@ -301,7 +315,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   const [cropAge, setCropAge] = useState(report.data?.cropAge ?? '');
   const [caneClass, setCaneClass] = useState(report.data?.caneClass ?? '');
   const [notes, setNotes] = useState(report.data?.fieldNotes ?? '');
-  const [surveyUuid, setSurveyUuid] = useState<string | null>(report.data?.fieldSurveyClientUuid ?? null);
+  const attachedSurveyUuid = report.data?.fieldSurveyClientUuid ?? null;
   const [fieldErrors, setFieldErrors] = useState<{
     affectedArea?: string;
     affectedPortion?: string;
@@ -407,7 +421,6 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     setCropAge(persistedValues.cropAge);
     setCaneClass(persistedValues.caneClass);
     setNotes(persistedValues.notes);
-    setSurveyUuid(report.data.fieldSurveyClientUuid ?? null);
     setMismatchDraft({
       reportId: report.data.id,
       mismatchReported: persistedValues.mismatchReported,
@@ -699,31 +712,49 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       cropAge,
       caneClass,
       fieldNotes: notes,
-      // Attach/detach persists immediately, so the form only carries a set link.
-      ...(surveyUuid ? { fieldSurveyClientUuid: surveyUuid } : {}),
+      fieldSurveyClientUuid: attachedSurveyUuid,
       mismatchReported: mismatchDraft.mismatchReported,
       reporterObservationText: mismatchDraft.reporterObservationText,
       reporterSuspectedCondition: mismatchDraft.reporterSuspectedCondition,
     };
   };
 
-  const savedSurveys = useMemo(
-    () => {
-      if (!user || currentStep !== 5) return [];
+  const [savedSurveys, setSavedSurveys] = useState<FieldSurveyRow[]>([]);
+  const [attachedSurvey, setAttachedSurvey] = useState<FieldSurveyRow | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) {
+        setSavedSurveys((current) => (current.length === 0 ? current : []));
+        setAttachedSurvey((current) => (current === null ? current : null));
+        return;
+      }
+      let surveys: FieldSurveyRow[] = [];
       try {
-        return listOwnedFieldSurveys(database, user.uuid);
+        surveys = listOwnedFieldSurveys(database, user.uuid);
       } catch {
         // Attaching is optional; a failed read must never block the report.
-        return [];
+        surveys = [];
       }
-    },
-    // Re-read when the review step is shown, e.g. after returning from Measure.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [database, user, currentStep, surveyUuid],
+      setSavedSurveys((current) =>
+        current.length === surveys.length &&
+        current.every((row, index) => sameSurveyRow(row, surveys[index]))
+          ? current
+          : surveys,
+      );
+      let attached: FieldSurveyRow | null = null;
+      try {
+        attached = attachedSurveyUuid
+          ? findOwnedFieldSurvey(database, attachedSurveyUuid, user.uuid)
+          : null;
+      } catch {
+        attached = null;
+      }
+      setAttachedSurvey((current) => (sameSurveyRow(current, attached) ? current : attached));
+    }, [attachedSurveyUuid, database, user]),
   );
 
   const handleAttachSurvey = (clientUuid: string | null) => {
-    setSurveyUuid(clientUuid);
     // Persist at once so the link survives leaving the form before Save.
     void report.save({ fieldSurveyClientUuid: clientUuid });
   };
@@ -1529,7 +1560,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                           />
 
                           <ReportSurveyCard
-                            attachedUuid={surveyUuid}
+                            attachedSurvey={attachedSurvey}
+                            attachedUuid={attachedSurveyUuid}
                             disabled={report.saving || report.finalizing}
                             onAttach={handleAttachSurvey}
                             onOpenMeasure={handleOpenMeasure}

@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
@@ -6,8 +7,15 @@ import { FIELD_SURVEY_COPY } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import type { FieldSurveyRow } from '@/database/schema';
 import { useTheme } from '@/hooks/use-theme';
+import {
+  validateSurveyPolygon,
+  validateSurveyWaypoints,
+  type SurveyPolygon,
+  type SurveyWaypoint,
+} from '@/features/surveys/domain/fieldSurvey';
 
 export interface ReportSurveyCardProps {
+  attachedSurvey: FieldSurveyRow | null;
   attachedUuid: string | null;
   disabled?: boolean;
   onAttach: (clientUuid: string | null) => void;
@@ -21,18 +29,43 @@ function statusLabel(status: FieldSurveyRow['status']): string {
   return FIELD_SURVEY_COPY.linkStatusWaiting;
 }
 
-function optionLabel(row: FieldSurveyRow): string {
-  const hectares = row.areaSqm === null ? '—' : (row.areaSqm / 10_000).toFixed(2);
+/** Measured plot area in square metres, or null when the saved boundary is unusable. */
+function measuredAreaSqm(row: FieldSurveyRow): number | null {
+  try {
+    if (row.polygonJson) {
+      const measured = validateSurveyPolygon(JSON.parse(row.polygonJson) as SurveyPolygon);
+      if (measured.valid) return measured.areaSqm;
+    }
+    const measured = validateSurveyWaypoints(
+      JSON.parse(row.waypointsJson) as SurveyWaypoint[],
+    );
+    return measured.valid ? measured.areaSqm : null;
+  } catch {
+    return null;
+  }
+}
+
+function optionLabel(row: FieldSurveyRow, areaSqm: number | null): string {
+  const hectares = areaSqm === null ? '—' : (areaSqm / 10_000).toFixed(2);
   const district = row.districtCode === 'UNSPECIFIED' ? 'No district' : row.districtCode;
   return FIELD_SURVEY_COPY.linkOption(district, hectares, statusLabel(row.status));
 }
 
 /** Attach a saved boundary survey to a Draft report and jump to its Measure plot. */
-export function ReportSurveyCard({ attachedUuid, disabled, onAttach, onOpenMeasure, surveys }: ReportSurveyCardProps) {
+export function ReportSurveyCard({ attachedSurvey, attachedUuid, disabled, onAttach, onOpenMeasure, surveys }: ReportSurveyCardProps) {
   const theme = useTheme();
-  const attached = attachedUuid ? surveys.find((row) => row.clientUuid === attachedUuid) ?? null : null;
-  // Only measured boundaries (with a polygon) are worth attaching.
-  const choices = surveys.filter((row) => row.polygonJson !== null || row.clientUuid === attachedUuid);
+  // Only measured boundaries are worth attaching.
+  const choices = useMemo(
+    () =>
+      surveys
+        .filter((row) => row.clientUuid !== attachedUuid)
+        .flatMap((row) => {
+          const areaSqm = measuredAreaSqm(row);
+          return areaSqm === null ? [] : [{ areaSqm, row }];
+        }),
+    [attachedUuid, surveys],
+  );
+  const attachedAreaSqm = attachedSurvey ? measuredAreaSqm(attachedSurvey) : null;
 
   return (
     <View
@@ -47,7 +80,9 @@ export function ReportSurveyCard({ attachedUuid, disabled, onAttach, onOpenMeasu
         <View style={styles.row}>
           <Feather name="check-circle" size={16} color={theme.success} />
           <Text testID="field-report.survey-attached" style={[styles.help, { color: theme.text, flex: 1 }]}>
-            {attached ? `${FIELD_SURVEY_COPY.linkAttached}: ${optionLabel(attached)}` : FIELD_SURVEY_COPY.linkMissing}
+            {attachedSurvey
+              ? `${FIELD_SURVEY_COPY.linkAttached}: ${optionLabel(attachedSurvey, attachedAreaSqm)}`
+              : FIELD_SURVEY_COPY.linkMissing}
           </Text>
         </View>
       ) : (
@@ -56,26 +91,24 @@ export function ReportSurveyCard({ attachedUuid, disabled, onAttach, onOpenMeasu
         </Text>
       )}
 
-      {choices
-        .filter((row) => row.clientUuid !== attachedUuid)
-        .map((row) => (
-          <AppButton
-            key={row.clientUuid}
-            testID={`field-report.survey-attach.${row.clientUuid}`}
-            variant="secondary"
-            disabled={disabled}
-            accessibilityLabel={`${FIELD_SURVEY_COPY.linkAttach} ${optionLabel(row)}`}
-            onPress={() => onAttach(row.clientUuid)}>
-            {`${FIELD_SURVEY_COPY.linkAttach}: ${optionLabel(row)}`}
-          </AppButton>
-        ))}
+      {choices.map(({ areaSqm, row }) => (
+        <AppButton
+          key={row.clientUuid}
+          testID={`field-report.survey-attach.${row.clientUuid}`}
+          variant="secondary"
+          disabled={disabled}
+          accessibilityLabel={`${FIELD_SURVEY_COPY.linkAttach} ${optionLabel(row, areaSqm)}`}
+          onPress={() => onAttach(row.clientUuid)}>
+          {`${FIELD_SURVEY_COPY.linkAttach}: ${optionLabel(row, areaSqm)}`}
+        </AppButton>
+      ))}
 
       <AppButton
         testID="field-report.survey-open"
         variant="secondary"
         leadingIcon="map"
-        onPress={() => onOpenMeasure(attached ? attached.clientUuid : null)}>
-        {attached ? FIELD_SURVEY_COPY.linkOpen : FIELD_SURVEY_COPY.linkMeasure}
+        onPress={() => onOpenMeasure(attachedSurvey ? attachedSurvey.clientUuid : null)}>
+        {attachedSurvey ? FIELD_SURVEY_COPY.linkOpen : FIELD_SURVEY_COPY.linkMeasure}
       </AppButton>
       {attachedUuid ? (
         <AppButton

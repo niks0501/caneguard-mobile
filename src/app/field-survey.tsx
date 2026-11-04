@@ -183,7 +183,7 @@ export default function FieldSurveyScreen() {
   }, [database, ready, session?.user.uuid, surveyId]);
 
   useEffect(() => {
-    if (!canAuthorSurvey || !bootstrapped || !ready || !database || !session?.user.uuid) return;
+    if (!canAuthorSurvey || !bootstrapped || !ready || !database || !session?.user.uuid || readOnlyPending) return;
     let cancelled = false;
     void saveFieldSurveyDraft(database, {
       clientUuid,
@@ -201,7 +201,7 @@ export default function FieldSurveyScreen() {
       if (!cancelled) setSaved(false);
     });
     return () => { cancelled = true; };
-  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, bootstrapped, canAuthorSurvey, clientUuid, database, districtCode, ready, session?.user.role, session?.user.uuid, waypoints]);
+  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, bootstrapped, canAuthorSurvey, clientUuid, database, districtCode, readOnlyPending, ready, session?.user.role, session?.user.uuid, waypoints]);
 
   function captureTargetForNewPoint(): WaypointCaptureTarget {
     if (drawingAffectedArea) return { affectedArea: true, areaCount: affectedAreas.length };

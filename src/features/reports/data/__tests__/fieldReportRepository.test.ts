@@ -1767,6 +1767,86 @@ describe('findScanRecordIdForCase', () => {
     native.close();
   });
 
+  describe('field survey link', () => {
+    const SURVEY_UUID = '0f6d5a38-3a4f-4a6f-a5b0-9f6c2f0f9a11';
+
+    async function prepareFinalizableReport(database: CaneGuardDatabase, native: DatabaseSync) {
+      await createOrGetFieldReportDraft(database, createDraftInput());
+      await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured',
+        affectedPortionPercent: null,
+        affectedPortionMeasurement: 'not_measured',
+        barangay: 'Wawa',
+        farmerOrFarmOwnerName: 'Maria Santos',
+        fieldSurveyClientUuid: SURVEY_UUID,
+        updatedAt: '2026-08-10T01:05:00.000Z',
+      });
+      await setLocationUnavailable(database, REPORT_ID, SUBMITTER_ID, {
+        reason: 'low_accuracy',
+        updatedAt: '2026-08-10T01:06:00.000Z',
+      });
+      insertCompleteClassScores(native);
+    }
+
+    it('detaches the attached boundary on finalize when the form sends null', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+
+      const result = await finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        {
+          affectedAreaHectares: null,
+          affectedAreaMeasurement: 'not_measured',
+          affectedPortionPercent: null,
+          affectedPortionMeasurement: 'not_measured',
+          barangay: 'Wawa',
+          farmerOrFarmOwnerName: 'Maria Santos',
+          fieldSurveyClientUuid: null,
+          submittedAt: '2026-08-10T02:00:00.000Z',
+          updatedAt: '2026-08-10T02:00:00.000Z',
+        },
+        IMAGE_EXISTS,
+      );
+
+      expect(result.status).toBe('finalized');
+      expect(result.report.fieldSurveyClientUuid).toBeNull();
+      await expect(findFieldReportById(database, REPORT_ID, SUBMITTER_ID)).resolves.toMatchObject({
+        authoringState: 'finalized',
+        fieldSurveyClientUuid: null,
+      });
+      native.close();
+    });
+
+    it('keeps the attached boundary when the finalize input omits it', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+
+      const result = await finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        {
+          affectedAreaHectares: null,
+          affectedAreaMeasurement: 'not_measured',
+          affectedPortionPercent: null,
+          affectedPortionMeasurement: 'not_measured',
+          barangay: 'Wawa',
+          farmerOrFarmOwnerName: 'Maria Santos',
+          submittedAt: '2026-08-10T02:00:00.000Z',
+          updatedAt: '2026-08-10T02:00:00.000Z',
+        },
+        IMAGE_EXISTS,
+      );
+
+      expect(result.status).toBe('finalized');
+      expect(result.report.fieldSurveyClientUuid).toBe(SURVEY_UUID);
+      native.close();
+    });
+  });
+
   describe('deleteFieldReportDraft', () => {
     it('deletes an existing draft field report and keeps the underlying scan record', async () => {
       const { database, native } = openTestDatabase();

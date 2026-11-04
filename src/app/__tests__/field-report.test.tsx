@@ -27,6 +27,7 @@ interface FormValues {
   cropAge?: string;
   farmerOrFarmOwnerName: string;
   fieldNotes?: string;
+  fieldSurveyClientUuid?: string | null;
   mismatchReported: boolean | null;
   reporterObservationText: string;
   reporterSuspectedCondition: string;
@@ -266,6 +267,7 @@ function expectFormValues(values: Partial<FormValues> = {}): FormValues {
     cropAge: '',
     farmerOrFarmOwnerName: '',
     fieldNotes: '',
+    fieldSurveyClientUuid: null,
     mismatchReported: null,
     reporterObservationText: '',
     reporterSuspectedCondition: '',

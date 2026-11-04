@@ -111,7 +111,8 @@ export function normalizeFinalizeFieldReportInput(
   cropAge: string | null;
   farmerOrFarmOwnerName: string | null;
   fieldNotes: string | null;
-  fieldSurveyClientUuid: string | null;
+  /** Omitted keeps the saved link; null detaches it. */
+  fieldSurveyClientUuid?: string | null;
   mismatchReported: boolean | null;
   reporterObservationText: string | null;
   reporterSuspectedCondition: string | null;
@@ -143,7 +144,9 @@ export function normalizeFinalizeFieldReportInput(
     cropAge: values.cropAge ?? null,
     farmerOrFarmOwnerName: values.farmerOrFarmOwnerName ?? null,
     fieldNotes: values.fieldNotes ?? null,
-    fieldSurveyClientUuid: values.fieldSurveyClientUuid ?? null,
+    ...(values.fieldSurveyClientUuid === undefined
+      ? {}
+      : { fieldSurveyClientUuid: values.fieldSurveyClientUuid }),
     mismatchReported: values.mismatchReported ?? null,
     reporterObservationText: values.reporterObservationText ?? null,
     reporterSuspectedCondition: values.reporterSuspectedCondition ?? null,

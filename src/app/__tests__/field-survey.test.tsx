@@ -287,6 +287,32 @@ it('reports a boundary drawn only on the map as low accuracy without offering re
   expect(screen.queryByText(FIELD_SURVEY_COPY.recapturePoint(1))).toBeNull();
 });
 
+it('adds a finite vertex when a web-shaped map press has no locationX/locationY', async () => {
+  await render(<FieldSurveyScreen />);
+
+  await fireEvent.press(screen.getByTestId('field-survey.map'), {
+    nativeEvent: { locationX: undefined, locationY: undefined, offsetX: 180, offsetY: 190, pageX: 200, pageY: 300 },
+  });
+
+  await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
+  const saved = mockSaveDraft.mock.calls.at(-1)![1].waypoints;
+  expect(saved).toHaveLength(1);
+  expect(Number.isFinite(saved[0].latitude)).toBe(true);
+  expect(Number.isFinite(saved[0].longitude)).toBe(true);
+});
+
+it('ignores a map press with no usable coordinates and drops non-finite saved vertices on load', async () => {
+  const damaged = [PLOT_WAYPOINTS[0], { ...PLOT_WAYPOINTS[1], latitude: null, longitude: null }, ...PLOT_WAYPOINTS.slice(2)];
+  mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(damaged) })]);
+  await render(<FieldSurveyScreen />);
+
+  await fireEvent.press(screen.getByTestId('field-survey.map'), { nativeEvent: { locationX: undefined, locationY: undefined, pageX: 5, pageY: 5 } });
+
+  await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
+  const saved = mockSaveDraft.mock.calls.at(-1)![1].waypoints;
+  expect(saved).toEqual([PLOT_WAYPOINTS[0], ...PLOT_WAYPOINTS.slice(2)]);
+});
+
 it('keeps captured affected-waypoint provenance when the affected mode button is tapped again', async () => {
   await render(<FieldSurveyScreen />);
   await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());

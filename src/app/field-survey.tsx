@@ -4,7 +4,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, type GestureResponderEvent, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import Svg, { Circle, Polygon, Polyline } from 'react-native-svg';
@@ -33,6 +33,7 @@ import {
   type MapCoordinate,
 } from '@/features/reports/domain/manualMap';
 import { findOwnedFieldSurvey, listOwnedFieldSurveys, saveFieldSurveyDraft, markFieldSurveyPending } from '@/features/surveys/data/fieldSurveyRepository';
+import { viewportPointFromPressEvent } from '@/features/reports/components/online-map-picker';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
 import { measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { assessBoundaryQuality } from '@/features/surveys/domain/boundaryQuality';
@@ -45,6 +46,14 @@ const INITIAL_VIEWPORT = { width: 360, height: 380 };
 type WaypointCaptureTarget =
   | { affectedArea: true; areaCount: number }
   | { affectedArea: false; replace: SurveyWaypoint | null };
+
+// Drop null or non-finite vertices so a damaged draft recovers its valid points.
+function finiteWaypoints(value: unknown): SurveyWaypoint[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((point): point is SurveyWaypoint => Boolean(point)
+    && Number.isFinite((point as SurveyWaypoint).latitude)
+    && Number.isFinite((point as SurveyWaypoint).longitude));
+}
 
 function captureFailureMessage(status: 'permission_denied' | 'services_disabled' | 'unavailable'): string {
   if (status === 'permission_denied') return FIELD_SURVEY_COPY.gpsPermissionDenied;
@@ -104,6 +113,7 @@ export default function FieldSurveyScreen() {
   const [submitLocked, setSubmitLocked] = useState(false);
   const [awaitingSurveyStart, setAwaitingSurveyStart] = useState(false);
   const controlsLocked = readOnlyPending || syncBusy || awaitingSurveyStart;
+  const mapRef = useRef<View>(null);
   const liveFormRef = useRef({ affectedAreaCount: 0, controlsLocked, drawingAffectedArea, waypoints });
   useEffect(() => {
     liveFormRef.current = { affectedAreaCount: affectedAreas.length, controlsLocked, drawingAffectedArea, waypoints };
@@ -139,18 +149,18 @@ export default function FieldSurveyScreen() {
         setClientUuid(previous.clientUuid);
         setDistrictCode(previous.districtCode === 'UNSPECIFIED' ? '' : previous.districtCode);
         try {
-          setWaypoints(JSON.parse(previous.waypointsJson) as SurveyWaypoint[]);
+          setWaypoints(finiteWaypoints(JSON.parse(previous.waypointsJson)));
           const restoredAreas = JSON.parse(previous.affectedAreaPolygonsJson ?? '[]') as SurveyPolygon[];
           let restoredWaypoints: SurveyWaypoint[][] = [];
           try {
-            restoredWaypoints = JSON.parse(previous.affectedAreaWaypointsJson ?? '[]') as SurveyWaypoint[][];
+            restoredWaypoints = (JSON.parse(previous.affectedAreaWaypointsJson ?? '[]') as unknown[]).map(finiteWaypoints);
           } catch {
             restoredWaypoints = [];
           }
           let restoredActive: SurveyWaypoint[] = [];
           try {
             const parsedActive = JSON.parse(previous.activeAffectedWaypointsJson ?? '[]') as SurveyWaypoint[];
-            if (Array.isArray(parsedActive)) restoredActive = parsedActive;
+            if (Array.isArray(parsedActive)) restoredActive = finiteWaypoints(parsedActive);
           } catch {
             restoredActive = [];
           }
@@ -247,6 +257,7 @@ export default function FieldSurveyScreen() {
   }
 
   function addOrMovePoint(latitude: number, longitude: number, source: 'map' | 'gps', accuracyMeters: number | null, capturedAt = new Date().toISOString()) {
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
     if (controlsLocked) {
       if (!awaitingSurveyStart) setSyncMessage(FIELD_SURVEY_SYNC_COPY.pendingLocked);
       return;
@@ -257,10 +268,37 @@ export default function FieldSurveyScreen() {
     setFieldErrors({});
   }
 
-  function handleMapPress(event: { nativeEvent: { locationX: number; locationY: number } }) {
-    const { locationX, locationY } = event.nativeEvent;
-    const coordinate = coordinateAtViewportPoint(center, zoom, viewport.width, viewport.height, locationX, locationY);
+  function addMapPointAt(point: { x: number; y: number }) {
+    const coordinate = coordinateAtViewportPoint(center, zoom, viewport.width, viewport.height, point.x, point.y);
     addOrMovePoint(coordinate.latitude, coordinate.longitude, 'map', null);
+  }
+
+  function handleMapPress(event: GestureResponderEvent) {
+    // Web press events carry no locationX/locationY; resolve the tap the same
+    // way the online map picker does instead of writing NaN vertices.
+    const native = event.nativeEvent as GestureResponderEvent['nativeEvent'] & { clientX?: number; clientY?: number; offsetX?: number; offsetY?: number };
+    const { clientX, clientY, locationX, locationY, offsetX, offsetY, pageX, pageY } = native;
+    if (Number.isFinite(locationX) && Number.isFinite(locationY)) {
+      addMapPointAt({ x: locationX, y: locationY });
+      return;
+    }
+    const fallback = () => {
+      if (typeof offsetX === 'number' && typeof offsetY === 'number') addMapPointAt({ x: offsetX, y: offsetY });
+    };
+    const node = mapRef.current;
+    if (process.env.NODE_ENV !== 'test' && node && typeof node.measureInWindow === 'function') {
+      node.measureInWindow((x, y) => {
+        // On web measureInWindow is viewport-relative, so pair it with clientX/Y (pageX/Y include page scroll).
+        const point = viewportPointFromPressEvent({
+          ...event,
+          nativeEvent: { ...native, pageX: clientX ?? pageX, pageY: clientY ?? pageY },
+        }, { x, y });
+        if (Number.isFinite(point.x) && Number.isFinite(point.y)) addMapPointAt(point);
+        else fallback();
+      });
+      return;
+    }
+    fallback();
   }
 
   async function captureGpsWaypoint() {
@@ -435,6 +473,7 @@ export default function FieldSurveyScreen() {
           <GestureDetector gesture={mapGesture}>
             <Pressable
               disabled={controlsLocked}
+              ref={mapRef}
               testID="field-survey.map"
               accessibilityRole="imagebutton"
               accessibilityLabel={FIELD_SURVEY_COPY.mapAccessibility}

@@ -13,18 +13,22 @@ import {
   getLocalDateKey,
   type TodayVisitBucket,
 } from '@/features/assignments/domain/todayVisits';
+import { VISIT_DONE_WAITING_LABEL } from '@/features/sync/utils/syncStatusCopy';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateKey } from '@/lib/formatters';
 
 export function AssignmentCard({
   assignment,
   dueState,
+  hasUnsentCompletion = false,
   onPress,
   testID,
   today,
 }: {
   assignment: FieldValidationAssignment;
   dueState?: TodayVisitBucket;
+  /** The visit was finished on this phone and is still waiting to send. */
+  hasUnsentCompletion?: boolean;
   today?: string;
   onPress?: () => void;
   testID?: string;
@@ -38,7 +42,10 @@ export function AssignmentCard({
   const dueLine = dueState
     ? formatTodayDueLine(assignment, today ?? getLocalDateKey())
     : target;
-  const progress = stateLabel(assignment.fieldValidationState);
+  const progress =
+    hasUnsentCompletion && assignment.fieldValidationState === 'in_progress'
+      ? VISIT_DONE_WAITING_LABEL
+      : stateLabel(assignment.fieldValidationState);
 
   return (
     <Pressable

@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 
 import { ASSIGNMENT_PHOTO_PLACEHOLDER } from '@/constants/copy';
 import { AssignmentCard } from '@/features/activity/components/AssignmentCard';
+import { VISIT_DONE_WAITING_LABEL } from '@/features/sync/utils/syncStatusCopy';
 import { useAssignmentPhotoUri } from '@/features/activity/hooks/useAssignmentPhoto';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 
@@ -116,6 +117,20 @@ describe('AssignmentCard', () => {
       />,
     );
     expect(screen.getByText(`${ASSIGNMENT.referenceCode} · In progress`)).toBeOnTheScreen();
+  });
+
+  it('labels a locally completed, unsent visit with the single-sourced sync wording', async () => {
+    await render(
+      <AssignmentCard
+        assignment={{ ...ASSIGNMENT, fieldValidationState: 'in_progress' }}
+        hasUnsentCompletion
+      />,
+    );
+    expect(
+      screen.getByText(`${ASSIGNMENT.referenceCode} · ${VISIT_DONE_WAITING_LABEL}`),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText(/In progress/)).not.toBeOnTheScreen();
+    expect(VISIT_DONE_WAITING_LABEL).toBe('Done · waiting to send');
   });
 
   it('keeps the same-person warning off the list row', async () => {

@@ -1562,7 +1562,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                           <ReportSurveyCard
                             attachedSurvey={attachedSurvey}
                             attachedUuid={attachedSurveyUuid}
-                            disabled={report.saving || report.finalizing}
+                            disabled={isFinalized || report.saving || report.finalizing}
                             onAttach={handleAttachSurvey}
                             onOpenMeasure={handleOpenMeasure}
                             surveys={savedSurveys}

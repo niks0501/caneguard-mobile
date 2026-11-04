@@ -36,6 +36,12 @@ interface FormValues {
   sugarcaneVariety?: string;
 }
 
+let mockSavedSurveys: unknown[] = [];
+jest.mock('@/features/surveys/data/fieldSurveyRepository', () => ({
+  findOwnedFieldSurvey: () => null,
+  listOwnedFieldSurveys: () => mockSavedSurveys,
+}));
+
 const mockSave = jest.fn(async () => draft());
 const mockCaptureLocation = jest.fn(async () => null);
 const mockFinalize = jest.fn<Promise<FieldReport | null>, [FormValues]>(
@@ -290,6 +296,7 @@ describe('FieldReportScreen', () => {
     jest.mocked(router.canGoBack).mockReturnValue(true);
     mockAuthorityError = null;
     mockIsOnline = true;
+    mockSavedSurveys = [];
     mockPossibleRecentMatchState = {
       match: null,
       unavailable: false,
@@ -1678,15 +1685,47 @@ describe('FieldReportScreen', () => {
   });
 
   it('keeps survey attach controls off a finalized report', async () => {
+    mockSavedSurveys = [
+      {
+        clientUuid: 'survey-2',
+        districtCode: 'D1',
+        waypointsJson: JSON.stringify([
+          { latitude: 14, longitude: 121, accuracyMeters: null, capturedAt: '2026-01-01T00:00:00.000Z', source: 'map' },
+          { latitude: 14, longitude: 121.0021, accuracyMeters: null, capturedAt: '2026-01-01T00:00:01.000Z', source: 'map' },
+          { latitude: 14.001, longitude: 121.0021, accuracyMeters: null, capturedAt: '2026-01-01T00:00:02.000Z', source: 'map' },
+          { latitude: 14.001, longitude: 121, accuracyMeters: null, capturedAt: '2026-01-01T00:00:03.000Z', source: 'map' },
+        ]),
+        status: 'synced',
+      },
+    ];
     mockDraftState = {
       ...mockDraftState,
-      data: draft({ authoringState: 'finalized', syncStatus: 'pending' }),
+      data: draft({ fieldSurveyClientUuid: 'survey-1' }),
     };
 
-    await render(<FieldReportScreen />);
+    const view = await render(<FieldReportScreen />);
+    await act(async () => undefined);
+    await goToStep(5);
+
+    // Baseline rendered through to step 5: on a Draft the controls are live,
+    // so the absence below cannot be a card that never rendered.
+    expect(screen.getByTestId('field-report.survey-card')).toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.survey-attach.survey-2')).toBeEnabled();
+    expect(screen.getByTestId('field-report.survey-remove')).toBeEnabled();
+
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        authoringState: 'finalized',
+        syncStatus: 'pending',
+        fieldSurveyClientUuid: 'survey-1',
+      }),
+    };
+    await view.rerender(<FieldReportScreen />);
     await act(async () => undefined);
 
     expect(screen.queryByTestId('field-report.survey-card')).toBeNull();
+    expect(screen.queryByTestId('field-report.survey-attach.survey-2')).toBeNull();
     expect(screen.queryByTestId('field-report.survey-remove')).toBeNull();
   });
 

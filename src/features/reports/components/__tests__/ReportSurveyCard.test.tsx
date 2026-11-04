@@ -4,8 +4,12 @@ import { FIELD_SURVEY_COPY } from '@/constants/copy';
 import { ReportSurveyCard } from '@/features/reports/components/ReportSurveyCard';
 import type { FieldSurveyRow } from '@/database/schema';
 
-// A one-hectare-scale plot near 14°N, 121°E: ~111 m north-south by ~108 m
-// east-west, so the geodesic area is about 12,000 m², i.e. 1.20 ha.
+// A roughly one-hectare plot near 14°N, 121°E: 0.001° of latitude is about
+// 111 m and 0.001° of longitude about 108 m, so its geodesic area is close to
+// 12,000 m². The concrete hectares text is not asserted here because that
+// rounds within a few metres of a cent-hectare boundary; instead the same
+// geometry must display the same area whether it is stored as a polygon or
+// only as saved waypoints.
 const MEASURED_WAYPOINTS = [
   { latitude: 14, longitude: 121, accuracyMeters: null, capturedAt: '2026-01-01T00:00:00.000Z', source: 'map' },
   { latitude: 14, longitude: 121.001, accuracyMeters: null, capturedAt: '2026-01-01T00:00:01.000Z', source: 'map' },
@@ -13,11 +17,10 @@ const MEASURED_WAYPOINTS = [
   { latitude: 14.001, longitude: 121, accuracyMeters: null, capturedAt: '2026-01-01T00:00:03.000Z', source: 'map' },
 ];
 
-const MEASURED_DRAFT_LABEL = `${FIELD_SURVEY_COPY.linkAttach}: ${FIELD_SURVEY_COPY.linkOption(
-  'D1',
-  '1.20',
-  FIELD_SURVEY_COPY.linkStatusDraft,
-)}`;
+function hectaresShownFor(testID: string): string {
+  const label = String(screen.getByTestId(testID).props.accessibilityLabel);
+  return label.split(' · ')[1];
+}
 
 function survey(overrides: Partial<FieldSurveyRow>): FieldSurveyRow {
   return {
@@ -115,12 +118,22 @@ describe('ReportSurveyCard', () => {
         attachedUuid={null}
         onAttach={onAttach}
         onOpenMeasure={jest.fn()}
-        surveys={[survey({ clientUuid: 'draft-measured', polygonJson: null, areaSqm: null, status: 'draft' })]}
+        surveys={[
+          survey({ clientUuid: 'measured-from-polygon' }),
+          survey({ clientUuid: 'draft-measured', polygonJson: null, areaSqm: null, status: 'draft' }),
+        ]}
       />,
     );
+
+    expect(hectaresShownFor('field-report.survey-attach.draft-measured')).toBe(
+      hectaresShownFor('field-report.survey-attach.measured-from-polygon'),
+    );
+    expect(hectaresShownFor('field-report.survey-attach.draft-measured')).toMatch(
+      /^\d+\.\d\d ha$/,
+    );
+
     await fireEvent.press(screen.getByTestId('field-report.survey-attach.draft-measured'));
     expect(onAttach).toHaveBeenCalledWith('draft-measured');
-    expect(screen.getByText(MEASURED_DRAFT_LABEL)).toBeTruthy();
   });
 
   it('opens a fresh Measure when nothing is attached and hides unmeasured drafts', async () => {

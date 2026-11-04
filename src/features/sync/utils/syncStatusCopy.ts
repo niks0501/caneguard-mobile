@@ -42,6 +42,9 @@ export const SYNC_TONE_COLOR = {
 
 export type SyncToneColorKey = (typeof SYNC_TONE_COLOR)[SyncTone];
 
+/** State label for a visit completed on this phone but not yet sent to the office. */
+export const VISIT_DONE_WAITING_LABEL = 'Done · waiting to send';
+
 /** Meta line for a saved upload that could not be sent yet. */
 export const UPLOAD_FAILED_META = 'Could not send';
 

@@ -52,6 +52,7 @@ export const FIELD_SURVEY_COPY = {
   linkOption: (district: string, hectares: string, status: string) => `${district} · ${hectares} ha · ${status}`,
   linkStatusDraft: 'Draft',
   linkStatusWaiting: 'Waiting to send',
+  linkStatusFailed: 'Could not send',
   linkStatusSent: 'Sent',
   unavailable: 'Boundary surveys need an active inspector assignment to the pilot district. Ask your office to check your account.',
   title: 'Measure a field boundary',

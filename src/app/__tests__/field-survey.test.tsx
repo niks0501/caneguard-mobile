@@ -427,3 +427,28 @@ it('does not resume another boundary or save a draft when the requested survey i
   expect(screen.getByText(FIELD_SURVEY_COPY.intro)).toBeTruthy();
   expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (0)`)).toBeTruthy();
 });
+
+it('only saves a missing linked survey after the user starts a new boundary', async () => {
+  mockFindSurvey.mockReturnValue(null);
+  mockUseLocalSearchParams.mockReturnValue({ surveyId: 'requested-but-gone' });
+
+  await render(<FieldSurveyScreen />);
+  await waitFor(() => expect(mockFindSurvey).toHaveBeenCalled());
+  await act(async () => undefined);
+
+  expect(screen.getByTestId('field-survey.district-code').props.editable).toBe(false);
+
+  await act(async () => {
+    fireEvent.changeText(screen.getByTestId('field-survey.district-code'), 'D9');
+  });
+  await act(async () => undefined);
+
+  expect(mockSaveDraft).not.toHaveBeenCalled();
+  expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (0)`)).toBeTruthy();
+
+  await act(async () => {
+    fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.newSurvey));
+  });
+
+  await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
+});

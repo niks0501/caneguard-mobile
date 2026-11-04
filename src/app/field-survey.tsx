@@ -103,7 +103,7 @@ export default function FieldSurveyScreen() {
   const [readOnlyPending, setReadOnlyPending] = useState(false);
   const [submitLocked, setSubmitLocked] = useState(false);
   const [awaitingSurveyStart, setAwaitingSurveyStart] = useState(false);
-  const controlsLocked = readOnlyPending || syncBusy;
+  const controlsLocked = readOnlyPending || syncBusy || awaitingSurveyStart;
   const liveFormRef = useRef({ affectedAreaCount: 0, controlsLocked, drawingAffectedArea, waypoints });
   useEffect(() => {
     liveFormRef.current = { affectedAreaCount: affectedAreas.length, controlsLocked, drawingAffectedArea, waypoints };
@@ -236,7 +236,6 @@ export default function FieldSurveyScreen() {
 
   function applyCapturedWaypoint(target: WaypointCaptureTarget, waypoint: SurveyWaypoint) {
     setSaved(false);
-    setAwaitingSurveyStart(false);
     if (target.affectedArea) {
       const snapped = validation.valid ? snapAffectedAreaWaypoints(validation.polygon, [waypoint])[0] : waypoint;
       setAffectedWaypoints((current) => [...current, snapped]);
@@ -248,8 +247,8 @@ export default function FieldSurveyScreen() {
   }
 
   function addOrMovePoint(latitude: number, longitude: number, source: 'map' | 'gps', accuracyMeters: number | null, capturedAt = new Date().toISOString()) {
-    if (readOnlyPending || syncBusy) {
-      setSyncMessage(FIELD_SURVEY_SYNC_COPY.pendingLocked);
+    if (controlsLocked) {
+      if (!awaitingSurveyStart) setSyncMessage(FIELD_SURVEY_SYNC_COPY.pendingLocked);
       return;
     }
     applyCapturedWaypoint(captureTargetForNewPoint(), { latitude, longitude, source, accuracyMeters, capturedAt });
@@ -391,7 +390,6 @@ export default function FieldSurveyScreen() {
     setAffectedAreaWaypointSets((current) => [...current, snappedWaypoints]);
     setAffectedWaypoints([]);
     setSaved(false);
-    setAwaitingSurveyStart(false);
     setSyncMessage(null);
   }
 
@@ -493,7 +491,7 @@ export default function FieldSurveyScreen() {
         {drawingAffectedArea ? <AppButton variant="secondary" style={styles.toolButton} disabled={affectedWaypoints.length < 3 || controlsLocked} onPress={finishAffectedArea}>{FIELD_SURVEY_COPY.finishAffectedArea}</AppButton> : null}
         <ScrollView style={styles.details} contentContainerStyle={styles.detailsContent} keyboardShouldPersistTaps="handled">
           <Text style={[styles.intro, { color: theme.textSecondary }]}>{resumed ? FIELD_SURVEY_COPY.resumedSurvey : FIELD_SURVEY_COPY.intro}</Text>
-        {resumed ? <AppButton variant="secondary" onPress={() => {
+        {resumed || awaitingSurveyStart ? <AppButton variant="secondary" onPress={() => {
           setClientUuid(randomUUID());
           setDistrictCode('');
           setWaypoints([]);
@@ -514,8 +512,8 @@ export default function FieldSurveyScreen() {
             accessibilityLabel={FIELD_SURVEY_COPY.districtLabel}
             testID="field-survey.district-code"
             value={districtCode}
-            editable={!readOnlyPending && !syncBusy}
-            onChangeText={(value) => { setSaved(false); setAwaitingSurveyStart(false); setFieldErrors((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'district_code'))); setDistrictCode(value); }}
+            editable={!controlsLocked}
+            onChangeText={(value) => { setSaved(false); setFieldErrors((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'district_code'))); setDistrictCode(value); }}
             autoCapitalize="characters"
             placeholder={FIELD_SURVEY_COPY.districtPlaceholder}
             placeholderTextColor={theme.textSecondary}

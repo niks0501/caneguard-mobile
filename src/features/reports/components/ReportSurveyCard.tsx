@@ -25,6 +25,7 @@ export interface ReportSurveyCardProps {
 
 function statusLabel(status: FieldSurveyRow['status']): string {
   if (status === 'synced') return FIELD_SURVEY_COPY.linkStatusSent;
+  if (status === 'failed') return FIELD_SURVEY_COPY.linkStatusFailed;
   if (status === 'draft') return FIELD_SURVEY_COPY.linkStatusDraft;
   return FIELD_SURVEY_COPY.linkStatusWaiting;
 }
@@ -32,14 +33,15 @@ function statusLabel(status: FieldSurveyRow['status']): string {
 /** Measured plot area in square metres, or null when the saved boundary is unusable. */
 function measuredAreaSqm(row: FieldSurveyRow): number | null {
   try {
-    if (row.polygonJson) {
-      const measured = validateSurveyPolygon(JSON.parse(row.polygonJson) as SurveyPolygon);
-      if (measured.valid) return measured.areaSqm;
-    }
     const measured = validateSurveyWaypoints(
       JSON.parse(row.waypointsJson) as SurveyWaypoint[],
     );
-    return measured.valid ? measured.areaSqm : null;
+    if (measured.valid) return measured.areaSqm;
+    if (row.polygonJson) {
+      const submitted = validateSurveyPolygon(JSON.parse(row.polygonJson) as SurveyPolygon);
+      if (submitted.valid) return submitted.areaSqm;
+    }
+    return null;
   } catch {
     return null;
   }

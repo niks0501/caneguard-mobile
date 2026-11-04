@@ -17,6 +17,15 @@ const MEASURED_WAYPOINTS = [
   { latitude: 14.001, longitude: 121, accuracyMeters: null, capturedAt: '2026-01-01T00:00:03.000Z', source: 'map' },
 ];
 
+// The same plot redrawn taller: twice the north-south span, so its area cannot
+// be confused with MEASURED_WAYPOINTS.
+const WIDER_WAYPOINTS = [
+  { latitude: 14, longitude: 121, accuracyMeters: null, capturedAt: '2026-01-02T00:00:00.000Z', source: 'map' },
+  { latitude: 14, longitude: 121.001, accuracyMeters: null, capturedAt: '2026-01-02T00:00:01.000Z', source: 'map' },
+  { latitude: 14.002, longitude: 121.001, accuracyMeters: null, capturedAt: '2026-01-02T00:00:02.000Z', source: 'map' },
+  { latitude: 14.002, longitude: 121, accuracyMeters: null, capturedAt: '2026-01-02T00:00:03.000Z', source: 'map' },
+];
+
 function hectaresShownFor(testID: string): string {
   const label = String(screen.getByTestId(testID).props.accessibilityLabel);
   return label.split(' · ')[1];
@@ -161,5 +170,48 @@ describe('ReportSurveyCard', () => {
     expect(screen.getByText(FIELD_SURVEY_COPY.linkEmpty)).toBeTruthy();
     await fireEvent.press(screen.getByTestId('field-report.survey-open'));
     expect(onOpenMeasure).toHaveBeenCalledWith(null);
+  });
+
+  it('measures a corrected boundary from its current waypoints, not a stale polygon', async () => {
+    await render(
+      <ReportSurveyCard
+        attachedSurvey={null}
+        attachedUuid={null}
+        onAttach={jest.fn()}
+        onOpenMeasure={jest.fn()}
+        surveys={[
+          survey({ clientUuid: 'corrected', status: 'failed', waypointsJson: JSON.stringify(WIDER_WAYPOINTS) }),
+          survey({
+            clientUuid: 'current',
+            polygonJson: null,
+            waypointsJson: JSON.stringify(WIDER_WAYPOINTS),
+            areaSqm: null,
+            status: 'draft',
+          }),
+        ]}
+      />,
+    );
+
+    expect(hectaresShownFor('field-report.survey-attach.corrected')).toBe(
+      hectaresShownFor('field-report.survey-attach.current'),
+    );
+  });
+
+  it('labels a boundary that could not be sent without calling it pending', async () => {
+    await render(
+      <ReportSurveyCard
+        attachedSurvey={null}
+        attachedUuid={null}
+        onAttach={jest.fn()}
+        onOpenMeasure={jest.fn()}
+        surveys={[survey({ clientUuid: 'failed-survey', status: 'failed' })]}
+      />,
+    );
+
+    const label = String(
+      screen.getByTestId('field-report.survey-attach.failed-survey').props.accessibilityLabel,
+    );
+    expect(label).toContain('Could not send');
+    expect(label).not.toContain('Waiting to send');
   });
 });

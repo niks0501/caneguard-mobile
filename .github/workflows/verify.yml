@@ -57,8 +57,21 @@ jobs:
           const basePackage = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/base-package.json', 'utf8'));
           const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          if (app.expo?.version !== baseApp.expo?.version || pkg.version !== basePackage.version) {
-            console.error('Pull requests may not edit app.json expo.version or package.json version. Use the manual Mobile build workflow to release a version.');
+          // One-time exception for the Expo SDK 58 upgrade: the app moves onto a
+          // new appVersion-based runtime, so that single PR must bump the app
+          // version 1.1.1 -> 1.2.0 while expo goes 57 -> 58. Any other version
+          // edit still fails.
+          const expoMajor = (manifest) => {
+            const major = Number(String(manifest.dependencies?.expo ?? '').match(/\d+/)?.[0]);
+            return Number.isSafeInteger(major) ? major : null;
+          };
+          const versionChanged = app.expo?.version !== baseApp.expo?.version || pkg.version !== basePackage.version;
+          const sdk58Upgrade =
+            expoMajor(basePackage) === 57 && expoMajor(pkg) === 58 &&
+            baseApp.expo?.version === '1.1.1' && app.expo?.version === '1.2.0' &&
+            basePackage.version === '1.1.1' && pkg.version === '1.2.0';
+          if (versionChanged && !sdk58Upgrade) {
+            console.error('Pull requests may not edit app.json expo.version or package.json version, except the one-time Expo SDK 58 upgrade (expo 57 -> 58, version 1.1.1 -> 1.2.0). Use the manual Mobile build workflow to release a version.');
             process.exit(1);
           }
           NODE

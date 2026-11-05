@@ -97,7 +97,7 @@ completed scan
 
 Database code lives under `src/database/`. Record persistence and querying live under `src/features/records/`.
 
-Persistent records include prediction data, class scores, symptoms, quality warnings, severity, barangay, model metadata, timings, managed-image metadata, and synchronization state. A Check Again follow-up also stores `follows_up_scan_id`, the first check it follows, and the farmer's `personal_note`.
+Persistent records include prediction data, class scores, symptoms, quality warnings, severity, barangay, model metadata, timings, managed-image metadata, and synchronization state. A Check Again follow-up also stores `follows_up_scan_id`, the first check it follows, and the farmer's `personal_note`. A farmer's own scan may store an optional `personal_place` typed in their own words; it carries no GPS coordinates, needs no location permission, and is never uploaded.
 
 A follow-up may link only to the first check of the same owner, never to another
 follow-up. Deleting the first check clears the link (`ON DELETE SET NULL`) and

@@ -26,24 +26,33 @@ Expect that error until a follow-up carries the fifth class end to end.
 Source of truth: `MODEL_LABELS` and `ACTIVE_MODEL_ID` in
 `src/features/detection/constants/modelContract.ts`; model-version-specific
 caution artifacts are `threshold/v1-confidence-caution-threshold.json` and
-`threshold/v2-confidence-caution-threshold.json`. The V2 artifact records its
-selected-checkpoint, non-OOF provenance and remains provisional. Contract field
-values are owned by
+`threshold/v2-confidence-caution-threshold.json`. The deployed V2 SHA-256 is
+`349fe1b903e1ab3bef7cb7ad5fa83c8375ac4d73bae0b8fa4e27e7c1ff57ad86`. The V2
+artifact records its selected-checkpoint, non-OOF provenance and remains
+provisional. Contract field values are owned by
 [`PROJECT_CONTEXT.md` — Model contract](../PROJECT_CONTEXT.md#model-contract).
 
 The scan output is labelled **Possible Condition** and is decision support, not
 a diagnosis. A farmer session uses the stored model version's confidence caution
-cutoff: the V1 cutoff remains OOF-derived, while the V2 cutoff is provisional
-and derived from selected-checkpoint validation predictions that are explicitly
-not genuine out-of-fold data. For V2, the score is the maximum softmax over the
-five outputs for scans whose top class is not RSSI; RSSI-top scans already end
-as a scan error. Below the applicable cutoff, a `farmer` session sees **Result
-uncertain** as the result title, with guided retake steps, **Retake Photo**,
-**Review Signs**, and the closest match as a smaller line; saving stays
-available and the model scores are unchanged. The low-confidence, photo-quality,
-and checklist cautions stay visible to every signed-in account and never alter
-the model scores. Fixed QA fixtures are deterministic oracles, not evidence of
-field accuracy, and a browser or mocked test is never native inference proof.
+cutoff: the V1 cutoff remains OOF-derived, while the V2 cutoff is the
+provisional `0.8770278` from selected-checkpoint validation predictions in
+`threshold/v2-selected-validation-predictions.csv` at commit `770cef3` (279
+rows). It adapts the V1 selection method to this selected-checkpoint data: the
+target event is an incorrect prediction; candidates are `0.0`, every distinct
+observed max score, and `1.0`; a sample warns strictly below the threshold; and
+selection maximizes incorrect-prediction detection F1, then higher error recall,
+then higher threshold. It warns 70/254 included non-RSSI-top rows (27.56%).
+This data is not genuine out-of-fold data, is not holdout-tuned, and the result
+is provisional for development/testing only—not independently validated or
+final. For V2, the score is the maximum softmax over the five outputs for scans
+whose top class is not RSSI; RSSI-top scans already end as a scan error. Below
+the applicable cutoff, a `farmer` session sees **Result uncertain** as the
+result title, with guided retake steps, **Retake Photo**, **Review Signs**, and
+the closest match as a smaller line; saving stays available and the model
+scores are unchanged. The low-confidence, photo-quality, and checklist cautions
+stay visible to every signed-in account and never alter the model scores. Fixed
+QA fixtures are deterministic oracles, not evidence of field accuracy, and a
+browser or mocked test is never native inference proof.
 
 ## Implemented mobile screens
 

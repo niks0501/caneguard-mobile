@@ -75,9 +75,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   logo: {
-    width: '100%',
-    maxWidth: 180,
-    aspectRatio: 1,
+    width: 180,
+    height: 180,
   },
   appName: {
     ...Typography.title,

@@ -4,10 +4,10 @@ Project-specific stack and implementation guidance for CaneGuard Mobile.
 
 ## Installed stack
 
-- Expo SDK 57
+- Expo SDK 58
 - Expo Router
-- React 19
-- React Native 0.86
+- React 19.3
+- React Native 0.88
 - `@shopify/flash-list` (list virtualization)
 - `@sentry/react-native` (crash and release-health reporting)
 - TypeScript 6 with strict mode

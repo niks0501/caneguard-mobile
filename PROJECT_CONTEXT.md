@@ -30,8 +30,8 @@ AI results are decision-support outputs only. User-facing copy must not present 
 
 ## Stack
 
-- Application/framework: Expo SDK 57 with Expo Router
-- Language/runtime: TypeScript 6, React 19, React Native 0.86
+- Application/framework: Expo SDK 58 with Expo Router
+- Language/runtime: TypeScript 6, React 19.3, React Native 0.88
 - Frontend: React Native + Expo Router; project design tokens in `src/constants/theme.ts`
 - Backend: External CaneGuard HTTP API; the mobile repository does not contain the backend server
 - Database: Expo SQLite with Drizzle ORM; managed scan images are stored in app-controlled filesystem storage

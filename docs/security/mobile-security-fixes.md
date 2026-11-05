@@ -29,8 +29,9 @@ cannot be completed in this repository.
   pending, and failed evidence remains available for offline retry.
 - Android backup/transfer is disabled by the security config plugin. This is a
   backup/retention control, not a claim that SQLite or managed image bytes are
-  natively encrypted. Expo SQLite SDK 57 does not expose SQLCipher keying in
-  this repository; native encryption and any key migration still require a
+  natively encrypted. Expo SQLite exposes SQLCipher keying only as an opt-in
+  native build property (`expo.sqlite.useSQLCipher`), which this repository does
+  not enable; native encryption and any key migration still require a
   native/runtime proof before being described as complete.
 
 ## Sessions and biometrics (#70)

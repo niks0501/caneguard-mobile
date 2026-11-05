@@ -13,7 +13,7 @@ on:
           - qa
           - production
       bump:
-        description: Production app-version bump
+        description: App-version bump
         type: choice
         required: true
         default: patch
@@ -83,6 +83,19 @@ jobs:
           git commit -m "chore(release): v$VERSION"
           git tag -a "v$VERSION" -m "v$VERSION"
           git push origin HEAD:main --follow-tags
+
+      - name: Bump version and create development/preview release commit
+        if: inputs.lane == 'development' || inputs.lane == 'preview'
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          node scripts/bump-version.js "$BUMP"
+          VERSION="$(node -p "require('./app.json').expo.version")"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.json package.json
+          git commit -m "chore(release): v$VERSION"
+          git push origin HEAD:main
 
       - name: Build development client Android APK
         if: inputs.lane == 'development'

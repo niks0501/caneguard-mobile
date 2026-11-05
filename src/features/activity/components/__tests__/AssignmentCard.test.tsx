@@ -1,5 +1,5 @@
 import { act, render, screen } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
 import { ASSIGNMENT_PHOTO_PLACEHOLDER } from '@/constants/copy';
 import { AssignmentCard } from '@/features/activity/components/AssignmentCard';
@@ -228,6 +228,6 @@ function photoFrameSize(): { height: number; width: number } {
 }
 
 function flattenedSize(style: unknown): { height: number; width: number } {
-  const flattened = StyleSheet.flatten(style) as { height: number; width: number };
+  const flattened = StyleSheet.flatten(style as StyleProp<ViewStyle>) as { height: number; width: number };
   return { height: flattened.height, width: flattened.width };
 }

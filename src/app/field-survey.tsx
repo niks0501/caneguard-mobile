@@ -4,7 +4,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
-import { ActivityIndicator, type GestureResponderEvent, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, type GestureResponderEvent, type HostInstance, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import Svg, { Circle, Polygon, Polyline } from 'react-native-svg';
@@ -113,7 +113,7 @@ export default function FieldSurveyScreen() {
   const [submitLocked, setSubmitLocked] = useState(false);
   const [awaitingSurveyStart, setAwaitingSurveyStart] = useState(false);
   const controlsLocked = readOnlyPending || syncBusy || awaitingSurveyStart;
-  const mapRef = useRef<View>(null);
+  const mapRef = useRef<HostInstance>(null);
   const liveFormRef = useRef({ affectedAreaCount: 0, controlsLocked, drawingAffectedArea, waypoints });
   useEffect(() => {
     liveFormRef.current = { affectedAreaCount: affectedAreas.length, controlsLocked, drawingAffectedArea, waypoints };

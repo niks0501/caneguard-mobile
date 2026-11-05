@@ -74,10 +74,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
   },
+  // Fixed square: on Android a percentage width combined with `aspectRatio`
+  // resolves to a full-height box that pushes the Sign in action off-screen
+  // on this non-scrolling screen.
   logo: {
-    width: '100%',
-    maxWidth: 180,
-    aspectRatio: 1,
+    width: 180,
+    height: 180,
   },
   appName: {
     ...Typography.title,

@@ -53,21 +53,16 @@ const WEB_MODEL_ERROR = new InferenceError(
 
 // A fixed deterministic result: the validation model never inspects pixels.
 const VALIDATION_TOP_LABEL: ModelOutputLabel = 'rust';
-const DEFAULT_VALIDATION_TOP_PROBABILITY = 0.8;
-
-function getValidationTopProbability(): number {
-  const configured = Number(process.env.EXPO_PUBLIC_WEB_VALIDATION_CONFIDENCE);
-  return Number.isFinite(configured) && configured > 0 && configured < 1
-    ? configured
-    : DEFAULT_VALIDATION_TOP_PROBABILITY;
-}
+const VALIDATION_TOP_PROBABILITY = 0.8;
 
 function runValidationModel(): ArrayBuffer[] {
   const { labels } = ACTIVE_MODEL;
-  const topProbability = getValidationTopProbability();
-  const remainingProbability = (1 - topProbability) / (labels.length - 1);
+  const remainingProbability =
+    (1 - VALIDATION_TOP_PROBABILITY) / (labels.length - 1);
   const probabilities = labels.map((label) =>
-    label === VALIDATION_TOP_LABEL ? topProbability : remainingProbability,
+    label === VALIDATION_TOP_LABEL
+      ? VALIDATION_TOP_PROBABILITY
+      : remainingProbability,
   );
   return [new Float32Array(probabilities).buffer];
 }

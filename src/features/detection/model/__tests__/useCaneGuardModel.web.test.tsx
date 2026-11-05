@@ -47,7 +47,6 @@ describe('web validation model stub', () => {
 
   afterEach(() => {
     delete process.env.EXPO_PUBLIC_WEB_VALIDATION;
-    delete process.env.EXPO_PUBLIC_WEB_VALIDATION_CONFIDENCE;
     if (ORIGINAL_API_BASE_URL === undefined) {
       delete process.env.EXPO_PUBLIC_API_BASE_URL;
     } else {
@@ -66,19 +65,6 @@ describe('web validation model stub', () => {
 
     expect(result.predictedLabel).toBe('rust');
     expect(result.scores).toHaveLength(4);
-  });
-
-  // Proves: the validation-only browser model can exercise both sides of a confidence cutoff without changing native inference.
-  it('accepts a validation-only confidence override for above-cutoff browser checks', async () => {
-    process.env.EXPO_PUBLIC_WEB_VALIDATION_CONFIDENCE = '0.9';
-    const outputBuffers = await runValidationStub();
-    const result = await runInference(
-      { run: async () => outputBuffers },
-      new ArrayBuffer(INPUT_BYTE_LENGTH),
-      0,
-    );
-
-    expect(result.confidence).toBeCloseTo(0.9, 6);
   });
 
   it('stays fail-closed without the validation runtime', async () => {

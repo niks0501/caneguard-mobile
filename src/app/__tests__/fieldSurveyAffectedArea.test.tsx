@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { renderWithGestures } from '../../../test/render-with-gestures';
 import { StyleSheet } from 'react-native';
 
 import FieldSurveyScreen from '@/app/field-survey';
@@ -117,7 +118,7 @@ beforeEach(() => {
 });
 
 it('stacks the three survey action controls in one vertical group so Capture GPS point stays reachable', async () => {
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
 
   const plotButton = screen.getByText(FIELD_SURVEY_COPY.plotBoundary);
@@ -152,7 +153,7 @@ it('stacks the three survey action controls in one vertical group so Capture GPS
 });
 
 it('shows the union affected area on screen instead of the sum of overlapping boundaries', async () => {
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
 
   await pressMap(100, 100);
@@ -184,7 +185,7 @@ it('shows the union affected area on screen instead of the sum of overlapping bo
 });
 
 it('reports too-few and self-crossing plot boundaries and keeps Submit disabled', async () => {
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
 
   await pressMap(100, 100);

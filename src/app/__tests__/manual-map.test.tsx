@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
+import { renderWithGestures } from '../../../test/render-with-gestures';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import ManualMapScreen from '@/app/manual-map';
@@ -133,7 +134,7 @@ describe('ManualMapScreen', () => {
   });
 
   it('expands the map to fullscreen and keeps confirm/cancel reachable', async () => {
-    await render(<ManualMapScreen />);
+    await renderWithGestures(<ManualMapScreen />);
     await act(async () => undefined);
     await loadMapTiles();
 
@@ -172,7 +173,7 @@ describe('ManualMapScreen', () => {
   });
 
   it('confirms the pinned location while in fullscreen', async () => {
-    await render(<ManualMapScreen />);
+    await renderWithGestures(<ManualMapScreen />);
     await act(async () => undefined);
     await loadMapTiles();
 
@@ -191,7 +192,7 @@ describe('ManualMapScreen', () => {
   });
 
   it('places the pin exactly under the finger after resizing to fullscreen', async () => {
-    await render(<ManualMapScreen />);
+    await renderWithGestures(<ManualMapScreen />);
     await act(async () => undefined);
     await loadMapTiles();
 
@@ -225,7 +226,7 @@ describe('ManualMapScreen', () => {
   });
 
   it('keeps the pinned location and coordinates across the fullscreen toggle', async () => {
-    await render(<ManualMapScreen />);
+    await renderWithGestures(<ManualMapScreen />);
     await act(async () => undefined);
     await loadMapTiles();
 
@@ -256,7 +257,7 @@ describe('ManualMapScreen', () => {
   });
 
   it('displays confirmation toast when location is confirmed', async () => {
-    await render(
+    await renderWithGestures(
       <ToastProvider>
         <ManualMapScreen />
       </ToastProvider>,

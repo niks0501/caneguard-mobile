@@ -1,4 +1,4 @@
-// SDK 57's global fetch wraps native transport failures in this class, but
+// Expo's global fetch wraps native transport failures in this class, but
 // expo/fetch does not re-export it. Use identity, not names or message matching.
 import { FetchError } from 'expo/src/winter/fetch/FetchErrors';
 

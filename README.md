@@ -28,7 +28,7 @@ Android development build
 
 ## Architecture and local services
 
-- **Mobile:** Expo SDK 57, Expo Router, React Native 0.86, bundled `react-native-fast-tflite`, Expo SQLite, Drizzle, SecureStore, and retryable synchronization.
+- **Mobile:** Expo SDK 58, Expo Router, React Native 0.88, bundled `react-native-fast-tflite`, Expo SQLite, Drizzle, SecureStore, and retryable synchronization.
 - **Web:** React 19, TypeScript, and Vite at the root of `caneguard-web`.
 - **API:** Laravel 13 and Sanctum under `caneguard-web/api`.
 - **Database:** MySQL 8.4 LTS for the API and device-local SQLite for mobile records.

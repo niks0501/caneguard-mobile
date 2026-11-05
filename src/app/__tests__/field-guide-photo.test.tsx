@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
+import { renderWithGestures } from '../../../test/render-with-gestures';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import FieldGuidePhotoScreen from '@/app/field-guide/[entryId]/photo';
@@ -26,7 +27,7 @@ function showPhoto(entryId: string, index: string) {
 describe('FieldGuidePhotoScreen', () => {
   it('opens the selected bundled photo uncropped with its caption and credits', async () => {
     showPhoto('smut', '0');
-    await render(<FieldGuidePhotoScreen />);
+    await renderWithGestures(<FieldGuidePhotoScreen />);
 
     expect(screen.getByTestId('field-guide.photo.screen')).toBeOnTheScreen();
     expect(screen.getByTestId('field-guide.photo.image')).toBeOnTheScreen();
@@ -44,7 +45,7 @@ describe('FieldGuidePhotoScreen', () => {
 
   it('selects the photo the reader tapped', async () => {
     showPhoto('smut', '1');
-    await render(<FieldGuidePhotoScreen />);
+    await renderWithGestures(<FieldGuidePhotoScreen />);
 
     expect(screen.getByTestId('field-guide.photo.caption')).toHaveTextContent(
       'Several whips curling over a smut-affected block',
@@ -55,7 +56,7 @@ describe('FieldGuidePhotoScreen', () => {
 
   it('closes back to the entry', async () => {
     showPhoto('rust', '0');
-    await render(<FieldGuidePhotoScreen />);
+    await renderWithGestures(<FieldGuidePhotoScreen />);
 
     await fireEvent.press(screen.getByLabelText(FIELD_GUIDE_PHOTO_VIEWER_CLOSE));
     expect(mockBack).toHaveBeenCalled();
@@ -63,7 +64,7 @@ describe('FieldGuidePhotoScreen', () => {
 
   it('renders an honest empty state for an out-of-range photo', async () => {
     showPhoto('smut', '99');
-    await render(<FieldGuidePhotoScreen />);
+    await renderWithGestures(<FieldGuidePhotoScreen />);
 
     expect(screen.getByTestId('field-guide.photo.not-found')).toBeOnTheScreen();
     expect(screen.getByText(FIELD_GUIDE_PHOTO_VIEWER_MISSING_TITLE)).toBeOnTheScreen();
@@ -74,7 +75,7 @@ describe('FieldGuidePhotoScreen', () => {
 
   it('renders an honest empty state for an unknown entry', async () => {
     showPhoto('not-a-real-entry', '0');
-    await render(<FieldGuidePhotoScreen />);
+    await renderWithGestures(<FieldGuidePhotoScreen />);
 
     expect(screen.getByText(FIELD_GUIDE_NOT_FOUND_TITLE)).toBeOnTheScreen();
 

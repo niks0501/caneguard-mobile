@@ -6,9 +6,10 @@
 // read back truncated, and Drizzle's expo driver prepares statements through the
 // sync API, so ordinary app reads fail with a JSON syntax error.
 //
-// Upstream fixed this in `expo-sqlite` 58 (results longer than 255 bytes). This
-// copy only changes that one write; delete the file and its Metro alias in
-// `metro.config.js` when the app moves to SDK 58.
+// Upstream writes the full 32-bit length from `expo-sqlite` 58 on, so this copy
+// is now redundant. It stays applied on web through the alias in
+// `scripts/web-validation-config.js`; see `docs/qa/web-validation.md` for the
+// removal condition.
 //
 // Imports are repointed at the installed package files because the package does
 // not export its `web/` subpaths. Keep it a verbatim copy otherwise.

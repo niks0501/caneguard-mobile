@@ -73,7 +73,7 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 };
 
 /**
- * The web SQLite bridge in `expo-sqlite` 57 talks to its worker through
+ * The web SQLite bridge in `expo-sqlite` talks to its worker through
  * `SharedArrayBuffer`, which browsers only expose to cross-origin-isolated
  * pages. Serving COOP/COEP from the dev server gives validators that isolation
  * without a proxy.

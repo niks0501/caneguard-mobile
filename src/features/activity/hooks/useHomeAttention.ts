@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
 
 import {
   buildNeedsAttention,
@@ -43,7 +43,7 @@ export function useHomeAttention(): HomeAttention {
   }, [today]);
 
   useEffect(() => {
-    let previousState: AppStateStatus | null = AppState.currentState;
+    let previousState: string | null = AppState.currentState ?? null;
     const subscription = AppState.addEventListener('change', (nextState) => {
       const becameActive = nextState === 'active' && previousState !== 'active';
       previousState = nextState;

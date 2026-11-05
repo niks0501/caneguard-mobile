@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { renderWithGestures } from '../../../test/render-with-gestures';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import FieldSurveyScreen from '@/app/field-survey';
@@ -163,7 +164,7 @@ it('recaptures the named point even when a point ahead of it is removed while sa
   ];
   mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(boundary) })]);
 
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.recapturePoint(2))).toBeTruthy());
 
   let resolveCapture!: (value: Awaited<ReturnType<typeof captureSurveyWaypoint>>) => void;
@@ -203,7 +204,7 @@ it('recaptures the named point even when a point ahead of it is removed while sa
 it('drops a boundary capture when the affected-area mode is opened while sampling', async () => {
   mockListSurveys.mockReturnValue([draftRow()]);
 
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
 
   let resolveCapture!: (value: Awaited<ReturnType<typeof captureSurveyWaypoint>>) => void;
@@ -241,7 +242,7 @@ it('reports a cancelled recapture when the named point is removed while sampling
   ];
   mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(boundary) })]);
 
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.recapturePoint(2))).toBeTruthy());
 
   let resolveCapture!: (value: Awaited<ReturnType<typeof captureSurveyWaypoint>>) => void;
@@ -281,14 +282,14 @@ it('reports a boundary drawn only on the map as low accuracy without offering re
   const mapped = PLOT_WAYPOINTS.map((point) => ({ ...point, accuracyMeters: null, source: 'map' as const }));
   mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(mapped) })]);
 
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
 
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.qualityState.low_accuracy)).toBeTruthy());
   expect(screen.queryByText(FIELD_SURVEY_COPY.recapturePoint(1))).toBeNull();
 });
 
 it('adds a finite vertex when a web-shaped map press has no locationX/locationY', async () => {
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
 
   await fireEvent.press(screen.getByTestId('field-survey.map'), {
     nativeEvent: { locationX: undefined, locationY: undefined, offsetX: 180, offsetY: 190, pageX: 200, pageY: 300 },
@@ -304,7 +305,7 @@ it('adds a finite vertex when a web-shaped map press has no locationX/locationY'
 it('ignores a map press with no usable coordinates and drops non-finite saved vertices on load', async () => {
   const damaged = [PLOT_WAYPOINTS[0], { ...PLOT_WAYPOINTS[1], latitude: null, longitude: null }, ...PLOT_WAYPOINTS.slice(2)];
   mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(damaged) })]);
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
 
   await fireEvent.press(screen.getByTestId('field-survey.map'), { nativeEvent: { locationX: undefined, locationY: undefined, pageX: 5, pageY: 5 } });
 
@@ -314,7 +315,7 @@ it('ignores a map press with no usable coordinates and drops non-finite saved ve
 });
 
 it('keeps captured affected-waypoint provenance when the affected mode button is tapped again', async () => {
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
 
   await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.affectedAreaBoundary));
@@ -345,7 +346,7 @@ it('keeps restored unfinished affected waypoints and blocks submit until they ar
     draftRow({ activeAffectedWaypointsJson: JSON.stringify(ACTIVE_AFFECTED_WAYPOINTS) }),
   ]);
 
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
 
   await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.affectedAreaBoundary} (3)`)).toBeTruthy());
   expect(submitDisabled()).toBe(true);
@@ -373,7 +374,7 @@ it('keeps restored unfinished affected waypoints and blocks submit until they ar
 });
 
 it('keeps the in-screen Close control available beside the docked submit', async () => {
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
 
   await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.close));
@@ -382,7 +383,7 @@ it('keeps the in-screen Close control available beside the docked submit', async
 });
 
 it('keeps the map first and the docked actions outside the details scroll', async () => {
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
 
   const tree = screen.toJSON() as unknown as RenderedNode;
@@ -416,7 +417,7 @@ it('keeps a synced boundary saved instead of autosaving it again', async () => {
   mockUseLocalSearchParams.mockReturnValue({ surveyId: synced.clientUuid });
   mockSaveDraft.mockRejectedValue(new Error('A submitted field survey cannot be edited.'));
 
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_SYNC_COPY.savedOffline)).toBeTruthy());
 
   expect(mockFindSurvey).toHaveBeenCalledWith(expect.anything(), synced.clientUuid, 'owner-1');
@@ -430,7 +431,7 @@ it('still allows resubmitting a boundary that is only waiting to send', async ()
   mockFindSurvey.mockReturnValue(pending);
   mockUseLocalSearchParams.mockReturnValue({ surveyId: pending.clientUuid });
 
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_SYNC_COPY.savedOffline)).toBeTruthy());
 
   expect(submitDisabled()).toBe(false);
@@ -441,7 +442,7 @@ it('does not resume another boundary or save a draft when the requested survey i
   mockFindSurvey.mockReturnValue(null);
   mockUseLocalSearchParams.mockReturnValue({ surveyId: 'requested-but-gone' });
 
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(mockFindSurvey).toHaveBeenCalled());
   await act(async () => undefined);
 
@@ -458,7 +459,7 @@ it('only saves a missing linked survey after the user starts a new boundary', as
   mockFindSurvey.mockReturnValue(null);
   mockUseLocalSearchParams.mockReturnValue({ surveyId: 'requested-but-gone' });
 
-  await render(<FieldSurveyScreen />);
+  await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(mockFindSurvey).toHaveBeenCalled());
   await act(async () => undefined);
 

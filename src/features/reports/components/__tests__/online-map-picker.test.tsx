@@ -1,4 +1,5 @@
-import { act, fireEvent, render, renderHook, screen } from '@testing-library/react-native';
+import { act, fireEvent, renderHook, screen } from '@testing-library/react-native';
+import { renderWithGestures } from '../../../../../test/render-with-gestures';
 import { StyleSheet } from 'react-native';
 import type {
   GestureStateChangeEvent,
@@ -53,7 +54,7 @@ describe('OnlineMapPicker', () => {
     process.env.EXPO_PUBLIC_API_BASE_URL = 'http://127.0.0.1:8000';
     const onSelectionChange = jest.fn();
 
-    await render(
+    await renderWithGestures(
       <OnlineMapPicker
         authToken="secret-dev-token"
         initialCenter={DEFAULT_MANUAL_MAP_CENTER}
@@ -107,7 +108,7 @@ describe('OnlineMapPicker', () => {
     delete process.env.EXPO_PUBLIC_API_BASE_URL;
     const onSelectionChange = jest.fn();
 
-    await render(
+    await renderWithGestures(
       <OnlineMapPicker
         initialCenter={DEFAULT_MANUAL_MAP_CENTER}
         isOnline={true}
@@ -132,7 +133,7 @@ describe('OnlineMapPicker', () => {
       'http://127.0.0.1:8000/api/v1/mobile/map-tiles/{z}/{x}/{y}.png';
     const onSelectionChange = jest.fn();
 
-    await render(
+    await renderWithGestures(
       <OnlineMapPicker
         authToken="local-dev-token"
         initialCenter={DEFAULT_MANUAL_MAP_CENTER}
@@ -169,7 +170,7 @@ describe('OnlineMapPicker', () => {
 
   it('keeps selection unavailable when the device is offline', async () => {
     const onSelectionChange = jest.fn();
-    await render(
+    await renderWithGestures(
       <OnlineMapPicker
         initialCenter={DEFAULT_MANUAL_MAP_CENTER}
         isOnline={false}
@@ -184,7 +185,7 @@ describe('OnlineMapPicker', () => {
   });
 
   it('attaches the mobile bearer token to privacy-proxy tile requests', async () => {
-    await render(
+    await renderWithGestures(
       <OnlineMapPicker
         authToken="test-session-token"
         initialCenter={DEFAULT_MANUAL_MAP_CENTER}
@@ -204,7 +205,7 @@ describe('OnlineMapPicker', () => {
 
   it('selects coordinates only after an online tile loads', async () => {
     const onSelectionChange = jest.fn();
-    await render(
+    await renderWithGestures(
       <OnlineMapPicker
         initialCenter={DEFAULT_MANUAL_MAP_CENTER}
         isOnline={true}
@@ -244,7 +245,7 @@ describe('OnlineMapPicker', () => {
 
   it('keeps the picker disabled when any required map tile fails', async () => {
     const onSelectionChange = jest.fn();
-    await render(
+    await renderWithGestures(
       <OnlineMapPicker
         initialCenter={DEFAULT_MANUAL_MAP_CENTER}
         isOnline={true}
@@ -263,7 +264,7 @@ describe('OnlineMapPicker', () => {
 
   it('records the exact tapped viewport point when the tap lands on a tile', async () => {
     const onSelectionChange = jest.fn();
-    await render(
+    await renderWithGestures(
       <OnlineMapPicker
         initialCenter={DEFAULT_MANUAL_MAP_CENTER}
         isOnline={true}
@@ -345,7 +346,7 @@ describe('OnlineMapPicker', () => {
 
   it('hides navigation controls in fullscreen and restores them on exit', async () => {
     const onToggleFullscreen = jest.fn();
-    const view = await render(
+    const view = await renderWithGestures(
       <OnlineMapPicker
         initialCenter={DEFAULT_MANUAL_MAP_CENTER}
         isOnline={false}
@@ -401,7 +402,7 @@ describe('OnlineMapPicker', () => {
 
   it('keeps selection and center across the fullscreen toggle', async () => {
     const onSelectionChange = jest.fn();
-    const view = await render(
+    const view = await renderWithGestures(
       <OnlineMapPicker
         initialCenter={DEFAULT_MANUAL_MAP_CENTER}
         isOnline={true}
@@ -450,7 +451,7 @@ describe('OnlineMapPicker', () => {
 
   it('places the pin exactly under the finger in fullscreen', async () => {
     const onSelectionChange = jest.fn();
-    await render(
+    await renderWithGestures(
       <OnlineMapPicker
         fullscreen
         initialCenter={DEFAULT_MANUAL_MAP_CENTER}
@@ -513,7 +514,7 @@ describe('OnlineMapPicker', () => {
 
   it('recomputes tiles for the new viewport size when fullscreen resizes the map', async () => {
     const onSelectionChange = jest.fn();
-    const view = await render(
+    const view = await renderWithGestures(
       <OnlineMapPicker
         initialCenter={DEFAULT_MANUAL_MAP_CENTER}
         isOnline={true}
@@ -601,7 +602,7 @@ describe('OnlineMapPicker', () => {
   });
 
   it('retains loaded overlap after panning into a new tile set', async () => {
-    await render(
+    await renderWithGestures(
       <OnlineMapPicker
         initialCenter={DEFAULT_MANUAL_MAP_CENTER}
         isOnline={true}

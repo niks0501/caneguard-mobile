@@ -8,6 +8,7 @@ import {
   Text,
   View,
   useWindowDimensions,
+  type HostInstance,
   type LayoutChangeEvent,
   type NativeSyntheticEvent,
   type NativeTouchEvent,
@@ -101,7 +102,7 @@ export function OnlineMapPicker({
     failed: string[];
     loaded: string[];
   }>({ failed: [], loaded: [] });
-  const viewportRef = useRef<View>(null);
+  const viewportRef = useRef<HostInstance>(null);
   const mapTileUrlTemplate = getConfiguredMapTileUrlTemplate();
   const tiles = useMemo(
     () =>

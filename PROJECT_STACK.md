@@ -4,10 +4,10 @@ Project-specific stack and implementation guidance for CaneGuard Mobile.
 
 ## Installed stack
 
-- Expo SDK 57
+- Expo SDK 58
 - Expo Router
-- React 19
-- React Native 0.86
+- React 19.3
+- React Native 0.88
 - `@shopify/flash-list` (list virtualization)
 - `@sentry/react-native` (crash and release-health reporting)
 - TypeScript 6 with strict mode
@@ -284,7 +284,7 @@ Existing EAS profiles:
 
 The hybrid QA delivery procedure and release-record template live in `docs/qa/mobile-candidate.md` and `docs/qa/mobile-release-record.template.md`.
 
-Use the manual Mobile build workflow for QA or production builds; the production lane remains blocked until its EAS environment has `EXPO_PUBLIC_API_BASE_URL` and `EXPO_PUBLIC_AUTH_LINK_HOST`. CI may publish a signed OTA update to the `qa` channel automatically on changes merged to `main` when its native/build/dependency skip-list allows it; a manual update dispatch is also available. A person must choose build versus update using the delivery-decision table in `docs/qa/mobile-candidate.md` before dispatching. The production release workflow bumps `app.json` and `package.json`, creates an annotated `vX.Y.Z` tag, and pushes that commit to `main`; pull requests may not edit either version field directly.
+Use the manual Mobile build workflow for QA or production builds; the production lane remains blocked until its EAS environment has `EXPO_PUBLIC_API_BASE_URL` and `EXPO_PUBLIC_AUTH_LINK_HOST`. CI may publish a signed OTA update to the `qa` channel automatically on changes merged to `main` when its native/build/dependency skip-list allows it; a manual update dispatch is also available. A person must choose build versus update using the delivery-decision table in `docs/qa/mobile-candidate.md` before dispatching. The production release workflow bumps `app.json` and `package.json`, creates an annotated `vX.Y.Z` tag, and pushes that commit to `main`; pull requests may not edit either version field directly, with a single one-time exception for the Expo SDK 58 upgrade that moved the app onto a new `appVersion`-based runtime.
 
 Treat changes to native dependencies or Expo native configuration as requiring development-build freshness before final device/E2E verification.
 

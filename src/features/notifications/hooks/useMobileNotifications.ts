@@ -1,5 +1,5 @@
 import { useFocusEffect } from 'expo-router';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { EMPTY_DATABASE, useCaneGuardDatabase } from '@/database/DatabaseProvider';
@@ -209,7 +209,7 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
 
   useEffect(() => {
     mounted.current = true;
-    let previousState: AppStateStatus | null = AppState.currentState;
+    let previousState: string | null = AppState.currentState ?? null;
     const subscription = AppState.addEventListener('change', (nextState) => {
       const becameActive = nextState === 'active' && previousState !== 'active';
       previousState = nextState;

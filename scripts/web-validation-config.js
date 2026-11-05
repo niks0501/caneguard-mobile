@@ -11,8 +11,10 @@ const {
  * Three web-only Metro rewrites live behind it:
  *
  * - `validation/expo-sqlite/WorkerChannel.ts` fixes the 255-byte sync result
- *   length bug in `expo-sqlite` 57. It keeps the app's reads honest on web and
- *   is removed when the app moves to SDK 58.
+ *   length bug in `expo-sqlite` 57. `expo-sqlite` 58 writes the full length
+ *   itself, so this rewrite is redundant on the installed SDK, but a browser
+ *   validation run has to confirm that before the copy and this alias are
+ *   removed; see `docs/qa/web-validation.md`.
  * - `validation/expo-secure-store/ExpoSecureStore.web.ts` keeps a validation
  *   session in `localStorage` so a fake account can reach Home and Activity. It
  *   is a deliberate security downgrade, so it is gated on an explicit env flag,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
 
 /**
  * The current time, re-read at the next hour boundary and whenever the app
@@ -24,7 +24,7 @@ export function useNow(): Date {
   }, [now]);
 
   useEffect(() => {
-    let previousState: AppStateStatus | null = AppState.currentState;
+    let previousState: string | null = AppState.currentState ?? null;
     const subscription = AppState.addEventListener('change', (nextState) => {
       const becameActive = nextState === 'active' && previousState !== 'active';
       previousState = nextState;

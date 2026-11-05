@@ -14,7 +14,11 @@ import {
 import type { CaneGuardDatabase } from '@/database/database';
 import { toStorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
-import { V1_CONFIDENCE_CAUTION_THRESHOLD } from '@/features/detection/constants/confidenceCaution';
+import {
+  V1_CONFIDENCE_CAUTION_THRESHOLD,
+  V2_CONFIDENCE_CAUTION_THRESHOLD,
+} from '@/features/detection/constants/confidenceCaution';
+import { MODEL_V2_VERSION } from '@/features/detection/constants/modelContract';
 import { fieldReports, scanRecords } from '@/database/schema';
 import type { ReportRepository } from '@/features/records/data/repositoryContracts';
 import { listScanRecords } from '@/features/records/data/scanRecordRepository';
@@ -53,8 +57,7 @@ export async function getLocalReportSummary(
 ): Promise<LocalReportSummary> {
   const owner = requireOwnerIdentity(submitterIdentity);
   const includeFieldReports = options.includeFieldReports ?? true;
-  const lowScoreThreshold =
-    options.lowScoreThreshold ?? V1_CONFIDENCE_CAUTION_THRESHOLD;
+  const lowScoreThreshold = options.lowScoreThreshold;
   const recentLimit = Math.min(
     Math.max(Math.trunc(options.recentLimit ?? DEFAULT_RECENT_RECORD_LIMIT), 1),
     25,
@@ -62,9 +65,10 @@ export async function getLocalReportSummary(
   const where = buildDateCondition(options.dateRange, owner);
 
   if (
-    !Number.isFinite(lowScoreThreshold) ||
-    lowScoreThreshold < 0 ||
-    lowScoreThreshold > 1
+    lowScoreThreshold !== undefined &&
+    (!Number.isFinite(lowScoreThreshold) ||
+      lowScoreThreshold < 0 ||
+      lowScoreThreshold > 1)
   ) {
     throw toStorageError(
       new Error('Invalid low-score threshold.'),
@@ -72,6 +76,11 @@ export async function getLocalReportSummary(
       'Report query options are invalid.',
     );
   }
+
+  const lowScoreCondition =
+    lowScoreThreshold === undefined
+      ? sql`${scanRecords.confidence} < case when ${scanRecords.modelVersion} = ${MODEL_V2_VERSION} then ${V2_CONFIDENCE_CAUTION_THRESHOLD} else ${V1_CONFIDENCE_CAUTION_THRESHOLD} end`
+      : sql`${scanRecords.confidence} < ${lowScoreThreshold}`;
 
   try {
     const [totals, recordsByLabel, recentRecords, pendingReports] = await Promise.all([
@@ -83,7 +92,7 @@ export async function getLocalReportSummary(
           possibleDiseasePredictions:
             sql<number>`coalesce(sum(case when ${scanRecords.predictedLabel} <> 'healthy' then 1 else 0 end), 0)`,
           lowScorePredictions:
-            sql<number>`coalesce(sum(case when ${scanRecords.confidence} < ${lowScoreThreshold} then 1 else 0 end), 0)`,
+            sql<number>`coalesce(sum(case when ${lowScoreCondition} then 1 else 0 end), 0)`,
         })
         .from(scanRecords)
         .where(where)

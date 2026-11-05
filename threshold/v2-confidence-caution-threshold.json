@@ -1,0 +1,42 @@
+{
+  "artifact": "CaneGuard Model V2 provisional confidence caution threshold",
+  "model_sha256": "349fe1b903e1ab3bef7cb7ad5fa83c8375ac4d73bae0b8fa4e27e7c1ff57ad86",
+  "class_order": [
+    "healthy",
+    "mosaic",
+    "rust",
+    "smut",
+    "rssi"
+  ],
+  "threshold": 0.8770278,
+  "f1": 0.4329896907216495,
+  "precision": 0.3,
+  "recall": 0.7777777777777778,
+  "confusion_counts": {
+    "true_positive": 21,
+    "false_positive": 49,
+    "true_negative": 178,
+    "false_negative": 6
+  },
+  "warned_sample_count": 70,
+  "warned_sample_rate": 0.2755905511811024,
+  "provenance": {
+    "source_path": "threshold/v2-selected-validation-predictions.csv",
+    "source_commit": "770cef32af81a5dd26a3144f0423d786779e6c4f",
+    "source_sha256": "0cf295f0ac23fd97b7b3b5c70ed628b7122a5168586d6c7c0b81b6fbb62da4e9",
+    "source_row_count": 279,
+    "selected_checkpoint_not_oof": true,
+    "holdout_predictions_used": false,
+    "note": "Selected-checkpoint validation predictions; not genuine out-of-fold predictions. This threshold is provisional and must not be treated as an OOF estimate."
+  },
+  "score_definition": "For scans whose top class is not RSSI, score is the maximum softmax probability over Healthy, Mosaic, Rust, Smut, and RSSI. RSSI-top scans are excluded because the app ends them as a scan error; on included scans this equals the maximum of the four stored scan classes because RSSI is not top.",
+  "selection_rule": {
+    "positive_event": "predicted_class != class_name",
+    "candidate_thresholds": "0.0, each distinct observed max score among non-RSSI-top rows, and 1.0",
+    "warning_rule": "warn when score is strictly below threshold",
+    "optimization": "maximize F1 for incorrect-prediction detection; ties prefer higher error recall, then higher threshold",
+    "included_non_rssi_top_rows": 254,
+    "excluded_rssi_top_rows": 25,
+    "holdout_tuning": "not used"
+  }
+}

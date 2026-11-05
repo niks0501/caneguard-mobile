@@ -236,6 +236,7 @@ export async function listScanThreadRows(
         createdAt: scanRecords.createdAt,
         followsUpScanId: scanRecords.followsUpScanId,
         id: scanRecords.id,
+        modelVersion: scanRecords.modelVersion,
         predictedLabel: scanRecords.predictedLabel,
       })
       .from(scanRecords)

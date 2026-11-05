@@ -1,4 +1,4 @@
-import { isBelowV1ConfidenceCautionThreshold } from '@/features/detection/constants/confidenceCaution';
+import { isBelowConfidenceCautionThreshold } from '@/features/detection/constants/confidenceCaution';
 
 /**
  * Farmer-facing state of a saved scan. It is always computed from the saved
@@ -16,6 +16,7 @@ export const FARMER_SCAN_STATES: readonly FarmerScanState[] = [
 export interface ScanThreadRow {
   confidence: number;
   createdAt: string;
+  modelVersion: string;
   followsUpScanId: string | null;
   id: string;
   predictedLabel: string;
@@ -50,7 +51,7 @@ export function buildFarmerScanStates(
     );
     const hasFollowUp = thread.some((row) => row.followsUpScanId != null);
     let state: FarmerScanState;
-    if (isBelowV1ConfidenceCautionThreshold(latest.confidence)) {
+    if (isBelowConfidenceCautionThreshold(latest.confidence, latest.modelVersion)) {
       state = 'needs_checking';
     } else if (hasFollowUp) {
       state = 'followed_up';

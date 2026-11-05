@@ -66,6 +66,14 @@ describe('scan draft checkpoint Check Again metadata', () => {
     expect(restored?.result?.predictedLabel).toBe('rust');
   });
 
+  // Proposal - proves the farmer's optional place survives a restart and is capped.
+  it('keeps the optional place across a restart', () => {
+    expect(reread(completedFollowUp({ personalPlace: 'Near the mill' }))?.personalPlace).toBe(
+      'Near the mill',
+    );
+    expect(reread(completedFollowUp())?.personalPlace).toBeNull();
+  });
+
   it('keeps an ordinary scan ordinary', () => {
     const restored = reread(completedFollowUp({ followUpOf: null, personalNote: null }));
 

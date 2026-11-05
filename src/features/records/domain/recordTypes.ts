@@ -42,10 +42,12 @@ export interface StoredClassScore {
 }
 
 export const MAX_PERSONAL_NOTE_LENGTH = 500;
+export const MAX_PERSONAL_PLACE_LENGTH = 120;
 
 export interface ScanRecordDetails extends ScanRecordListItem {
   followsUpScanId?: string | null;
   personalNote?: string | null;
+  personalPlace?: string | null;
   hasLinkedFieldReport: boolean;
   ownerIdentity: string;
   checklistConsistency: ChecklistConsistency;
@@ -114,6 +116,7 @@ export interface CompletedScanDraft {
   modelVersion: string;
   predictedLabel: ModelLabel;
   personalNote?: string | null;
+  personalPlace?: string | null;
   preprocessMs: number;
   qualityWarnings: QualityWarning[];
   reportedSeverity: ReportedSeverity | null;

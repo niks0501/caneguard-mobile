@@ -47,6 +47,8 @@ export function scanSessionReducer(
       return { ...initialScanSessionState, followUpOf: action.payload.scanId };
     case 'SET_PERSONAL_NOTE':
       return { ...state, personalNote: action.payload };
+    case 'SET_PERSONAL_PLACE':
+      return { ...state, personalPlace: action.payload };
     case 'START_PREPROCESSING':
       return {
         ...state,

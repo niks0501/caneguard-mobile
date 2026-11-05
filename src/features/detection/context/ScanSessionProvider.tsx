@@ -108,6 +108,7 @@ function restoredSessionState(checkpoint: ScanDraftCheckpoint): ScanSessionState
     ...initialScanSessionState,
     followUpOf: checkpoint.followUpOf,
     personalNote: checkpoint.personalNote,
+    personalPlace: checkpoint.personalPlace,
     preprocessMs: checkpoint.preprocessMs,
     qualityAssessment: checkpoint.qualityAssessment,
     reportedSeverity: checkpoint.reportedSeverity,
@@ -364,6 +365,7 @@ function ScanSessionOwner({
     persistCheckpoint,
     state.followUpOf,
     state.personalNote,
+    state.personalPlace,
     state.reportedSeverity,
     state.result,
     state.selectedSymptoms,
@@ -486,6 +488,7 @@ function checkpointSignature(checkpoint: {
   draftId: string;
   followUpOf: string | null;
   personalNote: string | null;
+  personalPlace: string | null;
   qualityAssessment: unknown;
   reportedSeverity: string | null;
   result: { confidence: number; predictedLabel: string } | null;
@@ -502,6 +505,7 @@ function checkpointSignature(checkpoint: {
     checkpoint.qualityAssessment,
     checkpoint.followUpOf,
     checkpoint.personalNote,
+    checkpoint.personalPlace,
   ]);
 }
 

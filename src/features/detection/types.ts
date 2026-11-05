@@ -58,6 +58,8 @@ export interface ScanSessionState {
   followUpOf?: string | null;
   /** The farmer's own words about what they see now (follow-up only). */
   personalNote?: string | null;
+  /** The farmer's optional place in their own words (no GPS). */
+  personalPlace?: string | null;
 }
 
 export type ScanSessionAction =
@@ -73,6 +75,7 @@ export type ScanSessionAction =
   | { type: 'RESET_SCAN'; payload?: { sessionUri: string | null } }
   | { type: 'START_FOLLOW_UP'; payload: { scanId: string } }
   | { type: 'SET_PERSONAL_NOTE'; payload: string }
+  | { type: 'SET_PERSONAL_PLACE'; payload: string }
   | { type: 'START_PREPROCESSING' }
   | {
       type: 'COMPLETE_PREPROCESSING';

@@ -19,7 +19,7 @@ import {
   isManagedScanImageUri,
   managedImageExists,
 } from '@/features/records/services/scanImageStorage';
-import { MAX_PERSONAL_NOTE_LENGTH } from '@/features/records/domain/recordTypes';
+import { MAX_PERSONAL_NOTE_LENGTH, MAX_PERSONAL_PLACE_LENGTH } from '@/features/records/domain/recordTypes';
 import type { ImageQualityAssessment, QualityWarning } from '@/features/detection/validation/assessImageQuality';
 
 export const SCAN_DRAFT_KIND = 'scan' as const;
@@ -47,6 +47,7 @@ export interface ScanDraftCheckpoint {
   imageSizeBytes: number | null;
   managedImageUri: string;
   personalNote: string | null;
+  personalPlace: string | null;
   preprocessMs: number | null;
   qualityAssessment: ImageQualityAssessment | null;
   reportedSeverity: ReportedSeverity | null;
@@ -92,6 +93,7 @@ export function buildScanDraftCheckpoint(input: {
     imageSizeBytes: input.imageSizeBytes,
     managedImageUri: input.managedImageUri,
     personalNote: sanitizePersonalNote(state.personalNote),
+    personalPlace: sanitizePersonalPlace(state.personalPlace),
     preprocessMs: state.preprocessMs,
     qualityAssessment: sanitizeQualityAssessment(state.qualityAssessment),
     reportedSeverity: sanitizeSeverity(state.reportedSeverity),
@@ -226,6 +228,7 @@ export function parseScanDraftCheckpoint(
         : null,
     managedImageUri: value.managedImageUri,
     personalNote: sanitizePersonalNote(value.personalNote),
+    personalPlace: sanitizePersonalPlace(value.personalPlace),
     preprocessMs:
       typeof value.preprocessMs === 'number' && Number.isFinite(value.preprocessMs)
         ? value.preprocessMs
@@ -262,6 +265,12 @@ function sanitizeFollowUpId(value: unknown): string | null {
 function sanitizePersonalNote(value: unknown): string | null {
   return typeof value === 'string'
     ? value.slice(0, MAX_PERSONAL_NOTE_LENGTH)
+    : null;
+}
+
+function sanitizePersonalPlace(value: unknown): string | null {
+  return typeof value === 'string'
+    ? value.slice(0, MAX_PERSONAL_PLACE_LENGTH)
     : null;
 }
 

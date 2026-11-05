@@ -57,7 +57,11 @@ tests. "Implemented" does not mean "verified on a device":
   photo, date, **Possible Condition**, and a `CG-P-` scan ID derived from the
   scan UUID. It renders from the local record with no server round-trip. A note
   appears when the saved record already carries one (a Check Again follow-up's
-  personal note); the analysis result never captures a note itself.
+  personal note). The farmer may type an optional **place** in their own words
+  (stored on-device in `scan_records.personal_place`; no GPS or location
+  permission, never uploaded); the card omits it when empty, adds the AI-only
+  decision-support line and a fixed footer (the farmer's own scan; the inspector
+  decides if a report is needed), and never shows Check Again history.
 - Field Report Draft (Field Inspector accounts holding the `report:submit`
   capability): five-step form, local autosave checkpoints, readiness checklist,
   finalization, foreground sync and manual retry. The Review step carries an

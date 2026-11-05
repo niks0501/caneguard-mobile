@@ -29,6 +29,11 @@ describe('scan session Check Again state', () => {
     });
     expect(written.personalNote).toBe('Leaves look dry at the edges.');
 
+    // Proposal - proves the place is typed into session state and cleared on reset.
+    const placed = scanSessionReducer(written, { type: 'SET_PERSONAL_PLACE', payload: 'North field' });
+    expect(placed.personalPlace).toBe('North field');
+    expect(scanSessionReducer(placed, { type: 'RESET_SCAN' }).personalPlace ?? null).toBeNull();
+
     const reset = scanSessionReducer(written, { type: 'RESET_SCAN' });
     expect(reset.followUpOf ?? null).toBeNull();
     expect(reset.personalNote ?? null).toBeNull();

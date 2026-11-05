@@ -64,6 +64,7 @@ export async function insertScanRecord(
           ownerIdentity,
           followsUpScanId: input.followsUpScanId ?? null,
           personalNote: input.personalNote ?? null,
+          personalPlace: input.personalPlace ?? null,
           managedImageUri: input.managedImageUri,
           imageMimeType: input.imageMimeType,
           imageSizeBytes: input.imageSizeBytes,

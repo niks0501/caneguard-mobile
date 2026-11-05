@@ -10,6 +10,7 @@ import {
 const row = (overrides: Partial<ScanThreadRow> & { id: string }): ScanThreadRow => ({
   confidence: 0.9,
   createdAt: '2026-11-01T00:00:00.000Z',
+  modelVersion: 'v1.0-mobilenetv2',
   followsUpScanId: null,
   predictedLabel: 'healthy',
   ...overrides,
@@ -32,6 +33,21 @@ describe('buildFarmerScanStates', () => {
   it('marks an uncertain scan as needing checking even when healthy', () => {
     expect(buildFarmerScanStates([row({ id: 'a', confidence: 0.3 })]).get('a')).toBe(
       'needs_checking',
+    );
+  });
+
+  // Proves: V2 saved records use the provisional V2 cutoff while V1 records keep V1 behavior.
+  it('uses the stored model version when deriving uncertainty', () => {
+    expect(
+      buildFarmerScanStates([
+        row({ id: 'v1', confidence: 0.6 }),
+        row({ id: 'v2', confidence: 0.6, modelVersion: 'v2.0-mobilenetv2' }),
+      ]),
+    ).toEqual(
+      new Map([
+        ['v1', 'saved'],
+        ['v2', 'needs_checking'],
+      ]),
     );
   });
 

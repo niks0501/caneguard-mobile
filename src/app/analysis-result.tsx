@@ -27,7 +27,7 @@ import {
   type ChecklistConsistency,
 } from '@/features/detection/checklist/checklistConsistency';
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
-import { isBelowV1ConfidenceCautionThreshold } from '@/features/detection/constants/confidenceCaution';
+import { isBelowConfidenceCautionThreshold } from '@/features/detection/constants/confidenceCaution';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
 import { useScanSession } from '@/features/detection/context/useScanSession';
@@ -287,7 +287,10 @@ export default function AnalysisResultScreen() {
     consistency === 'inconsistent' && !canReportToOffice
       ? "The reporter's observation does not match the Possible Condition. Both are kept separately."
       : consistencyPresentation.message;
-  const isLowScore = isBelowV1ConfidenceCautionThreshold(result.confidence);
+  const isLowScore = isBelowConfidenceCautionThreshold(
+    result.confidence,
+    result.modelVersion,
+  );
   const qualityWarnings = state.qualityAssessment?.warnings ?? [];
   const checklistMismatch = consistency === 'inconsistent';
   const showOutcomeCaution = isLowScore || qualityWarnings.length > 0 || checklistMismatch;

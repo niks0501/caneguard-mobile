@@ -27,6 +27,10 @@ the Expo web dev server with:
   Accepted pins run from `1970-01-10` to `9999-12-31`; the fixtures derive
   earlier days, so anything outside that window stops the script with the
   one-line date error.
+- `EXPO_PUBLIC_WEB_VALIDATION_CONFIDENCE` — optional validation-only top
+  probability for the fixed browser model stub. The default `0.8` is below the
+  provisional V2 caution cutoff; set `0.9` for the above-cutoff result check.
+  This affects only the development validation stub and never native inference.
 
 Then:
 

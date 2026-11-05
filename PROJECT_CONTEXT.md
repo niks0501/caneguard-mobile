@@ -343,6 +343,8 @@ The V2 artifact identity is bound to `MODEL_V2_SHA256`, the `tflite_sha256` in `
 
 Scan output stays four-class: the scan flow, stored records, and sync carry `healthy`, `mosaic`, `rust`, and `smut`. `runInference` therefore fails the scan with `LABEL_MAPPING_FAILED` when `rssi` is the top class, and otherwise drops the `rssi` entry without renormalizing the remaining scores. Carrying the fifth output through display/storage/sync is still the follow-up that would relax this.
 
+Confidence cautions are selected by each result or saved record's stored `modelVersion`. V1 records keep the OOF-derived V1 artifact cutoff; V2 records use the provisional `threshold/v2-confidence-caution-threshold.json` cutoff. The V2 artifact is derived from selected-checkpoint validation predictions, explicitly not genuine out-of-fold data, and does not use holdout predictions. For non-RSSI-top V2 scans, its score is the maximum softmax over the five model outputs; RSSI-top scans are already scan errors. A caution remains presentation-only and does not change the predicted label, stored scores, or save/report availability.
+
 Bundled but not active: Model V1 (`assets/models/caneguard_v1_mobilenetv2_float32.tflite`) outputs four classes in `healthy`, `mosaic`, `rust`, `smut` order with padding `127.5`. The `MODEL_*` constants, `ModelLabel`, the V1 QA oracle, the V1 confidence-caution artifact, and stored-record/sync validation keep that V1 meaning, and the developer `model-debug` and `model-smoke-test` routes pin it explicitly rather than following `ACTIVE_MODEL_ID`.
 
 Treat `modelContract.ts`, the bundled artifacts, labels, parity fixtures, preprocessing, and model tests as one compatibility surface.

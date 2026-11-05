@@ -24,19 +24,26 @@ lower-ranked RSSI entry is dropped without renormalizing the four scores shown.
 Expect that error until a follow-up carries the fifth class end to end.
 
 Source of truth: `MODEL_LABELS` and `ACTIVE_MODEL_ID` in
-`src/features/detection/constants/modelContract.ts`; the contract field values
-are owned by
+`src/features/detection/constants/modelContract.ts`; model-version-specific
+caution artifacts are `threshold/v1-confidence-caution-threshold.json` and
+`threshold/v2-confidence-caution-threshold.json`. The V2 artifact records its
+selected-checkpoint, non-OOF provenance and remains provisional. Contract field
+values are owned by
 [`PROJECT_CONTEXT.md` — Model contract](../PROJECT_CONTEXT.md#model-contract).
 
 The scan output is labelled **Possible Condition** and is decision support, not
-a diagnosis. Below the frozen V1 confidence caution cutoff, a `farmer` session
-sees **Result uncertain** as the result title, with guided retake steps,
-**Retake Photo**, **Review Signs**, and the closest match as a smaller line;
-saving stays available and the model scores are unchanged. The low-confidence,
-photo-quality, and checklist cautions stay visible to every signed-in account
-and never alter the model scores. Fixed QA fixtures are deterministic oracles,
-not evidence of field accuracy, and a browser or mocked test is never native
-inference proof.
+a diagnosis. A farmer session uses the stored model version's confidence caution
+cutoff: the V1 cutoff remains OOF-derived, while the V2 cutoff is provisional
+and derived from selected-checkpoint validation predictions that are explicitly
+not genuine out-of-fold data. For V2, the score is the maximum softmax over the
+five outputs for scans whose top class is not RSSI; RSSI-top scans already end
+as a scan error. Below the applicable cutoff, a `farmer` session sees **Result
+uncertain** as the result title, with guided retake steps, **Retake Photo**,
+**Review Signs**, and the closest match as a smaller line; saving stays
+available and the model scores are unchanged. The low-confidence, photo-quality,
+and checklist cautions stay visible to every signed-in account and never alter
+the model scores. Fixed QA fixtures are deterministic oracles, not evidence of
+field accuracy, and a browser or mocked test is never native inference proof.
 
 ## Implemented mobile screens
 

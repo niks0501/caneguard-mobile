@@ -408,7 +408,7 @@ describe('AnalysisResultScreen', () => {
     });
   });
 
-  describe('Result uncertain (farmer, below the V1 cutoff)', () => {
+  describe('Result uncertain (farmer, below the applicable cutoff)', () => {
     beforeEach(async () => {
       await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, 'en');
       mockDispatch.mockReset();
@@ -463,6 +463,38 @@ describe('AnalysisResultScreen', () => {
       expect(screen.getByTestId('scan.result-title')).toHaveTextContent('Possible Condition: Rust');
       expect(screen.queryByTestId('scan.result-uncertain')).not.toBeOnTheScreen();
       expect(screen.queryByTestId('scan.retake-photo')).not.toBeOnTheScreen();
+    });
+
+    // Proves: a V2 result below the provisional cutoff shows Result uncertain and the closest match.
+    it('uses the stored V2 model version below the cutoff', async () => {
+      mockUserRole = 'farmer';
+      await renderResult(
+        createCompletedState('rust', ['rust'], {
+          result: {
+            ...createResult('rust', 0.6),
+            modelVersion: 'v2.0-mobilenetv2',
+          },
+        }),
+      );
+
+      expect(screen.getByTestId('scan.result-title')).toHaveTextContent('Result uncertain');
+      expect(screen.getByTestId('scan.closest-match')).toHaveTextContent('Closest match: Rust');
+    });
+
+    // Proves: a V2 result at or above the provisional cutoff keeps Possible Condition.
+    it('uses the stored V2 model version above the cutoff', async () => {
+      mockUserRole = 'farmer';
+      await renderResult(
+        createCompletedState('rust', ['rust'], {
+          result: {
+            ...createResult('rust', 0.9),
+            modelVersion: 'v2.0-mobilenetv2',
+          },
+        }),
+      );
+
+      expect(screen.getByTestId('scan.result-title')).toHaveTextContent('Possible Condition: Rust');
+      expect(screen.queryByTestId('scan.result-uncertain')).not.toBeOnTheScreen();
     });
 
     // Proves: the inspector branch below the cutoff is unchanged (no Result uncertain card).

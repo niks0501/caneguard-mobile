@@ -868,6 +868,38 @@ describe('scan record write repository', () => {
     native.close();
   });
 
+  // Proves: field-report low-score counts use each saved record's model cutoff, preserving V1 records while applying provisional V2.
+  it('counts low-score predictions with the stored model version cutoff', async () => {
+    const { database, native } = openTestDatabase();
+    await insertScanRecord(
+      database,
+      validInput({
+        id: '2b4666c0-ad10-4d0d-a233-000000000010',
+        managedImageUri: `${MANAGED_ROOT}/2b4666c0-ad10-4d0d-a233-000000000010.jpg`,
+        confidence: 0.6,
+        createdAt: '2026-07-01T00:00:00.000Z',
+        updatedAt: '2026-07-01T00:00:00.000Z',
+      }),
+    );
+    await insertScanRecord(
+      database,
+      validInput({
+        id: '2b4666c0-ad10-4d0d-a233-000000000011',
+        managedImageUri: `${MANAGED_ROOT}/2b4666c0-ad10-4d0d-a233-000000000011.jpg`,
+        confidence: 0.6,
+        modelVersion: 'v2.0-mobilenetv2',
+        createdAt: '2026-07-02T00:00:00.000Z',
+        updatedAt: '2026-07-02T00:00:00.000Z',
+      }),
+    );
+
+    await expect(getLocalReportSummary(database, SUBMITTER_ID)).resolves.toMatchObject({
+      totalSavedScans: 2,
+      lowScorePredictions: 1,
+    });
+    native.close();
+  });
+
   it('returns zeroed report aggregates for an empty database', async () => {
     const { database, native } = openTestDatabase();
 

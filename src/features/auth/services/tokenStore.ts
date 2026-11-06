@@ -1,7 +1,9 @@
 import * as SecureStore from 'expo-secure-store';
 
-import type { MobileSession, MobileUser } from '@/features/auth/types';
-import { isMobileUserRole } from '@/features/auth/types';
+import {
+  isMobileUser,
+  type MobileSession,
+} from '@/features/auth/types';
 
 const LEGACY_SESSION_KEY = 'caneguard.mobile.session.v1';
 const PROTECTED_SESSION_KEY = 'caneguard.mobile.session.protected.v1';
@@ -237,23 +239,6 @@ function assertPersistableSession(session: MobileSession): void {
       'Only an unexpired server session can be stored securely.',
     );
   }
-}
-
-function isMobileUser(value: unknown): value is MobileUser {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  const user = value as Partial<MobileUser>;
-  return (
-    typeof user.uuid === 'string' &&
-    user.uuid.trim().length > 0 &&
-    typeof user.name === 'string' &&
-    user.name.trim().length > 0 &&
-    typeof user.email === 'string' &&
-    user.email.trim().length > 0 &&
-    isMobileUserRole(user.role)
-  );
 }
 
 function isIsoDate(value: unknown): value is string {

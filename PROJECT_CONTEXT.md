@@ -145,10 +145,14 @@ again.
 Authentication lives under `src/features/auth/`.
 
 The mobile client authenticates against the CaneGuard API.
-Sign-in accepts the `field_reporter` and `farmer` roles, validated by
-`isMobileUserRole` in `src/features/auth/types.ts`; any other role is rejected as
-an unsupported account type. Only users returned with the `field_reporter` role
-are accepted for mobile synchronization.
+Sign-in accepts the `field_reporter` and `farmer` roles; any other role is
+rejected as an unsupported account type. One shared `isMobileUser` guard in
+`src/features/auth/types.ts` checks every server-issued user object, requiring a
+supported role (`isMobileUserRole`) and a safe owner identity uuid
+(`isSafeOwnerIdentity` in `src/database/ownerIdentity.ts`); a restored biometric
+session passes the same guard, so a stored session without a safe owner identity
+is discarded instead of installed. Only users returned with the `field_reporter`
+role are accepted for mobile synchronization.
 
 #### Inspector capabilities
 

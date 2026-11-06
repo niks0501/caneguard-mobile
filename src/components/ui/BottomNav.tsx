@@ -17,11 +17,16 @@ type TabNavigation = {
   navigate: (name: string) => void;
 };
 
+type TabNavigateToTab = (routeKey: string) => void;
+
 export type BottomNavProps = {
   /** Kept for isolated presenter tests and legacy embedders. */
   activeTab?: NavTab;
   state?: TabNavigationState;
+  /** Legacy dispatcher, used only when the navigator callback is unavailable. */
   navigation?: TabNavigation;
+  /** Expo Router's custom tab-bar transition callback, keyed by route key. */
+  navigateToTab?: TabNavigateToTab;
   /** Unread office updates, shown on the Activity tab. */
   notificationCount?: number;
   /** Tabs left out of the bar, for example Visits on a farmer session. */
@@ -49,6 +54,7 @@ export function BottomNav({
   activeTab,
   hiddenTabs,
   navigation,
+  navigateToTab,
   notificationCount = 0,
   state,
 }: BottomNavProps) {
@@ -72,9 +78,17 @@ export function BottomNav({
               }
               accessibilityState={{ selected: active }}
               onPress={() => {
-                if (!active) {
-                  navigation?.navigate(item.key);
+                if (active) {
+                  return;
                 }
+
+                const route = state?.routes.find((candidate) => candidate.name === item.key);
+                if (route && navigateToTab) {
+                  navigateToTab(route.key);
+                  return;
+                }
+
+                navigation?.navigate(item.key);
               }}
               style={({ pressed }) => [
                 styles.item,

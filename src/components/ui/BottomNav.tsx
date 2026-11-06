@@ -23,6 +23,7 @@ export type BottomNavProps = {
   /** Kept for isolated presenter tests and legacy embedders. */
   activeTab?: NavTab;
   state?: TabNavigationState;
+  /** Legacy dispatcher, used only when the navigator callback is unavailable. */
   navigation?: TabNavigation;
   /** Expo Router's custom tab-bar transition callback, keyed by route key. */
   navigateToTab?: TabNavigateToTab;
@@ -87,7 +88,6 @@ export function BottomNav({
                   return;
                 }
 
-                // Keep the legacy presenter seam working for isolated embedders.
                 navigation?.navigate(item.key);
               }}
               style={({ pressed }) => [

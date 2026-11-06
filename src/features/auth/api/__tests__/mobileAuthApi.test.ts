@@ -51,6 +51,14 @@ const TOKEN_RESPONSE = {
   user: USER,
 };
 
+const FARMER_USER = {
+  capabilities: [],
+  uuid: 'farmer-uuid',
+  name: 'Farmer Account',
+  email: 'farmer@caneguard.test',
+  role: 'farmer' as const,
+};
+
 describe('mobile authentication API', () => {
   beforeEach(() => {
     global.fetch = fetchMock;
@@ -84,6 +92,41 @@ describe('mobile authentication API', () => {
         }),
       }),
     );
+  });
+
+  // Proposal (unpromoted): proves a server-issued Farmer session with security-only capabilities is accepted without a fabricated grant.
+  it('accepts a server-issued Farmer session without inventing capabilities', async () => {
+    fetchMock.mockResolvedValueOnce(
+      response(200, { ...TOKEN_RESPONSE, user: FARMER_USER }),
+    );
+
+    await expect(
+      loginMobile({
+        deviceName: 'Farmer phone',
+        email: 'farmer@caneguard.test',
+        password: 'entered-password',
+      }),
+    ).resolves.toMatchObject({
+      user: { role: 'farmer', capabilities: [] },
+    });
+  });
+
+  // Proposal (unpromoted): proves the existing field-reporter login preserves server-issued work capabilities.
+  it('keeps field-reporter sign-in and server-issued capabilities unchanged', async () => {
+    fetchMock.mockResolvedValueOnce(response(200, TOKEN_RESPONSE));
+
+    await expect(
+      loginMobile({
+        deviceName: 'Inspector phone',
+        email: 'field@caneguard.test',
+        password: 'entered-password',
+      }),
+    ).resolves.toMatchObject({
+      user: {
+        role: 'field_reporter',
+        capabilities: ['report:submit', 'assignment:read'],
+      },
+    });
   });
 
   it('rejects a token response with an explicit expired expiry', async () => {

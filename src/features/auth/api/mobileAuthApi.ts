@@ -16,8 +16,8 @@ import type {
   PasswordChangeInput,
   ResetPasswordInput,
 } from '@/features/auth/types';
+import { isMobileUser, isMobileUserRole } from '@/features/auth/types';
 import { normalizeCapabilities } from '@/features/auth/capabilities';
-import { isMobileUserRole } from '@/features/auth/types';
 
 interface MobileTokenResponse {
   expires_at?: unknown;
@@ -554,19 +554,6 @@ function invalidResponseError(): MobileAuthError {
   return new MobileAuthError(
     'INVALID_RESPONSE',
     'The authentication response was incomplete.',
-  );
-}
-
-function isMobileUser(value: unknown): value is MobileUser {
-  return Boolean(
-    isRecord(value) &&
-      typeof value.uuid === 'string' &&
-      isSafeOwnerIdentity(value.uuid.trim()) &&
-      typeof value.name === 'string' &&
-      value.name.trim().length > 0 &&
-      typeof value.email === 'string' &&
-      value.email.trim().length > 0 &&
-      isMobileUserRole(value.role),
   );
 }
 

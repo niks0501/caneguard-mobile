@@ -1,3 +1,5 @@
+import { isSafeOwnerIdentity } from '@/database/ownerIdentity';
+
 export type MobileUserRole = 'field_reporter' | 'farmer';
 
 /** Only inspectors may author, validate, upload or review official Field Reports. */
@@ -5,6 +7,24 @@ export type FieldReportSubmitterRole = 'field_reporter';
 
 export function isMobileUserRole(value: unknown): value is MobileUserRole {
   return value === 'field_reporter' || value === 'farmer';
+}
+
+/** Shared structural guard for server-issued mobile identities. */
+export function isMobileUser(value: unknown): value is MobileUser {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const user = value as Partial<MobileUser>;
+  return (
+    typeof user.uuid === 'string' &&
+    isSafeOwnerIdentity(user.uuid.trim()) &&
+    typeof user.name === 'string' &&
+    user.name.trim() !== '' &&
+    typeof user.email === 'string' &&
+    user.email.trim() !== '' &&
+    isMobileUserRole(user.role)
+  );
 }
 
 export interface MobileUser {

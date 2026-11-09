@@ -8,6 +8,9 @@ import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 const mockDatabase = { name: 'owner-database' };
 const OWNER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
+const OTHER_OWNER_ID = 'b4e2f8c6-70da-4a13-9f27-6c9c6ee7c6d4';
+
+let currentSession: { user: { uuid: string } } | null = { user: { uuid: OWNER_ID } };
 
 jest.mock('@/database/DatabaseProvider', () => ({
   EMPTY_DATABASE: { name: 'empty-database' },
@@ -33,8 +36,7 @@ function deferredSummaries() {
 
 function wrapper({ children }: PropsWithChildren) {
   return (
-    <AuthContext.Provider
-      value={{ session: { user: { uuid: OWNER_ID } } } as never}>
+    <AuthContext.Provider value={{ session: currentSession } as never}>
       {children}
     </AuthContext.Provider>
   );
@@ -43,6 +45,7 @@ function wrapper({ children }: PropsWithChildren) {
 describe('usePhoneCompletionStates', () => {
   beforeEach(() => {
     mockSummaries.mockReset();
+    currentSession = { user: { uuid: OWNER_ID } };
   });
 
   it('reports each saved visit as waiting until it is delivered, then as sent', async () => {
@@ -172,6 +175,69 @@ describe('usePhoneCompletionStates', () => {
     await waitFor(() => expect(mockSummaries).toHaveBeenCalledTimes(2));
 
     expect(result.current.get('assignment-waiting')).toBe('waiting');
+  });
+
+  it('never shows a previous account visit after another account signs in', async () => {
+    mockSummaries.mockResolvedValueOnce([
+      {
+        assignmentId: 'assignment-previous-owner',
+        syncStatus: 'pending',
+        visitedAt: '2026-09-02T04:06:06.123Z',
+      },
+    ]);
+    mockSummaries.mockRejectedValueOnce(new Error('read failed'));
+
+    const { result, rerender } = await renderHook(
+      () => usePhoneCompletionStates(),
+      { wrapper },
+    );
+
+    await waitFor(() =>
+      expect(result.current.get('assignment-previous-owner')).toBe('waiting'),
+    );
+
+    currentSession = { user: { uuid: OTHER_OWNER_ID } };
+    await rerender(undefined);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.size).toBe(0);
+  });
+
+  it('shows only the signed-in account visits after an account switch', async () => {
+    mockSummaries.mockResolvedValueOnce([
+      {
+        assignmentId: 'assignment-previous-owner',
+        syncStatus: 'pending',
+        visitedAt: '2026-09-02T04:06:06.123Z',
+      },
+    ]);
+    mockSummaries.mockResolvedValueOnce([
+      {
+        assignmentId: 'assignment-new-owner',
+        syncStatus: 'synced',
+        visitedAt: '2026-09-03T04:06:06.123Z',
+      },
+    ]);
+
+    const { result, rerender } = await renderHook(
+      () => usePhoneCompletionStates(),
+      { wrapper },
+    );
+
+    await waitFor(() =>
+      expect(result.current.get('assignment-previous-owner')).toBe('waiting'),
+    );
+
+    currentSession = { user: { uuid: OTHER_OWNER_ID } };
+    await rerender(undefined);
+
+    await waitFor(() =>
+      expect(result.current.get('assignment-new-owner')).toBe('sent'),
+    );
+    expect(result.current.has('assignment-previous-owner')).toBe(false);
+    expect(mockSummaries).toHaveBeenLastCalledWith(mockDatabase, OTHER_OWNER_ID);
   });
 
   it('claims nothing when the saved visits cannot be read', async () => {

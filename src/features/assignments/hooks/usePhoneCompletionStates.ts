@@ -7,33 +7,44 @@ import type { PhoneCompletionState } from '@/features/assignments/domain/fieldVa
 import { AuthContext } from '@/features/auth/providers/AuthProvider';
 import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 
-const NONE: ReadonlyMap<string, PhoneCompletionState> = new Map();
+const NO_STATES: ReadonlyMap<string, PhoneCompletionState> = new Map();
+
+interface PhoneCompletionSnapshot {
+  ownerIdentity: string | null;
+  states: ReadonlyMap<string, PhoneCompletionState>;
+}
+
+const NO_SNAPSHOT: PhoneCompletionSnapshot = {
+  ownerIdentity: null,
+  states: NO_STATES,
+};
 
 /** The visit saved on this phone for each assignment, keyed by assignment id. */
 export function usePhoneCompletionStates(): ReadonlyMap<string, PhoneCompletionState> {
   const database = useCaneGuardDatabase();
-  const session = useContext(AuthContext)?.session;
-  const [states, setStates] =
-    useState<ReadonlyMap<string, PhoneCompletionState>>(NONE);
+  const ownerIdentity = useContext(AuthContext)?.session?.user.uuid ?? null;
+  const [snapshot, setSnapshot] =
+    useState<PhoneCompletionSnapshot>(NO_SNAPSHOT);
 
   useFocusEffect(
     useCallback(() => {
-      if (!session || !database || database === EMPTY_DATABASE) return;
+      if (!ownerIdentity || !database || database === EMPTY_DATABASE) return;
       let active = true;
       let latestRead = 0;
       const load = () => {
         const read = ++latestRead;
-        listFieldValidationCompletionSummaries(database, session.user.uuid)
+        listFieldValidationCompletionSummaries(database, ownerIdentity)
           .then((rows) => {
             if (!active || read !== latestRead) return;
-            setStates(
-              new Map<string, PhoneCompletionState>(
+            setSnapshot({
+              ownerIdentity,
+              states: new Map<string, PhoneCompletionState>(
                 rows.map((row) => [
                   row.assignmentId,
                   row.syncStatus === 'synced' ? 'sent' : 'waiting',
                 ]),
               ),
-            );
+            });
           })
           .catch(() => undefined);
       };
@@ -43,8 +54,10 @@ export function usePhoneCompletionStates(): ReadonlyMap<string, PhoneCompletionS
         active = false;
         unsubscribe();
       };
-    }, [database, session]),
+    }, [database, ownerIdentity]),
   );
 
-  return states;
+  return snapshot.ownerIdentity === ownerIdentity
+    ? snapshot.states
+    : NO_STATES;
 }

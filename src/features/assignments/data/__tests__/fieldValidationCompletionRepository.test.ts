@@ -14,6 +14,7 @@ import {
   markFieldValidationCompletionSynced,
   markFieldValidationCompletionSyncing,
   saveFieldValidationCompletion,
+  TRANSITIONS,
 } from '@/features/assignments/data/fieldValidationCompletionRepository';
 import type { SaveFieldValidationCompletionInput } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 
@@ -135,5 +136,27 @@ describe('field validation completion repository', () => {
     });
     await expect(countUnsyncedFieldValidationCompletions(database, OWNER)).resolves.toBe(0);
     native.close();
+  });
+  it('returns how many rows each guarded update changed', async () => {
+    const { database, native } = openDatabase();
+    await saveFieldValidationCompletion(database, input());
+    // pending -> synced is not an allowed transition, so the guard refuses it.
+    await expect(markFieldValidationCompletionSynced(database, COMPLETION, OWNER, 'remote', '2026-09-02T04:07:01.123Z')).resolves.toBe(0);
+    await expect(markFieldValidationCompletionSyncing(database, COMPLETION, OWNER, '2026-09-02T04:06:00.123Z')).resolves.toBe(1);
+    // Already syncing: a second syncing attempt is refused.
+    await expect(markFieldValidationCompletionSyncing(database, COMPLETION, OWNER, '2026-09-02T04:06:30.123Z')).resolves.toBe(0);
+    await expect(markFieldValidationCompletionPending(database, COMPLETION, OWNER)).resolves.toBe(0);
+    await expect(markFieldValidationCompletionFailed(database, COMPLETION, OWNER, 'NETWORK_REQUEST_FAILED', '2026-09-02T04:06:31.123Z')).resolves.toBe(1);
+    await expect(markFieldValidationCompletionFailed(database, COMPLETION, 'other-owner', 'X', '2026-09-02T04:06:32.123Z')).resolves.toBe(0);
+    native.close();
+  });
+
+  it('declares the statuses each guarded update may start from', () => {
+    expect(TRANSITIONS).toEqual({
+      pending: ['pending', 'failed'],
+      syncing: ['pending', 'failed'],
+      synced: ['syncing'],
+      failed: ['pending', 'syncing', 'failed'],
+    });
   });
 });

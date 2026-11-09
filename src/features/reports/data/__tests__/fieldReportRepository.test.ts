@@ -36,6 +36,7 @@ import {
   markFieldReportPending,
   markFieldReportSynced,
   markFieldReportSyncing,
+  TRANSITIONS,
 } from '@/features/reports/data/fieldReportSyncRepository';
 
 const SCAN_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
@@ -1183,6 +1184,60 @@ describe('Field Report draft repository', () => {
       }),
     ).resolves.toEqual([]);
     native.close();
+  });
+
+  it('returns how many rows each guarded sync update changed', async () => {
+    const { database, native } = openTestDatabase();
+    insertCompleteClassScores(native);
+    await createOrGetFieldReportDraft(database, createDraftInput());
+    await saveManualMapLocation(database, REPORT_ID, SUBMITTER_ID, {
+      latitude: 14.071,
+      longitude: 120.635,
+      selectedAt: '2026-08-10T02:00:00.000Z',
+      updatedAt: '2026-08-10T02:00:01.000Z',
+    });
+    await finalizeFieldReport(
+      database,
+      REPORT_ID,
+      SUBMITTER_ID,
+      {
+        farmerOrFarmOwnerName: 'Maria Santos',
+        affectedAreaHectares: 0.5,
+        affectedPortionPercent: 30,
+        barangay: 'Lumbangan',
+        submittedAt: '2026-08-10T03:00:00.000Z',
+        updatedAt: '2026-08-10T03:00:00.000Z',
+      },
+      IMAGE_EXISTS,
+    );
+
+    // finalized + pending: a synced mark is refused, a syncing mark changes one row.
+    await expect(
+      markFieldReportSynced(database, REPORT_ID, SUBMITTER_ID, 'remote', '2026-08-10T04:00:00.000Z'),
+    ).resolves.toBe(0);
+    await expect(
+      markFieldReportSyncing(database, REPORT_ID, SUBMITTER_ID, '2026-08-10T04:00:01.000Z'),
+    ).resolves.toBe(1);
+    await expect(
+      markFieldReportSyncing(database, REPORT_ID, SUBMITTER_ID, '2026-08-10T04:00:02.000Z'),
+    ).resolves.toBe(0);
+    await expect(markFieldReportPending(database, REPORT_ID, SUBMITTER_ID)).resolves.toBe(0);
+    await expect(
+      markFieldReportFailed(database, REPORT_ID, OTHER_SUBMITTER_ID, 'X', '2026-08-10T04:00:03.000Z'),
+    ).resolves.toBe(0);
+    await expect(
+      markFieldReportFailed(database, REPORT_ID, SUBMITTER_ID, 'NETWORK_UNAVAILABLE', '2026-08-10T04:00:04.000Z'),
+    ).resolves.toBe(1);
+    native.close();
+  });
+
+  it('declares the statuses each guarded sync update may start from', () => {
+    expect(TRANSITIONS).toEqual({
+      pending: ['pending', 'failed'],
+      syncing: ['pending', 'failed'],
+      synced: ['syncing'],
+      failed: ['pending', 'syncing', 'failed'],
+    });
   });
 
   it('persists failure, retries the same finalized report, and retains scan evidence after success', async () => {

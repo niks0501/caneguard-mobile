@@ -57,13 +57,13 @@ export function createFieldReportSyncRepository(
         options,
       ),
     markFailed: (id, code, at) =>
-      markFieldReportFailed(database, id, submitterIdentity, code, at),
+      markFieldReportFailed(database, id, submitterIdentity, code, at).then(() => undefined),
     markPending: (id) =>
-      markFieldReportPending(database, id, submitterIdentity),
+      markFieldReportPending(database, id, submitterIdentity).then(() => undefined),
     markSynced: (id, remoteId, at) =>
-      markFieldReportSynced(database, id, submitterIdentity, remoteId, at),
+      markFieldReportSynced(database, id, submitterIdentity, remoteId, at).then(() => undefined),
     markSyncing: (id, at) =>
-      markFieldReportSyncing(database, id, submitterIdentity, at),
+      markFieldReportSyncing(database, id, submitterIdentity, at).then(() => undefined),
     resetStaleSyncingReports: (before) =>
       resetStaleSyncingFieldReports(database, submitterIdentity, before),
   };
@@ -158,8 +158,8 @@ export async function markFieldReportPending(
   database: CaneGuardDatabase,
   reportId: string,
   submitterIdentity: string,
-): Promise<void> {
-  await updateSyncState(
+): Promise<number> {
+  return updateSyncState(
     database,
     reportId,
     {
@@ -167,7 +167,7 @@ export async function markFieldReportPending(
       lastSyncErrorCode: null,
       updatedAt: new Date().toISOString(),
     },
-    ['pending', 'failed'],
+    TRANSITIONS.pending,
     submitterIdentity,
   );
 }
@@ -177,8 +177,8 @@ export async function markFieldReportSyncing(
   reportId: string,
   submitterIdentity: string,
   attemptedAt: string,
-): Promise<void> {
-  await updateSyncState(
+): Promise<number> {
+  return updateSyncState(
     database,
     reportId,
     {
@@ -188,7 +188,7 @@ export async function markFieldReportSyncing(
       syncAttemptCount: sql`${fieldReports.syncAttemptCount} + 1`,
       updatedAt: attemptedAt,
     },
-    ['pending', 'failed'],
+    TRANSITIONS.syncing,
     submitterIdentity,
   );
 }
@@ -199,8 +199,8 @@ export async function markFieldReportSynced(
   submitterIdentity: string,
   remoteId: string,
   syncedAt: string,
-): Promise<void> {
-  await updateSyncState(
+): Promise<number> {
+  return updateSyncState(
     database,
     reportId,
     {
@@ -210,7 +210,7 @@ export async function markFieldReportSynced(
       lastSyncErrorCode: null,
       updatedAt: syncedAt,
     },
-    ['syncing'],
+    TRANSITIONS.synced,
     submitterIdentity,
   );
 }
@@ -221,8 +221,8 @@ export async function markFieldReportFailed(
   submitterIdentity: string,
   errorCode: string,
   attemptedAt: string,
-): Promise<void> {
-  await updateSyncState(
+): Promise<number> {
+  return updateSyncState(
     database,
     reportId,
     {
@@ -231,7 +231,7 @@ export async function markFieldReportFailed(
       lastSyncErrorCode: errorCode,
       updatedAt: attemptedAt,
     },
-    ['pending', 'syncing', 'failed'],
+    TRANSITIONS.failed,
     submitterIdentity,
   );
 }
@@ -316,15 +316,24 @@ export async function findLastSuccessfulFieldReportSyncAt(
   }
 }
 
+/** Statuses each guarded update may start from; a row in any other status is left untouched. */
+export const TRANSITIONS = {
+  pending: ['pending', 'failed'],
+  syncing: ['pending', 'failed'],
+  synced: ['syncing'],
+  failed: ['pending', 'syncing', 'failed'],
+} as const satisfies Record<'pending' | 'syncing' | 'synced' | 'failed', readonly FieldReport['syncStatus'][]>;
+
+/** Returns the number of rows changed; 0 means the guard refused the update. */
 async function updateSyncState(
   database: CaneGuardDatabase,
   reportId: string,
   values: SQLiteUpdateSetSource<typeof fieldReports>,
-  allowedStatuses: FieldReport['syncStatus'][],
+  allowedStatuses: readonly FieldReport['syncStatus'][],
   submitterIdentity: string,
-): Promise<void> {
+): Promise<number> {
   try {
-    await database
+    const result = await database
       .update(fieldReports)
       .set(values)
       .where(
@@ -332,10 +341,11 @@ async function updateSyncState(
           eq(fieldReports.id, reportId),
           eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
           eq(fieldReports.authoringState, 'finalized'),
-          inArray(fieldReports.syncStatus, allowedStatuses),
+          inArray(fieldReports.syncStatus, [...allowedStatuses]),
         ),
       );
     emitSyncRecordsChanged();
+    return result.changes;
   } catch (error: unknown) {
     throw toStorageError(
       error,

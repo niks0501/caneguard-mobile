@@ -51,10 +51,10 @@ export function createFieldValidationCompletionSyncRepository(
     findById: (id) => findFieldValidationCompletionById(database, id, ownerIdentity),
     findLastSuccessfulSyncAt: () => findLastSuccessfulFieldValidationCompletionSyncAt(database, ownerIdentity),
     findSyncCandidates: (limit, options) => findFieldValidationCompletionSyncCandidates(database, ownerIdentity, limit, options),
-    markFailed: (id, code, at) => markFieldValidationCompletionFailed(database, id, ownerIdentity, code, at),
-    markPending: (id) => markFieldValidationCompletionPending(database, id, ownerIdentity),
-    markSynced: (id, remoteId, at) => markFieldValidationCompletionSynced(database, id, ownerIdentity, remoteId, at),
-    markSyncing: (id, at) => markFieldValidationCompletionSyncing(database, id, ownerIdentity, at),
+    markFailed: (id, code, at) => markFieldValidationCompletionFailed(database, id, ownerIdentity, code, at).then(() => undefined),
+    markPending: (id) => markFieldValidationCompletionPending(database, id, ownerIdentity).then(() => undefined),
+    markSynced: (id, remoteId, at) => markFieldValidationCompletionSynced(database, id, ownerIdentity, remoteId, at).then(() => undefined),
+    markSyncing: (id, at) => markFieldValidationCompletionSyncing(database, id, ownerIdentity, at).then(() => undefined),
     resetStaleSyncing: (before) => resetStaleSyncingFieldValidationCompletions(database, ownerIdentity, before),
   };
 }
@@ -253,12 +253,12 @@ export async function markFieldValidationCompletionPending(
   database: CaneGuardDatabase,
   id: string,
   ownerIdentity: string,
-): Promise<void> {
-  await updateSyncState(database, id, ownerIdentity, {
+): Promise<number> {
+  return updateSyncState(database, id, ownerIdentity, {
     syncStatus: 'pending',
     lastSyncErrorCode: null,
     updatedAt: new Date().toISOString(),
-  }, ['pending', 'failed']);
+  }, TRANSITIONS.pending);
 }
 
 export async function markFieldValidationCompletionSyncing(
@@ -266,14 +266,14 @@ export async function markFieldValidationCompletionSyncing(
   id: string,
   ownerIdentity: string,
   attemptedAt: string,
-): Promise<void> {
-  await updateSyncState(database, id, ownerIdentity, {
+): Promise<number> {
+  return updateSyncState(database, id, ownerIdentity, {
     syncStatus: 'syncing',
     lastSyncAttemptAt: attemptedAt,
     lastSyncErrorCode: null,
     syncAttemptCount: sql`${fieldValidationCompletions.syncAttemptCount} + 1`,
     updatedAt: attemptedAt,
-  }, ['pending', 'failed']);
+  }, TRANSITIONS.syncing);
 }
 
 export async function markFieldValidationCompletionSynced(
@@ -282,14 +282,14 @@ export async function markFieldValidationCompletionSynced(
   ownerIdentity: string,
   remoteId: string,
   syncedAt: string,
-): Promise<void> {
-  await updateSyncState(database, id, ownerIdentity, {
+): Promise<number> {
+  const changed = await updateSyncState(database, id, ownerIdentity, {
     syncStatus: 'synced',
     remoteId,
     lastSyncedAt: syncedAt,
     lastSyncErrorCode: null,
     updatedAt: syncedAt,
-  }, ['syncing']);
+  }, TRANSITIONS.synced);
   const completion = await findFieldValidationCompletionById(database, id, ownerIdentity);
   await markCachedFieldValidationAssignmentCompleted(
     database,
@@ -297,6 +297,7 @@ export async function markFieldValidationCompletionSynced(
     completion.assignmentId,
     syncedAt,
   );
+  return changed;
 }
 
 export async function markFieldValidationCompletionFailed(
@@ -305,13 +306,13 @@ export async function markFieldValidationCompletionFailed(
   ownerIdentity: string,
   errorCode: string,
   attemptedAt: string,
-): Promise<void> {
-  await updateSyncState(database, id, ownerIdentity, {
+): Promise<number> {
+  return updateSyncState(database, id, ownerIdentity, {
     syncStatus: 'failed',
     lastSyncAttemptAt: attemptedAt,
     lastSyncErrorCode: errorCode,
     updatedAt: attemptedAt,
-  }, ['pending', 'syncing', 'failed']);
+  }, TRANSITIONS.failed);
 }
 
 export async function resetStaleSyncingFieldValidationCompletions(
@@ -380,25 +381,35 @@ export async function findLastSuccessfulFieldValidationCompletionSyncAt(
   }
 }
 
+/** Statuses each guarded update may start from; a row in any other status is left untouched. */
+export const TRANSITIONS = {
+  pending: ['pending', 'failed'],
+  syncing: ['pending', 'failed'],
+  synced: ['syncing'],
+  failed: ['pending', 'syncing', 'failed'],
+} as const satisfies Record<'pending' | 'syncing' | 'synced' | 'failed', readonly SyncStatus[]>;
+
+/** Returns the number of rows changed; 0 means the guard refused the update. */
 async function updateSyncState(
   database: CaneGuardDatabase,
   id: string,
   ownerIdentity: string,
   values: SQLiteUpdateSetSource<typeof fieldValidationCompletions>,
-  allowedStatuses: SyncStatus[],
-): Promise<void> {
+  allowedStatuses: readonly SyncStatus[],
+): Promise<number> {
   try {
-    await database
+    const result = await database
       .update(fieldValidationCompletions)
       .set(values)
       .where(
         and(
           eq(fieldValidationCompletions.id, id),
           eq(fieldValidationCompletions.ownerIdentity, requireOwner(ownerIdentity)),
-          inArray(fieldValidationCompletions.syncStatus, allowedStatuses),
+          inArray(fieldValidationCompletions.syncStatus, [...allowedStatuses]),
         ),
       );
     emitSyncRecordsChanged();
+    return result.changes;
   } catch (error: unknown) {
     throw toStorageError(error, 'UPDATE_FAILED', 'Updating field validation synchronization state failed.');
   }

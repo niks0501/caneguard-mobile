@@ -31,11 +31,6 @@ export async function listCachedFieldValidationAssignments(
   }
 }
 
-/**
- * Replace one authenticated owner's complete server snapshot only after the
- * feed has been fully validated. A successful refresh removes assignments
- * that were reassigned away, while a failed refresh leaves the old cache intact.
- */
 export async function findCachedFieldValidationAssignment(
   database: CaneGuardDatabase,
   ownerIdentity: string,
@@ -63,6 +58,11 @@ export async function findCachedFieldValidationAssignment(
   }
 }
 
+/**
+ * Replace one authenticated owner's complete server snapshot only after the
+ * feed has been fully validated. A successful refresh removes assignments
+ * that were reassigned away, while a failed refresh leaves the old cache intact.
+ */
 export async function replaceCachedFieldValidationAssignments(
   database: CaneGuardDatabase,
   ownerIdentity: string,

@@ -323,6 +323,7 @@ submission.
 
 The assignment feed is owner-scoped to the authenticated field reporter and returns the complete current assignment snapshot through the `sync.before` and `links.next` pagination boundary. Mobile requests it only when the session carries `assignment:read`.
 Mobile caches assignment snapshots separately from locally authored Scan Records and Field Reports so a server assignment can materialize even when the assignee did not submit the case.
+The cache keeps each assignment exactly as the server sent it: nothing on the phone rewrites its `field_validation_state`. A visit saved on the phone is layered over that snapshot for display only, so a queued visit reads `Waiting to send` and a delivered one keeps reading completed until the next feed refresh reports it.
 
 The notification feed is owner-scoped to the authenticated field reporter and returns a complete durable attention snapshot through the same checkpoint/pagination boundary.
 Mobile replaces the local notification snapshot only after all pages validate, so network failures preserve the last-known read state and attention items.

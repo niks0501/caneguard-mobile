@@ -20,23 +20,22 @@ export function usePhoneCompletionStates(): ReadonlyMap<string, PhoneCompletionS
     useCallback(() => {
       if (!session || !database || database === EMPTY_DATABASE) return;
       let active = true;
+      let latestRead = 0;
       const load = () => {
+        const read = ++latestRead;
         listFieldValidationCompletionSummaries(database, session.user.uuid)
           .then((rows) => {
-            if (active) {
-              setStates(
-                new Map<string, PhoneCompletionState>(
-                  rows.map((row) => [
-                    row.assignmentId,
-                    row.syncStatus === 'synced' ? 'sent' : 'waiting',
-                  ]),
-                ),
-              );
-            }
+            if (!active || read !== latestRead) return;
+            setStates(
+              new Map<string, PhoneCompletionState>(
+                rows.map((row) => [
+                  row.assignmentId,
+                  row.syncStatus === 'synced' ? 'sent' : 'waiting',
+                ]),
+              ),
+            );
           })
-          .catch(() => {
-            if (active) setStates(NONE);
-          });
+          .catch(() => undefined);
       };
       load();
       const unsubscribe = subscribeSyncRecords(load);

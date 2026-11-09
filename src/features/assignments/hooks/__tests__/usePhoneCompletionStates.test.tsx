@@ -19,6 +19,18 @@ jest.mock('@/features/assignments/data/fieldValidationCompletionRepository', () 
 
 const mockSummaries = jest.mocked(listFieldValidationCompletionSummaries);
 
+type Summaries = Awaited<ReturnType<typeof listFieldValidationCompletionSummaries>>;
+
+function deferredSummaries() {
+  let resolve!: (rows: Summaries) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<Summaries>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, reject, resolve };
+}
+
 function wrapper({ children }: PropsWithChildren) {
   return (
     <AuthContext.Provider
@@ -94,6 +106,72 @@ describe('usePhoneCompletionStates', () => {
     await waitFor(() =>
       expect(result.current.get('assignment-waiting')).toBe('sent'),
     );
+  });
+
+  it('keeps the newest read when an older read resolves after it', async () => {
+    const olderRead = deferredSummaries();
+    const newerRead = deferredSummaries();
+    mockSummaries
+      .mockReturnValueOnce(olderRead.promise)
+      .mockReturnValueOnce(newerRead.promise);
+
+    const { result } = await renderHook(() => usePhoneCompletionStates(), {
+      wrapper,
+    });
+
+    await act(async () => {
+      emitSyncRecordsChanged();
+    });
+    await act(async () => {
+      newerRead.resolve([
+        {
+          assignmentId: 'assignment-visit',
+          syncStatus: 'synced',
+          visitedAt: '2026-09-02T04:06:06.123Z',
+        },
+      ]);
+    });
+    await waitFor(() =>
+      expect(result.current.get('assignment-visit')).toBe('sent'),
+    );
+
+    await act(async () => {
+      olderRead.resolve([
+        {
+          assignmentId: 'assignment-visit',
+          syncStatus: 'pending',
+          visitedAt: '2026-09-02T04:06:06.123Z',
+        },
+      ]);
+    });
+
+    expect(result.current.get('assignment-visit')).toBe('sent');
+  });
+
+  it('keeps the known visits when a later read fails', async () => {
+    mockSummaries.mockResolvedValueOnce([
+      {
+        assignmentId: 'assignment-waiting',
+        syncStatus: 'pending',
+        visitedAt: '2026-09-02T04:06:06.123Z',
+      },
+    ]);
+    mockSummaries.mockRejectedValueOnce(new Error('read failed'));
+
+    const { result } = await renderHook(() => usePhoneCompletionStates(), {
+      wrapper,
+    });
+
+    await waitFor(() =>
+      expect(result.current.get('assignment-waiting')).toBe('waiting'),
+    );
+
+    await act(async () => {
+      emitSyncRecordsChanged();
+    });
+    await waitFor(() => expect(mockSummaries).toHaveBeenCalledTimes(2));
+
+    expect(result.current.get('assignment-waiting')).toBe('waiting');
   });
 
   it('claims nothing when the saved visits cannot be read', async () => {

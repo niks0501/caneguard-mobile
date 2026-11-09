@@ -18,6 +18,9 @@ describe('syncStatusCopy', () => {
     expect(formatPendingSummary(3, 2, 1)).toBe('2 reports, 1 visit waiting to send');
     expect(formatPendingSummary(3, 2, 1, 1)).toBe('1 boundary, 2 reports, 1 visit waiting to send');
     expect(formatPendingSummary(1, 0, 1)).toBe('1 visit waiting to send');
+    // Proposal: proves M-F9 — an unattributed count must not be named "reports".
+    expect(formatPendingSummary(2, 0, 0, 0)).toBe('2 saved items waiting to send');
+    expect(formatPendingSummary(1, 0, 0, 0)).toBe('1 saved item waiting to send');
   });
 
   it('detects server unavailability the same way for every surface', () => {

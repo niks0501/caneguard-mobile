@@ -2967,6 +2967,35 @@ describe('FieldReportScreen', () => {
       }
     });
 
+    it('flushes the pending checkpoint on unmount before the debounce fires', async () => {
+      jest.useFakeTimers();
+      try {
+        const view = await render(<FieldReportScreen />);
+        await goToStep(2);
+        await act(async () => {
+          fireEvent.changeText(
+            screen.getByTestId('field-report.farmer-name-input'),
+            'Maria Santos',
+          );
+        });
+        mockWriteFormCheckpoint.mockClear();
+
+        await act(async () => {
+          view.unmount();
+        });
+
+        expect(mockWriteFormCheckpoint).toHaveBeenCalledTimes(1);
+        expect(mockWriteFormCheckpoint).toHaveBeenCalledWith(
+          expect.anything(),
+          'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
+          REPORT_ID,
+          expect.objectContaining({ farmerName: 'Maria Santos', step: 2 }),
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('reports an unsuccessful checkpoint instead of claiming it was saved', async () => {
       jest.useFakeTimers();
       mockWriteFormCheckpoint.mockRejectedValueOnce(new Error('disk full'));

@@ -47,6 +47,17 @@ const mockCaptureLocation = jest.fn(async () => null);
 const mockFinalize = jest.fn<Promise<FieldReport | null>, [FormValues]>(
   async () => null,
 );
+let mockFinalizeBusy = false;
+// The screen reads the outcome; the mocked finalize result still decides finalized vs failed.
+const mockFinalizeWithOutcome = jest.fn(async (values: FormValues) => {
+  if (mockFinalizeBusy) {
+    return { status: 'busy' as const };
+  }
+  const finalized = await mockFinalize(values);
+  return finalized
+    ? { report: finalized, status: 'finalized' as const }
+    : { status: 'failed' as const };
+});
 const mockSaveManualLocation = jest.fn(async () => null);
 const mockMarkLocationUnavailable = jest.fn(async () => null);
 const mockClearLocationUnavailable = jest.fn(async () => null);
@@ -74,6 +85,7 @@ let mockDraftState: {
   getLastOperationError: () => string | null;
   discardDraft?: typeof mockDiscardDraft;
   finalize: typeof mockFinalize;
+  finalizeWithOutcome: typeof mockFinalizeWithOutcome;
   finalizing: boolean;
   locationServicesDisabled: boolean;
   refresh: typeof mockRefresh;
@@ -295,6 +307,7 @@ describe('FieldReportScreen', () => {
     jest.clearAllMocks();
     jest.mocked(router.canGoBack).mockReturnValue(true);
     mockAuthorityError = null;
+    mockFinalizeBusy = false;
     mockIsOnline = true;
     mockSavedSurveys = [];
     mockPossibleRecentMatchState = {
@@ -319,6 +332,7 @@ describe('FieldReportScreen', () => {
       discardDraft: mockDiscardDraft,
       getLastOperationError: () => mockLastOperationError,
       finalize: mockFinalize,
+      finalizeWithOutcome: mockFinalizeWithOutcome,
       finalizing: false,
       locationServicesDisabled: false,
       refresh: mockRefresh,
@@ -1511,6 +1525,69 @@ describe('FieldReportScreen', () => {
     expect(screen.getByTestId('field-report.confirm-finalize-dialog')).toHaveTextContent(
       /Only a Draft Field Report can be finalized/,
     );
+  });
+
+  it('says the finalize was refused as busy, not failed, and keeps the gate open', async () => {
+    mockFinalizeBusy = true;
+    await render(<FieldReportScreen />);
+    await goToStep(2);
+    await act(async () => {
+      fireEvent.changeText(screen.getByTestId('field-report.farmer-name-input'), 'Maria Santos');
+    });
+    await act(async () => {
+      fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '1.25');
+    });
+    await act(async () => {
+      fireEvent.changeText(screen.getByTestId('field-report.affected-portion-input'), '40');
+    });
+    await goToStep(5);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+    });
+    await fireEvent.press(screen.getByTestId('field-report.confirm-finalize'));
+
+    await waitFor(() => expect(mockFinalizeWithOutcome).toHaveBeenCalledTimes(1));
+    const dialog = screen.getByTestId('field-report.confirm-finalize-dialog');
+    expect(dialog).toHaveTextContent(/Another save is still running/);
+    expect(dialog).not.toHaveTextContent(/Finalize failed/);
+    // The gate is idle again so the inspector can retry.
+    expect(screen.getByTestId('field-report.confirm-finalize')).toBeEnabled();
+  });
+
+  it('shows the finalize dialog busy while finalization is running', async () => {
+    let finish!: (value: FieldReport | null) => void;
+    mockFinalize.mockImplementationOnce(
+      () =>
+        new Promise<FieldReport | null>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await render(<FieldReportScreen />);
+    await goToStep(2);
+    await act(async () => {
+      fireEvent.changeText(screen.getByTestId('field-report.farmer-name-input'), 'Maria Santos');
+    });
+    await act(async () => {
+      fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '1.25');
+    });
+    await act(async () => {
+      fireEvent.changeText(screen.getByTestId('field-report.affected-portion-input'), '40');
+    });
+    await goToStep(5);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+    });
+    await fireEvent.press(screen.getByTestId('field-report.confirm-finalize'));
+
+    expect(screen.getByTestId('field-report.confirm-finalize').props.accessibilityState).toEqual(
+      expect.objectContaining({ busy: true, disabled: true }),
+    );
+    expect(screen.getByTestId('field-report.confirm-finalize-dialog.cancel')).toBeDisabled();
+
+    await act(async () => {
+      finish(null);
+    });
+    expect(screen.getByTestId('field-report.confirm-finalize')).toBeEnabled();
   });
 
   it('finalizes using the latest form values including affected numbers', async () => {

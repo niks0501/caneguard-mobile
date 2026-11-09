@@ -566,3 +566,22 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
     },
   },
 };
+
+/** Finalize confirmation: a refusal because other work is running is not a failure. */
+export const FINALIZE_DIALOG_COPY = {
+  busyLabel: 'Finalizing…',
+  refusedBusy: 'Another save is still running on this report. Wait a moment, then finalize again.',
+} as const;
+
+/** Log out confirmation, including the busy state while the server session is revoked. */
+export const LOGOUT_DIALOG_COPY = {
+  title: 'Log out?',
+  message:
+    'Logging out revokes the server session and removes the protected credential. Pending scans remain owner-scoped on this device; use Remove all local records before handing the device to another user.',
+  confirmLabel: 'Log out',
+  busyLabel: 'Signing out…',
+  busyMessage:
+    'Signing out. This can take up to 20 seconds when the connection is slow. Please keep CaneGuard open.',
+  pendingNote: (count: number) =>
+    `${count} saved ${count === 1 ? 'item has' : 'items have'} not reached the office yet. ${count === 1 ? 'It stays' : 'They stay'} on this device.`,
+} as const;

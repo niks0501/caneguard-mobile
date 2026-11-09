@@ -34,6 +34,34 @@ import { useSyncRecordsRefresh } from '@/features/sync/hooks/useSyncRecordsRevis
 const FIELD_REPORT_ROLE_ERROR =
   'Only Field Inspector accounts can access Field Reports.';
 
+export type FinalizeValues = {
+  affectedAreaHectares: number | null;
+  affectedAreaMeasurement?: MeasurementProvenance;
+  affectedPortionPercent: number | null;
+  affectedPortionMeasurement?: MeasurementProvenance;
+  barangay: string;
+  caneClass?: string;
+  cropAge?: string;
+  farmerOrFarmOwnerName: string;
+  fieldNotes?: string | null;
+  fieldSurveyClientUuid?: string | null;
+  mismatchReported?: boolean | null;
+  reporterObservationText?: string | null;
+  reporterSuspectedCondition?: string | null;
+  municipality?: string;
+  province?: string;
+  sugarcaneVariety?: string;
+};
+
+/**
+ * Why a finalize attempt ended. `busy` means it was refused up front because
+ * another save, capture or finalize on this report was still running, so
+ * nothing was attempted and the caller can retry.
+ */
+export type FinalizeOutcome =
+  | { report: FieldReport; status: 'finalized' }
+  | { status: 'busy' | 'failed' | 'invalid' };
+
 interface FieldReportState {
   data: FieldReport | null;
   errorMessage: string | null;
@@ -754,38 +782,21 @@ export function useFieldReportDraft(
     ],
   );
 
-  const finalize = useCallback(
-
-    async (values: {
-      affectedAreaHectares: number | null;
-      affectedAreaMeasurement?: MeasurementProvenance;
-      affectedPortionPercent: number | null;
-      affectedPortionMeasurement?: MeasurementProvenance;
-      barangay: string;
-      caneClass?: string;
-      cropAge?: string;
-      farmerOrFarmOwnerName: string;
-      fieldNotes?: string | null;
-      fieldSurveyClientUuid?: string | null;
-      mismatchReported?: boolean | null;
-      reporterObservationText?: string | null;
-      reporterSuspectedCondition?: string | null;
-      municipality?: string;
-      province?: string;
-      sugarcaneVariety?: string;
-    }): Promise<FieldReport | null> => {
+  const finalizeWithOutcome = useCallback(
+    async (values: FinalizeValues): Promise<FinalizeOutcome> => {
+      if (!state.data || !hasCurrentReport || !user || !canAuthorReports) {
+        return { status: 'failed' };
+      }
+      // Refused because other work on this report is running, not because
+      // finalizing failed: the caller can show a busy state and try again.
       if (
-        !state.data ||
-        !hasCurrentReport ||
-        !user ||
-        !canAuthorReports ||
         finalizing ||
         savingManualLocation ||
         capturingLocation ||
         finalizeInFlight.current ||
         saveInFlight.current
       ) {
-        return null;
+        return { status: 'busy' };
       }
 
       invalidateLocationAttempt();
@@ -807,15 +818,15 @@ export function useFieldReportDraft(
           },
         );
         if (!isCurrentInput()) {
-          return null;
+          return { status: 'failed' };
         }
         setState({ data: result.report, errorMessage: null, loading: false });
         if (result.status === 'invalid') {
           setSubmissionIssues(result.missingRequirements);
           setSaved(true);
-          return null;
+          return { status: 'invalid' };
         }
-        return result.report;
+        return { report: result.report, status: 'finalized' };
       } catch (error: unknown) {
         const storageError = toStorageError(
           error,
@@ -829,7 +840,7 @@ export function useFieldReportDraft(
             errorMessage: getStorageErrorMessage(storageError),
           }));
         }
-        return null;
+        return { status: 'failed' };
       } finally {
         finalizeInFlight.current = false;
         setFinalizing(false);
@@ -846,6 +857,14 @@ export function useFieldReportDraft(
       state.data,
       user,
     ],
+  );
+
+  const finalize = useCallback(
+    async (values: FinalizeValues): Promise<FieldReport | null> => {
+      const outcome = await finalizeWithOutcome(values);
+      return outcome.status === 'finalized' ? outcome.report : null;
+    },
+    [finalizeWithOutcome],
   );
 
   const discardDraft = useCallback(async (): Promise<boolean> => {
@@ -889,6 +908,7 @@ export function useFieldReportDraft(
     clearLocationUnavailable: clearUnavailableLocation,
     discardDraft,
     finalize,
+    finalizeWithOutcome,
     finalizing: hasCurrentReport ? finalizing : false,
     locationServicesDisabled: hasCurrentReport
       ? locationServicesDisabled

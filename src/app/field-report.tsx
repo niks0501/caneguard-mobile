@@ -37,6 +37,7 @@ import {
   Typography,
 } from '@/constants/theme';
 import {
+  FINALIZE_DIALOG_COPY,
   LOCATION_ADDED,
   LOCATION_CLOSER_READING_ACTION,
   LOCATION_UNCONFIRMED,
@@ -273,6 +274,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
+  const [finalizeRefusedBusy, setFinalizeRefusedBusy] = useState(false);
+  const [confirmingFinalize, setConfirmingFinalize] = useState(false);
   const [pendingFinalizeValues, setPendingFinalizeValues] = useState<FinalizeFieldReportFormValues | null>(null);
 
   // Form values in component state so they survive step transitions
@@ -847,6 +850,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     const values = collectValues(true);
     if (values) {
       setFinalizeError(null);
+      setFinalizeRefusedBusy(false);
       setPendingFinalizeValues({
         ...values,
         affectedAreaHectares: values.affectedAreaHectares ?? null,
@@ -867,23 +871,38 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       setShowFinalizeConfirm(false);
       return;
     }
-    // A failed finalize keeps the gate open with the existing error text;
-    // only a confirmed success closes it.
-    const finalized = await finalizeAndSync(pendingFinalizeValues);
-    if (finalized) {
-      setShowCancelConfirm(false);
-      setShowFinalizeConfirm(false);
-      setFinalizeError(null);
-      setPendingFinalizeValues(null);
-    } else {
-      setFinalizeError(report.errorMessage || 'Could not finalize report — check required fields');
+    if (confirmingFinalize) {
+      return;
+    }
+    // A failed or busy finalize keeps the gate open with a message; only a
+    // confirmed success closes it.
+    setConfirmingFinalize(true);
+    try {
+      const outcome = await finalizeAndSync(pendingFinalizeValues);
+      if (outcome === 'finalized') {
+        setShowCancelConfirm(false);
+        setShowFinalizeConfirm(false);
+        setFinalizeError(null);
+        setFinalizeRefusedBusy(false);
+        setPendingFinalizeValues(null);
+      } else if (outcome === 'busy') {
+        setFinalizeError(null);
+        setFinalizeRefusedBusy(true);
+      } else {
+        setFinalizeRefusedBusy(false);
+        setFinalizeError(report.errorMessage || 'Could not finalize report — check required fields');
+      }
+    } finally {
+      setConfirmingFinalize(false);
     }
   };
 
-  const finalizeAndSync = async (values: FinalizeFieldReportFormValues) => {
+  const finalizeAndSync = async (
+    values: FinalizeFieldReportFormValues,
+  ): Promise<'finalized' | 'busy' | 'failed'> => {
     try {
-      const finalized = await report.finalize(values);
-      if (finalized) {
+      const outcome = await report.finalizeWithOutcome(values);
+      if (outcome.status === 'finalized') {
         clearFormCheckpoint();
         if (sync.isOnline === true) {
           await sync.syncNow('after-save');
@@ -892,16 +911,20 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
           showToast('Report finalized — will sync when online', 'success');
         }
         await report.refresh();
-        return true;
+        return 'finalized';
+      }
+      if (outcome.status === 'busy') {
+        showToast(FINALIZE_DIALOG_COPY.refusedBusy, 'info');
+        return 'busy';
       }
       showToast(
         report.errorMessage || 'Could not finalize report — check required fields',
         'error',
       );
-      return false;
+      return 'failed';
     } catch {
       showToast('Could not finalize report — please try again', 'error');
-      return false;
+      return 'failed';
     }
   };
 
@@ -1788,10 +1811,14 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
           visible={showFinalizeConfirm}
           title="Finalize this report?"
           message={
-            finalizeError
-              ? `${finalizeConfirmMessage({ farmerName, record: record.data, report: report.data })} Finalize failed: ${finalizeError}`
-              : finalizeConfirmMessage({ farmerName, record: record.data, report: report.data })
+            finalizeRefusedBusy
+              ? `${finalizeConfirmMessage({ farmerName, record: record.data, report: report.data })} ${FINALIZE_DIALOG_COPY.refusedBusy}`
+              : finalizeError
+                ? `${finalizeConfirmMessage({ farmerName, record: record.data, report: report.data })} Finalize failed: ${finalizeError}`
+                : finalizeConfirmMessage({ farmerName, record: record.data, report: report.data })
           }
+          busy={confirmingFinalize || report.finalizing}
+          busyLabel={FINALIZE_DIALOG_COPY.busyLabel}
           confirmLabel="Finalize report"
           confirmTestID="field-report.confirm-finalize"
           cancelLabel="Cancel"

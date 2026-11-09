@@ -68,6 +68,11 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
   }),
 }));
 
+let mockPendingCount = 0;
+jest.mock('@/features/sync/hooks/useSync', () => ({
+  useSync: () => ({ pendingCount: mockPendingCount }),
+}));
+
 function SettingsScreen() {
   return (
     <LanguagePreferenceProvider>
@@ -79,6 +84,8 @@ function SettingsScreen() {
 describe('SettingsScreen', () => {
   beforeEach(() => {
     mockRole = 'field_reporter';
+    mockPendingCount = 0;
+    mockLogout.mockClear();
   });
 
   it('presents honest active settings without dead Coming later rows', async () => {
@@ -126,7 +133,6 @@ describe('SettingsScreen', () => {
   });
 
   it('displays confirmation toast when logging out', async () => {
-    jest.spyOn(Alert, 'alert');
     await render(
       <ToastProvider>
         <SettingsScreen />
@@ -134,16 +140,62 @@ describe('SettingsScreen', () => {
     );
 
     await fireEvent.press(screen.getByTestId('settings.logout'));
-    const alertCall = jest.mocked(Alert.alert).mock.calls.find((call) => call[0] === 'Log out?');
-    const logoutAction = alertCall?.[2]?.find((action) => action.style === 'destructive');
-
-    await act(async () => {
-      logoutAction?.onPress?.();
-    });
+    expect(screen.getByTestId('settings.logout-dialog')).toHaveTextContent(/Log out\?/);
+    await fireEvent.press(screen.getByTestId('settings.logout-dialog.confirm'));
 
     expect(mockLogout).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
     expect(screen.getByTestId('app-toast')).toHaveTextContent('Signed out');
+  });
+
+  it('shows a busy logout dialog until the server session is revoked', async () => {
+    let finishLogout!: (result: {
+      localClearFailed: boolean;
+      remoteRevocationFailed: boolean;
+    }) => void;
+    mockLogout.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishLogout = resolve;
+        }),
+    );
+    await render(
+      <ToastProvider>
+        <SettingsScreen />
+      </ToastProvider>,
+    );
+
+    await fireEvent.press(screen.getByTestId('settings.logout'));
+    await fireEvent.press(screen.getByTestId('settings.logout-dialog.confirm'));
+
+    const confirm = screen.getByTestId('settings.logout-dialog.confirm');
+    expect(confirm.props.accessibilityState).toEqual({ disabled: true, busy: true });
+    expect(screen.getByText('Signing out…')).toBeOnTheScreen();
+    expect(screen.getByTestId('settings.logout-dialog')).toHaveTextContent(/up to 20 seconds/);
+    expect(screen.getByTestId('settings.logout-dialog.cancel')).toBeDisabled();
+
+    await fireEvent.press(confirm);
+    expect(mockLogout).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      finishLogout({ localClearFailed: false, remoteRevocationFailed: false });
+    });
+    expect(screen.queryByTestId('settings.logout-dialog')).toBeNull();
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('Signed out');
+  });
+
+  it('names the unsent item count in the logout confirmation', async () => {
+    mockPendingCount = 3;
+    await render(
+      <ToastProvider>
+        <SettingsScreen />
+      </ToastProvider>,
+    );
+
+    await fireEvent.press(screen.getByTestId('settings.logout'));
+    expect(screen.getByTestId('settings.logout-dialog')).toHaveTextContent(
+      /3 saved items have not reached the office yet/,
+    );
   });
 
   it('clears only downloaded office data without touching unsent work', async () => {

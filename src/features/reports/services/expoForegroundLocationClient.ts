@@ -5,9 +5,13 @@ import type { ForegroundLocationClient } from '@/features/reports/services/captu
 export const expoForegroundLocationClient: ForegroundLocationClient = {
   async requestForegroundPermission() {
     const permission = await Location.requestForegroundPermissionsAsync();
-    return permission.status === Location.PermissionStatus.GRANTED
-      ? 'granted'
-      : 'denied';
+    return {
+      canAskAgain: permission.canAskAgain,
+      status:
+        permission.status === Location.PermissionStatus.GRANTED
+          ? 'granted'
+          : 'denied',
+    };
   },
 
   hasServicesEnabled() {

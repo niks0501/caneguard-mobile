@@ -154,7 +154,7 @@ describe('useFieldReportDraft', () => {
     mockClearLocationUnavailable.mockResolvedValue(createdReport(REPORT_A, SCAN_A));
     mockCaptureGpsLocation.mockResolvedValue({
       capturedAt: '2026-08-10T01:02:00.000Z',
-      outcome: 'permission_denied',
+      canAskAgain: false, outcome: 'permission_denied',
     });
   });
 
@@ -431,7 +431,7 @@ describe('useFieldReportDraft', () => {
     mockCaptureGpsLocation
       .mockResolvedValueOnce({
         capturedAt: '2026-08-10T01:02:00.000Z',
-        outcome: 'permission_denied',
+        canAskAgain: false, outcome: 'permission_denied',
       })
       .mockReturnValueOnce(
         new Promise((resolve) => {
@@ -503,7 +503,7 @@ describe('useFieldReportDraft', () => {
     mockCaptureGpsLocation
       .mockResolvedValueOnce({
         capturedAt: '2026-08-10T01:02:00.000Z',
-        outcome: 'permission_denied',
+        canAskAgain: false, outcome: 'permission_denied',
       })
       .mockReturnValueOnce(
         new Promise((resolve) => {
@@ -784,7 +784,7 @@ describe('useFieldReportDraft automatic location capture (D5)', () => {
   it('attempts one GPS reading when a brand-new Draft is created', async () => {
     mockCaptureGpsLocation.mockResolvedValue({
       capturedAt: '2026-08-10T01:02:00.000Z',
-      outcome: 'permission_denied',
+      canAskAgain: false, outcome: 'permission_denied',
     });
 
     const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
@@ -804,7 +804,7 @@ describe('useFieldReportDraft automatic location capture (D5)', () => {
   it('does not auto-capture again after a refresh, and never on an existing Draft', async () => {
     mockCaptureGpsLocation.mockResolvedValue({
       capturedAt: '2026-08-10T01:02:00.000Z',
-      outcome: 'permission_denied',
+      canAskAgain: false, outcome: 'permission_denied',
     });
 
     const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
@@ -824,7 +824,7 @@ describe('useFieldReportDraft automatic location capture (D5)', () => {
     );
     mockCaptureGpsLocation.mockResolvedValue({
       capturedAt: '2026-08-10T02:00:00.000Z',
-      outcome: 'permission_denied',
+      canAskAgain: false, outcome: 'permission_denied',
     });
     mockSaveGpsCapture.mockImplementation(async () =>
       createdReport(REPORT_A, SCAN_A),
@@ -838,7 +838,7 @@ describe('useFieldReportDraft automatic location capture (D5)', () => {
     mockFindFieldReportByScanRecordId.mockResolvedValue(null);
     mockCaptureGpsLocation.mockResolvedValue({
       capturedAt: '2026-08-10T01:02:00.000Z',
-      outcome: 'permission_denied',
+      canAskAgain: false, outcome: 'permission_denied',
     });
     mockCreateOrGetFieldReportDraft.mockImplementation(async (_database, input) =>
       createdReport(input.id, input.scanRecordId, {

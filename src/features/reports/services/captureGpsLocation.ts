@@ -19,7 +19,13 @@ export interface ForegroundLocationClient {
     timestamp: number;
   }>;
   hasServicesEnabled(): Promise<boolean>;
-  requestForegroundPermission(): Promise<'denied' | 'granted'>;
+  requestForegroundPermission(): Promise<ForegroundPermission>;
+}
+
+export interface ForegroundPermission {
+  /** False once the OS will no longer show the prompt; only Settings can grant. */
+  canAskAgain: boolean;
+  status: 'denied' | 'granted';
 }
 
 export type GpsCaptureResult =
@@ -32,7 +38,12 @@ export type GpsCaptureResult =
     }
   | {
       capturedAt: string;
-      outcome: 'error' | 'permission_denied';
+      outcome: 'error';
+    }
+  | {
+      canAskAgain: boolean;
+      capturedAt: string;
+      outcome: 'permission_denied';
     }
   | {
       capturedAt: string;
@@ -63,6 +74,11 @@ export async function captureGpsLocation(
   try {
     let position: UsablePosition | null;
     try {
+      // The permission prompt waits on the user, so the bound starts after it.
+      const permission = await client.requestForegroundPermission();
+      if (permission.status !== 'granted') {
+        throw new GpsPermissionDeniedError(permission.canAskAgain);
+      }
       position = await withForegroundTimeout(sampleBestPosition(client, best), timeoutMs);
     } catch (error) {
       if (error instanceof GpsTimeoutError && best.position) {
@@ -89,7 +105,11 @@ export async function captureGpsLocation(
     };
   } catch (error) {
     if (error instanceof GpsPermissionDeniedError) {
-      return { capturedAt: attemptedAt, outcome: 'permission_denied' };
+      return {
+        canAskAgain: error.canAskAgain,
+        capturedAt: attemptedAt,
+        outcome: 'permission_denied',
+      };
     }
     if (error instanceof GpsServicesDisabledError) {
       return {
@@ -147,10 +167,6 @@ async function sampleBestPosition(
   client: ForegroundLocationClient,
   best: BestReading,
 ): Promise<UsablePosition | null> {
-  const permission = await client.requestForegroundPermission();
-  if (permission !== 'granted') {
-    throw new GpsPermissionDeniedError();
-  }
   if (!(await client.hasServicesEnabled())) {
     throw new GpsServicesDisabledError();
   }
@@ -205,7 +221,11 @@ function captureTimestamp(timestamp: number, attemptedAt: string): string {
 }
 
 class GpsTimeoutError extends Error {}
-class GpsPermissionDeniedError extends Error {}
+class GpsPermissionDeniedError extends Error {
+  constructor(readonly canAskAgain: boolean) {
+    super('Foreground location permission was not granted');
+  }
+}
 class GpsServicesDisabledError extends Error {}
 
 async function withForegroundTimeout<T>(

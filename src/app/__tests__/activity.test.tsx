@@ -30,6 +30,7 @@ let mockAssignmentsState: ReturnType<typeof useFieldValidationAssignments> = {
   lastSuccessfulAt: null,
   refreshing: false,
   refresh: mockRefreshAssignments,
+  refreshOutcome: async () => ((await mockRefreshAssignments()) ? 'ok' : 'failed'),
   sessionKey: 'session-1',
 };
 jest.mock('@/features/assignments/hooks/useFieldValidationAssignments', () => ({

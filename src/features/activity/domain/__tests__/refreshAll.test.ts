@@ -35,6 +35,18 @@ describe('runRefreshAll', () => {
     expect(result.succeeded).toEqual(['assignments']);
   });
 
+  it('reports a skipped outcome separately from failed', async () => {
+    const result = await runRefreshAll([
+      { key: 'assignments', run: async () => 'skipped' },
+      { key: 'notifications', run: async () => 'failed' },
+      { key: 'records', run: async () => 'ok' },
+    ]);
+
+    expect(result.skipped).toEqual(['assignments']);
+    expect(result.failed).toEqual(['notifications']);
+    expect(result.succeeded).toEqual(['records']);
+  });
+
   it('keeps other subsystems running when one rejects', async () => {
     let secondaryRan = false;
     const result = await runRefreshAll([
@@ -65,13 +77,19 @@ describe('describeRefreshAllResult', () => {
 
   it('confirms a complete refresh in product language', () => {
     expect(
-      describeRefreshAllResult({ failed: [], succeeded: ['sync'] }),
+      describeRefreshAllResult({ failed: [], skipped: [], succeeded: ['sync'] }),
     ).toBe('Everything is up to date.');
+  });
+
+  it('does not report a skipped-only refresh as a failure', () => {
+    expect(
+      describeRefreshAllResult({ failed: [], skipped: ['assignments'], succeeded: [] }),
+    ).toBeNull();
   });
 
   it('names the failed subsystems and reassures about saved content', () => {
     expect(
-      describeRefreshAllResult({ failed: ['officeReview'], succeeded: ['sync'] }),
+      describeRefreshAllResult({ failed: ['officeReview'], skipped: [], succeeded: ['sync'] }),
     ).toBe("Couldn't refresh office review status. Saved content is still available.");
   });
 });

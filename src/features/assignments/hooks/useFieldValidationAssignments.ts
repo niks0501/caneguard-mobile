@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { EMPTY_DATABASE, useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
+import type { RefreshOutcome } from '@/features/activity/domain/refreshAll';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
   MobileFieldValidationAssignmentsApiError,
@@ -68,7 +69,7 @@ export function useFieldValidationAssignments(enabled = true) {
     [],
   );
 
-  const refresh = useCallback(async (options?: { force?: boolean }): Promise<boolean> => {
+  const refreshOutcome = useCallback(async (options?: { force?: boolean }): Promise<RefreshOutcome> => {
     const requestedSession = session;
     const force = options?.force !== false;
     if (
@@ -79,7 +80,7 @@ export function useFieldValidationAssignments(enabled = true) {
       database === EMPTY_DATABASE ||
       !ownerStore
     ) {
-      return false;
+      return 'skipped';
     }
 
     const store = ownerStore;
@@ -97,7 +98,7 @@ export function useFieldValidationAssignments(enabled = true) {
 
     if (!force && isFresh(store.assignments)) {
       applyCached(store.assignments?.value ?? []);
-      return true;
+      return 'ok';
     }
 
     setState((current) => ({
@@ -121,18 +122,18 @@ export function useFieldValidationAssignments(enabled = true) {
         setOwnerAssignments(store, cached, fetchedAt);
         applyCached(cached);
       });
-      if (!isCurrentStore()) return false;
+      if (!isCurrentStore()) return 'skipped';
       if (!force && isFresh(store.assignments)) {
         applyCached(store.assignments?.value ?? []);
         setState((current) => ({ ...current, refreshing: false }));
-        return true;
+        return 'ok';
       }
     } catch {
       // A network refresh can still recover a cache read failure.
     }
 
     try {
-      return await beginOwnerRefresh(
+      return await beginOwnerRefresh<RefreshOutcome>(
         store,
         'assignments',
         `${requestedSession.user.uuid}:${requestedSession.token}`,
@@ -142,7 +143,7 @@ export function useFieldValidationAssignments(enabled = true) {
             ownerIdentity: requestedSession.user.uuid,
             token: requestedSession.token,
           });
-          if (!isCurrentSession(requestedSession) || !isCurrentStore()) return false;
+          if (!isCurrentSession(requestedSession) || !isCurrentStore()) return 'skipped';
           setOwnerAssignments(store, result.assignments, result.fetchedAt);
           setState({
             assignments: result.assignments,
@@ -152,17 +153,17 @@ export function useFieldValidationAssignments(enabled = true) {
             refreshing: false,
             sessionKey,
           });
-          return true;
+          return 'ok';
         },
       );
     } catch (error: unknown) {
-      if (!isCurrentSession(requestedSession) || !isCurrentStore()) return false;
+      if (!isCurrentSession(requestedSession) || !isCurrentStore()) return 'skipped';
       if (
         error instanceof MobileFieldValidationAssignmentsApiError &&
         error.code === 'AUTH_REQUIRED'
       ) {
         await markSessionExpired();
-        return false;
+        return 'failed';
       }
       const capabilityUnavailable =
         error instanceof MobileFieldValidationAssignmentsApiError &&
@@ -185,9 +186,15 @@ export function useFieldValidationAssignments(enabled = true) {
               : "Couldn't refresh field validation assignments.",
         refreshing: false,
       }));
-      return false;
+      return 'failed';
     }
   }, [authStatus, canRead, database, enabled, isCurrentSession, markSessionExpired, ownerStore, session, sessionKey]);
+
+  const refresh = useCallback(
+    async (options?: { force?: boolean }): Promise<boolean> =>
+      (await refreshOutcome(options)) === 'ok',
+    [refreshOutcome],
+  );
 
   useEffect(() => {
     if (ownerStore && ownerStore.generation > 0) {
@@ -232,5 +239,5 @@ export function useFieldValidationAssignments(enabled = true) {
           sessionKey,
         };
 
-  return { ...visibleState, refresh };
+  return { ...visibleState, refresh, refreshOutcome };
 }

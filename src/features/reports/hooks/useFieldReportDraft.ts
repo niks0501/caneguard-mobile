@@ -220,6 +220,7 @@ export function useFieldReportDraft(
   const [saved, setSaved] = useState(false);
   const [capturingLocation, setCapturingLocation] = useState(false);
   const [locationServicesDisabled, setLocationServicesDisabled] = useState(false);
+  const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [savingManualLocation, setSavingManualLocation] = useState(false);
   const [submissionIssues, setSubmissionIssues] = useState<
@@ -288,6 +289,7 @@ export function useFieldReportDraft(
       locationCaptureInFlight.current = true;
       setCapturingLocation(true);
       setLocationServicesDisabled(false);
+      setLocationPermissionDenied(false);
       setSaved(false);
       setSubmissionIssues([]);
       lastError.current = null;
@@ -302,6 +304,7 @@ export function useFieldReportDraft(
           result.outcome === 'unavailable' &&
             result.reason === 'location_services_disabled',
         );
+        setLocationPermissionDenied(result.outcome === 'permission_denied');
         const data = await saveGpsCapture(database, report.id, user.uuid, {
           ...result,
           startedAt: attemptStartedAt,
@@ -912,6 +915,9 @@ export function useFieldReportDraft(
     finalizing: hasCurrentReport ? finalizing : false,
     locationServicesDisabled: hasCurrentReport
       ? locationServicesDisabled
+      : false,
+    locationPermissionDenied: hasCurrentReport
+      ? locationPermissionDenied
       : false,
     markLocationUnavailable,
     markingLocationUnavailable: hasCurrentReport

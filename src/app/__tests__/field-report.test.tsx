@@ -87,6 +87,7 @@ let mockDraftState: {
   finalize: typeof mockFinalize;
   finalizeWithOutcome: typeof mockFinalizeWithOutcome;
   finalizing: boolean;
+  locationPermissionDenied?: boolean;
   locationServicesDisabled: boolean;
   refresh: typeof mockRefresh;
   save: typeof mockSave;
@@ -1052,6 +1053,32 @@ describe('FieldReportScreen', () => {
 
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Open device location settings'));
+    });
+    expect(openSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers device settings when location permission is denied', async () => {
+    const openSettings = jest
+      .spyOn(Linking, 'openSettings')
+      .mockResolvedValue(undefined);
+    mockDraftState = {
+      ...mockDraftState,
+      locationPermissionDenied: true,
+      data: draft({
+        gpsCaptureOutcome: 'permission_denied',
+        gpsOutcomeRecordedAt: '2026-08-10T01:04:00.000Z',
+      }),
+    };
+
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    await goToStep(4);
+    expect(screen.getByTestId('field-report.location-permission-off')).toHaveTextContent(
+      /Location permission is off/,
+    );
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Open device settings to allow location'));
     });
     expect(openSettings).toHaveBeenCalledTimes(1);
   });

@@ -11,7 +11,7 @@ function client(
   overrides: Partial<ForegroundLocationClient> = {},
 ): ForegroundLocationClient {
   return {
-    requestForegroundPermission: jest.fn(async () => 'granted'),
+    requestForegroundPermission: jest.fn(async () => ({ canAskAgain: true, status: 'granted' as const })),
     hasServicesEnabled: jest.fn(async () => true),
     getCurrentPosition: jest.fn(async () => ({
       accuracy: 4.4,
@@ -114,15 +114,37 @@ describe('captureGpsLocation', () => {
 
   it('stops before accessing location when foreground permission is denied', async () => {
     const locationClient = client({
-      requestForegroundPermission: jest.fn(async () => 'denied'),
+      requestForegroundPermission: jest.fn(async () => ({
+        canAskAgain: false,
+        status: 'denied' as const,
+      })),
     });
 
     await expect(captureGpsLocation(locationClient, () => NOW)).resolves.toEqual({
+      canAskAgain: false,
       capturedAt: NOW.toISOString(),
       outcome: 'permission_denied',
     });
     expect(locationClient.hasServicesEnabled).not.toHaveBeenCalled();
     expect(locationClient.getCurrentPosition).not.toHaveBeenCalled();
+  });
+
+  it('does not count time spent on the permission prompt against the capture bound', async () => {
+    jest.useFakeTimers();
+    const requestForegroundPermission = jest.fn(
+      () =>
+        new Promise<{ canAskAgain: boolean; status: 'granted' }>((resolve) =>
+          setTimeout(
+            () => resolve({ canAskAgain: true, status: 'granted' }),
+            FOREGROUND_GPS_TIMEOUT_MS + 5_000,
+          ),
+        ),
+    );
+
+    const pending = captureGpsLocation(client({ requestForegroundPermission }), () => NOW);
+    await jest.advanceTimersByTimeAsync(FOREGROUND_GPS_TIMEOUT_MS + 5_000);
+
+    await expect(pending).resolves.toMatchObject({ outcome: 'resolved' });
   });
 
   it('reports disabled location services as unavailable without starting a reading', async () => {

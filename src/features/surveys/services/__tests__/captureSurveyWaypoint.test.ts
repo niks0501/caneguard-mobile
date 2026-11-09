@@ -5,7 +5,7 @@ import type { ForegroundLocationClient } from '@/features/reports/services/captu
 
 function client(overrides: Partial<ForegroundLocationClient> = {}): ForegroundLocationClient {
   return {
-    requestForegroundPermission: jest.fn(async () => 'granted' as const),
+    requestForegroundPermission: jest.fn(async () => ({ canAskAgain: true, status: 'granted' as const })),
     hasServicesEnabled: jest.fn(async () => true),
     getCurrentPosition: jest.fn(async () => ({
       accuracy: null,
@@ -75,7 +75,7 @@ describe('captureSurveyWaypoint', () => {
   });
 
   it('does not request a reading when permission or services are unavailable', async () => {
-    const denied = client({ requestForegroundPermission: jest.fn(async () => 'denied' as const) });
+    const denied = client({ requestForegroundPermission: jest.fn(async () => ({ canAskAgain: true, status: 'denied' as const })) });
     await expect(captureSurveyWaypoint(denied)).resolves.toEqual({ status: 'permission_denied' });
     expect(denied.getCurrentPosition).not.toHaveBeenCalled();
     const disabled = client({ hasServicesEnabled: jest.fn(async () => false) });

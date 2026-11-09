@@ -1528,6 +1528,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                           fieldReport={report.data}
                           capturing={report.capturingLocation}
                           isOnline={sync.isOnline}
+                          locationPermissionDenied={report.locationPermissionDenied}
                           locationServicesDisabled={report.locationServicesDisabled}
                           markingUnavailable={report.markingLocationUnavailable}
                           saveInProgress={report.saving || report.finalizing}
@@ -1953,6 +1954,7 @@ function LocationCapture({
   capturing,
   fieldReport,
   isOnline,
+  locationPermissionDenied,
   locationServicesDisabled,
   markingUnavailable,
   onCancelCapture,
@@ -1966,6 +1968,7 @@ function LocationCapture({
   capturing: boolean;
   fieldReport: FieldReport;
   isOnline: boolean | null;
+  locationPermissionDenied: boolean;
   locationServicesDisabled: boolean;
   markingUnavailable: boolean;
   onCancelCapture: () => void;
@@ -2022,6 +2025,31 @@ function LocationCapture({
         style={[styles.statusMessage, { color: theme.textSecondary }]}>
         {presentation.message}
       </Text>
+      {locationPermissionDenied ? (
+        <View
+          testID="field-report.location-permission-off"
+          accessibilityLiveRegion="assertive"
+          style={[
+            styles.validationCard,
+            { backgroundColor: theme.warningBg, borderColor: theme.warning },
+          ]}>
+          <Text style={[styles.validationTitle, { color: theme.warning }]}>
+            Location permission is off
+          </Text>
+          <Text style={[styles.statusMessage, { color: theme.text }]}>
+            Allow location for CaneGuard in device settings, then retry
+            location. Your draft is still saved.
+          </Text>
+          <AppButton
+            testID="field-report.open-location-permission-settings"
+            accessibilityLabel="Open device settings to allow location"
+            onPress={onOpenLocationSettings}
+            leadingIcon="settings"
+            variant="secondary">
+            Open Settings
+          </AppButton>
+        </View>
+      ) : null}
       {locationServicesDisabled ? (
         <View
           testID="field-report.location-services-off"

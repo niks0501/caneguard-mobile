@@ -70,6 +70,9 @@ export default function LoginScreen() {
   return (
     <SafeAreaView
       testID="auth.login-screen"
+      accessibilityValue={{
+        text: `state=${submitting ? 'signing-in' : biometricLoading ? 'biometric-unlocking' : errorMessage ? 'error' : 'idle'}`,
+      }}
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.root}>

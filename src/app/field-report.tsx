@@ -1173,6 +1173,9 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   return (
     <SafeAreaView
       testID="field-report.screen"
+      accessibilityValue={{
+        text: `state=${report.loading && !report.data ? 'loading' : report.errorMessage && !report.data ? 'error' : report.data ? report.data.authoringState : 'empty'}`,
+      }}
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
       <View style={styles.root}>
@@ -1223,6 +1226,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                 {/* A draft or finalized report is a normal state: plain ink, no box. */}
                 <Notice
                   testID="field-report.authoring-status"
+                  stateValue={`authoring=${report.data.authoringState};sync=${report.data.syncStatus}`}
                   icon={report.data.authoringState === 'finalized' ? 'check-circle' : 'edit-3'}>
                   <View style={styles.statusCopy}>
                     <Text style={[styles.statusTitle, { color: theme.text }]}>
@@ -1241,6 +1245,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                 {report.data.authoringState === 'draft' ? (
                   <Text
                     testID="field-report.form-draft-status"
+                    accessibilityValue={{ text: `draft=${formDraftStatus}` }}
                     accessibilityLiveRegion="polite"
                     style={[styles.helpText, { color: theme.textSecondary }]}>
                     {formatFormDraftStatus(formDraftStatus, formDraftSavedAt)}

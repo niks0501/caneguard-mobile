@@ -50,6 +50,18 @@ export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
     sessionVerification,
   });
   const iconColor = theme[SYNC_TONE_COLOR[tone]];
+  // Agent marker: stable state token plus counts only, never copy or identifiers.
+  const syncState = sync.isSyncing
+    ? 'syncing'
+    : apiUnavailable
+      ? 'server-unavailable'
+      : sync.isOnline === null
+        ? 'checking'
+        : sync.isOnline === false
+          ? 'offline'
+          : hasPendingReports
+            ? 'pending'
+            : 'synced';
   const summary = getSyncRowSummary({
     apiReachability: sync.apiReachability,
     isOnline: sync.isOnline,
@@ -66,6 +78,9 @@ export function SyncStatusRow({ onPress, testID }: SyncStatusRowProps) {
       accessibilityRole="button"
       accessibilityLabel={`Open Activity, ${summary}`}
       accessibilityLiveRegion="polite"
+      accessibilityValue={{
+        text: `state=${syncState};pending=${sync.pendingCount};error=${sync.errorMessage ? 'yes' : 'no'}`,
+      }}
       testID={testID}
       onPress={onPress}
       style={({ pressed }) => [

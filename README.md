@@ -293,7 +293,7 @@ Use one terminal per long-running process.
 
    ```bash
    cd "<WORKSPACE>/caneguard-mobile"
-   npm run start -- --dev-client
+   npm run start:dev-client
    ```
 
 8. Open the already installed `caneguard-mobile` development build on the Android Studio emulator and connect it to the running Metro server.
@@ -411,7 +411,7 @@ Use the commands available on your active `PATH` for the project scripts.
 
 ### Metro or development-client compatibility
 
-Run `npm run start -- --dev-client` from the Mobile root, reverse port `8081` for the Android Studio emulator workflow, and connect the installed development build to that Metro session.
+Run `npm run start:dev-client` from the Mobile root, reverse port `8081` for the Android Studio emulator workflow, and connect the installed development build to that Metro session.
 Restart Metro after every Mobile `.env` change.
 If native dependencies, Expo plugins, or native app configuration changed, rebuild and reinstall the development APK before interpreting device or Agent Device failures.
 A JavaScript-only change can reuse an existing compatible native build.

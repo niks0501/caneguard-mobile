@@ -60,6 +60,7 @@ export default function ImagePreviewScreen() {
   const analysisComplete = state.status === 'completed';
   const preprocessingComplete = Boolean(state.processedUri);
   const isAnalysisActive = isPreprocessing || isRunning || isFinalizing;
+  const hasMountedPreview = useRef(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   useEffect(() => {
@@ -69,6 +70,20 @@ export default function ImagePreviewScreen() {
       isMounted.current = false;
     };
   }, []);
+
+  // A previous preview may have been abandoned while native analysis was
+  // still in flight. The provider deliberately does not checkpoint those
+  // transient statuses, so make a newly mounted preview retryable instead of
+  // showing an analysis spinner that can never finish.
+  useEffect(() => {
+    if (hasMountedPreview.current) {
+      return;
+    }
+    hasMountedPreview.current = true;
+    if (!analysisInFlight.current && isAnalysisActive) {
+      dispatch({ type: 'CLEAR_ERROR' });
+    }
+  }, [dispatch, isAnalysisActive]);
 
   // An owner change abandons any in-flight analysis started by the previous
   // account, so the next inspector is never blocked by it.
@@ -234,6 +249,10 @@ export default function ImagePreviewScreen() {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
         <View style={styles.root}>
+          <View
+            testID="scan.session-status"
+            accessibilityValue={{ text: state.status }}
+          />
           <BrandedScreenHeader
             title="Image preview"
             showClose
@@ -278,6 +297,10 @@ export default function ImagePreviewScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top']}>
       <View style={styles.root}>
+        <View
+          testID="scan.session-status"
+          accessibilityValue={{ text: state.status }}
+        />
         <BrandedScreenHeader
           title="Image preview"
           showClose

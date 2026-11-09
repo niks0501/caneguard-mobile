@@ -7,7 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
-import { FARMER_COPY, FIELD_GUIDE_ENTRY_DESCRIPTION } from '@/constants/copy';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { FARMER_COPY, FIELD_GUIDE_ENTRY_DESCRIPTION, LOGOUT_DIALOG_COPY } from '@/constants/copy';
 import { ComponentTokens, Layout, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import {
@@ -18,6 +19,7 @@ import {
 } from '@/database/localDataLifecycle';
 import { OfflineReadinessCard } from '@/features/auth/components/OfflineReadinessCard';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useSync } from '@/features/sync/hooks/useSync';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 import { useLanguagePreference, type FarmerLanguage } from '@/providers/LanguagePreferenceProvider';
@@ -115,11 +117,42 @@ export default function SettingsScreen() {
   const { isDarkMode, setDarkMode } = useThemePreference();
   const database = useCaneGuardDatabase();
   const { logout, user } = useAuth();
+  const { pendingCount } = useSync();
   const isFarmer = user?.role === 'farmer';
   const [clearingLocalData, setClearingLocalData] = useState(false);
   const [clearingCachedData, setClearingCachedData] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const appVersion = Constants.expoConfig?.version ?? 'Unknown';
+
+  const confirmLogout = async () => {
+    if (loggingOut) {
+      return;
+    }
+    setLoggingOut(true);
+    try {
+      const { localClearFailed, remoteRevocationFailed } = await logout();
+      if (localClearFailed) {
+        showToast('Logout incomplete', 'error');
+        Alert.alert(
+          'Logout incomplete',
+          'CaneGuard could not clear secure session storage. Restart the app and try again.',
+        );
+      } else if (remoteRevocationFailed) {
+        showToast('Signed out locally', 'info');
+        Alert.alert(
+          'Signed out locally',
+          'The server could not be reached, so the remote token may remain active until it expires or is revoked later.',
+        );
+      } else {
+        showToast('Signed out', 'info');
+      }
+    } finally {
+      setLoggingOut(false);
+      setShowLogoutConfirm(false);
+    }
+  };
 
   const clearCachedData = async () => {
     if (!user || clearingCachedData) {
@@ -334,42 +367,7 @@ export default function SettingsScreen() {
                 <AppButton
                   testID="settings.logout"
                   variant="text"
-                  onPress={() =>
-                    Alert.alert(
-                      'Log out?',
-                      'Logging out revokes the server session and removes the protected credential. Pending scans remain owner-scoped on this device; use Remove all local records before handing the device to another user.',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Log out',
-                          style: 'destructive',
-                          onPress: () => {
-                            void logout().then(
-                              ({
-                                localClearFailed,
-                                remoteRevocationFailed,
-                              }) => {
-                              if (localClearFailed) {
-                                showToast('Logout incomplete', 'error');
-                                Alert.alert(
-                                  'Logout incomplete',
-                                  'CaneGuard could not clear secure session storage. Restart the app and try again.',
-                                );
-                              } else if (remoteRevocationFailed) {
-                                showToast('Signed out locally', 'info');
-                                Alert.alert(
-                                  'Signed out locally',
-                                  'The server could not be reached, so the remote token may remain active until it expires or is revoked later.',
-                                );
-                              } else {
-                                showToast('Signed out', 'info');
-                              }
-                            });
-                          },
-                        },
-                      ],
-                    )
-                  }
+                  onPress={() => setShowLogoutConfirm(true)}
                   accessibilityLabel="Log out of your account"
                   style={styles.logoutButton}>
                   <Text style={[styles.logoutText, { color: theme.danger }]}>Logout</Text>
@@ -436,6 +434,26 @@ export default function SettingsScreen() {
           </View>
         </ScrollView>
 
+        <ConfirmDialog
+          visible={showLogoutConfirm}
+          title={LOGOUT_DIALOG_COPY.title}
+          message={
+            loggingOut
+              ? LOGOUT_DIALOG_COPY.busyMessage
+              : pendingCount > 0
+                ? `${LOGOUT_DIALOG_COPY.message} ${LOGOUT_DIALOG_COPY.pendingNote(pendingCount)}`
+                : LOGOUT_DIALOG_COPY.message
+          }
+          confirmLabel={LOGOUT_DIALOG_COPY.confirmLabel}
+          busy={loggingOut}
+          busyLabel={LOGOUT_DIALOG_COPY.busyLabel}
+          destructive
+          overlay
+          testID="settings.logout-dialog"
+          onConfirm={() => void confirmLogout()}
+          onCancel={() => setShowLogoutConfirm(false)}
+          onRequestClose={() => setShowLogoutConfirm(false)}
+        />
       </View>
     </SafeAreaView>
   );

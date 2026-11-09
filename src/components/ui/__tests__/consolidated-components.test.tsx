@@ -198,6 +198,39 @@ describe('Consolidated UI components', () => {
       expect(onConfirm).toHaveBeenCalledTimes(1);
     });
 
+    it('shows a busy confirm button and blocks cancel and dismiss while busy', async () => {
+      const onConfirm = jest.fn();
+      const onCancel = jest.fn();
+      const onRequestClose = jest.fn();
+      await render(
+        <ConfirmDialog
+          visible
+          overlay
+          busy
+          busyLabel="Working…"
+          title="Do it?"
+          message="Details."
+          confirmLabel="Do it"
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+          onRequestClose={onRequestClose}
+        />,
+      );
+
+      expect(screen.getByText('Working…')).toBeOnTheScreen();
+      expect(screen.queryByText('Do it')).toBeNull();
+      expect(screen.getByTestId('confirm-dialog.confirm').props.accessibilityState).toEqual({
+        disabled: true,
+        busy: true,
+      });
+      await fireEvent.press(screen.getByTestId('confirm-dialog.confirm'));
+      await fireEvent.press(screen.getByTestId('confirm-dialog.cancel'));
+      await fireEvent.press(screen.getByLabelText('Dismiss confirmation'));
+      expect(onConfirm).not.toHaveBeenCalled();
+      expect(onCancel).not.toHaveBeenCalled();
+      expect(onRequestClose).not.toHaveBeenCalled();
+    });
+
     it('renders as an overlay modal and handles backdrop onRequestClose', async () => {
       const onRequestClose = jest.fn();
       await render(

@@ -13,6 +13,10 @@ export type ConfirmDialogProps = {
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
+  /** Work started by Confirm is running: the confirm button shows a spinner and the dialog cannot be cancelled or dismissed. */
+  busy?: boolean;
+  /** Confirm label while busy. Defaults to the confirm label. */
+  busyLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
   testID?: string;
@@ -24,6 +28,8 @@ export type ConfirmDialogProps = {
 };
 
 export function ConfirmDialog({
+  busy = false,
+  busyLabel,
   cancelLabel = 'Cancel',
   cancelTestID,
   confirmLabel = 'Confirm',
@@ -74,6 +80,7 @@ export function ConfirmDialog({
       <View style={styles.actions} testID={`${testID}.actions`}>
         <View style={styles.actionBtn}>
           <AppButton
+            disabled={busy}
             onPress={onCancel}
             testID={cancelTestID ?? `${testID}.cancel`}
             variant="secondary">
@@ -82,10 +89,11 @@ export function ConfirmDialog({
         </View>
         <View style={styles.actionBtn}>
           <AppButton
+            busy={busy}
             onPress={onConfirm}
             testID={confirmTestID ?? `${testID}.confirm`}
             variant={destructive ? 'danger' : 'primary'}>
-            {confirmLabel}
+            {busy ? (busyLabel ?? confirmLabel) : confirmLabel}
           </AppButton>
         </View>
       </View>
@@ -98,6 +106,7 @@ export function ConfirmDialog({
         <Pressable
           accessibilityLabel="Dismiss confirmation"
           accessibilityRole="button"
+          disabled={busy}
           onPress={onRequestClose}
           style={StyleSheet.absoluteFill}
         />

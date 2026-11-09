@@ -683,6 +683,51 @@ describe('useFieldReportDraft', () => {
       await finalizePromise;
     });
   });
+
+  it('reports a finalize refused while another finalize is in flight as busy, not failed', async () => {
+    let resolveFinalize!: (
+      result: Awaited<ReturnType<typeof finalizeFieldReport>>,
+    ) => void;
+    mockFinalizeFieldReport.mockImplementation(
+      () =>
+        new Promise<Awaited<ReturnType<typeof finalizeFieldReport>>>((resolve) => {
+          resolveFinalize = resolve;
+        }),
+    );
+
+    const { result } = await renderHook(() => useFieldReportDraft(SCAN_A));
+    await waitFor(() =>
+      expect(mockCreateOrGetFieldReportDraft).toHaveBeenCalledTimes(1),
+    );
+    await waitFor(() =>
+      expect(result.current.capturingLocation).toBe(false),
+    );
+
+    const values = {
+      affectedAreaHectares: 0.5,
+      affectedPortionPercent: 30,
+      barangay: 'Lumbangan',
+      farmerOrFarmOwnerName: 'Maria Santos',
+    };
+    let first: Promise<unknown> | null = null;
+    let second: unknown = null;
+    await act(async () => {
+      first = result.current.finalizeWithOutcome(values);
+      second = await result.current.finalizeWithOutcome(values);
+    });
+
+    expect(second).toEqual({ status: 'busy' });
+    expect(mockFinalizeFieldReport).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveFinalize({
+        missingRequirements: [],
+        report: createdReport(REPORT_A, SCAN_A),
+        status: 'invalid',
+      });
+      await first;
+    });
+  });
 });
 
 describe('useFieldReportForScan', () => {

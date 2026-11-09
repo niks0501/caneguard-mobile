@@ -9,10 +9,6 @@ import type {
 } from '@/features/assignments/domain/assignmentTypes';
 import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
-import {
-  getOwnerMobileDataStore,
-  setOwnerAssignments,
-} from '@/features/mobile-data/data/mobileDataStore';
 
 export async function listCachedFieldValidationAssignments(
   database: CaneGuardDatabase,
@@ -35,11 +31,6 @@ export async function listCachedFieldValidationAssignments(
   }
 }
 
-/**
- * Replace one authenticated owner's complete server snapshot only after the
- * feed has been fully validated. A successful refresh removes assignments
- * that were reassigned away, while a failed refresh leaves the old cache intact.
- */
 export async function findCachedFieldValidationAssignment(
   database: CaneGuardDatabase,
   ownerIdentity: string,
@@ -67,66 +58,11 @@ export async function findCachedFieldValidationAssignment(
   }
 }
 
-export async function markCachedFieldValidationAssignmentInProgress(
-  database: CaneGuardDatabase,
-  ownerIdentity: string,
-  assignmentId: string,
-  updatedAt: string,
-): Promise<void> {
-  await updateCachedAssignmentState(database, ownerIdentity, assignmentId, 'in_progress', updatedAt);
-}
-
-export async function markCachedFieldValidationAssignmentCompleted(
-  database: CaneGuardDatabase,
-  ownerIdentity: string,
-  assignmentId: string,
-  updatedAt: string,
-): Promise<void> {
-  await updateCachedAssignmentState(database, ownerIdentity, assignmentId, 'completed', updatedAt);
-}
-
-async function updateCachedAssignmentState(
-  database: CaneGuardDatabase,
-  ownerIdentity: string,
-  assignmentId: string,
-  fieldValidationState: FieldValidationAssignment['fieldValidationState'],
-  updatedAt: string,
-): Promise<void> {
-  const owner = requireOwner(ownerIdentity);
-  if (!updatedAt || Number.isNaN(Date.parse(updatedAt))) {
-    throw new StorageError('UPDATE_FAILED', 'The assignment completion timestamp is invalid.');
-  }
-  try {
-    await database
-      .update(fieldValidationAssignments)
-      .set({ fieldValidationState, updatedAt })
-      .where(
-        and(
-          eq(fieldValidationAssignments.ownerIdentity, owner),
-          eq(fieldValidationAssignments.id, assignmentId),
-        ),
-      );
-    const store = getOwnerMobileDataStore(database, owner);
-    if (store.assignments) {
-      setOwnerAssignments(
-        store,
-        store.assignments.value.map((assignment) =>
-          assignment.id === assignmentId
-            ? { ...assignment, fieldValidationState, updatedAt }
-            : assignment,
-        ),
-        store.assignments.fetchedAt,
-      );
-    }
-  } catch (error: unknown) {
-    throw toStorageError(
-      error,
-      'UPDATE_FAILED',
-      'Updating the cached assignment completion state failed.',
-    );
-  }
-}
-
+/**
+ * Replace one authenticated owner's complete server snapshot only after the
+ * feed has been fully validated. A successful refresh removes assignments
+ * that were reassigned away, while a failed refresh leaves the old cache intact.
+ */
 export async function replaceCachedFieldValidationAssignments(
   database: CaneGuardDatabase,
   ownerIdentity: string,

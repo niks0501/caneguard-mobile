@@ -8,6 +8,7 @@ import { ASSIGNMENT_PHOTO_PLACEHOLDER } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useAssignmentPhotoUri } from '@/features/activity/hooks/useAssignmentPhoto';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
+import type { PhoneCompletionState } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 import {
   formatTodayDueLine,
   getLocalDateKey,
@@ -20,15 +21,18 @@ import { formatDateKey } from '@/lib/formatters';
 export function AssignmentCard({
   assignment,
   dueState,
-  hasUnsentCompletion = false,
   onPress,
+  phoneCompletion,
   testID,
   today,
 }: {
   assignment: FieldValidationAssignment;
   dueState?: TodayVisitBucket;
-  /** The visit was finished on this phone and is still waiting to send. */
-  hasUnsentCompletion?: boolean;
+  /**
+   * The visit saved on this phone, shown over the server assignment until the
+   * server reports the visit completed.
+   */
+  phoneCompletion?: PhoneCompletionState;
   today?: string;
   onPress?: () => void;
   testID?: string;
@@ -42,10 +46,10 @@ export function AssignmentCard({
   const dueLine = dueState
     ? formatTodayDueLine(assignment, today ?? getLocalDateKey())
     : target;
-  const progress =
-    hasUnsentCompletion && assignment.fieldValidationState === 'in_progress'
-      ? VISIT_DONE_WAITING_LABEL
-      : stateLabel(assignment.fieldValidationState);
+  const progress = progressLabel(
+    assignment.fieldValidationState,
+    phoneCompletion,
+  );
 
   return (
     <Pressable
@@ -137,6 +141,18 @@ function AssignmentPhoto({
       )}
     </View>
   );
+}
+
+function progressLabel(
+  serverState: FieldValidationAssignment['fieldValidationState'],
+  phoneCompletion: PhoneCompletionState | undefined,
+): string {
+  if (!phoneCompletion || serverState === 'completed') {
+    return stateLabel(serverState);
+  }
+  return phoneCompletion === 'waiting'
+    ? VISIT_DONE_WAITING_LABEL
+    : stateLabel('completed');
 }
 
 function stateLabel(state: FieldValidationAssignment['fieldValidationState']): string {

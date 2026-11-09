@@ -123,7 +123,7 @@ describe('AssignmentCard', () => {
     await render(
       <AssignmentCard
         assignment={{ ...ASSIGNMENT, fieldValidationState: 'in_progress' }}
-        hasUnsentCompletion
+        phoneCompletion="waiting"
       />,
     );
     expect(
@@ -131,6 +131,46 @@ describe('AssignmentCard', () => {
     ).toBeOnTheScreen();
     expect(screen.queryByText(/In progress/)).not.toBeOnTheScreen();
     expect(VISIT_DONE_WAITING_LABEL).toBe('Done · waiting to send');
+  });
+
+  // Proves: an unsent local completion over an unchanged server 'assigned' record still shows done-waiting (L2 overlay-only display).
+  it('shows done-waiting for an unsent completion over an unchanged assigned record', async () => {
+    await render(
+      <AssignmentCard
+        assignment={{ ...ASSIGNMENT, fieldValidationState: 'assigned' }}
+        phoneCompletion="waiting"
+      />,
+    );
+    expect(
+      screen.getByText(`${ASSIGNMENT.referenceCode} · ${VISIT_DONE_WAITING_LABEL}`),
+    ).toBeOnTheScreen();
+  });
+
+  // Proves: a delivered visit keeps reading as completed while the cached server record still says 'assigned' (state never jumps backwards).
+  it('shows a delivered visit as completed over a stale assigned record', async () => {
+    await render(
+      <AssignmentCard
+        assignment={{ ...ASSIGNMENT, fieldValidationState: 'assigned' }}
+        phoneCompletion="sent"
+      />,
+    );
+    expect(
+      screen.getByText(`${ASSIGNMENT.referenceCode} · Completed`),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText(ASSIGNMENT.referenceCode)).not.toBeOnTheScreen();
+  });
+
+  it('shows the server assignment alone once the server reports the visit completed', async () => {
+    await render(
+      <AssignmentCard
+        assignment={{ ...ASSIGNMENT, fieldValidationState: 'completed' }}
+        phoneCompletion="waiting"
+      />,
+    );
+    expect(
+      screen.getByText(`${ASSIGNMENT.referenceCode} · Completed`),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText(VISIT_DONE_WAITING_LABEL)).not.toBeOnTheScreen();
   });
 
   it('keeps the same-person warning off the list row', async () => {

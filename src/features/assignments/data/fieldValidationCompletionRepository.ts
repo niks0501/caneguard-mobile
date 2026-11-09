@@ -11,7 +11,6 @@ import {
 import type { SQLiteUpdateSetSource } from 'drizzle-orm/sqlite-core/query-builders/update';
 
 import type { CaneGuardDatabase } from '@/database/database';
-import { markCachedFieldValidationAssignmentCompleted } from '@/features/assignments/data/assignmentCacheRepository';
 import { StorageError, toStorageError } from '@/database/errors';
 import {
   fieldValidationCompletions,
@@ -147,11 +146,12 @@ export async function listFieldValidationCompletions(
 export async function listFieldValidationCompletionSummaries(
   database: CaneGuardDatabase,
   ownerIdentity: string,
-): Promise<{ assignmentId: string; visitedAt: string }[]> {
+): Promise<{ assignmentId: string; syncStatus: SyncStatus; visitedAt: string }[]> {
   try {
     return await database
       .select({
         assignmentId: fieldValidationCompletions.assignmentId,
+        syncStatus: fieldValidationCompletions.syncStatus,
         visitedAt: fieldValidationCompletions.visitedAt,
       })
       .from(fieldValidationCompletions)
@@ -283,21 +283,13 @@ export async function markFieldValidationCompletionSynced(
   remoteId: string,
   syncedAt: string,
 ): Promise<number> {
-  const changed = await updateSyncState(database, id, ownerIdentity, {
+  return updateSyncState(database, id, ownerIdentity, {
     syncStatus: 'synced',
     remoteId,
     lastSyncedAt: syncedAt,
     lastSyncErrorCode: null,
     updatedAt: syncedAt,
   }, TRANSITIONS.synced);
-  const completion = await findFieldValidationCompletionById(database, id, ownerIdentity);
-  await markCachedFieldValidationAssignmentCompleted(
-    database,
-    ownerIdentity,
-    completion.assignmentId,
-    syncedAt,
-  );
-  return changed;
 }
 
 export async function markFieldValidationCompletionFailed(

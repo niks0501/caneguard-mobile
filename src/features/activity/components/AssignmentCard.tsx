@@ -43,7 +43,7 @@ export function AssignmentCard({
     ? formatTodayDueLine(assignment, today ?? getLocalDateKey())
     : target;
   const progress =
-    hasUnsentCompletion && assignment.fieldValidationState === 'in_progress'
+    hasUnsentCompletion && assignment.fieldValidationState !== 'completed'
       ? VISIT_DONE_WAITING_LABEL
       : stateLabel(assignment.fieldValidationState);
 

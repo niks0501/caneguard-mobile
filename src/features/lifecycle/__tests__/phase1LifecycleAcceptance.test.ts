@@ -11,7 +11,6 @@ import * as schema from '@/database/schema';
 import { FIELD_VALIDATION_ASSIGNMENT_STATES } from '@/database/schema';
 import {
   listCachedFieldValidationAssignments,
-  markCachedFieldValidationAssignmentInProgress,
   replaceCachedFieldValidationAssignments,
 } from '@/features/assignments/data/assignmentCacheRepository';
 import {
@@ -138,19 +137,13 @@ describe('Phase 1 lifecycle automated seam acceptance', () => {
       assignmentFeed.assignments,
       '2026-09-02T04:00:00.000Z',
     );
-    await markCachedFieldValidationAssignmentInProgress(
-      database,
-      OWNER,
-      ASSIGNMENT.uuid,
-      '2026-09-02T04:01:00.000Z',
-    );
 
     expect(assignmentFeed.assignments).toHaveLength(1);
     expect(await listCachedFieldValidationAssignments(database, OTHER_OWNER)).toEqual([]);
     expect((await listCachedFieldValidationAssignments(database, OWNER))[0]).toMatchObject({
       id: ASSIGNMENT.uuid,
       reportUuid: ASSIGNMENT.report_uuid,
-      fieldValidationState: 'in_progress',
+      fieldValidationState: assignmentFeed.assignments[0].fieldValidationState,
     });
 
     await expect(saveFieldValidationCompletion(database, completionInput())).resolves.toMatchObject({
@@ -218,7 +211,7 @@ describe('Phase 1 lifecycle automated seam acceptance', () => {
       remoteId: 'server-completion-uuid',
     });
     expect((await listCachedFieldValidationAssignments(restartedDatabase, OWNER))[0]).toMatchObject({
-      fieldValidationState: 'completed',
+      fieldValidationState: assignmentFeed.assignments[0].fieldValidationState,
     });
 
     request.mockResolvedValueOnce(MOBILE_NOTIFICATIONS_V1_FIXTURE);

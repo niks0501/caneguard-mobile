@@ -3,7 +3,6 @@ import { randomUUID } from 'expo-crypto';
 
 import {
   findCachedFieldValidationAssignment,
-  markCachedFieldValidationAssignmentInProgress,
 } from '@/features/assignments/data/assignmentCacheRepository';
 import {
   findFieldValidationCompletion,
@@ -68,7 +67,6 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
 }));
 jest.mock('@/features/assignments/data/assignmentCacheRepository', () => ({
   findCachedFieldValidationAssignment: jest.fn(),
-  markCachedFieldValidationAssignmentInProgress: jest.fn(),
 }));
 jest.mock('@/features/assignments/data/fieldValidationCompletionRepository', () => ({
   findFieldValidationCompletion: jest.fn(),
@@ -97,7 +95,6 @@ const mockRandomUUID = jest.mocked(randomUUID);
 const mockUseAuth = jest.mocked(useAuth);
 const mockUseSync = jest.mocked(useSync);
 const mockFindAssignment = jest.mocked(findCachedFieldValidationAssignment);
-const mockMarkInProgress = jest.mocked(markCachedFieldValidationAssignmentInProgress);
 const mockFindCompletion = jest.mocked(findFieldValidationCompletion);
 const mockSaveCompletion = jest.mocked(saveFieldValidationCompletion);
 const mockDeleteCheckpoint = jest.mocked(deleteFieldValidationCheckpoint);
@@ -154,7 +151,6 @@ describe('useFieldValidationAssignment visit drafts', () => {
     } as never);
     mockFindCompletion.mockResolvedValue(null);
     mockFindReport.mockResolvedValue({ reporterSuspectedCondition: null } as never);
-    mockMarkInProgress.mockResolvedValue(undefined as never);
     mockWriteCheckpoint.mockResolvedValue(undefined);
     mockDeleteCheckpoint.mockReturnValue(true);
     mockCaptureGps.mockResolvedValue({

@@ -6,10 +6,7 @@ import type { ImagePickerAsset } from 'expo-image-picker';
 import { FIELD_VALIDATION_UNAVAILABLE } from '@/constants/copy';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
-import {
-  findCachedFieldValidationAssignment,
-  markCachedFieldValidationAssignmentInProgress,
-} from '@/features/assignments/data/assignmentCacheRepository';
+import { findCachedFieldValidationAssignment } from '@/features/assignments/data/assignmentCacheRepository';
 import {
   findFieldValidationCompletion,
   saveFieldValidationCompletion,
@@ -284,12 +281,6 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       ) {
         deleteFieldValidationPhoto(draftPhoto.uri, session.user.uuid);
       }
-      await markCachedFieldValidationAssignmentInProgress(
-        database,
-        session.user.uuid,
-        state.assignment.id,
-        saved.updatedAt,
-      ).catch(() => undefined);
       if (sync.isOnline === true) {
         await sync.syncNow('after-save');
       }

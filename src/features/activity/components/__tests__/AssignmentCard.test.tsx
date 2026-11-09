@@ -133,6 +133,19 @@ describe('AssignmentCard', () => {
     expect(VISIT_DONE_WAITING_LABEL).toBe('Done · waiting to send');
   });
 
+  // Proves: an unsent local completion over an unchanged server 'assigned' record still shows done-waiting (L2 overlay-only display).
+  it('shows done-waiting for an unsent completion over an unchanged assigned record', async () => {
+    await render(
+      <AssignmentCard
+        assignment={{ ...ASSIGNMENT, fieldValidationState: 'assigned' }}
+        hasUnsentCompletion
+      />,
+    );
+    expect(
+      screen.getByText(`${ASSIGNMENT.referenceCode} · ${VISIT_DONE_WAITING_LABEL}`),
+    ).toBeOnTheScreen();
+  });
+
   it('keeps the same-person warning off the list row', async () => {
     await render(
       <AssignmentCard assignment={ASSIGNMENT} dueState="today" today="2026-08-20" />,

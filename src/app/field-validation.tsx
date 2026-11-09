@@ -243,7 +243,7 @@ export default function FieldValidationScreen() {
 
   if (!state.canComplete) {
     return (
-      <SafeAreaView testID="field-validation.unavailable" style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView testID="field-validation.unavailable" accessibilityValue={{ text: 'state=unavailable' }} style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
         <View style={styles.root}>
           <BrandedScreenHeader title="Field validation" />
           <View style={styles.centered}>
@@ -255,7 +255,12 @@ export default function FieldValidationScreen() {
   }
 
   return (
-    <SafeAreaView testID="field-validation.screen" style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView
+      testID="field-validation.screen"
+      accessibilityValue={{
+        text: `state=${state.loading && !state.assignment ? 'loading' : state.completion ? (state.completion.syncStatus === 'synced' ? 'completed-sent' : 'completed-waiting') : 'editing'}`,
+      }}
+      style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
       <View style={styles.root}>
         <BrandedScreenHeader title="Field validation" />
         {state.loading && !state.assignment ? (
@@ -278,6 +283,7 @@ export default function FieldValidationScreen() {
                 <>
                 <Text
                   testID="field-validation.draft-status"
+                  accessibilityValue={{ text: `draft=${state.draftStatus}` }}
                   accessibilityLiveRegion="polite"
                   style={[styles.help, { color: theme.textSecondary }]}>
                   {formatDraftStatus(state.draftStatus, state.draftSavedAt)}
@@ -521,7 +527,7 @@ function CompletionStatus({ completion, onRetry }: { completion: FieldValidation
   };
 
   return (
-    <View testID="field-validation.completion-status" style={[styles.card, { backgroundColor: pending ? theme.warningBg : theme.successBg, borderColor: pending ? theme.warning : theme.success }]}>
+    <View testID="field-validation.completion-status" accessibilityValue={{ text: `sync=${completion.syncStatus}` }} style={[styles.card, { backgroundColor: pending ? theme.warningBg : theme.successBg, borderColor: pending ? theme.warning : theme.success }]}>
       <Feather name={pending ? 'clock' : 'check-circle'} size={24} color={pending ? theme.warning : theme.success} />
       <Text style={[styles.title, { color: theme.text }]}>{pending ? 'Saved on this device' : 'Sent to office'}</Text>
       <Text style={[styles.help, { color: theme.textSecondary }]}>{pending ? 'The completed visit is saved on this device and will retry automatically when connectivity returns. Visit time is recorded automatically.' : 'The office can now review your field findings. Visit time is recorded automatically.'}</Text>

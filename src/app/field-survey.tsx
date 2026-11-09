@@ -454,7 +454,7 @@ export default function FieldSurveyScreen() {
 
   if (!canAuthorSurvey) {
     return (
-      <SafeAreaView testID="field-survey.unavailable" style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView testID="field-survey.unavailable" accessibilityValue={{ text: 'state=unavailable' }} style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
         <BrandedScreenHeader title={FIELD_SURVEY_COPY.title} />
         <View style={styles.body}>
           <Text style={{ color: theme.text, padding: 16 }}>{FIELD_SURVEY_COPY.unavailable}</Text>
@@ -464,7 +464,7 @@ export default function FieldSurveyScreen() {
   }
 
   return (
-    <SafeAreaView testID="field-survey.screen" style={[styles.safe, { backgroundColor: theme.background}]} edges={['top', 'bottom']}>
+    <SafeAreaView testID="field-survey.screen" accessibilityValue={{ text: `state=${awaitingSurveyStart ? 'awaiting-start' : saved ? 'saved' : 'unsaved'};valid=${validation.valid ? 'yes' : 'no'}` }} style={[styles.safe, { backgroundColor: theme.background}]} edges={['top', 'bottom']}>
       <BrandedScreenHeader title={FIELD_SURVEY_COPY.title} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'android' ? 'height' : 'padding'}

@@ -65,6 +65,9 @@ export function ReportSurveyCard({ attachedSurvey, attachedUuid, disabled, onAtt
   return (
     <View
       testID="field-report.survey-card"
+      accessibilityValue={{
+        text: `state=${attachedUuid ? (attachedSurvey ? 'attached' : 'missing') : 'none'};choices=${choices.length}`,
+      }}
       style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.primaryDark }]}>{FIELD_SURVEY_COPY.linkTitle}</Text>

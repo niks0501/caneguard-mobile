@@ -49,6 +49,9 @@ export function OfflineReadinessCard() {
   return (
     <View
       testID="settings.offline-readiness"
+      accessibilityValue={{
+        text: `state=${readiness.ready ? 'ready' : 'not-ready'};biometric=${readiness.protectedSessionEnabled ? 'on' : 'off'};expired=${readiness.sessionExpired ? 'yes' : 'no'};visits-saved=${readiness.assignmentCount ?? 'unknown'}`,
+      }}
       accessibilityLiveRegion="polite"
       style={[
         styles.card,

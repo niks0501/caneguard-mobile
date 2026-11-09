@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import {
+  type AccessibilityValue,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -20,6 +21,8 @@ type ScreenContainerProps = {
   contentStyle?: StyleProp<ViewStyle>;
   scrollable?: boolean;
   testID?: string;
+  /** Agent state marker; a stable token, never copy or identifiers. */
+  accessibilityValue?: AccessibilityValue;
 };
 
 export function ScreenContainer({
@@ -29,13 +32,14 @@ export function ScreenContainer({
   contentStyle,
   scrollable = true,
   testID,
+  accessibilityValue,
 }: ScreenContainerProps) {
   const theme = useTheme();
 
   const bodyContent = <View style={[styles.content, contentStyle]}>{children}</View>;
 
   return (
-    <SafeAreaView testID={testID} style={[styles.safeArea, { backgroundColor: theme.background }]}>
+    <SafeAreaView testID={testID} accessibilityValue={accessibilityValue} style={[styles.safeArea, { backgroundColor: theme.background }]}>
       {header}
       <KeyboardAvoidingView
         testID="screen-container.keyboard-avoiding-view"

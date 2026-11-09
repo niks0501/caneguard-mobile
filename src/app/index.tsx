@@ -24,7 +24,11 @@ export default function SplashScreen() {
   }, [hasCompletedLogin, status]);
 
   return (
-    <ScreenContainer contentStyle={styles.container} scrollable={false}>
+    <ScreenContainer
+      contentStyle={styles.container}
+      scrollable={false}
+      testID="welcome.screen"
+      accessibilityValue={{ text: `auth=${status}` }}>
       <View style={styles.brandWrap}>
         <Image
           accessible

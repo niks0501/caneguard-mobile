@@ -9,17 +9,23 @@ export type NoticeProps = {
   children: ReactElement | ReactElement[];
   icon?: keyof typeof Feather.glyphMap;
   testID?: string;
+  /** Agent state marker; a stable token, never copy or identifiers. */
+  stateValue?: string;
 };
 
 /**
  * The shared quiet status line: plain ink text with no box or tint, so a normal
  * state never draws attention.
  */
-export function Notice({ children, icon, testID }: NoticeProps) {
+export function Notice({ children, icon, stateValue, testID }: NoticeProps) {
   const theme = useTheme();
 
   return (
-    <View accessibilityLiveRegion="polite" testID={testID} style={styles.notice}>
+    <View
+      accessibilityLiveRegion="polite"
+      accessibilityValue={stateValue ? { text: stateValue } : undefined}
+      testID={testID}
+      style={styles.notice}>
       {icon ? <Feather name={icon} size={16} color={theme.textSecondary} /> : null}
       <View style={styles.copy}>{children}</View>
     </View>

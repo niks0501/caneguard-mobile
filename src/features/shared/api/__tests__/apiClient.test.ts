@@ -140,4 +140,36 @@ describe('api client', () => {
       error: expect.objectContaining({ name: 'AbortError' }),
     });
   });
+
+  // Proves intent: a caller's cancellation is honored by apiRequest.
+  it('aborts the in-flight fetch and rejects when the caller signal aborts', async () => {
+    let fetchSignal: AbortSignal | undefined;
+    fetchMock.mockImplementationOnce(
+      (_url: string, init: RequestInit) => {
+        fetchSignal = init.signal ?? undefined;
+        return new Promise<Response>(() => undefined);
+      },
+    );
+    const caller = new AbortController();
+
+    const request = apiRequest('/api/v1/mobile/auth/me', {
+      signal: caller.signal,
+    });
+    await Promise.resolve();
+    caller.abort();
+
+    await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fetchSignal?.aborted).toBe(true);
+  });
+
+  // Proves intent: an already-cancelled caller never sends a request.
+  it('rejects without fetching when the caller signal is already aborted', async () => {
+    const caller = new AbortController();
+    caller.abort();
+
+    await expect(
+      apiRequest('/api/v1/mobile/auth/me', { signal: caller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

@@ -48,10 +48,14 @@ export async function apiRequest<T>(
     csrf = false,
     timeoutMs = DEFAULT_API_TIMEOUT_MS,
     token,
-    signal: _callerSignal,
+    signal: callerSignal,
     ...requestInit
   } = options;
   const headers = new Headers(requestInit.headers);
+
+  if (callerSignal?.aborted) {
+    throw createAbortError(CANCELLED_MESSAGE);
+  }
 
   headers.set('Accept', 'application/json');
   if (token) {
@@ -63,11 +67,19 @@ export async function apiRequest<T>(
   }
 
   let timeout: ReturnType<typeof setTimeout> | undefined;
+  let onCallerAbort: (() => void) | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeout = setTimeout(() => {
       controller.abort();
       reject(createAbortError());
     }, timeoutMs);
+    if (callerSignal) {
+      onCallerAbort = () => {
+        controller.abort();
+        reject(createAbortError(CANCELLED_MESSAGE));
+      };
+      callerSignal.addEventListener('abort', onCallerAbort, { once: true });
+    }
   });
 
   try {
@@ -101,6 +113,9 @@ export async function apiRequest<T>(
   } finally {
     if (timeout !== undefined) {
       clearTimeout(timeout);
+    }
+    if (callerSignal && onCallerAbort) {
+      callerSignal.removeEventListener('abort', onCallerAbort);
     }
   }
 }
@@ -160,8 +175,10 @@ export async function initializeCsrf(
   }
 }
 
-function createAbortError(): Error {
-  const error = new Error('The request timed out.');
+const CANCELLED_MESSAGE = 'The request was cancelled.';
+
+function createAbortError(message = 'The request timed out.'): Error {
+  const error = new Error(message);
   error.name = 'AbortError';
   return error;
 }

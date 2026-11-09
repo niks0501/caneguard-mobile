@@ -4,6 +4,7 @@ import { useCallback, useContext, useState } from 'react';
 import { EMPTY_DATABASE, useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { listFieldValidationCompletionSummaries } from '@/features/assignments/data/fieldValidationCompletionRepository';
 import { AuthContext } from '@/features/auth/providers/AuthProvider';
+import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 
 const NONE: ReadonlySet<string> = new Set();
 
@@ -17,23 +18,28 @@ export function useUnsentCompletionAssignmentIds(): ReadonlySet<string> {
     useCallback(() => {
       if (!session || !database || database === EMPTY_DATABASE) return;
       let active = true;
-      listFieldValidationCompletionSummaries(database, session.user.uuid)
-        .then((rows) => {
-          if (active) {
-            setIds(
-              new Set(
-                rows
-                  .filter((row) => row.syncStatus !== 'synced')
-                  .map((row) => row.assignmentId),
-              ),
-            );
-          }
-        })
-        .catch(() => {
-          if (active) setIds(NONE);
-        });
+      const load = () => {
+        listFieldValidationCompletionSummaries(database, session.user.uuid)
+          .then((rows) => {
+            if (active) {
+              setIds(
+                new Set(
+                  rows
+                    .filter((row) => row.syncStatus !== 'synced')
+                    .map((row) => row.assignmentId),
+                ),
+              );
+            }
+          })
+          .catch(() => {
+            if (active) setIds(NONE);
+          });
+      };
+      load();
+      const unsubscribe = subscribeSyncRecords(load);
       return () => {
         active = false;
+        unsubscribe();
       };
     }, [database, session]),
   );

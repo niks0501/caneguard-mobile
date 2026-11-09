@@ -1,9 +1,10 @@
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 
 import { listFieldValidationCompletionSummaries } from '@/features/assignments/data/fieldValidationCompletionRepository';
 import { useUnsentCompletionAssignmentIds } from '@/features/assignments/hooks/useUnsentCompletionAssignmentIds';
 import { AuthContext } from '@/features/auth/providers/AuthProvider';
+import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 const mockDatabase = { name: 'owner-database' };
 const OWNER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
@@ -69,6 +70,30 @@ describe('useUnsentCompletionAssignmentIds', () => {
       'assignment-waiting',
     ]);
     expect(mockSummaries).toHaveBeenCalledWith(mockDatabase, OWNER_ID);
+  });
+
+  it('drops the waiting claim when the visit is delivered while the list stays open', async () => {
+    const waitingVisit = {
+      assignmentId: 'assignment-waiting',
+      syncStatus: 'pending' as const,
+      visitedAt: '2026-09-02T04:06:06.123Z',
+    };
+    mockSummaries.mockResolvedValue([waitingVisit]);
+
+    const { result } = await renderHook(() => useUnsentCompletionAssignmentIds(), {
+      wrapper,
+    });
+
+    await waitFor(() =>
+      expect(result.current.has('assignment-waiting')).toBe(true),
+    );
+
+    mockSummaries.mockResolvedValue([{ ...waitingVisit, syncStatus: 'synced' }]);
+    await act(async () => {
+      emitSyncRecordsChanged();
+    });
+
+    await waitFor(() => expect(result.current.size).toBe(0));
   });
 
   it('claims nothing when the saved visits cannot be read', async () => {

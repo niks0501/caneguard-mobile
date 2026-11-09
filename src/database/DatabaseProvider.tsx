@@ -1,4 +1,5 @@
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
+import * as SplashScreen from 'expo-splash-screen';
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 import type { PropsWithChildren } from 'react';
 import {
@@ -290,11 +291,21 @@ function DatabaseInitializationView({
 }) {
   const theme = useTheme();
 
+  useEffect(() => {
+    // This gate owns the only visible surface while local storage is warming,
+    // migrating, or failed. Release the native splash here so that surface—and
+    // its retry action—can be reached before the rest of the app mounts.
+    void SplashScreen.hideAsync();
+  }, []);
+
   return (
     <View
       accessibilityLiveRegion={error ? 'assertive' : 'polite'}
+      testID="db.init-screen"
       style={[styles.screen, { backgroundColor: theme.background }]}>
       <View
+        accessibilityValue={{ text: error ? 'error' : 'migrating' }}
+        testID="db.init-status"
         style={[
           styles.card,
           {
@@ -323,6 +334,7 @@ function DatabaseInitializationView({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Retry local storage initialization"
+            testID="db.retry"
             onPress={onRetry}
             style={({ pressed }) => [
               styles.retry,

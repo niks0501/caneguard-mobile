@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
@@ -527,6 +527,14 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     ],
   );
 
+  // Latest checkpoint still waiting on the debounce timer. Blur or unmount
+  // flushes it so leaving mid-typing (Android back) keeps the last keystrokes.
+  const pendingCheckpointRef = useRef<{
+    checkpoint: Omit<FieldReportFormCheckpoint, 'savedAt'>;
+    ownerUuid: string;
+    reportId: string;
+  } | null>(null);
+
   useEffect(() => {
     if (
       !ownerUuid ||
@@ -534,14 +542,22 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       activeAuthoringState !== 'draft' ||
       loadedReportId !== activeReportId
     ) {
+      pendingCheckpointRef.current = null;
       return;
     }
     const checkpoint = currentFormCheckpoint();
     const signature = checkpointSignature(checkpoint);
     if (signature === formDraftSignature) {
+      pendingCheckpointRef.current = null;
       return;
     }
+    pendingCheckpointRef.current = {
+      checkpoint,
+      ownerUuid,
+      reportId: activeReportId,
+    };
     const timer = setTimeout(() => {
+      pendingCheckpointRef.current = null;
       setFormDraftStatus('saving');
       void writeFieldReportFormCheckpoint(database, ownerUuid, activeReportId, {
         ...checkpoint,
@@ -565,7 +581,25 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     ownerUuid,
   ]);
 
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        const pending = pendingCheckpointRef.current;
+        if (!pending) {
+          return;
+        }
+        pendingCheckpointRef.current = null;
+        void writeFieldReportFormCheckpoint(database, pending.ownerUuid, pending.reportId, {
+          ...pending.checkpoint,
+          savedAt: new Date().toISOString(),
+        }).catch(() => undefined);
+      },
+      [database],
+    ),
+  );
+
   const clearFormCheckpoint = useCallback(() => {
+    pendingCheckpointRef.current = null;
     if (user && report.data) {
       deleteFieldReportFormCheckpoint(database, user.uuid, report.data.id);
       setFormDraftSignature(checkpointSignature(currentFormCheckpoint()));

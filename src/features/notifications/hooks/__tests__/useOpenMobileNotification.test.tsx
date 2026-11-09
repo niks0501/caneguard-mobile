@@ -5,6 +5,11 @@ import type { MobileNotification } from '@/features/notifications/domain/notific
 import { useOpenMobileNotification } from '@/features/notifications/hooks/useOpenMobileNotification';
 import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
 
+const mockShowToast = jest.fn();
+jest.mock('@/components/ui/Toast', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
+}));
+
 const mockPush = router.push as jest.Mock;
 
 const NOTIFICATION: MobileNotification = {
@@ -93,6 +98,20 @@ describe('useOpenMobileNotification', () => {
 
     expect(markRead).toHaveBeenCalledTimes(1);
     expect(markRead).toHaveBeenCalledWith(NOTIFICATION.id);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  // Proves M-F12: a tap while the destination is still resolving must not consume the update.
+  it('shows a toast and neither marks read, closes, nor navigates while still resolving', async () => {
+    const { markRead, onClose, result } = await renderOpenNotification();
+
+    await act(async () => {
+      result.current(NOTIFICATION);
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith(expect.any(String), 'info');
+    expect(markRead).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
   });

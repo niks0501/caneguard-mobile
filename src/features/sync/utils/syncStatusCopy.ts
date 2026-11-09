@@ -90,7 +90,14 @@ export function formatPendingSummary(
     reportsCount > 0 ? `${reportsCount} ${reportsCount === 1 ? 'report' : 'reports'}` : null,
     completionsCount > 0 ? `${completionsCount} ${completionsCount === 1 ? 'visit' : 'visits'}` : null,
   ].filter((part): part is string => part !== null);
-  return parts.length ? `${parts.join(', ')} waiting to send` : `${pendingCount} reports waiting to send`;
+  if (parts.length) {
+    return `${parts.join(', ')} waiting to send`;
+  }
+  if (pendingCount <= 0) {
+    return '0 reports waiting to send';
+  }
+  // No per-kind count to name: say "saved items" rather than guessing "reports".
+  return `${pendingCount} ${pendingCount === 1 ? 'saved item' : 'saved items'} waiting to send`;
 }
 
 export function isServerUnavailable(

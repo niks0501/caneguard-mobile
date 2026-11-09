@@ -19,6 +19,7 @@ export function ChangeEmailSheet() {
   const [newEmail, setNewEmail] = useState('');
   const [emailPassword, setEmailPassword] = useState('');
   const [pending, setPending] = useState(false);
+  const [attempted, setAttempted] = useState(false);
   const [closed, setClosed] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -36,6 +37,7 @@ export function ChangeEmailSheet() {
     }
     setShowConfirm(false);
     setPending(true);
+    setAttempted(true);
     try {
       const changed = await changeEmail({
         currentPassword: emailPassword,
@@ -59,7 +61,7 @@ export function ChangeEmailSheet() {
     <SheetScreen
       title="Change email"
       testID="account-security.email-sheet"
-      errorMessage={errorMessage}
+      errorMessage={attempted ? errorMessage : null}
       errorTestID="account-security.error"
       isDirty={dirty}
       onCancel={close}

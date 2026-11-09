@@ -690,6 +690,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const changePassword = useCallback(
     async (input: PasswordChangeInput) => {
+      // Each account action starts clean so a stale message from another
+      // action cannot be shown as this action's result.
+      setErrorMessage(null);
       const activeSession = sessionRef.current;
       if (!activeSession) {
         setErrorMessage('Sign in again before changing your password.');
@@ -712,6 +715,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const changeEmail = useCallback(
     async (input: EmailChangeInput) => {
+      // Each account action starts clean so a stale message from another
+      // action cannot be shown as this action's result.
+      setErrorMessage(null);
       const activeSession = sessionRef.current;
       if (!activeSession) {
         setErrorMessage('Sign in again before changing your email.');
@@ -734,6 +740,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const disableBiometric = useCallback(
     async (currentPassword: string) => {
+      // Each account action starts clean so a stale message from another
+      // action cannot be shown as this action's result.
+      setErrorMessage(null);
       const activeSession = sessionRef.current;
       if (!activeSession) {
         setErrorMessage('Sign in again before disabling biometric unlock.');
@@ -770,6 +779,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const enrollMobileDevice = useCallback(
     async (currentPassword: string, deviceName: string) => {
+      // Each account action starts clean so a stale message from another
+      // action cannot be shown as this action's result.
+      setErrorMessage(null);
       const activeSession = sessionRef.current;
       if (!activeSession) {
         setErrorMessage('Sign in again before enrolling this installation.');

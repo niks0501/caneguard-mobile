@@ -23,6 +23,7 @@ export function ChangePasswordSheet() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [pending, setPending] = useState(false);
+  const [attempted, setAttempted] = useState(false);
   const [closed, setClosed] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -41,6 +42,7 @@ export function ChangePasswordSheet() {
     }
     setShowConfirm(false);
     setPending(true);
+    setAttempted(true);
     try {
       const changed = await changePassword({
         currentPassword,
@@ -64,7 +66,7 @@ export function ChangePasswordSheet() {
     <SheetScreen
       title="Change password"
       testID="account-security.password-sheet"
-      errorMessage={errorMessage}
+      errorMessage={attempted ? errorMessage : null}
       errorTestID="account-security.error"
       isDirty={dirty}
       onCancel={close}

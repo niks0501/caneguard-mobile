@@ -22,6 +22,7 @@ export function EnrollDeviceSheet() {
   );
   const [enrollmentPassword, setEnrollmentPassword] = useState('');
   const [pending, setPending] = useState(false);
+  const [attempted, setAttempted] = useState(false);
   const [closed, setClosed] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -39,6 +40,7 @@ export function EnrollDeviceSheet() {
     }
     setShowConfirm(false);
     setPending(true);
+    setAttempted(true);
     try {
       const enrolled = await enrollMobileDevice(enrollmentPassword, deviceName);
       if (enrolled) {
@@ -62,7 +64,7 @@ export function EnrollDeviceSheet() {
     <SheetScreen
       title="Device enrollment"
       testID="account-security.enrollment-sheet"
-      errorMessage={errorMessage}
+      errorMessage={attempted ? errorMessage : null}
       errorTestID="account-security.error"
       isDirty={dirty}
       onCancel={close}

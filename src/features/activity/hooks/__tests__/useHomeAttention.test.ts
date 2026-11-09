@@ -93,6 +93,7 @@ describe('useHomeAttention', () => {
       refreshing: false,
       sessionKey: 'key',
       refresh: jest.fn(async () => true),
+      refreshOutcome: jest.fn(async () => 'ok' as const),
     });
 
     mockUseNotifications.mockReturnValue({
@@ -137,6 +138,7 @@ describe('useHomeAttention', () => {
       refreshing: false,
       sessionKey: 'key',
       refresh: jest.fn(async () => true),
+      refreshOutcome: jest.fn(async () => 'ok' as const),
     });
 
     mockUseNotifications.mockReturnValue({
@@ -200,6 +202,7 @@ describe('useHomeAttention', () => {
       refreshing: false,
       sessionKey: 'key',
       refresh: jest.fn(async () => true),
+      refreshOutcome: jest.fn(async () => 'ok' as const),
     });
     mockUseNotifications.mockReturnValue({
       capabilityUnavailable: false,

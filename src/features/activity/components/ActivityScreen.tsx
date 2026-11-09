@@ -148,7 +148,7 @@ function InspectorActivityScreen() {
     const targets: RefreshAllTarget[] = [
       { key: 'notifications', run: () => notifications.refresh({ force: true }) },
       { key: 'officeReview', run: () => authorityStatus.refresh({ force: true }) },
-      { key: 'assignments', run: () => assignments.refresh({ force: true }) },
+      { key: 'assignments', run: () => assignments.refreshOutcome({ force: true }) },
       { key: 'records', run: () => records.refresh({ force: true }) },
     ];
     if (sync.isOnline === true) {

@@ -1,13 +1,27 @@
 export interface RefreshAllTarget {
   /** Subsystem label used to report a partial failure. */
   key: string;
-  /** Resolve true/undefined for success; resolve false when the subsystem kept cached data after a failure. */
+  /**
+   * Resolve a RefreshOutcome to distinguish a refresh that did not run
+   * ('skipped') from one that failed. Legacy results still work: false means
+   * failed; true or undefined means ok.
+   */
   run: () => Promise<unknown>;
 }
 
+/** 'skipped' means the refresh had nothing to do (precondition unmet or superseded); it is not a failure. */
+export type RefreshOutcome = 'ok' | 'skipped' | 'failed';
+
 export interface RefreshAllResult {
   failed: string[];
+  skipped: string[];
   succeeded: string[];
+}
+
+function toRefreshOutcome(value: unknown): RefreshOutcome {
+  if (value === 'skipped') return 'skipped';
+  if (value === false || value === 'failed') return 'failed';
+  return 'ok';
 }
 
 /**
@@ -23,20 +37,18 @@ export async function runRefreshAll(
   const settled = await Promise.allSettled(
     targets.map(async (target) => ({
       key: target.key,
-      ok: (await target.run()) !== false,
+      outcome: toRefreshOutcome(await target.run()),
     })),
   );
 
-  const result: RefreshAllResult = { failed: [], succeeded: [] };
-  settled.forEach((outcome, index) => {
+  const result: RefreshAllResult = { failed: [], skipped: [], succeeded: [] };
+  settled.forEach((settledTarget, index) => {
     const key = targets[index]?.key ?? 'unknown';
-    if (outcome.status === 'fulfilled' && outcome.value.ok) {
-      result.succeeded.push(key);
-    } else {
-      result.failed.push(
-        outcome.status === 'fulfilled' ? outcome.value.key : key,
-      );
-    }
+    const outcome =
+      settledTarget.status === 'fulfilled' ? settledTarget.value.outcome : 'failed';
+    if (outcome === 'ok') result.succeeded.push(key);
+    else if (outcome === 'skipped') result.skipped.push(key);
+    else result.failed.push(key);
   });
   return result;
 }
@@ -54,6 +66,7 @@ export function describeRefreshAllResult(
 ): string | null {
   if (!result) return null;
   if (result.failed.length === 0) {
+    // A skipped refresh did not run, so it must not read as "up to date" on its own.
     return result.succeeded.length > 0 ? 'Everything is up to date.' : null;
   }
   const failedLabels = result.failed

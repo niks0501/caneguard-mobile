@@ -146,11 +146,12 @@ export async function listFieldValidationCompletions(
 export async function listFieldValidationCompletionSummaries(
   database: CaneGuardDatabase,
   ownerIdentity: string,
-): Promise<{ assignmentId: string; visitedAt: string }[]> {
+): Promise<{ assignmentId: string; syncStatus: SyncStatus; visitedAt: string }[]> {
   try {
     return await database
       .select({
         assignmentId: fieldValidationCompletions.assignmentId,
+        syncStatus: fieldValidationCompletions.syncStatus,
         visitedAt: fieldValidationCompletions.visitedAt,
       })
       .from(fieldValidationCompletions)

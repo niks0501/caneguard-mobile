@@ -7,8 +7,8 @@ import { AuthContext } from '@/features/auth/providers/AuthProvider';
 
 const NONE: ReadonlySet<string> = new Set();
 
-/** Ids of assignments with a visit completion saved on this phone (read-only). */
-export function useLocalCompletedAssignmentIds(): ReadonlySet<string> {
+/** Ids of assignments whose visit was finished on this phone and is still waiting to send. */
+export function useUnsentCompletionAssignmentIds(): ReadonlySet<string> {
   const database = useCaneGuardDatabase();
   const session = useContext(AuthContext)?.session;
   const [ids, setIds] = useState<ReadonlySet<string>>(NONE);
@@ -19,7 +19,15 @@ export function useLocalCompletedAssignmentIds(): ReadonlySet<string> {
       let active = true;
       listFieldValidationCompletionSummaries(database, session.user.uuid)
         .then((rows) => {
-          if (active) setIds(new Set(rows.map((row) => row.assignmentId)));
+          if (active) {
+            setIds(
+              new Set(
+                rows
+                  .filter((row) => row.syncStatus !== 'synced')
+                  .map((row) => row.assignmentId),
+              ),
+            );
+          }
         })
         .catch(() => {
           if (active) setIds(NONE);

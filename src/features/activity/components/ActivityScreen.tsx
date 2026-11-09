@@ -41,8 +41,8 @@ import {
   getActivityItemKind,
   type CurrentActivityFilter,
 } from '@/features/activity/domain/activityTypes';
-import { useLocalCompletedAssignmentIds } from '@/features/assignments/hooks/useLocalCompletedAssignmentIds';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
+import { useUnsentCompletionAssignmentIds } from '@/features/assignments/hooks/useUnsentCompletionAssignmentIds';
 import { DEFAULT_RECORD_PAGE_SIZE } from '@/features/records/domain/recordTypes';
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
 import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
@@ -105,7 +105,7 @@ function InspectorActivityScreen() {
   );
   const authorityStatus = useAuthorityReviewStatus(activeFilter !== 'assignments');
   const assignments = useFieldValidationAssignments();
-  const locallyCompletedIds = useLocalCompletedAssignmentIds();
+  const unsentCompletionIds = useUnsentCompletionAssignmentIds();
   const notifications = useMobileNotifications();
   const { isOpen: officeUpdatesOpen, open: openOfficeUpdates } = useOfficeUpdates();
   const sync = useSync();
@@ -186,7 +186,7 @@ function InspectorActivityScreen() {
           <AssignmentCard
             testID={`activity.assignment.${item.assignment.id}`}
             assignment={item.assignment}
-            hasUnsentCompletion={locallyCompletedIds.has(item.assignment.id)}
+            hasUnsentCompletion={unsentCompletionIds.has(item.assignment.id)}
             onPress={() =>
               router.push({
                 pathname: '/field-validation',
@@ -213,7 +213,7 @@ function InspectorActivityScreen() {
         )}
       </View>
     ),
-    [latestVisibleRecordId, locallyCompletedIds],
+    [latestVisibleRecordId, unsentCompletionIds],
   );
 
   const submitSearch = () => {

@@ -9,6 +9,7 @@ import * as schema from '@/database/schema';
 import {
   countUnsyncedFieldValidationCompletions,
   findFieldValidationCompletion,
+  listFieldValidationCompletionSummaries,
   markFieldValidationCompletionFailed,
   markFieldValidationCompletionPending,
   markFieldValidationCompletionSynced,
@@ -137,6 +138,30 @@ describe('field validation completion repository', () => {
     await expect(countUnsyncedFieldValidationCompletions(database, OWNER)).resolves.toBe(0);
     native.close();
   });
+  it('reports each saved visit with the send state the list overlay reads', async () => {
+    const { database, native } = openDatabase();
+    await saveFieldValidationCompletion(database, input());
+    await expect(listFieldValidationCompletionSummaries(database, OWNER)).resolves.toEqual([
+      {
+        assignmentId: ASSIGNMENT,
+        syncStatus: 'pending',
+        visitedAt: '2026-09-02T04:05:06.123Z',
+      },
+    ]);
+
+    await markFieldValidationCompletionSyncing(database, COMPLETION, OWNER, '2026-09-02T04:06:00.123Z');
+    await markFieldValidationCompletionSynced(database, COMPLETION, OWNER, 'server-completion-uuid', '2026-09-02T04:06:01.123Z');
+    await expect(listFieldValidationCompletionSummaries(database, OWNER)).resolves.toEqual([
+      {
+        assignmentId: ASSIGNMENT,
+        syncStatus: 'synced',
+        visitedAt: '2026-09-02T04:05:06.123Z',
+      },
+    ]);
+    await expect(listFieldValidationCompletionSummaries(database, 'other-owner')).resolves.toEqual([]);
+    native.close();
+  });
+
   it('returns how many rows each guarded update changed', async () => {
     const { database, native } = openDatabase();
     await saveFieldValidationCompletion(database, input());

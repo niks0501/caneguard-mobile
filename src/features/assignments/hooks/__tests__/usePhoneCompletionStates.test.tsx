@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 
 import { listFieldValidationCompletionSummaries } from '@/features/assignments/data/fieldValidationCompletionRepository';
-import { useUnsentCompletionAssignmentIds } from '@/features/assignments/hooks/useUnsentCompletionAssignmentIds';
+import { usePhoneCompletionStates } from '@/features/assignments/hooks/usePhoneCompletionStates';
 import { AuthContext } from '@/features/auth/providers/AuthProvider';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
@@ -28,15 +28,15 @@ function wrapper({ children }: PropsWithChildren) {
   );
 }
 
-describe('useUnsentCompletionAssignmentIds', () => {
+describe('usePhoneCompletionStates', () => {
   beforeEach(() => {
     mockSummaries.mockReset();
   });
 
-  it('offers only visits that are still waiting to send after a delivery succeeds', async () => {
+  it('reports each saved visit as waiting until it is delivered, then as sent', async () => {
     mockSummaries.mockResolvedValue([
       {
-        assignmentId: 'assignment-sent',
+        assignmentId: 'assignment-delivered',
         syncStatus: 'synced',
         visitedAt: '2026-09-02T04:05:06.123Z',
       },
@@ -57,49 +57,49 @@ describe('useUnsentCompletionAssignmentIds', () => {
       },
     ]);
 
-    const { result } = await renderHook(() => useUnsentCompletionAssignmentIds(), {
+    const { result } = await renderHook(() => usePhoneCompletionStates(), {
       wrapper,
     });
 
     await waitFor(() =>
-      expect(result.current.has('assignment-waiting')).toBe(true),
+      expect(result.current.get('assignment-waiting')).toBe('waiting'),
     );
-    expect([...result.current].sort()).toEqual([
-      'assignment-retrying',
-      'assignment-sending',
-      'assignment-waiting',
-    ]);
+    expect(result.current.get('assignment-delivered')).toBe('sent');
+    expect(result.current.get('assignment-retrying')).toBe('waiting');
+    expect(result.current.get('assignment-sending')).toBe('waiting');
     expect(mockSummaries).toHaveBeenCalledWith(mockDatabase, OWNER_ID);
   });
 
-  it('drops the waiting claim when the visit is delivered while the list stays open', async () => {
-    const waitingVisit = {
+  it('keeps the visit visible when it is delivered while the list stays open', async () => {
+    const savedVisit = {
       assignmentId: 'assignment-waiting',
       syncStatus: 'pending' as const,
       visitedAt: '2026-09-02T04:06:06.123Z',
     };
-    mockSummaries.mockResolvedValue([waitingVisit]);
+    mockSummaries.mockResolvedValue([savedVisit]);
 
-    const { result } = await renderHook(() => useUnsentCompletionAssignmentIds(), {
+    const { result } = await renderHook(() => usePhoneCompletionStates(), {
       wrapper,
     });
 
     await waitFor(() =>
-      expect(result.current.has('assignment-waiting')).toBe(true),
+      expect(result.current.get('assignment-waiting')).toBe('waiting'),
     );
 
-    mockSummaries.mockResolvedValue([{ ...waitingVisit, syncStatus: 'synced' }]);
+    mockSummaries.mockResolvedValue([{ ...savedVisit, syncStatus: 'synced' }]);
     await act(async () => {
       emitSyncRecordsChanged();
     });
 
-    await waitFor(() => expect(result.current.size).toBe(0));
+    await waitFor(() =>
+      expect(result.current.get('assignment-waiting')).toBe('sent'),
+    );
   });
 
   it('claims nothing when the saved visits cannot be read', async () => {
     mockSummaries.mockRejectedValue(new Error('database unavailable'));
 
-    const { result } = await renderHook(() => useUnsentCompletionAssignmentIds(), {
+    const { result } = await renderHook(() => usePhoneCompletionStates(), {
       wrapper,
     });
 

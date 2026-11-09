@@ -3,16 +3,18 @@ import { useCallback, useContext, useState } from 'react';
 
 import { EMPTY_DATABASE, useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { listFieldValidationCompletionSummaries } from '@/features/assignments/data/fieldValidationCompletionRepository';
+import type { PhoneCompletionState } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 import { AuthContext } from '@/features/auth/providers/AuthProvider';
 import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 
-const NONE: ReadonlySet<string> = new Set();
+const NONE: ReadonlyMap<string, PhoneCompletionState> = new Map();
 
-/** Ids of assignments whose visit was finished on this phone and is still waiting to send. */
-export function useUnsentCompletionAssignmentIds(): ReadonlySet<string> {
+/** The visit saved on this phone for each assignment, keyed by assignment id. */
+export function usePhoneCompletionStates(): ReadonlyMap<string, PhoneCompletionState> {
   const database = useCaneGuardDatabase();
   const session = useContext(AuthContext)?.session;
-  const [ids, setIds] = useState<ReadonlySet<string>>(NONE);
+  const [states, setStates] =
+    useState<ReadonlyMap<string, PhoneCompletionState>>(NONE);
 
   useFocusEffect(
     useCallback(() => {
@@ -22,17 +24,18 @@ export function useUnsentCompletionAssignmentIds(): ReadonlySet<string> {
         listFieldValidationCompletionSummaries(database, session.user.uuid)
           .then((rows) => {
             if (active) {
-              setIds(
-                new Set(
-                  rows
-                    .filter((row) => row.syncStatus !== 'synced')
-                    .map((row) => row.assignmentId),
+              setStates(
+                new Map<string, PhoneCompletionState>(
+                  rows.map((row) => [
+                    row.assignmentId,
+                    row.syncStatus === 'synced' ? 'sent' : 'waiting',
+                  ]),
                 ),
               );
             }
           })
           .catch(() => {
-            if (active) setIds(NONE);
+            if (active) setStates(NONE);
           });
       };
       load();
@@ -44,5 +47,5 @@ export function useUnsentCompletionAssignmentIds(): ReadonlySet<string> {
     }, [database, session]),
   );
 
-  return ids;
+  return states;
 }

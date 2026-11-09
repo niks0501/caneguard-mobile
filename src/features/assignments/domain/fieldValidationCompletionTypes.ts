@@ -32,6 +32,9 @@ export interface FieldValidationCompletion {
   visitedAt: string;
 }
 
+/** The phone's own view of a saved visit: still waiting to send, or delivered. */
+export type PhoneCompletionState = 'waiting' | 'sent';
+
 export interface SaveFieldValidationCompletionInput {
   actionTaken: string;
   assignmentId: string;

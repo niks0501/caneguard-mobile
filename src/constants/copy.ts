@@ -134,6 +134,7 @@ export const OFFICE_UPDATES_DISMISS_LABEL = 'Hide office updates for now';
 export const OFFICE_UPDATES_PANEL_CLOSE_LABEL = 'Close office updates';
 
 export const OFFICE_UPDATES_MARKED_READ = 'Updates marked as read';
+export const OFFICE_UPDATE_STILL_OPENING = 'Still getting this update ready. Try again in a moment.';
 
 /** Assignment card photo block when no case picture is stored on this device. */
 export const ASSIGNMENT_PHOTO_PLACEHOLDER = 'No photo';

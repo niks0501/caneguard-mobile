@@ -20,7 +20,12 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 export interface MobileFieldValidationAssignmentsResult {
   syncBefore: string;
   assignments: FieldValidationAssignmentUpdate[];
+  /** Records dropped because their vocabulary (field_validation_state) is unknown to this build. */
+  skippedCount: number;
 }
+
+/** Stored and shown when the server sends a predicted_label this build does not know. */
+export const UNKNOWN_PREDICTED_LABEL = 'unknown';
 
 export type MobileFieldValidationAssignmentsErrorCode =
   | 'AUTH_REQUIRED'
@@ -53,6 +58,7 @@ export async function fetchAllMobileFieldValidationAssignments(options: {
   const initialPath = buildInitialPath(options.updatedAfter);
   const visited = new Set<string>();
   const assignments: FieldValidationAssignmentUpdate[] = [];
+  let skippedCount = 0;
   let path: string | null = initialPath;
   let syncBefore: string | null = null;
 
@@ -74,6 +80,7 @@ export async function fetchAllMobileFieldValidationAssignments(options: {
     }
     syncBefore ??= page.syncBefore;
     assignments.push(...page.assignments);
+    skippedCount += page.skippedCount;
 
     if (page.nextPath) {
       assertContinuationCheckpoint(page.nextPath, syncBefore);
@@ -89,7 +96,7 @@ export async function fetchAllMobileFieldValidationAssignments(options: {
   }
 
   assertUniqueIdentities(assignments);
-  return { syncBefore, assignments };
+  return { syncBefore, assignments, skippedCount };
 }
 
 async function requestPage(
@@ -99,6 +106,7 @@ async function requestPage(
   nextPath: string | null;
   syncBefore: string;
   assignments: FieldValidationAssignmentUpdate[];
+  skippedCount: number;
 }> {
   let body: unknown;
   try {
@@ -122,6 +130,7 @@ function parsePage(body: unknown): {
   nextPath: string | null;
   syncBefore: string;
   assignments: FieldValidationAssignmentUpdate[];
+  skippedCount: number;
 } {
   if (!isRecord(body) || !Array.isArray(body.data) || !isRecord(body.links)) {
     throw new MobileFieldValidationAssignmentsApiError(
@@ -139,14 +148,47 @@ function parsePage(body: unknown): {
     );
   }
 
+  const assignments: FieldValidationAssignmentUpdate[] = [];
+  let skippedCount = 0;
+  body.data.forEach((item, index) => {
+    try {
+      const assignment = parseAssignment(item);
+      if (assignment) assignments.push(assignment);
+      else skippedCount += 1;
+    } catch (error: unknown) {
+      throw withItemReference(error, item, index);
+    }
+  });
+
   return {
     nextPath: rawNext === null ? null : toSafeContinuationPath(rawNext),
     syncBefore,
-    assignments: body.data.map(parseAssignment),
+    assignments,
+    skippedCount,
   };
 }
 
-function parseAssignment(value: unknown): FieldValidationAssignmentUpdate {
+/** Names the failing record so a broken identity is traceable to one item. */
+function withItemReference(error: unknown, item: unknown, index: number): unknown {
+  if (
+    !(error instanceof MobileFieldValidationAssignmentsApiError) ||
+    error.code !== 'MALFORMED_RESPONSE'
+  ) {
+    return error;
+  }
+  const reference =
+    isRecord(item) && typeof item.reference_code === 'string' && item.reference_code.trim()
+      ? `reference ${item.reference_code}`
+      : `index ${index}`;
+  return new MobileFieldValidationAssignmentsApiError(
+    'MALFORMED_RESPONSE',
+    `${error.message} (record ${reference})`,
+    error.status,
+  );
+}
+
+/** Returns null when the record is skipped for an unknown field_validation_state. */
+function parseAssignment(value: unknown): FieldValidationAssignmentUpdate | null {
   if (!isRecord(value)) throw malformed('assignment item');
   const id = requireUuid(value.uuid, 'uuid');
   const reportUuid = requireUuid(value.report_uuid, 'report_uuid');
@@ -156,6 +198,12 @@ function parseAssignment(value: unknown): FieldValidationAssignmentUpdate {
   const assignee = parsePerson(value.assignee, 'assignee');
   const targetVisitDate = parseDate(value.target_visit_date, 'target_visit_date');
   const fieldValidationState = parseAssignmentState(value.field_validation_state);
+  if (fieldValidationState === null) {
+    console.warn(
+      `[assignments] Skipping record ${referenceCode}: unknown field_validation_state.`,
+    );
+    return null;
+  }
   const assignedAt = requireTimestamp(value.assigned_at, 'assigned_at');
   const updatedAt = requireTimestamp(value.updated_at, 'updated_at');
   const rawCase = isRecord(value.case) ? value.case : null;
@@ -195,11 +243,7 @@ function parseAssignment(value: unknown): FieldValidationAssignmentUpdate {
       capturedAt: requireTimestamp(rawCase.captured_at, 'case.captured_at'),
       observedAt: optionalTimestamp(rawCase.observed_at, 'case.observed_at'),
       submittedAt: requireTimestamp(rawCase.submitted_at, 'case.submitted_at'),
-      predictedLabel: requireEnum(
-        rawCase.predicted_label,
-        'case.predicted_label',
-        MODEL_LABELS,
-      ),
+      predictedLabel: parsePredictedLabel(rawCase.predicted_label),
       confidence: requireNumber(rawCase.confidence, 'case.confidence', 0, 1),
     },
     previousVisit: parsePreviousVisit(value.previous_visit),
@@ -377,8 +421,18 @@ function requireEnum<T extends string>(value: unknown, field: string, values: re
   return value as T;
 }
 
-function parseAssignmentState(value: unknown): FieldValidationAssignmentState {
-  return requireEnum(value, 'field_validation_state', FIELD_VALIDATION_ASSIGNMENT_STATES);
+/** Strict on shape (must be a string), tolerant on vocabulary (unknown state => null). */
+function parseAssignmentState(value: unknown): FieldValidationAssignmentState | null {
+  if (typeof value !== 'string' || !value.trim()) throw malformed('field_validation_state');
+  return (FIELD_VALIDATION_ASSIGNMENT_STATES as readonly string[]).includes(value)
+    ? (value as FieldValidationAssignmentState)
+    : null;
+}
+
+/** Strict on shape (must be a string), tolerant on vocabulary (unknown label => 'unknown'). */
+function parsePredictedLabel(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) throw malformed('case.predicted_label');
+  return (MODEL_LABELS as readonly string[]).includes(value) ? value : UNKNOWN_PREDICTED_LABEL;
 }
 
 function malformed(field: string): MobileFieldValidationAssignmentsApiError {

@@ -232,6 +232,9 @@ export function getResultLabel(label: string): string {
   if (label === 'smut') {
     return 'Possible Condition: Smut';
   }
+  if (label === 'unknown') {
+    return 'Possible Condition: Not recognised by this app version';
+  }
   return `Possible Condition: ${label}`;
 }
 

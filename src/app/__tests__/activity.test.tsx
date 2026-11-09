@@ -29,6 +29,7 @@ let mockAssignmentsState: ReturnType<typeof useFieldValidationAssignments> = {
   errorMessage: null,
   lastSuccessfulAt: null,
   refreshing: false,
+  skippedCount: 0,
   refresh: mockRefreshAssignments,
   refreshOutcome: async () => ((await mockRefreshAssignments()) ? 'ok' : 'failed'),
   sessionKey: 'session-1',

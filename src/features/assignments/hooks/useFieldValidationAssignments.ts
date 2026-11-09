@@ -28,6 +28,7 @@ interface AssignmentState {
   errorMessage: string | null;
   lastSuccessfulAt: string | null;
   refreshing: boolean;
+  skippedCount: number;
   sessionKey: string | null;
 }
 
@@ -41,6 +42,7 @@ export function useFieldValidationAssignments(enabled = true) {
     errorMessage: null,
     lastSuccessfulAt: null,
     refreshing: false,
+    skippedCount: 0,
     sessionKey: null,
   });
   const sessionRef = useRef(session);
@@ -151,6 +153,7 @@ export function useFieldValidationAssignments(enabled = true) {
             errorMessage: null,
             lastSuccessfulAt: result.fetchedAt,
             refreshing: false,
+            skippedCount: result.skippedCount,
             sessionKey,
           });
           return 'ok';
@@ -236,6 +239,7 @@ export function useFieldValidationAssignments(enabled = true) {
           errorMessage: null,
           lastSuccessfulAt: null,
           refreshing: false,
+          skippedCount: 0,
           sessionKey,
         };
 

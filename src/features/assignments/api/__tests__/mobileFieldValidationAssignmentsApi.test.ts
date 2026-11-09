@@ -162,4 +162,50 @@ describe('mobile field validation assignment API', () => {
     request.mockResolvedValueOnce(page([{ ...MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE.data[0], submitter_is_assignee: 'false' }]));
     await expect(fetchAllMobileFieldValidationAssignments({ token: 'secure-token' })).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' });
   });
+  // Proves L1: an unknown enum leaves the rest of the feed refreshed.
+  it('parses an unknown predicted_label as unknown and keeps the rest of the feed', async () => {
+    const first = MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE.data[0];
+    const second = {
+      ...first,
+      uuid: '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f',
+      report_uuid: '1adf31c4-e9cb-4a8d-9650-9d2b86c06f6e',
+      case: { ...first.case, predicted_label: 'blight' },
+    };
+    request.mockResolvedValueOnce(page([first, second]));
+
+    const result = await fetchAllMobileFieldValidationAssignments({ token: 'secure-token' });
+    expect(result.skippedCount).toBe(0);
+    expect(result.assignments.map((a) => a.case.predictedLabel)).toEqual(['rust', 'unknown']);
+  });
+
+  // Proves L1: an unknown enum leaves the rest of the feed refreshed (state vocabulary, counted for the banner).
+  it('skips and counts a record with an unknown field_validation_state without failing the feed', async () => {
+    const first = MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE.data[0];
+    const second = {
+      ...first,
+      uuid: '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f',
+      report_uuid: '1adf31c4-e9cb-4a8d-9650-9d2b86c06f6e',
+      field_validation_state: 'escalated',
+    };
+    request.mockResolvedValueOnce(page([second, first]));
+
+    const result = await fetchAllMobileFieldValidationAssignments({ token: 'secure-token' });
+    expect(result.skippedCount).toBe(1);
+    expect(result.assignments).toHaveLength(1);
+  });
+
+  // Proves L1: a malformed identity fails loudly and names the item.
+  it('fails loudly naming the record reference code and field when an identity is malformed', async () => {
+    const first = MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE.data[0];
+    request.mockResolvedValueOnce(page([{ ...first, report_uuid: 'not-a-uuid' }]));
+
+    await expect(fetchAllMobileFieldValidationAssignments({ token: 'secure-token' })).rejects.toMatchObject({
+      code: 'MALFORMED_RESPONSE',
+      message: expect.stringContaining(`report_uuid`),
+    });
+    request.mockResolvedValueOnce(page([{ ...first, report_uuid: 'not-a-uuid' }]));
+    await expect(fetchAllMobileFieldValidationAssignments({ token: 'secure-token' })).rejects.toThrow(
+      `record reference ${first.reference_code}`,
+    );
+  });
 });

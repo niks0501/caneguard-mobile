@@ -4,6 +4,7 @@ import {
   FIELD_VALIDATION_ASSIGNMENT_STATES,
   FIELD_VALIDATION_FOLLOW_UP_OUTCOMES,
   type FieldValidationAssignmentState,
+  type FieldValidationFollowUpOutcome,
 } from '@/database/schema';
 import type {
   FieldValidationAssignmentUpdate,
@@ -57,6 +58,7 @@ export async function fetchAllMobileFieldValidationAssignments(options: {
 }): Promise<MobileFieldValidationAssignmentsResult> {
   const initialPath = buildInitialPath(options.updatedAfter);
   const visited = new Set<string>();
+  const identities: AssignmentIdentityIndex = { ids: new Set(), reportIds: new Set() };
   const assignments: FieldValidationAssignmentUpdate[] = [];
   let skippedCount = 0;
   let path: string | null = initialPath;
@@ -71,7 +73,7 @@ export async function fetchAllMobileFieldValidationAssignments(options: {
     }
     visited.add(path);
 
-    const page = await requestPage(path, options.token);
+    const page = await requestPage(path, options.token, identities);
     if (syncBefore && page.syncBefore !== syncBefore) {
       throw new MobileFieldValidationAssignmentsApiError(
         'MALFORMED_RESPONSE',
@@ -95,13 +97,13 @@ export async function fetchAllMobileFieldValidationAssignments(options: {
     );
   }
 
-  assertUniqueIdentities(assignments);
   return { syncBefore, assignments, skippedCount };
 }
 
 async function requestPage(
   path: string,
   token: string,
+  identities: AssignmentIdentityIndex,
 ): Promise<{
   nextPath: string | null;
   syncBefore: string;
@@ -116,7 +118,7 @@ async function requestPage(
   }
 
   try {
-    return parsePage(body);
+    return parsePage(body, identities);
   } catch (error: unknown) {
     if (error instanceof MobileFieldValidationAssignmentsApiError) throw error;
     throw new MobileFieldValidationAssignmentsApiError(
@@ -126,7 +128,7 @@ async function requestPage(
   }
 }
 
-function parsePage(body: unknown): {
+function parsePage(body: unknown, identities: AssignmentIdentityIndex): {
   nextPath: string | null;
   syncBefore: string;
   assignments: FieldValidationAssignmentUpdate[];
@@ -152,7 +154,7 @@ function parsePage(body: unknown): {
   let skippedCount = 0;
   body.data.forEach((item, index) => {
     try {
-      const assignment = parseAssignment(item);
+      const assignment = parseAssignment(item, identities);
       if (assignment) assignments.push(assignment);
       else skippedCount += 1;
     } catch (error: unknown) {
@@ -188,12 +190,16 @@ function withItemReference(error: unknown, item: unknown, index: number): unknow
 }
 
 /** Returns null when the record is skipped for an unknown field_validation_state. */
-function parseAssignment(value: unknown): FieldValidationAssignmentUpdate | null {
+function parseAssignment(
+  value: unknown,
+  identities: AssignmentIdentityIndex,
+): FieldValidationAssignmentUpdate | null {
   if (!isRecord(value)) throw malformed('assignment item');
   const id = requireUuid(value.uuid, 'uuid');
   const reportUuid = requireUuid(value.report_uuid, 'report_uuid');
   const reportClientUuid = requireUuid(value.report_client_uuid, 'report_client_uuid');
   const referenceCode = requireString(value.reference_code, 'reference_code');
+  registerIdentity(identities, id, reportUuid);
   const submitter = parsePerson(value.submitter, 'submitter');
   const assignee = parsePerson(value.assignee, 'assignee');
   const targetVisitDate = parseDate(value.target_visit_date, 'target_visit_date');
@@ -265,11 +271,7 @@ function parsePreviousVisit(value: unknown): PreviousVisitContext | null {
       'previous_visit.authority_classified_condition',
     ),
     actionTaken: requireString(value.action_taken, 'previous_visit.action_taken'),
-    followUpOutcome: optionalEnum(
-      value.follow_up_outcome,
-      'previous_visit.follow_up_outcome',
-      FIELD_VALIDATION_FOLLOW_UP_OUTCOMES,
-    ),
+    followUpOutcome: parseFollowUpOutcome(value.follow_up_outcome),
     fieldObservation: optionalString(value.field_observation, 'previous_visit.field_observation'),
     fieldFinding: optionalString(value.field_finding, 'previous_visit.field_finding'),
     freshPhotoAvailable: requireBoolean(
@@ -347,19 +349,25 @@ function assertContinuationCheckpoint(path: string, syncBefore: string): void {
   }
 }
 
-function assertUniqueIdentities(assignments: FieldValidationAssignmentUpdate[]): void {
-  const ids = new Set<string>();
-  const reportIds = new Set<string>();
-  for (const assignment of assignments) {
-    if (ids.has(assignment.id) || reportIds.has(assignment.reportUuid)) {
-      throw new MobileFieldValidationAssignmentsApiError(
-        'MALFORMED_RESPONSE',
-        'The assignment feed contains duplicate identities.',
-      );
-    }
-    ids.add(assignment.id);
-    reportIds.add(assignment.reportUuid);
+interface AssignmentIdentityIndex {
+  ids: Set<string>;
+  reportIds: Set<string>;
+}
+
+/** Checked for every record in the feed, including records skipped for unknown vocabulary. */
+function registerIdentity(
+  identities: AssignmentIdentityIndex,
+  id: string,
+  reportUuid: string,
+): void {
+  if (identities.ids.has(id) || identities.reportIds.has(reportUuid)) {
+    throw new MobileFieldValidationAssignmentsApiError(
+      'MALFORMED_RESPONSE',
+      'The assignment feed contains duplicate identities.',
+    );
   }
+  identities.ids.add(id);
+  identities.reportIds.add(reportUuid);
 }
 
 function requireUuid(value: unknown, field: string): string {
@@ -376,11 +384,6 @@ function optionalString(value: unknown, field: string): string | null {
   if (value === null) return null;
   if (typeof value !== 'string') throw malformed(field);
   return value;
-}
-
-function optionalEnum<T extends string>(value: unknown, field: string, values: readonly T[]): T | null {
-  if (value === null) return null;
-  return requireEnum(value, field, values);
 }
 
 function requireTimestamp(value: unknown, field: string): string {
@@ -416,16 +419,20 @@ function optionalNumber(value: unknown, field: string, minimum: number, maximum 
   return requireNumber(value, field, minimum, maximum);
 }
 
-function requireEnum<T extends string>(value: unknown, field: string, values: readonly T[]): T {
-  if (typeof value !== 'string' || !values.includes(value as T)) throw malformed(field);
-  return value as T;
-}
-
 /** Strict on shape (must be a string), tolerant on vocabulary (unknown state => null). */
 function parseAssignmentState(value: unknown): FieldValidationAssignmentState | null {
   if (typeof value !== 'string' || !value.trim()) throw malformed('field_validation_state');
   return (FIELD_VALIDATION_ASSIGNMENT_STATES as readonly string[]).includes(value)
     ? (value as FieldValidationAssignmentState)
+    : null;
+}
+
+/** Strict on shape (must be a string or null), tolerant on vocabulary (unknown outcome => null). */
+function parseFollowUpOutcome(value: unknown): FieldValidationFollowUpOutcome | null {
+  if (value === null) return null;
+  if (typeof value !== 'string' || !value.trim()) throw malformed('previous_visit.follow_up_outcome');
+  return (FIELD_VALIDATION_FOLLOW_UP_OUTCOMES as readonly string[]).includes(value)
+    ? (value as FieldValidationFollowUpOutcome)
     : null;
 }
 

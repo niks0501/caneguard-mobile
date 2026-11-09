@@ -28,8 +28,27 @@ interface AssignmentState {
   errorMessage: string | null;
   lastSuccessfulAt: string | null;
   refreshing: boolean;
-  skippedCount: number;
   sessionKey: string | null;
+}
+
+function describeRefreshFailure(error: unknown, hasCachedAssignments: boolean): string {
+  if (error instanceof MobileFieldValidationAssignmentsApiError) {
+    if (error.code === 'MALFORMED_RESPONSE') return error.message;
+    if (error.code === 'CAPABILITY_UNAVAILABLE') {
+      return 'Field validation assignments are unavailable on this server. Showing the saved assignment cache.';
+    }
+  }
+  if (hasCachedAssignments) return "Couldn't refresh - showing saved assignments.";
+  if (error instanceof Error && error.message.includes('cache')) {
+    return getStorageErrorMessage(
+      toStorageError(
+        error,
+        'QUERY_FAILED',
+        'Reading cached field validation assignments failed.',
+      ),
+    );
+  }
+  return "Couldn't refresh field validation assignments.";
 }
 
 export function useFieldValidationAssignments(enabled = true) {
@@ -42,7 +61,6 @@ export function useFieldValidationAssignments(enabled = true) {
     errorMessage: null,
     lastSuccessfulAt: null,
     refreshing: false,
-    skippedCount: 0,
     sessionKey: null,
   });
   const sessionRef = useRef(session);
@@ -146,14 +164,18 @@ export function useFieldValidationAssignments(enabled = true) {
             token: requestedSession.token,
           });
           if (!isCurrentSession(requestedSession) || !isCurrentStore()) return 'skipped';
-          setOwnerAssignments(store, result.assignments, result.fetchedAt);
+          setOwnerAssignments(
+            store,
+            result.assignments,
+            result.fetchedAt,
+            result.skippedCount,
+          );
           setState({
             assignments: result.assignments,
             capabilityUnavailable: false,
             errorMessage: null,
             lastSuccessfulAt: result.fetchedAt,
             refreshing: false,
-            skippedCount: result.skippedCount,
             sessionKey,
           });
           return 'ok';
@@ -174,19 +196,10 @@ export function useFieldValidationAssignments(enabled = true) {
       setState((current) => ({
         ...current,
         capabilityUnavailable,
-        errorMessage: capabilityUnavailable
-          ? 'Field validation assignments are unavailable on this server. Showing the saved assignment cache.'
-          : (store.assignments?.value.length ?? current.assignments.length)
-            ? "Couldn't refresh - showing saved assignments."
-            : error instanceof Error && error.message.includes('cache')
-              ? getStorageErrorMessage(
-                  toStorageError(
-                    error,
-                    'QUERY_FAILED',
-                    'Reading cached field validation assignments failed.',
-                  ),
-                )
-              : "Couldn't refresh field validation assignments.",
+        errorMessage: describeRefreshFailure(
+          error,
+          Boolean(store.assignments?.value.length ?? current.assignments.length),
+        ),
         refreshing: false,
       }));
       return 'failed';
@@ -225,21 +238,23 @@ export function useFieldValidationAssignments(enabled = true) {
     };
   }, [refresh]);
 
+  const assignmentsSnapshot = canRead ? ownerStore?.assignments ?? null : null;
   const visibleState =
     state.sessionKey === sessionKey
       ? {
           ...state,
           assignments: canRead
-            ? ownerStore?.assignments?.value ?? state.assignments
+            ? assignmentsSnapshot?.value ?? state.assignments
             : [],
+          skippedCount: canRead ? assignmentsSnapshot?.skippedCount ?? 0 : 0,
         }
       : {
-          assignments: canRead ? ownerStore?.assignments?.value ?? [] : [],
+          assignments: assignmentsSnapshot?.value ?? [],
           capabilityUnavailable: false,
           errorMessage: null,
           lastSuccessfulAt: null,
           refreshing: false,
-          skippedCount: 0,
+          skippedCount: assignmentsSnapshot?.skippedCount ?? 0,
           sessionKey,
         };
 

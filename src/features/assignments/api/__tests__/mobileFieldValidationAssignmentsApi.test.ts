@@ -194,6 +194,62 @@ describe('mobile field validation assignment API', () => {
     expect(result.assignments).toHaveLength(1);
   });
 
+  // Proves L1: a broken identity still fails loudly when the duplicate is skipped for its vocabulary.
+  it('rejects duplicate identities across pages before vocabulary filtering', async () => {
+    const first = MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE.data[0];
+    const next = `http://127.0.0.1:8000/api/v1/mobile/assignments?cursor=next&sync_before=${encodeURIComponent(CHECKPOINT)}`;
+    request
+      .mockResolvedValueOnce(page([{ ...first, field_validation_state: 'escalated' }], next))
+      .mockResolvedValueOnce(page([first]));
+
+    await expect(fetchAllMobileFieldValidationAssignments({ token: 'secure-token' })).rejects.toMatchObject({
+      code: 'MALFORMED_RESPONSE',
+      message: expect.stringContaining(`record reference ${first.reference_code}`),
+    });
+
+    request.mockReset().mockResolvedValueOnce(page([
+      first,
+      {
+        ...first,
+        uuid: '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f',
+        field_validation_state: 'escalated',
+      },
+    ]));
+    await expect(fetchAllMobileFieldValidationAssignments({ token: 'secure-token' })).rejects.toMatchObject({
+      code: 'MALFORMED_RESPONSE',
+    });
+  });
+
+  // Proves L1: an unknown previous_visit outcome must not block the feed either.
+  it('tolerates an unknown previous_visit follow_up_outcome without failing the feed', async () => {
+    const first = MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE.data[0];
+    const previousVisit = {
+      reference_code: 'CG-2026-0000',
+      visited_at: '2026-09-10T08:30:00.000Z',
+      reporter_suspected_condition: null,
+      authority_classified_condition: null,
+      action_taken: 'Previous action',
+      follow_up_outcome: 'partially_resolved',
+      field_observation: null,
+      field_finding: null,
+      fresh_photo_available: false,
+    };
+    const second = {
+      ...first,
+      uuid: '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f',
+      report_uuid: '1adf31c4-e9cb-4a8d-9650-9d2b86c06f6e',
+      previous_visit: previousVisit,
+    };
+    request.mockResolvedValueOnce(page([second, first]));
+
+    const result = await fetchAllMobileFieldValidationAssignments({ token: 'secure-token' });
+    expect(result.assignments).toHaveLength(2);
+    expect(result.assignments[0].previousVisit).toMatchObject({
+      referenceCode: 'CG-2026-0000',
+      followUpOutcome: null,
+    });
+  });
+
   // Proves L1: a malformed identity fails loudly and names the item.
   it('fails loudly naming the record reference code and field when an identity is malformed', async () => {
     const first = MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE.data[0];

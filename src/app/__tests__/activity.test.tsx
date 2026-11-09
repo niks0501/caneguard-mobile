@@ -172,6 +172,7 @@ describe('ActivityScreen', () => {
     mockAssignmentsState = {
       ...mockAssignmentsState,
       assignments: [ASSIGNMENT],
+      skippedCount: 0,
     };
     mockNotificationsState = {
       ...mockNotificationsState,
@@ -260,6 +261,16 @@ describe('ActivityScreen', () => {
 
     expect(screen.getByText(/Couldn.t refresh/)).toBeOnTheScreen();
     expect(screen.getByText(/Saved content is still available/)).toBeOnTheScreen();
+  });
+
+  it('warns how many assigned cases this app version could not show', async () => {
+    mockAssignmentsState = { ...mockAssignmentsState, skippedCount: 2 };
+    await render(<ActivityScreen />);
+    await fireEvent.press(screen.getByLabelText('Show Report status'));
+
+    expect(screen.getByTestId('activity.assignments-skipped')).toHaveTextContent(
+      /2 assigned cases could not be shown/,
+    );
   });
 
   it('omits the Needs-you section and the duplicate Today entry from Activity', async () => {

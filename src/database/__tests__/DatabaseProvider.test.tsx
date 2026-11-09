@@ -1,5 +1,6 @@
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { render, screen } from '@testing-library/react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import { Text } from 'react-native';
 
 import { CaneGuardDatabaseProvider } from '@/database/DatabaseProvider';
@@ -9,6 +10,10 @@ jest.mock('drizzle-orm/expo-sqlite/migrator', () => ({
   useMigrations: jest.fn(),
 }));
 
+jest.mock('expo-splash-screen', () => ({
+  hideAsync: jest.fn(async () => undefined),
+}));
+
 jest.mock('@/database/database', () => ({
   clearCaneGuardDatabaseResourcesForRetry: jest.fn(),
   getCaneGuardDatabaseResources: jest.fn(),
@@ -16,9 +21,11 @@ jest.mock('@/database/database', () => ({
 
 const mockUseMigrations = jest.mocked(useMigrations);
 const mockGetResources = jest.mocked(getCaneGuardDatabaseResources);
+const mockHideSplash = jest.mocked(SplashScreen.hideAsync);
 
 describe('CaneGuardDatabaseProvider', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     mockGetResources.mockReturnValue({
       database: {} as ReturnType<typeof getCaneGuardDatabaseResources>['database'],
       sqlite: {} as ReturnType<typeof getCaneGuardDatabaseResources>['sqlite'],
@@ -48,6 +55,37 @@ describe('CaneGuardDatabaseProvider', () => {
     );
 
     expect(screen.getByText('Application content')).toBeOnTheScreen();
+  });
+
+  it('exposes migration status and retry controls through stable test IDs', async () => {
+    mockUseMigrations.mockReturnValue({
+      success: false,
+      error: new Error('migration failed'),
+    });
+
+    await render(
+      <CaneGuardDatabaseProvider>
+        <Text>Application content</Text>
+      </CaneGuardDatabaseProvider>,
+    );
+
+    expect(screen.getByTestId('db.init-status')).toBeOnTheScreen();
+    expect(screen.getByTestId('db.retry')).toBeOnTheScreen();
+  });
+
+  it('dismisses the splash while showing a migration failure', async () => {
+    mockUseMigrations.mockReturnValue({
+      success: false,
+      error: new Error('migration failed'),
+    });
+
+    await render(
+      <CaneGuardDatabaseProvider>
+        <Text>Application content</Text>
+      </CaneGuardDatabaseProvider>,
+    );
+
+    expect(mockHideSplash).toHaveBeenCalledTimes(1);
   });
 
   it('presents a sanitized recoverable migration error', async () => {

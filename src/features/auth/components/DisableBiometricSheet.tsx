@@ -16,6 +16,7 @@ export function DisableBiometricSheet() {
   const { disableBiometric, errorMessage } = useAuth();
   const [disablePassword, setDisablePassword] = useState('');
   const [pending, setPending] = useState(false);
+  const [attempted, setAttempted] = useState(false);
   const [closed, setClosed] = useState(false);
 
   const close = () => {
@@ -31,6 +32,7 @@ export function DisableBiometricSheet() {
       return;
     }
     setPending(true);
+    setAttempted(true);
     try {
       const disabled = await disableBiometric(disablePassword);
       if (disabled) {
@@ -51,7 +53,7 @@ export function DisableBiometricSheet() {
     <SheetScreen
       title="Disable biometric unlock"
       testID="account-security.biometric-sheet"
-      errorMessage={errorMessage}
+      errorMessage={attempted ? errorMessage : null}
       errorTestID="account-security.error"
       isDirty={dirty}
       onCancel={close}

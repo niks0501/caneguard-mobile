@@ -968,4 +968,39 @@ describe('AuthProvider', () => {
     expect(result.current.status).toBe('unauthenticated');
     expect(result.current.session).toBeNull();
   });
+
+  it('starts each account action without the previous action error', async () => {
+    mockLogin.mockResolvedValueOnce(SESSION);
+    mockChangePassword.mockRejectedValueOnce(
+      new MobileAuthError('INVALID_RESPONSE', 'Current password incorrect'),
+    );
+    let finishDisable: (value: { code: string; message: string }) => void = () => undefined;
+    mockDisableBiometricApi.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishDisable = resolve;
+      }),
+    );
+
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+    await act(async () => {
+      await result.current.login('field@caneguard.test', 'password');
+      await result.current.changePassword({
+        currentPassword: 'wrong',
+        password: 'new-password-value',
+      });
+    });
+    expect(result.current.errorMessage).toBe('Current password incorrect');
+
+    let disabling: Promise<boolean> = Promise.resolve(false);
+    await act(async () => {
+      disabling = result.current.disableBiometric('current-password');
+    });
+    expect(result.current.errorMessage).toBeNull();
+
+    await act(async () => {
+      finishDisable({ code: 'BIOMETRIC_DISABLED', message: 'Disabled' });
+      await disabling;
+    });
+  });
 });

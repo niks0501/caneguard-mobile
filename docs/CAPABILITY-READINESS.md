@@ -80,11 +80,14 @@ tests. "Implemented" does not mean "verified on a device":
 - Field validation visits: owner-scoped drafts, completion evidence, follow-up
   outcome, optional fresh photo, and an **Office case** card on a case born in
   the office showing the reporter's concern, the office status, the case
-  version, and a guarded viewer for the case photo and the last visit's photo
-  (a photo that cannot load, or a session with no token, shows words instead of
-  a broken image). The downloaded visit list needs
-  `assignment:read`; opening and completing a visit needs `assignment:complete`.
-  Without it the screen shows an unavailable notice instead of the visit form.
+  version, and a guarded viewer for the case photo and the last visit's photo.
+  After a refresh the phone keeps those photos on disk for the owner within a
+  fixed budget, so a case whose photos are all downloaded shows a **Ready
+  offline** badge and renders them with no session token; a photo that cannot
+  load otherwise shows words instead of a broken image. The downloaded visit
+  list needs `assignment:read`; opening and completing a visit needs
+  `assignment:complete`. Without it the screen shows an unavailable notice
+  instead of the visit form.
 - Offline field boundary surveys (authoring needs the `report:submit`
   capability): plot and affected-area polygons drawn on the
   coordinate map, affected areas accepted only when fully inside the plot

@@ -16,8 +16,7 @@
     }
   },
   "exclude": [
-    "caneguard-web/**",
-    "validation/expo-sqlite/**"
+    "caneguard-web/**"
   ],
   "include": [
     "**/*.ts",

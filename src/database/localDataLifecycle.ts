@@ -13,6 +13,7 @@ import {
   mobileNotifications,
   scanRecords,
   syncCheckpoints,
+  syncDownloadProgresses,
 } from '@/database/schema';
 import {
   deleteFieldValidationPhoto,
@@ -176,6 +177,10 @@ export async function clearCachedOfficeDataForOwner(
         .delete(syncCheckpoints)
         .where(eq(syncCheckpoints.ownerIdentity, owner))
         .run();
+      transaction
+        .delete(syncDownloadProgresses)
+        .where(eq(syncDownloadProgresses.ownerIdentity, owner))
+        .run();
       deletedRows += transaction
         .delete(mobileNotifications)
         .where(eq(mobileNotifications.ownerIdentity, owner))
@@ -237,6 +242,10 @@ export async function clearLocalDataForOwner(
       transaction
         .delete(syncCheckpoints)
         .where(eq(syncCheckpoints.ownerIdentity, owner))
+        .run();
+      transaction
+        .delete(syncDownloadProgresses)
+        .where(eq(syncDownloadProgresses.ownerIdentity, owner))
         .run();
       deletedRows += transaction
         .delete(mobileNotifications)

@@ -232,6 +232,13 @@
       "when": 1794298184440,
       "tag": "0032_office_case_projection",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1794312000000,
+      "tag": "0033_status_download_progress",
+      "breakpoints": true
     }
   ]
 }

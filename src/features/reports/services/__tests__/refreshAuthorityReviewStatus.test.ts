@@ -89,6 +89,7 @@ describe('refreshAuthorityReviewStatus', () => {
       token: 'token-1',
       updatedAfter: '2026-08-13T10:59:59.000Z',
       since: null,
+      progress: expect.any(Object),
     });
 
     finish(feed());
@@ -177,6 +178,7 @@ describe('refreshAuthorityReviewStatus', () => {
       token: 'token-1',
       updatedAfter: '2026-08-13T10:59:59.000Z',
       since: 'v-1',
+      progress: expect.any(Object),
     });
     expect(applyUpdates).toHaveBeenCalledWith(
       database,

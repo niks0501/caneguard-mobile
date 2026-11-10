@@ -317,6 +317,22 @@ export const syncCheckpoints = sqliteTable(
   ],
 );
 
+/**
+ * The pages one interrupted download already fetched and the continuation that
+ * fetches the next one. Rewritten after every page and removed when the
+ * download finishes or is abandoned, so a cold start resumes where it stopped.
+ * `payload` is the serialized progress of the feed that started the download.
+ */
+export const syncDownloadProgresses = sqliteTable(
+  'sync_download_progresses',
+  {
+    ownerIdentity: text('owner_identity').notNull(),
+    feed: text('feed', { enum: SYNC_CHECKPOINT_FEEDS }).notNull(),
+    payload: text('payload').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.ownerIdentity, table.feed] })],
+);
+
 export const fieldValidationCompletions = sqliteTable(
   'field_validation_completions',
   {

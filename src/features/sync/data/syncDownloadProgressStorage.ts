@@ -32,6 +32,7 @@ export function createSyncDownloadProgressStore(
     },
 
     async clear(): Promise<void> {
+      if (!isCurrent()) return;
       try {
         await AsyncStorage.removeItem(key);
       } catch (error: unknown) {

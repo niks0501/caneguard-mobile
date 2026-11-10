@@ -74,6 +74,20 @@ describe('sync download progress storage', () => {
     await expect(storeFor('owner-1').read()).resolves.toBeNull();
   });
 
+  // Proves: a superseded download cannot erase the pages a newer one stored.
+  it('refuses to clear pages once the download was superseded', async () => {
+    const superseded = createSyncDownloadProgressStore(
+      'owner-1',
+      'authority_status',
+      () => false,
+    );
+    await storeFor('owner-1').save('{"page":3}');
+
+    await superseded.clear();
+
+    await expect(storeFor('owner-1').read()).resolves.toBe('{"page":3}');
+  });
+
   it('refuses an owner that cannot scope stored pages', () => {
     expect(() => storeFor('   ')).toThrow(StorageError);
   });

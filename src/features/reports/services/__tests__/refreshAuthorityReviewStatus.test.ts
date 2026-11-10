@@ -148,6 +148,55 @@ describe('refreshAuthorityReviewStatus', () => {
     ).resolves.toBeNull();
   });
 
+  // Proves: a superseded download finishing late cannot erase the pages a newer one stored.
+  it('keeps the pages a newer refresh stored when a superseded one finishes', async () => {
+    let releaseSuperseded!: () => void;
+    const supersededInFlight = new Promise<void>((resolve) => {
+      releaseSuperseded = resolve;
+    });
+    let releaseCurrent!: () => void;
+    const currentInFlight = new Promise<void>((resolve) => {
+      releaseCurrent = resolve;
+    });
+
+    fetchStatuses.mockImplementationOnce(async (options) => {
+      await supersededInFlight;
+      await options.progress.clear();
+      return feed();
+    });
+    const superseded = refreshAuthorityReviewStatus({
+      database,
+      submitterIdentity: 'owner-handoff',
+      token: 'token-1',
+    });
+    for (let tick = 0; tick < 20 && fetchStatuses.mock.calls.length === 0; tick += 1) {
+      await Promise.resolve();
+    }
+
+    fetchStatuses.mockImplementationOnce(async (options) => {
+      await options.progress.save('{"page":2}');
+      await currentInFlight;
+      return feed();
+    });
+    const current = refreshAuthorityReviewStatus({
+      database,
+      submitterIdentity: 'owner-handoff',
+      token: 'token-2',
+    });
+    for (let tick = 0; tick < 20 && fetchStatuses.mock.calls.length === 1; tick += 1) {
+      await Promise.resolve();
+    }
+
+    releaseSuperseded();
+    await expect(superseded).rejects.toThrow('superseded');
+    releaseCurrent();
+    await current;
+
+    await expect(
+      createSyncDownloadProgressStore('owner-handoff', 'authority_status', () => true).read(),
+    ).resolves.toBe('{"page":2}');
+  });
+
   it('keeps account and token refreshes independent', async () => {
     await Promise.all([
       refreshAuthorityReviewStatus({ database, submitterIdentity: 'owner-1', token: 'token-1' }),

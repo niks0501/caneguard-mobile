@@ -73,7 +73,7 @@ tests. "Implemented" does not mean "verified on a device":
 - Field Report Draft (Field Inspector accounts holding the `report:submit`
   capability): five-step form, local autosave checkpoints, readiness checklist,
   finalization, foreground sync and manual retry. The Review step carries an
-  optional **Plot boundary** card that lists the 20 most recently measured
+  optional **Plot boundary** card that lists the 20 most recently updated
   boundaries saved on this phone with district, hectares, and the boundary
   state label, attaches one to the report, removes the link, and opens that
   boundary in Measure. The card is locked once the report is finalized.

@@ -82,6 +82,24 @@ describe('My boundaries', () => {
     expect(screen.getByTestId('my-boundaries.screen').props.accessibilityValue).toEqual({ text: 'state=empty;count=0' });
   });
 
+  // Intent: a draft whose ring does not measure still has points, so it never claims "No points yet".
+  it('does not claim a drawn but unmeasurable draft has no points', async () => {
+    const bowTie = [
+      { accuracyMeters: null, capturedAt: '2026-01-01T00:00:00.000Z', latitude: 14, longitude: 120, source: 'map' as const },
+      { accuracyMeters: null, capturedAt: '2026-01-01T00:00:00.000Z', latitude: 14.002, longitude: 120.002, source: 'map' as const },
+      { accuracyMeters: null, capturedAt: '2026-01-01T00:00:00.000Z', latitude: 14.002, longitude: 120, source: 'map' as const },
+      { accuracyMeters: null, capturedAt: '2026-01-01T00:00:00.000Z', latitude: 14, longitude: 120.002, source: 'map' as const },
+    ];
+    jest.mocked(listOwnedFieldSurveys).mockReturnValue([
+      row({ clientUuid: 'b-drawn', districtCode: 'TRI', waypointsJson: JSON.stringify(bowTie) }),
+      row({ clientUuid: 'b-empty', districtCode: 'LIPA', waypointsJson: '[]' }),
+    ]);
+    await render(<MyBoundariesScreen />);
+    expect(screen.queryByText(`TRI · ${FIELD_SURVEY_COPY.myBoundariesNoPoints}`)).toBeNull();
+    expect(screen.getByLabelText(FIELD_SURVEY_COPY.myBoundariesRowOpenLabel('TRI'))).toBeTruthy();
+    expect(screen.getByLabelText(FIELD_SURVEY_COPY.myBoundariesRowOpenLabel(`LIPA · ${FIELD_SURVEY_COPY.myBoundariesNoPoints}`))).toBeTruthy();
+  });
+
   // Intent: a boundary is deleted only after confirmation.
   it('deletes after confirmation', async () => {
     jest.mocked(listOwnedFieldSurveys).mockReturnValue([row({ clientUuid: 'b1' })]);

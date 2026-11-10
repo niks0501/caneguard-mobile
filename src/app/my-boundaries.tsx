@@ -33,18 +33,26 @@ const STATE_PILL: Record<BoundaryState, PillVariant> = {
   refused: 'danger',
 };
 
-function plotHectares(row: FieldSurveyRow): string | null {
+/** Stored point count and measured hectares; the count is null when the saved points cannot be read at all. */
+function plotOf(row: FieldSurveyRow): { pointCount: number | null; hectares: string | null } {
   try {
-    const measured = validateSurveyWaypoints(JSON.parse(row.waypointsJson) as SurveyWaypoint[]);
-    return measured.valid ? (measured.areaSqm / 10_000).toFixed(2) : null;
+    const waypoints = JSON.parse(row.waypointsJson) as SurveyWaypoint[];
+    if (!Array.isArray(waypoints)) return { pointCount: null, hectares: null };
+    const measured = validateSurveyWaypoints(waypoints);
+    return {
+      pointCount: waypoints.length,
+      hectares: measured.valid ? (measured.areaSqm / 10_000).toFixed(2) : null,
+    };
   } catch {
-    return null;
+    return { pointCount: null, hectares: null };
   }
 }
 
-function summaryOf(row: FieldSurveyRow, hectares: string | null): string {
+/** "No points yet" only when the boundary truly has none; a drawn but unmeasurable ring only shows its district. */
+function summaryOf(row: FieldSurveyRow, { pointCount, hectares }: { pointCount: number | null; hectares: string | null }): string {
   const district = row.districtCode === 'UNSPECIFIED' ? 'No district' : row.districtCode;
-  return hectares === null ? `${district} · ${FIELD_SURVEY_COPY.myBoundariesNoPoints}` : `${district} · ${hectares} ha`;
+  if (hectares !== null) return `${district} · ${hectares} ha`;
+  return pointCount === 0 ? `${district} · ${FIELD_SURVEY_COPY.myBoundariesNoPoints}` : district;
 }
 
 /** Every boundary saved on this phone, with its state, so older drafts can be reopened or deleted. */
@@ -110,7 +118,7 @@ export default function MyBoundariesScreen() {
           {rows?.map((row) => {
             const rowState = boundaryState(row);
             const copy = BOUNDARY_STATE_COPY[rowState];
-            const summary = summaryOf(row, plotHectares(row));
+            const summary = summaryOf(row, plotOf(row));
             return (
               <Card key={row.clientUuid} testID={`my-boundaries.row.${row.clientUuid}`} style={styles.card}>
                 <View accessibilityValue={{ text: `state=${rowState}` }} style={styles.marker} />

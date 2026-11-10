@@ -21,6 +21,7 @@ interface AssignmentArtifact {
   };
   fields: Record<string, unknown>;
   caseProperties: Record<string, unknown>;
+  caseRequiredKeys: string[];
 }
 
 function readArtifact(): AssignmentArtifact {
@@ -30,8 +31,11 @@ function readArtifact(): AssignmentArtifact {
       'utf8',
     ),
   ) as { contract: string; version: number; wire: { method: string; path: string }; fields: Record<string, unknown> };
-  const caseField = artifact.fields.case as { properties: Record<string, unknown> };
-  return { ...artifact, caseProperties: caseField.properties };
+  const caseField = artifact.fields.case as {
+    properties: Record<string, unknown>;
+    required_keys: string[];
+  };
+  return { ...artifact, caseProperties: caseField.properties, caseRequiredKeys: caseField.required_keys };
 }
 
 describe('mobile-field-validation-assignment-v2 producer contract', () => {
@@ -102,6 +106,8 @@ describe('mobile-field-validation-assignment-v2 producer contract', () => {
     };
     // The fixture stays inside the artifact's office projection.
     expect(Object.keys(officeCase).filter((key) => !(key in artifact.caseProperties))).toEqual([]);
+    // A consumer enforcing the artifact's required keys accepts this scanless row.
+    expect(artifact.caseRequiredKeys.filter((key) => !(key in officeCase))).toEqual([]);
 
     request.mockResolvedValueOnce({
       ...MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE,

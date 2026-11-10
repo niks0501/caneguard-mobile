@@ -106,9 +106,7 @@
         "affected_portion_percent",
         "captured_at",
         "observed_at",
-        "submitted_at",
-        "predicted_label",
-        "confidence"
+        "submitted_at"
       ],
       "additional_properties": false,
       "properties": {
@@ -121,8 +119,8 @@
         "captured_at": { "type": "date-time", "required": true, "nullable": false },
         "observed_at": { "type": "date-time", "required": true, "nullable": true },
         "submitted_at": { "type": "date-time", "required": true, "nullable": false },
-        "predicted_label": { "type": "string", "required": true, "nullable": true, "enum": ["healthy", "mosaic", "rust", "smut"], "note": "Null only on an office-born case with no AI scan, and only for requests that send supports=no_ai_scan." },
-        "confidence": { "type": "number", "required": true, "nullable": true, "minimum": 0, "maximum": 1, "note": "Null exactly when predicted_label is null." },
+        "predicted_label": { "type": "string", "required": false, "nullable": true, "enum": ["healthy", "mosaic", "rust", "smut"], "note": "Absent or null only on an office-born case with no AI scan, and only for requests that send supports=no_ai_scan." },
+        "confidence": { "type": "number", "required": false, "nullable": true, "minimum": 0, "maximum": 1, "note": "Null exactly when predicted_label is null." },
         "origin": { "type": "string", "required": false, "nullable": false, "enum": ["office"], "note": "Present only on office-born cases; absent means field-born." },
         "version": { "type": "number", "required": false, "nullable": false, "minimum": 0, "note": "Report lock_version. Office-born cases only." },
         "status": {

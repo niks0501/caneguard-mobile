@@ -186,7 +186,7 @@ export function updateFieldSurveySyncResult(
   return result.changes;
 }
 
-/** Removes a draft boundary. Returns false when the row is missing, already queued, or already sent. */
+/** Removes a draft boundary. Returns false when the row is missing or is in any other state. */
 export function deleteOwnedFieldSurvey(
   database: CaneGuardDatabase,
   clientUuid: string,

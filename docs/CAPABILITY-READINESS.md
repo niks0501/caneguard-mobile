@@ -1,6 +1,6 @@
 # CaneGuard Mobile — current capability and readiness index
 
-**Status:** current guidance. Last reviewed: 4 November 2026.
+**Status:** current guidance. Last reviewed: 10 November 2026.
 **Applies to:** this repository (`caneguard-mobile`) at the revision recorded in
 [`docs/RELEASE-EVIDENCE.md`](RELEASE-EVIDENCE.md).
 
@@ -73,10 +73,10 @@ tests. "Implemented" does not mean "verified on a device":
 - Field Report Draft (Field Inspector accounts holding the `report:submit`
   capability): five-step form, local autosave checkpoints, readiness checklist,
   finalization, foreground sync and manual retry. The Review step carries an
-  optional **Plot boundary** card that lists the recently measured boundaries
-  saved on this phone with district, hectares, and send status, attaches one to
-  the report, removes the link, and opens that boundary in Measure. The card is
-  locked once the report is finalized.
+  optional **Plot boundary** card that lists the 20 most recently measured
+  boundaries saved on this phone with district, hectares, and the boundary
+  state label, attaches one to the report, removes the link, and opens that
+  boundary in Measure. The card is locked once the report is finalized.
 - Field validation visits: owner-scoped drafts, completion evidence, follow-up
   outcome, optional fresh photo, and an **Office case** card on a case born in
   the office showing the reporter's concern, the office status, the case
@@ -103,9 +103,19 @@ tests. "Implemented" does not mean "verified on a device":
   **Low accuracy** when any point is worse than 10 m or unknown. Low accuracy
   names the worst point and offers one **Recapture** button for exactly that
   point; poor accuracy never blocks saving. Opened from a report it restores
-  that exact saved boundary rather than the open draft, shows a sent boundary
-  read-only, and leaves the report card to say when the linked boundary is no
-  longer saved on the phone.
+  that exact saved boundary rather than the open draft, shows a boundary that
+  can no longer be edited read-only, and leaves the report card to say when the
+  linked boundary is no longer saved on the phone.
+- **My boundaries** (authoring needs the `report:submit` capability): every
+  boundary saved on this phone, newest first, each row showing its district and
+  hectares and one state with a one-line what-to-do hint — **Draft**, **Waiting
+  to send**, **Sending**, **Sent**, **Will retry**, **Needs a fix**, **Start
+  again** (the office refused the identity, or the saved boundary is damaged on
+  this phone), and **Not sent**. Draft and needs-a-fix boundaries reopen for
+  editing; only a draft can be deleted, because queued work is still owed to the
+  office. A failed read shows an error instead of an empty list. The state
+  mapping is owned by `src/features/surveys/domain/boundaryState.ts` and its
+  labels by `BOUNDARY_STATE_COPY` in `src/constants/copy.ts`.
 - Home: the Morning Note sentence and its one button, the greeting and date
   band with an Offline chip while offline, the "Today at a glance" strip, icon
   tool tiles, and the four-class "Know the signs" photo strip. A farmer session

@@ -6,15 +6,10 @@ const path = require('node:path');
 const {
   FILE_SYSTEM_STAND_IN_PATH,
   SECURE_STORE_STAND_IN_PATH,
-  SQLITE_WORKER_CHANNEL_PATH,
   isReleaseBuild,
   isWebValidationEnabled,
   resolveWebValidationAlias,
 } = require('../web-validation-config');
-const {
-  invokeWorkerSync,
-  sendWorkerResult,
-} = require('../../validation/expo-sqlite/WorkerChannel');
 
 const repoRoot = path.join(__dirname, '..', '..');
 const enabledEnv = {
@@ -56,23 +51,6 @@ function resolveFileSystem(env, platform = 'web') {
   );
 }
 
-function resolveWorkerChannel(env, platform = 'web') {
-  return resolveWebValidationAlias(
-    {
-      moduleName: './WorkerChannel',
-      originModulePath: path.join(
-        repoRoot,
-        'node_modules',
-        'expo-sqlite',
-        'web',
-        'SQLiteModule.ts',
-      ),
-      platform,
-    },
-    env,
-  );
-}
-
 describe('web validation Metro gate', () => {
   it('keeps a single-page web output for the dev server', () => {
     const appConfig = JSON.parse(
@@ -84,7 +62,6 @@ describe('web validation Metro gate', () => {
 
   it('ships the files the aliases point at', () => {
     expect(fs.existsSync(SECURE_STORE_STAND_IN_PATH)).toBe(true);
-    expect(fs.existsSync(SQLITE_WORKER_CHANNEL_PATH)).toBe(true);
     expect(fs.existsSync(FILE_SYSTEM_STAND_IN_PATH)).toBe(true);
   });
 
@@ -176,13 +153,6 @@ describe('web validation Metro gate', () => {
     expect(resolveSecureStore(enabledEnv, 'android')).toBeNull();
     expect(resolveFileSystem(enabledEnv, 'ios')).toBeNull();
     expect(resolveFileSystem(enabledEnv, 'android')).toBeNull();
-    expect(resolveWorkerChannel(enabledEnv, 'ios')).toBeNull();
-    expect(resolveWorkerChannel(enabledEnv, 'android')).toBeNull();
-  });
-
-  it('always repairs the expo-sqlite worker bridge on web', () => {
-    expect(resolveWorkerChannel(enabledEnv)).toBe(SQLITE_WORKER_CHANNEL_PATH);
-    expect(resolveWorkerChannel({})).toBe(SQLITE_WORKER_CHANNEL_PATH);
   });
 
   it('leaves unrelated modules alone', () => {
@@ -196,32 +166,5 @@ describe('web validation Metro gate', () => {
         enabledEnv,
       ),
     ).toBeNull();
-  });
-});
-
-describe('vendored expo-sqlite worker bridge', () => {
-  function createWorker(result) {
-    return {
-      postMessage(message) {
-        sendWorkerResult({
-          error: null,
-          id: message.id,
-          result,
-          syncTrait: {
-            lockBuffer: message.lockBuffer,
-            resultBuffer: message.resultBuffer,
-          },
-        });
-      },
-    };
-  }
-
-  it('reads a sync result longer than 255 bytes back intact', () => {
-    const result = { rows: [{ notes: 'x'.repeat(400) }] };
-
-    expect(JSON.stringify(result).length).toBeGreaterThan(255);
-    expect(
-      invokeWorkerSync(createWorker(result), 'exec', { source: 'select 1' }),
-    ).toEqual(result);
   });
 });

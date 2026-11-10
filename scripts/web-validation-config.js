@@ -8,13 +8,8 @@ const {
 /**
  * Shared gate for the browser validation route (`npm run web:validate`).
  *
- * Three web-only Metro rewrites live behind it:
+ * Two web-only Metro rewrites live behind it:
  *
- * - `validation/expo-sqlite/WorkerChannel.ts` fixes the 255-byte sync result
- *   length bug in `expo-sqlite` 57. `expo-sqlite` 58 writes the full length
- *   itself, so this rewrite is redundant on the installed SDK, but a browser
- *   validation run has to confirm that before the copy and this alias are
- *   removed; see `docs/qa/web-validation.md`.
  * - `validation/expo-secure-store/ExpoSecureStore.web.ts` keeps a validation
  *   session in `localStorage` so a fake account can reach Home and Activity. It
  *   is a deliberate security downgrade, so it is gated on an explicit env flag,
@@ -35,13 +30,6 @@ const SECURE_STORE_STAND_IN_PATH = path.join(
   'validation',
   'expo-secure-store',
   'ExpoSecureStore.web.ts',
-);
-const SQLITE_WORKER_CHANNEL_PATH = path.join(
-  __dirname,
-  '..',
-  'validation',
-  'expo-sqlite',
-  'WorkerChannel.ts',
 );
 const FILE_SYSTEM_STAND_IN_PATH = path.join(
   __dirname,
@@ -117,20 +105,12 @@ function resolveWebValidationAlias(
     return FILE_SYSTEM_STAND_IN_PATH;
   }
 
-  if (
-    moduleName === './WorkerChannel' &&
-    originModulePath.includes('expo-sqlite')
-  ) {
-    return SQLITE_WORKER_CHANNEL_PATH;
-  }
-
   return null;
 }
 
 module.exports = {
   FILE_SYSTEM_STAND_IN_PATH,
   SECURE_STORE_STAND_IN_PATH,
-  SQLITE_WORKER_CHANNEL_PATH,
   WEB_VALIDATION_FLAG,
   isReleaseBuild,
   isWebValidationEnabled,

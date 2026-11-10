@@ -226,6 +226,31 @@ describe('refreshAuthorityReviewStatus', () => {
     ).resolves.toMatchObject({ applied: 0 });
   });
 
+  // Proves: refreshing stays blocked until every overlapping clear for the owner has finished.
+  it('keeps refreshes blocked while any owner clear is still running', async () => {
+    beginAuthorityReviewClear(database, 'owner-overlap');
+    beginAuthorityReviewClear(database, 'owner-overlap');
+    endAuthorityReviewClear(database, 'owner-overlap');
+
+    await expect(
+      refreshAuthorityReviewStatus({
+        database,
+        submitterIdentity: 'owner-overlap',
+        token: 'token-1',
+      }),
+    ).rejects.toThrow('superseded');
+    expect(fetchStatuses).not.toHaveBeenCalled();
+
+    endAuthorityReviewClear(database, 'owner-overlap');
+    await expect(
+      refreshAuthorityReviewStatus({
+        database,
+        submitterIdentity: 'owner-overlap',
+        token: 'token-1',
+      }),
+    ).resolves.toMatchObject({ applied: 0 });
+  });
+
   it('keeps account and token refreshes independent', async () => {
     await Promise.all([
       refreshAuthorityReviewStatus({ database, submitterIdentity: 'owner-1', token: 'token-1' }),

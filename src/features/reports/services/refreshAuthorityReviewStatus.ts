@@ -30,7 +30,7 @@ const activeRefreshes = new WeakMap<
 >();
 const refreshGenerations = new WeakMap<CaneGuardDatabase, Map<string, number>>();
 
-const clearingOwners = new WeakMap<CaneGuardDatabase, Set<string>>();
+const clearingOwners = new WeakMap<CaneGuardDatabase, Map<string, number>>();
 
 export function beginAuthorityReviewClear(
   database: CaneGuardDatabase,
@@ -40,10 +40,10 @@ export function beginAuthorityReviewClear(
   bumpRefreshGeneration(database, owner);
   let clearing = clearingOwners.get(database);
   if (!clearing) {
-    clearing = new Set();
+    clearing = new Map();
     clearingOwners.set(database, clearing);
   }
-  clearing.add(owner);
+  clearing.set(owner, (clearing.get(owner) ?? 0) + 1);
 }
 
 export function endAuthorityReviewClear(
@@ -52,7 +52,13 @@ export function endAuthorityReviewClear(
 ): void {
   const owner = ownerIdentity.trim();
   bumpRefreshGeneration(database, owner);
-  clearingOwners.get(database)?.delete(owner);
+  const clearing = clearingOwners.get(database);
+  const remaining = (clearing?.get(owner) ?? 0) - 1;
+  if (remaining > 0) {
+    clearing?.set(owner, remaining);
+    return;
+  }
+  clearing?.delete(owner);
 }
 
 function bumpRefreshGeneration(database: CaneGuardDatabase, owner: string): void {
@@ -71,7 +77,7 @@ export function refreshAuthorityReviewStatus(options: {
   token: string;
 }): Promise<AuthorityReviewRefreshResult> {
   const owner = options.submitterIdentity.trim();
-  if (clearingOwners.get(options.database)?.has(owner)) {
+  if ((clearingOwners.get(options.database)?.get(owner) ?? 0) > 0) {
     return Promise.reject(new Error('The authority review refresh was superseded.'));
   }
   let databaseRefreshes = activeRefreshes.get(options.database);

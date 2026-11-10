@@ -51,6 +51,16 @@ type WaypointCaptureTarget =
   | { affectedArea: true; areaCount: number }
   | { affectedArea: false; replace: SurveyWaypoint | null };
 
+type WalkSession = {
+  affectedArea: boolean;
+  areaCount: number;
+  surveyId: string;
+  started: number;
+  added: number;
+  last: MapCoordinate | null;
+  stop: () => void;
+};
+
 // Drop null or non-finite vertices so a damaged draft recovers its valid points.
 function finiteWaypoints(value: unknown): SurveyWaypoint[] {
   if (!Array.isArray(value)) return [];
@@ -107,7 +117,7 @@ export default function FieldSurveyScreen() {
   const [saving, setSaving] = useState(false);
   const [gpsBusy, setGpsBusy] = useState(false);
   const [walking, setWalking] = useState(false);
-  const walkRef = useRef<{ affectedArea: boolean; started: number; added: number; last: MapCoordinate | null; stop: () => void } | null>(null);
+  const walkRef = useRef<WalkSession | null>(null);
   const walkFixHandlerRef = useRef<(fix: WalkFix) => void>(() => undefined);
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
@@ -133,10 +143,12 @@ export default function FieldSurveyScreen() {
     setWalking(false);
     if (message !== null) setSyncMessage(message ?? FIELD_SURVEY_COPY.walkStopped(walk.added));
   }, []);
-  // Walking ends when the screen locks, the drawing target changes, the app leaves the foreground, or the screen closes.
+  // Walking ends when the screen locks, its boundary target or survey changes, the app leaves the foreground, or the screen closes.
   useEffect(() => {
-    if (walking && (controlsLocked || drawingAffectedArea !== walkRef.current?.affectedArea)) stopWalk();
-  }, [controlsLocked, drawingAffectedArea, stopWalk, walking]);
+    const walk = walkRef.current;
+    if (!walk) return;
+    if (controlsLocked || drawingAffectedArea !== walk.affectedArea || clientUuid !== walk.surveyId || affectedAreas.length !== walk.areaCount) stopWalk();
+  }, [affectedAreas.length, clientUuid, controlsLocked, drawingAffectedArea, stopWalk, walking]);
   useEffect(() => {
     if (!walking) return;
     const subscription = AppState.addEventListener('change', (state) => { if (state !== 'active') stopWalk(); });
@@ -354,11 +366,15 @@ export default function FieldSurveyScreen() {
   function handleWalkFix(fix: WalkFix) {
     const walk = walkRef.current;
     if (!walk) return;
+    if (walk.surveyId !== clientUuid || walk.affectedArea !== drawingAffectedArea || walk.areaCount !== affectedAreas.length) {
+      stopWalk();
+      return;
+    }
     const decision = decideWalkFix(fix, walk.last);
     if (decision.action !== 'accept') return;
     walk.last = decision.waypoint;
     walk.added += 1;
-    applyCapturedWaypoint(walk.affectedArea ? { affectedArea: true, areaCount: affectedAreas.length } : { affectedArea: false, replace: null }, decision.waypoint);
+    applyCapturedWaypoint(walk.affectedArea ? { affectedArea: true, areaCount: walk.areaCount } : { affectedArea: false, replace: null }, decision.waypoint);
     if (!walk.affectedArea) setFieldErrors({});
     setCenter({ latitude: decision.waypoint.latitude, longitude: decision.waypoint.longitude });
     if (walk.started + walk.added >= WALK_MAX_POINTS) stopWalk(FIELD_SURVEY_COPY.walkLimit(WALK_MAX_POINTS));
@@ -371,22 +387,37 @@ export default function FieldSurveyScreen() {
       return;
     }
     if (controlsLocked || gpsBusy) return;
+    const affectedArea = drawingAffectedArea;
+    const points = affectedArea ? affectedWaypoints : waypoints;
+    const session: WalkSession = {
+      affectedArea,
+      areaCount: affectedAreas.length,
+      surveyId: clientUuid,
+      started: points.length,
+      added: 0,
+      last: points.at(-1) ?? null,
+      stop: () => undefined,
+    };
+    walkRef.current = session;
+    setSelectedIndex(null);
+    setWalking(true);
     setGpsBusy(true);
     try {
-      const affectedArea = drawingAffectedArea;
       const result = await startWalk(
         expoWalkLocationClient,
         (fix) => walkFixHandlerRef.current(fix),
         () => stopWalk(FIELD_SURVEY_COPY.walkLost),
       );
+      if (walkRef.current !== session) {
+        if (result.status === 'started') result.stop();
+        return;
+      }
       if (result.status !== 'started') {
+        stopWalk(null);
         setSyncMessage(captureFailureMessage(result.status));
         return;
       }
-      const points = affectedArea ? affectedWaypoints : waypoints;
-      walkRef.current = { affectedArea, started: points.length, added: 0, last: points.at(-1) ?? null, stop: result.stop };
-      setSelectedIndex(null);
-      setWalking(true);
+      session.stop = result.stop;
       setSyncMessage(FIELD_SURVEY_COPY.walkActive);
     } finally {
       setGpsBusy(false);

@@ -4,7 +4,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
-import { ActivityIndicator, type GestureResponderEvent, type HostInstance, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, AppState, type GestureResponderEvent, type HostInstance, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import Svg, { Circle, Polygon, Polyline } from 'react-native-svg';
@@ -39,6 +39,9 @@ import { measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyWaypoint
 import { boundaryCanEdit, boundaryCanSubmit, boundaryState } from '@/features/surveys/domain/boundaryState';
 import { assessBoundaryQuality } from '@/features/surveys/domain/boundaryQuality';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
+import { decideWalkFix, WALK_MAX_POINTS, type WalkFix } from '@/features/surveys/domain/walkMode';
+import { expoWalkLocationClient } from '@/features/surveys/services/expoWalkLocationClient';
+import { startWalk } from '@/features/surveys/services/walkSurveyBoundary';
 
 const SURVEY_ZOOM = 17;
 const SURVEY_MAP_OVERSCAN = MAP_TILE_SIZE;
@@ -103,6 +106,9 @@ export default function FieldSurveyScreen() {
   const [pointsOpen, setPointsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [gpsBusy, setGpsBusy] = useState(false);
+  const [walking, setWalking] = useState(false);
+  const walkRef = useRef<{ affectedArea: boolean; started: number; added: number; last: MapCoordinate | null; stop: () => void } | null>(null);
+  const walkFixHandlerRef = useRef<(fix: WalkFix) => void>(() => undefined);
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
@@ -119,6 +125,24 @@ export default function FieldSurveyScreen() {
   useEffect(() => {
     liveFormRef.current = { affectedAreaCount: affectedAreas.length, controlsLocked, drawingAffectedArea, waypoints };
   }, [affectedAreas.length, controlsLocked, drawingAffectedArea, waypoints]);
+  const stopWalk = useCallback((message?: string | null) => {
+    const walk = walkRef.current;
+    if (!walk) return;
+    walkRef.current = null;
+    walk.stop();
+    setWalking(false);
+    if (message !== null) setSyncMessage(message ?? FIELD_SURVEY_COPY.walkStopped(walk.added));
+  }, []);
+  // Walking ends when the screen locks, the drawing target changes, the app leaves the foreground, or the screen closes.
+  useEffect(() => {
+    if (walking && (controlsLocked || drawingAffectedArea !== walkRef.current?.affectedArea)) stopWalk();
+  }, [controlsLocked, drawingAffectedArea, stopWalk, walking]);
+  useEffect(() => {
+    if (!walking) return;
+    const subscription = AppState.addEventListener('change', (state) => { if (state !== 'active') stopWalk(); });
+    return () => subscription.remove();
+  }, [stopWalk, walking]);
+  useEffect(() => () => stopWalk(null), [stopWalk]);
   const validation = useMemo(() => validateSurveyWaypoints(waypoints), [waypoints]);
   const affectedMeasurement = useMemo(() => validation.valid
     ? measureAffectedAreas(validation.polygon, affectedAreas)
@@ -327,6 +351,48 @@ export default function FieldSurveyScreen() {
     }
   }
 
+  function handleWalkFix(fix: WalkFix) {
+    const walk = walkRef.current;
+    if (!walk) return;
+    const decision = decideWalkFix(fix, walk.last);
+    if (decision.action !== 'accept') return;
+    walk.last = decision.waypoint;
+    walk.added += 1;
+    applyCapturedWaypoint(walk.affectedArea ? { affectedArea: true, areaCount: affectedAreas.length } : { affectedArea: false, replace: null }, decision.waypoint);
+    if (!walk.affectedArea) setFieldErrors({});
+    setCenter({ latitude: decision.waypoint.latitude, longitude: decision.waypoint.longitude });
+    if (walk.started + walk.added >= WALK_MAX_POINTS) stopWalk(FIELD_SURVEY_COPY.walkLimit(WALK_MAX_POINTS));
+  }
+  useEffect(() => { walkFixHandlerRef.current = handleWalkFix; });
+
+  async function toggleWalk() {
+    if (walkRef.current) {
+      stopWalk();
+      return;
+    }
+    if (controlsLocked || gpsBusy) return;
+    setGpsBusy(true);
+    try {
+      const affectedArea = drawingAffectedArea;
+      const result = await startWalk(
+        expoWalkLocationClient,
+        (fix) => walkFixHandlerRef.current(fix),
+        () => stopWalk(FIELD_SURVEY_COPY.walkLost),
+      );
+      if (result.status !== 'started') {
+        setSyncMessage(captureFailureMessage(result.status));
+        return;
+      }
+      const points = affectedArea ? affectedWaypoints : waypoints;
+      walkRef.current = { affectedArea, started: points.length, added: 0, last: points.at(-1) ?? null, stop: result.stop };
+      setSelectedIndex(null);
+      setWalking(true);
+      setSyncMessage(FIELD_SURVEY_COPY.walkActive);
+    } finally {
+      setGpsBusy(false);
+    }
+  }
+
   async function recaptureWorstPoint(point: SurveyWaypoint) {
     if (controlsLocked) return;
     const target: WaypointCaptureTarget = { affectedArea: false, replace: point };
@@ -520,7 +586,8 @@ export default function FieldSurveyScreen() {
           <View pointerEvents="box-none" style={styles.floatingControls}>
             <AppButton leadingIcon="map-pin" variant="secondary" selected={!drawingAffectedArea} style={[styles.floatingButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { setDrawingAffectedArea(false); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
             <AppButton leadingIcon="map-pin" variant="secondary" selected={drawingAffectedArea} style={[styles.floatingButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { setDrawingAffectedArea(true); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
-            <AppButton leadingIcon="crosshair" variant="secondary" style={styles.floatingButton} onPress={() => void captureGpsWaypoint()} busy={gpsBusy} disabled={gpsBusy || controlsLocked}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.addGpsPoint}</AppButton>
+            <AppButton testID="field-survey.walk" leadingIcon={walking ? 'square' : 'navigation'} variant="secondary" selected={walking} style={styles.floatingButton} onPress={() => void toggleWalk()} disabled={(gpsBusy && !walking) || controlsLocked}>{walking ? FIELD_SURVEY_COPY.walkStop : FIELD_SURVEY_COPY.walkStart}</AppButton>
+            <AppButton leadingIcon="crosshair" variant="secondary" style={styles.floatingButton} onPress={() => void captureGpsWaypoint()} busy={gpsBusy} disabled={gpsBusy || walking || controlsLocked}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.addGpsPoint}</AppButton>
           </View>
         </View>
         {isOnline !== true ? <Text style={[styles.mapNote, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.offlineMap}</Text> : tileFailures.some((key) => tiles.some((tile) => tile.key === key)) ? <Text style={[styles.mapNote, { color: theme.warning }]}>{FIELD_SURVEY_COPY.mapTileError}</Text> : null}

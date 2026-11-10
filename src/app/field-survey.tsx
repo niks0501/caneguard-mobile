@@ -39,7 +39,7 @@ import { measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyWaypoint
 import { boundaryCanEdit, boundaryCanSubmit, boundaryState } from '@/features/surveys/domain/boundaryState';
 import { assessBoundaryQuality } from '@/features/surveys/domain/boundaryQuality';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
-import { decideWalkFix, WALK_MAX_POINTS, type WalkFix } from '@/features/surveys/domain/walkMode';
+import { decideWalkFix, type WalkFix } from '@/features/surveys/domain/walkMode';
 import { expoWalkLocationClient } from '@/features/surveys/services/expoWalkLocationClient';
 import { startWalk } from '@/features/surveys/services/walkSurveyBoundary';
 
@@ -55,7 +55,6 @@ type WalkSession = {
   affectedArea: boolean;
   areaCount: number;
   surveyId: string;
-  started: number;
   added: number;
   last: MapCoordinate | null;
   stop: () => void;
@@ -377,7 +376,6 @@ export default function FieldSurveyScreen() {
     applyCapturedWaypoint(walk.affectedArea ? { affectedArea: true, areaCount: walk.areaCount } : { affectedArea: false, replace: null }, decision.waypoint);
     if (!walk.affectedArea) setFieldErrors({});
     setCenter({ latitude: decision.waypoint.latitude, longitude: decision.waypoint.longitude });
-    if (walk.started + walk.added >= WALK_MAX_POINTS) stopWalk(FIELD_SURVEY_COPY.walkLimit(WALK_MAX_POINTS));
   }
   useEffect(() => { walkFixHandlerRef.current = handleWalkFix; });
 
@@ -388,14 +386,12 @@ export default function FieldSurveyScreen() {
     }
     if (controlsLocked || gpsBusy) return;
     const affectedArea = drawingAffectedArea;
-    const points = affectedArea ? affectedWaypoints : waypoints;
     const session: WalkSession = {
       affectedArea,
       areaCount: affectedAreas.length,
       surveyId: clientUuid,
-      started: points.length,
       added: 0,
-      last: points.at(-1) ?? null,
+      last: (affectedArea ? affectedWaypoints : waypoints).at(-1) ?? null,
       stop: () => undefined,
     };
     walkRef.current = session;
@@ -462,6 +458,7 @@ export default function FieldSurveyScreen() {
       setSyncMessage(FIELD_SURVEY_COPY.unfinishedAffectedArea);
       return;
     }
+    stopWalk();
     setSaving(true);
     try {
       if (!affectedMeasurement?.valid) {
@@ -522,6 +519,7 @@ export default function FieldSurveyScreen() {
       setSyncMessage(result.error.message);
       return;
     }
+    stopWalk();
     setAffectedAreas((current) => [...current, candidate.polygon]);
     setAffectedAreaWaypointSets((current) => [...current, snappedWaypoints]);
     setAffectedWaypoints([]);
@@ -615,8 +613,8 @@ export default function FieldSurveyScreen() {
             </Pressable>
           </GestureDetector>
           <View pointerEvents="box-none" style={styles.floatingControls}>
-            <AppButton leadingIcon="map-pin" variant="secondary" selected={!drawingAffectedArea} style={[styles.floatingButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { setDrawingAffectedArea(false); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
-            <AppButton leadingIcon="map-pin" variant="secondary" selected={drawingAffectedArea} style={[styles.floatingButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { setDrawingAffectedArea(true); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
+            <AppButton leadingIcon="map-pin" variant="secondary" selected={!drawingAffectedArea} style={[styles.floatingButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (drawingAffectedArea) stopWalk(); setDrawingAffectedArea(false); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
+            <AppButton leadingIcon="map-pin" variant="secondary" selected={drawingAffectedArea} style={[styles.floatingButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (!drawingAffectedArea) stopWalk(); setDrawingAffectedArea(true); setSelectedIndex(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
             <AppButton testID="field-survey.walk" leadingIcon={walking ? 'square' : 'navigation'} variant="secondary" selected={walking} style={styles.floatingButton} onPress={() => void toggleWalk()} disabled={(gpsBusy && !walking) || controlsLocked}>{walking ? FIELD_SURVEY_COPY.walkStop : FIELD_SURVEY_COPY.walkStart}</AppButton>
             <AppButton leadingIcon="crosshair" variant="secondary" style={styles.floatingButton} onPress={() => void captureGpsWaypoint()} busy={gpsBusy} disabled={gpsBusy || walking || controlsLocked}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.addGpsPoint}</AppButton>
           </View>
@@ -630,6 +628,7 @@ export default function FieldSurveyScreen() {
         <ScrollView style={styles.details} contentContainerStyle={styles.detailsContent} keyboardShouldPersistTaps="handled">
           <Text style={[styles.intro, { color: theme.textSecondary }]}>{resumed ? FIELD_SURVEY_COPY.resumedSurvey : FIELD_SURVEY_COPY.intro}</Text>
         {resumed || awaitingSurveyStart ? <AppButton variant="secondary" onPress={() => {
+          stopWalk();
           setClientUuid(randomUUID());
           setDistrictCode('');
           setWaypoints([]);
@@ -687,7 +686,7 @@ export default function FieldSurveyScreen() {
             </View>
           ) : null}
           <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.affectedAreas} ({affectedAreas.length})</Text>
-          {affectedAreas.length ? <AppButton variant="secondary" disabled={controlsLocked} onPress={() => { setAffectedAreas((current) => current.slice(0, -1)); setAffectedAreaWaypointSets((current) => current.slice(0, -1)); setSaved(false); }}>{FIELD_SURVEY_COPY.removeAffectedArea}</AppButton> : null}
+          {affectedAreas.length ? <AppButton variant="secondary" disabled={controlsLocked} onPress={() => { stopWalk(); setAffectedAreas((current) => current.slice(0, -1)); setAffectedAreaWaypointSets((current) => current.slice(0, -1)); setSaved(false); }}>{FIELD_SURVEY_COPY.removeAffectedArea}</AppButton> : null}
         </ScrollView>
         <ActionDock
           note={

@@ -8,8 +8,6 @@ import type { SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 export const WALK_MIN_SPACING_METERS = 8;
 /** Walk mode keeps only fixes at least this accurate; weaker ones wait for the next reading. */
 export const WALK_MAX_ACCURACY_METERS = ACCEPTABLE_GPS_ACCURACY_METERS;
-/** Walk mode stops by itself here, well under the 2,000-vertex validation limit. */
-export const WALK_MAX_POINTS = 500;
 
 export interface WalkFix {
   accuracy: number | null;
@@ -22,7 +20,7 @@ export type WalkFixDecision =
   | { action: 'accept'; waypoint: SurveyWaypoint }
   | { action: 'skip'; reason: 'invalid' | 'weak_accuracy' | 'too_close' };
 
-export function distanceMeters(from: MapCoordinate, to: MapCoordinate): number {
+function distanceMeters(from: MapCoordinate, to: MapCoordinate): number {
   return GeographicLib.Geodesic.WGS84.Inverse(from.latitude, from.longitude, to.latitude, to.longitude).s12;
 }
 

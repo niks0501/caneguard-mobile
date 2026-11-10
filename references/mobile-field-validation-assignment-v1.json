@@ -13,7 +13,43 @@
     "required_keys": ["data", "links", "meta", "sync"],
     "data_key": "data",
     "next_link": "links.next",
-    "checkpoint": "sync.before"
+    "checkpoint": "sync.before",
+    "sync": {
+      "required_keys": ["before", "version", "total", "truncated", "unchanged"],
+      "version": {
+        "changes_on": [
+          "reassignment",
+          "unassignment",
+          "case close",
+          "edit to a case field this feed delivers",
+          "edit to the earlier report a delivered previous_visit is built from",
+          "edit to an office-born case's delivered version, status, reporter concern or photo",
+          "edit to the delivered previous_visit.photo of an office-born case"
+        ],
+        "ignores": "fields this feed withholds from field-born cases",
+        "unchanged_request": "since"
+      },
+      "cap": {
+        "request_parameter": "limit",
+        "limit_max": 300,
+        "total_flag": "sync.total",
+        "truncated_flag": "sync.truncated",
+        "without_limit": "the complete snapshot",
+        "keep_order": [
+          "active work before completed visits",
+          "earliest target_visit_date, undated last",
+          "oldest assignment"
+        ]
+      },
+      "bounded_continuation": {
+        "link_parameter": "sync_version",
+        "request_parameter": "sync_version",
+        "restart": {
+          "status": 409,
+          "code": "SYNC_RESTART"
+        }
+      }
+    }
   },
   "fields": {
     "uuid": { "type": "uuid", "required": true, "nullable": false },
@@ -65,7 +101,9 @@
         "affected_portion_percent",
         "captured_at",
         "observed_at",
-        "submitted_at"
+        "submitted_at",
+        "predicted_label",
+        "confidence"
       ],
       "additional_properties": false,
       "properties": {
@@ -78,17 +116,16 @@
         "captured_at": { "type": "date-time", "required": true, "nullable": false },
         "observed_at": { "type": "date-time", "required": true, "nullable": true },
         "submitted_at": { "type": "date-time", "required": true, "nullable": false },
-        "predicted_label": { "type": "string", "required": false, "nullable": true, "enum": ["healthy", "mosaic", "rust", "smut"], "description": "A case born in the office may have no AI scan: this field then arrives absent or null, and the phone shows no AI section. A field-born case always carries it." },
-        "confidence": { "type": "number", "required": false, "nullable": true, "minimum": 0, "maximum": 1, "description": "Absent or null together with predicted_label on an office case with no AI scan; a field-born case always carries it." },
-        "origin": { "type": "string", "required": false, "nullable": true, "description": "Absent for a field-born case. `office` marks an office-born case, which carries the office projection below and may omit the AI fields; any other value is treated as field-born with no projection read." },
-        "version": { "type": "number", "required": false, "nullable": false, "minimum": 0, "description": "Office projection, office-born cases only." },
+        "predicted_label": { "type": "string", "required": true, "nullable": false, "enum": ["healthy", "mosaic", "rust", "smut"] },
+        "confidence": { "type": "number", "required": true, "nullable": false, "minimum": 0, "maximum": 1 },
+        "origin": { "type": "string", "required": false, "nullable": false, "enum": ["office"], "note": "Present only on office-born cases; absent means field-born." },
+        "version": { "type": "number", "required": false, "nullable": false, "minimum": 0, "note": "Report lock_version. Office-born cases only." },
         "status": {
           "type": "object",
           "required": false,
           "nullable": false,
           "required_keys": ["workflow_status", "case_state", "review_status", "updated_at"],
           "additional_properties": false,
-          "description": "Office projection, office-born cases only: the office's own workflow, case, and review status.",
           "properties": {
             "workflow_status": { "type": "string", "required": true, "nullable": false },
             "case_state": { "type": "string", "required": true, "nullable": false },
@@ -102,23 +139,22 @@
           "nullable": false,
           "required_keys": ["suspected_condition", "observation_text"],
           "additional_properties": false,
-          "description": "Office projection, office-born cases only: the reporter's own words about the case.",
           "properties": {
             "suspected_condition": { "type": "string", "required": true, "nullable": true },
-            "observation_text": { "type": "string", "required": true, "nullable": true }
+            "observation_text": { "type": "string", "required": true, "nullable": true, "max_length": 1000 }
           }
         },
         "photo": {
           "type": "object",
           "required": false,
           "nullable": true,
-          "required_keys": ["content_type", "bytes"],
+          "required_keys": ["url", "content_type", "bytes"],
           "additional_properties": false,
-          "description": "Office projection, office-born cases only: a reference to the case photo. The phone never caches photo bytes and ignores any server-provided url, building its own guarded route instead.",
+          "note": "Fetched with the same bearer token from GET /api/v1/mobile/assignments/{assignment}/report-photo (assignee only). The response is `private, no-cache`: it revalidates the caller's assignment on every retrieval, so a transferred or revoked assignment stops serving the photo.",
           "properties": {
+            "url": { "type": "string", "required": true, "nullable": false },
             "content_type": { "type": "string", "required": true, "nullable": false },
-            "bytes": { "type": "number", "required": true, "nullable": false, "minimum": 0 },
-            "url": { "type": "string", "required": false, "nullable": true, "description": "Ignored by the phone." }
+            "bytes": { "type": "number", "required": true, "nullable": false, "minimum": 0 }
           }
         }
       }
@@ -147,8 +183,26 @@
         "action_taken": { "type": "string", "required": true, "nullable": false },
         "field_observation": { "type": "string", "required": true, "nullable": true },
         "field_finding": { "type": "string", "required": true, "nullable": true },
-        "follow_up_outcome": { "type": "string", "required": true, "nullable": true, "enum": ["improved", "unchanged", "worsened", "unable_to_determine"] },
-        "fresh_photo_available": { "type": "boolean", "required": true, "nullable": false }
+        "follow_up_outcome": {
+          "type": "string",
+          "required": true,
+          "nullable": true,
+          "enum": ["improved", "unchanged", "worsened", "unable_to_determine"]
+        },
+        "fresh_photo_available": { "type": "boolean", "required": true, "nullable": false },
+        "photo": {
+          "type": "object",
+          "required": false,
+          "nullable": true,
+          "required_keys": ["url", "content_type", "bytes"],
+          "additional_properties": false,
+          "note": "Present only on office-born cases. Fetched from the previous-evidence-photo route.",
+          "properties": {
+            "url": { "type": "string", "required": true, "nullable": false },
+            "content_type": { "type": "string", "required": true, "nullable": true },
+            "bytes": { "type": "number", "required": true, "nullable": true, "minimum": 0 }
+          }
+        }
       }
     }
   },

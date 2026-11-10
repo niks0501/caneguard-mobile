@@ -461,7 +461,7 @@ cross-repository prerequisites.
 - Native TFLite behavior cannot be fully validated by unit tests or Expo Go; a compatible development build and physical-device testing remain necessary.
 - iOS and single-page web configurations exist, but the repository evidence is primarily Android-focused.
 - Mobile/backend synchronization is tightly coupled to the current multipart field names and response identity shape; backend contract changes require coordinated mobile updates.
-- Field-validation assignment, completion, and notification payloads are defined by `references/mobile-field-validation-assignment-v1.json`, `references/mobile-field-validation-completion-v1.json`, `references/mobile-notifications-v1.json`, and their matching web artifacts.
+- Field-validation assignment, completion, and notification payloads are defined by `references/mobile-field-validation-assignment-v2.json` (current; `references/mobile-field-validation-assignment-v1.json` stays frozen as the pre-widening baseline), `references/mobile-field-validation-completion-v1.json`, `references/mobile-notifications-v1.json`, and their matching web artifacts.
 Mobile completion evidence is persisted in SQLite with a retryable queue and synchronized through the owner-scoped assignment completion endpoint.
 Mobile notifications are persisted in the owner-scoped `notifications_cache` SQLite table.
 Follow-up due notifications use only the server-provided target date and incomplete field-validation state.

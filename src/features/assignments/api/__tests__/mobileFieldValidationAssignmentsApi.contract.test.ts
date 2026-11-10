@@ -11,24 +11,33 @@ jest.mock('@/features/shared/api/apiClient', () => ({
 
 const request = jest.mocked(apiRequest);
 
-describe('mobile-field-validation-assignment-v1 producer contract', () => {
+interface AssignmentArtifact {
+  contract: string;
+  version: number;
+  wire: { method: string; path: string };
+  fields: Record<string, unknown>;
+  caseProperties: Record<string, unknown>;
+}
+
+function readArtifact(): AssignmentArtifact {
+  const artifact = JSON.parse(
+    readFileSync(
+      join(process.cwd(), 'references/mobile-field-validation-assignment-v2.json'),
+      'utf8',
+    ),
+  ) as { contract: string; version: number; wire: { method: string; path: string }; fields: Record<string, unknown> };
+  const caseField = artifact.fields.case as { properties: Record<string, unknown> };
+  return { ...artifact, caseProperties: caseField.properties };
+}
+
+describe('mobile-field-validation-assignment-v2 producer contract', () => {
   it('evaluates the mobile parser against the web-owned artifact', async () => {
-    const artifact = JSON.parse(
-      readFileSync(
-        join(process.cwd(), 'references/mobile-field-validation-assignment-v1.json'),
-        'utf8',
-      ),
-    ) as {
-      contract: string;
-      version: number;
-      wire: { method: string; path: string };
-      fields: Record<string, unknown>;
-    };
+    const artifact = readArtifact();
     const fixture = MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE;
     request.mockResolvedValueOnce(fixture);
 
-    expect(artifact.contract).toBe('mobile-field-validation-assignment-v1');
-    expect(artifact.version).toBe(1);
+    expect(artifact.contract).toBe('mobile-field-validation-assignment-v2');
+    expect(artifact.version).toBe(2);
     expect(artifact.wire).toMatchObject({
       method: 'GET',
       path: '/api/v1/mobile/assignments',
@@ -52,5 +61,59 @@ describe('mobile-field-validation-assignment-v1 producer contract', () => {
       expect.stringContaining('/api/v1/mobile/assignments'),
       expect.objectContaining({ token: 'contract-token' }),
     );
+  });
+
+  it('parses a scanless office row the artifact declares', async () => {
+    const artifact = readArtifact();
+    expect(artifact.caseProperties.predicted_label).toMatchObject({ nullable: true });
+    expect(artifact.caseProperties.confidence).toMatchObject({ nullable: true });
+
+    const fieldBornRow = MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE.data[0];
+    // A scanless office row omits both AI fields entirely.
+    const officeCase: Record<string, unknown> = { ...fieldBornRow.case };
+    delete officeCase.predicted_label;
+    delete officeCase.confidence;
+    officeCase.origin = 'office';
+    officeCase.version = 3;
+    officeCase.status = {
+      workflow_status: 'assigned',
+      case_state: 'open',
+      review_status: 'pending',
+      updated_at: '2026-08-13T12:00:00.000Z',
+    };
+    officeCase.reporter_concern = {
+      suspected_condition: 'Rust',
+      observation_text: 'Orange pustules on the lower leaves.',
+    };
+    officeCase.photo = {
+      url: 'https://api.example.test/api/v1/mobile/assignments/x/report-photo',
+      content_type: 'image/jpeg',
+      bytes: 4096,
+    };
+    // The fixture stays inside the artifact's office projection.
+    expect(Object.keys(officeCase).filter((key) => !(key in artifact.caseProperties))).toEqual([]);
+
+    request.mockResolvedValueOnce({
+      ...MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE,
+      data: [{ ...fieldBornRow, case: officeCase }],
+    });
+
+    const { assignments } = await fetchAllMobileFieldValidationAssignments({ token: 'contract-token' });
+    expect(assignments[0].case.predictedLabel).toBeNull();
+    expect(assignments[0].case.confidence).toBeNull();
+    expect(assignments[0].officeCase).toEqual({
+      version: 3,
+      status: {
+        workflowStatus: 'assigned',
+        caseState: 'open',
+        reviewStatus: 'pending',
+        updatedAt: '2026-08-13T12:00:00.000Z',
+      },
+      reporterConcern: {
+        suspectedCondition: 'Rust',
+        observationText: 'Orange pustules on the lower leaves.',
+      },
+      photo: { contentType: 'image/jpeg', bytes: 4096 },
+    });
   });
 });

@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNotNull } from 'drizzle-orm';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
@@ -61,8 +61,9 @@ export async function findCachedFieldValidationAssignment(
 }
 
 /**
- * Find this owner's cached assignment for a case by its case (report) UUID or
- * reference code. Used when a notification carries no known assignment id.
+ * Find this owner's cached office-case assignment for a case by its case
+ * (report) UUID or reference code. Field-born assignments are excluded, so a
+ * notification for one keeps resolving to its local Field Report.
  */
 export async function findCachedFieldValidationAssignmentForCase(
   database: CaneGuardDatabase,
@@ -82,6 +83,7 @@ export async function findCachedFieldValidationAssignmentForCase(
           and(
             eq(fieldValidationAssignments.ownerIdentity, owner),
             eq(fieldValidationAssignments.reportUuid, caseUuid),
+            isNotNull(fieldValidationAssignments.officeCaseJson),
           ),
         )
         .get();
@@ -95,6 +97,7 @@ export async function findCachedFieldValidationAssignmentForCase(
           and(
             eq(fieldValidationAssignments.ownerIdentity, owner),
             eq(fieldValidationAssignments.referenceCode, referenceCode),
+            isNotNull(fieldValidationAssignments.officeCaseJson),
           ),
         )
         .orderBy(

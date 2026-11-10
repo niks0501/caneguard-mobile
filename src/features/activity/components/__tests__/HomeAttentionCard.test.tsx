@@ -1,9 +1,30 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { HomeAttentionCard } from '@/features/activity/components/HomeAttentionCard';
-import type { NeedsAttentionItem } from '@/features/activity/domain/needsAttention';
+import {
+  buildNeedsAttention,
+  type NeedsAttentionItem,
+} from '@/features/activity/domain/needsAttention';
+import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 
 const noop = () => undefined;
+
+const UNREAD_UPDATE: MobileNotification = {
+  id: 'notification-1',
+  ownerIdentity: 'owner-1',
+  eventType: 'office_review_completed',
+  title: 'Office review completed',
+  message: 'CG-2026-0002 was reviewed by the office.',
+  caseUuid: 'case-2',
+  referenceCode: 'CG-2026-0002',
+  assignmentUuid: null,
+  content: null,
+  advisory: null,
+  isRead: false,
+  readAt: null,
+  createdAt: '2026-09-10T00:00:00.000Z',
+  cachedAt: '2026-09-10T00:00:00.000Z',
+};
 
 function visit(id: string, referenceCode: string): NeedsAttentionItem {
   return {
@@ -43,16 +64,14 @@ describe('HomeAttentionCard', () => {
   it('shows why an office update cannot be opened on this device', async () => {
     const onOpenItem = jest.fn();
     await renderCard(
-      [
-        {
-          destination: { kind: 'unavailable' },
-          id: 'notification-1',
-          kind: 'notification',
-          message: 'CG-2026-0002 was reviewed by the office.',
-          meta: 'Not on this phone: open on the web',
-          title: 'Office review completed',
-        },
-      ],
+      buildNeedsAttention({
+        assignments: [],
+        destinations: new Map(),
+        notifications: [UNREAD_UPDATE],
+        pendingUploadCount: 0,
+        syncErrorMessage: null,
+        today: '2026-09-15',
+      }).items,
       onOpenItem,
     );
 

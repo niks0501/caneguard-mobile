@@ -95,6 +95,21 @@ const ASSIGNMENT: FieldValidationAssignmentUpdate = {
   previousVisit: null,
 };
 
+const OFFICE_ASSIGNMENT: FieldValidationAssignmentUpdate = {
+  ...ASSIGNMENT,
+  officeCase: {
+    version: 3,
+    status: {
+      workflowStatus: 'assigned',
+      caseState: 'open',
+      reviewStatus: 'pending',
+      updatedAt: '2026-08-13T12:00:00.000Z',
+    },
+    reporterConcern: { suspectedCondition: 'Rust', observationText: 'Orange spots on leaves' },
+    photo: null,
+  },
+};
+
 describe('field validation assignment cache', () => {
   it('stores a complete owner snapshot and removes assignments no longer owned', async () => {
     const { database, native } = openTestDatabase();
@@ -143,23 +158,23 @@ describe('field validation assignment cache', () => {
     await expect(readCachedFieldValidationSkippedCount(database, 'owner-1')).resolves.toBe(1);
     native.close();
   });
-  // Proves the case-only lookup resolves the notification's case to the owner's own cached assignment, never another owner's.
-  it('finds the owner cached assignment by case UUID or reference code', async () => {
+  // Proves the case-only lookup resolves the notification's case to the owner's own office-case assignment, never another owner's.
+  it('finds the owner office-case assignment by case UUID or reference code', async () => {
     const { database, native } = openTestDatabase();
-    await replaceCachedFieldValidationAssignments(database, 'owner-1', [ASSIGNMENT], '2026-08-13T12:05:00.000Z');
+    await replaceCachedFieldValidationAssignments(database, 'owner-1', [OFFICE_ASSIGNMENT], '2026-08-13T12:05:00.000Z');
 
     await expect(
       findCachedFieldValidationAssignmentForCase(database, 'owner-1', {
-        caseUuid: ASSIGNMENT.reportUuid,
+        caseUuid: OFFICE_ASSIGNMENT.reportUuid,
         referenceCode: null,
       }),
-    ).resolves.toEqual(expect.objectContaining({ id: ASSIGNMENT.id, ownerIdentity: 'owner-1' }));
+    ).resolves.toEqual(expect.objectContaining({ id: OFFICE_ASSIGNMENT.id, ownerIdentity: 'owner-1' }));
     await expect(
       findCachedFieldValidationAssignmentForCase(database, 'owner-1', {
         caseUuid: '00000000-0000-4000-8000-000000000000',
-        referenceCode: ASSIGNMENT.referenceCode,
+        referenceCode: OFFICE_ASSIGNMENT.referenceCode,
       }),
-    ).resolves.toEqual(expect.objectContaining({ id: ASSIGNMENT.id, ownerIdentity: 'owner-1' }));
+    ).resolves.toEqual(expect.objectContaining({ id: OFFICE_ASSIGNMENT.id, ownerIdentity: 'owner-1' }));
     await expect(
       findCachedFieldValidationAssignmentForCase(database, 'owner-1', {
         caseUuid: null,
@@ -169,17 +184,48 @@ describe('field validation assignment cache', () => {
     native.close();
   });
 
+  // Proves a field-born case keeps its local report destination instead of being captured by the office-case lookup.
+  it('ignores a field-born cached assignment without an office-case projection', async () => {
+    const { database, native } = openTestDatabase();
+    await replaceCachedFieldValidationAssignments(
+      database,
+      'owner-1',
+      [ASSIGNMENT, {
+        ...OFFICE_ASSIGNMENT,
+        id: '44444444-4444-4444-8444-444444444444',
+        reportUuid: '33333333-3333-4333-8333-333333333333',
+      }],
+      '2026-08-13T12:05:00.000Z',
+    );
+
+    await expect(
+      findCachedFieldValidationAssignmentForCase(database, 'owner-1', {
+        caseUuid: ASSIGNMENT.reportUuid,
+        referenceCode: null,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      findCachedFieldValidationAssignmentForCase(database, 'owner-1', {
+        caseUuid: null,
+        referenceCode: ASSIGNMENT.referenceCode,
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({ id: '44444444-4444-4444-8444-444444444444' }),
+    );
+    native.close();
+  });
+
   it('never resolves a case-only lookup to another owner cache', async () => {
     const { database, native } = openTestDatabase();
-    await replaceCachedFieldValidationAssignments(database, 'owner-1', [ASSIGNMENT], '2026-08-13T12:05:00.000Z');
+    await replaceCachedFieldValidationAssignments(database, 'owner-1', [OFFICE_ASSIGNMENT], '2026-08-13T12:05:00.000Z');
     await replaceCachedFieldValidationAssignments(
       database,
       'owner-2',
-      [{ ...ASSIGNMENT, id: 'c1f6fd86-3fd0-4b6e-9a9b-1bb5f1c2ac55', assignee: { uuid: 'owner-2', name: 'Other Reporter' } }],
+      [{ ...OFFICE_ASSIGNMENT, id: 'c1f6fd86-3fd0-4b6e-9a9b-1bb5f1c2ac55', assignee: { uuid: 'owner-2', name: 'Other Reporter' } }],
       '2026-08-13T12:06:00.000Z',
     );
 
-    const match = { caseUuid: ASSIGNMENT.reportUuid, referenceCode: ASSIGNMENT.referenceCode };
+    const match = { caseUuid: OFFICE_ASSIGNMENT.reportUuid, referenceCode: OFFICE_ASSIGNMENT.referenceCode };
     await expect(
       findCachedFieldValidationAssignmentForCase(database, 'owner-1', match),
     ).resolves.toEqual(expect.objectContaining({ ownerIdentity: 'owner-1' }));

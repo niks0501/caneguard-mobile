@@ -610,15 +610,16 @@ describe('local data lifecycle', () => {
     const scanDirectory = getManagedScanImageDirectory(OWNER_ID);
     mockFsDirectories.add(scanDirectory.uri);
     mockFsFiles.set(`${scanDirectory.uri}/${scanId}.jpg`, { size: 10 });
-    const unavailable = jest
-      .spyOn(AsyncStorage, 'getAllKeys')
+    // `jest.spyOn` over the AsyncStorage jest mock returns that same mock, so a
+    // `mockRestore()` here would wipe the base implementation for later tests.
+    jest
+      .mocked(AsyncStorage.getAllKeys)
       .mockRejectedValueOnce(new Error('storage unavailable'));
 
     await expect(clearLocalDataForOwner(database, OWNER_ID)).rejects.toMatchObject({
       code: 'DELETE_FAILED',
     });
 
-    unavailable.mockRestore();
     expect(mockFsFiles.has(`${scanDirectory.uri}/${scanId}.jpg`)).toBe(false);
     native.close();
   });
@@ -628,15 +629,16 @@ describe('local data lifecycle', () => {
     const { database, native } = openTestDatabase();
     insertNotification(native, 'd4f6c5e6-9c02-4d4e-8e8b-42e0c85df0fb', OWNER_ID, OLD);
     const generationBefore = getOwnerMobileDataStore(database, OWNER_ID).generation;
-    const unavailable = jest
-      .spyOn(AsyncStorage, 'getAllKeys')
+    // `jest.spyOn` over the AsyncStorage jest mock returns that same mock, so a
+    // `mockRestore()` here would wipe the base implementation for later tests.
+    jest
+      .mocked(AsyncStorage.getAllKeys)
       .mockRejectedValueOnce(new Error('storage unavailable'));
 
     await expect(clearCachedOfficeDataForOwner(database, OWNER_ID)).rejects.toMatchObject({
       code: 'DELETE_FAILED',
     });
 
-    unavailable.mockRestore();
     expect(countRows(native, 'notifications_cache', OWNER_ID)).toBe(0);
     expect(getOwnerMobileDataStore(database, OWNER_ID).generation).toBeGreaterThan(
       generationBefore,

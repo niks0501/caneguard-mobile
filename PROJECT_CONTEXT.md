@@ -248,13 +248,15 @@ answer that confirms the stored version delivers no rows. The last complete
 download of each feed is recorded in the owner-scoped `sync_checkpoints` table
 (version, total, truncated, page count, `sync.before`, fetch time) in the same
 transaction that replaces that feed's cached rows, and both Settings clear
-actions delete it with those caches. A download interrupted after some pages
-keeps those pages and the continuation of the next one in owner-scoped
-`caneguard.syncDownloadProgress.v1` app storage, so the next attempt — even in a
-new process — resumes at the first page it never stored; finishing or abandoning
-the download removes that entry. The stored version is sent as `since` on the
-next download, except that the assignment download asks for the whole work set
-whenever its cache no longer holds every row that download delivered.
+actions delete it with those caches. An authority review status download
+interrupted after some pages keeps those pages and the continuation of the next
+one in owner-scoped `caneguard.syncDownloadProgress.v1` app storage, so the next
+attempt — even in a new process — resumes at the first page it never stored;
+finishing the download, or discarding progress that no longer matches its first
+page or the server checkpoint, removes that entry. The stored version is sent as
+`since` on the next download, except that the assignment download asks for the
+whole work set whenever its cache no longer holds every row that download
+delivered.
 A migration that adds a column the cached snapshot has to carry clears that
 feed's stored version instead of leaving it confirming a snapshot written by the
 older build, and leaves the cached rows in place until the next full download

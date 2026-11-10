@@ -15,10 +15,11 @@ cannot be completed in this repository.
   explicitly export or delete those rows, but the client must not guess which
   account owns them.
 - Settings exposes two owner-scoped actions. **Clear downloaded office data**
-  removes only re-downloadable visit assignments and cached office updates.
-  **Remove all local records** permanently removes the current owner's scans,
-  reports, boundaries, visits, assignment and notification caches, draft
-  checkpoints, and managed images without touching server data or another
+  removes only re-downloadable visit assignments, cached office updates, and the
+  saved pages of an interrupted feed download. **Remove all local records**
+  permanently removes the current owner's scans, reports, boundaries, visits,
+  assignment and notification caches, draft checkpoints, interrupted feed
+  download progress, and managed images without touching server data or another
   account; it previews every affected kind, refuses while an upload is in
   flight, re-checks the confirmed counts inside the deletion transaction, and
   requires an explicit acknowledgement before unsent work is lost.

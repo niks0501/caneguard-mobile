@@ -95,8 +95,10 @@ describe('sync download progress storage', () => {
     const writeGate = new Promise<void>((resolve) => {
       finishWrite = resolve;
     });
-    const delayed = jest
-      .spyOn(AsyncStorage, 'setItem')
+    // `jest.spyOn` over the AsyncStorage jest mock returns that same mock, so a
+    // `mockRestore()` here would wipe the base implementation for later tests.
+    jest
+      .mocked(AsyncStorage.setItem)
       .mockImplementationOnce(async (key, value) => {
         await writeGate;
         await setItem.call(AsyncStorage, key, value);
@@ -115,7 +117,6 @@ describe('sync download progress storage', () => {
     await clear;
     await write;
 
-    delayed.mockRestore();
     await expect(storeFor('owner-1').read()).resolves.toBeNull();
   });
 
@@ -126,8 +127,10 @@ describe('sync download progress storage', () => {
     const writeGate = new Promise<void>((resolve) => {
       finishWrite = resolve;
     });
-    const delayed = jest
-      .spyOn(AsyncStorage, 'setItem')
+    // `jest.spyOn` over the AsyncStorage jest mock returns that same mock, so a
+    // `mockRestore()` here would wipe the base implementation for later tests.
+    jest
+      .mocked(AsyncStorage.setItem)
       .mockImplementationOnce(async (key, value) => {
         await writeGate;
         await setItem.call(AsyncStorage, key, value);
@@ -139,7 +142,6 @@ describe('sync download progress storage', () => {
     await clear;
     await write;
 
-    delayed.mockRestore();
     await expect(storeFor('owner-1').read()).resolves.toBeNull();
   });
 
@@ -150,8 +152,10 @@ describe('sync download progress storage', () => {
     const writeGate = new Promise<void>((resolve) => {
       finishWrite = resolve;
     });
-    const delayed = jest
-      .spyOn(AsyncStorage, 'setItem')
+    // `jest.spyOn` over the AsyncStorage jest mock returns that same mock, so a
+    // `mockRestore()` here would wipe the base implementation for later tests.
+    jest
+      .mocked(AsyncStorage.setItem)
       .mockImplementationOnce(async (key, value) => {
         await writeGate;
         await setItem.call(AsyncStorage, key, value);
@@ -170,7 +174,6 @@ describe('sync download progress storage', () => {
     await clear;
     await write;
 
-    delayed.mockRestore();
     await expect(storeFor('owner-1').read()).resolves.toBe('{"page":2}');
   });
 
@@ -181,8 +184,10 @@ describe('sync download progress storage', () => {
     const writeGate = new Promise<void>((resolve) => {
       finishWrite = resolve;
     });
-    const delayed = jest
-      .spyOn(AsyncStorage, 'setItem')
+    // `jest.spyOn` over the AsyncStorage jest mock returns that same mock, so a
+    // `mockRestore()` here would wipe the base implementation for later tests.
+    jest
+      .mocked(AsyncStorage.setItem)
       .mockImplementationOnce(async (key, value) => {
         await writeGate;
         await setItem.call(AsyncStorage, key, value);
@@ -202,7 +207,6 @@ describe('sync download progress storage', () => {
     finishWrite();
     await Promise.all([pending, write]);
 
-    delayed.mockRestore();
     await expect(storeFor('owner-1').read()).resolves.toBe('{"page":2}');
   });
 

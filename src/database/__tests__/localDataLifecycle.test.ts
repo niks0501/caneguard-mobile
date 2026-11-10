@@ -9,6 +9,8 @@ import {
 import { drizzle } from 'drizzle-orm/expo-sqlite';
 import type { SQLiteDatabase, SQLiteStatement } from 'expo-sqlite';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import type { CaneGuardDatabase } from '@/database/database';
 import {
   clearCachedOfficeDataForOwner,
@@ -18,6 +20,7 @@ import {
 } from '@/database/localDataLifecycle';
 import * as schema from '@/database/schema';
 import { getFieldValidationPhotoDirectory } from '@/features/assignments/services/fieldValidationPhotoStorage';
+import { getOwnerMobileDataStore } from '@/features/mobile-data/data/mobileDataStore';
 import { getManagedScanImageDirectory } from '@/features/records/services/scanImageStorage';
 
 const mockFsFiles = new Map<string, { size: number }>();
@@ -596,6 +599,48 @@ describe('local data lifecycle', () => {
     expect(preview.unsentScans).toBe(1);
     expect(preview.finalizedUnsentReports).toBe(1);
     expect(preview.totalUnsent).toBe(2);
+    native.close();
+  });
+
+  // Proves: an unremovable stored progress surfaces the storage error but the cleanup still finishes.
+  it('surfaces an unremovable stored progress after finishing the image cleanup', async () => {
+    const { database, native } = openTestDatabase();
+    const scanId = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+    insertScan(native, scanId, OWNER_ID, 'local_only', NOW);
+    const scanDirectory = getManagedScanImageDirectory(OWNER_ID);
+    mockFsDirectories.add(scanDirectory.uri);
+    mockFsFiles.set(`${scanDirectory.uri}/${scanId}.jpg`, { size: 10 });
+    const unavailable = jest
+      .spyOn(AsyncStorage, 'getAllKeys')
+      .mockRejectedValueOnce(new Error('storage unavailable'));
+
+    await expect(clearLocalDataForOwner(database, OWNER_ID)).rejects.toMatchObject({
+      code: 'DELETE_FAILED',
+    });
+
+    unavailable.mockRestore();
+    expect(mockFsFiles.has(`${scanDirectory.uri}/${scanId}.jpg`)).toBe(false);
+    native.close();
+  });
+
+  // Proves: the cached clear still drops the downloaded rows and resets the in-memory cache.
+  it('surfaces an unremovable stored progress from the cached clear after resetting the cache', async () => {
+    const { database, native } = openTestDatabase();
+    insertNotification(native, 'd4f6c5e6-9c02-4d4e-8e8b-42e0c85df0fb', OWNER_ID, OLD);
+    const generationBefore = getOwnerMobileDataStore(database, OWNER_ID).generation;
+    const unavailable = jest
+      .spyOn(AsyncStorage, 'getAllKeys')
+      .mockRejectedValueOnce(new Error('storage unavailable'));
+
+    await expect(clearCachedOfficeDataForOwner(database, OWNER_ID)).rejects.toMatchObject({
+      code: 'DELETE_FAILED',
+    });
+
+    unavailable.mockRestore();
+    expect(countRows(native, 'notifications_cache', OWNER_ID)).toBe(0);
+    expect(getOwnerMobileDataStore(database, OWNER_ID).generation).toBeGreaterThan(
+      generationBefore,
+    );
     native.close();
   });
 

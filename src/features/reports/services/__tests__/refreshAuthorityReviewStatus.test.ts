@@ -6,7 +6,11 @@ import {
   fetchAllMobileReportStatuses,
   type MobileReportStatusesResult,
 } from '@/features/reports/api/mobileReportStatusesApi';
-import { refreshAuthorityReviewStatus, invalidateAuthorityReviewStatusRefresh } from '@/features/reports/services/refreshAuthorityReviewStatus';
+import {
+  beginAuthorityReviewClear,
+  endAuthorityReviewClear,
+  refreshAuthorityReviewStatus,
+} from '@/features/reports/services/refreshAuthorityReviewStatus';
 import {
   clearSyncDownloadProgress,
   createSyncDownloadProgressStore,
@@ -137,8 +141,9 @@ describe('refreshAuthorityReviewStatus', () => {
     for (let tick = 0; tick < 20 && fetchStatuses.mock.calls.length === 0; tick += 1) {
       await Promise.resolve();
     }
-    invalidateAuthorityReviewStatusRefresh(database, 'owner-cleared');
+    beginAuthorityReviewClear(database, 'owner-cleared');
     await clearSyncDownloadProgress('owner-cleared');
+    endAuthorityReviewClear(database, 'owner-cleared');
     release();
 
     await expect(refresh).rejects.toThrow('superseded');
@@ -195,6 +200,30 @@ describe('refreshAuthorityReviewStatus', () => {
     await expect(
       createSyncDownloadProgressStore('owner-handoff', 'authority_status', () => true).read(),
     ).resolves.toBe('{"page":2}');
+  });
+
+  // Proves: no refresh stores or applies anything for an owner whose data is being cleared.
+  it('refuses a refresh that starts while the owner data is being cleared', async () => {
+    beginAuthorityReviewClear(database, 'owner-clearing');
+
+    await expect(
+      refreshAuthorityReviewStatus({
+        database,
+        submitterIdentity: 'owner-clearing',
+        token: 'token-1',
+      }),
+    ).rejects.toThrow('superseded');
+    expect(fetchStatuses).not.toHaveBeenCalled();
+    expect(applyUpdates).not.toHaveBeenCalled();
+
+    endAuthorityReviewClear(database, 'owner-clearing');
+    await expect(
+      refreshAuthorityReviewStatus({
+        database,
+        submitterIdentity: 'owner-clearing',
+        token: 'token-1',
+      }),
+    ).resolves.toMatchObject({ applied: 0 });
   });
 
   it('keeps account and token refreshes independent', async () => {

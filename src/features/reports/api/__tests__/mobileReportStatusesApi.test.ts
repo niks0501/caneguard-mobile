@@ -443,6 +443,9 @@ describe('mobile report statuses API', () => {
       request.mockResolvedValueOnce(pageOf(1, null));
 
       await expect(fetchStatuses({ token: 'resume-e' })).resolves.toMatchObject({ pageCount: 1 });
+      expect(String(request.mock.calls[0][0])).toMatch(
+        /^\/api\/v3\/mobile\/reports\/statuses\?per_page=100$/,
+      );
     });
 
     // Proves: a changed version restarts from page one.

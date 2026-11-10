@@ -221,7 +221,22 @@ async function readProgress(
 }
 
 function serializeProgress(progress: StatusDownloadProgress): string {
-  return JSON.stringify({ ...progress, updates: progress.updates.map(toStoredItem) });
+  return JSON.stringify({
+    ...progress,
+    sync: toStoredSync(progress.sync),
+    updates: progress.updates.map(toStoredItem),
+  });
+}
+
+/** A stamp the server never sent is stored as absent, the shape the envelope parser accepts. */
+function toStoredSync(sync: SyncEnvelope): Record<string, unknown> {
+  const stored: Record<string, unknown> = {
+    truncated: sync.truncated,
+    unchanged: sync.unchanged,
+  };
+  if (sync.version !== null) stored.version = sync.version;
+  if (sync.total !== null) stored.total = sync.total;
+  return stored;
 }
 
 /** Stored rows keep the wire shape so reading them back reuses the feed's own item parser. */
@@ -268,7 +283,7 @@ function parseProgress(payload: string): StatusDownloadProgress | null {
       cursor: requireNonBlankString(raw.cursor, 'cursor'),
       nextPath: toSafeContinuationPath(requireNonBlankString(raw.nextPath, 'next_path')),
       syncBefore: requireTimestamp(raw.syncBefore, 'sync_before'),
-      sync: parseSync(isRecord(raw.sync) ? raw.sync : null),
+      sync: parseSync(readStoredSync(raw.sync)),
       updates: raw.updates.map(parseStatusItem),
       visited: raw.visited.map((path) => requireNonBlankString(path, 'visited')),
       pagesRequested: raw.pagesRequested,
@@ -276,6 +291,15 @@ function parseProgress(payload: string): StatusDownloadProgress | null {
   } catch {
     return null;
   }
+}
+
+/** Stored envelopes keep an unsent stamp absent even after a round trip through JSON. */
+function readStoredSync(value: unknown): Record<string, unknown> | null {
+  if (!isRecord(value)) return null;
+  const sync: Record<string, unknown> = { ...value };
+  if (sync.version === null) delete sync.version;
+  if (sync.total === null) delete sync.total;
+  return sync;
 }
 
 async function requestPage(

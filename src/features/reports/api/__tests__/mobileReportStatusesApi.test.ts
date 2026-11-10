@@ -493,6 +493,24 @@ describe('mobile report statuses API', () => {
       expect(request).toHaveBeenCalledTimes(2);
     });
 
+    // Proves: a server that sends no version or total still resumes at the first unstored page.
+    it('resumes a download from a server that reports no version or total', async () => {
+      const legacyPage = (n: number, next: string | null) =>
+        page([item({ uuid: `remote-${n}`, client_uuid: `client-${n}` })], next);
+
+      request.mockResolvedValueOnce(legacyPage(1, NEXT_2)).mockRejectedValueOnce(networkError());
+      await expect(fetchStatuses({ token: 'resume-h' })).rejects.toMatchObject({ code: 'NETWORK' });
+
+      request.mockReset();
+      request
+        .mockResolvedValueOnce(legacyPage(2, NEXT_3))
+        .mockResolvedValueOnce(legacyPage(3, null));
+      const result = await fetchStatuses({ token: 'resume-h' });
+
+      expect(request.mock.calls.map(([path]) => path)).toEqual([NEXT_2, NEXT_3]);
+      expect(result.updates.map((u) => u.remoteUuid)).toEqual(['remote-1', 'remote-2', 'remote-3']);
+    });
+
     // Proves: a completed refresh leaves nothing to resume (cursor advances only on a whole download).
     it('starts over once a download completed', async () => {
       request.mockResolvedValueOnce(pageOf(1, NEXT_2)).mockResolvedValueOnce(pageOf(2, null));

@@ -143,6 +143,37 @@ describe('sync download progress storage', () => {
     await expect(storeFor('owner-1').read()).resolves.toBeNull();
   });
 
+  // Proves: a clear that waited for a write leaves the pages to the download that replaced it.
+  it('leaves the stored pages when the download was superseded while the clear waited', async () => {
+    const setItem = AsyncStorage.setItem;
+    let finishWrite!: () => void;
+    const writeGate = new Promise<void>((resolve) => {
+      finishWrite = resolve;
+    });
+    const delayed = jest
+      .spyOn(AsyncStorage, 'setItem')
+      .mockImplementationOnce(async (key, value) => {
+        await writeGate;
+        await setItem.call(AsyncStorage, key, value);
+      });
+
+    let current = true;
+    const store = createSyncDownloadProgressStore(
+      'owner-1',
+      'authority_status',
+      () => current,
+    );
+    const write = store.save('{"page":2}');
+    const clear = store.clear();
+    current = false;
+    finishWrite();
+    await clear;
+    await write;
+
+    delayed.mockRestore();
+    await expect(storeFor('owner-1').read()).resolves.toBe('{"page":2}');
+  });
+
   it('refuses an owner that cannot scope stored pages', () => {
     expect(() => storeFor('   ')).toThrow(StorageError);
   });

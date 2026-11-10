@@ -41,6 +41,7 @@ export function createSyncDownloadProgressStore(
       if (!isCurrent()) return;
       try {
         await settlePendingWrites();
+        if (!isCurrent()) return;
         await AsyncStorage.removeItem(key);
       } catch (error: unknown) {
         throw toStorageError(error, 'DELETE_FAILED', 'Clearing the sync download progress failed.');

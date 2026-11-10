@@ -5,9 +5,9 @@ import { ACCEPTABLE_GPS_ACCURACY_METERS } from '@/features/surveys/domain/bounda
 import type { SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 
 /** A walker drops a point only after moving this far from the last one. */
-export const WALK_MIN_SPACING_METERS = 8;
+const WALK_MIN_SPACING_METERS = 8;
 /** Walk mode keeps only fixes at least this accurate; weaker ones wait for the next reading. */
-export const WALK_MAX_ACCURACY_METERS = ACCEPTABLE_GPS_ACCURACY_METERS;
+const WALK_MAX_ACCURACY_METERS = ACCEPTABLE_GPS_ACCURACY_METERS;
 
 export interface WalkFix {
   accuracy: number | null;

@@ -1,12 +1,14 @@
 import GeographicLib from 'geographiclib-geodesic/geographiclib-geodesic.min.js';
 
+import { ACCEPTABLE_GPS_ACCURACY_METERS } from '@/features/surveys/domain/boundaryQuality';
 import { decideWalkFix } from '@/features/surveys/domain/walkMode';
 
 const T = Date.UTC(2026, 10, 11, 1, 0, 0);
 const START = { latitude: 14.1, longitude: 121.1 };
 // The walk screen promises "a point is added about every 8 m once GPS is within ±10 m".
 const PROMISED_SPACING_METERS = 8;
-const PROMISED_ACCURACY_METERS = 10;
+// The ±10 m bar is the boundary-quality accuracy contract that predates walk mode.
+const PROMISED_ACCURACY_METERS = ACCEPTABLE_GPS_ACCURACY_METERS;
 // WGS84 meridian degree length at this latitude; only used to place test fixes.
 const METERS_PER_DEGREE_LATITUDE = 110_640;
 const GOOD_ACCURACY_METERS = 4;

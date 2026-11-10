@@ -2,7 +2,7 @@ import { canAuthorInspectorWork } from '@/features/auth/capabilities';
 import { randomUUID } from 'expo-crypto';
 import { Image as ExpoImage } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { ActivityIndicator, AppState, type GestureResponderEvent, type HostInstance, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -143,18 +143,18 @@ export default function FieldSurveyScreen() {
     if (message !== null) setSyncMessage(message ?? FIELD_SURVEY_COPY.walkStopped(walk.added));
   }, []);
   // Walking ends when the screen locks, its boundary target or survey changes, the app leaves the foreground, or the screen closes.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const walk = walkRef.current;
     if (!walk) return;
     if (controlsLocked || drawingAffectedArea !== walk.affectedArea || clientUuid !== walk.surveyId || affectedAreas.length !== walk.areaCount) stopWalk();
   }, [affectedAreas.length, clientUuid, controlsLocked, drawingAffectedArea, stopWalk, walking]);
-  // The sampler measures spacing from the walked boundary's last point, so editing that boundary re-anchors it.
-  useEffect(() => {
+  // The sampler measures spacing from the walked boundary's last point, so editing that boundary re-anchors it before any fix can arrive.
+  useLayoutEffect(() => {
     const walk = walkRef.current;
     if (!walk) return;
     walk.last = (walk.affectedArea ? affectedWaypoints : waypoints).at(-1) ?? null;
   }, [affectedWaypoints, waypoints]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!walking) return;
     const subscription = AppState.addEventListener('change', (state) => { if (state !== 'active') stopWalk(); });
     return () => subscription.remove();

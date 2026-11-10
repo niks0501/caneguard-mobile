@@ -250,6 +250,10 @@ async function downloadPhoto(
       return false;
     }
     await partial.move(file, { overwrite: true });
+    if (stale()) {
+      if (file.exists) file.delete();
+      return false;
+    }
     return true;
   } catch {
     if (partial.exists) partial.delete();

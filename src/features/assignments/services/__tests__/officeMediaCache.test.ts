@@ -22,6 +22,7 @@ let mockSizeFor: (url: string) => number = () => 1000;
 let mockFailUrls = new Set<string>();
 let mockInterruptUrls = new Set<string>();
 let mockKillSnapshot: Map<string, number> | null = null;
+let mockDuringMove: (() => void) | null = null;
 
 jest.mock('expo-file-system', () => {
   class MockFile {
@@ -37,6 +38,9 @@ jest.mock('expo-file-system', () => {
     async move(destination: MockFile) {
       const bytes = mockDisk.get(this.uri);
       if (bytes === undefined) throw new Error('missing');
+      const duringMove = mockDuringMove;
+      mockDuringMove = null;
+      duringMove?.();
       mockDisk.set(destination.uri, bytes);
       mockDisk.delete(this.uri);
     }
@@ -123,6 +127,7 @@ beforeEach(() => {
   mockFailUrls = new Set();
   mockInterruptUrls = new Set();
   mockKillSnapshot = null;
+  mockDuringMove = null;
 });
 
 describe('office media cache', () => {
@@ -282,5 +287,14 @@ describe('office media cache', () => {
     clearOfficeMediaForOwner('owner-1');
     await pending;
     expect(mockDisk.size).toBe(0);
+  });
+
+  // Proves L5: a clear that lands while a photo is published still removes that photo.
+  it('keeps no photo published after the owner was cleared', async () => {
+    const a = office('a');
+    mockDuringMove = () => clearOfficeMediaForOwner('owner-1');
+    await run([a]);
+    expect(mockDisk.size).toBe(0);
+    expect(isOfficeCaseReadyOffline('owner-1', a)).toBe(false);
   });
 });

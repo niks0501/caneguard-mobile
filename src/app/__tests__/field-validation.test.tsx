@@ -184,8 +184,11 @@ describe('FieldValidationScreen', () => {
   });
 
   it('shows a scanless office case with no AI section', async () => {
-    jest.mocked(useFieldValidationAssignment).mockReturnValueOnce({
+    // Persistent, matching the rest of this file: the screen can call the hook
+    // more than once per render, so a one-shot value would be consumed early.
+    jest.mocked(useFieldValidationAssignment).mockReturnValue({
       ...state,
+      photoAccessToken: 'session-token',
       assignment: {
         ...state.assignment,
         case: { ...state.assignment.case, predictedLabel: null, confidence: null },
@@ -198,18 +201,24 @@ describe('FieldValidationScreen', () => {
             updatedAt: '2026-08-13T12:00:00.000Z',
           },
           reporterConcern: { suspectedCondition: 'Rust', observationText: 'Orange spots on leaves' },
-          photo: null,
+          photo: { contentType: 'image/jpeg', bytes: 10 },
         },
       },
     } as never);
 
-    await render(<FieldValidationScreen />);
+    try {
+      await render(<FieldValidationScreen />);
 
-    expect(screen.getByText('Assigned')).toBeOnTheScreen();
-    expect(screen.getByText('Rust · reported concern')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByLabelText('Show Previous visit and original report'));
-    expect(screen.getByText('Ana Reporter')).toBeOnTheScreen();
-    expect(screen.queryByText(/Possible Condition/)).not.toBeOnTheScreen();
+      expect(screen.getByText('Assigned')).toBeOnTheScreen();
+      expect(screen.getByText('Rust · reported concern')).toBeOnTheScreen();
+      expect(screen.getByTestId('field-validation.office-case.photo')).toBeOnTheScreen();
+      await fireEvent.press(screen.getByLabelText('Show Previous visit and original report'));
+      expect(screen.getByText('Ana Reporter')).toBeOnTheScreen();
+      expect(screen.queryByText(/Possible Condition/)).not.toBeOnTheScreen();
+    } finally {
+      // Restore the shared default so later tests in this file see a field case.
+      jest.mocked(useFieldValidationAssignment).mockReturnValue({ ...state, complete } as never);
+    }
   });
 
   it('provides persistent hints with sugarcane examples and supports copy observation into finding', async () => {

@@ -159,4 +159,31 @@ describe('field validation assignment cache', () => {
     expect(cached.find((row) => row.id === office.id)?.officeCase).toEqual(officeCase);
     native.close();
   });
+
+  // Proves L10: a scanless office row keeps its missing AI prediction across the
+  // cache, so the offline display never sees a placeholder label or a fake score.
+  it('round-trips a scanless office row with no AI prediction', async () => {
+    const { database, native } = openTestDatabase();
+    const officeCase = {
+      version: 2,
+      status: { workflowStatus: 'assigned', caseState: 'open', reviewStatus: 'pending', updatedAt: '2026-08-13T12:00:00.000Z' },
+      reporterConcern: { suspectedCondition: 'Rust', observationText: 'Orange spots on leaves' },
+      photo: null,
+    };
+    const scanless = {
+      ...ASSIGNMENT,
+      id: '33333333-3333-4333-8333-333333333333',
+      reportUuid: '44444444-4444-4444-8444-444444444444',
+      case: { ...ASSIGNMENT.case, predictedLabel: null, confidence: null },
+      officeCase,
+    };
+
+    await replaceCachedFieldValidationAssignments(database, 'owner-1', [scanless], '2026-08-13T12:05:00.000Z');
+
+    const [cached] = await listCachedFieldValidationAssignments(database, 'owner-1');
+    expect(cached.case.predictedLabel).toBeNull();
+    expect(cached.case.confidence).toBeNull();
+    expect(cached.officeCase).toEqual(officeCase);
+    native.close();
+  });
 });

@@ -49,6 +49,21 @@ describe('useOpenMobileNotification', () => {
     jest.clearAllMocks();
   });
 
+  // Intent: a notification whose case is not on this phone states why instead of silently doing nothing.
+  it('explains an unavailable destination with the web fallback', async () => {
+    const { onClose, result } = await renderOpenNotification({
+      destinations: new Map([[NOTIFICATION.id, { kind: 'unavailable' }]]),
+    });
+
+    await act(async () => {
+      result.current(NOTIFICATION);
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith('Not on this phone: open on the web', 'info');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
   it('acknowledges the update, closes the surface, and opens its destination', async () => {
     const { markRead, onClose, result } = await renderOpenNotification({
       destinations: new Map([

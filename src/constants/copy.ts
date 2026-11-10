@@ -135,6 +135,8 @@ export const OFFICE_UPDATES_PANEL_CLOSE_LABEL = 'Close office updates';
 
 export const OFFICE_UPDATES_MARKED_READ = 'Updates marked as read';
 export const OFFICE_UPDATE_STILL_OPENING = 'Still getting this update ready. Try again in a moment.';
+/** Notification whose case is not stored on this phone: say why, point to the web. */
+export const OFFICE_UPDATE_NOT_ON_PHONE = 'Not on this phone: open on the web';
 
 /** Assignment card photo block when no case picture is stored on this device. */
 export const ASSIGNMENT_PHOTO_PLACEHOLDER = 'No photo';

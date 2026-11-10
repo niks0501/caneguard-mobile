@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useCallback } from 'react';
 
 import { useToast } from '@/components/ui/Toast';
-import { OFFICE_UPDATE_STILL_OPENING } from '@/constants/copy';
+import { OFFICE_UPDATE_NOT_ON_PHONE, OFFICE_UPDATE_STILL_OPENING } from '@/constants/copy';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 import {
   notificationDestinationRoute,
@@ -43,7 +43,12 @@ export function useOpenMobileNotification({
       }
 
       void markRead(notification.id);
-      if (!openable) return;
+      if (!openable) {
+        // Resolved, but the case is not on this phone: say so instead of a
+        // silent no-op.
+        showToast(OFFICE_UPDATE_NOT_ON_PHONE, 'info');
+        return;
+      }
       onClose();
 
       if (hasDetail) {

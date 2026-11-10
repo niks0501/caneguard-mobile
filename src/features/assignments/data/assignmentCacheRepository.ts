@@ -60,6 +60,37 @@ export async function findCachedFieldValidationAssignment(
   }
 }
 
+/**
+ * Find this owner's cached assignment for a case by its case (report) UUID or
+ * reference code. Used when a notification carries no known assignment id.
+ */
+export async function findCachedFieldValidationAssignmentForCase(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  match: { caseUuid: string | null; referenceCode: string | null },
+): Promise<FieldValidationAssignment | null> {
+  const owner = requireOwner(ownerIdentity);
+  const caseUuid = match.caseUuid?.trim();
+  const referenceCode = match.referenceCode?.trim();
+  if (!caseUuid && !referenceCode) return null;
+  try {
+    const rows = await listCachedFieldValidationAssignments(database, owner);
+    return (
+      rows.find(
+        (row) =>
+          (caseUuid && row.reportUuid === caseUuid) ||
+          (referenceCode && row.referenceCode === referenceCode),
+      ) ?? null
+    );
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'QUERY_FAILED',
+      'Reading the cached field validation assignment failed.',
+    );
+  }
+}
+
 /** The skipped-record count saved by the owner's last successful refresh. */
 export async function readCachedFieldValidationSkippedCount(
   database: CaneGuardDatabase,

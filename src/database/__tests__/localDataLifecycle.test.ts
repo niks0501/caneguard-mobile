@@ -127,6 +127,7 @@ const MIGRATIONS = [
   '0026_scan_follow_up_check.sql',
   '0028_field_report_survey_link.sql',
   '0029_scan_personal_place.sql',
+  '0030_field_validation_snapshot_skipped.sql',
 ] as const;
 
 function readMigration(filename: string): string {

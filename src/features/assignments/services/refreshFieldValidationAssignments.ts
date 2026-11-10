@@ -10,6 +10,7 @@ export interface FieldValidationAssignmentsRefreshResult {
   assignments: FieldValidationAssignment[];
   fetchedAt: string;
   syncBefore: string;
+  skippedCount: number;
 }
 
 interface ActiveRefresh {
@@ -84,10 +85,11 @@ async function executeRefresh(options: {
     response.assignments,
     fetchedAt,
     options.isCurrent,
+    response.skippedCount,
   );
   const assignments = await listCachedFieldValidationAssignments(
     options.database,
     options.ownerIdentity,
   );
-  return { assignments, fetchedAt, syncBefore: response.syncBefore };
+  return { assignments, fetchedAt, syncBefore: response.syncBefore, skippedCount: response.skippedCount };
 }

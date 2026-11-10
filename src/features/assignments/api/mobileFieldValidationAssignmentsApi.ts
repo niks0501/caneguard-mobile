@@ -4,9 +4,11 @@ import {
   FIELD_VALIDATION_ASSIGNMENT_STATES,
   FIELD_VALIDATION_FOLLOW_UP_OUTCOMES,
   type FieldValidationAssignmentState,
+  type FieldValidationFollowUpOutcome,
 } from '@/database/schema';
-import type {
-  FieldValidationAssignmentUpdate,
+import {
+  UNKNOWN_PREDICTED_LABEL,
+  type FieldValidationAssignmentUpdate,
 } from '@/features/assignments/domain/assignmentTypes';
 import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
 import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
@@ -20,7 +22,10 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 export interface MobileFieldValidationAssignmentsResult {
   syncBefore: string;
   assignments: FieldValidationAssignmentUpdate[];
+  /** Records dropped because their vocabulary (field_validation_state) is unknown to this build. */
+  skippedCount: number;
 }
+
 
 export type MobileFieldValidationAssignmentsErrorCode =
   | 'AUTH_REQUIRED'
@@ -52,7 +57,9 @@ export async function fetchAllMobileFieldValidationAssignments(options: {
 }): Promise<MobileFieldValidationAssignmentsResult> {
   const initialPath = buildInitialPath(options.updatedAfter);
   const visited = new Set<string>();
+  const identities: AssignmentIdentityIndex = { ids: new Set(), reportIds: new Set() };
   const assignments: FieldValidationAssignmentUpdate[] = [];
+  let skippedCount = 0;
   let path: string | null = initialPath;
   let syncBefore: string | null = null;
 
@@ -65,7 +72,7 @@ export async function fetchAllMobileFieldValidationAssignments(options: {
     }
     visited.add(path);
 
-    const page = await requestPage(path, options.token);
+    const page = await requestPage(path, options.token, identities);
     if (syncBefore && page.syncBefore !== syncBefore) {
       throw new MobileFieldValidationAssignmentsApiError(
         'MALFORMED_RESPONSE',
@@ -74,6 +81,7 @@ export async function fetchAllMobileFieldValidationAssignments(options: {
     }
     syncBefore ??= page.syncBefore;
     assignments.push(...page.assignments);
+    skippedCount += page.skippedCount;
 
     if (page.nextPath) {
       assertContinuationCheckpoint(page.nextPath, syncBefore);
@@ -88,17 +96,18 @@ export async function fetchAllMobileFieldValidationAssignments(options: {
     );
   }
 
-  assertUniqueIdentities(assignments);
-  return { syncBefore, assignments };
+  return { syncBefore, assignments, skippedCount };
 }
 
 async function requestPage(
   path: string,
   token: string,
+  identities: AssignmentIdentityIndex,
 ): Promise<{
   nextPath: string | null;
   syncBefore: string;
   assignments: FieldValidationAssignmentUpdate[];
+  skippedCount: number;
 }> {
   let body: unknown;
   try {
@@ -108,7 +117,7 @@ async function requestPage(
   }
 
   try {
-    return parsePage(body);
+    return parsePage(body, identities);
   } catch (error: unknown) {
     if (error instanceof MobileFieldValidationAssignmentsApiError) throw error;
     throw new MobileFieldValidationAssignmentsApiError(
@@ -118,10 +127,11 @@ async function requestPage(
   }
 }
 
-function parsePage(body: unknown): {
+function parsePage(body: unknown, identities: AssignmentIdentityIndex): {
   nextPath: string | null;
   syncBefore: string;
   assignments: FieldValidationAssignmentUpdate[];
+  skippedCount: number;
 } {
   if (!isRecord(body) || !Array.isArray(body.data) || !isRecord(body.links)) {
     throw new MobileFieldValidationAssignmentsApiError(
@@ -139,19 +149,56 @@ function parsePage(body: unknown): {
     );
   }
 
+  const assignments: FieldValidationAssignmentUpdate[] = [];
+  let skippedCount = 0;
+  body.data.forEach((item, index) => {
+    try {
+      const assignment = parseAssignment(item, identities);
+      if (assignment) assignments.push(assignment);
+      else skippedCount += 1;
+    } catch (error: unknown) {
+      throw withItemReference(error, item, index);
+    }
+  });
+
   return {
     nextPath: rawNext === null ? null : toSafeContinuationPath(rawNext),
     syncBefore,
-    assignments: body.data.map(parseAssignment),
+    assignments,
+    skippedCount,
   };
 }
 
-function parseAssignment(value: unknown): FieldValidationAssignmentUpdate {
+/** Names the failing record so a broken identity is traceable to one item. */
+function withItemReference(error: unknown, item: unknown, index: number): unknown {
+  if (
+    !(error instanceof MobileFieldValidationAssignmentsApiError) ||
+    error.code !== 'MALFORMED_RESPONSE'
+  ) {
+    return error;
+  }
+  const reference =
+    isRecord(item) && typeof item.reference_code === 'string' && item.reference_code.trim()
+      ? `reference ${item.reference_code}`
+      : `index ${index}`;
+  return new MobileFieldValidationAssignmentsApiError(
+    'MALFORMED_RESPONSE',
+    `${error.message} (record ${reference})`,
+    error.status,
+  );
+}
+
+/** Returns null when the record is skipped for an unknown field_validation_state. */
+function parseAssignment(
+  value: unknown,
+  identities: AssignmentIdentityIndex,
+): FieldValidationAssignmentUpdate | null {
   if (!isRecord(value)) throw malformed('assignment item');
   const id = requireUuid(value.uuid, 'uuid');
   const reportUuid = requireUuid(value.report_uuid, 'report_uuid');
   const reportClientUuid = requireUuid(value.report_client_uuid, 'report_client_uuid');
   const referenceCode = requireString(value.reference_code, 'reference_code');
+  registerIdentity(identities, id, reportUuid);
   const submitter = parsePerson(value.submitter, 'submitter');
   const assignee = parsePerson(value.assignee, 'assignee');
   const targetVisitDate = parseDate(value.target_visit_date, 'target_visit_date');
@@ -161,7 +208,7 @@ function parseAssignment(value: unknown): FieldValidationAssignmentUpdate {
   const rawCase = isRecord(value.case) ? value.case : null;
   if (!rawCase) throw malformed('case');
 
-  return {
+  const update = {
     id,
     reportUuid,
     reportClientUuid,
@@ -170,7 +217,6 @@ function parseAssignment(value: unknown): FieldValidationAssignmentUpdate {
     assignee,
     submitterIsAssignee: requireBoolean(value.submitter_is_assignee, 'submitter_is_assignee'),
     targetVisitDate,
-    fieldValidationState,
     assignedAt,
     updatedAt,
     case: {
@@ -195,15 +241,14 @@ function parseAssignment(value: unknown): FieldValidationAssignmentUpdate {
       capturedAt: requireTimestamp(rawCase.captured_at, 'case.captured_at'),
       observedAt: optionalTimestamp(rawCase.observed_at, 'case.observed_at'),
       submittedAt: requireTimestamp(rawCase.submitted_at, 'case.submitted_at'),
-      predictedLabel: requireEnum(
-        rawCase.predicted_label,
-        'case.predicted_label',
-        MODEL_LABELS,
-      ),
+      predictedLabel: parsePredictedLabel(rawCase.predicted_label),
       confidence: requireNumber(rawCase.confidence, 'case.confidence', 0, 1),
     },
     previousVisit: parsePreviousVisit(value.previous_visit),
   };
+  // Vocabulary is filtered only after identity and the whole record shape validated.
+  if (fieldValidationState === null) return null;
+  return { ...update, fieldValidationState };
 }
 
 function parsePreviousVisit(value: unknown): PreviousVisitContext | null {
@@ -221,11 +266,7 @@ function parsePreviousVisit(value: unknown): PreviousVisitContext | null {
       'previous_visit.authority_classified_condition',
     ),
     actionTaken: requireString(value.action_taken, 'previous_visit.action_taken'),
-    followUpOutcome: optionalEnum(
-      value.follow_up_outcome,
-      'previous_visit.follow_up_outcome',
-      FIELD_VALIDATION_FOLLOW_UP_OUTCOMES,
-    ),
+    followUpOutcome: parseFollowUpOutcome(value.follow_up_outcome),
     fieldObservation: optionalString(value.field_observation, 'previous_visit.field_observation'),
     fieldFinding: optionalString(value.field_finding, 'previous_visit.field_finding'),
     freshPhotoAvailable: requireBoolean(
@@ -303,19 +344,28 @@ function assertContinuationCheckpoint(path: string, syncBefore: string): void {
   }
 }
 
-function assertUniqueIdentities(assignments: FieldValidationAssignmentUpdate[]): void {
-  const ids = new Set<string>();
-  const reportIds = new Set<string>();
-  for (const assignment of assignments) {
-    if (ids.has(assignment.id) || reportIds.has(assignment.reportUuid)) {
-      throw new MobileFieldValidationAssignmentsApiError(
-        'MALFORMED_RESPONSE',
-        'The assignment feed contains duplicate identities.',
-      );
-    }
-    ids.add(assignment.id);
-    reportIds.add(assignment.reportUuid);
+interface AssignmentIdentityIndex {
+  ids: Set<string>;
+  reportIds: Set<string>;
+}
+
+/** Checked for every record in the feed, including records skipped for unknown vocabulary. */
+function registerIdentity(
+  identities: AssignmentIdentityIndex,
+  id: string,
+  reportUuid: string,
+): void {
+  // UUIDs are case-insensitive: compare their lowercase form.
+  id = id.toLowerCase();
+  reportUuid = reportUuid.toLowerCase();
+  if (identities.ids.has(id) || identities.reportIds.has(reportUuid)) {
+    throw new MobileFieldValidationAssignmentsApiError(
+      'MALFORMED_RESPONSE',
+      'The assignment feed contains duplicate identities.',
+    );
   }
+  identities.ids.add(id);
+  identities.reportIds.add(reportUuid);
 }
 
 function requireUuid(value: unknown, field: string): string {
@@ -332,11 +382,6 @@ function optionalString(value: unknown, field: string): string | null {
   if (value === null) return null;
   if (typeof value !== 'string') throw malformed(field);
   return value;
-}
-
-function optionalEnum<T extends string>(value: unknown, field: string, values: readonly T[]): T | null {
-  if (value === null) return null;
-  return requireEnum(value, field, values);
 }
 
 function requireTimestamp(value: unknown, field: string): string {
@@ -372,13 +417,27 @@ function optionalNumber(value: unknown, field: string, minimum: number, maximum 
   return requireNumber(value, field, minimum, maximum);
 }
 
-function requireEnum<T extends string>(value: unknown, field: string, values: readonly T[]): T {
-  if (typeof value !== 'string' || !values.includes(value as T)) throw malformed(field);
-  return value as T;
+/** Strict on shape (must be a string), tolerant on vocabulary (unknown state => null). */
+function parseAssignmentState(value: unknown): FieldValidationAssignmentState | null {
+  if (typeof value !== 'string' || !value.trim()) throw malformed('field_validation_state');
+  return (FIELD_VALIDATION_ASSIGNMENT_STATES as readonly string[]).includes(value)
+    ? (value as FieldValidationAssignmentState)
+    : null;
 }
 
-function parseAssignmentState(value: unknown): FieldValidationAssignmentState {
-  return requireEnum(value, 'field_validation_state', FIELD_VALIDATION_ASSIGNMENT_STATES);
+/** Strict on shape (must be a string or null), tolerant on vocabulary (unknown outcome => null). */
+function parseFollowUpOutcome(value: unknown): FieldValidationFollowUpOutcome | null {
+  if (value === null) return null;
+  if (typeof value !== 'string' || !value.trim()) throw malformed('previous_visit.follow_up_outcome');
+  return (FIELD_VALIDATION_FOLLOW_UP_OUTCOMES as readonly string[]).includes(value)
+    ? (value as FieldValidationFollowUpOutcome)
+    : null;
+}
+
+/** Strict on shape (must be a string), tolerant on vocabulary (unknown label => 'unknown'). */
+function parsePredictedLabel(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) throw malformed('case.predicted_label');
+  return (MODEL_LABELS as readonly string[]).includes(value) ? value : UNKNOWN_PREDICTED_LABEL;
 }
 
 function malformed(field: string): MobileFieldValidationAssignmentsApiError {

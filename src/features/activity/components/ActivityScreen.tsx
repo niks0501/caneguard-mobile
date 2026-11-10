@@ -25,7 +25,7 @@ import { useRefreshAll } from '@/features/activity/hooks/useRefreshAll';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import { RecordCard } from '@/components/ui/RecordCard';
 import { AppButton } from '@/components/ui/AppButton';
-import { OFFICE_UPDATES_OPEN_LABEL } from '@/constants/copy';
+import { assignmentsSkippedMessage, OFFICE_UPDATES_OPEN_LABEL } from '@/constants/copy';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SyncStatusPanel } from '@/components/ui/SyncStatusPanel';
@@ -392,6 +392,14 @@ function InspectorActivityScreen() {
                 accessibilityLiveRegion="polite"
                 style={[styles.refreshMessage, { color: theme.textSecondary }]}>
                 {refreshMessage}
+              </Text>
+            ) : null}
+            {assignments.skippedCount > 0 ? (
+              <Text
+                testID="activity.assignments-skipped"
+                accessibilityLiveRegion="polite"
+                style={[styles.refreshMessage, { color: theme.warning }]}>
+                {assignmentsSkippedMessage(assignments.skippedCount)}
               </Text>
             ) : null}
             {subsystemErrors.map((message) => (

@@ -3,7 +3,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { PERSONAL_SCAN_LOCAL_STATUS } from '@/constants/copy';
+import { PERSONAL_SCAN_LOCAL_STATUS, UNRECOGNIZED_LABEL_TEXT } from '@/constants/copy';
 import {
   ComponentTokens,
   Radius,
@@ -231,6 +231,9 @@ export function getResultLabel(label: string): string {
   }
   if (label === 'smut') {
     return 'Possible Condition: Smut';
+  }
+  if (label === 'unknown') {
+    return `Possible Condition: ${UNRECOGNIZED_LABEL_TEXT}`;
   }
   return `Possible Condition: ${label}`;
 }

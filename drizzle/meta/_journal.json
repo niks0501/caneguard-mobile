@@ -211,6 +211,13 @@
       "when": 1793802597861,
       "tag": "0029_scan_personal_place",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1794277943586,
+      "tag": "0030_field_validation_snapshot_skipped",
+      "breakpoints": true
     }
   ]
 }

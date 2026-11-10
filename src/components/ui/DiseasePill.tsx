@@ -4,6 +4,8 @@ export type DiseasePillVariant = 'smut' | 'rust' | 'mosaic' | 'healthy' | 'uncle
 
 type DiseasePillProps = {
   variant: DiseasePillVariant;
+  /** Replaces the default text for the variant, e.g. for a label this app version does not know. */
+  label?: string;
   testID?: string;
 };
 
@@ -19,10 +21,10 @@ const VARIANT_MAP: Record<DiseasePillVariant, string> = {
   unclear: 'Unclear',
 };
 
-export function DiseasePill({ testID, variant }: DiseasePillProps) {
+export function DiseasePill({ label, testID, variant }: DiseasePillProps) {
   return (
     <Pill
-      label={VARIANT_MAP[variant]}
+      label={label ?? VARIANT_MAP[variant]}
       testID={testID}
       variant={variant}
     />

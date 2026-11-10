@@ -269,6 +269,25 @@ export const fieldValidationAssignments = sqliteTable(
   ],
 );
 
+/**
+ * One row per owner: how many assigned cases the last successful refresh left
+ * out because this app version does not know their status. Kept next to the
+ * assignment cache so a cold start still shows the banner.
+ */
+export const fieldValidationAssignmentSnapshots = sqliteTable(
+  'field_validation_assignment_snapshots',
+  {
+    ownerIdentity: text('owner_identity').primaryKey(),
+    skippedCount: integer('skipped_count').notNull().default(0),
+  },
+  (table) => [
+    check(
+      'field_validation_assignment_snapshots_skipped_check',
+      sql`${table.skippedCount} >= 0`,
+    ),
+  ],
+);
+
 export const fieldValidationCompletions = sqliteTable(
   'field_validation_completions',
   {

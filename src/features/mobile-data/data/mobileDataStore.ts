@@ -15,6 +15,11 @@ type CachedValue<T> = {
   fetchedAt: number;
 };
 
+type AssignmentsSnapshot = CachedValue<FieldValidationAssignment[]> & {
+  /** Records the last successful refresh dropped for vocabulary this build cannot read. */
+  skippedCount: number;
+};
+
 export type TimelineSnapshot = {
   data: ScanRecordListItem[];
   hasMore: boolean;
@@ -24,7 +29,7 @@ export type TimelineSnapshot = {
 type RefreshKey = 'assignments' | 'notifications';
 
 export interface OwnerMobileDataStore {
-  assignments: CachedValue<FieldValidationAssignment[]> | null;
+  assignments: AssignmentsSnapshot | null;
   notifications: CachedValue<MobileNotification[]> | null;
   timeline: Map<string, TimelineSnapshot>;
   generation: number;
@@ -79,10 +84,12 @@ export function setOwnerAssignments(
   store: OwnerMobileDataStore,
   assignments: FieldValidationAssignment[],
   fetchedAt: string | number = Date.now(),
+  skippedCount = 0,
 ): void {
   store.assignments = {
     value: assignments,
     fetchedAt: toTimestamp(fetchedAt),
+    skippedCount,
   };
   notify(store);
 }
@@ -123,7 +130,7 @@ export function clearOwnerMobileDataStore(
   const store = getOwnerMobileDataStore(database, ownerIdentity);
   const cacheFetchedAt = options.cacheFetchedAt ?? Date.now();
   store.generation += 1;
-  store.assignments = { value: [], fetchedAt: cacheFetchedAt };
+  store.assignments = { value: [], fetchedAt: cacheFetchedAt, skippedCount: 0 };
   store.notifications = { value: [], fetchedAt: cacheFetchedAt };
   store.timeline.clear();
   store.cacheLoads = {};

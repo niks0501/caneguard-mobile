@@ -31,6 +31,7 @@ import m0026 from './0026_scan_follow_up_check.sql';
 import m0027 from './0027_loud_rachel_grey.sql';
 import m0028 from './0028_field_report_survey_link.sql';
 import m0029 from './0029_scan_personal_place.sql';
+import m0030 from './0030_field_validation_snapshot_skipped.sql';
 
   export default {
     journal,
@@ -64,7 +65,8 @@ m0025,
 m0026,
 m0027,
 m0028,
-m0029
+m0029,
+m0030
     }
   }
   

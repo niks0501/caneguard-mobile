@@ -586,3 +586,11 @@ export const LOGOUT_DIALOG_COPY = {
   pendingNote: (count: number) =>
     `${count} saved ${count === 1 ? 'item has' : 'items have'} not reached the office yet. ${count === 1 ? 'It stays' : 'They stay'} on this device.`,
 } as const;
+
+/** Banner shown when some assigned cases were left out because this app version cannot read them yet. */
+export function assignmentsSkippedMessage(count: number): string {
+  return `${count} assigned ${count === 1 ? 'case' : 'cases'} could not be shown because this app version does not recognize ${count === 1 ? 'its' : 'their'} status. Update the app to see ${count === 1 ? 'it' : 'them'}.`;
+}
+
+/** Shown wherever a predicted_label from the office is not one this app version knows. */
+export const UNRECOGNIZED_LABEL_TEXT = 'Not recognized by this app version';

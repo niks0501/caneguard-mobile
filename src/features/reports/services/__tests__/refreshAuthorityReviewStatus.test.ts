@@ -6,6 +6,10 @@ import { fetchAllMobileReportStatuses } from '@/features/reports/api/mobileRepor
 import { refreshAuthorityReviewStatus } from '@/features/reports/services/refreshAuthorityReviewStatus';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
+jest.mock('@/features/sync/data/syncCheckpointRepository', () => ({
+  ...jest.requireActual('@/features/sync/data/syncCheckpointRepository'),
+  saveSyncCheckpoint: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('@/features/reports/data/fieldReportReviewRepository', () => ({
   applyAuthorityReviewUpdates: jest.fn(),
   findLatestAuthorityReviewUpdatedAt: jest.fn(),

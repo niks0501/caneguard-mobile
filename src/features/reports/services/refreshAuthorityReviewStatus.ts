@@ -4,6 +4,11 @@ import {
   findLatestAuthorityReviewUpdatedAt,
 } from '@/features/reports/data/fieldReportReviewRepository';
 import { fetchAllMobileReportStatuses } from '@/features/reports/api/mobileReportStatusesApi';
+import {
+  derivePageCount,
+  saveSyncCheckpoint,
+  SYNC_FEED_PAGE_SIZE,
+} from '@/features/sync/data/syncCheckpointRepository';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 const OVERLAP_MS = 1_000;
@@ -71,6 +76,16 @@ async function executeRefresh(options: {
     response.updates,
     fetchedAt,
   );
+  await saveSyncCheckpoint(options.database, options.submitterIdentity, {
+    feed: 'authority_status',
+    version: null,
+    total: response.updates.length,
+    truncated: false,
+    // Every request returns a page, so an empty feed still took one.
+    pageCount: Math.max(1, derivePageCount(response.updates.length, SYNC_FEED_PAGE_SIZE)),
+    syncBefore: response.syncBefore,
+    fetchedAt,
+  });
   emitSyncRecordsChanged();
   return {
     applied: result.applied,

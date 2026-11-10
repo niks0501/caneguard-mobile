@@ -17,6 +17,11 @@ jest.mock('@/features/notifications/data/notificationCacheRepository', () => ({
   replaceCachedMobileNotifications: jest.fn(),
 }));
 
+jest.mock('@/features/sync/data/syncCheckpointRepository', () => ({
+  ...jest.requireActual('@/features/sync/data/syncCheckpointRepository'),
+  saveSyncCheckpoint: jest.fn().mockResolvedValue(undefined),
+}));
+
 const database = {} as never;
 const fetchNotifications = jest.mocked(fetchAllMobileNotifications);
 const listCache = jest.mocked(listCachedMobileNotifications);

@@ -288,6 +288,34 @@ export const fieldValidationAssignmentSnapshots = sqliteTable(
   ],
 );
 
+export const SYNC_CHECKPOINT_FEEDS = ['assignments', 'notifications', 'authority_status'] as const;
+export type SyncCheckpointFeed = (typeof SYNC_CHECKPOINT_FEEDS)[number];
+
+/**
+ * The phone's memory of its last successful download of one feed: the server's
+ * version stamp (null when the feed does not version), how many rows the server
+ * reported, whether it cut the set short, and how many pages the download took.
+ * Written in the same transaction that replaces the cached rows.
+ */
+export const syncCheckpoints = sqliteTable(
+  'sync_checkpoints',
+  {
+    ownerIdentity: text('owner_identity').notNull(),
+    feed: text('feed', { enum: SYNC_CHECKPOINT_FEEDS }).notNull(),
+    version: text('version'),
+    total: integer('total').notNull(),
+    truncated: integer('truncated', { mode: 'boolean' }).notNull().default(false),
+    pageCount: integer('page_count').notNull(),
+    syncBefore: text('sync_before').notNull(),
+    fetchedAt: text('fetched_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.ownerIdentity, table.feed] }),
+    check('sync_checkpoints_total_check', sql`${table.total} >= 0`),
+    check('sync_checkpoints_page_count_check', sql`${table.pageCount} >= 0`),
+  ],
+);
+
 export const fieldValidationCompletions = sqliteTable(
   'field_validation_completions',
   {

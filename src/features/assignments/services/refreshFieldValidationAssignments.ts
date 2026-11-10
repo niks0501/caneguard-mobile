@@ -1,10 +1,19 @@
 import type { CaneGuardDatabase } from '@/database/database';
-import { fetchAllMobileFieldValidationAssignments } from '@/features/assignments/api/mobileFieldValidationAssignmentsApi';
 import {
+  ASSIGNMENT_WORK_SET_CAP,
+  fetchAllMobileFieldValidationAssignments,
+} from '@/features/assignments/api/mobileFieldValidationAssignmentsApi';
+import {
+  confirmCachedFieldValidationAssignments,
   listCachedFieldValidationAssignments,
+  readCachedFieldValidationSkippedCount,
   replaceCachedFieldValidationAssignments,
 } from '@/features/assignments/data/assignmentCacheRepository';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
+import {
+  readSyncCheckpoint,
+  type SyncCheckpoint,
+} from '@/features/sync/data/syncCheckpointRepository';
 
 export interface FieldValidationAssignmentsRefreshResult {
   assignments: FieldValidationAssignment[];
@@ -76,20 +85,69 @@ async function executeRefresh(options: {
   ownerIdentity: string;
   token: string;
 }): Promise<FieldValidationAssignmentsRefreshResult> {
-  const response = await fetchAllMobileFieldValidationAssignments({ token: options.token });
+  const held = await readHeldCheckpoint(options.database, options.ownerIdentity);
+  const response = await fetchAllMobileFieldValidationAssignments({
+    token: options.token,
+    since: held?.version ?? null,
+  });
   if (!options.isCurrent()) throw new Error('The assignment refresh was superseded.');
   const fetchedAt = new Date().toISOString();
-  await replaceCachedFieldValidationAssignments(
-    options.database,
-    options.ownerIdentity,
-    response.assignments,
+  const checkpoint: SyncCheckpoint = {
+    feed: 'assignments',
+    version: response.sync.version,
+    total: response.sync.total,
+    truncated: response.sync.truncated,
+    // An unchanged answer fetched no rows; the held download's page count still describes the cache.
+    pageCount: response.sync.unchanged && held ? held.pageCount : response.pageCount,
+    syncBefore: response.syncBefore,
     fetchedAt,
-    options.isCurrent,
-    response.skippedCount,
-  );
+  };
+  if (response.sync.unchanged) {
+    await confirmCachedFieldValidationAssignments(
+      options.database,
+      options.ownerIdentity,
+      fetchedAt,
+      checkpoint,
+      options.isCurrent,
+    );
+  } else {
+    await replaceCachedFieldValidationAssignments(
+      options.database,
+      options.ownerIdentity,
+      response.assignments,
+      fetchedAt,
+      options.isCurrent,
+      response.skippedCount,
+      checkpoint,
+    );
+  }
   const assignments = await listCachedFieldValidationAssignments(
     options.database,
     options.ownerIdentity,
   );
-  return { assignments, fetchedAt, syncBefore: response.syncBefore, skippedCount: response.skippedCount };
+  const skippedCount = response.sync.unchanged
+    ? await readCachedFieldValidationSkippedCount(options.database, options.ownerIdentity)
+    : response.skippedCount;
+  return { assignments, fetchedAt, syncBefore: response.syncBefore, skippedCount };
+}
+
+/**
+ * The stored checkpoint, but only while the cache still holds every row that
+ * download delivered; a trimmed or cleared cache must refetch instead of
+ * trusting an "unchanged" answer.
+ */
+async function readHeldCheckpoint(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+): Promise<(SyncCheckpoint & { version: string }) | null> {
+  const checkpoint = await readSyncCheckpoint(database, ownerIdentity, 'assignments');
+  if (!checkpoint?.version) return null;
+  const delivered = checkpoint.truncated
+    ? Math.min(checkpoint.total, ASSIGNMENT_WORK_SET_CAP)
+    : checkpoint.total;
+  const cached = await listCachedFieldValidationAssignments(database, ownerIdentity);
+  const skipped = await readCachedFieldValidationSkippedCount(database, ownerIdentity);
+  return cached.length + skipped === delivered
+    ? { ...checkpoint, version: checkpoint.version }
+    : null;
 }

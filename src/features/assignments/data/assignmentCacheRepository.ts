@@ -8,6 +8,7 @@ import type {
   FieldValidationAssignmentUpdate,
 } from '@/features/assignments/domain/assignmentTypes';
 import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
+import { writeSyncCheckpoint, type SyncCheckpoint } from '@/features/sync/data/syncCheckpointRepository';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 export async function listCachedFieldValidationAssignments(
@@ -92,6 +93,7 @@ export async function replaceCachedFieldValidationAssignments(
   cachedAt: string,
   isCurrent?: () => boolean,
   skippedCount = 0,
+  checkpoint?: SyncCheckpoint,
 ): Promise<void> {
   const owner = requireOwner(ownerIdentity);
   if (!cachedAt || Number.isNaN(Date.parse(cachedAt))) {
@@ -134,12 +136,14 @@ export async function replaceCachedFieldValidationAssignments(
           .where(eq(fieldValidationAssignments.ownerIdentity, owner))
           .run();
         saveSkippedCount(transaction);
+        if (checkpoint) writeSyncCheckpoint(transaction, owner, checkpoint);
       });
       return;
     }
 
     database.transaction((transaction) => {
       saveSkippedCount(transaction);
+      if (checkpoint) writeSyncCheckpoint(transaction, owner, checkpoint);
       for (const assignment of current) {
         if (!incoming.has(assignment.id)) {
           transaction
@@ -183,6 +187,42 @@ export async function replaceCachedFieldValidationAssignments(
       }
     });
     emitSyncRecordsChanged();
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'UPDATE_FAILED',
+      'Updating cached field validation assignments failed.',
+    );
+  }
+}
+
+/**
+ * The server confirmed the cached snapshot is still current: keep every row,
+ * refresh when it was last confirmed, and move the checkpoint forward.
+ */
+export async function confirmCachedFieldValidationAssignments(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  cachedAt: string,
+  checkpoint: SyncCheckpoint,
+  isCurrent?: () => boolean,
+): Promise<void> {
+  const owner = requireOwner(ownerIdentity);
+  try {
+    if (isCurrent && !isCurrent()) {
+      throw new StorageError(
+        'UPDATE_FAILED',
+        'The assignment refresh was superseded before its cache could be updated.',
+      );
+    }
+    database.transaction((transaction) => {
+      transaction
+        .update(fieldValidationAssignments)
+        .set({ cachedAt })
+        .where(eq(fieldValidationAssignments.ownerIdentity, owner))
+        .run();
+      writeSyncCheckpoint(transaction, owner, checkpoint);
+    });
   } catch (error: unknown) {
     throw toStorageError(
       error,

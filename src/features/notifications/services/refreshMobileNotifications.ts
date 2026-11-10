@@ -4,6 +4,11 @@ import type {
   MobileNotification,
   MobileNotificationUpdate,
 } from '@/features/notifications/domain/notificationTypes';
+import {
+  derivePageCount,
+  saveSyncCheckpoint,
+  SYNC_FEED_PAGE_SIZE,
+} from '@/features/sync/data/syncCheckpointRepository';
 import { fetchAllMobileNotifications } from '@/features/notifications/api/mobileNotificationsApi';
 
 export interface MobileNotificationsRefreshResult {
@@ -98,6 +103,16 @@ async function executeRefresh(options: {
     fetchedAt,
     options.isCurrent,
   );
+  await saveSyncCheckpoint(options.database, options.ownerIdentity, {
+    feed: 'notifications',
+    version: null,
+    total: response.notifications.length,
+    truncated: false,
+    // Every request returns a page, so an empty feed still took one.
+    pageCount: Math.max(1, derivePageCount(response.notifications.length, SYNC_FEED_PAGE_SIZE)),
+    syncBefore: response.syncBefore,
+    fetchedAt,
+  });
   const notifications = await listCachedMobileNotifications(
     options.database,
     options.ownerIdentity,

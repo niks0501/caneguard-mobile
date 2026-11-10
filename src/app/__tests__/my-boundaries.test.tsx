@@ -96,7 +96,7 @@ describe('My boundaries', () => {
     ]);
     await render(<MyBoundariesScreen />);
     expect(screen.queryByText(`TRI · ${FIELD_SURVEY_COPY.myBoundariesNoPoints}`)).toBeNull();
-    expect(screen.getByLabelText(FIELD_SURVEY_COPY.myBoundariesRowOpenLabel('TRI'))).toBeTruthy();
+    expect(screen.getByLabelText(FIELD_SURVEY_COPY.myBoundariesRowOpenLabel('TRI · Needs a fix'))).toBeTruthy();
     expect(screen.getByLabelText(FIELD_SURVEY_COPY.myBoundariesRowOpenLabel(`LIPA · ${FIELD_SURVEY_COPY.myBoundariesNoPoints}`))).toBeTruthy();
   });
 

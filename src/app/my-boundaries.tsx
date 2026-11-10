@@ -48,11 +48,17 @@ function plotOf(row: FieldSurveyRow): { pointCount: number | null; hectares: str
   }
 }
 
-/** "No points yet" only when the boundary truly has none; a drawn but unmeasurable ring only shows its district. */
-function summaryOf(row: FieldSurveyRow, { pointCount, hectares }: { pointCount: number | null; hectares: string | null }): string {
+/** "No points yet" only when the boundary truly has none; a drawn draft that cannot be measured says it needs a fix. */
+function summaryOf(
+  row: FieldSurveyRow,
+  state: BoundaryState,
+  { pointCount, hectares }: { pointCount: number | null; hectares: string | null },
+): string {
   const district = row.districtCode === 'UNSPECIFIED' ? 'No district' : row.districtCode;
   if (hectares !== null) return `${district} · ${hectares} ha`;
-  return pointCount === 0 ? `${district} · ${FIELD_SURVEY_COPY.myBoundariesNoPoints}` : district;
+  if (pointCount === 0) return `${district} · ${FIELD_SURVEY_COPY.myBoundariesNoPoints}`;
+  if (state === 'draft' && pointCount !== null) return `${district} · ${BOUNDARY_STATE_COPY.needs_fix.label}`;
+  return district;
 }
 
 /** Every boundary saved on this phone, with its state, so older drafts can be reopened or deleted. */
@@ -118,7 +124,7 @@ export default function MyBoundariesScreen() {
           {rows?.map((row) => {
             const rowState = boundaryState(row);
             const copy = BOUNDARY_STATE_COPY[rowState];
-            const summary = summaryOf(row, plotOf(row));
+            const summary = summaryOf(row, rowState, plotOf(row));
             return (
               <Card key={row.clientUuid} testID={`my-boundaries.row.${row.clientUuid}`} style={styles.card}>
                 <View accessibilityValue={{ text: `state=${rowState}` }} style={styles.marker} />

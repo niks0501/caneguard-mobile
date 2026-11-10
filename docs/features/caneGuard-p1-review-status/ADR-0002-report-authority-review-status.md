@@ -28,6 +28,7 @@ The mobile client uses the v3 endpoint with the authenticated Field Reporter bea
 ```text
 GET /api/v3/mobile/reports/statuses
   ?per_page=100
+  [&since=<stored feed version>]
   [&updated_after=<ISO-8601 server update boundary>]
 ```
 
@@ -58,6 +59,8 @@ Each paginated response is validated before any local write. The consumed page e
 - `review_notes` may be `null`; nonblank notes are treated as plain text and are limited to the established server contract maximum of 1000 characters. Blank notes are not feedback.
 - `links.next` is either `null` or an absolute continuation URL. Every continuation must remain on the configured API origin and API path boundary. Cursor pages are followed until `next` is `null`; loops, malformed URLs, or a changed checkpoint fail the refresh.
 - `meta.sync_before` is the server checkpoint. It must be a valid timestamp, must remain identical on every page, and bounds the complete refresh. A continuation must not move that boundary.
+- `sync` may carry `version`, `total`, `truncated`, and `unchanged`. Absent stamps mean a server that predates feed versioning; a present but invalid stamp fails the refresh. `sync.version` is the feed stamp the phone stores and sends back as `since`, and an `unchanged` answer confirms that stored version by delivering no rows. The per-feed checkpoint this feed writes is described in `PROJECT_CONTEXT.md` — Synchronization.
+- A whole-feed answer must deliver exactly the rows `sync.total` promised; a truncated or version-scoped answer only has to fit inside that total.
 - Known raw values are preserved exactly. Unknown nonblank values are valid forward-compatible data, not a reason to discard the complete response.
 
 The mobile parser does not trust server-only report rows to reconstruct local records. Valid rows with no matching eligible local Field Report are ignored. A row that claims a matching local client UUID but has a conflicting server UUID is ignored and cannot overwrite local data.
@@ -109,8 +112,8 @@ The display time for feedback is `reviewed_at` when present, otherwise `updated_
 - Refresh runs when the relevant status surface gains focus.
 - While a status surface is mounted, app resume may refresh only when the owner cache is stale (five minutes is the implementation threshold). There are no timers, polling loops, background jobs, push notifications, notification permissions, unread state, or analytics.
 - Concurrent refreshes for the same database, owner, and bearer session coalesce into one request. A refresh for a different session is not coalesced with it.
-- The first request may omit `updated_after`. Later requests use the newest fully accepted cached server update with a small overlap, while preserving the response's `sync_before` checkpoint through every cursor page.
-- All cursor pages are fetched and validated into memory first. Only after complete pagination, checkpoint, origin, boundary, item, and identity validation does one SQLite transaction apply the batch and advance `authority_fetched_at`. A partial page or failed transaction leaves the prior cache and local delivery state unchanged.
+- The first request may omit `updated_after`. Once a complete download is stored, later requests send that feed version as `since` instead; without a stored version they fall back to the newest fully accepted cached server update with a small overlap. Every cursor page preserves the response's `sync_before` checkpoint.
+- All cursor pages are fetched and validated into memory first. Only after complete pagination, checkpoint, origin, boundary, item, and identity validation does one SQLite transaction apply the batch, advance `authority_fetched_at`, and write the feed's `sync_checkpoints` row. A partial page or failed transaction leaves the prior cache and local delivery state unchanged.
 - The current snapshot is retained indefinitely in SQLite. Offline detail views show the last known server update and feedback. A failed refresh never clears or rewrites a known snapshot.
 
 ## Presentation and neutral behavior

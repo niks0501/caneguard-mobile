@@ -240,6 +240,18 @@ manual Retry. The API request joins the referenced Scan Record evidence without
 copying or deleting it, derives submitter authority from the bearer session,
 and stores the returned remote UUID and successful sync time on Field Report.
 
+Assignments, notifications, and authority review status are downloaded through
+versioned feeds. Each page carries `sync.before` plus an optional `sync.version`,
+`sync.total`, `sync.truncated`, and `sync.unchanged`; a reported total replaces
+the fixed page ceiling when the phone decides how many pages to request, and an
+answer that confirms the stored version delivers no rows. The last complete
+download of each feed is recorded in the owner-scoped `sync_checkpoints` table
+(version, total, truncated, page count, `sync.before`, fetch time) in the same
+transaction that replaces that feed's cached rows, and both Settings clear
+actions delete it with those caches. The stored version is sent as `since` on the
+next download, except that the assignment download asks for the whole work set
+whenever its cache no longer holds every row that download delivered.
+
 ## Important conventions
 
 - TypeScript strict mode is enabled.
@@ -321,7 +333,7 @@ validates the advisory when present and treats an absent one as no advisory;
 the feed stays the owner of review status and never mutates the report
 submission.
 
-The assignment feed is owner-scoped to the authenticated field reporter and returns the complete current assignment snapshot through the `sync.before` and `links.next` pagination boundary. Mobile requests it only when the session carries `assignment:read`.
+The assignment feed is owner-scoped to the authenticated field reporter and returns the current assignment work set through the `sync.before` and `links.next` pagination boundary. One download asks for at most the 300-assignment work set; a larger set is reported as truncated instead of being silently cut, and a set that changes mid-download is retried from the full set before the refresh fails. Mobile requests it only when the session carries `assignment:read`.
 Mobile caches assignment snapshots separately from locally authored Scan Records and Field Reports so a server assignment can materialize even when the assignee did not submit the case.
 The cache keeps each assignment exactly as the server sent it: nothing on the phone rewrites its `field_validation_state`. A visit saved on the phone is layered over that snapshot for display only, so a queued visit reads `Waiting to send` and a delivered one keeps reading completed until the next feed refresh reports it.
 Assignment vocabulary is forward-compatible. A record whose `field_validation_state` this build does not know is left out of the snapshot and counted so Activity can say how many assigned cases the app version cannot show yet; an unknown `case.predicted_label` is kept and shown as not recognized by this app version; an unknown `previous_visit.follow_up_outcome` is kept as unknown. Malformed shape or identity still fails the whole refresh and names the offending record by `reference_code`, or by its page index when the record carries none.

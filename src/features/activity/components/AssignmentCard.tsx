@@ -42,7 +42,8 @@ export function AssignmentCard({
 }) {
   const theme = useTheme();
   const photoUri = useAssignmentPhotoUri(assignment);
-  const variant = toPillVariant(assignment.case.predictedLabel);
+  const predictedLabel = assignment.case.predictedLabel;
+  const variant = predictedLabel === null ? null : toPillVariant(predictedLabel);
   const target = assignment.targetVisitDate
     ? formatDate(assignment.targetVisitDate)
     : 'No target visit date';
@@ -88,10 +89,12 @@ export function AssignmentCard({
               ? assignment.referenceCode
               : `${assignment.referenceCode} · ${progress}`}
           </Text>
-          <DiseasePill
-            variant={variant}
-            label={assignment.case.predictedLabel === UNKNOWN_PREDICTED_LABEL ? UNRECOGNIZED_LABEL_TEXT : undefined}
-          />
+          {variant ? (
+            <DiseasePill
+              variant={variant}
+              label={predictedLabel === UNKNOWN_PREDICTED_LABEL ? UNRECOGNIZED_LABEL_TEXT : undefined}
+            />
+          ) : null}
         </View>
       </View>
     </Pressable>

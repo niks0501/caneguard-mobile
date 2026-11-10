@@ -24,7 +24,7 @@ import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { HelpHintGroup } from '@/components/ui/HelpHint';
 import { Row } from '@/components/ui/Row';
 import { TextField } from '@/components/ui/TextField';
-import { CASE_CLOSE_NOTICE, DECISION_SUPPORT_DISCLAIMER, FIELD_VALIDATION_UNAVAILABLE } from '@/constants/copy';
+import { CASE_CLOSE_NOTICE, DECISION_SUPPORT_DISCLAIMER, FIELD_VALIDATION_UNAVAILABLE, OFFICE_CASE_COPY } from '@/constants/copy';
 import { FollowUpOutcomeControl, OUTCOME_LABELS } from '@/features/assignments/components/FollowUpOutcomeControl';
 import { OfficeCaseCard } from '@/features/assignments/components/OfficeCaseCard';
 import { PreviousVisitCard } from '@/features/assignments/components/PreviousVisitCard';
@@ -386,7 +386,10 @@ function VisitHistory({
       title="Previous visit and original report"
       summary={previousVisit ? '1 previous visit · original report' : 'No previous visit · original report'}>
       <Text style={[styles.help, { color: theme.textSecondary }]}>Recorded before this visit and submitted by the reporter. It is decision-support only, cannot be changed here, and is kept separate from your field findings.</Text>
-      <Row label="Possible Condition" value={getResultLabel(assignment.case.predictedLabel)} />
+      <Row
+        label="Possible Condition"
+        value={assignment.case.predictedLabel === null ? OFFICE_CASE_COPY.noAiScan : getResultLabel(assignment.case.predictedLabel)}
+      />
       <Row label="Submitted by" value={assignment.submitter.name} />
       {completion ? <Row label="Visit time" value={formatTimestamp(completion.visitedAt)} /> : null}
       <PreviousVisitCard

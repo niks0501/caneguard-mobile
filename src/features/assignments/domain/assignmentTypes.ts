@@ -3,6 +3,8 @@ import type { PreviousVisitContext } from '@/features/assignments/domain/previou
 
 /** Stored when the server sends a predicted_label this app version does not know. */
 export const UNKNOWN_PREDICTED_LABEL = 'unknown';
+/** Cache-only stand-in (the stored columns are NOT NULL) for an office record with no AI scan. */
+export const NO_AI_SCAN_CACHE_LABEL = 'no_ai_scan';
 
 /** The reporter's own words about an office-born case. */
 export interface OfficeCaseReporterConcern {
@@ -54,8 +56,9 @@ export interface FieldValidationAssignment {
     capturedAt: string;
     observedAt: string | null;
     submittedAt: string;
-    predictedLabel: string;
-    confidence: number;
+    /** Null for an office record with no AI scan; field-born cases always have both. */
+    predictedLabel: string | null;
+    confidence: number | null;
   };
   previousVisit?: PreviousVisitContext | null;
   /** Present only for office-born cases; absent means a field-born case. */

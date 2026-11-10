@@ -508,7 +508,7 @@ function matchesSearch(
     assignment.case.barangay,
     assignment.case.predictedLabel,
     assignment.submitter.name,
-  ].some((value) => value.toLowerCase().includes(query));
+  ].some((value) => value?.toLowerCase().includes(query));
 }
 
 function getEmptyTitle(

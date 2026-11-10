@@ -186,4 +186,16 @@ describe('refreshAuthorityReviewStatus', () => {
       expect.objectContaining({ version: 'v-1', total: 250, truncated: true, pageCount: 3 }),
     );
   });
+  // Proves: the status cursor reads the stored server checkpoint (sync.before minus overlap), not the newest row.
+  it('starts the status cursor from the held checkpoint, ahead of the newest cached row', async () => {
+    readCheckpoint.mockResolvedValueOnce({ ...HELD, version: null, syncBefore: '2026-08-13T11:30:00.000Z' });
+    findLatestUpdatedAt.mockResolvedValueOnce('2026-08-13T10:00:00.000Z');
+
+    await refreshAuthorityReviewStatus({ database, submitterIdentity: 'owner-cursor', token: 'token-1' });
+
+    expect(fetchStatuses).toHaveBeenCalledWith(
+      expect.objectContaining({ updatedAfter: '2026-08-13T11:29:59.000Z' }),
+    );
+  });
+
 });

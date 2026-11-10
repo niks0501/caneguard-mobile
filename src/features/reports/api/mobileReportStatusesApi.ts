@@ -25,6 +25,23 @@ export interface MobileReportStatusesResult {
   pageCount: number;
 }
 
+/**
+ * Pages already downloaded from one server checkpoint. A retry of the same request
+ * continues at `nextPath` instead of restarting from page one.
+ */
+interface StatusDownloadProgress {
+  nextPath: string;
+  syncBefore: string;
+  sync: SyncEnvelope;
+  updates: AuthorityReviewStatusUpdate[];
+  visited: string[];
+  pagesRequested: number;
+}
+
+/** A parked download older than this is dropped: the feed has likely moved on. */
+const RESUME_MAX_AGE_MS = 10 * 60_000;
+const parkedDownloads = new Map<string, { progress: StatusDownloadProgress; parkedAt: number }>();
+
 export type ReportStatusesErrorCode =
   | 'AUTH_REQUIRED'
   | 'CAPABILITY_UNAVAILABLE'
@@ -37,11 +54,7 @@ export class ReportStatusesApiError extends Error {
   readonly code: ReportStatusesErrorCode;
   readonly status: number | null;
 
-  constructor(
-    code: ReportStatusesErrorCode,
-    message: string,
-    status: number | null = null,
-  ) {
+  constructor(code: ReportStatusesErrorCode, message: string, status: number | null = null) {
     super(message);
     this.name = 'ReportStatusesApiError';
     this.code = code;
@@ -57,49 +70,89 @@ export async function fetchAllMobileReportStatuses(options: {
 }): Promise<MobileReportStatusesResult> {
   const since = options.since ?? null;
   const initialPath = buildInitialPath(options.updatedAfter, since);
-  const visited = new Set<string>();
-  const updates: AuthorityReviewStatusUpdate[] = [];
-  let path: string | null = initialPath;
-  let syncBefore: string | null = null;
-  let sync: SyncEnvelope | null = null;
-  let pageLimit = 1;
-  let pagesRequested = 0;
+  // Keyed by account token and first-page path: only a retry of the same request resumes.
+  const parkKey = `${options.token}\n${initialPath}`;
+  const parked = parkedDownloads.get(parkKey);
+  const resume =
+    parked && Date.now() - parked.parkedAt <= RESUME_MAX_AGE_MS ? parked.progress : null;
+  const visited = new Set<string>(resume?.visited ?? []);
+  const updates: AuthorityReviewStatusUpdate[] = [...(resume?.updates ?? [])];
+  let path: string | null = resume?.nextPath ?? initialPath;
+  let syncBefore: string | null = resume?.syncBefore ?? null;
+  let sync: SyncEnvelope | null = resume?.sync ?? null;
+  let pageLimit = sync ? envelopePageLimit(sync, PAGE_SIZE, MAX_PAGES) : 1;
+  let pagesRequested = resume?.pagesRequested ?? 0;
+  let resumedPage = Boolean(resume);
 
-  for (let pageNumber = 0; path; pageNumber += 1) {
-    if (pageNumber >= pageLimit || visited.has(path)) {
-      throw new ReportStatusesApiError(
-        'MALFORMED_RESPONSE',
-        'The authority review feed pagination did not complete safely.',
-      );
-    }
-    visited.add(path);
+  try {
+    for (let pageNumber = pagesRequested; path; pageNumber += 1) {
+      if (pageNumber >= pageLimit || visited.has(path)) {
+        throw new ReportStatusesApiError(
+          'MALFORMED_RESPONSE',
+          'The authority review feed pagination did not complete safely.',
+        );
+      }
+      visited.add(path);
 
-    const page = await requestPage(path, options.token);
-    pagesRequested += 1;
-    if (syncBefore && page.syncBefore !== syncBefore) {
-      throw new ReportStatusesApiError(
-        'MALFORMED_RESPONSE',
-        'The authority review feed checkpoint changed during pagination.',
-      );
-    }
-    syncBefore ??= page.syncBefore;
-    if (!sync) {
-      sync = page.sync;
-      // The reported total tells how many pages the download needs; it replaces the fixed ceiling.
-      pageLimit = envelopePageLimit(sync, PAGE_SIZE, MAX_PAGES);
-    } else if (page.sync.version !== sync.version || page.sync.total !== sync.total) {
-      throw new ReportStatusesApiError(
-        'MALFORMED_RESPONSE',
-        'The authority review feed version changed during pagination.',
-      );
-    }
-    updates.push(...page.updates);
+      const page = await requestPage(path, options.token);
+      pagesRequested += 1;
+      if (
+        resumedPage &&
+        sync &&
+        (page.syncBefore !== syncBefore ||
+          page.sync.version !== sync.version ||
+          page.sync.total !== sync.total)
+      ) {
+        // The feed moved on while the download was parked; its stored pages describe a stale set.
+        parkedDownloads.delete(parkKey);
+        return fetchAllMobileReportStatuses(options);
+      }
+      resumedPage = false;
+      if (syncBefore && page.syncBefore !== syncBefore) {
+        throw new ReportStatusesApiError(
+          'MALFORMED_RESPONSE',
+          'The authority review feed checkpoint changed during pagination.',
+        );
+      }
+      syncBefore ??= page.syncBefore;
+      if (!sync) {
+        sync = page.sync;
+        // The reported total tells how many pages the download needs; it replaces the fixed ceiling.
+        pageLimit = envelopePageLimit(sync, PAGE_SIZE, MAX_PAGES);
+      } else if (page.sync.version !== sync.version || page.sync.total !== sync.total) {
+        throw new ReportStatusesApiError(
+          'MALFORMED_RESPONSE',
+          'The authority review feed version changed during pagination.',
+        );
+      }
+      updates.push(...page.updates);
 
-    if (page.nextPath) {
-      assertContinuationCheckpoint(page.nextPath, syncBefore);
+      if (page.nextPath) {
+        assertContinuationCheckpoint(page.nextPath, syncBefore);
+      }
+      path = page.nextPath;
+      if (path && syncBefore && sync) {
+        parkedDownloads.set(parkKey, {
+          progress: {
+            nextPath: path,
+            syncBefore,
+            sync,
+            updates: [...updates],
+            visited: [...visited],
+            pagesRequested,
+          },
+          parkedAt: Date.now(),
+        });
+      }
     }
-    path = page.nextPath;
+  } catch (error: unknown) {
+    // Only a dropped connection keeps the stored pages; a rejected or malformed answer restarts.
+    if (!(error instanceof ReportStatusesApiError && isInterruption(error))) {
+      parkedDownloads.delete(parkKey);
+    }
+    throw error;
   }
+  parkedDownloads.delete(parkKey);
 
   if (!syncBefore || !sync) {
     throw new ReportStatusesApiError(
@@ -147,6 +200,10 @@ export async function fetchAllMobileReportStatuses(options: {
     },
     pageCount: pagesRequested,
   };
+}
+
+function isInterruption(error: ReportStatusesApiError): boolean {
+  return error.code === 'NETWORK' || error.code === 'TIMEOUT';
 }
 
 async function requestPage(
@@ -294,11 +351,7 @@ function parseAdvisory(value: unknown): MobileReportAdvisory | null {
  * A whole-feed answer must deliver exactly the rows its total promised; a cut
  * or version-scoped answer only has to fit inside that total.
  */
-function isConsistentTotal(
-  sync: SyncEnvelope,
-  received: number,
-  since: string | null,
-): boolean {
+function isConsistentTotal(sync: SyncEnvelope, received: number, since: string | null): boolean {
   if (sync.total === null) return true;
   return !sync.truncated && !since ? sync.total === received : sync.total >= received;
 }
@@ -341,10 +394,7 @@ function toSafeContinuationPath(rawUrl: string): string {
       'The authority review feed continuation left the API path boundary.',
     );
   }
-  if (
-    url.pathname !== STATUS_PATH &&
-    !url.pathname.startsWith(`${STATUS_PATH}/`)
-  ) {
+  if (url.pathname !== STATUS_PATH && !url.pathname.startsWith(`${STATUS_PATH}/`)) {
     throw new ReportStatusesApiError(
       'ORIGIN_MISMATCH',
       'The authority review feed continuation left the endpoint boundary.',
@@ -450,10 +500,7 @@ function mapApiError(error: unknown): ReportStatusesApiError {
     );
   }
   if (isAbortError(error)) {
-    return new ReportStatusesApiError(
-      'TIMEOUT',
-      'The authority review status request timed out.',
-    );
+    return new ReportStatusesApiError('TIMEOUT', 'The authority review status request timed out.');
   }
   return new ReportStatusesApiError(
     'NETWORK',

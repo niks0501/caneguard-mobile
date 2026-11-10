@@ -340,4 +340,63 @@ describe('mobile report statuses API', () => {
       code: 'MALFORMED_RESPONSE',
     });
   });
+  describe('resuming an interrupted download', () => {
+    const NEXT_2 = '/api/v3/mobile/reports/statuses?page=2';
+    const NEXT_3 = '/api/v3/mobile/reports/statuses?page=3';
+    const envelope = (version: string) => ({ before: CHECKPOINT, version, total: 250, truncated: true });
+    const pageOf = (n: number, next: string | null, version = 'v-1') => ({
+      ...page([item({ uuid: `remote-${n}`, client_uuid: `client-${n}` })], next),
+      sync: envelope(version),
+    });
+    const networkError = () => new ApiHttpError(503, 'down');
+
+    // Proves: killing a refresh mid-pages then retrying fetches only the missing pages.
+    it('continues at the first page that was not stored', async () => {
+      request
+        .mockResolvedValueOnce(pageOf(1, NEXT_2))
+        .mockRejectedValueOnce(networkError());
+      await expect(fetchAllMobileReportStatuses({ token: 'resume-a' })).rejects.toMatchObject({
+        code: 'NETWORK',
+      });
+
+      request.mockReset();
+      request.mockResolvedValueOnce(pageOf(2, NEXT_3)).mockResolvedValueOnce(pageOf(3, null));
+      const result = await fetchAllMobileReportStatuses({ token: 'resume-a' });
+
+      expect(request.mock.calls.map(([path]) => path)).toEqual([NEXT_2, NEXT_3]);
+      expect(result.updates.map((u) => u.remoteUuid)).toEqual(['remote-1', 'remote-2', 'remote-3']);
+      expect(result.pageCount).toBe(3);
+    });
+
+    // Proves: a changed version restarts from page one.
+    it('restarts from page one when the feed version changed meanwhile', async () => {
+      request
+        .mockResolvedValueOnce(pageOf(1, NEXT_2))
+        .mockRejectedValueOnce(networkError());
+      await expect(fetchAllMobileReportStatuses({ token: 'resume-b' })).rejects.toBeDefined();
+
+      request.mockReset();
+      request
+        .mockResolvedValueOnce(pageOf(2, NEXT_3, 'v-2'))
+        .mockResolvedValueOnce(pageOf(1, NEXT_2, 'v-2'))
+        .mockResolvedValueOnce(pageOf(2, NEXT_3, 'v-2'))
+        .mockResolvedValueOnce(pageOf(3, null, 'v-2'));
+      const result = await fetchAllMobileReportStatuses({ token: 'resume-b' });
+
+      expect(request.mock.calls.map(([path]) => path)[1]).toMatch(/per_page=100/);
+      expect(result.sync.version).toBe('v-2');
+      expect(result.updates).toHaveLength(3);
+    });
+
+    // Proves: a completed refresh leaves nothing to resume (cursor advances only on a whole download).
+    it('starts over once a download completed', async () => {
+      request.mockResolvedValueOnce(pageOf(1, NEXT_2)).mockResolvedValueOnce(pageOf(2, null));
+      await fetchAllMobileReportStatuses({ token: 'resume-c' });
+
+      request.mockReset();
+      request.mockResolvedValueOnce(pageOf(1, null));
+      await fetchAllMobileReportStatuses({ token: 'resume-c' });
+      expect(String(request.mock.calls[0][0])).toMatch(/per_page=100/);
+    });
+  });
 });

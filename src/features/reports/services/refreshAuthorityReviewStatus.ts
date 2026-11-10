@@ -71,7 +71,8 @@ async function executeRefresh(options: {
   );
   const response = await fetchAllMobileReportStatuses({
     token: options.token,
-    updatedAfter: getOverlappedUpdatedAfter(latestServerUpdateAt),
+    // The cursor is the last fully stored download's server checkpoint, not the newest row.
+    updatedAfter: getOverlappedUpdatedAfter(held?.syncBefore ?? latestServerUpdateAt),
     since: held?.version ?? null,
   });
   const fetchedAt = new Date().toISOString();

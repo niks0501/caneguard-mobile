@@ -204,12 +204,7 @@ function parseAssignment(
   const assignee = parsePerson(value.assignee, 'assignee');
   const targetVisitDate = parseDate(value.target_visit_date, 'target_visit_date');
   const fieldValidationState = parseAssignmentState(value.field_validation_state);
-  if (fieldValidationState === null) {
-    console.warn(
-      `[assignments] Skipping record ${referenceCode}: unknown field_validation_state.`,
-    );
-    return null;
-  }
+  if (fieldValidationState === null) return null;
   const assignedAt = requireTimestamp(value.assigned_at, 'assigned_at');
   const updatedAt = requireTimestamp(value.updated_at, 'updated_at');
   const rawCase = isRecord(value.case) ? value.case : null;

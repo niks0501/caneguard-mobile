@@ -4,6 +4,10 @@ import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import { fieldReports } from '@/database/schema';
 import type { AuthorityReviewStatusUpdate } from '@/features/reports/domain/reportReviewTypes';
+import {
+  writeSyncCheckpoint,
+  type SyncCheckpoint,
+} from '@/features/sync/data/syncCheckpointRepository';
 
 export interface ApplyAuthorityReviewResult {
   applied: number;
@@ -102,6 +106,7 @@ export async function applyAuthorityReviewUpdates(
   submitterIdentity: string,
   updates: AuthorityReviewStatusUpdate[],
   fetchedAt: string,
+  checkpoint?: SyncCheckpoint,
 ): Promise<ApplyAuthorityReviewResult> {
   const owner = submitterIdentity.trim();
   if (!owner || !fetchedAt || Number.isNaN(Date.parse(fetchedAt))) {
@@ -162,6 +167,8 @@ export async function applyAuthorityReviewUpdates(
         eligibleWithIdentity.map((row) => [row.id, row]),
       );
       let applied = 0;
+
+      if (checkpoint) writeSyncCheckpoint(transaction, owner, checkpoint);
 
       // Stamp every eligible local report only after the complete server feed has
       // been validated. This gives an owner with no status row a durable refresh

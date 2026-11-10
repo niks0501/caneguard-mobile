@@ -742,6 +742,7 @@ describe('CaneGuard database migrations', () => {
       '0028_field_report_survey_link',
       '0029_scan_personal_place',
       '0030_field_validation_snapshot_skipped',
+      '0031_gorgeous_ben_grimm',
     ]);
     expect(Object.keys(migrationBundle.migrations)).toEqual([
       'm0000',
@@ -775,6 +776,7 @@ describe('CaneGuard database migrations', () => {
       'm0028',
       'm0029',
       'm0030',
+      'm0031',
     ]);
     expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
       migration0,
@@ -808,6 +810,7 @@ describe('CaneGuard database migrations', () => {
       readMigration('0028_field_report_survey_link.sql'),
       readMigration('0029_scan_personal_place.sql'),
       readMigration('0030_field_validation_snapshot_skipped.sql'),
+      readMigration('0031_gorgeous_ben_grimm.sql'),
     ]);
   });
 });

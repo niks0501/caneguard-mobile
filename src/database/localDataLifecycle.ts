@@ -12,6 +12,7 @@ import {
   localDrafts,
   mobileNotifications,
   scanRecords,
+  syncCheckpoints,
 } from '@/database/schema';
 import {
   deleteFieldValidationPhoto,
@@ -171,6 +172,10 @@ export async function clearCachedOfficeDataForOwner(
         .delete(fieldValidationAssignmentSnapshots)
         .where(eq(fieldValidationAssignmentSnapshots.ownerIdentity, owner))
         .run();
+      transaction
+        .delete(syncCheckpoints)
+        .where(eq(syncCheckpoints.ownerIdentity, owner))
+        .run();
       deletedRows += transaction
         .delete(mobileNotifications)
         .where(eq(mobileNotifications.ownerIdentity, owner))
@@ -228,6 +233,10 @@ export async function clearLocalDataForOwner(
       transaction
         .delete(fieldValidationAssignmentSnapshots)
         .where(eq(fieldValidationAssignmentSnapshots.ownerIdentity, owner))
+        .run();
+      transaction
+        .delete(syncCheckpoints)
+        .where(eq(syncCheckpoints.ownerIdentity, owner))
         .run();
       deletedRows += transaction
         .delete(mobileNotifications)

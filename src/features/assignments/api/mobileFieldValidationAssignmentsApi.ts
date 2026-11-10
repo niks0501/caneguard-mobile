@@ -11,11 +11,24 @@ import {
   type FieldValidationAssignmentUpdate,
 } from '@/features/assignments/domain/assignmentTypes';
 import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
+import {
+  envelopeExpectedRows,
+  envelopePageLimit,
+  type SyncEnvelope,
+  type SyncFeedSummary,
+  parseSyncEnvelope,
+  SyncEnvelopeFieldError,
+} from '@/features/sync/api/syncEnvelope';
 import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 
 const ASSIGNMENT_PATH = '/api/v1/mobile/assignments';
-const PAGE_SIZE = 100;
+export const ASSIGNMENT_PAGE_SIZE = 100;
+/** The most assignments one download asks for; the server honours at most 300. */
+export const ASSIGNMENT_WORK_SET_CAP = 300;
+const PAGE_SIZE = ASSIGNMENT_PAGE_SIZE;
+/** Ceiling for servers that do not report sync.total; a reported total replaces it. */
 const MAX_PAGES = 500;
+const MAX_RESTARTS = 2;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -24,8 +37,12 @@ export interface MobileFieldValidationAssignmentsResult {
   assignments: FieldValidationAssignmentUpdate[];
   /** Records dropped because their vocabulary (field_validation_state) is unknown to this build. */
   skippedCount: number;
+  sync: AssignmentSyncSummary;
+  /** Pages this download requested; zero when the server answered unchanged. */
+  pageCount: number;
 }
 
+export type AssignmentSyncSummary = SyncFeedSummary;
 
 export type MobileFieldValidationAssignmentsErrorCode =
   | 'AUTH_REQUIRED'
@@ -33,6 +50,7 @@ export type MobileFieldValidationAssignmentsErrorCode =
   | 'MALFORMED_RESPONSE'
   | 'NETWORK'
   | 'ORIGIN_MISMATCH'
+  | 'SYNC_RESTART'
   | 'TIMEOUT';
 
 export class MobileFieldValidationAssignmentsApiError extends Error {
@@ -54,17 +72,46 @@ export class MobileFieldValidationAssignmentsApiError extends Error {
 export async function fetchAllMobileFieldValidationAssignments(options: {
   token: string;
   updatedAfter?: string | null;
+  /** The version of the last complete download; an unchanged work set then costs one request. */
+  since?: string | null;
 }): Promise<MobileFieldValidationAssignmentsResult> {
-  const initialPath = buildInitialPath(options.updatedAfter);
+  let since = options.since ?? null;
+  for (let restarts = 0; ; restarts += 1) {
+    try {
+      return await downloadAssignments({ ...options, since });
+    } catch (error: unknown) {
+      if (!isSyncRestart(error)) throw error;
+      if (restarts >= MAX_RESTARTS) {
+        throw new MobileFieldValidationAssignmentsApiError(
+          'NETWORK',
+          'The assignment set kept changing during the download.',
+          409,
+        );
+      }
+      // A partial download is discarded; the retry asks for the full set.
+      since = null;
+    }
+  }
+}
+
+async function downloadAssignments(options: {
+  token: string;
+  updatedAfter?: string | null;
+  since: string | null;
+}): Promise<MobileFieldValidationAssignmentsResult> {
+  const initialPath = buildInitialPath(options.updatedAfter, options.since);
   const visited = new Set<string>();
   const identities: AssignmentIdentityIndex = { ids: new Set(), reportIds: new Set() };
   const assignments: FieldValidationAssignmentUpdate[] = [];
   let skippedCount = 0;
   let path: string | null = initialPath;
   let syncBefore: string | null = null;
+  let sync: SyncEnvelope | null = null;
+  let pagesRequested = 0;
+  let pageLimit = 1;
 
   for (let pageNumber = 0; path; pageNumber += 1) {
-    if (pageNumber >= MAX_PAGES || visited.has(path)) {
+    if (pageNumber >= pageLimit || visited.has(path)) {
       throw new MobileFieldValidationAssignmentsApiError(
         'MALFORMED_RESPONSE',
         'The assignment feed pagination did not complete safely.',
@@ -73,6 +120,7 @@ export async function fetchAllMobileFieldValidationAssignments(options: {
     visited.add(path);
 
     const page = await requestPage(path, options.token, identities);
+    pagesRequested += 1;
     if (syncBefore && page.syncBefore !== syncBefore) {
       throw new MobileFieldValidationAssignmentsApiError(
         'MALFORMED_RESPONSE',
@@ -80,6 +128,21 @@ export async function fetchAllMobileFieldValidationAssignments(options: {
       );
     }
     syncBefore ??= page.syncBefore;
+    if (!sync) {
+      sync = page.sync;
+      // The reported total tells how many pages the download needs; it replaces the fixed ceiling.
+      pageLimit = envelopePageLimit(
+        sync,
+        PAGE_SIZE,
+        MAX_PAGES,
+        ASSIGNMENT_WORK_SET_CAP,
+      );
+    } else if (page.sync.version !== sync.version || page.sync.total !== sync.total) {
+      throw new MobileFieldValidationAssignmentsApiError(
+        'MALFORMED_RESPONSE',
+        'The assignment feed version changed during pagination.',
+      );
+    }
     assignments.push(...page.assignments);
     skippedCount += page.skippedCount;
 
@@ -89,14 +152,60 @@ export async function fetchAllMobileFieldValidationAssignments(options: {
     path = page.nextPath;
   }
 
-  if (!syncBefore) {
+  if (!syncBefore || !sync) {
     throw new MobileFieldValidationAssignmentsApiError(
       'MALFORMED_RESPONSE',
       'The assignment feed did not provide a server checkpoint.',
     );
   }
 
-  return { syncBefore, assignments, skippedCount };
+  const received = assignments.length + skippedCount;
+  if (sync.unchanged) {
+    if (received > 0 || !options.since || sync.version !== options.since) {
+      throw new MobileFieldValidationAssignmentsApiError(
+        'MALFORMED_RESPONSE',
+        'The assignment feed unchanged answer was inconsistent.',
+      );
+    }
+    return {
+      syncBefore,
+      assignments,
+      skippedCount,
+      sync: { version: sync.version, total: sync.total ?? 0, truncated: sync.truncated, unchanged: true },
+      pageCount: 0,
+    };
+  }
+
+  if (sync.total !== null) {
+    const expectedRows = envelopeExpectedRows(sync, ASSIGNMENT_WORK_SET_CAP);
+    if (received !== expectedRows || pagesRequested !== pageLimit) {
+      throw new MobileFieldValidationAssignmentsApiError(
+        'MALFORMED_RESPONSE',
+        'The assignment feed did not deliver the rows its total promised.',
+      );
+    }
+  }
+
+  return {
+    syncBefore,
+    assignments,
+    skippedCount,
+    sync: {
+      version: sync.version,
+      total: sync.total ?? received,
+      truncated: sync.truncated,
+      unchanged: false,
+    },
+    pageCount: pagesRequested,
+  };
+}
+
+function isSyncRestart(error: unknown): boolean {
+  return (
+    error instanceof MobileFieldValidationAssignmentsApiError &&
+    error.status === 409 &&
+    error.code === 'SYNC_RESTART'
+  );
 }
 
 async function requestPage(
@@ -106,6 +215,7 @@ async function requestPage(
 ): Promise<{
   nextPath: string | null;
   syncBefore: string;
+  sync: SyncEnvelope;
   assignments: FieldValidationAssignmentUpdate[];
   skippedCount: number;
 }> {
@@ -130,6 +240,7 @@ async function requestPage(
 function parsePage(body: unknown, identities: AssignmentIdentityIndex): {
   nextPath: string | null;
   syncBefore: string;
+  sync: SyncEnvelope;
   assignments: FieldValidationAssignmentUpdate[];
   skippedCount: number;
 } {
@@ -164,6 +275,7 @@ function parsePage(body: unknown, identities: AssignmentIdentityIndex): {
   return {
     nextPath: rawNext === null ? null : toSafeContinuationPath(rawNext),
     syncBefore,
+    sync: parseSync(sync),
     assignments,
     skippedCount,
   };
@@ -293,9 +405,23 @@ function parsePerson(value: unknown, field: string): { uuid: string; name: strin
   };
 }
 
-function buildInitialPath(updatedAfter: string | null | undefined): string {
-  const query = new URLSearchParams({ per_page: String(PAGE_SIZE) });
+/** Tolerant of servers that predate versioning: absent stamps read as unknown. */
+function parseSync(sync: Record<string, unknown> | null): SyncEnvelope {
+  try {
+    return parseSyncEnvelope(sync);
+  } catch (error: unknown) {
+    if (error instanceof SyncEnvelopeFieldError) throw malformed(`sync.${error.field}`);
+    throw error;
+  }
+}
+
+function buildInitialPath(updatedAfter: string | null | undefined, since: string | null): string {
+  const query = new URLSearchParams({
+    per_page: String(PAGE_SIZE),
+    limit: String(ASSIGNMENT_WORK_SET_CAP),
+  });
   if (updatedAfter) query.set('updated_after', updatedAfter);
+  if (since) query.set('since', since);
   return `${ASSIGNMENT_PATH}?${query.toString()}`;
 }
 
@@ -455,6 +581,7 @@ function mapApiError(error: unknown): MobileFieldValidationAssignmentsApiError {
   if (error instanceof MobileFieldValidationAssignmentsApiError) return error;
   if (error instanceof ApiHttpError) {
     if (error.status === 401) return new MobileFieldValidationAssignmentsApiError('AUTH_REQUIRED', 'The assignment session expired.', error.status);
+    if (error.status === 409 && isRecord(error.body) && error.body.code === 'SYNC_RESTART') return new MobileFieldValidationAssignmentsApiError('SYNC_RESTART', 'The assignment set changed during the download.', error.status);
     if (error.status === 403 || error.status === 404) return new MobileFieldValidationAssignmentsApiError('CAPABILITY_UNAVAILABLE', 'Field validation assignments are unavailable on this server.', error.status);
     return new MobileFieldValidationAssignmentsApiError('NETWORK', 'Field validation assignments could not be refreshed.', error.status);
   }

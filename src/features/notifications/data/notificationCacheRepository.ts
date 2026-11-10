@@ -8,6 +8,10 @@ import type {
   MobileNotificationAdvisory,
   MobileNotificationUpdate,
 } from '@/features/notifications/domain/notificationTypes';
+import {
+  writeSyncCheckpoint,
+  type SyncCheckpoint,
+} from '@/features/sync/data/syncCheckpointRepository';
 
 type ConfirmedReadMap = Map<string, Map<string, string>>;
 const confirmedReads = new WeakMap<CaneGuardDatabase, ConfirmedReadMap>();
@@ -43,6 +47,7 @@ export async function replaceCachedMobileNotifications(
   updates: MobileNotificationUpdate[],
   cachedAt: string,
   isCurrent?: () => boolean,
+  checkpoint?: SyncCheckpoint,
 ): Promise<void> {
   const owner = requireOwner(ownerIdentity);
   if (!cachedAt || Number.isNaN(Date.parse(cachedAt))) {
@@ -73,15 +78,19 @@ export async function replaceCachedMobileNotifications(
     });
 
     if (!removed && !changed) {
-      database
-        .update(mobileNotifications)
-        .set({ cachedAt })
-        .where(eq(mobileNotifications.ownerIdentity, owner))
-        .run();
+      database.transaction((transaction) => {
+        transaction
+          .update(mobileNotifications)
+          .set({ cachedAt })
+          .where(eq(mobileNotifications.ownerIdentity, owner))
+          .run();
+        if (checkpoint) writeSyncCheckpoint(transaction, owner, checkpoint);
+      });
       return;
     }
 
     database.transaction((transaction) => {
+      if (checkpoint) writeSyncCheckpoint(transaction, owner, checkpoint);
       for (const notification of current) {
         if (!incoming.has(notification.id)) {
           transaction
@@ -124,6 +133,46 @@ export async function replaceCachedMobileNotifications(
             .run();
         }
       }
+    });
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'UPDATE_FAILED',
+      'Updating cached notifications failed.',
+    );
+  }
+}
+
+/**
+ * The server confirmed the cached snapshot is still current: keep every row,
+ * refresh when it was last confirmed, and move the checkpoint forward.
+ */
+export async function confirmCachedMobileNotifications(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  cachedAt: string,
+  checkpoint: SyncCheckpoint,
+  isCurrent?: () => boolean,
+): Promise<void> {
+  const owner = requireOwner(ownerIdentity);
+  if (!cachedAt || Number.isNaN(Date.parse(cachedAt))) {
+    throw new StorageError('UPDATE_FAILED', 'The notification cache timestamp is invalid.');
+  }
+
+  try {
+    if (isCurrent && !isCurrent()) {
+      throw new StorageError(
+        'UPDATE_FAILED',
+        'The notification refresh was superseded before its cache could be updated.',
+      );
+    }
+    database.transaction((transaction) => {
+      transaction
+        .update(mobileNotifications)
+        .set({ cachedAt })
+        .where(eq(mobileNotifications.ownerIdentity, owner))
+        .run();
+      writeSyncCheckpoint(transaction, owner, checkpoint);
     });
   } catch (error: unknown) {
     throw toStorageError(

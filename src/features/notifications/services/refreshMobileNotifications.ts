@@ -1,9 +1,17 @@
 import type { CaneGuardDatabase } from '@/database/database';
-import { listCachedMobileNotifications, replaceCachedMobileNotifications } from '@/features/notifications/data/notificationCacheRepository';
+import {
+  confirmCachedMobileNotifications,
+  listCachedMobileNotifications,
+  replaceCachedMobileNotifications,
+} from '@/features/notifications/data/notificationCacheRepository';
 import type {
   MobileNotification,
   MobileNotificationUpdate,
 } from '@/features/notifications/domain/notificationTypes';
+import {
+  readSyncCheckpoint,
+  type SyncCheckpoint,
+} from '@/features/sync/data/syncCheckpointRepository';
 import { fetchAllMobileNotifications } from '@/features/notifications/api/mobileNotificationsApi';
 
 export interface MobileNotificationsRefreshResult {
@@ -78,26 +86,58 @@ async function executeRefresh(options: {
   token: string;
   isCurrent: () => boolean;
 }): Promise<MobileNotificationsRefreshResult> {
-  const response = await fetchAllMobileNotifications({ token: options.token });
+  const held = await readSyncCheckpoint(
+    options.database,
+    options.ownerIdentity,
+    'notifications',
+  );
+  const since = held?.version ?? null;
+  const response = await fetchAllMobileNotifications({
+    token: options.token,
+    since,
+  });
   if (!options.isCurrent()) throw new Error('The notification refresh was superseded.');
 
   const fetchedAt = new Date().toISOString();
-  const notificationsToCache = response.partial
-    ? mergePartialNotifications(
-        await listCachedMobileNotifications(
-          options.database,
-          options.ownerIdentity,
-        ),
-        response.notifications,
-      )
-    : response.notifications;
-  await replaceCachedMobileNotifications(
-    options.database,
-    options.ownerIdentity,
-    notificationsToCache,
+  const checkpoint: SyncCheckpoint = {
+    feed: 'notifications',
+    version: response.sync.version,
+    total: response.sync.unchanged && held ? held.total : response.sync.total,
+    truncated: response.sync.unchanged && held ? held.truncated : response.sync.truncated,
+    // An unchanged answer fetched no rows; the held download still describes the cache.
+    pageCount: response.sync.unchanged && held ? held.pageCount : response.pageCount,
+    syncBefore: response.syncBefore,
     fetchedAt,
-    options.isCurrent,
-  );
+  };
+  if (response.sync.unchanged) {
+    await confirmCachedMobileNotifications(
+      options.database,
+      options.ownerIdentity,
+      fetchedAt,
+      checkpoint,
+      options.isCurrent,
+    );
+  } else {
+    // A version-scoped answer, or one with skipped records, is a delta: keep what the phone holds.
+    const notificationsToCache =
+      since || response.partial
+        ? mergeNotificationUpdates(
+            await listCachedMobileNotifications(
+              options.database,
+              options.ownerIdentity,
+            ),
+            response.notifications,
+          )
+        : response.notifications;
+    await replaceCachedMobileNotifications(
+      options.database,
+      options.ownerIdentity,
+      notificationsToCache,
+      fetchedAt,
+      options.isCurrent,
+      checkpoint,
+    );
+  }
   const notifications = await listCachedMobileNotifications(
     options.database,
     options.ownerIdentity,
@@ -110,7 +150,7 @@ async function executeRefresh(options: {
   };
 }
 
-function mergePartialNotifications(
+function mergeNotificationUpdates(
   cached: MobileNotification[],
   fetched: MobileNotificationUpdate[],
 ): MobileNotificationUpdate[] {

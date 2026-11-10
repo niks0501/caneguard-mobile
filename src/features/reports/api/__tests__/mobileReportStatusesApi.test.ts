@@ -63,6 +63,8 @@ describe('mobile report statuses API', () => {
           feedback: 'Latest field note',
         }),
       ],
+      sync: { version: null, total: 1, truncated: false, unchanged: false },
+      pageCount: 1,
     });
   });
 
@@ -143,6 +145,8 @@ describe('mobile report statuses API', () => {
           feedback: null,
         }),
       ],
+      sync: { version: null, total: 2, truncated: false, unchanged: false },
+      pageCount: 2,
     });
     expect(request).toHaveBeenNthCalledWith(
       1,
@@ -154,6 +158,81 @@ describe('mobile report statuses API', () => {
       '/api/v3/mobile/reports/statuses?cursor=next&sync_before=' + encodeURIComponent(CHECKPOINT),
       expect.objectContaining({ token: 'secure-token' }),
     );
+  });
+
+  // Proves: a reported total that cannot cover the rows delivered is inconsistent and fails the feed
+  // closed instead of being saved as the feed's size.
+  it('rejects a reported total smaller than the rows it delivered', async () => {
+    request.mockResolvedValueOnce({
+      data: [item(), item({ uuid: 'remote-2', client_uuid: 'client-2' })],
+      links: { next: null },
+      meta: { sync_before: CHECKPOINT },
+      sync: { before: CHECKPOINT, version: 'v-1', total: 1 },
+    });
+
+    await expect(
+      fetchAllMobileReportStatuses({ token: 'secure-token' }),
+    ).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' });
+  });
+
+  // Proves: a first download that stops short of the total it was promised is rejected instead of
+  // being checkpointed as a complete feed the phone then never refetches.
+  // Oracle: the feed reports 250 statuses but delivered one record and no continuation.
+  it('rejects a whole-feed answer that delivers fewer rows than its total', async () => {
+    request.mockResolvedValueOnce({
+      data: [item()],
+      links: { next: null },
+      meta: { sync_before: CHECKPOINT },
+      sync: { before: CHECKPOINT, version: 'v-1', total: 250 },
+    });
+
+    await expect(
+      fetchAllMobileReportStatuses({ token: 'secure-token' }),
+    ).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' });
+  });
+
+  // Proves: the same short answer is legitimate once the phone asked for what changed past a held
+  // version, because the total then describes the whole feed, not this answer.
+  it('accepts a version-scoped answer that delivers fewer rows than the feed total', async () => {
+    request.mockResolvedValueOnce({
+      data: [item()],
+      links: { next: null },
+      meta: { sync_before: CHECKPOINT },
+      sync: { before: CHECKPOINT, version: 'v-2', total: 250 },
+    });
+
+    await expect(
+      fetchAllMobileReportStatuses({ token: 'secure-token', since: 'v-1' }),
+    ).resolves.toMatchObject({
+      sync: { version: 'v-2', total: 250, unchanged: false },
+      pageCount: 1,
+    });
+  });
+
+  // Proves: a version stamp replaces the overlapping timestamp and an unchanged answer costs no page.
+  it('sends the held version instead of the overlap and reports an unchanged feed', async () => {
+    request.mockResolvedValueOnce({
+      data: [],
+      links: { next: null },
+      meta: { sync_before: CHECKPOINT },
+      sync: { before: CHECKPOINT, version: 'v-1', total: 4, unchanged: true },
+    });
+
+    await expect(
+      fetchAllMobileReportStatuses({
+        token: 'secure-token',
+        updatedAfter: '2026-08-13T11:59:59.000Z',
+        since: 'v-1',
+      }),
+    ).resolves.toEqual({
+      syncBefore: CHECKPOINT,
+      updates: [],
+      sync: { version: 'v-1', total: 4, truncated: false, unchanged: true },
+      pageCount: 0,
+    });
+    const path = String(request.mock.calls[0][0]);
+    expect(path).toContain('since=v-1');
+    expect(path).not.toContain('updated_after');
   });
 
   it('rejects a cross-origin or path-boundary continuation before sending it', async () => {

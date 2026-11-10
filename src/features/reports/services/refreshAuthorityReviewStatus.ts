@@ -4,6 +4,10 @@ import {
   findLatestAuthorityReviewUpdatedAt,
 } from '@/features/reports/data/fieldReportReviewRepository';
 import { fetchAllMobileReportStatuses } from '@/features/reports/api/mobileReportStatusesApi';
+import {
+  readSyncCheckpoint,
+  type SyncCheckpoint,
+} from '@/features/sync/data/syncCheckpointRepository';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 const OVERLAP_MS = 1_000;
@@ -60,9 +64,15 @@ async function executeRefresh(options: {
     options.database,
     options.submitterIdentity,
   );
+  const held = await readSyncCheckpoint(
+    options.database,
+    options.submitterIdentity,
+    'authority_status',
+  );
   const response = await fetchAllMobileReportStatuses({
     token: options.token,
     updatedAfter: getOverlappedUpdatedAfter(latestServerUpdateAt),
+    since: held?.version ?? null,
   });
   const fetchedAt = new Date().toISOString();
   const result = await applyAuthorityReviewUpdates(
@@ -70,6 +80,16 @@ async function executeRefresh(options: {
     options.submitterIdentity,
     response.updates,
     fetchedAt,
+    {
+      feed: 'authority_status',
+      version: response.sync.version,
+      total: response.sync.unchanged && held ? held.total : response.sync.total,
+      truncated: response.sync.unchanged && held ? held.truncated : response.sync.truncated,
+      // An unchanged answer fetched no rows; the held download still describes the cache.
+      pageCount: response.sync.unchanged && held ? held.pageCount : response.pageCount,
+      syncBefore: response.syncBefore,
+      fetchedAt,
+    } satisfies SyncCheckpoint,
   );
   emitSyncRecordsChanged();
   return {

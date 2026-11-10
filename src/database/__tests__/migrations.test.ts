@@ -698,6 +698,29 @@ describe('CaneGuard database migrations', () => {
     database.close();
   });
 
+  it('drops the assignment checkpoint version when the office-case projection lands', () => {
+    const database = openDatabase();
+    applyLatest(database);
+    database.exec(readMigration('0031_gorgeous_ben_grimm.sql'));
+    const insertCheckpoint = database.prepare(`
+      INSERT INTO sync_checkpoints (
+        owner_identity, feed, version, total, truncated, page_count, sync_before, fetched_at
+      ) VALUES (?, ?, ?, 3, 0, 1, '2026-11-10T00:00:00.000Z', '2026-11-10T00:00:00.000Z')
+    `);
+    insertCheckpoint.run('owner-1', 'assignments', 'v-downloaded-without-projection');
+    insertCheckpoint.run('owner-1', 'notifications', 'v-notifications');
+
+    database.exec(readMigration('0032_office_case_projection.sql'));
+
+    expect(
+      database.prepare('SELECT feed, version FROM sync_checkpoints ORDER BY feed').all(),
+    ).toEqual([
+      { feed: 'assignments', version: null },
+      { feed: 'notifications', version: 'v-notifications' },
+    ]);
+    database.close();
+  });
+
   it('keeps the bundled migration module aligned with the journal and SQL files', () => {
     const consumedMigrations = migrationJournal.entries.map((entry) => {
       const key = `m${String(entry.idx).padStart(4, '0')}`;

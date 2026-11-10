@@ -4,6 +4,7 @@ import type { CaneGuardDatabase } from '@/database/database';
 import { toStorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import { fieldSurveys } from '@/database/schema';
+import { boundaryCountsAsWaiting, boundaryState } from '@/features/surveys/domain/boundaryState';
 import { AUTO_RETRYABLE_SYNC_ERROR_CODES } from '@/features/sync/errors/syncErrors';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { isUploadableSubmissionArtifact } from '@/features/sync/domain/submissionArtifacts';
@@ -28,13 +29,13 @@ export function findFieldSurveySyncCandidates(
       )
     : eq(fieldSurveys.status, 'pending');
   try {
-    return database.select({ clientUuid: fieldSurveys.clientUuid, status: fieldSurveys.status })
+    return database.select({ clientUuid: fieldSurveys.clientUuid, status: fieldSurveys.status, lastSyncErrorCode: fieldSurveys.lastSyncErrorCode })
       .from(fieldSurveys)
       .where(and(eq(fieldSurveys.ownerIdentity, owner), eligible))
       .orderBy(asc(fieldSurveys.capturedAt), asc(fieldSurveys.createdAt))
       .limit(Math.min(Math.max(Math.trunc(limit), 1), 100))
       .all()
-      .filter((survey) => isUploadableSubmissionArtifact('field_survey', { status: survey.status }));
+      .filter((survey) => isUploadableSubmissionArtifact('field_survey', { status: survey.status, lastSyncErrorCode: survey.lastSyncErrorCode }));
   } catch (error: unknown) {
     throw toStorageError(error, 'QUERY_FAILED', 'Reading pending field surveys failed.');
   }
@@ -43,10 +44,13 @@ export function findFieldSurveySyncCandidates(
 export function countUnsyncedFieldSurveys(database: CaneGuardDatabase, ownerIdentity: string): number {
   const owner = requireOwnerIdentity(ownerIdentity);
   try {
-    const row = database.select({ count: sql<number>`count(*)` }).from(fieldSurveys)
+    // Only work the phone still owes the office; rejected boundaries are listed in My boundaries.
+    return database.select({
+      status: fieldSurveys.status, lastSyncErrorCode: fieldSurveys.lastSyncErrorCode, remoteId: fieldSurveys.remoteId,
+    }).from(fieldSurveys)
       .where(and(eq(fieldSurveys.ownerIdentity, owner), inArray(fieldSurveys.status, ['pending', 'syncing', 'failed'])))
-      .get();
-    return Number(row?.count ?? 0);
+      .all()
+      .filter((row) => boundaryCountsAsWaiting(boundaryState(row))).length;
   } catch (error: unknown) {
     throw toStorageError(error, 'QUERY_FAILED', 'Counting pending field surveys failed.');
   }

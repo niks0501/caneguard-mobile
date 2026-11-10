@@ -231,7 +231,7 @@ describe('ReportSurveyCard', () => {
     const label = String(
       screen.getByTestId('field-report.survey-attach.failed-survey').props.accessibilityLabel,
     );
-    expect(label).toContain('Could not send');
+    expect(label).toContain('Not sent');
     expect(label).not.toContain('Waiting to send');
   });
 });

@@ -1,10 +1,12 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
-import { fieldSurveys, type FieldSurveyRow } from '@/database/schema';
+import { fieldSurveys, type FieldSurveyRow, type FieldSurveyStatus } from '@/database/schema';
 import type { MobileUserRole } from '@/features/auth/types';
+import { boundaryCanDelete, boundaryCanEdit, boundaryCanSubmit, boundaryState } from '@/features/surveys/domain/boundaryState';
+import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 
 export interface FieldSurveyDraft {
@@ -29,9 +31,7 @@ export async function saveFieldSurveyDraft(
     .from(fieldSurveys)
     .where(and(eq(fieldSurveys.clientUuid, input.clientUuid), eq(fieldSurveys.ownerIdentity, owner)))
     .get();
-  const canCorrectRejectedSurvey = existing?.status === 'failed' &&
-    (existing.lastSyncErrorCode === 'VALIDATION_FAILED' || existing.lastSyncErrorCode === 'API_VALIDATION_FAILED');
-  if (existing && existing.status !== 'draft' && !canCorrectRejectedSurvey) {
+  if (existing && !boundaryCanEdit(boundaryState(existing))) {
     throw new StorageError('UPDATE_FAILED', 'A submitted field survey cannot be edited.');
   }
   try {
@@ -81,12 +81,13 @@ export function findOwnedFieldSurvey(
 export function listOwnedFieldSurveys(
   database: CaneGuardDatabase,
   ownerIdentity: string,
+  limit = 20,
 ): FieldSurveyRow[] {
   const owner = requireOwnerIdentity(ownerIdentity);
   return database.select().from(fieldSurveys)
     .where(eq(fieldSurveys.ownerIdentity, owner))
     .orderBy(desc(fieldSurveys.updatedAt))
-    .limit(20)
+    .limit(limit)
     .all();
 }
 
@@ -104,11 +105,15 @@ export function markFieldSurveyPending(
   const owner = requireOwnerIdentity(ownerIdentity);
   const row = findOwnedFieldSurvey(database, clientUuid, owner);
   if (!row) throw new StorageError('RECORD_NOT_FOUND', 'This boundary draft no longer exists.');
-  if (row.status === 'synced' || row.remoteId) {
+  const state = boundaryState(row);
+  if (state === 'sent' || row.remoteId) {
     throw new StorageError('UPDATE_FAILED', 'A synced field survey cannot be submitted again.');
   }
-  if (row.lastSyncErrorCode === 'CLIENT_UUID_CONFLICT') {
+  if (state === 'identity_rejected') {
     throw new StorageError('UPDATE_FAILED', 'Start a new boundary to submit with a fresh identity.');
+  }
+  if (!boundaryCanSubmit(state)) {
+    throw new StorageError('UPDATE_FAILED', 'This boundary cannot be submitted from its current state. Start a new boundary.');
   }
   const plotMeasurement = validateSurveyPolygon(polygon);
   if (!plotMeasurement.valid || !Number.isFinite(areaSqm) || areaSqm <= 0 || Math.abs(plotMeasurement.areaSqm - areaSqm) > Math.max(0.01, areaSqm * 1e-10)) {
@@ -138,6 +143,15 @@ export function markFieldSurveyPending(
   }).where(and(eq(fieldSurveys.clientUuid, clientUuid), eq(fieldSurveys.ownerIdentity, owner))).run();
 }
 
+/** Statuses each sync write may start from; a row in any other status is left untouched. */
+export const TRANSITIONS = {
+  pending: ['syncing', 'failed'],
+  syncing: ['pending', 'failed'],
+  synced: ['syncing'],
+  failed: ['pending', 'syncing', 'failed'],
+} as const satisfies Record<'pending' | 'syncing' | 'synced' | 'failed', readonly FieldSurveyStatus[]>;
+
+/** Returns the number of rows changed; 0 means the guard refused the write. */
 export function updateFieldSurveySyncResult(
   database: CaneGuardDatabase,
   clientUuid: string,
@@ -148,11 +162,11 @@ export function updateFieldSurveySyncResult(
     remoteId?: string | null;
     status: 'pending' | 'syncing' | 'synced' | 'failed';
   },
-): void {
+): number {
   const owner = requireOwnerIdentity(ownerIdentity);
   const row = findOwnedFieldSurvey(database, clientUuid, owner);
   if (!row) throw new StorageError('RECORD_NOT_FOUND', 'This field survey no longer exists.');
-  database.update(fieldSurveys).set({
+  const result = database.update(fieldSurveys).set({
     status: update.status,
     ...(update.remoteId === undefined ? {} : { remoteId: update.remoteId }),
     ...(update.fieldErrors === undefined ? {} : { fieldErrorsJson: update.fieldErrors ? JSON.stringify(update.fieldErrors) : null }),
@@ -160,5 +174,33 @@ export function updateFieldSurveySyncResult(
     syncAttemptCount: row.syncAttemptCount + (update.status === 'syncing' ? 1 : 0),
     lastSyncedAt: update.status === 'synced' ? new Date().toISOString() : row.lastSyncedAt,
     updatedAt: new Date().toISOString(),
-  }).where(and(eq(fieldSurveys.clientUuid, clientUuid), eq(fieldSurveys.ownerIdentity, owner))).run();
+  }).where(and(
+    eq(fieldSurveys.clientUuid, clientUuid),
+    eq(fieldSurveys.ownerIdentity, owner),
+    inArray(fieldSurveys.status, [...TRANSITIONS[update.status]]),
+  )).run();
+  return result.changes;
+}
+
+/** Removes an unsent or rejected boundary. Returns false when the row is missing or may not be deleted. */
+export function deleteOwnedFieldSurvey(
+  database: CaneGuardDatabase,
+  clientUuid: string,
+  ownerIdentity: string,
+): boolean {
+  const owner = requireOwnerIdentity(ownerIdentity);
+  const row = findOwnedFieldSurvey(database, clientUuid, owner);
+  if (!row || !boundaryCanDelete(boundaryState(row))) return false;
+  try {
+    const result = database.delete(fieldSurveys)
+      .where(and(
+        eq(fieldSurveys.clientUuid, clientUuid),
+        eq(fieldSurveys.ownerIdentity, owner),
+        inArray(fieldSurveys.status, ['draft', 'pending', 'failed']),
+      )).run();
+    emitSyncRecordsChanged();
+    return result.changes > 0;
+  } catch (error: unknown) {
+    throw toStorageError(error, 'UPDATE_FAILED', 'Deleting this boundary failed.');
+  }
 }

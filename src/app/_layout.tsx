@@ -100,6 +100,7 @@ export function AppNavigator() {
           <Stack.Screen name="field-validation" />
           <Stack.Screen name="manual-map" />
           <Stack.Screen name="field-survey" />
+          <Stack.Screen name="my-boundaries" />
           <Stack.Screen name="reports" />
           <Stack.Screen name="notification-details" />
           <Stack.Screen name="settings" />

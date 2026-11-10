@@ -50,10 +50,6 @@ export const FIELD_SURVEY_COPY = {
   linkMeasure: 'Measure a plot',
   linkMissing: 'The attached boundary is no longer saved on this phone.',
   linkOption: (district: string, hectares: string, status: string) => `${district} · ${hectares} ha · ${status}`,
-  linkStatusDraft: 'Draft',
-  linkStatusWaiting: 'Waiting to send',
-  linkStatusFailed: 'Could not send',
-  linkStatusSent: 'Sent',
   unavailable: 'Boundary surveys need an active inspector assignment to the pilot district. Ask your office to check your account.',
   title: 'Measure a field boundary',
   quickActionTitle: 'Measure a plot',
@@ -109,6 +105,34 @@ export const FIELD_SURVEY_COPY = {
   savingOffline: 'Saving boundary draft…',
   saveFailed: 'The boundary could not be saved. Your previous draft is unchanged.',
   close: 'Close',
+  myBoundariesTitle: 'My boundaries',
+  myBoundariesLink: 'My boundaries',
+  myBoundariesSubtitle: 'Boundaries saved on this phone',
+  myBoundariesEmptyTitle: 'No boundaries yet',
+  myBoundariesEmptyBody: 'Boundaries you measure on this phone are listed here, newest first.',
+  myBoundariesOpen: 'Open',
+  myBoundariesView: 'View',
+  myBoundariesDelete: 'Delete',
+  myBoundariesNoPoints: 'No points yet',
+  myBoundariesLoadFailed: 'Your boundaries could not be read from this phone.',
+  myBoundariesDeleteTitle: 'Delete this boundary?',
+  myBoundariesDeleteBody: 'It is removed from this phone and cannot be recovered. A report that links to it will say the boundary is no longer saved.',
+  myBoundariesDeleteFailed: 'This boundary could not be deleted.',
+  myBoundariesRowOpenLabel: (summary: string) => `Open boundary ${summary}`,
+  myBoundariesRowDeleteLabel: (summary: string) => `Delete boundary ${summary}`,
+} as const;
+
+/** One label and one "what to do" line per stored boundary state (see boundaryState). */
+export const BOUNDARY_STATE_COPY = {
+  draft: { label: 'Draft', hint: 'Not sent yet. Open it to keep drawing, then save and sync.' },
+  waiting_to_send: { label: 'Waiting to send', hint: 'Saved. It sends on its own when you are online.' },
+  sending: { label: 'Sending', hint: 'Sending to the office now.' },
+  sent: { label: 'Sent', hint: 'The office has this boundary.' },
+  will_retry: { label: 'Will retry', hint: 'The office could not be reached. It tries again on its own.' },
+  needs_fix: { label: 'Needs a fix', hint: 'The office needs a correction. Open it, fix the points, then sync again.' },
+  identity_rejected: { label: 'Start again', hint: 'The office will not take this one. Measure the boundary again, then delete this one.' },
+  damaged: { label: 'Start again', hint: 'This saved boundary is damaged on this phone. Measure it again, then delete this one.' },
+  refused: { label: 'Not sent', hint: 'The office did not accept it. Open it and press Save and sync to try again, or ask the office to check your account.' },
 } as const;
 
 /** Offline readiness (D01) — before field work without a connection. */

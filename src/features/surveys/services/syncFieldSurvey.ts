@@ -52,7 +52,10 @@ export async function syncFieldSurvey(options: {
     return rejectInvalidLocalRecord(options, 'The saved measurement provenance is invalid. Recreate the boundary before syncing.');
   }
 
-  updateFieldSurveySyncResult(options.database, row.clientUuid, options.ownerIdentity, { status: 'syncing' });
+  if (updateFieldSurveySyncResult(options.database, row.clientUuid, options.ownerIdentity, { status: 'syncing' }) === 0) {
+    // Another send already owns this row; leave its stored state alone.
+    return { status: 'failed', error: new SyncError('UNKNOWN_SYNC_ERROR', 'This boundary is already being sent.') };
+  }
   try {
     let response;
     let retryIndex = 0;

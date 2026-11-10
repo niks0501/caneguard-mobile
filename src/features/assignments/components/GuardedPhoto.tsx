@@ -16,25 +16,29 @@ export function GuardedPhoto({
   accessToken,
   emptyText,
   label,
+  localUri,
   testID,
   url,
 }: {
   accessToken?: string | null;
   emptyText: string;
   label: string;
+  /** A copy already on this phone; shown without the network or a token. */
+  localUri?: string | null;
   testID: string;
   url: string | null;
 }) {
   const theme = useTheme();
-  const [failed, setFailed] = useState(false);
+  const [failedUri, setFailedUri] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
   if (!url) return <Notice testID={`${testID}.empty`} text={emptyText} />;
-  if (!accessToken || !isApiUrl(url) || failed) {
+  const sourceUri = localUri ?? url;
+  if (failedUri === sourceUri || (!localUri && (!accessToken || !isApiUrl(url)))) {
     return <Notice testID={`${testID}.unavailable`} text={OFFICE_CASE_COPY.photoUnavailable} />;
   }
 
-  const source = { headers: { Authorization: `Bearer ${accessToken}` }, uri: url };
+  const source = localUri ? { uri: localUri } : { headers: { Authorization: `Bearer ${accessToken}` }, uri: url };
   return (
     <View style={styles.block}>
       <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
@@ -47,7 +51,7 @@ export function GuardedPhoto({
           accessibilityLabel={label}
           cachePolicy="memory-disk"
           contentFit="cover"
-          onError={() => setFailed(true)}
+          onError={() => setFailedUri(sourceUri)}
           source={source}
           style={styles.thumb}
           testID={testID}
@@ -61,7 +65,7 @@ export function GuardedPhoto({
             contentFit="contain"
             onError={() => {
               setOpen(false);
-              setFailed(true);
+              setFailedUri(sourceUri);
             }}
             source={source}
             style={styles.full}

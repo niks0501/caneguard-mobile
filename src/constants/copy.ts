@@ -610,6 +610,7 @@ export const OFFICE_CASE_COPY = {
   noLastVisitPhoto: 'No photo was taken on the last visit.',
   photoUnavailable:
     'This photo is not available right now. Connect to the internet and open the case again.',
+  readyOffline: 'Ready offline',
   viewerClose: 'Close photo',
   viewerOpen: (label: string) => `Open ${label.toLowerCase()}`,
   version: (version: number) => `Version ${version}`,

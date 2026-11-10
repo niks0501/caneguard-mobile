@@ -5,7 +5,7 @@ import type { SyncCheckpointFeed } from '@/database/schema';
 import type { SyncDownloadProgressStore } from '@/features/sync/domain/syncDownloadProgressStore';
 
 const KEY_PREFIX = 'caneguard.syncDownloadProgress.v1';
-const pendingWrites = new Set<Promise<unknown>>();
+const keyOperations = new Map<string, Promise<unknown>>();
 
 export function createSyncDownloadProgressStore(
   ownerIdentity: string,
@@ -17,7 +17,7 @@ export function createSyncDownloadProgressStore(
   return {
     async read(): Promise<string | null> {
       try {
-        return await AsyncStorage.getItem(key);
+        return await enqueue(key, () => AsyncStorage.getItem(key));
       } catch (error: unknown) {
         throw toStorageError(error, 'QUERY_FAILED', 'Reading the sync download progress failed.');
       }
@@ -25,24 +25,20 @@ export function createSyncDownloadProgressStore(
 
     async save(payload: string): Promise<void> {
       if (!isCurrent()) return;
-      let write: Promise<void> | null = null;
       try {
-        write = AsyncStorage.setItem(key, payload);
-        pendingWrites.add(write);
-        await write;
+        await enqueue(key, () => AsyncStorage.setItem(key, payload));
       } catch (error: unknown) {
         throw toStorageError(error, 'UPDATE_FAILED', 'Saving the sync download progress failed.');
-      } finally {
-        if (write) pendingWrites.delete(write);
       }
     },
 
     async clear(): Promise<void> {
       if (!isCurrent()) return;
       try {
-        await settlePendingWrites();
-        if (!isCurrent()) return;
-        await AsyncStorage.removeItem(key);
+        await enqueue(key, async () => {
+          if (!isCurrent()) return;
+          await AsyncStorage.removeItem(key);
+        });
       } catch (error: unknown) {
         throw toStorageError(error, 'DELETE_FAILED', 'Clearing the sync download progress failed.');
       }
@@ -54,7 +50,7 @@ export function createSyncDownloadProgressStore(
 export async function clearSyncDownloadProgress(ownerIdentity: string): Promise<void> {
   const prefix = `${KEY_PREFIX}.${requireOwner(ownerIdentity)}.`;
   try {
-    await settlePendingWrites();
+    await settleKeyOperations(prefix);
     const keys = await AsyncStorage.getAllKeys();
     const owned = keys.filter((key) => key.startsWith(prefix));
     if (owned.length > 0) {
@@ -65,9 +61,24 @@ export async function clearSyncDownloadProgress(ownerIdentity: string): Promise<
   }
 }
 
-async function settlePendingWrites(): Promise<void> {
-  if (pendingWrites.size === 0) return;
-  await Promise.allSettled([...pendingWrites]);
+/** One stored download is only ever mutated by the operation queued before it. */
+async function enqueue<T>(key: string, operation: () => Promise<T>): Promise<T> {
+  const current = (keyOperations.get(key) ?? Promise.resolve()).then(operation);
+  const tail = current.then(
+    () => undefined,
+    () => undefined,
+  );
+  keyOperations.set(key, tail);
+  void tail.then(() => {
+    if (keyOperations.get(key) === tail) keyOperations.delete(key);
+  });
+  return current;
+}
+
+async function settleKeyOperations(prefix: string): Promise<void> {
+  const owned = [...keyOperations].filter(([key]) => key.startsWith(prefix));
+  if (owned.length === 0) return;
+  await Promise.allSettled(owned.map(([, pending]) => pending));
 }
 
 function requireOwner(value: string): string {

@@ -174,6 +174,38 @@ describe('sync download progress storage', () => {
     await expect(storeFor('owner-1').read()).resolves.toBe('{"page":2}');
   });
 
+  // Proves: a write from a superseded download cannot land on top of a newer download's pages.
+  it('stores a newer download after a superseded write that was still pending', async () => {
+    const setItem = AsyncStorage.setItem;
+    let finishWrite!: () => void;
+    const writeGate = new Promise<void>((resolve) => {
+      finishWrite = resolve;
+    });
+    const delayed = jest
+      .spyOn(AsyncStorage, 'setItem')
+      .mockImplementationOnce(async (key, value) => {
+        await writeGate;
+        await setItem.call(AsyncStorage, key, value);
+      });
+
+    let supersededCurrent = true;
+    const superseded = createSyncDownloadProgressStore(
+      'owner-1',
+      'authority_status',
+      () => supersededCurrent,
+    );
+    const pending = superseded.save('{"page":1}');
+    supersededCurrent = false;
+
+    const newer = storeFor('owner-1');
+    const write = newer.save('{"page":2}');
+    finishWrite();
+    await Promise.all([pending, write]);
+
+    delayed.mockRestore();
+    await expect(storeFor('owner-1').read()).resolves.toBe('{"page":2}');
+  });
+
   it('refuses an owner that cannot scope stored pages', () => {
     expect(() => storeFor('   ')).toThrow(StorageError);
   });

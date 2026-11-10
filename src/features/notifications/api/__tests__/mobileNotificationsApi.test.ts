@@ -139,6 +139,66 @@ describe('mobile notifications API', () => {
     },
   );
 
+  // Proves: the checkpoint total and page count measure the wire, not the surviving rows — a
+  // skipped record still occupied a slot on its page.
+  // Oracle: two pages of the feed were requested (100 + 1 records), so ceil(101 / 100) = 2 pages.
+  it('measures skipped wire records in the total and page count it reports', async () => {
+    const valid = MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0];
+    const malformed = { ...valid, id: '0cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f', is_read: 'false' };
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      ...valid,
+      id: `10000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+    }));
+    const next = `http://127.0.0.1:8000/api/v1/mobile/notifications?cursor=next&sync_before=${encodeURIComponent(CHECKPOINT)}`;
+    request
+      .mockResolvedValueOnce(page([...firstPage, malformed], next))
+      .mockResolvedValueOnce(page([]));
+
+    const result = await fetchAllMobileNotifications({ token: 'secure-token' });
+
+    expect(result.notifications).toHaveLength(100);
+    expect(result.partial).toBe(true);
+    expect(result.sync).toEqual({ version: null, total: 101, truncated: false, unchanged: false });
+    expect(result.pageCount).toBe(2);
+  });
+
+  // Proves: with a version stamp the phone asks only for what changed past that version.
+  it('sends the held version and reports an unchanged feed as zero pages', async () => {
+    request.mockResolvedValueOnce({
+      data: [],
+      links: { next: null },
+      meta: { per_page: 100, total: 250 },
+      sync: { before: CHECKPOINT, version: 'v-1', total: 250, unchanged: true },
+    });
+
+    await expect(
+      fetchAllMobileNotifications({ token: 'secure-token', since: 'v-1' }),
+    ).resolves.toEqual({
+      syncBefore: CHECKPOINT,
+      notifications: [],
+      partial: false,
+      sync: { version: 'v-1', total: 250, truncated: false, unchanged: true },
+      pageCount: 0,
+    });
+    expect(String(request.mock.calls[0][0])).toContain('since=v-1');
+  });
+
+  // Proves: the reported total bounds the download, so a feed that claims to be empty cannot keep
+  // paginating past what it promised.
+  it('rejects pagination that runs past the total the feed reported', async () => {
+    const next = `http://127.0.0.1:8000/api/v1/mobile/notifications?cursor=next&sync_before=${encodeURIComponent(CHECKPOINT)}`;
+    request.mockResolvedValueOnce({
+      data: [],
+      links: { next },
+      sync: { before: CHECKPOINT, version: 'v-1', total: 0 },
+    });
+
+    await expect(
+      fetchAllMobileNotifications({ token: 'secure-token' }),
+    ).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' });
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps valid values when another item is malformed', async () => {
     const valid = MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0];
     request.mockResolvedValueOnce(page([

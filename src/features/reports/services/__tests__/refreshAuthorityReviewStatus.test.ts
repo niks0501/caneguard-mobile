@@ -2,13 +2,20 @@ import {
   applyAuthorityReviewUpdates,
   findLatestAuthorityReviewUpdatedAt,
 } from '@/features/reports/data/fieldReportReviewRepository';
-import { fetchAllMobileReportStatuses } from '@/features/reports/api/mobileReportStatusesApi';
+import {
+  fetchAllMobileReportStatuses,
+  type MobileReportStatusesResult,
+} from '@/features/reports/api/mobileReportStatusesApi';
 import { refreshAuthorityReviewStatus } from '@/features/reports/services/refreshAuthorityReviewStatus';
+import {
+  readSyncCheckpoint,
+  type SyncCheckpoint,
+} from '@/features/sync/data/syncCheckpointRepository';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 jest.mock('@/features/sync/data/syncCheckpointRepository', () => ({
   ...jest.requireActual('@/features/sync/data/syncCheckpointRepository'),
-  saveSyncCheckpoint: jest.fn().mockResolvedValue(undefined),
+  readSyncCheckpoint: jest.fn(),
 }));
 jest.mock('@/features/reports/data/fieldReportReviewRepository', () => ({
   applyAuthorityReviewUpdates: jest.fn(),
@@ -25,20 +32,43 @@ const database = {} as never;
 const fetchStatuses = jest.mocked(fetchAllMobileReportStatuses);
 const findLatestUpdatedAt = jest.mocked(findLatestAuthorityReviewUpdatedAt);
 const applyUpdates = jest.mocked(applyAuthorityReviewUpdates);
+const readCheckpoint = jest.mocked(readSyncCheckpoint);
+
+const SYNC_BEFORE = '2026-08-13T12:00:00.000Z';
+const HELD: SyncCheckpoint = {
+  feed: 'authority_status',
+  version: 'v-1',
+  total: 250,
+  truncated: false,
+  pageCount: 3,
+  syncBefore: '2026-08-13T11:00:00.000Z',
+  fetchedAt: '2026-08-13T11:00:00.000Z',
+};
+
+function feed(overrides: Partial<MobileReportStatusesResult> = {}): MobileReportStatusesResult {
+  return {
+    syncBefore: SYNC_BEFORE,
+    updates: [],
+    sync: { version: null, total: 0, truncated: false, unchanged: false },
+    pageCount: 0,
+    ...overrides,
+  };
+}
 
 beforeEach(() => {
   fetchStatuses.mockReset();
   findLatestUpdatedAt.mockReset();
   applyUpdates.mockReset();
+  readCheckpoint.mockReset().mockResolvedValue(null);
   jest.mocked(emitSyncRecordsChanged).mockClear();
   findLatestUpdatedAt.mockResolvedValue('2026-08-13T11:00:00.000Z');
-  fetchStatuses.mockResolvedValue({ syncBefore: '2026-08-13T12:00:00.000Z', updates: [] });
+  fetchStatuses.mockResolvedValue(feed());
   applyUpdates.mockResolvedValue({ applied: 0, eligible: 1 });
 });
 
 describe('refreshAuthorityReviewStatus', () => {
   it('coalesces concurrent refreshes for the same owner and token', async () => {
-    let finish!: (value: { syncBefore: string; updates: [] }) => void;
+    let finish!: (value: MobileReportStatusesResult) => void;
     fetchStatuses.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
 
     const first = refreshAuthorityReviewStatus({
@@ -58,9 +88,10 @@ describe('refreshAuthorityReviewStatus', () => {
     expect(fetchStatuses).toHaveBeenCalledWith({
       token: 'token-1',
       updatedAfter: '2026-08-13T10:59:59.000Z',
+      since: null,
     });
 
-    finish({ syncBefore: '2026-08-13T12:00:00.000Z', updates: [] });
+    finish(feed());
     await expect(first).resolves.toMatchObject({ applied: 0 });
     expect(applyUpdates).toHaveBeenCalledTimes(1);
     expect(emitSyncRecordsChanged).toHaveBeenCalledTimes(1);
@@ -93,6 +124,65 @@ describe('refreshAuthorityReviewStatus', () => {
     );
     expect(fetchStatuses).toHaveBeenCalledWith(
       expect.objectContaining({ token: 'token-2' }),
+    );
+  });
+
+  // Proves: the checkpoint travels with the transaction that applies the feed, carrying the
+  // stamps the download measured.
+  it('hands the download measurements to the transaction that applies the feed', async () => {
+    fetchStatuses.mockResolvedValueOnce(feed({
+      sync: { version: 'v-2', total: 251, truncated: false, unchanged: false },
+      pageCount: 3,
+    }));
+
+    await refreshAuthorityReviewStatus({
+      database,
+      submitterIdentity: 'owner-1',
+      token: 'token-1',
+    });
+
+    expect(applyUpdates).toHaveBeenCalledWith(
+      database,
+      'owner-1',
+      [],
+      expect.any(String),
+      {
+        feed: 'authority_status',
+        version: 'v-2',
+        total: 251,
+        truncated: false,
+        pageCount: 3,
+        syncBefore: SYNC_BEFORE,
+        fetchedAt: expect.any(String),
+      },
+    );
+  });
+
+  // Proves: a repeat refresh of an unchanged feed sends the held version, downloads no page, and
+  // keeps the page count that describes what the phone already holds.
+  it('sends the held version and keeps the held page count when the feed is unchanged', async () => {
+    readCheckpoint.mockResolvedValueOnce(HELD);
+    fetchStatuses.mockResolvedValueOnce(feed({
+      sync: { version: 'v-1', total: 250, truncated: false, unchanged: true },
+    }));
+
+    await refreshAuthorityReviewStatus({
+      database,
+      submitterIdentity: 'owner-1',
+      token: 'token-1',
+    });
+
+    expect(fetchStatuses).toHaveBeenCalledWith({
+      token: 'token-1',
+      updatedAfter: '2026-08-13T10:59:59.000Z',
+      since: 'v-1',
+    });
+    expect(applyUpdates).toHaveBeenCalledWith(
+      database,
+      'owner-1',
+      [],
+      expect.any(String),
+      expect.objectContaining({ version: 'v-1', total: 250, pageCount: 3 }),
     );
   });
 });

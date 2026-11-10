@@ -11,6 +11,14 @@ import {
   type FieldValidationAssignmentUpdate,
 } from '@/features/assignments/domain/assignmentTypes';
 import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
+import {
+  envelopeExpectedRows,
+  envelopePageLimit,
+  type SyncEnvelope,
+  type SyncFeedSummary,
+  parseSyncEnvelope,
+  SyncEnvelopeFieldError,
+} from '@/features/sync/api/syncEnvelope';
 import { derivePageCount } from '@/features/sync/data/syncCheckpointRepository';
 import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 
@@ -35,16 +43,7 @@ export interface MobileFieldValidationAssignmentsResult {
   pageCount: number;
 }
 
-export interface AssignmentSyncSummary {
-  /** The server's opaque work-set stamp; null from servers that do not version the feed. */
-  version: string | null;
-  /** Assignments the owner holds on the server, or the rows received when it does not say. */
-  total: number;
-  /** True when the server cut the work set to the requested cap. */
-  truncated: boolean;
-  /** True when the server confirmed the sent `since` version and returned no rows. */
-  unchanged: boolean;
-}
+export type AssignmentSyncSummary = SyncFeedSummary;
 
 export type MobileFieldValidationAssignmentsErrorCode =
   | 'AUTH_REQUIRED'
@@ -108,7 +107,7 @@ async function downloadAssignments(options: {
   let skippedCount = 0;
   let path: string | null = initialPath;
   let syncBefore: string | null = null;
-  let sync: ParsedSync | null = null;
+  let sync: SyncEnvelope | null = null;
   let pagesRequested = 0;
   let pageLimit = 1;
 
@@ -133,7 +132,12 @@ async function downloadAssignments(options: {
     if (!sync) {
       sync = page.sync;
       // The reported total tells how many pages the download needs; it replaces the fixed ceiling.
-      pageLimit = sync.total === null ? MAX_PAGES : Math.max(1, expectedPageCount(sync));
+      pageLimit = envelopePageLimit(
+        sync,
+        PAGE_SIZE,
+        MAX_PAGES,
+        ASSIGNMENT_WORK_SET_CAP,
+      );
     } else if (page.sync.version !== sync.version || page.sync.total !== sync.total) {
       throw new MobileFieldValidationAssignmentsApiError(
         'MALFORMED_RESPONSE',
@@ -174,7 +178,7 @@ async function downloadAssignments(options: {
   }
 
   if (sync.total !== null) {
-    const expectedRows = expectedRowCount(sync);
+    const expectedRows = envelopeExpectedRows(sync, ASSIGNMENT_WORK_SET_CAP);
     if (received !== expectedRows || pagesRequested !== Math.max(1, expectedPageCount(sync))) {
       throw new MobileFieldValidationAssignmentsApiError(
         'MALFORMED_RESPONSE',
@@ -197,14 +201,10 @@ async function downloadAssignments(options: {
   };
 }
 
-/** Rows a download delivers: the whole set, or the cap when the server cut it short. */
-function expectedRowCount(sync: ParsedSync): number {
-  const total = sync.total ?? 0;
-  return sync.truncated ? Math.min(total, ASSIGNMENT_WORK_SET_CAP) : total;
-}
-
-function expectedPageCount(sync: ParsedSync): number {
-  return sync.unchanged ? 0 : derivePageCount(expectedRowCount(sync), PAGE_SIZE);
+function expectedPageCount(sync: SyncEnvelope): number {
+  return sync.unchanged
+    ? 0
+    : derivePageCount(envelopeExpectedRows(sync, ASSIGNMENT_WORK_SET_CAP), PAGE_SIZE);
 }
 
 function isSyncRestart(error: unknown): boolean {
@@ -222,7 +222,7 @@ async function requestPage(
 ): Promise<{
   nextPath: string | null;
   syncBefore: string;
-  sync: ParsedSync;
+  sync: SyncEnvelope;
   assignments: FieldValidationAssignmentUpdate[];
   skippedCount: number;
 }> {
@@ -247,7 +247,7 @@ async function requestPage(
 function parsePage(body: unknown, identities: AssignmentIdentityIndex): {
   nextPath: string | null;
   syncBefore: string;
-  sync: ParsedSync;
+  sync: SyncEnvelope;
   assignments: FieldValidationAssignmentUpdate[];
   skippedCount: number;
 } {
@@ -412,29 +412,14 @@ function parsePerson(value: unknown, field: string): { uuid: string; name: strin
   };
 }
 
-interface ParsedSync {
-  version: string | null;
-  total: number | null;
-  truncated: boolean;
-  unchanged: boolean;
-}
-
-/** Tolerant of servers that predate versioning: absent fields read as unknown. */
-function parseSync(sync: Record<string, unknown> | null): ParsedSync {
-  const version = sync?.version;
-  const total = sync?.total;
-  if (version !== undefined && (typeof version !== 'string' || !version.trim())) throw malformed('sync.version');
-  if (total !== undefined && (typeof total !== 'number' || !Number.isInteger(total) || total < 0)) throw malformed('sync.total');
-  const truncated = sync?.truncated;
-  const unchanged = sync?.unchanged;
-  if (truncated !== undefined && typeof truncated !== 'boolean') throw malformed('sync.truncated');
-  if (unchanged !== undefined && typeof unchanged !== 'boolean') throw malformed('sync.unchanged');
-  return {
-    version: version ?? null,
-    total: total ?? null,
-    truncated: truncated ?? false,
-    unchanged: unchanged ?? false,
-  };
+/** Tolerant of servers that predate versioning: absent stamps read as unknown. */
+function parseSync(sync: Record<string, unknown> | null): SyncEnvelope {
+  try {
+    return parseSyncEnvelope(sync);
+  } catch (error: unknown) {
+    if (error instanceof SyncEnvelopeFieldError) throw malformed(`sync.${error.field}`);
+    throw error;
+  }
 }
 
 function buildInitialPath(updatedAfter: string | null | undefined, since: string | null): string {

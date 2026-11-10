@@ -4,6 +4,14 @@ import type {
   MobileNotificationAdvisory,
   MobileNotificationUpdate,
 } from '@/features/notifications/domain/notificationTypes';
+import {
+  envelopePageLimit,
+  type SyncEnvelope,
+  type SyncFeedSummary,
+  parseSyncEnvelope,
+  SyncEnvelopeFieldError,
+} from '@/features/sync/api/syncEnvelope';
+import { derivePageCount } from '@/features/sync/data/syncCheckpointRepository';
 
 const NOTIFICATION_PATH = '/api/v1/mobile/notifications';
 const PAGE_SIZE = 100;
@@ -14,6 +22,9 @@ export interface MobileNotificationsResult {
   syncBefore: string;
   notifications: MobileNotificationUpdate[];
   partial: boolean;
+  sync: SyncFeedSummary;
+  /** Pages of rows this download took; zero when the server confirmed the sent version. */
+  pageCount: number;
 }
 
 export type MobileNotificationsApiErrorCode =
@@ -42,15 +53,21 @@ export class MobileNotificationsApiError extends Error {
 
 export async function fetchAllMobileNotifications(options: {
   token: string;
+  /** The version of the last complete download; an unchanged feed then costs one request. */
+  since?: string | null;
 }): Promise<MobileNotificationsResult> {
+  const since = options.since ?? null;
   const visited = new Set<string>();
   const notifications: MobileNotificationUpdate[] = [];
   let partial = false;
-  let path: string | null = buildInitialPath();
+  let path: string | null = buildInitialPath(since);
   let syncBefore: string | null = null;
+  let sync: SyncEnvelope | null = null;
+  let pageLimit = 1;
+  let recordCount = 0;
 
   for (let pageNumber = 0; path; pageNumber += 1) {
-    if (pageNumber >= MAX_PAGES || visited.has(path)) {
+    if (pageNumber >= pageLimit || visited.has(path)) {
       throw new MobileNotificationsApiError(
         'MALFORMED_RESPONSE',
         'The notification feed pagination did not complete safely.',
@@ -66,8 +83,19 @@ export async function fetchAllMobileNotifications(options: {
       );
     }
     syncBefore ??= page.syncBefore;
+    if (!sync) {
+      sync = page.sync;
+      // The reported total tells how many pages the download needs; it replaces the fixed ceiling.
+      pageLimit = envelopePageLimit(sync, PAGE_SIZE, MAX_PAGES);
+    } else if (page.sync.version !== sync.version || page.sync.total !== sync.total) {
+      throw new MobileNotificationsApiError(
+        'MALFORMED_RESPONSE',
+        'The notification feed version changed during pagination.',
+      );
+    }
     notifications.push(...page.notifications);
     partial ||= page.skippedCount > 0;
+    recordCount += page.recordCount;
 
     if (page.nextPath) {
       assertContinuationCheckpoint(page.nextPath, syncBefore);
@@ -75,7 +103,7 @@ export async function fetchAllMobileNotifications(options: {
     path = page.nextPath;
   }
 
-  if (!syncBefore) {
+  if (!syncBefore || !sync) {
     throw new MobileNotificationsApiError(
       'MALFORMED_RESPONSE',
       'The notification feed did not provide a server checkpoint.',
@@ -83,7 +111,40 @@ export async function fetchAllMobileNotifications(options: {
   }
 
   assertUniqueIdentities(notifications);
-  return { syncBefore, notifications, partial };
+  if (sync.unchanged) {
+    if (recordCount > 0 || !since || sync.version !== since) {
+      throw new MobileNotificationsApiError(
+        'MALFORMED_RESPONSE',
+        'The notification feed unchanged answer was inconsistent.',
+      );
+    }
+    return {
+      syncBefore,
+      notifications,
+      partial,
+      sync: {
+        version: sync.version,
+        total: sync.total ?? 0,
+        truncated: sync.truncated,
+        unchanged: true,
+      },
+      pageCount: 0,
+    };
+  }
+
+  return {
+    syncBefore,
+    notifications,
+    partial,
+    sync: {
+      version: sync.version,
+      total: sync.total ?? recordCount,
+      truncated: sync.truncated,
+      unchanged: false,
+    },
+    // Wire records, not the parsed ones: a skipped malformed record still took a page slot.
+    pageCount: derivePageCount(recordCount, PAGE_SIZE),
+  };
 }
 
 async function requestPage(
@@ -92,7 +153,9 @@ async function requestPage(
 ): Promise<{
   nextPath: string | null;
   syncBefore: string;
+  sync: SyncEnvelope;
   notifications: MobileNotificationUpdate[];
+  recordCount: number;
   skippedCount: number;
 }> {
   let body: unknown;
@@ -198,7 +261,9 @@ function optionalCount(container: unknown, field: string): number | null {
 function parsePage(body: unknown): {
   nextPath: string | null;
   syncBefore: string;
+  sync: SyncEnvelope;
   notifications: MobileNotificationUpdate[];
+  recordCount: number;
   skippedCount: number;
 } {
   if (!isRecord(body) || !Array.isArray(body.data) || !isRecord(body.links)) {
@@ -233,9 +298,21 @@ function parsePage(body: unknown): {
   return {
     nextPath: rawNext === null ? null : toSafeContinuationPath(rawNext),
     syncBefore,
+    sync: parseSync(sync),
     notifications,
+    recordCount: body.data.length,
     skippedCount,
   };
+}
+
+/** Tolerant of servers that predate versioning: absent stamps read as unknown. */
+function parseSync(sync: Record<string, unknown> | null): SyncEnvelope {
+  try {
+    return parseSyncEnvelope(sync);
+  } catch (error: unknown) {
+    if (error instanceof SyncEnvelopeFieldError) throw malformed(`sync.${error.field}`);
+    throw error;
+  }
 }
 
 function parseNotification(value: unknown): MobileNotificationUpdate {
@@ -280,8 +357,10 @@ function parseAdvisory(value: unknown): MobileNotificationAdvisory | null {
   };
 }
 
-function buildInitialPath(): string {
-  return `${NOTIFICATION_PATH}?${new URLSearchParams({ per_page: String(PAGE_SIZE) }).toString()}`;
+function buildInitialPath(since: string | null): string {
+  const query = new URLSearchParams({ per_page: String(PAGE_SIZE) });
+  if (since) query.set('since', since);
+  return `${NOTIFICATION_PATH}?${query.toString()}`;
 }
 
 function toSafeContinuationPath(rawUrl: string): string {

@@ -4,6 +4,14 @@ import type {
   AuthorityReviewStatusUpdate,
   MobileReportAdvisory,
 } from '@/features/reports/domain/reportReviewTypes';
+import {
+  envelopePageLimit,
+  type SyncEnvelope,
+  type SyncFeedSummary,
+  parseSyncEnvelope,
+  SyncEnvelopeFieldError,
+} from '@/features/sync/api/syncEnvelope';
+import { derivePageCount } from '@/features/sync/data/syncCheckpointRepository';
 
 const STATUS_PATH = '/api/v3/mobile/reports/statuses';
 const PAGE_SIZE = 100;
@@ -13,6 +21,9 @@ const MAX_FEEDBACK_LENGTH = 1_000;
 export interface MobileReportStatusesResult {
   syncBefore: string;
   updates: AuthorityReviewStatusUpdate[];
+  sync: SyncFeedSummary;
+  /** Pages of rows this download took; zero when the server confirmed the sent version. */
+  pageCount: number;
 }
 
 export type ReportStatusesErrorCode =
@@ -42,15 +53,20 @@ export class ReportStatusesApiError extends Error {
 export async function fetchAllMobileReportStatuses(options: {
   token: string;
   updatedAfter?: string | null;
+  /** The version of the last complete download; an unchanged feed then costs one request. */
+  since?: string | null;
 }): Promise<MobileReportStatusesResult> {
-  const initialPath = buildInitialPath(options.updatedAfter);
+  const since = options.since ?? null;
+  const initialPath = buildInitialPath(options.updatedAfter, since);
   const visited = new Set<string>();
   const updates: AuthorityReviewStatusUpdate[] = [];
   let path: string | null = initialPath;
   let syncBefore: string | null = null;
+  let sync: SyncEnvelope | null = null;
+  let pageLimit = 1;
 
   for (let pageNumber = 0; path; pageNumber += 1) {
-    if (pageNumber >= MAX_PAGES || visited.has(path)) {
+    if (pageNumber >= pageLimit || visited.has(path)) {
       throw new ReportStatusesApiError(
         'MALFORMED_RESPONSE',
         'The authority review feed pagination did not complete safely.',
@@ -66,6 +82,16 @@ export async function fetchAllMobileReportStatuses(options: {
       );
     }
     syncBefore ??= page.syncBefore;
+    if (!sync) {
+      sync = page.sync;
+      // The reported total tells how many pages the download needs; it replaces the fixed ceiling.
+      pageLimit = envelopePageLimit(sync, PAGE_SIZE, MAX_PAGES);
+    } else if (page.sync.version !== sync.version || page.sync.total !== sync.total) {
+      throw new ReportStatusesApiError(
+        'MALFORMED_RESPONSE',
+        'The authority review feed version changed during pagination.',
+      );
+    }
     updates.push(...page.updates);
 
     if (page.nextPath) {
@@ -74,7 +100,7 @@ export async function fetchAllMobileReportStatuses(options: {
     path = page.nextPath;
   }
 
-  if (!syncBefore) {
+  if (!syncBefore || !sync) {
     throw new ReportStatusesApiError(
       'MALFORMED_RESPONSE',
       'The authority review feed did not provide a server checkpoint.',
@@ -82,7 +108,37 @@ export async function fetchAllMobileReportStatuses(options: {
   }
 
   assertUniqueIdentities(updates);
-  return { syncBefore, updates };
+  if (sync.unchanged) {
+    if (updates.length > 0 || !since || sync.version !== since) {
+      throw new ReportStatusesApiError(
+        'MALFORMED_RESPONSE',
+        'The authority review feed unchanged answer was inconsistent.',
+      );
+    }
+    return {
+      syncBefore,
+      updates,
+      sync: {
+        version: sync.version,
+        total: sync.total ?? 0,
+        truncated: sync.truncated,
+        unchanged: true,
+      },
+      pageCount: 0,
+    };
+  }
+
+  return {
+    syncBefore,
+    updates,
+    sync: {
+      version: sync.version,
+      total: sync.total ?? updates.length,
+      truncated: sync.truncated,
+      unchanged: false,
+    },
+    pageCount: derivePageCount(updates.length, PAGE_SIZE),
+  };
 }
 
 async function requestPage(
@@ -91,6 +147,7 @@ async function requestPage(
 ): Promise<{
   nextPath: string | null;
   syncBefore: string;
+  sync: SyncEnvelope;
   updates: AuthorityReviewStatusUpdate[];
 }> {
   let body: unknown;
@@ -119,6 +176,7 @@ async function requestPage(
 function parsePage(body: unknown): {
   nextPath: string | null;
   syncBefore: string;
+  sync: SyncEnvelope;
   updates: AuthorityReviewStatusUpdate[];
 } {
   if (!isRecord(body) || !Array.isArray(body.data) || !isRecord(body.links)) {
@@ -143,8 +201,24 @@ function parsePage(body: unknown): {
   return {
     nextPath: rawNext === null ? null : toSafeContinuationPath(rawNext),
     syncBefore,
+    sync: parseSync(sync),
     updates: body.data.map(parseStatusItem),
   };
+}
+
+/** Tolerant of servers that predate versioning: absent stamps read as unknown. */
+function parseSync(sync: Record<string, unknown> | null): SyncEnvelope {
+  try {
+    return parseSyncEnvelope(sync);
+  } catch (error: unknown) {
+    if (error instanceof SyncEnvelopeFieldError) {
+      throw new ReportStatusesApiError(
+        'MALFORMED_RESPONSE',
+        `The authority review feed field sync.${error.field} is invalid.`,
+      );
+    }
+    throw error;
+  }
 }
 
 function parseStatusItem(value: unknown): AuthorityReviewStatusUpdate {
@@ -208,9 +282,12 @@ function parseAdvisory(value: unknown): MobileReportAdvisory | null {
   };
 }
 
-function buildInitialPath(updatedAfter: string | null | undefined): string {
+function buildInitialPath(updatedAfter: string | null | undefined, since: string | null): string {
   const query = new URLSearchParams({ per_page: String(PAGE_SIZE) });
-  if (updatedAfter) {
+  // A version stamp supersedes the overlapping timestamp: the feed then reports its own delta.
+  if (since) {
+    query.set('since', since);
+  } else if (updatedAfter) {
     query.set('updated_after', updatedAfter);
   }
   return `${STATUS_PATH}?${query.toString()}`;

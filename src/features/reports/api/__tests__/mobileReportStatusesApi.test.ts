@@ -63,6 +63,8 @@ describe('mobile report statuses API', () => {
           feedback: 'Latest field note',
         }),
       ],
+      sync: { version: null, total: 1, truncated: false, unchanged: false },
+      pageCount: 1,
     });
   });
 
@@ -143,6 +145,8 @@ describe('mobile report statuses API', () => {
           feedback: null,
         }),
       ],
+      sync: { version: null, total: 2, truncated: false, unchanged: false },
+      pageCount: 1,
     });
     expect(request).toHaveBeenNthCalledWith(
       1,
@@ -154,6 +158,32 @@ describe('mobile report statuses API', () => {
       '/api/v3/mobile/reports/statuses?cursor=next&sync_before=' + encodeURIComponent(CHECKPOINT),
       expect.objectContaining({ token: 'secure-token' }),
     );
+  });
+
+  // Proves: a version stamp replaces the overlapping timestamp and an unchanged answer costs no page.
+  it('sends the held version instead of the overlap and reports an unchanged feed', async () => {
+    request.mockResolvedValueOnce({
+      data: [],
+      links: { next: null },
+      meta: { sync_before: CHECKPOINT },
+      sync: { before: CHECKPOINT, version: 'v-1', total: 4, unchanged: true },
+    });
+
+    await expect(
+      fetchAllMobileReportStatuses({
+        token: 'secure-token',
+        updatedAfter: '2026-08-13T11:59:59.000Z',
+        since: 'v-1',
+      }),
+    ).resolves.toEqual({
+      syncBefore: CHECKPOINT,
+      updates: [],
+      sync: { version: 'v-1', total: 4, truncated: false, unchanged: true },
+      pageCount: 0,
+    });
+    const path = String(request.mock.calls[0][0]);
+    expect(path).toContain('since=v-1');
+    expect(path).not.toContain('updated_after');
   });
 
   it('rejects a cross-origin or path-boundary continuation before sending it', async () => {

@@ -4,9 +4,6 @@ import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import { syncCheckpoints, type SyncCheckpointFeed } from '@/database/schema';
 
-/** Page size the notification and authority status feeds request. */
-export const SYNC_FEED_PAGE_SIZE = 100;
-
 export interface SyncCheckpoint {
   feed: SyncCheckpointFeed;
   /** The server's opaque version stamp; null for feeds the server does not version. */
@@ -65,19 +62,6 @@ export function writeSyncCheckpoint(
       set: values,
     })
     .run();
-}
-
-/** Standalone write for feeds whose cache is not replaced wholesale. */
-export async function saveSyncCheckpoint(
-  database: CaneGuardDatabase,
-  ownerIdentity: string,
-  checkpoint: SyncCheckpoint,
-): Promise<void> {
-  try {
-    writeSyncCheckpoint(database, ownerIdentity, checkpoint);
-  } catch (error: unknown) {
-    throw toStorageError(error, 'UPDATE_FAILED', 'Saving the sync checkpoint failed.');
-  }
 }
 
 function requireOwner(value: string): string {

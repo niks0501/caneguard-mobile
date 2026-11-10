@@ -5,9 +5,8 @@ import {
 } from '@/features/reports/data/fieldReportReviewRepository';
 import { fetchAllMobileReportStatuses } from '@/features/reports/api/mobileReportStatusesApi';
 import {
-  derivePageCount,
-  saveSyncCheckpoint,
-  SYNC_FEED_PAGE_SIZE,
+  readSyncCheckpoint,
+  type SyncCheckpoint,
 } from '@/features/sync/data/syncCheckpointRepository';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
@@ -65,9 +64,15 @@ async function executeRefresh(options: {
     options.database,
     options.submitterIdentity,
   );
+  const held = await readSyncCheckpoint(
+    options.database,
+    options.submitterIdentity,
+    'authority_status',
+  );
   const response = await fetchAllMobileReportStatuses({
     token: options.token,
     updatedAfter: getOverlappedUpdatedAfter(latestServerUpdateAt),
+    since: held?.version ?? null,
   });
   const fetchedAt = new Date().toISOString();
   const result = await applyAuthorityReviewUpdates(
@@ -75,17 +80,17 @@ async function executeRefresh(options: {
     options.submitterIdentity,
     response.updates,
     fetchedAt,
+    {
+      feed: 'authority_status',
+      version: response.sync.version,
+      total: response.sync.total,
+      truncated: response.sync.truncated,
+      // An unchanged answer fetched no rows; the held download's page count still describes the cache.
+      pageCount: response.sync.unchanged && held ? held.pageCount : response.pageCount,
+      syncBefore: response.syncBefore,
+      fetchedAt,
+    } satisfies SyncCheckpoint,
   );
-  await saveSyncCheckpoint(options.database, options.submitterIdentity, {
-    feed: 'authority_status',
-    version: null,
-    total: response.updates.length,
-    truncated: false,
-    // Every request returns a page, so an empty feed still took one.
-    pageCount: Math.max(1, derivePageCount(response.updates.length, SYNC_FEED_PAGE_SIZE)),
-    syncBefore: response.syncBefore,
-    fetchedAt,
-  });
   emitSyncRecordsChanged();
   return {
     applied: result.applied,

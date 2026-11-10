@@ -7,12 +7,17 @@ import type { SQLiteDatabase, SQLiteStatement } from 'expo-sqlite';
 import type { CaneGuardDatabase } from '@/database/database';
 import * as schema from '@/database/schema';
 import {
+  confirmCachedMobileNotifications,
   listCachedMobileNotifications,
   markAllCachedMobileNotificationsRead,
   markCachedMobileNotificationRead,
   replaceCachedMobileNotifications,
 } from '@/features/notifications/data/notificationCacheRepository';
 import type { MobileNotificationUpdate } from '@/features/notifications/domain/notificationTypes';
+import {
+  readSyncCheckpoint,
+  type SyncCheckpoint,
+} from '@/features/sync/data/syncCheckpointRepository';
 
 function readMigration(filename: string): string {
   return readFileSync(join(process.cwd(), 'drizzle', filename), 'utf8').replaceAll('--> statement-breakpoint', '');
@@ -41,6 +46,7 @@ function openTestDatabase(): { database: CaneGuardDatabase; native: DatabaseSync
     '0016_nervous_gateway.sql',
     '0017_silky_rick_jones.sql',
     '0018_notification_advisory_content_cache.sql',
+    '0031_gorgeous_ben_grimm.sql',
   ]) native.exec(readMigration(migration));
 
   const client = {
@@ -206,6 +212,103 @@ describe('mobile notification cache', () => {
     const rows = await listCachedMobileNotifications(database, 'owner-1');
     expect(rows.every((row) => row.isRead)).toBe(true);
     expect(rows.every((row) => row.readAt === '2026-08-13T12:12:00.000Z')).toBe(true);
+    native.close();
+  });
+
+  it('commits the download checkpoint in the same transaction as the rows', async () => {
+    const { database, native } = openTestDatabase();
+    const checkpoint: SyncCheckpoint = {
+      feed: 'notifications',
+      version: 'v-1',
+      total: 2,
+      truncated: false,
+      pageCount: 1,
+      syncBefore: '2026-08-13T12:04:00.000Z',
+      fetchedAt: '2026-08-13T12:05:00.000Z',
+    };
+    const second = { ...NOTIFICATION, id: '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f' };
+
+    await replaceCachedMobileNotifications(
+      database,
+      'owner-1',
+      [NOTIFICATION, second],
+      '2026-08-13T12:05:00.000Z',
+      undefined,
+      checkpoint,
+    );
+
+    await expect(listCachedMobileNotifications(database, 'owner-1')).resolves.toHaveLength(2);
+    await expect(readSyncCheckpoint(database, 'owner-1', 'notifications')).resolves.toEqual(checkpoint);
+    native.close();
+  });
+
+  // Proves: the checkpoint cannot commit apart from the rows it describes. The store rejects the
+  // checkpoint (page_count >= 0), so the whole replacement must roll back.
+  it('leaves the previous rows when the checkpoint cannot be written', async () => {
+    const { database, native } = openTestDatabase();
+    await replaceCachedMobileNotifications(
+      database,
+      'owner-1',
+      [NOTIFICATION],
+      '2026-08-13T12:05:00.000Z',
+    );
+    const second = { ...NOTIFICATION, id: '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f' };
+
+    await expect(
+      replaceCachedMobileNotifications(
+        database,
+        'owner-1',
+        [NOTIFICATION, second],
+        '2026-08-13T12:06:00.000Z',
+        undefined,
+        {
+          feed: 'notifications',
+          version: 'v-1',
+          total: 2,
+          truncated: false,
+          pageCount: -1,
+          syncBefore: '2026-08-13T12:04:00.000Z',
+          fetchedAt: '2026-08-13T12:06:00.000Z',
+        },
+      ),
+    ).rejects.toMatchObject({ code: 'UPDATE_FAILED' });
+
+    await expect(listCachedMobileNotifications(database, 'owner-1')).resolves.toEqual([
+      expect.objectContaining({ id: NOTIFICATION.id, cachedAt: '2026-08-13T12:05:00.000Z' }),
+    ]);
+    await expect(readSyncCheckpoint(database, 'owner-1', 'notifications')).resolves.toBeNull();
+    native.close();
+  });
+
+  it('confirms an unchanged feed by keeping the rows and moving the checkpoint forward', async () => {
+    const { database, native } = openTestDatabase();
+    await replaceCachedMobileNotifications(
+      database,
+      'owner-1',
+      [NOTIFICATION],
+      '2026-08-13T12:05:00.000Z',
+    );
+    const checkpoint: SyncCheckpoint = {
+      feed: 'notifications',
+      version: 'v-1',
+      total: 1,
+      truncated: false,
+      pageCount: 1,
+      syncBefore: '2026-08-13T12:09:00.000Z',
+      fetchedAt: '2026-08-13T12:10:00.000Z',
+    };
+
+    await confirmCachedMobileNotifications(
+      database,
+      'owner-1',
+      '2026-08-13T12:10:00.000Z',
+      checkpoint,
+    );
+
+    await expect(listCachedMobileNotifications(database, 'owner-1')).resolves.toEqual([
+      expect.objectContaining({ id: NOTIFICATION.id, cachedAt: '2026-08-13T12:10:00.000Z' }),
+    ]);
+    await expect(readSyncCheckpoint(database, 'owner-1', 'notifications')).resolves.toEqual(checkpoint);
     native.close();
   });
 

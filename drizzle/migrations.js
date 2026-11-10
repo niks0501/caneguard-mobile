@@ -34,7 +34,6 @@ import m0029 from './0029_scan_personal_place.sql';
 import m0030 from './0030_field_validation_snapshot_skipped.sql';
 import m0031 from './0031_gorgeous_ben_grimm.sql';
 import m0032 from './0032_office_case_projection.sql';
-import m0033 from './0033_status_download_progress.sql';
 
   export default {
     journal,
@@ -71,8 +70,7 @@ m0028,
 m0029,
 m0030,
 m0031,
-m0032,
-m0033
+m0032
     }
   }
   

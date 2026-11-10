@@ -7,6 +7,7 @@ import type { SQLiteDatabase, SQLiteStatement } from 'expo-sqlite';
 import type { CaneGuardDatabase } from '@/database/database';
 import * as schema from '@/database/schema';
 import {
+  findCachedFieldValidationAssignmentForCase,
   listCachedFieldValidationAssignments,
   readCachedFieldValidationSkippedCount,
   replaceCachedFieldValidationAssignments,
@@ -140,6 +141,54 @@ describe('field validation assignment cache', () => {
     // An unchanged snapshot still refreshes the count.
     await replaceCachedFieldValidationAssignments(database, 'owner-1', [ASSIGNMENT], '2026-08-13T12:06:00.000Z', undefined, 1);
     await expect(readCachedFieldValidationSkippedCount(database, 'owner-1')).resolves.toBe(1);
+    native.close();
+  });
+  // Proves the case-only lookup resolves the notification's case to the owner's own cached assignment, never another owner's.
+  it('finds the owner cached assignment by case UUID or reference code', async () => {
+    const { database, native } = openTestDatabase();
+    await replaceCachedFieldValidationAssignments(database, 'owner-1', [ASSIGNMENT], '2026-08-13T12:05:00.000Z');
+
+    await expect(
+      findCachedFieldValidationAssignmentForCase(database, 'owner-1', {
+        caseUuid: ASSIGNMENT.reportUuid,
+        referenceCode: null,
+      }),
+    ).resolves.toEqual(expect.objectContaining({ id: ASSIGNMENT.id, ownerIdentity: 'owner-1' }));
+    await expect(
+      findCachedFieldValidationAssignmentForCase(database, 'owner-1', {
+        caseUuid: '00000000-0000-4000-8000-000000000000',
+        referenceCode: ASSIGNMENT.referenceCode,
+      }),
+    ).resolves.toEqual(expect.objectContaining({ id: ASSIGNMENT.id, ownerIdentity: 'owner-1' }));
+    await expect(
+      findCachedFieldValidationAssignmentForCase(database, 'owner-1', {
+        caseUuid: null,
+        referenceCode: null,
+      }),
+    ).resolves.toBeNull();
+    native.close();
+  });
+
+  it('never resolves a case-only lookup to another owner cache', async () => {
+    const { database, native } = openTestDatabase();
+    await replaceCachedFieldValidationAssignments(database, 'owner-1', [ASSIGNMENT], '2026-08-13T12:05:00.000Z');
+    await replaceCachedFieldValidationAssignments(
+      database,
+      'owner-2',
+      [{ ...ASSIGNMENT, id: 'c1f6fd86-3fd0-4b6e-9a9b-1bb5f1c2ac55', assignee: { uuid: 'owner-2', name: 'Other Reporter' } }],
+      '2026-08-13T12:06:00.000Z',
+    );
+
+    const match = { caseUuid: ASSIGNMENT.reportUuid, referenceCode: ASSIGNMENT.referenceCode };
+    await expect(
+      findCachedFieldValidationAssignmentForCase(database, 'owner-1', match),
+    ).resolves.toEqual(expect.objectContaining({ ownerIdentity: 'owner-1' }));
+    await expect(
+      findCachedFieldValidationAssignmentForCase(database, 'owner-2', match),
+    ).resolves.toEqual(expect.objectContaining({ ownerIdentity: 'owner-2' }));
+    await expect(
+      findCachedFieldValidationAssignmentForCase(database, 'owner-3', match),
+    ).resolves.toBeNull();
     native.close();
   });
   // Proves L4: an office-born case's concern, status and photo survive the cache and are read back offline; a field row reads back with no office case.

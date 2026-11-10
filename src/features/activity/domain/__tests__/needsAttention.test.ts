@@ -106,7 +106,7 @@ describe('buildNeedsAttention', () => {
     const summary = build({ notifications: [notification()] });
 
     expect(summary.items[0].destination).toEqual({ kind: 'unavailable' });
-    expect(summary.items[0].meta).toBe('This case is not stored on this device');
+    expect(summary.items[0].meta).toBe('Not on this phone: open on the web');
   });
 
   it('uses the resolved destination meta for an actionable update', () => {

@@ -74,14 +74,38 @@ export async function findCachedFieldValidationAssignmentForCase(
   const referenceCode = match.referenceCode?.trim();
   if (!caseUuid && !referenceCode) return null;
   try {
-    const rows = await listCachedFieldValidationAssignments(database, owner);
-    return (
-      rows.find(
-        (row) =>
-          (caseUuid && row.reportUuid === caseUuid) ||
-          (referenceCode && row.referenceCode === referenceCode),
-      ) ?? null
-    );
+    if (caseUuid) {
+      const byCaseUuid = await database
+        .select()
+        .from(fieldValidationAssignments)
+        .where(
+          and(
+            eq(fieldValidationAssignments.ownerIdentity, owner),
+            eq(fieldValidationAssignments.reportUuid, caseUuid),
+          ),
+        )
+        .get();
+      if (byCaseUuid) return toAssignment(byCaseUuid);
+    }
+    if (referenceCode) {
+      const byReference = await database
+        .select()
+        .from(fieldValidationAssignments)
+        .where(
+          and(
+            eq(fieldValidationAssignments.ownerIdentity, owner),
+            eq(fieldValidationAssignments.referenceCode, referenceCode),
+          ),
+        )
+        .orderBy(
+          asc(fieldValidationAssignments.updatedAt),
+          asc(fieldValidationAssignments.id),
+        )
+        .limit(1)
+        .get();
+      if (byReference) return toAssignment(byReference);
+    }
+    return null;
   } catch (error: unknown) {
     throw toStorageError(
       error,

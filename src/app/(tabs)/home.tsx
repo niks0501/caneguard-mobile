@@ -5,7 +5,6 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
-import { useToast } from '@/components/ui/Toast';
 import { HomeAttentionCard } from '@/features/activity/components/HomeAttentionCard';
 import { buildMorningNote } from '@/features/activity/domain/morningNote';
 import {
@@ -26,7 +25,7 @@ import { useOfficeUpdates } from '@/features/notifications/providers/OfficeUpdat
 import { notificationDestinationRoute } from '@/features/notifications/services/resolveNotificationDestination';
 import { getHomeSyncNote, INSPECTOR_WORK_WAITING_COPY } from '@/features/sync/utils/syncStatusCopy';
 import { useSync } from '@/features/sync/hooks/useSync';
-import { HOME_NOTE_COPY, OFFICE_UPDATE_NOT_ON_PHONE } from '@/constants/copy';
+import { HOME_NOTE_COPY } from '@/constants/copy';
 import {
   ComponentTokens,
   Fonts,
@@ -81,17 +80,11 @@ export default function HomeScreen() {
   // Stable identity so the memoized attention rows can skip re-rendering when
   // only unrelated Home state changes.
   const markAttentionRead = attention.markRead;
-  const { showToast } = useToast();
   const openAttentionItem = useCallback(
     (item: NeedsAttentionItem) => {
-      const route = item.destination
-        ? notificationDestinationRoute(item.destination)
-        : null;
-      if (!route) {
-        // Never a silent no-op: say the case is not on this phone.
-        showToast(OFFICE_UPDATE_NOT_ON_PHONE, 'info');
-        return;
-      }
+      if (!item.destination) return;
+      const route = notificationDestinationRoute(item.destination);
+      if (!route) return;
       if (item.kind === 'notification') {
         // Acknowledgment is best effort: a failed read mutation never blocks the
         // inspector from opening the destination.
@@ -99,7 +92,7 @@ export default function HomeScreen() {
       }
       router.push(route as never);
     },
-    [markAttentionRead, showToast],
+    [markAttentionRead],
   );
   const primaryItem = firstActionableAttentionItem(attention.items);
   const onPrimaryAction = () => {

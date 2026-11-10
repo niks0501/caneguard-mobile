@@ -418,7 +418,7 @@ describe('HomeScreen', () => {
         kind: 'notification',
         title: 'Authority update: Case #456',
         message: 'Review completed by regional office',
-        meta: 'This case is not stored on this device',
+        meta: 'Not on this phone: open on the web',
         destination: { kind: 'unavailable' },
       },
       visitItem('assignment-3', 'Balayan', 'overdue', 'assign-789'),
@@ -443,7 +443,7 @@ describe('HomeScreen', () => {
         kind: 'notification',
         title: 'Authority update: Case #456',
         message: 'Review completed by regional office',
-        meta: 'This case is not stored on this device',
+        meta: 'Not on this phone: open on the web',
         destination: { kind: 'unavailable' },
       },
     ];

@@ -49,7 +49,7 @@ describe('HomeAttentionCard', () => {
           id: 'notification-1',
           kind: 'notification',
           message: 'CG-2026-0002 was reviewed by the office.',
-          meta: 'This case is not stored on this device',
+          meta: 'Not on this phone: open on the web',
           title: 'Office review completed',
         },
       ],
@@ -58,7 +58,7 @@ describe('HomeAttentionCard', () => {
 
     expect(screen.getByText('Office review completed')).toBeOnTheScreen();
     expect(screen.getByText('CG-2026-0002 was reviewed by the office.')).toBeOnTheScreen();
-    expect(screen.getByText('This case is not stored on this device')).toBeOnTheScreen();
+    expect(screen.getByText('Not on this phone: open on the web')).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByTestId('home.attention.notification-1'));
     expect(onOpenItem).not.toHaveBeenCalled();

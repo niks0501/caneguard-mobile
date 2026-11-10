@@ -15,7 +15,10 @@ import {
  *
  * While a notification with no detail of its own is still resolving (no
  * destination yet), a tap neither marks it read nor closes the surface: it
- * shows a toast so the update is not consumed without opening anything.
+ * shows a toast so the update is not consumed without opening anything. A
+ * resolved update whose case is not on this phone is acknowledged but left
+ * open with a toast that says where the case lives, so no tap ends in a silent
+ * no-op.
  *
  * Acknowledgment is best effort: a failed read mutation never blocks the
  * inspector from opening the destination or the detail view.
@@ -44,8 +47,6 @@ export function useOpenMobileNotification({
 
       void markRead(notification.id);
       if (!openable) {
-        // Resolved, but the case is not on this phone: say so instead of a
-        // silent no-op.
         showToast(OFFICE_UPDATE_NOT_ON_PHONE, 'info');
         return;
       }

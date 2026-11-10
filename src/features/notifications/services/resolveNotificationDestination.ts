@@ -16,9 +16,10 @@ export type NotificationDestination =
  *
  * An assignment notification is actionable only when the assignment exists in
  * this owner's local cache. Reporters can receive the same office update as an
- * assignee, so an unknown assignment UUID falls through to the owner's local
- * Field Report instead of advertising a dead assignment route. A case that was
- * never stored on this device (or was removed) resolves to `unavailable`.
+ * assignee, so an unknown assignment UUID falls back to the owner's cached
+ * office-case assignment for that case, and then to their local Field Report,
+ * instead of advertising a dead assignment route. A case that was never stored
+ * on this device (or was removed) resolves to `unavailable`.
  */
 export async function resolveNotificationDestination(
   database: CaneGuardDatabase,

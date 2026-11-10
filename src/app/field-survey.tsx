@@ -148,6 +148,12 @@ export default function FieldSurveyScreen() {
     if (!walk) return;
     if (controlsLocked || drawingAffectedArea !== walk.affectedArea || clientUuid !== walk.surveyId || affectedAreas.length !== walk.areaCount) stopWalk();
   }, [affectedAreas.length, clientUuid, controlsLocked, drawingAffectedArea, stopWalk, walking]);
+  // The sampler measures spacing from the walked boundary's last point, so editing that boundary re-anchors it.
+  useEffect(() => {
+    const walk = walkRef.current;
+    if (!walk) return;
+    walk.last = (walk.affectedArea ? affectedWaypoints : waypoints).at(-1) ?? null;
+  }, [affectedWaypoints, waypoints]);
   useEffect(() => {
     if (!walking) return;
     const subscription = AppState.addEventListener('change', (state) => { if (state !== 'active') stopWalk(); });

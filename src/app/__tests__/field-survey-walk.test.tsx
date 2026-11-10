@@ -188,6 +188,30 @@ it('stops walking before a new boundary replaces the draft being walked', async 
   expect(lastDraftWaypoints()).toHaveLength(0);
 });
 
+it('measures walk spacing from the boundary after undo removes the last point', async () => {
+  // Invariant: the sampler always measures from the boundary's last point, not a removed one.
+  listSurveys.mockReturnValue([draftRow()]);
+  const remove = jest.fn();
+  let emit: (fix: WalkFix) => void = () => undefined;
+  watch.mockImplementation(async (onFix) => { emit = onFix; return { remove }; });
+
+  await renderWithGestures(<FieldSurveyScreen />);
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.newSurvey)).toBeTruthy());
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+
+  await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.undo)); });
+  expect(lastDraftWaypoints()).toHaveLength(3);
+
+  await act(async () => {
+    emit(fix(14.102, 121.10198)); // ~2 m from the new last point, ~214 m from the undone one
+    emit(fix(14.102, 121.1021)); // ~11 m from the new last point
+  });
+
+  await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(4));
+  expect(lastDraftWaypoints().at(-1)).toMatchObject({ latitude: 14.102, longitude: 121.1021 });
+});
+
 it('stops walking before finishing an affected area starts another one', async () => {
   // Invariant: a walk only ever adds points to the affected area it started on.
   listSurveys.mockReturnValue([draftRow({ activeAffectedWaypointsJson: JSON.stringify(AFFECTED_WAYPOINTS) })]);

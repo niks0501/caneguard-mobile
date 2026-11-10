@@ -264,4 +264,29 @@ describe('mobile field validation assignment API', () => {
       `record reference ${first.reference_code}`,
     );
   });
+
+  // Proves L1 (review-1): malformed shape fails the refresh even when the record's state is unknown.
+  it('fails loudly for an unknown-state record that is also missing its case', async () => {
+    const { case: _case, ...withoutCase } = MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE.data[0];
+    request.mockResolvedValueOnce(page([{ ...withoutCase, field_validation_state: 'escalated' }]));
+    await expect(fetchAllMobileFieldValidationAssignments({ token: 'secure-token' })).rejects.toMatchObject({
+      code: 'MALFORMED_RESPONSE',
+      message: expect.stringContaining('case'),
+    });
+  });
+
+  // Proves L1 (review-4): a broken identity (same UUID in different letter case) fails loudly even across a skipped record.
+  it('treats UUIDs that differ only by letter case as duplicate identities', async () => {
+    const first = MOBILE_FIELD_VALIDATION_ASSIGNMENTS_V1_FIXTURE.data[0];
+    const second = {
+      ...first,
+      uuid: first.uuid.toUpperCase(),
+      report_uuid: '1adf31c4-e9cb-4a8d-9650-9d2b86c06f6e',
+      field_validation_state: 'escalated',
+    };
+    request.mockResolvedValueOnce(page([second, first]));
+    await expect(fetchAllMobileFieldValidationAssignments({ token: 'secure-token' })).rejects.toMatchObject({
+      code: 'MALFORMED_RESPONSE',
+    });
+  });
 });

@@ -85,6 +85,7 @@ async function executeRefresh(options: {
     response.assignments,
     fetchedAt,
     options.isCurrent,
+    response.skippedCount,
   );
   const assignments = await listCachedFieldValidationAssignments(
     options.database,

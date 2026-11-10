@@ -1,6 +1,9 @@
 import type { FieldValidationAssignmentState } from '@/database/schema';
 import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
 
+/** Stored when the server sends a predicted_label this app version does not know. */
+export const UNKNOWN_PREDICTED_LABEL = 'unknown';
+
 export interface FieldValidationAssignment {
   id: string;
   ownerIdentity: string;

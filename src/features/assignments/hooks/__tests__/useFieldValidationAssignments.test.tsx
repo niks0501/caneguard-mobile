@@ -28,6 +28,7 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
 }));
 jest.mock('@/features/assignments/data/assignmentCacheRepository', () => ({
   listCachedFieldValidationAssignments: jest.fn(),
+  readCachedFieldValidationSkippedCount: jest.fn(async () => 0),
 }));
 jest.mock(
   '@/features/assignments/services/refreshFieldValidationAssignments',

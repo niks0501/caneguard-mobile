@@ -10,7 +10,10 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
   MobileFieldValidationAssignmentsApiError,
 } from '@/features/assignments/api/mobileFieldValidationAssignmentsApi';
-import { listCachedFieldValidationAssignments } from '@/features/assignments/data/assignmentCacheRepository';
+import {
+  listCachedFieldValidationAssignments,
+  readCachedFieldValidationSkippedCount,
+} from '@/features/assignments/data/assignmentCacheRepository';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import { refreshFieldValidationAssignments } from '@/features/assignments/services/refreshFieldValidationAssignments';
 import {
@@ -134,12 +137,16 @@ export function useFieldValidationAssignments(enabled = true) {
           database,
           requestedSession.user.uuid,
         );
+        const cachedSkippedCount = await readCachedFieldValidationSkippedCount(
+          database,
+          requestedSession.user.uuid,
+        );
         const fetchedAt = cached.reduce(
           (latest, assignment) => Math.max(latest, Date.parse(assignment.cachedAt)),
           0,
         );
         if (!isCurrentStore()) return;
-        setOwnerAssignments(store, cached, fetchedAt);
+        setOwnerAssignments(store, cached, fetchedAt, cachedSkippedCount);
         applyCached(cached);
       });
       if (!isCurrentStore()) return 'skipped';

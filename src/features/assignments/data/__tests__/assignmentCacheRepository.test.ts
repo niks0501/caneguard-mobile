@@ -8,6 +8,7 @@ import type { CaneGuardDatabase } from '@/database/database';
 import * as schema from '@/database/schema';
 import {
   listCachedFieldValidationAssignments,
+  readCachedFieldValidationSkippedCount,
   replaceCachedFieldValidationAssignments,
 } from '@/features/assignments/data/assignmentCacheRepository';
 import type { FieldValidationAssignmentUpdate } from '@/features/assignments/domain/assignmentTypes';
@@ -37,6 +38,7 @@ function openTestDatabase(): { database: CaneGuardDatabase; native: DatabaseSync
     '0014_safe_songbird.sql',
     '0015_sour_riptide.sql',
     '0016_nervous_gateway.sql',
+    '0030_field_validation_snapshot_skipped.sql',
   ]) native.exec(readMigration(migration));
 
   const client = {
@@ -121,6 +123,21 @@ describe('field validation assignment cache', () => {
     await expect(listCachedFieldValidationAssignments(database, 'owner-2')).resolves.toEqual([
       expect.objectContaining({ ownerIdentity: 'owner-2', assignee: { uuid: 'owner-2', name: 'Other Reporter' } }),
     ]);
+    native.close();
+  });
+
+  // Proves L1 (review-3 ruling): a cold start followed by a failed refresh still shows the true skipped count.
+  it('persists the skipped count with the snapshot and reads it back for a new session', async () => {
+    const { database, native } = openTestDatabase();
+    await expect(readCachedFieldValidationSkippedCount(database, 'owner-1')).resolves.toBe(0);
+
+    await replaceCachedFieldValidationAssignments(database, 'owner-1', [ASSIGNMENT], '2026-08-13T12:05:00.000Z', undefined, 2);
+    await expect(readCachedFieldValidationSkippedCount(database, 'owner-1')).resolves.toBe(2);
+    await expect(readCachedFieldValidationSkippedCount(database, 'owner-2')).resolves.toBe(0);
+
+    // An unchanged snapshot still refreshes the count.
+    await replaceCachedFieldValidationAssignments(database, 'owner-1', [ASSIGNMENT], '2026-08-13T12:06:00.000Z', undefined, 1);
+    await expect(readCachedFieldValidationSkippedCount(database, 'owner-1')).resolves.toBe(1);
     native.close();
   });
 });

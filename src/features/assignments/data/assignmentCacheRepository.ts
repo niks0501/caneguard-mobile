@@ -2,7 +2,7 @@ import { and, asc, eq } from 'drizzle-orm';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
-import { fieldValidationAssignments } from '@/database/schema';
+import { fieldValidationAssignmentSnapshots, fieldValidationAssignments } from '@/database/schema';
 import type {
   FieldValidationAssignment,
   FieldValidationAssignmentUpdate,
@@ -58,6 +58,28 @@ export async function findCachedFieldValidationAssignment(
   }
 }
 
+/** The skipped-record count saved by the owner's last successful refresh. */
+export async function readCachedFieldValidationSkippedCount(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+): Promise<number> {
+  const owner = requireOwner(ownerIdentity);
+  try {
+    const rows = await database
+      .select({ skippedCount: fieldValidationAssignmentSnapshots.skippedCount })
+      .from(fieldValidationAssignmentSnapshots)
+      .where(eq(fieldValidationAssignmentSnapshots.ownerIdentity, owner))
+      .limit(1);
+    return rows[0]?.skippedCount ?? 0;
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'QUERY_FAILED',
+      'Reading cached field validation assignments failed.',
+    );
+  }
+}
+
 /**
  * Replace one authenticated owner's complete server snapshot only after the
  * feed has been fully validated. A successful refresh removes assignments
@@ -69,6 +91,7 @@ export async function replaceCachedFieldValidationAssignments(
   updates: FieldValidationAssignmentUpdate[],
   cachedAt: string,
   isCurrent?: () => boolean,
+  skippedCount = 0,
 ): Promise<void> {
   const owner = requireOwner(ownerIdentity);
   if (!cachedAt || Number.isNaN(Date.parse(cachedAt))) {
@@ -93,16 +116,30 @@ export async function replaceCachedFieldValidationAssignments(
       return stableFingerprint(previousData) !== stableFingerprint(update);
     });
 
-    if (!removed && !changed) {
-      database
-        .update(fieldValidationAssignments)
-        .set({ cachedAt })
-        .where(eq(fieldValidationAssignments.ownerIdentity, owner))
+    const saveSkippedCount = (executor: Pick<CaneGuardDatabase, 'insert'>) =>
+      executor
+        .insert(fieldValidationAssignmentSnapshots)
+        .values({ ownerIdentity: owner, skippedCount })
+        .onConflictDoUpdate({
+          target: fieldValidationAssignmentSnapshots.ownerIdentity,
+          set: { skippedCount },
+        })
         .run();
+
+    if (!removed && !changed) {
+      database.transaction((transaction) => {
+        transaction
+          .update(fieldValidationAssignments)
+          .set({ cachedAt })
+          .where(eq(fieldValidationAssignments.ownerIdentity, owner))
+          .run();
+        saveSkippedCount(transaction);
+      });
       return;
     }
 
     database.transaction((transaction) => {
+      saveSkippedCount(transaction);
       for (const assignment of current) {
         if (!incoming.has(assignment.id)) {
           transaction

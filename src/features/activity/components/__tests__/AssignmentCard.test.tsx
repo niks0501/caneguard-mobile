@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react-native';
 import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
-import { ASSIGNMENT_PHOTO_PLACEHOLDER } from '@/constants/copy';
+import { ASSIGNMENT_PHOTO_PLACEHOLDER, UNRECOGNIZED_LABEL_TEXT } from '@/constants/copy';
 import { AssignmentCard } from '@/features/activity/components/AssignmentCard';
 import { VISIT_DONE_WAITING_LABEL } from '@/features/sync/utils/syncStatusCopy';
 import { useAssignmentPhotoUri } from '@/features/activity/hooks/useAssignmentPhoto';
@@ -271,3 +271,16 @@ function flattenedSize(style: unknown): { height: number; width: number } {
   const flattened = StyleSheet.flatten(style as StyleProp<ViewStyle>) as { height: number; width: number };
   return { height: flattened.height, width: flattened.width };
 }
+
+describe('AssignmentCard unknown predicted label', () => {
+  // Proves L1 (review-2 ruling): an unrecognized predicted_label reads as not recognized by this app version.
+  it('shows the not-recognized wording instead of Unclear', async () => {
+    await render(
+      <AssignmentCard
+        assignment={{ ...ASSIGNMENT, case: { ...ASSIGNMENT.case, predictedLabel: 'unknown' } }}
+      />,
+    );
+    expect(screen.getByText(UNRECOGNIZED_LABEL_TEXT)).toBeTruthy();
+    expect(screen.queryByText('Unclear')).toBeNull();
+  });
+});

@@ -6,6 +6,7 @@ import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import {
   fieldReports,
   fieldSurveys,
+  fieldValidationAssignmentSnapshots,
   fieldValidationAssignments,
   fieldValidationCompletions,
   localDrafts,
@@ -166,6 +167,10 @@ export async function clearCachedOfficeDataForOwner(
         .delete(fieldValidationAssignments)
         .where(eq(fieldValidationAssignments.ownerIdentity, owner))
         .run().changes;
+      transaction
+        .delete(fieldValidationAssignmentSnapshots)
+        .where(eq(fieldValidationAssignmentSnapshots.ownerIdentity, owner))
+        .run();
       deletedRows += transaction
         .delete(mobileNotifications)
         .where(eq(mobileNotifications.ownerIdentity, owner))
@@ -220,6 +225,10 @@ export async function clearLocalDataForOwner(
         .delete(fieldValidationAssignments)
         .where(eq(fieldValidationAssignments.ownerIdentity, owner))
         .run().changes;
+      transaction
+        .delete(fieldValidationAssignmentSnapshots)
+        .where(eq(fieldValidationAssignmentSnapshots.ownerIdentity, owner))
+        .run();
       deletedRows += transaction
         .delete(mobileNotifications)
         .where(eq(mobileNotifications.ownerIdentity, owner))

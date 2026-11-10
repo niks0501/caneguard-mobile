@@ -6,8 +6,9 @@ import {
   type FieldValidationAssignmentState,
   type FieldValidationFollowUpOutcome,
 } from '@/database/schema';
-import type {
-  FieldValidationAssignmentUpdate,
+import {
+  UNKNOWN_PREDICTED_LABEL,
+  type FieldValidationAssignmentUpdate,
 } from '@/features/assignments/domain/assignmentTypes';
 import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
 import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
@@ -25,8 +26,6 @@ export interface MobileFieldValidationAssignmentsResult {
   skippedCount: number;
 }
 
-/** Stored and shown when the server sends a predicted_label this build does not know. */
-export const UNKNOWN_PREDICTED_LABEL = 'unknown';
 
 export type MobileFieldValidationAssignmentsErrorCode =
   | 'AUTH_REQUIRED'
@@ -204,13 +203,12 @@ function parseAssignment(
   const assignee = parsePerson(value.assignee, 'assignee');
   const targetVisitDate = parseDate(value.target_visit_date, 'target_visit_date');
   const fieldValidationState = parseAssignmentState(value.field_validation_state);
-  if (fieldValidationState === null) return null;
   const assignedAt = requireTimestamp(value.assigned_at, 'assigned_at');
   const updatedAt = requireTimestamp(value.updated_at, 'updated_at');
   const rawCase = isRecord(value.case) ? value.case : null;
   if (!rawCase) throw malformed('case');
 
-  return {
+  const update = {
     id,
     reportUuid,
     reportClientUuid,
@@ -219,7 +217,6 @@ function parseAssignment(
     assignee,
     submitterIsAssignee: requireBoolean(value.submitter_is_assignee, 'submitter_is_assignee'),
     targetVisitDate,
-    fieldValidationState,
     assignedAt,
     updatedAt,
     case: {
@@ -249,6 +246,9 @@ function parseAssignment(
     },
     previousVisit: parsePreviousVisit(value.previous_visit),
   };
+  // Vocabulary is filtered only after identity and the whole record shape validated.
+  if (fieldValidationState === null) return null;
+  return { ...update, fieldValidationState };
 }
 
 function parsePreviousVisit(value: unknown): PreviousVisitContext | null {
@@ -355,6 +355,9 @@ function registerIdentity(
   id: string,
   reportUuid: string,
 ): void {
+  // UUIDs are case-insensitive: compare their lowercase form.
+  id = id.toLowerCase();
+  reportUuid = reportUuid.toLowerCase();
   if (identities.ids.has(id) || identities.reportIds.has(reportUuid)) {
     throw new MobileFieldValidationAssignmentsApiError(
       'MALFORMED_RESPONSE',

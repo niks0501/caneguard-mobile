@@ -4,10 +4,13 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DiseasePill, type DiseasePillVariant } from '@/components/ui/DiseasePill';
-import { ASSIGNMENT_PHOTO_PLACEHOLDER } from '@/constants/copy';
+import { ASSIGNMENT_PHOTO_PLACEHOLDER, UNRECOGNIZED_LABEL_TEXT } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useAssignmentPhotoUri } from '@/features/activity/hooks/useAssignmentPhoto';
-import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
+import {
+  UNKNOWN_PREDICTED_LABEL,
+  type FieldValidationAssignment,
+} from '@/features/assignments/domain/assignmentTypes';
 import type { PhoneCompletionState } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 import {
   formatTodayDueLine,
@@ -85,7 +88,10 @@ export function AssignmentCard({
               ? assignment.referenceCode
               : `${assignment.referenceCode} · ${progress}`}
           </Text>
-          <DiseasePill variant={variant} />
+          <DiseasePill
+            variant={variant}
+            label={assignment.case.predictedLabel === UNKNOWN_PREDICTED_LABEL ? UNRECOGNIZED_LABEL_TEXT : undefined}
+          />
         </View>
       </View>
     </Pressable>

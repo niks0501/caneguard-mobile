@@ -3,6 +3,7 @@ import {
   DEV_MAP_TILE_URL_TEMPLATE,
   coordinateAtViewportPoint,
   coordinateToViewportPoint,
+  fitMapToCoordinates,
   getConfiguredMapTileUrlTemplate,
   getMapTiles,
   isLocalOrLanHostname,
@@ -331,5 +332,25 @@ describe('isLocalOrLanHostname', () => {
     '172.32.0.1',
   ])('rejects non-LAN hostname %s', (hostname) => {
     expect(isLocalOrLanHostname(hostname)).toBe(false);
+  });
+});
+
+describe('fitMapToCoordinates', () => {
+  // Intent: a resumed boundary opens with its whole shape on screen.
+  it('picks a view that keeps every point inside the viewport', () => {
+    const points = [{ latitude: 14.1, longitude: 121.1 }, { latitude: 14.102, longitude: 121.102 }];
+    const fit = fitMapToCoordinates(points, 360, 380);
+    expect(fit).not.toBeNull();
+    for (const point of points) {
+      const at = coordinateToViewportPoint(fit!.center, point, fit!.zoom, 360, 380);
+      expect(at.x).toBeGreaterThanOrEqual(0);
+      expect(at.x).toBeLessThanOrEqual(360);
+      expect(at.y).toBeGreaterThanOrEqual(0);
+      expect(at.y).toBeLessThanOrEqual(380);
+    }
+  });
+
+  it('returns null with nothing to show', () => {
+    expect(fitMapToCoordinates([], 360, 380)).toBeNull();
   });
 });

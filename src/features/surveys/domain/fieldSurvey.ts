@@ -223,6 +223,24 @@ export function snapAffectedAreaWaypoints(plot: SurveyPolygon, waypoints: Survey
   });
 }
 
+/** Indexes of affected areas that are not fully inside the plot; empty when the plot itself is unusable. */
+export function findAffectedAreasOutsidePlot(plot: SurveyPolygon, affectedAreas: SurveyPolygon[]): number[] {
+  const plotGeometry = readValidPolygon(plot);
+  if (!plotGeometry) return [];
+  const outside: number[] = [];
+  affectedAreas.forEach((area, index) => {
+    const geometry = readValidPolygon(area);
+    if (!geometry) return;
+    try {
+      const remainder = OverlayOp.difference(geometry, plotGeometry);
+      if (!remainder || !remainder.isEmpty()) outside.push(index);
+    } catch {
+      outside.push(index);
+    }
+  });
+  return outside;
+}
+
 export function validateAffectedAreaWaypoints(
   polygons: SurveyPolygon[],
   waypointSets: SurveyWaypoint[][],

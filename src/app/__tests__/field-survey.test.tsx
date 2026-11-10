@@ -278,13 +278,14 @@ it('reports a cancelled recapture when the named point is removed while sampling
   ]);
 });
 
-it('reports a boundary drawn only on the map as low accuracy without offering recapture', async () => {
+it('labels a boundary drawn only on the map "Drawn on map", not low GPS accuracy, with nothing to recapture', async () => {
   const mapped = PLOT_WAYPOINTS.map((point) => ({ ...point, accuracyMeters: null, source: 'map' as const }));
   mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(mapped) })]);
 
   await renderWithGestures(<FieldSurveyScreen />);
 
-  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.qualityState.low_accuracy)).toBeTruthy());
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.qualityState.drawn_on_map)).toBeTruthy());
+  expect(screen.queryByText(FIELD_SURVEY_COPY.qualityState.low_accuracy)).toBeNull();
   expect(screen.queryByText(FIELD_SURVEY_COPY.recapturePoint(1))).toBeNull();
 });
 
@@ -478,4 +479,101 @@ it('only saves a missing linked survey after the user starts a new boundary', as
   });
 
   await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
+});
+
+describe('drawing tool (phone)', () => {
+  // Intent: every point is touchable, every edit can be undone, and a resumed boundary opens on its shape.
+  beforeEach(() => {
+    mockListSurveys.mockReturnValue([draftRow()]);
+  });
+
+  it('draws a touch target for the first point of an affected area', async () => {
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
+    await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.affectedAreaBoundary));
+    expect(screen.queryByTestId('field-survey.point.active.0')).toBeNull();
+
+    mockCaptureWaypoint.mockResolvedValue({ status: 'captured', waypoint: ACTIVE_AFFECTED_WAYPOINTS[0] });
+    await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.addGpsPoint)); });
+
+    await waitFor(() => expect(screen.getByTestId('field-survey.point.active.0')).toBeTruthy());
+  });
+
+  it('adds a point between two others from the + on an edge', async () => {
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+    await fireEvent.press(screen.getByTestId('field-survey.insert.plot.0'));
+
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (5)`)).toBeTruthy());
+    expect(screen.getByTestId('field-survey.tool-state').props.accessibilityValue.text).toBe('tool=plot.move');
+  });
+
+  it('undoes a removal, not just the last added point', async () => {
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+    await fireEvent.press(screen.getByTestId('field-survey.point.plot.1'));
+    await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.removeSelected));
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (3)`)).toBeTruthy());
+
+    await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.undo));
+
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+    expect(mockSaveDraft.mock.lastCall?.[1].waypoints).toEqual(PLOT_WAYPOINTS);
+  });
+
+  it('removes a chosen affected area from its own button', async () => {
+    mockListSurveys.mockReturnValue([]);
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
+    for (const [x, y] of [[100, 100], [260, 100], [260, 240], [100, 240]]) await pressMap(x, y);
+    await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.affectedAreaBoundary));
+    for (const [x, y] of [[140, 130], [170, 150], [200, 130]]) await pressMap(x, y);
+    await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.finishAffectedArea));
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.affectedAreas} (1)`)).toBeTruthy());
+
+    await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.removeAffectedAreaNumber(1)));
+
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.affectedAreas} (0)`)).toBeTruthy());
+  });
+
+  it('shows where a boundary crosses itself', async () => {
+    const bowtie = [PLOT_WAYPOINTS[0], PLOT_WAYPOINTS[2], PLOT_WAYPOINTS[3], PLOT_WAYPOINTS[1]];
+    mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(bowtie) })]);
+
+    await renderWithGestures(<FieldSurveyScreen />);
+
+    expect((await screen.findByTestId('field-survey.validity')).props.children).toBe(FIELD_SURVEY_COPY.validity.crosses_itself);
+  });
+
+  it('opens a resumed boundary with its shape on screen', async () => {
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+    await act(async () => {
+      fireEvent(screen.getByTestId('field-survey.map'), 'layout', { nativeEvent: { layout: { width: 360, height: 380 } } });
+    });
+
+    for (let index = 0; index < 4; index += 1) {
+      const style = screen.getByTestId(`field-survey.point.plot.${index}`).props.style as { left: number; top: number };
+      const x = style.left + 22 - 256;
+      const y = style.top + 22 - 256;
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(360);
+      expect(y).toBeGreaterThanOrEqual(0);
+      expect(y).toBeLessThanOrEqual(380);
+    }
+  });
+
+  it('moves the map to my location without adding a point', async () => {
+    mockCaptureWaypoint.mockResolvedValue({ status: 'captured', waypoint: { latitude: 14.5, longitude: 121.5, accuracyMeters: 5, capturedAt: '2026-11-10T00:00:00.000Z', source: 'gps' } });
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.my-location')); });
+
+    await waitFor(() => expect(mockCaptureWaypoint).toHaveBeenCalled());
+    expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy();
+  });
 });

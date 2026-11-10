@@ -8,6 +8,7 @@ import {
   readSyncCheckpoint,
   type SyncCheckpoint,
 } from '@/features/sync/data/syncCheckpointRepository';
+import { createSyncDownloadProgressStore } from '@/features/sync/data/syncDownloadProgressStorage';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 const OVERLAP_MS = 1_000;
@@ -27,6 +28,48 @@ const activeRefreshes = new WeakMap<
   CaneGuardDatabase,
   Map<string, ActiveRefresh>
 >();
+const refreshGenerations = new WeakMap<CaneGuardDatabase, Map<string, number>>();
+
+const clearingOwners = new WeakMap<CaneGuardDatabase, Map<string, number>>();
+
+export function beginAuthorityReviewClear(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+): void {
+  const owner = ownerIdentity.trim();
+  bumpRefreshGeneration(database, owner);
+  let clearing = clearingOwners.get(database);
+  if (!clearing) {
+    clearing = new Map();
+    clearingOwners.set(database, clearing);
+  }
+  clearing.set(owner, (clearing.get(owner) ?? 0) + 1);
+}
+
+export function endAuthorityReviewClear(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+): void {
+  const owner = ownerIdentity.trim();
+  bumpRefreshGeneration(database, owner);
+  const clearing = clearingOwners.get(database);
+  const remaining = (clearing?.get(owner) ?? 0) - 1;
+  if (remaining > 0) {
+    clearing?.set(owner, remaining);
+    return;
+  }
+  clearing?.delete(owner);
+}
+
+function bumpRefreshGeneration(database: CaneGuardDatabase, owner: string): void {
+  let databaseGenerations = refreshGenerations.get(database);
+  if (!databaseGenerations) {
+    databaseGenerations = new Map();
+    refreshGenerations.set(database, databaseGenerations);
+  }
+  databaseGenerations.set(owner, (databaseGenerations.get(owner) ?? 0) + 1);
+  activeRefreshes.get(database)?.delete(owner);
+}
 
 export function refreshAuthorityReviewStatus(options: {
   database: CaneGuardDatabase;
@@ -34,6 +77,9 @@ export function refreshAuthorityReviewStatus(options: {
   token: string;
 }): Promise<AuthorityReviewRefreshResult> {
   const owner = options.submitterIdentity.trim();
+  if ((clearingOwners.get(options.database)?.get(owner) ?? 0) > 0) {
+    return Promise.reject(new Error('The authority review refresh was superseded.'));
+  }
   let databaseRefreshes = activeRefreshes.get(options.database);
   if (!databaseRefreshes) {
     databaseRefreshes = new Map();
@@ -45,7 +91,19 @@ export function refreshAuthorityReviewStatus(options: {
     return active.promise;
   }
 
-  const operation = executeRefresh({ ...options, submitterIdentity: owner });
+  let databaseGenerations = refreshGenerations.get(options.database);
+  if (!databaseGenerations) {
+    databaseGenerations = new Map();
+    refreshGenerations.set(options.database, databaseGenerations);
+  }
+  const generation = (databaseGenerations.get(owner) ?? 0) + 1;
+  databaseGenerations.set(owner, generation);
+
+  const operation = executeRefresh({
+    ...options,
+    submitterIdentity: owner,
+    isCurrent: () => databaseGenerations?.get(owner) === generation,
+  });
   const promise = operation.finally(() => {
     if (databaseRefreshes?.get(owner)?.promise === promise) {
       databaseRefreshes.delete(owner);
@@ -59,6 +117,7 @@ async function executeRefresh(options: {
   database: CaneGuardDatabase;
   submitterIdentity: string;
   token: string;
+  isCurrent: () => boolean;
 }): Promise<AuthorityReviewRefreshResult> {
   const latestServerUpdateAt = await findLatestAuthorityReviewUpdatedAt(
     options.database,
@@ -71,9 +130,16 @@ async function executeRefresh(options: {
   );
   const response = await fetchAllMobileReportStatuses({
     token: options.token,
-    updatedAfter: getOverlappedUpdatedAfter(latestServerUpdateAt),
+    // The cursor is the last fully stored download's server checkpoint, not the newest row.
+    updatedAfter: getOverlappedUpdatedAfter(held?.syncBefore ?? latestServerUpdateAt),
     since: held?.version ?? null,
+    progress: createSyncDownloadProgressStore(
+      options.submitterIdentity,
+      'authority_status',
+      options.isCurrent,
+    ),
   });
+  if (!options.isCurrent()) throw new Error('The authority review refresh was superseded.');
   const fetchedAt = new Date().toISOString();
   const result = await applyAuthorityReviewUpdates(
     options.database,

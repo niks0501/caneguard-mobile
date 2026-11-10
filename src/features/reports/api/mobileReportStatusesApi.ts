@@ -11,6 +11,7 @@ import {
   parseSyncEnvelope,
   SyncEnvelopeFieldError,
 } from '@/features/sync/api/syncEnvelope';
+import type { SyncDownloadProgressStore } from '@/features/sync/domain/syncDownloadProgressStore';
 
 const STATUS_PATH = '/api/v3/mobile/reports/statuses';
 const PAGE_SIZE = 100;
@@ -25,6 +26,20 @@ export interface MobileReportStatusesResult {
   pageCount: number;
 }
 
+/**
+ * Pages already downloaded from one server checkpoint. A retry of the same request
+ * continues at `nextPath` instead of restarting from page one, even in a new process.
+ */
+interface StatusDownloadProgress {
+  cursor: string;
+  nextPath: string;
+  syncBefore: string;
+  sync: SyncEnvelope;
+  updates: AuthorityReviewStatusUpdate[];
+  visited: string[];
+  pagesRequested: number;
+}
+
 export type ReportStatusesErrorCode =
   | 'AUTH_REQUIRED'
   | 'CAPABILITY_UNAVAILABLE'
@@ -37,11 +52,7 @@ export class ReportStatusesApiError extends Error {
   readonly code: ReportStatusesErrorCode;
   readonly status: number | null;
 
-  constructor(
-    code: ReportStatusesErrorCode,
-    message: string,
-    status: number | null = null,
-  ) {
+  constructor(code: ReportStatusesErrorCode, message: string, status: number | null = null) {
     super(message);
     this.name = 'ReportStatusesApiError';
     this.code = code;
@@ -49,23 +60,39 @@ export class ReportStatusesApiError extends Error {
   }
 }
 
-export async function fetchAllMobileReportStatuses(options: {
+interface StatusDownloadRequest {
   token: string;
   updatedAfter?: string | null;
   /** The version of the last complete download; an unchanged feed then costs one request. */
   since?: string | null;
-}): Promise<MobileReportStatusesResult> {
+  /** Owner-scoped storage where an interrupted download leaves its pages and continuation. */
+  progress: SyncDownloadProgressStore;
+}
+
+export function fetchAllMobileReportStatuses(
+  options: StatusDownloadRequest,
+): Promise<MobileReportStatusesResult> {
+  return fetchStatusPages(options, false);
+}
+
+async function fetchStatusPages(
+  options: StatusDownloadRequest,
+  restarted: boolean,
+): Promise<MobileReportStatusesResult> {
   const since = options.since ?? null;
   const initialPath = buildInitialPath(options.updatedAfter, since);
-  const visited = new Set<string>();
-  const updates: AuthorityReviewStatusUpdate[] = [];
-  let path: string | null = initialPath;
-  let syncBefore: string | null = null;
-  let sync: SyncEnvelope | null = null;
-  let pageLimit = 1;
-  let pagesRequested = 0;
+  // Only a retry of the same first-page request resumes; another cursor starts over.
+  const resume = await readProgress(options.progress, initialPath);
+  const visited = new Set<string>(resume?.visited ?? []);
+  const updates: AuthorityReviewStatusUpdate[] = [...(resume?.updates ?? [])];
+  let path: string | null = resume?.nextPath ?? initialPath;
+  let syncBefore: string | null = resume?.syncBefore ?? null;
+  let sync: SyncEnvelope | null = resume?.sync ?? null;
+  let pageLimit = sync ? envelopePageLimit(sync, PAGE_SIZE, MAX_PAGES) : 1;
+  let pagesRequested = resume?.pagesRequested ?? 0;
+  let resumedPage = Boolean(resume);
 
-  for (let pageNumber = 0; path; pageNumber += 1) {
+  for (let pageNumber = pagesRequested; path; pageNumber += 1) {
     if (pageNumber >= pageLimit || visited.has(path)) {
       throw new ReportStatusesApiError(
         'MALFORMED_RESPONSE',
@@ -76,6 +103,24 @@ export async function fetchAllMobileReportStatuses(options: {
 
     const page = await requestPage(path, options.token);
     pagesRequested += 1;
+    if (
+      resumedPage &&
+      sync &&
+      (page.syncBefore !== syncBefore ||
+        page.sync.version !== sync.version ||
+        page.sync.total !== sync.total)
+    ) {
+      if (restarted) {
+        throw new ReportStatusesApiError(
+          'MALFORMED_RESPONSE',
+          'The authority review feed kept changing while the download restarted.',
+        );
+      }
+      // The feed moved on while the download was stored; its pages describe a stale set.
+      await options.progress.clear();
+      return fetchStatusPages(options, true);
+    }
+    resumedPage = false;
     if (syncBefore && page.syncBefore !== syncBefore) {
       throw new ReportStatusesApiError(
         'MALFORMED_RESPONSE',
@@ -99,7 +144,21 @@ export async function fetchAllMobileReportStatuses(options: {
       assertContinuationCheckpoint(page.nextPath, syncBefore);
     }
     path = page.nextPath;
+    if (path && syncBefore && sync) {
+      await options.progress.save(
+        serializeProgress({
+          cursor: initialPath,
+          nextPath: path,
+          syncBefore,
+          sync,
+          updates,
+          visited: [...visited],
+          pagesRequested,
+        }),
+      );
+    }
   }
+  await options.progress.clear();
 
   if (!syncBefore || !sync) {
     throw new ReportStatusesApiError(
@@ -147,6 +206,100 @@ export async function fetchAllMobileReportStatuses(options: {
     },
     pageCount: pagesRequested,
   };
+}
+
+async function readProgress(
+  store: SyncDownloadProgressStore,
+  initialPath: string,
+): Promise<StatusDownloadProgress | null> {
+  const payload = await store.read();
+  if (payload === null) return null;
+  const progress = parseProgress(payload);
+  if (progress && progress.cursor === initialPath) return progress;
+  await store.clear();
+  return null;
+}
+
+function serializeProgress(progress: StatusDownloadProgress): string {
+  return JSON.stringify({
+    ...progress,
+    sync: toStoredSync(progress.sync),
+    updates: progress.updates.map(toStoredItem),
+  });
+}
+
+/** A stamp the server never sent is stored as absent, the shape the envelope parser accepts. */
+function toStoredSync(sync: SyncEnvelope): Record<string, unknown> {
+  const stored: Record<string, unknown> = {
+    truncated: sync.truncated,
+    unchanged: sync.unchanged,
+  };
+  if (sync.version !== null) stored.version = sync.version;
+  if (sync.total !== null) stored.total = sync.total;
+  return stored;
+}
+
+/** Stored rows keep the wire shape so reading them back reuses the feed's own item parser. */
+function toStoredItem(update: AuthorityReviewStatusUpdate): Record<string, unknown> {
+  return {
+    uuid: update.remoteUuid,
+    client_uuid: update.clientUuid,
+    review_status: update.rawStatus,
+    updated_at: update.statusUpdatedAt,
+    review_notes: update.feedback,
+    reference_code: update.referenceCode,
+    reviewed_at: update.reviewedAt,
+    advisory: update.advisory && {
+      uuid: update.advisory.uuid,
+      code: update.advisory.code,
+      title: update.advisory.title,
+      content: update.advisory.content,
+      status: update.advisory.status,
+      selected_at: update.advisory.selectedAt,
+    },
+  };
+}
+
+/** Stored progress this build cannot read is dropped: the download then starts over. */
+function parseProgress(payload: string): StatusDownloadProgress | null {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(payload);
+  } catch {
+    return null;
+  }
+  if (
+    !isRecord(raw) ||
+    !Array.isArray(raw.updates) ||
+    !Array.isArray(raw.visited) ||
+    typeof raw.pagesRequested !== 'number' ||
+    !Number.isInteger(raw.pagesRequested) ||
+    raw.pagesRequested < 0
+  ) {
+    return null;
+  }
+  try {
+    return {
+      cursor: requireNonBlankString(raw.cursor, 'cursor'),
+      nextPath: toSafeContinuationPath(requireNonBlankString(raw.nextPath, 'next_path')),
+      syncBefore: requireTimestamp(raw.syncBefore, 'sync_before'),
+      sync: parseSync(readStoredSync(raw.sync)),
+      updates: raw.updates.map(parseStatusItem),
+      visited: raw.visited.map((path) => requireNonBlankString(path, 'visited')),
+      pagesRequested: raw.pagesRequested,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Stored envelopes keep an unsent stamp absent even after a round trip through JSON. */
+function readStoredSync(value: unknown): Record<string, unknown> | null {
+  if (!isRecord(value)) return null;
+  const sync: Record<string, unknown> = { ...value };
+  if (sync.version === null) delete sync.version;
+  if (sync.total === null) delete sync.total;
+  return sync;
 }
 
 async function requestPage(
@@ -294,11 +447,7 @@ function parseAdvisory(value: unknown): MobileReportAdvisory | null {
  * A whole-feed answer must deliver exactly the rows its total promised; a cut
  * or version-scoped answer only has to fit inside that total.
  */
-function isConsistentTotal(
-  sync: SyncEnvelope,
-  received: number,
-  since: string | null,
-): boolean {
+function isConsistentTotal(sync: SyncEnvelope, received: number, since: string | null): boolean {
   if (sync.total === null) return true;
   return !sync.truncated && !since ? sync.total === received : sync.total >= received;
 }
@@ -341,10 +490,7 @@ function toSafeContinuationPath(rawUrl: string): string {
       'The authority review feed continuation left the API path boundary.',
     );
   }
-  if (
-    url.pathname !== STATUS_PATH &&
-    !url.pathname.startsWith(`${STATUS_PATH}/`)
-  ) {
+  if (url.pathname !== STATUS_PATH && !url.pathname.startsWith(`${STATUS_PATH}/`)) {
     throw new ReportStatusesApiError(
       'ORIGIN_MISMATCH',
       'The authority review feed continuation left the endpoint boundary.',
@@ -450,10 +596,7 @@ function mapApiError(error: unknown): ReportStatusesApiError {
     );
   }
   if (isAbortError(error)) {
-    return new ReportStatusesApiError(
-      'TIMEOUT',
-      'The authority review status request timed out.',
-    );
+    return new ReportStatusesApiError('TIMEOUT', 'The authority review status request timed out.');
   }
   return new ReportStatusesApiError(
     'NETWORK',

@@ -6,7 +6,15 @@ import {
   fetchAllMobileReportStatuses,
   type MobileReportStatusesResult,
 } from '@/features/reports/api/mobileReportStatusesApi';
-import { refreshAuthorityReviewStatus } from '@/features/reports/services/refreshAuthorityReviewStatus';
+import {
+  beginAuthorityReviewClear,
+  endAuthorityReviewClear,
+  refreshAuthorityReviewStatus,
+} from '@/features/reports/services/refreshAuthorityReviewStatus';
+import {
+  clearSyncDownloadProgress,
+  createSyncDownloadProgressStore,
+} from '@/features/sync/data/syncDownloadProgressStorage';
 import {
   readSyncCheckpoint,
   type SyncCheckpoint,
@@ -89,6 +97,7 @@ describe('refreshAuthorityReviewStatus', () => {
       token: 'token-1',
       updatedAfter: '2026-08-13T10:59:59.000Z',
       since: null,
+      progress: expect.any(Object),
     });
 
     finish(feed());
@@ -109,6 +118,137 @@ describe('refreshAuthorityReviewStatus', () => {
     ).rejects.toThrow('timeout after page one');
     expect(applyUpdates).not.toHaveBeenCalled();
     expect(emitSyncRecordsChanged).not.toHaveBeenCalled();
+  });
+
+  // Proves: a Settings clear cannot be undone by a download that was in flight over it.
+  it('stores no pages and applies nothing when the owner data is cleared mid-download', async () => {
+    let release!: () => void;
+    const inFlight = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    fetchStatuses.mockImplementationOnce(async (options) => {
+      const progress = options.progress;
+      await inFlight;
+      await progress.save('{"page":2}');
+      return feed();
+    });
+
+    const refresh = refreshAuthorityReviewStatus({
+      database,
+      submitterIdentity: 'owner-cleared',
+      token: 'token-1',
+    });
+    for (let tick = 0; tick < 20 && fetchStatuses.mock.calls.length === 0; tick += 1) {
+      await Promise.resolve();
+    }
+    beginAuthorityReviewClear(database, 'owner-cleared');
+    await clearSyncDownloadProgress('owner-cleared');
+    endAuthorityReviewClear(database, 'owner-cleared');
+    release();
+
+    await expect(refresh).rejects.toThrow('superseded');
+    expect(applyUpdates).not.toHaveBeenCalled();
+    await expect(
+      createSyncDownloadProgressStore('owner-cleared', 'authority_status', () => true).read(),
+    ).resolves.toBeNull();
+  });
+
+  // Proves: a superseded download finishing late cannot erase the pages a newer one stored.
+  it('keeps the pages a newer refresh stored when a superseded one finishes', async () => {
+    let releaseSuperseded!: () => void;
+    const supersededInFlight = new Promise<void>((resolve) => {
+      releaseSuperseded = resolve;
+    });
+    let releaseCurrent!: () => void;
+    const currentInFlight = new Promise<void>((resolve) => {
+      releaseCurrent = resolve;
+    });
+
+    fetchStatuses.mockImplementationOnce(async (options) => {
+      await supersededInFlight;
+      await options.progress.clear();
+      return feed();
+    });
+    const superseded = refreshAuthorityReviewStatus({
+      database,
+      submitterIdentity: 'owner-handoff',
+      token: 'token-1',
+    });
+    for (let tick = 0; tick < 20 && fetchStatuses.mock.calls.length === 0; tick += 1) {
+      await Promise.resolve();
+    }
+
+    fetchStatuses.mockImplementationOnce(async (options) => {
+      await options.progress.save('{"page":2}');
+      await currentInFlight;
+      return feed();
+    });
+    const current = refreshAuthorityReviewStatus({
+      database,
+      submitterIdentity: 'owner-handoff',
+      token: 'token-2',
+    });
+    for (let tick = 0; tick < 20 && fetchStatuses.mock.calls.length === 1; tick += 1) {
+      await Promise.resolve();
+    }
+
+    releaseSuperseded();
+    await expect(superseded).rejects.toThrow('superseded');
+    releaseCurrent();
+    await current;
+
+    await expect(
+      createSyncDownloadProgressStore('owner-handoff', 'authority_status', () => true).read(),
+    ).resolves.toBe('{"page":2}');
+  });
+
+  // Proves: no refresh stores or applies anything for an owner whose data is being cleared.
+  it('refuses a refresh that starts while the owner data is being cleared', async () => {
+    beginAuthorityReviewClear(database, 'owner-clearing');
+
+    await expect(
+      refreshAuthorityReviewStatus({
+        database,
+        submitterIdentity: 'owner-clearing',
+        token: 'token-1',
+      }),
+    ).rejects.toThrow('superseded');
+    expect(fetchStatuses).not.toHaveBeenCalled();
+    expect(applyUpdates).not.toHaveBeenCalled();
+
+    endAuthorityReviewClear(database, 'owner-clearing');
+    await expect(
+      refreshAuthorityReviewStatus({
+        database,
+        submitterIdentity: 'owner-clearing',
+        token: 'token-1',
+      }),
+    ).resolves.toMatchObject({ applied: 0 });
+  });
+
+  // Proves: refreshing stays blocked until every overlapping clear for the owner has finished.
+  it('keeps refreshes blocked while any owner clear is still running', async () => {
+    beginAuthorityReviewClear(database, 'owner-overlap');
+    beginAuthorityReviewClear(database, 'owner-overlap');
+    endAuthorityReviewClear(database, 'owner-overlap');
+
+    await expect(
+      refreshAuthorityReviewStatus({
+        database,
+        submitterIdentity: 'owner-overlap',
+        token: 'token-1',
+      }),
+    ).rejects.toThrow('superseded');
+    expect(fetchStatuses).not.toHaveBeenCalled();
+
+    endAuthorityReviewClear(database, 'owner-overlap');
+    await expect(
+      refreshAuthorityReviewStatus({
+        database,
+        submitterIdentity: 'owner-overlap',
+        token: 'token-1',
+      }),
+    ).resolves.toMatchObject({ applied: 0 });
   });
 
   it('keeps account and token refreshes independent', async () => {
@@ -177,6 +317,7 @@ describe('refreshAuthorityReviewStatus', () => {
       token: 'token-1',
       updatedAfter: '2026-08-13T10:59:59.000Z',
       since: 'v-1',
+      progress: expect.any(Object),
     });
     expect(applyUpdates).toHaveBeenCalledWith(
       database,
@@ -186,4 +327,16 @@ describe('refreshAuthorityReviewStatus', () => {
       expect.objectContaining({ version: 'v-1', total: 250, truncated: true, pageCount: 3 }),
     );
   });
+  // Proves: the status cursor reads the stored server checkpoint (sync.before minus overlap), not the newest row.
+  it('starts the status cursor from the held checkpoint, ahead of the newest cached row', async () => {
+    readCheckpoint.mockResolvedValueOnce({ ...HELD, version: null, syncBefore: '2026-08-13T11:30:00.000Z' });
+    findLatestUpdatedAt.mockResolvedValueOnce('2026-08-13T10:00:00.000Z');
+
+    await refreshAuthorityReviewStatus({ database, submitterIdentity: 'owner-cursor', token: 'token-1' });
+
+    expect(fetchStatuses).toHaveBeenCalledWith(
+      expect.objectContaining({ updatedAfter: '2026-08-13T11:29:59.000Z' }),
+    );
+  });
+
 });

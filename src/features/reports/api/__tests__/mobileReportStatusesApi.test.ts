@@ -4,6 +4,7 @@ import {
   fetchAllMobileReportStatuses,
   ReportStatusesApiError,
 } from '@/features/reports/api/mobileReportStatusesApi';
+import type { SyncDownloadProgressStore } from '@/features/sync/domain/syncDownloadProgressStore';
 
 jest.mock('@/features/shared/api/apiClient', () => ({
   ApiHttpError: class ApiHttpError extends Error {
@@ -18,6 +19,29 @@ jest.mock('@/features/shared/api/apiClient', () => ({
 
 const request = jest.mocked(apiRequest);
 const CHECKPOINT = '2026-08-13T12:05:00.000Z';
+
+/** Stands in for the owner-scoped device storage a real store writes to. */
+const savedProgress = new Map<string, string>();
+
+function progressStore(owner = 'owner-1'): SyncDownloadProgressStore {
+  return {
+    read: async () => savedProgress.get(owner) ?? null,
+    save: async (payload) => {
+      savedProgress.set(owner, payload);
+    },
+    clear: async () => {
+      savedProgress.delete(owner);
+    },
+  };
+}
+
+/** Each call builds a fresh store, so state only survives through the storage boundary. */
+function fetchStatuses(
+  options: Omit<Parameters<typeof fetchAllMobileReportStatuses>[0], 'progress'>,
+  owner = 'owner-1',
+) {
+  return fetchAllMobileReportStatuses({ ...options, progress: progressStore(owner) });
+}
 
 function item(overrides: Record<string, unknown> = {}) {
   return {
@@ -47,13 +71,14 @@ function page(
 describe('mobile report statuses API', () => {
   beforeEach(() => {
     request.mockReset();
+    savedProgress.clear();
   });
 
   it('reads the canonical sync.before checkpoint from the v2 envelope', async () => {
     request.mockResolvedValueOnce(MOBILE_REPORT_STATUSES_V2_FIXTURE);
 
     await expect(
-      fetchAllMobileReportStatuses({ token: 'secure-token' }),
+      fetchStatuses({ token: 'secure-token' }),
     ).resolves.toEqual({
       syncBefore: CHECKPOINT,
       updates: [
@@ -90,7 +115,7 @@ describe('mobile report statuses API', () => {
       ]),
     );
 
-    const result = await fetchAllMobileReportStatuses({ token: 't' });
+    const result = await fetchStatuses({ token: 't' });
     expect(result.updates[0]).toMatchObject({
       clientUuid: 'client-1',
       rawStatus: 'verified_by_staff',
@@ -109,7 +134,7 @@ describe('mobile report statuses API', () => {
   // PROPOSAL (intent: read the advisory field on status).
   it('rejects a malformed advisory as a malformed response', async () => {
     request.mockResolvedValueOnce(page([item({ advisory: { uuid: 'adv-1', status: 'bogus' } })]));
-    await expect(fetchAllMobileReportStatuses({ token: 't' })).rejects.toMatchObject({
+    await expect(fetchStatuses({ token: 't' })).rejects.toMatchObject({
       code: 'MALFORMED_RESPONSE',
     });
   });
@@ -129,7 +154,7 @@ describe('mobile report statuses API', () => {
       ]));
 
     await expect(
-      fetchAllMobileReportStatuses({
+      fetchStatuses({
         token: 'secure-token',
         updatedAfter: '2026-08-13T11:59:59.000Z',
       }),
@@ -171,7 +196,7 @@ describe('mobile report statuses API', () => {
     });
 
     await expect(
-      fetchAllMobileReportStatuses({ token: 'secure-token' }),
+      fetchStatuses({ token: 'secure-token' }),
     ).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' });
   });
 
@@ -187,7 +212,7 @@ describe('mobile report statuses API', () => {
     });
 
     await expect(
-      fetchAllMobileReportStatuses({ token: 'secure-token' }),
+      fetchStatuses({ token: 'secure-token' }),
     ).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' });
   });
 
@@ -202,7 +227,7 @@ describe('mobile report statuses API', () => {
     });
 
     await expect(
-      fetchAllMobileReportStatuses({ token: 'secure-token', since: 'v-1' }),
+      fetchStatuses({ token: 'secure-token', since: 'v-1' }),
     ).resolves.toMatchObject({
       sync: { version: 'v-2', total: 250, unchanged: false },
       pageCount: 1,
@@ -219,7 +244,7 @@ describe('mobile report statuses API', () => {
     });
 
     await expect(
-      fetchAllMobileReportStatuses({
+      fetchStatuses({
         token: 'secure-token',
         updatedAfter: '2026-08-13T11:59:59.000Z',
         since: 'v-1',
@@ -240,7 +265,7 @@ describe('mobile report statuses API', () => {
       page([], 'https://evil.example.test/api/v3/mobile/reports/statuses?cursor=steal'),
     );
 
-    await expect(fetchAllMobileReportStatuses({ token: 'secure-token' })).rejects.toMatchObject<Partial<ReportStatusesApiError>>({
+    await expect(fetchStatuses({ token: 'secure-token' })).rejects.toMatchObject<Partial<ReportStatusesApiError>>({
       code: 'ORIGIN_MISMATCH',
     });
     expect(request).toHaveBeenCalledTimes(1);
@@ -251,7 +276,7 @@ describe('mobile report statuses API', () => {
       page([], 'http://127.0.0.1:8000/api/v3/mobile/reports/other?cursor=steal'),
     );
 
-    await expect(fetchAllMobileReportStatuses({ token: 'secure-token' })).rejects.toMatchObject({
+    await expect(fetchStatuses({ token: 'secure-token' })).rejects.toMatchObject({
       code: 'ORIGIN_MISMATCH',
     });
     expect(request).toHaveBeenCalledTimes(1);
@@ -263,7 +288,7 @@ describe('mobile report statuses API', () => {
       .mockResolvedValueOnce(page([], next))
       .mockResolvedValueOnce(page([], null, '2026-08-13T12:06:00.000Z'));
 
-    await expect(fetchAllMobileReportStatuses({ token: 'secure-token' })).rejects.toMatchObject({
+    await expect(fetchStatuses({ token: 'secure-token' })).rejects.toMatchObject({
       code: 'MALFORMED_RESPONSE',
     });
   });
@@ -275,13 +300,13 @@ describe('mobile report statuses API', () => {
   ] as const)('maps HTTP %s without touching the cache layer', async (status, code) => {
     request.mockRejectedValueOnce(new ApiHttpError(status, 'rejected'));
 
-    await expect(fetchAllMobileReportStatuses({ token: 'secure-token' })).rejects.toMatchObject({ code });
+    await expect(fetchStatuses({ token: 'secure-token' })).rejects.toMatchObject({ code });
   });
 
   it('maps offline network failures separately from malformed server data', async () => {
     request.mockRejectedValueOnce(new TypeError('Network request failed'));
 
-    await expect(fetchAllMobileReportStatuses({ token: 'secure-token' })).rejects.toMatchObject({
+    await expect(fetchStatuses({ token: 'secure-token' })).rejects.toMatchObject({
       code: 'NETWORK',
     });
   });
@@ -291,7 +316,7 @@ describe('mobile report statuses API', () => {
     error.name = 'AbortError';
     request.mockRejectedValueOnce(error);
 
-    await expect(fetchAllMobileReportStatuses({ token: 'secure-token' })).rejects.toMatchObject({
+    await expect(fetchStatuses({ token: 'secure-token' })).rejects.toMatchObject({
       code: 'TIMEOUT',
     });
   });
@@ -306,13 +331,13 @@ describe('mobile report statuses API', () => {
     if (invalidItem.review_notes === '<b>too much</b>') {
       // Markup is still plain text at the transport boundary; this case is
       // valid and proves the client does not parse or execute it.
-      await expect(fetchAllMobileReportStatuses({ token: 'secure-token' })).resolves.toMatchObject({
+      await expect(fetchStatuses({ token: 'secure-token' })).resolves.toMatchObject({
         updates: [expect.objectContaining({ feedback: '<b>too much</b>' })],
       });
       return;
     }
 
-    await expect(fetchAllMobileReportStatuses({ token: 'secure-token' })).rejects.toMatchObject({
+    await expect(fetchStatuses({ token: 'secure-token' })).rejects.toMatchObject({
       code: 'MALFORMED_RESPONSE',
     });
   });
@@ -323,7 +348,7 @@ describe('mobile report statuses API', () => {
       .mockResolvedValueOnce(page([item()], next))
       .mockResolvedValueOnce(page([{ uuid: 'remote-2' }]));
 
-    await expect(fetchAllMobileReportStatuses({ token: 'secure-token' })).rejects.toMatchObject({
+    await expect(fetchStatuses({ token: 'secure-token' })).rejects.toMatchObject({
       code: 'MALFORMED_RESPONSE',
     });
   });
@@ -336,8 +361,165 @@ describe('mobile report statuses API', () => {
       ]),
     );
 
-    await expect(fetchAllMobileReportStatuses({ token: 'secure-token' })).rejects.toMatchObject({
+    await expect(fetchStatuses({ token: 'secure-token' })).rejects.toMatchObject({
       code: 'MALFORMED_RESPONSE',
+    });
+  });
+  describe('resuming an interrupted download', () => {
+    const NEXT_2 = '/api/v3/mobile/reports/statuses?page=2';
+    const NEXT_3 = '/api/v3/mobile/reports/statuses?page=3';
+    const envelope = (version: string) => ({ before: CHECKPOINT, version, total: 250, truncated: true });
+    const pageOf = (n: number, next: string | null, version = 'v-1') => ({
+      ...page([item({ uuid: `remote-${n}`, client_uuid: `client-${n}` })], next),
+      sync: envelope(version),
+    });
+    const networkError = () => new ApiHttpError(503, 'down');
+
+    // Proves: an interrupted download resumes in a new process from the first page it never stored.
+    it('continues at the first page that was not stored after a restart', async () => {
+      request
+        .mockResolvedValueOnce(pageOf(1, NEXT_2))
+        .mockRejectedValueOnce(networkError());
+      await expect(fetchStatuses({ token: 'resume-a' })).rejects.toMatchObject({
+        code: 'NETWORK',
+      });
+
+      request.mockReset();
+      request.mockResolvedValueOnce(pageOf(2, NEXT_3)).mockResolvedValueOnce(pageOf(3, null));
+      const result = await fetchStatuses({ token: 'resume-a' });
+
+      expect(request.mock.calls.map(([path]) => path)).toEqual([NEXT_2, NEXT_3]);
+      expect(result.updates.map((u) => u.remoteUuid)).toEqual(['remote-1', 'remote-2', 'remote-3']);
+      // Oracle: the row the server sent before the interruption survives storage unchanged.
+      expect(result.updates[0]).toEqual({
+        advisory: null,
+        clientUuid: 'client-1',
+        feedback: 'Latest field note',
+        referenceCode: 'CG-100',
+        reviewedAt: '2026-08-13T12:00:00.000Z',
+        remoteUuid: 'remote-1',
+        rawStatus: 'verified_by_staff',
+        statusUpdatedAt: '2026-08-13T12:00:00.000Z',
+      });
+      expect(result.pageCount).toBe(3);
+    });
+
+    // Proves: a rejected page keeps the stored ones, so the retry resumes instead of starting over.
+    it('keeps the stored pages when a later page is rejected', async () => {
+      request
+        .mockResolvedValueOnce(pageOf(1, NEXT_2))
+        .mockResolvedValueOnce({ ...pageOf(2, NEXT_3), data: [{ uuid: 'remote-2' }] });
+      await expect(fetchStatuses({ token: 'resume-f' })).rejects.toMatchObject({
+        code: 'MALFORMED_RESPONSE',
+      });
+
+      request.mockReset();
+      request.mockResolvedValueOnce(pageOf(2, NEXT_3)).mockResolvedValueOnce(pageOf(3, null));
+      const result = await fetchStatuses({ token: 'resume-f' });
+
+      expect(request.mock.calls.map(([path]) => path)).toEqual([NEXT_2, NEXT_3]);
+      expect(result.updates.map((u) => u.remoteUuid)).toEqual(['remote-1', 'remote-2', 'remote-3']);
+    });
+
+    // Proves: only the first-page request that started a download resumes it; another cursor starts over.
+    it('starts over when the cursor changed', async () => {
+      request.mockResolvedValueOnce(pageOf(1, NEXT_2)).mockRejectedValueOnce(networkError());
+      await expect(
+        fetchStatuses({ token: 'resume-d', updatedAfter: '2026-08-13T11:00:00.000Z' }),
+      ).rejects.toMatchObject({ code: 'NETWORK' });
+
+      request.mockReset();
+      request.mockResolvedValueOnce(pageOf(1, null));
+      await fetchStatuses({ token: 'resume-d', updatedAfter: '2026-08-13T12:00:00.000Z' });
+
+      expect(String(request.mock.calls[0][0])).toContain(
+        'updated_after=2026-08-13T12%3A00%3A00.000Z',
+      );
+    });
+
+    // Proves: stored progress this build cannot read is dropped instead of failing the download.
+    it('starts over when the stored progress is unreadable', async () => {
+      savedProgress.set('owner-1', '{"cursor":');
+      request.mockResolvedValueOnce(pageOf(1, null));
+
+      await expect(fetchStatuses({ token: 'resume-e' })).resolves.toMatchObject({ pageCount: 1 });
+      expect(String(request.mock.calls[0][0])).toMatch(
+        /^\/api\/v3\/mobile\/reports\/statuses\?per_page=100$/,
+      );
+    });
+
+    // Proves: a changed version restarts from page one.
+    it('restarts from page one when the feed version changed meanwhile', async () => {
+      request
+        .mockResolvedValueOnce(pageOf(1, NEXT_2))
+        .mockRejectedValueOnce(networkError());
+      await expect(fetchStatuses({ token: 'resume-b' })).rejects.toBeDefined();
+
+      request.mockReset();
+      request
+        .mockResolvedValueOnce(pageOf(2, NEXT_3, 'v-2'))
+        .mockResolvedValueOnce(pageOf(1, NEXT_2, 'v-2'))
+        .mockResolvedValueOnce(pageOf(2, NEXT_3, 'v-2'))
+        .mockResolvedValueOnce(pageOf(3, null, 'v-2'));
+      const result = await fetchStatuses({ token: 'resume-b' });
+
+      expect(request.mock.calls.map(([path]) => path)[1]).toMatch(/per_page=100/);
+      expect(result.sync.version).toBe('v-2');
+      expect(result.updates).toHaveLength(3);
+    });
+
+    // Proves: a download that cannot drop its stored pages ends instead of retrying them forever.
+    it('stops when the stored pages cannot be cleared', async () => {
+      const frozen: SyncDownloadProgressStore = {
+        read: async () => savedProgress.get('owner-1') ?? null,
+        save: async (payload) => {
+          savedProgress.set('owner-1', payload);
+        },
+        clear: async () => {},
+      };
+
+      request.mockResolvedValueOnce(pageOf(1, NEXT_2)).mockRejectedValueOnce(networkError());
+      await expect(
+        fetchAllMobileReportStatuses({ token: 'resume-g', progress: frozen }),
+      ).rejects.toMatchObject({ code: 'NETWORK' });
+
+      request.mockReset();
+      request.mockResolvedValueOnce(pageOf(2, NEXT_3, 'v-2'));
+      request.mockResolvedValueOnce(pageOf(2, NEXT_3, 'v-2'));
+
+      await expect(
+        fetchAllMobileReportStatuses({ token: 'resume-g', progress: frozen }),
+      ).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' });
+      expect(request).toHaveBeenCalledTimes(2);
+    });
+
+    // Proves: a server that sends no version or total still resumes at the first unstored page.
+    it('resumes a download from a server that reports no version or total', async () => {
+      const legacyPage = (n: number, next: string | null) =>
+        page([item({ uuid: `remote-${n}`, client_uuid: `client-${n}` })], next);
+
+      request.mockResolvedValueOnce(legacyPage(1, NEXT_2)).mockRejectedValueOnce(networkError());
+      await expect(fetchStatuses({ token: 'resume-h' })).rejects.toMatchObject({ code: 'NETWORK' });
+
+      request.mockReset();
+      request
+        .mockResolvedValueOnce(legacyPage(2, NEXT_3))
+        .mockResolvedValueOnce(legacyPage(3, null));
+      const result = await fetchStatuses({ token: 'resume-h' });
+
+      expect(request.mock.calls.map(([path]) => path)).toEqual([NEXT_2, NEXT_3]);
+      expect(result.updates.map((u) => u.remoteUuid)).toEqual(['remote-1', 'remote-2', 'remote-3']);
+    });
+
+    // Proves: a completed refresh leaves nothing to resume (cursor advances only on a whole download).
+    it('starts over once a download completed', async () => {
+      request.mockResolvedValueOnce(pageOf(1, NEXT_2)).mockResolvedValueOnce(pageOf(2, null));
+      await fetchStatuses({ token: 'resume-c' });
+
+      request.mockReset();
+      request.mockResolvedValueOnce(pageOf(1, null));
+      await fetchStatuses({ token: 'resume-c' });
+      expect(String(request.mock.calls[0][0])).toMatch(/per_page=100/);
     });
   });
 });

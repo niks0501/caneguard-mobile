@@ -25,8 +25,13 @@ import {
   managedDisplayImageUri,
 } from '@/features/records/services/scanImageStorage';
 import { invalidateMobileNotificationsRefresh } from '@/features/notifications/services/refreshMobileNotifications';
+import {
+  beginAuthorityReviewClear,
+  endAuthorityReviewClear,
+} from '@/features/reports/services/refreshAuthorityReviewStatus';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { clearOwnerMobileDataStore } from '@/features/mobile-data/data/mobileDataStore';
+import { clearSyncDownloadProgress } from '@/features/sync/data/syncDownloadProgressStorage';
 import { readFieldValidationCheckpoint } from '@/features/assignments/drafts/fieldValidationDraft';
 import { readScanDraftCheckpoint } from '@/features/detection/drafts/scanDraftCheckpoint';
 
@@ -161,36 +166,43 @@ export async function clearCachedOfficeDataForOwner(
   const owner = requireOwnerIdentity(ownerIdentity);
   invalidateFieldValidationAssignmentsRefresh(database, owner);
   invalidateMobileNotificationsRefresh(database, owner);
-  let deletedRows = 0;
+  beginAuthorityReviewClear(database, owner);
   try {
-    database.transaction((transaction) => {
-      deletedRows += transaction
-        .delete(fieldValidationAssignments)
-        .where(eq(fieldValidationAssignments.ownerIdentity, owner))
-        .run().changes;
-      transaction
-        .delete(fieldValidationAssignmentSnapshots)
-        .where(eq(fieldValidationAssignmentSnapshots.ownerIdentity, owner))
-        .run();
-      transaction
-        .delete(syncCheckpoints)
-        .where(eq(syncCheckpoints.ownerIdentity, owner))
-        .run();
-      deletedRows += transaction
-        .delete(mobileNotifications)
-        .where(eq(mobileNotifications.ownerIdentity, owner))
-        .run().changes;
-    });
-  } catch (error: unknown) {
-    throw toStorageError(
-      error,
-      'DELETE_FAILED',
-      'Clearing downloaded office data failed.',
-    );
+    let deletedRows = 0;
+    try {
+      database.transaction((transaction) => {
+        deletedRows += transaction
+          .delete(fieldValidationAssignments)
+          .where(eq(fieldValidationAssignments.ownerIdentity, owner))
+          .run().changes;
+        transaction
+          .delete(fieldValidationAssignmentSnapshots)
+          .where(eq(fieldValidationAssignmentSnapshots.ownerIdentity, owner))
+          .run();
+        transaction
+          .delete(syncCheckpoints)
+          .where(eq(syncCheckpoints.ownerIdentity, owner))
+          .run();
+        deletedRows += transaction
+          .delete(mobileNotifications)
+          .where(eq(mobileNotifications.ownerIdentity, owner))
+          .run().changes;
+      });
+    } catch (error: unknown) {
+      throw toStorageError(
+        error,
+        'DELETE_FAILED',
+        'Clearing downloaded office data failed.',
+      );
+    }
+    const progressError = await clearOwnerProgress(owner);
+    clearOwnerMobileDataStore(database, owner);
+    emitSyncRecordsChanged();
+    if (progressError) throw progressError;
+    return { deletedRows, imageCleanupErrors: [] };
+  } finally {
+    endAuthorityReviewClear(database, owner);
   }
-  clearOwnerMobileDataStore(database, owner);
-  emitSyncRecordsChanged();
-  return { deletedRows, imageCleanupErrors: [] };
 }
 
 export async function clearLocalDataForOwner(
@@ -204,64 +216,84 @@ export async function clearLocalDataForOwner(
   const owner = requireOwnerIdentity(ownerIdentity);
   invalidateFieldValidationAssignmentsRefresh(database, owner);
   invalidateMobileNotificationsRefresh(database, owner);
-  const targets = await readCleanupTargets(database, owner);
-  let deletedRows = 0;
-
+  beginAuthorityReviewClear(database, owner);
   try {
-    validateRemovalConfirmation(database, owner, options);
-    database.transaction((transaction) => {
-      deletedRows += transaction
-        .delete(fieldReports)
-        .where(eq(fieldReports.submitterIdentity, owner))
-        .run().changes;
-      deletedRows += transaction
-        .delete(fieldSurveys)
-        .where(eq(fieldSurveys.ownerIdentity, owner))
-        .run().changes;
-      deletedRows += transaction
-        .delete(scanRecords)
-        .where(eq(scanRecords.ownerIdentity, owner))
-        .run().changes;
-      deletedRows += transaction
-        .delete(fieldValidationCompletions)
-        .where(eq(fieldValidationCompletions.ownerIdentity, owner))
-        .run().changes;
-      deletedRows += transaction
-        .delete(fieldValidationAssignments)
-        .where(eq(fieldValidationAssignments.ownerIdentity, owner))
-        .run().changes;
-      transaction
-        .delete(fieldValidationAssignmentSnapshots)
-        .where(eq(fieldValidationAssignmentSnapshots.ownerIdentity, owner))
-        .run();
-      transaction
-        .delete(syncCheckpoints)
-        .where(eq(syncCheckpoints.ownerIdentity, owner))
-        .run();
-      deletedRows += transaction
-        .delete(mobileNotifications)
-        .where(eq(mobileNotifications.ownerIdentity, owner))
-        .run().changes;
-      deletedRows += transaction
-        .delete(localDrafts)
-        .where(eq(localDrafts.ownerIdentity, owner))
-        .run().changes;
-    });
+    const targets = await readCleanupTargets(database, owner);
+    let deletedRows = 0;
+
+    try {
+      validateRemovalConfirmation(database, owner, options);
+      database.transaction((transaction) => {
+        deletedRows += transaction
+          .delete(fieldReports)
+          .where(eq(fieldReports.submitterIdentity, owner))
+          .run().changes;
+        deletedRows += transaction
+          .delete(fieldSurveys)
+          .where(eq(fieldSurveys.ownerIdentity, owner))
+          .run().changes;
+        deletedRows += transaction
+          .delete(scanRecords)
+          .where(eq(scanRecords.ownerIdentity, owner))
+          .run().changes;
+        deletedRows += transaction
+          .delete(fieldValidationCompletions)
+          .where(eq(fieldValidationCompletions.ownerIdentity, owner))
+          .run().changes;
+        deletedRows += transaction
+          .delete(fieldValidationAssignments)
+          .where(eq(fieldValidationAssignments.ownerIdentity, owner))
+          .run().changes;
+        transaction
+          .delete(fieldValidationAssignmentSnapshots)
+          .where(eq(fieldValidationAssignmentSnapshots.ownerIdentity, owner))
+          .run();
+        transaction
+          .delete(syncCheckpoints)
+          .where(eq(syncCheckpoints.ownerIdentity, owner))
+          .run();
+        deletedRows += transaction
+          .delete(mobileNotifications)
+          .where(eq(mobileNotifications.ownerIdentity, owner))
+          .run().changes;
+        deletedRows += transaction
+          .delete(localDrafts)
+          .where(eq(localDrafts.ownerIdentity, owner))
+          .run().changes;
+      });
+    } catch (error: unknown) {
+      throw toStorageError(
+        error,
+        'DELETE_FAILED',
+        'Clearing local data failed before the stored images were removed.',
+      );
+    }
+
+    const progressError = await clearOwnerProgress(owner);
+    clearOwnerMobileDataStore(database, owner);
+    const imageCleanupErrors = [
+      ...cleanupImages(targets, owner),
+      ...sweepOrphanedOwnerImages(database, owner),
+    ];
+    emitSyncRecordsChanged();
+    if (progressError) throw progressError;
+    return { deletedRows, imageCleanupErrors };
+  } finally {
+    endAuthorityReviewClear(database, owner);
+  }
+}
+
+async function clearOwnerProgress(owner: string): Promise<StorageError | null> {
+  try {
+    await clearSyncDownloadProgress(owner);
+    return null;
   } catch (error: unknown) {
-    throw toStorageError(
+    return toStorageError(
       error,
       'DELETE_FAILED',
-      'Clearing local data failed before the stored images were removed.',
+      'Clearing the sync download progress failed.',
     );
   }
-
-  clearOwnerMobileDataStore(database, owner);
-  const imageCleanupErrors = [
-    ...cleanupImages(targets, owner),
-    ...sweepOrphanedOwnerImages(database, owner),
-  ];
-  emitSyncRecordsChanged();
-  return { deletedRows, imageCleanupErrors };
 }
 
 /**

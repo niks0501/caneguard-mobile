@@ -103,6 +103,36 @@ describe('editing points', () => {
     expect(result.ok).toBe(false);
   });
 
+  it('repairs areas a shrunken plot left outside, one point and one area at a time', () => {
+    const plot = [map(14.1, 121.1), map(14.1, 121.11), map(14.11, 121.11), map(14.11, 121.1)];
+    const leftOut = [map(14.2, 121.2), map(14.2, 121.21), map(14.21, 121.21)];
+    const stillOut = [map(14.3, 121.3), map(14.3, 121.31), map(14.31, 121.31)];
+    const polygons = [leftOut, stillOut].map((waypoints) => {
+      const validated = validateSurveyWaypoints(waypoints);
+      if (!validated.valid) throw new Error('fixture invalid');
+      return validated.polygon;
+    });
+    let shape: DrawingShape = {
+      waypoints: plot,
+      affectedAreas: polygons,
+      affectedAreaWaypointSets: [leftOut, stillOut],
+      affectedWaypoints: [],
+    };
+    expect(assessValidity(shape.waypoints, shape.affectedAreas).outsideAreas).toEqual([0, 1]);
+
+    const backInside = [map(14.105, 121.105), map(14.105, 121.106), map(14.106, 121.106)];
+    backInside.forEach((target, index) => {
+      const result = movePoint(shape, { set: 'area', area: 0, index }, target);
+      expect(result.ok).toBe(true);
+      if (result.ok) shape = result.shape;
+    });
+
+    expect(shape.affectedAreaWaypointSets[0].map((point) => [point.latitude, point.longitude])).toEqual(
+      backInside.map((point) => [point.latitude, point.longitude]),
+    );
+    expect(assessValidity(shape.waypoints, shape.affectedAreas)).toMatchObject({ issue: 'affected_outside', outsideAreas: [1] });
+  });
+
   it('refuses to leave an affected area with fewer than three points', () => {
     const triangle = { ...shapeWithArea() };
     const small = removePoint(triangle, { set: 'area', area: 0, index: 3 });

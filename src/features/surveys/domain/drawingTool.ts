@@ -2,7 +2,6 @@ import { PREFERRED_GPS_ACCURACY_METERS } from '@/features/reports/services/captu
 import { ACCEPTABLE_GPS_ACCURACY_METERS, assessBoundaryQuality, type BoundaryGpsState } from '@/features/surveys/domain/boundaryQuality';
 import {
   findAffectedAreasOutsidePlot,
-  measureAffectedAreas,
   snapAffectedAreaWaypoints,
   validateSurveyWaypoints,
   type SurveyPolygon,
@@ -76,10 +75,16 @@ export function pointOf(shape: DrawingShape, ref: PointRef): SurveyWaypoint | nu
 export type EditResult = { ok: true; shape: DrawingShape } | { ok: false; message: string };
 
 const AREA_TOO_SMALL = 'An affected area needs at least three points. Remove the area instead.';
+const AREA_OUTSIDE_PLOT = 'Every affected area must remain within the plot boundary.';
+
+function isOutsidePlot(plot: SurveyPolygon, area: SurveyPolygon | undefined): boolean {
+  return findAffectedAreasOutsidePlot(plot, area ? [area] : []).length > 0;
+}
 
 /**
  * Applies a new point list to one set. A finished area is re-derived from its
- * points and must stay a valid shape inside the plot, otherwise the edit is refused.
+ * points and must stay a valid shape; an area that is inside the plot may not be
+ * moved outside it, while one the plot already left outside can be repaired.
  */
 function withSet(shape: DrawingShape, ref: PointRef, next: SurveyWaypoint[]): EditResult {
   if (ref.set === 'plot') return { ok: true, shape: { ...shape, waypoints: next } };
@@ -89,11 +94,10 @@ function withSet(shape: DrawingShape, ref: PointRef, next: SurveyWaypoint[]): Ed
   const snapped = plot.valid ? snapAffectedAreaWaypoints(plot.polygon, next) : next;
   const candidate = validateSurveyWaypoints(snapped);
   if (!candidate.valid) return { ok: false, message: candidate.error.message };
-  const polygons = shape.affectedAreas.map((area, index) => index === ref.area ? candidate.polygon : area);
-  if (plot.valid) {
-    const measured = measureAffectedAreas(plot.polygon, polygons);
-    if (!measured.valid) return { ok: false, message: measured.error.message };
+  if (plot.valid && !isOutsidePlot(plot.polygon, shape.affectedAreas[ref.area]) && isOutsidePlot(plot.polygon, candidate.polygon)) {
+    return { ok: false, message: AREA_OUTSIDE_PLOT };
   }
+  const polygons = shape.affectedAreas.map((area, index) => index === ref.area ? candidate.polygon : area);
   return {
     ok: true,
     shape: {

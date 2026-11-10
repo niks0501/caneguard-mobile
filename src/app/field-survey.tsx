@@ -55,6 +55,7 @@ import {
   replacePoint,
   sameRef,
   type DrawingShape,
+  type EditResult,
   type PointQuality,
   type PointRef,
 } from '@/features/surveys/domain/drawingTool';
@@ -113,11 +114,12 @@ function PointHandle(props: PointHandleProps) {
   // The gesture is built once so a re-render mid-drag cannot drop it; callbacks read the latest props at call time.
   /* eslint-disable react-hooks/refs */
   const gesture = useMemo(() => Gesture.Pan()
+    .withTestId(`${props.testID}.drag`)
     .runOnJS(true)
     .minDistance(4)
     .onBegin(() => latest.current.onDragBegin())
     .onUpdate((event) => latest.current.onDragMove(event.translationX, event.translationY))
-    .onFinalize(() => latest.current.onDragEnd()), []);
+    .onFinalize(() => latest.current.onDragEnd()), [props.testID]);
   /* eslint-enable react-hooks/refs */
   return (
     <GestureDetector gesture={gesture}>
@@ -174,7 +176,7 @@ export default function FieldSurveyScreen() {
   const [locating, setLocating] = useState(false);
   const layoutRef = useRef<{ width: number; height: number } | null>(null);
   const fitRequested = useRef(false);
-  const dragRef = useRef<{ ref: PointRef; before: DrawingShape; start: { x: number; y: number }; refused: boolean } | null>(null);
+  const dragRef = useRef<{ ref: PointRef; start: { x: number; y: number }; undoBase: DrawingShape; changed: boolean; refused: boolean } | null>(null);
   const [center, setCenter] = useState<MapCoordinate>(DEFAULT_MANUAL_MAP_CENTER);
   const [zoom, setZoom] = useState(SURVEY_ZOOM);
   const [viewport, setViewport] = useState(INITIAL_VIEWPORT);
@@ -360,23 +362,29 @@ export default function FieldSurveyScreen() {
     return false;
   }
 
-  function applyCapturedWaypoint(target: WaypointCaptureTarget, waypoint: SurveyWaypoint) {
+  function applyCapturedWaypoint(target: WaypointCaptureTarget, waypoint: SurveyWaypoint): EditResult {
     const current = shapeRef.current;
     if (target.replace) {
       const ref = findPointRef(current, target.replace);
-      if (!ref) return;
+      if (!ref) return { ok: false, message: '' };
       const result = replacePoint(current, ref, waypoint);
-      if (result.ok) commitShape(result.shape);
-      else setSyncMessage(result.message || FIELD_SURVEY_COPY.moveRefused);
-      return;
+      if (!result.ok) {
+        setSyncMessage(result.message || FIELD_SURVEY_COPY.moveRefused);
+        return result;
+      }
+      commitShape(result.shape);
+      return result;
     }
     if (target.affectedArea) {
       const plot = validateSurveyWaypoints(current.waypoints);
       const snapped = plot.valid ? snapAffectedAreaWaypoints(plot.polygon, [waypoint])[0] : waypoint;
-      commitShape({ ...current, affectedWaypoints: [...current.affectedWaypoints, snapped] });
-      return;
+      const next = { ...current, affectedWaypoints: [...current.affectedWaypoints, snapped] };
+      commitShape(next);
+      return { ok: true, shape: next };
     }
-    commitShape({ ...current, waypoints: [...current.waypoints, waypoint] });
+    const next = { ...current, waypoints: [...current.waypoints, waypoint] };
+    commitShape(next);
+    return { ok: true, shape: next };
   }
 
   function addOrMovePoint(latitude: number, longitude: number, source: 'map' | 'gps', accuracyMeters: number | null, capturedAt = new Date().toISOString()) {
@@ -385,7 +393,8 @@ export default function FieldSurveyScreen() {
       if (!awaitingSurveyStart) setSyncMessage(FIELD_SURVEY_SYNC_COPY.pendingLocked);
       return;
     }
-    applyCapturedWaypoint(captureTargetForNewPoint(), { latitude, longitude, source, accuracyMeters, capturedAt });
+    const applied = applyCapturedWaypoint(captureTargetForNewPoint(), { latitude, longitude, source, accuracyMeters, capturedAt });
+    if (!applied.ok) return;
     setSelected(null);
     setFieldErrors({});
   }
@@ -462,30 +471,31 @@ export default function FieldSurveyScreen() {
     const point = pointOf(shape, ref);
     if (!point) return;
     const start = coordinateToViewportPoint(center, point, zoom, viewport.width, viewport.height);
-    dragRef.current = { ref, before: shape, start, refused: false };
+    dragRef.current = { ref, start, undoBase: shapeRef.current, changed: false, refused: false };
   }
 
   function dragTo(translationX: number, translationY: number) {
     const drag = dragRef.current;
     if (!drag) return;
+    const live = shapeRef.current;
     const coordinate = coordinateAtViewportPoint(center, zoom, viewport.width, viewport.height, drag.start.x + translationX, drag.start.y + translationY);
-    const result = movePoint(drag.before, drag.ref, coordinate);
+    const result = movePoint(live, drag.ref, coordinate);
     drag.refused = !result.ok;
-    if (result.ok) {
-      shapeRef.current = result.shape;
-      setShapeState(result.shape);
-    }
+    if (!result.ok) return;
+    if (!drag.changed) drag.undoBase = live;
+    drag.changed = true;
+    setShape(result.shape);
   }
 
   function endDrag() {
     const drag = dragRef.current;
     dragRef.current = null;
     if (!drag) return;
-    if (shapeRef.current === drag.before) {
+    if (!drag.changed) {
       if (drag.refused) setSyncMessage(FIELD_SURVEY_COPY.moveRefused);
       return;
     }
-    setHistory((current) => pushUndo(current, drag.before));
+    setHistory((current) => pushUndo(current, drag.undoBase));
     setSaved(false);
     setSelected(drag.ref);
     setFieldErrors({});
@@ -535,7 +545,8 @@ export default function FieldSurveyScreen() {
         return;
       }
       if (!captureTargetStillApplies(target)) return;
-      applyCapturedWaypoint(target, result.waypoint);
+      const applied = applyCapturedWaypoint(target, result.waypoint);
+      if (!applied.ok) return;
       setSelected(null);
       if (!target.affectedArea) setFieldErrors({});
       setCenter({ latitude: result.waypoint.latitude, longitude: result.waypoint.longitude });
@@ -579,7 +590,8 @@ export default function FieldSurveyScreen() {
       }
       if (!captureTargetStillApplies(target)) return;
       // Replaces only the named point; every other point keeps its measurement.
-      applyCapturedWaypoint(target, result.waypoint);
+      const applied = applyCapturedWaypoint(target, result.waypoint);
+      if (!applied.ok) return;
       setSyncMessage(captureSuccessMessage(result.waypoint.accuracyMeters));
     } catch {
       setSyncMessage(FIELD_SURVEY_COPY.gpsUnavailable);
@@ -660,7 +672,7 @@ export default function FieldSurveyScreen() {
       setSyncMessage(candidate.error.message);
       return;
     }
-    const result = measureAffectedAreas(validation.polygon, [...affectedAreas, candidate.polygon]);
+    const result = measureAffectedAreas(validation.polygon, [candidate.polygon]);
     if (!result.valid) {
       setSyncMessage(result.error.message);
       return;

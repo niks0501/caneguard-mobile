@@ -5,6 +5,7 @@ import type { SyncCheckpointFeed } from '@/database/schema';
 import type { SyncDownloadProgressStore } from '@/features/sync/domain/syncDownloadProgressStore';
 
 const KEY_PREFIX = 'caneguard.syncDownloadProgress.v1';
+const pendingWrites = new Set<Promise<unknown>>();
 
 export function createSyncDownloadProgressStore(
   ownerIdentity: string,
@@ -24,16 +25,22 @@ export function createSyncDownloadProgressStore(
 
     async save(payload: string): Promise<void> {
       if (!isCurrent()) return;
+      let write: Promise<void> | null = null;
       try {
-        await AsyncStorage.setItem(key, payload);
+        write = AsyncStorage.setItem(key, payload);
+        pendingWrites.add(write);
+        await write;
       } catch (error: unknown) {
         throw toStorageError(error, 'UPDATE_FAILED', 'Saving the sync download progress failed.');
+      } finally {
+        if (write) pendingWrites.delete(write);
       }
     },
 
     async clear(): Promise<void> {
       if (!isCurrent()) return;
       try {
+        await settlePendingWrites();
         await AsyncStorage.removeItem(key);
       } catch (error: unknown) {
         throw toStorageError(error, 'DELETE_FAILED', 'Clearing the sync download progress failed.');
@@ -46,6 +53,7 @@ export function createSyncDownloadProgressStore(
 export async function clearSyncDownloadProgress(ownerIdentity: string): Promise<void> {
   const prefix = `${KEY_PREFIX}.${requireOwner(ownerIdentity)}.`;
   try {
+    await settlePendingWrites();
     const keys = await AsyncStorage.getAllKeys();
     const owned = keys.filter((key) => key.startsWith(prefix));
     if (owned.length > 0) {
@@ -54,6 +62,11 @@ export async function clearSyncDownloadProgress(ownerIdentity: string): Promise<
   } catch (error: unknown) {
     throw toStorageError(error, 'DELETE_FAILED', 'Clearing the sync download progress failed.');
   }
+}
+
+async function settlePendingWrites(): Promise<void> {
+  if (pendingWrites.size === 0) return;
+  await Promise.allSettled([...pendingWrites]);
 }
 
 function requireOwner(value: string): string {

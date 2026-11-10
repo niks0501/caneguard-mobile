@@ -88,6 +88,61 @@ describe('sync download progress storage', () => {
     await expect(storeFor('owner-1').read()).resolves.toBe('{"page":3}');
   });
 
+  // Proves: a write that was still running cannot outlive the owner's clear.
+  it('removes a page whose write was pending when the owner clear began', async () => {
+    const setItem = AsyncStorage.setItem;
+    let finishWrite!: () => void;
+    const writeGate = new Promise<void>((resolve) => {
+      finishWrite = resolve;
+    });
+    const delayed = jest
+      .spyOn(AsyncStorage, 'setItem')
+      .mockImplementationOnce(async (key, value) => {
+        await writeGate;
+        await setItem.call(AsyncStorage, key, value);
+      });
+
+    let current = true;
+    const store = createSyncDownloadProgressStore(
+      'owner-1',
+      'authority_status',
+      () => current,
+    );
+    const write = store.save('{"page":2}');
+    current = false;
+    const clear = clearSyncDownloadProgress('owner-1');
+    finishWrite();
+    await clear;
+    await write;
+
+    delayed.mockRestore();
+    await expect(storeFor('owner-1').read()).resolves.toBeNull();
+  });
+
+  // Proves: a scoped clear also waits out a write it did not start.
+  it('removes a page whose write was pending for another store of the same owner', async () => {
+    const setItem = AsyncStorage.setItem;
+    let finishWrite!: () => void;
+    const writeGate = new Promise<void>((resolve) => {
+      finishWrite = resolve;
+    });
+    const delayed = jest
+      .spyOn(AsyncStorage, 'setItem')
+      .mockImplementationOnce(async (key, value) => {
+        await writeGate;
+        await setItem.call(AsyncStorage, key, value);
+      });
+
+    const write = storeFor('owner-1').save('{"page":2}');
+    const clear = storeFor('owner-1').clear();
+    finishWrite();
+    await clear;
+    await write;
+
+    delayed.mockRestore();
+    await expect(storeFor('owner-1').read()).resolves.toBeNull();
+  });
+
   it('refuses an owner that cannot scope stored pages', () => {
     expect(() => storeFor('   ')).toThrow(StorageError);
   });

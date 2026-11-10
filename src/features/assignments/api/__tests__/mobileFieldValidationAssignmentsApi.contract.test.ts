@@ -14,7 +14,11 @@ const request = jest.mocked(apiRequest);
 interface AssignmentArtifact {
   contract: string;
   version: number;
-  wire: { method: string; path: string };
+  wire: {
+    method: string;
+    path: string;
+    optional_request_capabilities?: { request_parameter: string; values: string[] };
+  };
   fields: Record<string, unknown>;
   caseProperties: Record<string, unknown>;
 }
@@ -42,6 +46,11 @@ describe('mobile-field-validation-assignment-v2 producer contract', () => {
       method: 'GET',
       path: '/api/v1/mobile/assignments',
     });
+    // The office delivers a scanless row only to a request that asks for the capability.
+    expect(artifact.wire.optional_request_capabilities).toMatchObject({
+      request_parameter: 'supports',
+      values: ['no_ai_scan'],
+    });
     const previousVisit = artifact.fields.previous_visit as {
       required_keys: string[];
       properties: Record<string, unknown>;
@@ -61,6 +70,7 @@ describe('mobile-field-validation-assignment-v2 producer contract', () => {
       expect.stringContaining('/api/v1/mobile/assignments'),
       expect.objectContaining({ token: 'contract-token' }),
     );
+    expect(String(request.mock.calls[0][0])).toContain('supports=no_ai_scan');
   });
 
   it('parses a scanless office row the artifact declares', async () => {

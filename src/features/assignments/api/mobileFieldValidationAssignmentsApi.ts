@@ -626,18 +626,27 @@ function parseFollowUpOutcome(value: unknown): FieldValidationFollowUpOutcome | 
 
 /**
  * Field-born rows must carry the AI prediction. An office record may have none
- * (no AI scan), so a missing or null prediction is accepted only there.
+ * (no AI scan), so a missing or null prediction is accepted only there, and the
+ * label and its score are always null or present together.
  */
 function parseAiFields(rawCase: Record<string, unknown>): {
   predictedLabel: string | null;
   confidence: number | null;
 } {
-  const isOffice = rawCase.origin === 'office';
-  const hasLabel = rawCase.predicted_label !== undefined && rawCase.predicted_label !== null;
-  const hasConfidence = rawCase.confidence !== undefined && rawCase.confidence !== null;
+  const label = rawCase.predicted_label;
+  const confidence = rawCase.confidence;
+  const hasLabel = label !== undefined && label !== null;
+  const hasConfidence = confidence !== undefined && confidence !== null;
+  if (hasLabel !== hasConfidence) {
+    throw malformed(hasLabel ? 'case.confidence' : 'case.predicted_label');
+  }
+  if (!hasLabel) {
+    if (rawCase.origin === 'office') return { predictedLabel: null, confidence: null };
+    throw malformed('case.predicted_label');
+  }
   return {
-    predictedLabel: isOffice && !hasLabel ? null : parsePredictedLabel(rawCase.predicted_label),
-    confidence: isOffice && !hasConfidence ? null : requireNumber(rawCase.confidence, 'case.confidence', 0, 1),
+    predictedLabel: parsePredictedLabel(label),
+    confidence: requireNumber(confidence, 'case.confidence', 0, 1),
   };
 }
 

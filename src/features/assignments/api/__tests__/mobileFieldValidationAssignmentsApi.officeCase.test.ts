@@ -84,6 +84,17 @@ describe('office case projection parsing', () => {
     await expect(fetchAllMobileFieldValidationAssignments({ token: 't' })).rejects.toThrow(/predicted_label/);
   });
 
+  // Proves L10: the label and score are null together, per the v2 contract note.
+  it('rejects an office row whose confidence outlives a null AI prediction', async () => {
+    request.mockResolvedValueOnce(feed({ ...OFFICE_PROJECTION, predicted_label: null, confidence: 0.42 }));
+    await expect(fetchAllMobileFieldValidationAssignments({ token: 't' })).rejects.toThrow(/predicted_label/);
+  });
+
+  it('rejects an office row whose AI prediction has no confidence', async () => {
+    request.mockResolvedValueOnce(feed({ ...OFFICE_PROJECTION, predicted_label: 'rust', confidence: null }));
+    await expect(fetchAllMobileFieldValidationAssignments({ token: 't' })).rejects.toThrow(/confidence/);
+  });
+
   // Proves L4: a broken office projection fails loudly and names the record.
   it('rejects an office row whose projection is malformed and names the record', async () => {
     request.mockResolvedValueOnce(feed({ ...OFFICE_PROJECTION, status: null }));

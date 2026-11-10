@@ -1,9 +1,30 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { HomeAttentionCard } from '@/features/activity/components/HomeAttentionCard';
-import type { NeedsAttentionItem } from '@/features/activity/domain/needsAttention';
+import {
+  buildNeedsAttention,
+  type NeedsAttentionItem,
+} from '@/features/activity/domain/needsAttention';
+import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 
 const noop = () => undefined;
+
+const UNREAD_UPDATE: MobileNotification = {
+  id: '6f1b1c0e-1111-4111-8111-111111111111',
+  ownerIdentity: 'owner-1',
+  eventType: 'office_review_completed',
+  title: 'Office review completed',
+  message: 'CG-2026-0002 was reviewed by the office.',
+  caseUuid: 'case-2',
+  referenceCode: 'CG-2026-0002',
+  assignmentUuid: null,
+  content: null,
+  advisory: null,
+  isRead: false,
+  readAt: null,
+  createdAt: '2026-09-10T00:00:00.000Z',
+  cachedAt: '2026-09-10T00:00:00.000Z',
+};
 
 function visit(id: string, referenceCode: string): NeedsAttentionItem {
   return {
@@ -43,24 +64,24 @@ describe('HomeAttentionCard', () => {
   it('shows why an office update cannot be opened on this device', async () => {
     const onOpenItem = jest.fn();
     await renderCard(
-      [
-        {
-          destination: { kind: 'unavailable' },
-          id: 'notification-1',
-          kind: 'notification',
-          message: 'CG-2026-0002 was reviewed by the office.',
-          meta: 'This case is not stored on this device',
-          title: 'Office review completed',
-        },
-      ],
+      buildNeedsAttention({
+        assignments: [],
+        destinations: new Map(),
+        notifications: [UNREAD_UPDATE],
+        pendingUploadCount: 0,
+        syncErrorMessage: null,
+        today: '2026-09-15',
+      }).items,
       onOpenItem,
     );
 
     expect(screen.getByText('Office review completed')).toBeOnTheScreen();
     expect(screen.getByText('CG-2026-0002 was reviewed by the office.')).toBeOnTheScreen();
-    expect(screen.getByText('This case is not stored on this device')).toBeOnTheScreen();
+    expect(screen.getByText('Not on this phone: open on the web')).toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByTestId('home.attention.notification-1'));
+    await fireEvent.press(
+      screen.getByTestId('home.attention.notification-6f1b1c0e-1111-4111-8111-111111111111'),
+    );
     expect(onOpenItem).not.toHaveBeenCalled();
   });
 

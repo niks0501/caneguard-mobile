@@ -1,3 +1,4 @@
+import { OFFICE_UPDATE_NOT_ON_PHONE } from '@/constants/copy';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import {
   assignmentDueMeta,
@@ -111,7 +112,7 @@ function unreadNotificationItems(input: {
         message: notification.message,
         meta:
           destination.kind === 'unavailable'
-            ? 'This case is not stored on this device'
+            ? OFFICE_UPDATE_NOT_ON_PHONE
             : notification.referenceCode ?? 'Case activity',
         title: notification.title,
         tone: 'whisper' as const,

@@ -1,4 +1,7 @@
-import { findCachedFieldValidationAssignment } from '@/features/assignments/data/assignmentCacheRepository';
+import {
+  findCachedFieldValidationAssignment,
+  findCachedFieldValidationAssignmentForCase,
+} from '@/features/assignments/data/assignmentCacheRepository';
 import { findScanRecordIdForCase } from '@/features/reports/data/fieldReportRepository';
 import {
   notificationDestinationRoute,
@@ -7,12 +10,14 @@ import {
 
 jest.mock('@/features/assignments/data/assignmentCacheRepository', () => ({
   findCachedFieldValidationAssignment: jest.fn(),
+  findCachedFieldValidationAssignmentForCase: jest.fn(),
 }));
 jest.mock('@/features/reports/data/fieldReportRepository', () => ({
   findScanRecordIdForCase: jest.fn(),
 }));
 
 const findAssignment = jest.mocked(findCachedFieldValidationAssignment);
+const findByCase = jest.mocked(findCachedFieldValidationAssignmentForCase);
 const findLocal = jest.mocked(findScanRecordIdForCase);
 const database = {} as never;
 
@@ -20,6 +25,20 @@ describe('resolveNotificationDestination', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     findAssignment.mockResolvedValue({} as never);
+    findByCase.mockResolvedValue(null);
+  });
+
+  // Intent: a notification for an office-born case opens its cached office card even without an assignment id.
+  it('opens the cached office-case assignment matched by case', async () => {
+    findByCase.mockResolvedValue({ id: 'assignment-9' } as never);
+    await expect(
+      resolveNotificationDestination(database, 'owner-1', {
+        assignmentUuid: null,
+        caseUuid: 'case-1',
+        referenceCode: 'CG-2026-0009',
+      }),
+    ).resolves.toEqual({ kind: 'assignment', assignmentId: 'assignment-9' });
+    expect(findLocal).not.toHaveBeenCalled();
   });
 
   it('prefers a cached owner assignment without touching local reports', async () => {

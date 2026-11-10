@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { OFFICE_UPDATE_NOT_ON_PHONE } from '@/constants/copy';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
 import { Radius, Spacing, Typography } from '@/constants/theme';
@@ -172,7 +173,7 @@ const NotificationRow = memo(function NotificationRow({
         </Text>
         <Text style={[styles.meta, { color: theme.textSecondary }]}>
           {destination?.kind === 'unavailable'
-            ? 'This case is not stored on this device'
+            ? OFFICE_UPDATE_NOT_ON_PHONE
             : `${notification.referenceCode ?? 'Case activity'}${notification.createdAt ? ` · ${formatDate(notification.createdAt, 'Recently')}` : ''}`}
         </Text>
       </View>

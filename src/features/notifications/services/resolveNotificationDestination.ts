@@ -1,6 +1,9 @@
 import type { CaneGuardDatabase } from '@/database/database';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
-import { findCachedFieldValidationAssignment } from '@/features/assignments/data/assignmentCacheRepository';
+import {
+  findCachedFieldValidationAssignment,
+  findCachedFieldValidationAssignmentForCase,
+} from '@/features/assignments/data/assignmentCacheRepository';
 import { findScanRecordIdForCase } from '@/features/reports/data/fieldReportRepository';
 
 export type NotificationDestination =
@@ -13,9 +16,10 @@ export type NotificationDestination =
  *
  * An assignment notification is actionable only when the assignment exists in
  * this owner's local cache. Reporters can receive the same office update as an
- * assignee, so an unknown assignment UUID falls through to the owner's local
- * Field Report instead of advertising a dead assignment route. A case that was
- * never stored on this device (or was removed) resolves to `unavailable`.
+ * assignee, so an unknown assignment UUID falls back to the owner's cached
+ * office-case assignment for that case, and then to their local Field Report,
+ * instead of advertising a dead assignment route. A case that was never stored
+ * on this device (or was removed) resolves to `unavailable`.
  */
 export async function resolveNotificationDestination(
   database: CaneGuardDatabase,
@@ -35,6 +39,17 @@ export async function resolveNotificationDestination(
     if (cachedAssignment) {
       return { kind: 'assignment', assignmentId };
     }
+  }
+
+  // Office-born cases have no Field Report on this phone; their notification may
+  // carry only the case, so match the cached office-case assignment by case.
+  const caseAssignment = await findCachedFieldValidationAssignmentForCase(
+    database,
+    ownerIdentity,
+    { caseUuid: notification.caseUuid, referenceCode: notification.referenceCode },
+  );
+  if (caseAssignment) {
+    return { kind: 'assignment', assignmentId: caseAssignment.id };
   }
 
   const scanRecordId = await findScanRecordIdForCase(database, ownerIdentity, {

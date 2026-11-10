@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNotNull } from 'drizzle-orm';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
@@ -51,6 +51,64 @@ export async function findCachedFieldValidationAssignment(
       )
       .get();
     return row ? toAssignment(row) : null;
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'QUERY_FAILED',
+      'Reading the cached field validation assignment failed.',
+    );
+  }
+}
+
+/**
+ * Find this owner's cached office-case assignment for a case by its case
+ * (report) UUID or reference code. Field-born assignments are excluded, so a
+ * notification for one keeps resolving to its local Field Report.
+ */
+export async function findCachedFieldValidationAssignmentForCase(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  match: { caseUuid: string | null; referenceCode: string | null },
+): Promise<FieldValidationAssignment | null> {
+  const owner = requireOwner(ownerIdentity);
+  const caseUuid = match.caseUuid?.trim();
+  const referenceCode = match.referenceCode?.trim();
+  if (!caseUuid && !referenceCode) return null;
+  try {
+    if (caseUuid) {
+      const byCaseUuid = await database
+        .select()
+        .from(fieldValidationAssignments)
+        .where(
+          and(
+            eq(fieldValidationAssignments.ownerIdentity, owner),
+            eq(fieldValidationAssignments.reportUuid, caseUuid),
+            isNotNull(fieldValidationAssignments.officeCaseJson),
+          ),
+        )
+        .get();
+      if (byCaseUuid) return toAssignment(byCaseUuid);
+    }
+    if (referenceCode) {
+      const byReference = await database
+        .select()
+        .from(fieldValidationAssignments)
+        .where(
+          and(
+            eq(fieldValidationAssignments.ownerIdentity, owner),
+            eq(fieldValidationAssignments.referenceCode, referenceCode),
+            isNotNull(fieldValidationAssignments.officeCaseJson),
+          ),
+        )
+        .orderBy(
+          asc(fieldValidationAssignments.updatedAt),
+          asc(fieldValidationAssignments.id),
+        )
+        .limit(1)
+        .get();
+      if (byReference) return toAssignment(byReference);
+    }
+    return null;
   } catch (error: unknown) {
     throw toStorageError(
       error,

@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useCallback } from 'react';
 
 import { useToast } from '@/components/ui/Toast';
-import { OFFICE_UPDATE_STILL_OPENING } from '@/constants/copy';
+import { OFFICE_UPDATE_NOT_ON_PHONE, OFFICE_UPDATE_STILL_OPENING } from '@/constants/copy';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 import {
   notificationDestinationRoute,
@@ -15,7 +15,10 @@ import {
  *
  * While a notification with no detail of its own is still resolving (no
  * destination yet), a tap neither marks it read nor closes the surface: it
- * shows a toast so the update is not consumed without opening anything.
+ * shows a toast so the update is not consumed without opening anything. A
+ * resolved update whose case is not on this phone is acknowledged but left
+ * open with a toast that says where the case lives, so no tap ends in a silent
+ * no-op.
  *
  * Acknowledgment is best effort: a failed read mutation never blocks the
  * inspector from opening the destination or the detail view.
@@ -43,7 +46,10 @@ export function useOpenMobileNotification({
       }
 
       void markRead(notification.id);
-      if (!openable) return;
+      if (!openable) {
+        showToast(OFFICE_UPDATE_NOT_ON_PHONE, 'info');
+        return;
+      }
       onClose();
 
       if (hasDetail) {

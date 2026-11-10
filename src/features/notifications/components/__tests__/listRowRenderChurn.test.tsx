@@ -43,7 +43,7 @@ const ITEMS: NeedsAttentionItem[] = [
     id: 'notification-1',
     kind: 'notification',
     message: 'CG-2026-0002 was reviewed.',
-    meta: 'This case is not stored on this device',
+    meta: 'Not on this phone: open on the web',
     title: 'Office review completed',
   },
 ];

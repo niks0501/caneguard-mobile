@@ -354,6 +354,7 @@ An office-born case carries an office projection on the same record: `case.versi
 The notification feed is owner-scoped to the authenticated field reporter and returns a complete durable attention snapshot through the same checkpoint/pagination boundary.
 Mobile replaces the local notification snapshot only after all pages validate, so network failures preserve the last-known read state and attention items.
 Mobile refreshes this cache on launch, resume, Activity focus, and explicit Activity refresh without opening a Reverb/WebSocket connection.
+An office update routes through the office-case projection: a notification opens its cached assignment case, matched by assignment UUID or else by case UUID or reference code on an office-projected assignment, and a field-born case still opens its local Field Report. A case that is not on this phone is never a silent no-op: its attention row, inbox row, and detail screen say `Not on this phone: open on the web`, and opening such an update never consumes it silently.
 
 A successful report upload must return a remote identity UUID.
 

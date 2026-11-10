@@ -79,7 +79,48 @@
         "observed_at": { "type": "date-time", "required": true, "nullable": true },
         "submitted_at": { "type": "date-time", "required": true, "nullable": false },
         "predicted_label": { "type": "string", "required": false, "nullable": true, "enum": ["healthy", "mosaic", "rust", "smut"], "description": "A case born in the office may have no AI scan: this field then arrives absent or null, and the phone shows no AI section. A field-born case always carries it." },
-        "confidence": { "type": "number", "required": false, "nullable": true, "minimum": 0, "maximum": 1, "description": "Absent or null together with predicted_label on an office case with no AI scan; a field-born case always carries it." }
+        "confidence": { "type": "number", "required": false, "nullable": true, "minimum": 0, "maximum": 1, "description": "Absent or null together with predicted_label on an office case with no AI scan; a field-born case always carries it." },
+        "origin": { "type": "string", "required": false, "nullable": true, "description": "Absent for a field-born case. `office` marks an office-born case, which carries the office projection below and may omit the AI fields; any other value is treated as field-born with no projection read." },
+        "version": { "type": "number", "required": false, "nullable": false, "minimum": 0, "description": "Office projection, office-born cases only." },
+        "status": {
+          "type": "object",
+          "required": false,
+          "nullable": false,
+          "required_keys": ["workflow_status", "case_state", "review_status", "updated_at"],
+          "additional_properties": false,
+          "description": "Office projection, office-born cases only: the office's own workflow, case, and review status.",
+          "properties": {
+            "workflow_status": { "type": "string", "required": true, "nullable": false },
+            "case_state": { "type": "string", "required": true, "nullable": false },
+            "review_status": { "type": "string", "required": true, "nullable": false },
+            "updated_at": { "type": "date-time", "required": true, "nullable": false }
+          }
+        },
+        "reporter_concern": {
+          "type": "object",
+          "required": false,
+          "nullable": false,
+          "required_keys": ["suspected_condition", "observation_text"],
+          "additional_properties": false,
+          "description": "Office projection, office-born cases only: the reporter's own words about the case.",
+          "properties": {
+            "suspected_condition": { "type": "string", "required": true, "nullable": true },
+            "observation_text": { "type": "string", "required": true, "nullable": true }
+          }
+        },
+        "photo": {
+          "type": "object",
+          "required": false,
+          "nullable": true,
+          "required_keys": ["content_type", "bytes"],
+          "additional_properties": false,
+          "description": "Office projection, office-born cases only: a reference to the case photo. The phone never caches photo bytes and ignores any server-provided url, building its own guarded route instead.",
+          "properties": {
+            "content_type": { "type": "string", "required": true, "nullable": false },
+            "bytes": { "type": "number", "required": true, "nullable": false, "minimum": 0 },
+            "url": { "type": "string", "required": false, "nullable": true, "description": "Ignored by the phone." }
+          }
+        }
       }
     },
     "previous_visit": {

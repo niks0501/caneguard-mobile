@@ -10,7 +10,7 @@ import type { MobileNotification } from '@/features/notifications/domain/notific
 const noop = () => undefined;
 
 const UNREAD_UPDATE: MobileNotification = {
-  id: 'notification-1',
+  id: '6f1b1c0e-1111-4111-8111-111111111111',
   ownerIdentity: 'owner-1',
   eventType: 'office_review_completed',
   title: 'Office review completed',
@@ -79,7 +79,9 @@ describe('HomeAttentionCard', () => {
     expect(screen.getByText('CG-2026-0002 was reviewed by the office.')).toBeOnTheScreen();
     expect(screen.getByText('Not on this phone: open on the web')).toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByTestId('home.attention.notification-1'));
+    await fireEvent.press(
+      screen.getByTestId('home.attention.notification-6f1b1c0e-1111-4111-8111-111111111111'),
+    );
     expect(onOpenItem).not.toHaveBeenCalled();
   });
 

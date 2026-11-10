@@ -3,7 +3,11 @@ import type { PreviousVisitContext } from '@/features/assignments/domain/previou
 
 /** Stored when the server sends a predicted_label this app version does not know. */
 export const UNKNOWN_PREDICTED_LABEL = 'unknown';
-/** Cache-only stand-in (the stored columns are NOT NULL) for an office record with no AI scan. */
+/**
+ * Cache-only stand-in for an office record with no AI scan, because the stored
+ * label and score columns are NOT NULL. Reads treat this marker as the absent
+ * prediction and restore both fields to null, ignoring the stored score.
+ */
 export const NO_AI_SCAN_CACHE_LABEL = 'no_ai_scan';
 
 /** The reporter's own words about an office-born case. */

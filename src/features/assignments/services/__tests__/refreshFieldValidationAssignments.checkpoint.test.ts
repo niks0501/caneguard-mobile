@@ -132,6 +132,31 @@ describe('assignment feed checkpoints', () => {
     });
   });
 
+  // Proves: an unchanged answer that omits the stamps keeps the held download's measurements instead
+  // of zeroing them, so the phone still trusts the checkpoint for the rows it already holds.
+  // Oracle: the capped download promised 650 rows in 3 pages, and the confirming answer repeats no total.
+  it('keeps the held total, truncation and page count when the unchanged answer omits them', async () => {
+    const database = openTestDatabase();
+    serve({ total: 650, delivered: 300, version: 'v-capped', truncated: true });
+    await refreshFieldValidationAssignments({ database, ownerIdentity: OWNER, token: 't' });
+
+    request.mockReset().mockResolvedValue({
+      data: [], links: { next: null },
+      sync: { before: '2026-08-13T12:10:00.000Z', version: 'v-capped', unchanged: true },
+    });
+    await refreshFieldValidationAssignments({ database, ownerIdentity: OWNER, token: 't2' });
+
+    expect(String(request.mock.calls[0][0])).toContain('since=v-capped');
+    await expect(readSyncCheckpoint(database, OWNER, 'assignments')).resolves.toMatchObject({
+      version: 'v-capped', total: 650, truncated: true, pageCount: 3,
+      syncBefore: '2026-08-13T12:10:00.000Z',
+    });
+
+    request.mockClear();
+    await refreshFieldValidationAssignments({ database, ownerIdentity: OWNER, token: 't3' });
+    expect(String(request.mock.calls[0][0])).toContain('since=v-capped');
+  });
+
   // Proves: the saved page count is the number of pages the download requested (an uncapped 250 takes
   // 3 pages, an empty feed still takes the one page that answered it).
   it.each([[0, 1], [100, 1], [101, 2], [250, 3]])('requests %i rows in %i pages', async (total, pages) => {

@@ -133,6 +133,13 @@ export async function fetchAllMobileNotifications(options: {
     };
   }
 
+  if (sync.total !== null && sync.total < recordCount) {
+    throw new MobileNotificationsApiError(
+      'MALFORMED_RESPONSE',
+      'The notification feed total was smaller than the rows it delivered.',
+    );
+  }
+
   return {
     syncBefore,
     notifications,

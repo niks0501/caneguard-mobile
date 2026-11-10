@@ -102,9 +102,9 @@ async function executeRefresh(options: {
   const checkpoint: SyncCheckpoint = {
     feed: 'notifications',
     version: response.sync.version,
-    total: response.sync.total,
-    truncated: response.sync.truncated,
-    // An unchanged answer fetched no rows; the held download's page count still describes the cache.
+    total: response.sync.unchanged && held ? held.total : response.sync.total,
+    truncated: response.sync.unchanged && held ? held.truncated : response.sync.truncated,
+    // An unchanged answer fetched no rows; the held download still describes the cache.
     pageCount: response.sync.unchanged && held ? held.pageCount : response.pageCount,
     syncBefore: response.syncBefore,
     fetchedAt,

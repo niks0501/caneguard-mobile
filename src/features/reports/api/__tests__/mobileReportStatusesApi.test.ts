@@ -160,6 +160,21 @@ describe('mobile report statuses API', () => {
     );
   });
 
+  // Proves: a reported total that cannot cover the rows delivered is inconsistent and fails the feed
+  // closed instead of being saved as the feed's size.
+  it('rejects a reported total smaller than the rows it delivered', async () => {
+    request.mockResolvedValueOnce({
+      data: [item(), item({ uuid: 'remote-2', client_uuid: 'client-2' })],
+      links: { next: null },
+      meta: { sync_before: CHECKPOINT },
+      sync: { before: CHECKPOINT, version: 'v-1', total: 1 },
+    });
+
+    await expect(
+      fetchAllMobileReportStatuses({ token: 'secure-token' }),
+    ).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' });
+  });
+
   // Proves: a version stamp replaces the overlapping timestamp and an unchanged answer costs no page.
   it('sends the held version instead of the overlap and reports an unchanged feed', async () => {
     request.mockResolvedValueOnce({

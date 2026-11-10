@@ -16,7 +16,10 @@ export interface SyncEnvelope {
 export interface SyncFeedSummary {
   /** The server's opaque feed stamp; null from servers that do not version the feed. */
   version: string | null;
-  /** Rows the feed holds, or the wire records received when the server does not say. */
+  /**
+   * Rows the feed holds, or the wire records this answer delivered when the server
+   * does not say; an unchanged answer that omits it measured no rows of its own.
+   */
   total: number;
   /** True when the server cut the feed to the requested cap. */
   truncated: boolean;

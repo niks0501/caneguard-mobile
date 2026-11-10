@@ -129,6 +129,13 @@ export async function fetchAllMobileReportStatuses(options: {
     };
   }
 
+  if (sync.total !== null && sync.total < updates.length) {
+    throw new ReportStatusesApiError(
+      'MALFORMED_RESPONSE',
+      'The authority review feed total was smaller than the rows it delivered.',
+    );
+  }
+
   return {
     syncBefore,
     updates,

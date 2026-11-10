@@ -75,7 +75,7 @@ const HELD: SyncCheckpoint = {
   feed: 'notifications',
   version: 'v-1',
   total: 250,
-  truncated: false,
+  truncated: true,
   pageCount: 3,
   syncBefore: '2026-08-13T12:00:00.000Z',
   fetchedAt: '2026-08-13T12:00:00.000Z',
@@ -204,11 +204,12 @@ describe('refreshMobileNotifications', () => {
   });
 
   // Proves: a repeat refresh of an unchanged feed sends the held version, downloads no page,
-  // and keeps both the cached rows and the page count that describes them.
-  it('sends the held version and keeps the cached rows when the feed is unchanged', async () => {
+  // and keeps the cached rows together with every held measurement the answer does not repeat.
+  // Oracle: the confirming answer reports no total and no truncation, yet the feed still holds 250 rows.
+  it('sends the held version and keeps the held measurements when the feed is unchanged', async () => {
     readCheckpoint.mockResolvedValueOnce(HELD);
     fetchNotifications.mockResolvedValueOnce(feed({
-      sync: { version: 'v-1', total: 250, truncated: false, unchanged: true },
+      sync: { version: 'v-1', total: 0, truncated: false, unchanged: true },
     }));
 
     await refreshMobileNotifications({ database, ownerIdentity: 'owner-1', token: 'token-1' });
@@ -223,7 +224,7 @@ describe('refreshMobileNotifications', () => {
         feed: 'notifications',
         version: 'v-1',
         total: 250,
-        truncated: false,
+        truncated: true,
         pageCount: 3,
         syncBefore: SYNC_BEFORE,
         fetchedAt: expect.any(String),

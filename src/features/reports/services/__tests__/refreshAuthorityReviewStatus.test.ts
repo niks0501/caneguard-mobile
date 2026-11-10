@@ -39,7 +39,7 @@ const HELD: SyncCheckpoint = {
   feed: 'authority_status',
   version: 'v-1',
   total: 250,
-  truncated: false,
+  truncated: true,
   pageCount: 3,
   syncBefore: '2026-08-13T11:00:00.000Z',
   fetchedAt: '2026-08-13T11:00:00.000Z',
@@ -159,11 +159,12 @@ describe('refreshAuthorityReviewStatus', () => {
   });
 
   // Proves: a repeat refresh of an unchanged feed sends the held version, downloads no page, and
-  // keeps the page count that describes what the phone already holds.
-  it('sends the held version and keeps the held page count when the feed is unchanged', async () => {
+  // keeps every held measurement the confirming answer does not repeat.
+  // Oracle: the confirming answer reports no total and no truncation, yet the feed still holds 250 rows.
+  it('sends the held version and keeps the held measurements when the feed is unchanged', async () => {
     readCheckpoint.mockResolvedValueOnce(HELD);
     fetchStatuses.mockResolvedValueOnce(feed({
-      sync: { version: 'v-1', total: 250, truncated: false, unchanged: true },
+      sync: { version: 'v-1', total: 0, truncated: false, unchanged: true },
     }));
 
     await refreshAuthorityReviewStatus({
@@ -182,7 +183,7 @@ describe('refreshAuthorityReviewStatus', () => {
       'owner-1',
       [],
       expect.any(String),
-      expect.objectContaining({ version: 'v-1', total: 250, pageCount: 3 }),
+      expect.objectContaining({ version: 'v-1', total: 250, truncated: true, pageCount: 3 }),
     );
   });
 });

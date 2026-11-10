@@ -178,6 +178,21 @@ describe('mobile notifications API', () => {
     expect(result.pageCount).toBe(2);
   });
 
+  // Proves: a reported total that cannot cover the rows delivered is inconsistent and fails the feed
+  // closed instead of being saved as the feed's size.
+  it('rejects a reported total smaller than the rows it delivered', async () => {
+    const valid = MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0];
+    request.mockResolvedValueOnce({
+      data: [valid, { ...valid, id: '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f' }],
+      links: { next: null },
+      sync: { before: CHECKPOINT, version: 'v-1', total: 1 },
+    });
+
+    await expect(
+      fetchAllMobileNotifications({ token: 'secure-token' }),
+    ).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' });
+  });
+
   // Proves: with a version stamp the phone asks only for what changed past that version.
   it('sends the held version and reports an unchanged feed as zero pages', async () => {
     request.mockResolvedValueOnce({

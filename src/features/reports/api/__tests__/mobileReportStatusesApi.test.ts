@@ -146,7 +146,7 @@ describe('mobile report statuses API', () => {
         }),
       ],
       sync: { version: null, total: 2, truncated: false, unchanged: false },
-      pageCount: 1,
+      pageCount: 2,
     });
     expect(request).toHaveBeenNthCalledWith(
       1,

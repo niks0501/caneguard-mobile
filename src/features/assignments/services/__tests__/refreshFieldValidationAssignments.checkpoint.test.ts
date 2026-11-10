@@ -132,14 +132,15 @@ describe('assignment feed checkpoints', () => {
     });
   });
 
-  // Proves: page counts match the reported total (an uncapped 250 takes 3 pages, an empty set takes none).
-  it.each([[0, 0], [100, 1], [101, 2], [250, 3]])('derives %i rows as %i pages', async (total, pages) => {
+  // Proves: the saved page count is the number of pages the download requested (an uncapped 250 takes
+  // 3 pages, an empty feed still takes the one page that answered it).
+  it.each([[0, 1], [100, 1], [101, 2], [250, 3]])('requests %i rows in %i pages', async (total, pages) => {
     const database = openTestDatabase();
     serve({ total, delivered: total, version: `v-${total}`, truncated: false });
 
     await refreshFieldValidationAssignments({ database, ownerIdentity: OWNER, token: 't' });
 
-    expect(request).toHaveBeenCalledTimes(Math.max(1, pages));
+    expect(request).toHaveBeenCalledTimes(pages);
     await expect(readSyncCheckpoint(database, OWNER, 'assignments')).resolves.toMatchObject({ total, pageCount: pages });
   });
 

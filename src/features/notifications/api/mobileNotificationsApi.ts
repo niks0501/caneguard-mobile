@@ -11,7 +11,6 @@ import {
   parseSyncEnvelope,
   SyncEnvelopeFieldError,
 } from '@/features/sync/api/syncEnvelope';
-import { derivePageCount } from '@/features/sync/data/syncCheckpointRepository';
 
 const NOTIFICATION_PATH = '/api/v1/mobile/notifications';
 const PAGE_SIZE = 100;
@@ -23,7 +22,7 @@ export interface MobileNotificationsResult {
   notifications: MobileNotificationUpdate[];
   partial: boolean;
   sync: SyncFeedSummary;
-  /** Pages of rows this download took; zero when the server confirmed the sent version. */
+  /** Pages this download requested; zero when the server confirmed the sent version. */
   pageCount: number;
 }
 
@@ -64,6 +63,7 @@ export async function fetchAllMobileNotifications(options: {
   let syncBefore: string | null = null;
   let sync: SyncEnvelope | null = null;
   let pageLimit = 1;
+  let pagesRequested = 0;
   let recordCount = 0;
 
   for (let pageNumber = 0; path; pageNumber += 1) {
@@ -76,6 +76,7 @@ export async function fetchAllMobileNotifications(options: {
     visited.add(path);
 
     const page = await requestPage(path, options.token);
+    pagesRequested += 1;
     if (syncBefore && page.syncBefore !== syncBefore) {
       throw new MobileNotificationsApiError(
         'MALFORMED_RESPONSE',
@@ -142,8 +143,7 @@ export async function fetchAllMobileNotifications(options: {
       truncated: sync.truncated,
       unchanged: false,
     },
-    // Wire records, not the parsed ones: a skipped malformed record still took a page slot.
-    pageCount: derivePageCount(recordCount, PAGE_SIZE),
+    pageCount: pagesRequested,
   };
 }
 

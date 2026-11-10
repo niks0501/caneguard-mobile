@@ -19,7 +19,6 @@ import {
   parseSyncEnvelope,
   SyncEnvelopeFieldError,
 } from '@/features/sync/api/syncEnvelope';
-import { derivePageCount } from '@/features/sync/data/syncCheckpointRepository';
 import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 
 const ASSIGNMENT_PATH = '/api/v1/mobile/assignments';
@@ -39,7 +38,7 @@ export interface MobileFieldValidationAssignmentsResult {
   /** Records dropped because their vocabulary (field_validation_state) is unknown to this build. */
   skippedCount: number;
   sync: AssignmentSyncSummary;
-  /** Pages of rows this download took; zero when the server answered unchanged. */
+  /** Pages this download requested; zero when the server answered unchanged. */
   pageCount: number;
 }
 
@@ -179,7 +178,7 @@ async function downloadAssignments(options: {
 
   if (sync.total !== null) {
     const expectedRows = envelopeExpectedRows(sync, ASSIGNMENT_WORK_SET_CAP);
-    if (received !== expectedRows || pagesRequested !== Math.max(1, expectedPageCount(sync))) {
+    if (received !== expectedRows || pagesRequested !== pageLimit) {
       throw new MobileFieldValidationAssignmentsApiError(
         'MALFORMED_RESPONSE',
         'The assignment feed did not deliver the rows its total promised.',
@@ -197,14 +196,8 @@ async function downloadAssignments(options: {
       truncated: sync.truncated,
       unchanged: false,
     },
-    pageCount: derivePageCount(received, PAGE_SIZE),
+    pageCount: pagesRequested,
   };
-}
-
-function expectedPageCount(sync: SyncEnvelope): number {
-  return sync.unchanged
-    ? 0
-    : derivePageCount(envelopeExpectedRows(sync, ASSIGNMENT_WORK_SET_CAP), PAGE_SIZE);
 }
 
 function isSyncRestart(error: unknown): boolean {

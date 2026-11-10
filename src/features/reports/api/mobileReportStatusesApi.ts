@@ -11,7 +11,6 @@ import {
   parseSyncEnvelope,
   SyncEnvelopeFieldError,
 } from '@/features/sync/api/syncEnvelope';
-import { derivePageCount } from '@/features/sync/data/syncCheckpointRepository';
 
 const STATUS_PATH = '/api/v3/mobile/reports/statuses';
 const PAGE_SIZE = 100;
@@ -22,7 +21,7 @@ export interface MobileReportStatusesResult {
   syncBefore: string;
   updates: AuthorityReviewStatusUpdate[];
   sync: SyncFeedSummary;
-  /** Pages of rows this download took; zero when the server confirmed the sent version. */
+  /** Pages this download requested; zero when the server confirmed the sent version. */
   pageCount: number;
 }
 
@@ -64,6 +63,7 @@ export async function fetchAllMobileReportStatuses(options: {
   let syncBefore: string | null = null;
   let sync: SyncEnvelope | null = null;
   let pageLimit = 1;
+  let pagesRequested = 0;
 
   for (let pageNumber = 0; path; pageNumber += 1) {
     if (pageNumber >= pageLimit || visited.has(path)) {
@@ -75,6 +75,7 @@ export async function fetchAllMobileReportStatuses(options: {
     visited.add(path);
 
     const page = await requestPage(path, options.token);
+    pagesRequested += 1;
     if (syncBefore && page.syncBefore !== syncBefore) {
       throw new ReportStatusesApiError(
         'MALFORMED_RESPONSE',
@@ -137,7 +138,7 @@ export async function fetchAllMobileReportStatuses(options: {
       truncated: sync.truncated,
       unchanged: false,
     },
-    pageCount: derivePageCount(updates.length, PAGE_SIZE),
+    pageCount: pagesRequested,
   };
 }
 

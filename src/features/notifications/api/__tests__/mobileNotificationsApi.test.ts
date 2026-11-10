@@ -162,6 +162,22 @@ describe('mobile notifications API', () => {
     expect(result.pageCount).toBe(2);
   });
 
+  // Proves: the saved page count measures the requests the download actually made, so a feed that
+  // answers with short pages still reports every page it took.
+  // Oracle: two pages were requested (the first page carries a continuation link).
+  it('counts every requested page, not the rows those pages held', async () => {
+    const valid = MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0];
+    const next = `http://127.0.0.1:8000/api/v1/mobile/notifications?cursor=next&sync_before=${encodeURIComponent(CHECKPOINT)}`;
+    request
+      .mockResolvedValueOnce(page([valid], next))
+      .mockResolvedValueOnce(page([{ ...valid, id: '9cc6a6a0-b20f-4ca8-bb7e-1a34cd191e0f' }]));
+
+    const result = await fetchAllMobileNotifications({ token: 'secure-token' });
+
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(result.pageCount).toBe(2);
+  });
+
   // Proves: with a version stamp the phone asks only for what changed past that version.
   it('sends the held version and reports an unchanged feed as zero pages', async () => {
     request.mockResolvedValueOnce({

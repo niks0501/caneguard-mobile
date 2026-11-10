@@ -23,6 +23,11 @@ import {
 import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
 
 const ASSIGNMENT_PATH = '/api/v1/mobile/assignments';
+/**
+ * Contract v2 request capability: the office delivers an assignment whose case has
+ * no AI scan only when the feed request carries `supports=no_ai_scan`.
+ */
+const NO_AI_SCAN_REQUEST_CAPABILITY = 'no_ai_scan';
 export const ASSIGNMENT_PAGE_SIZE = 100;
 /** The most assignments one download asks for; the server honours at most 300. */
 export const ASSIGNMENT_WORK_SET_CAP = 300;
@@ -354,8 +359,7 @@ function parseAssignment(
       capturedAt: requireTimestamp(rawCase.captured_at, 'case.captured_at'),
       observedAt: optionalTimestamp(rawCase.observed_at, 'case.observed_at'),
       submittedAt: requireTimestamp(rawCase.submitted_at, 'case.submitted_at'),
-      predictedLabel: parsePredictedLabel(rawCase.predicted_label),
-      confidence: requireNumber(rawCase.confidence, 'case.confidence', 0, 1),
+      ...parseAiFields(rawCase),
     },
     previousVisit: parsePreviousVisit(value.previous_visit),
     officeCase: parseOfficeCase(rawCase),
@@ -476,6 +480,9 @@ function buildInitialPath(updatedAfter: string | null | undefined, since: string
   const query = new URLSearchParams({
     per_page: String(PAGE_SIZE),
     limit: String(ASSIGNMENT_WORK_SET_CAP),
+    // v2 withholds an office case that has no AI scan unless the request asks for
+    // the capability; a continuation keeps it because the feed echoes the query.
+    supports: NO_AI_SCAN_REQUEST_CAPABILITY,
   });
   if (updatedAfter) query.set('updated_after', updatedAfter);
   if (since) query.set('since', since);
@@ -615,6 +622,32 @@ function parseFollowUpOutcome(value: unknown): FieldValidationFollowUpOutcome | 
   return (FIELD_VALIDATION_FOLLOW_UP_OUTCOMES as readonly string[]).includes(value)
     ? (value as FieldValidationFollowUpOutcome)
     : null;
+}
+
+/**
+ * Field-born rows must carry the AI prediction. An office record may have none
+ * (no AI scan), so a missing or null prediction is accepted only there, and the
+ * label and its score are always null or present together.
+ */
+function parseAiFields(rawCase: Record<string, unknown>): {
+  predictedLabel: string | null;
+  confidence: number | null;
+} {
+  const label = rawCase.predicted_label;
+  const confidence = rawCase.confidence;
+  const hasLabel = label !== undefined && label !== null;
+  const hasConfidence = confidence !== undefined && confidence !== null;
+  if (hasLabel !== hasConfidence) {
+    throw malformed(hasLabel ? 'case.confidence' : 'case.predicted_label');
+  }
+  if (!hasLabel) {
+    if (rawCase.origin === 'office') return { predictedLabel: null, confidence: null };
+    throw malformed('case.predicted_label');
+  }
+  return {
+    predictedLabel: parsePredictedLabel(label),
+    confidence: requireNumber(confidence, 'case.confidence', 0, 1),
+  };
 }
 
 /** Strict on shape (must be a string), tolerant on vocabulary (unknown label => 'unknown'). */

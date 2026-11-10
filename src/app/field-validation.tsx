@@ -386,7 +386,9 @@ function VisitHistory({
       title="Previous visit and original report"
       summary={previousVisit ? '1 previous visit · original report' : 'No previous visit · original report'}>
       <Text style={[styles.help, { color: theme.textSecondary }]}>Recorded before this visit and submitted by the reporter. It is decision-support only, cannot be changed here, and is kept separate from your field findings.</Text>
-      <Row label="Possible Condition" value={getResultLabel(assignment.case.predictedLabel)} />
+      {assignment.case.predictedLabel === null ? null : (
+        <Row label="Possible Condition" value={getResultLabel(assignment.case.predictedLabel)} />
+      )}
       <Row label="Submitted by" value={assignment.submitter.name} />
       {completion ? <Row label="Visit time" value={formatTimestamp(completion.visitedAt)} /> : null}
       <PreviousVisitCard

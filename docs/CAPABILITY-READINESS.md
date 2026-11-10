@@ -84,8 +84,10 @@ tests. "Implemented" does not mean "verified on a device":
   After a refresh the phone keeps those photos on disk for the owner within a
   fixed budget, so a case whose photos are all downloaded shows a **Ready
   offline** badge and renders them with no session token; a photo that cannot
-  load otherwise shows words instead of a broken image. The downloaded visit
-  list needs `assignment:read`; opening and completing a visit needs
+  load otherwise shows words instead of a broken image. A case born in the
+  office with no AI scan still opens and shows its concern, status, and photo
+  with no AI section. The downloaded
+  visit list needs `assignment:read`; opening and completing a visit needs
   `assignment:complete`. Without it the screen shows an unavailable notice
   instead of the visit form.
 - Offline field boundary surveys (authoring needs the `report:submit`

@@ -206,6 +206,17 @@ describe('sync download progress storage', () => {
     await expect(storeFor('owner-1').read()).resolves.toBe('{"page":2}');
   });
 
+  // Proves: an owner whose identity extends another's keeps its pages through that owner's clear.
+  it('keeps the pages of an owner whose identity extends another owner', async () => {
+    await storeFor('a').save('{"page":2}');
+    await storeFor('a.authority_status').save('{"page":3}');
+
+    await clearSyncDownloadProgress('a');
+
+    await expect(storeFor('a').read()).resolves.toBeNull();
+    await expect(storeFor('a.authority_status').read()).resolves.toBe('{"page":3}');
+  });
+
   it('refuses an owner that cannot scope stored pages', () => {
     expect(() => storeFor('   ')).toThrow(StorageError);
   });

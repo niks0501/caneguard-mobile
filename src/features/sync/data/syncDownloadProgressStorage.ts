@@ -1,18 +1,22 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { StorageError, toStorageError } from '@/database/errors';
-import type { SyncCheckpointFeed } from '@/database/schema';
+import { SYNC_CHECKPOINT_FEEDS, type SyncCheckpointFeed } from '@/database/schema';
 import type { SyncDownloadProgressStore } from '@/features/sync/domain/syncDownloadProgressStore';
 
 const KEY_PREFIX = 'caneguard.syncDownloadProgress.v1';
 const keyOperations = new Map<string, Promise<unknown>>();
+
+function progressKey(owner: string, feed: SyncCheckpointFeed): string {
+  return `${KEY_PREFIX}.${owner}.${feed}`;
+}
 
 export function createSyncDownloadProgressStore(
   ownerIdentity: string,
   feed: SyncCheckpointFeed,
   isCurrent: () => boolean,
 ): SyncDownloadProgressStore {
-  const key = `${KEY_PREFIX}.${requireOwner(ownerIdentity)}.${feed}`;
+  const key = progressKey(requireOwner(ownerIdentity), feed);
 
   return {
     async read(): Promise<string | null> {
@@ -48,11 +52,12 @@ export function createSyncDownloadProgressStore(
 
 /** Removes every stored download of one owner; the Settings clear actions own that boundary. */
 export async function clearSyncDownloadProgress(ownerIdentity: string): Promise<void> {
-  const prefix = `${KEY_PREFIX}.${requireOwner(ownerIdentity)}.`;
+  const owner = requireOwner(ownerIdentity);
+  const keys = SYNC_CHECKPOINT_FEEDS.map((feed) => progressKey(owner, feed));
   try {
-    await settleKeyOperations(prefix);
-    const keys = await AsyncStorage.getAllKeys();
-    const owned = keys.filter((key) => key.startsWith(prefix));
+    await settleKeyOperations(keys);
+    const stored = await AsyncStorage.getAllKeys();
+    const owned = stored.filter((key) => keys.includes(key));
     if (owned.length > 0) {
       await AsyncStorage.multiRemove(owned);
     }
@@ -75,10 +80,13 @@ async function enqueue<T>(key: string, operation: () => Promise<T>): Promise<T> 
   return current;
 }
 
-async function settleKeyOperations(prefix: string): Promise<void> {
-  const owned = [...keyOperations].filter(([key]) => key.startsWith(prefix));
-  if (owned.length === 0) return;
-  await Promise.allSettled(owned.map(([, pending]) => pending));
+async function settleKeyOperations(keys: readonly string[]): Promise<void> {
+  const pending = keys.flatMap((key) => {
+    const operation = keyOperations.get(key);
+    return operation ? [operation] : [];
+  });
+  if (pending.length === 0) return;
+  await Promise.allSettled(pending);
 }
 
 function requireOwner(value: string): string {

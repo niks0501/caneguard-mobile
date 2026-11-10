@@ -465,6 +465,31 @@ describe('mobile report statuses API', () => {
       expect(result.updates).toHaveLength(3);
     });
 
+    // Proves: a download that cannot drop its stored pages ends instead of retrying them forever.
+    it('stops when the stored pages cannot be cleared', async () => {
+      const frozen: SyncDownloadProgressStore = {
+        read: async () => savedProgress.get('owner-1') ?? null,
+        save: async (payload) => {
+          savedProgress.set('owner-1', payload);
+        },
+        clear: async () => {},
+      };
+
+      request.mockResolvedValueOnce(pageOf(1, NEXT_2)).mockRejectedValueOnce(networkError());
+      await expect(
+        fetchAllMobileReportStatuses({ token: 'resume-g', progress: frozen }),
+      ).rejects.toMatchObject({ code: 'NETWORK' });
+
+      request.mockReset();
+      request.mockResolvedValueOnce(pageOf(2, NEXT_3, 'v-2'));
+      request.mockResolvedValueOnce(pageOf(2, NEXT_3, 'v-2'));
+
+      await expect(
+        fetchAllMobileReportStatuses({ token: 'resume-g', progress: frozen }),
+      ).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' });
+      expect(request).toHaveBeenCalledTimes(2);
+    });
+
     // Proves: a completed refresh leaves nothing to resume (cursor advances only on a whole download).
     it('starts over once a download completed', async () => {
       request.mockResolvedValueOnce(pageOf(1, NEXT_2)).mockResolvedValueOnce(pageOf(2, null));

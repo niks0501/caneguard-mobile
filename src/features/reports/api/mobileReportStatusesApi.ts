@@ -60,14 +60,25 @@ export class ReportStatusesApiError extends Error {
   }
 }
 
-export async function fetchAllMobileReportStatuses(options: {
+interface StatusDownloadRequest {
   token: string;
   updatedAfter?: string | null;
   /** The version of the last complete download; an unchanged feed then costs one request. */
   since?: string | null;
   /** Owner-scoped storage where an interrupted download leaves its pages and continuation. */
   progress: SyncDownloadProgressStore;
-}): Promise<MobileReportStatusesResult> {
+}
+
+export function fetchAllMobileReportStatuses(
+  options: StatusDownloadRequest,
+): Promise<MobileReportStatusesResult> {
+  return fetchStatusPages(options, false);
+}
+
+async function fetchStatusPages(
+  options: StatusDownloadRequest,
+  restarted: boolean,
+): Promise<MobileReportStatusesResult> {
   const since = options.since ?? null;
   const initialPath = buildInitialPath(options.updatedAfter, since);
   // Only a retry of the same first-page request resumes; another cursor starts over.
@@ -99,9 +110,15 @@ export async function fetchAllMobileReportStatuses(options: {
         page.sync.version !== sync.version ||
         page.sync.total !== sync.total)
     ) {
+      if (restarted) {
+        throw new ReportStatusesApiError(
+          'MALFORMED_RESPONSE',
+          'The authority review feed kept changing while the download restarted.',
+        );
+      }
       // The feed moved on while the download was stored; its pages describe a stale set.
       await options.progress.clear();
-      return fetchAllMobileReportStatuses(options);
+      return fetchStatusPages(options, true);
     }
     resumedPage = false;
     if (syncBefore && page.syncBefore !== syncBefore) {

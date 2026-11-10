@@ -82,9 +82,11 @@ tests. "Implemented" does not mean "verified on a device":
   the office showing the reporter's concern, the office status, the case
   version, and a guarded viewer for the case photo and the last visit's photo
   (a photo that cannot load, or a session with no token, shows words instead of
-  a broken image). The downloaded visit list needs
-  `assignment:read`; opening and completing a visit needs `assignment:complete`.
-  Without it the screen shows an unavailable notice instead of the visit form.
+  a broken image). A case born in the office with no AI scan still opens and
+  shows its concern, status, and photo with no AI section. The downloaded visit
+  list needs `assignment:read`; opening and completing a visit needs
+  `assignment:complete`. Without it the screen shows an unavailable notice
+  instead of the visit form.
 - Offline field boundary surveys (authoring needs the `report:submit`
   capability): plot and affected-area polygons drawn on the
   coordinate map, affected areas accepted only when fully inside the plot

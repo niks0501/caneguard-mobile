@@ -20,6 +20,8 @@ const mockDisk = new Map<string, number>();
 const mockDownloads: { url: string; headers?: Record<string, string> }[] = [];
 let mockSizeFor: (url: string) => number = () => 1000;
 let mockFailUrls = new Set<string>();
+let mockInterruptUrls = new Set<string>();
+let mockKillSnapshot: Map<string, number> | null = null;
 
 jest.mock('expo-file-system', () => {
   class MockFile {
@@ -32,8 +34,19 @@ jest.mock('expo-file-system', () => {
     get exists() { return mockDisk.has(this.uri); }
     get size() { return mockDisk.get(this.uri) ?? 0; }
     delete() { mockDisk.delete(this.uri); }
+    async move(destination: MockFile) {
+      const bytes = mockDisk.get(this.uri);
+      if (bytes === undefined) throw new Error('missing');
+      mockDisk.set(destination.uri, bytes);
+      mockDisk.delete(this.uri);
+    }
     static async downloadFileAsync(url: string, file: MockFile, options?: { headers?: Record<string, string> }) {
       mockDownloads.push({ url, headers: options?.headers });
+      if (mockInterruptUrls.has(url)) {
+        mockDisk.set(file.uri, 512);
+        mockKillSnapshot = new Map(mockDisk);
+        throw new Error('terminated');
+      }
       if (mockFailUrls.has(url)) throw new Error('offline');
       mockDisk.set(file.uri, mockSizeFor(url));
       return file;
@@ -82,11 +95,34 @@ function office(name: string, overrides: Partial<FieldValidationAssignment> = {}
 const run = (assignments: FieldValidationAssignment[], owner = 'owner-1') =>
   prefetchOfficeMedia({ assignments, now: NOW, ownerIdentity: owner, token: 'tok' });
 
+function withVisit(
+  assignment: FieldValidationAssignment,
+  visitedAt = '2026-09-10T08:30:00.000Z',
+): FieldValidationAssignment {
+  return {
+    ...assignment,
+    previousVisit: {
+      referenceCode: 'CG-0',
+      visitedAt,
+      reporterSuspectedCondition: null,
+      authorityClassifiedCondition: null,
+      actionTaken: 'a',
+      followUpOutcome: null,
+      fieldObservation: null,
+      fieldFinding: null,
+      freshPhotoAvailable: true,
+      photo: { contentType: 'image/jpeg', bytes: 1000 },
+    },
+  };
+}
+
 beforeEach(() => {
   mockDisk.clear();
   mockDownloads.length = 0;
   mockSizeFor = () => 1000;
   mockFailUrls = new Set();
+  mockInterruptUrls = new Set();
+  mockKillSnapshot = null;
 });
 
 describe('office media cache', () => {
@@ -121,6 +157,79 @@ describe('office media cache', () => {
     const ready = cases.filter((c) => isOfficeCaseReadyOffline('owner-1', c));
     expect(ready).toHaveLength(15);
     expect(isOfficeCaseReadyOffline('owner-1', cases[15])).toBe(false);
+  });
+
+  // Proves L5: a photo already on disk is not fetched again.
+  it('does not download a photo that is already on the phone', async () => {
+    const a = office('a');
+    await run([a]);
+    await run([a]);
+    expect(mockDownloads).toHaveLength(1);
+  });
+
+  // Proves L5: a download cut short by the app dying is not readable and is repaired later.
+  it('never treats an interrupted download as ready offline and retries it', async () => {
+    const a = office('a');
+    const entry = listOfficeMediaItems(a)[0];
+    mockInterruptUrls = new Set([entry.url]);
+    await run([a]);
+    // A killed process runs no failure cleanup, so the disk keeps what it held at the interruption.
+    mockDisk.clear();
+    for (const [key, bytes] of mockKillSnapshot!) mockDisk.set(key, bytes);
+    expect(readOfficeMediaUri('owner-1', entry)).toBeNull();
+    expect(isOfficeCaseReadyOffline('owner-1', a)).toBe(false);
+    mockInterruptUrls = new Set();
+    await run([a]);
+    expect(isOfficeCaseReadyOffline('owner-1', a)).toBe(true);
+    expect(mockDownloads).toHaveLength(2);
+  });
+
+  // Proves L5: a refreshed case replaces its photo instead of showing the old evidence.
+  it('replaces the report photo when the case revision changes', async () => {
+    const before = office('a');
+    await run([before]);
+    const oldUri = readOfficeMediaUri('owner-1', listOfficeMediaItems(before)[0]);
+    const after = office('a', { officeCase: { ...before.officeCase!, version: 2 } });
+    await run([after]);
+    const newUri = readOfficeMediaUri('owner-1', listOfficeMediaItems(after)[0]);
+    expect(mockDownloads).toHaveLength(2);
+    expect(newUri).not.toEqual(oldUri);
+    expect(mockDisk.size).toBe(1);
+  });
+
+  // Proves L5: a different previous visit replaces the last-visit evidence on disk.
+  it('replaces the last-visit photo when the visit changes', async () => {
+    const first = withVisit(office('a'));
+    await run([first]);
+    const firstUri = readOfficeMediaUri('owner-1', listOfficeMediaItems(first)[1]);
+    const second = withVisit(office('a'), '2026-10-11T09:00:00.000Z');
+    await run([second]);
+    const secondUri = readOfficeMediaUri('owner-1', listOfficeMediaItems(second)[1]);
+    expect(secondUri).not.toEqual(firstUri);
+    expect(readOfficeMediaUri('owner-1', listOfficeMediaItems(second)[0])).not.toBeNull();
+    expect(mockDisk.size).toBe(2);
+  });
+
+  // Proves L5: a case is kept whole — one failed photo keeps none of its photos.
+  it('keeps no photo of a case whose other photo failed', async () => {
+    const a = withVisit(office('a'));
+    const items = listOfficeMediaItems(a);
+    expect(items.map((entry) => entry.kind)).toEqual(['report', 'last-visit']);
+    mockFailUrls = new Set([items[1].url]);
+    await run([a]);
+    expect(mockDisk.size).toBe(0);
+    expect(isOfficeCaseReadyOffline('owner-1', a)).toBe(false);
+  });
+
+  // Proves L5: real bytes over budget evict a case whole, never one of its photos.
+  it('evicts the whole case when its real bytes exceed the budget', async () => {
+    const cases = Array.from({ length: 8 }, (_, index) => withVisit(office(`trim${index}`)));
+    // Declared 1000 bytes each, so all eight cases are planned; the real bytes are 160 MiB.
+    mockSizeFor = () => 10 * MB;
+    await run(cases);
+    expect(mockDisk.size).toBe(14);
+    expect(isOfficeCaseReadyOffline('owner-1', cases[0])).toBe(true);
+    expect(isOfficeCaseReadyOffline('owner-1', cases[7])).toBe(false);
   });
 
   // Proves L5: a file larger than the per-file cap is never kept.

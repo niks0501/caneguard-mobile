@@ -130,6 +130,20 @@ describe('OfficeCaseCard', () => {
     expect(screen.getByText('Ready offline')).toBeOnTheScreen();
   });
 
+  // Proves L5: a downloaded copy recovers the photo after the online load already failed.
+  it('shows the downloaded photo after the online photo failed', async () => {
+    mockLocalUri.mockReturnValue(null);
+    const { rerender } = await render(<OfficeCaseCard accessToken="tok" assignment={assignment()} />);
+    await fireEvent(screen.getByTestId('field-validation.office-case.photo'), 'error');
+    expect(screen.getByTestId('field-validation.office-case.photo.unavailable')).toBeOnTheScreen();
+
+    mockLocalUri.mockReturnValue('file:///docs/office-media/o/a.report.v2.jpg');
+    await rerender(<OfficeCaseCard accessToken="tok" assignment={assignment()} />);
+    expect(screen.getByTestId('field-validation.office-case.photo')).toHaveProp('source', {
+      uri: 'file:///docs/office-media/o/a.report.v2.jpg',
+    });
+  });
+
   // Proves L5: with no cached copy and no session the card says the photo needs a connection.
   it('falls back to words and no badge when the photo is not on the phone', async () => {
     mockLocalUri.mockReturnValue(null);

@@ -39,14 +39,22 @@ export function listOfficeMediaItems(assignment: FieldValidationAssignment): Off
   if (!officeCase) return [];
   const items: OfficeMediaItem[] = [];
   if (officeCase.photo) {
-    items.push(item(assignment.id, 'report', buildMobileReportPhotoUrl(assignment.id), officeCase.photo));
-  }
-  const last = assignment.previousVisit?.photo;
-  if (last && assignment.previousVisit?.freshPhotoAvailable) {
     items.push(
-      item(assignment.id, 'last-visit', buildMobilePreviousEvidencePhotoUrl(assignment.id), {
-        bytes: last.bytes ?? OFFICE_MEDIA_MAX_FILE_BYTES,
-        contentType: last.contentType,
+      item(
+        assignment.id,
+        'report',
+        `v${officeCase.version}`,
+        buildMobileReportPhotoUrl(assignment.id),
+        officeCase.photo,
+      ),
+    );
+  }
+  const visit = assignment.previousVisit;
+  if (visit?.photo && visit.freshPhotoAvailable) {
+    items.push(
+      item(assignment.id, 'last-visit', visit.visitedAt, buildMobilePreviousEvidencePhotoUrl(assignment.id), {
+        bytes: visit.photo.bytes ?? OFFICE_MEDIA_MAX_FILE_BYTES,
+        contentType: visit.photo.contentType,
       }),
     );
   }
@@ -56,6 +64,7 @@ export function listOfficeMediaItems(assignment: FieldValidationAssignment): Off
 function item(
   assignmentId: string,
   kind: OfficeMediaKind,
+  revision: string,
   url: string,
   photo: { contentType: string | null; bytes: number },
 ): OfficeMediaItem {
@@ -65,8 +74,14 @@ function item(
     kind,
     url,
     declaredBytes: photo.bytes,
-    fileName: `${encodeURIComponent(assignmentId)}.${kind}.${extension}`,
+    fileName: `${encodeURIComponent(assignmentId)}.${kind}.${revisionKey(revision)}.${extension}`,
   };
+}
+
+/** A cache name changes with the snapshot revision, so a replaced photo is never reused. */
+function revisionKey(revision: string): string {
+  const key = revision.replace(/[^0-9A-Za-z_-]/g, '');
+  return key || '0';
 }
 
 function ownerDirectory(ownerIdentity: string): Directory {
@@ -164,7 +179,7 @@ async function runPrefetch(
   const stale = () => generationOf(owner) !== generation;
 
   // Plan: admit whole cases, nearest first, while they fit the budget.
-  const admitted: OfficeMediaItem[] = [];
+  const admitted: OfficeMediaItem[][] = [];
   let planned = 0;
   for (const assignment of selectOfficeMediaCases(options.assignments, options.now)) {
     const items = listOfficeMediaItems(assignment);
@@ -172,10 +187,10 @@ async function runPrefetch(
     const cost = items.reduce((sum, entry) => sum + entry.declaredBytes, 0);
     if (planned + cost > OFFICE_MEDIA_BUDGET_BYTES) continue;
     planned += cost;
-    admitted.push(...items);
+    admitted.push(items);
   }
 
-  const keep = new Set(admitted.map((entry) => entry.fileName));
+  const keep = new Set(admitted.flat().map((entry) => entry.fileName));
   if (directory.exists) {
     for (const entry of directory.list()) {
       if (entry instanceof File && !keep.has(entry.name)) entry.delete();
@@ -184,35 +199,61 @@ async function runPrefetch(
   if (admitted.length === 0 || stale()) return;
   directory.create({ idempotent: true, intermediates: true });
 
-  for (const entry of admitted) {
+  for (const items of admitted) {
     if (stale()) return;
-    const file = new File(directory, entry.fileName);
-    if (file.exists) continue;
-    try {
-      await File.downloadFileAsync(entry.url, file, {
-        headers: { Authorization: `Bearer ${options.token}` },
-        idempotent: true,
-      });
-    } catch {
-      if (file.exists) file.delete();
-      continue;
+    let complete = true;
+    for (const entry of items) {
+      if (await downloadPhoto(directory, entry, options.token, stale)) continue;
+      complete = false;
+      break;
     }
-    if (stale() || (file.exists && (file.size ?? 0) > OFFICE_MEDIA_MAX_FILE_BYTES)) {
+    if (complete) continue;
+    for (const entry of items) {
+      const file = new File(directory, entry.fileName);
       if (file.exists) file.delete();
-      if (stale()) return;
     }
+    if (stale()) return;
   }
 
   // The server's declared sizes can lie; trim by real bytes, farthest cases first.
   let total = 0;
-  for (const entry of admitted) {
-    const file = new File(directory, entry.fileName);
-    if (!file.exists) continue;
-    total += file.size ?? 0;
-    if (total > OFFICE_MEDIA_BUDGET_BYTES) {
-      total -= file.size ?? 0;
-      file.delete();
+  for (const items of admitted) {
+    const files = items
+      .map((entry) => new File(directory, entry.fileName))
+      .filter((file) => file.exists);
+    const bytes = files.reduce((sum, file) => sum + file.size, 0);
+    if (total + bytes > OFFICE_MEDIA_BUDGET_BYTES) {
+      for (const file of files) file.delete();
+      continue;
     }
+    total += bytes;
+  }
+}
+
+async function downloadPhoto(
+  directory: Directory,
+  entry: OfficeMediaItem,
+  token: string,
+  stale: () => boolean,
+): Promise<boolean> {
+  const file = new File(directory, entry.fileName);
+  if (file.exists) return true;
+  const partial = new File(directory, `${entry.fileName}.part`);
+  try {
+    await File.downloadFileAsync(entry.url, partial, {
+      headers: { Authorization: `Bearer ${token}` },
+      idempotent: true,
+    });
+    const size = partial.size;
+    if (size <= 0 || size > OFFICE_MEDIA_MAX_FILE_BYTES || stale()) {
+      partial.delete();
+      return false;
+    }
+    await partial.move(file, { overwrite: true });
+    return true;
+  } catch {
+    if (partial.exists) partial.delete();
+    return false;
   }
 }
 

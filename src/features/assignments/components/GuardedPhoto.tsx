@@ -29,11 +29,12 @@ export function GuardedPhoto({
   url: string | null;
 }) {
   const theme = useTheme();
-  const [failed, setFailed] = useState(false);
+  const [failedUri, setFailedUri] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
   if (!url) return <Notice testID={`${testID}.empty`} text={emptyText} />;
-  if (failed || (!localUri && (!accessToken || !isApiUrl(url)))) {
+  const sourceUri = localUri ?? url;
+  if (failedUri === sourceUri || (!localUri && (!accessToken || !isApiUrl(url)))) {
     return <Notice testID={`${testID}.unavailable`} text={OFFICE_CASE_COPY.photoUnavailable} />;
   }
 
@@ -50,7 +51,7 @@ export function GuardedPhoto({
           accessibilityLabel={label}
           cachePolicy="memory-disk"
           contentFit="cover"
-          onError={() => setFailed(true)}
+          onError={() => setFailedUri(sourceUri)}
           source={source}
           style={styles.thumb}
           testID={testID}
@@ -64,7 +65,7 @@ export function GuardedPhoto({
             contentFit="contain"
             onError={() => {
               setOpen(false);
-              setFailed(true);
+              setFailedUri(sourceUri);
             }}
             source={source}
             style={styles.full}

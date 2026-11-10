@@ -18,6 +18,7 @@ import {
   deleteFieldValidationPhoto,
   listFieldValidationPhotoUris,
 } from '@/features/assignments/services/fieldValidationPhotoStorage';
+import { clearOfficeMediaForOwner } from '@/features/assignments/services/officeMediaCache';
 import { invalidateFieldValidationAssignmentsRefresh } from '@/features/assignments/services/refreshFieldValidationAssignments';
 import {
   deleteManagedScanImage,
@@ -197,9 +198,10 @@ export async function clearCachedOfficeDataForOwner(
     }
     const progressError = await clearOwnerProgress(owner);
     clearOwnerMobileDataStore(database, owner);
+    const imageCleanupErrors = clearOwnerOfficeMedia(owner);
     emitSyncRecordsChanged();
     if (progressError) throw progressError;
-    return { deletedRows, imageCleanupErrors: [] };
+    return { deletedRows, imageCleanupErrors };
   } finally {
     endAuthorityReviewClear(database, owner);
   }
@@ -274,12 +276,22 @@ export async function clearLocalDataForOwner(
     const imageCleanupErrors = [
       ...cleanupImages(targets, owner),
       ...sweepOrphanedOwnerImages(database, owner),
+      ...clearOwnerOfficeMedia(owner),
     ];
     emitSyncRecordsChanged();
     if (progressError) throw progressError;
     return { deletedRows, imageCleanupErrors };
   } finally {
     endAuthorityReviewClear(database, owner);
+  }
+}
+
+function clearOwnerOfficeMedia(owner: string): StorageError[] {
+  try {
+    clearOfficeMediaForOwner(owner);
+    return [];
+  } catch (error: unknown) {
+    return [toStorageError(error, 'DELETE_FAILED', 'Clearing the downloaded case photos failed.')];
   }
 }
 

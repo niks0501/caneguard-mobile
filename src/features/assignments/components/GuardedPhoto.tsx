@@ -16,12 +16,15 @@ export function GuardedPhoto({
   accessToken,
   emptyText,
   label,
+  localUri,
   testID,
   url,
 }: {
   accessToken?: string | null;
   emptyText: string;
   label: string;
+  /** A copy already on this phone; shown without the network or a token. */
+  localUri?: string | null;
   testID: string;
   url: string | null;
 }) {
@@ -30,11 +33,11 @@ export function GuardedPhoto({
   const [open, setOpen] = useState(false);
 
   if (!url) return <Notice testID={`${testID}.empty`} text={emptyText} />;
-  if (!accessToken || !isApiUrl(url) || failed) {
+  if (failed || (!localUri && (!accessToken || !isApiUrl(url)))) {
     return <Notice testID={`${testID}.unavailable`} text={OFFICE_CASE_COPY.photoUnavailable} />;
   }
 
-  const source = { headers: { Authorization: `Bearer ${accessToken}` }, uri: url };
+  const source = localUri ? { uri: localUri } : { headers: { Authorization: `Bearer ${accessToken}` }, uri: url };
   return (
     <View style={styles.block}>
       <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>

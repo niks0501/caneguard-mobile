@@ -10,6 +10,13 @@ jest.mock('@/features/shared/api/apiClient', () => ({
   buildApiUrl: (path: string) => `http://127.0.0.1:8000${path}`,
 }));
 
+const mockLocalUri = jest.fn<string | null, []>(() => null);
+jest.mock('@/features/assignments/services/officeMediaCache', () => ({
+  isOfficeCaseReadyOffline: () => mockLocalUri() !== null,
+  listOfficeMediaItems: () => [{ kind: 'report' }],
+  readOfficeMediaUri: () => mockLocalUri(),
+}));
+
 const ID = '3fbd7f77-7d6b-4eb0-a1c7-b673f5a2f39f';
 
 function assignment(overrides: Partial<FieldValidationAssignment> = {}): FieldValidationAssignment {
@@ -111,5 +118,23 @@ describe('OfficeCaseCard', () => {
       <OfficeCaseCard accessToken="tok" assignment={assignment({ previousVisit: { ...visit, photo: null } })} lastVisitPhotoUrl={url} />,
     );
     expect(screen.getByText('No photo was taken on the last visit.')).toBeOnTheScreen();
+  });
+
+  // Proves L5: a downloaded case shows its photo from disk without a token and says "Ready offline".
+  it('renders the cached photo without the network and shows the Ready offline badge', async () => {
+    mockLocalUri.mockReturnValue('file:///docs/office-media/o/a.report.jpg');
+    await render(<OfficeCaseCard accessToken={null} assignment={assignment()} />);
+    expect(screen.getByTestId('field-validation.office-case.photo')).toHaveProp('source', {
+      uri: 'file:///docs/office-media/o/a.report.jpg',
+    });
+    expect(screen.getByText('Ready offline')).toBeOnTheScreen();
+  });
+
+  // Proves L5: with no cached copy and no session the card says the photo needs a connection.
+  it('falls back to words and no badge when the photo is not on the phone', async () => {
+    mockLocalUri.mockReturnValue(null);
+    await render(<OfficeCaseCard accessToken={null} assignment={assignment()} />);
+    expect(screen.getByTestId('field-validation.office-case.photo.unavailable')).toBeOnTheScreen();
+    expect(screen.queryByText('Ready offline')).not.toBeOnTheScreen();
   });
 });

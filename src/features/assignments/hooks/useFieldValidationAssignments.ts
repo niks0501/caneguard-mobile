@@ -15,6 +15,8 @@ import {
   readCachedFieldValidationSkippedCount,
 } from '@/features/assignments/data/assignmentCacheRepository';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
+import { prefetchOfficeMedia } from '@/features/assignments/services/officeMediaCache';
+import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { refreshFieldValidationAssignments } from '@/features/assignments/services/refreshFieldValidationAssignments';
 import {
   beginOwnerCacheLoad,
@@ -177,6 +179,7 @@ export function useFieldValidationAssignments(enabled = true) {
             result.fetchedAt,
             result.skippedCount,
           );
+          prefetchAfterDownload(requestedSession.user.uuid, requestedSession.token, result.assignments);
           setState({
             assignments: result.assignments,
             capabilityUnavailable: false,
@@ -266,4 +269,20 @@ export function useFieldValidationAssignments(enabled = true) {
         };
 
   return { ...visibleState, refresh, refreshOutcome };
+}
+
+/** Best-effort photo download after the records are saved; never blocks or fails the refresh. */
+function prefetchAfterDownload(
+  ownerIdentity: string,
+  token: string,
+  assignments: FieldValidationAssignment[],
+): void {
+  void (async () => {
+    try {
+      await prefetchOfficeMedia({ assignments, ownerIdentity, token });
+      emitSyncRecordsChanged();
+    } catch {
+      // Photos stay online-only; the case card says so.
+    }
+  })();
 }

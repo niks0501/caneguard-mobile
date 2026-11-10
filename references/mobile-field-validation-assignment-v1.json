@@ -65,9 +65,7 @@
         "affected_portion_percent",
         "captured_at",
         "observed_at",
-        "submitted_at",
-        "predicted_label",
-        "confidence"
+        "submitted_at"
       ],
       "additional_properties": false,
       "properties": {
@@ -80,8 +78,8 @@
         "captured_at": { "type": "date-time", "required": true, "nullable": false },
         "observed_at": { "type": "date-time", "required": true, "nullable": true },
         "submitted_at": { "type": "date-time", "required": true, "nullable": false },
-        "predicted_label": { "type": "string", "required": true, "nullable": false, "enum": ["healthy", "mosaic", "rust", "smut"] },
-        "confidence": { "type": "number", "required": true, "nullable": false, "minimum": 0, "maximum": 1 }
+        "predicted_label": { "type": "string", "required": false, "nullable": true, "enum": ["healthy", "mosaic", "rust", "smut"], "description": "A case born in the office may have no AI scan: this field then arrives absent or null, and the phone shows no AI section. A field-born case always carries it." },
+        "confidence": { "type": "number", "required": false, "nullable": true, "minimum": 0, "maximum": 1, "description": "Absent or null together with predicted_label on an office case with no AI scan; a field-born case always carries it." }
       }
     },
     "previous_visit": {

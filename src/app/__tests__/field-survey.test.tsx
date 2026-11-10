@@ -609,6 +609,38 @@ describe('drawing tool (phone)', () => {
     });
   });
 
+  it('undoes a GPS capture committed mid-drag before the drag itself', async () => {
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+    let resolveCapture!: (value: Awaited<ReturnType<typeof captureSurveyWaypoint>>) => void;
+    mockCaptureWaypoint.mockImplementation(() => new Promise((resolve) => { resolveCapture = resolve; }));
+    await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.addGpsPoint)); });
+
+    const drag = createGestureController(getByGestureTestId('field-survey.point.plot.0.drag'));
+    await act(async () => { drag.begin(); drag.activate(); drag.update({ translationX: 30, translationY: 0 }); });
+    await act(async () => {
+      resolveCapture({
+        status: 'captured',
+        waypoint: { latitude: 14.0995, longitude: 121.0995, accuracyMeters: 3, capturedAt: '2026-11-10T06:00:00.000Z', source: 'gps' },
+      });
+    });
+    await act(async () => { drag.end(); });
+
+    await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.undo)); });
+
+    await waitFor(() => {
+      const saved = mockSaveDraft.mock.lastCall?.[1];
+      expect(saved?.waypoints).toHaveLength(4);
+      expect(saved?.waypoints.some((point) => point.latitude === 14.0995 && point.longitude === 121.0995)).toBe(false);
+      expect([saved?.waypoints[0].latitude, saved?.waypoints[0].longitude]).not.toEqual([PLOT_WAYPOINTS[0].latitude, PLOT_WAYPOINTS[0].longitude]);
+    });
+
+    await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.undo)); });
+
+    await waitFor(() => expect(mockSaveDraft.mock.lastCall?.[1].waypoints).toEqual(PLOT_WAYPOINTS));
+  });
+
   it('keeps a refused GPS replacement of a finished area point from reading as a capture success', async () => {
     const area = validateSurveyWaypoints(ACTIVE_AFFECTED_WAYPOINTS);
     if (!area.valid) throw new Error('fixture invalid');

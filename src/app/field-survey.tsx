@@ -231,7 +231,12 @@ export default function FieldSurveyScreen() {
   const commitShape = useCallback((next: DrawingShape) => {
     const before = shapeRef.current;
     if (next === before) return;
-    setHistory((current) => pushUndo(current, before));
+    const drag = dragRef.current;
+    setHistory((current) => pushUndo(drag?.changed ? pushUndo(current, drag.undoBase) : current, before));
+    if (drag) {
+      drag.undoBase = next;
+      drag.changed = false;
+    }
     setSaved(false);
     setShape(next);
   }, [setShape]);

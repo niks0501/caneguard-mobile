@@ -6,7 +6,6 @@ import {
   boundaryCountsAsWaiting,
   boundaryRetriesItself,
   boundaryState,
-  type BoundaryState,
 } from '@/features/surveys/domain/boundaryState';
 import { FIELD_SURVEY_STATUSES } from '@/database/schema';
 import { SYNC_ERROR_CODES } from '@/features/sync/errors/syncErrors';
@@ -32,15 +31,52 @@ describe('boundaryState', () => {
     expect(boundaryState(row('failed', null))).toBe('refused');
   });
 
-  // Intent: no status/code combination falls outside the nine names.
-  it('maps every status and every sync error code to a known state', () => {
-    const known = new Set<BoundaryState>(BOUNDARY_STATES);
-    for (const status of FIELD_SURVEY_STATUSES) {
-      for (const code of [null, 'UNHEARD_OF', ...SYNC_ERROR_CODES]) {
-        expect(known.has(boundaryState(row(status, code)))).toBe(true);
+  // Intent: nine fixed names; network, rate-limit and server failures retry, API validation needs a fix,
+  // an identity conflict starts again, a damaged local record starts again, and everything else is refused.
+  it('maps every status and every sync error code to its intended state', () => {
+    const stateForStatus: Record<string, string> = {
+      draft: 'draft',
+      pending: 'waiting_to_send',
+      syncing: 'sending',
+      synced: 'sent',
+    };
+    for (const status of FIELD_SURVEY_STATUSES.filter((value) => value !== 'failed')) {
+      expect(boundaryState(row(status))).toBe(stateForStatus[status]);
+    }
+    const stateForCode: Record<string, string> = {
+      AUTH_REQUIRED: 'refused',
+      NETWORK_UNAVAILABLE: 'will_retry',
+      NETWORK_REQUEST_FAILED: 'will_retry',
+      API_VALIDATION_FAILED: 'needs_fix',
+      CLIENT_UUID_CONFLICT: 'identity_rejected',
+      API_FORBIDDEN: 'refused',
+      API_RATE_LIMITED: 'will_retry',
+      IMAGE_MISSING: 'refused',
+      INVALID_LOCAL_RECORD: 'damaged',
+      SERVER_ERROR: 'will_retry',
+      UNKNOWN_SYNC_ERROR: 'refused',
+    };
+    for (const code of SYNC_ERROR_CODES) {
+      expect(boundaryState(row('failed', code))).toBe(stateForCode[code]);
+    }
+    for (const status of FIELD_SURVEY_STATUSES.filter((value) => value !== 'failed')) {
+      for (const code of SYNC_ERROR_CODES) {
+        expect(boundaryState(row(status, code))).toBe(stateForStatus[status]);
       }
     }
-    expect(new Set(BOUNDARY_STATES).size).toBe(9);
+    expect(boundaryState(row('failed', 'UNHEARD_OF'))).toBe('refused');
+    expect(boundaryState(row('failed', null))).toBe('refused');
+    expect([...BOUNDARY_STATES]).toEqual([
+      'draft',
+      'waiting_to_send',
+      'sending',
+      'sent',
+      'will_retry',
+      'needs_fix',
+      'identity_rejected',
+      'damaged',
+      'refused',
+    ]);
   });
 
   // Intent: only drafts and server-rejected boundaries can be edited; only drafts can be deleted.

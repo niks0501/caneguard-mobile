@@ -55,6 +55,7 @@ export default function MyBoundariesScreen() {
   const ownerIdentity = session?.user.uuid ?? null;
   const canAuthor = canAuthorInspectorWork(session?.user);
   const [rows, setRows] = useState<FieldSurveyRow[] | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<FieldSurveyRow | null>(null);
 
@@ -62,9 +63,10 @@ export default function MyBoundariesScreen() {
     if (!ready || !database || database === EMPTY_DATABASE || !ownerIdentity) return;
     try {
       setRows(listOwnedFieldSurveys(database, ownerIdentity));
+      setLoadFailed(false);
     } catch {
-      setRows([]);
-      setMessage(FIELD_SURVEY_COPY.myBoundariesLoadFailed);
+      setRows(null);
+      setLoadFailed(true);
     }
   }, [database, ownerIdentity, ready]);
 
@@ -83,7 +85,8 @@ export default function MyBoundariesScreen() {
     load();
   }
 
-  const state = !canAuthor ? 'unavailable' : rows === null ? 'loading' : rows.length === 0 ? 'empty' : 'list';
+  const state = !canAuthor ? 'unavailable' : loadFailed ? 'error' : rows === null ? 'loading' : rows.length === 0 ? 'empty' : 'list';
+  const errorMessage = loadFailed ? FIELD_SURVEY_COPY.myBoundariesLoadFailed : message;
 
   return (
     <ScreenContainer
@@ -94,7 +97,7 @@ export default function MyBoundariesScreen() {
         <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.unavailable}</Text>
       ) : (
         <>
-          {message ? <Text accessibilityLiveRegion="assertive" testID="my-boundaries.message" style={[styles.help, { color: theme.danger }]}>{message}</Text> : null}
+          {errorMessage ? <Text accessibilityLiveRegion="assertive" testID="my-boundaries.message" style={[styles.help, { color: theme.danger }]}>{errorMessage}</Text> : null}
           {rows?.length === 0 ? (
             <EmptyState
               icon="map"

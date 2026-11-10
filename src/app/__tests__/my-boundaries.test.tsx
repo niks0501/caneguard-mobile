@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import MyBoundariesScreen from '@/app/my-boundaries';
+import { FIELD_SURVEY_COPY } from '@/constants/copy';
 import type { FieldSurveyRow } from '@/database/schema';
 import { deleteOwnedFieldSurvey, listOwnedFieldSurveys } from '@/features/surveys/data/fieldSurveyRepository';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
@@ -61,6 +62,24 @@ describe('My boundaries', () => {
     });
     expect(screen.getByText('Sent')).toBeTruthy();
     expect(screen.queryByText('Waiting to send')).toBeNull();
+  });
+
+  // Intent: a read that fails says so; it never claims the phone has no boundaries.
+  it('reports a failed read instead of the empty state, then recovers', async () => {
+    jest.mocked(listOwnedFieldSurveys).mockImplementation(() => {
+      throw new Error('read failed');
+    });
+    await render(<MyBoundariesScreen />);
+    expect(screen.getByText(FIELD_SURVEY_COPY.myBoundariesLoadFailed)).toBeTruthy();
+    expect(screen.queryByTestId('my-boundaries.empty')).toBeNull();
+    expect(screen.getByTestId('my-boundaries.screen').props.accessibilityValue).toEqual({ text: 'state=error;count=0' });
+    jest.mocked(listOwnedFieldSurveys).mockReturnValue([]);
+    await act(async () => {
+      emitSyncRecordsChanged();
+    });
+    expect(screen.getByTestId('my-boundaries.empty')).toBeTruthy();
+    expect(screen.queryByText(FIELD_SURVEY_COPY.myBoundariesLoadFailed)).toBeNull();
+    expect(screen.getByTestId('my-boundaries.screen').props.accessibilityValue).toEqual({ text: 'state=empty;count=0' });
   });
 
   // Intent: a boundary is deleted only after confirmation.

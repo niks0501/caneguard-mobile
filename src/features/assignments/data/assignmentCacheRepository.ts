@@ -6,6 +6,7 @@ import { fieldValidationAssignmentSnapshots, fieldValidationAssignments } from '
 import type {
   FieldValidationAssignment,
   FieldValidationAssignmentUpdate,
+  OfficeCase,
 } from '@/features/assignments/domain/assignmentTypes';
 import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
 import { writeSyncCheckpoint, type SyncCheckpoint } from '@/features/sync/data/syncCheckpointRepository';
@@ -265,6 +266,7 @@ function toRow(
     predictedLabel: update.case.predictedLabel,
     confidence: update.case.confidence,
     previousVisitJson: update.previousVisit ? JSON.stringify(update.previousVisit) : null,
+    officeCaseJson: update.officeCase ? JSON.stringify(update.officeCase) : null,
   };
 }
 
@@ -299,7 +301,19 @@ function toAssignment(
       confidence: row.confidence,
     },
     previousVisit: parsePreviousVisit(row.previousVisitJson),
+    officeCase: parseOfficeCase(row.officeCaseJson),
   };
+}
+
+function parseOfficeCase(value: string | null): OfficeCase | null {
+  if (!value) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    return parsed as OfficeCase;
+  } catch {
+    return null;
+  }
 }
 
 function parsePreviousVisit(value: string | null): PreviousVisitContext | null {

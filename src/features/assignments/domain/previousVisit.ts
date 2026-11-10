@@ -12,6 +12,8 @@ export interface PreviousVisitContext {
   fieldObservation: string | null;
   fieldFinding: string | null;
   freshPhotoAvailable: boolean;
+  /** Sent only for office-born cases; the bytes come from the previous-evidence-photo route. */
+  photo?: { contentType: string | null; bytes: number | null } | null;
 }
 
 export interface PreviousVisit {

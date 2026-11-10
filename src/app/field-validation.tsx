@@ -26,6 +26,7 @@ import { Row } from '@/components/ui/Row';
 import { TextField } from '@/components/ui/TextField';
 import { CASE_CLOSE_NOTICE, DECISION_SUPPORT_DISCLAIMER, FIELD_VALIDATION_UNAVAILABLE } from '@/constants/copy';
 import { FollowUpOutcomeControl, OUTCOME_LABELS } from '@/features/assignments/components/FollowUpOutcomeControl';
+import { OfficeCaseCard } from '@/features/assignments/components/OfficeCaseCard';
 import { PreviousVisitCard } from '@/features/assignments/components/PreviousVisitCard';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
@@ -277,6 +278,11 @@ export default function FieldValidationScreen() {
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
             <View style={styles.content}>
               <VisitContext assignment={state.assignment} />
+              <OfficeCaseCard
+                accessToken={state.photoAccessToken}
+                assignment={state.assignment}
+                lastVisitPhotoUrl={state.previousVisitPhotoUrl}
+              />
               {state.completion ? (
                 <CompletionStatus completion={state.completion} onRetry={() => void state.retry()} />
               ) : (

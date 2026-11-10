@@ -251,6 +251,10 @@ transaction that replaces that feed's cached rows, and both Settings clear
 actions delete it with those caches. The stored version is sent as `since` on the
 next download, except that the assignment download asks for the whole work set
 whenever its cache no longer holds every row that download delivered.
+A migration that adds a column the cached snapshot has to carry clears that
+feed's stored version instead of leaving it confirming a snapshot written by the
+older build, and leaves the cached rows in place until the next full download
+replaces them.
 
 ## Important conventions
 
@@ -310,6 +314,8 @@ Current mobile endpoints:
 - `GET /api/v3/mobile/reports/statuses`
 - `GET /api/v1/mobile/assignments`
 - `POST /api/v1/mobile/assignments/{assignment}/completion`
+- `GET /api/v1/mobile/assignments/{assignment}/report-photo`
+- `GET /api/v1/mobile/assignments/{assignment}/previous-evidence-photo`
 - `GET /api/v1/mobile/notifications`
 
 Authentication expects bearer tokens.
@@ -337,6 +343,7 @@ The assignment feed is owner-scoped to the authenticated field reporter and retu
 Mobile caches assignment snapshots separately from locally authored Scan Records and Field Reports so a server assignment can materialize even when the assignee did not submit the case.
 The cache keeps each assignment exactly as the server sent it: nothing on the phone rewrites its `field_validation_state`. A visit saved on the phone is layered over that snapshot for display only, so a queued visit reads `Waiting to send` and a delivered one keeps reading completed until the next feed refresh reports it.
 Assignment vocabulary is forward-compatible. A record whose `field_validation_state` this build does not know is left out of the snapshot and counted so Activity can say how many assigned cases the app version cannot show yet; an unknown `case.predicted_label` is kept and shown as not recognized by this app version; an unknown `previous_visit.follow_up_outcome` is kept as unknown. Malformed shape or identity still fails the whole refresh and names the offending record by `reference_code`, or by its page index when the record carries none.
+An office-born case carries an office projection on the same record: `case.version`, `case.status` (workflow, case, and review status with the office's own `updated_at`), `case.reporter_concern` (suspected condition and observation text), and an optional `case.photo` reference, which the phone caches with the assignment and shows as its own case card. A record without `case.origin`, or with an origin this build does not know, stays a field-born case with no projection read. A malformed projection fails the whole refresh by field name. Photo bytes are never cached: the phone ignores any server-provided photo URL, builds the assignment's guarded route itself, and attaches the session token only when that URL stays on the API origin, showing words instead of an image when the case carries no photo, the load fails, or the session holds no token. The same guarded treatment applies to a sent `previous_visit.photo`.
 
 The notification feed is owner-scoped to the authenticated field reporter and returns a complete durable attention snapshot through the same checkpoint/pagination boundary.
 Mobile replaces the local notification snapshot only after all pages validate, so network failures preserve the last-known read state and attention items.

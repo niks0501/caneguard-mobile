@@ -28,6 +28,21 @@ const activeRefreshes = new WeakMap<
   CaneGuardDatabase,
   Map<string, ActiveRefresh>
 >();
+const refreshGenerations = new WeakMap<CaneGuardDatabase, Map<string, number>>();
+
+export function invalidateAuthorityReviewStatusRefresh(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+): void {
+  const owner = ownerIdentity.trim();
+  let databaseGenerations = refreshGenerations.get(database);
+  if (!databaseGenerations) {
+    databaseGenerations = new Map();
+    refreshGenerations.set(database, databaseGenerations);
+  }
+  databaseGenerations.set(owner, (databaseGenerations.get(owner) ?? 0) + 1);
+  activeRefreshes.get(database)?.delete(owner);
+}
 
 export function refreshAuthorityReviewStatus(options: {
   database: CaneGuardDatabase;
@@ -46,7 +61,19 @@ export function refreshAuthorityReviewStatus(options: {
     return active.promise;
   }
 
-  const operation = executeRefresh({ ...options, submitterIdentity: owner });
+  let databaseGenerations = refreshGenerations.get(options.database);
+  if (!databaseGenerations) {
+    databaseGenerations = new Map();
+    refreshGenerations.set(options.database, databaseGenerations);
+  }
+  const generation = (databaseGenerations.get(owner) ?? 0) + 1;
+  databaseGenerations.set(owner, generation);
+
+  const operation = executeRefresh({
+    ...options,
+    submitterIdentity: owner,
+    isCurrent: () => databaseGenerations?.get(owner) === generation,
+  });
   const promise = operation.finally(() => {
     if (databaseRefreshes?.get(owner)?.promise === promise) {
       databaseRefreshes.delete(owner);
@@ -60,6 +87,7 @@ async function executeRefresh(options: {
   database: CaneGuardDatabase;
   submitterIdentity: string;
   token: string;
+  isCurrent: () => boolean;
 }): Promise<AuthorityReviewRefreshResult> {
   const latestServerUpdateAt = await findLatestAuthorityReviewUpdatedAt(
     options.database,
@@ -75,8 +103,13 @@ async function executeRefresh(options: {
     // The cursor is the last fully stored download's server checkpoint, not the newest row.
     updatedAfter: getOverlappedUpdatedAfter(held?.syncBefore ?? latestServerUpdateAt),
     since: held?.version ?? null,
-    progress: createSyncDownloadProgressStore(options.submitterIdentity, 'authority_status'),
+    progress: createSyncDownloadProgressStore(
+      options.submitterIdentity,
+      'authority_status',
+      options.isCurrent,
+    ),
   });
+  if (!options.isCurrent()) throw new Error('The authority review refresh was superseded.');
   const fetchedAt = new Date().toISOString();
   const result = await applyAuthorityReviewUpdates(
     options.database,

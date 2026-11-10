@@ -6,7 +6,11 @@ import {
   fetchAllMobileReportStatuses,
   type MobileReportStatusesResult,
 } from '@/features/reports/api/mobileReportStatusesApi';
-import { refreshAuthorityReviewStatus } from '@/features/reports/services/refreshAuthorityReviewStatus';
+import { refreshAuthorityReviewStatus, invalidateAuthorityReviewStatusRefresh } from '@/features/reports/services/refreshAuthorityReviewStatus';
+import {
+  clearSyncDownloadProgress,
+  createSyncDownloadProgressStore,
+} from '@/features/sync/data/syncDownloadProgressStorage';
 import {
   readSyncCheckpoint,
   type SyncCheckpoint,
@@ -110,6 +114,38 @@ describe('refreshAuthorityReviewStatus', () => {
     ).rejects.toThrow('timeout after page one');
     expect(applyUpdates).not.toHaveBeenCalled();
     expect(emitSyncRecordsChanged).not.toHaveBeenCalled();
+  });
+
+  // Proves: a Settings clear cannot be undone by a download that was in flight over it.
+  it('stores no pages and applies nothing when the owner data is cleared mid-download', async () => {
+    let release!: () => void;
+    const inFlight = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    fetchStatuses.mockImplementationOnce(async (options) => {
+      const progress = options.progress;
+      await inFlight;
+      await progress.save('{"page":2}');
+      return feed();
+    });
+
+    const refresh = refreshAuthorityReviewStatus({
+      database,
+      submitterIdentity: 'owner-cleared',
+      token: 'token-1',
+    });
+    for (let tick = 0; tick < 20 && fetchStatuses.mock.calls.length === 0; tick += 1) {
+      await Promise.resolve();
+    }
+    invalidateAuthorityReviewStatusRefresh(database, 'owner-cleared');
+    await clearSyncDownloadProgress('owner-cleared');
+    release();
+
+    await expect(refresh).rejects.toThrow('superseded');
+    expect(applyUpdates).not.toHaveBeenCalled();
+    await expect(
+      createSyncDownloadProgressStore('owner-cleared', 'authority_status', () => true).read(),
+    ).resolves.toBeNull();
   });
 
   it('keeps account and token refreshes independent', async () => {

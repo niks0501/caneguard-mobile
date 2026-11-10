@@ -25,6 +25,7 @@ import {
   managedDisplayImageUri,
 } from '@/features/records/services/scanImageStorage';
 import { invalidateMobileNotificationsRefresh } from '@/features/notifications/services/refreshMobileNotifications';
+import { invalidateAuthorityReviewStatusRefresh } from '@/features/reports/services/refreshAuthorityReviewStatus';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { clearOwnerMobileDataStore } from '@/features/mobile-data/data/mobileDataStore';
 import { clearSyncDownloadProgress } from '@/features/sync/data/syncDownloadProgressStorage';
@@ -162,6 +163,7 @@ export async function clearCachedOfficeDataForOwner(
   const owner = requireOwnerIdentity(ownerIdentity);
   invalidateFieldValidationAssignmentsRefresh(database, owner);
   invalidateMobileNotificationsRefresh(database, owner);
+  invalidateAuthorityReviewStatusRefresh(database, owner);
   let deletedRows = 0;
   try {
     database.transaction((transaction) => {
@@ -206,6 +208,7 @@ export async function clearLocalDataForOwner(
   const owner = requireOwnerIdentity(ownerIdentity);
   invalidateFieldValidationAssignmentsRefresh(database, owner);
   invalidateMobileNotificationsRefresh(database, owner);
+  invalidateAuthorityReviewStatusRefresh(database, owner);
   const targets = await readCleanupTargets(database, owner);
   let deletedRows = 0;
 

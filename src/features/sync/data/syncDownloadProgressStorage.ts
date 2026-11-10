@@ -9,6 +9,7 @@ const KEY_PREFIX = 'caneguard.syncDownloadProgress.v1';
 export function createSyncDownloadProgressStore(
   ownerIdentity: string,
   feed: SyncCheckpointFeed,
+  isCurrent: () => boolean,
 ): SyncDownloadProgressStore {
   const key = `${KEY_PREFIX}.${requireOwner(ownerIdentity)}.${feed}`;
 
@@ -22,6 +23,7 @@ export function createSyncDownloadProgressStore(
     },
 
     async save(payload: string): Promise<void> {
+      if (!isCurrent()) return;
       try {
         await AsyncStorage.setItem(key, payload);
       } catch (error: unknown) {

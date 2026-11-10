@@ -8,6 +8,7 @@ import type {
   FieldValidationAssignmentUpdate,
   OfficeCase,
 } from '@/features/assignments/domain/assignmentTypes';
+import { NO_AI_SCAN_CACHE_LABEL } from '@/features/assignments/domain/assignmentTypes';
 import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
 import { writeSyncCheckpoint, type SyncCheckpoint } from '@/features/sync/data/syncCheckpointRepository';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
@@ -321,8 +322,8 @@ function toRow(
     capturedAt: update.case.capturedAt,
     observedAt: update.case.observedAt,
     submittedAt: update.case.submittedAt,
-    predictedLabel: update.case.predictedLabel,
-    confidence: update.case.confidence,
+    predictedLabel: update.case.predictedLabel ?? NO_AI_SCAN_CACHE_LABEL,
+    confidence: update.case.confidence ?? 0,
     previousVisitJson: update.previousVisit ? JSON.stringify(update.previousVisit) : null,
     officeCaseJson: update.officeCase ? JSON.stringify(update.officeCase) : null,
   };
@@ -355,8 +356,8 @@ function toAssignment(
       capturedAt: row.capturedAt,
       observedAt: row.observedAt,
       submittedAt: row.submittedAt,
-      predictedLabel: row.predictedLabel,
-      confidence: row.confidence,
+      predictedLabel: row.predictedLabel === NO_AI_SCAN_CACHE_LABEL ? null : row.predictedLabel,
+      confidence: row.predictedLabel === NO_AI_SCAN_CACHE_LABEL ? null : row.confidence,
     },
     previousVisit: parsePreviousVisit(row.previousVisitJson),
     officeCase: parseOfficeCase(row.officeCaseJson),

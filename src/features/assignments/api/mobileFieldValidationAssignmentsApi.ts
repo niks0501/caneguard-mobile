@@ -354,8 +354,7 @@ function parseAssignment(
       capturedAt: requireTimestamp(rawCase.captured_at, 'case.captured_at'),
       observedAt: optionalTimestamp(rawCase.observed_at, 'case.observed_at'),
       submittedAt: requireTimestamp(rawCase.submitted_at, 'case.submitted_at'),
-      predictedLabel: parsePredictedLabel(rawCase.predicted_label),
-      confidence: requireNumber(rawCase.confidence, 'case.confidence', 0, 1),
+      ...parseAiFields(rawCase),
     },
     previousVisit: parsePreviousVisit(value.previous_visit),
     officeCase: parseOfficeCase(rawCase),
@@ -615,6 +614,23 @@ function parseFollowUpOutcome(value: unknown): FieldValidationFollowUpOutcome | 
   return (FIELD_VALIDATION_FOLLOW_UP_OUTCOMES as readonly string[]).includes(value)
     ? (value as FieldValidationFollowUpOutcome)
     : null;
+}
+
+/**
+ * Field-born rows must carry the AI prediction. An office record may have none
+ * (no AI scan), so a missing or null prediction is accepted only there.
+ */
+function parseAiFields(rawCase: Record<string, unknown>): {
+  predictedLabel: string | null;
+  confidence: number | null;
+} {
+  const isOffice = rawCase.origin === 'office';
+  const hasLabel = rawCase.predicted_label !== undefined && rawCase.predicted_label !== null;
+  const hasConfidence = rawCase.confidence !== undefined && rawCase.confidence !== null;
+  return {
+    predictedLabel: isOffice && !hasLabel ? null : parsePredictedLabel(rawCase.predicted_label),
+    confidence: isOffice && !hasConfidence ? null : requireNumber(rawCase.confidence, 'case.confidence', 0, 1),
+  };
 }
 
 /** Strict on shape (must be a string), tolerant on vocabulary (unknown label => 'unknown'). */

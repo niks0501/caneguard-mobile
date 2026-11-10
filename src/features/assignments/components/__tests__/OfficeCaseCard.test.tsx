@@ -73,6 +73,21 @@ describe('OfficeCaseCard', () => {
     expect(screen.queryByTestId('field-validation.office-case')).not.toBeOnTheScreen();
   });
 
+  // Proves L10: a scanless case shows concern, status and photo with no AI section and no crash.
+  it('renders a scanless office case with no AI fields', async () => {
+    const base = assignment();
+    await render(
+      <OfficeCaseCard
+        accessToken="tok"
+        assignment={{ ...base, case: { ...base.case, predictedLabel: null, confidence: null } }}
+      />,
+    );
+    expect(screen.getByText('In progress')).toBeOnTheScreen();
+    expect(screen.getByText('Rust · reported concern')).toBeOnTheScreen();
+    expect(screen.getByTestId('field-validation.office-case.photo')).toBeOnTheScreen();
+    expect(screen.queryByText(/confidence/i)).not.toBeOnTheScreen();
+  });
+
   // Proves L4: no photo shows the empty state, never a broken image.
   it('shows the empty state when the case has no photo', async () => {
     const base = assignment();

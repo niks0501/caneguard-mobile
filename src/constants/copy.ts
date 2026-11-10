@@ -601,6 +601,7 @@ export const UNRECOGNIZED_LABEL_TEXT = 'Not recognized by this app version';
 export const OFFICE_CASE_COPY = {
   title: 'Office case',
   badge: 'Created at the office',
+  noAiScan: 'No AI scan (office record)',
   concernLabel: 'Reporter concern',
   concernNone: 'No concern was recorded for this case.',
   statusLabel: 'Office status',

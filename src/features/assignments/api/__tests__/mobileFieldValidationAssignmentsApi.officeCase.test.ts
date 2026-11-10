@@ -68,6 +68,22 @@ describe('office case projection parsing', () => {
     expect(assignments[0].officeCase).toBeNull();
   });
 
+  // Proves L10: a scanless office row (no predicted_label/confidence) parses with null AI fields.
+  it('parses an office row with no AI prediction', async () => {
+    const extras = { ...OFFICE_PROJECTION, predicted_label: null, confidence: null };
+    request.mockResolvedValueOnce(feed(extras));
+    const { assignments } = await fetchAllMobileFieldValidationAssignments({ token: 't' });
+    expect(assignments[0].case.predictedLabel).toBeNull();
+    expect(assignments[0].case.confidence).toBeNull();
+    expect(assignments[0].officeCase?.status.workflowStatus).toBe('assigned');
+  });
+
+  // Proves L10: a field-born row must still carry its AI prediction.
+  it('still rejects a field-born row with no AI prediction', async () => {
+    request.mockResolvedValueOnce(feed({ predicted_label: null, confidence: null }));
+    await expect(fetchAllMobileFieldValidationAssignments({ token: 't' })).rejects.toThrow(/predicted_label/);
+  });
+
   // Proves L4: a broken office projection fails loudly and names the record.
   it('rejects an office row whose projection is malformed and names the record', async () => {
     request.mockResolvedValueOnce(feed({ ...OFFICE_PROJECTION, status: null }));

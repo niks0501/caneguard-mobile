@@ -133,10 +133,10 @@ export async function fetchAllMobileNotifications(options: {
     };
   }
 
-  if (sync.total !== null && sync.total < recordCount) {
+  if (!isConsistentTotal(sync, recordCount, since)) {
     throw new MobileNotificationsApiError(
       'MALFORMED_RESPONSE',
-      'The notification feed total was smaller than the rows it delivered.',
+      'The notification feed total did not match the rows it delivered.',
     );
   }
 
@@ -362,6 +362,19 @@ function parseAdvisory(value: unknown): MobileNotificationAdvisory | null {
     status,
     selectedAt: requireTimestamp(value.selected_at, 'advisory.selected_at'),
   };
+}
+
+/**
+ * A whole-feed answer must deliver exactly the rows its total promised; a cut
+ * or version-scoped answer only has to fit inside that total.
+ */
+function isConsistentTotal(
+  sync: SyncEnvelope,
+  received: number,
+  since: string | null,
+): boolean {
+  if (sync.total === null) return true;
+  return !sync.truncated && !since ? sync.total === received : sync.total >= received;
 }
 
 function buildInitialPath(since: string | null): string {

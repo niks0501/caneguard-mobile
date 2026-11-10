@@ -129,10 +129,10 @@ export async function fetchAllMobileReportStatuses(options: {
     };
   }
 
-  if (sync.total !== null && sync.total < updates.length) {
+  if (!isConsistentTotal(sync, updates.length, since)) {
     throw new ReportStatusesApiError(
       'MALFORMED_RESPONSE',
-      'The authority review feed total was smaller than the rows it delivered.',
+      'The authority review feed total did not match the rows it delivered.',
     );
   }
 
@@ -288,6 +288,19 @@ function parseAdvisory(value: unknown): MobileReportAdvisory | null {
     title: requireNonBlankString(value.title, 'advisory.title'),
     uuid: requireNonBlankString(value.uuid, 'advisory.uuid'),
   };
+}
+
+/**
+ * A whole-feed answer must deliver exactly the rows its total promised; a cut
+ * or version-scoped answer only has to fit inside that total.
+ */
+function isConsistentTotal(
+  sync: SyncEnvelope,
+  received: number,
+  since: string | null,
+): boolean {
+  if (sync.total === null) return true;
+  return !sync.truncated && !since ? sync.total === received : sync.total >= received;
 }
 
 function buildInitialPath(updatedAfter: string | null | undefined, since: string | null): string {

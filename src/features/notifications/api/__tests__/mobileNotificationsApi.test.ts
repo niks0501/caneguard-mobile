@@ -193,6 +193,38 @@ describe('mobile notifications API', () => {
     ).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' });
   });
 
+  // Proves: a first download that stops short of the total it was promised is rejected instead of
+  // being checkpointed as a complete feed the phone then never refetches.
+  // Oracle: the feed reports 250 notifications but delivered one record and no continuation.
+  it('rejects a whole-feed answer that delivers fewer rows than its total', async () => {
+    request.mockResolvedValueOnce({
+      data: [MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0]],
+      links: { next: null },
+      sync: { before: CHECKPOINT, version: 'v-1', total: 250 },
+    });
+
+    await expect(
+      fetchAllMobileNotifications({ token: 'secure-token' }),
+    ).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' });
+  });
+
+  // Proves: the same short answer is legitimate once the phone asked for what changed past a held
+  // version, because the total then describes the whole feed, not this answer.
+  it('accepts a version-scoped answer that delivers fewer rows than the feed total', async () => {
+    request.mockResolvedValueOnce({
+      data: [MOBILE_NOTIFICATIONS_V1_FIXTURE.data[0]],
+      links: { next: null },
+      sync: { before: CHECKPOINT, version: 'v-2', total: 250 },
+    });
+
+    await expect(
+      fetchAllMobileNotifications({ token: 'secure-token', since: 'v-1' }),
+    ).resolves.toMatchObject({
+      sync: { version: 'v-2', total: 250, unchanged: false },
+      pageCount: 1,
+    });
+  });
+
   // Proves: with a version stamp the phone asks only for what changed past that version.
   it('sends the held version and reports an unchanged feed as zero pages', async () => {
     request.mockResolvedValueOnce({

@@ -594,3 +594,21 @@ export function assignmentsSkippedMessage(count: number): string {
 
 /** Shown wherever a predicted_label from the office is not one this app version knows. */
 export const UNRECOGNIZED_LABEL_TEXT = 'Not recognized by this app version';
+
+/** Office-born case card on the field validation screen. */
+export const OFFICE_CASE_COPY = {
+  title: 'Office case',
+  badge: 'Created at the office',
+  concernLabel: 'Reporter concern',
+  concernNone: 'No concern was recorded for this case.',
+  statusLabel: 'Office status',
+  reportPhotoLabel: 'Case photo',
+  lastVisitPhotoLabel: 'Last visit photo',
+  noReportPhoto: 'The office did not attach a photo to this case.',
+  noLastVisitPhoto: 'No photo was taken on the last visit.',
+  photoUnavailable:
+    'This photo is not available right now. Connect to the internet and open the case again.',
+  viewerClose: 'Close photo',
+  viewerOpen: (label: string) => `Open ${label.toLowerCase()}`,
+  version: (version: number) => `Version ${version}`,
+} as const;

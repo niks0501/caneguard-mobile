@@ -39,6 +39,7 @@ function openTestDatabase(): { database: CaneGuardDatabase; native: DatabaseSync
     '0015_sour_riptide.sql',
     '0016_nervous_gateway.sql',
     '0030_field_validation_snapshot_skipped.sql',
+    '0032_office_case_projection.sql',
   ]) native.exec(readMigration(migration));
 
   const client = {
@@ -138,6 +139,23 @@ describe('field validation assignment cache', () => {
     // An unchanged snapshot still refreshes the count.
     await replaceCachedFieldValidationAssignments(database, 'owner-1', [ASSIGNMENT], '2026-08-13T12:06:00.000Z', undefined, 1);
     await expect(readCachedFieldValidationSkippedCount(database, 'owner-1')).resolves.toBe(1);
+    native.close();
+  });
+  // Proves L4: an office-born case's concern, status and photo survive the cache and are read back offline; a field row reads back with no office case.
+  it('round-trips the office case projection and leaves field rows without one', async () => {
+    const { database, native } = openTestDatabase();
+    const officeCase = {
+      version: 3,
+      status: { workflowStatus: 'assigned', caseState: 'open', reviewStatus: 'pending', updatedAt: '2026-08-13T12:00:00.000Z' },
+      reporterConcern: { suspectedCondition: 'Rust', observationText: 'Orange spots on leaves' },
+      photo: { contentType: 'image/jpeg', bytes: 1024 },
+    };
+    const office = { ...ASSIGNMENT, id: '11111111-1111-4111-8111-111111111111', reportUuid: '22222222-2222-4222-8222-222222222222', officeCase };
+    await replaceCachedFieldValidationAssignments(database, 'owner-1', [{ ...ASSIGNMENT, officeCase: null }, office], '2026-08-13T12:05:00.000Z');
+
+    const cached = await listCachedFieldValidationAssignments(database, 'owner-1');
+    expect(cached.find((row) => row.id === ASSIGNMENT.id)?.officeCase).toBeNull();
+    expect(cached.find((row) => row.id === office.id)?.officeCase).toEqual(officeCase);
     native.close();
   });
 });

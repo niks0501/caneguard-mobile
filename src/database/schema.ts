@@ -239,6 +239,7 @@ export const fieldValidationAssignments = sqliteTable(
     predictedLabel: text('predicted_label').notNull(),
     confidence: real('confidence').notNull(),
     previousVisitJson: text('previous_visit_json'),
+    officeCaseJson: text('office_case_json'),
   },
   (table) => [
     index('field_validation_assignments_owner_updated_at_idx').on(

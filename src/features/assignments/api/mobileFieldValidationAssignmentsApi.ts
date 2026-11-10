@@ -9,6 +9,7 @@ import {
 import {
   UNKNOWN_PREDICTED_LABEL,
   type FieldValidationAssignmentUpdate,
+  type OfficeCase,
 } from '@/features/assignments/domain/assignmentTypes';
 import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
 import {
@@ -357,10 +358,46 @@ function parseAssignment(
       confidence: requireNumber(rawCase.confidence, 'case.confidence', 0, 1),
     },
     previousVisit: parsePreviousVisit(value.previous_visit),
+    officeCase: parseOfficeCase(rawCase),
   };
   // Vocabulary is filtered only after identity and the whole record shape validated.
   if (fieldValidationState === null) return null;
   return { ...update, fieldValidationState };
+}
+
+/**
+ * Only office-born cases carry the projection. A field-born row (no origin, or
+ * an origin this build does not know) stays exactly as before; an office row
+ * whose projection is malformed fails loudly so the item is named.
+ */
+function parseOfficeCase(rawCase: Record<string, unknown>): OfficeCase | null {
+  if (rawCase.origin !== 'office') return null;
+  const status = rawCase.status;
+  const concern = rawCase.reporter_concern;
+  if (!isRecord(status)) throw malformed('case.status');
+  if (!isRecord(concern)) throw malformed('case.reporter_concern');
+  const photo = rawCase.photo;
+  if (photo !== undefined && photo !== null && !isRecord(photo)) throw malformed('case.photo');
+  return {
+    version: requireNumber(rawCase.version, 'case.version', 0, Number.MAX_SAFE_INTEGER),
+    status: {
+      workflowStatus: requireString(status.workflow_status, 'case.status.workflow_status'),
+      caseState: requireString(status.case_state, 'case.status.case_state'),
+      reviewStatus: requireString(status.review_status, 'case.status.review_status'),
+      updatedAt: requireTimestamp(status.updated_at, 'case.status.updated_at'),
+    },
+    reporterConcern: {
+      suspectedCondition: optionalString(concern.suspected_condition, 'case.reporter_concern.suspected_condition'),
+      observationText: optionalString(concern.observation_text, 'case.reporter_concern.observation_text'),
+    },
+    // The url the server sends is ignored: the phone builds the guarded route itself.
+    photo: isRecord(photo)
+      ? {
+          contentType: requireString(photo.content_type, 'case.photo.content_type'),
+          bytes: requireNumber(photo.bytes, 'case.photo.bytes', 0, Number.MAX_SAFE_INTEGER),
+        }
+      : null,
+  };
 }
 
 function parsePreviousVisit(value: unknown): PreviousVisitContext | null {
@@ -385,12 +422,32 @@ function parsePreviousVisit(value: unknown): PreviousVisitContext | null {
       value.fresh_photo_available,
       'previous_visit.fresh_photo_available',
     ),
+    // Field-born rows never carry a photo key; keep their parsed shape unchanged.
+    ...(value.photo === undefined ? {} : { photo: parsePreviousVisitPhoto(value.photo) }),
+  };
+}
+
+function parsePreviousVisitPhoto(value: unknown): PreviousVisitContext['photo'] {
+  if (value === undefined || value === null) return null;
+  if (!isRecord(value)) throw malformed('previous_visit.photo');
+  return {
+    contentType: optionalString(value.content_type, 'previous_visit.photo.content_type'),
+    bytes: value.bytes === null ? null : requireNumber(value.bytes, 'previous_visit.photo.bytes', 0, Number.MAX_SAFE_INTEGER),
   };
 }
 
 export function buildMobilePreviousEvidencePhotoPath(assignmentId: string): string {
   if (!UUID_PATTERN.test(assignmentId)) throw malformed('assignment uuid');
   return `${ASSIGNMENT_PATH}/${encodeURIComponent(assignmentId)}/previous-evidence-photo`;
+}
+
+export function buildMobileReportPhotoPath(assignmentId: string): string {
+  if (!UUID_PATTERN.test(assignmentId)) throw malformed('assignment uuid');
+  return `${ASSIGNMENT_PATH}/${encodeURIComponent(assignmentId)}/report-photo`;
+}
+
+export function buildMobileReportPhotoUrl(assignmentId: string): string {
+  return buildApiUrl(buildMobileReportPhotoPath(assignmentId));
 }
 
 export function buildMobilePreviousEvidencePhotoUrl(assignmentId: string): string {

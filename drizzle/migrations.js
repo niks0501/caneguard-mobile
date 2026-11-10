@@ -33,6 +33,7 @@ import m0028 from './0028_field_report_survey_link.sql';
 import m0029 from './0029_scan_personal_place.sql';
 import m0030 from './0030_field_validation_snapshot_skipped.sql';
 import m0031 from './0031_gorgeous_ben_grimm.sql';
+import m0032 from './0032_office_case_projection.sql';
 
   export default {
     journal,
@@ -68,7 +69,8 @@ m0027,
 m0028,
 m0029,
 m0030,
-m0031
+m0031,
+m0032
     }
   }
   

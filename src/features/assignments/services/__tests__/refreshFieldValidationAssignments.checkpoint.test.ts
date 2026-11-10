@@ -48,7 +48,7 @@ function openNativeTestDatabase(): { database: CaneGuardDatabase; native: Databa
     '0009_scope_field_validation_assignment_cache_by_owner.sql', '0010_numerous_princess_powerful.sql',
     '0011_tidy_meteorite.sql', '0012_dapper_sumo.sql', '0013_v1_local_scan_migration.sql',
     '0014_safe_songbird.sql', '0015_sour_riptide.sql', '0016_nervous_gateway.sql',
-    '0030_field_validation_snapshot_skipped.sql', '0031_gorgeous_ben_grimm.sql',
+    '0030_field_validation_snapshot_skipped.sql', '0031_gorgeous_ben_grimm.sql', '0032_office_case_projection.sql',
   ]) native.exec(readMigration(migration));
   const client = { prepareSync: (sql: string) => adapt(native.prepare(sql)) } as unknown as SQLiteDatabase;
   return { database: drizzle(client, { schema }) as CaneGuardDatabase, native };

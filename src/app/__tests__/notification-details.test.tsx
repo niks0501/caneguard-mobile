@@ -3,6 +3,7 @@ import { useLocalSearchParams } from 'expo-router';
 
 import NotificationDetailsScreen from '@/app/notification-details';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
+import { useNotificationDestinations } from '@/features/notifications/hooks/useNotificationDestinations';
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: jest.fn(),
@@ -16,6 +17,7 @@ jest.mock('@/features/notifications/hooks/useNotificationDestinations', () => ({
 
 const mockParams = jest.mocked(useLocalSearchParams);
 const mockUseMobileNotifications = jest.mocked(useMobileNotifications);
+const mockUseNotificationDestinations = jest.mocked(useNotificationDestinations);
 const markRead = jest.fn(async () => undefined);
 
 const NOTIFICATION = {
@@ -45,6 +47,7 @@ const NOTIFICATION = {
 describe('NotificationDetailsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseNotificationDestinations.mockReturnValue(new Map());
     mockParams.mockReturnValue({ id: NOTIFICATION.id });
     mockUseMobileNotifications.mockReturnValue({
       capabilityUnavailable: false,
@@ -73,5 +76,30 @@ describe('NotificationDetailsScreen', () => {
       'Inspect the affected leaves and capture clear evidence during the visit.',
     );
     expect(screen.getByText('Follow the office guidance during your next visit.')).toBeOnTheScreen();
+  });
+
+  // Intent: a detail view for a case that is not on this phone still states why it cannot open.
+  it('states the case is not on this phone when its destination is unavailable', async () => {
+    mockUseNotificationDestinations.mockReturnValue(
+      new Map([[NOTIFICATION.id, { kind: 'unavailable' }]]),
+    );
+
+    await render(<NotificationDetailsScreen />);
+
+    expect(screen.getByTestId('notification.details.not-on-phone')).toHaveTextContent(
+      'Not on this phone: open on the web',
+    );
+    expect(screen.queryByTestId('notification.details.open-related')).not.toBeOnTheScreen();
+  });
+
+  it('offers the related activity instead of the fallback when the case is on this phone', async () => {
+    mockUseNotificationDestinations.mockReturnValue(
+      new Map([[NOTIFICATION.id, { kind: 'field_report', scanRecordId: 'scan-1' }]]),
+    );
+
+    await render(<NotificationDetailsScreen />);
+
+    expect(screen.getByTestId('notification.details.open-related')).toBeOnTheScreen();
+    expect(screen.queryByTestId('notification.details.not-on-phone')).not.toBeOnTheScreen();
   });
 });

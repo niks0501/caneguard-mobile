@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
+import { OFFICE_UPDATE_NOT_ON_PHONE } from '@/constants/copy';
 import {
   ComponentTokens,
   Layout,
@@ -93,6 +94,13 @@ export default function NotificationDetailsScreen() {
                   leadingIcon="arrow-up-right">
                   Open related activity
                 </AppButton>
+              ) : destination?.kind === 'unavailable' ? (
+                <Text
+                  testID="notification.details.not-on-phone"
+                  accessibilityLiveRegion="polite"
+                  style={[styles.notOnPhone, { color: theme.textSecondary }]}>
+                  {OFFICE_UPDATE_NOT_ON_PHONE}
+                </Text>
               ) : null}
             </View>
           </ScrollView>
@@ -155,6 +163,7 @@ const styles = StyleSheet.create({
   contextLabel: { ...Typography.label },
   contextBody: { ...Typography.bodySmall },
   meta: { ...Typography.caption },
+  notOnPhone: { ...Typography.bodySmall },
   state: {
     flex: 1,
     alignItems: 'center',

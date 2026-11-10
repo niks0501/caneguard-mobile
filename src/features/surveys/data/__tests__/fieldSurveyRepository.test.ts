@@ -100,6 +100,24 @@ describe('field survey local repository', () => {
     native.close();
   });
 
+  // Intent: My boundaries reaches older drafts, while callers that only want a short list stay bounded.
+  it('returns every stored boundary unless a limit is asked for', async () => {
+    const { database, native } = openDatabase();
+    for (const [index, id] of ['s-1', 's-2', 's-3'].entries()) {
+      await saveFieldSurveyDraft(database, {
+        authorRole: 'field_reporter',
+        capturedAt: `2026-10-05T09:00:0${index}.000Z`,
+        clientUuid: id,
+        districtCode: 'D-01',
+        ownerIdentity: 'owner-1',
+        waypoints: [waypoint],
+      });
+    }
+    expect(listOwnedFieldSurveys(database, 'owner-1').map((row) => row.clientUuid)).toEqual(['s-3', 's-2', 's-1']);
+    expect(listOwnedFieldSurveys(database, 'owner-1', 2).map((row) => row.clientUuid)).toEqual(['s-3', 's-2']);
+    native.close();
+  });
+
   it('retains affected-area waypoint provenance through draft and pending', async () => {
     const { database, native } = openDatabase();
     const affectedWaypoints = [

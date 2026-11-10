@@ -82,12 +82,15 @@ export function findOwnedFieldSurvey(
 export function listOwnedFieldSurveys(
   database: CaneGuardDatabase,
   ownerIdentity: string,
+  limit?: number,
 ): FieldSurveyRow[] {
   const owner = requireOwnerIdentity(ownerIdentity);
-  return database.select().from(fieldSurveys)
+  const query = database.select().from(fieldSurveys)
     .where(eq(fieldSurveys.ownerIdentity, owner))
-    .orderBy(desc(fieldSurveys.updatedAt))
-    .all();
+    .orderBy(desc(fieldSurveys.updatedAt));
+  return limit === undefined
+    ? query.all()
+    : query.limit(limit).all();
 }
 
 export function markFieldSurveyPending(

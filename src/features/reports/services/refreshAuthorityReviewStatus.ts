@@ -8,7 +8,7 @@ import {
   readSyncCheckpoint,
   type SyncCheckpoint,
 } from '@/features/sync/data/syncCheckpointRepository';
-import { createSyncDownloadProgressStore } from '@/features/sync/data/syncDownloadProgressRepository';
+import { createSyncDownloadProgressStore } from '@/features/sync/data/syncDownloadProgressStorage';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 const OVERLAP_MS = 1_000;
@@ -75,11 +75,7 @@ async function executeRefresh(options: {
     // The cursor is the last fully stored download's server checkpoint, not the newest row.
     updatedAfter: getOverlappedUpdatedAfter(held?.syncBefore ?? latestServerUpdateAt),
     since: held?.version ?? null,
-    progress: createSyncDownloadProgressStore(
-      options.database,
-      options.submitterIdentity,
-      'authority_status',
-    ),
+    progress: createSyncDownloadProgressStore(options.submitterIdentity, 'authority_status'),
   });
   const fetchedAt = new Date().toISOString();
   const result = await applyAuthorityReviewUpdates(

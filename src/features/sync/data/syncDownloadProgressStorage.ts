@@ -1,30 +1,21 @@
-import { and, eq } from 'drizzle-orm';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
-import { syncDownloadProgresses, type SyncCheckpointFeed } from '@/database/schema';
+import type { SyncCheckpointFeed } from '@/database/schema';
 import type { SyncDownloadProgressStore } from '@/features/sync/domain/syncDownloadProgressStore';
 
+const KEY_PREFIX = 'caneguard.syncDownloadProgress.v1';
+
 export function createSyncDownloadProgressStore(
-  database: CaneGuardDatabase,
   ownerIdentity: string,
   feed: SyncCheckpointFeed,
 ): SyncDownloadProgressStore {
-  const owner = requireOwner(ownerIdentity);
-  const scope = and(
-    eq(syncDownloadProgresses.ownerIdentity, owner),
-    eq(syncDownloadProgresses.feed, feed),
-  );
+  const key = `${KEY_PREFIX}.${requireOwner(ownerIdentity)}.${feed}`;
 
   return {
     async read(): Promise<string | null> {
       try {
-        const row = await database
-          .select({ payload: syncDownloadProgresses.payload })
-          .from(syncDownloadProgresses)
-          .where(scope)
-          .get();
-        return row?.payload ?? null;
+        return await AsyncStorage.getItem(key);
       } catch (error: unknown) {
         throw toStorageError(error, 'QUERY_FAILED', 'Reading the sync download progress failed.');
       }
@@ -32,14 +23,7 @@ export function createSyncDownloadProgressStore(
 
     async save(payload: string): Promise<void> {
       try {
-        database
-          .insert(syncDownloadProgresses)
-          .values({ ownerIdentity: owner, feed, payload })
-          .onConflictDoUpdate({
-            target: [syncDownloadProgresses.ownerIdentity, syncDownloadProgresses.feed],
-            set: { payload },
-          })
-          .run();
+        await AsyncStorage.setItem(key, payload);
       } catch (error: unknown) {
         throw toStorageError(error, 'UPDATE_FAILED', 'Saving the sync download progress failed.');
       }
@@ -47,12 +31,26 @@ export function createSyncDownloadProgressStore(
 
     async clear(): Promise<void> {
       try {
-        database.delete(syncDownloadProgresses).where(scope).run();
+        await AsyncStorage.removeItem(key);
       } catch (error: unknown) {
         throw toStorageError(error, 'DELETE_FAILED', 'Clearing the sync download progress failed.');
       }
     },
   };
+}
+
+/** Removes every stored download of one owner; the Settings clear actions own that boundary. */
+export async function clearSyncDownloadProgress(ownerIdentity: string): Promise<void> {
+  const prefix = `${KEY_PREFIX}.${requireOwner(ownerIdentity)}.`;
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const owned = keys.filter((key) => key.startsWith(prefix));
+    if (owned.length > 0) {
+      await AsyncStorage.multiRemove(owned);
+    }
+  } catch (error: unknown) {
+    throw toStorageError(error, 'DELETE_FAILED', 'Clearing the sync download progress failed.');
+  }
 }
 
 function requireOwner(value: string): string {

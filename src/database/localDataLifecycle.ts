@@ -13,7 +13,6 @@ import {
   mobileNotifications,
   scanRecords,
   syncCheckpoints,
-  syncDownloadProgresses,
 } from '@/database/schema';
 import {
   deleteFieldValidationPhoto,
@@ -28,6 +27,7 @@ import {
 import { invalidateMobileNotificationsRefresh } from '@/features/notifications/services/refreshMobileNotifications';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { clearOwnerMobileDataStore } from '@/features/mobile-data/data/mobileDataStore';
+import { clearSyncDownloadProgress } from '@/features/sync/data/syncDownloadProgressStorage';
 import { readFieldValidationCheckpoint } from '@/features/assignments/drafts/fieldValidationDraft';
 import { readScanDraftCheckpoint } from '@/features/detection/drafts/scanDraftCheckpoint';
 
@@ -177,10 +177,6 @@ export async function clearCachedOfficeDataForOwner(
         .delete(syncCheckpoints)
         .where(eq(syncCheckpoints.ownerIdentity, owner))
         .run();
-      transaction
-        .delete(syncDownloadProgresses)
-        .where(eq(syncDownloadProgresses.ownerIdentity, owner))
-        .run();
       deletedRows += transaction
         .delete(mobileNotifications)
         .where(eq(mobileNotifications.ownerIdentity, owner))
@@ -193,6 +189,7 @@ export async function clearCachedOfficeDataForOwner(
       'Clearing downloaded office data failed.',
     );
   }
+  await clearSyncDownloadProgress(owner);
   clearOwnerMobileDataStore(database, owner);
   emitSyncRecordsChanged();
   return { deletedRows, imageCleanupErrors: [] };
@@ -243,10 +240,6 @@ export async function clearLocalDataForOwner(
         .delete(syncCheckpoints)
         .where(eq(syncCheckpoints.ownerIdentity, owner))
         .run();
-      transaction
-        .delete(syncDownloadProgresses)
-        .where(eq(syncDownloadProgresses.ownerIdentity, owner))
-        .run();
       deletedRows += transaction
         .delete(mobileNotifications)
         .where(eq(mobileNotifications.ownerIdentity, owner))
@@ -265,6 +258,7 @@ export async function clearLocalDataForOwner(
   }
 
   clearOwnerMobileDataStore(database, owner);
+  await clearSyncDownloadProgress(owner);
   const imageCleanupErrors = [
     ...cleanupImages(targets, owner),
     ...sweepOrphanedOwnerImages(database, owner),

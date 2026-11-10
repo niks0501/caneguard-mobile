@@ -78,7 +78,11 @@ tests. "Implemented" does not mean "verified on a device":
   the report, removes the link, and opens that boundary in Measure. The card is
   locked once the report is finalized.
 - Field validation visits: owner-scoped drafts, completion evidence, follow-up
-  outcome, optional fresh photo. The downloaded visit list needs
+  outcome, optional fresh photo, and an **Office case** card on a case born in
+  the office showing the reporter's concern, the office status, the case
+  version, and a guarded viewer for the case photo and the last visit's photo
+  (a photo that cannot load, or a session with no token, shows words instead of
+  a broken image). The downloaded visit list needs
   `assignment:read`; opening and completing a visit needs `assignment:complete`.
   Without it the screen shows an unavailable notice instead of the visit form.
 - Offline field boundary surveys (authoring needs the `report:submit`

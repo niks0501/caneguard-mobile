@@ -1,9 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import MyBoundariesScreen from '@/app/my-boundaries';
 import type { FieldSurveyRow } from '@/database/schema';
 import { deleteOwnedFieldSurvey, listOwnedFieldSurveys } from '@/features/surveys/data/fieldSurveyRepository';
+import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn() },
@@ -44,8 +45,22 @@ describe('My boundaries', () => {
     expect(screen.getByText('Start again')).toBeTruthy();
     expect(screen.getByText('Sent')).toBeTruthy();
     expect(screen.queryByTestId('my-boundaries.delete.b3')).toBeNull();
+    expect(screen.queryByTestId('my-boundaries.delete.b2')).toBeNull();
     fireEvent.press(screen.getByTestId('my-boundaries.open.b1'));
     expect(router.push).toHaveBeenCalledWith({ pathname: '/field-survey', params: { surveyId: 'b1' } });
+  });
+
+  // Intent: a background send that finishes while this list is open stops showing the old state.
+  it('re-reads the stored rows when a state change is published', async () => {
+    jest.mocked(listOwnedFieldSurveys).mockReturnValue([row({ clientUuid: 'b1', status: 'pending' })]);
+    await render(<MyBoundariesScreen />);
+    expect(screen.getByText('Waiting to send')).toBeTruthy();
+    jest.mocked(listOwnedFieldSurveys).mockReturnValue([row({ clientUuid: 'b1', status: 'synced', remoteId: 'r1' })]);
+    await act(async () => {
+      emitSyncRecordsChanged();
+    });
+    expect(screen.getByText('Sent')).toBeTruthy();
+    expect(screen.queryByText('Waiting to send')).toBeNull();
   });
 
   // Intent: a boundary is deleted only after confirmation.

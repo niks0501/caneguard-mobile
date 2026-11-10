@@ -21,8 +21,6 @@ import { validateSurveyWaypoints, type SurveyWaypoint } from '@/features/surveys
 import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 import { useTheme } from '@/hooks/use-theme';
 
-const LIST_LIMIT = 100;
-
 const STATE_PILL: Record<BoundaryState, PillVariant> = {
   draft: 'default',
   waiting_to_send: 'info',
@@ -63,7 +61,7 @@ export default function MyBoundariesScreen() {
   const load = useCallback(() => {
     if (!ready || !database || database === EMPTY_DATABASE || !ownerIdentity) return;
     try {
-      setRows(listOwnedFieldSurveys(database, ownerIdentity, LIST_LIMIT));
+      setRows(listOwnedFieldSurveys(database, ownerIdentity));
     } catch {
       setRows([]);
       setMessage(FIELD_SURVEY_COPY.myBoundariesLoadFailed);

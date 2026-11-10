@@ -61,6 +61,7 @@ export async function saveFieldSurveyDraft(
         updatedAt: input.capturedAt,
       }).run();
     }
+    emitSyncRecordsChanged();
     return findOwnedFieldSurvey(database, input.clientUuid, owner)!;
   } catch (error: unknown) {
     throw toStorageError(error, 'SAVE_TRANSACTION_FAILED', 'Saving this offline boundary failed.');
@@ -81,13 +82,11 @@ export function findOwnedFieldSurvey(
 export function listOwnedFieldSurveys(
   database: CaneGuardDatabase,
   ownerIdentity: string,
-  limit = 20,
 ): FieldSurveyRow[] {
   const owner = requireOwnerIdentity(ownerIdentity);
   return database.select().from(fieldSurveys)
     .where(eq(fieldSurveys.ownerIdentity, owner))
     .orderBy(desc(fieldSurveys.updatedAt))
-    .limit(limit)
     .all();
 }
 
@@ -141,6 +140,7 @@ export function markFieldSurveyPending(
     lastSyncErrorCode: null,
     updatedAt: new Date().toISOString(),
   }).where(and(eq(fieldSurveys.clientUuid, clientUuid), eq(fieldSurveys.ownerIdentity, owner))).run();
+  emitSyncRecordsChanged();
 }
 
 /** Statuses each sync write may start from; a row in any other status is left untouched. */
@@ -179,10 +179,11 @@ export function updateFieldSurveySyncResult(
     eq(fieldSurveys.ownerIdentity, owner),
     inArray(fieldSurveys.status, [...TRANSITIONS[update.status]]),
   )).run();
+  if (result.changes > 0) emitSyncRecordsChanged();
   return result.changes;
 }
 
-/** Removes an unsent or rejected boundary. Returns false when the row is missing or may not be deleted. */
+/** Removes a draft boundary. Returns false when the row is missing, already queued, or already sent. */
 export function deleteOwnedFieldSurvey(
   database: CaneGuardDatabase,
   clientUuid: string,
@@ -196,7 +197,7 @@ export function deleteOwnedFieldSurvey(
       .where(and(
         eq(fieldSurveys.clientUuid, clientUuid),
         eq(fieldSurveys.ownerIdentity, owner),
-        inArray(fieldSurveys.status, ['draft', 'pending', 'failed']),
+        eq(fieldSurveys.status, row.status),
       )).run();
     emitSyncRecordsChanged();
     return result.changes > 0;

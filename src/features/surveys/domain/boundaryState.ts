@@ -56,9 +56,9 @@ export function boundaryCanSubmit(state: BoundaryState): boolean {
     state === 'will_retry' || state === 'refused';
 }
 
-/** Sent boundaries belong to the office; one being sent must not vanish mid-upload. */
+/** Only a draft is throwaway; queued work is owed to the office and never deleted here. */
 export function boundaryCanDelete(state: BoundaryState): boolean {
-  return state !== 'sent' && state !== 'sending';
+  return state === 'draft';
 }
 
 /** Only unsent work the phone still owes the office counts as waiting to send. */

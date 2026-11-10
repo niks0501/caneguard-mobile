@@ -43,12 +43,12 @@ describe('boundaryState', () => {
     expect(new Set(BOUNDARY_STATES).size).toBe(9);
   });
 
-  // Intent: only drafts and server-rejected boundaries can be edited; sent work is never deleted or resubmitted.
+  // Intent: only drafts and server-rejected boundaries can be edited; only drafts can be deleted.
   it('derives what each state allows', () => {
     expect(BOUNDARY_STATES.filter(boundaryCanEdit)).toEqual(['draft', 'needs_fix']);
     expect(BOUNDARY_STATES.filter(boundaryRetriesItself)).toEqual(['waiting_to_send', 'will_retry']);
     expect(BOUNDARY_STATES.filter(boundaryCanSubmit)).toEqual(['draft', 'waiting_to_send', 'will_retry', 'needs_fix', 'refused']);
-    expect(BOUNDARY_STATES.filter((state) => !boundaryCanDelete(state))).toEqual(['sending', 'sent']);
+    expect(BOUNDARY_STATES.filter(boundaryCanDelete)).toEqual(['draft']);
     expect(BOUNDARY_STATES.filter(boundaryCountsAsWaiting)).toEqual(['waiting_to_send', 'sending', 'will_retry']);
   });
 });

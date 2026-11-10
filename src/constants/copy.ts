@@ -130,8 +130,8 @@ export const BOUNDARY_STATE_COPY = {
   sent: { label: 'Sent', hint: 'The office has this boundary.' },
   will_retry: { label: 'Will retry', hint: 'The office could not be reached. It tries again on its own.' },
   needs_fix: { label: 'Needs a fix', hint: 'The office needs a correction. Open it, fix the points, then sync again.' },
-  identity_rejected: { label: 'Start again', hint: 'The office will not take this one. Measure the boundary again, then delete this one.' },
-  damaged: { label: 'Start again', hint: 'This saved boundary is damaged on this phone. Measure it again, then delete this one.' },
+  identity_rejected: { label: 'Start again', hint: 'The office will not take this one. Measure the boundary again as a new boundary.' },
+  damaged: { label: 'Start again', hint: 'This saved boundary is damaged on this phone. Measure it again as a new boundary.' },
   refused: { label: 'Not sent', hint: 'The office did not accept it. Open it and press Save and sync to try again, or ask the office to check your account.' },
 } as const;
 

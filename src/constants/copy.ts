@@ -131,6 +131,8 @@ export const FIELD_SURVEY_COPY = {
   recapturePoint: (point: number) => `Recapture point ${point}`,
   tapToDraw: 'Tap the map to add points. Drag a dot to move it.',
   savingOffline: 'Saving boundary draft…',
+  unsavedChanges: 'Changes not saved yet.',
+  saveRetry: 'Try again',
   saveFailed: 'The boundary could not be saved. Your previous draft is unchanged.',
   close: 'Close',
   myBoundariesTitle: 'My boundaries',
@@ -161,6 +163,19 @@ export const BOUNDARY_STATE_COPY = {
   identity_rejected: { label: 'Start again', hint: 'The office will not take this one. Measure the boundary again as a new boundary.' },
   damaged: { label: 'Start again', hint: 'This saved boundary is damaged on this phone. Measure it again as a new boundary.' },
   refused: { label: 'Not sent', hint: 'The office did not accept it. Open it and press Save and sync to try again, or ask the office to check your account.' },
+} as const;
+
+/** One line per boundary screen mode; the status strip shows exactly one of them. */
+export const FIELD_SURVEY_MODE_COPY = {
+  loading: 'Opening your boundary…',
+  waiting_to_start: 'The boundary linked to this report is not on this phone. Start a new boundary to measure it again.',
+  drawing_new: FIELD_SURVEY_COPY.tapToDraw,
+  drawing_resumed: FIELD_SURVEY_COPY.resumedSurvey,
+  fixing: 'The office needs a correction. Fix the points or the messages below, then sync again.',
+  sending: BOUNDARY_STATE_COPY.sending.hint,
+  waiting_to_send: 'Saved on this phone. Not sent yet: it sends when you are online, or press Save and sync to try again.',
+  sent: BOUNDARY_STATE_COPY.sent.hint,
+  identity_rejected: FIELD_SURVEY_COPY.surveyIdentityRejected,
 } as const;
 
 /** Offline readiness (D01) — before field work without a connection. */

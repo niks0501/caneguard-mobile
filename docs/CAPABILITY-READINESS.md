@@ -95,17 +95,19 @@ tests. "Implemented" does not mean "verified on a device":
   coordinate map, affected areas accepted only when fully inside the plot
   (concave boundaries included), overlaps counted once, and unfinished affected
   points checkpointed with the draft so Submit stays blocked until they are
-  finished or cleared. Each boundary point keeps the best reading from its own
-  bounded GPS sample, every point is kept as measurement provenance, and a
-  completed plot shows a **Boundary Quality** panel with plot area, boundary
-  point count, affected area, and one of three GPS states: **Good** when every
-  point is 5 m or better, **Acceptable** when some points are 5 to 10 m, and
-  **Low accuracy** when any point is worse than 10 m or unknown. Low accuracy
-  names the worst point and offers one **Recapture** button for exactly that
-  point; poor accuracy never blocks saving. Opened from a report it restores
-  that exact saved boundary rather than the open draft, shows a boundary that
-  can no longer be edited read-only, and leaves the report card to say when the
-  linked boundary is no longer saved on the phone.
+  finished or cleared. Each tapped boundary point keeps the best reading from
+  its own bounded GPS sample, every point is kept as measurement provenance,
+  and a completed plot shows a **Boundary Quality** panel with plot area,
+  boundary point count, affected area, and one of three GPS states: **Good**
+  when every point is 5 m or better, **Acceptable** when some points are 5 to
+  10 m, and **Low accuracy** when any point is worse than 10 m or unknown. Low
+  accuracy names the worst point and offers one **Recapture** button for exactly
+  that point; poor accuracy never blocks saving. **Walk the edge** drops
+  boundary points automatically while the inspector walks the plot edge, as
+  described under [Location behaviour](#location-behaviour). Opened from a
+  report it restores that exact saved boundary rather than the open draft, shows
+  a boundary that can no longer be edited read-only, and leaves the report card
+  to say when the linked boundary is no longer saved on the phone.
 - **My boundaries** (authoring needs the `report:submit` capability): every
   boundary saved on this phone, newest first, each row showing its district and
   its measured hectares when the saved points measure (otherwise what is
@@ -140,9 +142,15 @@ not proven by unit tests:
 
 ## Location behaviour
 
-- Foreground GPS is the primary source. One bounded foreground capture samples
-  readings for up to 15 seconds (8 seconds for a boundary survey point), keeps
-  the most accurate one and stops early once a reading reaches the 5 m target.
+- Foreground GPS is the primary source. A tap capture samples readings for up to
+  15 seconds (8 seconds for a boundary survey point), keeps the most accurate
+  one and stops early once a reading reaches the 5 m target.
+- **Walk the edge** on a boundary survey watches foreground fixes instead of
+  taking one bounded sample: a reading whose reported accuracy is 10 m or
+  better becomes a point once the walker is about 8 m from the previous point.
+  Walking stops on its own when the app leaves the foreground, the boundary
+  being edited changes, the draft is saved, or GPS stops reporting; points
+  already added stay.
 - In a Field Report Draft, a reading that saved final coordinates always reads
   as **Location added** with its device-reported accuracy, including one worse
   than the 5 m target; that worse-than-target fix also offers a one-tap **Try for

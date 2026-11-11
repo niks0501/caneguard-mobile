@@ -21,7 +21,7 @@ export type WalkFixDecision =
   | { action: 'skip'; reason: 'invalid' | 'weak_accuracy' | 'too_close' };
 
 function distanceMeters(from: MapCoordinate, to: MapCoordinate): number {
-  return GeographicLib.Geodesic.WGS84.Inverse(from.latitude, from.longitude, to.latitude, to.longitude).s12;
+  return GeographicLib.Geodesic.WGS84.Inverse(from.latitude, from.longitude, to.latitude, to.longitude).s12 ?? Number.POSITIVE_INFINITY;
 }
 
 /**

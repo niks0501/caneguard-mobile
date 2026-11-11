@@ -140,6 +140,7 @@ describe('unfinished draft rows', () => {
     const onOpenItem = jest.fn();
     const view = await renderCard([draft], onOpenItem);
 
+    expect(view.getByText('Not finished')).toBeOnTheScreen();
     expect(view.getByText('Finish your field report')).toBeTruthy();
     expect(view.getByText('Not finished · saved on this device')).toBeTruthy();
     await fireEvent.press(view.getByTestId('home.attention.draft-report-scan-1'));

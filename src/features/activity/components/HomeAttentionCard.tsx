@@ -46,7 +46,7 @@ export function HomeAttentionCard({
     <View accessibilityLiveRegion="polite" style={styles.list} testID="home.needs-attention">
       {drafts.length > 0 ? (
         <View testID="home.unfinished">
-          <Text style={[styles.heading, { color: theme.textSecondary }]}>{UNFINISHED_COPY.heading}</Text>
+          <Text style={[styles.heading, { color: theme.textSecondary }]}>{UNFINISHED_COPY.label}</Text>
           {drafts.map((item, index) => (
             <AttentionRow index={index} item={item} key={item.id} onOpen={onOpenItem} />
           ))}

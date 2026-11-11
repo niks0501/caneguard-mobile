@@ -39,12 +39,9 @@ export const PERSONAL_SCAN_LOCAL_STATUS = 'On this device · not sent';
 export const UNFINISHED_COPY = {
   label: 'Not finished',
   meta: 'Not finished · saved on this device',
-  reportTitle: 'Field report',
   reportLead: 'Finish your field report',
   visitLead: (referenceCode: string) => `Finish your visit for ${referenceCode}`,
   plotLead: 'Finish your plot boundary',
-  resume: 'Resume',
-  heading: 'Not finished',
 } as const;
 
 export const FIELD_VALIDATION_UNAVAILABLE =

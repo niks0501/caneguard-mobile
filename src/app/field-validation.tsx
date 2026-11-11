@@ -39,7 +39,7 @@ import type { FieldValidationPhotoArtifact } from '@/features/assignments/servic
 import { deleteFieldValidationPhoto } from '@/features/assignments/services/fieldValidationPhotoStorage';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
-import { formatDateTime, formatTime } from '@/lib/formatters';
+import { formatDateKey, formatDateTime, formatTime } from '@/lib/formatters';
 
 interface ValidationPhotoSelection {
   /** The URI rendered on screen (managed draft photo when it is saved). */
@@ -358,7 +358,10 @@ function VisitContext({ assignment }: { assignment: FieldValidationAssignment })
       <Row label="Farm or farmer" value={assignment.case.farmerOrFarmOwnerName ?? ''} />
       <Row label="Location" value={[assignment.case.barangay, assignment.case.municipality, assignment.case.province].filter(Boolean).join(', ')} />
       <Row label="Case" value={assignment.referenceCode} />
-      <Row label="Target visit" value={assignment.targetVisitDate ?? 'No target date'} />
+      <Row
+        label="Target visit"
+        value={assignment.targetVisitDate ? formatDateKey(assignment.targetVisitDate) : 'No target date'}
+      />
       {assignment.submitterIsAssignee ? <Text style={[styles.samePerson, { color: theme.warning }]}>You submitted this case and are its validator.</Text> : null}
     </View>
   );
@@ -473,7 +476,7 @@ function completeConfirmMessage({
   targetVisitDate: string | null;
 }): string {
   const outcome = followUpOutcome ? OUTCOME_LABELS[followUpOutcome] : 'No outcome chosen';
-  const visit = targetVisitDate ?? 'No target date';
+  const visit = targetVisitDate ? formatDateKey(targetVisitDate) : 'No target date';
   return `Complete the visit for ${visit}? Follow-up outcome: ${outcome}. Fresh photo: ${hasPhoto ? 'attached' : 'not attached'}. The completed visit can no longer be edited, and the case stays open.`;
 }
 

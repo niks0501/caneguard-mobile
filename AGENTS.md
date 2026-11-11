@@ -50,7 +50,7 @@ E2E validation belongs to both the implementation phase and no-mistakes validati
 
 ## Phone UI patterns
 
-- Canonical user copy lives in `src/constants/copy.ts`; screens import it verbatim.
+- Canonical user copy lives in `src/constants/copy.ts`; screens take those words from it rather than restating them.
 - Short forms open as native sheet routes (`presentation: 'formSheet'` in `src/app/_layout.tsx`) rendering the shared `src/components/ui/SheetScreen.tsx` shell; read-only content uses `DisclosureSection`, never a sheet.
 - Long free text uses `src/components/ui/ClampedText.tsx` (3-line clamp with Show more); field examples use `src/components/ui/HelpHint.tsx` (short definition visible, example behind the icon).
 - Sync wording is single-sourced in `src/features/sync/utils/syncStatusCopy.ts`.

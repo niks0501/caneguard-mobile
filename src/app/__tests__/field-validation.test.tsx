@@ -95,6 +95,19 @@ describe('FieldValidationScreen', () => {
     expect(screen.getByTestId('field-validation.complete')).toHaveTextContent('Complete visit');
   });
 
+  it('shows the target visit date in the one shared display format', async () => {
+    jest.mocked(useFieldValidationAssignment).mockReturnValue({
+      ...state,
+      complete,
+      assignment: { ...state.assignment, targetVisitDate: '2026-11-09' },
+    } as never);
+
+    await render(<FieldValidationScreen />);
+
+    expect(screen.getByText('Nov 9, 2026')).toBeOnTheScreen();
+    expect(screen.queryByText('2026-11-09')).not.toBeOnTheScreen();
+  });
+
   it('requires fresh observation, finding, and action before saving offline completion', async () => {
     jest.mocked(useFieldValidationAssignment).mockReturnValue({
       ...state,

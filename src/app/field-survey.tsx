@@ -245,6 +245,14 @@ export default function FieldSurveyScreen() {
   const affectedMeasurement = useMemo(() => validation.valid
     ? measureAffectedAreas(validation.polygon, affectedAreas)
     : null, [affectedAreas, validation]);
+  // The affected-area rejection shown after a refused submit is stale once the areas are repaired.
+  const submitRejectionRef = useRef<string | null>(null);
+  useEffect(() => {
+    const rejection = submitRejectionRef.current;
+    if (!rejection || !affectedMeasurement?.valid) return;
+    submitRejectionRef.current = null;
+    setSyncMessage((current) => (current === rejection ? null : current));
+  }, [affectedMeasurement]);
   const tileTemplate = getConfiguredMapTileUrlTemplate();
   const tiles = useMemo(() => getMapTiles(
     center,
@@ -625,7 +633,9 @@ export default function FieldSurveyScreen() {
     setSaving(true);
     try {
       if (!affectedMeasurement?.valid) {
-        setSyncMessage(affectedMeasurement?.error.message ?? FIELD_SURVEY_COPY.affectedOutsidePlot);
+        const rejection = affectedMeasurement?.error.message ?? FIELD_SURVEY_COPY.affectedOutsidePlot;
+        submitRejectionRef.current = rejection;
+        setSyncMessage(rejection);
         return;
       }
       markFieldSurveyPending(database, clientUuid, session.user.uuid, validation.polygon, validation.areaSqm, waypoints.at(-1)?.capturedAt ?? new Date().toISOString(), affectedAreas, affectedMeasurement.areaSqm, affectedAreaWaypointSets);

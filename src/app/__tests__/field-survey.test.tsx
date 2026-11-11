@@ -542,6 +542,28 @@ describe('drawing tool (phone)', () => {
     await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.affectedAreas} (0)`)).toBeTruthy());
   });
 
+  // Intent: repairing the affected areas after a refused submit clears the old rejection text, not only the validity banner.
+  it('clears the refused-submit message once the affected areas are repaired', async () => {
+    const outside: SurveyWaypoint[] = [
+      { latitude: 14.2, longitude: 121.2, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:00:00.000Z' },
+      { latitude: 14.2, longitude: 121.201, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:01:00.000Z' },
+      { latitude: 14.201, longitude: 121.201, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:02:00.000Z' },
+    ];
+    mockListSurveys.mockReturnValue([draftRow({
+      affectedAreaPolygonsJson: JSON.stringify([{ type: 'Polygon', coordinates: [[...outside, outside[0]].map((w) => [w.longitude, w.latitude])] }]),
+      affectedAreaWaypointsJson: JSON.stringify([outside]),
+    })]);
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.affectedAreas} (1)`)).toBeTruthy());
+
+    await fireEvent.press(screen.getByTestId('field-survey.submit'));
+    await waitFor(() => expect(screen.getByTestId('field-survey.sync-status')).toBeTruthy());
+
+    await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.removeAffectedAreaNumber(1)));
+
+    await waitFor(() => expect(screen.queryByTestId('field-survey.sync-status')).toBeNull());
+  });
+
   it('shows where a boundary crosses itself', async () => {
     const bowtie = [PLOT_WAYPOINTS[0], PLOT_WAYPOINTS[2], PLOT_WAYPOINTS[3], PLOT_WAYPOINTS[1]];
     mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(bowtie) })]);

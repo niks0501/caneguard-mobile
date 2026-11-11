@@ -685,4 +685,81 @@ describe('drawing tool (phone)', () => {
     const saved = mockSaveDraft.mock.lastCall?.[1];
     expect(saved?.affectedAreaWaypoints?.[0]).toEqual(ACTIVE_AFFECTED_WAYPOINTS);
   });
+
+  // Intent: a drag keeps its vertex under the finger even when the map moves mid-drag (GPS capture or My location).
+  it('keeps a dragged point under the finger when the map moves mid-drag', async () => {
+    async function droppedFirstPoint(recenterMidDrag: boolean): Promise<SurveyWaypoint> {
+      mockCaptureWaypoint.mockResolvedValue({
+        status: 'captured',
+        waypoint: { latitude: 14.5, longitude: 121.5, accuracyMeters: 5, capturedAt: '2026-11-10T00:00:00.000Z', source: 'gps' },
+      });
+      const view = await renderWithGestures(<FieldSurveyScreen />);
+      await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+      const drag = createGestureController(getByGestureTestId('field-survey.point.plot.0.drag'));
+      await act(async () => { drag.begin(); drag.activate(); drag.update({ translationX: 20, translationY: 0 }); });
+      if (recenterMidDrag) {
+        await act(async () => { fireEvent.press(screen.getByTestId('field-survey.my-location')); });
+        await waitFor(() => expect(mockCaptureWaypoint).toHaveBeenCalled());
+      }
+      await act(async () => { drag.update({ translationX: 40, translationY: 10 }); drag.end(); });
+
+      await waitFor(() => {
+        const saved = mockSaveDraft.mock.lastCall?.[1];
+        expect(saved?.waypoints[0].latitude).not.toBe(PLOT_WAYPOINTS[0].latitude);
+      });
+      const dropped = mockSaveDraft.mock.lastCall?.[1].waypoints.at(0);
+      if (!dropped) throw new Error('the dragged point was never saved');
+      await view.unmount();
+      return dropped;
+    }
+
+    const still = await droppedFirstPoint(false);
+    const recentered = await droppedFirstPoint(true);
+
+    expect(recentered.latitude).toBeCloseTo(still.latitude, 9);
+    expect(recentered.longitude).toBeCloseTo(still.longitude, 9);
+  });
+
+  // Intent: a finished area keeps the per-point GPS quality it was drawn with.
+  it('keeps the quality of each finished affected-area point visible', async () => {
+    const mixedArea: SurveyWaypoint[] = [
+      { ...ACTIVE_AFFECTED_WAYPOINTS[0], source: 'map', accuracyMeters: null },
+      ACTIVE_AFFECTED_WAYPOINTS[1],
+      ACTIVE_AFFECTED_WAYPOINTS[2],
+    ];
+    const mixedPolygon = validateSurveyWaypoints(mixedArea);
+    if (!mixedPolygon.valid) throw new Error('fixture invalid');
+    mockListSurveys.mockReturnValue([draftRow({
+      affectedAreaPolygonsJson: JSON.stringify([mixedPolygon.polygon]),
+      affectedAreaWaypointsJson: JSON.stringify([mixedArea]),
+    })]);
+
+    await renderWithGestures(<FieldSurveyScreen />);
+
+    const mapPoint = await screen.findByTestId('field-survey.area-point.0.0');
+    const gpsPoint = screen.getByTestId('field-survey.area-point.0.1');
+    expect(mapPoint.props.fill).not.toBe(gpsPoint.props.fill);
+  });
+
+  // Intent: an affected area the plot no longer contains is measured on its own geometry, not reported as 0 m².
+  it('measures a finished affected area that the plot no longer contains', async () => {
+    const outside: SurveyWaypoint[] = [
+      { latitude: 14.2, longitude: 121.2, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:00:00.000Z' },
+      { latitude: 14.2, longitude: 121.201, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:01:00.000Z' },
+      { latitude: 14.201, longitude: 121.201, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:02:00.000Z' },
+    ];
+    const polygon = validateSurveyWaypoints(outside);
+    if (!polygon.valid) throw new Error('fixture invalid');
+    mockListSurveys.mockReturnValue([draftRow({
+      affectedAreaPolygonsJson: JSON.stringify([polygon.polygon]),
+      affectedAreaWaypointsJson: JSON.stringify([outside]),
+    })]);
+
+    await renderWithGestures(<FieldSurveyScreen />);
+
+    const row = await screen.findByText(/^Area 1 · /);
+    const shownSqm = Number(String(row.props.children).replace(/^Area 1 · /, '').replace(/[^\d.]/g, ''));
+    expect(shownSqm).toBeGreaterThan(0);
+  });
 });

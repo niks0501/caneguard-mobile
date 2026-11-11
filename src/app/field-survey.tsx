@@ -36,7 +36,7 @@ import {
 import { findOwnedFieldSurvey, listOwnedFieldSurveys, saveFieldSurveyDraft, markFieldSurveyPending } from '@/features/surveys/data/fieldSurveyRepository';
 import { viewportPointFromPressEvent } from '@/features/reports/components/online-map-picker';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
-import { measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyPolygon, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { boundaryCanEdit, boundaryCanSubmit, boundaryState } from '@/features/surveys/domain/boundaryState';
 import { assessBoundaryQuality } from '@/features/surveys/domain/boundaryQuality';
 import {
@@ -176,7 +176,7 @@ export default function FieldSurveyScreen() {
   const [locating, setLocating] = useState(false);
   const layoutRef = useRef<{ width: number; height: number } | null>(null);
   const fitRequested = useRef(false);
-  const dragRef = useRef<{ ref: PointRef; start: { x: number; y: number }; undoBase: DrawingShape; changed: boolean; refused: boolean } | null>(null);
+  const dragRef = useRef<{ ref: PointRef; grabbed: MapCoordinate; undoBase: DrawingShape; changed: boolean; refused: boolean } | null>(null);
   const [center, setCenter] = useState<MapCoordinate>(DEFAULT_MANUAL_MAP_CENTER);
   const [zoom, setZoom] = useState(SURVEY_ZOOM);
   const [viewport, setViewport] = useState(INITIAL_VIEWPORT);
@@ -232,7 +232,8 @@ export default function FieldSurveyScreen() {
     const before = shapeRef.current;
     if (next === before) return;
     const drag = dragRef.current;
-    setHistory((current) => pushUndo(drag?.changed ? pushUndo(current, drag.undoBase) : current, before));
+    const dragUndoBase = drag?.changed ? drag.undoBase : null;
+    setHistory((current) => pushUndo(dragUndoBase ? pushUndo(current, dragUndoBase) : current, before));
     if (drag) {
       drag.undoBase = next;
       drag.changed = false;
@@ -481,17 +482,17 @@ export default function FieldSurveyScreen() {
 
   function beginDrag(ref: PointRef) {
     if (controlsLocked) return;
-    const point = pointOf(shape, ref);
+    const point = pointOf(shapeRef.current, ref);
     if (!point) return;
-    const start = coordinateToViewportPoint(center, point, zoom, viewport.width, viewport.height);
-    dragRef.current = { ref, start, undoBase: shapeRef.current, changed: false, refused: false };
+    dragRef.current = { ref, grabbed: point, undoBase: shapeRef.current, changed: false, refused: false };
   }
 
   function dragTo(translationX: number, translationY: number) {
     const drag = dragRef.current;
     if (!drag) return;
     const live = shapeRef.current;
-    const coordinate = coordinateAtViewportPoint(center, zoom, viewport.width, viewport.height, drag.start.x + translationX, drag.start.y + translationY);
+    const anchor = coordinateToViewportPoint(center, drag.grabbed, zoom, viewport.width, viewport.height);
+    const coordinate = coordinateAtViewportPoint(center, zoom, viewport.width, viewport.height, anchor.x + translationX, anchor.y + translationY);
     const result = movePoint(live, drag.ref, coordinate);
     drag.refused = !result.ok;
     if (!result.ok) return;
@@ -508,7 +509,8 @@ export default function FieldSurveyScreen() {
       if (drag.refused) setSyncMessage(FIELD_SURVEY_COPY.moveRefused);
       return;
     }
-    setHistory((current) => pushUndo(current, drag.undoBase));
+    const undoBase = drag.undoBase;
+    setHistory((current) => pushUndo(current, undoBase));
     setSaved(false);
     setSelected(drag.ref);
     setFieldErrors({});
@@ -722,8 +724,9 @@ export default function FieldSurveyScreen() {
 
   function areaSqm(index: number): number {
     const polygon = affectedAreas[index];
-    const measured = validation.valid && polygon ? measureAffectedAreas(validation.polygon, [polygon]) : null;
-    return measured?.valid ? measured.areaSqm : 0;
+    if (!polygon) return 0;
+    const measured = validateSurveyPolygon(polygon);
+    return measured.valid ? measured.areaSqm : 0;
   }
 
   function layerPoint(point: MapCoordinate) {
@@ -862,7 +865,10 @@ export default function FieldSurveyScreen() {
             {affectedWaypoints.length >= 2 ? <Polyline points={affectedWaypoints.map((point) => { const at = layerPoint(point); return `${at.x},${at.y}`; }).join(' ')} fill="none" stroke={theme.warning} strokeWidth={3} /> : null}
             {affectedAreaWaypointSets.map((set, areaIndex) => set.map((point, index) => {
               const at = layerPoint(point);
-              return <Circle key={`area-${areaIndex}-${index}`} cx={at.x} cy={at.y} r={4} fill={theme.warning} stroke="white" strokeWidth={1.5} />;
+              const quality = pointQuality(point);
+              const colors = qualityColor(quality, theme);
+              const isSelected = sameRef(selected, { set: 'area', area: areaIndex, index });
+              return <Circle testID={`field-survey.area-point.${areaIndex}.${index}`} key={`area-${areaIndex}-${index}`} cx={at.x} cy={at.y} r={isSelected ? 9 : 4} fill={isSelected ? theme.warning : colors.fill} stroke={colors.stroke} strokeWidth={quality === 'map' || quality === 'weak' ? 2 : 1.5} />;
             }))}
             {affectedWaypoints.map((point, index) => {
               const at = layerPoint(point);

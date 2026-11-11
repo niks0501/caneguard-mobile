@@ -101,10 +101,14 @@ tests. "Implemented" does not mean "verified on a device":
   counted once, and unfinished affected points checkpointed with the draft so
   Submit stays blocked until they are finished or cleared. A finished area that
   a shrunken plot left outside stays repairable point by point, but Submit
-  keeps refusing until every area is inside again. Each captured boundary point
-  keeps the best reading from its own bounded GPS sample and is coloured by
-  that reading's quality, while a point moved or inserted by hand is recorded
-  as placed on the map with no GPS accuracy. Every point is kept as measurement
+  keeps refusing until every area is inside again. Each point captured with the
+  tap button keeps the best reading from its own bounded GPS sample and is
+  coloured by that reading's quality, while a point moved or inserted by hand is
+  recorded as placed on the map with no GPS accuracy. **Walk the edge** drops
+  boundary points automatically while the inspector walks the plot edge or an
+  affected-area edge, as described under
+  [Location behaviour](#location-behaviour); walked points are edited, undone
+  and removed like any other. Every point is kept as measurement
   provenance, and a completed plot shows a **Boundary Quality** panel with plot
   area, boundary point count, affected area, and one GPS state: **Drawn on
   map** when every point was placed on the map, otherwise **Good** when every
@@ -152,9 +156,15 @@ not proven by unit tests:
 
 ## Location behaviour
 
-- Foreground GPS is the primary source. One bounded foreground capture samples
-  readings for up to 15 seconds (8 seconds for a boundary survey point), keeps
-  the most accurate one and stops early once a reading reaches the 5 m target.
+- Foreground GPS is the primary source. A tap capture samples readings for up to
+  15 seconds (8 seconds for a boundary survey point), keeps the most accurate
+  one and stops early once a reading reaches the 5 m target.
+- **Walk the edge** on a boundary survey — for the plot boundary or while
+  drawing an affected area — watches foreground fixes instead of taking one
+  bounded sample: a reading whose reported accuracy is 10 m or better becomes a
+  point once the walker is about 8 m from the previous point. Walking stops on
+  its own when the app leaves the foreground, the boundary being edited changes,
+  the draft is saved, or GPS stops reporting; points already added stay.
 - In a Field Report Draft, a reading that saved final coordinates always reads
   as **Location added** with its device-reported accuracy, including one worse
   than the 5 m target; that worse-than-target fix also offers a one-tap **Try for

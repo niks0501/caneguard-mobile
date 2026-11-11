@@ -109,6 +109,22 @@ describe('buildNeedsAttention', () => {
     expect(summary.items[0].meta).toBe('Not on this phone: open on the web');
   });
 
+  it('presents office wording with the approved visit names', () => {
+    const summary = build({
+      notifications: [
+        notification({
+          title: 'Field validation assigned',
+          message: 'CG-2026-0001 was assigned to you for a field visit by 2026-08-20.',
+        }),
+      ],
+    });
+
+    expect(summary.items[0].title).toBe('Visit assigned');
+    expect(summary.items[0].message).toBe(
+      'CG-2026-0001 was assigned to you for a visit by 2026-08-20.',
+    );
+  });
+
   it('uses the resolved destination meta for an actionable update', () => {
     const summary = build({
       destinations: new Map([

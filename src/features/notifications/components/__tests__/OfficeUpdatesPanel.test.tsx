@@ -86,6 +86,34 @@ describe('OfficeUpdatesPanel', () => {
     expect(props.onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('presents office wording with the approved visit names', async () => {
+    const legacy = {
+      ...NOTIFICATION,
+      message: 'CG-2026-0001 was assigned to you for a field visit by 2026-08-20.',
+      title: 'Field validation assigned',
+    };
+
+    await renderPanel({ notifications: [legacy] });
+
+    expect(screen.getByText('Visit assigned')).toBeOnTheScreen();
+    expect(
+      screen.getByText('CG-2026-0001 was assigned to you for a visit by 2026-08-20.'),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText(
+        'Visit assigned: CG-2026-0001 was assigned to you for a visit by 2026-08-20.',
+      ),
+    ).toBeOnTheScreen();
+  });
+
+  it('names visits in the empty state', async () => {
+    await renderPanel({ notifications: [], unreadCount: 0 });
+
+    expect(
+      screen.getByText('Office review results and visits appear here after a refresh.'),
+    ).toBeOnTheScreen();
+  });
+
   it('hands a tapped update and mark-all-read to the panel owner', async () => {
     const { props } = await renderPanel();
 

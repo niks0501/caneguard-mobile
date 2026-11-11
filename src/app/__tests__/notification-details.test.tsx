@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react-native';
 import { useLocalSearchParams } from 'expo-router';
 
 import NotificationDetailsScreen from '@/app/notification-details';
+import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
 import { useNotificationDestinations } from '@/features/notifications/hooks/useNotificationDestinations';
 
@@ -44,25 +45,37 @@ const NOTIFICATION = {
   cachedAt: '2026-08-13T12:05:00.000Z',
 };
 
+const LEGACY_NOTIFICATION: MobileNotification = {
+  ...NOTIFICATION,
+  advisory: null,
+  content: null,
+  title: 'Field validation assigned',
+  message: 'CG-2026-0001 was assigned to you for a field visit by 2026-08-20.',
+};
+
+function notificationState(notifications: MobileNotification[]) {
+  return {
+    capabilityUnavailable: false,
+    errorMessage: null,
+    lastSuccessfulAt: null,
+    markAllRead: jest.fn(async () => undefined),
+    markRead,
+    notifications,
+    partial: false,
+    readActionError: null,
+    refreshing: false,
+    refresh: jest.fn(async () => true),
+    sessionKey: 'session-1',
+    unreadCount: notifications.length,
+  };
+}
+
 describe('NotificationDetailsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseNotificationDestinations.mockReturnValue(new Map());
     mockParams.mockReturnValue({ id: NOTIFICATION.id });
-    mockUseMobileNotifications.mockReturnValue({
-      capabilityUnavailable: false,
-      errorMessage: null,
-      lastSuccessfulAt: null,
-      markAllRead: jest.fn(async () => undefined),
-      markRead,
-      notifications: [NOTIFICATION],
-      partial: false,
-      readActionError: null,
-      refreshing: false,
-      refresh: jest.fn(async () => true),
-      sessionKey: 'session-1',
-      unreadCount: 1,
-    });
+    mockUseMobileNotifications.mockReturnValue(notificationState([NOTIFICATION]));
   });
 
   it('renders the cached advisory title and body', async () => {
@@ -76,6 +89,20 @@ describe('NotificationDetailsScreen', () => {
       'Inspect the affected leaves and capture clear evidence during the visit.',
     );
     expect(screen.getByText('Follow the office guidance during your next visit.')).toBeOnTheScreen();
+  });
+
+  it('presents a legacy office update with the approved visit names', async () => {
+    mockParams.mockReturnValue({ id: LEGACY_NOTIFICATION.id });
+    mockUseMobileNotifications.mockReturnValue(notificationState([LEGACY_NOTIFICATION]));
+
+    await render(<NotificationDetailsScreen />);
+
+    expect(screen.getByTestId('notification.details.title')).toHaveTextContent(
+      'Visit assigned',
+    );
+    expect(screen.getByTestId('notification.details.body')).toHaveTextContent(
+      'CG-2026-0001 was assigned to you for a visit by 2026-08-20.',
+    );
   });
 
   // Intent: a detail view for a case that is not on this phone still states why it cannot open.

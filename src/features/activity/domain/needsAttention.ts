@@ -1,4 +1,9 @@
-import { NAMING, OFFICE_UPDATE_NOT_ON_PHONE, UNFINISHED_COPY } from '@/constants/copy';
+import {
+  NAMING,
+  OFFICE_UPDATE_NOT_ON_PHONE,
+  UNFINISHED_COPY,
+  visitTerminology,
+} from '@/constants/copy';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import {
   assignmentDueMeta,
@@ -182,12 +187,12 @@ function unreadNotificationItems(input: {
         destination,
         id: `notification-${notification.id}`,
         kind: 'notification' as const,
-        message: notification.message,
+        message: visitTerminology(notification.message),
         meta:
           destination.kind === 'unavailable'
             ? OFFICE_UPDATE_NOT_ON_PHONE
             : notification.referenceCode ?? 'Case activity',
-        title: notification.title,
+        title: visitTerminology(notification.title),
         tone: 'whisper' as const,
       };
     });

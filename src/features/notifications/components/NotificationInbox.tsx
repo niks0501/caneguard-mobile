@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { OFFICE_UPDATE_NOT_ON_PHONE } from '@/constants/copy';
+import { NAMING, OFFICE_UPDATE_NOT_ON_PHONE, visitTerminology } from '@/constants/copy';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
 import { Radius, Spacing, Typography } from '@/constants/theme';
@@ -99,7 +99,7 @@ export function NotificationInbox({
 
       {recent.length === 0 ? (
         <Text style={[styles.empty, { color: theme.textSecondary }]}>
-          Office review results and assignments appear here after a refresh.
+          Office review results and {NAMING.visits.toLowerCase()} appear here after a refresh.
         </Text>
       ) : (
         <View>
@@ -135,6 +135,8 @@ const NotificationRow = memo(function NotificationRow({
   onPress: (notification: MobileNotification) => void;
 }) {
   const theme = useTheme();
+  const title = visitTerminology(notification.title);
+  const message = visitTerminology(notification.message);
   const actionable =
     Boolean(notification.content || notification.advisory) ||
     (destination !== undefined && destination.kind !== 'unavailable');
@@ -143,7 +145,7 @@ const NotificationRow = memo(function NotificationRow({
     <Pressable
       testID={`activity.notification.${notification.id}`}
       accessibilityRole={actionable ? 'button' : 'text'}
-      accessibilityLabel={`${notification.title}: ${notification.message}`}
+      accessibilityLabel={`${title}: ${message}`}
       onPress={() => onPress(notification)}
       style={({ pressed }) => [
         styles.item,
@@ -162,14 +164,14 @@ const NotificationRow = memo(function NotificationRow({
       <View style={styles.itemCopy}>
         <View style={styles.itemTitleRow}>
           <Text style={[styles.itemTitle, { color: theme.primaryDark }]}>
-            {notification.title}
+            {title}
           </Text>
           {!notification.isRead ? (
             <Text style={[styles.unread, { color: theme.primary }]}>Unread</Text>
           ) : null}
         </View>
         <Text style={[styles.itemMessage, { color: theme.textSecondary }]}>
-          {notification.message}
+          {message}
         </Text>
         <Text style={[styles.meta, { color: theme.textSecondary }]}>
           {destination?.kind === 'unavailable'

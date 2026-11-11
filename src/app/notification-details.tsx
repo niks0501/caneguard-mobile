@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
-import { OFFICE_UPDATE_NOT_ON_PHONE } from '@/constants/copy';
+import { OFFICE_UPDATE_NOT_ON_PHONE, visitTerminology } from '@/constants/copy';
 import {
   ComponentTokens,
   Layout,
@@ -34,11 +34,14 @@ export default function NotificationDetailsScreen() {
   const destination = notification ? destinations.get(notification.id) : undefined;
 
   const route = destination ? notificationDestinationRoute(destination) : null;
-  const advisoryTitle = notification?.advisory?.title ?? notification?.title ?? null;
-  const advisoryBody = notification?.advisory?.content
-    ?? notification?.content
-    ?? notification?.message
-    ?? null;
+  const advisoryTitle = notification
+    ? visitTerminology(notification.advisory?.title ?? notification.title)
+    : null;
+  const advisoryBody = notification
+    ? visitTerminology(
+        notification.advisory?.content ?? notification.content ?? notification.message,
+      )
+    : null;
 
   return (
     <SafeAreaView
@@ -76,7 +79,7 @@ export default function NotificationDetailsScreen() {
                   <View style={[styles.context, { borderTopColor: theme.divider }]}>
                     <Text style={[styles.contextLabel, { color: theme.textSecondary }]}>Office message</Text>
                     <Text style={[styles.contextBody, { color: theme.textSecondary }]}>
-                      {notification.content}
+                      {visitTerminology(notification.content)}
                     </Text>
                   </View>
                 ) : null}

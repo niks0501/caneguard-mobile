@@ -18,6 +18,20 @@ export const NAMING = {
   plots: 'Plots',
 } as const;
 
+const LEGACY_VISIT_NAME = /\bfield (?:validation|visits?)\b/gi;
+
+/**
+ * The office still words some updates with the old visit names. Presentation
+ * rewrites them into the approved word list; the cached update keeps the office
+ * wording.
+ */
+export function visitTerminology(text: string): string {
+  return text.replace(LEGACY_VISIT_NAME, (match) => {
+    const word = match.toLowerCase().endsWith('s') ? NAMING.visits : NAMING.visit;
+    return match[0] === match[0].toUpperCase() ? word : word.toLowerCase();
+  });
+}
+
 export const DECISION_SUPPORT_DISCLAIMER =
   'This result is for decision support only. It does not confirm a disease.';
 

@@ -32,8 +32,9 @@ const NO_SNAPSHOT: OwnedPhoneCompletionSnapshot = {
 /**
  * The visit saved on this phone for each assignment, keyed by assignment id,
  * with the freshness of that answer. Reloads on focus and whenever local
- * records change; a failed read keeps the known visits for display but is no
- * longer current.
+ * records change. The answer stops being current while a read is running, after
+ * a failed read, and as soon as the screen loses focus, so a caller that
+ * decides what work is still owed never reads a stale answer.
  */
 export function usePhoneCompletionSnapshot(): PhoneCompletionSnapshot {
   const database = useCaneGuardDatabase();
@@ -46,13 +47,16 @@ export function usePhoneCompletionSnapshot(): PhoneCompletionSnapshot {
       if (!ownerIdentity || !database || database === EMPTY_DATABASE) return;
       let active = true;
       let latestRead = 0;
-      const load = () => {
-        const read = ++latestRead;
+      const invalidate = () => {
         setSnapshot((previous) => ({
           ownerIdentity,
           ready: false,
           states: previous.ownerIdentity === ownerIdentity ? previous.states : NO_STATES,
         }));
+      };
+      const load = () => {
+        const read = ++latestRead;
+        invalidate();
         listFieldValidationCompletionSummaries(database, ownerIdentity)
           .then((rows) => {
             if (!active || read !== latestRead) return;
@@ -69,11 +73,7 @@ export function usePhoneCompletionSnapshot(): PhoneCompletionSnapshot {
           })
           .catch(() => {
             if (!active || read !== latestRead) return;
-            setSnapshot((previous) => ({
-              ownerIdentity,
-              ready: false,
-              states: previous.ownerIdentity === ownerIdentity ? previous.states : NO_STATES,
-            }));
+            invalidate();
           });
       };
       load();
@@ -81,6 +81,7 @@ export function usePhoneCompletionSnapshot(): PhoneCompletionSnapshot {
       return () => {
         active = false;
         unsubscribe();
+        invalidate();
       };
     }, [database, ownerIdentity]),
   );

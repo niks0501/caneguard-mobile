@@ -12,6 +12,25 @@ const OTHER_OWNER_ID = 'b4e2f8c6-70da-4a13-9f27-6c9c6ee7c6d4';
 
 let currentSession: { user: { uuid: string } } | null = { user: { uuid: OWNER_ID } };
 
+const mockFocusCleanup: { current: (() => void) | null } = { current: null };
+
+jest.mock('expo-router', () => {
+  const mockReact = jest.requireActual('react') as typeof import('react');
+  return {
+    useFocusEffect: (callback: () => void | (() => void)) => {
+      mockReact.useEffect(() => {
+        const cleanup = callback();
+        const handler = typeof cleanup === 'function' ? cleanup : () => {};
+        mockFocusCleanup.current = handler;
+        return () => {
+          handler();
+          if (mockFocusCleanup.current === handler) mockFocusCleanup.current = null;
+        };
+      }, [callback]);
+    },
+  };
+});
+
 jest.mock('@/database/DatabaseProvider', () => ({
   EMPTY_DATABASE: { name: 'empty-database' },
   useCaneGuardDatabase: () => mockDatabase,
@@ -251,6 +270,29 @@ describe('usePhoneCompletionStates', () => {
       expect(mockSummaries).toHaveBeenCalledWith(mockDatabase, OWNER_ID),
     );
     expect(result.current.size).toBe(0);
+  });
+
+  it('drops its current answer as soon as the screen loses focus', async () => {
+    mockSummaries.mockResolvedValue([
+      {
+        assignmentId: 'assignment-waiting',
+        syncStatus: 'pending',
+        visitedAt: '2026-09-02T04:06:06.123Z',
+      },
+    ]);
+
+    const { result } = await renderHook(() => usePhoneCompletionSnapshot(), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.ready).toBe(true));
+
+    await act(async () => {
+      mockFocusCleanup.current?.();
+    });
+
+    expect(result.current.ready).toBe(false);
+    expect(result.current.states.get('assignment-waiting')).toBe('waiting');
   });
 
   it('reports the saved visits as current only after the read resolves', async () => {

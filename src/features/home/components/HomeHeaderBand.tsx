@@ -2,8 +2,9 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { HOME_NOTE_COPY } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
+import { getLocalDateKey } from '@/features/assignments/domain/todayVisits';
 import { useTheme } from '@/hooks/use-theme';
-import { formatDate } from '@/lib/formatters';
+import { formatDateKey } from '@/lib/formatters';
 
 export function greetingFor(now: Date): string {
   const hour = now.getHours();
@@ -36,7 +37,7 @@ export function HomeHeaderBand({ isOffline, name, now }: HomeHeaderBandProps) {
           {greeting}
         </Text>
         <Text style={[styles.date, { color: theme.textSecondary }]} testID="home.date">
-          {formatDate(now)}
+          {formatDateKey(getLocalDateKey(now))}
         </Text>
       </View>
       {isOffline ? (

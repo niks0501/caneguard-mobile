@@ -108,7 +108,8 @@ tests. "Implemented" does not mean "verified on a device":
   linked boundary is no longer saved on the phone.
 - **My boundaries** (authoring needs the `report:submit` capability): every
   boundary saved on this phone, newest first, each row showing its district and
-  hectares and one state with a one-line what-to-do hint — **Draft**, **Waiting
+  its measured hectares when the saved points measure (otherwise what is
+  missing) and one state with a one-line what-to-do hint — **Draft**, **Waiting
   to send**, **Sending**, **Sent**, **Will retry**, **Needs a fix**, **Start
   again** (the office refused the identity, or the saved boundary is damaged on
   this phone), and **Not sent**. Draft and needs-a-fix boundaries reopen for

@@ -83,13 +83,31 @@ describe('planAttachedBoundarySend', () => {
     expect(planAttachedBoundarySend(input).status).toBe('on_its_way');
   });
 
-  // Intent (send-together): the report cannot go without its boundary, so a boundary the
-  // office will never receive blocks the report instead of being skipped.
+  it('queues a legacy boundary whose affected-area columns were never written', () => {
+    const plan = planAttachedBoundarySend(
+      row({
+        activeAffectedWaypointsJson: null,
+        affectedAreaPolygonsJson: null,
+        affectedAreaWaypointsJson: null,
+      }),
+    );
+
+    expect(plan.status).toBe('queue');
+  });
+
+  // Intent (send-together): the office must receive the boundary the inspector drew,
+  // so damaged saved fields block the report instead of being replaced with nothing.
   const blocked: [string, AttachedBoundaryInput][] = [
     ['no district', row({ districtCode: 'UNSPECIFIED' })],
     ['blank district', row({ districtCode: '   ' })],
     ['too few points', row({ waypointsJson: JSON.stringify(plot.slice(0, 2)) })],
     ['broken storage', row({ waypointsJson: 'not json' })],
+    ['damaged affected areas', row({ affectedAreaPolygonsJson: '{"areas":[]}' })],
+    ['damaged affected-area capture points', row({
+      affectedAreaPolygonsJson: JSON.stringify([affectedShape]),
+      affectedAreaWaypointsJson: 'not json',
+    })],
+    ['damaged unfinished affected area', row({ activeAffectedWaypointsJson: '{"active":true}' })],
     ['unfinished affected area', row({ activeAffectedWaypointsJson: JSON.stringify([point(14, 120)]) })],
     ['affected area outside the plot', row({ affectedAreaPolygonsJson: JSON.stringify([outsideShape]) })],
     ['identity rejected', row({ status: 'failed', lastSyncErrorCode: 'CLIENT_UUID_CONFLICT' })],

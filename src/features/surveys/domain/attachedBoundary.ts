@@ -44,12 +44,13 @@ export type AttachedBoundarySendPlan =
   | { status: 'on_its_way' }
   | { status: 'queue'; send: AttachedBoundarySend };
 
-function jsonArray(text: string | null): unknown[] {
+function jsonArray(text: string | null): unknown[] | null {
+  if (text === null) return [];
   try {
-    const parsed: unknown = JSON.parse(text ?? '[]');
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed: unknown = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : null;
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -82,11 +83,15 @@ export function planAttachedBoundarySend(
   if (!waypoints) return { status: 'blocked' };
   const plot = validateSurveyWaypoints(waypoints);
   if (!plot.valid) return { status: 'blocked' };
-  const affectedAreas = jsonArray(row.affectedAreaPolygonsJson) as SurveyPolygon[];
+  const affectedAreaJson = jsonArray(row.affectedAreaPolygonsJson);
+  if (affectedAreaJson === null) return { status: 'blocked' };
+  const affectedAreas = affectedAreaJson as SurveyPolygon[];
   const affected = measureAffectedAreas(plot.polygon, affectedAreas);
   if (!affected.valid) return { status: 'blocked' };
+  const affectedAreaWaypointJson = jsonArray(row.affectedAreaWaypointsJson);
+  if (affectedAreaWaypointJson === null) return { status: 'blocked' };
   const affectedAreaWaypoints: SurveyWaypoint[][] = [];
-  for (const set of jsonArray(row.affectedAreaWaypointsJson)) {
+  for (const set of affectedAreaWaypointJson) {
     const points = asWaypoints(set);
     if (!points) return { status: 'blocked' };
     affectedAreaWaypoints.push(points);
@@ -94,7 +99,8 @@ export function planAttachedBoundarySend(
   if (!validateAffectedAreaWaypoints(affectedAreas, affectedAreaWaypoints).valid) {
     return { status: 'blocked' };
   }
-  if (jsonArray(row.activeAffectedWaypointsJson).length > 0) {
+  const activeAffectedWaypoints = jsonArray(row.activeAffectedWaypointsJson);
+  if (activeAffectedWaypoints === null || activeAffectedWaypoints.length > 0) {
     return { status: 'blocked' };
   }
   return {

@@ -478,3 +478,18 @@ describe('mobile authentication API', () => {
     });
   });
 });
+
+// Intent (item 8): the district the server sends on the account becomes districtCode; blank or missing leaves it out.
+describe('parseMobileUser district', () => {
+  const base = { uuid: 'user-1', name: 'Ines', email: 'ines@example.test', role: 'field_reporter' };
+  it.each([
+    ['a district', { district_code: ' D-01 ' }, 'D-01'],
+    ['a blank district', { district_code: '  ' }, undefined],
+    ['a null district', { district_code: null }, undefined],
+    ['no district', {}, undefined],
+  ])('reads %s', (_name, extra, expected) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { parseMobileUser } = require('../mobileAuthApi');
+    expect(parseMobileUser({ ...base, ...extra }).districtCode).toBe(expected);
+  });
+});

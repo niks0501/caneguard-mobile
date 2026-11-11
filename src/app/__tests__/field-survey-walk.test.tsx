@@ -10,13 +10,20 @@ import type { WalkFix } from '@/features/surveys/domain/walkMode';
 import { expoWalkLocationClient } from '@/features/surveys/services/expoWalkLocationClient';
 import { renderWithGestures } from '../../../test/render-with-gestures';
 
+// The map is full height; affected areas, GPS capture and the point lists sit behind More.
+async function renderOpen() {
+  const view = await renderWithGestures(<FieldSurveyScreen />);
+  await fireEvent.press(screen.getByTestId('field-survey.more'));
+  return view;
+}
+
 jest.mock('expo-crypto', () => ({ randomUUID: () => '3f1de2d8-2ca9-4c26-9e37-2f4c5f6f7a10' }));
 jest.mock('@/database/DatabaseProvider', () => {
   const database = {};
   return { EMPTY_DATABASE: null, useDatabaseState: () => ({ database, ready: true }) };
 });
 jest.mock('@/features/auth/hooks/useAuth', () => ({
-  useAuth: () => ({ session: { token: 't', user: { capabilities: ['report:submit'], role: 'field_reporter', uuid: 'owner-1' } } }),
+  useAuth: () => ({ session: { token: 't', user: { capabilities: ['report:submit'], districtCode: 'D9', role: 'field_reporter', uuid: 'owner-1' } } }),
 }));
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({ isOnline: true, syncNow: jest.fn(async () => ({ results: [] })) }),
@@ -118,7 +125,7 @@ it('adds boundary points while walking, without a button press per point, and st
   let emit: (fix: WalkFix) => void = () => undefined;
   watch.mockImplementation(async (onFix) => { emit = onFix; return { remove }; });
 
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
 
@@ -143,7 +150,7 @@ it('removes a subscription that arrives after the walk was stopped while still s
   const starting = deferred<{ remove(): void }>();
   watch.mockImplementation(() => starting.promise);
 
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
   await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.walkStop)); });
   await act(async () => { starting.resolve({ remove }); });
@@ -159,7 +166,7 @@ it('removes a subscription that arrives after the screen closed while still star
   const starting = deferred<{ remove(): void }>();
   watch.mockImplementation(() => starting.promise);
 
-  const view = await renderWithGestures(<FieldSurveyScreen />);
+  const view = await renderOpen();
   await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
   view.unmount();
   // Resolve outside act(): the screen is already closed, so waiting for the late
@@ -175,7 +182,7 @@ it('stops walking before a new boundary replaces the draft being walked', async 
   let emit: (fix: WalkFix) => void = () => undefined;
   watch.mockImplementation(async (onFix) => { emit = onFix; return { remove }; });
 
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.newSurvey)).toBeTruthy());
   await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
@@ -195,7 +202,7 @@ it('measures walk spacing from the boundary after undo removes the last point', 
   let emit: (fix: WalkFix) => void = () => undefined;
   watch.mockImplementation(async (onFix) => { emit = onFix; return { remove }; });
 
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.newSurvey)).toBeTruthy());
   await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
@@ -219,7 +226,7 @@ it('stops walking before finishing an affected area starts another one', async (
   let emit: (fix: WalkFix) => void = () => undefined;
   watch.mockImplementation(async (onFix) => { emit = onFix; return { remove }; });
 
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.finishAffectedArea)).toBeTruthy());
   await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
@@ -231,4 +238,18 @@ it('stops walking before finishing an affected area starts another one', async (
   expect(remove).toHaveBeenCalledTimes(1);
   expect(lastDraftAffectedWaypoints()).toHaveLength(1);
   expect(lastDraftActiveAffectedWaypoints()).toHaveLength(0);
+});
+
+// Intent (item 8): the Walk / Tap switch is one choice; picking Tap corners stops a walk in progress.
+it('stops walking when Tap corners is chosen', async () => {
+  const remove = jest.fn();
+  watch.mockImplementation(async () => ({ remove }));
+
+  await renderOpen();
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.tap')); });
+  expect(remove).toHaveBeenCalledTimes(1);
+  expect(screen.getByText(FIELD_SURVEY_COPY.walkStart)).toBeTruthy();
 });

@@ -90,14 +90,15 @@ const AttentionRow = memo(function AttentionRow({
 }) {
   const theme = useTheme();
   const actionable = isActionableAttentionItem(item);
-  const supporting = item.place ? item.referenceCode : item.meta;
+  const isDraft = item.kind === 'draft';
+  const supporting = isDraft ? item.place : item.place ? item.referenceCode : item.meta;
   // The one meta line carries the tone: ordinary work whispers, an overdue visit
   // or an unsent report is a note.
   const metaColor = theme[SYNC_TONE_COLOR[item.tone ?? 'whisper']];
 
   return (
     <Pressable
-      accessibilityLabel={`${item.title}. ${item.message}. ${item.meta}`}
+      accessibilityLabel={isDraft ? `${item.title}. ${item.meta}` : `${item.title}. ${item.message}. ${item.meta}`}
       accessibilityRole={actionable ? 'button' : 'text'}
       accessibilityState={{ disabled: !actionable }}
       disabled={!actionable}
@@ -110,13 +111,13 @@ const AttentionRow = memo(function AttentionRow({
       ]}>
       <View style={styles.copy}>
         <Text numberOfLines={2} style={[styles.lead, { color: theme.text }]}>
-          {item.place ?? item.title}
+          {isDraft ? item.title : item.place ?? item.title}
         </Text>
-        <Text numberOfLines={2} style={[styles.detail, { color: item.place ? metaColor : theme.textSecondary }]}>
-          {item.place ? item.meta : item.message}
+        <Text numberOfLines={2} style={[styles.detail, { color: item.place || isDraft ? metaColor : theme.textSecondary }]}>
+          {isDraft ? item.meta : item.place ? item.meta : item.message}
         </Text>
         {supporting ? (
-          <Text numberOfLines={2} style={[styles.supporting, { color: item.place ? theme.textSecondary : metaColor }]}>
+          <Text numberOfLines={2} style={[styles.supporting, { color: item.place || isDraft ? theme.textSecondary : metaColor }]}>
             {supporting}
           </Text>
         ) : null}

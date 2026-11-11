@@ -103,3 +103,25 @@ describe('HomeAttentionCard', () => {
     expect(onOpenItem).toHaveBeenCalledWith(item);
   });
 });
+
+describe('unfinished draft rows', () => {
+  it('names the draft "Not finished" and opens the resume destination on one tap', async () => {
+    const draft: NeedsAttentionItem = {
+      destination: { kind: 'field_report', scanRecordId: 'scan-1' },
+      id: 'draft-report-scan-1',
+      kind: 'draft',
+      message: 'Not finished',
+      meta: 'Not finished · saved on this device',
+      place: 'Lumbangan',
+      title: 'Finish your field report',
+    };
+    const onOpenItem = jest.fn();
+    const view = await renderCard([draft], onOpenItem);
+
+    expect(view.getByText('Finish your field report')).toBeTruthy();
+    expect(view.getByText('Not finished · saved on this device')).toBeTruthy();
+    await fireEvent.press(view.getByTestId('home.attention.draft-report-scan-1'));
+    expect(onOpenItem).toHaveBeenCalledWith(draft);
+  });
+});
+

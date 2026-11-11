@@ -21,6 +21,7 @@ import {
   describeRefreshAllResult,
   type RefreshAllTarget,
 } from '@/features/activity/domain/refreshAll';
+import { useUnfinishedDrafts } from '@/features/activity/hooks/useUnfinishedDrafts';
 import { useRefreshAll } from '@/features/activity/hooks/useRefreshAll';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import { RecordCard } from '@/components/ui/RecordCard';
@@ -106,6 +107,11 @@ function InspectorActivityScreen() {
   const authorityStatus = useAuthorityReviewStatus(activeFilter !== 'assignments');
   const assignments = useFieldValidationAssignments();
   const phoneCompletionStates = usePhoneCompletionStates();
+  const unfinishedDrafts = useUnfinishedDrafts();
+  const unfinishedVisitIds = useMemo(
+    () => new Set(unfinishedDrafts.filter((draft) => draft.kind === 'visit').map((draft) => draft.id)),
+    [unfinishedDrafts],
+  );
   const notifications = useMobileNotifications();
   const { isOpen: officeUpdatesOpen, open: openOfficeUpdates } = useOfficeUpdates();
   const sync = useSync();
@@ -187,6 +193,7 @@ function InspectorActivityScreen() {
             testID={`activity.assignment.${item.assignment.id}`}
             assignment={item.assignment}
             phoneCompletion={phoneCompletionStates.get(item.assignment.id)}
+            unfinished={unfinishedVisitIds.has(item.assignment.id)}
             onPress={() =>
               router.push({
                 pathname: '/field-validation',
@@ -213,7 +220,7 @@ function InspectorActivityScreen() {
         )}
       </View>
     ),
-    [latestVisibleRecordId, phoneCompletionStates],
+    [latestVisibleRecordId, phoneCompletionStates, unfinishedVisitIds],
   );
 
   const submitSearch = () => {

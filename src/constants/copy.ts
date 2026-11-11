@@ -35,6 +35,17 @@ export const LOCATION_UNCONFIRMED = 'Location could not be confirmed';
 
 export const PERSONAL_SCAN_LOCAL_STATUS = 'On this device · not sent';
 
+/** Unfinished report, visit and plot drafts: found on Home, resumed in one tap, never sent until finished. */
+export const UNFINISHED_COPY = {
+  label: 'Not finished',
+  meta: 'Not finished · saved on this device',
+  reportTitle: 'Field report',
+  reportLead: 'Finish your field report',
+  visitLead: (referenceCode: string) => `Finish your visit for ${referenceCode}`,
+  plotLead: 'Finish your plot boundary',
+  resume: 'Resume',
+} as const;
+
 export const FIELD_VALIDATION_UNAVAILABLE =
   'Field validation needs an active inspector assignment to the pilot district. Ask your office to check your account.';
 

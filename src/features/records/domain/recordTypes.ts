@@ -30,6 +30,8 @@ export interface ScanRecordListItem {
   confidence: number;
   createdAt: string;
   hasFieldReport?: boolean;
+  /** The linked Field Report is still an unfinished draft on this device. */
+  reportDraft?: boolean;
   id: string;
   managedImageUri: string;
   predictedLabel: string;

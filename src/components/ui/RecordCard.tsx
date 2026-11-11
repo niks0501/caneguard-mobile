@@ -3,7 +3,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { PERSONAL_SCAN_LOCAL_STATUS, UNRECOGNIZED_LABEL_TEXT } from '@/constants/copy';
+import { PERSONAL_SCAN_LOCAL_STATUS, UNFINISHED_COPY, UNRECOGNIZED_LABEL_TEXT } from '@/constants/copy';
 import {
   ComponentTokens,
   Radius,
@@ -44,7 +44,9 @@ export function RecordCard({ activityType, onPress, record, scanState, testID }:
   const thumbnailUri =
     managedDisplayImageUriIfPresent(record.managedImageUri) ?? record.managedImageUri;
   const savedAt = formatSavedAt(record.createdAt);
-  const syncPresentation = getSyncPresentation(record.syncStatus);
+  const syncPresentation = record.reportDraft
+    ? { color: SYNC_TONE_COLOR.whisper, icon: 'edit-3' as const, label: UNFINISHED_COPY.label }
+    : getSyncPresentation(record.syncStatus);
   const itemLabel = activityType ?? 'record';
 
   return (

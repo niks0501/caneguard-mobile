@@ -1,4 +1,4 @@
-import { OFFICE_UPDATE_NOT_ON_PHONE } from '@/constants/copy';
+import { OFFICE_UPDATE_NOT_ON_PHONE, UNFINISHED_COPY } from '@/constants/copy';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import {
   assignmentDueMeta,
@@ -11,7 +11,19 @@ import type { MobileNotification } from '@/features/notifications/domain/notific
 import { UPLOAD_FAILED_META, type SyncTone } from '@/features/sync/utils/syncStatusCopy';
 import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
 
-export type NeedsAttentionKind = 'assignment' | 'notification' | 'upload';
+export type NeedsAttentionKind = 'assignment' | 'draft' | 'notification' | 'upload';
+
+/**
+ * A report, visit or plot the inspector started on this phone and has not
+ * finished. `id` is the key the resume route needs: the scan record id for a
+ * report, the assignment id for a visit, the boundary client id for a plot.
+ */
+export interface UnfinishedDraft {
+  id: string;
+  kind: 'report' | 'visit' | 'plot';
+  place: string | null;
+  updatedAt: string;
+}
 
 export interface NeedsAttentionItem {
   /** Visit urgency, set on assignment items only. */
@@ -70,6 +82,7 @@ export function firstActionableAttentionItem(
 export function buildNeedsAttention(input: {
   assignments: FieldValidationAssignment[];
   destinations: Map<string, NotificationDestination>;
+  drafts?: UnfinishedDraft[];
   notifications: MobileNotification[];
   pendingUploadCount: number;
   pendingReportsCount?: number;
@@ -78,6 +91,7 @@ export function buildNeedsAttention(input: {
   today: string;
 }): NeedsAttentionSummary {
   const items: NeedsAttentionItem[] = [
+    ...draftItems(input),
     ...unreadNotificationItems(input),
     ...assignmentItems(input),
     ...uploadItems(input),
@@ -88,6 +102,60 @@ export function buildNeedsAttention(input: {
     total: items.length,
     hiddenCount: Math.max(items.length - NEEDS_ATTENTION_ROW_LIMIT, 0),
   };
+}
+
+/**
+ * Unfinished drafts lead the list: they are the only work that exists solely on
+ * this phone. A visit draft is listed only while its assignment is still active
+ * here, so a visit already completed or removed never reappears as unfinished.
+ */
+function draftItems(input: {
+  assignments: FieldValidationAssignment[];
+  drafts?: UnfinishedDraft[];
+}): NeedsAttentionItem[] {
+  const activeById = new Map(
+    input.assignments
+      .filter((assignment) => isActiveFieldValidationAssignment(assignment))
+      .map((assignment) => [assignment.id, assignment]),
+  );
+  return [...(input.drafts ?? [])]
+    .sort(
+      (first, second) =>
+        Date.parse(second.updatedAt) - Date.parse(first.updatedAt) || second.id.localeCompare(first.id),
+    )
+    .flatMap((draft): NeedsAttentionItem[] => {
+      const base = {
+        id: `draft-${draft.kind}-${draft.id}`,
+        kind: 'draft' as const,
+        message: UNFINISHED_COPY.label,
+        meta: UNFINISHED_COPY.meta,
+        tone: 'whisper' as const,
+      };
+      if (draft.kind === 'report') {
+        return [{
+          ...base,
+          destination: { kind: 'field_report', scanRecordId: draft.id },
+          place: draft.place ?? undefined,
+          title: UNFINISHED_COPY.reportLead,
+        }];
+      }
+      if (draft.kind === 'visit') {
+        const assignment = activeById.get(draft.id);
+        if (!assignment) return [];
+        return [{
+          ...base,
+          destination: { kind: 'assignment', assignmentId: assignment.id },
+          place: assignment.case.barangay,
+          referenceCode: assignment.referenceCode,
+          title: UNFINISHED_COPY.visitLead(assignment.referenceCode),
+        }];
+      }
+      return [{
+        ...base,
+        destination: { kind: 'field_survey', surveyId: draft.id },
+        title: UNFINISHED_COPY.plotLead,
+      }];
+    });
 }
 
 function unreadNotificationItems(input: {

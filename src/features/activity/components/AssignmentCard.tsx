@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DiseasePill, type DiseasePillVariant } from '@/components/ui/DiseasePill';
-import { ASSIGNMENT_PHOTO_PLACEHOLDER, UNRECOGNIZED_LABEL_TEXT } from '@/constants/copy';
+import { ASSIGNMENT_PHOTO_PLACEHOLDER, UNFINISHED_COPY, UNRECOGNIZED_LABEL_TEXT } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useAssignmentPhotoUri } from '@/features/activity/hooks/useAssignmentPhoto';
 import {
@@ -24,6 +24,7 @@ import { formatDateKey } from '@/lib/formatters';
 export function AssignmentCard({
   assignment,
   dueState,
+  unfinished,
   onPress,
   phoneCompletion,
   testID,
@@ -31,6 +32,8 @@ export function AssignmentCard({
 }: {
   assignment: FieldValidationAssignment;
   dueState?: TodayVisitBucket;
+  /** A visit draft is saved on this phone and not finished. */
+  unfinished?: boolean;
   /**
    * The visit saved on this phone, shown over the server assignment until the
    * server reports the visit completed.
@@ -50,10 +53,10 @@ export function AssignmentCard({
   const dueLine = dueState
     ? formatTodayDueLine(assignment, today ?? getLocalDateKey())
     : target;
-  const progress = progressLabel(
-    assignment.fieldValidationState,
-    phoneCompletion,
-  );
+  const progress =
+    unfinished && !phoneCompletion && assignment.fieldValidationState !== 'completed'
+      ? UNFINISHED_COPY.label
+      : progressLabel(assignment.fieldValidationState, phoneCompletion);
 
   return (
     <Pressable

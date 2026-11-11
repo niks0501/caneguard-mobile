@@ -25,6 +25,17 @@ const activeRuns = new WeakMap<CaneGuardDatabase, RunState>();
 
 export function syncPendingFieldSurveys(options: Options): Promise<SyncBatchResult> {
   const ownerIdentity = options.ownerIdentity.trim();
+  if (!options.districtCode.trim()) {
+    return Promise.resolve({
+      attempted: 0,
+      authRequired: false,
+      failed: 0,
+      haltReason: 'transient-blocker',
+      results: [],
+      source: options.source,
+      synced: 0,
+    });
+  }
   let state = activeRuns.get(options.database);
   if (!state) {
     state = { runs: new Map(), tail: Promise.resolve() };

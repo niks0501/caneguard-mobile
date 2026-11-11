@@ -137,6 +137,7 @@ describe('SyncProvider foreground triggers', () => {
     jest.mocked(useAuth).mockReturnValue({
       status: 'authenticated',
       session: { token: 'secure-token', user: { uuid: SUBMITTER_ID, role: 'field_reporter', districtCode: 'D-01' } },
+      sessionVerification: 'verified',
       markSessionExpired: jest.fn(async () => undefined),
     } as never);
     jest.mocked(countUnsyncedFieldReports).mockResolvedValue(1);
@@ -227,6 +228,7 @@ describe('SyncProvider foreground triggers', () => {
         token: 'farmer-token',
         user: { uuid: SUBMITTER_ID, role: 'farmer' },
       },
+      sessionVerification: 'verified',
       markSessionExpired: jest.fn(async () => undefined),
     } as never);
     jest.mocked(countUnsyncedFieldReports).mockResolvedValue(3);
@@ -267,6 +269,7 @@ describe('SyncProvider foreground triggers', () => {
     jest.mocked(useAuth).mockReturnValue({
       status: 'authenticated',
       session: { token: 'farmer-token', user: { uuid: SUBMITTER_ID, role: 'farmer' } },
+      sessionVerification: 'verified',
       markSessionExpired: jest.fn(async () => undefined),
     } as never);
     jest.mocked(hasUnsentInspectorWork).mockResolvedValue(true);
@@ -330,6 +333,7 @@ describe('SyncProvider foreground triggers', () => {
         token: 'secure-token',
         user: { uuid: SUBMITTER_ID, role: 'farmer' },
       },
+      sessionVerification: 'verified',
       markSessionExpired: jest.fn(async () => undefined),
     } as never);
     await view.rerender(
@@ -382,6 +386,7 @@ describe('SyncProvider foreground triggers', () => {
         token: 'secure-token',
         user: { uuid: SUBMITTER_ID, role: 'farmer' },
       },
+      sessionVerification: 'verified',
       markSessionExpired: jest.fn(async () => undefined),
     } as never);
     await view.rerender(
@@ -449,6 +454,59 @@ describe('SyncProvider foreground triggers', () => {
       ),
     );
     expect(syncPendingFieldSurveys).toHaveBeenCalledWith(expect.objectContaining({ source: 'resume' }));
+  });
+
+  // Intent (item 8): a restored session carries the cached district until /me verifies it,
+  // so boundary uploads wait for the verified account district instead of sending the cached one.
+  it('uploads boundaries with the verified account district, not the cached one', async () => {
+    const cachedUser = { uuid: SUBMITTER_ID, role: 'field_reporter' as const, districtCode: 'D-OLD' };
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: { token: 'secure-token', user: cachedUser },
+      sessionVerification: 'pending',
+      markSessionExpired: jest.fn(async () => undefined),
+    } as never);
+
+    const view = await render(
+      <SyncProvider>
+        <Text>Ready</Text>
+      </SyncProvider>,
+    );
+    await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+    await act(() => networkListener(OFFLINE));
+    await act(async () => {
+      networkListener(ONLINE);
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(syncPendingFieldSurveys).toHaveBeenCalledWith(
+        expect.objectContaining({ districtCode: '' }),
+      ),
+    );
+
+    jest.mocked(syncPendingFieldSurveys).mockClear();
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: { token: 'secure-token', user: { ...cachedUser, districtCode: 'D-VERIFIED' } },
+      sessionVerification: 'verified',
+      markSessionExpired: jest.fn(async () => undefined),
+    } as never);
+    await view.rerender(
+      <SyncProvider>
+        <Text>Ready</Text>
+      </SyncProvider>,
+    );
+    await act(async () => {
+      appStateListener('active');
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(syncPendingFieldSurveys).toHaveBeenCalledWith(
+        expect.objectContaining({ districtCode: 'D-VERIFIED', ownerIdentity: SUBMITTER_ID }),
+      ),
+    );
   });
 
   it('tracks API unavailability separately from phone network availability', async () => {
@@ -717,6 +775,7 @@ describe('SyncProvider foreground triggers', () => {
         token: 'first-token',
         user: { uuid: SUBMITTER_ID, role: 'field_reporter' },
       },
+      sessionVerification: 'verified',
       markSessionExpired: markFirstSessionExpired,
     } as never);
     jest.mocked(syncPendingFieldReports).mockReturnValueOnce(
@@ -744,6 +803,7 @@ describe('SyncProvider foreground triggers', () => {
         token: 'second-token',
         user: { uuid: OTHER_SUBMITTER_ID, role: 'field_reporter' },
       },
+      sessionVerification: 'verified',
       markSessionExpired: markSecondSessionExpired,
     } as never);
     await view.rerender(
@@ -808,6 +868,7 @@ describe('SyncProvider foreground triggers', () => {
     jest.mocked(useAuth).mockReturnValue({
       status: 'authenticated',
       session: { token: 'second-token', user: { uuid: OTHER_SUBMITTER_ID, role: 'field_reporter' } },
+      sessionVerification: 'verified',
       markSessionExpired: jest.fn(async () => undefined),
     } as never);
     jest.mocked(resetStaleSyncingFieldReports).mockResolvedValue();

@@ -58,4 +58,20 @@ describe('syncPendingFieldSurveys', () => {
     resolveUpload?.({ status: 'synced', remoteId: 'remote-1' });
     await expect(first).resolves.toMatchObject({ attempted: 1, synced: 1 });
   });
+
+  // Intent (item 8): the account district is required for every boundary upload, so queued
+  // boundaries wait for it (auto-retried) instead of being sent empty and rejected.
+  it('defers every queued boundary upload while the account district is unavailable', async () => {
+    await expect(syncPendingFieldSurveys({ ...options, districtCode: '   ' })).resolves.toEqual({
+      attempted: 0,
+      authRequired: false,
+      failed: 0,
+      haltReason: 'transient-blocker',
+      results: [],
+      source: 'manual',
+      synced: 0,
+    });
+    expect(findFieldSurveySyncCandidates).not.toHaveBeenCalled();
+    expect(syncFieldSurvey).not.toHaveBeenCalled();
+  });
 });

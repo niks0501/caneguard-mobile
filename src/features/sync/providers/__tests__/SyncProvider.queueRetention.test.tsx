@@ -231,6 +231,7 @@ it('keeps queued official records for a farmer session', async () => {
       token: 'farmer-token',
       user: { uuid: OWNER, role: 'farmer' },
     },
+    sessionVerification: 'verified',
     markSessionExpired: jest.fn(async () => undefined),
   } as never);
 
@@ -272,6 +273,7 @@ it('keeps queued official records after an inspector is demoted', async () => {
       token: 'secure-token',
       user: { uuid: OWNER, role: 'field_reporter' },
     },
+    sessionVerification: 'verified',
     markSessionExpired: jest.fn(async () => undefined),
   } as never);
 
@@ -284,6 +286,7 @@ it('keeps queued official records after an inspector is demoted', async () => {
       token: 'secure-token',
       user: { uuid: OWNER, role: 'farmer' },
     },
+    sessionVerification: 'verified',
     markSessionExpired: jest.fn(async () => undefined),
   } as never);
   await view.rerender(

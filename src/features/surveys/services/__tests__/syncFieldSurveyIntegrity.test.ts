@@ -110,6 +110,7 @@ it('refuses to upload a saved boundary whose affected ring was corrupted to lie 
     allowImmediateRetries: false,
     clientUuid: draft.clientUuid,
     database,
+    districtCode: 'D-01',
     ownerIdentity: 'owner-1',
     token: 'access-token',
   })).resolves.toMatchObject({ status: 'failed', error: { code: 'INVALID_LOCAL_RECORD' } });
@@ -135,6 +136,7 @@ it('refuses to upload a saved boundary whose stored measurement provenance was t
     allowImmediateRetries: false,
     clientUuid: draft.clientUuid,
     database,
+    districtCode: 'D-01',
     ownerIdentity: 'owner-1',
     token: 'access-token',
   })).resolves.toMatchObject({ status: 'failed', error: { code: 'INVALID_LOCAL_RECORD' } });
@@ -156,6 +158,7 @@ it('refuses to upload when the stored affected area no longer matches its bounda
     allowImmediateRetries: false,
     clientUuid: draft.clientUuid,
     database,
+    districtCode: 'D-01',
     ownerIdentity: 'owner-1',
     token: 'access-token',
   })).resolves.toMatchObject({ status: 'failed', error: { code: 'INVALID_LOCAL_RECORD' } });
@@ -173,6 +176,7 @@ it('uploads provenance only through the approved wire names', async () => {
     allowImmediateRetries: false,
     clientUuid: draft.clientUuid,
     database,
+    districtCode: 'D-01',
     ownerIdentity: 'owner-1',
     token: 'access-token',
   })).resolves.toEqual({ status: 'synced', remoteId: 'remote-wire' });

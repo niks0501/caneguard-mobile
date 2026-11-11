@@ -270,6 +270,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         }
         const surveyResult = await syncPendingFieldSurveys({
           database,
+          districtCode: initiatingSession.user.districtCode ?? '',
           source,
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,

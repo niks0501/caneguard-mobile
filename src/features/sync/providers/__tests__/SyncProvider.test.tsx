@@ -136,7 +136,7 @@ describe('SyncProvider foreground triggers', () => {
     jest.mocked(useCaneGuardDatabase).mockReturnValue({} as never);
     jest.mocked(useAuth).mockReturnValue({
       status: 'authenticated',
-      session: { token: 'secure-token', user: { uuid: SUBMITTER_ID, role: 'field_reporter' } },
+      session: { token: 'secure-token', user: { uuid: SUBMITTER_ID, role: 'field_reporter', districtCode: 'D-01' } },
       markSessionExpired: jest.fn(async () => undefined),
     } as never);
     jest.mocked(countUnsyncedFieldReports).mockResolvedValue(1);
@@ -435,7 +435,7 @@ describe('SyncProvider foreground triggers', () => {
         }),
       ),
     );
-    expect(syncPendingFieldSurveys).toHaveBeenCalledWith(expect.objectContaining({ source: 'network-restored', ownerIdentity: SUBMITTER_ID }));
+    expect(syncPendingFieldSurveys).toHaveBeenCalledWith(expect.objectContaining({ districtCode: 'D-01', source: 'network-restored', ownerIdentity: SUBMITTER_ID }));
     jest.mocked(syncPendingFieldReports).mockClear();
 
     await act(async () => {

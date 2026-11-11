@@ -188,6 +188,7 @@ export function updateFieldSurveySyncResult(
   clientUuid: string,
   ownerIdentity: string,
   update: {
+    districtCode?: string;
     fieldErrors?: Record<string, string[]> | null;
     lastSyncErrorCode?: string | null;
     remoteId?: string | null;
@@ -199,6 +200,7 @@ export function updateFieldSurveySyncResult(
   if (!row) throw new StorageError('RECORD_NOT_FOUND', 'This field survey no longer exists.');
   const result = database.update(fieldSurveys).set({
     status: update.status,
+    ...(update.districtCode === undefined ? {} : { districtCode: update.districtCode }),
     ...(update.remoteId === undefined ? {} : { remoteId: update.remoteId }),
     ...(update.fieldErrors === undefined ? {} : { fieldErrorsJson: update.fieldErrors ? JSON.stringify(update.fieldErrors) : null }),
     lastSyncErrorCode: update.lastSyncErrorCode === undefined ? row.lastSyncErrorCode : update.lastSyncErrorCode,

@@ -11,6 +11,7 @@ jest.mock('@/features/surveys/services/syncFieldSurvey', () => ({
 
 const options = {
   database: {} as never,
+  districtCode: 'D-01',
   ownerIdentity: 'owner-1',
   source: 'manual' as const,
   token: 'token-1',
@@ -40,6 +41,7 @@ describe('syncPendingFieldSurveys', () => {
     expect(syncFieldSurvey).toHaveBeenCalledWith(expect.objectContaining({
       allowImmediateRetries: true,
       clientUuid: 'survey-1',
+      districtCode: 'D-01',
       ownerIdentity: 'owner-1',
       token: 'token-1',
     }));

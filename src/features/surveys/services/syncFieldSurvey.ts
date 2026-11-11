@@ -15,6 +15,7 @@ export async function syncFieldSurvey(options: {
   clientUuid: string;
   database: CaneGuardDatabase;
   delay?: (milliseconds: number) => Promise<void>;
+  districtCode: string;
   ownerIdentity: string;
   token: string | null;
 }): Promise<FieldSurveySyncResult> {
@@ -52,7 +53,7 @@ export async function syncFieldSurvey(options: {
     return rejectInvalidLocalRecord(options, 'The saved measurement provenance is invalid. Recreate the boundary before syncing.');
   }
 
-  if (updateFieldSurveySyncResult(options.database, row.clientUuid, options.ownerIdentity, { status: 'syncing' }) === 0) {
+  if (updateFieldSurveySyncResult(options.database, row.clientUuid, options.ownerIdentity, { status: 'syncing', districtCode: options.districtCode }) === 0) {
     // Another send already owns this row; leave its stored state alone.
     return { status: 'failed', error: new SyncError('UNKNOWN_SYNC_ERROR', 'This boundary is already being sent.') };
   }
@@ -72,7 +73,7 @@ export async function syncFieldSurvey(options: {
             affected_area_waypoint_provenance: toWireAffectedAreaWaypointProvenance(affectedAreaWaypoints),
           },
           captured_at: row.capturedAt,
-          district_code: row.districtCode,
+          district_code: options.districtCode,
         }, options.token);
         break;
       } catch (error: unknown) {

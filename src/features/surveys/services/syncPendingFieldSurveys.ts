@@ -9,6 +9,7 @@ import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 
 interface Options {
   database: CaneGuardDatabase;
+  districtCode: string;
   limit?: number;
   ownerIdentity: string;
   source: SyncTriggerSource;
@@ -55,7 +56,7 @@ async function executeBatch(options: Options & { ownerIdentity: string }): Promi
     for (const { clientUuid } of candidates) {
       const result = await syncFieldSurvey({
         allowImmediateRetries: options.source === 'manual',
-        clientUuid, database: options.database, ownerIdentity: options.ownerIdentity, token: options.token,
+        clientUuid, database: options.database, districtCode: options.districtCode, ownerIdentity: options.ownerIdentity, token: options.token,
       });
       if (result.status !== 'failed') {
         results.push({ reportId: clientUuid, status: result.status, remoteId: result.remoteId });

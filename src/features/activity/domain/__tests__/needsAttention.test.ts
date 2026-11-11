@@ -209,7 +209,7 @@ describe('buildNeedsAttention', () => {
       pendingCompletionsCount: 1,
       syncErrorMessage: null,
     });
-    expect(visitsOnly.items[0].title).toBe('1 field visit waiting to send');
+    expect(visitsOnly.items[0].title).toBe('1 visit waiting to send');
 
     const mixed = build({
       pendingUploadCount: 2,

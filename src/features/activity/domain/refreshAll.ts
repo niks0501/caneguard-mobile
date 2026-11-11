@@ -54,7 +54,7 @@ export async function runRefreshAll(
 }
 
 export const REFRESH_ALL_TARGET_LABELS: Record<string, string> = {
-  assignments: 'field assignments',
+  assignments: 'visits',
   notifications: 'office updates',
   officeReview: 'office review status',
   records: 'saved reports and scans',

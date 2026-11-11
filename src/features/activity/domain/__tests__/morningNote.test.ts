@@ -95,7 +95,7 @@ describe('buildMorningNote', () => {
       destination, id: 'draft-1', kind: 'draft', message: 'Not finished', meta: 'Saved', title,
     };
     expect(buildMorningNote([draft, visit('today')], 'Working offline.')).toEqual({
-      action: 'draft', actionLabel: 'Resume', headline: title, syncLine: 'Working offline.',
+      action: 'draft', actionLabel: 'Resume', headline: title, syncLine: 'Working offline.', visitsLine: 'One visit today.',
     });
   });
 

@@ -57,11 +57,11 @@ export async function persistFieldValidationPhoto(
     directory.create({ idempotent: true, intermediates: true });
     await new File(input.sourceUri).copy(destination, { overwrite: false });
     if (!destination.exists) {
-      throw new Error('The field validation photo was not copied.');
+      throw new Error('The visit photo was not copied.');
     }
     const size = destination.info().size;
     if (typeof size !== 'number' || !Number.isInteger(size) || size <= 0 || size > MAX_PHOTO_BYTES) {
-      throw new Error('The field validation photo size is outside the accepted limit.');
+      throw new Error('The visit photo size is outside the accepted limit.');
     }
     return { mimeType, sizeBytes: size, uri: destination.uri };
   } catch (error: unknown) {
@@ -69,7 +69,7 @@ export async function persistFieldValidationPhoto(
     throw toStorageError(
       error,
       'IMAGE_COPY_FAILED',
-      'The field validation photo could not be saved on this device.',
+      'The visit photo could not be saved on this device.',
     );
   }
 }
@@ -124,7 +124,7 @@ export function fieldValidationPhotoExists(
 }
 
 /**
- * Lists the field validation photos this owner's partition holds, including
+ * Lists the visit photos this owner's partition holds, including
  * copies no checkpoint and no completion names any more.
  */
 export function listFieldValidationPhotoUris(ownerIdentity: string): string[] {
@@ -184,14 +184,14 @@ function validateInput(input: FieldValidationPhotoInput): void {
   } catch {
     throw new StorageError(
       'INVALID_FIELD_VALIDATION_COMPLETION',
-      'The field validation owner identity is invalid.',
+      'The visit owner identity is invalid.',
     );
   }
   if (!isUuid(input.assignmentId) || !isUuid(input.completionId)) {
-    throw new StorageError('INVALID_FIELD_VALIDATION_COMPLETION', 'The field validation photo identity is invalid.');
+    throw new StorageError('INVALID_FIELD_VALIDATION_COMPLETION', 'The visit photo identity is invalid.');
   }
   if (!input.sourceUri.trim()) {
-    throw new StorageError('IMAGE_NOT_FOUND', 'The field validation photo URI is missing.');
+    throw new StorageError('IMAGE_NOT_FOUND', 'The visit photo URI is missing.');
   }
 }
 
@@ -210,7 +210,7 @@ function resolveMimeType(input: FieldValidationPhotoInput): string {
         ? 'image/webp'
         : null;
   if (!mimeType) {
-    throw new StorageError('IMAGE_COPY_FAILED', 'The field validation photo format is unsupported.');
+    throw new StorageError('IMAGE_COPY_FAILED', 'The visit photo format is unsupported.');
   }
   return mimeType;
 }

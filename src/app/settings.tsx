@@ -380,7 +380,7 @@ export default function SettingsScreen() {
                   onPress={() =>
                     Alert.alert(
                       'Clear downloaded office data?',
-                      'This removes only data that can be downloaded again: visit assignments and office updates. Every saved scan, draft, unsent report, boundary and completed visit stays on this device.',
+                      'This removes only data that can be downloaded again: visits and office updates. Every saved scan, draft, unsent report, boundary and completed visit stays on this device.',
                       [
                         { text: 'Cancel', style: 'cancel' },
                         {

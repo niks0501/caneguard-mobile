@@ -77,7 +77,7 @@ export function getSyncAttention(
         action: 'support',
         actionLabel: 'Contact support',
         reason:
-          'The scan image for this report is no longer on this device. The report is kept unchanged; do not start a new report for the same field visit before the office advises.',
+          'The scan image for this report is no longer on this device. The report is kept unchanged; do not start a new report for the same visit before the office advises.',
         title: 'Saved image missing',
       };
     case 'INVALID_LOCAL_RECORD':

@@ -59,7 +59,7 @@ export async function uploadMobileFieldValidationCompletion(
     // Unconfirmed identity: retry with the same client UUID so the server's
     // duplicate 409 can resolve it instead of stranding the saved completion.
     throw new ApiTransportError(
-      'The field validation completion response did not include completion.uuid.',
+      'The visit completion response did not include completion.uuid.',
     );
   }
   return { remoteId };

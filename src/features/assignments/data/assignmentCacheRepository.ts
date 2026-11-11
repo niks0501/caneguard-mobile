@@ -29,7 +29,7 @@ export async function listCachedFieldValidationAssignments(
     throw toStorageError(
       error,
       'QUERY_FAILED',
-      'Reading cached field validation assignments failed.',
+      'Reading cached visits failed.',
     );
   }
 }
@@ -56,7 +56,7 @@ export async function findCachedFieldValidationAssignment(
     throw toStorageError(
       error,
       'QUERY_FAILED',
-      'Reading the cached field validation assignment failed.',
+      'Reading the cached visit failed.',
     );
   }
 }
@@ -114,7 +114,7 @@ export async function findCachedFieldValidationAssignmentForCase(
     throw toStorageError(
       error,
       'QUERY_FAILED',
-      'Reading the cached field validation assignment failed.',
+      'Reading the cached visit failed.',
     );
   }
 }
@@ -136,7 +136,7 @@ export async function readCachedFieldValidationSkippedCount(
     throw toStorageError(
       error,
       'QUERY_FAILED',
-      'Reading cached field validation assignments failed.',
+      'Reading cached visits failed.',
     );
   }
 }
@@ -157,7 +157,7 @@ export async function replaceCachedFieldValidationAssignments(
 ): Promise<void> {
   const owner = requireOwner(ownerIdentity);
   if (!cachedAt || Number.isNaN(Date.parse(cachedAt))) {
-    throw new StorageError('UPDATE_FAILED', 'The assignment cache timestamp is invalid.');
+    throw new StorageError('UPDATE_FAILED', 'The visit cache timestamp is invalid.');
   }
 
   try {
@@ -165,7 +165,7 @@ export async function replaceCachedFieldValidationAssignments(
     if (isCurrent && !isCurrent()) {
       throw new StorageError(
         'UPDATE_FAILED',
-        'The assignment refresh was superseded before its cache could be updated.',
+        'The visit refresh was superseded before its cache could be updated.',
       );
     }
     const incoming = new Map(updates.map((update) => [update.id, update]));
@@ -251,7 +251,7 @@ export async function replaceCachedFieldValidationAssignments(
     throw toStorageError(
       error,
       'UPDATE_FAILED',
-      'Updating cached field validation assignments failed.',
+      'Updating cached visits failed.',
     );
   }
 }
@@ -272,7 +272,7 @@ export async function confirmCachedFieldValidationAssignments(
     if (isCurrent && !isCurrent()) {
       throw new StorageError(
         'UPDATE_FAILED',
-        'The assignment refresh was superseded before its cache could be updated.',
+        'The visit refresh was superseded before its cache could be updated.',
       );
     }
     database.transaction((transaction) => {
@@ -287,7 +287,7 @@ export async function confirmCachedFieldValidationAssignments(
     throw toStorageError(
       error,
       'UPDATE_FAILED',
-      'Updating cached field validation assignments failed.',
+      'Updating cached visits failed.',
     );
   }
 }
@@ -402,7 +402,7 @@ function stableFingerprint(value: unknown): string {
 function requireOwner(value: string): string {
   const owner = value.trim();
   if (!owner) {
-    throw new StorageError('UPDATE_FAILED', 'The assignment cache owner is invalid.');
+    throw new StorageError('UPDATE_FAILED', 'The visit cache owner is invalid.');
   }
   return owner;
 }

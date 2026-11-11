@@ -80,7 +80,7 @@ export function firstActionableAttentionItem(
 
 /**
  * Build the Needs Attention block: unfinished local drafts, unread office
- * updates, active/due field assignments, and report upload work, ordered by
+ * updates, active/due visits, and report upload work, ordered by
  * immediacy. The presenter caps the detailed rows and offers expansion for the
  * rest.
  */
@@ -233,7 +233,7 @@ function uploadItems(input: {
   const completionsCount = input.pendingCompletionsCount ?? 0;
   let nounPhrase = `${input.pendingUploadCount} ${input.pendingUploadCount === 1 ? 'report' : 'reports'}`;
   if (completionsCount > 0 && reportsCount === 0) {
-    nounPhrase = `${completionsCount} ${completionsCount === 1 ? 'field visit' : 'field visits'}`;
+    nounPhrase = `${completionsCount} ${completionsCount === 1 ? 'visit' : 'visits'}`;
   } else if (completionsCount > 0 && reportsCount > 0) {
     nounPhrase = `${input.pendingUploadCount} ${input.pendingUploadCount === 1 ? 'item' : 'items'}`;
   }
@@ -246,7 +246,7 @@ function uploadItems(input: {
         ? input.syncErrorMessage ??
           'Some items could not be sent yet. They stay saved on this device.'
         : completionsCount > 0 && reportsCount === 0
-          ? 'Completed field visits saved on this device are waiting to send.'
+          ? 'Completed visits saved on this device are waiting to send.'
           : 'Reports saved on this device are waiting to send.',
       meta: failed ? UPLOAD_FAILED_META : 'Waiting to send',
       title: `${nounPhrase} waiting to send`,

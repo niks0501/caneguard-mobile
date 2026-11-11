@@ -40,20 +40,20 @@ function describeRefreshFailure(error: unknown, hasCachedAssignments: boolean): 
   if (error instanceof MobileFieldValidationAssignmentsApiError) {
     if (error.code === 'MALFORMED_RESPONSE') return error.message;
     if (error.code === 'CAPABILITY_UNAVAILABLE') {
-      return 'Field validation assignments are unavailable on this server. Showing the saved assignment cache.';
+      return 'Visits are unavailable on this server. Showing the saved visit cache.';
     }
   }
-  if (hasCachedAssignments) return "Couldn't refresh - showing saved assignments.";
+  if (hasCachedAssignments) return "Couldn't refresh - showing saved visits.";
   if (error instanceof Error && error.message.includes('cache')) {
     return getStorageErrorMessage(
       toStorageError(
         error,
         'QUERY_FAILED',
-        'Reading cached field validation assignments failed.',
+        'Reading cached visits failed.',
       ),
     );
   }
-  return "Couldn't refresh field validation assignments.";
+  return "Couldn't refresh visits.";
 }
 
 export function useFieldValidationAssignments(enabled = true) {

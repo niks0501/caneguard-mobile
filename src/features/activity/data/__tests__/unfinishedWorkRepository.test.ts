@@ -88,6 +88,25 @@ describe('listUnfinishedDrafts', () => {
     ]);
   });
 
+  it('lists a plot the office does not have yet, including queued and retrying work', async () => {
+    const { database, native } = openDatabase();
+    for (const clientUuid of ['plot-pending', 'plot-failed', 'plot-sent', 'plot-rejected']) {
+      await saveFieldSurveyDraft(database, {
+        authorRole: 'field_reporter', capturedAt: NOW, clientUuid, districtCode: 'D1', ownerIdentity: OWNER, waypoints: [],
+      });
+    }
+    native.exec("UPDATE field_surveys SET status = 'pending' WHERE client_uuid = 'plot-pending'");
+    native.exec("UPDATE field_surveys SET status = 'failed', last_sync_error_code = 'API_VALIDATION_FAILED' WHERE client_uuid = 'plot-failed'");
+    native.exec("UPDATE field_surveys SET status = 'synced', remote_id = 'remote-1' WHERE client_uuid = 'plot-sent'");
+    native.exec("UPDATE field_surveys SET status = 'failed', last_sync_error_code = 'CLIENT_UUID_CONFLICT' WHERE client_uuid = 'plot-rejected'");
+
+    const drafts = await listUnfinishedDrafts(database, OWNER);
+
+    expect(
+      drafts.filter((draft) => draft.kind === 'plot').map((draft) => draft.id).sort(),
+    ).toEqual(['plot-failed', 'plot-pending']);
+  });
+
   it('never lists another owner\'s drafts or a finalized report', async () => {
     const { database, native } = openDatabase();
     await createOrGetFieldReportDraft(database, draftInput('6e1b2c3d-4a5f-4b6c-8d7e-9f0a1b2c3d4e', FINAL_SCAN_ID));

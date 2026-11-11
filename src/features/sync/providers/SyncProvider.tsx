@@ -20,7 +20,7 @@ import {
   resetStaleSyncingFieldValidationCompletions,
 } from '@/features/assignments/data/fieldValidationCompletionRepository';
 import { syncPendingFieldValidationCompletions } from '@/features/assignments/services/syncPendingFieldValidationCompletions';
-import type { MobileSession } from '@/features/auth/types';
+import type { MobileSession, SessionVerificationStatus } from '@/features/auth/types';
 import {
   countUnsyncedFieldReports,
   findFieldReportUploadRecord,
@@ -266,6 +266,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         }
         const reportResult = await syncPendingFieldReports({
           database,
+          districtCode: verifiedDistrictCode(sessionVerificationRef.current, sessionRef.current),
           source,
           submitterIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
@@ -276,9 +277,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         }
         const surveyResult = await syncPendingFieldSurveys({
           database,
-          districtCode: sessionVerificationRef.current === 'verified'
-            ? sessionRef.current?.user.districtCode?.trim() ?? ''
-            : '',
+          districtCode: verifiedDistrictCode(sessionVerificationRef.current, sessionRef.current),
           districtVerified: sessionVerificationRef.current === 'verified',
           source,
           ownerIdentity: initiatingSession.user.uuid,
@@ -676,6 +675,13 @@ function inferApiReachability(
 
 function getSessionKey(session: MobileSession | null): string | null {
   return session ? `${session.token}:${session.user.uuid}` : null;
+}
+
+function verifiedDistrictCode(
+  verification: SessionVerificationStatus,
+  session: MobileSession | null,
+): string {
+  return verification === 'verified' ? session?.user.districtCode?.trim() ?? '' : '';
 }
 
 /**

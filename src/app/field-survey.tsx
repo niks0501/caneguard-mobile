@@ -486,7 +486,7 @@ export default function FieldSurveyScreen() {
   }
 
   function addMapPointAt(point: { x: number; y: number }) {
-    if (controlsLocked) return;
+    if (controlsLocked || walking) return;
     const near = pointRefNear(point);
     if (near) {
       setSelected(sameRef(near, selected) ? null : near);

@@ -42,6 +42,7 @@ import {
   findOwnedFieldSurvey,
   queueAttachedFieldSurvey,
   saveFieldSurveyDraft,
+  updateFieldSurveySyncResult,
 } from '@/features/surveys/data/fieldSurveyRepository';
 import type { SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 
@@ -1085,6 +1086,7 @@ describe('Field Report draft repository', () => {
 
     await expect(
       findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, {
+        districtCode: 'D-01',
         includeRetryableFailed: true,
       }),
     ).resolves.toEqual([]);
@@ -1124,7 +1126,7 @@ describe('Field Report draft repository', () => {
       .run(LEGACY_UNASSIGNED_OWNER_IDENTITY, SCAN_ID);
 
     await expect(
-      findFieldReportSyncCandidates(database, SUBMITTER_ID, 10),
+      findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, { districtCode: 'D-01' }),
     ).resolves.toEqual([]);
     native.close();
   });
@@ -1163,6 +1165,7 @@ describe('Field Report draft repository', () => {
     );
     await expect(
       findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, {
+        districtCode: 'D-01',
         failedBefore: '2026-08-10T05:00:00.000Z',
         includeRetryableFailed: true,
       }),
@@ -1177,6 +1180,7 @@ describe('Field Report draft repository', () => {
     );
     await expect(
       findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, {
+        districtCode: 'D-01',
         failedBefore: '2026-08-10T05:00:00.000Z',
         includeRetryableFailed: true,
       }),
@@ -1191,6 +1195,7 @@ describe('Field Report draft repository', () => {
     );
     await expect(
       findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, {
+        districtCode: 'D-01',
         failedBefore: '2026-08-10T05:00:00.000Z',
         includeRetryableFailed: true,
       }),
@@ -1278,7 +1283,7 @@ describe('Field Report draft repository', () => {
     );
 
     await expect(
-      findFieldReportSyncCandidates(database, OTHER_SUBMITTER_ID, 10),
+      findFieldReportSyncCandidates(database, OTHER_SUBMITTER_ID, 10, { districtCode: 'D-01' }),
     ).resolves.toEqual([]);
     await expect(
       findFieldReportUploadRecord(database, REPORT_ID, OTHER_SUBMITTER_ID),
@@ -1286,7 +1291,7 @@ describe('Field Report draft repository', () => {
       code: 'FIELD_REPORT_NOT_FOUND',
     });
     await expect(
-      findFieldReportSyncCandidates(database, SUBMITTER_ID, 10),
+      findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, { districtCode: 'D-01' }),
     ).resolves.toMatchObject([
       { id: REPORT_ID, scanRecordId: SCAN_ID, syncStatus: 'pending' },
     ]);
@@ -1334,6 +1339,7 @@ describe('Field Report draft repository', () => {
     });
     await expect(
       findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, {
+        districtCode: 'D-01',
         includeRetryableFailed: true,
       }),
     ).resolves.toEqual([]);
@@ -2069,6 +2075,29 @@ describe('findScanRecordIdForCase', () => {
         authoringState: 'draft',
         fieldSurveyClientUuid: SURVEY_UUID,
       });
+      native.close();
+    });
+
+    // Intent (item 8): a queued report cannot leave while its attached boundary cannot be sent
+    // for want of an account district, while an unattached or completed boundary never holds it back.
+    it('keeps a queued report off the upload queue while its boundary has no account district', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+      await saveAttachedBoundary(database, 'D-01');
+      await finalizeFieldReport(database, REPORT_ID, SUBMITTER_ID, finalizeValues(), IMAGE_EXISTS);
+
+      await expect(
+        findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, { districtCode: '' }),
+      ).resolves.toEqual([]);
+      await expect(
+        findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, { districtCode: 'D-01' }),
+      ).resolves.toMatchObject([{ id: REPORT_ID }]);
+
+      updateFieldSurveySyncResult(database, SURVEY_UUID, SUBMITTER_ID, { status: 'syncing' });
+      updateFieldSurveySyncResult(database, SURVEY_UUID, SUBMITTER_ID, { status: 'synced', remoteId: 'remote-1' });
+      await expect(
+        findFieldReportSyncCandidates(database, SUBMITTER_ID, 10, { districtCode: '' }),
+      ).resolves.toMatchObject([{ id: REPORT_ID }]);
       native.close();
     });
   });

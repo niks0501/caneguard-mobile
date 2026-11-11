@@ -40,12 +40,14 @@ describe('pending Field Report queue', () => {
 
     const first = syncPendingFieldReports({
       database,
+      districtCode: 'D-01',
       source: 'startup',
       submitterIdentity: SUBMITTER_ID,
       token: 'secure-token',
     });
     const second = syncPendingFieldReports({
       database,
+      districtCode: 'D-01',
       source: 'network-restored',
       submitterIdentity: SUBMITTER_ID,
       token: 'secure-token',
@@ -69,6 +71,7 @@ describe('pending Field Report queue', () => {
 
     await expect(syncPendingFieldReports({
       database,
+      districtCode: 'D-01',
       source: 'manual',
       submitterIdentity: SUBMITTER_ID,
       token: 'expired-token',
@@ -103,12 +106,14 @@ describe('pending Field Report queue', () => {
 
     const first = syncPendingFieldReports({
       database,
+      districtCode: 'D-01',
       source: 'startup',
       submitterIdentity: SUBMITTER_ID,
       token: 'first-token',
     });
     const second = syncPendingFieldReports({
       database,
+      districtCode: 'D-01',
       source: 'startup',
       submitterIdentity: OTHER_SUBMITTER_ID,
       token: 'second-token',
@@ -151,6 +156,7 @@ describe('pending Field Report queue', () => {
 
     await expect(syncPendingFieldReports({
       database,
+      districtCode: 'D-01',
       source: 'startup',
       submitterIdentity: SUBMITTER_ID,
       token: 'secure-token',
@@ -173,6 +179,7 @@ describe('pending Field Report queue', () => {
 
     await expect(syncPendingFieldReports({
       database,
+      districtCode: 'D-01',
       source: 'startup',
       submitterIdentity: SUBMITTER_ID,
       token: 'secure-token',
@@ -198,6 +205,7 @@ describe('pending Field Report queue', () => {
 
     await expect(syncPendingFieldReports({
       database,
+      districtCode: 'D-01',
       source: 'startup',
       submitterIdentity: SUBMITTER_ID,
       token: 'secure-token',
@@ -225,6 +233,7 @@ describe('pending Field Report queue', () => {
 
     const result = await syncPendingFieldReports({
       database,
+      districtCode: 'D-01',
       source: 'startup',
       submitterIdentity: SUBMITTER_ID,
       token: 'secure-token',
@@ -254,12 +263,14 @@ describe('pending Field Report queue', () => {
 
     const first = syncPendingFieldReports({
       database,
+      districtCode: 'D-01',
       source: 'startup',
       submitterIdentity: SUBMITTER_ID,
       token: 'first-token',
     });
     const replacement = syncPendingFieldReports({
       database,
+      districtCode: 'D-01',
       source: 'startup',
       submitterIdentity: SUBMITTER_ID,
       token: 'replacement-token',

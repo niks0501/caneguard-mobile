@@ -1,9 +1,9 @@
-import { and, asc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm';
 import type { SQLiteUpdateSetSource } from 'drizzle-orm/sqlite-core/query-builders/update';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
-import { fieldReports, scanRecords } from '@/database/schema';
+import { fieldReports, fieldSurveys, scanRecords } from '@/database/schema';
 import { findScanRecordById } from '@/features/records/data/scanRecordRepository';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import { findFieldReportById } from '@/features/reports/data/fieldReportRepository';
@@ -15,6 +15,7 @@ import { isUploadableSubmissionArtifact } from '@/features/sync/domain/submissio
 export const SYNC_RETRY_COOLDOWN_MS = 60_000;
 
 export interface FindSyncCandidatesOptions {
+  districtCode: string;
   failedBefore?: string;
   includeRetryableFailed?: boolean;
 }
@@ -30,7 +31,7 @@ export interface FieldReportSyncRepository {
   findLastSuccessfulSyncAt(): Promise<string | null>;
   findSyncCandidates(
     limit: number,
-    options?: FindSyncCandidatesOptions,
+    options: FindSyncCandidatesOptions,
   ): Promise<FieldReport[]>;
   markFailed(reportId: string, errorCode: string, attemptedAt: string): Promise<void>;
   markPending(reportId: string): Promise<void>;
@@ -96,13 +97,28 @@ export async function findFieldReportSyncCandidates(
   database: CaneGuardDatabase,
   submitterIdentity: string,
   limit: number,
-  options: FindSyncCandidatesOptions = {},
+  options: FindSyncCandidatesOptions,
 ): Promise<FieldReport[]> {
   const normalizedLimit = Math.min(Math.max(Math.trunc(limit), 1), 100);
   const failedBefore =
     options.failedBefore ??
     new Date(Date.now() - SYNC_RETRY_COOLDOWN_MS).toISOString();
   try {
+    const owner = submitterIdentity.trim();
+    const unsentBoundaryIds = options.districtCode.trim() !== ''
+      ? []
+      : database
+        .select({ clientUuid: fieldSurveys.clientUuid })
+        .from(fieldSurveys)
+        .where(
+          and(
+            eq(fieldSurveys.ownerIdentity, owner),
+            ne(fieldSurveys.status, 'synced'),
+            isNull(fieldSurveys.remoteId),
+          ),
+        )
+        .all()
+        .map(({ clientUuid }) => clientUuid);
     const eligibleStatus = options.includeRetryableFailed
       ? or(
           eq(fieldReports.syncStatus, 'pending'),
@@ -131,6 +147,14 @@ export async function findFieldReportSyncCandidates(
       )
       .where(
         and(
+          ...(unsentBoundaryIds.length === 0
+            ? []
+            : [
+                or(
+                  isNull(fieldReports.fieldSurveyClientUuid),
+                  notInArray(fieldReports.fieldSurveyClientUuid, unsentBoundaryIds),
+                ),
+              ]),
           eq(fieldReports.authoringState, 'finalized'),
           eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
           eligibleStatus,

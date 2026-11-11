@@ -253,3 +253,31 @@ it('stops walking when Tap corners is chosen', async () => {
   expect(remove).toHaveBeenCalledTimes(1);
   expect(screen.getByText(FIELD_SURVEY_COPY.walkStart)).toBeTruthy();
 });
+
+// Intent (item 8): Walk excludes tap editing, so a stray tap during GPS capture cannot add or move points.
+it('ignores map taps while walking and keeps them working in Tap corners', async () => {
+  listSurveys.mockReturnValue([draftRow()]);
+  const remove = jest.fn();
+  let emit: (fix: WalkFix) => void = () => undefined;
+  watch.mockImplementation(async (onFix) => { emit = onFix; return { remove }; });
+
+  await renderOpen();
+  await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('field-survey.map'), { nativeEvent: { locationX: 12, locationY: 12 } });
+  });
+  await act(async () => { emit(fix(14.1, 121.1)); });
+
+  await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(5));
+  expect(lastDraftWaypoints().filter((point) => point.source === 'map')).toHaveLength(0);
+
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.tap')); });
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('field-survey.map'), { nativeEvent: { locationX: 200, locationY: 200 } });
+  });
+
+  await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(6));
+});

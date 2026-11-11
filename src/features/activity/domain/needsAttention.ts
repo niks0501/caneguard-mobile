@@ -33,9 +33,12 @@ export interface NeedsAttentionItem {
   kind: NeedsAttentionKind;
   message: string;
   meta: string;
-  /** Where the visit is (barangay), set on assignment items only. */
+  /**
+   * Where the work is (barangay): set on assignment items, and on report and
+   * visit drafts.
+   */
   place?: string;
-  /** The case reference, set on assignment items only. */
+  /** The case reference: set on assignment items and visit drafts. */
   referenceCode?: string;
   title: string;
   /** How loud this item may be: ordinary work whispers, overdue work is a note. */
@@ -51,8 +54,9 @@ export interface NeedsAttentionSummary {
 export const NEEDS_ATTENTION_ROW_LIMIT = 3;
 
 /**
- * Home shows fewer rows than Activity and hands off with a single "See all"
- * line, so the work-first card never grows into a second inbox.
+ * Home shows every unfinished draft, then caps the Up next rows below them and
+ * hands off with a single "See all" line, so that part of the card never grows
+ * into a second inbox.
  */
 export const HOME_ATTENTION_ROW_LIMIT = 2;
 
@@ -75,9 +79,10 @@ export function firstActionableAttentionItem(
 }
 
 /**
- * Build the Needs Attention block: unread office updates, active/due field
- * assignments, and report upload work, ordered by immediacy. The presenter caps
- * the detailed rows and offers expansion for the rest.
+ * Build the Needs Attention block: unfinished local drafts, unread office
+ * updates, active/due field assignments, and report upload work, ordered by
+ * immediacy. The presenter caps the detailed rows and offers expansion for the
+ * rest.
  */
 export function buildNeedsAttention(input: {
   assignments: FieldValidationAssignment[];

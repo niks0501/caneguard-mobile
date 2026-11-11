@@ -23,11 +23,12 @@ function countWord(count: number): string {
 }
 
 /**
- * Chooses the Home sentence and button from the same work the old Home card
- * showed, in the same work-first order: visits, then office updates, then the
- * send state, then "All clear.". Only work that can be opened here counts, and
- * the first such item decides both the button and the sentence that leads, so
- * the two never disagree. Pure, so each state can be pinned in a test.
+ * Chooses the Home sentence and button from the same work the attention list
+ * shows, in the same work-first order: unfinished drafts, then visits, then
+ * office updates, then the send state, then "All clear.". Only work that can be
+ * opened here counts, and the first such item decides both the button and the
+ * sentence that leads, so the two never disagree. Pure, so each state can be
+ * pinned in a test.
  */
 export function buildMorningNote(
   items: readonly NeedsAttentionItem[],

@@ -35,7 +35,11 @@ export const LOCATION_UNCONFIRMED = 'Location could not be confirmed';
 
 export const PERSONAL_SCAN_LOCAL_STATUS = 'On this device · not sent';
 
-/** Unfinished report, visit and plot drafts: found on Home, resumed in one tap, never sent until finished. */
+/**
+ * Unfinished report, visit and plot work saved on this phone: listed on Home and
+ * Activity and resumed in one tap. A report or visit draft is never sent before
+ * it is finished; an unsent plot boundary is listed even while it is queued.
+ */
 export const UNFINISHED_COPY = {
   label: 'Not finished',
   meta: 'Not finished · saved on this device',

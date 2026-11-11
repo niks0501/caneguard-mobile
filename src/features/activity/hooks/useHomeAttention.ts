@@ -22,10 +22,10 @@ export interface HomeAttention {
 /**
  * The work that is waiting for the inspector, for the Home card.
  *
- * Both sources are owner-scoped local caches that refresh on focus, so the card
- * paints from cache immediately and still works with no connectivity. Upload
- * work is deliberately excluded: the Home sync line already reports it, and the
- * same pending upload must never appear twice on one screen.
+ * Every source is an owner-scoped local cache that refreshes on focus, so the
+ * card paints from cache immediately and still works with no connectivity.
+ * Upload work is deliberately excluded: the Home sync line already reports it,
+ * and the same pending upload must never appear twice on one screen.
  */
 export function useHomeAttention(): HomeAttention {
   const assignments = useFieldValidationAssignments();

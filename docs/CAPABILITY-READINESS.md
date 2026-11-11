@@ -138,6 +138,15 @@ tests. "Implemented" does not mean "verified on a device":
   office. A failed read shows an error instead of an empty list. The state
   mapping is owned by `src/features/surveys/domain/boundaryState.ts` and its
   labels by `BOUNDARY_STATE_COPY` in `src/constants/copy.ts`.
+- Unfinished work: report, visit and plot work saved on this phone but not
+  finished is listed as **Not finished** on Home above **Up next** and in
+  Activity, and opens in one tap. A finalized report is never offered as
+  unfinished, a visit stays listed only while its assignment is still active
+  here, and an unsent plot boundary is listed even while it is queued. On Home
+  the Morning Note button reads **Resume** while unfinished work leads. The list
+  is owned by `src/features/activity/data/unfinishedWorkRepository.ts` (query)
+  and `src/features/activity/domain/needsAttention.ts` (ordering and
+  destinations).
 - Home: the Morning Note sentence and its one button, the greeting and date
   band with an Offline chip while offline, the "Today at a glance" strip, icon
   tool tiles, and the four-class "Know the signs" photo strip. A farmer session

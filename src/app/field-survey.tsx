@@ -264,7 +264,7 @@ export default function FieldSurveyScreen() {
     setWalking(false);
     if (message !== null) setSyncMessage(message ?? FIELD_SURVEY_COPY.walkStopped(walk.added));
   }, []);
-  // Walking ends when the screen locks, its boundary target or survey changes, the app leaves the foreground, or the screen closes.
+  // Walking ends when the screen locks, its boundary target or survey changes, an affected area is removed, the app leaves the foreground, or the screen closes.
   useLayoutEffect(() => {
     const walk = walkRef.current;
     if (!walk) return;

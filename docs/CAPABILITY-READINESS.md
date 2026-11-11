@@ -101,11 +101,11 @@ tests. "Implemented" does not mean "verified on a device":
   counted once, and unfinished affected points checkpointed with the draft so
   Submit stays blocked until they are finished or cleared. A finished area that
   a shrunken plot left outside stays repairable point by point, but Submit
-  keeps refusing until every area is inside again. Each captured boundary point
-  keeps the best reading from its own bounded GPS sample and is coloured by
-  that reading's quality, while a point moved or inserted by hand is recorded
-  as placed on the map with no GPS accuracy. **Walk the edge** drops boundary
-  points automatically while the inspector walks the plot edge or an
+  keeps refusing until every area is inside again. Each point captured with the
+  tap button keeps the best reading from its own bounded GPS sample and is
+  coloured by that reading's quality, while a point moved or inserted by hand is
+  recorded as placed on the map with no GPS accuracy. **Walk the edge** drops
+  boundary points automatically while the inspector walks the plot edge or an
   affected-area edge, as described under
   [Location behaviour](#location-behaviour); walked points are edited, undone
   and removed like any other. Every point is kept as measurement

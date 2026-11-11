@@ -7,7 +7,7 @@ import { fieldSurveys, type FieldSurveyRow, type FieldSurveyStatus } from '@/dat
 import type { MobileUserRole } from '@/features/auth/types';
 import { boundaryCanDelete, boundaryCanEdit, boundaryCanSubmit, boundaryState } from '@/features/surveys/domain/boundaryState';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
-import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 
 export interface FieldSurveyDraft {
   authorRole: MobileUserRole;
@@ -144,6 +144,45 @@ export function markFieldSurveyPending(
     updatedAt: new Date().toISOString(),
   }).where(and(eq(fieldSurveys.clientUuid, clientUuid), eq(fieldSurveys.ownerIdentity, owner))).run();
   emitSyncRecordsChanged();
+}
+
+function parseJson<T>(text: string | null, fallback: T): T {
+  try {
+    return text ? (JSON.parse(text) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * "Send together": when a report is finalised, its attached boundary is queued
+ * so it travels with the report. Only a draft or needs-a-fix boundary that
+ * measures cleanly and names a district is queued; anything else is left as is.
+ * Returns true when the boundary was queued.
+ */
+export function queueAttachedFieldSurvey(
+  database: CaneGuardDatabase,
+  clientUuid: string,
+  ownerIdentity: string,
+): boolean {
+  const row = findOwnedFieldSurvey(database, clientUuid, ownerIdentity);
+  if (!row || !boundaryCanEdit(boundaryState(row))) return false;
+  if (!row.districtCode.trim() || row.districtCode === 'UNSPECIFIED') return false;
+  if (parseJson<SurveyWaypoint[]>(row.activeAffectedWaypointsJson, []).length > 0) return false;
+  const plot = validateSurveyWaypoints(parseJson<SurveyWaypoint[]>(row.waypointsJson, []));
+  if (!plot.valid) return false;
+  const affectedAreas = parseJson<SurveyPolygon[]>(row.affectedAreaPolygonsJson, []);
+  const affected = measureAffectedAreas(plot.polygon, affectedAreas);
+  if (!affected.valid) return false;
+  try {
+    markFieldSurveyPending(
+      database, clientUuid, ownerIdentity, plot.polygon, plot.areaSqm, row.capturedAt,
+      affectedAreas, affected.areaSqm, parseJson<SurveyWaypoint[][]>(row.affectedAreaWaypointsJson, []),
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Statuses each sync write may start from; a row in any other status is left untouched. */

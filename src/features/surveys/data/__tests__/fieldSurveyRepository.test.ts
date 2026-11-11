@@ -15,6 +15,7 @@ import {
   findOwnedFieldSurvey,
   listOwnedFieldSurveys,
   markFieldSurveyPending,
+  queueAttachedFieldSurvey,
   saveFieldSurveyDraft,
   updateFieldSurveySyncResult,
 } from '@/features/surveys/data/fieldSurveyRepository';
@@ -287,6 +288,30 @@ describe('field survey local repository', () => {
     expect(updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'failed' })).toBe(0);
     unsubscribe();
     expect(seen).toEqual(['draft', 'pending', 'syncing', 'synced']);
+    native.close();
+  });
+
+  // Intent: a report's attached boundary is queued to send with it, only when it measures cleanly.
+  it('queues a measurable attached draft boundary and leaves unusable ones alone', async () => {
+    const { database, native } = openDatabase();
+    const good = [
+      { ...waypoint, latitude: 14, longitude: 120 },
+      { ...waypoint, latitude: 14, longitude: 120.001 },
+      { ...waypoint, latitude: 14.001, longitude: 120.001 },
+      { ...waypoint, latitude: 14.001, longitude: 120 },
+    ];
+    const base = { authorRole: 'field_reporter' as const, capturedAt: waypoint.capturedAt, ownerIdentity: 'owner-1' };
+    await saveFieldSurveyDraft(database, { ...base, clientUuid: 'ok', districtCode: 'D-01', waypoints: good });
+    await saveFieldSurveyDraft(database, { ...base, clientUuid: 'two-points', districtCode: 'D-01', waypoints: good.slice(0, 2) });
+    await saveFieldSurveyDraft(database, { ...base, clientUuid: 'no-district', districtCode: 'UNSPECIFIED', waypoints: good });
+
+    expect(queueAttachedFieldSurvey(database, 'ok', 'owner-1')).toBe(true);
+    expect(findOwnedFieldSurvey(database, 'ok', 'owner-1')?.status).toBe('pending');
+    expect(queueAttachedFieldSurvey(database, 'ok', 'owner-1')).toBe(false);
+    expect(queueAttachedFieldSurvey(database, 'two-points', 'owner-1')).toBe(false);
+    expect(queueAttachedFieldSurvey(database, 'no-district', 'owner-1')).toBe(false);
+    expect(queueAttachedFieldSurvey(database, 'ok', 'owner-2')).toBe(false);
+    expect(findOwnedFieldSurvey(database, 'two-points', 'owner-1')?.status).toBe('draft');
     native.close();
   });
 });

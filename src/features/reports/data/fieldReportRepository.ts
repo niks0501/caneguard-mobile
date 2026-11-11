@@ -31,6 +31,7 @@ import type {
   SaveFieldReportDraftInput,
   SaveManualMapLocationInput,
 } from '@/features/reports/domain/fieldReportTypes';
+import { queueAttachedFieldSurvey } from '@/features/surveys/data/fieldSurveyRepository';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { toAuthorityReviewSnapshot } from '@/features/reports/domain/reportReviewTypes';
 import {
@@ -798,6 +799,14 @@ export async function finalizeFieldReport(
       return { report: toFieldReport(finalizedRow), status: 'finalized' as const };
     });
     if (result.status === 'finalized') {
+      if (result.report.fieldSurveyClientUuid) {
+        // The report carries its boundary: queue it now so both upload together.
+        try {
+          queueAttachedFieldSurvey(database, result.report.fieldSurveyClientUuid, owner);
+        } catch {
+          // The report is already finalized; an unreadable boundary stays a draft.
+        }
+      }
       emitSyncRecordsChanged();
     }
     return result;

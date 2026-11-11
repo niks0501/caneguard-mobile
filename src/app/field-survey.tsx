@@ -2,9 +2,9 @@ import { canAuthorInspectorWork } from '@/features/auth/capabilities';
 import { randomUUID } from 'expo-crypto';
 import { Image as ExpoImage } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
-import { ActivityIndicator, type GestureResponderEvent, type HostInstance, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, AppState, type GestureResponderEvent, type HostInstance, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import Svg, { Circle, Line, Polygon, Polyline } from 'react-native-svg';
@@ -60,6 +60,9 @@ import {
   type PointRef,
 } from '@/features/surveys/domain/drawingTool';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
+import { decideWalkFix, type WalkFix } from '@/features/surveys/domain/walkMode';
+import { expoWalkLocationClient } from '@/features/surveys/services/expoWalkLocationClient';
+import { startWalk } from '@/features/surveys/services/walkSurveyBoundary';
 
 const SURVEY_ZOOM = 17;
 const SURVEY_MAP_OVERSCAN = MAP_TILE_SIZE;
@@ -135,6 +138,15 @@ function PointHandle(props: PointHandleProps) {
   );
 }
 
+type WalkSession = {
+  affectedArea: boolean;
+  areaCount: number;
+  surveyId: string;
+  added: number;
+  last: MapCoordinate | null;
+  stop: () => void;
+};
+
 // Drop null or non-finite vertices so a damaged draft recovers its valid points.
 function finiteWaypoints(value: unknown): SurveyWaypoint[] {
   if (!Array.isArray(value)) return [];
@@ -196,6 +208,9 @@ export default function FieldSurveyScreen() {
   const [pointsOpen, setPointsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [gpsBusy, setGpsBusy] = useState(false);
+  const [walking, setWalking] = useState(false);
+  const walkRef = useRef<WalkSession | null>(null);
+  const walkFixHandlerRef = useRef<(fix: WalkFix) => void>(() => undefined);
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
@@ -241,6 +256,26 @@ export default function FieldSurveyScreen() {
     setSaved(false);
     setShape(next);
   }, [setShape]);
+  const stopWalk = useCallback((message?: string | null) => {
+    const walk = walkRef.current;
+    if (!walk) return;
+    walkRef.current = null;
+    walk.stop();
+    setWalking(false);
+    if (message !== null) setSyncMessage(message ?? FIELD_SURVEY_COPY.walkStopped(walk.added));
+  }, []);
+  // Walking ends when the screen locks, its boundary target or survey changes, the app leaves the foreground, or the screen closes.
+  useLayoutEffect(() => {
+    const walk = walkRef.current;
+    if (!walk) return;
+    if (controlsLocked || drawingAffectedArea !== walk.affectedArea || clientUuid !== walk.surveyId || affectedAreas.length !== walk.areaCount) stopWalk();
+  }, [affectedAreas.length, clientUuid, controlsLocked, drawingAffectedArea, stopWalk, walking]);
+  useLayoutEffect(() => {
+    if (!walking) return;
+    const subscription = AppState.addEventListener('change', (state) => { if (state !== 'active') stopWalk(); });
+    return () => subscription.remove();
+  }, [stopWalk, walking]);
+  useEffect(() => () => stopWalk(null), [stopWalk]);
   const validation = useMemo(() => validateSurveyWaypoints(waypoints), [waypoints]);
   const validityMarks = useMemo(() => assessValidity(waypoints, affectedAreas), [waypoints, affectedAreas]);
   const affectedMeasurement = useMemo(() => validation.valid
@@ -544,6 +579,7 @@ export default function FieldSurveyScreen() {
 
   function removeAreaAt(area: number) {
     if (controlsLocked) return;
+    stopWalk();
     commitShape(removeAffectedAreaAt(shapeRef.current, area));
     setSelected(null);
     setSelectedArea(null);
@@ -593,6 +629,67 @@ export default function FieldSurveyScreen() {
     }
   }
 
+  function handleWalkFix(fix: WalkFix) {
+    const walk = walkRef.current;
+    if (!walk) return;
+    const live = shapeRef.current;
+    if (walk.surveyId !== clientUuid || walk.affectedArea !== liveFormRef.current.drawingAffectedArea || walk.areaCount !== live.affectedAreas.length) {
+      stopWalk();
+      return;
+    }
+    // Spacing is measured from the walked boundary's current last point, so undo, drag and removal never leave a stale anchor.
+    walk.last = (walk.affectedArea ? live.affectedWaypoints : live.waypoints).at(-1) ?? null;
+    const decision = decideWalkFix(fix, walk.last);
+    if (decision.action !== 'accept') return;
+    walk.last = decision.waypoint;
+    walk.added += 1;
+    applyCapturedWaypoint(walk.affectedArea ? { affectedArea: true, areaCount: walk.areaCount } : { affectedArea: false, replace: null }, decision.waypoint);
+    if (!walk.affectedArea) setFieldErrors({});
+    setCenter({ latitude: decision.waypoint.latitude, longitude: decision.waypoint.longitude });
+  }
+  useEffect(() => { walkFixHandlerRef.current = handleWalkFix; });
+
+  async function toggleWalk() {
+    if (walkRef.current) {
+      stopWalk();
+      return;
+    }
+    if (controlsLocked || gpsBusy) return;
+    const affectedArea = drawingAffectedArea;
+    const session: WalkSession = {
+      affectedArea,
+      areaCount: shapeRef.current.affectedAreas.length,
+      surveyId: clientUuid,
+      added: 0,
+      last: (affectedArea ? shapeRef.current.affectedWaypoints : shapeRef.current.waypoints).at(-1) ?? null,
+      stop: () => undefined,
+    };
+    walkRef.current = session;
+    setSelected(null);
+    setWalking(true);
+    setGpsBusy(true);
+    try {
+      const result = await startWalk(
+        expoWalkLocationClient,
+        (fix) => walkFixHandlerRef.current(fix),
+        () => stopWalk(FIELD_SURVEY_COPY.walkLost),
+      );
+      if (walkRef.current !== session) {
+        if (result.status === 'started') result.stop();
+        return;
+      }
+      if (result.status !== 'started') {
+        stopWalk(null);
+        setSyncMessage(captureFailureMessage(result.status));
+        return;
+      }
+      session.stop = result.stop;
+      setSyncMessage(FIELD_SURVEY_COPY.walkActive);
+    } finally {
+      setGpsBusy(false);
+    }
+  }
+
   async function recaptureWorstPoint(point: SurveyWaypoint) {
     if (controlsLocked) return;
     const target: WaypointCaptureTarget = { affectedArea: false, areaCount: shapeRef.current.affectedAreas.length, replace: point };
@@ -632,6 +729,7 @@ export default function FieldSurveyScreen() {
       setSyncMessage(FIELD_SURVEY_COPY.unfinishedAffectedArea);
       return;
     }
+    stopWalk();
     setSaving(true);
     try {
       if (!affectedMeasurement?.valid) {
@@ -694,6 +792,7 @@ export default function FieldSurveyScreen() {
       setSyncMessage(result.error.message);
       return;
     }
+    stopWalk();
     const current = shapeRef.current;
     commitShape({
       ...current,
@@ -899,9 +998,10 @@ export default function FieldSurveyScreen() {
             </Pressable>
           </GestureDetector>
           <View pointerEvents="box-none" style={styles.floatingControls}>
-            <AppButton leadingIcon="map-pin" variant="secondary" selected={!drawingAffectedArea} style={[styles.floatingButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { setDrawingAffectedArea(false); setSelected(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
-            <AppButton leadingIcon="map-pin" variant="secondary" selected={drawingAffectedArea} style={[styles.floatingButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { setDrawingAffectedArea(true); setSelected(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
-            <AppButton leadingIcon="crosshair" variant="secondary" style={styles.floatingButton} onPress={() => void captureGpsWaypoint()} busy={gpsBusy} disabled={gpsBusy || controlsLocked}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.addGpsPoint}</AppButton>
+            <AppButton leadingIcon="map-pin" variant="secondary" selected={!drawingAffectedArea} style={[styles.floatingButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (drawingAffectedArea) stopWalk(); setDrawingAffectedArea(false); setSelected(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
+            <AppButton leadingIcon="map-pin" variant="secondary" selected={drawingAffectedArea} style={[styles.floatingButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (!drawingAffectedArea) stopWalk(); setDrawingAffectedArea(true); setSelected(null); setSyncMessage(FIELD_SURVEY_COPY.tapToDraw); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
+            <AppButton testID="field-survey.walk" leadingIcon={walking ? 'square' : 'navigation'} variant="secondary" selected={walking} style={styles.floatingButton} onPress={() => void toggleWalk()} disabled={(gpsBusy && !walking) || controlsLocked}>{walking ? FIELD_SURVEY_COPY.walkStop : FIELD_SURVEY_COPY.walkStart}</AppButton>
+            <AppButton leadingIcon="crosshair" variant="secondary" style={styles.floatingButton} onPress={() => void captureGpsWaypoint()} busy={gpsBusy} disabled={gpsBusy || walking || controlsLocked}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.addGpsPoint}</AppButton>
           </View>
           <View pointerEvents="box-none" style={styles.floatingControlsRight}>
             <AppButton testID="field-survey.my-location" leadingIcon="navigation" variant="secondary" accessibilityLabel={FIELD_SURVEY_COPY.myLocation} style={styles.floatingButton} onPress={() => void goToMyLocation()} busy={locating} disabled={locating}>{locating ? FIELD_SURVEY_COPY.myLocationBusy : FIELD_SURVEY_COPY.myLocation}</AppButton>
@@ -917,6 +1017,7 @@ export default function FieldSurveyScreen() {
         <ScrollView style={styles.details} contentContainerStyle={styles.detailsContent} keyboardShouldPersistTaps="handled">
           <Text style={[styles.intro, { color: theme.textSecondary }]}>{resumed ? FIELD_SURVEY_COPY.resumedSurvey : FIELD_SURVEY_COPY.intro}</Text>
         {resumed || awaitingSurveyStart ? <AppButton variant="secondary" onPress={() => {
+          stopWalk();
           setClientUuid(randomUUID());
           setDistrictCode('');
           setShape(EMPTY_SHAPE);

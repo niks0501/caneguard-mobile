@@ -117,25 +117,27 @@ beforeEach(() => {
   mockCaptureGps.mockReset();
 });
 
-it('stacks the three survey action controls in one vertical group so Capture GPS point stays reachable', async () => {
+it('stacks the four survey action controls in one vertical group so Capture GPS point stays reachable', async () => {
   await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
 
   const plotButton = screen.getByText(FIELD_SURVEY_COPY.plotBoundary);
   const affectedButton = screen.getByText(FIELD_SURVEY_COPY.affectedAreaBoundary);
+  const walkButton = screen.getByText(FIELD_SURVEY_COPY.walkStart);
   const gpsButton = screen.getByText(FIELD_SURVEY_COPY.addGpsPoint);
   expect(plotButton).toBeTruthy();
   expect(affectedButton).toBeTruthy();
+  expect(walkButton).toBeTruthy();
   expect(gpsButton).toBeTruthy();
 
-  const chains = [plotButton, affectedButton, gpsButton].map(ancestorsOf);
+  const chains = [plotButton, affectedButton, walkButton, gpsButton].map(ancestorsOf);
   const group = chains[0].find((node) => chains.every((chain) => chain.includes(node)));
   expect(group).toBeTruthy();
   const groupStyle = StyleSheet.flatten(group!.props.style) as Record<string, unknown> | undefined;
   expect(groupStyle?.flexDirection ?? 'column').not.toBe('row');
   expect(groupStyle?.flexWrap).toBeUndefined();
   const groupChildren = group!.props.children;
-  expect(Array.isArray(groupChildren) ? groupChildren.length : 1).toBe(3);
+  expect(Array.isArray(groupChildren) ? groupChildren.length : 1).toBe(4);
 
   mockCaptureGps.mockResolvedValue({
     status: 'captured',

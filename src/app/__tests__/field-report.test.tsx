@@ -2415,6 +2415,21 @@ describe('FieldReportScreen', () => {
       expect(disclosure.getByText('Confirmed location')).toBeOnTheScreen();
     });
 
+    it('surfaces an attached boundary that is gone from this phone as a blocking requirement', async () => {
+      mockDraftState = {
+        ...mockDraftState,
+        data: draft({ fieldSurveyClientUuid: 'survey-no-longer-saved' }),
+      };
+
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+      await goToStep(5);
+
+      expect(screen.getByTestId('field-report.ready.attached_boundary')).toHaveTextContent(
+        'Plot boundary ready to send',
+      );
+    });
+
     it('never shows report UUIDs in the normal workflow (E11)', async () => {
       await render(<FieldReportScreen />);
       await act(async () => undefined);

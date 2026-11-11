@@ -1185,8 +1185,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     );
     if (
       attachedSurveyUuid &&
-      attachedSurvey &&
-      planAttachedBoundarySend(attachedSurvey).status === 'blocked'
+      (!attachedSurvey || planAttachedBoundarySend(attachedSurvey).status === 'blocked')
     ) {
       missing.add('attached_boundary');
     }

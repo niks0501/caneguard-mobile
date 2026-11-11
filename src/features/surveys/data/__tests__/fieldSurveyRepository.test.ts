@@ -311,6 +311,7 @@ describe('field survey local repository', () => {
     expect(queueAttachedFieldSurvey(database, 'ok', 'owner-1')).toBe(true);
     expect(queueAttachedFieldSurvey(database, 'two-points', 'owner-1')).toBe(false);
     expect(queueAttachedFieldSurvey(database, 'no-district', 'owner-1')).toBe(false);
+    expect(queueAttachedFieldSurvey(database, 'deleted-on-this-phone', 'owner-1')).toBe(false);
     expect(findOwnedFieldSurvey(database, 'ok', 'owner-1')?.status).toBe('pending');
     expect(findOwnedFieldSurvey(database, 'two-points', 'owner-1')?.status).toBe('draft');
     expect(findOwnedFieldSurvey(database, 'no-district', 'owner-1')?.status).toBe('draft');

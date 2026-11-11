@@ -1920,6 +1920,7 @@ describe('findScanRecordIdForCase', () => {
     it('keeps the attached boundary when the finalize input omits it', async () => {
       const { database, native } = openTestDatabase();
       await prepareFinalizableReport(database, native);
+      await saveAttachedBoundary(database, 'D-01');
 
       const result = await finalizeFieldReport(
         database,
@@ -1990,6 +1991,29 @@ describe('findScanRecordIdForCase', () => {
       expect(findOwnedFieldSurvey(database, SURVEY_UUID, SUBMITTER_ID)).toMatchObject({
         status: 'draft',
         areaSqm: null,
+      });
+      native.close();
+    });
+
+    it('keeps the report a Draft when the attached boundary is gone from this phone', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+
+      const result = await finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        finalizeValues(),
+        IMAGE_EXISTS,
+      );
+
+      expect(result).toMatchObject({
+        missingRequirements: ['attached_boundary'],
+        status: 'invalid',
+      });
+      await expect(findFieldReportById(database, REPORT_ID, SUBMITTER_ID)).resolves.toMatchObject({
+        authoringState: 'draft',
+        fieldSurveyClientUuid: SURVEY_UUID,
       });
       native.close();
     });

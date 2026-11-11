@@ -149,7 +149,7 @@ export function markFieldSurveyPending(
 
 /**
  * "Send together": a report takes its attached boundary with it, so the boundary
- * is queued when it is still local work. Returns false only when the boundary is
+ * is queued when it is still local work. Returns false when the boundary is
  * attached but cannot be sent, so the report must not go without it.
  */
 export function queueAttachedFieldSurvey(
@@ -158,7 +158,7 @@ export function queueAttachedFieldSurvey(
   ownerIdentity: string,
 ): boolean {
   const row = findOwnedFieldSurvey(database, clientUuid, ownerIdentity);
-  if (!row) return true;
+  if (!row) return false;
   const plan = planAttachedBoundarySend(row);
   if (plan.status === 'blocked') return false;
   if (plan.status === 'queue') {

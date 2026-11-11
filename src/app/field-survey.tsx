@@ -643,7 +643,7 @@ export default function FieldSurveyScreen() {
     if (decision.action !== 'accept') return;
     walk.last = decision.waypoint;
     walk.added += 1;
-    applyCapturedWaypoint(walk.affectedArea ? { affectedArea: true, areaCount: walk.areaCount } : { affectedArea: false, replace: null }, decision.waypoint);
+    applyCapturedWaypoint(walk.affectedArea ? { affectedArea: true, areaCount: walk.areaCount, replace: null } : { affectedArea: false, areaCount: walk.areaCount, replace: null }, decision.waypoint);
     if (!walk.affectedArea) setFieldErrors({});
     setCenter({ latitude: decision.waypoint.latitude, longitude: decision.waypoint.longitude });
   }

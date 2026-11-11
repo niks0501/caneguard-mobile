@@ -20,7 +20,7 @@ export const SCREEN_MODES = [
 ] as const;
 export type ScreenMode = (typeof SCREEN_MODES)[number];
 
-/** The mode plus the stored boundary state that picked it (null when it did not come from a stored row). */
+/** The mode plus the boundary state it reflects (null when no boundary state applies). */
 export interface ScreenState {
   mode: ScreenMode;
   boundary: BoundaryState | null;
@@ -74,7 +74,7 @@ export function screenCanEdit(mode: ScreenMode): boolean {
   return mode === 'drawing_new' || mode === 'drawing_resumed' || mode === 'fixing';
 }
 
-/** The row on screen came from storage, so the "start a new boundary" escape is on offer. */
+/** The screen is past its first load, so the "start a new boundary" escape is on offer. */
 export function screenIsStoredOrMissing(mode: ScreenMode): boolean {
   return mode !== 'loading' && mode !== 'drawing_new';
 }

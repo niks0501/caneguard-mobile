@@ -185,7 +185,7 @@ Required product language:
 
 - prefer `Possible disease` over `Diagnosis`;
 - prefer `Confidence` over `Accuracy`;
-- saved but unsent work reads `Waiting to send`; only a real failed upload attempt reads `Could not send`, while a boundary survey reads its own state label from `BOUNDARY_STATE_COPY` in `src/constants/copy.ts`;
+- saved but unsent work reads `Waiting to send`; only a real failed upload attempt reads `Could not send`, while a boundary survey reads its own state label from `BOUNDARY_STATE_COPY` and its single screen status line from `FIELD_SURVEY_MODE_COPY`, both in `src/constants/copy.ts`;
 - do not describe AI outputs as expert-confirmed results.
 
 AI result screens should retain the decision-support disclaimer.

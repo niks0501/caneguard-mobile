@@ -125,6 +125,16 @@ describe('buildNeedsAttention', () => {
     );
   });
 
+  it('does not keep the assignment name in office wording', () => {
+    const summary = build({
+      notifications: [
+        notification({ message: 'A field validation assignment is ready.' }),
+      ],
+    });
+
+    expect(summary.items[0].message).toBe('A visit is ready.');
+  });
+
   it('uses the resolved destination meta for an actionable update', () => {
     const summary = build({
       destinations: new Map([

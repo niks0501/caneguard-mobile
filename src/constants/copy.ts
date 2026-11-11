@@ -18,7 +18,7 @@ export const NAMING = {
   plots: 'Plots',
 } as const;
 
-const LEGACY_VISIT_NAME = /\bfield (?:validation|visits?)\b/gi;
+const LEGACY_VISIT_NAME = /\bfield (?:validation|visits?)(?:\s+assignments?)?\b/gi;
 
 /**
  * The office still words some updates with the old visit names. Presentation

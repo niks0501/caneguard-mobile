@@ -106,6 +106,19 @@ describe('OfficeUpdatesPanel', () => {
     ).toBeOnTheScreen();
   });
 
+  it('drops the old assignment name from a known office phrase', async () => {
+    const legacy = {
+      ...NOTIFICATION,
+      message: 'A field validation assignment is ready.',
+      title: 'Field validation assigned',
+    };
+
+    await renderPanel({ notifications: [legacy] });
+
+    expect(screen.getByText('A visit is ready.')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Visit assigned: A visit is ready.')).toBeOnTheScreen();
+  });
+
   it('names visits in the empty state', async () => {
     await renderPanel({ notifications: [], unreadCount: 0 });
 

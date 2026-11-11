@@ -50,7 +50,7 @@ const LEGACY_NOTIFICATION: MobileNotification = {
   advisory: null,
   content: null,
   title: 'Field validation assigned',
-  message: 'CG-2026-0001 was assigned to you for a field visit by 2026-08-20.',
+  message: 'A field validation assignment is ready.',
 };
 
 function notificationState(notifications: MobileNotification[]) {
@@ -101,7 +101,7 @@ describe('NotificationDetailsScreen', () => {
       'Visit assigned',
     );
     expect(screen.getByTestId('notification.details.body')).toHaveTextContent(
-      'CG-2026-0001 was assigned to you for a visit by 2026-08-20.',
+      'A visit is ready.',
     );
   });
 

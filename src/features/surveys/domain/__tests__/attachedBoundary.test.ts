@@ -24,7 +24,6 @@ const row = (overrides: Partial<AttachedBoundaryInput> = {}): AttachedBoundaryIn
   affectedAreaPolygonsJson: '[]',
   affectedAreaWaypointsJson: '[]',
   capturedAt: '2026-10-05T09:00:00.000Z',
-  districtCode: 'D-01',
   lastSyncErrorCode: null,
   remoteId: null,
   status: 'draft',
@@ -50,8 +49,8 @@ const outsideShape: SurveyPolygon = {
 describe('planAttachedBoundarySend', () => {
   // Intent (send-together): a boundary the office can still receive travels with its
   // report, so the report queues it with its measured values.
-  it('queues an editable boundary that measures cleanly and names a district', () => {
-    const plan = planAttachedBoundarySend(row());
+  it('queues an editable boundary that measures cleanly', () => {
+    const plan = planAttachedBoundarySend(row(), 'D-01');
 
     expect(plan.status).toBe('queue');
     if (plan.status !== 'queue') throw new Error('expected a queued boundary');
@@ -66,6 +65,7 @@ describe('planAttachedBoundarySend', () => {
     expect(
       planAttachedBoundarySend(
         row({ status: 'failed', lastSyncErrorCode: 'API_VALIDATION_FAILED' }),
+        'D-01',
       ).status,
     ).toBe('queue');
   });
@@ -80,7 +80,7 @@ describe('planAttachedBoundarySend', () => {
     ['already known remotely', row({ status: 'draft', remoteId: 'remote-1' })],
   ];
   it.each(onItsWay)('leaves a boundary that is on its way alone: %s', (_label, input) => {
-    expect(planAttachedBoundarySend(input).status).toBe('on_its_way');
+    expect(planAttachedBoundarySend(input, 'D-01').status).toBe('on_its_way');
   });
 
   it('queues a legacy boundary whose affected-area columns were never written', () => {
@@ -90,16 +90,22 @@ describe('planAttachedBoundarySend', () => {
         affectedAreaPolygonsJson: null,
         affectedAreaWaypointsJson: null,
       }),
+      'D-01',
     );
 
     expect(plan.status).toBe('queue');
   });
 
+  // Intent (item 8): the district comes from the account, so a boundary saved before the
+  // account had one is still queued, and one the account has no district for is blocked.
+  it('blocks a boundary the account has no district for', () => {
+    expect(planAttachedBoundarySend(row(), '').status).toBe('blocked');
+    expect(planAttachedBoundarySend(row(), '   ').status).toBe('blocked');
+  });
+
   // Intent (send-together): the office must receive the boundary the inspector drew,
   // so damaged saved fields block the report instead of being replaced with nothing.
   const blocked: [string, AttachedBoundaryInput][] = [
-    ['no district', row({ districtCode: 'UNSPECIFIED' })],
-    ['blank district', row({ districtCode: '   ' })],
     ['too few points', row({ waypointsJson: JSON.stringify(plot.slice(0, 2)) })],
     ['broken storage', row({ waypointsJson: 'not json' })],
     ['damaged affected areas', row({ affectedAreaPolygonsJson: '{"areas":[]}' })],
@@ -115,7 +121,7 @@ describe('planAttachedBoundarySend', () => {
     ['refused by the office', row({ status: 'failed', lastSyncErrorCode: 'API_FORBIDDEN' })],
   ];
   it.each(blocked)('blocks a boundary the office cannot receive: %s', (_label, input) => {
-    expect(planAttachedBoundarySend(input).status).toBe('blocked');
+    expect(planAttachedBoundarySend(input, 'D-01').status).toBe('blocked');
   });
 
   it('carries the affected areas and their capture points with the plot', () => {
@@ -124,6 +130,7 @@ describe('planAttachedBoundarySend', () => {
         affectedAreaPolygonsJson: JSON.stringify([affectedShape]),
         affectedAreaWaypointsJson: JSON.stringify([affectedPlot]),
       }),
+      'D-01',
     );
 
     expect(plan.status).toBe('queue');

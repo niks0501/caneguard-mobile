@@ -714,7 +714,10 @@ export async function finalizeFieldReport(
     }
 
     const attachedSurveyUuid = draftContext.draft.fieldSurveyClientUuid;
-    if (attachedSurveyUuid && !queueAttachedFieldSurvey(database, attachedSurveyUuid, owner)) {
+    if (
+      attachedSurveyUuid &&
+      !queueAttachedFieldSurvey(database, attachedSurveyUuid, owner, input.districtCode?.trim() ?? '')
+    ) {
       return {
         missingRequirements: ['attached_boundary'],
         report: draftContext.draft,

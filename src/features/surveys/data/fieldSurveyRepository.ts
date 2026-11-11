@@ -98,6 +98,7 @@ export function markFieldSurveyPending(
   database: CaneGuardDatabase,
   clientUuid: string,
   ownerIdentity: string,
+  districtCode: string,
   polygon: SurveyPolygon,
   areaSqm: number,
   capturedAt: string,
@@ -131,6 +132,7 @@ export function markFieldSurveyPending(
     throw new StorageError('INVALID_FIELD_REPORT', provenanceCheck.error.message);
   }
   database.update(fieldSurveys).set({
+    districtCode,
     polygonJson: JSON.stringify(polygon),
     areaSqm,
     affectedAreaPolygonsJson: JSON.stringify(affectedAreaPolygons),
@@ -156,15 +158,16 @@ export function queueAttachedFieldSurvey(
   database: CaneGuardDatabase,
   clientUuid: string,
   ownerIdentity: string,
+  districtCode: string,
 ): boolean {
   const row = findOwnedFieldSurvey(database, clientUuid, ownerIdentity);
   if (!row) return false;
-  const plan = planAttachedBoundarySend(row);
+  const plan = planAttachedBoundarySend(row, districtCode);
   if (plan.status === 'blocked') return false;
   if (plan.status === 'queue') {
     const { send } = plan;
     markFieldSurveyPending(
-      database, clientUuid, ownerIdentity, send.polygon, send.areaSqm, send.capturedAt,
+      database, clientUuid, ownerIdentity, districtCode, send.polygon, send.areaSqm, send.capturedAt,
       send.affectedAreas, send.affectedAreaSqm, send.affectedAreaWaypoints,
     );
   }

@@ -69,6 +69,7 @@ async function savePendingSurvey(
     database,
     draft.clientUuid,
     input.ownerIdentity,
+    'D-01',
     polygon,
     plotAreaSqm,
     waypoint.capturedAt,

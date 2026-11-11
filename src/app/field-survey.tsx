@@ -757,7 +757,7 @@ export default function FieldSurveyScreen() {
       return;
     }
     try {
-      markFieldSurveyPending(database, clientUuid, session.user.uuid, validation.polygon, validation.areaSqm, waypoints.at(-1)?.capturedAt ?? new Date().toISOString(), affectedAreas, affectedMeasurement.areaSqm, affectedAreaWaypointSets);
+      markFieldSurveyPending(database, clientUuid, session.user.uuid, districtCode, validation.polygon, validation.areaSqm, waypoints.at(-1)?.capturedAt ?? new Date().toISOString(), affectedAreas, affectedMeasurement.areaSqm, affectedAreaWaypointSets);
     } catch (error: unknown) {
       setSyncMessage(error instanceof Error ? error.message : FIELD_SURVEY_COPY.saveFailed);
       return;
@@ -1026,11 +1026,9 @@ export default function FieldSurveyScreen() {
           {tiles.length > 0 && isOnline === true ? <Text pointerEvents="none" style={[styles.attribution, { color: theme.text, backgroundColor: theme.surfaceElevated }]}>{FIELD_SURVEY_COPY.mapAttribution}</Text> : null}
             </Pressable>
           </GestureDetector>
-          <View pointerEvents="box-none" style={styles.floatingControls}>
-            <View style={styles.modeSwitch}>
-              <AppButton testID="field-survey.walk" leadingIcon={walking ? 'square' : 'navigation'} variant="secondary" selected={walking} style={[styles.floatingButton, walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => void toggleWalk()} disabled={(gpsBusy && !walking) || controlsLocked}>{walking ? FIELD_SURVEY_COPY.walkStop : FIELD_SURVEY_COPY.modeWalk}</AppButton>
-              <AppButton testID="field-survey.tap" leadingIcon="map-pin" variant="secondary" selected={!walking} style={[styles.floatingButton, !walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => { if (walking) stopWalk(); }} disabled={controlsLocked}>{FIELD_SURVEY_COPY.modeTap}</AppButton>
-            </View>
+          <View pointerEvents="box-none" style={styles.modeSwitch}>
+            <AppButton testID="field-survey.walk" leadingIcon={walking ? 'square' : 'navigation'} variant="secondary" selected={walking} style={[styles.floatingButton, walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => void toggleWalk()} disabled={(gpsBusy && !walking) || controlsLocked}>{walking ? FIELD_SURVEY_COPY.walkStop : FIELD_SURVEY_COPY.modeWalk}</AppButton>
+            <AppButton testID="field-survey.tap" leadingIcon="map-pin" variant="secondary" selected={!walking} style={[styles.floatingButton, !walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => { if (walking) stopWalk(); }} disabled={controlsLocked}>{FIELD_SURVEY_COPY.modeTap}</AppButton>
           </View>
           <View pointerEvents="box-none" style={styles.floatingControlsRight}>
             <AppButton testID="field-survey.my-location" leadingIcon="navigation" variant="secondary" accessibilityLabel={FIELD_SURVEY_COPY.myLocation} style={styles.floatingButton} onPress={() => void goToMyLocation()} busy={locating} disabled={locating}>{locating ? FIELD_SURVEY_COPY.myLocationBusy : FIELD_SURVEY_COPY.myLocation}</AppButton>
@@ -1122,11 +1120,9 @@ const styles = StyleSheet.create({
   help: { ...Typography.bodySmall },
   mapNote: { ...Typography.bodySmall, paddingHorizontal: Spacing.lg, paddingTop: Spacing.xs },
   error: { ...Typography.bodySmall, fontWeight: '500' },
-  input: { ...Typography.body, minHeight: 48, borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: Spacing.md },
   map: { flex: 1, borderWidth: 1, borderRadius: Radius.lg, overflow: 'hidden', marginHorizontal: Spacing.lg, marginTop: Spacing.sm },
   mapLayer: { position: 'absolute', left: -SURVEY_MAP_OVERSCAN, top: -SURVEY_MAP_OVERSCAN },
   attribution: { position: 'absolute', right: Spacing.xs, bottom: Spacing.xs, paddingHorizontal: Spacing.xs, paddingVertical: Spacing.xs, borderRadius: Radius.sm, ...Typography.caption },
-  floatingControls: { position: 'absolute', top: Spacing.md + Spacing.sm, left: Spacing.lg + Spacing.sm, gap: Spacing.xs, alignItems: 'flex-start' },
   statusStrip: { ...Typography.label, marginHorizontal: Spacing.lg, marginTop: Spacing.xs, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderWidth: 1, borderRadius: Radius.sm, overflow: 'hidden' },
   retry: { fontWeight: '700', textDecorationLine: 'underline' },
   toolChip: { ...Typography.caption, marginHorizontal: Spacing.lg, marginTop: Spacing.xs, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderWidth: 1, borderRadius: Radius.sm, overflow: 'hidden' },
@@ -1137,7 +1133,7 @@ const styles = StyleSheet.create({
   areaRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
   areaRowLabel: { flex: 1 },
   floatingControlsRight: { position: 'absolute', top: Spacing.md + Spacing.sm, right: Spacing.lg + Spacing.sm, alignItems: 'flex-end', gap: Spacing.xs },
-  modeSwitch: { flexDirection: 'row', gap: Spacing.xs },
+  modeSwitch: { position: 'absolute', bottom: Spacing.lg + Spacing.md, left: Spacing.lg + Spacing.sm, right: Spacing.lg + Spacing.sm, flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   floatingButton: { minHeight: 44, paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md },
   toolButton: { flex: 1, minHeight: 44, paddingVertical: Spacing.xs },
   row: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm },

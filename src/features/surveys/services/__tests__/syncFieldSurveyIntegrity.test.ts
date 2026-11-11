@@ -82,6 +82,7 @@ async function pendingSurvey(database: CaneGuardDatabase, clientUuid: string) {
     database,
     draft.clientUuid,
     'owner-1',
+    'D-01',
     plotPolygon,
     ringArea(plotPolygon.coordinates[0]),
     '2026-10-31T02:03:00.000Z',

@@ -141,6 +141,8 @@ export interface FinalizeFieldReportInput {
   barangay: string;
   caneClass?: string;
   cropAge?: string;
+  /** The account's district; an attached boundary is queued with this, not with the draft's stored value. */
+  districtCode?: string | null;
   /** Accepts a farmer/owner name, farm name, or usable local farm identifier. */
   farmerOrFarmOwnerName: string;
   fieldNotes?: string | null;

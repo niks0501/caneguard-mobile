@@ -87,7 +87,7 @@ describe('field survey local repository', () => {
       { latitude: 14.001, longitude: 120.001, source: 'gps' as const, accuracyMeters: 3.1, capturedAt: '2026-10-05T09:00:02.000Z' },
       { latitude: 14.001, longitude: 120, source: 'map' as const, accuracyMeters: null, capturedAt: '2026-10-05T09:00:03.000Z' },
     ];
-    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt, [polygon], plotAreaSqm, [affectedWaypointsForPlot]);
+    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', 'D-01', polygon, plotAreaSqm, waypoint.capturedAt, [polygon], plotAreaSqm, [affectedWaypointsForPlot]);
     expect(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')).toMatchObject({ status: 'pending', areaSqm: plotAreaSqm, affectedAreaSqm: plotAreaSqm, capturedAt: waypoint.capturedAt });
     expect(JSON.parse(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')!.measurementProvenanceJson!)).toEqual(provenance);
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', {
@@ -144,7 +144,7 @@ describe('field survey local repository', () => {
       affectedAreaWaypoints: [affectedWaypoints],
     });
     expect(JSON.parse(draft.affectedAreaWaypointsJson!)).toEqual([affectedWaypoints]);
-    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt, [polygon], plotAreaSqm, [affectedWaypoints]);
+    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', 'D-01', polygon, plotAreaSqm, waypoint.capturedAt, [polygon], plotAreaSqm, [affectedWaypoints]);
     const pending = findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')!;
     expect(JSON.parse(pending.affectedAreaWaypointsJson!)).toEqual([affectedWaypoints]);
     expect(JSON.parse(pending.affectedAreaWaypointsJson!)[0][1]).toMatchObject({ source: 'gps', accuracyMeters: 3.4 });
@@ -168,7 +168,7 @@ describe('field survey local repository', () => {
     });
     expect(JSON.parse(draft.activeAffectedWaypointsJson!)).toEqual(active);
     expect(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')).toMatchObject({ status: 'draft' });
-    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt);
+    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', 'D-01', polygon, plotAreaSqm, waypoint.capturedAt);
     const pending = findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')!;
     expect(pending.status).toBe('pending');
     expect(JSON.parse(pending.activeAffectedWaypointsJson!)).toEqual([]);
@@ -190,7 +190,7 @@ describe('field survey local repository', () => {
       { latitude: 14.002, longitude: 120.003, source: 'gps' as const, accuracyMeters: 2.5, capturedAt: '2026-10-05T09:00:01.000Z' },
       { latitude: 14.003, longitude: 120.003, source: 'gps' as const, accuracyMeters: 2.5, capturedAt: '2026-10-05T09:00:02.000Z' },
     ];
-    expect(() => markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt, [polygon], plotAreaSqm, [mismatched])).toThrow(/provenance/i);
+    expect(() => markFieldSurveyPending(database, draft.clientUuid, 'owner-1', 'D-01', polygon, plotAreaSqm, waypoint.capturedAt, [polygon], plotAreaSqm, [mismatched])).toThrow(/provenance/i);
     native.close();
   });
 
@@ -204,7 +204,7 @@ describe('field survey local repository', () => {
       ownerIdentity: 'owner-1',
       waypoints: [waypoint],
     });
-    expect(() => markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm + 100, waypoint.capturedAt)).toThrow(/measured area/i);
+    expect(() => markFieldSurveyPending(database, draft.clientUuid, 'owner-1', 'D-01', polygon, plotAreaSqm + 100, waypoint.capturedAt)).toThrow(/measured area/i);
     expect(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')?.status).toBe('draft');
     native.close();
   });
@@ -219,7 +219,7 @@ describe('field survey local repository', () => {
       ownerIdentity: 'owner-1',
       waypoints: [waypoint],
     });
-    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt);
+    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', 'D-01', polygon, plotAreaSqm, waypoint.capturedAt);
     expect(findFieldSurveySyncCandidates(database, 'owner-1', 10, { includeRetryableFailed: true })).toHaveLength(1);
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'failed', lastSyncErrorCode: 'NETWORK_REQUEST_FAILED' });
     expect(findFieldSurveySyncCandidates(database, 'owner-1', 10, { failedBefore: '9999-01-01T00:00:00.000Z', includeRetryableFailed: true })).toHaveLength(1);
@@ -241,9 +241,9 @@ describe('field survey local repository', () => {
       ownerIdentity: 'owner-1',
       waypoints: [waypoint],
     });
-    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt);
+    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', 'D-01', polygon, plotAreaSqm, waypoint.capturedAt);
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'failed', lastSyncErrorCode: 'CLIENT_UUID_CONFLICT' });
-    expect(() => markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt)).toThrow(/fresh identity/i);
+    expect(() => markFieldSurveyPending(database, draft.clientUuid, 'owner-1', 'D-01', polygon, plotAreaSqm, waypoint.capturedAt)).toThrow(/fresh identity/i);
     await expect(saveFieldSurveyDraft(database, { authorRole: 'field_reporter', capturedAt: waypoint.capturedAt, clientUuid: draft.clientUuid, districtCode: 'D-01', ownerIdentity: 'owner-1', waypoints: [waypoint] })).rejects.toThrow(/cannot be edited/i);
     native.close();
   });
@@ -288,7 +288,7 @@ describe('field survey local repository', () => {
       seen.push(findOwnedFieldSurvey(database, 'survey-notify', 'owner-1')?.status ?? 'missing');
     });
     const draft = await saveFieldSurveyDraft(database, { authorRole: 'field_reporter', capturedAt: waypoint.capturedAt, clientUuid: 'survey-notify', districtCode: 'D-01', ownerIdentity: 'owner-1', waypoints: [waypoint] });
-    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt);
+    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', 'D-01', polygon, plotAreaSqm, waypoint.capturedAt);
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'syncing' });
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'synced', remoteId: 'remote-1' });
     expect(updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'failed' })).toBe(0);
@@ -306,15 +306,30 @@ describe('field survey local repository', () => {
     await saveFieldSurveyDraft(database, { ...base, clientUuid: 'two-points', districtCode: 'D-01', waypoints: plotWaypoints.slice(0, 2) });
     await saveFieldSurveyDraft(database, { ...base, clientUuid: 'no-district', districtCode: 'UNSPECIFIED', waypoints: plotWaypoints });
 
-    expect(queueAttachedFieldSurvey(database, 'ok', 'owner-1')).toBe(true);
+    expect(queueAttachedFieldSurvey(database, 'ok', 'owner-1', 'D-01')).toBe(true);
     expect(findOwnedFieldSurvey(database, 'ok', 'owner-1')?.status).toBe('pending');
-    expect(queueAttachedFieldSurvey(database, 'ok', 'owner-1')).toBe(true);
-    expect(queueAttachedFieldSurvey(database, 'two-points', 'owner-1')).toBe(false);
-    expect(queueAttachedFieldSurvey(database, 'no-district', 'owner-1')).toBe(false);
-    expect(queueAttachedFieldSurvey(database, 'deleted-on-this-phone', 'owner-1')).toBe(false);
+    expect(queueAttachedFieldSurvey(database, 'ok', 'owner-1', 'D-01')).toBe(true);
+    expect(queueAttachedFieldSurvey(database, 'two-points', 'owner-1', 'D-01')).toBe(false);
+    expect(queueAttachedFieldSurvey(database, 'no-district', 'owner-1', '')).toBe(false);
+    expect(queueAttachedFieldSurvey(database, 'deleted-on-this-phone', 'owner-1', 'D-01')).toBe(false);
     expect(findOwnedFieldSurvey(database, 'ok', 'owner-1')?.status).toBe('pending');
     expect(findOwnedFieldSurvey(database, 'two-points', 'owner-1')?.status).toBe('draft');
     expect(findOwnedFieldSurvey(database, 'no-district', 'owner-1')?.status).toBe('draft');
+    native.close();
+  });
+
+  // Intent (item 8): the district comes from the account, so a boundary saved without one
+  // is queued with the district the account has now, on both the submit and attach paths.
+  it('queues with the account district instead of the district stored on the draft', async () => {
+    const { database, native } = openDatabase();
+    const base = { authorRole: 'field_reporter' as const, capturedAt: waypoint.capturedAt, ownerIdentity: 'owner-1', waypoints: plotWaypoints };
+    await saveFieldSurveyDraft(database, { ...base, clientUuid: 'submitted-stale', districtCode: 'UNSPECIFIED' });
+    await saveFieldSurveyDraft(database, { ...base, clientUuid: 'attached-stale', districtCode: 'UNSPECIFIED' });
+
+    markFieldSurveyPending(database, 'submitted-stale', 'owner-1', 'D-07', polygon, plotAreaSqm, waypoint.capturedAt);
+    expect(queueAttachedFieldSurvey(database, 'attached-stale', 'owner-1', 'D-07')).toBe(true);
+    expect(findOwnedFieldSurvey(database, 'submitted-stale', 'owner-1')).toMatchObject({ status: 'pending', districtCode: 'D-07' });
+    expect(findOwnedFieldSurvey(database, 'attached-stale', 'owner-1')).toMatchObject({ status: 'pending', districtCode: 'D-07' });
     native.close();
   });
 
@@ -334,7 +349,7 @@ describe('field survey local repository', () => {
       .prepare('UPDATE field_surveys SET affected_area_polygons_json = ? WHERE client_uuid = ?')
       .run('{"areas":[]}', 'damaged-areas');
 
-    expect(queueAttachedFieldSurvey(database, 'damaged-areas', 'owner-1')).toBe(false);
+    expect(queueAttachedFieldSurvey(database, 'damaged-areas', 'owner-1', 'D-01')).toBe(false);
     expect(findOwnedFieldSurvey(database, 'damaged-areas', 'owner-1')).toMatchObject({
       status: 'draft',
       affectedAreaPolygonsJson: '{"areas":[]}',

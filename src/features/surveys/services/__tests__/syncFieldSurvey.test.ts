@@ -91,6 +91,7 @@ describe('syncFieldSurvey upload contract', () => {
       database,
       draft.clientUuid,
       'owner-1',
+      'D-01',
       plotPolygon,
       ringArea(plotPolygon.coordinates[0]),
       '2026-10-31T02:03:00.000Z',
@@ -111,6 +112,7 @@ describe('syncFieldSurvey upload contract', () => {
     const request = jest.mocked(apiRequest).mock.calls[0][1];
     const body = JSON.parse(String(request?.body));
     expect(body).not.toHaveProperty('affected_area_waypoints');
+    expect(body.district_code).toBe('D-01');
     expect(Object.keys(body.measurement_provenance).sort()).toEqual([
       'affected_area_sqm',
       'affected_area_waypoint_provenance',

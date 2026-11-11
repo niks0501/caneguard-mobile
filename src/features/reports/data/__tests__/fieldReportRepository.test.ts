@@ -1850,6 +1850,7 @@ describe('findScanRecordIdForCase', () => {
         affectedPortionPercent: null,
         affectedPortionMeasurement: 'not_measured' as const,
         barangay: 'Wawa',
+        districtCode: 'D-01',
         farmerOrFarmOwnerName: 'Maria Santos',
         submittedAt: '2026-08-10T02:00:00.000Z',
         updatedAt: '2026-08-10T02:00:00.000Z',
@@ -1932,6 +1933,7 @@ describe('findScanRecordIdForCase', () => {
           affectedPortionPercent: null,
           affectedPortionMeasurement: 'not_measured',
           barangay: 'Wawa',
+          districtCode: 'D-01',
           farmerOrFarmOwnerName: 'Maria Santos',
           submittedAt: '2026-08-10T02:00:00.000Z',
           updatedAt: '2026-08-10T02:00:00.000Z',
@@ -1967,7 +1969,9 @@ describe('findScanRecordIdForCase', () => {
       native.close();
     });
 
-    it('keeps the report a Draft when the attached boundary cannot be sent', async () => {
+    // Intent (item 8): the district comes from the account, so a boundary saved before the
+    // account had one still travels with the report, queued under the account's district.
+    it('queues an attached boundary with the account district instead of the stored one', async () => {
       const { database, native } = openTestDatabase();
       await prepareFinalizableReport(database, native);
       await saveAttachedBoundary(database, 'UNSPECIFIED');
@@ -1977,6 +1981,27 @@ describe('findScanRecordIdForCase', () => {
         REPORT_ID,
         SUBMITTER_ID,
         finalizeValues(),
+        IMAGE_EXISTS,
+      );
+
+      expect(result.status).toBe('finalized');
+      expect(findOwnedFieldSurvey(database, SURVEY_UUID, SUBMITTER_ID)).toMatchObject({
+        districtCode: 'D-01',
+        status: 'pending',
+      });
+      native.close();
+    });
+
+    it('keeps the report a Draft when the account has no district for the attached boundary', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+      await saveAttachedBoundary(database, 'D-01');
+
+      const result = await finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        { ...finalizeValues(), districtCode: '' },
         IMAGE_EXISTS,
       );
 

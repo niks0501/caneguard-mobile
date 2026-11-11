@@ -50,6 +50,7 @@ import type { FieldSurveyRow } from '@/database/schema';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { findOwnedFieldSurvey, listOwnedFieldSurveys } from '@/features/surveys/data/fieldSurveyRepository';
+import { planAttachedBoundarySend } from '@/features/surveys/domain/attachedBoundary';
 import { returnToTab } from '@/features/navigation/returnToTab';
 import { BarangayPicker } from '@/features/reports/components/BarangayPicker';
 import { ReportSurveyCard } from '@/features/reports/components/ReportSurveyCard';
@@ -138,6 +139,7 @@ const REQUIREMENT_OWNING_STEP: Record<FieldReportSubmissionRequirement, number> 
   location_unavailable_reason: 4,
   gps_accuracy: 4,
   observation_time: 1,
+  attached_boundary: 5,
 };
 
 type ReporterConcernChoice = 'none' | 'rssi' | 'other';
@@ -1137,7 +1139,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       ? getSubmissionImageUri(report.data.scanRecordId, report.data.submitterIdentity)
       : null;
 
-    return new Set(
+    const missing = new Set(
       getMissingSubmissionRequirements(
         {
           ...report.data,
@@ -1181,11 +1183,21 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
         },
       ),
     );
+    if (
+      attachedSurveyUuid &&
+      attachedSurvey &&
+      planAttachedBoundarySend(attachedSurvey).status === 'blocked'
+    ) {
+      missing.add('attached_boundary');
+    }
+    return missing;
   }, [
     affectedAreaChoice,
     affectedAreaText,
     affectedPortionChoice,
     affectedPortionText,
+    attachedSurvey,
+    attachedSurveyUuid,
     barangay,
     farmerName,
     ownerUnknown,
@@ -3071,6 +3083,10 @@ const ALL_REQUIREMENT_GROUPS: { label: string; requirements: FieldReportSubmissi
     ],
   },
   {
+    label: 'Plot boundary',
+    requirements: ['attached_boundary'],
+  },
+  {
     label: 'Saved scan details',
     requirements: [
       'original_scan_image',
@@ -3097,7 +3113,7 @@ const TOTAL_REQUIREMENTS_COUNT = ALL_REQUIREMENT_GROUPS.reduce(
 /**
  * Step 5: Truthful readiness checklist (W-3, D-5).
  * Shows only missing items inline, with direct jump links back to their owning step.
- * Full 20 requirements are preserved inside a disclosure.
+ * Full 21 requirements are preserved inside a disclosure.
  */
 function ReadyToSubmitChecklist({
   missing,
@@ -3192,7 +3208,7 @@ function ReadyToSubmitChecklist({
         </Text>
       ) : null}
 
-      {/* W-3: Full 20 requirements disclosure */}
+      {/* W-3: Full 21 requirements disclosure */}
       <DisclosureSection
         testID="field-report.all-requirements-disclosure"
         title={`All requirements (${TOTAL_REQUIREMENTS_COUNT})`}>
@@ -3251,6 +3267,7 @@ export const SUBMISSION_REQUIREMENT_LABELS: Record<
   location_unavailable_reason: 'Reason for missing location',
   gps_accuracy: 'Confirmed location',
   observation_time: 'Observation time',
+  attached_boundary: 'Plot boundary ready to send',
 };
 
 function checkpointSignature(

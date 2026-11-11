@@ -175,6 +175,7 @@ export const FIELD_REPORT_SUBMISSION_REQUIREMENTS = [
   'location_unavailable_reason',
   'gps_accuracy',
   'observation_time',
+  'attached_boundary',
 ] as const;
 
 export type FieldReportSubmissionRequirement =

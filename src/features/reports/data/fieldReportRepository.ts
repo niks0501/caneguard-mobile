@@ -713,6 +713,15 @@ export async function finalizeFieldReport(
       }
     }
 
+    const attachedSurveyUuid = draftContext.draft.fieldSurveyClientUuid;
+    if (attachedSurveyUuid && !queueAttachedFieldSurvey(database, attachedSurveyUuid, owner)) {
+      return {
+        missingRequirements: ['attached_boundary'],
+        report: draftContext.draft,
+        status: 'invalid' as const,
+      };
+    }
+
     const result = database.transaction((transaction) => {
       const existing = transaction
         .select()
@@ -799,14 +808,6 @@ export async function finalizeFieldReport(
       return { report: toFieldReport(finalizedRow), status: 'finalized' as const };
     });
     if (result.status === 'finalized') {
-      if (result.report.fieldSurveyClientUuid) {
-        // The report carries its boundary: queue it now so both upload together.
-        try {
-          queueAttachedFieldSurvey(database, result.report.fieldSurveyClientUuid, owner);
-        } catch {
-          // The report is already finalized; an unreadable boundary stays a draft.
-        }
-      }
       emitSyncRecordsChanged();
     }
     return result;

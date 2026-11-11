@@ -38,6 +38,11 @@ import {
   markFieldReportSyncing,
   TRANSITIONS,
 } from '@/features/reports/data/fieldReportSyncRepository';
+import {
+  findOwnedFieldSurvey,
+  saveFieldSurveyDraft,
+} from '@/features/surveys/data/fieldSurveyRepository';
+import type { SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 
 const SCAN_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
 const REPORT_ID = '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e';
@@ -94,6 +99,12 @@ function openTestDatabase(): {
     '0012_dapper_sumo.sql',
     '0013_v1_local_scan_migration.sql',
     '0014_safe_songbird.sql',
+    '0019_add_field_surveys.sql',
+    '0021_field_survey_affected_areas.sql',
+    '0022_peaceful_titania.sql',
+    '0023_affected_area_waypoints.sql',
+    '0024_active_affected_waypoints.sql',
+    '0025_field_survey_author_role.sql',
     '0028_field_report_survey_link.sql',
     '0029_scan_personal_place.sql',
   ]) {
@@ -1825,6 +1836,36 @@ describe('findScanRecordIdForCase', () => {
 
   describe('field survey link', () => {
     const SURVEY_UUID = '0f6d5a38-3a4f-4a6f-a5b0-9f6c2f0f9a11';
+    const surveyWaypoints: SurveyWaypoint[] = [
+      { accuracyMeters: null, capturedAt: OBSERVED_AT, latitude: 14, longitude: 120, source: 'map' },
+      { accuracyMeters: null, capturedAt: OBSERVED_AT, latitude: 14, longitude: 120.001, source: 'map' },
+      { accuracyMeters: null, capturedAt: OBSERVED_AT, latitude: 14.001, longitude: 120.001, source: 'map' },
+      { accuracyMeters: null, capturedAt: OBSERVED_AT, latitude: 14.001, longitude: 120, source: 'map' },
+    ];
+
+    function finalizeValues() {
+      return {
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured' as const,
+        affectedPortionPercent: null,
+        affectedPortionMeasurement: 'not_measured' as const,
+        barangay: 'Wawa',
+        farmerOrFarmOwnerName: 'Maria Santos',
+        submittedAt: '2026-08-10T02:00:00.000Z',
+        updatedAt: '2026-08-10T02:00:00.000Z',
+      };
+    }
+
+    async function saveAttachedBoundary(database: CaneGuardDatabase, districtCode: string) {
+      await saveFieldSurveyDraft(database, {
+        authorRole: 'field_reporter',
+        capturedAt: OBSERVED_AT,
+        clientUuid: SURVEY_UUID,
+        districtCode,
+        ownerIdentity: SUBMITTER_ID,
+        waypoints: surveyWaypoints,
+      });
+    }
 
     async function prepareFinalizableReport(database: CaneGuardDatabase, native: DatabaseSync) {
       await createOrGetFieldReportDraft(database, createDraftInput());
@@ -1899,6 +1940,57 @@ describe('findScanRecordIdForCase', () => {
 
       expect(result.status).toBe('finalized');
       expect(result.report.fieldSurveyClientUuid).toBe(SURVEY_UUID);
+      native.close();
+    });
+
+    it('queues the attached boundary so it uploads with the report', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+      await saveAttachedBoundary(database, 'D-01');
+
+      const result = await finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        finalizeValues(),
+        IMAGE_EXISTS,
+      );
+
+      expect(result.status).toBe('finalized');
+      const queuedBoundary = findOwnedFieldSurvey(database, SURVEY_UUID, SUBMITTER_ID);
+      expect(queuedBoundary).toMatchObject({ status: 'pending' });
+      // Independent oracle: 0.001° of latitude (111.13 m) by 0.001° of longitude
+      // at latitude 14 (108.01 m) is ~12 003 m².
+      expect(queuedBoundary?.areaSqm).toBeGreaterThan(11_900);
+      expect(queuedBoundary?.areaSqm).toBeLessThan(12_100);
+      native.close();
+    });
+
+    it('keeps the report a Draft when the attached boundary cannot be sent', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+      await saveAttachedBoundary(database, 'UNSPECIFIED');
+
+      const result = await finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        finalizeValues(),
+        IMAGE_EXISTS,
+      );
+
+      expect(result).toMatchObject({
+        missingRequirements: ['attached_boundary'],
+        status: 'invalid',
+      });
+      await expect(findFieldReportById(database, REPORT_ID, SUBMITTER_ID)).resolves.toMatchObject({
+        authoringState: 'draft',
+        fieldSurveyClientUuid: SURVEY_UUID,
+      });
+      expect(findOwnedFieldSurvey(database, SURVEY_UUID, SUBMITTER_ID)).toMatchObject({
+        status: 'draft',
+        areaSqm: null,
+      });
       native.close();
     });
   });

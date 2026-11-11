@@ -2397,13 +2397,13 @@ describe('FieldReportScreen', () => {
       expect(screen.getByLabelText('Add location')).toBeOnTheScreen();
     });
 
-    it('holds all 20 submission requirements inside disclosure on Step 5 (W-3, Rule 4)', async () => {
+    it('holds all 21 submission requirements inside disclosure on Step 5 (W-3, Rule 4)', async () => {
       await render(<FieldReportScreen />);
       await act(async () => undefined);
 
       await goToStep(5);
       await act(async () => {
-        fireEvent.press(screen.getByLabelText('Show All requirements (20)'));
+        fireEvent.press(screen.getByLabelText('Show All requirements (21)'));
       });
 
       const disclosure = within(screen.getByTestId('field-report.all-requirements-disclosure'));

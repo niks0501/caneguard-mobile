@@ -14,12 +14,35 @@ export interface MorningNote {
   headline: string;
   /** Send state shown quietly under a work headline; null when the headline already says it. */
   syncLine: string | null;
+  /** Visit counts shown quietly under the headline when it leads with other work; null otherwise. */
+  visitsLine: string | null;
 }
 
 const COUNT_WORDS = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
 
 function countWord(count: number): string {
   return COUNT_WORDS[count] ?? String(count);
+}
+
+/**
+ * The one sentence that states the visits due today and overdue, or null when
+ * neither exists.
+ */
+function visitCountsSentence(items: readonly NeedsAttentionItem[]): string | null {
+  const visits = items.filter(
+    (item) => isActionableAttentionItem(item) && item.kind === 'assignment',
+  );
+  const dueToday = visits.filter((item) => item.bucket === 'today').length;
+  const overdue = visits.filter((item) => item.bucket === 'overdue').length;
+  if (dueToday > 0) {
+    return [
+      HOME_NOTE_COPY.visitsToday(countWord(dueToday)),
+      overdue > 0 ? HOME_NOTE_COPY.alsoOverdue(countWord(overdue)) : null,
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
+  return overdue > 0 ? HOME_NOTE_COPY.visitsOverdue(countWord(overdue)) : null;
 }
 
 /**
@@ -35,10 +58,8 @@ export function buildMorningNote(
 ): MorningNote {
   const work = items.filter(isActionableAttentionItem);
   const primary = work[0];
-  const visits = work.filter((item) => item.kind === 'assignment');
   const updates = work.filter((item) => item.kind === 'notification');
-  const dueToday = visits.filter((item) => item.bucket === 'today').length;
-  const overdue = visits.filter((item) => item.bucket === 'overdue').length;
+  const visitCounts = visitCountsSentence(items);
   const action: MorningNoteAction = !primary
     ? 'scan'
     : primary.kind === 'notification'
@@ -54,22 +75,18 @@ export function buildMorningNote(
   if (action === 'update') {
     headline = HOME_NOTE_COPY.officeUpdates(countWord(updates.length));
   } else if (action === 'visit') {
-    if (dueToday > 0) {
-      headline = [
-        HOME_NOTE_COPY.visitsToday(countWord(dueToday)),
-        overdue > 0 ? HOME_NOTE_COPY.alsoOverdue(countWord(overdue)) : null,
-      ]
-        .filter(Boolean)
-        .join(' ');
-    } else if (overdue > 0) {
-      headline = HOME_NOTE_COPY.visitsOverdue(countWord(overdue));
-    } else {
-      headline = HOME_NOTE_COPY.nothingDueToday;
-    }
+    headline = visitCounts ?? HOME_NOTE_COPY.nothingDueToday;
   }
+  const visitsLine = action === 'visit' ? null : visitCounts;
 
   if (headline) {
-    return { action, actionLabel, headline, syncLine: syncNote };
+    return { action, actionLabel, headline, syncLine: syncNote, visitsLine };
   }
-  return { action, actionLabel, headline: syncNote ?? HOME_NOTE_COPY.allClear, syncLine: null };
+  return {
+    action,
+    actionLabel,
+    headline: syncNote ?? HOME_NOTE_COPY.allClear,
+    syncLine: null,
+    visitsLine,
+  };
 }

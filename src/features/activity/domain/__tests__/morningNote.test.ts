@@ -45,6 +45,7 @@ describe('buildMorningNote', () => {
       actionLabel: 'Start a scan',
       headline: 'All clear.',
       syncLine: null,
+      visitsLine: null,
     });
   });
 
@@ -61,6 +62,8 @@ describe('buildMorningNote', () => {
       null,
     );
     expect(note.headline).toBe('Two visits today. One is overdue.');
+    // A visit headline already states the counts, so they are never said twice.
+    expect(note.visitsLine).toBeNull();
     expect(note.action).toBe('visit');
     expect(note.actionLabel).toBe('Open next visit');
   });
@@ -119,6 +122,25 @@ describe('buildMorningNote', () => {
       actionLabel: 'Read office update',
       headline: 'One office update to read.',
     });
+  });
+
+  it('still states the visit counts once when an office update leads', () => {
+    const note = buildMorningNote(
+      [READABLE_UPDATE, visit('today', 'a'), visit('overdue', 'b')],
+      null,
+    );
+    expect(note.headline).toBe('One office update to read.');
+    expect(note.visitsLine).toBe('One visit today. One is overdue.');
+  });
+
+  it('states the overdue counts once under a leading office update', () => {
+    const note = buildMorningNote([READABLE_UPDATE, visit('overdue', 'b')], null);
+    expect(note.headline).toBe('One office update to read.');
+    expect(note.visitsLine).toBe('One visit is overdue.');
+  });
+
+  it('adds no visit line when the update leads and no visit is due or overdue', () => {
+    expect(buildMorningNote([READABLE_UPDATE], null).visitsLine).toBeNull();
   });
 
   it('leads with the visit the button will open when updates cannot be opened', () => {

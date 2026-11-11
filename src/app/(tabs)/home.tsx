@@ -143,6 +143,14 @@ export default function HomeScreen() {
                   style={[styles.noteText, { color: theme.text }]}>
                   {note.headline}
                 </Text>
+                {note.visitsLine ? (
+                  <Text
+                    accessibilityLiveRegion="polite"
+                    testID="home.visit-counts"
+                    style={[styles.syncLine, { color: theme.textSecondary }]}>
+                    {note.visitsLine}
+                  </Text>
+                ) : null}
                 {note.syncLine ? (
                   <Pressable
                     accessibilityRole="button"

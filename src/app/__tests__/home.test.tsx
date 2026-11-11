@@ -314,6 +314,8 @@ describe('HomeScreen', () => {
     await render(<HomeScreen />);
 
     expect(screen.getByTestId('home.note')).toHaveTextContent('One visit today. One is overdue.');
+    expect(screen.getAllByText('One visit today. One is overdue.')).toHaveLength(1);
+    expect(screen.queryByTestId('home.visit-counts')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('home.glance')).not.toBeOnTheScreen();
     expect(screen.queryByText('Today at a glance')).not.toBeOnTheScreen();
   });
@@ -467,6 +469,9 @@ describe('HomeScreen', () => {
     await render(<HomeScreen />);
 
     expect(screen.getByTestId('home.note')).toHaveTextContent('One office update to read.');
+    // The update leads, so the counts are still stated once, on their own line.
+    expect(screen.getAllByText('One visit today.')).toHaveLength(1);
+    expect(screen.getByTestId('home.visit-counts')).toHaveTextContent('One visit today.');
     const primary = screen.getByTestId('home.primary-action');
     expect(primary).toHaveTextContent('Read office update');
 

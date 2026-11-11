@@ -83,6 +83,19 @@ describe('buildMorningNote', () => {
     });
   });
 
+  it.each([
+    ['Finish your field report', { kind: 'field_report' as const, scanRecordId: 'report-1' }],
+    ['Finish your visit for CG-1', { kind: 'assignment' as const, assignmentId: 'visit-1' }],
+    ['Finish your plot boundary', { kind: 'field_survey' as const, surveyId: 'plot-1' }],
+  ])('offers to resume the draft described by %s', (title, destination) => {
+    const draft: NeedsAttentionItem = {
+      destination, id: 'draft-1', kind: 'draft', message: 'Not finished', meta: 'Saved', title,
+    };
+    expect(buildMorningNote([draft, visit('today')], 'Working offline.')).toEqual({
+      action: 'draft', actionLabel: 'Resume', headline: title, syncLine: 'Working offline.',
+    });
+  });
+
   it('offers to read an office update when an actionable update comes first', () => {
     const note = buildMorningNote([READABLE_UPDATE], null);
     expect(note).toMatchObject({

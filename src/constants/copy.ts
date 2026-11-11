@@ -44,6 +44,7 @@ export const UNFINISHED_COPY = {
   visitLead: (referenceCode: string) => `Finish your visit for ${referenceCode}`,
   plotLead: 'Finish your plot boundary',
   resume: 'Resume',
+  heading: 'Not finished',
 } as const;
 
 export const FIELD_VALIDATION_UNAVAILABLE =
@@ -315,6 +316,7 @@ export const HOME_NOTE_COPY = {
   allClear: 'All clear.',
   nothingDueToday: 'Nothing due today.',
   openNextVisit: 'Open next visit',
+  resumeDraft: 'Resume',
   readOfficeUpdate: 'Read office update',
   startScan: 'Start a scan',
   upNext: 'Up next',

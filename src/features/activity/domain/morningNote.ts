@@ -4,7 +4,7 @@ import {
   type NeedsAttentionItem,
 } from '@/features/activity/domain/needsAttention';
 
-export type MorningNoteAction = 'visit' | 'update' | 'scan';
+export type MorningNoteAction = 'draft' | 'visit' | 'update' | 'scan';
 
 export interface MorningNote {
   /** What the single Home button does and says. */
@@ -41,17 +41,22 @@ export function buildMorningNote(
   const overdue = visits.filter((item) => item.bucket === 'overdue').length;
   const action: MorningNoteAction = !primary
     ? 'scan'
-    : primary.kind === 'notification'
-      ? 'update'
-      : 'visit';
+    : primary.kind === 'draft'
+      ? 'draft'
+      : primary.kind === 'notification'
+        ? 'update'
+        : 'visit';
   const actionLabel = {
+    draft: HOME_NOTE_COPY.resumeDraft,
     scan: HOME_NOTE_COPY.startScan,
     update: HOME_NOTE_COPY.readOfficeUpdate,
     visit: HOME_NOTE_COPY.openNextVisit,
   }[action];
 
   let headline: string | null = null;
-  if (action === 'update') {
+  if (action === 'draft' && primary) {
+    headline = primary.title;
+  } else if (action === 'update') {
     headline = HOME_NOTE_COPY.officeUpdates(countWord(updates.length));
   } else if (action === 'visit') {
     if (dueToday > 0) {

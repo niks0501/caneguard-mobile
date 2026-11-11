@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { HOME_NOTE_COPY } from '@/constants/copy';
+import { HOME_NOTE_COPY, UNFINISHED_COPY } from '@/constants/copy';
 import { Spacing, Typography } from '@/constants/theme';
 import {
   HOME_ATTENTION_ROW_LIMIT,
@@ -37,23 +37,33 @@ export function HomeAttentionCard({
 
   if (total === 0) return null;
 
-  const visible = items.slice(0, HOME_ATTENTION_ROW_LIMIT);
+  const drafts = items.filter((item) => item.kind === 'draft');
+  const upcoming = items.filter((item) => item.kind !== 'draft');
+  const visible = upcoming.slice(0, HOME_ATTENTION_ROW_LIMIT);
+  const upcomingTotal = total - drafts.length;
 
   return (
     <View accessibilityLiveRegion="polite" style={styles.list} testID="home.needs-attention">
-      <Text style={[styles.heading, { color: theme.textSecondary }]}>{HOME_NOTE_COPY.upNext}</Text>
-      {visible.map((item, index) => (
-        <AttentionRow
-          index={index}
-          item={item}
-          key={item.id}
-          onOpen={onOpenItem}
-        />
-      ))}
+      {drafts.length > 0 ? (
+        <View testID="home.unfinished">
+          <Text style={[styles.heading, { color: theme.textSecondary }]}>{UNFINISHED_COPY.heading}</Text>
+          {drafts.map((item, index) => (
+            <AttentionRow index={index} item={item} key={item.id} onOpen={onOpenItem} />
+          ))}
+        </View>
+      ) : null}
+      {upcoming.length > 0 ? (
+        <View testID="home.up-next">
+          <Text style={[styles.heading, { color: theme.textSecondary }]}>{HOME_NOTE_COPY.upNext}</Text>
+          {visible.map((item, index) => (
+            <AttentionRow index={index} item={item} key={item.id} onOpen={onOpenItem} />
+          ))}
+        </View>
+      ) : null}
 
-      {total > visible.length ? (
+      {upcomingTotal > visible.length ? (
         <Pressable
-          accessibilityLabel={`See all ${total} attention items in Activity`}
+          accessibilityLabel={`See all ${upcomingTotal} attention items in Activity`}
           accessibilityRole="button"
           onPress={onSeeAll}
           style={({ pressed }) => [
@@ -63,7 +73,7 @@ export function HomeAttentionCard({
           ]}
           testID="home.needs-attention.see-all">
           <Text style={[styles.moreText, { color: theme.primary }]}>
-            See all {total} in Activity
+            See all {upcomingTotal} in Activity
           </Text>
           <Feather name="chevron-right" size={16} color={theme.primary} />
         </Pressable>

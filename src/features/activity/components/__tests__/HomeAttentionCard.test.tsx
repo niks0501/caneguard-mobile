@@ -105,6 +105,28 @@ describe('HomeAttentionCard', () => {
 });
 
 describe('unfinished draft rows', () => {
+  it('shows all drafts above up next without consuming its row limit', async () => {
+    const drafts: NeedsAttentionItem[] = [
+      { id: 'report', kind: 'draft', destination: { kind: 'field_report', scanRecordId: 'r' }, title: 'Finish report', message: 'Not finished', meta: 'Saved' },
+      { id: 'visit', kind: 'draft', destination: { kind: 'assignment', assignmentId: 'v' }, title: 'Finish visit', message: 'Not finished', meta: 'Saved' },
+      { id: 'plot', kind: 'draft', destination: { kind: 'field_survey', surveyId: 'p' }, title: 'Finish plot', message: 'Not finished', meta: 'Saved' },
+    ];
+    const onOpen = jest.fn();
+    const view = await renderCard([...drafts, visit('1', 'CG-1'), visit('2', 'CG-2'), visit('3', 'CG-3')], onOpen);
+    const sections = view.getByTestId('home.needs-attention').children;
+    expect(sections.indexOf(view.getByTestId('home.unfinished'))).toBeLessThan(
+      sections.indexOf(view.getByTestId('home.up-next')),
+    );
+    for (const draft of drafts) {
+      await fireEvent.press(view.getByTestId(`home.attention.${draft.id}`));
+      expect(onOpen).toHaveBeenCalledWith(draft);
+    }
+    expect(view.getByText('CG-1')).toBeOnTheScreen();
+    expect(view.getByText('CG-2')).toBeOnTheScreen();
+    expect(view.queryByText('CG-3')).toBeNull();
+    expect(view.getByText('See all 3 in Activity')).toBeOnTheScreen();
+  });
+
   it('names the draft "Not finished" and opens the resume destination on one tap', async () => {
     const draft: NeedsAttentionItem = {
       destination: { kind: 'field_report', scanRecordId: 'scan-1' },

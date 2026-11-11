@@ -5,7 +5,8 @@ import { decideWalkFix } from '@/features/surveys/domain/walkMode';
 
 const T = Date.UTC(2026, 10, 11, 1, 0, 0);
 const START = { latitude: 14.1, longitude: 121.1 };
-// Provisional walk sampling targets; the G5 report that could pin them is not part of this repository.
+// Sampling targets for G5 walk mode. The cited spec (data/cg-polygon-audit-20261110/report.md) is not part
+// of this repository, so these stay provisional until the field test the intent defers, or the spec, pins them.
 const SPACING_METERS = 8;
 // Accuracy is pinned to the boundary-quality contract that predates walk mode.
 const ACCURACY_METERS = ACCEPTABLE_GPS_ACCURACY_METERS;

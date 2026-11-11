@@ -11,6 +11,7 @@ import {
   resetStaleSyncingFieldSurveys,
 } from '@/features/surveys/data/fieldSurveySyncRepository';
 import {
+  deleteOwnedFieldSurvey,
   findOwnedFieldSurvey,
   listOwnedFieldSurveys,
   markFieldSurveyPending,
@@ -18,6 +19,7 @@ import {
   updateFieldSurveySyncResult,
 } from '@/features/surveys/data/fieldSurveyRepository';
 import { ringArea, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 
 function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
   const native = new DatabaseSync(':memory:');
@@ -84,16 +86,35 @@ describe('field survey local repository', () => {
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', {
       status: 'failed',
       fieldErrors: { polygon: ['Move the boundary inside the assigned plot.'] },
-      lastSyncErrorCode: 'VALIDATION_FAILED',
+      lastSyncErrorCode: 'API_VALIDATION_FAILED',
     });
     expect(JSON.parse(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')!.fieldErrorsJson!)).toEqual({
       polygon: ['Move the boundary inside the assigned plot.'],
     });
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'syncing' });
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'pending', lastSyncErrorCode: 'UPLOAD_FAILED' });
+    updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'syncing' });
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'synced', remoteId: 'remote-1' });
-    expect(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')).toMatchObject({ status: 'synced', remoteId: 'remote-1', syncAttemptCount: 1 });
+    expect(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')).toMatchObject({ status: 'synced', remoteId: 'remote-1', syncAttemptCount: 2 });
     expect(native.prepare('SELECT client_uuid FROM field_surveys').get()).toEqual({ client_uuid: 'survey-client-1' });
+    native.close();
+  });
+
+  // Intent: My boundaries reaches older drafts, while callers that only want a short list stay bounded.
+  it('returns every stored boundary unless a limit is asked for', async () => {
+    const { database, native } = openDatabase();
+    for (const [index, id] of ['s-1', 's-2', 's-3'].entries()) {
+      await saveFieldSurveyDraft(database, {
+        authorRole: 'field_reporter',
+        capturedAt: `2026-10-05T09:00:0${index}.000Z`,
+        clientUuid: id,
+        districtCode: 'D-01',
+        ownerIdentity: 'owner-1',
+        waypoints: [waypoint],
+      });
+    }
+    expect(listOwnedFieldSurveys(database, 'owner-1').map((row) => row.clientUuid)).toEqual(['s-3', 's-2', 's-1']);
+    expect(listOwnedFieldSurveys(database, 'owner-1', 2).map((row) => row.clientUuid)).toEqual(['s-3', 's-2']);
     native.close();
   });
 
@@ -217,6 +238,55 @@ describe('field survey local repository', () => {
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'failed', lastSyncErrorCode: 'CLIENT_UUID_CONFLICT' });
     expect(() => markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt)).toThrow(/fresh identity/i);
     await expect(saveFieldSurveyDraft(database, { authorRole: 'field_reporter', capturedAt: waypoint.capturedAt, clientUuid: draft.clientUuid, districtCode: 'D-01', ownerIdentity: 'owner-1', waypoints: [waypoint] })).rejects.toThrow(/cannot be edited/i);
+    native.close();
+  });
+  // Intent: boundaries refuse illegal status moves the way reports do.
+  it('refuses illegal sync moves and reports whether the row changed', async () => {
+    const { database, native } = openDatabase();
+    const draft = await saveFieldSurveyDraft(database, { authorRole: 'field_reporter', capturedAt: waypoint.capturedAt, clientUuid: 'survey-moves', districtCode: 'D-01', ownerIdentity: 'owner-1', waypoints: [waypoint] });
+    expect(updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'synced', remoteId: 'x' })).toBe(0);
+    expect(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')).toMatchObject({ status: 'draft', remoteId: null });
+    native.exec("UPDATE field_surveys SET status = 'syncing'");
+    expect(updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'synced', remoteId: 'x' })).toBe(1);
+    expect(updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'failed', lastSyncErrorCode: 'SERVER_ERROR' })).toBe(0);
+    expect(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')).toMatchObject({ status: 'synced' });
+    native.close();
+  });
+
+  // Intent: only drafts are throwaway; queued work stays until the office has it, and the waiting count reflects that.
+  it('deletes drafts only and counts only work still owed', async () => {
+    const { database, native } = openDatabase();
+    for (const id of ['a-draft', 'b-rejected', 'c-retry', 'd-sent']) {
+      await saveFieldSurveyDraft(database, { authorRole: 'field_reporter', capturedAt: waypoint.capturedAt, clientUuid: id, districtCode: 'D-01', ownerIdentity: 'owner-1', waypoints: [waypoint] });
+    }
+    native.exec("UPDATE field_surveys SET status='failed', last_sync_error_code='CLIENT_UUID_CONFLICT' WHERE client_uuid='b-rejected'");
+    native.exec("UPDATE field_surveys SET status='failed', last_sync_error_code='SERVER_ERROR' WHERE client_uuid='c-retry'");
+    native.exec("UPDATE field_surveys SET status='synced', remote_id='r1' WHERE client_uuid='d-sent'");
+    expect(countUnsyncedFieldSurveys(database, 'owner-1')).toBe(1);
+    expect(deleteOwnedFieldSurvey(database, 'd-sent', 'owner-1')).toBe(false);
+    expect(deleteOwnedFieldSurvey(database, 'c-retry', 'owner-1')).toBe(false);
+    expect(deleteOwnedFieldSurvey(database, 'b-rejected', 'owner-1')).toBe(false);
+    expect(deleteOwnedFieldSurvey(database, 'a-draft', 'owner-2')).toBe(false);
+    expect(deleteOwnedFieldSurvey(database, 'a-draft', 'owner-1')).toBe(true);
+    expect(findOwnedFieldSurvey(database, 'a-draft', 'owner-1')).toBeNull();
+    expect(findOwnedFieldSurvey(database, 'd-sent', 'owner-1')).not.toBeNull();
+    native.close();
+  });
+
+  // Intent: the list and home count re-read after every stored state change, so labels and Delete never go stale.
+  it('notifies subscribers after each stored state change', async () => {
+    const { database, native } = openDatabase();
+    const seen: string[] = [];
+    const unsubscribe = subscribeSyncRecords(() => {
+      seen.push(findOwnedFieldSurvey(database, 'survey-notify', 'owner-1')?.status ?? 'missing');
+    });
+    const draft = await saveFieldSurveyDraft(database, { authorRole: 'field_reporter', capturedAt: waypoint.capturedAt, clientUuid: 'survey-notify', districtCode: 'D-01', ownerIdentity: 'owner-1', waypoints: [waypoint] });
+    markFieldSurveyPending(database, draft.clientUuid, 'owner-1', polygon, plotAreaSqm, waypoint.capturedAt);
+    updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'syncing' });
+    updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'synced', remoteId: 'remote-1' });
+    expect(updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'failed' })).toBe(0);
+    unsubscribe();
+    expect(seen).toEqual(['draft', 'pending', 'syncing', 'synced']);
     native.close();
   });
 });

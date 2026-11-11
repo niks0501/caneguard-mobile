@@ -3,10 +3,11 @@ import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
-import { FIELD_SURVEY_COPY } from '@/constants/copy';
+import { BOUNDARY_STATE_COPY, FIELD_SURVEY_COPY } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import type { FieldSurveyRow } from '@/database/schema';
 import { useTheme } from '@/hooks/use-theme';
+import { boundaryState } from '@/features/surveys/domain/boundaryState';
 import {
   validateSurveyWaypoints,
   type SurveyWaypoint,
@@ -19,13 +20,6 @@ export interface ReportSurveyCardProps {
   onAttach: (clientUuid: string | null) => void;
   onOpenMeasure: (clientUuid: string | null) => void;
   surveys: FieldSurveyRow[];
-}
-
-function statusLabel(status: FieldSurveyRow['status']): string {
-  if (status === 'synced') return FIELD_SURVEY_COPY.linkStatusSent;
-  if (status === 'failed') return FIELD_SURVEY_COPY.linkStatusFailed;
-  if (status === 'draft') return FIELD_SURVEY_COPY.linkStatusDraft;
-  return FIELD_SURVEY_COPY.linkStatusWaiting;
 }
 
 /** Measured plot area in square metres, or null when the saved boundary is unusable. */
@@ -43,7 +37,7 @@ function measuredAreaSqm(row: FieldSurveyRow): number | null {
 function optionLabel(row: FieldSurveyRow, areaSqm: number | null): string {
   const hectares = areaSqm === null ? '—' : (areaSqm / 10_000).toFixed(2);
   const district = row.districtCode === 'UNSPECIFIED' ? 'No district' : row.districtCode;
-  return FIELD_SURVEY_COPY.linkOption(district, hectares, statusLabel(row.status));
+  return FIELD_SURVEY_COPY.linkOption(district, hectares, BOUNDARY_STATE_COPY[boundaryState(row)].label);
 }
 
 /** Attach a saved boundary survey to a Draft report and jump to its Measure plot. */

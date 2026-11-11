@@ -19,7 +19,7 @@ import { EMPTY_DATABASE, useDatabaseState } from '@/database/DatabaseProvider';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useToast } from '@/components/ui/Toast';
 import { Radius, Spacing, Typography } from '@/constants/theme';
-import { FIELD_SURVEY_COPY } from '@/constants/copy';
+import { BOUNDARY_STATE_COPY, FIELD_SURVEY_COPY } from '@/constants/copy';
 import { FIELD_SURVEY_SYNC_COPY } from '@/features/sync/utils/syncStatusCopy';
 import { expoForegroundLocationClient } from '@/features/reports/services/expoForegroundLocationClient';
 import { PREFERRED_GPS_ACCURACY_METERS } from '@/features/reports/services/captureGpsLocation';
@@ -36,6 +36,7 @@ import { findOwnedFieldSurvey, listOwnedFieldSurveys, saveFieldSurveyDraft, mark
 import { viewportPointFromPressEvent } from '@/features/reports/components/online-map-picker';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
 import { measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { boundaryCanEdit, boundaryCanSubmit, boundaryState } from '@/features/surveys/domain/boundaryState';
 import { assessBoundaryQuality } from '@/features/surveys/domain/boundaryQuality';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
 
@@ -184,12 +185,12 @@ export default function FieldSurveyScreen() {
         }
         setSaved(true);
         setResumed(true);
-        const identityRejected = previous.lastSyncErrorCode === 'CLIENT_UUID_CONFLICT';
-        const correctionNeeded = previous.lastSyncErrorCode === 'VALIDATION_FAILED' || previous.lastSyncErrorCode === 'API_VALIDATION_FAILED';
-        setReadOnlyPending(previous.status === 'synced' || previous.status === 'pending' || previous.status === 'syncing' || (previous.status === 'failed' && !correctionNeeded));
-        setSubmitLocked(previous.status === 'synced' || previous.remoteId !== null || identityRejected);
-        if (identityRejected) setSyncMessage(FIELD_SURVEY_SYNC_COPY.identityRejected);
-        else if (previous.status === 'pending' || previous.status === 'syncing') setSyncMessage(FIELD_SURVEY_SYNC_COPY.pendingLocked);
+        const state = boundaryState(previous);
+        setReadOnlyPending(!boundaryCanEdit(state));
+        setSubmitLocked(!boundaryCanSubmit(state));
+        if (state === 'identity_rejected') setSyncMessage(FIELD_SURVEY_SYNC_COPY.identityRejected);
+        else if (state === 'waiting_to_send') setSyncMessage(FIELD_SURVEY_SYNC_COPY.pendingLocked);
+        else if (state !== 'draft' && state !== 'needs_fix') setSyncMessage(BOUNDARY_STATE_COPY[state].hint);
       }
       setBootstrapped(true);
     }).catch(() => {

@@ -99,6 +99,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime, formatTime } from '@/lib/formatters';
 
 const MAX_AFFECTED_AREA_HECTARES = 10_000;
+const ATTACHABLE_SURVEY_LIMIT = 20;
 
 export const STEP_TITLES = [
   'Original scan',
@@ -768,7 +769,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       }
       let surveys: FieldSurveyRow[] = [];
       try {
-        surveys = listOwnedFieldSurveys(database, user.uuid);
+        surveys = listOwnedFieldSurveys(database, user.uuid, ATTACHABLE_SURVEY_LIMIT);
       } catch {
         // Attaching is optional; a failed read must never block the report.
         surveys = [];

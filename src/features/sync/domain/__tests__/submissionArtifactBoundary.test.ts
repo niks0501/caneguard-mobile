@@ -8,7 +8,9 @@ describe('submission artifact boundary', () => {
     expect(isUploadableSubmissionArtifact('field_report', { authoringState: 'draft', syncStatus: 'pending' })).toBe(false);
     expect(isUploadableSubmissionArtifact('field_report', { authoringState: 'finalized', syncStatus: 'synced' })).toBe(false);
     expect(isUploadableSubmissionArtifact('field_survey', { status: 'pending' })).toBe(true);
-    expect(isUploadableSubmissionArtifact('field_survey', { status: 'failed' })).toBe(true);
+    expect(isUploadableSubmissionArtifact('field_survey', { status: 'failed', lastSyncErrorCode: 'SERVER_ERROR' })).toBe(true);
+    expect(isUploadableSubmissionArtifact('field_survey', { status: 'failed', lastSyncErrorCode: 'API_VALIDATION_FAILED' })).toBe(false);
+    expect(isUploadableSubmissionArtifact('field_survey', { status: 'failed', lastSyncErrorCode: 'CLIENT_UUID_CONFLICT' })).toBe(false);
     expect(isUploadableSubmissionArtifact('field_survey', { status: 'draft' })).toBe(false);
     expect(isUploadableSubmissionArtifact('field_survey', { status: 'synced' })).toBe(false);
   });

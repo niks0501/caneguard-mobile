@@ -10,6 +10,8 @@ import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 interface Options {
   database: CaneGuardDatabase;
   districtCode: string;
+  /** The account district is verified for this session; while it is not, a blank code may still arrive. */
+  districtVerified: boolean;
   limit?: number;
   ownerIdentity: string;
   source: SyncTriggerSource;
@@ -25,17 +27,6 @@ const activeRuns = new WeakMap<CaneGuardDatabase, RunState>();
 
 export function syncPendingFieldSurveys(options: Options): Promise<SyncBatchResult> {
   const ownerIdentity = options.ownerIdentity.trim();
-  if (!options.districtCode.trim()) {
-    return Promise.resolve({
-      attempted: 0,
-      authRequired: false,
-      failed: 0,
-      haltReason: 'transient-blocker',
-      results: [],
-      source: options.source,
-      synced: 0,
-    });
-  }
   let state = activeRuns.get(options.database);
   if (!state) {
     state = { runs: new Map(), tail: Promise.resolve() };
@@ -64,6 +55,10 @@ async function executeBatch(options: Options & { ownerIdentity: string }): Promi
       includeRetryableFailed: true,
     });
     if (!candidates.length) { haltReason = 'empty'; break; }
+    if (!options.districtCode.trim()) {
+      haltReason = options.districtVerified ? 'empty' : 'transient-blocker';
+      break;
+    }
     for (const { clientUuid } of candidates) {
       const result = await syncFieldSurvey({
         allowImmediateRetries: options.source === 'manual',

@@ -72,13 +72,13 @@ export function planAttachedBoundarySend(
 ): AttachedBoundarySendPlan {
   const state = boundaryState(row);
   if (row.remoteId || state === 'sent') return { status: 'on_its_way' };
+  if (!districtCode.trim()) {
+    return { status: 'blocked' };
+  }
   if (!boundaryCanEdit(state)) {
     return boundaryRetriesItself(state) || state === 'sending'
       ? { status: 'on_its_way' }
       : { status: 'blocked' };
-  }
-  if (!districtCode.trim()) {
-    return { status: 'blocked' };
   }
   const waypoints = asWaypoints(jsonArray(row.waypointsJson));
   if (!waypoints) return { status: 'blocked' };

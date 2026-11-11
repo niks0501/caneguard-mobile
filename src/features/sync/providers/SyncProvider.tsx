@@ -279,6 +279,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
           districtCode: sessionVerificationRef.current === 'verified'
             ? sessionRef.current?.user.districtCode?.trim() ?? ''
             : '',
+          districtVerified: sessionVerificationRef.current === 'verified',
           source,
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,

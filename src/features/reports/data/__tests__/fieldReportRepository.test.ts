@@ -40,6 +40,7 @@ import {
 } from '@/features/reports/data/fieldReportSyncRepository';
 import {
   findOwnedFieldSurvey,
+  queueAttachedFieldSurvey,
   saveFieldSurveyDraft,
 } from '@/features/surveys/data/fieldSurveyRepository';
 import type { SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
@@ -2017,6 +2018,34 @@ describe('findScanRecordIdForCase', () => {
         status: 'draft',
         areaSqm: null,
       });
+      native.close();
+    });
+
+    // Intent (item 8): a report must not leave while its queued boundary cannot be sent for
+    // want of an account district, and the boundary stays queued for when one is assigned.
+    it('keeps the report a Draft when its queued boundary has no account district', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+      await saveAttachedBoundary(database, 'D-01');
+      expect(queueAttachedFieldSurvey(database, SURVEY_UUID, SUBMITTER_ID, 'D-01')).toBe(true);
+
+      const result = await finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        { ...finalizeValues(), districtCode: '' },
+        IMAGE_EXISTS,
+      );
+
+      expect(result).toMatchObject({
+        missingRequirements: ['attached_boundary'],
+        status: 'invalid',
+      });
+      await expect(findFieldReportById(database, REPORT_ID, SUBMITTER_ID)).resolves.toMatchObject({
+        authoringState: 'draft',
+        fieldSurveyClientUuid: SURVEY_UUID,
+      });
+      expect(findOwnedFieldSurvey(database, SURVEY_UUID, SUBMITTER_ID)).toMatchObject({ status: 'pending' });
       native.close();
     });
 

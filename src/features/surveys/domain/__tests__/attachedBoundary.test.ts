@@ -103,6 +103,14 @@ describe('planAttachedBoundarySend', () => {
     expect(planAttachedBoundarySend(row(), '   ').status).toBe('blocked');
   });
 
+  // Intent (item 8): an attachment the office has not received yet cannot travel without the
+  // account district, while a completed upload keeps its report ready.
+  it('blocks an unsent attachment the account has no district for', () => {
+    expect(planAttachedBoundarySend(row({ status: 'pending' }), '').status).toBe('blocked');
+    expect(planAttachedBoundarySend(row({ status: 'failed', lastSyncErrorCode: 'NETWORK_REQUEST_FAILED' }), '').status).toBe('blocked');
+    expect(planAttachedBoundarySend(row({ status: 'synced', remoteId: 'remote-1' }), '').status).toBe('on_its_way');
+  });
+
   // Intent (send-together): the office must receive the boundary the inspector drew,
   // so damaged saved fields block the report instead of being replaced with nothing.
   const blocked: [string, AttachedBoundaryInput][] = [

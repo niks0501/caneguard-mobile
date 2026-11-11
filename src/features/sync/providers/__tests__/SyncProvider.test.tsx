@@ -481,7 +481,7 @@ describe('SyncProvider foreground triggers', () => {
 
     await waitFor(() =>
       expect(syncPendingFieldSurveys).toHaveBeenCalledWith(
-        expect.objectContaining({ districtCode: '' }),
+        expect.objectContaining({ districtCode: '', districtVerified: false }),
       ),
     );
 
@@ -504,7 +504,7 @@ describe('SyncProvider foreground triggers', () => {
 
     await waitFor(() =>
       expect(syncPendingFieldSurveys).toHaveBeenCalledWith(
-        expect.objectContaining({ districtCode: 'D-VERIFIED', ownerIdentity: SUBMITTER_ID }),
+        expect.objectContaining({ districtCode: 'D-VERIFIED', districtVerified: true, ownerIdentity: SUBMITTER_ID }),
       ),
     );
   });

@@ -118,10 +118,20 @@ and never receive fabricated GPS accuracy; earlier GPS-attempt evidence remains
 separate.
 
 Until all requirements pass, an incomplete submission remains an editable Draft
-and returns actionable missing requirements. Successful local finalization makes
-the report non-editable, preserves the observation timestamp, creates the
-submission timestamp, and transitions the same Field Report identity to
-`finalized` / `pending`.
+and returns actionable missing requirements. A report's attached boundary is
+part of that gate: finalizing first queues a boundary that is still editable
+local work, so the report and its attachment send together, while one already
+queued, sending, retrying on its own, or sent is left alone. A boundary that is
+no longer saved on this phone, cannot be sent from its current state, still has
+no district or an unfinished affected area, or has unusable or damaged saved
+geometry makes finalization return `attached_boundary` and keeps the report an
+editable Draft. `planAttachedBoundarySend` in
+`src/features/surveys/domain/attachedBoundary.ts` owns that decision and
+`queueAttachedFieldSurvey` in
+`src/features/surveys/data/fieldSurveyRepository.ts` owns the queueing.
+Successful local finalization makes the report non-editable, preserves the
+observation timestamp, creates the submission timestamp, and transitions the
+same Field Report identity to `finalized` / `pending`.
 
 Field Report is the authoritative synchronization owner; the referenced Scan
 Record remains the read-only source of AI and image evidence used to build the

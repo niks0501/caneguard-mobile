@@ -2425,8 +2425,15 @@ describe('FieldReportScreen', () => {
       await act(async () => undefined);
       await goToStep(5);
 
-      expect(screen.getByTestId('field-report.ready.attached_boundary')).toHaveTextContent(
-        'Plot boundary ready to send',
+      const blocked = screen.getByTestId('field-report.ready.attached_boundary');
+      expect(blocked).toHaveTextContent(/Plot boundary ready to send/);
+      expect(blocked).toHaveTextContent(/Step 5/);
+
+      await act(async () => {
+        fireEvent.press(blocked);
+      });
+      expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
+        'Step 5 of 5: Review & submit',
       );
     });
 

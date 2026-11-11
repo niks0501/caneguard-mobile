@@ -75,8 +75,13 @@ tests. "Implemented" does not mean "verified on a device":
   finalization, foreground sync and manual retry. The Review step carries an
   optional **Plot boundary** card that lists the 20 most recently updated
   boundaries saved on this phone with district, hectares, and the boundary
-  state label, attaches one to the report, removes the link, and opens that
-  boundary in Measure. The card is locked once the report is finalized.
+  state label, attaches one to the report, removes the link, opens that boundary
+  in Measure, and shows the attached boundary's own state hint. The card is
+  locked once the report is finalized. Finalizing sends the attached boundary
+  with the report, so the Step 5 checklist carries **Plot boundary ready to
+  send** and blocks submission while the attachment cannot go; that rule is
+  owned by
+  [`PROJECT_CONTEXT.md` — Field Report authoring](../PROJECT_CONTEXT.md#field-report-authoring).
 - Field validation visits: owner-scoped drafts, completion evidence, follow-up
   outcome, optional fresh photo, and an **Office case** card on a case born in
   the office showing the reporter's concern, the office status, the case

@@ -149,8 +149,8 @@ export function markFieldSurveyPending(
 
 /**
  * "Send together": a report takes its attached boundary with it, so the boundary
- * is queued when it is still local work. Returns false when the boundary is
- * attached but cannot be sent, so the report must not go without it.
+ * is queued when it is still local work. Returns false when the boundary is no
+ * longer on this phone or cannot be sent, so the report must not go without it.
  */
 export function queueAttachedFieldSurvey(
   database: CaneGuardDatabase,

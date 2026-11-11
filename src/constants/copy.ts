@@ -51,6 +51,19 @@ export const LOCATION_UNCONFIRMED = 'Location could not be confirmed';
 
 export const PERSONAL_SCAN_LOCAL_STATUS = 'On this device · not sent';
 
+/**
+ * Unfinished report, visit and plot work saved on this phone: listed on Home and
+ * Activity and resumed in one tap. A report or visit draft is never sent before
+ * it is finished; an unsent plot boundary is listed even while it is queued.
+ */
+export const UNFINISHED_COPY = {
+  label: 'Not finished',
+  meta: 'Not finished · saved on this device',
+  reportLead: 'Finish your field report',
+  visitLead: (referenceCode: string) => `Finish your visit for ${referenceCode}`,
+  plotLead: 'Finish your plot boundary',
+} as const;
+
 export const FIELD_VALIDATION_UNAVAILABLE =
   `${NAMING.visits} need an active inspector assignment to the pilot district. Ask your office to check your account.`;
 
@@ -320,6 +333,7 @@ export const HOME_NOTE_COPY = {
   allClear: 'All clear.',
   nothingDueToday: 'Nothing due today.',
   openNextVisit: 'Open next visit',
+  resumeDraft: 'Resume',
   readOfficeUpdate: 'Read office update',
   startScan: 'Start a scan',
   upNext: 'Up next',

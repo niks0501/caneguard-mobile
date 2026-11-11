@@ -231,4 +231,44 @@ describe('buildNeedsAttention', () => {
     expect(summary.total).toBe(NEEDS_ATTENTION_ROW_LIMIT + 2);
     expect(summary.hiddenCount).toBe(2);
   });
+
+  describe('unfinished drafts', () => {
+    const base = {
+      assignments: [] as FieldValidationAssignment[],
+      destinations: new Map<string, NotificationDestination>(),
+      notifications: [] as MobileNotification[],
+      pendingUploadCount: 0,
+      syncErrorMessage: null,
+      today: TODAY,
+    };
+
+    it('leads with drafts and sends each to its own resume route', () => {
+      const summary = buildNeedsAttention({
+        ...base,
+        assignments: [assignment()],
+        drafts: [
+          { id: 'scan-1', kind: 'report', place: 'Lumbangan', updatedAt: '2026-09-14T01:00:00.000Z' },
+          { id: 'assignment-1', kind: 'visit', place: null, updatedAt: '2026-09-14T02:00:00.000Z' },
+          { id: 'plot-1', kind: 'plot', place: null, updatedAt: '2026-09-14T03:00:00.000Z' },
+        ],
+      });
+
+      expect(summary.items.map((item) => item.kind)).toEqual(['draft', 'draft', 'draft', 'assignment']);
+      expect(summary.items.slice(0, 3).map((item) => item.destination)).toEqual([
+        { kind: 'field_survey', surveyId: 'plot-1' },
+        { kind: 'assignment', assignmentId: 'assignment-1' },
+        { kind: 'field_report', scanRecordId: 'scan-1' },
+      ]);
+    });
+
+    it('drops a visit draft whose assignment is no longer active here', () => {
+      const summary = buildNeedsAttention({
+        ...base,
+        assignments: [assignment({ fieldValidationState: 'completed' })],
+        drafts: [{ id: 'assignment-1', kind: 'visit', place: null, updatedAt: '2026-09-14T02:00:00.000Z' }],
+      });
+
+      expect(summary.items).toEqual([]);
+    });
+  });
 });

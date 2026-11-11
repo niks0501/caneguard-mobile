@@ -21,6 +21,8 @@ import {
   describeRefreshAllResult,
   type RefreshAllTarget,
 } from '@/features/activity/domain/refreshAll';
+import { PlotDraftRow } from '@/features/activity/components/PlotDraftRow';
+import { useUnfinishedDrafts } from '@/features/activity/hooks/useUnfinishedDrafts';
 import { useRefreshAll } from '@/features/activity/hooks/useRefreshAll';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import { RecordCard } from '@/components/ui/RecordCard';
@@ -49,16 +51,24 @@ import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityR
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
 import { useOfficeUpdates } from '@/features/notifications/providers/OfficeUpdatesProvider';
 import { useSync } from '@/features/sync/hooks/useSync';
+import type { UnfinishedDraft } from '@/features/activity/domain/needsAttention';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { AuthContext } from '@/features/auth/providers/AuthProvider';
 import MyScansScreen from '@/features/activity/components/MyScansScreen';
 import { useTheme } from '@/hooks/use-theme';
+
+const NO_PLOT_DRAFTS: UnfinishedDraft[] = [];
 
 type TimelineItem =
   | {
       assignment: FieldValidationAssignment;
       id: string;
       kind: 'assignment';
+      timestamp: string;
+    }
+  | {
+      id: string;
+      kind: 'plot';
       timestamp: string;
     }
   | {
@@ -106,6 +116,11 @@ function InspectorActivityScreen() {
   const authorityStatus = useAuthorityReviewStatus(activeFilter !== 'assignments');
   const assignments = useFieldValidationAssignments();
   const phoneCompletionStates = usePhoneCompletionStates();
+  const unfinishedDrafts = useUnfinishedDrafts();
+  const unfinishedVisitIds = useMemo(
+    () => new Set(unfinishedDrafts.filter((draft) => draft.kind === 'visit').map((draft) => draft.id)),
+    [unfinishedDrafts],
+  );
   const notifications = useMobileNotifications();
   const { isOpen: officeUpdatesOpen, open: openOfficeUpdates } = useOfficeUpdates();
   const sync = useSync();
@@ -118,6 +133,13 @@ function InspectorActivityScreen() {
         : NO_ASSIGNMENTS,
     [activeFilter, assignments.assignments, submittedSearch],
   );
+  const visiblePlotDrafts = useMemo(
+    () =>
+      activeFilter === 'all' && !submittedSearch
+        ? unfinishedDrafts.filter((draft) => draft.kind === 'plot')
+        : NO_PLOT_DRAFTS,
+    [activeFilter, submittedSearch, unfinishedDrafts],
+  );
   const visibleRecords = activeFilter === 'assignments' ? NO_RECORDS : records.data;
   // The merged, sorted history is derived once per input change so a repeated
   // virtualization pass never re-sorts the whole timeline.
@@ -128,6 +150,11 @@ function InspectorActivityScreen() {
         id: assignment.id,
         kind: 'assignment' as const,
         timestamp: assignment.updatedAt,
+      })),
+      ...visiblePlotDrafts.map((draft) => ({
+        id: draft.id,
+        kind: 'plot' as const,
+        timestamp: draft.updatedAt,
       })),
       ...visibleRecords.map((record) => ({
         id: record.id,
@@ -140,7 +167,7 @@ function InspectorActivityScreen() {
         Date.parse(second.timestamp) - Date.parse(first.timestamp) ||
         second.id.localeCompare(first.id),
     ),
-  [visibleAssignments, visibleRecords]);
+  [visibleAssignments, visiblePlotDrafts, visibleRecords]);
   const hasFilters = activeFilter !== 'all' || Boolean(submittedSearch);
   const latestVisibleRecordId = timeline.find((item) => item.kind === 'record')?.id;
   const activityCount = timeline.length;
@@ -172,7 +199,7 @@ function InspectorActivityScreen() {
 
   const keyExtractor = useCallback(
     (item: TimelineItem) =>
-      item.kind === 'assignment' ? `assignment-${item.id}` : item.id,
+      item.kind === 'assignment' ? `assignment-${item.id}` : item.kind === 'plot' ? `plot-${item.id}` : item.id,
     [],
   );
   // Separate recycling pools per row type. FlashList v2 measures item sizes
@@ -187,11 +214,22 @@ function InspectorActivityScreen() {
             testID={`activity.assignment.${item.assignment.id}`}
             assignment={item.assignment}
             phoneCompletion={phoneCompletionStates.get(item.assignment.id)}
+            unfinished={unfinishedVisitIds.has(item.assignment.id)}
             onPress={() =>
               router.push({
                 pathname: '/field-validation',
                 params: { assignmentId: item.assignment.id },
               } as never)
+            }
+          />
+        ) : item.kind === 'plot' ? (
+          <PlotDraftRow
+            testID={`activity.plot-draft.${item.id}`}
+            onPress={() =>
+              router.push({
+                pathname: '/field-survey',
+                params: { surveyId: item.id },
+              } as unknown as Href)
             }
           />
         ) : (
@@ -213,7 +251,7 @@ function InspectorActivityScreen() {
         )}
       </View>
     ),
-    [latestVisibleRecordId, phoneCompletionStates],
+    [latestVisibleRecordId, phoneCompletionStates, unfinishedVisitIds],
   );
 
   const submitSearch = () => {

@@ -4,7 +4,7 @@ import {
   type NeedsAttentionItem,
 } from '@/features/activity/domain/needsAttention';
 
-export type MorningNoteAction = 'visit' | 'update' | 'scan';
+export type MorningNoteAction = 'draft' | 'visit' | 'update' | 'scan';
 
 export interface MorningNote {
   /** What the single Home button does and says. */
@@ -23,11 +23,12 @@ function countWord(count: number): string {
 }
 
 /**
- * Chooses the Home sentence and button from the same work the old Home card
- * showed, in the same work-first order: visits, then office updates, then the
- * send state, then "All clear.". Only work that can be opened here counts, and
- * the first such item decides both the button and the sentence that leads, so
- * the two never disagree. Pure, so each state can be pinned in a test.
+ * Chooses the Home sentence and button from the same work the attention list
+ * shows, in the same work-first order: unfinished drafts, then visits, then
+ * office updates, then the send state, then "All clear.". Only work that can be
+ * opened here counts, and the first such item decides both the button and the
+ * sentence that leads, so the two never disagree. Pure, so each state can be
+ * pinned in a test.
  */
 export function buildMorningNote(
   items: readonly NeedsAttentionItem[],
@@ -41,17 +42,22 @@ export function buildMorningNote(
   const overdue = visits.filter((item) => item.bucket === 'overdue').length;
   const action: MorningNoteAction = !primary
     ? 'scan'
-    : primary.kind === 'notification'
-      ? 'update'
-      : 'visit';
+    : primary.kind === 'draft'
+      ? 'draft'
+      : primary.kind === 'notification'
+        ? 'update'
+        : 'visit';
   const actionLabel = {
+    draft: HOME_NOTE_COPY.resumeDraft,
     scan: HOME_NOTE_COPY.startScan,
     update: HOME_NOTE_COPY.readOfficeUpdate,
     visit: HOME_NOTE_COPY.openNextVisit,
   }[action];
 
   let headline: string | null = null;
-  if (action === 'update') {
+  if (action === 'draft' && primary) {
+    headline = primary.title;
+  } else if (action === 'update') {
     headline = HOME_NOTE_COPY.officeUpdates(countWord(updates.length));
   } else if (action === 'visit') {
     if (dueToday > 0) {

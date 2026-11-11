@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AppState } from 'react-native';
 
+import { useUnfinishedDrafts } from '@/features/activity/hooks/useUnfinishedDrafts';
 import {
   buildNeedsAttention,
   type NeedsAttentionItem,
@@ -11,7 +12,7 @@ import { useMobileNotifications } from '@/features/notifications/hooks/useMobile
 import { useNotificationDestinations } from '@/features/notifications/hooks/useNotificationDestinations';
 
 export interface HomeAttention {
-  /** Active assignments and unread office updates, ordered by immediacy. */
+  /** Unfinished drafts, active assignments and unread office updates, ordered by immediacy. */
   items: NeedsAttentionItem[];
   /** Marks an office update as read; best effort, never blocks navigation. */
   markRead: (notificationId: string) => Promise<void>;
@@ -21,16 +22,17 @@ export interface HomeAttention {
 /**
  * The work that is waiting for the inspector, for the Home card.
  *
- * Both sources are owner-scoped local caches that refresh on focus, so the card
- * paints from cache immediately and still works with no connectivity. Upload
- * work is deliberately excluded: the Home sync line already reports it, and the
- * same pending upload must never appear twice on one screen.
+ * Every source is an owner-scoped local cache that refreshes on focus, so the
+ * card paints from cache immediately and still works with no connectivity.
+ * Upload work is deliberately excluded: the Home sync line already reports it,
+ * and the same pending upload must never appear twice on one screen.
  */
 export function useHomeAttention(): HomeAttention {
   const assignments = useFieldValidationAssignments();
   const notifications = useMobileNotifications();
   const destinations = useNotificationDestinations(notifications.notifications);
   const [today, setToday] = useState(getLocalDateKey);
+  const drafts = useUnfinishedDrafts();
 
   useEffect(() => {
     const now = new Date();
@@ -57,12 +59,13 @@ export function useHomeAttention(): HomeAttention {
       buildNeedsAttention({
         assignments: assignments.assignments,
         destinations,
+        drafts,
         notifications: notifications.notifications,
         pendingUploadCount: 0,
         syncErrorMessage: null,
         today,
       }).items,
-    [assignments.assignments, destinations, notifications.notifications, today],
+    [assignments.assignments, destinations, drafts, notifications.notifications, today],
   );
 
   return {

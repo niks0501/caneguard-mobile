@@ -96,6 +96,9 @@ export async function listScanRecords(
         hasFieldReport: includeFieldReports
           ? sql<number>`case when ${fieldReports.id} is null then 0 else 1 end`
           : sql<number>`0`,
+        reportDraft: includeFieldReports
+          ? sql<number>`case when ${fieldReports.authoringState} = 'draft' then 1 else 0 end`
+          : sql<number>`0`,
         id: scanRecords.id,
         managedImageUri: scanRecords.managedImageUri,
         predictedLabel: scanRecords.predictedLabel,

@@ -26,6 +26,7 @@ export function mapScanRecordListItem(
   > &
     {
       hasFieldReport?: boolean | number | null;
+      reportDraft?: boolean | number | null;
     } &
     Partial<
       Pick<
@@ -60,6 +61,7 @@ export function mapScanRecordListItem(
     syncStatus: row.syncStatus,
     createdAt: row.createdAt,
     hasFieldReport: Boolean(row.hasFieldReport),
+    reportDraft: Boolean(row.reportDraft),
   };
 }
 

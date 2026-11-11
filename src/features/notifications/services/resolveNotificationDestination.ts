@@ -9,6 +9,7 @@ import { findScanRecordIdForCase } from '@/features/reports/data/fieldReportRepo
 export type NotificationDestination =
   | { kind: 'assignment'; assignmentId: string }
   | { kind: 'field_report'; scanRecordId: string }
+  | { kind: 'field_survey'; surveyId: string }
   | { kind: 'unavailable' };
 
 /**
@@ -67,6 +68,7 @@ export function notificationDestinationRoute(
 ):
   | { pathname: '/field-validation'; params: { assignmentId: string } }
   | { pathname: '/field-report'; params: { scanRecordId: string } }
+  | { pathname: '/field-survey'; params: { surveyId: string } }
   | null {
   if (destination.kind === 'assignment') {
     return {
@@ -78,6 +80,12 @@ export function notificationDestinationRoute(
     return {
       pathname: '/field-report',
       params: { scanRecordId: destination.scanRecordId },
+    };
+  }
+  if (destination.kind === 'field_survey') {
+    return {
+      pathname: '/field-survey',
+      params: { surveyId: destination.surveyId },
     };
   }
   return null;

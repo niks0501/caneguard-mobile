@@ -1,9 +1,10 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { useLocalSearchParams } from 'expo-router';
 
 import FieldSurveyScreen from '@/app/field-survey';
 import { FIELD_SURVEY_COPY, FIELD_SURVEY_MODE_COPY } from '@/constants/copy';
 import { findOwnedFieldSurvey, listOwnedFieldSurveys, markFieldSurveyPending, saveFieldSurveyDraft } from '@/features/surveys/data/fieldSurveyRepository';
+import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import type { FieldSurveyRow } from '@/database/schema';
 import { renderWithGestures } from '../../../test/render-with-gestures';
 
@@ -74,9 +75,50 @@ it.each(CASES)('renders the %s mode distinctly', async (mode, stored, requested,
 it('shows the save-failed copy, not Saving, when the draft cannot be written', async () => {
   mockSave.mockRejectedValue(new Error('disk full'));
   await renderWithGestures(<FieldSurveyScreen />);
+  await waitFor(() => expect(screen.getByTestId('field-survey.status-strip').props.accessibilityValue).toEqual({ text: 'mode=drawing_new' }));
+  await fireEvent.changeText(screen.getByTestId('field-survey.district-code'), 'D9');
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.saveFailed, { exact: false })).toBeTruthy());
   expect(screen.queryByText(FIELD_SURVEY_COPY.savingOffline)).toBeNull();
   mockSave.mockResolvedValue(row());
   await fireEvent.press(screen.getByTestId('field-survey.save-failed'));
   await waitFor(() => expect(screen.queryByTestId('field-survey.save-failed')).toBeNull());
+});
+
+// Intent (D5): opening Measure a plot and closing it creates no draft row; the first edit does.
+it('opens and closes a new boundary without writing an empty draft', async () => {
+  await renderWithGestures(<FieldSurveyScreen />);
+  await waitFor(() => expect(screen.getByTestId('field-survey.status-strip').props.accessibilityValue).toEqual({ text: 'mode=drawing_new' }));
+  expect(mockSave).not.toHaveBeenCalled();
+
+  await fireEvent.changeText(screen.getByTestId('field-survey.district-code'), 'D9');
+  await waitFor(() => expect(mockSave).toHaveBeenCalled());
+  expect(mockSave.mock.lastCall?.[1]).toMatchObject({ districtCode: 'D9', waypoints: [] });
+});
+
+// Intent (D3): a correction that arrives from a background attempt shows on the open screen, with its field messages.
+it('adopts the stored row when a background attempt rejects the boundary', async () => {
+  await renderWithGestures(<FieldSurveyScreen />);
+  await waitFor(() => expect(screen.getByTestId('field-survey.status-strip').props.accessibilityValue).toEqual({ text: 'mode=drawing_new' }));
+
+  mockFind.mockReturnValue(row({ status: 'failed', lastSyncErrorCode: 'API_VALIDATION_FAILED', fieldErrorsJson: '{"waypoints":["Move point 2."]}' }));
+  await act(async () => { emitSyncRecordsChanged(); });
+
+  await waitFor(() => expect(screen.getByTestId('field-survey.status-strip').props.accessibilityValue).toEqual({ text: 'mode=fixing' }));
+  expect(screen.getByTestId('field-survey.status-strip')).toHaveTextContent(FIELD_SURVEY_MODE_COPY.fixing);
+  expect(screen.getByText('waypoints: Move point 2.')).toBeTruthy();
+});
+
+// Intent: a background send that finishes while the screen is open leaves the screen on its stored mode.
+it('follows the stored row from sending to sent without reopening', async () => {
+  const syncing = row({ status: 'syncing' });
+  mockFind.mockReturnValue(syncing);
+  mockParams.mockReturnValue({ surveyId: syncing.clientUuid });
+  await renderWithGestures(<FieldSurveyScreen />);
+  await waitFor(() => expect(screen.getByTestId('field-survey.status-strip').props.accessibilityValue).toEqual({ text: 'mode=sending' }));
+
+  mockFind.mockReturnValue(row({ status: 'synced', remoteId: 'r1' }));
+  await act(async () => { emitSyncRecordsChanged(); });
+
+  await waitFor(() => expect(screen.getByTestId('field-survey.status-strip').props.accessibilityValue).toEqual({ text: 'mode=sent' }));
+  expect(screen.getByTestId('field-survey.submit').props.accessibilityState.disabled).toBe(true);
 });

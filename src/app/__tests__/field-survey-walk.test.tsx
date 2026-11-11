@@ -185,8 +185,7 @@ it('stops walking before a new boundary replaces the draft being walked', async 
 
   expect(screen.getByText(FIELD_SURVEY_COPY.walkStart)).toBeTruthy();
   expect(remove).toHaveBeenCalledTimes(1);
-  expect(lastDraft()?.clientUuid).toBe('3f1de2d8-2ca9-4c26-9e37-2f4c5f6f7a10');
-  expect(lastDraftWaypoints()).toHaveLength(0);
+  expect(save).not.toHaveBeenCalled();
 });
 
 it('measures walk spacing from the boundary after undo removes the last point', async () => {

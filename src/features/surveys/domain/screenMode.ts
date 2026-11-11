@@ -1,5 +1,5 @@
 import type { FieldSurveyRow } from '@/database/schema';
-import { BOUNDARY_STATE_COPY, FIELD_SURVEY_MODE_COPY } from '@/constants/copy';
+import { FIELD_SURVEY_MODE_COPY } from '@/constants/copy';
 import type { SyncTone } from '@/features/sync/utils/syncStatusCopy';
 import { boundaryCanSubmit, boundaryState, type BoundaryState, type BoundaryStateInput } from './boundaryState';
 
@@ -28,6 +28,7 @@ export interface ScreenState {
 
 export const LOADING_SCREEN: ScreenState = { mode: 'loading', boundary: null };
 export const NEW_BOUNDARY_SCREEN: ScreenState = { mode: 'drawing_new', boundary: null };
+export const WAITING_TO_SEND_SCREEN: ScreenState = { mode: 'waiting_to_send', boundary: 'waiting_to_send' };
 
 type RowInput = BoundaryStateInput & Pick<FieldSurveyRow, 'waypointsJson' | 'affectedAreaPolygonsJson' | 'activeAffectedWaypointsJson'>;
 
@@ -107,11 +108,6 @@ const MODE_TONE: Record<ScreenMode, SyncTone> = {
 };
 
 /** The one status strip: its words and its colour both come from the mode. */
-export function statusStripFor(state: ScreenState): StatusStrip {
-  const { mode, boundary } = state;
-  // A stored failure that shares a mode (will retry, refused, damaged) keeps its own hint.
-  const specific = boundary === 'will_retry' || boundary === 'refused' || boundary === 'damaged'
-    ? BOUNDARY_STATE_COPY[boundary].hint
-    : null;
-  return { text: specific ?? FIELD_SURVEY_MODE_COPY[mode], tone: MODE_TONE[mode] };
+export function statusStripFor(mode: ScreenMode): StatusStrip {
+  return { text: FIELD_SURVEY_MODE_COPY[mode], tone: MODE_TONE[mode] };
 }

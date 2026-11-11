@@ -228,13 +228,7 @@ it('drops a boundary capture when the affected-area mode is opened while samplin
   });
 
   expect(await screen.findByText(FIELD_SURVEY_COPY.gpsCaptureCancelled)).toBeTruthy();
-  await waitFor(() => {
-    const saved = mockSaveDraft.mock.lastCall?.[1];
-    expect(saved?.waypoints.map((point) => [point.latitude, point.longitude])).toEqual(
-      PLOT_WAYPOINTS.map((point) => [point.latitude, point.longitude]),
-    );
-    expect(saved?.activeAffectedWaypoints).toEqual([]);
-  });
+  expect(mockSaveDraft).not.toHaveBeenCalled();
 });
 
 it('reports a cancelled recapture when the named point is removed while sampling', async () => {
@@ -307,16 +301,15 @@ it('adds a finite vertex when a web-shaped map press has no locationX/locationY'
   expect(Number.isFinite(saved[0].longitude)).toBe(true);
 });
 
-it('ignores a map press with no usable coordinates and drops non-finite saved vertices on load', async () => {
+it('ignores a map press with no usable coordinates and drops non-finite vertices on load', async () => {
   const damaged = [PLOT_WAYPOINTS[0], { ...PLOT_WAYPOINTS[1], latitude: null, longitude: null }, ...PLOT_WAYPOINTS.slice(2)];
   mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(damaged) })]);
   await renderWithGestures(<FieldSurveyScreen />);
 
   await fireEvent.press(screen.getByTestId('field-survey.map'), { nativeEvent: { locationX: undefined, locationY: undefined, pageX: 5, pageY: 5 } });
 
-  await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
-  const saved = mockSaveDraft.mock.calls.at(-1)![1].waypoints;
-  expect(saved).toEqual([PLOT_WAYPOINTS[0], ...PLOT_WAYPOINTS.slice(2)]);
+  await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (3)`)).toBeTruthy());
+  expect(mockSaveDraft).not.toHaveBeenCalled();
 });
 
 it('keeps captured affected-waypoint provenance when the affected mode button is tapped again', async () => {
@@ -360,10 +353,9 @@ it('keeps restored unfinished affected waypoints and blocks submit until they ar
 
   expect(screen.getByText(`${FIELD_SURVEY_COPY.affectedAreaBoundary} (3)`)).toBeTruthy();
   expect(submitDisabled()).toBe(true);
-  await waitFor(() => {
-    const saved = mockSaveDraft.mock.lastCall?.[1];
-    expect(saved?.activeAffectedWaypoints).toEqual(ACTIVE_AFFECTED_WAYPOINTS);
-  });
+  expect(screen.getByTestId('field-survey.point.active.0')).toBeTruthy();
+  expect(screen.getByTestId('field-survey.point.active.2')).toBeTruthy();
+  expect(mockSaveDraft).not.toHaveBeenCalled();
 
   await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.undo));
   await pressMap(210, 135);
@@ -460,7 +452,7 @@ it('does not resume another boundary or save a draft when the requested survey i
   expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (0)`)).toBeTruthy();
 });
 
-it('only saves a missing linked survey after the user starts a new boundary', async () => {
+it('only saves a missing linked survey after the user edits the new boundary', async () => {
   mockFindSurvey.mockReturnValue(null);
   mockUseLocalSearchParams.mockReturnValue({ surveyId: 'requested-but-gone' });
 
@@ -480,6 +472,13 @@ it('only saves a missing linked survey after the user starts a new boundary', as
 
   await act(async () => {
     fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.newSurvey));
+  });
+
+  expect(screen.getByTestId('field-survey.district-code').props.editable).toBe(true);
+  expect(mockSaveDraft).not.toHaveBeenCalled();
+
+  await act(async () => {
+    fireEvent.changeText(screen.getByTestId('field-survey.district-code'), 'D9');
   });
 
   await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
@@ -511,6 +510,23 @@ describe('drawing tool (phone)', () => {
 
     await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (5)`)).toBeTruthy());
     expect(screen.getByTestId('field-survey.tool-state').props.accessibilityValue.text).toBe('tool=plot.move');
+  });
+
+  it('saves the first edit when it is a dragged point', async () => {
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+    expect(mockSaveDraft).not.toHaveBeenCalled();
+
+    const drag = createGestureController(getByGestureTestId('field-survey.point.plot.0.drag'));
+    await act(async () => { drag.begin(); drag.activate(); drag.update({ translationX: 20, translationY: 0 }); drag.end(); });
+
+    await waitFor(() => {
+      const saved = mockSaveDraft.mock.lastCall?.[1];
+      expect(saved?.waypoints).toHaveLength(4);
+      expect([saved?.waypoints[0].latitude, saved?.waypoints[0].longitude]).not.toEqual(
+        [PLOT_WAYPOINTS[0].latitude, PLOT_WAYPOINTS[0].longitude],
+      );
+    });
   });
 
   it('undoes a removal, not just the last added point', async () => {
@@ -682,8 +698,7 @@ describe('drawing tool (phone)', () => {
     expect(await screen.findByText(AFFECTED_OUTSIDE_PLOT)).toBeTruthy();
     expect(screen.queryByText(FIELD_SURVEY_COPY.gpsAccuracyWeak(25))).toBeNull();
     expect(screen.getByTestId('field-survey.point.area-0.0').props.accessibilityState.selected).toBe(true);
-    const saved = mockSaveDraft.mock.lastCall?.[1];
-    expect(saved?.affectedAreaWaypoints?.[0]).toEqual(ACTIVE_AFFECTED_WAYPOINTS);
+    expect(mockSaveDraft).not.toHaveBeenCalled();
   });
 
   // Intent: a drag keeps its vertex under the finger even when the map moves mid-drag (GPS capture or My location).

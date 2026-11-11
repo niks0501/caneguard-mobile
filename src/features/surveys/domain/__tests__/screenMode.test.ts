@@ -35,7 +35,7 @@ describe('screenStateForRow', () => {
 // Intent: each of the nine modes says something different in the status strip.
 describe('statusStripFor', () => {
   it('gives every mode its own text', () => {
-    const texts = SCREEN_MODES.map((mode) => statusStripFor({ mode, boundary: null }).text);
+    const texts = SCREEN_MODES.map((mode) => statusStripFor(mode).text);
     expect(new Set(texts).size).toBe(SCREEN_MODES.length);
     expect(texts[0]).toBe(FIELD_SURVEY_MODE_COPY.loading);
   });

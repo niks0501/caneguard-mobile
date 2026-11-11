@@ -20,6 +20,7 @@ import { useSync } from '@/features/sync/hooks/useSync';
 import { useToast } from '@/components/ui/Toast';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { FIELD_SURVEY_COPY } from '@/constants/copy';
+import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 import { expoForegroundLocationClient } from '@/features/reports/services/expoForegroundLocationClient';
 import { PREFERRED_GPS_ACCURACY_METERS } from '@/features/reports/services/captureGpsLocation';
 import {
@@ -36,7 +37,7 @@ import { findOwnedFieldSurvey, listOwnedFieldSurveys, saveFieldSurveyDraft, mark
 import { viewportPointFromPressEvent } from '@/features/reports/components/online-map-picker';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
 import { measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyPolygon, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
-import { LOADING_SCREEN, NEW_BOUNDARY_SCREEN, screenCanEdit, screenCanSubmit, screenIsStoredOrMissing, screenNeedsFreshIdentity, screenStateForRow, statusStripFor, type ScreenState } from '@/features/surveys/domain/screenMode';
+import { LOADING_SCREEN, NEW_BOUNDARY_SCREEN, screenCanEdit, screenCanSubmit, screenIsStoredOrMissing, screenNeedsFreshIdentity, screenStateForRow, statusStripFor, WAITING_TO_SEND_SCREEN, type ScreenState } from '@/features/surveys/domain/screenMode';
 import { FIELD_SURVEY_SYNC_COPY, SYNC_TONE_COLOR } from '@/features/sync/utils/syncStatusCopy';
 import { assessBoundaryQuality } from '@/features/surveys/domain/boundaryQuality';
 import {
@@ -140,6 +141,8 @@ function PointHandle(props: PointHandleProps) {
 
 type SaveState = 'saved' | 'unsaved' | 'saving' | 'failed';
 
+type StoredSurveyRow = Parameters<typeof screenStateForRow>[0] & { fieldErrorsJson: string | null };
+
 function parseFieldErrors(json: string | null | undefined): Record<string, string[]> {
   if (!json) return {};
   try {
@@ -229,6 +232,8 @@ export default function FieldSurveyScreen() {
   // One value says what the screen is; the strip, the locks and the buttons all read it.
   const [screenState, setScreenState] = useState<ScreenState>(LOADING_SCREEN);
   const { mode } = screenState;
+  const modeRef = useRef(mode);
+  useEffect(() => { modeRef.current = mode; }, [mode]);
   const controlsLocked = !screenCanEdit(mode);
   const saving = mode === 'sending';
   const mapRef = useRef<HostInstance>(null);
@@ -236,6 +241,26 @@ export default function FieldSurveyScreen() {
   useEffect(() => {
     liveFormRef.current = { controlsLocked, drawingAffectedArea, editable: !controlsLocked };
   }, [controlsLocked, drawingAffectedArea]);
+
+  // The one place a stored row becomes the mode and the correction messages on screen.
+  const showStoredRow = useCallback((row: StoredSurveyRow | null, next: ScreenState): ScreenState => {
+    setScreenState(next);
+    setFieldErrors(row ? parseFieldErrors(row.fieldErrorsJson) : {});
+    return next;
+  }, []);
+
+  // A background attempt writes this screen's row too; its transitions belong on screen without reopening.
+  useEffect(() => {
+    if (!database || !session?.user.uuid) return;
+    return subscribeSyncRecords(() => {
+      const row = findOwnedFieldSurvey(database, clientUuid, session.user.uuid);
+      if (!row) return;
+      const next = screenStateForRow(row);
+      // Only this screen edits its own draft, and a row that maps to the mode already on screen changes nothing here.
+      if (next.boundary === 'draft' || next.mode === modeRef.current) return;
+      showStoredRow(row, next);
+    });
+  }, [clientUuid, database, session?.user.uuid, showStoredRow]);
 
   // Opens the map on the drawn shape (resumed boundary, or one opened from a report).
   const fitMapToShape = useCallback((target: DrawingShape, size: { width: number; height: number }) => {
@@ -251,6 +276,12 @@ export default function FieldSurveyScreen() {
     shapeRef.current = next;
     setShapeState(next);
   }, []);
+  // Opening a screen is not an edit: only a change to the draft makes it worth writing.
+  const [hasEdited, setHasEdited] = useState(false);
+  const markEdited = useCallback(() => {
+    setHasEdited(true);
+    setSaveState('unsaved');
+  }, []);
   // A user edit: remember the shape it replaced so Undo can step back through any kind of edit.
   const commitShape = useCallback((next: DrawingShape) => {
     const before = shapeRef.current;
@@ -262,9 +293,9 @@ export default function FieldSurveyScreen() {
       drag.undoBase = next;
       drag.changed = false;
     }
-    setSaveState('unsaved');
+    markEdited();
     setShape(next);
-  }, [setShape]);
+  }, [markEdited, setShape]);
   const stopWalk = useCallback((message?: string | null) => {
     const walk = walkRef.current;
     if (!walk) return;
@@ -348,9 +379,8 @@ export default function FieldSurveyScreen() {
         } catch {
           setShape(EMPTY_SHAPE);
         }
-        setFieldErrors(parseFieldErrors(previous.fieldErrorsJson));
         setSaveState('saved');
-        setScreenState(screenStateForRow(previous));
+        showStoredRow(previous, screenStateForRow(previous));
       } else {
         setScreenState(surveyId ? { mode: 'waiting_to_start', boundary: null } : NEW_BOUNDARY_SCREEN);
       }
@@ -361,12 +391,12 @@ export default function FieldSurveyScreen() {
       }
     });
     return () => { cancelled = true; };
-  }, [database, fitMapToShape, ready, session?.user.uuid, setShape, surveyId]);
+  }, [database, fitMapToShape, ready, session?.user.uuid, setShape, showStoredRow, surveyId]);
 
-  // Autosave: an edit makes it unsaved, the write makes it saving, then saved or failed. Only an editable screen writes.
+  // Autosave: an edit makes it unsaved, the write makes it saving, then saved or failed. Only an edited, editable screen writes.
   const loaded = mode !== 'loading';
   useEffect(() => {
-    if (!canAuthorSurvey || !loaded || !ready || !database || !session?.user.uuid || !liveFormRef.current.editable) return;
+    if (!canAuthorSurvey || !loaded || !hasEdited || !ready || !database || !session?.user.uuid || !liveFormRef.current.editable) return;
     let cancelled = false;
     setSaveState('saving');
     void saveFieldSurveyDraft(database, {
@@ -385,7 +415,7 @@ export default function FieldSurveyScreen() {
       if (!cancelled) setSaveState('failed');
     });
     return () => { cancelled = true; };
-  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, canAuthorSurvey, clientUuid, database, districtCode, loaded, ready, saveAttempt, session?.user.role, session?.user.uuid, waypoints]);
+  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, canAuthorSurvey, clientUuid, database, districtCode, hasEdited, loaded, ready, saveAttempt, session?.user.role, session?.user.uuid, waypoints]);
 
   function captureTargetForNewPoint(): WaypointCaptureTarget {
     const replace = selected ? pointOf(shapeRef.current, selected) : null;
@@ -535,7 +565,7 @@ export default function FieldSurveyScreen() {
     }
     const undoBase = drag.undoBase;
     setHistory((current) => pushUndo(current, undoBase));
-    setSaveState('unsaved');
+    markEdited();
     setSelected(drag.ref);
     setFieldErrors({});
     if (drag.refused) setSyncMessage(FIELD_SURVEY_COPY.moveRefused);
@@ -554,7 +584,7 @@ export default function FieldSurveyScreen() {
 
   function undoLast() {
     if (controlsLocked) return;
-    setSaveState('unsaved');
+    markEdited();
     setSelected(null);
     const previous = history.at(-1);
     if (previous) {
@@ -742,9 +772,7 @@ export default function FieldSurveyScreen() {
     }
     // The stored row is the truth about what happened; the one mapper turns it into the mode.
     const row = findOwnedFieldSurvey(database, clientUuid, session.user.uuid);
-    const next: ScreenState = row ? screenStateForRow(row) : { mode: 'waiting_to_send', boundary: 'waiting_to_send' };
-    setScreenState(next);
-    if (row) setFieldErrors(parseFieldErrors(row.fieldErrorsJson));
+    const next = showStoredRow(row, row ? screenStateForRow(row) : WAITING_TO_SEND_SCREEN);
     if (next.mode === 'sent') showToast(FIELD_SURVEY_SYNC_COPY.synced, 'success');
     else if (failure) setSyncMessage(failure);
     else if (result?.authRequired) setSyncMessage(FIELD_SURVEY_SYNC_COPY.signInRequired);
@@ -792,6 +820,7 @@ export default function FieldSurveyScreen() {
 
   function startNewBoundary() {
     stopWalk();
+    setHasEdited(false);
     setClientUuid(randomUUID());
     setDistrictCode('');
     setShape(EMPTY_SHAPE);
@@ -881,7 +910,7 @@ export default function FieldSurveyScreen() {
     return <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}><ActivityIndicator color={theme.primary} /></SafeAreaView>;
   }
 
-  const strip = statusStripFor(screenState);
+  const strip = statusStripFor(mode);
   const saveLine = mode === 'waiting_to_start' || mode === 'loading' ? null : saveState === 'failed' ? (
     <Pressable testID="field-survey.save-failed" accessibilityRole="button" accessibilityLabel={`${FIELD_SURVEY_COPY.saveFailed} ${FIELD_SURVEY_COPY.saveRetry}`} onPress={() => setSaveAttempt((count) => count + 1)}>
       <Text style={[styles.help, { color: theme.danger }]}>{FIELD_SURVEY_COPY.saveFailed} <Text style={styles.retry}>{FIELD_SURVEY_COPY.saveRetry}</Text></Text>
@@ -1024,7 +1053,7 @@ export default function FieldSurveyScreen() {
             testID="field-survey.district-code"
             value={districtCode}
             editable={!controlsLocked}
-            onChangeText={(value) => { setSaveState('unsaved'); setFieldErrors((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'district_code'))); setDistrictCode(value); }}
+            onChangeText={(value) => { markEdited(); setFieldErrors((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'district_code'))); setDistrictCode(value); }}
             autoCapitalize="characters"
             placeholder={FIELD_SURVEY_COPY.districtPlaceholder}
             placeholderTextColor={theme.textSecondary}

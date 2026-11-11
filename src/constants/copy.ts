@@ -173,7 +173,7 @@ export const FIELD_SURVEY_MODE_COPY = {
   drawing_resumed: FIELD_SURVEY_COPY.resumedSurvey,
   fixing: 'The office needs a correction. Fix the points or the messages below, then sync again.',
   sending: BOUNDARY_STATE_COPY.sending.hint,
-  waiting_to_send: BOUNDARY_STATE_COPY.waiting_to_send.hint,
+  waiting_to_send: 'Saved on this phone. Not sent yet: it sends when you are online, or press Save and sync to try again.',
   sent: BOUNDARY_STATE_COPY.sent.hint,
   identity_rejected: FIELD_SURVEY_COPY.surveyIdentityRejected,
 } as const;

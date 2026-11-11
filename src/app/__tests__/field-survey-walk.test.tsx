@@ -162,9 +162,10 @@ it('removes a subscription that arrives after the screen closed while still star
   const view = await renderWithGestures(<FieldSurveyScreen />);
   await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
   view.unmount();
-  await act(async () => { starting.resolve({ remove }); });
-
-  expect(remove).toHaveBeenCalledTimes(1);
+  // Resolve outside act(): the screen is already closed, so waiting for the late
+  // subscription with waitFor keeps this case from corrupting later renders.
+  starting.resolve({ remove });
+  await waitFor(() => expect(remove).toHaveBeenCalledTimes(1));
 });
 
 it('stops walking before a new boundary replaces the draft being walked', async () => {

@@ -5,6 +5,7 @@ import { StorageError, toStorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import { fieldSurveys, type FieldSurveyRow, type FieldSurveyStatus } from '@/database/schema';
 import type { MobileUserRole } from '@/features/auth/types';
+import { planAttachedBoundarySend } from '@/features/surveys/domain/attachedBoundary';
 import { boundaryCanDelete, boundaryCanEdit, boundaryCanSubmit, boundaryState } from '@/features/surveys/domain/boundaryState';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
@@ -144,6 +145,30 @@ export function markFieldSurveyPending(
     updatedAt: new Date().toISOString(),
   }).where(and(eq(fieldSurveys.clientUuid, clientUuid), eq(fieldSurveys.ownerIdentity, owner))).run();
   emitSyncRecordsChanged();
+}
+
+/**
+ * "Send together": a report takes its attached boundary with it, so the boundary
+ * is queued when it is still local work. Returns false when the boundary is no
+ * longer on this phone or cannot be sent, so the report must not go without it.
+ */
+export function queueAttachedFieldSurvey(
+  database: CaneGuardDatabase,
+  clientUuid: string,
+  ownerIdentity: string,
+): boolean {
+  const row = findOwnedFieldSurvey(database, clientUuid, ownerIdentity);
+  if (!row) return false;
+  const plan = planAttachedBoundarySend(row);
+  if (plan.status === 'blocked') return false;
+  if (plan.status === 'queue') {
+    const { send } = plan;
+    markFieldSurveyPending(
+      database, clientUuid, ownerIdentity, send.polygon, send.areaSqm, send.capturedAt,
+      send.affectedAreas, send.affectedAreaSqm, send.affectedAreaWaypoints,
+    );
+  }
+  return true;
 }
 
 /** Statuses each sync write may start from; a row in any other status is left untouched. */

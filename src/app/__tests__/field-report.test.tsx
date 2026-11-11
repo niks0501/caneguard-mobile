@@ -2397,13 +2397,13 @@ describe('FieldReportScreen', () => {
       expect(screen.getByLabelText('Add location')).toBeOnTheScreen();
     });
 
-    it('holds all 20 submission requirements inside disclosure on Step 5 (W-3, Rule 4)', async () => {
+    it('holds all 21 submission requirements inside disclosure on Step 5 (W-3, Rule 4)', async () => {
       await render(<FieldReportScreen />);
       await act(async () => undefined);
 
       await goToStep(5);
       await act(async () => {
-        fireEvent.press(screen.getByLabelText('Show All requirements (20)'));
+        fireEvent.press(screen.getByLabelText('Show All requirements (21)'));
       });
 
       const disclosure = within(screen.getByTestId('field-report.all-requirements-disclosure'));
@@ -2413,6 +2413,28 @@ describe('FieldReportScreen', () => {
       expect(disclosure.getByText('Observation time')).toBeOnTheScreen();
       expect(disclosure.getByText('Affected area (hectares)')).toBeOnTheScreen();
       expect(disclosure.getByText('Confirmed location')).toBeOnTheScreen();
+    });
+
+    it('surfaces an attached boundary that is gone from this phone as a blocking requirement', async () => {
+      mockDraftState = {
+        ...mockDraftState,
+        data: draft({ fieldSurveyClientUuid: 'survey-no-longer-saved' }),
+      };
+
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+      await goToStep(5);
+
+      const blocked = screen.getByTestId('field-report.ready.attached_boundary');
+      expect(blocked).toHaveTextContent(/Plot boundary ready to send/);
+      expect(blocked).toHaveTextContent(/Step 5/);
+
+      await act(async () => {
+        fireEvent.press(blocked);
+      });
+      expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
+        'Step 5 of 5: Review & submit',
+      );
     });
 
     it('never shows report UUIDs in the normal workflow (E11)', async () => {

@@ -31,6 +31,7 @@ import type {
   SaveFieldReportDraftInput,
   SaveManualMapLocationInput,
 } from '@/features/reports/domain/fieldReportTypes';
+import { queueAttachedFieldSurvey } from '@/features/surveys/data/fieldSurveyRepository';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { toAuthorityReviewSnapshot } from '@/features/reports/domain/reportReviewTypes';
 import {
@@ -710,6 +711,15 @@ export async function finalizeFieldReport(
           throw error;
         }
       }
+    }
+
+    const attachedSurveyUuid = draftContext.draft.fieldSurveyClientUuid;
+    if (attachedSurveyUuid && !queueAttachedFieldSurvey(database, attachedSurveyUuid, owner)) {
+      return {
+        missingRequirements: ['attached_boundary'],
+        report: draftContext.draft,
+        status: 'invalid' as const,
+      };
     }
 
     const result = database.transaction((transaction) => {

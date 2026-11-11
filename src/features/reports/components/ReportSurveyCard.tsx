@@ -60,7 +60,7 @@ export function ReportSurveyCard({ attachedSurvey, attachedUuid, disabled, onAtt
     <View
       testID="field-report.survey-card"
       accessibilityValue={{
-        text: `state=${attachedUuid ? (attachedSurvey ? 'attached' : 'missing') : 'none'};choices=${choices.length}`,
+        text: `state=${attachedUuid ? (attachedSurvey ? 'attached' : 'missing') : 'none'};boundary=${attachedSurvey ? boundaryState(attachedSurvey) : 'none'};choices=${choices.length}`,
       }}
       style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
       <View style={styles.header}>
@@ -82,6 +82,12 @@ export function ReportSurveyCard({ attachedSurvey, attachedUuid, disabled, onAtt
           {choices.length === 0 ? FIELD_SURVEY_COPY.linkEmpty : FIELD_SURVEY_COPY.linkNone}
         </Text>
       )}
+
+      {attachedSurvey ? (
+        <Text testID="field-report.survey-state" style={[styles.help, { color: theme.textSecondary }]}>
+          {BOUNDARY_STATE_COPY[boundaryState(attachedSurvey)].hint}
+        </Text>
+      ) : null}
 
       {choices.map(({ areaSqm, row }) => (
         <AppButton

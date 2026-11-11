@@ -15,6 +15,7 @@ import {
   findOwnedFieldSurvey,
   listOwnedFieldSurveys,
   markFieldSurveyPending,
+  queueAttachedFieldSurvey,
   saveFieldSurveyDraft,
   updateFieldSurveySyncResult,
 } from '@/features/surveys/data/fieldSurveyRepository';
@@ -57,6 +58,12 @@ const waypoint: SurveyWaypoint = {
 };
 const polygon = { type: 'Polygon' as const, coordinates: [[[120, 14], [120.001, 14], [120.001, 14.001], [120, 14.001], [120, 14]]] };
 const plotAreaSqm = ringArea(polygon.coordinates[0]);
+const plotWaypoints: SurveyWaypoint[] = [
+  { ...waypoint, latitude: 14, longitude: 120 },
+  { ...waypoint, latitude: 14, longitude: 120.001 },
+  { ...waypoint, latitude: 14.001, longitude: 120.001 },
+  { ...waypoint, latitude: 14.001, longitude: 120 },
+];
 
 describe('field survey local repository', () => {
   it('persists owner-scoped offline drafts and retains one client UUID through sync retries', async () => {
@@ -287,6 +294,51 @@ describe('field survey local repository', () => {
     expect(updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'failed' })).toBe(0);
     unsubscribe();
     expect(seen).toEqual(['draft', 'pending', 'syncing', 'synced']);
+    native.close();
+  });
+
+  // Intent: a report's attached boundary is queued to send with it, and a boundary the
+  // office cannot receive keeps the report waiting instead of being silently skipped.
+  it('queues an attachable attached boundary and refuses the ones that cannot be sent', async () => {
+    const { database, native } = openDatabase();
+    const base = { authorRole: 'field_reporter' as const, capturedAt: waypoint.capturedAt, ownerIdentity: 'owner-1' };
+    await saveFieldSurveyDraft(database, { ...base, clientUuid: 'ok', districtCode: 'D-01', waypoints: plotWaypoints });
+    await saveFieldSurveyDraft(database, { ...base, clientUuid: 'two-points', districtCode: 'D-01', waypoints: plotWaypoints.slice(0, 2) });
+    await saveFieldSurveyDraft(database, { ...base, clientUuid: 'no-district', districtCode: 'UNSPECIFIED', waypoints: plotWaypoints });
+
+    expect(queueAttachedFieldSurvey(database, 'ok', 'owner-1')).toBe(true);
+    expect(findOwnedFieldSurvey(database, 'ok', 'owner-1')?.status).toBe('pending');
+    expect(queueAttachedFieldSurvey(database, 'ok', 'owner-1')).toBe(true);
+    expect(queueAttachedFieldSurvey(database, 'two-points', 'owner-1')).toBe(false);
+    expect(queueAttachedFieldSurvey(database, 'no-district', 'owner-1')).toBe(false);
+    expect(queueAttachedFieldSurvey(database, 'deleted-on-this-phone', 'owner-1')).toBe(false);
+    expect(findOwnedFieldSurvey(database, 'ok', 'owner-1')?.status).toBe('pending');
+    expect(findOwnedFieldSurvey(database, 'two-points', 'owner-1')?.status).toBe('draft');
+    expect(findOwnedFieldSurvey(database, 'no-district', 'owner-1')?.status).toBe('draft');
+    native.close();
+  });
+
+  // Intent (send-together): damaged saved affected-area data must not be queued and then
+  // replaced with nothing, because the office would receive a boundary missing it.
+  it('refuses a boundary whose saved affected-area data is damaged', async () => {
+    const { database, native } = openDatabase();
+    await saveFieldSurveyDraft(database, {
+      authorRole: 'field_reporter',
+      capturedAt: waypoint.capturedAt,
+      clientUuid: 'damaged-areas',
+      districtCode: 'D-01',
+      ownerIdentity: 'owner-1',
+      waypoints: plotWaypoints,
+    });
+    native
+      .prepare('UPDATE field_surveys SET affected_area_polygons_json = ? WHERE client_uuid = ?')
+      .run('{"areas":[]}', 'damaged-areas');
+
+    expect(queueAttachedFieldSurvey(database, 'damaged-areas', 'owner-1')).toBe(false);
+    expect(findOwnedFieldSurvey(database, 'damaged-areas', 'owner-1')).toMatchObject({
+      status: 'draft',
+      affectedAreaPolygonsJson: '{"areas":[]}',
+    });
     native.close();
   });
 });

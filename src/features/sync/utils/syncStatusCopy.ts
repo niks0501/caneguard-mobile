@@ -1,16 +1,13 @@
 import type { ApiReachability } from '@/features/sync/providers/SyncProvider';
-import { FIELD_SURVEY_COPY, type FarmerLanguage } from '@/constants/copy';
+import { type FarmerLanguage } from '@/constants/copy';
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 
 /** Single-sourced sync status copy for offline field-survey submissions. */
 export const FIELD_SURVEY_SYNC_COPY = {
-  savedOffline: 'Draft saved on this device.',
+  savedOffline: 'Saved on this device.',
   signInRequired: 'Sign in again before syncing. Your boundary remains saved on this device.',
   offline: 'You are offline. Your boundary and measured area remain saved on this device; sync when online.',
-  pendingLocked: 'This boundary has been submitted or may have reached the server. Retry the same survey, or start a separate boundary instead of changing this payload.',
-  serverCorrection: 'The server needs a correction. Review the field-specific messages and edit the boundary.',
-  identityRejected: FIELD_SURVEY_COPY.surveyIdentityRejected,
   synced: 'Boundary measurement synced.',
   submit: 'Save and sync measurement',
   submitting: 'Syncing measurement…',

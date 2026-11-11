@@ -3,7 +3,7 @@ import { SYNC_RETRY_COOLDOWN_MS } from '@/features/reports/data/fieldReportSyncR
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import type { SyncBatchResult, SyncHaltReason, SyncTriggerSource } from '@/features/sync/services/syncPendingFieldReports';
 import { DEFAULT_SYNC_BATCH_SIZE, MAX_SYNC_REPORTS_PER_RUN } from '@/features/sync/services/syncPendingFieldReports';
-import { findFieldSurveySyncCandidates } from '@/features/surveys/data/fieldSurveySyncRepository';
+import { countUnsyncedFieldSurveys, findFieldSurveySyncCandidates } from '@/features/surveys/data/fieldSurveySyncRepository';
 import { syncFieldSurvey } from '@/features/surveys/services/syncFieldSurvey';
 import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 
@@ -50,15 +50,17 @@ async function executeBatch(options: Options & { ownerIdentity: string }): Promi
   let authRequired = false;
   while (results.length < MAX_SYNC_REPORTS_PER_RUN) {
     const remaining = MAX_SYNC_REPORTS_PER_RUN - results.length;
+    if (!options.districtCode.trim()) {
+      haltReason = options.districtVerified || countUnsyncedFieldSurveys(options.database, options.ownerIdentity) === 0
+        ? 'empty'
+        : 'transient-blocker';
+      break;
+    }
     const candidates = findFieldSurveySyncCandidates(options.database, options.ownerIdentity, Math.min(batchSize, remaining), {
       failedBefore: new Date(Date.now() - SYNC_RETRY_COOLDOWN_MS).toISOString(),
       includeRetryableFailed: true,
     });
     if (!candidates.length) { haltReason = 'empty'; break; }
-    if (!options.districtCode.trim()) {
-      haltReason = options.districtVerified ? 'empty' : 'transient-blocker';
-      break;
-    }
     for (const { clientUuid } of candidates) {
       const result = await syncFieldSurvey({
         allowImmediateRetries: options.source === 'manual',

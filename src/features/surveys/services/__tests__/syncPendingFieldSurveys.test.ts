@@ -1,8 +1,9 @@
-import { findFieldSurveySyncCandidates } from '@/features/surveys/data/fieldSurveySyncRepository';
+import { countUnsyncedFieldSurveys, findFieldSurveySyncCandidates } from '@/features/surveys/data/fieldSurveySyncRepository';
 import { syncFieldSurvey } from '@/features/surveys/services/syncFieldSurvey';
 import { syncPendingFieldSurveys } from '@/features/surveys/services/syncPendingFieldSurveys';
 
 jest.mock('@/features/surveys/data/fieldSurveySyncRepository', () => ({
+  countUnsyncedFieldSurveys: jest.fn(),
   findFieldSurveySyncCandidates: jest.fn(),
 }));
 jest.mock('@/features/surveys/services/syncFieldSurvey', () => ({
@@ -18,8 +19,11 @@ const options = {
   token: 'token-1',
 };
 
+const countWaiting = jest.mocked(countUnsyncedFieldSurveys);
+
 describe('syncPendingFieldSurveys', () => {
   beforeEach(() => {
+    countWaiting.mockReturnValue(1);
     jest.mocked(findFieldSurveySyncCandidates)
       .mockReturnValueOnce([{ clientUuid: 'survey-1', status: 'pending' }] as never)
       .mockReturnValue([]);
@@ -61,11 +65,13 @@ describe('syncPendingFieldSurveys', () => {
   });
 
   // Intent (item 8): a boundary is only uploaded with the account district. While the account
-  // is still being verified the queue waits for it and retries; once verification says the
-  // account has no district, nothing is retried and nothing is sent empty.
+  // is still being verified, queued work waits and retries even when nothing is eligible yet
+  // (a boundary inside its retry cooldown); once verification says the account has no district,
+  // nothing is retried and nothing is sent empty.
   it('defers queued uploads until the district is known, then stops retrying', async () => {
     jest.mocked(findFieldSurveySyncCandidates).mockReset();
-    jest.mocked(findFieldSurveySyncCandidates).mockReturnValue([{ clientUuid: 'survey-1', status: 'pending' }] as never);
+    jest.mocked(findFieldSurveySyncCandidates).mockReturnValue([]);
+    countWaiting.mockReturnValue(1);
 
     await expect(
       syncPendingFieldSurveys({ ...options, districtCode: '', districtVerified: false }),
@@ -81,6 +87,7 @@ describe('syncPendingFieldSurveys', () => {
   it('does not ask for a retry when no boundary is waiting', async () => {
     jest.mocked(findFieldSurveySyncCandidates).mockReset();
     jest.mocked(findFieldSurveySyncCandidates).mockReturnValue([]);
+    countWaiting.mockReturnValue(0);
 
     await expect(
       syncPendingFieldSurveys({ ...options, districtCode: '', districtVerified: false }),

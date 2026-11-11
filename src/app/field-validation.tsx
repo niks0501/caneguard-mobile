@@ -24,7 +24,7 @@ import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { HelpHintGroup } from '@/components/ui/HelpHint';
 import { Row } from '@/components/ui/Row';
 import { TextField } from '@/components/ui/TextField';
-import { CASE_CLOSE_NOTICE, DECISION_SUPPORT_DISCLAIMER, FIELD_VALIDATION_UNAVAILABLE } from '@/constants/copy';
+import { CASE_CLOSE_NOTICE, DECISION_SUPPORT_DISCLAIMER, FIELD_VALIDATION_UNAVAILABLE, NAMING } from '@/constants/copy';
 import { FollowUpOutcomeControl, OUTCOME_LABELS } from '@/features/assignments/components/FollowUpOutcomeControl';
 import { OfficeCaseCard } from '@/features/assignments/components/OfficeCaseCard';
 import { PreviousVisitCard } from '@/features/assignments/components/PreviousVisitCard';
@@ -246,7 +246,7 @@ export default function FieldValidationScreen() {
     return (
       <SafeAreaView testID="field-validation.unavailable" accessibilityValue={{ text: 'state=unavailable' }} style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
         <View style={styles.root}>
-          <BrandedScreenHeader title="Field validation" />
+          <BrandedScreenHeader title={NAMING.visit} />
           <View style={styles.centered}>
             <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_VALIDATION_UNAVAILABLE}</Text>
           </View>
@@ -263,9 +263,9 @@ export default function FieldValidationScreen() {
       }}
       style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Field validation" />
+        <BrandedScreenHeader title={NAMING.visit} />
         {state.loading && !state.assignment ? (
-          <View style={styles.centered}><ActivityIndicator accessibilityLabel="Opening field validation assignment" color={theme.primary} /></View>
+          <View style={styles.centered}><ActivityIndicator accessibilityLabel="Opening visit" color={theme.primary} /></View>
         ) : state.errorMessage && !state.assignment ? (
           <View style={styles.centered}>
             <Text style={[styles.error, { color: theme.danger }]}>{state.errorMessage}</Text>

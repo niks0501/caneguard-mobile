@@ -233,7 +233,7 @@ describe('useHomeAttention', () => {
 
       const { result } = await renderUpcomingVisitHook();
       expect(result.current.items[0].bucket).toBe('upcoming');
-      expect(result.current.items[0].meta).toBe('Visit due 2026-09-21');
+      expect(result.current.items[0].meta).toBe('Visit due Sep 21, 2026');
 
       await act(async () => {
         jest.advanceTimersByTime(31_000);

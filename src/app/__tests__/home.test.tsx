@@ -224,23 +224,18 @@ describe('HomeScreen', () => {
 
     expect(screen.getByTestId('home.greeting')).toHaveTextContent(/^Good (morning|afternoon|evening), Ari$/);
     expect(screen.queryByTestId('home.offline-chip')).not.toBeOnTheScreen();
-    expect(screen.getByTestId('home.glance.overdue')).toHaveTextContent('1Overdue');
-    expect(screen.getByTestId('home.glance.waiting')).toHaveTextContent('1Waiting to send');
+    expect(screen.queryByTestId('home.glance')).not.toBeOnTheScreen();
     expect(screen.getByTestId('home.start-scan')).toBeOnTheScreen();
-
-    await fireEvent.press(screen.getByTestId('home.glance.waiting'));
-    expect(mockRouterPush).toHaveBeenCalledWith('/activity');
 
     mockIsOnline = false;
     await view.rerender(<HomeScreen />);
     expect(screen.getByTestId('home.offline-chip')).toBeOnTheScreen();
   });
 
-  it('hides the glance strip and the scan tile when there is nothing to show', async () => {
+  it('hides the scan tile when there is nothing to show', async () => {
     mockPendingCount = 0;
     await render(<HomeScreen />);
 
-    expect(screen.queryByTestId('home.glance')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('home.start-scan')).not.toBeOnTheScreen();
   });
 
@@ -250,7 +245,7 @@ describe('HomeScreen', () => {
       jest.setSystemTime(new Date(2026, 10, 2, 9, 0));
       await render(<HomeScreen />);
 
-      expect(screen.getByTestId('home.date')).toHaveTextContent('Monday 2 November');
+      expect(screen.getByTestId('home.date')).toHaveTextContent('Nov 2, 2026');
       expect(screen.getByTestId('home.greeting')).toHaveTextContent('Good morning, Ari');
 
       for (let hour = 0; hour < 3; hour += 1) {
@@ -259,7 +254,7 @@ describe('HomeScreen', () => {
         });
       }
 
-      expect(screen.getByTestId('home.date')).toHaveTextContent('Monday 2 November');
+      expect(screen.getByTestId('home.date')).toHaveTextContent('Nov 2, 2026');
       expect(screen.getByTestId('home.greeting')).toHaveTextContent('Good afternoon, Ari');
     } finally {
       jest.useRealTimers();
@@ -273,7 +268,7 @@ describe('HomeScreen', () => {
       await render(<HomeScreen />);
 
       expect(screen.getByTestId('home.greeting')).toHaveTextContent('Good morning, Ari');
-      expect(screen.getByTestId('home.date')).toHaveTextContent('Monday 2 November');
+      expect(screen.getByTestId('home.date')).toHaveTextContent('Nov 2, 2026');
 
       // Nine hourly ticks: 12:00 (afternoon), 18:00 (evening), 00:00 (new day).
       for (let step = 0; step < 9; step += 1) {
@@ -283,7 +278,7 @@ describe('HomeScreen', () => {
       }
 
       expect(screen.getByTestId('home.greeting')).toHaveTextContent('Good evening, Ari');
-      expect(screen.getByTestId('home.date')).toHaveTextContent('Monday 2 November');
+      expect(screen.getByTestId('home.date')).toHaveTextContent('Nov 2, 2026');
 
       for (let step = 0; step < 6; step += 1) {
         await act(async () => {
@@ -292,7 +287,7 @@ describe('HomeScreen', () => {
       }
 
       expect(screen.getByTestId('home.greeting')).toHaveTextContent('Good morning, Ari');
-      expect(screen.getByTestId('home.date')).toHaveTextContent('Tuesday 3 November');
+      expect(screen.getByTestId('home.date')).toHaveTextContent('Nov 3, 2026');
     } finally {
       jest.useRealTimers();
     }
@@ -311,21 +306,16 @@ describe('HomeScreen', () => {
     }
   });
 
-  it('opens Visits from the today and overdue cells', async () => {
+  it('states the visit counts once, in the headline, with no second count strip', async () => {
     mockAttentionItems = [
       visitItem('assignment-1', 'Mabini', 'today'),
       visitItem('assignment-2', 'Balayan', 'overdue'),
     ];
     await render(<HomeScreen />);
 
-    expect(screen.getByTestId('home.glance.today')).toHaveTextContent('1Visits today');
-    expect(screen.getByTestId('home.glance.overdue')).toHaveTextContent('1Overdue');
-
-    await fireEvent.press(screen.getByTestId('home.glance.today'));
-    expect(mockRouterPush).toHaveBeenLastCalledWith('/today');
-
-    await fireEvent.press(screen.getByTestId('home.glance.overdue'));
-    expect(mockRouterPush).toHaveBeenLastCalledWith('/today');
+    expect(screen.getByTestId('home.note')).toHaveTextContent('One visit today. One is overdue.');
+    expect(screen.queryByTestId('home.glance')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Today at a glance')).not.toBeOnTheScreen();
   });
 
   it('keeps the Offline chip off while connectivity is still unknown', async () => {
@@ -398,8 +388,7 @@ describe('HomeScreen', () => {
 
     expect(index('home.note')).toBeGreaterThanOrEqual(0);
     expect(index('home.note')).toBeLessThan(index('home.primary-action'));
-    expect(index('home.primary-action')).toBeLessThan(index('home.glance'));
-    expect(index('home.glance')).toBeLessThan(index('home.start-scan'));
+    expect(index('home.primary-action')).toBeLessThan(index('home.start-scan'));
     expect(index('home.start-scan')).toBeLessThan(index('home.signs'));
   });
 

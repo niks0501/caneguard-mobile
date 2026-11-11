@@ -146,7 +146,7 @@ describe('buildNeedsAttention', () => {
     });
 
     expect(summary.items.map((item) => item.meta)).toEqual([
-      'Visit was due 2026-09-01',
+      'Visit was due Sep 1, 2026',
       'Visit due today',
       'Visit in progress',
     ]);

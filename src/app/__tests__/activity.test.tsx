@@ -190,12 +190,12 @@ describe('ActivityScreen', () => {
     };
   });
 
-  it('shows one timeline with All, Reports, Assignments, and Scans filters', async () => {
+  it('shows one timeline with All, Reports, Visits, and Scans filters', async () => {
     await render(<ActivityScreen />);
 
     expect(screen.getByTestId('activity.screen')).toBeOnTheScreen();
     expect(screen.getByRole('header')).toHaveTextContent('Activity');
-    for (const label of ['All', 'Reports', 'Assignments', 'Scans']) {
+    for (const label of ['All', 'Reports', 'Visits', 'Scans']) {
       expect(screen.getByText(label)).toBeOnTheScreen();
     }
     expect(screen.getByTestId('activity.timeline')).toBeOnTheScreen();

@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AppButton } from '@/components/ui/AppButton';
+import { NAMING } from '@/constants/copy';
 import { ComponentTokens, Layout, Spacing, Typography } from '@/constants/theme';
 import { AssignmentCard } from '@/features/activity/components/AssignmentCard';
 import {
@@ -58,7 +59,7 @@ export default function TodayScreen() {
   return (
     <SafeAreaView testID="today.screen" style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Today's field work" subtitle="Visits ordered by due date and barangay." showBack={false} />
+        <BrandedScreenHeader title={NAMING.visits} subtitle="Visits ordered by due date and barangay." showBack={false} />
         <ScrollView
           testID="today.scroll"
           showsVerticalScrollIndicator={false}

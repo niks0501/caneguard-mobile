@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -12,7 +12,6 @@ import {
   type NeedsAttentionItem,
 } from '@/features/activity/domain/needsAttention';
 import { useHomeAttention } from '@/features/activity/hooks/useHomeAttention';
-import { HomeGlanceStrip } from '@/features/home/components/HomeGlanceStrip';
 import { HomeMyScansCard } from '@/features/home/components/HomeMyScansCard';
 import { HomeHeaderBand } from '@/features/home/components/HomeHeaderBand';
 import { HomeSignsStrip, HomeToolTiles } from '@/features/home/components/HomeFieldTools';
@@ -66,17 +65,6 @@ export default function HomeScreen() {
   // Farmers have no visits or office work, so their note never leads with them.
   const note = buildMorningNote(isFarmer ? [] : attention.items, syncNote);
   const now = useNow();
-  const visitCounts = useMemo(() => {
-    let today = 0;
-    let overdue = 0;
-    for (const item of attention.items) {
-      if (item.kind !== 'assignment') continue;
-      if (item.bucket === 'today') today += 1;
-      else if (item.bucket === 'overdue') overdue += 1;
-    }
-    return { overdue, today };
-  }, [attention.items]);
-
   // Stable identity so the memoized attention rows can skip re-rendering when
   // only unrelated Home state changes.
   const markAttentionRead = attention.markRead;
@@ -191,13 +179,6 @@ export default function HomeScreen() {
                     total={attention.total}
                   />
 
-                  <HomeGlanceStrip
-                    overdue={visitCounts.overdue}
-                    onOpenActivity={() => router.push('/activity' as Href)}
-                    onOpenVisits={() => router.push('/today' as Href)}
-                    today={visitCounts.today}
-                    waiting={sync.pendingCount}
-                  />
                 </>
               )}
 

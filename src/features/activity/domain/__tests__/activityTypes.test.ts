@@ -14,7 +14,7 @@ describe('Activity domain contract', () => {
     expect(ACTIVITY_FILTERS.map(({ label }) => label)).toEqual([
       'All',
       'Reports',
-      'Assignments',
+      'Visits',
       'Scans',
     ]);
   });

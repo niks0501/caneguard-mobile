@@ -1,4 +1,4 @@
-import { OFFICE_UPDATE_NOT_ON_PHONE } from '@/constants/copy';
+import { NAMING, OFFICE_UPDATE_NOT_ON_PHONE } from '@/constants/copy';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import {
   assignmentDueMeta,
@@ -140,7 +140,7 @@ function assignmentItems(input: {
         meta: assignmentDueMeta(assignment, input.today),
         place: assignment.case.barangay,
         referenceCode: assignment.referenceCode,
-        title: `Field visit for ${assignment.referenceCode}`,
+        title: `${NAMING.visit} for ${assignment.referenceCode}`,
         tone: bucket === 'overdue' ? 'note' : 'whisper',
       };
     });

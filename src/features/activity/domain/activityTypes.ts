@@ -1,3 +1,5 @@
+import { NAMING } from '@/constants/copy';
+
 export type ActivityFilter = 'all' | 'reports' | 'scans' | 'assignments';
 
 export type CurrentActivityFilter = ActivityFilter;
@@ -9,9 +11,9 @@ export type ActivityFilterOption = {
 
 export const ACTIVITY_FILTERS: readonly ActivityFilterOption[] = [
   { key: 'all', label: 'All' },
-  { key: 'reports', label: 'Reports' },
-  { key: 'assignments', label: 'Assignments' },
-  { key: 'scans', label: 'Scans' },
+  { key: 'reports', label: NAMING.reports },
+  { key: 'assignments', label: NAMING.visits },
+  { key: 'scans', label: NAMING.scans },
 ];
 
 export type ActivityItemKind = 'report' | 'scan';

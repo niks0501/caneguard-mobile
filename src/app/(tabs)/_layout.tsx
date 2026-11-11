@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 
+import { NAMING } from '@/constants/copy';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useOfficeUpdates } from '@/features/notifications/providers/OfficeUpdatesProvider';
@@ -26,9 +27,9 @@ export default function TabLayout() {
         freezeOnBlur: true,
       }}>
       <Tabs.Screen name="home" options={{ title: 'Home' }} />
-      <Tabs.Screen name="scan" options={{ title: 'Scan' }} />
+      <Tabs.Screen name="scan" options={{ title: NAMING.scan }} />
       <Tabs.Screen name="activity" options={{ title: 'Activity' }} />
-      <Tabs.Screen name="today" options={{ title: 'Visits', href: isFarmer ? null : undefined }} />
+      <Tabs.Screen name="today" options={{ title: NAMING.visits, href: isFarmer ? null : undefined }} />
     </Tabs>
   );
 }

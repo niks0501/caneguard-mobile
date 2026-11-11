@@ -2,6 +2,22 @@
  * Single source of truth for canonical user-facing copy strings.
  */
 
+/**
+ * The four words the app uses for its core things, so a screen title, a tab, a
+ * filter and an accessibility label all call the same thing by the same name.
+ * Routes and stored data keep their technical names.
+ */
+export const NAMING = {
+  visit: 'Visit',
+  visits: 'Visits',
+  report: 'Report',
+  reports: 'Reports',
+  scan: 'Scan',
+  scans: 'Scans',
+  plot: 'Plot',
+  plots: 'Plots',
+} as const;
+
 export const DECISION_SUPPORT_DISCLAIMER =
   'This result is for decision support only. It does not confirm a disease.';
 
@@ -322,10 +338,6 @@ export const HOME_NOTE_COPY = {
     evening: 'Good evening',
   },
   offlineChip: 'Offline',
-  glanceHeading: 'Today at a glance',
-  glanceToday: 'Visits today',
-  glanceOverdue: 'Overdue',
-  glanceWaiting: 'Waiting to send',
   signsHeading: 'Know the signs',
   referencePhoto: 'Reference photo',
   signPhrases: {

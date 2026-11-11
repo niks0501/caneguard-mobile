@@ -264,9 +264,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
           await refreshPendingCount();
           return null;
         }
+        const district = accountDistrict(sessionVerificationRef.current, sessionRef.current);
         const reportResult = await syncPendingFieldReports({
           database,
-          districtCode: verifiedDistrictCode(sessionVerificationRef.current, sessionRef.current),
+          districtCode: district.code,
           source,
           submitterIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
@@ -277,8 +278,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
         }
         const surveyResult = await syncPendingFieldSurveys({
           database,
-          districtCode: verifiedDistrictCode(sessionVerificationRef.current, sessionRef.current),
-          districtVerified: sessionVerificationRef.current === 'verified',
+          districtCode: district.code,
+          districtVerified: district.verified,
           source,
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
@@ -677,11 +678,13 @@ function getSessionKey(session: MobileSession | null): string | null {
   return session ? `${session.token}:${session.user.uuid}` : null;
 }
 
-function verifiedDistrictCode(
+function accountDistrict(
   verification: SessionVerificationStatus,
   session: MobileSession | null,
-): string {
-  return verification === 'verified' ? session?.user.districtCode?.trim() ?? '' : '';
+): { code: string; verified: boolean } {
+  return verification === 'verified'
+    ? { code: session?.user.districtCode?.trim() ?? '', verified: true }
+    : { code: '', verified: false };
 }
 
 /**

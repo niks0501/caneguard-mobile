@@ -281,3 +281,25 @@ it('ignores map taps while walking and keeps them working in Tap corners', async
 
   await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(6));
 });
+
+// Intent (item 8): Walk excludes tap editing, including the edge "+" inserts and the point handles.
+it('hides the map handles while walking so points cannot be inserted, selected or dragged', async () => {
+  listSurveys.mockReturnValue([draftRow({ activeAffectedWaypointsJson: JSON.stringify(AFFECTED_WAYPOINTS) })]);
+  const remove = jest.fn();
+  watch.mockImplementation(async () => ({ remove }));
+
+  await renderOpen();
+  await waitFor(() => expect(screen.getByTestId('field-survey.point.active.0')).toBeTruthy());
+  expect(screen.getByTestId('field-survey.point.plot.0')).toBeTruthy();
+  expect(screen.getByTestId('field-survey.insert.plot.0')).toBeTruthy();
+
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+  expect(screen.queryByTestId('field-survey.point.plot.0')).toBeNull();
+  expect(screen.queryByTestId('field-survey.point.active.0')).toBeNull();
+  expect(screen.queryByTestId('field-survey.insert.plot.0')).toBeNull();
+
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.tap')); });
+  expect(screen.getByTestId('field-survey.point.plot.0')).toBeTruthy();
+  expect(screen.getByTestId('field-survey.insert.plot.0')).toBeTruthy();
+});

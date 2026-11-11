@@ -509,6 +509,69 @@ describe('SyncProvider foreground triggers', () => {
     );
   });
 
+  // Intent (item 8): a run holds its report and boundary queues on the district it started with,
+  // so a verification that lands mid-run defers both and the retry picks them up together.
+  it('holds the report and boundary queues on the district the run started with', async () => {
+    const cachedUser = { uuid: SUBMITTER_ID, role: 'field_reporter' as const, districtCode: 'D-OLD' };
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: { token: 'secure-token', user: cachedUser },
+      sessionVerification: 'pending',
+      markSessionExpired: jest.fn(async () => undefined),
+    } as never);
+    let finishReports!: () => void;
+    jest.mocked(syncPendingFieldReports).mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishReports = () => resolve({
+          attempted: 0,
+          authRequired: false,
+          failed: 0,
+          haltReason: 'empty',
+          results: [],
+          source: 'startup',
+          synced: 0,
+        });
+      }),
+    );
+
+    const view = await render(
+      <SyncProvider>
+        <Text>Ready</Text>
+      </SyncProvider>,
+    );
+    await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+    await act(() => networkListener(OFFLINE));
+    await act(async () => {
+      networkListener(ONLINE);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(syncPendingFieldReports).toHaveBeenCalledTimes(1));
+
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: { token: 'secure-token', user: { ...cachedUser, districtCode: 'D-VERIFIED' } },
+      sessionVerification: 'verified',
+      markSessionExpired: jest.fn(async () => undefined),
+    } as never);
+    await view.rerender(
+      <SyncProvider>
+        <Text>Ready</Text>
+      </SyncProvider>,
+    );
+    await act(async () => {
+      finishReports();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(syncPendingFieldSurveys).toHaveBeenCalled());
+    expect(syncPendingFieldReports).toHaveBeenCalledWith(
+      expect.objectContaining({ districtCode: '' }),
+    );
+    expect(syncPendingFieldSurveys).toHaveBeenCalledWith(
+      expect.objectContaining({ districtCode: '', districtVerified: false }),
+    );
+  });
+
   it('tracks API unavailability separately from phone network availability', async () => {
     jest.mocked(syncPendingFieldReports).mockResolvedValue({
       attempted: 1,

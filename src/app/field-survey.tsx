@@ -1016,7 +1016,7 @@ export default function FieldSurveyScreen() {
               return <Circle cx={at.x} cy={at.y} r={8} fill={theme.info} stroke="white" strokeWidth={3} />;
             })() : null}
           </Svg>
-          {controlsLocked ? null : handles}
+          {controlsLocked || walking ? null : handles}
           {controlsLocked ? null : areaChips.map(({ index, at }) => (
             <Pressable key={`area-chip-${index}`} testID={`field-survey.area-chip.${index}`} accessibilityRole="button" accessibilityState={{ selected: selectedArea === index }} accessibilityLabel={FIELD_SURVEY_COPY.affectedAreaChip(index + 1, areaSqm(index))} onPress={() => { setSelectedArea((current) => current === index ? null : index); setSelected(null); }} style={[styles.areaChip, { left: at.x - 16, top: at.y - 12, backgroundColor: selectedArea === index ? theme.warning : theme.surfaceElevated, borderColor: validityMarks.outsideAreas.includes(index) ? theme.danger : theme.warning }]}>
               <Text style={[styles.areaChipText, { color: selectedArea === index ? 'white' : theme.text }]}>A{index + 1}</Text>

@@ -165,6 +165,38 @@ export function coordinateToViewportPoint(
   };
 }
 
+/**
+ * Picks the map view that shows every coordinate inside a viewport, keeping
+ * `padding` pixels clear at each edge. Returns null when there is nothing to show.
+ */
+export function fitMapToCoordinates(
+  coordinates: MapCoordinate[],
+  width: number,
+  height: number,
+  { padding = 48, minZoom = MIN_MANUAL_MAP_ZOOM, maxZoom = MAX_MANUAL_MAP_ZOOM } = {},
+): { center: MapCoordinate; zoom: number } | null {
+  const finite = coordinates.filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude));
+  if (finite.length === 0 || width <= 0 || height <= 0) return null;
+  const availableWidth = Math.max(1, width - padding * 2);
+  const availableHeight = Math.max(1, height - padding * 2);
+  let zoom = minZoom;
+  for (let candidate = maxZoom; candidate >= minZoom; candidate -= 1) {
+    const worlds = finite.map((point) => coordinateToWorldPixel(point, candidate));
+    const spanX = Math.max(...worlds.map((point) => point.x)) - Math.min(...worlds.map((point) => point.x));
+    const spanY = Math.max(...worlds.map((point) => point.y)) - Math.min(...worlds.map((point) => point.y));
+    if (spanX <= availableWidth && spanY <= availableHeight) {
+      zoom = candidate;
+      break;
+    }
+  }
+  const worlds = finite.map((point) => coordinateToWorldPixel(point, zoom));
+  const middle = {
+    x: (Math.max(...worlds.map((point) => point.x)) + Math.min(...worlds.map((point) => point.x))) / 2,
+    y: (Math.max(...worlds.map((point) => point.y)) + Math.min(...worlds.map((point) => point.y))) / 2,
+  };
+  return { center: worldPixelToCoordinate(middle, zoom), zoom };
+}
+
 export function zoomMapAtPoint(
   center: MapCoordinate,
   zoom: number,

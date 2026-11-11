@@ -1,6 +1,6 @@
 # CaneGuard Mobile — current capability and readiness index
 
-**Status:** current guidance. Last reviewed: 10 November 2026.
+**Status:** current guidance. Last reviewed: 11 November 2026.
 **Applies to:** this repository (`caneguard-mobile`) at the revision recorded in
 [`docs/RELEASE-EVIDENCE.md`](RELEASE-EVIDENCE.md).
 
@@ -92,20 +92,32 @@ tests. "Implemented" does not mean "verified on a device":
   instead of the visit form.
 - Offline field boundary surveys (authoring needs the `report:submit`
   capability): plot and affected-area polygons drawn on the
-  coordinate map, affected areas accepted only when fully inside the plot
-  (concave boundaries included), overlaps counted once, and unfinished affected
-  points checkpointed with the draft so Submit stays blocked until they are
-  finished or cleared. Each boundary point keeps the best reading from its own
-  bounded GPS sample, every point is kept as measurement provenance, and a
-  completed plot shows a **Boundary Quality** panel with plot area, boundary
-  point count, affected area, and one of three GPS states: **Good** when every
-  point is 5 m or better, **Acceptable** when some points are 5 to 10 m, and
-  **Low accuracy** when any point is worse than 10 m or unknown. Low accuracy
-  names the worst point and offers one **Recapture** button for exactly that
-  point; poor accuracy never blocks saving. Opened from a report it restores
-  that exact saved boundary rather than the open draft, shows a boundary that
-  can no longer be edited read-only, and leaves the report card to say when the
-  linked boundary is no longer saved on the phone.
+  coordinate map. Every point of the boundary being drawn is a touch target
+  that can be tapped to select or dragged to move, each edge carries a **+**
+  that inserts a point between its two neighbours, and selecting a finished
+  area's chip makes its points editable the same way; **Undo** steps back
+  through every kind of edit up to the last 50. Affected areas are accepted
+  only when fully inside the plot (concave boundaries included), overlaps
+  counted once, and unfinished affected points checkpointed with the draft so
+  Submit stays blocked until they are finished or cleared. A finished area that
+  a shrunken plot left outside stays repairable point by point, but Submit
+  keeps refusing until every area is inside again. Each captured boundary point
+  keeps the best reading from its own bounded GPS sample and is coloured by
+  that reading's quality, while a point moved or inserted by hand is recorded
+  as placed on the map with no GPS accuracy. Every point is kept as measurement
+  provenance, and a completed plot shows a **Boundary Quality** panel with plot
+  area, boundary point count, affected area, and one GPS state: **Drawn on
+  map** when every point was placed on the map, otherwise **Good** when every
+  GPS point is 5 m or better, **Acceptable** when some are 5 to 10 m, and **Low
+  accuracy** when any is worse than 10 m or unknown. Low accuracy names the
+  worst point and offers one **Recapture** button for exactly that point; poor
+  accuracy never blocks saving. A self-crossing plot edge, or an affected area
+  outside the plot, is outlined in red with one line naming the problem. The map
+  opens fitted to the boundary, and a **My location** button recentres it on the
+  phone without placing a point. Opened from a report it restores that exact
+  saved boundary rather than the open draft, shows a boundary that can no longer
+  be edited read-only, and leaves the report card to say when the linked
+  boundary is no longer saved on the phone.
 - **My boundaries** (authoring needs the `report:submit` capability): every
   boundary saved on this phone, newest first, each row showing its district and
   its measured hectares when the saved points measure (otherwise what is

@@ -1,5 +1,6 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { renderWithGestures } from '../../../test/render-with-gestures';
+import { createGestureController, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import FieldSurveyScreen from '@/app/field-survey';
@@ -11,7 +12,7 @@ import {
   saveFieldSurveyDraft,
 } from '@/features/surveys/data/fieldSurveyRepository';
 import type { FieldSurveyRow } from '@/database/schema';
-import type { SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { validateSurveyWaypoints, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
 import { FIELD_SURVEY_SYNC_COPY } from '@/features/sync/utils/syncStatusCopy';
 
@@ -60,6 +61,9 @@ const ACTIVE_AFFECTED_WAYPOINTS: SurveyWaypoint[] = [
   { latitude: 14.1005, longitude: 121.1015, source: 'gps', accuracyMeters: 3.5, capturedAt: '2026-10-31T02:01:00.000Z' },
   { latitude: 14.1015, longitude: 121.1015, source: 'gps', accuracyMeters: 6, capturedAt: '2026-10-31T02:02:00.000Z' },
 ];
+
+// The rejection replacePoint returns for a point that would leave the plot.
+const AFFECTED_OUTSIDE_PLOT = 'Every affected area must remain within the plot boundary.';
 
 function draftRow(overrides: Partial<FieldSurveyRow> = {}): FieldSurveyRow {
   return {
@@ -278,13 +282,14 @@ it('reports a cancelled recapture when the named point is removed while sampling
   ]);
 });
 
-it('reports a boundary drawn only on the map as low accuracy without offering recapture', async () => {
+it('labels a boundary drawn only on the map "Drawn on map", not low GPS accuracy, with nothing to recapture', async () => {
   const mapped = PLOT_WAYPOINTS.map((point) => ({ ...point, accuracyMeters: null, source: 'map' as const }));
   mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(mapped) })]);
 
   await renderWithGestures(<FieldSurveyScreen />);
 
-  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.qualityState.low_accuracy)).toBeTruthy());
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.qualityState.drawn_on_map)).toBeTruthy());
+  expect(screen.queryByText(FIELD_SURVEY_COPY.qualityState.low_accuracy)).toBeNull();
   expect(screen.queryByText(FIELD_SURVEY_COPY.recapturePoint(1))).toBeNull();
 });
 
@@ -478,4 +483,283 @@ it('only saves a missing linked survey after the user starts a new boundary', as
   });
 
   await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
+});
+
+describe('drawing tool (phone)', () => {
+  // Intent: every point is touchable, every edit can be undone, and a resumed boundary opens on its shape.
+  beforeEach(() => {
+    mockListSurveys.mockReturnValue([draftRow()]);
+  });
+
+  it('draws a touch target for the first point of an affected area', async () => {
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
+    await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.affectedAreaBoundary));
+    expect(screen.queryByTestId('field-survey.point.active.0')).toBeNull();
+
+    mockCaptureWaypoint.mockResolvedValue({ status: 'captured', waypoint: ACTIVE_AFFECTED_WAYPOINTS[0] });
+    await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.addGpsPoint)); });
+
+    await waitFor(() => expect(screen.getByTestId('field-survey.point.active.0')).toBeTruthy());
+  });
+
+  it('adds a point between two others from the + on an edge', async () => {
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+    await fireEvent.press(screen.getByTestId('field-survey.insert.plot.0'));
+
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (5)`)).toBeTruthy());
+    expect(screen.getByTestId('field-survey.tool-state').props.accessibilityValue.text).toBe('tool=plot.move');
+  });
+
+  it('undoes a removal, not just the last added point', async () => {
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+    await fireEvent.press(screen.getByTestId('field-survey.point.plot.1'));
+    await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.removeSelected));
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (3)`)).toBeTruthy());
+
+    await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.undo));
+
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+    expect(mockSaveDraft.mock.lastCall?.[1].waypoints).toEqual(PLOT_WAYPOINTS);
+  });
+
+  it('removes a chosen affected area from its own button', async () => {
+    mockListSurveys.mockReturnValue([]);
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
+    for (const [x, y] of [[100, 100], [260, 100], [260, 240], [100, 240]]) await pressMap(x, y);
+    await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.affectedAreaBoundary));
+    for (const [x, y] of [[140, 130], [170, 150], [200, 130]]) await pressMap(x, y);
+    await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.finishAffectedArea));
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.affectedAreas} (1)`)).toBeTruthy());
+
+    await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.removeAffectedAreaNumber(1)));
+
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.affectedAreas} (0)`)).toBeTruthy());
+  });
+
+  // Intent: repairing the affected areas after a refused submit clears the old rejection text, not only the validity banner.
+  it('clears the refused-submit message once the affected areas are repaired', async () => {
+    const outside: SurveyWaypoint[] = [
+      { latitude: 14.2, longitude: 121.2, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:00:00.000Z' },
+      { latitude: 14.2, longitude: 121.201, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:01:00.000Z' },
+      { latitude: 14.201, longitude: 121.201, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:02:00.000Z' },
+    ];
+    mockListSurveys.mockReturnValue([draftRow({
+      affectedAreaPolygonsJson: JSON.stringify([{ type: 'Polygon', coordinates: [[...outside, outside[0]].map((w) => [w.longitude, w.latitude])] }]),
+      affectedAreaWaypointsJson: JSON.stringify([outside]),
+    })]);
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.affectedAreas} (1)`)).toBeTruthy());
+
+    await fireEvent.press(screen.getByTestId('field-survey.submit'));
+    await waitFor(() => expect(screen.getByTestId('field-survey.sync-status')).toBeTruthy());
+
+    await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.removeAffectedAreaNumber(1)));
+
+    await waitFor(() => expect(screen.queryByTestId('field-survey.sync-status')).toBeNull());
+  });
+
+  it('shows where a boundary crosses itself', async () => {
+    const bowtie = [PLOT_WAYPOINTS[0], PLOT_WAYPOINTS[2], PLOT_WAYPOINTS[3], PLOT_WAYPOINTS[1]];
+    mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(bowtie) })]);
+
+    await renderWithGestures(<FieldSurveyScreen />);
+
+    expect((await screen.findByTestId('field-survey.validity')).props.children).toBe(FIELD_SURVEY_COPY.validity.crosses_itself);
+  });
+
+  it('opens a resumed boundary with its shape on screen', async () => {
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+    await act(async () => {
+      fireEvent(screen.getByTestId('field-survey.map'), 'layout', { nativeEvent: { layout: { width: 360, height: 380 } } });
+    });
+
+    for (let index = 0; index < 4; index += 1) {
+      const style = screen.getByTestId(`field-survey.point.plot.${index}`).props.style as { left: number; top: number };
+      const x = style.left + 22 - 256;
+      const y = style.top + 22 - 256;
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(360);
+      expect(y).toBeGreaterThanOrEqual(0);
+      expect(y).toBeLessThanOrEqual(380);
+    }
+  });
+
+  it('moves the map to my location without adding a point', async () => {
+    mockCaptureWaypoint.mockResolvedValue({ status: 'captured', waypoint: { latitude: 14.5, longitude: 121.5, accuracyMeters: 5, capturedAt: '2026-11-10T00:00:00.000Z', source: 'gps' } });
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.my-location')); });
+
+    await waitFor(() => expect(mockCaptureWaypoint).toHaveBeenCalled());
+    expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy();
+  });
+
+  it('keeps a GPS point captured while another point is being dragged', async () => {
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+    let resolveCapture!: (value: Awaited<ReturnType<typeof captureSurveyWaypoint>>) => void;
+    mockCaptureWaypoint.mockImplementation(() => new Promise((resolve) => { resolveCapture = resolve; }));
+    await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.addGpsPoint)); });
+
+    const drag = createGestureController(getByGestureTestId('field-survey.point.plot.0.drag'));
+    await act(async () => { drag.begin(); drag.activate(); drag.update({ translationX: 30, translationY: 0 }); });
+
+    await act(async () => {
+      resolveCapture({
+        status: 'captured',
+        waypoint: { latitude: 14.0995, longitude: 121.0995, accuracyMeters: 3, capturedAt: '2026-11-10T06:00:00.000Z', source: 'gps' },
+      });
+    });
+
+    await act(async () => { drag.update({ translationX: 40, translationY: 10 }); drag.end(); });
+
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (5)`)).toBeTruthy());
+    await waitFor(() => {
+      const saved = mockSaveDraft.mock.lastCall?.[1];
+      expect(saved?.waypoints).toHaveLength(5);
+      expect(saved?.waypoints.at(-1)).toMatchObject({ latitude: 14.0995, longitude: 121.0995 });
+    });
+  });
+
+  it('undoes a GPS capture committed mid-drag before the drag itself', async () => {
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+    let resolveCapture!: (value: Awaited<ReturnType<typeof captureSurveyWaypoint>>) => void;
+    mockCaptureWaypoint.mockImplementation(() => new Promise((resolve) => { resolveCapture = resolve; }));
+    await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.addGpsPoint)); });
+
+    const drag = createGestureController(getByGestureTestId('field-survey.point.plot.0.drag'));
+    await act(async () => { drag.begin(); drag.activate(); drag.update({ translationX: 30, translationY: 0 }); });
+    await act(async () => {
+      resolveCapture({
+        status: 'captured',
+        waypoint: { latitude: 14.0995, longitude: 121.0995, accuracyMeters: 3, capturedAt: '2026-11-10T06:00:00.000Z', source: 'gps' },
+      });
+    });
+    await act(async () => { drag.end(); });
+
+    await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.undo)); });
+
+    await waitFor(() => {
+      const saved = mockSaveDraft.mock.lastCall?.[1];
+      expect(saved?.waypoints).toHaveLength(4);
+      expect(saved?.waypoints.some((point) => point.latitude === 14.0995 && point.longitude === 121.0995)).toBe(false);
+      expect([saved?.waypoints[0].latitude, saved?.waypoints[0].longitude]).not.toEqual([PLOT_WAYPOINTS[0].latitude, PLOT_WAYPOINTS[0].longitude]);
+    });
+
+    await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.undo)); });
+
+    await waitFor(() => expect(mockSaveDraft.mock.lastCall?.[1].waypoints).toEqual(PLOT_WAYPOINTS));
+  });
+
+  it('keeps a refused GPS replacement of a finished area point from reading as a capture success', async () => {
+    const area = validateSurveyWaypoints(ACTIVE_AFFECTED_WAYPOINTS);
+    if (!area.valid) throw new Error('fixture invalid');
+    mockListSurveys.mockReturnValue([draftRow({
+      affectedAreaPolygonsJson: JSON.stringify([area.polygon]),
+      affectedAreaWaypointsJson: JSON.stringify([ACTIVE_AFFECTED_WAYPOINTS]),
+    })]);
+    mockCaptureWaypoint.mockResolvedValue({ status: 'captured', waypoint: { latitude: 14.5, longitude: 121.5, accuracyMeters: 25, capturedAt: '2026-11-10T06:00:00.000Z', source: 'gps' } });
+
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByTestId('field-survey.area-chip.0')).toBeTruthy());
+
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.area-chip.0')); });
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.point.area-0.0')); });
+    await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.addGpsPoint)); });
+
+    expect(await screen.findByText(AFFECTED_OUTSIDE_PLOT)).toBeTruthy();
+    expect(screen.queryByText(FIELD_SURVEY_COPY.gpsAccuracyWeak(25))).toBeNull();
+    expect(screen.getByTestId('field-survey.point.area-0.0').props.accessibilityState.selected).toBe(true);
+    const saved = mockSaveDraft.mock.lastCall?.[1];
+    expect(saved?.affectedAreaWaypoints?.[0]).toEqual(ACTIVE_AFFECTED_WAYPOINTS);
+  });
+
+  // Intent: a drag keeps its vertex under the finger even when the map moves mid-drag (GPS capture or My location).
+  it('keeps a dragged point under the finger when the map moves mid-drag', async () => {
+    async function droppedFirstPoint(recenterMidDrag: boolean): Promise<SurveyWaypoint> {
+      mockCaptureWaypoint.mockResolvedValue({
+        status: 'captured',
+        waypoint: { latitude: 14.5, longitude: 121.5, accuracyMeters: 5, capturedAt: '2026-11-10T00:00:00.000Z', source: 'gps' },
+      });
+      const view = await renderWithGestures(<FieldSurveyScreen />);
+      await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+      const drag = createGestureController(getByGestureTestId('field-survey.point.plot.0.drag'));
+      await act(async () => { drag.begin(); drag.activate(); drag.update({ translationX: 20, translationY: 0 }); });
+      if (recenterMidDrag) {
+        await act(async () => { fireEvent.press(screen.getByTestId('field-survey.my-location')); });
+        await waitFor(() => expect(mockCaptureWaypoint).toHaveBeenCalled());
+      }
+      await act(async () => { drag.update({ translationX: 40, translationY: 10 }); drag.end(); });
+
+      await waitFor(() => {
+        const saved = mockSaveDraft.mock.lastCall?.[1];
+        expect(saved?.waypoints[0].latitude).not.toBe(PLOT_WAYPOINTS[0].latitude);
+      });
+      const dropped = mockSaveDraft.mock.lastCall?.[1].waypoints.at(0);
+      if (!dropped) throw new Error('the dragged point was never saved');
+      await view.unmount();
+      return dropped;
+    }
+
+    const still = await droppedFirstPoint(false);
+    const recentered = await droppedFirstPoint(true);
+
+    expect(recentered.latitude).toBeCloseTo(still.latitude, 9);
+    expect(recentered.longitude).toBeCloseTo(still.longitude, 9);
+  });
+
+  // Intent: a finished area keeps the per-point GPS quality it was drawn with.
+  it('keeps the quality of each finished affected-area point visible', async () => {
+    const mixedArea: SurveyWaypoint[] = [
+      { ...ACTIVE_AFFECTED_WAYPOINTS[0], source: 'map', accuracyMeters: null },
+      ACTIVE_AFFECTED_WAYPOINTS[1],
+      ACTIVE_AFFECTED_WAYPOINTS[2],
+    ];
+    const mixedPolygon = validateSurveyWaypoints(mixedArea);
+    if (!mixedPolygon.valid) throw new Error('fixture invalid');
+    mockListSurveys.mockReturnValue([draftRow({
+      affectedAreaPolygonsJson: JSON.stringify([mixedPolygon.polygon]),
+      affectedAreaWaypointsJson: JSON.stringify([mixedArea]),
+    })]);
+
+    await renderWithGestures(<FieldSurveyScreen />);
+
+    const mapPoint = await screen.findByTestId('field-survey.area-point.0.0');
+    const gpsPoint = screen.getByTestId('field-survey.area-point.0.1');
+    expect(mapPoint.props.fill).not.toBe(gpsPoint.props.fill);
+  });
+
+  // Intent: an affected area the plot no longer contains is measured on its own geometry, not reported as 0 m².
+  it('measures a finished affected area that the plot no longer contains', async () => {
+    const outside: SurveyWaypoint[] = [
+      { latitude: 14.2, longitude: 121.2, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:00:00.000Z' },
+      { latitude: 14.2, longitude: 121.201, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:01:00.000Z' },
+      { latitude: 14.201, longitude: 121.201, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:02:00.000Z' },
+    ];
+    const polygon = validateSurveyWaypoints(outside);
+    if (!polygon.valid) throw new Error('fixture invalid');
+    mockListSurveys.mockReturnValue([draftRow({
+      affectedAreaPolygonsJson: JSON.stringify([polygon.polygon]),
+      affectedAreaWaypointsJson: JSON.stringify([outside]),
+    })]);
+
+    await renderWithGestures(<FieldSurveyScreen />);
+
+    const row = await screen.findByText(/^Area 1 · /);
+    const shownSqm = Number(String(row.props.children).replace(/^Area 1 · /, '').replace(/[^\d.]/g, ''));
+    expect(shownSqm).toBeGreaterThan(0);
+  });
 });

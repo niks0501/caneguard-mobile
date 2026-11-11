@@ -3,14 +3,17 @@ import { AppState, type AppStateStatus } from 'react-native';
 
 import { useHomeAttention } from '@/features/activity/hooks/useHomeAttention';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
+import { usePhoneCompletionStates } from '@/features/assignments/hooks/usePhoneCompletionStates';
 import { getLocalDateKey } from '@/features/assignments/domain/todayVisits';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
 import { useNotificationDestinations } from '@/features/notifications/hooks/useNotificationDestinations';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
+import type { PhoneCompletionState } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
 
 jest.mock('@/features/assignments/hooks/useFieldValidationAssignments');
+jest.mock('@/features/assignments/hooks/usePhoneCompletionStates');
 jest.mock('@/features/notifications/hooks/useMobileNotifications');
 jest.mock('@/features/notifications/hooks/useNotificationDestinations');
 jest.mock('@/features/assignments/domain/todayVisits', () => ({
@@ -19,6 +22,7 @@ jest.mock('@/features/assignments/domain/todayVisits', () => ({
 }));
 
 const mockUseAssignments = jest.mocked(useFieldValidationAssignments);
+const mockUsePhoneCompletionStates = jest.mocked(usePhoneCompletionStates);
 const mockUseNotifications = jest.mocked(useMobileNotifications);
 const mockUseDestinations = jest.mocked(useNotificationDestinations);
 const mockGetLocalDateKey = jest.mocked(getLocalDateKey);
@@ -26,12 +30,44 @@ const { getLocalDateKey: actualGetLocalDateKey } = jest.requireActual<
   typeof import('@/features/assignments/domain/todayVisits')
 >('@/features/assignments/domain/todayVisits');
 
+function visitAssignment(id: string, targetVisitDate: string): FieldValidationAssignment {
+  return {
+    id,
+    ownerIdentity: 'user-1',
+    reportUuid: `rep-${id}`,
+    reportClientUuid: `rep-c-${id}`,
+    referenceCode: `CG-${id}`,
+    submitter: { uuid: 'sub-1', name: 'Ana Reporter' },
+    assignee: { uuid: 'user-1', name: 'Mara Reporter' },
+    submitterIsAssignee: false,
+    targetVisitDate,
+    fieldValidationState: 'assigned',
+    assignedAt: '2026-08-13T12:00:00.000Z',
+    updatedAt: '2026-08-13T12:00:00.000Z',
+    cachedAt: '2026-08-13T12:05:00.000Z',
+    case: {
+      barangay: 'Mabini',
+      municipality: 'Nasugbu',
+      province: 'Batangas',
+      farmerOrFarmOwnerName: 'Juan Dela Cruz',
+      affectedAreaHectares: 1,
+      affectedPortionPercent: 20,
+      capturedAt: '2026-07-20T09:55:00.000Z',
+      observedAt: '2026-07-20T09:58:00.000Z',
+      submittedAt: '2026-07-20T10:00:00.000Z',
+      predictedLabel: 'rust',
+      confidence: 0.93,
+    },
+  };
+}
+
 describe('useHomeAttention', () => {
   const mockMarkRead = jest.fn(async () => undefined);
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetLocalDateKey.mockReturnValue('2026-09-20');
+    mockUsePhoneCompletionStates.mockReturnValue(new Map());
   });
 
   it('builds assignment and notification attention items and excludes uploads', async () => {
@@ -128,6 +164,50 @@ describe('useHomeAttention', () => {
     // markRead delegates to notifications.markRead
     result.current.markRead('notif-1');
     expect(mockMarkRead).toHaveBeenCalledWith('notif-1');
+  });
+
+  it('leaves a visit saved on this phone out of the work Home owes', async () => {
+    mockUseAssignments.mockReturnValue({
+      assignments: [
+        visitAssignment('assign-done', '2026-09-01'),
+        visitAssignment('assign-waiting', '2026-09-10'),
+        visitAssignment('assign-next', '2026-09-21'),
+      ],
+      capabilityUnavailable: false,
+      errorMessage: null,
+      lastSuccessfulAt: null,
+      refreshing: false,
+      skippedCount: 0,
+      sessionKey: 'key',
+      refresh: jest.fn(async () => true),
+      refreshOutcome: jest.fn(async () => 'ok' as const),
+    });
+    mockUseNotifications.mockReturnValue({
+      capabilityUnavailable: false,
+      errorMessage: null,
+      lastSuccessfulAt: null,
+      markAllRead: jest.fn(async () => undefined),
+      markRead: mockMarkRead,
+      notifications: [],
+      partial: false,
+      readActionError: null,
+      refreshing: false,
+      refresh: jest.fn(async () => true),
+      sessionKey: 'key',
+      unreadCount: 0,
+    });
+    mockUseDestinations.mockReturnValue(new Map());
+    mockUsePhoneCompletionStates.mockReturnValue(
+      new Map<string, PhoneCompletionState>([
+        ['assign-done', 'sent'],
+        ['assign-waiting', 'waiting'],
+      ]),
+    );
+
+    const { result } = await renderHook(() => useHomeAttention());
+
+    expect(result.current.items.map((item) => item.id)).toEqual(['assignment-assign-next']);
+    expect(result.current.total).toBe(1);
   });
 
   it('returns empty items when there are no assignments or notifications', async () => {

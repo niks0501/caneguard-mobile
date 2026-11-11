@@ -7,12 +7,13 @@ import {
   type NeedsAttentionItem,
 } from '@/features/activity/domain/needsAttention';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
-import { getLocalDateKey } from '@/features/assignments/domain/todayVisits';
+import { usePhoneCompletionStates } from '@/features/assignments/hooks/usePhoneCompletionStates';
+import { getLocalDateKey, selectTodayVisits } from '@/features/assignments/domain/todayVisits';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
 import { useNotificationDestinations } from '@/features/notifications/hooks/useNotificationDestinations';
 
 export interface HomeAttention {
-  /** Unfinished drafts, active assignments and unread office updates, ordered by immediacy. */
+  /** Unfinished drafts, visits still owed on this phone and unread office updates, ordered by immediacy. */
   items: NeedsAttentionItem[];
   /** Marks an office update as read; best effort, never blocks navigation. */
   markRead: (notificationId: string) => Promise<void>;
@@ -24,11 +25,15 @@ export interface HomeAttention {
  *
  * Every source is an owner-scoped local cache that refreshes on focus, so the
  * card paints from cache immediately and still works with no connectivity.
+ * A visit already saved on this phone is finished work, even while the cached
+ * assignment still says active, so it is never counted, listed or offered as
+ * the next visit.
  * Upload work is deliberately excluded: the Home sync line already reports it,
  * and the same pending upload must never appear twice on one screen.
  */
 export function useHomeAttention(): HomeAttention {
   const assignments = useFieldValidationAssignments();
+  const completions = usePhoneCompletionStates();
   const notifications = useMobileNotifications();
   const destinations = useNotificationDestinations(notifications.notifications);
   const [today, setToday] = useState(getLocalDateKey);
@@ -54,10 +59,15 @@ export function useHomeAttention(): HomeAttention {
     return () => subscription.remove();
   }, []);
 
+  const visits = useMemo(
+    () => selectTodayVisits(assignments.assignments, new Set(completions.keys())),
+    [assignments.assignments, completions],
+  );
+
   const items = useMemo(
     () =>
       buildNeedsAttention({
-        assignments: assignments.assignments,
+        assignments: visits,
         destinations,
         drafts,
         notifications: notifications.notifications,
@@ -65,7 +75,7 @@ export function useHomeAttention(): HomeAttention {
         syncErrorMessage: null,
         today,
       }).items,
-    [assignments.assignments, destinations, drafts, notifications.notifications, today],
+    [destinations, drafts, notifications.notifications, today, visits],
   );
 
   return {

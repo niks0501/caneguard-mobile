@@ -6,11 +6,14 @@ import {
   buildNeedsAttention,
   type NeedsAttentionItem,
 } from '@/features/activity/domain/needsAttention';
+import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
-import { usePhoneCompletionStates } from '@/features/assignments/hooks/usePhoneCompletionStates';
+import { usePhoneCompletionSnapshot } from '@/features/assignments/hooks/usePhoneCompletionStates';
 import { getLocalDateKey, selectTodayVisits } from '@/features/assignments/domain/todayVisits';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
 import { useNotificationDestinations } from '@/features/notifications/hooks/useNotificationDestinations';
+
+const NO_VISITS: FieldValidationAssignment[] = [];
 
 export interface HomeAttention {
   /** Unfinished drafts, visits still owed on this phone and unread office updates, ordered by immediacy. */
@@ -27,13 +30,14 @@ export interface HomeAttention {
  * card paints from cache immediately and still works with no connectivity.
  * A visit already saved on this phone is finished work, even while the cached
  * assignment still says active, so it is never counted, listed or offered as
- * the next visit.
+ * the next visit. No visit work is derived until the saved visits for the
+ * signed-in account have been read, so a completed visit never flashes back.
  * Upload work is deliberately excluded: the Home sync line already reports it,
  * and the same pending upload must never appear twice on one screen.
  */
 export function useHomeAttention(): HomeAttention {
   const assignments = useFieldValidationAssignments();
-  const completions = usePhoneCompletionStates();
+  const completions = usePhoneCompletionSnapshot();
   const notifications = useMobileNotifications();
   const destinations = useNotificationDestinations(notifications.notifications);
   const [today, setToday] = useState(getLocalDateKey);
@@ -60,7 +64,10 @@ export function useHomeAttention(): HomeAttention {
   }, []);
 
   const visits = useMemo(
-    () => selectTodayVisits(assignments.assignments, new Set(completions.keys())),
+    () =>
+      completions.ready
+        ? selectTodayVisits(assignments.assignments, new Set(completions.states.keys()))
+        : NO_VISITS,
     [assignments.assignments, completions],
   );
 

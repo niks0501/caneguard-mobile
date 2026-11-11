@@ -44,6 +44,7 @@ describe('buildMorningNote', () => {
       action: 'scan',
       actionLabel: 'Start a scan',
       headline: 'All clear.',
+      headlineOpensActivity: false,
       syncLine: null,
       visitsLine: null,
     });
@@ -52,6 +53,7 @@ describe('buildMorningNote', () => {
   it('uses the send state as the headline when there is no work', () => {
     expect(buildMorningNote([], 'Working offline.')).toMatchObject({
       headline: 'Working offline.',
+      headlineOpensActivity: true,
       syncLine: null,
     });
   });
@@ -82,6 +84,7 @@ describe('buildMorningNote', () => {
   it('keeps the send state quiet under a work headline', () => {
     expect(buildMorningNote([visit('today')], 'Working offline.')).toMatchObject({
       headline: 'One visit today.',
+      headlineOpensActivity: false,
       syncLine: 'Working offline.',
     });
   });
@@ -95,7 +98,7 @@ describe('buildMorningNote', () => {
       destination, id: 'draft-1', kind: 'draft', message: 'Not finished', meta: 'Saved', title,
     };
     expect(buildMorningNote([draft, visit('today')], 'Working offline.')).toEqual({
-      action: 'draft', actionLabel: 'Resume', headline: title, syncLine: 'Working offline.', visitsLine: 'One visit today.',
+      action: 'draft', actionLabel: 'Resume', headline: title, headlineOpensActivity: false, syncLine: 'Working offline.', visitsLine: 'One visit today.',
     });
   });
 

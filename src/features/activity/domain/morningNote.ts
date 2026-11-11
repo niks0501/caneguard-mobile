@@ -12,6 +12,8 @@ export interface MorningNote {
   actionLabel: string;
   /** The one sentence (or two short ones) Home leads with. */
   headline: string;
+  /** True when the headline is the send state, so Home makes it the Activity shortcut. */
+  headlineOpensActivity: boolean;
   /** Send state shown quietly under a work headline; null when the headline already says it. */
   syncLine: string | null;
   /** Visit counts shown quietly under the headline when it leads with other work; null otherwise. */
@@ -86,12 +88,20 @@ export function buildMorningNote(
   const visitsLine = action === 'visit' ? null : visitCounts;
 
   if (headline) {
-    return { action, actionLabel, headline, syncLine: syncNote, visitsLine };
+    return {
+      action,
+      actionLabel,
+      headline,
+      headlineOpensActivity: false,
+      syncLine: syncNote,
+      visitsLine,
+    };
   }
   return {
     action,
     actionLabel,
     headline: syncNote ?? HOME_NOTE_COPY.allClear,
+    headlineOpensActivity: Boolean(syncNote),
     syncLine: null,
     visitsLine,
   };

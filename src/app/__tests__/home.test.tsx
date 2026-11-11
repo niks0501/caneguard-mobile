@@ -180,12 +180,27 @@ describe('HomeScreen', () => {
     expect(screen.getByTestId('home.note')).toHaveTextContent('Sending 2 reports…');
   });
 
+  it('links the send state to Activity when no other work is waiting', async () => {
+    mockPendingCount = 1;
+    await render(<HomeScreen />);
+
+    expect(screen.getByTestId('home.note')).toHaveTextContent('1 report waiting to send.');
+    expect(screen.queryByTestId('home.sync-status')).not.toBeOnTheScreen();
+
+    await fireEvent.press(
+      screen.getByLabelText('Open Activity, 1 report waiting to send.'),
+    );
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/activity');
+  });
+
   it('keeps the send state quiet under a work sentence and links it to Activity', async () => {
     mockAttentionItems = [visitItem('assignment-1', 'Mabini', 'today')];
     mockIsOnline = false;
     await render(<HomeScreen />);
 
     expect(screen.getByTestId('home.note')).toHaveTextContent('One visit today.');
+    expect(screen.queryByLabelText('Open Activity, One visit today.')).not.toBeOnTheScreen();
     expect(screen.getByTestId('home.sync-status')).toHaveTextContent(
       'Working offline. 1 report waiting to send.',
     );

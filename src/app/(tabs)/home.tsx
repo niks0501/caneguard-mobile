@@ -138,7 +138,15 @@ export default function HomeScreen() {
               <View style={styles.note}>
                 <Text
                   accessibilityLiveRegion="polite"
-                  accessibilityRole="header"
+                  accessibilityLabel={
+                    note.headlineOpensActivity ? `Open Activity, ${note.headline}` : undefined
+                  }
+                  accessibilityRole={note.headlineOpensActivity ? 'button' : 'header'}
+                  onPress={
+                    note.headlineOpensActivity
+                      ? () => router.push('/activity' as Href)
+                      : undefined
+                  }
                   testID="home.note"
                   style={[styles.noteText, { color: theme.text }]}>
                   {note.headline}

@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionDock } from '@/components/ui/ActionDock';
 import { AppButton } from '@/components/ui/AppButton';
-import { getResultLabel } from '@/components/ui/RecordCard';
+import { canonicalResultName } from '@/features/records/domain/canonicalResultName';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
@@ -390,7 +390,7 @@ function VisitHistory({
       summary={previousVisit ? '1 previous visit · original report' : 'No previous visit · original report'}>
       <Text style={[styles.help, { color: theme.textSecondary }]}>Recorded before this visit and submitted by the reporter. It is decision-support only, cannot be changed here, and is kept separate from your field findings.</Text>
       {assignment.case.predictedLabel === null ? null : (
-        <Row label="Possible Condition" value={getResultLabel(assignment.case.predictedLabel)} />
+        <Row label="Possible Condition" value={canonicalResultName(assignment.case.predictedLabel)} />
       )}
       <Row label="Submitted by" value={assignment.submitter.name} />
       {completion ? <Row label="Visit time" value={formatTimestamp(completion.visitedAt)} /> : null}

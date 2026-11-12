@@ -26,6 +26,7 @@ import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { HelpHintGroup } from '@/components/ui/HelpHint';
 import { Notice } from '@/components/ui/Notice';
 import { getResultLabel, getSyncPresentation } from '@/components/ui/RecordCard';
+import { canonicalResultName } from '@/features/records/domain/canonicalResultName';
 import { Row } from '@/components/ui/Row';
 import { TextField } from '@/components/ui/TextField';
 import { useToast } from '@/components/ui/Toast';
@@ -2415,7 +2416,7 @@ function InheritedScanEvidence({
             contentFit="cover"
             style={styles.evidenceImage}
           />
-          <EvidenceRow label="Possible Condition" value={getResultLabel(record.predictedLabel)} />
+          <EvidenceRow label="Possible Condition" value={canonicalResultName(record.predictedLabel)} />
           <EvidenceRow
             label="Symptom checklist"
             value={record.symptoms.length ? record.symptoms.join(', ') : 'No symptoms selected'}

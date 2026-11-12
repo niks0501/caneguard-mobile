@@ -141,6 +141,14 @@ export function AppNavigator() {
             }}
           />
           <Stack.Screen
+            name="ready-for-field"
+            options={{
+              presentation: 'formSheet',
+              sheetAllowedDetents: [0.5, 0.85],
+              sheetGrabberVisible: true,
+            }}
+          />
+          <Stack.Screen
             name="field-report-details"
             options={{
               presentation: 'formSheet',

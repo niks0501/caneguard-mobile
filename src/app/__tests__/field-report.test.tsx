@@ -120,9 +120,67 @@ jest.mock('@/features/reports/drafts/fieldReportFormDraft', () => ({
   writeFieldReportFormCheckpoint: (...args: unknown[]) =>
     mockWriteFormCheckpoint(...(args as [])),
 }));
-jest.mock('@/features/reports/hooks/useFieldReportDraft', () => ({
-  useFieldReportDraft: () => mockDraftState,
-}));
+// Fixture adaptation for REP-1: the screen now reads `phase` and the finalize
+// dialog's notice from the report hook. This stand-in derives them from the
+// flat `mockDraftState` flags the tests set, with the same transitions the real
+// reducer allows; no assertion depends on how it is derived.
+jest.mock('@/features/reports/hooks/useFieldReportDraft', () => {
+  const { useState } = jest.requireActual('react');
+  return {
+    useFieldReportDraft: () => {
+      const base = mockDraftState;
+      const [dialog, setDialog] = useState('closed');
+      const [confirmNotice, setConfirmNotice] = useState(null);
+      const [running, setRunning] = useState(false);
+      const phase = base.finalizing || running
+        ? 'finalizing'
+        : dialog === 'sending'
+          ? 'sending'
+          : dialog === 'confirming'
+            ? 'confirming'
+            : base.loading && !base.data
+              ? 'loading'
+              : base.errorMessage && !base.data
+                ? 'load-failed'
+                : base.data?.authoringState === 'finalized'
+                  ? 'complete'
+                  : base.data
+                    ? 'draft'
+                    : 'empty';
+      return {
+        ...base,
+        confirmNotice,
+        dismissFinalizeConfirm: () => setDialog('closed'),
+        endSending: () => setDialog((d: string) => (d === 'sending' ? 'closed' : d)),
+        finalizeWithOutcome: async (values: unknown) => {
+          setRunning(true);
+          let outcome;
+          try {
+            outcome = await base.finalizeWithOutcome(values as never);
+          } finally {
+            setRunning(false);
+          }
+          if (outcome.status === 'finalized') {
+            setDialog('sending');
+          } else if (outcome.status === 'busy') {
+            setConfirmNotice({ kind: 'busy' });
+          } else {
+            setConfirmNotice({
+              kind: 'failed',
+              message: base.errorMessage ?? null,
+            });
+          }
+          return outcome;
+        },
+        openFinalizeConfirm: () => {
+          setConfirmNotice(null);
+          setDialog('confirming');
+        },
+        phase,
+      };
+    },
+  };
+});
 jest.mock('@/features/reports/hooks/usePossibleRecentMatch', () => ({
   usePossibleRecentMatch: () => mockPossibleRecentMatchState,
 }));

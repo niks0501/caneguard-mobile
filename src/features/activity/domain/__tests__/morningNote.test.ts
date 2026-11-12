@@ -197,10 +197,19 @@ describe('buildMorningNote', () => {
     });
   });
 
-  it('lets other work lead and notes the failed visit check quietly', () => {
+  it('keeps the approved failure headline and reassurance when other work exists', () => {
     expect(buildMorningNote([READABLE_UPDATE], null, true)).toMatchObject({
-      headline: 'One office update to read.',
-      visitsLine: "Couldn't check your visits.",
+      action: 'update',
+      headline: "Couldn't check your visits.",
+      visitsLine: 'Nothing is lost — they will appear when the check succeeds.',
+    });
+  });
+
+  it('keeps the failure copy when cached visit work is also present', () => {
+    expect(buildMorningNote([visit('today')], null, true)).toMatchObject({
+      action: 'visit',
+      headline: "Couldn't check your visits.",
+      visitsLine: 'Nothing is lost — they will appear when the check succeeds.',
     });
   });
 

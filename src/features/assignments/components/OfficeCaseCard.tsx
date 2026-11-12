@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { ClampedText } from '@/components/ui/ClampedText';
 import { Pill } from '@/components/ui/Pill';
 import { Row } from '@/components/ui/Row';
-import { OFFICE_CASE_COPY } from '@/constants/copy';
+import { OFFICE_CASE_COPY, OFFICE_CASE_WORKFLOW_LABELS } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { buildMobileReportPhotoUrl } from '@/features/assignments/api/mobileFieldValidationAssignmentsApi';
 import {
@@ -54,7 +54,7 @@ export function OfficeCaseCard({
           <Pill label={OFFICE_CASE_COPY.readyOffline} variant="success" size="sm" />
         ) : null}
       </View>
-      <Row label={OFFICE_CASE_COPY.statusLabel} value={humanize(officeCase.status.workflowStatus)} />
+      <Row label={OFFICE_CASE_COPY.statusLabel} value={workflowLabel(officeCase.status.workflowStatus)} />
       <Row label="Last updated" value={formatDate(officeCase.status.updatedAt, officeCase.status.updatedAt)} />
       <Row label="Version" value={OFFICE_CASE_COPY.version(officeCase.version)} />
       <View style={styles.block} testID="field-validation.office-case.concern">
@@ -92,6 +92,10 @@ export function OfficeCaseCard({
       ) : null}
     </View>
   );
+}
+
+function workflowLabel(value: string): string {
+  return OFFICE_CASE_WORKFLOW_LABELS[value] ?? humanize(value);
 }
 
 function humanize(value: string): string {

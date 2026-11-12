@@ -1508,6 +1508,16 @@ export const OFFICE_CASE_COPY = {
   version: (version: number) => `Version ${version}`,
 } as const;
 
+/** Plain-words chip text for the six server `workflow_status` values; same words as the web chip. */
+export const OFFICE_CASE_WORKFLOW_LABELS: Readonly<Record<string, string>> = {
+  needs_review: 'Waiting for your decision',
+  under_review: 'Being reviewed',
+  field_validation: 'Field visit assigned',
+  referred: 'Referred to expert',
+  follow_up: 'Follow-up planned',
+  resolved: 'Resolved',
+};
+
 /**
  * Scan path words shown right after the photo. English only for now: Tagalog
  * labels for farmer screens ship after a reviewer approves them, so none are

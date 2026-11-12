@@ -326,7 +326,7 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     expect(mockRunInference).not.toHaveBeenCalled();
   });
 
-  it('waits for an open replacement picker before starting inference', async () => {
+  it('keeps a warned photo away from the model once the replacement picker closes', async () => {
     mockUseCaneGuardModel.mockReturnValue({ ...loadedModel(), state: 'loading' as const });
     mockPreprocessImage.mockResolvedValueOnce({
       ...successfulPreprocessingResult,
@@ -342,7 +342,13 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     await fireEvent.press(screen.getByTestId('scan.symptom-rust'));
     expect(mockRunInference).not.toHaveBeenCalled();
     cancelPicker({ kind: 'canceled' });
-    await waitFor(() => expect(mockRunInference).toHaveBeenCalledTimes(1));
+    // The photo carries a quality warning, so the model is never run on it.
+    await waitFor(() =>
+      expect(screen.getByTestId('scan.check-state')).toHaveProp('accessibilityValue', {
+        text: 'photo-rejected',
+      }),
+    );
+    expect(mockRunInference).not.toHaveBeenCalled();
   });
 
   it('shows a recoverable preprocessing failure and checks again on request', async () => {

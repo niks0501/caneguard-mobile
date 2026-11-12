@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
+import { deriveScanCheckState } from '@/features/detection/context/scanCheckState';
 import { useScanSession } from '@/features/detection/context/useScanSession';
 import { getInferenceErrorMessage } from '@/features/detection/model/inferenceErrors';
 import { runInference } from '@/features/detection/model/runInference';
@@ -72,6 +73,8 @@ export function useScanAnalysis(replacing = false) {
     isOwnerCurrentRef.current = draft.isOwnerCurrent;
   }, [draft.isOwnerCurrent, ownerIdentity]);
 
+  // A photo that already failed the quality check is not sent to the model.
+  const photoHasWarnings = (state.qualityAssessment?.warnings.length ?? 0) > 0;
   const { sourceUri, sourceWidth, sourceHeight, processedUri, status, result } = state;
   // Prepared data belongs to the owner that produced it; a different owner
   // never reuses it, so no reset effect is needed.
@@ -149,6 +152,7 @@ export function useScanAnalysis(replacing = false) {
     if (
       !prepared ||
       !hasPreparedPhoto ||
+      photoHasWarnings ||
       status !== 'image-selected' ||
       result ||
       replacing ||
@@ -187,14 +191,32 @@ export function useScanAnalysis(replacing = false) {
     };
 
     void run();
-  }, [dispatch, hasPreparedPhoto, modelState, ownerIdentity, prepared, replacing, result, status]);
+  }, [
+    dispatch,
+    hasPreparedPhoto,
+    modelState,
+    ownerIdentity,
+    photoHasWarnings,
+    prepared,
+    replacing,
+    result,
+    status,
+  ]);
+
+  const photoFailedCheck = Boolean(state.photoPreparationFailed) || photoHasWarnings;
+  const checkState = deriveScanCheckState({
+    session: state,
+    modelState: modelState.state,
+    photoFailedCheck,
+    replacing,
+  });
 
   return {
     modelState,
+    checkState,
     isChecking:
       status === 'preprocessing' || status === 'running' || status === 'finalizing',
     isReady: status === 'completed' && Boolean(result),
-    photoFailedCheck:
-      Boolean(state.photoPreparationFailed) || (state.qualityAssessment?.warnings.length ?? 0) > 0,
+    photoFailedCheck,
   };
 }

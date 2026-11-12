@@ -48,7 +48,7 @@ export default function SymptomChecklistScreen() {
     () => state.selectedSymptoms[0] ?? null,
   );
   const [replacing, setReplacing] = useState(false);
-  const { modelState, isChecking, isReady, photoFailedCheck } = useScanAnalysis(replacing);
+  const { modelState, checkState, isChecking, isReady, photoFailedCheck } = useScanAnalysis(replacing);
   const [replacementNotice, setReplacementNotice] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const isMounted = useRef(true);
@@ -195,13 +195,16 @@ export default function SymptomChecklistScreen() {
 
   const modelError =
     modelState.state === 'error' ? getInferenceErrorMessage(modelState.error) : null;
-  const statusText = modelError
-    ? modelError
-    : state.status === 'error'
-      ? (state.errorMessage ?? SCAN_CHECK_COPY.checking)
-      : isReady
-        ? SCAN_CHECK_COPY.ready
-        : SCAN_CHECK_COPY.checkingDetail;
+  const photoRejected = checkState === 'photo-rejected';
+  const statusText = photoRejected
+    ? SCAN_CHECK_COPY.notAnalysed
+    : modelError
+      ? modelError
+      : state.status === 'error'
+        ? (state.errorMessage ?? SCAN_CHECK_COPY.checking)
+        : isReady
+          ? SCAN_CHECK_COPY.ready
+          : SCAN_CHECK_COPY.checkingDetail;
 
   return (
     <SafeAreaView
@@ -210,6 +213,7 @@ export default function SymptomChecklistScreen() {
       edges={['top', 'bottom']}>
       <View style={styles.root}>
         <View testID="scan.session-status" accessibilityValue={{ text: state.status }} />
+        <View testID="scan.check-state" accessibilityValue={{ text: checkState }} />
         <BrandedScreenHeader
           title={SCAN_CHECK_COPY.title}
           showClose
@@ -229,7 +233,8 @@ export default function SymptomChecklistScreen() {
               />
               <View style={styles.statusCopy} accessibilityLiveRegion="polite">
                 <View style={styles.statusHeading}>
-                  {isChecking || (!isReady && state.status !== 'error' && !modelError) ? (
+                  {isChecking ||
+                  (!isReady && !photoRejected && state.status !== 'error' && !modelError) ? (
                     <ActivityIndicator
                       accessibilityLabel={SCAN_CHECK_COPY.checking}
                       color={theme.primary}
@@ -238,7 +243,7 @@ export default function SymptomChecklistScreen() {
                   <Text
                     testID="scan.check-status"
                     style={[styles.statusTitle, { color: theme.primaryDark }]}>
-                    {isReady ? SCAN_CHECK_COPY.checkedTitle : SCAN_CHECK_COPY.checking}
+                    {isReady || photoRejected ? SCAN_CHECK_COPY.checkedTitle : SCAN_CHECK_COPY.checking}
                   </Text>
                 </View>
                 <Text style={[styles.helperText, { color: theme.textSecondary }]}>

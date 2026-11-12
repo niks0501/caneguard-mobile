@@ -33,7 +33,6 @@ export default function SymptomChecklistScreen() {
   const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
   const draft = useScanDraft();
-  const { modelState, isChecking, isReady, photoFailedCheck } = useScanAnalysis();
   // The question never depends on the model result: the answer is the
   // observer's own and is stored separately from the analysis.
   const question = GUIDED_VALIDATION_QUESTIONS[0];
@@ -41,6 +40,7 @@ export default function SymptomChecklistScreen() {
     () => state.selectedSymptoms[0] ?? null,
   );
   const [replacing, setReplacing] = useState(false);
+  const { modelState, isChecking, isReady, photoFailedCheck } = useScanAnalysis(replacing);
   const [replacementNotice, setReplacementNotice] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const isMounted = useRef(true);
@@ -226,7 +226,7 @@ export default function SymptomChecklistScreen() {
                   <Text
                     testID="scan.check-status"
                     style={[styles.statusTitle, { color: theme.primaryDark }]}>
-                    {isReady ? 'Photo checked' : SCAN_CHECK_COPY.checking}
+                    {isReady ? SCAN_CHECK_COPY.checkedTitle : SCAN_CHECK_COPY.checking}
                   </Text>
                 </View>
                 <Text style={[styles.helperText, { color: theme.textSecondary }]}>

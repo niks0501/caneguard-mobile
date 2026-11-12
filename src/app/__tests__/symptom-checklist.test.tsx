@@ -171,12 +171,25 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     expect(screen.queryByText('Source')).not.toBeOnTheScreen();
   });
 
-  it('does not start the check until the model is loaded', async () => {
+  it('checks the photo while the model loads and runs inference when it is ready', async () => {
     mockUseCaneGuardModel.mockReturnValue({ ...loadedModel(), state: 'loading' as const });
     await renderScreen(selectedState);
 
-    expect(mockPreprocessImage).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'COMPLETE_PREPROCESSING' }));
+    });
+    expect(mockPreprocessImage).toHaveBeenCalledTimes(1);
+    expect(mockRunInference).not.toHaveBeenCalled();
     expect(screen.getByTestId('scan.continue-to-result')).toBeDisabled();
+
+    mockUseCaneGuardModel.mockReturnValue(loadedModel());
+    await fireEvent.press(screen.getByTestId('scan.symptom-rust'));
+    await waitFor(() => {
+      expect(mockRunInference).toHaveBeenCalledTimes(1);
+      expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'COMPLETE_INFERENCE' }));
+    });
+    expect(mockPreprocessImage).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('scan.continue-to-result')).toBeEnabled();
   });
 
   it('keeps Continue off until the check finishes and one picture is chosen, then stores the answer separately', async () => {
@@ -274,6 +287,51 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     });
   });
 
+  it('checks a replacement photo while the model is still loading', async () => {
+    mockUseCaneGuardModel.mockReturnValue({ ...loadedModel(), state: 'loading' as const });
+    mockPreprocessImage.mockResolvedValueOnce({
+      ...successfulPreprocessingResult,
+      qualityAssessment: { warnings: ['too-dark'], meanLuminance: 10, luminanceStandardDeviation: 40 },
+    });
+    mockPickScanImage.mockResolvedValueOnce({
+      kind: 'selected',
+      image: {
+        sourceUri: 'content://sugarcane/selected-leaf',
+        sourceWidth: 1920,
+        sourceHeight: 1080,
+        sourceType: 'gallery',
+      },
+    });
+    await renderScreen(selectedState);
+
+    await waitFor(() => expect(screen.getByTestId('scan.retake-gallery')).toBeEnabled());
+    await fireEvent.press(screen.getByTestId('scan.retake-gallery'));
+    await waitFor(() => {
+      expect(mockPreprocessImage).toHaveBeenCalledTimes(2);
+      expect(screen.queryByTestId('scan.photo-failed-check')).not.toBeOnTheScreen();
+    });
+    expect(mockRunInference).not.toHaveBeenCalled();
+  });
+
+  it('waits for an open replacement picker before starting inference', async () => {
+    mockUseCaneGuardModel.mockReturnValue({ ...loadedModel(), state: 'loading' as const });
+    mockPreprocessImage.mockResolvedValueOnce({
+      ...successfulPreprocessingResult,
+      qualityAssessment: { warnings: ['too-dark'], meanLuminance: 10, luminanceStandardDeviation: 40 },
+    });
+    let cancelPicker!: (value: Awaited<ReturnType<typeof pickScanImage>>) => void;
+    mockPickScanImage.mockReturnValueOnce(new Promise((resolve) => { cancelPicker = resolve; }));
+    await renderScreen(selectedState);
+
+    await waitFor(() => expect(screen.getByTestId('scan.retake-camera')).toBeEnabled());
+    await fireEvent.press(screen.getByTestId('scan.retake-camera'));
+    mockUseCaneGuardModel.mockReturnValue(loadedModel());
+    await fireEvent.press(screen.getByTestId('scan.symptom-rust'));
+    expect(mockRunInference).not.toHaveBeenCalled();
+    cancelPicker({ kind: 'canceled' });
+    await waitFor(() => expect(mockRunInference).toHaveBeenCalledTimes(1));
+  });
+
   it('shows a recoverable preprocessing failure and checks again on request', async () => {
     mockPreprocessImage.mockRejectedValueOnce(
       new PreprocessingError('jpeg-decode-failed', 'decode failed'),
@@ -329,7 +387,8 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
 
     await fireEvent.press(screen.getByLabelText('Retry analysis setup'));
     expect(retry).toHaveBeenCalledTimes(1);
-    expect(mockPreprocessImage).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockPreprocessImage).toHaveBeenCalledTimes(1));
+    expect(mockRunInference).not.toHaveBeenCalled();
   });
 
   it('lets a restored completed scan answer and continue without re-running the check', async () => {

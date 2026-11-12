@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
 import { useScanSession } from '@/features/detection/context/useScanSession';
@@ -19,12 +19,19 @@ const RESULT_PREPARATION_FEEDBACK_MS = 120;
  * Preview screen produced. The observation the inspector or farmer answers
  * beside it is stored separately and never feeds back into this analysis.
  */
-export function useScanAnalysis() {
+export function useScanAnalysis(replacing = false) {
   const { state, dispatch } = useScanSession();
   const draft = useScanDraft();
   const modelState = useCaneGuardModel();
   const startModelLoad = modelState.start;
-  const inFlight = useRef(false);
+  const preprocessingInFlight = useRef(false);
+  const inferenceInFlight = useRef(false);
+  const [prepared, setPrepared] = useState<{
+    sourceUri: string;
+    processedUri: string;
+    inputBuffer: ArrayBuffer;
+    preprocessMs: number;
+  } | null>(null);
   const isMounted = useRef(true);
   const isOwnerCurrentRef = useRef(draft.isOwnerCurrent);
   const ownerIdentity = draft.ownerIdentity;
@@ -46,7 +53,8 @@ export function useScanAnalysis() {
   // freshly mounted screen restarts instead of waiting on work that is gone.
   useEffect(() => {
     if (
-      !inFlight.current &&
+      !preprocessingInFlight.current &&
+      !inferenceInFlight.current &&
       (mountedStatus.current === 'preprocessing' ||
         mountedStatus.current === 'running' ||
         mountedStatus.current === 'finalizing')
@@ -58,20 +66,24 @@ export function useScanAnalysis() {
 
   // An owner change abandons any in-flight analysis from the previous account.
   useEffect(() => {
-    inFlight.current = false;
+    preprocessingInFlight.current = false;
+    inferenceInFlight.current = false;
+    setPrepared(null);
     isOwnerCurrentRef.current = draft.isOwnerCurrent;
   }, [draft.isOwnerCurrent, ownerIdentity]);
 
-  const { sourceUri, sourceWidth, sourceHeight, status, result } = state;
-  const modelReady = modelState.state === 'loaded';
+  const { sourceUri, sourceWidth, sourceHeight, processedUri, status, result } = state;
+  const hasPreparedPhoto = Boolean(
+    prepared && prepared.sourceUri === sourceUri && prepared.processedUri === processedUri,
+  );
 
   useEffect(() => {
     if (
       !sourceUri ||
       status !== 'image-selected' ||
       result ||
-      !modelReady ||
-      inFlight.current
+      hasPreparedPhoto ||
+      preprocessingInFlight.current
     ) {
       return;
     }
@@ -79,19 +91,22 @@ export function useScanAnalysis() {
     const startingOwner = ownerIdentity;
     const isCurrentWork = () =>
       isMounted.current && isOwnerCurrentRef.current(startingOwner);
-    inFlight.current = true;
+    preprocessingInFlight.current = true;
 
     const run = async () => {
       dispatch({ type: 'START_PREPROCESSING' });
-      let inferenceStarted = false;
       try {
         const preprocessingResult = await preprocessImage(sourceUri, {
           width: sourceWidth,
           height: sourceHeight,
         });
-        if (!isCurrentWork()) {
-          return;
-        }
+        if (!isCurrentWork()) return;
+        setPrepared({
+          sourceUri,
+          processedUri: preprocessingResult.processedUri,
+          inputBuffer: preprocessingResult.inputBuffer,
+          preprocessMs: preprocessingResult.preprocessMs,
+        });
         dispatch({
           type: 'COMPLETE_PREPROCESSING',
           payload: {
@@ -100,46 +115,22 @@ export function useScanAnalysis() {
             qualityAssessment: preprocessingResult.qualityAssessment,
           },
         });
-        dispatch({ type: 'START_INFERENCE' });
-        inferenceStarted = true;
-
-        const inferenceResult = await runInference(
-          modelState,
-          preprocessingResult.inputBuffer,
-          preprocessingResult.preprocessMs,
-        );
-        if (!isCurrentWork()) {
-          return;
-        }
-        dispatch({ type: 'START_RESULT_PREPARATION' });
-        await new Promise<void>((resolve) => {
-          setTimeout(resolve, RESULT_PREPARATION_FEEDBACK_MS);
-        });
-        if (!isCurrentWork()) {
-          return;
-        }
-        dispatch({ type: 'COMPLETE_INFERENCE', payload: inferenceResult });
       } catch (error) {
-        if (!isCurrentWork()) {
-          return;
-        }
+        if (!isCurrentWork()) return;
         dispatch({
           type: 'SET_ERROR',
-          photoPreparationFailed: !inferenceStarted,
-          payload: inferenceStarted
-            ? getInferenceErrorMessage(error)
-            : getPreprocessingErrorMessage(error),
+          photoPreparationFailed: true,
+          payload: getPreprocessingErrorMessage(error),
         });
       } finally {
-        inFlight.current = false;
+        preprocessingInFlight.current = false;
       }
     };
 
     void run();
   }, [
     dispatch,
-    modelReady,
-    modelState,
+    hasPreparedPhoto,
     ownerIdentity,
     result,
     sourceHeight,
@@ -147,6 +138,50 @@ export function useScanAnalysis() {
     sourceWidth,
     status,
   ]);
+
+  useEffect(() => {
+    if (
+      !prepared ||
+      !hasPreparedPhoto ||
+      status !== 'image-selected' ||
+      result ||
+      replacing ||
+      modelState.state !== 'loaded' ||
+      inferenceInFlight.current
+    ) {
+      return;
+    }
+
+    const startingOwner = ownerIdentity;
+    const isCurrentWork = () =>
+      isMounted.current && isOwnerCurrentRef.current(startingOwner);
+    inferenceInFlight.current = true;
+
+    const run = async () => {
+      dispatch({ type: 'START_INFERENCE' });
+      try {
+        const inferenceResult = await runInference(
+          modelState,
+          prepared.inputBuffer,
+          prepared.preprocessMs,
+        );
+        if (!isCurrentWork()) return;
+        dispatch({ type: 'START_RESULT_PREPARATION' });
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, RESULT_PREPARATION_FEEDBACK_MS);
+        });
+        if (!isCurrentWork()) return;
+        dispatch({ type: 'COMPLETE_INFERENCE', payload: inferenceResult });
+      } catch (error) {
+        if (!isCurrentWork()) return;
+        dispatch({ type: 'SET_ERROR', payload: getInferenceErrorMessage(error) });
+      } finally {
+        inferenceInFlight.current = false;
+      }
+    };
+
+    void run();
+  }, [dispatch, hasPreparedPhoto, modelState, ownerIdentity, prepared, replacing, result, status]);
 
   return {
     modelState,

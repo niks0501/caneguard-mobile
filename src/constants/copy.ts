@@ -739,6 +739,7 @@ export const SCAN_CHECK_COPY = {
   questionHint: 'Your choice is kept with this scan and never changes the result.',
   checking: 'Checking your photo…',
   checkingDetail: 'Looking at light and focus, then reading the photo.',
+  checkedTitle: 'Photo checked',
   ready: 'Photo checked. Choose a picture, then continue.',
   continue: 'Continue',
   continueWaiting: 'Checking photo…',

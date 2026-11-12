@@ -198,7 +198,9 @@ describe('FieldValidationScreen', () => {
     // The original report stays available behind an explicit disclosure,
     // with Possible Condition as visit context and no technical AI metadata.
     await fireEvent.press(screen.getByLabelText('Show Previous visit and original report'));
-    expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
+    expect(screen.getByText('Possible Condition')).toBeOnTheScreen();
+    expect(screen.getByText('Rust')).toBeOnTheScreen();
+    expect(screen.queryByText('Possible Condition: Rust')).not.toBeOnTheScreen();
     expect(screen.queryByText('93%')).not.toBeOnTheScreen();
     expect(screen.getByText('Ana Reporter')).toBeOnTheScreen();
   });

@@ -268,7 +268,13 @@ export function useFieldValidationAssignments(enabled = true) {
           sessionKey,
         };
 
-  return { ...visibleState, refresh, refreshOutcome };
+  return {
+    ...visibleState,
+    ready: assignmentsSnapshot !== null,
+    failed: Boolean(state.sessionKey === sessionKey && state.errorMessage),
+    refresh,
+    refreshOutcome,
+  };
 }
 
 /** Best-effort photo download after the records are saved; never blocks or fails the refresh. */

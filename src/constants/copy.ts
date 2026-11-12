@@ -349,6 +349,7 @@ export const HOME_NOTE_COPY = {
   allClear: 'All clear.',
   visitsCheckFailed: "Couldn't check your visits.",
   visitsCheckFailedDetail: 'Nothing is lost — they will appear when the check succeeds.',
+  visitsCheckPending: 'Checking your visits…',
   nothingDueToday: 'Nothing due today.',
   openNextVisit: 'Open next visit',
   resumeDraft: 'Resume',

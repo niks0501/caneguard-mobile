@@ -59,6 +59,7 @@ export function buildMorningNote(
   items: readonly NeedsAttentionItem[],
   syncNote: string | null,
   visitsCheckFailed = false,
+  visitsCheckPending = false,
 ): MorningNote {
   const work = items.filter(isActionableAttentionItem);
   const primary = work[0];
@@ -94,6 +95,17 @@ export function buildMorningNote(
       headlineOpensActivity: false,
       syncLine: syncNote,
       visitsLine: HOME_NOTE_COPY.visitsCheckFailedDetail,
+    };
+  }
+
+  if (visitsCheckPending) {
+    return {
+      action,
+      actionLabel,
+      headline: HOME_NOTE_COPY.visitsCheckPending,
+      headlineOpensActivity: false,
+      syncLine: syncNote,
+      visitsLine: null,
     };
   }
 

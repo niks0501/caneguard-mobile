@@ -21,8 +21,10 @@ export interface HomeAttention {
   /** Marks an office update as read; best effort, never blocks navigation. */
   markRead: (notificationId: string) => Promise<void>;
   total: number;
-  /** True when the saved visits could not be read, so the visit state is unknown rather than empty. */
+  /** True when a saved-visit read failed. */
   visitsCheckFailed: boolean;
+  /** True while saved-visit state has not been established yet. */
+  visitsCheckPending: boolean;
 }
 
 /**
@@ -91,6 +93,9 @@ export function useHomeAttention(): HomeAttention {
     items,
     markRead: notifications.markRead,
     total: items.length,
-    visitsCheckFailed: !assignments.lastSuccessfulAt || !completions.ready,
+    visitsCheckFailed: assignments.failed || completions.failed,
+    visitsCheckPending:
+      !assignments.failed && !completions.failed &&
+      (!assignments.ready || !completions.ready),
   };
 }

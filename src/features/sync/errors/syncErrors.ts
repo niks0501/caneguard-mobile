@@ -21,7 +21,56 @@ export const SYNC_ERROR_CODES = [
   'UNKNOWN_SYNC_ERROR',
 ] as const;
 
-export type SyncErrorCode = (typeof SYNC_ERROR_CODES)[number];
+/**
+ * Visit refusals: each is a named end state, never retried automatically.
+ * Kept apart from SYNC_ERROR_CODES, which lists the codes every upload kind shares.
+ */
+export const VISIT_REFUSAL_SYNC_ERROR_CODES = [
+  'VISIT_MOVED',
+  'VISIT_CASE_CLOSED',
+  'VISIT_DONE_BY_SOMEONE',
+  'VISIT_CANCELLED',
+] as const;
+
+export type SyncErrorCode =
+  | (typeof SYNC_ERROR_CODES)[number]
+  | (typeof VISIT_REFUSAL_SYNC_ERROR_CODES)[number];
+
+/** Web reason code on a refused visit completion -> the phone's end state. */
+const VISIT_REFUSAL_REASON_CODES: Record<string, SyncErrorCode> = {
+  ASSIGNMENT_REASSIGNED: 'VISIT_MOVED',
+  CASE_CLOSED: 'VISIT_CASE_CLOSED',
+  COMPLETED_ELSEWHERE: 'VISIT_DONE_BY_SOMEONE',
+  VISIT_REMOVED: 'VISIT_CANCELLED',
+};
+
+/**
+ * Reads the web's refusal reason from a response body, or null while the web
+ * has not sent one (older server) or sent an unknown code.
+ */
+export function readVisitRefusalCode(body: unknown): SyncErrorCode | null {
+  if (!body || typeof body !== 'object') return null;
+  const record = body as Record<string, unknown>;
+  const nested =
+    record.data && typeof record.data === 'object'
+      ? (record.data as Record<string, unknown>)
+      : {};
+  for (const candidate of [
+    record.reason_code,
+    record.reason,
+    record.code,
+    nested.reason_code,
+    nested.reason,
+    nested.code,
+  ]) {
+    if (typeof candidate === 'string') {
+      const mapped = VISIT_REFUSAL_REASON_CODES[candidate.trim().toUpperCase()];
+      if (mapped) return mapped;
+    }
+  }
+  return null;
+}
+
 
 export const AUTO_RETRYABLE_SYNC_ERROR_CODES = [
   'NETWORK_UNAVAILABLE',
@@ -86,13 +135,28 @@ export function toSyncError(error: unknown): SyncError {
       );
     }
     if (error.status === 409) {
+      const refusal = readVisitRefusalCode(error.body);
+      if (refusal) {
+        return new SyncError(refusal, getSyncErrorMessage(refusal) ?? '');
+      }
       return new SyncError(
         'API_VALIDATION_FAILED',
         'The server reported a conflicting upload identity. Review its saved details before retrying.',
         { detail: extractValidationDetail(error.body) },
       );
     }
+    if (error.status === 404) {
+      // The visit no longer exists on the office side.
+      return new SyncError(
+        'VISIT_CANCELLED',
+        getSyncErrorMessage('VISIT_CANCELLED') ?? '',
+      );
+    }
     if (error.status === 400 || error.status === 422) {
+      const refusal = readVisitRefusalCode(error.body);
+      if (refusal) {
+        return new SyncError(refusal, getSyncErrorMessage(refusal) ?? '');
+      }
       return new SyncError(
         'API_VALIDATION_FAILED',
         'The server rejected this report. Review its saved details before retrying.',
@@ -155,6 +219,14 @@ export function getSyncErrorMessage(code: string | null): string | null {
       return 'The office was unavailable. Try again later.';
     case 'UNKNOWN_SYNC_ERROR':
       return 'Could not send the report.';
+    case 'VISIT_MOVED':
+      return 'This visit was moved to another inspector.';
+    case 'VISIT_CASE_CLOSED':
+      return 'The office closed this case.';
+    case 'VISIT_DONE_BY_SOMEONE':
+      return 'Someone else already finished this visit.';
+    case 'VISIT_CANCELLED':
+      return 'The office cancelled this visit.';
     default:
       return null;
   }

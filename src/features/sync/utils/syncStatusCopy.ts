@@ -42,6 +42,29 @@ export type SyncToneColorKey = (typeof SYNC_TONE_COLOR)[SyncTone];
 /** State label for a visit completed on this phone but not yet sent to the office. */
 export const VISIT_DONE_WAITING_LABEL = 'Done · waiting to send';
 
+/**
+ * Named end states for a visit the office refused, each with the one next step.
+ * The saved visit stays on the phone as evidence in every case.
+ */
+export const VISIT_END_STATE_COPY = {
+  moved: {
+    label: 'Moved',
+    nextStep: 'Moved to another inspector. Your saved visit stays here. Ask the office if it still needs it.',
+  },
+  'case-closed': {
+    label: 'Case closed',
+    nextStep: 'The office closed this case. Your saved visit stays here. No further action is needed.',
+  },
+  'done-by-someone': {
+    label: 'Done by someone',
+    nextStep: 'Someone else already finished this visit. Your saved visit stays here. No further action is needed.',
+  },
+  'visit-cancelled': {
+    label: 'Visit cancelled',
+    nextStep: 'The office cancelled this visit. Your saved visit stays here. No further action is needed.',
+  },
+} as const;
+
 /** Meta line for a saved upload that could not be sent yet. */
 export const UPLOAD_FAILED_META = 'Could not send';
 

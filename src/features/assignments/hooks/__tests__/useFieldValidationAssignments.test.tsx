@@ -64,6 +64,7 @@ describe('useFieldValidationAssignments capabilities', () => {
 
   it('keeps cached assignments visible on the read grant and withdraws them without it', async () => {
     mockUseAuth.mockReturnValue({
+      isSessionCurrent: () => true,
       markSessionExpired,
       session: READ_SESSION,
       status: 'authenticated',
@@ -75,6 +76,7 @@ describe('useFieldValidationAssignments capabilities', () => {
     await waitFor(() => expect(result.current.assignments).toHaveLength(1));
 
     mockUseAuth.mockReturnValue({
+      isSessionCurrent: () => true,
       markSessionExpired,
       session: {
         ...READ_SESSION,
@@ -93,6 +95,7 @@ describe('useFieldValidationAssignments capabilities', () => {
 
   it('never reads the assignment cache without assignment:read', async () => {
     mockUseAuth.mockReturnValue({
+      isSessionCurrent: () => true,
       markSessionExpired,
       session: {
         ...READ_SESSION,
@@ -119,6 +122,7 @@ describe('useFieldValidationAssignments capabilities', () => {
   it('surfaces a broken-record diagnostic naming the item instead of a generic refresh failure', async () => {
     const ownerId = 'b18f0d55-0d3e-4b7c-8f0f-2a4f0f0b3a11';
     mockUseAuth.mockReturnValue({
+      isSessionCurrent: () => true,
       markSessionExpired,
       session: { ...READ_SESSION, user: { ...READ_SESSION.user, uuid: ownerId } },
       status: 'authenticated',
@@ -147,6 +151,7 @@ describe('useFieldValidationAssignments capabilities', () => {
   it('rechecks the server after downloaded assignment data is cleared', async () => {
     const ownerId = 'b42a13e8-a095-4e27-a018-82725ef55b21';
     mockUseAuth.mockReturnValue({
+      isSessionCurrent: () => true,
       markSessionExpired,
       session: { ...READ_SESSION, user: { ...READ_SESSION.user, uuid: ownerId } },
       status: 'authenticated',
@@ -168,6 +173,7 @@ describe('useFieldValidationAssignments capabilities', () => {
     const ownerId = '3b6e7a1f-8b43-4d22-a6d2-5a8de94b819e';
     let completeRefresh!: (value: never) => void;
     mockUseAuth.mockReturnValue({
+      isSessionCurrent: () => true,
       markSessionExpired,
       session: { ...READ_SESSION, user: { ...READ_SESSION.user, uuid: ownerId } },
       status: 'authenticated',
@@ -195,9 +201,63 @@ describe('useFieldValidationAssignments capabilities', () => {
     expect(second.result.current.assignments).toEqual([]);
   });
 
+  it('discards a refresh response when its owner is no longer the active session', async () => {
+    const ownerId = 'd2d11aca-b612-4fd1-9f3c-70c7955f621e';
+    let activeSession = true;
+    let completeRefresh!: (value: never) => void;
+    mockUseAuth.mockReturnValue({
+      isSessionCurrent: () => activeSession,
+      markSessionExpired,
+      session: { ...READ_SESSION, user: { ...READ_SESSION.user, uuid: ownerId } },
+      status: 'authenticated',
+    } as never);
+    mockListCached.mockResolvedValue([]);
+    mockRefreshAssignments
+      .mockResolvedValueOnce({ assignments: [], fetchedAt: Date.now() } as never)
+      .mockReturnValueOnce(
+        new Promise((resolve) => { completeRefresh = resolve; }) as never,
+      );
+
+    const { result } = await renderHook(() => useFieldValidationAssignments());
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => { void result.current.refresh({ force: true }); });
+    await waitFor(() => expect(mockRefreshAssignments).toHaveBeenCalledTimes(2));
+    activeSession = false;
+    completeRefresh({ assignments: [{ id: ASSIGNMENT_ID }], fetchedAt: Date.now() } as never);
+
+    await waitFor(() => expect(result.current.refreshing).toBe(false));
+    expect(result.current.ready).toBe(false);
+    expect(result.current.assignments).toEqual([]);
+  });
+
+  it('does not expire another active session after a stale auth failure', async () => {
+    const ownerId = 'f76b1c6a-0a6b-4141-9d1e-0548c270b447';
+    let activeSession = true;
+    let rejectRefresh!: (error: unknown) => void;
+    mockUseAuth.mockReturnValue({
+      isSessionCurrent: () => activeSession,
+      markSessionExpired,
+      session: { ...READ_SESSION, user: { ...READ_SESSION.user, uuid: ownerId } },
+      status: 'authenticated',
+    } as never);
+    mockListCached.mockResolvedValue([]);
+    mockRefreshAssignments.mockReturnValue(
+      new Promise((_, reject) => { rejectRefresh = reject; }) as never,
+    );
+
+    const { result } = await renderHook(() => useFieldValidationAssignments());
+    await waitFor(() => expect(mockRefreshAssignments).toHaveBeenCalled());
+    activeSession = false;
+    rejectRefresh(new MobileFieldValidationAssignmentsApiError('AUTH_REQUIRED', 'Expired token'));
+
+    await waitFor(() => expect(result.current.refreshing).toBe(false));
+    expect(markSessionExpired).not.toHaveBeenCalled();
+  });
+
   it('shares the skipped-record count with later consumers through the owner snapshot', async () => {
     const ownerId = 'c4e8f2a4-3c47-4f6b-9a4e-0d5b8e7c1f22';
     mockUseAuth.mockReturnValue({
+      isSessionCurrent: () => true,
       markSessionExpired,
       session: { ...READ_SESSION, user: { ...READ_SESSION.user, uuid: ownerId } },
       status: 'authenticated',

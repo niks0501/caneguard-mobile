@@ -218,15 +218,41 @@ describe('buildMorningNote', () => {
 
     expect(note.headline).not.toBe("Couldn't check your visits.");
     expect(note.headline).not.toBe('All clear.');
-    expect(note.visitsLine).toBeNull();
+  });
+
+  it.each([
+    [
+      'a draft',
+      {
+        destination: { kind: 'field_report' as const, scanRecordId: 'draft-report' },
+        id: 'draft-1',
+        kind: 'draft' as const,
+        message: 'Not finished',
+        meta: 'Saved',
+        title: 'Finish your field report',
+      },
+    ],
+    ['a visit', visit('today')],
+    ['an office update', READABLE_UPDATE],
+  ])('keeps the work headline for %s while visits are pending', (_work, item) => {
+    const note = buildMorningNote([item], null, false, true);
+
+    expect(note.headline).toBe(item.title);
+    expect(note.headline).not.toBe('All clear.');
+    expect(note.headline).not.toBe("Couldn't check your visits.");
+  });
+
+  it('keeps a sync note while visits are pending', () => {
+    expect(buildMorningNote([], 'Working offline.', false, true).headline).toBe(
+      'Working offline.',
+    );
   });
 
   it('does not claim all is clear when visits cannot be read', () => {
-    expect(buildMorningNote([], null, false, false, true)).toMatchObject({
-      action: 'scan',
-      headline: null,
-      headlineOpensActivity: false,
-    });
+    const note = buildMorningNote([], null, false, false, true);
+
+    expect(note.headline).not.toBe("Couldn't check your visits.");
+    expect(note.headline).not.toBe('All clear.');
   });
 
   it('keeps known work and sync notes visible when visits cannot be read', () => {

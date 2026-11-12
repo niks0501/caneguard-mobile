@@ -69,7 +69,8 @@ interface AuthContextValue {
     localClearFailed: boolean;
     remoteRevocationFailed: boolean;
   }>;
-  markSessionExpired: () => Promise<void>;
+  isSessionCurrent: (token: string, ownerIdentity: string) => boolean;
+  markSessionExpired: (expectedToken?: string) => Promise<void>;
   session: MobileSession | null;
   sessionVerification: SessionVerificationStatus;
   status: AuthStatus;
@@ -161,8 +162,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [setCurrentSession],
   );
 
-  const markSessionExpired = useCallback(async () => {
+  const isSessionCurrent = useCallback((token: string, ownerIdentity: string) => {
+    const activeSession = sessionRef.current;
+    return activeSession?.token === token && activeSession.user.uuid === ownerIdentity;
+  }, []);
+
+  const markSessionExpired = useCallback(async (expectedToken?: string) => {
     const token = sessionRef.current?.token;
+    if (expectedToken !== undefined && token !== expectedToken) return;
     await clearLocalSession('Your session expired. Sign in to resume pending uploads.');
     if (token) {
       void logoutMobile(token).catch(() => undefined);
@@ -889,6 +896,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       enrollMobileDevice,
       errorMessage,
       hasCompletedLogin,
+      isSessionCurrent,
       login,
       logout,
       markSessionExpired,
@@ -910,6 +918,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       enrollMobileDevice,
       errorMessage,
       hasCompletedLogin,
+      isSessionCurrent,
       login,
       logout,
       markSessionExpired,

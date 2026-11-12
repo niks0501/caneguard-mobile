@@ -99,17 +99,6 @@ export function buildMorningNote(
     };
   }
 
-  if (visitsCheckPending) {
-    return {
-      action,
-      actionLabel,
-      headline: HOME_NOTE_COPY.visitsCheckPending,
-      headlineOpensActivity: false,
-      syncLine: syncNote,
-      visitsLine: null,
-    };
-  }
-
   const visitsLine = action === 'visit' ? null : visitCounts;
 
   if (headline) {
@@ -122,11 +111,26 @@ export function buildMorningNote(
       visitsLine,
     };
   }
+  if (syncNote) {
+    return {
+      action,
+      actionLabel,
+      headline: syncNote,
+      headlineOpensActivity: true,
+      syncLine: null,
+      visitsLine,
+    };
+  }
+
   return {
     action,
     actionLabel,
-    headline: syncNote ?? (visitsUnavailable ? null : HOME_NOTE_COPY.allClear),
-    headlineOpensActivity: Boolean(syncNote),
+    headline: visitsCheckPending
+      ? HOME_NOTE_COPY.visitsCheckPending
+      : visitsUnavailable
+        ? null
+        : HOME_NOTE_COPY.allClear,
+    headlineOpensActivity: false,
     syncLine: null,
     visitsLine,
   };

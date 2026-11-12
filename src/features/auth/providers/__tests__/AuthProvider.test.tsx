@@ -219,6 +219,22 @@ describe('AuthProvider', () => {
     expect(result.current.status).toBe('authenticated');
   });
 
+  it('validates refresh ownership against the active session before expiration', async () => {
+    mockLogin.mockResolvedValueOnce(SESSION);
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+    await act(async () => {
+      await expect(result.current.login('field@caneguard.test', 'password')).resolves.toBe(true);
+    });
+
+    expect(result.current.isSessionCurrent(SESSION.token, SESSION.user.uuid)).toBe(true);
+    expect(result.current.isSessionCurrent('stale-token', SESSION.user.uuid)).toBe(false);
+    await act(async () => result.current.markSessionExpired('stale-token'));
+
+    expect(result.current.status).toBe('authenticated');
+    expect(mockClear).not.toHaveBeenCalled();
+  });
+
   it('applies the /me capabilities when the login response omits them', async () => {
     mockLogin.mockResolvedValueOnce({
       ...SESSION,

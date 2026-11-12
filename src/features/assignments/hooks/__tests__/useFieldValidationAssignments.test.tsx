@@ -268,6 +268,7 @@ describe('useFieldValidationAssignments capabilities', () => {
       user: { ...READ_SESSION.user, uuid: ownerId },
     };
     let activeToken = sessionA.token;
+    const isSessionCurrent = (token: string) => token === activeToken;
     let completeRefreshA!: (value: never) => void;
     const store = getOwnerMobileDataStore(DATABASE as never, ownerId);
     setOwnerAssignments(store, [{ id: ASSIGNMENT_ID } as never], Date.now());
@@ -280,7 +281,7 @@ describe('useFieldValidationAssignments capabilities', () => {
       { id: ASSIGNMENT_ID, cachedAt: CACHED_AT } as never,
     ]);
     mockUseAuth.mockImplementation(() => ({
-      isSessionCurrent: (token: string) => token === activeToken,
+      isSessionCurrent,
       markSessionExpired,
       session: activeToken === sessionA.token ? sessionA : sessionB,
       status: 'authenticated',
@@ -296,16 +297,16 @@ describe('useFieldValidationAssignments capabilities', () => {
 
     const first = await renderHook(() => useFieldValidationAssignments());
     expect(store.generation).toBe(0);
-    act(() => { void first.result.current.refresh({ force: true }); });
+    await act(() => { void first.result.current.refresh({ force: true }); });
     await waitFor(() => expect(mockRefreshAssignments).toHaveBeenCalledTimes(1));
-    first.unmount();
+    await first.unmount();
 
     activeToken = sessionB.token;
     const second = await renderHook(() => useFieldValidationAssignments());
     expect(second.result.current.ready).toBe(true);
     expect(mockRefreshAssignments).toHaveBeenCalledTimes(1);
 
-    act(() => {
+    await act(() => {
       completeRefreshA({ assignments: [], fetchedAt: Date.now() } as never);
     });
     await waitFor(() => expect(mockRefreshAssignments).toHaveBeenCalledTimes(2));

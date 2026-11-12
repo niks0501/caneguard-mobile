@@ -191,7 +191,8 @@ describe('useFieldValidationAssignments capabilities', () => {
     completeRefresh({ assignments: [], fetchedAt: Date.now() } as never);
     await waitFor(() => expect(second.result.current.refreshing).toBe(false));
     expect(second.result.current.failed).toBe(false);
-    expect(second.result.current.ready).toBe(false);
+    expect(second.result.current.ready).toBe(true);
+    expect(second.result.current.assignments).toEqual([]);
   });
 
   it('shares the skipped-record count with later consumers through the owner snapshot', async () => {

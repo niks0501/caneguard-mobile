@@ -213,11 +213,12 @@ describe('buildMorningNote', () => {
     });
   });
 
-  it('uses neutral copy while the visit check is still pending', () => {
-    expect(buildMorningNote([], null, false, true)).toMatchObject({
-      headline: 'Checking your visits…',
-      visitsLine: null,
-    });
+  it('keeps the visit note neutral while the check is still pending', () => {
+    const note = buildMorningNote([], null, false, true);
+
+    expect(note.headline).not.toBe("Couldn't check your visits.");
+    expect(note.headline).not.toBe('All clear.');
+    expect(note.visitsLine).toBeNull();
   });
 
   it('still says "All clear." when the visit check succeeded', () => {

@@ -89,7 +89,6 @@ export function useFieldValidationAssignments(enabled = true) {
 
   const isCurrentSession = useCallback(
     (requestedSession: typeof session) =>
-      mounted.current &&
       requestedSession?.token === sessionRef.current?.token &&
       requestedSession?.user.uuid === sessionRef.current?.user.uuid,
     [],
@@ -113,7 +112,7 @@ export function useFieldValidationAssignments(enabled = true) {
     const storeGeneration = store.generation;
     const isCurrentStore = () => store.generation === storeGeneration;
     const applyCached = (assignments: FieldValidationAssignment[]) => {
-      if (isCurrentSession(requestedSession) && isCurrentStore()) {
+      if (mounted.current && isCurrentSession(requestedSession) && isCurrentStore()) {
         setState((current) => ({
           ...current,
           assignments,
@@ -184,14 +183,16 @@ export function useFieldValidationAssignments(enabled = true) {
           );
           setOwnerAssignmentsReadState(store, { refreshing: false, failed: false, verified: true });
           prefetchAfterDownload(requestedSession.user.uuid, requestedSession.token, result.assignments);
-          setState({
-            assignments: result.assignments,
-            capabilityUnavailable: false,
-            errorMessage: null,
-            lastSuccessfulAt: result.fetchedAt,
-            refreshing: false,
-            sessionKey,
-          });
+          if (mounted.current) {
+            setState({
+              assignments: result.assignments,
+              capabilityUnavailable: false,
+              errorMessage: null,
+              lastSuccessfulAt: result.fetchedAt,
+              refreshing: false,
+              sessionKey,
+            });
+          }
           return 'ok';
         },
         () => {
@@ -216,15 +217,17 @@ export function useFieldValidationAssignments(enabled = true) {
       const capabilityUnavailable =
         error instanceof MobileFieldValidationAssignmentsApiError &&
         error.code === 'CAPABILITY_UNAVAILABLE';
-      setState((current) => ({
-        ...current,
-        capabilityUnavailable,
-        errorMessage: describeRefreshFailure(
-          error,
-          Boolean(store.assignments?.value.length ?? current.assignments.length),
-        ),
-        refreshing: false,
-      }));
+      if (mounted.current) {
+        setState((current) => ({
+          ...current,
+          capabilityUnavailable,
+          errorMessage: describeRefreshFailure(
+            error,
+            Boolean(store.assignments?.value.length ?? current.assignments.length),
+          ),
+          refreshing: false,
+        }));
+      }
       return 'failed';
     }
   }, [authStatus, canRead, database, enabled, isCurrentSession, markSessionExpired, ownerStore, session, sessionKey]);

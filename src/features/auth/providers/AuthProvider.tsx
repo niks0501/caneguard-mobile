@@ -26,6 +26,7 @@ import {
   authenticateWithBiometrics,
   getBiometricCapability,
 } from '@/features/auth/services/biometricAuth';
+import { cancelOfficeMediaPrefetch } from '@/features/assignments/services/officeMediaCache';
 import { getOrCreateMobileDeviceId, DeviceIdentityError } from '@/features/auth/services/deviceIdentity';
 import {
   BiometricSessionError,
@@ -141,9 +142,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return pending;
   }, []);
 
+  /** Ends the session for pending work now, before any await, so nothing lands after sign-out starts. */
+  const endPendingSessionWork = useCallback((active: MobileSession | null) => {
+    if (!active) return;
+    sessionRef.current = null;
+    try {
+      cancelOfficeMediaPrefetch(active.user.uuid);
+    } catch {
+      // An unusable owner identity has no prefetch to cancel.
+    }
+  }, []);
+
   const clearLocalSession = useCallback(
     async (message: string | null): Promise<boolean> => {
       verificationGeneration.current += 1;
+      endPendingSessionWork(sessionRef.current);
       let localClearFailed = false;
       try {
         await clearMobileSession();
@@ -161,7 +174,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       );
       return !localClearFailed;
     },
-    [setCurrentSession],
+    [endPendingSessionWork, setCurrentSession],
   );
 
   const isSessionCurrent = useCallback((token: string, ownerIdentity: string) => {
@@ -852,6 +865,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     // credentials. A separate lock/unlock flow can be added later without
     // changing the meaning of logout.
     const token = sessionRef.current?.token;
+    endPendingSessionWork(sessionRef.current);
     let remoteRevocationFailed = false;
     if (token) {
       try {
@@ -888,7 +902,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         : null,
     );
     return { localClearFailed: false, remoteRevocationFailed };
-  }, [setCurrentSession]);
+  }, [endPendingSessionWork, setCurrentSession]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

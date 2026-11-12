@@ -73,6 +73,14 @@ jest.mock('expo-file-system', () => {
       mockFsDirectories.add(this.uri);
     }
 
+    delete() {
+      const prefix = `${this.uri}/`;
+      mockFsDirectories.delete(this.uri);
+      for (const uri of [...mockFsFiles.keys()]) {
+        if (uri.startsWith(prefix)) mockFsFiles.delete(uri);
+      }
+    }
+
     list() {
       if (!mockFsDirectories.has(this.uri)) {
         throw new Error('Directory missing.');
@@ -468,9 +476,31 @@ describe('local data lifecycle', () => {
     insertAssignment(native, 'c863a5af-e9ad-44fe-a0dc-73f9d3436ca0', OTHER_OWNER_ID, OLD);
     insertNotification(native, 'c863a5af-e9ad-44fe-a0dc-73f9d3436ca1', OTHER_OWNER_ID, OLD);
 
+    const officeMedia = (owner: string) => `file:///documents/caneguard/office-media/${owner}`;
+    for (const owner of [OWNER_ID, OTHER_OWNER_ID]) {
+      mockFsDirectories.add(officeMedia(owner));
+      mockFsFiles.set(`${officeMedia(owner)}/case.report.v1.jpg`, { size: 10 });
+      native
+        .prepare(
+          `INSERT INTO sync_checkpoints (owner_identity, feed, version, total, truncated, page_count, sync_before, fetched_at)
+           VALUES (?, 'assignments', 'v-1', 1, 0, 1, ?, ?)`,
+        )
+        .run(owner, OLD, OLD);
+      native
+        .prepare('INSERT INTO field_validation_assignment_snapshots (owner_identity, skipped_count) VALUES (?, 2)')
+        .run(owner);
+    }
+
     const result = await clearCachedOfficeDataForOwner(database, OWNER_ID);
 
     expect(result.deletedRows).toBe(2);
+    // Downloaded case photos, the sync checkpoint and the skipped-count snapshot go with the rows.
+    expect(mockFsFiles.has(`${officeMedia(OWNER_ID)}/case.report.v1.jpg`)).toBe(false);
+    expect(countRows(native, 'sync_checkpoints', OWNER_ID)).toBe(0);
+    expect(countRows(native, 'field_validation_assignment_snapshots', OWNER_ID)).toBe(0);
+    expect(mockFsFiles.has(`${officeMedia(OTHER_OWNER_ID)}/case.report.v1.jpg`)).toBe(true);
+    expect(countRows(native, 'sync_checkpoints', OTHER_OWNER_ID)).toBe(1);
+    expect(countRows(native, 'field_validation_assignment_snapshots', OTHER_OWNER_ID)).toBe(1);
     // Everything unsent, drafted, or already captured stays exactly as it was.
     expect(countRows(native, 'scan_records', OWNER_ID)).toBe(1);
     expect(countRows(native, 'field_reports', OWNER_ID, 'submitter_identity')).toBe(1);

@@ -48,6 +48,8 @@ export function refreshFieldValidationAssignments(options: {
   database: CaneGuardDatabase;
   ownerIdentity: string;
   token: string;
+  /** False once the session that asked for this refresh is gone (logout, expiry, account switch). */
+  isSessionCurrent?: () => boolean;
 }): Promise<FieldValidationAssignmentsRefreshResult> {
   const owner = options.ownerIdentity.trim();
   let databaseRefreshes = activeRefreshes.get(options.database);
@@ -69,7 +71,9 @@ export function refreshFieldValidationAssignments(options: {
 
   const operation = executeRefresh({
     ...options,
-    isCurrent: () => databaseGenerations?.get(owner) === generation,
+    isCurrent: () =>
+      databaseGenerations?.get(owner) === generation &&
+      (options.isSessionCurrent?.() ?? true),
     ownerIdentity: owner,
   });
   const promise = operation.finally(() => {

@@ -1,5 +1,6 @@
 import {
   OFFICE_MEDIA_BUDGET_BYTES,
+  cancelOfficeMediaPrefetch,
   clearOfficeMediaForOwner,
   isOfficeCaseReadyOffline,
   listOfficeMediaItems,
@@ -296,5 +297,25 @@ describe('office media cache', () => {
     await run([a]);
     expect(mockDisk.size).toBe(0);
     expect(isOfficeCaseReadyOffline('owner-1', a)).toBe(false);
+  });
+
+  // Proves: no photo is requested with a token whose session has ended (logout boundary).
+  it('downloads nothing once the session is no longer current', async () => {
+    await prefetchOfficeMedia({
+      assignments: [office('a')], isSessionCurrent: () => false, now: NOW, ownerIdentity: 'owner-1', token: 'tok',
+    });
+    expect(mockDownloads).toHaveLength(0);
+    expect(mockDisk.size).toBe(0);
+  });
+
+  // Proves: logout cancels a queued prefetch without erasing photos the owner already cached.
+  it('cancels a queued prefetch but keeps cached photos', async () => {
+    const a = office('a');
+    await run([a]);
+    const pending = run([office('b')]);
+    cancelOfficeMediaPrefetch('owner-1');
+    await pending;
+    expect(mockDownloads).toHaveLength(1);
+    expect(isOfficeCaseReadyOffline('owner-1', a)).toBe(true);
   });
 });

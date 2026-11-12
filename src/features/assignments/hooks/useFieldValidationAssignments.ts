@@ -170,6 +170,7 @@ export function useFieldValidationAssignments(enabled = true) {
             database,
             ownerIdentity: requestedSession.user.uuid,
             token: requestedSession.token,
+            isSessionCurrent: () => isCurrentSession(requestedSession),
           });
           if (!isCurrentSession(requestedSession) || !isCurrentStore()) return 'skipped';
           setOwnerAssignments(
@@ -180,7 +181,12 @@ export function useFieldValidationAssignments(enabled = true) {
           );
           setOwnerAssignmentsReadState(store, { refreshing: false, failed: false, verified: true });
           if (mounted.current && isCurrentSession(requestedSession)) {
-            prefetchAfterDownload(requestedSession.user.uuid, requestedSession.token, result.assignments);
+            prefetchAfterDownload(
+              requestedSession.user.uuid,
+              requestedSession.token,
+              result.assignments,
+              () => isCurrentSession(requestedSession),
+            );
           }
           if (mounted.current) {
             setState({
@@ -301,10 +307,11 @@ function prefetchAfterDownload(
   ownerIdentity: string,
   token: string,
   assignments: FieldValidationAssignment[],
+  isSessionCurrent: () => boolean,
 ): void {
   void (async () => {
     try {
-      await prefetchOfficeMedia({ assignments, ownerIdentity, token });
+      await prefetchOfficeMedia({ assignments, isSessionCurrent, ownerIdentity, token });
       emitSyncRecordsChanged();
     } catch {
       // Photos stay online-only; the case card says so.

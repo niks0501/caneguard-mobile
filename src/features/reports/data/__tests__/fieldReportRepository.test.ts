@@ -1,3 +1,4 @@
+import { SYNC_TRANSITIONS } from '@/features/sync/domain/outboxState';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -36,7 +37,6 @@ import {
   markFieldReportPending,
   markFieldReportSynced,
   markFieldReportSyncing,
-  TRANSITIONS,
 } from '@/features/reports/data/fieldReportSyncRepository';
 import {
   findOwnedFieldSurvey,
@@ -1249,7 +1249,7 @@ describe('Field Report draft repository', () => {
   });
 
   it('declares the statuses each guarded sync update may start from', () => {
-    expect(TRANSITIONS).toEqual({
+    expect(SYNC_TRANSITIONS).toEqual({
       pending: ['pending', 'failed'],
       syncing: ['pending', 'failed'],
       synced: ['syncing'],

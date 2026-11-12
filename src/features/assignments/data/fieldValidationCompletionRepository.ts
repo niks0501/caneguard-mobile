@@ -22,6 +22,7 @@ import type {
   SaveFieldValidationCompletionInput,
 } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 import { validateFieldValidationCompletionInput } from '@/features/assignments/domain/fieldValidationCompletionValidation';
+import { SYNC_TRANSITIONS } from '@/features/sync/domain/outboxState';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 export const FIELD_VALIDATION_SYNC_RETRY_COOLDOWN_MS = 60_000;
@@ -258,7 +259,7 @@ export async function markFieldValidationCompletionPending(
     syncStatus: 'pending',
     lastSyncErrorCode: null,
     updatedAt: new Date().toISOString(),
-  }, TRANSITIONS.pending);
+  }, SYNC_TRANSITIONS.pending);
 }
 
 export async function markFieldValidationCompletionSyncing(
@@ -273,7 +274,7 @@ export async function markFieldValidationCompletionSyncing(
     lastSyncErrorCode: null,
     syncAttemptCount: sql`${fieldValidationCompletions.syncAttemptCount} + 1`,
     updatedAt: attemptedAt,
-  }, TRANSITIONS.syncing);
+  }, SYNC_TRANSITIONS.syncing);
 }
 
 export async function markFieldValidationCompletionSynced(
@@ -289,7 +290,7 @@ export async function markFieldValidationCompletionSynced(
     lastSyncedAt: syncedAt,
     lastSyncErrorCode: null,
     updatedAt: syncedAt,
-  }, TRANSITIONS.synced);
+  }, SYNC_TRANSITIONS.synced);
 }
 
 export async function markFieldValidationCompletionFailed(
@@ -304,7 +305,7 @@ export async function markFieldValidationCompletionFailed(
     lastSyncAttemptAt: attemptedAt,
     lastSyncErrorCode: errorCode,
     updatedAt: attemptedAt,
-  }, TRANSITIONS.failed);
+  }, SYNC_TRANSITIONS.failed);
 }
 
 export async function resetStaleSyncingFieldValidationCompletions(
@@ -372,14 +373,6 @@ export async function findLastSuccessfulFieldValidationCompletionSyncAt(
     throw toStorageError(error, 'QUERY_FAILED', 'Reading the last visit synchronization time failed.');
   }
 }
-
-/** Statuses each guarded update may start from; a row in any other status is left untouched. */
-export const TRANSITIONS = {
-  pending: ['pending', 'failed'],
-  syncing: ['pending', 'failed'],
-  synced: ['syncing'],
-  failed: ['pending', 'syncing', 'failed'],
-} as const satisfies Record<'pending' | 'syncing' | 'synced' | 'failed', readonly SyncStatus[]>;
 
 /** Returns the number of rows changed; 0 means the guard refused the update. */
 async function updateSyncState(

@@ -7,7 +7,9 @@ const RETRY_DELAYS_MS = [2_000, 5_000, 15_000] as const;
 
 export type SyncResult =
   | { reportId: string; status: 'already-synced' | 'synced'; remoteId: string | null }
-  | { reportId: string; status: 'failed'; error: SyncError };
+  | { reportId: string; status: 'failed'; error: SyncError }
+  /** Another run already holds this row (or it left the sendable states), so nothing was uploaded. */
+  | { reportId: string; status: 'skipped' };
 
 interface SyncFieldReportOptions {
   allowImmediateRetries?: boolean;
@@ -48,7 +50,9 @@ export async function syncFieldReport({
   }
 
   const attemptedAt = now().toISOString();
-  await repository.markSyncing(reportId, attemptedAt);
+  if ((await repository.markSyncing(reportId, attemptedAt)) === 0) {
+    return { reportId, status: 'skipped' };
+  }
 
   try {
     const form = mapMultipart(uploadRecord);

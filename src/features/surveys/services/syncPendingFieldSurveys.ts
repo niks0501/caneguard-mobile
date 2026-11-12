@@ -3,7 +3,8 @@ import { SYNC_RETRY_COOLDOWN_MS } from '@/features/reports/data/fieldReportSyncR
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import type { SyncBatchResult, SyncHaltReason, SyncTriggerSource } from '@/features/sync/services/syncPendingFieldReports';
 import { DEFAULT_SYNC_BATCH_SIZE, MAX_SYNC_REPORTS_PER_RUN } from '@/features/sync/services/syncPendingFieldReports';
-import { countCoolingRetryableFieldSurveys, countUnsyncedFieldSurveys, findFieldSurveySyncCandidates } from '@/features/surveys/data/fieldSurveySyncRepository';
+import { staleSyncingCutoff } from '@/features/sync/domain/outboxState';
+import { resetStaleSyncingFieldSurveys, countCoolingRetryableFieldSurveys, countUnsyncedFieldSurveys, findFieldSurveySyncCandidates } from '@/features/surveys/data/fieldSurveySyncRepository';
 import { syncFieldSurvey } from '@/features/surveys/services/syncFieldSurvey';
 import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 
@@ -48,6 +49,7 @@ async function executeBatch(options: Options & { ownerIdentity: string }): Promi
   const results: SyncResult[] = [];
   let haltReason: SyncHaltReason = null;
   let authRequired = false;
+  resetStaleSyncingFieldSurveys(options.database, options.ownerIdentity, staleSyncingCutoff());
   while (results.length < MAX_SYNC_REPORTS_PER_RUN) {
     const remaining = MAX_SYNC_REPORTS_PER_RUN - results.length;
     if (!options.districtCode.trim()) {

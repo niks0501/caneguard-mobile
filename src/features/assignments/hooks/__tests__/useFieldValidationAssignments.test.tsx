@@ -255,6 +255,66 @@ describe('useFieldValidationAssignments capabilities', () => {
     expect(result.current.assignments).toEqual([]);
   });
 
+  it('revalidates a generation-zero snapshot after a stale session refresh', async () => {
+    const ownerId = 'e2a37eb8-9d1c-4bcc-aab2-42837e8c0a31';
+    const sessionA = {
+      ...READ_SESSION,
+      token: 'token-a',
+      user: { ...READ_SESSION.user, uuid: ownerId },
+    };
+    const sessionB = {
+      ...READ_SESSION,
+      token: 'token-b',
+      user: { ...READ_SESSION.user, uuid: ownerId },
+    };
+    let activeToken = sessionA.token;
+    let completeRefreshA!: (value: never) => void;
+    const store = getOwnerMobileDataStore(DATABASE as never, ownerId);
+    setOwnerAssignments(store, [{ id: ASSIGNMENT_ID } as never], Date.now());
+    setOwnerAssignmentsReadState(store, {
+      refreshing: false,
+      failed: false,
+      verified: true,
+    });
+    mockListCached.mockResolvedValue([
+      { id: ASSIGNMENT_ID, cachedAt: CACHED_AT } as never,
+    ]);
+    mockUseAuth.mockImplementation(() => ({
+      isSessionCurrent: (token: string) => token === activeToken,
+      markSessionExpired,
+      session: activeToken === sessionA.token ? sessionA : sessionB,
+      status: 'authenticated',
+    }) as never);
+    mockRefreshAssignments
+      .mockReturnValueOnce(
+        new Promise((resolve) => { completeRefreshA = resolve; }) as never,
+      )
+      .mockResolvedValueOnce({
+        assignments: [{ id: 'server-assignment' }],
+        fetchedAt: Date.now(),
+      } as never);
+
+    const first = await renderHook(() => useFieldValidationAssignments());
+    expect(store.generation).toBe(0);
+    act(() => { void first.result.current.refresh({ force: true }); });
+    await waitFor(() => expect(mockRefreshAssignments).toHaveBeenCalledTimes(1));
+    first.unmount();
+
+    activeToken = sessionB.token;
+    const second = await renderHook(() => useFieldValidationAssignments());
+    expect(second.result.current.ready).toBe(true);
+    expect(mockRefreshAssignments).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      completeRefreshA({ assignments: [], fetchedAt: Date.now() } as never);
+    });
+    await waitFor(() => expect(mockRefreshAssignments).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(second.result.current.assignments[0]?.id).toBe('server-assignment'),
+    );
+    expect(second.result.current.ready).toBe(true);
+  });
+
   it('does not expire another active session after a stale auth failure', async () => {
     const ownerId = 'f76b1c6a-0a6b-4141-9d1e-0548c270b447';
     let activeSession = true;

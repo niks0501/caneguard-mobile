@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import FieldValidationScreen from '@/app/field-validation';
 import { ToastProvider } from '@/components/ui/Toast';
+import { VISIT_CHIPS } from '@/constants/copy';
 import { useFieldValidationAssignment } from '@/features/assignments/hooks/useFieldValidationAssignment';
 import { deleteFieldValidationPhoto } from '@/features/assignments/services/fieldValidationPhotoStorage';
 
@@ -179,14 +180,17 @@ describe('FieldValidationScreen', () => {
     expect(screen.getByText('Juan Dela Cruz')).toBeOnTheScreen();
     expect(screen.getByText('Mabini, Nasugbu, Batangas')).toBeOnTheScreen();
     expect(screen.getByTestId('field-validation.observation-input')).toBeOnTheScreen();
-    expect(screen.queryByText('Possible Condition: Rust')).not.toBeOnTheScreen();
+    // The case being checked leads the screen (approved visit-form change).
+    expect(screen.getByTestId('field-validation.case-under-check')).toBeOnTheScreen();
+    expect(screen.getByText('Possible Condition')).toBeOnTheScreen();
+    expect(screen.getByText('Rust')).toBeOnTheScreen();
     expect(screen.queryByText('93%')).not.toBeOnTheScreen();
-    // The submitter and visit history live behind the disclosure.
-    expect(screen.queryByText('Ana Reporter')).not.toBeOnTheScreen();
+    expect(screen.getByText('Ana Reporter')).toBeOnTheScreen();
 
     const tree = JSON.stringify(screen.toJSON());
     const order = [
       'field-validation.assignment-summary',
+      'field-validation.case-under-check',
       'field-validation.observation-input',
       'field-validation.finding-input',
       'field-validation.action-input',
@@ -198,11 +202,28 @@ describe('FieldValidationScreen', () => {
     // The original report stays available behind an explicit disclosure,
     // with Possible Condition as visit context and no technical AI metadata.
     await fireEvent.press(screen.getByLabelText('Show Previous visit and original report'));
-    expect(screen.getByText('Possible Condition')).toBeOnTheScreen();
-    expect(screen.getByText('Rust')).toBeOnTheScreen();
-    expect(screen.queryByText('Possible Condition: Rust')).not.toBeOnTheScreen();
     expect(screen.queryByText('93%')).not.toBeOnTheScreen();
-    expect(screen.getByText('Ana Reporter')).toBeOnTheScreen();
+  });
+
+  it('hides the follow-up question on a first visit', async () => {
+    await render(<FieldValidationScreen />);
+    expect(screen.queryByTestId('field-validation.outcome-group')).toBeNull();
+    expect(screen.queryByText('No previous visit on record')).toBeNull();
+  });
+
+  it('chips write editable sentences into the matching field and never close the case', async () => {
+    await render(<FieldValidationScreen />);
+    await fireEvent.press(screen.getByTestId('field-validation.observation.chip.0'));
+    await fireEvent.press(screen.getByTestId('field-validation.finding.chip.0'));
+    await fireEvent.press(screen.getByTestId('field-validation.action.chip.0'));
+    expect(screen.getByTestId('field-validation.observation-input')).toHaveProp('value', VISIT_CHIPS.observation[0]);
+    expect(screen.getByTestId('field-validation.finding-input')).toHaveProp('value', VISIT_CHIPS.finding[0]);
+    expect(screen.getByTestId('field-validation.action-input')).toHaveProp('value', VISIT_CHIPS.action[0]);
+    // The sentence stays editable and a second tap takes it back out.
+    await fireEvent.changeText(screen.getByTestId('field-validation.observation-input'), `${VISIT_CHIPS.observation[0]} Plus my note.`);
+    await fireEvent.press(screen.getByTestId('field-validation.observation.chip.0'));
+    expect(screen.getByTestId('field-validation.observation-input')).toHaveProp('value', 'Plus my note.');
+    expect(screen.getByText(/does not verify or close the case/)).toBeOnTheScreen();
   });
 
   it('shows a scanless office case with no AI section', async () => {
@@ -311,6 +332,21 @@ describe('FieldValidationScreen', () => {
 
   it('displays confirmation toast when completing visit', async () => {
     complete.mockResolvedValueOnce({ id: 'comp-1' } as never);
+    jest.mocked(useFieldValidationAssignment).mockReturnValue({
+      ...state,
+      complete,
+      previousVisit: {
+        referenceCode: 'CG-2026-0000',
+        visitedAt: '2026-07-01T00:00:00.000Z',
+        reporterSuspectedCondition: null,
+        authorityClassifiedCondition: null,
+        actionTaken: 'Earlier action',
+        followUpOutcome: null,
+        fieldObservation: null,
+        fieldFinding: null,
+        freshPhotoAvailable: false,
+      },
+    } as never);
     await render(
       <ToastProvider>
         <FieldValidationScreen />
@@ -400,6 +436,19 @@ describe('FieldValidationScreen', () => {
 
     it('checkpoints typed visit evidence without completing it', async () => {
       jest.useFakeTimers();
+      mockHook({
+        previousVisit: {
+          referenceCode: 'CG-2026-0000',
+          visitedAt: '2026-07-01T00:00:00.000Z',
+          reporterSuspectedCondition: null,
+          authorityClassifiedCondition: null,
+          actionTaken: 'Earlier action',
+          followUpOutcome: null,
+          fieldObservation: null,
+          fieldFinding: null,
+          freshPhotoAvailable: false,
+        },
+      });
       try {
         await render(<FieldValidationScreen />);
         await fireEvent.changeText(

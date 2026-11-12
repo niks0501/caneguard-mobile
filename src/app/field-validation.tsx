@@ -24,9 +24,11 @@ import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { HelpHintGroup } from '@/components/ui/HelpHint';
 import { Row } from '@/components/ui/Row';
 import { TextField } from '@/components/ui/TextField';
-import { CASE_CLOSE_NOTICE, DECISION_SUPPORT_DISCLAIMER, FIELD_VALIDATION_UNAVAILABLE, NAMING } from '@/constants/copy';
+import { CASE_CLOSE_NOTICE, DECISION_SUPPORT_DISCLAIMER, FIELD_VALIDATION_UNAVAILABLE, NAMING, VISIT_CHIPS } from '@/constants/copy';
 import { FollowUpOutcomeControl, OUTCOME_LABELS } from '@/features/assignments/components/FollowUpOutcomeControl';
 import { OfficeCaseCard } from '@/features/assignments/components/OfficeCaseCard';
+import { SentenceChips } from '@/features/assignments/components/SentenceChips';
+import { toggleSentence } from '@/features/assignments/domain/visitSentenceChips';
 import { PreviousVisitCard } from '@/features/assignments/components/PreviousVisitCard';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
@@ -278,6 +280,7 @@ export default function FieldValidationScreen() {
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
             <View style={styles.content}>
               <VisitContext assignment={state.assignment} />
+              <CaseUnderCheck assignment={state.assignment} />
               <OfficeCaseCard
                 accessToken={state.photoAccessToken}
                 assignment={state.assignment}
@@ -367,6 +370,20 @@ function VisitContext({ assignment }: { assignment: FieldValidationAssignment })
   );
 }
 
+/** The case being checked comes first, so the inspector knows what the visit is about. */
+function CaseUnderCheck({ assignment }: { assignment: FieldValidationAssignment }) {
+  const theme = useTheme();
+  return (
+    <View testID="field-validation.case-under-check" style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
+      <View style={styles.heading}><Feather name="search" size={20} color={theme.primary} /><Text style={[styles.title, { color: theme.text }]}>{VISIT_CHIPS.caseTitle}</Text></View>
+      {assignment.case.predictedLabel === null ? null : (
+        <Row label="Possible Condition" value={canonicalResultName(assignment.case.predictedLabel)} />
+      )}
+      <Row label="Submitted by" value={assignment.submitter.name} />
+    </View>
+  );
+}
+
 function VisitHistory({
   assignment,
   completion,
@@ -389,10 +406,6 @@ function VisitHistory({
       title="Previous visit and original report"
       summary={previousVisit ? '1 previous visit · original report' : 'No previous visit · original report'}>
       <Text style={[styles.help, { color: theme.textSecondary }]}>Recorded before this visit and submitted by the reporter. It is decision-support only, cannot be changed here, and is kept separate from your field findings.</Text>
-      {assignment.case.predictedLabel === null ? null : (
-        <Row label="Possible Condition" value={canonicalResultName(assignment.case.predictedLabel)} />
-      )}
-      <Row label="Submitted by" value={assignment.submitter.name} />
       {completion ? <Row label="Visit time" value={formatTimestamp(completion.visitedAt)} /> : null}
       <PreviousVisitCard
         currentReporterConcern={currentReporterConcern}
@@ -492,10 +505,14 @@ function EvidenceForm({
   return (
     <View testID="field-validation.form" style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
       <HelpHintGroup>
-      <FollowUpOutcomeControl previousVisitAt={previousVisitAt} value={followUpOutcome} onChange={onFollowUpOutcomeChange} />
+      {previousVisitAt ? (
+        <FollowUpOutcomeControl previousVisitAt={previousVisitAt} value={followUpOutcome} onChange={onFollowUpOutcomeChange} />
+      ) : null}
       <View style={styles.heading}><Feather name="edit-3" size={20} color={theme.primary} /><Text style={[styles.title, { color: theme.text }]}>What did you record on this visit?</Text></View>
       <TextField testID="field-validation.observation-input" label="Fresh field observation" hint="What you physically saw on this visit." helpHintText="For example: “Orange-brown pustules on the lower leaves of about a fifth of the block.”" helpHintTestID="field-validation.observation-help" value={observation} onChangeText={onObservationChange} placeholder="What did you see during this visit?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
+      <SentenceChips testIDPrefix="field-validation.observation" sentences={VISIT_CHIPS.observation} currentText={observation} onToggle={(sentence) => onObservationChange(toggleSentence(observation, sentence, FIELD_VALIDATION_TEXT_MAX_LENGTH))} />
       <TextField testID="field-validation.finding-input" label="Field finding" hint="Your own assessment of what those observations mean here." helpHintText="For example: “Lesions consistent with Rust; no smut whip seen in the sampled rows.”" helpHintTestID="field-validation.finding-help" value={finding} onChangeText={onFindingChange} placeholder="Describe the field finding needed by the office." maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
+      <SentenceChips testIDPrefix="field-validation.finding" sentences={VISIT_CHIPS.finding} currentText={finding} onToggle={(sentence) => onFindingChange(toggleSentence(finding, sentence, FIELD_VALIDATION_TEXT_MAX_LENGTH))} />
       <Pressable
         testID="field-validation.copy-observation"
         accessibilityRole="button"
@@ -511,6 +528,7 @@ function EvidenceForm({
         </Text>
       </Pressable>
       <TextField testID="field-validation.action-input" label="Action taken" hint="What you actually did or told the farmer." helpHintText="For example: “Advised removal of affected leaves and a follow-up visit in 7 days.”" helpHintTestID="field-validation.action-help" value={action} onChangeText={onActionChange} placeholder="What action or guidance was provided?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
+      <SentenceChips testIDPrefix="field-validation.action" sentences={VISIT_CHIPS.action} currentText={action} onToggle={(sentence) => onActionChange(toggleSentence(action, sentence, FIELD_VALIDATION_TEXT_MAX_LENGTH))} />
       {photo ? (
         <View style={styles.photoContainer}>
           <ExpoImage source={{ uri: photo.uri }} accessibilityLabel="Fresh visit photo" cachePolicy="memory-disk" contentFit="cover" style={styles.photo} />

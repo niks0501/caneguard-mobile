@@ -24,6 +24,36 @@ export const DECISION_SUPPORT_DISCLAIMER =
 export const CASE_CLOSE_NOTICE =
   'Completing this visit saves your field findings. It does not verify or close the case.';
 
+/**
+ * Visit form chips: each one writes a plain sentence into its field. The
+ * inspector can edit the sentence; observation, finding and action stay apart.
+ */
+export const VISIT_CHIPS = {
+  caseTitle: 'The case you are checking',
+  chipHint: 'Tap to add a sentence. You can edit it.',
+  observation: [
+    'Orange-brown pustules on the leaves.',
+    'Yellow or pale streaks along the leaf midrib.',
+    'Black whip-like shoots from the top of the stalk.',
+    'Spots or lesions on the leaves.',
+    'Leaves wilting or drying.',
+    'No visible symptoms in the sampled rows.',
+  ],
+  finding: [
+    'The signs match the original report.',
+    'The signs do not match the original report.',
+    'Not enough to tell yet; a closer look or a later visit is needed.',
+    'No sign of disease found.',
+  ],
+  action: [
+    'Advised the farmer to remove the affected leaves.',
+    'Advised the farmer to watch the field and report any change.',
+    'Recommended a follow-up visit.',
+    'Took photos for the office to review.',
+    'No action was needed.',
+  ],
+} as const;
+
 export const ACCOUNT_REQUEST_HINT =
   'Need an account? Ask your municipal agriculture office.';
 

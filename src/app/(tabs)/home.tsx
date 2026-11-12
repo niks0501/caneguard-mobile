@@ -68,6 +68,7 @@ export default function HomeScreen() {
     syncNote,
     !isFarmer && attention.canReadVisits && attention.visitsCheckFailed,
     !isFarmer && attention.canReadVisits && attention.visitsCheckPending,
+    !isFarmer && !attention.canReadVisits,
   );
   const now = useNow();
   // Stable identity so the memoized attention rows can skip re-rendering when

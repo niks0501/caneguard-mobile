@@ -221,6 +221,21 @@ describe('buildMorningNote', () => {
     expect(note.visitsLine).toBeNull();
   });
 
+  it('does not claim all is clear when visits cannot be read', () => {
+    expect(buildMorningNote([], null, false, false, true)).toMatchObject({
+      action: 'scan',
+      headline: null,
+      headlineOpensActivity: false,
+    });
+  });
+
+  it('keeps known work and sync notes visible when visits cannot be read', () => {
+    expect(buildMorningNote([READABLE_UPDATE], null, false, false, true).headline)
+      .toBe('One office update to read.');
+    expect(buildMorningNote([], 'Working offline.', false, false, true).headline)
+      .toBe('Working offline.');
+  });
+
   it('still says "All clear." when the visit check succeeded', () => {
     expect(buildMorningNote([], null, false).headline).toBe('All clear.');
   });

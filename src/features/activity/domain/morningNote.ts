@@ -11,7 +11,7 @@ export interface MorningNote {
   action: MorningNoteAction;
   actionLabel: string;
   /** The one sentence (or two short ones) Home leads with. */
-  headline: string;
+  headline: string | null;
   /** True when the headline is the send state, so Home makes it the Activity shortcut. */
   headlineOpensActivity: boolean;
   /** Send state shown quietly under a work headline; null when the headline already says it. */
@@ -60,6 +60,7 @@ export function buildMorningNote(
   syncNote: string | null,
   visitsCheckFailed = false,
   visitsCheckPending = false,
+  visitsUnavailable = false,
 ): MorningNote {
   const work = items.filter(isActionableAttentionItem);
   const primary = work[0];
@@ -124,7 +125,7 @@ export function buildMorningNote(
   return {
     action,
     actionLabel,
-    headline: syncNote ?? HOME_NOTE_COPY.allClear,
+    headline: syncNote ?? (visitsUnavailable ? null : HOME_NOTE_COPY.allClear),
     headlineOpensActivity: Boolean(syncNote),
     syncLine: null,
     visitsLine,

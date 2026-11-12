@@ -303,7 +303,7 @@ describe('useHomeAttention', () => {
 
   async function renderUpcomingVisitHook(canRead = true) {
     mockUseAssignments.mockReturnValue({
-      assignments: [
+      assignments: canRead ? [
         {
           id: 'assign-1',
           ownerIdentity: 'user-1',
@@ -332,8 +332,8 @@ describe('useHomeAttention', () => {
             confidence: 0.93,
           },
         },
-      ],
-      ready: true,
+      ] : [],
+      ready: canRead,
       failed: false,
       canRead,
       capabilityUnavailable: false,

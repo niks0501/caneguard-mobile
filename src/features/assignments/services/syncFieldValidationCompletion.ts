@@ -36,7 +36,7 @@ export async function syncFieldValidationCompletion({
     return { reportId: completionId, remoteId: completion.remoteId, status: 'already-synced' };
   }
   if (!token) {
-    const error = new SyncError('AUTH_REQUIRED', 'Sign in before synchronizing field validation evidence.');
+    const error = new SyncError('AUTH_REQUIRED', 'Sign in before synchronizing visit evidence.');
     await repository.markFailed(completionId, error.code, now().toISOString());
     return { reportId: completionId, status: 'failed', error };
   }

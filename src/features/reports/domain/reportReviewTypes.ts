@@ -54,7 +54,7 @@ const AUTHORITY_REVIEW_LABELS: Record<
   string
 > = {
   submitted_unverified: 'Awaiting authority review',
-  for_field_validation: 'Field validation needed',
+  for_field_validation: 'Visit needed',
   verified_by_staff: 'Verified by staff',
   unable_to_verify: 'Unable to verify',
   resolved: 'Resolved',

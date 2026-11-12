@@ -1,4 +1,9 @@
-import { OFFICE_UPDATE_NOT_ON_PHONE, UNFINISHED_COPY } from '@/constants/copy';
+import {
+  NAMING,
+  OFFICE_UPDATE_NOT_ON_PHONE,
+  UNFINISHED_COPY,
+  visitTerminology,
+} from '@/constants/copy';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import {
   assignmentDueMeta,
@@ -80,7 +85,7 @@ export function firstActionableAttentionItem(
 
 /**
  * Build the Needs Attention block: unfinished local drafts, unread office
- * updates, active/due field assignments, and report upload work, ordered by
+ * updates, active/due visits, and report upload work, ordered by
  * immediacy. The presenter caps the detailed rows and offers expansion for the
  * rest.
  */
@@ -182,12 +187,12 @@ function unreadNotificationItems(input: {
         destination,
         id: `notification-${notification.id}`,
         kind: 'notification' as const,
-        message: notification.message,
+        message: visitTerminology(notification.message),
         meta:
           destination.kind === 'unavailable'
             ? OFFICE_UPDATE_NOT_ON_PHONE
             : notification.referenceCode ?? 'Case activity',
-        title: notification.title,
+        title: visitTerminology(notification.title),
         tone: 'whisper' as const,
       };
     });
@@ -213,7 +218,7 @@ function assignmentItems(input: {
         meta: assignmentDueMeta(assignment, input.today),
         place: assignment.case.barangay,
         referenceCode: assignment.referenceCode,
-        title: `Field visit for ${assignment.referenceCode}`,
+        title: `${NAMING.visit} for ${assignment.referenceCode}`,
         tone: bucket === 'overdue' ? 'note' : 'whisper',
       };
     });
@@ -233,7 +238,7 @@ function uploadItems(input: {
   const completionsCount = input.pendingCompletionsCount ?? 0;
   let nounPhrase = `${input.pendingUploadCount} ${input.pendingUploadCount === 1 ? 'report' : 'reports'}`;
   if (completionsCount > 0 && reportsCount === 0) {
-    nounPhrase = `${completionsCount} ${completionsCount === 1 ? 'field visit' : 'field visits'}`;
+    nounPhrase = `${completionsCount} ${completionsCount === 1 ? 'visit' : 'visits'}`;
   } else if (completionsCount > 0 && reportsCount > 0) {
     nounPhrase = `${input.pendingUploadCount} ${input.pendingUploadCount === 1 ? 'item' : 'items'}`;
   }
@@ -246,7 +251,7 @@ function uploadItems(input: {
         ? input.syncErrorMessage ??
           'Some items could not be sent yet. They stay saved on this device.'
         : completionsCount > 0 && reportsCount === 0
-          ? 'Completed field visits saved on this device are waiting to send.'
+          ? 'Completed visits saved on this device are waiting to send.'
           : 'Reports saved on this device are waiting to send.',
       meta: failed ? UPLOAD_FAILED_META : 'Waiting to send',
       title: `${nounPhrase} waiting to send`,

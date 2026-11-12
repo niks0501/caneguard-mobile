@@ -112,7 +112,7 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
           heading: 'When to ask for help',
           paragraphs: [
             'Ask for help when a whole block is yielding below its usual level, when growth is patchy for no clear reason, or when leaves change colour across many plants rather than a few.',
-            'Bring the block name, the variety, the planting date and a few photos, including the underside of the leaves. That information is what makes a field visit useful.',
+            'Bring the block name, the variety, the planting date and a few photos, including the underside of the leaves. That information is what makes a visit useful.',
           ],
         },
       ],

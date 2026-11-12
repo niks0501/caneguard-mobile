@@ -80,7 +80,7 @@ export async function saveFieldValidationCompletion(
         if (existing.id !== input.id) {
           throw new StorageError(
             'UPDATE_FAILED',
-            'This assignment already has saved validation evidence.',
+            'This visit already has saved visit evidence.',
           );
         }
         return toCompletion(existing);
@@ -118,12 +118,12 @@ export async function saveFieldValidationCompletion(
         .where(eq(fieldValidationCompletions.id, input.id))
         .get();
       if (!created) {
-        throw new StorageError('UPDATE_FAILED', 'The saved validation evidence could not be reloaded.');
+        throw new StorageError('UPDATE_FAILED', 'The saved visit evidence could not be reloaded.');
       }
       return toCompletion(created);
     });
   } catch (error: unknown) {
-    throw toStorageError(error, 'UPDATE_FAILED', 'Saving field validation evidence failed.');
+    throw toStorageError(error, 'UPDATE_FAILED', 'Saving visit evidence failed.');
   }
 }
 
@@ -139,7 +139,7 @@ export async function listFieldValidationCompletions(
       .orderBy(asc(fieldValidationCompletions.visitedAt), asc(fieldValidationCompletions.createdAt));
     return rows.map(toCompletion);
   } catch (error: unknown) {
-    throw toStorageError(error, 'QUERY_FAILED', 'Reading saved field validation visits failed.');
+    throw toStorageError(error, 'QUERY_FAILED', 'Reading saved visits failed.');
   }
 }
 
@@ -158,7 +158,7 @@ export async function listFieldValidationCompletionSummaries(
       .where(eq(fieldValidationCompletions.ownerIdentity, requireOwner(ownerIdentity)))
       .orderBy(asc(fieldValidationCompletions.visitedAt));
   } catch (error: unknown) {
-    throw toStorageError(error, 'QUERY_FAILED', 'Reading saved field validation visits failed.');
+    throw toStorageError(error, 'QUERY_FAILED', 'Reading saved visits failed.');
   }
 }
 
@@ -180,7 +180,7 @@ export async function findFieldValidationCompletion(
       .get();
     return row ? toCompletion(row) : null;
   } catch (error: unknown) {
-    throw toStorageError(error, 'QUERY_FAILED', 'Reading saved field validation evidence failed.');
+    throw toStorageError(error, 'QUERY_FAILED', 'Reading saved visit evidence failed.');
   }
 }
 
@@ -201,11 +201,11 @@ export async function findFieldValidationCompletionById(
       )
       .get();
     if (!row) {
-      throw new StorageError('FIELD_VALIDATION_COMPLETION_NOT_FOUND', 'The saved validation evidence does not exist.');
+      throw new StorageError('FIELD_VALIDATION_COMPLETION_NOT_FOUND', 'The saved visit evidence does not exist.');
     }
     return toCompletion(row);
   } catch (error: unknown) {
-    throw toStorageError(error, 'QUERY_FAILED', 'Reading saved field validation evidence failed.');
+    throw toStorageError(error, 'QUERY_FAILED', 'Reading saved visit evidence failed.');
   }
 }
 
@@ -245,7 +245,7 @@ export async function findFieldValidationCompletionSyncCandidates(
       .limit(normalizedLimit);
     return Promise.all(rows.map(({ id }) => findFieldValidationCompletionById(database, id, ownerIdentity)));
   } catch (error: unknown) {
-    throw toStorageError(error, 'QUERY_FAILED', 'Reading pending field validation evidence failed.');
+    throw toStorageError(error, 'QUERY_FAILED', 'Reading pending visit evidence failed.');
   }
 }
 
@@ -332,7 +332,7 @@ export async function resetStaleSyncingFieldValidationCompletions(
       );
     emitSyncRecordsChanged();
   } catch (error: unknown) {
-    throw toStorageError(error, 'UPDATE_FAILED', 'Recovering interrupted field validation synchronization failed.');
+    throw toStorageError(error, 'UPDATE_FAILED', 'Recovering interrupted visit synchronization failed.');
   }
 }
 
@@ -353,7 +353,7 @@ export async function countUnsyncedFieldValidationCompletions(
       .get();
     return Number(row?.count ?? 0);
   } catch (error: unknown) {
-    throw toStorageError(error, 'QUERY_FAILED', 'Counting pending field validation evidence failed.');
+    throw toStorageError(error, 'QUERY_FAILED', 'Counting pending visit evidence failed.');
   }
 }
 
@@ -369,7 +369,7 @@ export async function findLastSuccessfulFieldValidationCompletionSyncAt(
       .get();
     return row?.value ?? null;
   } catch (error: unknown) {
-    throw toStorageError(error, 'QUERY_FAILED', 'Reading the last field validation synchronization time failed.');
+    throw toStorageError(error, 'QUERY_FAILED', 'Reading the last visit synchronization time failed.');
   }
 }
 
@@ -403,7 +403,7 @@ async function updateSyncState(
     emitSyncRecordsChanged();
     return result.changes;
   } catch (error: unknown) {
-    throw toStorageError(error, 'UPDATE_FAILED', 'Updating field validation synchronization state failed.');
+    throw toStorageError(error, 'UPDATE_FAILED', 'Updating visit synchronization state failed.');
   }
 }
 
@@ -439,6 +439,6 @@ function toCompletion(row: FieldValidationCompletionRow): FieldValidationComplet
 
 function requireOwner(value: string): string {
   const owner = value.trim();
-  if (!owner) throw new StorageError('UPDATE_FAILED', 'The field validation owner is invalid.');
+  if (!owner) throw new StorageError('UPDATE_FAILED', 'The visit owner is invalid.');
   return owner;
 }

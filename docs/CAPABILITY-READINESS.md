@@ -153,11 +153,14 @@ tests. "Implemented" does not mean "verified on a device":
   and `src/features/activity/domain/needsAttention.ts` (ordering and
   destinations).
 - Home: the Morning Note sentence and its one button, the greeting and date
-  band with an Offline chip while offline, the "Today at a glance" strip, icon
-  tool tiles, and the four-class "Know the signs" photo strip. A farmer session
-  also sees one plain sentence when the phone holds saved inspector work that
-  is waiting for an inspector to sign in; it never shows a count or detail.
-- Today's field work, Activity, office updates, Field guide, Settings
+  band with an Offline chip while offline, icon tool tiles, and the four-class
+  "Know the signs" photo strip. The visits due today and overdue are counted
+  once by that note, which owns the sentence: the counts join the headline when
+  a visit leads, and otherwise move to the quiet line under the headline, so a
+  leading office update never hides them. A farmer session also sees one plain
+  sentence when the phone holds saved inspector work that is waiting for an
+  inspector to sign in; it never shows a count or detail.
+- Visits, Activity, office updates, Field guide, Settings
   (including the farmer **Language / Wika** switch).
 
 ## Deployment-dependent behaviour

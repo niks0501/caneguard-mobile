@@ -88,6 +88,26 @@ describe('FieldValidationScreen', () => {
     expect(screen.queryByTestId('field-validation.complete')).not.toBeOnTheScreen();
   });
 
+  it('names the screen and its primary action with the Visit word', async () => {
+    await render(<FieldValidationScreen />);
+
+    expect(screen.getByRole('header', { name: 'Visit' })).toBeOnTheScreen();
+    expect(screen.getByTestId('field-validation.complete')).toHaveTextContent('Complete visit');
+  });
+
+  it('shows the target visit date in the one shared display format', async () => {
+    jest.mocked(useFieldValidationAssignment).mockReturnValue({
+      ...state,
+      complete,
+      assignment: { ...state.assignment, targetVisitDate: '2026-11-09' },
+    } as never);
+
+    await render(<FieldValidationScreen />);
+
+    expect(screen.getByText('Nov 9, 2026')).toBeOnTheScreen();
+    expect(screen.queryByText('2026-11-09')).not.toBeOnTheScreen();
+  });
+
   it('requires fresh observation, finding, and action before saving offline completion', async () => {
     jest.mocked(useFieldValidationAssignment).mockReturnValue({
       ...state,
@@ -370,7 +390,7 @@ describe('FieldValidationScreen', () => {
         /Draft saved on this device/,
       );
       expect(
-        screen.getByLabelText('Fresh field validation photo'),
+        screen.getByLabelText('Fresh visit photo'),
       ).toHaveProp('source', {
         uri: 'file:///managed/field-validation/owner/assignment-draft.png',
       });
@@ -470,7 +490,7 @@ describe('FieldValidationScreen', () => {
 
       await render(<FieldValidationScreen />);
       expect(
-        screen.getByLabelText('Fresh field validation photo'),
+        screen.getByLabelText('Fresh visit photo'),
       ).toBeOnTheScreen();
 
       await fireEvent.press(screen.getByTestId('field-validation.remove-photo'));
@@ -484,7 +504,7 @@ describe('FieldValidationScreen', () => {
       });
       expect(deleteFieldValidationPhoto).not.toHaveBeenCalled();
       expect(
-        screen.queryByLabelText('Fresh field validation photo'),
+        screen.queryByLabelText('Fresh visit photo'),
       ).not.toBeOnTheScreen();
     });
 
@@ -510,11 +530,11 @@ describe('FieldValidationScreen', () => {
       await fireEvent.press(screen.getByTestId('field-validation.capture-photo'));
 
       expect(
-        screen.getByLabelText('Fresh field validation photo'),
+        screen.getByLabelText('Fresh visit photo'),
       ).toBeOnTheScreen();
       await fireEvent.press(screen.getByTestId('field-validation.remove-photo'));
       expect(
-        screen.queryByLabelText('Fresh field validation photo'),
+        screen.queryByLabelText('Fresh visit photo'),
       ).not.toBeOnTheScreen();
 
       const copied = {
@@ -527,7 +547,7 @@ describe('FieldValidationScreen', () => {
       });
 
       expect(
-        screen.queryByLabelText('Fresh field validation photo'),
+        screen.queryByLabelText('Fresh visit photo'),
       ).not.toBeOnTheScreen();
       expect(deleteFieldValidationPhoto).toHaveBeenCalledWith(
         copied.uri,
@@ -543,7 +563,7 @@ describe('FieldValidationScreen', () => {
       await fireEvent.press(screen.getByTestId('field-validation.capture-photo'));
 
       expect(
-        screen.getByLabelText('Fresh field validation photo'),
+        screen.getByLabelText('Fresh visit photo'),
       ).toBeOnTheScreen();
 
       await fireEvent.press(screen.getByTestId('field-validation.remove-photo'));
@@ -554,7 +574,7 @@ describe('FieldValidationScreen', () => {
       );
       expect(saveDraftCheckpoint).not.toHaveBeenCalled();
       expect(
-        screen.queryByLabelText('Fresh field validation photo'),
+        screen.queryByLabelText('Fresh visit photo'),
       ).not.toBeOnTheScreen();
     });
   });

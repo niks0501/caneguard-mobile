@@ -183,6 +183,11 @@ Key rules:
 
 Required product language:
 
+- one thing keeps one name: screen titles, tabs, filters, counts, and
+  accessibility labels take their noun from `NAMING` in
+  `src/constants/copy.ts` (`Visit`, `Report`, `Scan`, `Plot`), while routes and
+  stored data keep their technical names such as `field-validation` and
+  `assignments`;
 - prefer `Possible disease` over `Diagnosis`;
 - prefer `Confidence` over `Accuracy`;
 - saved but unsent work reads `Waiting to send`; only a real failed upload attempt reads `Could not send`, while a boundary survey reads its own state label from `BOUNDARY_STATE_COPY` and its single screen status line from `FIELD_SURVEY_MODE_COPY`, both in `src/constants/copy.ts`;

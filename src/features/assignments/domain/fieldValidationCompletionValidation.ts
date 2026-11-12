@@ -71,7 +71,7 @@ export function validateFieldValidationCompletionInput(
 export function normalizeFieldValidationText(value: string): string {
   const normalized = value.trim();
   if (!normalized || normalized.length > FIELD_VALIDATION_TEXT_MAX_LENGTH) {
-    invalid('Field validation evidence is required and must be no more than 2,000 characters.');
+    invalid('Visit evidence is required and must be no more than 2,000 characters.');
   }
   return normalized;
 }

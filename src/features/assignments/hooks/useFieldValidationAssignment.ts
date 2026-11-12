@@ -96,7 +96,7 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       return;
     }
     if (!assignmentId || authStatus !== 'authenticated' || !requestedSession) {
-      setState({ assignment: null, completion: null, currentReporterConcern: null, errorMessage: 'Sign in to open this assignment.', loading: false, previousVisit: null, saving: false });
+      setState({ assignment: null, completion: null, currentReporterConcern: null, errorMessage: 'Sign in to open this visit.', loading: false, previousVisit: null, saving: false });
       return;
     }
     setState((current) => ({ ...current, errorMessage: null, loading: true }));
@@ -107,7 +107,7 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       ]);
       if (sessionRef.current?.token !== requestedSession.token || !mounted.current) return;
       if (!assignment) {
-        setState({ assignment: null, completion: null, currentReporterConcern: null, errorMessage: 'This assignment is not downloaded on this device. Refresh Activity while online first.', loading: false, previousVisit: null, saving: false });
+        setState({ assignment: null, completion: null, currentReporterConcern: null, errorMessage: 'This visit is not downloaded on this device. Refresh Activity while online first.', loading: false, previousVisit: null, saving: false });
         return;
       }
       let currentReporterConcern: string | null = null;
@@ -141,7 +141,7 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       if (!mounted.current) return;
       setState((current) => ({
         ...current,
-        errorMessage: getStorageErrorMessage(toStorageError(error, 'QUERY_FAILED', 'The saved assignment could not be opened.')),
+        errorMessage: getStorageErrorMessage(toStorageError(error, 'QUERY_FAILED', 'The saved visit could not be opened.')),
         loading: false,
       }));
     }
@@ -290,7 +290,7 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       if (createdPhotoUri && !completionSaved) {
         deleteFieldValidationPhoto(createdPhotoUri, session.user.uuid);
       }
-      const message = getStorageErrorMessage(toStorageError(error, 'UPDATE_FAILED', 'The field validation evidence could not be saved.'));
+      const message = getStorageErrorMessage(toStorageError(error, 'UPDATE_FAILED', 'The visit evidence could not be saved.'));
       if (mounted.current) setState((current) => ({ ...current, errorMessage: message, saving: false }));
       return null;
     }
@@ -303,7 +303,7 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       await sync.retryFieldValidationCompletion(state.completion.id);
       await refresh();
     } catch (error: unknown) {
-      if (mounted.current) setState((current) => ({ ...current, errorMessage: getStorageErrorMessage(toStorageError(error, 'UPDATE_FAILED', 'Retrying field validation synchronization failed.')), saving: false }));
+      if (mounted.current) setState((current) => ({ ...current, errorMessage: getStorageErrorMessage(toStorageError(error, 'UPDATE_FAILED', 'Retrying visit synchronization failed.')), saving: false }));
     }
   }, [canComplete, refresh, state.completion, sync]);
 

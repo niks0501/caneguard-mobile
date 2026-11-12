@@ -103,7 +103,7 @@ function validateCompletion(
     invalid('GPS accuracy is invalid.');
   }
   if (completion.freshPhotoUri && !imageExists(completion.freshPhotoUri)) {
-    throw new SyncError('IMAGE_MISSING', 'The saved field validation photo is missing.');
+    throw new SyncError('IMAGE_MISSING', 'The saved visit photo is missing.');
   }
   if (!completion.freshPhotoUri && (completion.freshPhotoMimeType !== null || completion.freshPhotoSizeBytes !== null)) {
     invalid('Fresh photo metadata is incomplete.');

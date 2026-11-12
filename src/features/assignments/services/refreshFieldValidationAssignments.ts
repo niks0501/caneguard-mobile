@@ -90,7 +90,7 @@ async function executeRefresh(options: {
     token: options.token,
     since: held?.version ?? null,
   });
-  if (!options.isCurrent()) throw new Error('The assignment refresh was superseded.');
+  if (!options.isCurrent()) throw new Error('The visit refresh was superseded.');
   const fetchedAt = new Date().toISOString();
   const checkpoint: SyncCheckpoint = {
     feed: 'assignments',

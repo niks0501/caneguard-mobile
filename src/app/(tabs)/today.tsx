@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AppButton } from '@/components/ui/AppButton';
+import { NAMING } from '@/constants/copy';
 import { ComponentTokens, Layout, Spacing, Typography } from '@/constants/theme';
 import { AssignmentCard } from '@/features/activity/components/AssignmentCard';
 import {
@@ -49,7 +50,7 @@ export default function TodayScreen() {
   const handleRefresh = async () => {
     const success = await state.refresh();
     if (success) {
-      showToast('Assignments refreshed', 'info');
+      showToast(`${NAMING.visits} refreshed`, 'info');
     } else {
       showToast('Refresh failed', 'error');
     }
@@ -58,7 +59,7 @@ export default function TodayScreen() {
   return (
     <SafeAreaView testID="today.screen" style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Today's field work" subtitle="Visits ordered by due date and barangay." showBack={false} />
+        <BrandedScreenHeader title={NAMING.visits} subtitle="Visits ordered by due date and barangay." showBack={false} />
         <ScrollView
           testID="today.scroll"
           showsVerticalScrollIndicator={false}
@@ -79,14 +80,14 @@ export default function TodayScreen() {
                 style={[styles.noticeCard, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
                 <Text style={[styles.noticeTitle, { color: theme.warning }]}>
                   {state.capabilityUnavailable
-                    ? 'Visit assignments unavailable'
+                    ? `${NAMING.visits} unavailable`
                     : hasVisits
                       ? 'Could not refresh visits'
                       : 'Visits could not be refreshed'}
                 </Text>
                 <Text testID="today.refresh-message" style={[styles.noticeBody, { color: theme.text }]}>
                   {state.capabilityUnavailable
-                    ? 'This server does not provide visit assignments. Any visits already downloaded stay on this device.'
+                    ? 'This server does not provide visits. Any visits already downloaded stay on this device.'
                     : hasVisits
                       ? 'Showing the visits already downloaded on this device. Refresh when the connection returns.'
                       : 'Nothing was downloaded on this refresh. Any saved visits stay on this device — this is not proof that the office assigned none.'}
@@ -102,7 +103,7 @@ export default function TodayScreen() {
 
             {state.refreshing && !hasVisits && !state.errorMessage && !state.lastSuccessfulAt ? (
               <View style={styles.centered}>
-                <ActivityIndicator accessibilityLabel="Loading today's field work" color={theme.primary} />
+                <ActivityIndicator accessibilityLabel="Loading visits" color={theme.primary} />
               </View>
             ) : hasVisits ? (
               <>
@@ -129,9 +130,9 @@ export default function TodayScreen() {
               <EmptyState
                 icon="clipboard"
                 title="Visits are not available"
-                message="This server does not provide visit assignments for this account. Downloaded visits stay readable offline."
+                message="This server does not provide visits for this account. Downloaded visits stay readable offline."
                 testID="today.state.capability-unavailable">
-                <AppButton onPress={() => void handleRefresh()} leadingIcon="refresh-cw">Refresh assignments</AppButton>
+                <AppButton onPress={() => void handleRefresh()} leadingIcon="refresh-cw">Refresh visits</AppButton>
               </EmptyState>
             ) : state.errorMessage ? (
               <EmptyState
@@ -139,7 +140,7 @@ export default function TodayScreen() {
                 title="No visits downloaded"
                 message="The last refresh did not complete, so CaneGuard cannot say whether the office assigned visits. Saved work on this device is unchanged."
                 testID="today.state.refresh-failed">
-                <AppButton onPress={() => void handleRefresh()} leadingIcon="refresh-cw">Refresh assignments</AppButton>
+                <AppButton onPress={() => void handleRefresh()} leadingIcon="refresh-cw">Refresh visits</AppButton>
               </EmptyState>
             ) : state.completedTodayCount > 0 ? (
               <EmptyState
@@ -147,7 +148,7 @@ export default function TodayScreen() {
                 title="All today's visits completed"
                 message="You finished every open visit for today. New visits from the office appear here after a refresh."
                 testID="today.state.all-completed">
-                <AppButton onPress={() => void handleRefresh()} leadingIcon="refresh-cw">Refresh assignments</AppButton>
+                <AppButton onPress={() => void handleRefresh()} leadingIcon="refresh-cw">Refresh visits</AppButton>
               </EmptyState>
             ) : (
               <EmptyState
@@ -155,7 +156,7 @@ export default function TodayScreen() {
                 title="No open visits"
                 message="Visits that are due, overdue, or upcoming appear here after a successful refresh."
                 testID="today.state.no-open-visits">
-                <AppButton onPress={() => void handleRefresh()} leadingIcon="refresh-cw">Refresh assignments</AppButton>
+                <AppButton onPress={() => void handleRefresh()} leadingIcon="refresh-cw">Refresh visits</AppButton>
               </EmptyState>
             )}
 

@@ -69,12 +69,12 @@ export function assignmentDueMeta(
       : 'Visit scheduled';
   }
   if (assignment.targetVisitDate < today) {
-    return `Visit was due ${assignment.targetVisitDate}`;
+    return `Visit was due ${formatDate(assignment.targetVisitDate)}`;
   }
   if (assignment.targetVisitDate === today) {
     return 'Visit due today';
   }
-  return `Visit due ${assignment.targetVisitDate}`;
+  return `Visit due ${formatDate(assignment.targetVisitDate)}`;
 }
 
 export function formatTodayDueLine(

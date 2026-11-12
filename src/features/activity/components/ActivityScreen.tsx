@@ -27,7 +27,7 @@ import { useRefreshAll } from '@/features/activity/hooks/useRefreshAll';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import { RecordCard } from '@/components/ui/RecordCard';
 import { AppButton } from '@/components/ui/AppButton';
-import { assignmentsSkippedMessage, OFFICE_UPDATES_OPEN_LABEL } from '@/constants/copy';
+import { assignmentsSkippedMessage, NAMING, OFFICE_UPDATES_OPEN_LABEL } from '@/constants/copy';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SyncStatusPanel } from '@/components/ui/SyncStatusPanel';
@@ -290,15 +290,15 @@ function InspectorActivityScreen() {
       <StateCard
         icon="loader"
         title="Loading activity"
-        message="Reading saved reports, scans, and assignments from this device."
+        message={`Reading saved reports, scans, and ${NAMING.visits.toLowerCase()} from this device.`}
         liveRegion="polite">
         <ActivityIndicator accessibilityLabel="Loading activity" color={theme.primary} />
       </StateCard>
     ) : activityCount === 0 ? (
       <StateCard
         icon={hasFilters ? 'search' : 'activity'}
-        title={getEmptyTitle(activeFilter, hasFilters)}
-        message={getEmptyMessage(activeFilter, hasFilters)}>
+        title={getEmptyTitle(hasFilters)}
+        message={getEmptyMessage(hasFilters)}>
         {hasFilters ? (
           <AppButton onPress={clearFilters} variant="secondary">
             Clear Filters
@@ -525,6 +525,15 @@ function syncSummary(sync: { isOnline: boolean | null; isSyncing: boolean; pendi
   return 'All sent';
 }
 
+const ACTIVITY_FILTER_NOUNS: Record<
+  Exclude<CurrentActivityFilter, 'all'>,
+  { one: string; other: string }
+> = {
+  reports: { one: NAMING.report.toLowerCase(), other: NAMING.reports.toLowerCase() },
+  assignments: { one: NAMING.visit.toLowerCase(), other: NAMING.visits.toLowerCase() },
+  scans: { one: NAMING.scan.toLowerCase(), other: NAMING.scans.toLowerCase() },
+};
+
 function formatActivityCount(
   count: number,
   filter: CurrentActivityFilter,
@@ -532,7 +541,8 @@ function formatActivityCount(
   if (filter === 'all') {
     return `${count} ${count === 1 ? 'activity item' : 'activity items'}`;
   }
-  return `${count} ${filter}`;
+  const noun = ACTIVITY_FILTER_NOUNS[filter];
+  return `${count} ${count === 1 ? noun.one : noun.other}`;
 }
 
 function matchesSearch(
@@ -549,42 +559,14 @@ function matchesSearch(
   ].some((value) => value?.toLowerCase().includes(query));
 }
 
-function getEmptyTitle(
-  filter: CurrentActivityFilter,
-  hasFilters: boolean,
-): string {
-  if (hasFilters) {
-    return 'No matching activity';
-  }
-  if (filter === 'reports') {
-    return 'No reports yet';
-  }
-  if (filter === 'scans') {
-    return 'No scan-only activity yet';
-  }
-  if (filter === 'assignments') {
-    return 'No assignments yet';
-  }
-  return 'No activity yet';
+function getEmptyTitle(hasFilters: boolean): string {
+  return hasFilters ? 'No matching activity' : 'No activity yet';
 }
 
-function getEmptyMessage(
-  filter: CurrentActivityFilter,
-  hasFilters: boolean,
-): string {
-  if (hasFilters) {
-    return 'No field activity matches the current search and filter.';
-  }
-  if (filter === 'reports') {
-    return 'Reports sent to the office will appear here.';
-  }
-  if (filter === 'scans') {
-    return 'Keep a scan without reporting it to the office and it will appear here.';
-  }
-  if (filter === 'assignments') {
-    return 'Assignments from the office will appear here after a refresh.';
-  }
-  return 'Complete a scan to start building your field activity.';
+function getEmptyMessage(hasFilters: boolean): string {
+  return hasFilters
+    ? 'No field activity matches the current search and filter.'
+    : 'Complete a scan to start building your field activity.';
 }
 
 function StateCard({

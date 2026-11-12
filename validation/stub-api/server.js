@@ -42,6 +42,22 @@ const ME_PATH = '/api/v1/mobile/auth/me';
 const ASSIGNMENTS_PATH = '/api/v1/mobile/assignments';
 const NOTIFICATIONS_PATH = '/api/v1/mobile/notifications';
 const NOTIFICATIONS_READ_ALL_PATH = '/api/v1/mobile/notifications/read-all';
+const SEEDED_OFFICE_NOTIFICATION = {
+  id: '4e04321c-a879-423f-875d-4cdce5e028a6',
+  event_type: 'field_validation_assigned',
+  title: 'Field validation assigned',
+  message: 'A field validation assignment is ready.',
+  case: {
+    uuid: '7e8c2e48-a2d4-4aca-9a50-9ca460fd7a7f',
+    reference_code: 'CG-LAB-0001',
+  },
+  assignment_uuid: 'b8c9d0e1-f2a3-4b4c-9d5e-7f8091a2b3c4',
+  content: null,
+  advisory: null,
+  is_read: false,
+  read_at: null,
+  created_at: '2026-11-01T02:00:00.000Z',
+};
 const SESSION_SECONDS = 30 * 24 * 60 * 60;
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
@@ -272,14 +288,22 @@ function createRequestHandler({
     }
 
     if (pathname === NOTIFICATIONS_PATH && req.method === 'GET') {
-      if (!authorizedAccount(req)) {
+      const account = authorizedAccount(req);
+      if (!account) {
         sendJson(res, 401, {
           code: 'UNAUTHENTICATED',
           message: 'The validation session is not signed in.',
         });
         return;
       }
-      sendJson(res, 200, emptyPage(syncBefore));
+      sendJson(res, 200, account.role === 'field_reporter'
+        ? {
+            data: [SEEDED_OFFICE_NOTIFICATION],
+            links: { next: null },
+            meta: { per_page: 100 },
+            sync: { before: syncBefore, version: syncBefore, total: 1 },
+          }
+        : emptyPage(syncBefore));
       return;
     }
 

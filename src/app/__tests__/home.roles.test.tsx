@@ -151,12 +151,12 @@ describe('HomeScreen by role (P1-5)', () => {
     expect(screen.queryByTestId('home.my-scans.needs-checking')).toBeNull();
   });
 
-  // Proves: inspector Home is unchanged (visits glance, Measure a plot, no My Scans card).
-  it('keeps the inspector Home with visits, glance and Measure a plot', async () => {
+  // Proves: inspector Home is unchanged (Measure a plot, no My Scans card).
+  it('keeps the inspector Home with visits and Measure a plot', async () => {
     mockRole = 'field_reporter';
     await render(<HomeScreen />);
     expect(screen.getByTestId('home.field-survey')).toBeTruthy();
-    expect(screen.getByText('Visits today')).toBeTruthy();
+    expect(screen.queryByText('Visits today')).toBeNull();
     expect(screen.queryByTestId('home.my-scans')).toBeNull();
   });
 });

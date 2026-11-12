@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DiseasePill, type DiseasePillVariant } from '@/components/ui/DiseasePill';
-import { ASSIGNMENT_PHOTO_PLACEHOLDER, UNFINISHED_COPY, UNRECOGNIZED_LABEL_TEXT } from '@/constants/copy';
+import { ASSIGNMENT_PHOTO_PLACEHOLDER, NAMING, UNFINISHED_COPY, UNRECOGNIZED_LABEL_TEXT } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useAssignmentPhotoUri } from '@/features/activity/hooks/useAssignmentPhoto';
 import {
@@ -61,7 +61,7 @@ export function AssignmentCard({
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={`Field validation assignment ${assignment.referenceCode}`}
+      accessibilityLabel={`${NAMING.visit} ${assignment.referenceCode}`}
       disabled={!onPress}
       onPress={onPress}
       style={({ pressed }) => [pressed && styles.pressed]}

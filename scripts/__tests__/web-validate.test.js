@@ -321,10 +321,20 @@ describe('browser validation stub API', () => {
     expect([...body]).toEqual([...uploaded]);
   });
 
-  it('serves an empty notification feed the app can parse', async () => {
+  it('serves a legacy-worded office notification for browser presentation', async () => {
     const result = await fetchAllMobileNotifications({ token: FAKE_TOKEN });
 
-    expect(result.notifications).toEqual([]);
+    expect(result.notifications).toEqual([
+      expect.objectContaining({
+        id: '4e04321c-a879-423f-875d-4cdce5e028a6',
+        eventType: 'field_validation_assigned',
+        title: 'Field validation assigned',
+        message: 'A field validation assignment is ready.',
+        caseUuid: '7e8c2e48-a2d4-4aca-9a50-9ca460fd7a7f',
+        referenceCode: 'CG-LAB-0001',
+        isRead: false,
+      }),
+    ]);
     expect(result.partial).toBe(false);
   });
 

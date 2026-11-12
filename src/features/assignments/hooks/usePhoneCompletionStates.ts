@@ -9,35 +9,60 @@ import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 
 const NO_STATES: ReadonlyMap<string, PhoneCompletionState> = new Map();
 
-interface PhoneCompletionSnapshot {
-  ownerIdentity: string | null;
+export interface PhoneCompletionSnapshot {
+  /**
+   * True only while the saved visits read for the signed-in owner is current:
+   * false while a read is running or after it failed, so a caller that decides
+   * what work is still owed never reads a stale answer.
+   */
+  ready: boolean;
   states: ReadonlyMap<string, PhoneCompletionState>;
 }
 
-const NO_SNAPSHOT: PhoneCompletionSnapshot = {
+interface OwnedPhoneCompletionSnapshot extends PhoneCompletionSnapshot {
+  ownerIdentity: string | null;
+}
+
+const NO_SNAPSHOT: OwnedPhoneCompletionSnapshot = {
   ownerIdentity: null,
+  ready: false,
   states: NO_STATES,
 };
 
-/** The visit saved on this phone for each assignment, keyed by assignment id. */
-export function usePhoneCompletionStates(): ReadonlyMap<string, PhoneCompletionState> {
+/**
+ * The visit saved on this phone for each assignment, keyed by assignment id,
+ * with the freshness of that answer. Reloads on focus and whenever local
+ * records change. The answer stops being current while a read is running, after
+ * a failed read, and as soon as the screen loses focus, so a caller that
+ * decides what work is still owed never reads a stale answer.
+ */
+export function usePhoneCompletionSnapshot(): PhoneCompletionSnapshot {
   const database = useCaneGuardDatabase();
   const ownerIdentity = useContext(AuthContext)?.session?.user.uuid ?? null;
   const [snapshot, setSnapshot] =
-    useState<PhoneCompletionSnapshot>(NO_SNAPSHOT);
+    useState<OwnedPhoneCompletionSnapshot>(NO_SNAPSHOT);
 
   useFocusEffect(
     useCallback(() => {
       if (!ownerIdentity || !database || database === EMPTY_DATABASE) return;
       let active = true;
       let latestRead = 0;
+      const invalidate = () => {
+        setSnapshot((previous) => ({
+          ownerIdentity,
+          ready: false,
+          states: previous.ownerIdentity === ownerIdentity ? previous.states : NO_STATES,
+        }));
+      };
       const load = () => {
         const read = ++latestRead;
+        invalidate();
         listFieldValidationCompletionSummaries(database, ownerIdentity)
           .then((rows) => {
             if (!active || read !== latestRead) return;
             setSnapshot({
               ownerIdentity,
+              ready: true,
               states: new Map<string, PhoneCompletionState>(
                 rows.map((row) => [
                   row.assignmentId,
@@ -46,18 +71,25 @@ export function usePhoneCompletionStates(): ReadonlyMap<string, PhoneCompletionS
               ),
             });
           })
-          .catch(() => undefined);
+          .catch(() => {
+            if (!active || read !== latestRead) return;
+            invalidate();
+          });
       };
       load();
       const unsubscribe = subscribeSyncRecords(load);
       return () => {
         active = false;
         unsubscribe();
+        invalidate();
       };
     }, [database, ownerIdentity]),
   );
 
-  return snapshot.ownerIdentity === ownerIdentity
-    ? snapshot.states
-    : NO_STATES;
+  return snapshot.ownerIdentity === ownerIdentity ? snapshot : NO_SNAPSHOT;
+}
+
+/** The visit saved on this phone for each assignment, keyed by assignment id. */
+export function usePhoneCompletionStates(): ReadonlyMap<string, PhoneCompletionState> {
+  return usePhoneCompletionSnapshot().states;
 }

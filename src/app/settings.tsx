@@ -180,7 +180,7 @@ export default function SettingsScreen() {
       `${preview.boundaries} boundar${preview.boundaries === 1 ? 'y' : 'ies'} (${preview.unsentBoundaries} not sent)`,
       `${preview.scans} saved scan${preview.scans === 1 ? '' : 's'}${preview.unsentScans > 0 ? ` (${preview.unsentScans} not sent to the office)` : ''}`,
       `${preview.draftCheckpoints} saved draft checkpoint${preview.draftCheckpoints === 1 ? '' : 's'}`,
-      `${preview.assignments} downloaded visit assignment${preview.assignments === 1 ? '' : 's'}`,
+      `${preview.assignments} downloaded visit${preview.assignments === 1 ? '' : 's'}`,
       `${preview.notifications} cached office update${preview.notifications === 1 ? '' : 's'}`,
       preview.totalUnsent > 0
         ? `⚠︎ ${preview.totalUnsent} item${preview.totalUnsent === 1 ? '' : 's'} on this device ${preview.totalUnsent === 1 ? 'has' : 'have'} not reached the office and will be lost permanently.`
@@ -380,7 +380,7 @@ export default function SettingsScreen() {
                   onPress={() =>
                     Alert.alert(
                       'Clear downloaded office data?',
-                      'This removes only data that can be downloaded again: visit assignments and office updates. Every saved scan, draft, unsent report, boundary and completed visit stays on this device.',
+                      'This removes only data that can be downloaded again: visits and office updates. Every saved scan, draft, unsent report, boundary and completed visit stays on this device.',
                       [
                         { text: 'Cancel', style: 'cancel' },
                         {

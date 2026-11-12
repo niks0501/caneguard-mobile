@@ -2,34 +2,15 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { HOME_NOTE_COPY } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
+import { getLocalDateKey } from '@/features/assignments/domain/todayVisits';
 import { useTheme } from '@/hooks/use-theme';
-
-const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MONTHS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
+import { formatDateKey } from '@/lib/formatters';
 
 export function greetingFor(now: Date): string {
   const hour = now.getHours();
   if (hour < 12) return HOME_NOTE_COPY.greeting.morning;
   if (hour < 18) return HOME_NOTE_COPY.greeting.afternoon;
   return HOME_NOTE_COPY.greeting.evening;
-}
-
-/** "Monday 2 November", built by hand so it never depends on the device's Intl data. */
-export function formatHomeDate(now: Date): string {
-  return `${WEEKDAYS[now.getDay()]} ${now.getDate()} ${MONTHS[now.getMonth()]}`;
 }
 
 export function firstNameOf(name: string | null | undefined): string | null {
@@ -56,7 +37,7 @@ export function HomeHeaderBand({ isOffline, name, now }: HomeHeaderBandProps) {
           {greeting}
         </Text>
         <Text style={[styles.date, { color: theme.textSecondary }]} testID="home.date">
-          {formatHomeDate(now)}
+          {formatDateKey(getLocalDateKey(now))}
         </Text>
       </View>
       {isOffline ? (

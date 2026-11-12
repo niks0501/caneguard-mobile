@@ -108,7 +108,7 @@ describe("TodayScreen empty states", () => {
       screen.getByTestId('today.state.capability-unavailable'),
     ).toBeOnTheScreen();
     expect(screen.getByTestId('today.refresh-error')).toHaveTextContent(
-      /Visit assignments unavailable/,
+      /Visits unavailable/,
     );
   });
 
@@ -151,7 +151,7 @@ describe("TodayScreen empty states", () => {
       errorMessage: 'failed',
     });
 
-    await fireEvent.press(screen.getByText('Refresh assignments'));
+    await fireEvent.press(screen.getByText('Refresh visits'));
     expect(mockRefresh).toHaveBeenCalledTimes(1);
   });
 
@@ -163,6 +163,6 @@ describe("TodayScreen empty states", () => {
     });
 
     expect(mockRefresh).toHaveBeenCalledTimes(1);
-    expect(mockShowToast).toHaveBeenCalledWith('Assignments refreshed', 'info');
+    expect(mockShowToast).toHaveBeenCalledWith('Visits refreshed', 'info');
   });
 });

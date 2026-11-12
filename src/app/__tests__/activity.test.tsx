@@ -190,12 +190,12 @@ describe('ActivityScreen', () => {
     };
   });
 
-  it('shows one timeline with All, Reports, Assignments, and Scans filters', async () => {
+  it('shows one timeline with All, Reports, Visits, and Scans filters', async () => {
     await render(<ActivityScreen />);
 
     expect(screen.getByTestId('activity.screen')).toBeOnTheScreen();
     expect(screen.getByRole('header')).toHaveTextContent('Activity');
-    for (const label of ['All', 'Reports', 'Assignments', 'Scans']) {
+    for (const label of ['All', 'Reports', 'Visits', 'Scans']) {
       expect(screen.getByText(label)).toBeOnTheScreen();
     }
     expect(screen.getByTestId('activity.timeline')).toBeOnTheScreen();
@@ -378,12 +378,28 @@ describe('ActivityScreen', () => {
     await fireEvent.press(screen.getByTestId('activity.filter.assignments'));
     expect(screen.getByTestId(`activity.assignment.${ASSIGNMENT.id}`)).toBeOnTheScreen();
     expect(screen.queryByLabelText('Field Report activity')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('activity.count')).toHaveTextContent('1 visit');
 
     await fireEvent.press(screen.getByTestId('activity.filter.scans'));
     expect(mockUsePaginatedScanRecords).toHaveBeenLastCalledWith(
       { hasFieldReport: false, search: undefined },
       25,
     );
+  });
+
+  it('counts Visits with the approved word', async () => {
+    mockAssignmentsState = {
+      ...mockAssignmentsState,
+      assignments: [
+        ASSIGNMENT,
+        { ...ASSIGNMENT, id: 'assignment-2', referenceCode: 'CG-2026-0002' },
+      ],
+    };
+    await render(<ActivityScreen />);
+
+    await fireEvent.press(screen.getByTestId('activity.filter.assignments'));
+
+    expect(screen.getByTestId('activity.count')).toHaveTextContent('2 visits');
   });
 
   it('opens saved activity in the existing record detail flow', async () => {

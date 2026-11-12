@@ -90,7 +90,7 @@ export async function fetchAllMobileFieldValidationAssignments(options: {
       if (restarts >= MAX_RESTARTS) {
         throw new MobileFieldValidationAssignmentsApiError(
           'NETWORK',
-          'The assignment set kept changing during the download.',
+          'The visit set kept changing during the download.',
           409,
         );
       }
@@ -120,7 +120,7 @@ async function downloadAssignments(options: {
     if (pageNumber >= pageLimit || visited.has(path)) {
       throw new MobileFieldValidationAssignmentsApiError(
         'MALFORMED_RESPONSE',
-        'The assignment feed pagination did not complete safely.',
+        'The visit list pagination did not complete safely.',
       );
     }
     visited.add(path);
@@ -130,7 +130,7 @@ async function downloadAssignments(options: {
     if (syncBefore && page.syncBefore !== syncBefore) {
       throw new MobileFieldValidationAssignmentsApiError(
         'MALFORMED_RESPONSE',
-        'The assignment feed checkpoint changed during pagination.',
+        'The visit list checkpoint changed during pagination.',
       );
     }
     syncBefore ??= page.syncBefore;
@@ -146,7 +146,7 @@ async function downloadAssignments(options: {
     } else if (page.sync.version !== sync.version || page.sync.total !== sync.total) {
       throw new MobileFieldValidationAssignmentsApiError(
         'MALFORMED_RESPONSE',
-        'The assignment feed version changed during pagination.',
+        'The visit list version changed during pagination.',
       );
     }
     assignments.push(...page.assignments);
@@ -161,7 +161,7 @@ async function downloadAssignments(options: {
   if (!syncBefore || !sync) {
     throw new MobileFieldValidationAssignmentsApiError(
       'MALFORMED_RESPONSE',
-      'The assignment feed did not provide a server checkpoint.',
+      'The visit list did not provide a server checkpoint.',
     );
   }
 
@@ -170,7 +170,7 @@ async function downloadAssignments(options: {
     if (received > 0 || !options.since || sync.version !== options.since) {
       throw new MobileFieldValidationAssignmentsApiError(
         'MALFORMED_RESPONSE',
-        'The assignment feed unchanged answer was inconsistent.',
+        'The visit list unchanged answer was inconsistent.',
       );
     }
     return {
@@ -187,7 +187,7 @@ async function downloadAssignments(options: {
     if (received !== expectedRows || pagesRequested !== pageLimit) {
       throw new MobileFieldValidationAssignmentsApiError(
         'MALFORMED_RESPONSE',
-        'The assignment feed did not deliver the rows its total promised.',
+        'The visit list did not deliver the rows its total promised.',
       );
     }
   }
@@ -238,7 +238,7 @@ async function requestPage(
     if (error instanceof MobileFieldValidationAssignmentsApiError) throw error;
     throw new MobileFieldValidationAssignmentsApiError(
       'MALFORMED_RESPONSE',
-      'The assignment feed response was invalid.',
+      'The visit list response was invalid.',
     );
   }
 }
@@ -253,7 +253,7 @@ function parsePage(body: unknown, identities: AssignmentIdentityIndex): {
   if (!isRecord(body) || !Array.isArray(body.data) || !isRecord(body.links)) {
     throw new MobileFieldValidationAssignmentsApiError(
       'MALFORMED_RESPONSE',
-      'The assignment feed page is incomplete.',
+      'The visit list page is incomplete.',
     );
   }
   const sync = isRecord(body.sync) ? body.sync : null;
@@ -262,7 +262,7 @@ function parsePage(body: unknown, identities: AssignmentIdentityIndex): {
   if (rawNext !== null && typeof rawNext !== 'string') {
     throw new MobileFieldValidationAssignmentsApiError(
       'MALFORMED_RESPONSE',
-      'The assignment feed continuation is invalid.',
+      'The visit list continuation is invalid.',
     );
   }
 
@@ -311,7 +311,7 @@ function parseAssignment(
   value: unknown,
   identities: AssignmentIdentityIndex,
 ): FieldValidationAssignmentUpdate | null {
-  if (!isRecord(value)) throw malformed('assignment item');
+  if (!isRecord(value)) throw malformed('visit item');
   const id = requireUuid(value.uuid, 'uuid');
   const reportUuid = requireUuid(value.report_uuid, 'report_uuid');
   const reportClientUuid = requireUuid(value.report_client_uuid, 'report_client_uuid');
@@ -441,12 +441,12 @@ function parsePreviousVisitPhoto(value: unknown): PreviousVisitContext['photo'] 
 }
 
 export function buildMobilePreviousEvidencePhotoPath(assignmentId: string): string {
-  if (!UUID_PATTERN.test(assignmentId)) throw malformed('assignment uuid');
+  if (!UUID_PATTERN.test(assignmentId)) throw malformed('visit uuid');
   return `${ASSIGNMENT_PATH}/${encodeURIComponent(assignmentId)}/previous-evidence-photo`;
 }
 
 export function buildMobileReportPhotoPath(assignmentId: string): string {
-  if (!UUID_PATTERN.test(assignmentId)) throw malformed('assignment uuid');
+  if (!UUID_PATTERN.test(assignmentId)) throw malformed('visit uuid');
   return `${ASSIGNMENT_PATH}/${encodeURIComponent(assignmentId)}/report-photo`;
 }
 
@@ -498,26 +498,26 @@ function toSafeContinuationPath(rawUrl: string): string {
   } catch {
     throw new MobileFieldValidationAssignmentsApiError(
       'ORIGIN_MISMATCH',
-      'The assignment feed continuation is not a valid URL.',
+      'The visit list continuation is not a valid URL.',
     );
   }
   if (url.origin !== base.origin) {
     throw new MobileFieldValidationAssignmentsApiError(
       'ORIGIN_MISMATCH',
-      'The assignment feed continuation left the API origin.',
+      'The visit list continuation left the API origin.',
     );
   }
   const basePath = base.pathname.replace(/\/+$/, '');
   if (basePath && basePath !== '/' && !url.pathname.startsWith(`${basePath}/`)) {
     throw new MobileFieldValidationAssignmentsApiError(
       'ORIGIN_MISMATCH',
-      'The assignment feed continuation left the API path boundary.',
+      'The visit list continuation left the API path boundary.',
     );
   }
   if (url.pathname !== ASSIGNMENT_PATH && !url.pathname.startsWith(`${ASSIGNMENT_PATH}/`)) {
     throw new MobileFieldValidationAssignmentsApiError(
       'ORIGIN_MISMATCH',
-      'The assignment feed continuation left the endpoint boundary.',
+      'The visit list continuation left the endpoint boundary.',
     );
   }
   return `${url.pathname}${url.search}`;
@@ -529,7 +529,7 @@ function assertContinuationCheckpoint(path: string, syncBefore: string): void {
   if (checkpoint && checkpoint !== syncBefore) {
     throw new MobileFieldValidationAssignmentsApiError(
       'MALFORMED_RESPONSE',
-      'The assignment feed continuation changed its checkpoint.',
+      'The visit list continuation changed its checkpoint.',
     );
   }
 }
@@ -551,7 +551,7 @@ function registerIdentity(
   if (identities.ids.has(id) || identities.reportIds.has(reportUuid)) {
     throw new MobileFieldValidationAssignmentsApiError(
       'MALFORMED_RESPONSE',
-      'The assignment feed contains duplicate identities.',
+      'The visit list contains duplicate identities.',
     );
   }
   identities.ids.add(id);
@@ -659,7 +659,7 @@ function parsePredictedLabel(value: unknown): string {
 function malformed(field: string): MobileFieldValidationAssignmentsApiError {
   return new MobileFieldValidationAssignmentsApiError(
     'MALFORMED_RESPONSE',
-    `The assignment feed field ${field} is invalid.`,
+    `The visit list field ${field} is invalid.`,
   );
 }
 
@@ -670,13 +670,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function mapApiError(error: unknown): MobileFieldValidationAssignmentsApiError {
   if (error instanceof MobileFieldValidationAssignmentsApiError) return error;
   if (error instanceof ApiHttpError) {
-    if (error.status === 401) return new MobileFieldValidationAssignmentsApiError('AUTH_REQUIRED', 'The assignment session expired.', error.status);
-    if (error.status === 409 && isRecord(error.body) && error.body.code === 'SYNC_RESTART') return new MobileFieldValidationAssignmentsApiError('SYNC_RESTART', 'The assignment set changed during the download.', error.status);
-    if (error.status === 403 || error.status === 404) return new MobileFieldValidationAssignmentsApiError('CAPABILITY_UNAVAILABLE', 'Field validation assignments are unavailable on this server.', error.status);
-    return new MobileFieldValidationAssignmentsApiError('NETWORK', 'Field validation assignments could not be refreshed.', error.status);
+    if (error.status === 401) return new MobileFieldValidationAssignmentsApiError('AUTH_REQUIRED', 'The visit session expired.', error.status);
+    if (error.status === 409 && isRecord(error.body) && error.body.code === 'SYNC_RESTART') return new MobileFieldValidationAssignmentsApiError('SYNC_RESTART', 'The visit set changed during the download.', error.status);
+    if (error.status === 403 || error.status === 404) return new MobileFieldValidationAssignmentsApiError('CAPABILITY_UNAVAILABLE', 'Visits are unavailable on this server.', error.status);
+    return new MobileFieldValidationAssignmentsApiError('NETWORK', 'Visits could not be refreshed.', error.status);
   }
-  if (isAbortError(error)) return new MobileFieldValidationAssignmentsApiError('TIMEOUT', 'The assignment request timed out.');
-  return new MobileFieldValidationAssignmentsApiError('NETWORK', 'Field validation assignments could not be refreshed.');
+  if (isAbortError(error)) return new MobileFieldValidationAssignmentsApiError('TIMEOUT', 'The visit request timed out.');
+  return new MobileFieldValidationAssignmentsApiError('NETWORK', 'Visits could not be refreshed.');
 }
 
 function isAbortError(error: unknown): boolean {

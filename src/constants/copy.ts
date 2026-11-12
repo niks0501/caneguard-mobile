@@ -2,6 +2,36 @@
  * Single source of truth for canonical user-facing copy strings.
  */
 
+/**
+ * The four words the app uses for its core things, so a screen title, a tab, a
+ * filter and an accessibility label all call the same thing by the same name.
+ * Routes and stored data keep their technical names.
+ */
+export const NAMING = {
+  visit: 'Visit',
+  visits: 'Visits',
+  report: 'Report',
+  reports: 'Reports',
+  scan: 'Scan',
+  scans: 'Scans',
+  plot: 'Plot',
+  plots: 'Plots',
+} as const;
+
+const LEGACY_VISIT_NAME = /\bfield (?:validation|visits?)(?:\s+assignments?)?\b/gi;
+
+/**
+ * The office still words some updates with the old visit names. Presentation
+ * rewrites them into the approved word list; the cached update keeps the office
+ * wording.
+ */
+export function visitTerminology(text: string): string {
+  return text.replace(LEGACY_VISIT_NAME, (match) => {
+    const word = match.toLowerCase().endsWith('s') ? NAMING.visits : NAMING.visit;
+    return match[0] === match[0].toUpperCase() ? word : word.toLowerCase();
+  });
+}
+
 export const DECISION_SUPPORT_DISCLAIMER =
   'This result is for decision support only. It does not confirm a disease.';
 
@@ -49,7 +79,7 @@ export const UNFINISHED_COPY = {
 } as const;
 
 export const FIELD_VALIDATION_UNAVAILABLE =
-  'Field validation needs an active inspector assignment to the pilot district. Ask your office to check your account.';
+  `${NAMING.visits} need an active inspector assignment to the pilot district. Ask your office to check your account.`;
 
 export const FIELD_SURVEY_COPY = {
   linkTitle: 'Plot boundary',
@@ -193,14 +223,14 @@ export const FIELD_SURVEY_MODE_COPY = {
   identity_rejected: FIELD_SURVEY_COPY.surveyIdentityRejected,
 } as const;
 
-/** Offline readiness (D01) — before field work without a connection. */
+/** Offline readiness (D01) — before visits without a connection. */
 export const OFFLINE_READINESS_COPY = {
   readyTitle: 'Ready for offline work',
   notReadyTitle: 'Not ready for offline work',
   explanation:
     'CaneGuard keeps the existing protected-session boundary: a password-only sign-in is not stored, so closing the app while offline returns you to the sign-in screen. Biometric unlock keeps the same unexpired account resumable offline; it never stores your password or ignores a rejected credential.',
   passwordOnlyRestartLimit:
-    'Password-only sign-in: if CaneGuard closes while you are offline, you must sign in again when a connection returns. Turn on biometric unlock in Account security before field work to resume offline after a restart.',
+    'Password-only sign-in: if CaneGuard closes while you are offline, you must sign in again when a connection returns. Turn on biometric unlock in Account security before visits to resume offline after a restart.',
 } as const;
 
 /** Floating office-updates pill on Home. */
@@ -310,8 +340,8 @@ export const FIELD_GUIDE_NOT_FOUND_MESSAGE =
 export const FIELD_GUIDE_NOT_FOUND_ACTION = 'Back to field guide';
 
 /**
- * Home wording: the "Morning Note" sentences, plus the header band, glance strip
- * and signs strip labels. The sentences are proposals awaiting owner review; the
+ * Home wording: the "Morning Note" sentences, plus the header band and signs
+ * strip labels. The sentences are proposals awaiting owner review; the
  * app has no i18n layer, so any Filipino or Tagalog wording is a separate
  * decision. Sync-derived sentences live in `syncStatusCopy.ts`.
  */
@@ -338,10 +368,6 @@ export const HOME_NOTE_COPY = {
     evening: 'Good evening',
   },
   offlineChip: 'Offline',
-  glanceHeading: 'Today at a glance',
-  glanceToday: 'Visits today',
-  glanceOverdue: 'Overdue',
-  glanceWaiting: 'Waiting to send',
   signsHeading: 'Know the signs',
   referencePhoto: 'Reference photo',
   signPhrases: {
@@ -680,7 +706,7 @@ export function assignmentsSkippedMessage(count: number): string {
 /** Shown wherever a predicted_label from the office is not one this app version knows. */
 export const UNRECOGNIZED_LABEL_TEXT = 'Not recognized by this app version';
 
-/** Office-born case card on the field validation screen. */
+/** Office-born case card on the visit screen. */
 export const OFFICE_CASE_COPY = {
   title: 'Office case',
   badge: 'Created at the office',

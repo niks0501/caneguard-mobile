@@ -24,7 +24,7 @@ import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { HelpHintGroup } from '@/components/ui/HelpHint';
 import { Row } from '@/components/ui/Row';
 import { TextField } from '@/components/ui/TextField';
-import { CASE_CLOSE_NOTICE, DECISION_SUPPORT_DISCLAIMER, FIELD_VALIDATION_UNAVAILABLE } from '@/constants/copy';
+import { CASE_CLOSE_NOTICE, DECISION_SUPPORT_DISCLAIMER, FIELD_VALIDATION_UNAVAILABLE, NAMING } from '@/constants/copy';
 import { FollowUpOutcomeControl, OUTCOME_LABELS } from '@/features/assignments/components/FollowUpOutcomeControl';
 import { OfficeCaseCard } from '@/features/assignments/components/OfficeCaseCard';
 import { PreviousVisitCard } from '@/features/assignments/components/PreviousVisitCard';
@@ -39,7 +39,7 @@ import type { FieldValidationPhotoArtifact } from '@/features/assignments/servic
 import { deleteFieldValidationPhoto } from '@/features/assignments/services/fieldValidationPhotoStorage';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
-import { formatDateTime, formatTime } from '@/lib/formatters';
+import { formatDateKey, formatDateTime, formatTime } from '@/lib/formatters';
 
 interface ValidationPhotoSelection {
   /** The URI rendered on screen (managed draft photo when it is saved). */
@@ -246,7 +246,7 @@ export default function FieldValidationScreen() {
     return (
       <SafeAreaView testID="field-validation.unavailable" accessibilityValue={{ text: 'state=unavailable' }} style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
         <View style={styles.root}>
-          <BrandedScreenHeader title="Field validation" />
+          <BrandedScreenHeader title={NAMING.visit} />
           <View style={styles.centered}>
             <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_VALIDATION_UNAVAILABLE}</Text>
           </View>
@@ -263,9 +263,9 @@ export default function FieldValidationScreen() {
       }}
       style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Field validation" />
+        <BrandedScreenHeader title={NAMING.visit} />
         {state.loading && !state.assignment ? (
-          <View style={styles.centered}><ActivityIndicator accessibilityLabel="Opening field validation assignment" color={theme.primary} /></View>
+          <View style={styles.centered}><ActivityIndicator accessibilityLabel="Opening visit" color={theme.primary} /></View>
         ) : state.errorMessage && !state.assignment ? (
           <View style={styles.centered}>
             <Text style={[styles.error, { color: theme.danger }]}>{state.errorMessage}</Text>
@@ -358,7 +358,10 @@ function VisitContext({ assignment }: { assignment: FieldValidationAssignment })
       <Row label="Farm or farmer" value={assignment.case.farmerOrFarmOwnerName ?? ''} />
       <Row label="Location" value={[assignment.case.barangay, assignment.case.municipality, assignment.case.province].filter(Boolean).join(', ')} />
       <Row label="Case" value={assignment.referenceCode} />
-      <Row label="Target visit" value={assignment.targetVisitDate ?? 'No target date'} />
+      <Row
+        label="Target visit"
+        value={assignment.targetVisitDate ? formatDateKey(assignment.targetVisitDate) : 'No target date'}
+      />
       {assignment.submitterIsAssignee ? <Text style={[styles.samePerson, { color: theme.warning }]}>You submitted this case and are its validator.</Text> : null}
     </View>
   );
@@ -440,7 +443,7 @@ function CompletionActions({
             }}
             disabled={saving}
             leadingIcon="check-circle">
-            {saving ? 'Saving validation...' : 'Complete field validation'}
+            {saving ? 'Saving visit...' : 'Complete visit'}
           </AppButton>
         }
       />
@@ -473,7 +476,7 @@ function completeConfirmMessage({
   targetVisitDate: string | null;
 }): string {
   const outcome = followUpOutcome ? OUTCOME_LABELS[followUpOutcome] : 'No outcome chosen';
-  const visit = targetVisitDate ?? 'No target date';
+  const visit = targetVisitDate ? formatDateKey(targetVisitDate) : 'No target date';
   return `Complete the visit for ${visit}? Follow-up outcome: ${outcome}. Fresh photo: ${hasPhoto ? 'attached' : 'not attached'}. The completed visit can no longer be edited, and the case stays open.`;
 }
 
@@ -510,7 +513,7 @@ function EvidenceForm({
       <TextField testID="field-validation.action-input" label="Action taken" hint="What you actually did or told the farmer." helpHintText="For example: “Advised removal of affected leaves and a follow-up visit in 7 days.”" helpHintTestID="field-validation.action-help" value={action} onChangeText={onActionChange} placeholder="What action or guidance was provided?" maxLength={FIELD_VALIDATION_TEXT_MAX_LENGTH} multiline />
       {photo ? (
         <View style={styles.photoContainer}>
-          <ExpoImage source={{ uri: photo.uri }} accessibilityLabel="Fresh field validation photo" cachePolicy="memory-disk" contentFit="cover" style={styles.photo} />
+          <ExpoImage source={{ uri: photo.uri }} accessibilityLabel="Fresh visit photo" cachePolicy="memory-disk" contentFit="cover" style={styles.photo} />
           <AppButton testID="field-validation.remove-photo" onPress={onRemovePhoto} leadingIcon="trash-2" variant="secondary">Remove photo</AppButton>
         </View>
       ) : null}

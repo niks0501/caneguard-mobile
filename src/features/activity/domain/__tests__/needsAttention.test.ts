@@ -109,6 +109,32 @@ describe('buildNeedsAttention', () => {
     expect(summary.items[0].meta).toBe('Not on this phone: open on the web');
   });
 
+  it('presents office wording with the approved visit names', () => {
+    const summary = build({
+      notifications: [
+        notification({
+          title: 'Field validation assigned',
+          message: 'CG-2026-0001 was assigned to you for a field visit by 2026-08-20.',
+        }),
+      ],
+    });
+
+    expect(summary.items[0].title).toBe('Visit assigned');
+    expect(summary.items[0].message).toBe(
+      'CG-2026-0001 was assigned to you for a visit by 2026-08-20.',
+    );
+  });
+
+  it('does not keep the assignment name in office wording', () => {
+    const summary = build({
+      notifications: [
+        notification({ message: 'A field validation assignment is ready.' }),
+      ],
+    });
+
+    expect(summary.items[0].message).toBe('A visit is ready.');
+  });
+
   it('uses the resolved destination meta for an actionable update', () => {
     const summary = build({
       destinations: new Map([
@@ -146,7 +172,7 @@ describe('buildNeedsAttention', () => {
     });
 
     expect(summary.items.map((item) => item.meta)).toEqual([
-      'Visit was due 2026-09-01',
+      'Visit was due Sep 1, 2026',
       'Visit due today',
       'Visit in progress',
     ]);
@@ -209,7 +235,7 @@ describe('buildNeedsAttention', () => {
       pendingCompletionsCount: 1,
       syncErrorMessage: null,
     });
-    expect(visitsOnly.items[0].title).toBe('1 field visit waiting to send');
+    expect(visitsOnly.items[0].title).toBe('1 visit waiting to send');
 
     const mixed = build({
       pendingUploadCount: 2,

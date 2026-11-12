@@ -292,6 +292,7 @@ describe('SettingsScreen', () => {
       .mocked(Alert.alert)
       .mock.calls.find((call) => call[0] === 'Remove all local records?');
     expect(firstCall?.[1]).toContain('2 reports');
+    expect(firstCall?.[1]).toContain('2 downloaded visits');
     expect(firstCall?.[1]).toContain('2 items on this device have not reached the office');
     expect(firstCall?.[1]).toContain('1 boundary');
 

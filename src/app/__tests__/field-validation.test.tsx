@@ -182,7 +182,8 @@ describe('FieldValidationScreen', () => {
     expect(screen.getByTestId('field-validation.observation-input')).toBeOnTheScreen();
     // The case being checked leads the screen (approved visit-form change).
     expect(screen.getByTestId('field-validation.case-under-check')).toBeOnTheScreen();
-    expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
+    expect(screen.getByText('Possible Condition')).toBeOnTheScreen();
+    expect(screen.getByText('Rust')).toBeOnTheScreen();
     expect(screen.queryByText('93%')).not.toBeOnTheScreen();
     expect(screen.getByText('Ana Reporter')).toBeOnTheScreen();
 

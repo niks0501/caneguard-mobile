@@ -249,6 +249,18 @@ export const OFFLINE_READINESS_COPY = {
     'Password-only sign-in: if CaneGuard closes while you are offline, you must sign in again when a connection returns. Turn on biometric unlock in Account security before visits to resume offline after a restart.',
 } as const;
 
+/** One-time "Ready for the field" sheet after a password sign-in, and the quiet Home line. */
+export const READY_FOR_FIELD_COPY = {
+  sheetTitle: 'Ready for the field?',
+  sheetBody:
+    'Without a signal, closing CaneGuard signs you out. Turn on biometric unlock so you can keep working offline.',
+  sheetNote: 'Your password is never stored on this phone.',
+  sheetSetUp: 'Set up biometric unlock',
+  sheetNotNow: 'Not now',
+  homeLineBiometric: 'Not ready for offline work. Turn on biometric unlock.',
+  homeLineOther: 'Not ready for offline work. Check your visits and sign-in.',
+} as const;
+
 /** Floating office-updates pill on Home. */
 export function officeUpdatesPillLabel(count: number): string {
   return `${count} office ${count === 1 ? 'update' : 'updates'}`;

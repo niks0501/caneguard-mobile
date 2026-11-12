@@ -27,7 +27,13 @@ jest.mock('@expo/vector-icons', () => {
 
   Feather.glyphMap = {};
 
-  return { Feather };
+  function MaterialCommunityIcons(props) {
+    return React.createElement('MaterialCommunityIcon', props);
+  }
+
+  MaterialCommunityIcons.glyphMap = {};
+
+  return { Feather, MaterialCommunityIcons };
 });
 
 jest.mock('expo-image', () => {

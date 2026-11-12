@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionDock } from '@/components/ui/ActionDock';
 import { AppButton } from '@/components/ui/AppButton';
-import { getResultLabel } from '@/components/ui/RecordCard';
+import { canonicalResultName } from '@/features/records/domain/canonicalResultName';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
@@ -377,7 +377,7 @@ function CaseUnderCheck({ assignment }: { assignment: FieldValidationAssignment 
     <View testID="field-validation.case-under-check" style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
       <View style={styles.heading}><Feather name="search" size={20} color={theme.primary} /><Text style={[styles.title, { color: theme.text }]}>{VISIT_CHIPS.caseTitle}</Text></View>
       {assignment.case.predictedLabel === null ? null : (
-        <Row label="Possible Condition" value={getResultLabel(assignment.case.predictedLabel)} />
+        <Row label="Possible Condition" value={canonicalResultName(assignment.case.predictedLabel)} />
       )}
       <Row label="Submitted by" value={assignment.submitter.name} />
     </View>

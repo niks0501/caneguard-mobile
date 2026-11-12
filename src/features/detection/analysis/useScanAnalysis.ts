@@ -27,6 +27,7 @@ export function useScanAnalysis(replacing = false) {
   const preprocessingInFlight = useRef(false);
   const inferenceInFlight = useRef(false);
   const [prepared, setPrepared] = useState<{
+    ownerIdentity: typeof draft.ownerIdentity;
     sourceUri: string;
     processedUri: string;
     inputBuffer: ArrayBuffer;
@@ -68,13 +69,17 @@ export function useScanAnalysis(replacing = false) {
   useEffect(() => {
     preprocessingInFlight.current = false;
     inferenceInFlight.current = false;
-    setPrepared(null);
     isOwnerCurrentRef.current = draft.isOwnerCurrent;
   }, [draft.isOwnerCurrent, ownerIdentity]);
 
   const { sourceUri, sourceWidth, sourceHeight, processedUri, status, result } = state;
+  // Prepared data belongs to the owner that produced it; a different owner
+  // never reuses it, so no reset effect is needed.
   const hasPreparedPhoto = Boolean(
-    prepared && prepared.sourceUri === sourceUri && prepared.processedUri === processedUri,
+    prepared &&
+      prepared.ownerIdentity === ownerIdentity &&
+      prepared.sourceUri === sourceUri &&
+      prepared.processedUri === processedUri,
   );
 
   useEffect(() => {
@@ -102,6 +107,7 @@ export function useScanAnalysis(replacing = false) {
         });
         if (!isCurrentWork()) return;
         setPrepared({
+          ownerIdentity: startingOwner,
           sourceUri,
           processedUri: preprocessingResult.processedUri,
           inputBuffer: preprocessingResult.inputBuffer,

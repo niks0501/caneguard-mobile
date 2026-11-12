@@ -1,4 +1,4 @@
-import { Feather } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -33,20 +33,22 @@ export type BottomNavProps = {
   hiddenTabs?: readonly NavTab[];
   /** Replacement tab words, for example a farmer's own language. */
   labels?: Partial<Record<NavTab, string>>;
+  /** Replacement icons, for example the farmer's own scans tab. */
+  icons?: Partial<Record<NavTab, keyof typeof MaterialCommunityIcons.glyphMap>>;
   activityAccessibilityLabel?: (count: number) => string;
 };
 
 type NavItem = {
   key: NavTab;
   label: string;
-  icon: keyof typeof Feather.glyphMap;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { key: 'home', label: 'Home', icon: 'home' },
+  { key: 'home', label: 'Home', icon: 'home-variant' },
   { key: 'scan', label: 'Scan', icon: 'camera' },
-  { key: 'activity', label: 'Activity', icon: 'activity' },
-  { key: 'today', label: 'Visits', icon: 'calendar' },
+  { key: 'activity', label: 'Activity', icon: 'clipboard-text-clock' },
+  { key: 'today', label: 'Visits', icon: 'map-marker-radius' },
 ];
 
 /**
@@ -57,6 +59,7 @@ export function BottomNav({
   activeTab,
   activityAccessibilityLabel,
   hiddenTabs,
+  icons,
   labels,
   navigation,
   navigateToTab,
@@ -104,7 +107,7 @@ export function BottomNav({
                 pressed && { opacity: 0.7 },
               ]}>
               <View style={styles.iconWrap}>
-                <Feather name={item.icon} size={ComponentTokens.bottomNav.iconSize} color={active ? theme.primary : theme.textSecondary} />
+                <MaterialCommunityIcons testID={`nav.${item.key}.icon`} name={icons?.[item.key] ?? item.icon} size={ComponentTokens.bottomNav.iconSize} color={active ? theme.primary : theme.textSecondary} />
                 {item.key === 'activity' && notificationCount > 0 ? (
                   <View
                     testID="nav.activity-badge"

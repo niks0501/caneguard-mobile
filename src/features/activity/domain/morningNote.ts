@@ -88,7 +88,7 @@ export function buildMorningNote(
   } else if (action === 'visit') {
     headline = visitCounts ?? HOME_NOTE_COPY.nothingDueToday;
   }
-  if (visitsCheckFailed) {
+  if (visitsCheckFailed && !headline) {
     return {
       action,
       actionLabel,

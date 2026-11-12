@@ -32,6 +32,7 @@ export interface OwnerMobileDataStore {
   assignments: AssignmentsSnapshot | null;
   assignmentsRefreshing: boolean;
   assignmentsFailed: boolean;
+  assignmentsVerified: boolean;
   notifications: CachedValue<MobileNotification[]> | null;
   timeline: Map<string, TimelineSnapshot>;
   generation: number;
@@ -64,6 +65,7 @@ export function getOwnerMobileDataStore(
       assignments: null,
       assignmentsRefreshing: false,
       assignmentsFailed: false,
+      assignmentsVerified: false,
       notifications: null,
       timeline: new Map(),
       generation: 0,
@@ -100,10 +102,11 @@ export function setOwnerAssignments(
 
 export function setOwnerAssignmentsReadState(
   store: OwnerMobileDataStore,
-  state: { refreshing: boolean; failed: boolean },
+  state: { refreshing: boolean; failed: boolean; verified?: boolean },
 ): void {
   store.assignmentsRefreshing = state.refreshing;
   store.assignmentsFailed = state.failed;
+  if (state.verified !== undefined) store.assignmentsVerified = state.verified;
   notify(store);
 }
 
@@ -146,6 +149,7 @@ export function clearOwnerMobileDataStore(
   store.assignments = { value: [], fetchedAt: cacheFetchedAt, skippedCount: 0 };
   store.assignmentsRefreshing = false;
   store.assignmentsFailed = false;
+  store.assignmentsVerified = false;
   store.notifications = { value: [], fetchedAt: cacheFetchedAt };
   store.timeline.clear();
   store.cacheLoads = {};

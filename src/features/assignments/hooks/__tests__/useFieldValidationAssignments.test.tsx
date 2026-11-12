@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { listCachedFieldValidationAssignments } from '@/features/assignments/data/assignmentCacheRepository';
 import { MobileFieldValidationAssignmentsApiError } from '@/features/assignments/api/mobileFieldValidationAssignmentsApi';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
+import { clearOwnerMobileDataStore } from '@/features/mobile-data/data/mobileDataStore';
 import { refreshFieldValidationAssignments } from '@/features/assignments/services/refreshFieldValidationAssignments';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 
@@ -141,6 +142,26 @@ describe('useFieldValidationAssignments capabilities', () => {
 
     const secondConsumer = await renderHook(() => useFieldValidationAssignments());
     await waitFor(() => expect(secondConsumer.result.current.failed).toBe(true));
+  });
+
+  it('rechecks the server after downloaded assignment data is cleared', async () => {
+    const ownerId = 'b42a13e8-a095-4e27-a018-82725ef55b21';
+    mockUseAuth.mockReturnValue({
+      markSessionExpired,
+      session: { ...READ_SESSION, user: { ...READ_SESSION.user, uuid: ownerId } },
+      status: 'authenticated',
+    } as never);
+    clearOwnerMobileDataStore(DATABASE as never, ownerId);
+    mockListCached.mockResolvedValue([]);
+    mockRefreshAssignments.mockResolvedValue({
+      assignments: [],
+      fetchedAt: Date.now(),
+    } as never);
+
+    const { result } = await renderHook(() => useFieldValidationAssignments());
+    await waitFor(() => expect(mockRefreshAssignments).toHaveBeenCalled());
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.failed).toBe(false);
   });
 
   it('shares an in-flight refresh state while a stale cache remains available', async () => {

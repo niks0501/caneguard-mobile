@@ -122,7 +122,7 @@ export function useFieldValidationAssignments(enabled = true) {
       }
     };
 
-    if (!force && isFresh(store.assignments)) {
+    if (!force && store.assignmentsVerified && isFresh(store.assignments)) {
       applyCached(store.assignments?.value ?? []);
       return 'ok';
     }
@@ -154,7 +154,7 @@ export function useFieldValidationAssignments(enabled = true) {
         applyCached(cached);
       });
       if (!isCurrentStore()) return 'skipped';
-      if (!force && isFresh(store.assignments)) {
+      if (!force && store.assignmentsVerified && isFresh(store.assignments)) {
         applyCached(store.assignments?.value ?? []);
         setOwnerAssignmentsReadState(store, { refreshing: false, failed: false });
         setState((current) => ({ ...current, refreshing: false }));
@@ -182,7 +182,7 @@ export function useFieldValidationAssignments(enabled = true) {
             result.fetchedAt,
             result.skippedCount,
           );
-          setOwnerAssignmentsReadState(store, { refreshing: false, failed: false });
+          setOwnerAssignmentsReadState(store, { refreshing: false, failed: false, verified: true });
           prefetchAfterDownload(requestedSession.user.uuid, requestedSession.token, result.assignments);
           setState({
             assignments: result.assignments,
@@ -275,7 +275,7 @@ export function useFieldValidationAssignments(enabled = true) {
 
   return {
     ...visibleState,
-    ready: assignmentsSnapshot !== null,
+    ready: assignmentsSnapshot !== null && (ownerStore?.assignmentsVerified ?? false),
     failed: ownerStore?.assignmentsFailed ?? false,
     refreshing: ownerStore?.assignmentsRefreshing ?? visibleState.refreshing,
     canRead,

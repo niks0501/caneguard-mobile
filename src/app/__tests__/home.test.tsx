@@ -38,6 +38,7 @@ jest.mock('@/features/activity/hooks/useHomeAttention', () => ({
     items: mockAttentionItems,
     markRead: mockMarkRead,
     total: mockAttentionItems.length,
+    canReadVisits: true,
     visitsCheckFailed: mockVisitsCheckFailed,
   }),
 }));

@@ -345,14 +345,21 @@ describe('usePhoneCompletionStates', () => {
     expect(result.current.states.get('assignment-waiting')).toBe('waiting');
   });
 
-  it('is not failed while a read is running or after one succeeds', async () => {
-    mockSummaries.mockResolvedValueOnce([]);
+  it('stays neutral while an unresolved read is running, then becomes ready', async () => {
+    const read = deferredSummaries();
+    mockSummaries.mockReturnValueOnce(read.promise);
 
     const { result } = await renderHook(() => usePhoneCompletionSnapshot(), {
       wrapper,
     });
 
+    expect(result.current.ready).toBe(false);
     expect(result.current.failed).toBe(false);
+
+    await act(async () => {
+      read.resolve([]);
+    });
+
     await waitFor(() => expect(result.current.ready).toBe(true));
     expect(result.current.failed).toBe(false);
   });

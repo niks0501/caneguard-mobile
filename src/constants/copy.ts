@@ -400,6 +400,7 @@ export type FarmerCopyBlock = {
     unread: (count: number) => string;
     allRead: string;
     markAllRead: string;
+    markAllReadLabel: string;
     loadError: string;
     readError: string;
     partial: string;
@@ -714,7 +715,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       pill: (count) => `${count} office ${count === 1 ? 'update' : 'updates'}`,
       open: 'Open office updates', dismiss: 'Hide office updates for now', close: 'Close office updates',
       title: 'Office updates', unread: (count) => `${count} unread item${count === 1 ? '' : 's'} from the office.`,
-      allRead: 'Every office update has been read.', markAllRead: 'Mark all read',
+      allRead: 'Every office update has been read.', markAllRead: 'Mark all read', markAllReadLabel: 'Mark all office updates as read',
       loadError: 'Office updates could not be loaded.', readError: 'This update could not be marked as read.',
       partial: 'Some office updates could not be loaded.',
       empty: 'Office review results and visits appear here after a refresh.',
@@ -752,18 +753,18 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       imageLabel: 'Selected sugarcane image used for analysis',
       closeLabel: 'Cancel and return home',
       decisionSupport: {
-        healthy: 'Possible Condition only. The model did not assign its highest score to Mosaic, Rust, or Smut. This output does not confirm a disease.',
-        mosaic: 'Possible Condition only. Mosaic may appear as irregular light and dark discoloration or mottling. This output does not confirm a disease.',
-        rust: 'Possible Condition only. Rust may appear as orange-brown or rust-colored spots or pustules. This output does not confirm a disease.',
-        smut: 'Possible Condition only. Look for a dark, whip-like growth emerging from the central shoot or stalk, but do not treat this observation or the model output as confirmation.',
-        unknown: 'This result is for decision support only. It does not confirm a disease.',
+        healthy: 'Possible Condition only. The model did not assign its highest score to Mosaic, Rust, or Smut. This output does not decide what is wrong with your crop.',
+        mosaic: 'Possible Condition only. Mosaic may appear as irregular light and dark discoloration or mottling. This output does not decide what is wrong with your crop.',
+        rust: 'Possible Condition only. Rust may appear as orange-brown or rust-colored spots or pustules. This output does not decide what is wrong with your crop.',
+        smut: 'Possible Condition only. Look for a dark, whip-like growth emerging from the central shoot or stalk, but do not treat this observation or the model output as proof.',
+        unknown: 'This result is for decision support only. It does not decide what is wrong with your crop.',
       },
       aboutTitle: 'About this result',
       explanations: {
         healthy: { message: 'The model assigned its highest score to Healthy based on the submitted image.', description: 'The model did not assign its highest score to Mosaic, Rust, or Smut.' },
         mosaic: { message: 'The model assigned its highest score to Mosaic based on the submitted image.', description: 'Mosaic can appear as irregular light and dark discoloration or mottling on the leaf.' },
         rust: { message: 'The model assigned its highest score to Rust based on the submitted image.', description: 'Rust can appear as orange-brown or rust-colored spots and pustules on the leaf.' },
-        smut: { message: 'The model assigned its highest score to Smut based on the submitted image.', description: 'Smut may be associated with a dark, whip-like growth emerging from the central shoot or stalk. This visible pattern is observational and does not confirm the disease.' },
+        smut: { message: 'The model assigned its highest score to Smut based on the submitted image.', description: 'Smut may be associated with a dark, whip-like growth emerging from the central shoot or stalk. This visible pattern is observational and does not tell you what is wrong with your crop.' },
         unknown: { message: 'The app could not identify this result.', description: 'This result is not recognized by this app version.' },
       },
       consistency: {
@@ -873,10 +874,10 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
     },
     accountSecurityForms: {
       common: { close: 'Close', cancel: 'Cancel', discardTitle: 'Discard changes?', discardMessage: 'You have unsaved changes. Do you want to discard them?', keepEditing: 'Keep editing', discard: 'Discard' },
-      password: { title: 'Change password', currentPassword: 'Current password', newPassword: 'New password', submit: 'Change password', updating: 'Updating…', confirmTitle: 'Change password?', confirmMessage: 'Changing your password signs out every active session. You will need to sign in again with your new password.', confirm: 'Confirm change', toast: 'Password updated' },
-      email: { title: 'Change email', newEmail: 'New email', currentPassword: 'Current password', confirmPassword: 'Confirm to change email', submit: 'Change email', updating: 'Updating…', confirmTitle: 'Change email?', confirmMessage: 'Changing your email signs out every active session and requires verification of the new address.', confirm: 'Confirm change', toast: 'Email updated' },
-      enrollment: { title: 'Device enrollment', name: 'Installation name', nameHelp: 'A name for this installation on the office system. It is stored securely and is not a hardware identifier.', namePlaceholder: 'CaneGuard mobile device', currentPassword: 'Current password', confirmPassword: 'Confirm this installation', submit: 'Enroll this installation', submitting: 'Enrolling…', confirmTitle: 'Enroll this installation?', confirmMessage: 'This installation will be enrolled with a fresh server session. Existing sessions on other device identities are unchanged.', confirm: 'Enroll', toast: 'Device enrolled' },
-      biometric: { title: 'Disable biometric unlock', currentPassword: 'Current password', confirmPassword: 'Confirm to disable', submit: 'Disable biometric unlock', submitting: 'Disabling…', toast: 'Biometrics disabled' },
+      password: { title: 'Change password', currentPassword: 'Current password', newPassword: 'New password', submit: 'Change password', updating: 'Updating…', confirmTitle: 'Change password?', confirmMessage: 'Changing your password signs out every active session. You will need to sign in again with your new password.', confirm: 'Yes, change it', toast: 'Password updated' },
+      email: { title: 'Change email', newEmail: 'New email', currentPassword: 'Current password', confirmPassword: 'Enter your password to change email', submit: 'Change email', updating: 'Updating…', confirmTitle: 'Change email?', confirmMessage: 'Changing your email signs out every active session and requires verification of the new address.', confirm: 'Yes, change it', toast: 'Email updated' },
+      enrollment: { title: 'Device enrollment', name: 'Installation name', nameHelp: 'A name for this installation on the office system. It is stored securely and is not a hardware identifier.', namePlaceholder: 'CaneGuard mobile device', currentPassword: 'Current password', confirmPassword: 'Enter your password to enroll this device', submit: 'Enroll this installation', submitting: 'Enrolling…', confirmTitle: 'Enroll this installation?', confirmMessage: 'This installation will be enrolled with a fresh server session. Existing sessions on other device identities are unchanged.', confirm: 'Enroll', toast: 'Device enrolled' },
+      biometric: { title: 'Disable biometric unlock', currentPassword: 'Current password', confirmPassword: 'Enter your password to disable', submit: 'Disable biometric unlock', submitting: 'Disabling…', toast: 'Biometrics disabled' },
     },
     notificationDetails: {
       headerTitle: 'Office update', headerSubtitle: 'Advice from the CaneGuard office',
@@ -1093,7 +1094,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       pill: (count) => `${count} update sa opisina`,
       open: 'Buksan ang mga update sa opisina', dismiss: 'Itago muna ang mga update sa opisina', close: 'Isara ang mga update sa opisina',
       title: 'Mga update mula sa opisina', unread: (count) => `${count} hindi pa nababasang update mula sa opisina.`,
-      allRead: 'Nabasa na ang lahat ng update sa opisina.', markAllRead: 'Markahang nabasa ang lahat',
+      allRead: 'Nabasa na ang lahat ng update sa opisina.', markAllRead: 'Markahang nabasa ang lahat', markAllReadLabel: 'Markahang nabasa ang lahat ng update sa opisina',
       loadError: 'Hindi makuha ang mga update sa opisina.', readError: 'Hindi mamarkahang nabasa ang update na ito.',
       partial: 'May ilang update sa opisina na hindi nakuha.',
       empty: 'Lalabas dito ang mga resulta ng pagsusuri ng opisina at mga pagbisita matapos mag-refresh.',
@@ -1132,11 +1133,11 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       imageLabel: 'Larawan ng tubo na sinuri',
       closeLabel: 'Kanselahin at bumalik sa home',
       decisionSupport: {
-        healthy: 'Posibleng Kondisyon lamang ito. Hindi pinakamataas ang marka ng modelo sa Mosaic, Rust, o Smut. Hindi nito kinukumpirma ang sakit.',
-        mosaic: 'Posibleng Kondisyon lamang ito. Maaaring makita ang Mosaic bilang hindi pantay na mapusyaw at maitim na kulay o batik sa dahon. Hindi nito kinukumpirma ang sakit.',
-        rust: 'Posibleng Kondisyon lamang ito. Maaaring makita ang Rust bilang mga batik o butlig na kahel-kayumanggi o kulay-kalawang. Hindi nito kinukumpirma ang sakit.',
-        smut: 'Posibleng Kondisyon lamang ito. Tingnan kung may maitim at parang latigong tubo mula sa gitnang usbong o tangkay, ngunit huwag ituring na kumpirmasyon ang nakikita o resulta ng modelo.',
-        unknown: 'Pantulong lamang sa pagpapasya ang resultang ito. Hindi nito kinukumpirma ang sakit.',
+        healthy: 'Posibleng Kondisyon lamang ito. Hindi pinakamataas ang marka ng modelo sa Mosaic, Rust, o Smut. Hindi nito sinasabi kung ano ang tiyak na sakit.',
+        mosaic: 'Posibleng Kondisyon lamang ito. Maaaring makita ang Mosaic bilang hindi pantay na mapusyaw at maitim na kulay o batik sa dahon. Hindi nito sinasabi kung ano ang tiyak na sakit.',
+        rust: 'Posibleng Kondisyon lamang ito. Maaaring makita ang Rust bilang mga batik o butlig na kahel-kayumanggi o kulay-kalawang. Hindi nito sinasabi kung ano ang tiyak na sakit.',
+        smut: 'Posibleng Kondisyon lamang ito. Tingnan kung may maitim at parang latigong tubo mula sa gitnang usbong o tangkay, ngunit huwag ituring na tiyak ang nakikita o resulta ng modelo.',
+        unknown: 'Pantulong lamang sa pagpapasya ang resultang ito. Hindi nito sinasabi kung ano ang tiyak na sakit.',
       },
       aboutTitle: 'Tungkol sa resultang ito',
       explanations: {

@@ -16,6 +16,10 @@ import type { NotificationDestination } from '@/features/notifications/services/
  * changes nothing must therefore add no row icons at all.
  */
 let featherRenders = 0;
+jest.mock('@/providers/LanguagePreferenceProvider', () => ({
+  useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY.en,
+}));
+
 jest.mock('@expo/vector-icons', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const React = require('react');

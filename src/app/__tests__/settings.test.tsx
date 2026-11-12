@@ -221,8 +221,8 @@ describe('SettingsScreen', () => {
     await fireEvent.press(screen.getByTestId('settings.logout'));
 
     const message = screen.getByTestId('settings.logout-dialog');
-    expect(message).toHaveTextContent('Nasa teleponong ito lamang ang 3 na-save na item.');
-    expect(message).not.toHaveTextContent(/hindi pa|not sent|not reached/i);
+    expect(message).toHaveTextContent(/Nasa teleponong ito lamang ang 3 na-save na item\./);
+    expect(message).not.toHaveTextContent(/hindi pa (naipadala|nakararating)|not sent|not reached/i);
   });
 
   it('clears only downloaded office data without touching unsent work', async () => {

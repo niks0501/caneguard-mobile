@@ -88,6 +88,7 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
 
 jest.mock('@/providers/LanguagePreferenceProvider', () => ({
   useLanguagePreference: () => ({ language: mockLanguage }),
+  useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY[mockLanguage],
 }));
 jest.mock('@/features/records/hooks/useScanStates', () => ({
   useFarmerScans: () => ({ states: mockScanStates, threads: mockScanThreads }),

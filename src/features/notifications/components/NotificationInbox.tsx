@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
+import { FARMER_COPY } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDate } from '@/lib/formatters';
@@ -38,6 +39,7 @@ export function NotificationInbox({
 }) {
   const theme = useTheme();
   const copy = useFarmerCopy().officeUpdates;
+  const isEnglish = copy === FARMER_COPY.en.officeUpdates;
   // Sorting the whole cached notification history on every parent render is
   // what scales with the cache size. The panel only ever shows the newest ten,
   // so the sort is derived once per notification change.
@@ -62,7 +64,7 @@ export function NotificationInbox({
           </Text>
           {errorMessage ? (
             <Text accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>
-              {copy.loadError}
+              {isEnglish ? errorMessage : copy.loadError}
             </Text>
           ) : null}
           {partial ? (
@@ -72,13 +74,13 @@ export function NotificationInbox({
           ) : null}
           {readActionError ? (
             <Text accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>
-              {copy.readError}
+              {isEnglish ? readActionError : copy.readError}
             </Text>
           ) : null}
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={copy.markAllRead}
+          accessibilityLabel={copy.markAllReadLabel}
           accessibilityState={{ disabled: unreadCount === 0 }}
           disabled={unreadCount === 0}
           onPress={onMarkAllRead}
@@ -135,6 +137,7 @@ const NotificationRow = memo(function NotificationRow({
 }) {
   const theme = useTheme();
   const copy = useFarmerCopy().officeUpdates;
+  // Office-authored text is shown exactly as the office wrote it.
   const { title, message } = notification;
   const actionable =
     Boolean(notification.content || notification.advisory) ||

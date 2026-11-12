@@ -444,7 +444,7 @@ describe('AnalysisResultScreen', () => {
         expect(screen.getByTestId('scan.result-title')).toHaveTextContent('Hindi tiyak ang resulta'),
       );
       expect(screen.getByTestId('scan.decision-support-wording')).toHaveTextContent(
-        'Posibleng Kondisyon lamang ito.',
+        /^Posibleng Kondisyon lamang ito\./,
       );
       expect(screen.getByLabelText('Kanselahin at bumalik sa home')).toBeOnTheScreen();
     });

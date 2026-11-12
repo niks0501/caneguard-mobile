@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { OFFICE_UPDATES_PANEL_CLOSE_LABEL } from '@/constants/copy';
+import { useFarmerCopy } from '@/providers/LanguagePreferenceProvider';
 import { Layout, Radius, Shadows, Spacing } from '@/constants/theme';
 import { NotificationInbox } from '@/features/notifications/components/NotificationInbox';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
@@ -40,6 +40,7 @@ export function OfficeUpdatesPanel({
   visible,
 }: OfficeUpdatesPanelProps) {
   const theme = useTheme();
+  const copy = useFarmerCopy().officeUpdates;
   const insets = useSafeAreaInsets();
 
   if (!visible) return null;
@@ -50,7 +51,7 @@ export function OfficeUpdatesPanel({
         testID="office-updates.root"
         style={[styles.root, { paddingBottom: insets.bottom + Spacing.lg }]}>
         <Pressable
-          accessibilityLabel={OFFICE_UPDATES_PANEL_CLOSE_LABEL}
+          accessibilityLabel={copy.close}
           accessibilityRole="button"
           onPress={onClose}
           style={[StyleSheet.absoluteFill, styles.scrim]}
@@ -65,7 +66,7 @@ export function OfficeUpdatesPanel({
           ]}>
           <View style={styles.header}>
             <Pressable
-              accessibilityLabel={OFFICE_UPDATES_PANEL_CLOSE_LABEL}
+              accessibilityLabel={copy.close}
               accessibilityRole="button"
               hitSlop={Spacing.sm}
               onPress={onClose}

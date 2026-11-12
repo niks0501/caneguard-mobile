@@ -21,6 +21,24 @@ describe('BottomNav tabs by role (P1-5)', () => {
     expect(screen.getByTestId('nav.activity')).toBeTruthy();
   });
 
+  it('announces unread updates in the localized farmer Activity tab name', async () => {
+    await render(
+      <BottomNav
+        activeTab="home"
+        labels={{ activity: 'Aking mga Scan' }}
+        activityAccessibilityLabel={(count) => `Aking mga Scan, ${count} hindi pa nababasang update sa opisina`}
+        notificationCount={3}
+        hiddenTabs={['today']}
+        navigation={navigation}
+      />,
+    );
+
+    expect(screen.getByTestId('nav.activity')).toHaveProp(
+      'accessibilityLabel',
+      'Aking mga Scan, 3 hindi pa nababasang update sa opisina',
+    );
+  });
+
   // Proves: each rendered non-active field-role bottom tab dispatches its route transition through the Expo Router tab navigator.
   it.each([
     ['home', 'scan'],

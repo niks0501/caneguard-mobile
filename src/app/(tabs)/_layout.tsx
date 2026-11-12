@@ -27,6 +27,7 @@ export default function TabLayout() {
               : undefined
           }
           notificationCount={unreadCount}
+          activityAccessibilityLabel={isFarmer ? farmerTabs.activityWithUpdates : undefined}
         />
       )}
       screenOptions={{

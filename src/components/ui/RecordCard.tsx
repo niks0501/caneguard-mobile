@@ -34,9 +34,9 @@ type RecordCardProps = {
   scanState?: { label: string; state: FarmerScanState };
   /**
    * The farmer's own wording for this card: the result line and the open
-   * label in their language, plus how many checks of this plant it stands for.
+   * label in their language.
    */
-  farmerText?: { checks?: string; language: FarmerLanguage; openLabel: string; result: string };
+  farmerText?: { language: FarmerLanguage; openLabel: string; result: string };
   testID?: string;
 };
 
@@ -144,15 +144,6 @@ export function RecordCard({
               style={[styles.date, { color: theme.textSecondary }]}>
               {savedAt}
             </Text>
-            {farmerText?.checks ? (
-              <Text
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                testID={`record-card.checks.${record.id}`}
-                style={[styles.location, { color: theme.textSecondary }]}>
-                {farmerText.checks}
-              </Text>
-            ) : null}
             {record.barangay ? (
               <Text
                 numberOfLines={1}

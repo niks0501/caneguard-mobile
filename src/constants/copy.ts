@@ -403,7 +403,26 @@ export type FarmerCopyBlock = {
     fieldGuideLabel: string;
     signPhrases: { healthy: string; mosaic: string; rust: string; smut: string };
   };
-  tabs: { home: string; scan: string; myScans: string };
+  tabs: { home: string; scan: string; myScans: string; activityWithUpdates: (count: number) => string };
+  officeUpdates: {
+    pill: (count: number) => string;
+    open: string;
+    dismiss: string;
+    close: string;
+    title: string;
+    unread: (count: number) => string;
+    allRead: string;
+    markAllRead: string;
+    loadError: string;
+    readError: string;
+    partial: string;
+    empty: string;
+    unreadLabel: string;
+    notOnPhone: string;
+    markedRead: string;
+    caseActivity: string;
+    recently: string;
+  };
   /**
    * Result names shown after "Possible Condition". The Tagalog names still need
    * review by an agriculture officer before release, so both languages carry the
@@ -474,6 +493,82 @@ export type FarmerCopyBlock = {
     openSettings: string;
   };
   settings: { languageLabel: string; languageDescription: string; english: string; tagalog: string };
+  settingsScreen: {
+    title: string; displaySection: string; darkMode: string; darkModeDescription: string;
+    fieldGuideSection: string; fieldGuideTitle: string;
+    accountSection: string; fallbackName: string; fallbackAccount: string;
+    accountSecurity: string; accountSecurityDescription: string; logout: string;
+    logoutAccessibility: string; clearCached: string; clearingCached: string;
+    clearCachedAccessibility: string; removeLocal: string; removingLocal: string;
+    removeLocalAccessibility: string; aboutSection: string; appName: string; version: string;
+    logoutDialogTitle: string; logoutDialogMessage: string; logoutDialogConfirm: string;
+    loggingOut: string; signingOutMessage: string; logoutIncomplete: string;
+    logoutIncompleteMessage: string; signedOutLocally: string; remoteLogoutMessage: string;
+    signedOut: string; clearCachedTitle: string; clearCachedMessage: string; cancel: string;
+    clearCachedConfirm: string; cachedCleared: string; cachedClearFailed: string;
+    removeLocalTitle: string; removeLocalMessage: string; removeLocalConfirm: string;
+    continueUnsent: string; loseUnsentTitle: string; keepWork: string; deleteUnsent: string;
+    removeLocalBusy: string; removeLocalFailed: string; removeLocalWarning: string;
+    removedWithWarnings: string; removed: string;
+    pendingNote: (count: number) => string;
+    cachedClearedMessage: (count: number) => string;
+    removalCounts: (counts: { reports: number; visits: number; boundaries: number; scans: number; drafts: number; assignments: number; notifications: number }) => string;
+    unsentWarning: (count: number) => string;
+    unsentDeletionMessage: (count: number) => string;
+  };
+  scanScreen: {
+    title: string;
+    intro: string;
+    errorTitle: string;
+    recoveryUnverified: string;
+    recoveryFailed: string;
+    deviceSettingsFailed: string;
+    permissionCanAsk: string;
+    permissionBlocked: string;
+    cameraFailed: string;
+    galleryFailed: string;
+    invalidImage: string;
+    unsupportedImage: string;
+    savingDraft: string;
+    savedDraftTimed: (time: string) => string;
+    savedDraft: string;
+    failedDraft: string;
+    idleDraft: string;
+    cameraBusy: string;
+    takePhoto: string;
+    galleryBusy: string;
+    chooseFromDevice: string;
+    cancelTitle: string;
+    cancelMessage: string;
+    keepDraft: string;
+    discardDraft: string;
+    selectedImage: string;
+    imageSelected: string;
+    selectedImageHelp: string;
+    checkingImage: string;
+    checkingRecovery: string;
+    noImage: string;
+    photoTip: string;
+    cameraSettings: string;
+    tryCamera: string;
+    takeAnother: string;
+    replaceImage: string;
+    chooseAnother: string;
+    clearAndStart: string;
+    startNew: string;
+    photoGuide: string;
+    guideFocus: string;
+    guideLighting: string;
+    guideSubject: string;
+    returnPreview: string;
+    resumeSaved: string;
+    viewSelected: string;
+    captureAccessibility: string;
+    galleryAccessibility: string;
+    draftNotSaved: string;
+    draftKept: string;
+    draftDiscarded: string;
+  };
   resultUncertain: {
     title: string;
     intro: string;
@@ -542,7 +637,6 @@ export type FarmerCopyBlock = {
     countMany: string;
     emptyTitle: string;
     emptyMessage: string;
-    checkCount: string;
     openScan: string;
     noMatchTitle: string;
     noMatchMessage: string;
@@ -575,7 +669,21 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
         smut: 'Dark whip on the shoot',
       },
     },
-    tabs: { home: 'Home', scan: 'Scan', myScans: 'My Scans' },
+    tabs: {
+      home: 'Home', scan: 'Scan', myScans: 'My Scans',
+      activityWithUpdates: (count) => `My Scans, ${count} unread office ${count === 1 ? 'update' : 'updates'}`,
+    },
+    officeUpdates: {
+      pill: (count) => `${count} office ${count === 1 ? 'update' : 'updates'}`,
+      open: 'Open office updates', dismiss: 'Hide office updates for now', close: 'Close office updates',
+      title: 'Office updates', unread: (count) => `${count} unread item${count === 1 ? '' : 's'} from the office.`,
+      allRead: 'Every office update has been read.', markAllRead: 'Mark all read',
+      loadError: 'Office updates could not be loaded.', readError: 'This update could not be marked as read.',
+      partial: 'Some office updates could not be loaded.',
+      empty: 'Office review results and visits appear here after a refresh.',
+      unreadLabel: 'Unread', notOnPhone: 'Not on this phone: open on the web',
+      markedRead: 'Updates marked as read', caseActivity: 'Case activity', recently: 'Recently',
+    },
     results: {
       healthy: 'No supported disease detected',
       mosaic: 'Mosaic',
@@ -678,6 +786,67 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       english: 'English',
       tagalog: 'Tagalog',
     },
+    settingsScreen: {
+      title: 'Settings', displaySection: 'DISPLAY & ACCESSIBILITY', darkMode: 'Dark Mode',
+      darkModeDescription: 'Use a darker appearance throughout CaneGuard', fieldGuideSection: 'FIELD GUIDE',
+      fieldGuideTitle: 'Field guide',
+      accountSection: 'ACCOUNT & SECURITY', fallbackName: 'Field Inspector', fallbackAccount: 'Authenticated mobile account',
+      accountSecurity: 'Account security', accountSecurityDescription: 'Password, email, device, and biometric controls',
+      logout: 'Logout', logoutAccessibility: 'Log out of your account', clearCached: 'Clear downloaded office data',
+      clearingCached: 'Clearing downloaded data…', clearCachedAccessibility: 'Clear downloaded office data only',
+      removeLocal: 'Remove all local records', removingLocal: 'Removing local records…',
+      removeLocalAccessibility: 'Remove all local records for this account', aboutSection: 'ABOUT', appName: 'App Name', version: 'Version',
+      logoutDialogTitle: 'Log out?', logoutDialogMessage: 'Logging out revokes the server session and removes the protected credential. Pending scans remain on this device.',
+      logoutDialogConfirm: 'Log out', loggingOut: 'Signing out…', signingOutMessage: 'Signing out. Please keep CaneGuard open.',
+      logoutIncomplete: 'Logout incomplete', logoutIncompleteMessage: 'CaneGuard could not clear secure session storage. Restart the app and try again.',
+      signedOutLocally: 'Signed out locally', remoteLogoutMessage: 'The server could not be reached, so the remote session may remain active until it expires or is revoked later.',
+      signedOut: 'Signed out', clearCachedTitle: 'Clear downloaded office data?',
+      clearCachedMessage: 'This removes visits and office updates that can be downloaded again. Saved scans, drafts, reports, boundaries and completed visits stay on this device.',
+      cancel: 'Cancel', clearCachedConfirm: 'Clear downloaded data', cachedCleared: 'Downloaded office data cleared',
+      cachedClearFailed: 'Could not clear downloaded data', removeLocalTitle: 'Remove all local records?',
+      removeLocalMessage: 'This cannot be undone. Server data and other accounts are not changed.',
+      removeLocalConfirm: 'Remove local records', continueUnsent: 'Continue without unsent work',
+      loseUnsentTitle: 'Lose unsent work permanently?', keepWork: 'Keep my work', deleteUnsent: 'Delete unsent work',
+      removeLocalBusy: 'An upload is still running. Wait for it to finish, then review local records again.',
+      removeLocalFailed: 'Could not remove local records', removeLocalWarning: 'Local records removed with cleanup warnings',
+      removedWithWarnings: 'Your local records were removed, but one or more saved images could not be deleted yet.',
+      removed: 'Saved scans, drafts, reports, boundaries, visits, and cached account data were removed from this device.',
+      pendingNote: (count) => `${count} saved item${count === 1 ? ' has' : 's have'} not reached the office yet.`,
+      cachedClearedMessage: (count) => `${count} downloaded ${count === 1 ? 'item was' : 'items were'} removed. Saved scans and drafts were kept.`,
+      removalCounts: (counts) => `${counts.reports} reports · ${counts.visits} visits · ${counts.boundaries} boundaries · ${counts.scans} scans · ${counts.drafts} drafts · ${counts.assignments} downloaded visits · ${counts.notifications} office updates.`,
+      unsentWarning: (count) => `${count} unsent item${count === 1 ? '' : 's'} on this device will be lost permanently.`,
+      unsentDeletionMessage: (count) => `${count} unsent item${count === 1 ? '' : 's'} will be deleted and cannot be sent afterwards.`,
+    },
+    scanScreen: {
+      title: 'Scan sugarcane', intro: 'Add a clear photo of the affected leaf, stalk, or central shoot.',
+      errorTitle: 'Image not added', recoveryUnverified: 'An interrupted image selection was found, but its source could not be verified. Please choose the image again.',
+      recoveryFailed: 'An interrupted image selection could not be recovered. Please try again.',
+      deviceSettingsFailed: 'Device settings could not be opened. Open Settings and allow camera access.',
+      permissionCanAsk: 'Camera access is needed to take a sugarcane photo. Try the camera again.',
+      permissionBlocked: 'Camera access is turned off. Open device settings to allow CaneGuard to use the camera.',
+      cameraFailed: 'The camera could not be opened. Please try again.', galleryFailed: 'The gallery could not be opened. Please try again.',
+      invalidImage: 'That selection did not contain a usable local image. Please choose another photo.',
+      unsupportedImage: 'Unsupported image format. Please choose a JPEG, PNG, or WebP image.',
+      savingDraft: 'Saving on this device…',
+      savedDraftTimed: (time) => `Saved on this device · ${time}. You can close CaneGuard and resume this scan.`,
+      savedDraft: 'Saved on this device. You can close CaneGuard and resume this scan.',
+      failedDraft: 'Not saved on this device. Your photo is still open here — try replacing it or keep this screen open.',
+      idleDraft: 'Not saved on this device yet.', cameraBusy: 'Opening camera…', takePhoto: 'Take photo',
+      galleryBusy: 'Opening gallery…', chooseFromDevice: 'Choose from device',
+      cancelTitle: 'Cancel scan?', cancelMessage: 'Do you want to keep your in-progress scan or discard it before returning home?',
+      keepDraft: 'Keep draft', discardDraft: 'Discard draft', selectedImage: 'Currently selected sugarcane image',
+      imageSelected: 'Image selected', selectedImageHelp: 'View the selected image or start a new scan.',
+      checkingImage: 'Checking for a selected image', checkingRecovery: 'CaneGuard is checking whether Android interrupted the last picker.',
+      noImage: 'No image added yet', photoTip: 'Use a well-lit, focused photo for a more helpful result.',
+      cameraSettings: 'Open Settings', tryCamera: 'Try Camera Again', takeAnother: 'Take Another Photo',
+      replaceImage: 'Take another photo to replace the selected image', chooseAnother: 'Choose Another Image',
+      clearAndStart: 'Clear the current scan and start again', startNew: 'Start New Scan',
+      photoGuide: 'Photo quality guide', guideFocus: 'Keep the symptom clear and focused',
+      guideLighting: 'Avoid dark, blurry, or distant images', guideSubject: 'Capture the affected leaf, stalk, or shoot',
+      returnPreview: 'Return to selected image preview', resumeSaved: 'Resume Saved Scan', viewSelected: 'View Selected Image',
+      captureAccessibility: 'Capture a photo with the camera', galleryAccessibility: 'Choose one image from the gallery',
+      draftNotSaved: 'Draft not saved on this device — try again', draftKept: 'Draft kept', draftDiscarded: 'Draft discarded',
+    },
     resultUncertain: {
       title: 'Result uncertain',
       intro: 'Try these steps for a clearer photo. You can still save this scan.',
@@ -746,7 +915,6 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       stateSaved: 'Saved',
       countOne: '1 scan',
       countMany: '{count} scans',
-      checkCount: '{count} checks of this plant',
       openScan: 'Open scan',
       emptyTitle: 'No scans yet',
       emptyMessage: 'Scan a leaf and it will be saved here.',
@@ -779,7 +947,21 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
         smut: 'Maitim na latigo sa usbong',
       },
     },
-    tabs: { home: 'Home', scan: 'Scan', myScans: 'Aking mga Scan' },
+    tabs: {
+      home: 'Home', scan: 'Scan', myScans: 'Aking mga Scan',
+      activityWithUpdates: (count) => `Aking mga Scan, ${count} hindi pa nababasang update sa opisina`,
+    },
+    officeUpdates: {
+      pill: (count) => `${count} update sa opisina`,
+      open: 'Buksan ang mga update sa opisina', dismiss: 'Itago muna ang mga update sa opisina', close: 'Isara ang mga update sa opisina',
+      title: 'Mga update mula sa opisina', unread: (count) => `${count} hindi pa nababasang update mula sa opisina.`,
+      allRead: 'Nabasa na ang lahat ng update sa opisina.', markAllRead: 'Markahang nabasa ang lahat',
+      loadError: 'Hindi makuha ang mga update sa opisina.', readError: 'Hindi mamarkahang nabasa ang update na ito.',
+      partial: 'May ilang update sa opisina na hindi nakuha.',
+      empty: 'Lalabas dito ang mga resulta ng pagsusuri ng opisina at mga pagbisita matapos mag-refresh.',
+      unreadLabel: 'Hindi pa nababasa', notOnPhone: 'Wala sa teleponong ito: buksan sa web',
+      markedRead: 'Namarkahang nabasa ang mga update', caseActivity: 'Aktibidad sa kaso', recently: 'Kamakailan',
+    },
     // Tagalog result names need review by an agriculture officer before release.
     results: {
       healthy: 'No supported disease detected',
@@ -883,6 +1065,67 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       english: 'Ingles',
       tagalog: 'Tagalog',
     },
+    settingsScreen: {
+      title: 'Mga setting', displaySection: 'ITSURA AT ACCESSIBILITY', darkMode: 'Madilim na itsura',
+      darkModeDescription: 'Gumamit ng mas madilim na itsura sa buong CaneGuard', fieldGuideSection: 'GABAY SA BUKID',
+      fieldGuideTitle: 'Gabay sa bukid',
+      accountSection: 'ACCOUNT AT SEGURIDAD', fallbackName: 'Inspektor sa bukid', fallbackAccount: 'Authenticated na mobile account',
+      accountSecurity: 'Seguridad ng account', accountSecurityDescription: 'Password, email, device, at biometric na mga kontrol',
+      logout: 'Mag-log out', logoutAccessibility: 'Mag-log out sa iyong account', clearCached: 'Burahin ang na-download na datos ng opisina',
+      clearingCached: 'Binubura ang na-download na datos…', clearCachedAccessibility: 'Burahin lamang ang na-download na datos ng opisina',
+      removeLocal: 'Alisin ang lahat ng lokal na tala', removingLocal: 'Inaalis ang mga lokal na tala…',
+      removeLocalAccessibility: 'Alisin ang lahat ng lokal na tala para sa account na ito', aboutSection: 'TUNGKOL SA APP', appName: 'Pangalan ng app', version: 'Bersyon',
+      logoutDialogTitle: 'Mag-log out?', logoutDialogMessage: 'Isinasara ng pag-log out ang session sa server at inaalis ang protektadong kredensyal. Mananatili sa teleponong ito ang mga scan na hindi pa naipapadala.',
+      logoutDialogConfirm: 'Mag-log out', loggingOut: 'Nagla-log out…', signingOutMessage: 'Nagla-log out. Panatilihing bukas ang CaneGuard.',
+      logoutIncomplete: 'Hindi kumpleto ang pag-log out', logoutIncompleteMessage: 'Hindi naalis ng CaneGuard ang ligtas na imbakan ng session. I-restart ang app at subukan muli.',
+      signedOutLocally: 'Naka-log out sa device', remoteLogoutMessage: 'Hindi makontak ang server, kaya maaaring manatiling aktibo ang remote session hanggang mag-expire o mabawi ito.',
+      signedOut: 'Naka-log out', clearCachedTitle: 'Burahin ang na-download na datos ng opisina?',
+      clearCachedMessage: 'Aalisin nito ang mga pagbisita at update sa opisina na maaaring i-download muli. Mananatili sa teleponong ito ang mga na-save na scan, draft, ulat, hangganan at kumpletong pagbisita.',
+      cancel: 'Kanselahin', clearCachedConfirm: 'Burahin ang na-download na datos', cachedCleared: 'Nabura ang na-download na datos ng opisina',
+      cachedClearFailed: 'Hindi nabura ang na-download na datos', removeLocalTitle: 'Alisin ang lahat ng lokal na tala?',
+      removeLocalMessage: 'Hindi na ito maibabalik. Hindi mababago ang datos sa server at ng ibang account.',
+      removeLocalConfirm: 'Alisin ang mga lokal na tala', continueUnsent: 'Magpatuloy nang hindi kasama ang hindi naipadala',
+      loseUnsentTitle: 'Permanenteng mawala ang hindi naipadala?', keepWork: 'Panatilihin ang aking gawain', deleteUnsent: 'Burahin ang hindi naipadala',
+      removeLocalBusy: 'May ipinapadalang datos. Hintaying matapos ito, saka suriin muli ang mga lokal na tala.',
+      removeLocalFailed: 'Hindi naalis ang mga lokal na tala', removeLocalWarning: 'Naalis ang mga lokal na tala ngunit may babala sa paglilinis',
+      removedWithWarnings: 'Naalis ang mga lokal na tala, ngunit may isa o higit pang litrato na hindi pa mabura.',
+      removed: 'Inalis sa teleponong ito ang mga na-save na scan, draft, ulat, hangganan, pagbisita at naka-cache na datos ng account.',
+      pendingNote: (count) => `${count} na-save na item ang hindi pa nakakarating sa opisina.`,
+      cachedClearedMessage: (count) => `Inalis ang ${count} na-download na item. Napanatili ang mga na-save na scan at draft.`,
+      removalCounts: (counts) => `${counts.reports} ulat · ${counts.visits} pagbisita · ${counts.boundaries} hangganan · ${counts.scans} scan · ${counts.drafts} draft · ${counts.assignments} na-download na pagbisita · ${counts.notifications} update sa opisina.`,
+      unsentWarning: (count) => `Permanenteng mawawala ang ${count} item na hindi pa naipapadala mula sa teleponong ito.`,
+      unsentDeletionMessage: (count) => `Mabubura ang ${count} item na hindi pa naipapadala at hindi na maipapadala pagkatapos nito.`,
+    },
+    scanScreen: {
+      title: 'Mag-scan ng tubo', intro: 'Magdagdag ng malinaw na litrato ng apektadong dahon, tangkay o gitnang usbong.',
+      errorTitle: 'Hindi naidagdag ang larawan', recoveryUnverified: 'May naantalang pagpili ng larawan pero hindi matiyak ang pinagmulan nito. Piliin muli ang larawan.',
+      recoveryFailed: 'Hindi maibalik ang naantalang pagpili ng larawan. Subukan muli.',
+      deviceSettingsFailed: 'Hindi mabuksan ang settings ng device. Buksan ang Settings at payagan ang paggamit ng camera.',
+      permissionCanAsk: 'Kailangan ang pahintulot sa camera para kunan ng tubo. Subukang muli.',
+      permissionBlocked: 'Naka-off ang pahintulot sa camera. Buksan ang settings ng device para payagan ang CaneGuard.',
+      cameraFailed: 'Hindi mabuksan ang camera. Subukan muli.', galleryFailed: 'Hindi mabuksan ang gallery. Subukan muli.',
+      invalidImage: 'Walang magagamit na lokal na larawan sa pinili mo. Pumili ng ibang litrato.',
+      unsupportedImage: 'Hindi suportado ang format ng larawan. Pumili ng JPEG, PNG o WebP na larawan.',
+      savingDraft: 'Sine-save sa device…',
+      savedDraftTimed: (time) => `Na-save sa device · ${time}. Puwede mong isara ang CaneGuard at ituloy ang scan na ito.`,
+      savedDraft: 'Na-save sa device. Puwede mong isara ang CaneGuard at ituloy ang scan na ito.',
+      failedDraft: 'Hindi na-save sa device. Nananatiling bukas ang larawan — palitan ito o panatilihing bukas ang screen.',
+      idleDraft: 'Hindi pa na-save sa device.', cameraBusy: 'Binubuksan ang camera…', takePhoto: 'Kumuha ng litrato',
+      galleryBusy: 'Binubuksan ang gallery…', chooseFromDevice: 'Pumili mula sa device',
+      cancelTitle: 'Kanselahin ang scan?', cancelMessage: 'Itago ang kasalukuyang scan o itapon ito bago bumalik sa home?',
+      keepDraft: 'Itago ang draft', discardDraft: 'Itapon ang draft', selectedImage: 'Kasalukuyang piniling larawan ng tubo',
+      imageSelected: 'Napili ang larawan', selectedImageHelp: 'Tingnan ang napiling larawan o magsimula ng bagong scan.',
+      checkingImage: 'Sinusuri kung may napiling larawan', checkingRecovery: 'Sinusuri ng CaneGuard kung naputol ang huling pagpili ng larawan sa Android.',
+      noImage: 'Wala pang naidagdag na larawan', photoTip: 'Gumamit ng maliwanag at malinaw na larawan para sa mas kapaki-pakinabang na resulta.',
+      cameraSettings: 'Buksan ang Settings', tryCamera: 'Subukan muli ang camera', takeAnother: 'Kumuha ng ibang litrato',
+      replaceImage: 'Kumuha ng ibang litrato para palitan ang napili', chooseAnother: 'Pumili ng ibang larawan',
+      clearAndStart: 'Burahin ang kasalukuyang scan at magsimula muli', startNew: 'Bagong scan',
+      photoGuide: 'Gabay sa kalidad ng larawan', guideFocus: 'Panatilihing malinaw at nakatutok ang sintomas',
+      guideLighting: 'Iwasan ang madilim, malabo o malayong larawan', guideSubject: 'Kunan ang apektadong dahon, tangkay o usbong',
+      returnPreview: 'Bumalik sa preview ng napiling larawan', resumeSaved: 'Ituloy ang na-save na scan', viewSelected: 'Tingnan ang napiling larawan',
+      captureAccessibility: 'Kumuha ng larawan gamit ang camera', galleryAccessibility: 'Pumili ng isang larawan mula sa gallery',
+      draftNotSaved: 'Hindi na-save ang draft sa device — subukan muli', draftKept: 'Itinago ang draft', draftDiscarded: 'Itinapon ang draft',
+    },
     resultUncertain: {
       title: 'Hindi tiyak ang resulta',
       intro: 'Subukan ang mga hakbang na ito para sa mas malinaw na litrato. Puwede mo pa ring i-save ang scan na ito.',
@@ -952,7 +1195,6 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       stateSaved: 'Na-save',
       countOne: '1 scan',
       countMany: '{count} scan',
-      checkCount: '{count} pagsusuri sa halamang ito',
       openScan: 'Buksan ang scan',
       emptyTitle: 'Wala pang scan',
       emptyMessage: 'Mag-scan ng dahon at mase-save ito dito.',

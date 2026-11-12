@@ -33,6 +33,7 @@ export type BottomNavProps = {
   hiddenTabs?: readonly NavTab[];
   /** Replacement tab words, for example a farmer's own language. */
   labels?: Partial<Record<NavTab, string>>;
+  activityAccessibilityLabel?: (count: number) => string;
 };
 
 type NavItem = {
@@ -54,6 +55,7 @@ const NAV_ITEMS: NavItem[] = [
  */
 export function BottomNav({
   activeTab,
+  activityAccessibilityLabel,
   hiddenTabs,
   labels,
   navigation,
@@ -77,9 +79,11 @@ export function BottomNav({
               testID={`nav.${item.key}`}
               accessibilityRole="button"
               accessibilityLabel={
-                item.key === 'activity' && !labels?.activity
-                  ? activityTabLabel(notificationCount)
-                  : (labels?.[item.key] ?? item.label)
+                item.key === 'activity' && notificationCount > 0 && activityAccessibilityLabel
+                  ? activityAccessibilityLabel(notificationCount)
+                  : item.key === 'activity' && !labels?.activity
+                    ? activityTabLabel(notificationCount)
+                    : (labels?.[item.key] ?? item.label)
               }
               accessibilityState={{ selected: active }}
               onPress={() => {

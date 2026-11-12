@@ -11,8 +11,9 @@ import type { FarmerScanState } from '@/features/records/domain/scanState';
 // of "On this device / not sent"; inspector rendering is unchanged.
 
 const mockStates = new Map<string, FarmerScanState>();
-const mockThreads = new Map<string, { checkCount: number; originalId: string }>();
+const mockThreads = new Map<string, { originalId: string }>();
 const mockRecords: { data: ScanRecordListItem[] } = { data: [] };
+let mockThreadStatus: 'loading' | 'ready' | 'error' = 'ready';
 let mockLanguage: 'en' | 'tl' = 'en';
 
 jest.mock('@/features/records/hooks/useRecords', () => ({
@@ -27,7 +28,7 @@ jest.mock('@/features/records/hooks/useRecords', () => ({
   }),
 }));
 jest.mock('@/features/records/hooks/useScanStates', () => ({
-  useFarmerScans: () => ({ states: mockStates, threads: mockThreads }),
+  useFarmerScans: () => ({ states: mockStates, threads: mockThreads, status: mockThreadStatus, refresh: jest.fn(async () => undefined) }),
   useFarmerScanStates: () => mockStates,
 }));
 jest.mock('@/providers/LanguagePreferenceProvider', () => ({
@@ -58,6 +59,7 @@ function renderAsFarmer() {
 describe('My Scans (farmer Activity)', () => {
   beforeEach(() => {
     mockLanguage = 'en';
+    mockThreadStatus = 'ready';
     mockStates.clear();
     mockThreads.clear();
     mockStates.set('scan-a', 'needs_checking');
@@ -98,6 +100,15 @@ describe('My Scans (farmer Activity)', () => {
     expect(screen.queryByTestId('record-card.state.scan-a')).toBeNull();
   });
 
+  it('does not split plant checks when thread relationships fail to load', async () => {
+    mockThreadStatus = 'error';
+    mockThreads.clear();
+    await renderAsFarmer();
+    expect(screen.getByText('We could not read your scans on this phone.')).toBeOnTheScreen();
+    expect(screen.queryByTestId('my-scans.item.scan-a')).toBeNull();
+    expect(screen.queryByTestId('my-scans.item.scan-b')).toBeNull();
+  });
+
   it('filters the list by state chip', async () => {
     await renderAsFarmer();
     await fireEvent.press(screen.getByTestId('my-scans.filter.followed_up'));
@@ -106,15 +117,13 @@ describe('My Scans (farmer Activity)', () => {
   });
 
   // Proves: "group checks by plant" - a first check and its follow-ups are one card.
-  it('shows one card per plant with its check count', async () => {
-    mockThreads.set('scan-a', { checkCount: 2, originalId: 'scan-b' });
-    mockThreads.set('scan-b', { checkCount: 2, originalId: 'scan-b' });
+  it('shows one card per plant without exposing a check count', async () => {
+    mockThreads.set('scan-a', { originalId: 'scan-b' });
+    mockThreads.set('scan-b', { originalId: 'scan-b' });
     await renderAsFarmer();
     expect(screen.getByTestId('my-scans.item.scan-a')).toBeOnTheScreen();
     expect(screen.queryByTestId('my-scans.item.scan-b')).toBeNull();
-    expect(screen.getByTestId('record-card.checks.scan-a')).toHaveTextContent(
-      '2 checks of this plant',
-    );
+    expect(screen.queryByTestId('record-card.checks.scan-a')).toBeNull();
     expect(screen.getByTestId('my-scans.count')).toHaveTextContent('2 scans');
   });
 

@@ -108,6 +108,8 @@ describe('SettingsScreen', () => {
     await render(<SettingsScreen />);
 
     expect(screen.getByText('Language / Wika')).toBeOnTheScreen();
+    expect(screen.getByText('Madilim na itsura')).toBeOnTheScreen();
+    expect(screen.getByText('ACCOUNT AT SEGURIDAD')).toBeOnTheScreen();
     expect(
       screen.getByText('Piliin ang wika para sa mga screen ng magsasaka'),
     ).toBeOnTheScreen();

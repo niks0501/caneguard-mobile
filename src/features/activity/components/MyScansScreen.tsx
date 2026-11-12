@@ -63,7 +63,7 @@ export default function MyScansScreen() {
     { search: submittedSearch || undefined },
     DEFAULT_RECORD_PAGE_SIZE,
   );
-  const { states, threads } = useFarmerScans();
+  const { states, threads, status: threadStatus, refresh: refreshThreads } = useFarmerScans();
   const stateLabel = useCallback(
     (state: FarmerScanState) => copy[STATE_COPY_KEY[state]],
     [copy],
@@ -72,6 +72,7 @@ export default function MyScansScreen() {
   // One card per plant: the newest loaded check stands for the first check and
   // its follow-ups, which stay reachable from that record's check history.
   const visible = useMemo(() => {
+    if (threadStatus !== 'ready') return [];
     const seenPlants = new Set<string>();
     return records.data.filter((record) => {
       if (filter !== 'all' && states.get(record.id) !== filter) return false;
@@ -80,7 +81,7 @@ export default function MyScansScreen() {
       seenPlants.add(plant);
       return true;
     });
-  }, [filter, records.data, states, threads]);
+  }, [filter, records.data, states, threads, threadStatus]);
   const hasFilters = filter !== 'all' || Boolean(submittedSearch);
   const chips: { key: StateFilter; label: string }[] = [
     { key: 'all', label: copy.filterAll },
@@ -90,7 +91,6 @@ export default function MyScansScreen() {
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<ScanRecordListItem>) => {
       const state = states.get(item.id);
-      const checkCount = threads.get(item.id)?.checkCount ?? 1;
       return (
         <View style={styles.listRow}>
           <RecordCard
@@ -99,10 +99,6 @@ export default function MyScansScreen() {
             scanState={state ? { label: stateLabel(state), state } : undefined}
             farmerText={{
               language,
-              checks:
-                checkCount > 1
-                  ? copy.checkCount.replace('{count}', String(checkCount))
-                  : undefined,
               openLabel: copy.openScan,
               result: possibleConditionLine(farmerCopy, item.predictedLabel),
             }}
@@ -116,7 +112,7 @@ export default function MyScansScreen() {
         </View>
       );
     },
-    [copy, farmerCopy, language, stateLabel, states, threads],
+    [copy, farmerCopy, language, stateLabel, states],
   );
 
   const submitSearch = () => setSubmittedSearch(searchInput.trim());
@@ -138,6 +134,20 @@ export default function MyScansScreen() {
         message=""
         liveRegion="assertive">
         <AppButton onPress={() => void records.refresh()} leadingIcon="refresh-cw">
+          {copy.retryLoad}
+        </AppButton>
+      </EmptyState>
+    ) : threadStatus === 'loading' ? (
+      <EmptyState icon="loader" title={copy.loading} message="" liveRegion="polite">
+        <ActivityIndicator accessibilityLabel={copy.loading} color={theme.primary} />
+      </EmptyState>
+    ) : threadStatus === 'error' ? (
+      <EmptyState
+        icon="alert-triangle"
+        title={copy.loadError}
+        message=""
+        liveRegion="assertive">
+        <AppButton onPress={() => void refreshThreads()} leadingIcon="refresh-cw">
           {copy.retryLoad}
         </AppButton>
       </EmptyState>
@@ -236,7 +246,7 @@ export default function MyScansScreen() {
 
   const footer = (
     <View style={styles.footer}>
-      {records.hasMore ? (
+      {threadStatus === 'ready' && records.hasMore ? (
         <AppButton
           testID="my-scans.load-more"
           onPress={() => void records.loadMore()}

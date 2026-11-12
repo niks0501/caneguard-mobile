@@ -331,6 +331,9 @@ export const FIELD_GUIDE_NOT_FOUND_ACTION = 'Back to field guide';
  */
 export const HOME_NOTE_COPY = {
   allClear: 'All clear.',
+  visitsCheckFailed: "Couldn't check your visits.",
+  visitsCheckFailedDetail: 'Nothing is lost — they will appear when the check succeeds.',
+  visitsCheckPending: 'Checking your visits…',
   nothingDueToday: 'Nothing due today.',
   openNextVisit: 'Open next visit',
   resumeDraft: 'Resume',

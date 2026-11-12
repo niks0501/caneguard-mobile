@@ -74,7 +74,13 @@ export default function HomeScreen() {
         syncLine: null,
         visitsLine: null,
       }
-    : buildMorningNote(attention.items, syncNote);
+    : buildMorningNote(
+        attention.items,
+        syncNote,
+        attention.canReadVisits && attention.visitsCheckFailed,
+        attention.canReadVisits && attention.visitsCheckPending,
+        !attention.canReadVisits,
+      );
   const now = useNow();
   // Stable identity so the memoized attention rows can skip re-rendering when
   // only unrelated Home state changes.

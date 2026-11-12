@@ -24,6 +24,7 @@ import {
   getOwnerMobileDataStore,
   isFresh,
   setOwnerAssignments,
+  setOwnerAssignmentsReadState,
   subscribeOwnerMobileData,
 } from '@/features/mobile-data/data/mobileDataStore';
 
@@ -58,7 +59,7 @@ function describeRefreshFailure(error: unknown, hasCachedAssignments: boolean): 
 
 export function useFieldValidationAssignments(enabled = true) {
   const database = useCaneGuardDatabase();
-  const { markSessionExpired, session, status: authStatus } = useAuth();
+  const { isSessionCurrent, markSessionExpired, session, status: authStatus } = useAuth();
   const canRead = canReadFieldValidationAssignments(session?.user);
   const [state, setState] = useState<AssignmentState>({
     assignments: [],
@@ -68,7 +69,6 @@ export function useFieldValidationAssignments(enabled = true) {
     refreshing: false,
     sessionKey: null,
   });
-  const sessionRef = useRef(session);
   const mounted = useRef(true);
   const sessionKey = session ? `${session.user.uuid}:${session.token}` : null;
   const ownerStore =
@@ -82,16 +82,13 @@ export function useFieldValidationAssignments(enabled = true) {
     return subscribeOwnerMobileData(ownerStore, () => setStoreRevision((value) => value + 1));
   }, [ownerStore]);
 
-  useEffect(() => {
-    sessionRef.current = session;
-  }, [session]);
-
   const isCurrentSession = useCallback(
     (requestedSession: typeof session) =>
-      mounted.current &&
-      requestedSession?.token === sessionRef.current?.token &&
-      requestedSession?.user.uuid === sessionRef.current?.user.uuid,
-    [],
+      Boolean(
+        requestedSession &&
+        isSessionCurrent(requestedSession.token, requestedSession.user.uuid),
+      ),
+    [isSessionCurrent],
   );
 
   const refreshOutcome = useCallback(async (options?: { force?: boolean }): Promise<RefreshOutcome> => {
@@ -112,7 +109,7 @@ export function useFieldValidationAssignments(enabled = true) {
     const storeGeneration = store.generation;
     const isCurrentStore = () => store.generation === storeGeneration;
     const applyCached = (assignments: FieldValidationAssignment[]) => {
-      if (isCurrentSession(requestedSession) && isCurrentStore()) {
+      if (mounted.current && isCurrentSession(requestedSession) && isCurrentStore()) {
         setState((current) => ({
           ...current,
           assignments,
@@ -121,11 +118,12 @@ export function useFieldValidationAssignments(enabled = true) {
       }
     };
 
-    if (!force && isFresh(store.assignments)) {
+    if (!force && store.assignmentsVerified && isFresh(store.assignments)) {
       applyCached(store.assignments?.value ?? []);
       return 'ok';
     }
 
+    setOwnerAssignmentsReadState(store, { refreshing: true, failed: false });
     setState((current) => ({
       ...current,
       errorMessage: null,
@@ -152,8 +150,9 @@ export function useFieldValidationAssignments(enabled = true) {
         applyCached(cached);
       });
       if (!isCurrentStore()) return 'skipped';
-      if (!force && isFresh(store.assignments)) {
+      if (!force && store.assignmentsVerified && isFresh(store.assignments)) {
         applyCached(store.assignments?.value ?? []);
+        setOwnerAssignmentsReadState(store, { refreshing: false, failed: false });
         setState((current) => ({ ...current, refreshing: false }));
         return 'ok';
       }
@@ -179,39 +178,57 @@ export function useFieldValidationAssignments(enabled = true) {
             result.fetchedAt,
             result.skippedCount,
           );
-          prefetchAfterDownload(requestedSession.user.uuid, requestedSession.token, result.assignments);
-          setState({
-            assignments: result.assignments,
-            capabilityUnavailable: false,
-            errorMessage: null,
-            lastSuccessfulAt: result.fetchedAt,
-            refreshing: false,
-            sessionKey,
-          });
+          setOwnerAssignmentsReadState(store, { refreshing: false, failed: false, verified: true });
+          if (mounted.current && isCurrentSession(requestedSession)) {
+            prefetchAfterDownload(requestedSession.user.uuid, requestedSession.token, result.assignments);
+          }
+          if (mounted.current) {
+            setState({
+              assignments: result.assignments,
+              capabilityUnavailable: false,
+              errorMessage: null,
+              lastSuccessfulAt: result.fetchedAt,
+              refreshing: false,
+              sessionKey,
+            });
+          }
           return 'ok';
+        },
+        () => {
+          if (isCurrentStore()) {
+            setOwnerAssignmentsReadState(
+              store,
+              isCurrentSession(requestedSession)
+                ? { refreshing: false, failed: store.assignmentsFailed }
+                : { refreshing: false, failed: false, verified: false },
+            );
+          }
         },
       );
     } catch (error: unknown) {
       if (!isCurrentSession(requestedSession) || !isCurrentStore()) return 'skipped';
+      setOwnerAssignmentsReadState(store, { refreshing: false, failed: true });
       if (
         error instanceof MobileFieldValidationAssignmentsApiError &&
         error.code === 'AUTH_REQUIRED'
       ) {
-        await markSessionExpired();
+        await markSessionExpired(requestedSession.token);
         return 'failed';
       }
       const capabilityUnavailable =
         error instanceof MobileFieldValidationAssignmentsApiError &&
         error.code === 'CAPABILITY_UNAVAILABLE';
-      setState((current) => ({
-        ...current,
-        capabilityUnavailable,
-        errorMessage: describeRefreshFailure(
-          error,
-          Boolean(store.assignments?.value.length ?? current.assignments.length),
-        ),
-        refreshing: false,
-      }));
+      if (mounted.current) {
+        setState((current) => ({
+          ...current,
+          capabilityUnavailable,
+          errorMessage: describeRefreshFailure(
+            error,
+            Boolean(store.assignments?.value.length ?? current.assignments.length),
+          ),
+          refreshing: false,
+        }));
+      }
       return 'failed';
     }
   }, [authStatus, canRead, database, enabled, isCurrentSession, markSessionExpired, ownerStore, session, sessionKey]);
@@ -223,10 +240,10 @@ export function useFieldValidationAssignments(enabled = true) {
   );
 
   useEffect(() => {
-    if (ownerStore && ownerStore.generation > 0) {
+    if (ownerStore) {
       void refresh({ force: false });
     }
-  }, [ownerStore, ownerStore?.generation, refresh]);
+  }, [ownerStore, ownerStore?.assignmentsVerified, ownerStore?.generation, refresh]);
 
   useFocusEffect(
     useCallback(() => {
@@ -268,7 +285,15 @@ export function useFieldValidationAssignments(enabled = true) {
           sessionKey,
         };
 
-  return { ...visibleState, refresh, refreshOutcome };
+  return {
+    ...visibleState,
+    ready: assignmentsSnapshot !== null && (ownerStore?.assignmentsVerified ?? false),
+    failed: ownerStore?.assignmentsFailed ?? false,
+    refreshing: ownerStore?.assignmentsRefreshing ?? visibleState.refreshing,
+    canRead,
+    refresh,
+    refreshOutcome,
+  };
 }
 
 /** Best-effort photo download after the records are saved; never blocks or fails the refresh. */

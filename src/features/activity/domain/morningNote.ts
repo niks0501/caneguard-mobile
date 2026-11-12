@@ -11,7 +11,7 @@ export interface MorningNote {
   action: MorningNoteAction;
   actionLabel: string;
   /** The one sentence (or two short ones) Home leads with. */
-  headline: string;
+  headline: string | null;
   /** True when the headline is the send state, so Home makes it the Activity shortcut. */
   headlineOpensActivity: boolean;
   /** Send state shown quietly under a work headline; null when the headline already says it. */
@@ -58,6 +58,9 @@ function visitCountsSentence(items: readonly NeedsAttentionItem[]): string | nul
 export function buildMorningNote(
   items: readonly NeedsAttentionItem[],
   syncNote: string | null,
+  visitsCheckFailed = false,
+  visitsCheckPending = false,
+  visitsUnavailable = false,
 ): MorningNote {
   const work = items.filter(isActionableAttentionItem);
   const primary = work[0];
@@ -85,6 +88,17 @@ export function buildMorningNote(
   } else if (action === 'visit') {
     headline = visitCounts ?? HOME_NOTE_COPY.nothingDueToday;
   }
+  if (visitsCheckFailed && !headline) {
+    return {
+      action,
+      actionLabel,
+      headline: HOME_NOTE_COPY.visitsCheckFailed,
+      headlineOpensActivity: false,
+      syncLine: syncNote,
+      visitsLine: HOME_NOTE_COPY.visitsCheckFailedDetail,
+    };
+  }
+
   const visitsLine = action === 'visit' ? null : visitCounts;
 
   if (headline) {
@@ -97,11 +111,26 @@ export function buildMorningNote(
       visitsLine,
     };
   }
+  if (syncNote) {
+    return {
+      action,
+      actionLabel,
+      headline: syncNote,
+      headlineOpensActivity: true,
+      syncLine: null,
+      visitsLine,
+    };
+  }
+
   return {
     action,
     actionLabel,
-    headline: syncNote ?? HOME_NOTE_COPY.allClear,
-    headlineOpensActivity: Boolean(syncNote),
+    headline: visitsCheckPending
+      ? HOME_NOTE_COPY.visitsCheckPending
+      : visitsUnavailable
+        ? null
+        : HOME_NOTE_COPY.allClear,
+    headlineOpensActivity: false,
     syncLine: null,
     visitsLine,
   };

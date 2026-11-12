@@ -67,7 +67,7 @@ describe('useHomeAttention', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetLocalDateKey.mockReturnValue('2026-09-20');
-    mockUsePhoneCompletionSnapshot.mockReturnValue({ ready: true, states: new Map() });
+    mockUsePhoneCompletionSnapshot.mockReturnValue({ failed: false, ready: true, states: new Map() });
   });
 
   it('builds assignment and notification attention items and excludes uploads', async () => {
@@ -123,6 +123,9 @@ describe('useHomeAttention', () => {
 
     mockUseAssignments.mockReturnValue({
       assignments: [mockAssignment],
+      ready: true,
+      failed: false,
+      canRead: true,
       capabilityUnavailable: false,
       errorMessage: null,
       lastSuccessfulAt: null,
@@ -173,6 +176,9 @@ describe('useHomeAttention', () => {
         visitAssignment('assign-waiting', '2026-09-10'),
         visitAssignment('assign-next', '2026-09-21'),
       ],
+      ready: true,
+      failed: false,
+      canRead: true,
       capabilityUnavailable: false,
       errorMessage: null,
       lastSuccessfulAt: null,
@@ -198,6 +204,7 @@ describe('useHomeAttention', () => {
     });
     mockUseDestinations.mockReturnValue(new Map());
     mockUsePhoneCompletionSnapshot.mockReturnValue({
+      failed: false,
       ready: true,
       states: new Map<string, PhoneCompletionState>([
         ['assign-done', 'sent'],
@@ -214,6 +221,9 @@ describe('useHomeAttention', () => {
   it('holds visit work back until the saved visits read is current', async () => {
     mockUseAssignments.mockReturnValue({
       assignments: [visitAssignment('assign-next', '2026-09-21')],
+      ready: true,
+      failed: false,
+      canRead: true,
       capabilityUnavailable: false,
       errorMessage: null,
       lastSuccessfulAt: null,
@@ -239,6 +249,7 @@ describe('useHomeAttention', () => {
     });
     mockUseDestinations.mockReturnValue(new Map());
     mockUsePhoneCompletionSnapshot.mockReturnValue({
+      failed: true,
       ready: false,
       states: new Map<string, PhoneCompletionState>([['assign-next', 'waiting']]),
     });
@@ -247,13 +258,17 @@ describe('useHomeAttention', () => {
 
     expect(result.current.items).toEqual([]);
     expect(result.current.total).toBe(0);
+    expect(result.current.visitsCheckFailed).toBe(true);
   });
 
-  it('returns empty items when there are no assignments or notifications', async () => {
+  it('keeps visits unknown when a refresh fails after an empty shared snapshot', async () => {
     mockUseAssignments.mockReturnValue({
       assignments: [],
+      ready: true,
+      failed: true,
+      canRead: true,
       capabilityUnavailable: false,
-      errorMessage: null,
+      errorMessage: "Couldn't refresh visits.",
       lastSuccessfulAt: null,
       refreshing: false,
       skippedCount: 0,
@@ -283,11 +298,12 @@ describe('useHomeAttention', () => {
 
     expect(result.current.total).toBe(0);
     expect(result.current.items).toHaveLength(0);
+    expect(result.current.visitsCheckFailed).toBe(true);
   });
 
-  async function renderUpcomingVisitHook() {
+  async function renderUpcomingVisitHook(canRead = true) {
     mockUseAssignments.mockReturnValue({
-      assignments: [
+      assignments: canRead ? [
         {
           id: 'assign-1',
           ownerIdentity: 'user-1',
@@ -316,7 +332,10 @@ describe('useHomeAttention', () => {
             confidence: 0.93,
           },
         },
-      ],
+      ] : [],
+      ready: canRead,
+      failed: false,
+      canRead,
       capabilityUnavailable: false,
       errorMessage: null,
       lastSuccessfulAt: null,
@@ -343,6 +362,28 @@ describe('useHomeAttention', () => {
     mockUseDestinations.mockReturnValue(new Map());
     return renderHook(() => useHomeAttention());
   }
+
+  it('omits visit status when the user cannot read assignments', async () => {
+    const { result } = await renderUpcomingVisitHook(false);
+
+    expect(result.current.canReadVisits).toBe(false);
+    expect(result.current.visitsCheckFailed).toBe(false);
+    expect(result.current.visitsCheckPending).toBe(false);
+  });
+
+  it('marks an in-flight completion read as pending rather than failed', async () => {
+    const { unmount } = await renderUpcomingVisitHook();
+    await unmount();
+    mockUsePhoneCompletionSnapshot.mockReturnValue({
+      failed: false,
+      ready: false,
+      states: new Map(),
+    });
+    const { result } = await renderHook(() => useHomeAttention());
+
+    expect(result.current.visitsCheckFailed).toBe(false);
+    expect(result.current.visitsCheckPending).toBe(true);
+  });
 
   it('rolls the visit buckets over at local midnight while Home stays open', async () => {
     jest.useFakeTimers();

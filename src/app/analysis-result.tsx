@@ -410,7 +410,7 @@ export default function AnalysisResultScreen() {
               />
               {showUncertainCard ? (
                 <UncertainResult
-                  closestMatch={farmerResultName(farmerCopy, result.predictedLabel)}
+                  closestMatch={farmerResultName(result.predictedLabel)}
                   onRetake={startNewScan}
                   onReviewSigns={() => router.push(`/field-guide/${result.predictedLabel}`)}
                   disabled={isSaving}

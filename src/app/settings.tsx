@@ -182,7 +182,7 @@ export default function SettingsScreen() {
   };
 
   const describeRemovalPreview = (preview: LocalDataRemovalPreview): string => isFarmer
-    ? `${copy.removalCounts({ reports: preview.reports, visits: preview.visits, boundaries: preview.boundaries, scans: preview.scans, drafts: preview.draftCheckpoints, assignments: preview.assignments, notifications: preview.notifications })}\n${preview.totalUnsent > 0 ? copy.unsentWarning(preview.totalUnsent) : copy.removeLocalMessage}`
+    ? `${copy.removalCounts({ reports: preview.reports, visits: preview.visits, boundaries: preview.boundaries, scans: preview.scans, drafts: preview.draftCheckpoints, assignments: preview.assignments, notifications: preview.notifications })}\n${preview.totalUnsent > 0 ? copy.localItemsWarning(preview.totalUnsent) : copy.removeLocalMessage}`
     : [
       `${preview.reports} report${preview.reports === 1 ? '' : 's'} (${preview.draftReports} draft, ${preview.finalizedUnsentReports} finalized but not sent)`,
       `${preview.visits} completed visit${preview.visits === 1 ? '' : 's'} (${preview.unsentVisits} not sent)`,
@@ -214,20 +214,20 @@ export default function SettingsScreen() {
         {
           text:
             preview.totalUnsent > 0
-              ? isFarmer ? copy.continueUnsent : 'Continue without unsent work'
+              ? isFarmer ? copy.continueLocalRemoval : 'Continue without unsent work'
               : isFarmer ? copy.removeLocalConfirm : 'Remove local records',
           style: 'destructive',
           onPress: () => {
             if (preview.totalUnsent > 0) {
               Alert.alert(
-                isFarmer ? copy.loseUnsentTitle : 'Lose unsent work permanently?',
+                isFarmer ? copy.localItemsTitle : 'Lose unsent work permanently?',
                 isFarmer
-                  ? copy.unsentDeletionMessage(preview.totalUnsent)
+                  ? copy.localItemsDeletionMessage(preview.totalUnsent)
                   : `${preview.totalUnsent} unsent item${preview.totalUnsent === 1 ? '' : 's'} will be deleted and cannot be sent afterwards.`,
                 [
                   { text: isFarmer ? copy.keepWork : 'Keep my work', style: 'cancel' },
                   {
-                    text: isFarmer ? copy.deleteUnsent : 'Delete unsent work',
+                    text: isFarmer ? copy.deleteLocalItems : 'Delete unsent work',
                     style: 'destructive',
                     onPress: () => void removeLocalData(preview),
                   },
@@ -464,7 +464,7 @@ export default function SettingsScreen() {
             loggingOut
               ? isFarmer ? copy.signingOutMessage : LOGOUT_DIALOG_COPY.busyMessage
               : isFarmer
-                ? `${copy.logoutDialogMessage}${pendingCount > 0 ? ` ${copy.pendingNote(pendingCount)}` : ''}`
+                ? `${copy.logoutDialogMessage}${pendingCount > 0 ? ` ${copy.localItemsNote(pendingCount)}` : ''}`
                 : pendingCount > 0
                   ? `${LOGOUT_DIALOG_COPY.message} ${LOGOUT_DIALOG_COPY.pendingNote(pendingCount)}`
                   : LOGOUT_DIALOG_COPY.message

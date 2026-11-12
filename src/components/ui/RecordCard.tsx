@@ -21,6 +21,7 @@ import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { managedDisplayImageUriIfPresent } from '@/features/records/services/scanImageStorage';
 import type { SyncStatus } from '@/database/schema';
 import { getAuthorityReviewPresentation } from '@/features/reports/domain/reportReviewTypes';
+import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import { SYNC_TONE_COLOR, type SyncToneColorKey } from '@/features/sync/utils/syncStatusCopy';
 import { useTheme } from '@/hooks/use-theme';
@@ -251,22 +252,12 @@ export function getSyncPresentation(
 }
 
 export function getResultLabel(label: string): string {
-  if (label === 'healthy') {
-    return 'Possible Condition: No supported disease detected';
-  }
-  if (label === 'mosaic') {
-    return 'Possible Condition: Mosaic';
-  }
-  if (label === 'rust') {
-    return 'Possible Condition: Rust';
-  }
-  if (label === 'smut') {
-    return 'Possible Condition: Smut';
-  }
-  if (label === 'unknown') {
-    return `Possible Condition: ${UNRECOGNIZED_LABEL_TEXT}`;
-  }
-  return `Possible Condition: ${label}`;
+  const resultName = label === 'unknown'
+    ? UNRECOGNIZED_LABEL_TEXT
+    : Object.prototype.hasOwnProperty.call(diseaseCatalog, label)
+      ? diseaseCatalog[label as keyof typeof diseaseCatalog].displayName
+      : label;
+  return `Possible Condition: ${resultName}`;
 }
 
 function formatSavedAt(value: string): string {

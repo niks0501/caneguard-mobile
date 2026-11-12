@@ -1,13 +1,14 @@
-import type { FarmerCopyBlock, FarmerResultName } from '@/constants/copy';
+import { UNRECOGNIZED_LABEL_TEXT, type FarmerCopyBlock } from '@/constants/copy';
+import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 
-/** The result name in the farmer's language; an unlisted label shows as it was saved. */
-export function farmerResultName(copy: FarmerCopyBlock, predictedLabel: string): string {
-  return predictedLabel in copy.results
-    ? copy.results[predictedLabel as FarmerResultName]
+export function farmerResultName(predictedLabel: string): string {
+  if (predictedLabel === 'unknown') return UNRECOGNIZED_LABEL_TEXT;
+  return Object.prototype.hasOwnProperty.call(diseaseCatalog, predictedLabel)
+    ? diseaseCatalog[predictedLabel as keyof typeof diseaseCatalog].displayName
     : predictedLabel;
 }
 
-/** "Possible Condition: Rust" with the heading and name in the farmer's language. */
+/** Localizes the farmer-facing heading while retaining the catalog's English result name. */
 export function possibleConditionLine(copy: FarmerCopyBlock, predictedLabel: string): string {
-  return `${copy.checkAgain.possibleCondition}: ${farmerResultName(copy, predictedLabel)}`;
+  return `${copy.checkAgain.possibleCondition}: ${farmerResultName(predictedLabel)}`;
 }

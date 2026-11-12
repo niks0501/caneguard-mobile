@@ -25,6 +25,10 @@ jest.mock('expo-router', () => ({
 jest.mock('@/features/auth/hooks/useAuth', () => ({
   useAuth: jest.fn(),
 }));
+let mockLanguage: 'en' | 'tl' = 'en';
+jest.mock('@/providers/LanguagePreferenceProvider', () => ({
+  useLanguagePreference: () => ({ language: mockLanguage }),
+}));
 
 const SESSION = {
   deviceId: 'installation-uuid',
@@ -85,6 +89,7 @@ describe('AccountSecurityScreen', () => {
   const mockDismissTo = (router.dismissTo as unknown) as jest.Mock;
 
   beforeEach(() => {
+    mockLanguage = 'en';
     jest.clearAllMocks();
     mockChangePassword.mockResolvedValue(false);
     mockChangeEmail.mockResolvedValue(false);
@@ -93,6 +98,21 @@ describe('AccountSecurityScreen', () => {
     mockEnroll.mockResolvedValue(false);
     mockUseLocalSearchParams.mockReturnValue({});
     mockUseAuth.mockReturnValue(authState());
+  });
+
+  it('localizes the farmer account security screen in Tagalog', async () => {
+    mockLanguage = 'tl';
+    mockUseAuth.mockReturnValue(authState({
+      user: { ...SESSION.user, role: 'farmer' },
+    }));
+    await render(<AccountSecurityScreen />);
+
+    expect(screen.getByText('Seguridad ng account')).toBeOnTheScreen();
+    expect(screen.getByText('Pagbukas gamit ang biometrics')).toBeOnTheScreen();
+    expect(screen.getByText('Palitan ang password')).toBeOnTheScreen();
+    expect(screen.getByText('Palitan ang email')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Buksan ang form para mag-enroll ng device')).toBeOnTheScreen();
+    expect(screen.queryByText('Account & security')).toBeNull();
   });
 
   it('describes a session without a scheduled expiry', async () => {
@@ -146,6 +166,21 @@ describe('AccountSecurityScreen', () => {
 
     expect(screen.getByTestId('account-security.success')).toBeOnTheScreen();
     expect(screen.getByTestId('account-security.success')).toHaveTextContent(/fresh server session/);
+  });
+
+  it('localizes the farmer change-password sheet and dismissal guard', async () => {
+    mockLanguage = 'tl';
+    mockUseAuth.mockReturnValue(authState({ user: { ...SESSION.user, role: 'farmer' } }));
+    await render(<AccountPasswordRoute />);
+
+    expect(screen.getByRole('header', { name: 'Palitan ang password' })).toBeOnTheScreen();
+    expect(screen.getByLabelText('Kasalukuyang password')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Bagong password')).toBeOnTheScreen();
+    await fireEvent.changeText(screen.getByTestId('account-security.new-password'), 'long-enough-password');
+    await fireEvent.press(screen.getByLabelText('Isara'));
+
+    expect(screen.getByText('Itapon ang mga pagbabago?')).toBeOnTheScreen();
+    expect(screen.getByText('Ipagpatuloy ang pag-edit')).toBeOnTheScreen();
   });
 
   it('cancels a clean password sheet without side effects', async () => {

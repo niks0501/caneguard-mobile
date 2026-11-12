@@ -200,6 +200,22 @@ describe('SettingsScreen', () => {
     );
   });
 
+  it('describes farmer pending work as saved only on this phone', async () => {
+    mockRole = 'farmer';
+    mockPendingCount = 3;
+    await render(
+      <ToastProvider>
+        <SettingsScreen />
+      </ToastProvider>,
+    );
+    await fireEvent.press(screen.getByTestId('settings.language.tl'));
+    await fireEvent.press(screen.getByTestId('settings.logout'));
+
+    const message = screen.getByTestId('settings.logout-dialog');
+    expect(message).toHaveTextContent('Nasa teleponong ito lamang ang 3 na-save na item.');
+    expect(message).not.toHaveTextContent(/hindi pa|not sent|not reached/i);
+  });
+
   it('clears only downloaded office data without touching unsent work', async () => {
     jest.spyOn(Alert, 'alert');
     await render(
@@ -279,6 +295,31 @@ describe('SettingsScreen', () => {
     expect(screen.getByText('Remove all local records')).toHaveStyle({ color: 'danger' });
   });
 
+  it('warns farmers that local-only work will be permanently erased without a not-sent status', async () => {
+    mockRole = 'farmer';
+    jest.spyOn(Alert, 'alert');
+    await render(<SettingsScreen />);
+    await fireEvent.press(screen.getByTestId('settings.language.tl'));
+    await fireEvent.press(screen.getByTestId('settings.remove-local-records'));
+
+    const firstCall = jest.mocked(Alert.alert).mock.calls.find(
+      (call) => call[0] === 'Alisin ang lahat ng lokal na tala?',
+    );
+    expect(firstCall?.[1]).toContain(
+      'Permanenteng mabubura sa teleponong ito ang 2 item na dito lamang naka-save.',
+    );
+    expect(firstCall?.[1]).not.toMatch(/hindi pa naipapadala|hindi pa nakakarating/i);
+
+    firstCall?.[2]?.find((action) => action.text === 'Magpatuloy sa pagbura ng mga item sa teleponong ito lamang')?.onPress?.();
+    const secondCall = jest.mocked(Alert.alert).mock.calls.find(
+      (call) => call[0] === 'Burahin ang mga item na nasa teleponong ito lamang?',
+    );
+    expect(secondCall?.[1]).toContain(
+      'Permanenteng mabubura ang 2 item na naka-save lamang sa teleponong ito.',
+    );
+    expect(secondCall?.[1]).not.toMatch(/hindi pa naipapadala|hindi pa nakakarating/i);
+  });
+
   it('previews counts and requires an explicit unsent-loss acknowledgement before permanent removal', async () => {
     jest.spyOn(Alert, 'alert');
     await render(
@@ -295,7 +336,7 @@ describe('SettingsScreen', () => {
       .mock.calls.find((call) => call[0] === 'Remove all local records?');
     expect(firstCall?.[1]).toContain('2 reports');
     expect(firstCall?.[1]).toContain('2 downloaded visits');
-    expect(firstCall?.[1]).toContain('2 items on this device have not reached the office');
+    expect(firstCall?.[1]).toContain('2 items on this device have not reached the office and will be lost permanently.');
     expect(firstCall?.[1]).toContain('1 boundary');
 
     const continueAction = firstCall?.[2]?.find(

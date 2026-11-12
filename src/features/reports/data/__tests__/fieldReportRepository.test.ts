@@ -109,6 +109,7 @@ function openTestDatabase(): {
     '0025_field_survey_author_role.sql',
     '0028_field_report_survey_link.sql',
     '0029_scan_personal_place.sql',
+    '0033_authority_workflow_status.sql',
   ]) {
     native.exec(readMigration(migration));
   }

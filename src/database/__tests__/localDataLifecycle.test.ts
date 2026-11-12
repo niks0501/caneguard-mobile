@@ -141,6 +141,8 @@ const MIGRATIONS = [
   '0030_field_validation_snapshot_skipped.sql',
   '0031_gorgeous_ben_grimm.sql',
   '0032_office_case_projection.sql',
+  '0033_authority_workflow_status.sql',
+  '0034_authority_status_redownload.sql',
 ] as const;
 
 function readMigration(filename: string): string {

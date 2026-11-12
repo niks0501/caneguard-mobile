@@ -9,7 +9,32 @@ export const AUTHORITY_REVIEW_STATUSES = [
 export type KnownAuthorityReviewStatus =
   (typeof AUTHORITY_REVIEW_STATUSES)[number];
 
-export type AuthorityReviewStatusKind = KnownAuthorityReviewStatus | 'unknown';
+/** The six server `workflow_status` words, in the order the office shows them. */
+export const WORKFLOW_STATUSES = [
+  'needs_review',
+  'under_review',
+  'field_validation',
+  'referred',
+  'follow_up',
+  'resolved',
+] as const;
+
+export type KnownWorkflowStatus = (typeof WORKFLOW_STATUSES)[number];
+
+/** One chip vocabulary shared with the web; the visit card and the report status both read it. */
+export const WORKFLOW_STATUS_LABELS: Readonly<Record<KnownWorkflowStatus, string>> = {
+  needs_review: 'Waiting for your decision',
+  under_review: 'Being reviewed',
+  field_validation: 'Field visit assigned',
+  referred: 'Referred to expert',
+  follow_up: 'Follow-up planned',
+  resolved: 'Resolved',
+};
+
+export type AuthorityReviewStatusKind =
+  | KnownAuthorityReviewStatus
+  | KnownWorkflowStatus
+  | 'unknown';
 
 export interface AuthorityReviewFeedback {
   authorLabel: 'Authority staff';
@@ -47,6 +72,8 @@ export interface AuthorityReviewStatusUpdate {
   remoteUuid: string;
   rawStatus: string;
   statusUpdatedAt: string;
+  /** v3 office workflow word; null when the feed row does not carry one. */
+  workflowStatus?: string | null;
 }
 
 const AUTHORITY_REVIEW_LABELS: Record<
@@ -60,10 +87,33 @@ const AUTHORITY_REVIEW_LABELS: Record<
   resolved: 'Resolved',
 };
 
-export function getAuthorityReviewPresentation(rawStatus: string): {
+/** Words the phone does not know are named, never projected onto a known status. */
+export function humanizeStatusWord(value: string): string {
+  const text = value.replace(/_/g, ' ').trim();
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : value;
+}
+
+export function isKnownWorkflowStatus(value: string): value is KnownWorkflowStatus {
+  return (WORKFLOW_STATUSES as readonly string[]).includes(value);
+}
+
+/**
+ * The office workflow word wins; the legacy five-value review status is read
+ * only when the feed row carries no workflow word.
+ */
+export function getAuthorityReviewPresentation(
+  rawStatus: string,
+  workflowStatus?: string | null,
+): {
   kind: AuthorityReviewStatusKind;
   label: string;
 } {
+  const workflow = workflowStatus?.trim();
+  if (workflow) {
+    return isKnownWorkflowStatus(workflow)
+      ? { kind: workflow, label: WORKFLOW_STATUS_LABELS[workflow] }
+      : { kind: 'unknown', label: humanizeStatusWord(workflow) };
+  }
   if (isKnownAuthorityReviewStatus(rawStatus)) {
     return {
       kind: rawStatus,
@@ -81,10 +131,14 @@ export function toAuthorityReviewSnapshot(
     | 'referenceCode'
     | 'reviewedAt'
     | 'statusUpdatedAt'
+    | 'workflowStatus'
   >,
   fetchedAt: string | null,
 ): AuthorityReviewSnapshot {
-  const presentation = getAuthorityReviewPresentation(update.rawStatus);
+  const presentation = getAuthorityReviewPresentation(
+    update.rawStatus,
+    update.workflowStatus,
+  );
   const feedbackMessage = update.feedback?.trim() ?? '';
   const feedbackUpdatedAt = update.reviewedAt ?? update.statusUpdatedAt;
 

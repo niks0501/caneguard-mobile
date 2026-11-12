@@ -1,3 +1,5 @@
+import { WORKFLOW_STATUS_LABELS } from '@/features/reports/domain/reportReviewTypes';
+
 /**
  * Single source of truth for canonical user-facing copy strings.
  */
@@ -1558,15 +1560,8 @@ export const OFFICE_CASE_COPY = {
   version: (version: number) => `Version ${version}`,
 } as const;
 
-/** Plain-words chip text for the six server `workflow_status` values; same words as the web chip. */
-export const OFFICE_CASE_WORKFLOW_LABELS: Readonly<Record<string, string>> = {
-  needs_review: 'Waiting for your decision',
-  under_review: 'Being reviewed',
-  field_validation: 'Field visit assigned',
-  referred: 'Referred to expert',
-  follow_up: 'Follow-up planned',
-  resolved: 'Resolved',
-};
+/** Plain-words chip text for the six server `workflow_status` values; one table shared with the report status. */
+export const OFFICE_CASE_WORKFLOW_LABELS: Readonly<Record<string, string>> = WORKFLOW_STATUS_LABELS;
 
 /**
  * Scan path words shown right after the photo. English only for now: Tagalog

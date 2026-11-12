@@ -528,6 +528,7 @@ export const fieldReports = sqliteTable(
     lastSyncAttemptAt: text('last_sync_attempt_at'),
     lastSyncedAt: text('last_synced_at'),
     authorityStatusRaw: text('authority_status_raw'),
+    authorityWorkflowStatus: text('authority_workflow_status'),
     authorityReferenceCode: text('authority_reference_code'),
     authorityFeedback: text('authority_feedback'),
     authorityReviewedAt: text('authority_reviewed_at'),

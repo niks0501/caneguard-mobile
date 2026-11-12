@@ -19,7 +19,6 @@ import type { FarmerScanState } from '@/features/records/domain/scanState';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { managedDisplayImageUriIfPresent } from '@/features/records/services/scanImageStorage';
 import type { SyncStatus } from '@/database/schema';
-import { getAuthorityReviewPresentation } from '@/features/reports/domain/reportReviewTypes';
 import { canonicalResultName } from '@/features/records/domain/canonicalResultName';
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import { SYNC_TONE_COLOR, type SyncToneColorKey } from '@/features/sync/utils/syncStatusCopy';
@@ -196,14 +195,14 @@ export function RecordCard({
         {!farmerText && !scanState && record.syncStatus === 'synced' && record.authorityReview ? (
           <View
             testID={`record-card.authority-status.${record.id}`}
-            accessibilityLabel={`Authority review: ${getAuthorityReviewPresentation(record.authorityReview.rawStatus).label}`}
+            accessibilityLabel={`Authority review: ${record.authorityReview.statusLabel}`}
             style={styles.authorityStatus}>
             <Feather name="shield" size={14} color={theme.textSecondary} />
             <Text
               numberOfLines={1}
               ellipsizeMode="tail"
               style={[styles.statusText, { color: theme.textSecondary }]}>
-              {getAuthorityReviewPresentation(record.authorityReview.rawStatus).label}
+              {record.authorityReview.statusLabel}
             </Text>
           </View>
         ) : null}

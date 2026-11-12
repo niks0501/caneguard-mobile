@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { ClampedText } from '@/components/ui/ClampedText';
 import { Pill } from '@/components/ui/Pill';
 import { Row } from '@/components/ui/Row';
+import { humanizeStatusWord } from '@/features/reports/domain/reportReviewTypes';
 import { OFFICE_CASE_COPY, OFFICE_CASE_WORKFLOW_LABELS } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { buildMobileReportPhotoUrl } from '@/features/assignments/api/mobileFieldValidationAssignmentsApi';
@@ -95,12 +96,7 @@ export function OfficeCaseCard({
 }
 
 function workflowLabel(value: string): string {
-  return OFFICE_CASE_WORKFLOW_LABELS[value] ?? humanize(value);
-}
-
-function humanize(value: string): string {
-  const text = value.replace(/_/g, ' ').trim();
-  return text ? text.charAt(0).toUpperCase() + text.slice(1) : value;
+  return OFFICE_CASE_WORKFLOW_LABELS[value] ?? humanizeStatusWord(value);
 }
 
 const styles = StyleSheet.create({

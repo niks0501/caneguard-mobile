@@ -245,6 +245,7 @@ function toStoredItem(update: AuthorityReviewStatusUpdate): Record<string, unkno
     uuid: update.remoteUuid,
     client_uuid: update.clientUuid,
     review_status: update.rawStatus,
+    workflow_status: update.workflowStatus ?? null,
     updated_at: update.statusUpdatedAt,
     review_notes: update.feedback,
     reference_code: update.referenceCode,
@@ -393,6 +394,7 @@ function parseStatusItem(value: unknown): AuthorityReviewStatusUpdate {
   const remoteUuid = requireNonBlankString(value.uuid, 'uuid');
   const clientUuid = requireNonBlankString(value.client_uuid, 'client_uuid');
   const rawStatus = requireNonBlankString(value.review_status, 'review_status');
+  const workflowStatus = optionalString(value.workflow_status, 'workflow_status');
   const statusUpdatedAt = requireTimestamp(value.updated_at, 'updated_at');
   const referenceCode = optionalString(value.reference_code, 'reference_code');
   const reviewedAt = optionalTimestamp(value.reviewed_at, 'reviewed_at');
@@ -413,6 +415,7 @@ function parseStatusItem(value: unknown): AuthorityReviewStatusUpdate {
     remoteUuid,
     rawStatus,
     statusUpdatedAt,
+    workflowStatus: workflowStatus?.trim() || null,
   };
 }
 

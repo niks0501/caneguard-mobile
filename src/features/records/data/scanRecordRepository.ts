@@ -90,6 +90,9 @@ export async function listScanRecords(
         authorityStatusRaw: includeFieldReports
           ? fieldReports.authorityStatusRaw
           : sql<null>`null`,
+        authorityWorkflowStatus: includeFieldReports
+          ? fieldReports.authorityWorkflowStatus
+          : sql<null>`null`,
         authorityUpdatedAt: includeFieldReports
           ? fieldReports.authorityUpdatedAt
           : sql<null>`null`,

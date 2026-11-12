@@ -205,6 +205,7 @@ export async function applyAuthorityReviewUpdates(
             authorityReferenceCode: update.referenceCode,
             authorityReviewedAt: update.reviewedAt,
             authorityStatusRaw: update.rawStatus,
+            authorityWorkflowStatus: update.workflowStatus ?? null,
             authorityUpdatedAt: update.statusUpdatedAt,
             authorityFetchedAt: fetchedAt,
           })

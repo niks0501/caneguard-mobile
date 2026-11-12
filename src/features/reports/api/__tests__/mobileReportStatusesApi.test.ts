@@ -93,6 +93,20 @@ describe('mobile report statuses API', () => {
     });
   });
 
+  // Proposal, proves SEAM-3: the v3 feed's workflow_status is read, and absent stays null for the legacy fallback.
+  it('reads workflow_status from the feed and leaves it null when absent', async () => {
+    request.mockResolvedValueOnce(
+      page([
+        item({ workflow_status: 'referred' }),
+        item({ uuid: 'remote-2', client_uuid: 'client-2' }),
+      ]),
+    );
+
+    const result = await fetchStatuses({ token: 't' });
+    expect(result.updates[0].workflowStatus).toBe('referred');
+    expect(result.updates[1].workflowStatus).toBeNull();
+  });
+
   // Intent: read the advisory field on status.
   // Oracle: references/mobile-notifications-v1.json declares the advisory
   // payload as exactly uuid/code/title/content/status/selected_at with no
@@ -400,6 +414,7 @@ describe('mobile report statuses API', () => {
         remoteUuid: 'remote-1',
         rawStatus: 'verified_by_staff',
         statusUpdatedAt: '2026-08-13T12:00:00.000Z',
+        workflowStatus: null,
       });
       expect(result.pageCount).toBe(3);
     });

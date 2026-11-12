@@ -37,6 +37,7 @@ export function mapScanRecordListItem(
         | 'authorityReviewedAt'
         | 'authorityStatusRaw'
         | 'authorityUpdatedAt'
+        | 'authorityWorkflowStatus'
       >
     >,
 ): ScanRecordListItem {
@@ -46,6 +47,7 @@ export function mapScanRecordListItem(
           {
             feedback: row.authorityFeedback ?? null,
             rawStatus: row.authorityStatusRaw,
+            workflowStatus: row.authorityWorkflowStatus ?? null,
             referenceCode: row.authorityReferenceCode ?? null,
             reviewedAt: row.authorityReviewedAt ?? null,
             statusUpdatedAt: row.authorityUpdatedAt ?? row.authorityFetchedAt ?? row.createdAt,

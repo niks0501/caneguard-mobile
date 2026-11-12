@@ -1208,6 +1208,7 @@ function toFieldReport(row: typeof fieldReports.$inferSelect): FieldReport {
           {
             feedback: row.authorityFeedback,
             rawStatus: row.authorityStatusRaw,
+            workflowStatus: row.authorityWorkflowStatus,
             referenceCode: row.authorityReferenceCode,
             reviewedAt: row.authorityReviewedAt,
             statusUpdatedAt: row.authorityUpdatedAt ?? row.authorityFetchedAt ?? row.updatedAt,

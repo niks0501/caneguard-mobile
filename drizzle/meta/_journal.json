@@ -239,6 +239,20 @@
       "when": 1794496214346,
       "tag": "0033_notification_seen_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1794498863281,
+      "tag": "0034_authority_workflow_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1794498864022,
+      "tag": "0035_authority_status_redownload",
+      "breakpoints": true
     }
   ]
 }

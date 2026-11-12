@@ -384,8 +384,8 @@ export const HOME_NOTE_COPY = {
  * language fails the type check. Sync status wording is the exception: it is
  * bilingual but single-sourced in
  * `src/features/sync/utils/syncStatusCopy.ts`.
- * Inspector screens, Field Guide entry text and model decision-support lines
- * stay English and do not live here. Words such as "Validated", "Confirmed",
+ * Inspector screens and Field Guide entry text stay English. Farmer model
+ * decision-support wording lives here. Words such as "Validated", "Confirmed",
  * "Resolved" and "Diagnosis" (and their Tagalog equivalents) never appear in
  * farmer copy; `farmerCopy.test.ts` enforces this for both languages.
  */
@@ -417,6 +417,7 @@ export type FarmerCopyBlock = {
     unavailableMessage: string;
     tryAgain: string;
     imageUnavailable: string;
+    backLabel: string;
     deleteAction: string;
     deleting: string;
     deleteConfirmTitle: string;
@@ -437,6 +438,8 @@ export type FarmerCopyBlock = {
     recoveryMessage: string;
     recoveryAction: string;
     imageLabel: string;
+    closeLabel: string;
+    decisionSupport: Record<FarmerResultName, string>;
     aboutTitle: string;
     explanations: Record<FarmerResultName, { message: string; description: string }>;
     consistency: Record<'consistent' | 'inconsistent' | 'not-applicable' | 'not-enough-information', { title: string; message: string }>;
@@ -449,7 +452,6 @@ export type FarmerCopyBlock = {
     lowConfidence: string;
     cautionNote: string;
     mismatch: string;
-    consistencyMismatch: string;
     outcomeSaved: string;
     outcomeChoose: string;
     outcomeFailed: string;
@@ -468,7 +470,6 @@ export type FarmerCopyBlock = {
   };
   actions: {
     startScan: string;
-    measurePlot: string;
     fieldGuide: string;
     openSettings: string;
   };
@@ -589,6 +590,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       unavailableMessage: 'This scan could not be found on this phone.',
       tryAgain: 'Try again',
       imageUnavailable: 'Saved photo unavailable',
+      backLabel: 'Go back',
       deleteAction: 'Delete this scan',
       deleting: 'Deleting...',
       deleteConfirmTitle: 'Delete this scan?',
@@ -610,6 +612,14 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       recoveryMessage: 'The scan result is unavailable. Return to Scan and try again.',
       recoveryAction: 'Return to Scan',
       imageLabel: 'Selected sugarcane image used for analysis',
+      closeLabel: 'Cancel and return home',
+      decisionSupport: {
+        healthy: 'Possible Condition only. The model did not assign its highest score to Mosaic, Rust, or Smut. This output does not confirm a disease.',
+        mosaic: 'Possible Condition only. Mosaic may appear as irregular light and dark discoloration or mottling. This output does not confirm a disease.',
+        rust: 'Possible Condition only. Rust may appear as orange-brown or rust-colored spots or pustules. This output does not confirm a disease.',
+        smut: 'Possible Condition only. Look for a dark, whip-like growth emerging from the central shoot or stalk, but do not treat this observation or the model output as confirmation.',
+        unknown: 'This result is for decision support only. It does not confirm a disease.',
+      },
       aboutTitle: 'About this result',
       explanations: {
         healthy: { message: 'The model assigned its highest score to Healthy based on the submitted image.', description: 'The model did not assign its highest score to Mosaic, Rust, or Smut.' },
@@ -641,8 +651,6 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
         'This caution does not change the result. You can scan again for a clearer image or keep this scan.',
       mismatch:
         'Your selected symptom observations do not match this Possible Condition. Both are kept separately.',
-      consistencyMismatch:
-        'What you selected does not match the Possible Condition. Both are kept separately.',
       outcomeSaved: 'Scan saved on this phone',
       outcomeChoose: 'Choose what happens next',
       outcomeFailed: 'Choose another action',
@@ -661,7 +669,6 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
     },
     actions: {
       startScan: 'Start a scan',
-      measurePlot: 'Measure a plot',
       fieldGuide: 'Field guide',
       openSettings: 'Settings',
     },
@@ -788,6 +795,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       unavailableMessage: 'Hindi makita ang scan na ito sa teleponong ito.',
       tryAgain: 'Subukan muli',
       imageUnavailable: 'Wala ang na-save na litrato',
+      backLabel: 'Bumalik',
       deleteAction: 'Burahin ang scan na ito',
       deleting: 'Binubura...',
       deleteConfirmTitle: 'Burahin ang scan na ito?',
@@ -809,6 +817,14 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       recoveryMessage: 'Hindi makita ang resulta ng scan. Bumalik sa Scan at subukan muli.',
       recoveryAction: 'Bumalik sa Scan',
       imageLabel: 'Larawan ng tubo na sinuri',
+      closeLabel: 'Kanselahin at bumalik sa home',
+      decisionSupport: {
+        healthy: 'Posibleng Kondisyon lamang ito. Hindi pinakamataas ang marka ng modelo sa Mosaic, Rust, o Smut. Hindi nito kinukumpirma ang sakit.',
+        mosaic: 'Posibleng Kondisyon lamang ito. Maaaring makita ang Mosaic bilang hindi pantay na mapusyaw at maitim na kulay o batik sa dahon. Hindi nito kinukumpirma ang sakit.',
+        rust: 'Posibleng Kondisyon lamang ito. Maaaring makita ang Rust bilang mga batik o butlig na kahel-kayumanggi o kulay-kalawang. Hindi nito kinukumpirma ang sakit.',
+        smut: 'Posibleng Kondisyon lamang ito. Tingnan kung may maitim at parang latigong tubo mula sa gitnang usbong o tangkay, ngunit huwag ituring na kumpirmasyon ang nakikita o resulta ng modelo.',
+        unknown: 'Pantulong lamang sa pagpapasya ang resultang ito. Hindi nito kinukumpirma ang sakit.',
+      },
       aboutTitle: 'Tungkol sa resultang ito',
       explanations: {
         healthy: { message: 'Pinakamataas ang markang ibinigay ng modelo sa Healthy batay sa isinumiteng larawan.', description: 'Hindi Mosaic, Rust, o Smut ang may pinakamataas na marka.' },
@@ -840,8 +856,6 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
         'Hindi binabago ng babalang ito ang resulta. Puwede kang mag-scan ulit para sa mas malinaw na litrato o itago ang scan na ito.',
       mismatch:
         'Hindi tugma ang mga napili mong palatandaan sa Posibleng Kondisyon na ito. Magkahiwalay na itinatabi ang dalawa.',
-      consistencyMismatch:
-        'Hindi tugma ang napili mo sa Posibleng Kondisyon. Magkahiwalay na itinatabi ang dalawa.',
       outcomeSaved: 'Na-save ang scan sa teleponong ito',
       outcomeChoose: 'Piliin ang susunod na gagawin',
       outcomeFailed: 'Pumili ng ibang gagawin',
@@ -860,7 +874,6 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
     },
     actions: {
       startScan: 'Magsimula ng pag-scan',
-      measurePlot: 'Sukatin ang bukid',
       fieldGuide: 'Gabay sa bukid',
       openSettings: 'Mga setting',
     },

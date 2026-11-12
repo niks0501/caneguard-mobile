@@ -232,6 +232,7 @@ export default function AnalysisResultScreen() {
             showClose
             onClosePress={handleCancel}
             closeTestID="analysis-result.header-close"
+            closeAccessibilityLabel={isFarmer ? rc.closeLabel : undefined}
           />
           <View style={styles.recoveryContent}>
             <View
@@ -362,6 +363,7 @@ export default function AnalysisResultScreen() {
           showClose
           onClosePress={handleCancel}
           closeTestID="analysis-result.header-close"
+          closeAccessibilityLabel={isFarmer ? rc.closeLabel : undefined}
         />
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -423,7 +425,9 @@ export default function AnalysisResultScreen() {
               <Text
                 testID="scan.decision-support-wording"
                 style={[styles.advisory, { color: theme.textSecondary }]}>
-                {result.decisionSupportWording ?? metadata.decisionSupportWording}
+                {isFarmer
+                  ? rc.decisionSupport[result.predictedLabel]
+                  : result.decisionSupportWording ?? metadata.decisionSupportWording}
               </Text>
             </View>
 

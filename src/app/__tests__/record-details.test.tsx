@@ -14,6 +14,7 @@ const RECORD_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
 const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 const mockRefresh = jest.fn(async () => undefined);
 const mockDatabase = {};
+let mockLanguage: 'en' | 'tl' = 'en';
 let mockDetailsState: ReturnType<typeof useScanRecordDetails>;
 let mockFieldReportState: {
   data: FieldReport | null;
@@ -37,7 +38,7 @@ jest.mock('@/features/detection/context/useScanSession', () => ({
   useScanSession: () => ({ dispatch: jest.fn(), state: {} }),
 }));
 jest.mock('@/providers/LanguagePreferenceProvider', () => ({
-  useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY.en,
+  useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY[mockLanguage],
 }));
 jest.mock('@/features/records/services/deleteScanRecord', () => ({
   deleteScanRecord: jest.fn(),
@@ -100,6 +101,7 @@ const DETAILS: ScanRecordDetails = {
 
 describe('RecordDetailsScreen', () => {
   beforeEach(() => {
+    mockLanguage = 'en';
     jest.mocked(useAuth).mockReturnValue({
       user: { uuid: SUBMITTER_ID, role: 'field_reporter', capabilities: ['report:submit'] },
     } as never);
@@ -352,6 +354,17 @@ describe('RecordDetailsScreen', () => {
     expect(
       screen.queryByLabelText('Delete this scan and its saved photo'),
     ).not.toBeOnTheScreen();
+  });
+
+  it('uses the selected language for a farmer back control', async () => {
+    mockLanguage = 'tl';
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'farmer' },
+    } as never);
+
+    await render(<RecordDetailsScreen />);
+
+    expect(screen.getByLabelText('Bumalik')).toBeOnTheScreen();
   });
 
   it('shows a farmer no send state and no inspector-only rows', async () => {

@@ -2,7 +2,6 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import ActivityScreen from '@/app/(tabs)/activity';
-import { FARMER_COPY } from '@/constants/copy';
 import { AuthContext } from '@/features/auth/providers/AuthProvider';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import type { FarmerScanState } from '@/features/records/domain/scanState';
@@ -14,6 +13,7 @@ import type { FarmerScanState } from '@/features/records/domain/scanState';
 const mockStates = new Map<string, FarmerScanState>();
 const mockThreads = new Map<string, { checkCount: number; originalId: string }>();
 const mockRecords: { data: ScanRecordListItem[] } = { data: [] };
+let mockLanguage: 'en' | 'tl' = 'en';
 
 jest.mock('@/features/records/hooks/useRecords', () => ({
   usePaginatedScanRecords: () => ({
@@ -31,8 +31,8 @@ jest.mock('@/features/records/hooks/useScanStates', () => ({
   useFarmerScanStates: () => mockStates,
 }));
 jest.mock('@/providers/LanguagePreferenceProvider', () => ({
-  useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY.en,
-  useLanguagePreference: () => ({ language: 'en' }),
+  useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY[mockLanguage],
+  useLanguagePreference: () => ({ language: mockLanguage }),
 }));
 
 const base: ScanRecordListItem = {
@@ -57,6 +57,7 @@ function renderAsFarmer() {
 
 describe('My Scans (farmer Activity)', () => {
   beforeEach(() => {
+    mockLanguage = 'en';
     mockStates.clear();
     mockThreads.clear();
     mockStates.set('scan-a', 'needs_checking');
@@ -127,12 +128,13 @@ describe('My Scans (farmer Activity)', () => {
   });
 });
 
-describe('FARMER_COPY.myScans', () => {
-  // Proves: "State names join FARMER_COPY (en+tl)".
-  it('defines the three state names in both languages', () => {
-    for (const lang of ['en', 'tl'] as const) {
-      const c = FARMER_COPY[lang].myScans;
-      expect([c.stateNeedsChecking, c.stateFollowedUp, c.stateSaved].every(Boolean)).toBe(true);
-    }
+describe('My Scans language preference', () => {
+  it('shows the approved Tagalog state label when Tagalog is selected', async () => {
+    mockLanguage = 'tl';
+    await renderAsFarmer();
+    expect(screen.getByTestId('my-scans.filter.needs_checking')).toHaveTextContent(
+      'Kailangang suriin',
+    );
+    expect(screen.queryByText('Needs checking')).toBeNull();
   });
 });

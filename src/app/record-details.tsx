@@ -162,7 +162,10 @@ export default function RecordDetailsScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title={isFarmer ? copy.title : 'Saved record'} />
+        <BrandedScreenHeader
+          title={isFarmer ? copy.title : 'Saved record'}
+          backAccessibilityLabel={isFarmer ? copy.backLabel : undefined}
+        />
         {record.loading ? (
           <CenteredState
             icon="loader"

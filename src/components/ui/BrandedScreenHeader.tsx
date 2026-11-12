@@ -18,10 +18,12 @@ export type BrandedScreenHeaderProps = {
   onClosePress?: () => void;
   closeTestID?: string;
   closeAccessibilityLabel?: string;
+  backAccessibilityLabel?: string;
 };
 
 export function BrandedScreenHeader({
   action,
+  backAccessibilityLabel,
   closeAccessibilityLabel,
   closeTestID,
   onBackPress,
@@ -52,7 +54,7 @@ export function BrandedScreenHeader({
             {showBack ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Go back"
+                accessibilityLabel={backAccessibilityLabel ?? 'Go back'}
                 hitSlop={8}
                 onPress={handleBack}
                 style={({ pressed }) => [
@@ -102,7 +104,7 @@ export function BrandedScreenHeader({
           {showBack ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Go back"
+              accessibilityLabel={backAccessibilityLabel ?? 'Go back'}
               hitSlop={8}
               onPress={handleBack}
               style={({ pressed }) => [

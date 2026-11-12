@@ -443,6 +443,10 @@ describe('AnalysisResultScreen', () => {
       await waitFor(() =>
         expect(screen.getByTestId('scan.result-title')).toHaveTextContent('Hindi tiyak ang resulta'),
       );
+      expect(screen.getByTestId('scan.decision-support-wording')).toHaveTextContent(
+        'Posibleng Kondisyon lamang ito.',
+      );
+      expect(screen.getByLabelText('Kanselahin at bumalik sa home')).toBeOnTheScreen();
     });
 
     // Proves: saving stays allowed and the predicted label is unchanged under Result uncertain.
@@ -552,7 +556,7 @@ describe('AnalysisResultScreen', () => {
     await fireEvent.press(screen.getByLabelText('Show Why this result?'));
     expect(
       screen.getByText(
-        'What you selected does not match the Possible Condition. Both are kept separately.',
+        'Your observations do not match the Possible Condition. Both are kept separately.',
       ),
     ).toBeOnTheScreen();
   });

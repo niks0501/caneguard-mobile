@@ -74,8 +74,10 @@ function openDatabase() {
   for (const name of [
     '0000_complex_johnny_blaze.sql', '0001_loving_amazoness.sql', '0002_talented_kat_farrell.sql',
     '0003_careful_marauders.sql', '0004_sour_namora.sql', '0005_tricky_the_santerians.sql',
-    '0006_curvy_piledriver.sql', '0007_familiar_old_lace.sql', '0012_dapper_sumo.sql',
-    '0013_v1_local_scan_migration.sql', '0014_safe_songbird.sql', '0019_add_field_surveys.sql',
+    '0006_curvy_piledriver.sql', '0007_familiar_old_lace.sql', '0008_field_validation_assignments.sql',
+    '0009_scope_field_validation_assignment_cache_by_owner.sql', '0010_numerous_princess_powerful.sql',
+    '0011_tidy_meteorite.sql', '0012_dapper_sumo.sql', '0013_v1_local_scan_migration.sql',
+    '0014_safe_songbird.sql', '0019_add_field_surveys.sql',
     '0021_field_survey_affected_areas.sql', '0022_peaceful_titania.sql', '0023_affected_area_waypoints.sql',
     '0024_active_affected_waypoints.sql', '0025_field_survey_author_role.sql', '0028_field_report_survey_link.sql',
     '0029_scan_personal_place.sql',
@@ -126,12 +128,14 @@ function authState(verification: string, retrySessionVerification?: () => Promis
   } as never;
 }
 
-async function initializeNetwork() {
+function mockNetworkListener() {
   let listener: ((state: never) => void) | undefined;
   jest.mocked(NetInfo.addEventListener).mockImplementation((callback) => { listener = callback; return jest.fn(); });
   jest.mocked(NetInfo.fetch).mockResolvedValue(online);
-  await waitFor(() => expect(listener).toBeDefined());
-  await act(async () => { listener?.(online); await Promise.resolve(); });
+  return async () => {
+    await waitFor(() => expect(listener).toBeDefined());
+    await act(async () => { listener?.(online); await Promise.resolve(); });
+  };
 }
 
 describe('SyncProvider held-queue integration', () => {
@@ -149,13 +153,15 @@ describe('SyncProvider held-queue integration', () => {
       jest.mocked(useCaneGuardDatabase).mockReturnValue(database);
       await seedHeldQueues(database);
       jest.mocked(useAuth).mockReturnValue(authState('pending'));
-      const view = render(<SyncProvider><Text>ready</Text></SyncProvider>);
-      await initializeNetwork();
+      const triggerOnline = mockNetworkListener();
+      const view = await render(<SyncProvider><Text>ready</Text></SyncProvider>);
+      await act(async () => { jest.runOnlyPendingTimers(); await Promise.resolve(); });
+      await triggerOnline();
       await waitFor(() => expect(findOwnedFieldSurvey(database, surveyId, ownerId)?.status).toBe('failed'));
       jest.mocked(useAuth).mockReturnValue(authState('verified'));
       await view.rerender(<SyncProvider><Text>ready</Text></SyncProvider>);
       await waitFor(() => expect(jest.getTimerCount()).toBeGreaterThan(0));
-      await act(async () => { jest.advanceTimersByTime(60_000); await Promise.resolve(); });
+      await act(async () => { await jest.advanceTimersByTimeAsync(60_001); });
       await waitFor(() => expect(jest.mocked(apiRequest)).toHaveBeenCalled());
       await waitFor(async () => expect((await findFieldReportById(database, reportId, ownerId))?.syncStatus).toBe('synced'));
       expect(jest.mocked(apiRequest)).toHaveBeenCalledTimes(2);
@@ -184,12 +190,13 @@ describe('SyncProvider held-queue integration', () => {
     let listener: ((state: never) => void) | undefined;
     jest.mocked(NetInfo.addEventListener).mockImplementation((callback) => { listener = callback; return jest.fn(); });
     jest.mocked(NetInfo.fetch).mockResolvedValue(online);
-    const view = render(<SyncProvider><Text>ready</Text></SyncProvider>);
+    const view = await render(<SyncProvider><Text>ready</Text></SyncProvider>);
     rerenderVerified = async () => { await view.rerender(<SyncProvider><Text>ready</Text></SyncProvider>); };
+    await act(async () => { jest.runOnlyPendingTimers(); await Promise.resolve(); });
     await waitFor(() => expect(listener).toBeDefined());
     await act(async () => { listener?.(online); await Promise.resolve(); });
     await waitFor(() => expect(jest.getTimerCount()).toBeGreaterThan(0));
-    await act(async () => { jest.advanceTimersByTime(60_000); await Promise.resolve(); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(60_001); });
     await waitFor(() => expect(retry).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(jest.mocked(apiRequest)).toHaveBeenCalled());
     await waitFor(async () => expect((await findFieldReportById(database, reportId, ownerId))?.syncStatus).toBe('synced'));
@@ -209,12 +216,13 @@ describe('SyncProvider held-queue integration', () => {
     let listener: ((state: never) => void) | undefined;
     jest.mocked(NetInfo.addEventListener).mockImplementation((callback) => { listener = callback; return jest.fn(); });
     jest.mocked(NetInfo.fetch).mockResolvedValue(online);
-    render(<SyncProvider><Text>ready</Text></SyncProvider>);
+    await render(<SyncProvider><Text>ready</Text></SyncProvider>);
+    await act(async () => { jest.runOnlyPendingTimers(); await Promise.resolve(); });
     await waitFor(() => expect(listener).toBeDefined());
     await act(async () => { listener?.(online); await Promise.resolve(); });
     for (let attempt = 1; attempt <= 2; attempt += 1) {
       await waitFor(() => expect(jest.getTimerCount()).toBeGreaterThan(0));
-      await act(async () => { jest.advanceTimersByTime(60_000); await Promise.resolve(); });
+      await act(async () => { await jest.advanceTimersByTimeAsync(60_001); });
       await waitFor(() => expect(retry).toHaveBeenCalledTimes(attempt));
     }
     expect(jest.mocked(apiRequest)).not.toHaveBeenCalled();

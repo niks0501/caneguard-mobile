@@ -1,4 +1,3 @@
-import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 import type { PropsWithChildren } from 'react';
 import {
   createContext,
@@ -8,7 +7,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import { AppState } from 'react-native';
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { purgeExpiredLocalData } from '@/database/localDataLifecycle';
@@ -30,6 +28,11 @@ import {
   SYNC_RETRY_COOLDOWN_MS,
 } from '@/features/reports/data/fieldReportSyncRepository';
 import { hasUnsentInspectorWork } from '@/features/sync/data/inspectorWorkWaiting';
+import {
+  checkAccountStep,
+  net,
+  type StepOutcome,
+} from '@/features/net/reconnectCoordinator';
 import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 import {
   syncPendingFieldReports,
@@ -89,9 +92,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const [lastSuccessfulSyncAt, setLastSuccessfulSyncAt] = useState<string | null>(
     null,
   );
-  const previousOnline = useRef<boolean | null>(null);
   const onlineRef = useRef<boolean | null>(null);
-  const appStateRef = useRef(AppState.currentState);
+  const appStateRef = useRef(net.getSnapshot().appState);
   const mounted = useRef(true);
   const sessionToken = session?.token;
   const submitterIdentity = session?.user.uuid;
@@ -138,17 +140,15 @@ export function SyncProvider({ children }: PropsWithChildren) {
       if (!canRetry()) {
         return;
       }
-      void (async () => {
-        // An unverified account holds reports and boundaries; reattempt /me first.
-        // When it lands, the verification effect resumes the held queues.
-        if (sessionVerificationRef.current === 'unavailable') {
-          const verification = await retrySessionVerificationRef.current?.();
-          if (verification === 'verified' || verification === 'idle' || !canRetry()) {
-            return;
-          }
-        }
-        void syncNowRef.current?.('retry-timer');
-      })();
+      // An unverified account holds reports and boundaries; the coordinator
+      // reattempts /me first (Check account), then Send saved resumes the queues.
+      void net.run('retry-timer', {
+        check: () =>
+          checkAccountStep(
+            sessionVerificationRef.current,
+            retrySessionVerificationRef.current,
+          ),
+      });
     }, SYNC_RETRY_COOLDOWN_MS + 1); // Retry predicates exclude records exactly at the cutoff.
   }, [sessionKey]);
 
@@ -396,9 +396,9 @@ export function SyncProvider({ children }: PropsWithChildren) {
       onlineRef.current === true &&
       appStateRef.current === 'active'
     ) {
-      void syncNow('retry-timer');
+      void net.run('retry-timer', { startAt: 'send-saved' });
     }
-  }, [authStatus, sessionVerification, syncNow]);
+  }, [authStatus, sessionVerification]);
 
   const retryReport = useCallback(
     async (reportId: string) => {
@@ -454,7 +454,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (authStatus === 'authenticated') {
-      previousOnline.current = null;
+      net.rearm();
     }
   }, [authStatus]);
 
@@ -532,65 +532,62 @@ export function SyncProvider({ children }: PropsWithChildren) {
     const unsubscribeRecords = subscribeSyncRecords(() => {
       void refreshPendingCount();
     });
-    const unsubscribeNetwork = NetInfo.addEventListener((state) => {
-      const online = isNetworkOnline(state);
-      onlineRef.current = online;
-      setIsOnline(online);
-      if (!online) {
-        clearRetryTimer();
-      }
-      if (previousOnline.current === false && online) {
-        void syncNow('network-restored');
-      } else if (
-        previousOnline.current === null &&
-        online &&
-        authStatus === 'authenticated'
-      ) {
-        void syncNow('startup');
-      }
-      previousOnline.current = online;
-    });
-    const appStateSubscription = AppState.addEventListener(
-      'change',
-      (nextState) => {
-        appStateRef.current = nextState;
-        if (nextState !== 'active') {
-          clearRetryTimer();
-        }
-        if (nextState === 'active') {
-          void NetInfo.fetch().then((state) => {
-            const online = isNetworkOnline(state);
-            onlineRef.current = online;
-            setIsOnline(online);
-            if (!online) {
-              clearRetryTimer();
-            }
-            previousOnline.current = online;
-            if (online) {
-              void syncNow('resume');
-            }
-          });
-        }
-      },
-    );
-
     return () => {
       mounted.current = false;
       cancelDeferredWork();
       unsubscribeRecords();
-      unsubscribeNetwork();
-      appStateSubscription.remove();
     };
   }, [
-    authStatus,
     database,
     refreshPendingCount,
     sessionKey,
     sessionToken,
     submitterIdentity,
-    syncNow,
-    clearRetryTimer,
   ]);
+
+  // The coordinator owns the one NetInfo and one AppState subscription. Phone
+  // network state still lands in isOnline; apiReachability stays derived from
+  // upload results above and is never merged with it.
+  useEffect(() => {
+    const release = net.acquire();
+    const apply = (snapshot: ReturnType<typeof net.getSnapshot>) => {
+      onlineRef.current = snapshot.online;
+      appStateRef.current = snapshot.appState;
+      if (snapshot.online !== null) {
+        setIsOnline(snapshot.online);
+      }
+      if (snapshot.online === false || snapshot.appState !== 'active') {
+        clearRetryTimer();
+      }
+    };
+    const unsubscribe = net.subscribe(apply);
+    // The auth provider may have started the subscription before this mount.
+    const initial = net.getSnapshot();
+    onlineRef.current = initial.online;
+    appStateRef.current = initial.appState;
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active && initial.online !== null) {
+        setIsOnline(net.isOnline ?? initial.online);
+      }
+    });
+    const unregisterSend = net.registerSendSaved(
+      async (source): Promise<StepOutcome> => {
+        const result = await syncNowRef.current?.(source);
+        if (!result) return 'ok';
+        if (result.authRequired) return 'sign-in-again';
+        return inferApiReachability(result) === 'unavailable'
+          ? 'office-unreachable'
+          : 'ok';
+      },
+    );
+    return () => {
+      active = false;
+      unregisterSend();
+      unsubscribe();
+      release();
+    };
+  }, [clearRetryTimer]);
 
   const value = useMemo<SyncContextValue>(
     () => ({
@@ -664,10 +661,6 @@ function latestTimestamp(first: string | null, second: string | null): string | 
   if (!first) return second;
   if (!second) return first;
   return Date.parse(first) >= Date.parse(second) ? first : second;
-}
-
-function isNetworkOnline(state: NetInfoState): boolean {
-  return state.isConnected === true && state.isInternetReachable !== false;
 }
 
 /**

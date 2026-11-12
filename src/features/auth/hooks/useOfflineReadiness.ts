@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AppState } from 'react-native';
 
 import { EMPTY_DATABASE, useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { listCachedFieldValidationAssignments } from '@/features/assignments/data/assignmentCacheRepository';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { net } from '@/features/net/reconnectCoordinator';
 
 export interface OfflineReadinessState {
   assignmentCount: number | null;
@@ -84,15 +84,10 @@ export function useOfflineReadiness(): OfflineReadinessState {
     };
   }, [refresh]);
 
-  // A returning inspector sees a fresh readiness answer without a mount.
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') {
-        refresh();
-      }
-    });
-    return () => subscription.remove();
-  }, [refresh]);
+  // A returning inspector sees a fresh readiness answer without a mount: the
+  // coordinator settles every reconnect run, offline or up to date, and
+  // readiness refreshes then, after Download has filled the cache.
+  useEffect(() => net.onSettled(refresh), [refresh]);
 
   const protectedSessionEnabled = biometricEnabled && session !== null;
 

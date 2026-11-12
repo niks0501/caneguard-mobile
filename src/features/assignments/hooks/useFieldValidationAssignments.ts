@@ -7,6 +7,7 @@ import { EMPTY_DATABASE, useCaneGuardDatabase } from '@/database/DatabaseProvide
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import type { RefreshOutcome } from '@/features/activity/domain/refreshAll';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { net } from '@/features/net/reconnectCoordinator';
 import {
   MobileFieldValidationAssignmentsApiError,
 } from '@/features/assignments/api/mobileFieldValidationAssignmentsApi';
@@ -255,6 +256,14 @@ export function useFieldValidationAssignments(enabled = true) {
     useCallback(() => {
       if (enabled) void refresh({ force: false });
     }, [enabled, refresh]),
+  );
+
+  // Back online, the coordinator's Download step calls this feed's own refresh.
+  useEffect(
+    () => net.registerDownload(() => {
+      void refresh({ force: false });
+    }),
+    [refresh],
   );
 
   useEffect(() => {

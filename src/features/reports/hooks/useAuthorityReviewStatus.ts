@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { net } from '@/features/net/reconnectCoordinator';
 import {
   ReportStatusesApiError,
 } from '@/features/reports/api/mobileReportStatusesApi';
@@ -156,6 +157,14 @@ export function useAuthorityReviewStatus(enabled = true) {
         void refreshIfStale();
       }
     }, [enabled, refreshIfStale]),
+  );
+
+  // Back online, the coordinator's Download step calls this feed's own refresh.
+  useEffect(
+    () => net.registerDownload(() => {
+      void refreshIfStale();
+    }),
+    [refreshIfStale],
   );
 
   useEffect(() => {

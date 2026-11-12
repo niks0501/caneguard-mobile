@@ -76,6 +76,12 @@ export function mapFieldReportToMultipart(
 
   const form = new FormData();
   form.append('client_uuid', report.id);
+  if (report.authorizationBasis) {
+    form.append('authorization_basis', report.authorizationBasis);
+    if (report.capabilitiesVerifiedAt) {
+      form.append('capabilities_verified_at', report.capabilitiesVerifiedAt);
+    }
+  }
   form.append('scan_record_client_uuid', scanRecord.id);
   if (report.fieldSurveyClientUuid) {
     form.append('field_survey_client_uuid', report.fieldSurveyClientUuid);

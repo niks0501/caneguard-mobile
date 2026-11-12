@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
+import { parseCapabilityGrant } from '@/features/auth/domain/sessionState';
 import {
   isMobileUser,
   type MobileSession,
@@ -200,6 +201,15 @@ async function parseStoredSession(stored: string): Promise<MobileSession | null>
   if (!isEligibleStoredSession(value)) {
     await deleteBestEffort(PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS);
     return null;
+  }
+
+  // A malformed or unknown-version grant is dropped, never repaired.
+  const rawGrant = (value as { capabilityGrant?: unknown }).capabilityGrant;
+  const grant = parseCapabilityGrant(rawGrant);
+  if (grant) {
+    value.capabilityGrant = grant;
+  } else {
+    delete value.capabilityGrant;
   }
 
   if (value.expiresAt === null) {

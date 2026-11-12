@@ -3,6 +3,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { EMPTY_DATABASE, useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { listCachedFieldValidationAssignments } from '@/features/assignments/data/assignmentCacheRepository';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import {
+  deriveReadiness,
+  deviceClockNow,
+  estimateServerNow,
+  type MissingStep,
+  type SessionState,
+} from '@/features/auth/domain/sessionState';
 import { net } from '@/features/net/reconnectCoordinator';
 
 export interface OfflineReadinessState {
@@ -13,8 +20,11 @@ export interface OfflineReadinessState {
   /** The protected session has an expiry in the past. */
   sessionExpired: boolean;
   sessionExpiresAt: string | null;
-  /** Protected session ready and at least one visit cached for offline work. */
+  /** The one step still missing before offline work, or null when ready. */
+  missingStep?: MissingStep | null;
+  /** Derived from the session union and the saved visits; never from loose flags. */
   ready: boolean;
+  sessionState?: SessionState;
   refresh: () => void;
 }
 
@@ -25,7 +35,7 @@ export interface OfflineReadinessState {
  */
 export function useOfflineReadiness(): OfflineReadinessState {
   const database = useCaneGuardDatabase();
-  const { biometricEnabled, session, user } = useAuth();
+  const { biometricEnabled, session, sessionState, user } = useAuth();
   const [assignmentCount, setAssignmentCount] = useState<number | null>(null);
   const [checkingAssignments, setCheckingAssignments] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -90,17 +100,27 @@ export function useOfflineReadiness(): OfflineReadinessState {
   useEffect(() => net.onSettled(refresh), [refresh]);
 
   const protectedSessionEnabled = biometricEnabled && session !== null;
+  // Auth doubles that predate the union fall back to "verified while signed in".
+  const state: SessionState =
+    sessionState ??
+    (session
+      ? { kind: 'verified', at: new Date(0).toISOString() }
+      : { kind: 'signed-out' });
+  const readiness = deriveReadiness({
+    biometricProtected: protectedSessionEnabled,
+    cachedVisits: assignmentCount,
+    now: estimateServerNow(deviceClockNow(), session?.capabilityGrant ?? null),
+    state,
+  });
 
   return {
     assignmentCount,
     checkingAssignments,
+    missingStep: readiness.missing,
     protectedSessionEnabled,
-    ready:
-      protectedSessionEnabled &&
-      !sessionExpired &&
-      assignmentCount !== null &&
-      assignmentCount > 0,
+    ready: readiness.ready && !sessionExpired,
     refresh,
+    sessionState: state,
     sessionExpired,
     sessionExpiresAt,
   };

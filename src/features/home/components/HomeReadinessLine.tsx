@@ -1,7 +1,7 @@
 import { router, type Href } from 'expo-router';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { READY_FOR_FIELD_COPY } from '@/constants/copy';
+import { MISSING_STEP_COPY, READY_FOR_FIELD_COPY } from '@/constants/copy';
 import { Typography } from '@/constants/theme';
 import { useOfflineReadiness } from '@/features/auth/hooks/useOfflineReadiness';
 import { useTheme } from '@/hooks/use-theme';
@@ -21,7 +21,9 @@ export function HomeReadinessLine() {
   const biometricOff = !readiness.protectedSessionEnabled;
   const label = biometricOff
     ? READY_FOR_FIELD_COPY.homeLineBiometric
-    : READY_FOR_FIELD_COPY.homeLineOther;
+    : readiness.missingStep
+      ? MISSING_STEP_COPY[readiness.missingStep]
+      : READY_FOR_FIELD_COPY.homeLineOther;
 
   return (
     <Pressable

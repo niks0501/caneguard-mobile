@@ -48,6 +48,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
     '0013_v1_local_scan_migration.sql',
     '0014_safe_songbird.sql',
     '0015_sour_riptide.sql',
+    '0038_net3_visit_provenance.sql',
   ]) native.exec(migration(filename));
   return { database: createDatabase(native), native };
 }

@@ -253,6 +253,27 @@
       "when": 1794498864022,
       "tag": "0035_authority_status_redownload",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1794504873886,
+      "tag": "0036_net3_report_provenance",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1794504881055,
+      "tag": "0037_net3_survey_provenance",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1794504881844,
+      "tag": "0038_net3_visit_provenance",
+      "breakpoints": true
     }
   ]
 }

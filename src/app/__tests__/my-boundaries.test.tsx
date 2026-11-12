@@ -28,6 +28,7 @@ const row = (overrides: Partial<FieldSurveyRow>): FieldSurveyRow => ({
   clientUuid: 'b1', ownerIdentity: 'owner-1', districtCode: 'D1', waypointsJson: '[]', polygonJson: null, areaSqm: null,
   affectedAreaPolygonsJson: null, affectedAreaSqm: null, affectedAreaWaypointsJson: null, activeAffectedWaypointsJson: null,
   measurementProvenanceJson: null, capturedAt: '2026-01-01T00:00:00.000Z', status: 'draft', authorRole: 'field_reporter',
+  authorizationBasis: null, capabilitiesVerifiedAt: null,
   remoteId: null, fieldErrorsJson: null, syncAttemptCount: 0, lastSyncErrorCode: null, lastSyncedAt: null,
   createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', ...overrides,
 });

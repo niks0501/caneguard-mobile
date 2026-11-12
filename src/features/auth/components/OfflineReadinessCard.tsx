@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { OFFLINE_READINESS_COPY } from '@/constants/copy';
+import { MISSING_STEP_COPY, OFFLINE_READINESS_COPY } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useOfflineReadiness } from '@/features/auth/hooks/useOfflineReadiness';
 import { useTheme } from '@/hooks/use-theme';
@@ -50,7 +50,7 @@ export function OfflineReadinessCard() {
     <View
       testID="settings.offline-readiness"
       accessibilityValue={{
-        text: `state=${readiness.ready ? 'ready' : 'not-ready'};biometric=${readiness.protectedSessionEnabled ? 'on' : 'off'};expired=${readiness.sessionExpired ? 'yes' : 'no'};visits-saved=${readiness.assignmentCount ?? 'unknown'}`,
+        text: `state=${readiness.ready ? 'ready' : 'not-ready'};biometric=${readiness.protectedSessionEnabled ? 'on' : 'off'};expired=${readiness.sessionExpired ? 'yes' : 'no'};visits-saved=${readiness.assignmentCount ?? 'unknown'}${readiness.sessionState ? `;session=${readiness.sessionState.kind};missing=${readiness.missingStep ?? 'none'}` : ''}`,
       }}
       accessibilityLiveRegion="polite"
       style={[
@@ -89,6 +89,11 @@ export function OfflineReadinessCard() {
           </View>
         </View>
       ))}
+      {!readiness.ready && readiness.missingStep ? (
+        <Text style={[styles.rowLabel, { color: theme.text }]}>
+          {MISSING_STEP_COPY[readiness.missingStep]}
+        </Text>
+      ) : null}
       <Text style={[styles.note, { color: theme.textSecondary }]}>
         {OFFLINE_READINESS_COPY.explanation}
       </Text>

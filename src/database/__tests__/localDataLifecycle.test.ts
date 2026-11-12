@@ -144,6 +144,9 @@ const MIGRATIONS = [
   '0033_notification_seen_outbox.sql',
   '0034_authority_workflow_status.sql',
   '0035_authority_status_redownload.sql',
+  '0036_net3_report_provenance.sql',
+  '0037_net3_survey_provenance.sql',
+  '0038_net3_visit_provenance.sql',
 ] as const;
 
 function readMigration(filename: string): string {

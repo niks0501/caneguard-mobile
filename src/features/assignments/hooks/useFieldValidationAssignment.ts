@@ -3,7 +3,8 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ImagePickerAsset } from 'expo-image-picker';
 
-import { FIELD_VALIDATION_UNAVAILABLE } from '@/constants/copy';
+import { AUTHORING_WINDOW_COPY, FIELD_VALIDATION_UNAVAILABLE } from '@/constants/copy';
+import { readAuthoringBound } from '@/features/auth/domain/authoringBound';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { findCachedFieldValidationAssignment } from '@/features/assignments/data/assignmentCacheRepository';
@@ -62,7 +63,8 @@ interface AssignmentState {
 
 export function useFieldValidationAssignment(assignmentId: string | null) {
   const database = useCaneGuardDatabase();
-  const { session, status: authStatus } = useAuth();
+  const auth = useAuth();
+  const { session, status: authStatus } = auth;
   const sync = useSync();
   const canComplete = canCompleteFieldValidation(session?.user);
   const mounted = useRef(true);
@@ -215,6 +217,12 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
 
   const complete = useCallback(async (input: CompleteFieldValidationInput): Promise<FieldValidationCompletion | null> => {
     if (!canComplete || !state.assignment || !session) return null;
+    // The authoring bound, checked at the moment of finishing.
+    const provenance = readAuthoringBound(auth);
+    if (provenance === null) {
+      setState((current) => ({ ...current, errorMessage: AUTHORING_WINDOW_COPY.ended, saving: false }));
+      return null;
+    }
     const completionId = randomUUID();
     setState((current) => ({ ...current, errorMessage: null, saving: true }));
     let createdPhotoUri: string | null = null;
@@ -258,6 +266,7 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
         freshPhotoUri: photo?.uri ?? null,
         freshPhotoMimeType: photo?.mimeType ?? null,
         freshPhotoSizeBytes: photo?.sizeBytes ?? null,
+        provenance: provenance ?? null,
       };
       const saved = await saveFieldValidationCompletion(database, completionInput);
       completionSaved = true;
@@ -294,7 +303,7 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       if (mounted.current) setState((current) => ({ ...current, errorMessage: message, saving: false }));
       return null;
     }
-  }, [canComplete, database, refresh, session, state.assignment, sync]);
+  }, [auth, canComplete, database, refresh, session, state.assignment, sync]);
 
   const retry = useCallback(async () => {
     if (!canComplete || !state.completion || sync.isOnline !== true) return;

@@ -340,6 +340,9 @@ export const fieldValidationCompletions = sqliteTable(
     freshPhotoUri: text('fresh_photo_uri'),
     freshPhotoMimeType: text('fresh_photo_mime_type'),
     freshPhotoSizeBytes: integer('fresh_photo_size_bytes'),
+    /** Frozen when the visit is saved (see field_reports.authorization_basis). */
+    authorizationBasis: text('authorization_basis'),
+    capabilitiesVerifiedAt: text('capabilities_verified_at'),
     syncStatus: text('sync_status')
       .$type<SyncStatus>()
       .notNull()
@@ -561,6 +564,9 @@ export const fieldReports = sqliteTable(
     lastSyncErrorCode: text('last_sync_error_code'),
     lastSyncAttemptAt: text('last_sync_attempt_at'),
     lastSyncedAt: text('last_synced_at'),
+    /** Frozen when the report is finished: 'verified' or 'carryover', and the /me time it rested on. */
+    authorizationBasis: text('authorization_basis'),
+    capabilitiesVerifiedAt: text('capabilities_verified_at'),
     authorityStatusRaw: text('authority_status_raw'),
     authorityWorkflowStatus: text('authority_workflow_status'),
     authorityReferenceCode: text('authority_reference_code'),
@@ -706,6 +712,9 @@ export const fieldSurveys = sqliteTable(
      * farmer Home inspector-work-waiting flag.
      */
     authorRole: text('author_role').$type<MobileUserRole>().notNull().default('farmer'),
+    /** Frozen when the boundary is queued (see field_reports.authorization_basis). */
+    authorizationBasis: text('authorization_basis'),
+    capabilitiesVerifiedAt: text('capabilities_verified_at'),
     remoteId: text('remote_id'),
     fieldErrorsJson: text('field_errors_json'),
     syncAttemptCount: integer('sync_attempt_count').notNull().default(0),

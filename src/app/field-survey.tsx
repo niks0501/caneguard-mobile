@@ -19,7 +19,8 @@ import { EMPTY_DATABASE, useDatabaseState } from '@/database/DatabaseProvider';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useToast } from '@/components/ui/Toast';
 import { Radius, Spacing, Typography } from '@/constants/theme';
-import { FIELD_SURVEY_COPY } from '@/constants/copy';
+import { AUTHORING_WINDOW_COPY, FIELD_SURVEY_COPY } from '@/constants/copy';
+import { readAuthoringBound } from '@/features/auth/domain/authoringBound';
 import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 import { expoForegroundLocationClient } from '@/features/reports/services/expoForegroundLocationClient';
 import { PREFERRED_GPS_ACCURACY_METERS } from '@/features/reports/services/captureGpsLocation';
@@ -184,7 +185,8 @@ export default function FieldSurveyScreen() {
   const theme = useTheme();
   const { showToast } = useToast();
   const { database, ready } = useDatabaseState();
-  const { session } = useAuth();
+  const auth = useAuth();
+  const { session } = auth;
   const canAuthorSurvey = canAuthorInspectorWork(session?.user);
   const requestedSurveyId = useLocalSearchParams<{ surveyId?: string | string[] }>().surveyId;
   const surveyId = Array.isArray(requestedSurveyId) ? requestedSurveyId[0] : requestedSurveyId;
@@ -756,8 +758,14 @@ export default function FieldSurveyScreen() {
       setSyncMessage(rejection);
       return;
     }
+    // The authoring bound, checked at the moment of finishing.
+    const provenance = readAuthoringBound(auth);
+    if (provenance === null) {
+      setSyncMessage(AUTHORING_WINDOW_COPY.ended);
+      return;
+    }
     try {
-      markFieldSurveyPending(database, clientUuid, session.user.uuid, districtCode, validation.polygon, validation.areaSqm, waypoints.at(-1)?.capturedAt ?? new Date().toISOString(), affectedAreas, affectedMeasurement.areaSqm, affectedAreaWaypointSets);
+      markFieldSurveyPending(database, clientUuid, session.user.uuid, districtCode, validation.polygon, validation.areaSqm, waypoints.at(-1)?.capturedAt ?? new Date().toISOString(), affectedAreas, affectedMeasurement.areaSqm, affectedAreaWaypointSets, provenance ?? null);
     } catch (error: unknown) {
       setSyncMessage(error instanceof Error ? error.message : FIELD_SURVEY_COPY.saveFailed);
       return;

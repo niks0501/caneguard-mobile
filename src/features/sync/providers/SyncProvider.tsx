@@ -69,6 +69,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
     markSessionExpired,
     retrySessionVerification,
     session,
+    reportCapabilityRevoked,
     sessionVerification,
     status: authStatus,
   } = useAuth();
@@ -283,23 +284,26 @@ export function SyncProvider({ children }: PropsWithChildren) {
           return null;
         }
         const district = accountDistrict(sessionVerificationRef.current, sessionRef.current);
-        const reportResult = await syncPendingFieldReports({
-          database,
-          districtCode: district.code,
-          source,
-          submitterIdentity: initiatingSession.user.uuid,
-          token: initiatingSession.token,
-        });
-        if (!canContinueOfficialRecordSync()) {
-          await refreshPendingCount();
-          return null;
-        }
+        // Boundaries go before the reports that refer to them, so the office
+        // never holds a report without its boundary. Speed only: the server
+        // accepts either order (reports refer to boundaries by client key).
         const surveyResult = await syncPendingFieldSurveys({
           database,
           districtCode: district.code,
           districtVerified: district.verified,
           source,
           ownerIdentity: initiatingSession.user.uuid,
+          token: initiatingSession.token,
+        });
+        if (!canContinueOfficialRecordSync()) {
+          await refreshPendingCount();
+          return null;
+        }
+        const reportResult = await syncPendingFieldReports({
+          database,
+          districtCode: district.code,
+          source,
+          submitterIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
         if (!canContinueOfficialRecordSync()) {
@@ -322,6 +326,15 @@ export function SyncProvider({ children }: PropsWithChildren) {
             ...current,
             apiReachability: observedApiReachability,
           }));
+        }
+        if (
+          result.results.some(
+            (item) => item.status === 'failed' && item.error.code === 'CAPABILITY_REVOKED',
+          )
+        ) {
+          // The office took access away: carried capabilities drop now, the
+          // unsent evidence stays, and /me is asked again. Not awaited: the run is over.
+          void reportCapabilityRevoked?.();
         }
         if (result.authRequired) {
           clearRetryTimer();
@@ -373,6 +386,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       database,
       markSessionExpired,
       refreshPendingCount,
+      reportCapabilityRevoked,
       scheduleRetryTimer,
       session,
       sessionKey,
@@ -689,6 +703,7 @@ function inferApiReachability(
         break;
       case 'AUTH_REQUIRED':
       case 'API_VALIDATION_FAILED':
+      case 'CAPABILITY_REVOKED':
       case 'API_FORBIDDEN':
       case 'API_RATE_LIMITED':
         observation = 'available';

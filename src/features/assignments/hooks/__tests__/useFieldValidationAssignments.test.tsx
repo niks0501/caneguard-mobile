@@ -3,7 +3,12 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { listCachedFieldValidationAssignments } from '@/features/assignments/data/assignmentCacheRepository';
 import { MobileFieldValidationAssignmentsApiError } from '@/features/assignments/api/mobileFieldValidationAssignmentsApi';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
-import { clearOwnerMobileDataStore } from '@/features/mobile-data/data/mobileDataStore';
+import {
+  clearOwnerMobileDataStore,
+  getOwnerMobileDataStore,
+  setOwnerAssignments,
+  setOwnerAssignmentsReadState,
+} from '@/features/mobile-data/data/mobileDataStore';
 import { refreshFieldValidationAssignments } from '@/features/assignments/services/refreshFieldValidationAssignments';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 
@@ -156,15 +161,29 @@ describe('useFieldValidationAssignments capabilities', () => {
       session: { ...READ_SESSION, user: { ...READ_SESSION.user, uuid: ownerId } },
       status: 'authenticated',
     } as never);
+    const store = getOwnerMobileDataStore(DATABASE as never, ownerId);
+    setOwnerAssignments(store, [{ id: ASSIGNMENT_ID } as never], Date.now());
+    setOwnerAssignmentsReadState(store, {
+      refreshing: false,
+      failed: false,
+      verified: true,
+    });
     clearOwnerMobileDataStore(DATABASE as never, ownerId);
     mockListCached.mockResolvedValue([]);
-    mockRefreshAssignments.mockResolvedValue({
-      assignments: [],
-      fetchedAt: Date.now(),
-    } as never);
+    let completeRefresh!: (value: never) => void;
+    mockRefreshAssignments.mockReturnValue(
+      new Promise((resolve) => { completeRefresh = resolve; }) as never,
+    );
 
     const { result } = await renderHook(() => useFieldValidationAssignments());
     await waitFor(() => expect(mockRefreshAssignments).toHaveBeenCalled());
+    expect(result.current.ready).toBe(false);
+    expect(result.current.failed).toBe(false);
+    expect(result.current.assignments).toEqual([]);
+
+    act(() => {
+      completeRefresh({ assignments: [], fetchedAt: Date.now() } as never);
+    });
     await waitFor(() => expect(result.current.ready).toBe(true));
     expect(result.current.failed).toBe(false);
   });

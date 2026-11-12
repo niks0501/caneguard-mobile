@@ -32,10 +32,11 @@ import {
   type FarmerScanState,
 } from '@/features/records/domain/scanState';
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
-import { useFarmerScanStates } from '@/features/records/hooks/useScanStates';
+import { possibleConditionLine } from '@/features/records/components/possibleConditionLine';
+import { useFarmerScans } from '@/features/records/hooks/useScanStates';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { useTheme } from '@/hooks/use-theme';
-import { useFarmerCopy } from '@/providers/LanguagePreferenceProvider';
+import { useFarmerCopy, useLanguagePreference } from '@/providers/LanguagePreferenceProvider';
 
 type StateFilter = 'all' | FarmerScanState;
 
@@ -52,7 +53,9 @@ function TimelineSeparator() {
 /** Farmer version of the Activity tab: the farmer's own scans with a computed state. */
 export default function MyScansScreen() {
   const theme = useTheme();
-  const copy = useFarmerCopy().myScans;
+  const farmerCopy = useFarmerCopy();
+  const { language } = useLanguagePreference();
+  const copy = farmerCopy.myScans;
   const [filter, setFilter] = useState<StateFilter>('all');
   const [searchInput, setSearchInput] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
@@ -60,19 +63,25 @@ export default function MyScansScreen() {
     { search: submittedSearch || undefined },
     DEFAULT_RECORD_PAGE_SIZE,
   );
-  const states = useFarmerScanStates();
+  const { states, threads, status: threadStatus, refresh: refreshThreads } = useFarmerScans();
   const stateLabel = useCallback(
     (state: FarmerScanState) => copy[STATE_COPY_KEY[state]],
     [copy],
   );
 
-  const visible = useMemo(
-    () =>
-      filter === 'all'
-        ? records.data
-        : records.data.filter((record) => states.get(record.id) === filter),
-    [filter, records.data, states],
-  );
+  // One card per plant: the newest loaded check stands for the first check and
+  // its follow-ups, which stay reachable from that record's check history.
+  const visible = useMemo(() => {
+    if (threadStatus !== 'ready') return [];
+    const seenPlants = new Set<string>();
+    return records.data.filter((record) => {
+      if (filter !== 'all' && states.get(record.id) !== filter) return false;
+      const plant = threads.get(record.id)?.originalId ?? record.id;
+      if (seenPlants.has(plant)) return false;
+      seenPlants.add(plant);
+      return true;
+    });
+  }, [filter, records.data, states, threads, threadStatus]);
   const hasFilters = filter !== 'all' || Boolean(submittedSearch);
   const chips: { key: StateFilter; label: string }[] = [
     { key: 'all', label: copy.filterAll },
@@ -88,6 +97,11 @@ export default function MyScansScreen() {
             testID={`my-scans.item.${item.id}`}
             record={item}
             scanState={state ? { label: stateLabel(state), state } : undefined}
+            farmerText={{
+              language,
+              openLabel: copy.openScan,
+              result: possibleConditionLine(farmerCopy, item.predictedLabel),
+            }}
             onPress={() =>
               router.push({
                 pathname: '/record-details',
@@ -98,7 +112,7 @@ export default function MyScansScreen() {
         </View>
       );
     },
-    [stateLabel, states],
+    [copy, farmerCopy, language, stateLabel, states],
   );
 
   const submitSearch = () => setSubmittedSearch(searchInput.trim());
@@ -120,6 +134,20 @@ export default function MyScansScreen() {
         message=""
         liveRegion="assertive">
         <AppButton onPress={() => void records.refresh()} leadingIcon="refresh-cw">
+          {copy.retryLoad}
+        </AppButton>
+      </EmptyState>
+    ) : threadStatus === 'loading' ? (
+      <EmptyState icon="loader" title={copy.loading} message="" liveRegion="polite">
+        <ActivityIndicator accessibilityLabel={copy.loading} color={theme.primary} />
+      </EmptyState>
+    ) : threadStatus === 'error' ? (
+      <EmptyState
+        icon="alert-triangle"
+        title={copy.loadError}
+        message=""
+        liveRegion="assertive">
+        <AppButton onPress={() => void refreshThreads()} leadingIcon="refresh-cw">
           {copy.retryLoad}
         </AppButton>
       </EmptyState>
@@ -218,7 +246,7 @@ export default function MyScansScreen() {
 
   const footer = (
     <View style={styles.footer}>
-      {records.hasMore ? (
+      {threadStatus === 'ready' && records.hasMore ? (
         <AppButton
           testID="my-scans.load-more"
           onPress={() => void records.loadMore()}

@@ -21,6 +21,40 @@ describe('BottomNav tabs by role (P1-5)', () => {
     expect(screen.getByTestId('nav.activity')).toBeTruthy();
   });
 
+  it('renders localized farmer tab labels visually and for accessibility', async () => {
+    await render(
+      <BottomNav
+        activeTab="home"
+        labels={{ home: 'Tahanan', scan: 'Mag-scan', activity: 'Aking mga Scan' }}
+        hiddenTabs={['today']}
+        navigation={navigation}
+      />,
+    );
+
+    expect(screen.getByText('Tahanan')).toBeOnTheScreen();
+    expect(screen.getByTestId('nav.home')).toHaveProp('accessibilityLabel', 'Tahanan');
+    expect(screen.getByText('Mag-scan')).toBeOnTheScreen();
+    expect(screen.getByTestId('nav.scan')).toHaveProp('accessibilityLabel', 'Mag-scan');
+  });
+
+  it('announces unread updates in the localized farmer Activity tab name', async () => {
+    await render(
+      <BottomNav
+        activeTab="home"
+        labels={{ activity: 'Aking mga Scan' }}
+        activityAccessibilityLabel={(count) => `Aking mga Scan, ${count} hindi pa nababasang update sa opisina`}
+        notificationCount={3}
+        hiddenTabs={['today']}
+        navigation={navigation}
+      />,
+    );
+
+    expect(screen.getByTestId('nav.activity')).toHaveProp(
+      'accessibilityLabel',
+      'Aking mga Scan, 3 hindi pa nababasang update sa opisina',
+    );
+  });
+
   // Proves: each rendered non-active field-role bottom tab dispatches its route transition through the Expo Router tab navigator.
   it.each([
     ['home', 'scan'],

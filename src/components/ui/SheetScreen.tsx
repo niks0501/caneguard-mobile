@@ -18,6 +18,11 @@ import { useTheme } from '@/hooks/use-theme';
 export type SheetScreenProps = {
   cancelLabel?: string;
   cancelTestID?: string;
+  closeAccessibilityLabel?: string;
+  discardTitle?: string;
+  discardMessage?: string;
+  keepEditingLabel?: string;
+  discardLabel?: string;
   children: ReactNode;
   errorMessage?: string | null;
   errorTestID?: string;
@@ -44,6 +49,11 @@ export type SheetScreenProps = {
 export function SheetScreen({
   cancelLabel = 'Cancel',
   cancelTestID,
+  closeAccessibilityLabel = 'Close',
+  discardTitle = 'Discard changes?',
+  discardMessage = 'You have unsaved changes. Do you want to discard them?',
+  keepEditingLabel = 'Keep editing',
+  discardLabel = 'Discard',
   children,
   errorMessage,
   errorTestID = 'sheet.error',
@@ -83,7 +93,7 @@ export function SheetScreen({
         </Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={closeAccessibilityLabel}
           disabled={submitLoading}
           hitSlop={8}
           onPress={handleDismiss}
@@ -138,10 +148,10 @@ export function SheetScreen({
 
       <ConfirmDialog
         visible={showDiscardConfirm}
-        title="Discard changes?"
-        message="You have unsaved changes. Do you want to discard them?"
-        cancelLabel="Keep editing"
-        confirmLabel="Discard"
+        title={discardTitle}
+        message={discardMessage}
+        cancelLabel={keepEditingLabel}
+        confirmLabel={discardLabel}
         destructive
         overlay
         onConfirm={() => {

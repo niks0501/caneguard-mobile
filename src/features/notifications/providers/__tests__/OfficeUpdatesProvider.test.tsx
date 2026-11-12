@@ -12,6 +12,10 @@ import {
 } from '@/features/notifications/providers/OfficeUpdatesProvider';
 import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
 
+jest.mock('@/providers/LanguagePreferenceProvider', () => ({
+  useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY.en,
+}));
+
 const mockPush = router.push as jest.Mock;
 const mockRefreshNotifications = jest.fn(async () => true);
 const mockMarkRead = jest.fn(async () => undefined);

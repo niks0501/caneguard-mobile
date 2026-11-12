@@ -109,7 +109,7 @@ describe('buildNeedsAttention', () => {
     expect(summary.items[0].meta).toBe('Not on this phone: open on the web');
   });
 
-  it('presents office wording with the approved visit names', () => {
+  it('preserves office-authored notification wording verbatim', () => {
     const summary = build({
       notifications: [
         notification({
@@ -119,20 +119,20 @@ describe('buildNeedsAttention', () => {
       ],
     });
 
-    expect(summary.items[0].title).toBe('Visit assigned');
+    expect(summary.items[0].title).toBe('Field validation assigned');
     expect(summary.items[0].message).toBe(
-      'CG-2026-0001 was assigned to you for a visit by 2026-08-20.',
+      'CG-2026-0001 was assigned to you for a field visit by 2026-08-20.',
     );
   });
 
-  it('does not keep the assignment name in office wording', () => {
+  it('preserves office-authored legacy assignment wording', () => {
     const summary = build({
       notifications: [
         notification({ message: 'A field validation assignment is ready.' }),
       ],
     });
 
-    expect(summary.items[0].message).toBe('A visit is ready.');
+    expect(summary.items[0].message).toBe('A field validation assignment is ready.');
   });
 
   it('uses the resolved destination meta for an actionable update', () => {

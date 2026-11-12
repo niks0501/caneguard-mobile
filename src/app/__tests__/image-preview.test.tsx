@@ -39,6 +39,15 @@ jest.mock('@/features/detection/imagePicker/pickScanImage', () => ({
   pickScanImage: jest.fn(),
 }));
 
+let mockRole: 'farmer' | 'field_reporter' = 'field_reporter';
+let mockLanguage: 'en' | 'tl' = 'en';
+jest.mock('@/features/auth/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { role: mockRole, uuid: 'preview-test-user' } }),
+}));
+jest.mock('@/providers/LanguagePreferenceProvider', () => ({
+  useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY[mockLanguage],
+}));
+
 const mockDispatch = jest.fn<void, [ScanSessionAction]>();
 const mockRouterDismissTo = router.dismissTo as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
@@ -118,6 +127,8 @@ async function renderPreview(initialState: ScanSessionState) {
 
 describe('ImagePreviewScreen', () => {
   beforeEach(() => {
+    mockRole = 'field_reporter';
+    mockLanguage = 'en';
     mockPreprocessImage.mockResolvedValue(successfulPreprocessingResult);
     mockRunInference.mockResolvedValue(successfulInferenceResult);
     mockUseCaneGuardModel.mockReturnValue({
@@ -129,6 +140,29 @@ describe('ImagePreviewScreen', () => {
       errorKind: null,
       error: null,
     });
+  });
+
+  it('localizes farmer image preview actions and picker errors in Tagalog', async () => {
+    mockRole = 'farmer';
+    mockLanguage = 'tl';
+    mockPickScanImage.mockResolvedValueOnce({
+      code: 'PICKER_FAILED',
+      kind: 'error',
+      message: 'The gallery could not be opened. Please try again.',
+      stage: 'image-acquisition',
+    });
+    await renderPreview(selectedState);
+
+    expect(screen.getByText('Preview ng larawan')).toBeOnTheScreen();
+    expect(screen.getByText('Pinagmulan')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Ipakita ang mga opsyon sa pagpapalit ng larawan'));
+    await fireEvent.press(screen.getByLabelText('Pumili ng ibang larawan mula sa gallery'));
+
+    expect(screen.getByTestId('image-preview.replacement-notice')).toHaveTextContent(
+      'Hindi mabuksan ang gallery. Subukan muli.',
+    );
+    expect(screen.queryByText('Image preview')).toBeNull();
+    expect(screen.getByLabelText('Napiling larawan ng tubo mula sa gallery')).toBeOnTheScreen();
   });
 
   it('shows a clear recovery state when no image exists', async () => {

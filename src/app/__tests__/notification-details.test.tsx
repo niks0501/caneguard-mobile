@@ -20,6 +20,14 @@ const mockParams = jest.mocked(useLocalSearchParams);
 const mockUseMobileNotifications = jest.mocked(useMobileNotifications);
 const mockUseNotificationDestinations = jest.mocked(useNotificationDestinations);
 const markRead = jest.fn(async () => undefined);
+let mockRole: 'farmer' | 'field_reporter' = 'field_reporter';
+let mockLanguage: 'en' | 'tl' = 'en';
+jest.mock('@/features/auth/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { role: mockRole } }),
+}));
+jest.mock('@/providers/LanguagePreferenceProvider', () => ({
+  useLanguagePreference: () => ({ language: mockLanguage }),
+}));
 
 const NOTIFICATION = {
   id: '4e04321c-a879-423f-875d-4cdce5e028a6',
@@ -72,6 +80,8 @@ function notificationState(notifications: MobileNotification[]) {
 
 describe('NotificationDetailsScreen', () => {
   beforeEach(() => {
+    mockRole = 'field_reporter';
+    mockLanguage = 'en';
     jest.clearAllMocks();
     mockUseNotificationDestinations.mockReturnValue(new Map());
     mockParams.mockReturnValue({ id: NOTIFICATION.id });
@@ -91,17 +101,32 @@ describe('NotificationDetailsScreen', () => {
     expect(screen.getByText('Follow the office guidance during your next visit.')).toBeOnTheScreen();
   });
 
-  it('presents a legacy office update with the approved visit names', async () => {
+  it('localizes notification-detail chrome but preserves office-authored text', async () => {
+    mockRole = 'farmer';
+    mockLanguage = 'tl';
+    await render(<NotificationDetailsScreen />);
+
+    expect(screen.getByText('Update mula sa opisina')).toBeOnTheScreen();
+    expect(screen.getByText('Payo')).toBeOnTheScreen();
+    expect(screen.getByTestId('notification.details.title')).toHaveTextContent('Inspect affected leaves');
+    expect(screen.getByTestId('notification.details.body')).toHaveTextContent(
+      'Inspect the affected leaves and capture clear evidence during the visit.',
+    );
+    expect(screen.getByText('Mensahe ng opisina')).toBeOnTheScreen();
+    expect(screen.queryByText('Office update')).toBeNull();
+  });
+
+  it('preserves a legacy office update exactly as authored', async () => {
     mockParams.mockReturnValue({ id: LEGACY_NOTIFICATION.id });
     mockUseMobileNotifications.mockReturnValue(notificationState([LEGACY_NOTIFICATION]));
 
     await render(<NotificationDetailsScreen />);
 
     expect(screen.getByTestId('notification.details.title')).toHaveTextContent(
-      'Visit assigned',
+      'Field validation assigned',
     );
     expect(screen.getByTestId('notification.details.body')).toHaveTextContent(
-      'A visit is ready.',
+      'A field validation assignment is ready.',
     );
   });
 

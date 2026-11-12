@@ -2,7 +2,6 @@ import {
   NAMING,
   OFFICE_UPDATE_NOT_ON_PHONE,
   UNFINISHED_COPY,
-  visitTerminology,
 } from '@/constants/copy';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import {
@@ -187,12 +186,12 @@ function unreadNotificationItems(input: {
         destination,
         id: `notification-${notification.id}`,
         kind: 'notification' as const,
-        message: visitTerminology(notification.message),
+        message: notification.message,
         meta:
           destination.kind === 'unavailable'
             ? OFFICE_UPDATE_NOT_ON_PHONE
             : notification.referenceCode ?? 'Case activity',
-        title: visitTerminology(notification.title),
+        title: notification.title,
         tone: 'whisper' as const,
       };
     });

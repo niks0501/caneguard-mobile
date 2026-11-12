@@ -7,6 +7,9 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { TextField } from '@/components/ui/TextField';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { FARMER_COPY } from '@/constants/copy';
+import { farmerAuthErrorMessage } from '@/features/auth/authErrorCopy';
+import { useLanguagePreference } from '@/providers/LanguagePreferenceProvider';
 
 /**
  * Device-enrollment form (F3) as a native sheet route with its confirmation
@@ -15,10 +18,18 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
  * rendered inside the closed sheet.
  */
 export function EnrollDeviceSheet() {
+  const { language } = useLanguagePreference();
+  const copy = FARMER_COPY[language].accountSecurityForms;
+  const common = copy.common;
+  const enrollmentCopy = copy.enrollment;
   const { showToast } = useToast();
-  const { enrollMobileDevice, errorMessage } = useAuth();
+  const { enrollMobileDevice, errorMessage, user } = useAuth();
+  const isFarmer = user?.role === 'farmer';
+  const authError = isFarmer
+    ? farmerAuthErrorMessage(errorMessage, FARMER_COPY[language].authErrors)
+    : errorMessage;
   const [deviceName, setDeviceName] = useState(
-    Device.deviceName?.trim() || Device.modelName?.trim() || 'CaneGuard mobile device',
+    Device.deviceName?.trim() || Device.modelName?.trim() || (isFarmer ? enrollmentCopy.namePlaceholder : 'CaneGuard mobile device'),
   );
   const [enrollmentPassword, setEnrollmentPassword] = useState('');
   const [pending, setPending] = useState(false);
@@ -44,7 +55,7 @@ export function EnrollDeviceSheet() {
     try {
       const enrolled = await enrollMobileDevice(enrollmentPassword, deviceName);
       if (enrolled) {
-        showToast('Device enrolled', 'success');
+        showToast(isFarmer ? enrollmentCopy.toast : 'Device enrolled', 'success');
         setClosed(true);
         router.dismissTo({
           params: { notice: 'enrolled' },
@@ -62,35 +73,41 @@ export function EnrollDeviceSheet() {
 
   return (
     <SheetScreen
-      title="Device enrollment"
+      title={isFarmer ? enrollmentCopy.title : 'Device enrollment'}
+      cancelLabel={isFarmer ? common.cancel : undefined}
+      closeAccessibilityLabel={isFarmer ? common.close : undefined}
+      discardTitle={isFarmer ? common.discardTitle : undefined}
+      discardMessage={isFarmer ? common.discardMessage : undefined}
+      keepEditingLabel={isFarmer ? common.keepEditing : undefined}
+      discardLabel={isFarmer ? common.discard : undefined}
       testID="account-security.enrollment-sheet"
-      errorMessage={attempted ? errorMessage : null}
+      errorMessage={attempted ? authError : null}
       errorTestID="account-security.error"
       isDirty={dirty}
       onCancel={close}
       onSubmit={() => setShowConfirm(true)}
       submitDisabled={!submittable}
       submitLoading={pending}
-      submitLoadingLabel="Enrolling..."
-      submitLabel="Enroll this installation"
+      submitLoadingLabel={isFarmer ? enrollmentCopy.submitting : 'Enrolling...'}
+      submitLabel={isFarmer ? enrollmentCopy.submit : 'Enroll this installation'}
       submitTestID="account-security.enroll-device">
       <TextField
         testID="account-security.device-name"
-        label="Installation name"
-        helpHintText="A name for this installation on the office system. It is stored securely and is not a hardware identifier."
+        label={isFarmer ? enrollmentCopy.name : 'Installation name'}
+        helpHintText={isFarmer ? enrollmentCopy.nameHelp : 'A name for this installation on the office system. It is stored securely and is not a hardware identifier.'}
         value={deviceName}
         onChangeText={setDeviceName}
-        placeholder="CaneGuard mobile device"
+        placeholder={isFarmer ? enrollmentCopy.namePlaceholder : 'CaneGuard mobile device'}
         maxLength={120}
         textContentType="none"
         editable={!pending}
       />
       <TextField
         testID="account-security.enrollment-password"
-        label="Current password"
+        label={isFarmer ? enrollmentCopy.currentPassword : 'Current password'}
         value={enrollmentPassword}
         onChangeText={setEnrollmentPassword}
-        placeholder="Confirm this installation"
+        placeholder={isFarmer ? enrollmentCopy.confirmPassword : 'Confirm this installation'}
         secureTextEntry
         autoCapitalize="none"
         textContentType="password"
@@ -98,10 +115,10 @@ export function EnrollDeviceSheet() {
       />
       <ConfirmDialog
         visible={showConfirm}
-        title="Enroll this installation?"
-        message="This installation will be enrolled with a fresh server session. Existing sessions on other device identities are unchanged."
-        confirmLabel="Enroll"
-        cancelLabel="Cancel"
+        title={isFarmer ? enrollmentCopy.confirmTitle : 'Enroll this installation?'}
+        message={isFarmer ? enrollmentCopy.confirmMessage : 'This installation will be enrolled with a fresh server session. Existing sessions on other device identities are unchanged.'}
+        confirmLabel={isFarmer ? enrollmentCopy.confirm : 'Enroll'}
+        cancelLabel={isFarmer ? common.cancel : 'Cancel'}
         overlay
         testID="account-security.confirm-dialog-enrollment"
         onConfirm={() => void submit()}

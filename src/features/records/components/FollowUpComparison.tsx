@@ -34,7 +34,8 @@ export function FollowUpComparison({
   saved: boolean;
 }) {
   const theme = useTheme();
-  const copy = useFarmerCopy().checkAgain;
+  const farmerCopy = useFarmerCopy();
+  const copy = farmerCopy.checkAgain;
   const original = useScanRecordDetails(originalId).data;
   const [newPhotoDate] = useState(() => formatDateTime(new Date()));
   const [originalImageFailed, setOriginalImageFailed] = useState(false);
@@ -66,7 +67,7 @@ export function FollowUpComparison({
                 {formatDateTime(original.createdAt, original.createdAt)}
               </Text>
               <Text style={[styles.caption, { color: theme.text }]}>
-                {possibleConditionLine(copy.possibleCondition, original.predictedLabel)}
+                {possibleConditionLine(farmerCopy, original.predictedLabel)}
               </Text>
             </>
           ) : null}
@@ -81,7 +82,7 @@ export function FollowUpComparison({
           />
           <Text style={[styles.caption, { color: theme.textSecondary }]}>{newPhotoDate}</Text>
           <Text style={[styles.caption, { color: theme.text }]}>
-            {possibleConditionLine(copy.possibleCondition, newPredictedLabel)}
+            {possibleConditionLine(farmerCopy, newPredictedLabel)}
           </Text>
         </View>
       </View>

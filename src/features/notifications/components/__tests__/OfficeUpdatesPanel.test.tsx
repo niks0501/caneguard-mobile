@@ -7,6 +7,11 @@ import { OfficeUpdatesPanel } from '@/features/notifications/components/OfficeUp
 import { RECENT_NOTIFICATION_COUNT } from '@/features/notifications/components/NotificationInbox';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 
+let mockLanguage: 'en' | 'tl' = 'en';
+jest.mock('@/providers/LanguagePreferenceProvider', () => ({
+  useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY[mockLanguage],
+}));
+
 const NOTIFICATION: MobileNotification = {
   id: '4e04321c-a879-423f-875d-4cdce5e028a6',
   ownerIdentity: 'session-1',
@@ -44,11 +49,28 @@ async function renderPanel(overrides: Partial<ComponentProps<typeof OfficeUpdate
 }
 
 describe('OfficeUpdatesPanel', () => {
+  beforeEach(() => {
+    mockLanguage = 'en';
+  });
+
   it('renders nothing while it is hidden', async () => {
     await renderPanel({ visible: false });
 
     expect(screen.queryByTestId('office-updates.panel')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('office-updates.scrim')).not.toBeOnTheScreen();
+  });
+
+  it('localizes panel chrome while rendering the office-authored wording verbatim', async () => {
+    mockLanguage = 'tl';
+    await renderPanel();
+
+    expect(screen.getByText('Mga update mula sa opisina')).toBeOnTheScreen();
+    expect(screen.getByText('1 hindi pa nababasang update mula sa opisina.')).toBeOnTheScreen();
+    expect(screen.getByText('Office review completed')).toBeOnTheScreen();
+    expect(screen.getByText('CG-2026-0001 was reviewed by the office.')).toBeOnTheScreen();
+    expect(screen.getByLabelText(
+      'Office review completed: CG-2026-0001 was reviewed by the office.',
+    )).toBeOnTheScreen();
   });
 
   it('floats the unread updates over the screen and closes on a scrim tap', async () => {
@@ -86,7 +108,7 @@ describe('OfficeUpdatesPanel', () => {
     expect(props.onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('presents office wording with the approved visit names', async () => {
+  it('preserves office-authored legacy wording verbatim', async () => {
     const legacy = {
       ...NOTIFICATION,
       message: 'CG-2026-0001 was assigned to you for a field visit by 2026-08-20.',
@@ -95,18 +117,18 @@ describe('OfficeUpdatesPanel', () => {
 
     await renderPanel({ notifications: [legacy] });
 
-    expect(screen.getByText('Visit assigned')).toBeOnTheScreen();
+    expect(screen.getByText('Field validation assigned')).toBeOnTheScreen();
     expect(
-      screen.getByText('CG-2026-0001 was assigned to you for a visit by 2026-08-20.'),
+      screen.getByText('CG-2026-0001 was assigned to you for a field visit by 2026-08-20.'),
     ).toBeOnTheScreen();
     expect(
       screen.getByLabelText(
-        'Visit assigned: CG-2026-0001 was assigned to you for a visit by 2026-08-20.',
+        'Field validation assigned: CG-2026-0001 was assigned to you for a field visit by 2026-08-20.',
       ),
     ).toBeOnTheScreen();
   });
 
-  it('drops the old assignment name from a known office phrase', async () => {
+  it('preserves the office-authored assignment phrase', async () => {
     const legacy = {
       ...NOTIFICATION,
       message: 'A field validation assignment is ready.',
@@ -115,8 +137,8 @@ describe('OfficeUpdatesPanel', () => {
 
     await renderPanel({ notifications: [legacy] });
 
-    expect(screen.getByText('A visit is ready.')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Visit assigned: A visit is ready.')).toBeOnTheScreen();
+    expect(screen.getByText('A field validation assignment is ready.')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Field validation assigned: A field validation assignment is ready.')).toBeOnTheScreen();
   });
 
   it('names visits in the empty state', async () => {

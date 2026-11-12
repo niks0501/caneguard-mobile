@@ -1,11 +1,7 @@
-import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
-import type { ModelLabel } from '@/features/detection/constants/modelContract';
+import type { FarmerCopyBlock } from '@/constants/copy';
+import { canonicalResultName } from '@/features/records/domain/canonicalResultName';
 
-/** "Possible Condition: Rust" with the heading in the farmer's language. */
-export function possibleConditionLine(heading: string, predictedLabel: string): string {
-  const name =
-    predictedLabel in diseaseCatalog
-      ? diseaseCatalog[predictedLabel as ModelLabel].displayName
-      : predictedLabel;
-  return `${heading}: ${name}`;
+/** Localizes the farmer-facing heading while retaining the catalog's English result name. */
+export function possibleConditionLine(copy: FarmerCopyBlock, predictedLabel: string): string {
+  return `${copy.checkAgain.possibleCondition}: ${canonicalResultName(predictedLabel)}`;
 }

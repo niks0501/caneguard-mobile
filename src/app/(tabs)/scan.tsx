@@ -11,6 +11,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ComponentTokens, Layout, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
 import { useScanSession } from '@/features/detection/context/useScanSession';
 import {
@@ -23,30 +24,37 @@ import type { ScanSourceType } from '@/features/detection/types';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 import { formatTime } from '@/lib/formatters';
+import { useFarmerCopy } from '@/providers/LanguagePreferenceProvider';
 
 type ActiveOperation = ScanSourceType | 'recovery' | null;
 
 function getScanDraftStatusLabel(
   status: 'idle' | 'saving' | 'saved' | 'failed',
   savedAt: string | null,
+  copy?: ReturnType<typeof useFarmerCopy>['scanScreen'],
 ): string {
   switch (status) {
     case 'saving':
-      return 'Saving on this device…';
+      return copy?.savingDraft ?? 'Saving on this device…';
     case 'saved':
       return savedAt
-        ? `Saved on this device · ${formatTime(savedAt)}. You can close CaneGuard and resume this scan.`
-        : 'Saved on this device. You can close CaneGuard and resume this scan.';
+        ? copy?.savedDraftTimed(formatTime(savedAt)) ?? `Saved on this device · ${formatTime(savedAt)}. You can close CaneGuard and resume this scan.`
+        : copy?.savedDraft ?? 'Saved on this device. You can close CaneGuard and resume this scan.';
     case 'failed':
-      return 'Not saved on this device. Your photo is still open here — try replacing it or keep this screen open.';
+      return copy?.failedDraft ?? 'Not saved on this device. Your photo is still open here — try replacing it or keep this screen open.';
     default:
-      return 'Not saved on this device yet.';
+      return copy?.idleDraft ?? 'Not saved on this device yet.';
   }
 }
 
 
 export default function ScanScreen() {
   const theme = useTheme();
+  const { user } = useAuth();
+  const isFarmer = user?.role === 'farmer';
+  const farmerCopy = useFarmerCopy();
+  const scanCopy = farmerCopy.scanScreen;
+  const copy = isFarmer ? scanCopy : undefined;
   const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
   const draft = useScanDraft();
@@ -70,7 +78,16 @@ export default function ScanScreen() {
       const outcome = readPickerOutcome(result, sourceType);
 
       if (outcome.kind === 'error') {
-        dispatch({ type: 'SET_ERROR', payload: outcome.message });
+        const message = !isFarmer
+          ? outcome.message
+          : outcome.code === 'PICKER_FAILED'
+            ? sourceType === 'camera'
+              ? scanCopy.cameraFailed
+              : scanCopy.galleryFailed
+            : outcome.code === 'INVALID_IMAGE_URI'
+              ? scanCopy.invalidImage
+              : scanCopy.unsupportedImage;
+        dispatch({ type: 'SET_ERROR', payload: message });
         return false;
       }
 
@@ -81,7 +98,7 @@ export default function ScanScreen() {
       dispatch({ type: 'SELECT_IMAGE', payload: outcome.image });
       return true;
     },
-    [dispatch],
+    [dispatch, isFarmer, scanCopy],
   );
 
   useEffect(() => {
@@ -107,8 +124,9 @@ export default function ScanScreen() {
         if (pendingResult && !pendingLaunch) {
           dispatch({
             type: 'SET_ERROR',
-            payload:
-              'An interrupted image selection was found, but its source could not be verified. Please choose the image again.',
+            payload: isFarmer
+              ? scanCopy.recoveryUnverified
+              : 'An interrupted image selection was found, but its source could not be verified. Please choose the image again.',
           });
         } else if (pendingResult && pendingLaunch) {
           // The interrupted capture keeps the Check Again it was taken for.
@@ -126,7 +144,9 @@ export default function ScanScreen() {
         if (isMounted && isOwnerCurrentRef.current(startingOwner)) {
           dispatch({
             type: 'SET_ERROR',
-            payload: 'An interrupted image selection could not be recovered. Please try again.',
+            payload: isFarmer
+              ? scanCopy.recoveryFailed
+              : 'An interrupted image selection could not be recovered. Please try again.',
           });
         }
       } finally {
@@ -141,7 +161,7 @@ export default function ScanScreen() {
     return () => {
       isMounted = false;
     };
-  }, [applyPickerResult, dispatch, draftOwner]);
+  }, [applyPickerResult, dispatch, draftOwner, isFarmer, scanCopy]);
 
   const chooseImage = async (sourceType: ScanSourceType) => {
     if (activeOperation) {
@@ -172,10 +192,25 @@ export default function ScanScreen() {
         setCameraPermissionBlocked(!outcome.canAskAgain);
         dispatch({
           type: 'SET_ERROR',
-          payload: getPermissionDeniedMessage(outcome.canAskAgain),
+          payload: isFarmer
+            ? outcome.canAskAgain
+              ? scanCopy.permissionCanAsk
+              : scanCopy.permissionBlocked
+            : getPermissionDeniedMessage(outcome.canAskAgain),
         });
       } else if (outcome.kind === 'error') {
-        dispatch({ type: 'SET_ERROR', payload: outcome.message });
+        dispatch({
+          type: 'SET_ERROR',
+          payload: isFarmer
+            ? outcome.code === 'PICKER_FAILED'
+              ? sourceType === 'camera'
+                ? scanCopy.cameraFailed
+                : scanCopy.galleryFailed
+              : outcome.code === 'INVALID_IMAGE_URI'
+                ? scanCopy.invalidImage
+                : scanCopy.unsupportedImage
+            : outcome.message,
+        });
       }
     } finally {
       setActiveOperation(null);
@@ -198,7 +233,9 @@ export default function ScanScreen() {
     void Linking.openSettings().catch(() => {
       dispatch({
         type: 'SET_ERROR',
-        payload: 'Device settings could not be opened. Please open Settings and allow camera access.',
+        payload: isFarmer
+          ? scanCopy.deviceSettingsFailed
+          : 'Device settings could not be opened. Please open Settings and allow camera access.',
       });
     });
   };
@@ -220,10 +257,10 @@ export default function ScanScreen() {
     setShowCancelConfirm(false);
     const saved = await draft.flushSavedDraft();
     if (!saved) {
-      showToast('Draft not saved on this device — try again', 'error');
+      showToast(isFarmer ? scanCopy.draftNotSaved : 'Draft not saved on this device — try again', 'error');
       return;
     }
-    showToast('Draft kept', 'info');
+    showToast(isFarmer ? scanCopy.draftKept : 'Draft kept', 'info');
     router.replace('/home');
   };
 
@@ -232,20 +269,17 @@ export default function ScanScreen() {
     if (draft.ownerIdentity) {
       const discarded = await draft.discardSavedDraft();
       if (!discarded) {
-        showToast('Could not discard the saved scan — try again', 'error');
+        showToast(isFarmer ? farmerCopy.result.discardFailed : 'Could not discard the saved scan — try again', 'error');
         return;
       }
     } else {
       dispatch({ type: 'RESET_SCAN' });
     }
-    showToast('Draft discarded', 'info');
+    showToast(isFarmer ? scanCopy.draftDiscarded : 'Draft discarded', 'info');
     router.replace('/home');
   };
 
   const isBusy = activeOperation !== null;
-  const cameraLabel = activeOperation === 'camera' ? 'Opening camera…' : 'Take photo';
-  const galleryLabel = activeOperation === 'gallery' ? 'Opening gallery…' : 'Choose from device';
-
   return (
     <SafeAreaView
       testID="scan.screen"
@@ -253,17 +287,18 @@ export default function ScanScreen() {
       edges={['top', 'bottom']}>
       <View style={styles.root}>
         <BrandedScreenHeader
-          title="Scan sugarcane"
+          title={isFarmer ? scanCopy.title : 'Scan sugarcane'}
           showClose
           onClosePress={handleCancel}
           closeTestID="scan.header-close"
+          closeAccessibilityLabel={isFarmer ? farmerCopy.result.closeLabel : undefined}
         />
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
             <Text style={[styles.intro, { color: theme.textSecondary }]}>
-              Add a clear photo of the affected leaf, stalk, or central shoot.
+              {isFarmer ? scanCopy.intro : 'Add a clear photo of the affected leaf, stalk, or central shoot.'}
             </Text>
 
             {state.errorMessage ? (
@@ -275,7 +310,7 @@ export default function ScanScreen() {
                 ]}>
                 <Feather name="alert-circle" size={20} color={theme.danger} />
                 <View style={styles.errorCopy}>
-                  <Text style={[styles.errorTitle, { color: theme.danger }]}>Image not added</Text>
+                  <Text style={[styles.errorTitle, { color: theme.danger }]}>{isFarmer ? scanCopy.errorTitle : 'Image not added'}</Text>
                   <Text style={[styles.errorText, { color: theme.text }]}>
                     {state.errorMessage}
                   </Text>
@@ -285,9 +320,13 @@ export default function ScanScreen() {
                       onPress={cameraPermissionBlocked ? openDeviceSettings : captureWithCamera}
                       disabled={isBusy}
                       accessibilityLabel={
-                        cameraPermissionBlocked ? 'Open device settings' : 'Try camera again'
+                        cameraPermissionBlocked
+                          ? isFarmer ? scanCopy.cameraSettings : 'Open device settings'
+                          : isFarmer ? scanCopy.tryCamera : 'Try camera again'
                       }>
-                      {cameraPermissionBlocked ? 'Open Settings' : 'Try Camera Again'}
+                      {cameraPermissionBlocked
+                        ? isFarmer ? scanCopy.cameraSettings : 'Open Settings'
+                        : isFarmer ? scanCopy.tryCamera : 'Try Camera Again'}
                     </AppButton>
                   ) : null}
                 </View>
@@ -314,14 +353,14 @@ export default function ScanScreen() {
                       source={{ uri: state.sourceUri }}
                       cachePolicy="memory-disk"
                       contentFit="cover"
-                      accessibilityLabel="Currently selected sugarcane image"
+                      accessibilityLabel={isFarmer ? scanCopy.selectedImage : 'Currently selected sugarcane image'}
                       style={styles.selectedImage}
                     />
                     <Text style={[styles.uploadTitle, { color: theme.primaryDark }]}>
-                      Image selected
+                      {isFarmer ? scanCopy.imageSelected : 'Image selected'}
                     </Text>
                     <Text style={[styles.uploadText, { color: theme.textSecondary }]}>
-                      View the selected image or start a new scan.
+                      {isFarmer ? scanCopy.selectedImageHelp : 'View the selected image or start a new scan.'}
                     </Text>
                   </>
                 ) : (
@@ -331,13 +370,13 @@ export default function ScanScreen() {
                     </View>
                     <Text style={[styles.uploadTitle, { color: theme.primaryDark }]}>
                       {activeOperation === 'recovery'
-                        ? 'Checking for a selected image'
-                        : 'No image added yet'}
+                        ? isFarmer ? scanCopy.checkingImage : 'Checking for a selected image'
+                        : isFarmer ? scanCopy.noImage : 'No image added yet'}
                     </Text>
                     <Text style={[styles.uploadText, { color: theme.textSecondary }]}>
                       {activeOperation === 'recovery'
-                        ? 'CaneGuard is checking whether Android interrupted the last picker.'
-                        : 'Use a well-lit, focused photo for a more helpful result.'}
+                        ? isFarmer ? scanCopy.checkingRecovery : 'CaneGuard is checking whether Android interrupted the last picker.'
+                        : isFarmer ? scanCopy.photoTip : 'Use a well-lit, focused photo for a more helpful result.'}
                     </Text>
                   </>
                 )}
@@ -379,7 +418,7 @@ export default function ScanScreen() {
                   <Text
                     accessibilityLiveRegion="polite"
                     style={[styles.draftStatusText, { color: theme.textSecondary }]}>
-                    {getScanDraftStatusLabel(draft.draftStatus, draft.draftSavedAt)}
+                    {getScanDraftStatusLabel(draft.draftStatus, draft.draftSavedAt, copy)}
                   </Text>
                 </View>
                 <AppButton
@@ -388,8 +427,10 @@ export default function ScanScreen() {
                   busy={activeOperation === 'camera'}
                   disabled={isBusy}
                   leadingIcon="camera"
-                  accessibilityLabel="Take another photo to replace the selected image">
-                  {activeOperation === 'camera' ? 'Opening camera…' : 'Take Another Photo'}
+                  accessibilityLabel={isFarmer ? scanCopy.replaceImage : 'Take another photo to replace the selected image'}>
+                  {activeOperation === 'camera'
+                    ? isFarmer ? scanCopy.cameraBusy : 'Opening camera…'
+                    : isFarmer ? scanCopy.takeAnother : 'Take Another Photo'}
                 </AppButton>
                 <AppButton
                   variant="secondary"
@@ -397,16 +438,18 @@ export default function ScanScreen() {
                   busy={activeOperation === 'gallery'}
                   disabled={isBusy}
                   leadingIcon="image"
-                  accessibilityLabel="Choose another image to replace the selected image">
-                  {activeOperation === 'gallery' ? 'Opening gallery…' : 'Choose Another Image'}
+                  accessibilityLabel={isFarmer ? scanCopy.chooseAnother : 'Choose another image to replace the selected image'}>
+                  {activeOperation === 'gallery'
+                    ? isFarmer ? scanCopy.galleryBusy : 'Opening gallery…'
+                    : isFarmer ? scanCopy.chooseAnother : 'Choose Another Image'}
                 </AppButton>
                 <AppButton
                   variant="text"
                   onPress={startNewScan}
                   disabled={isBusy}
                   leadingIcon="rotate-ccw"
-                  accessibilityLabel="Clear the current scan and start again">
-                  Start New Scan
+                  accessibilityLabel={isFarmer ? scanCopy.clearAndStart : 'Clear the current scan and start again'}>
+                  {isFarmer ? scanCopy.startNew : 'Start New Scan'}
                 </AppButton>
               </View>
             ) : null}
@@ -421,13 +464,17 @@ export default function ScanScreen() {
                   <Feather name="check-circle" size={18} color={theme.warning} />
                 </View>
                 <Text style={[styles.guideTitle, { color: theme.primaryDark }]}>
-                  Photo quality guide
+                  {isFarmer ? scanCopy.photoGuide : 'Photo quality guide'}
                 </Text>
               </View>
               {[
-                'Keep the symptom clear and focused',
-                'Avoid dark, blurry, or distant images',
-                'Capture the affected leaf, stalk, or shoot',
+                ...(isFarmer
+                  ? [scanCopy.guideFocus, scanCopy.guideLighting, scanCopy.guideSubject]
+                  : [
+                      'Keep the symptom clear and focused',
+                      'Avoid dark, blurry, or distant images',
+                      'Capture the affected leaf, stalk, or shoot',
+                    ]),
               ].map((item) => (
                 <View key={item} style={styles.guideRow}>
                   <View style={[styles.bullet, { backgroundColor: theme.primaryLight }]} />
@@ -444,8 +491,10 @@ export default function ScanScreen() {
                 onPress={() => router.push('/image-preview')}
                 disabled={isBusy}
                 trailingIcon="arrow-right"
-                accessibilityLabel="Return to selected image preview">
-                {draft.draftStatus === 'saved' ? 'Resume Saved Scan' : 'View Selected Image'}
+                accessibilityLabel={isFarmer ? scanCopy.returnPreview : 'Return to selected image preview'}>
+                {draft.draftStatus === 'saved'
+                  ? isFarmer ? scanCopy.resumeSaved : 'Resume Saved Scan'
+                  : isFarmer ? scanCopy.viewSelected : 'View Selected Image'}
               </AppButton>
             ) : (
               <AppButton
@@ -454,8 +503,10 @@ export default function ScanScreen() {
                 disabled={isBusy}
                 leadingIcon="camera"
                 trailingIcon="arrow-right"
-                accessibilityLabel="Capture a photo with the camera">
-                {cameraLabel}
+                accessibilityLabel={isFarmer ? scanCopy.captureAccessibility : 'Capture a photo with the camera'}>
+                {activeOperation === 'camera'
+                  ? isFarmer ? scanCopy.cameraBusy : 'Opening camera…'
+                  : isFarmer ? scanCopy.takePhoto : 'Take photo'}
               </AppButton>
             )
           }
@@ -469,18 +520,20 @@ export default function ScanScreen() {
                 disabled={isBusy}
                 leadingIcon="image"
                 style={dockSecondaryButtonStyle}
-                accessibilityLabel="Choose one image from the gallery">
-                {galleryLabel}
+                accessibilityLabel={isFarmer ? scanCopy.galleryAccessibility : 'Choose one image from the gallery'}>
+                {activeOperation === 'gallery'
+                  ? isFarmer ? scanCopy.galleryBusy : 'Opening gallery…'
+                  : isFarmer ? scanCopy.chooseFromDevice : 'Choose from device'}
               </AppButton>
             )
           }
         />
         <ConfirmDialog
           visible={showCancelConfirm}
-          title="Cancel scan?"
-          message="Do you want to keep your in-progress scan or discard it before returning home?"
-          cancelLabel="Keep draft"
-          confirmLabel="Discard draft"
+          title={isFarmer ? scanCopy.cancelTitle : 'Cancel scan?'}
+          message={isFarmer ? scanCopy.cancelMessage : 'Do you want to keep your in-progress scan or discard it before returning home?'}
+          cancelLabel={isFarmer ? scanCopy.keepDraft : 'Keep draft'}
+          confirmLabel={isFarmer ? scanCopy.discardDraft : 'Discard draft'}
           destructive
           overlay
           onRequestClose={() => setShowCancelConfirm(false)}

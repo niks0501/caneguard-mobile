@@ -108,6 +108,8 @@ describe('SettingsScreen', () => {
     await render(<SettingsScreen />);
 
     expect(screen.getByText('Language / Wika')).toBeOnTheScreen();
+    expect(screen.getByText('Madilim na itsura')).toBeOnTheScreen();
+    expect(screen.getByText('ACCOUNT AT SEGURIDAD')).toBeOnTheScreen();
     expect(
       screen.getByText('Piliin ang wika para sa mga screen ng magsasaka'),
     ).toBeOnTheScreen();
@@ -123,6 +125,15 @@ describe('SettingsScreen', () => {
     expect(screen.getByTestId('settings.language.tl').props.accessibilityState).toEqual({
       selected: false,
     });
+  });
+
+  it('localizes the Settings field-guide description in Tagalog', async () => {
+    mockRole = 'farmer';
+    await render(<SettingsScreen />);
+    await fireEvent.press(screen.getByTestId('settings.language.tl'));
+
+    expect(screen.getByText('Alamin ang tungkol sa mga sakit at peste ng tubo')).toBeOnTheScreen();
+    expect(screen.queryByText('Read about sugarcane diseases and pests')).not.toBeOnTheScreen();
   });
 
   it('links to the field guide', async () => {
@@ -196,6 +207,22 @@ describe('SettingsScreen', () => {
     expect(screen.getByTestId('settings.logout-dialog')).toHaveTextContent(
       /3 saved items have not reached the office yet/,
     );
+  });
+
+  it('describes farmer pending work as saved only on this phone', async () => {
+    mockRole = 'farmer';
+    mockPendingCount = 3;
+    await render(
+      <ToastProvider>
+        <SettingsScreen />
+      </ToastProvider>,
+    );
+    await fireEvent.press(screen.getByTestId('settings.language.tl'));
+    await fireEvent.press(screen.getByTestId('settings.logout'));
+
+    const message = screen.getByTestId('settings.logout-dialog');
+    expect(message).toHaveTextContent(/Nasa teleponong ito lamang ang 3 na-save na item\./);
+    expect(message).not.toHaveTextContent(/hindi pa (naipadala|nakararating)|not sent|not reached/i);
   });
 
   it('clears only downloaded office data without touching unsent work', async () => {
@@ -277,6 +304,31 @@ describe('SettingsScreen', () => {
     expect(screen.getByText('Remove all local records')).toHaveStyle({ color: 'danger' });
   });
 
+  it('warns farmers that local-only work will be permanently erased without a not-sent status', async () => {
+    mockRole = 'farmer';
+    jest.spyOn(Alert, 'alert');
+    await render(<SettingsScreen />);
+    await fireEvent.press(screen.getByTestId('settings.language.tl'));
+    await fireEvent.press(screen.getByTestId('settings.remove-local-records'));
+
+    const firstCall = jest.mocked(Alert.alert).mock.calls.find(
+      (call) => call[0] === 'Alisin ang lahat ng lokal na tala?',
+    );
+    expect(firstCall?.[1]).toContain(
+      'Permanenteng mabubura sa teleponong ito ang 2 item na dito lamang naka-save.',
+    );
+    expect(firstCall?.[1]).not.toMatch(/hindi pa naipapadala|hindi pa nakakarating/i);
+
+    firstCall?.[2]?.find((action) => action.text === 'Magpatuloy sa pagbura ng mga item sa teleponong ito lamang')?.onPress?.();
+    const secondCall = jest.mocked(Alert.alert).mock.calls.find(
+      (call) => call[0] === 'Burahin ang mga item na nasa teleponong ito lamang?',
+    );
+    expect(secondCall?.[1]).toContain(
+      'Permanenteng mabubura ang 2 item na naka-save lamang sa teleponong ito.',
+    );
+    expect(secondCall?.[1]).not.toMatch(/hindi pa naipapadala|hindi pa nakakarating/i);
+  });
+
   it('previews counts and requires an explicit unsent-loss acknowledgement before permanent removal', async () => {
     jest.spyOn(Alert, 'alert');
     await render(
@@ -293,7 +345,7 @@ describe('SettingsScreen', () => {
       .mock.calls.find((call) => call[0] === 'Remove all local records?');
     expect(firstCall?.[1]).toContain('2 reports');
     expect(firstCall?.[1]).toContain('2 downloaded visits');
-    expect(firstCall?.[1]).toContain('2 items on this device have not reached the office');
+    expect(firstCall?.[1]).toContain('2 items on this device have not reached the office and will be lost permanently.');
     expect(firstCall?.[1]).toContain('1 boundary');
 
     const continueAction = firstCall?.[2]?.find(

@@ -23,7 +23,8 @@ export function CheckHistorySection({
   onOpen: (id: string) => void;
 }) {
   const theme = useTheme();
-  const copy = useFarmerCopy().checkAgain;
+  const farmerCopy = useFarmerCopy();
+  const copy = farmerCopy.checkAgain;
 
   return (
     <View
@@ -51,7 +52,7 @@ export function CheckHistorySection({
                 {formatDateTime(item.createdAt, item.createdAt)}
               </Text>
               <Text style={[styles.caption, { color: theme.textSecondary }]}>
-                {possibleConditionLine(copy.possibleCondition, item.predictedLabel)}
+                {possibleConditionLine(farmerCopy, item.predictedLabel)}
               </Text>
               {item.isOriginal || isCurrent ? (
                 <Text style={[styles.tag, { color: theme.primary }]}>

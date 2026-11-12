@@ -5,6 +5,9 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { TextField } from '@/components/ui/TextField';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { FARMER_COPY } from '@/constants/copy';
+import { farmerAuthErrorMessage } from '@/features/auth/authErrorCopy';
+import { useLanguagePreference } from '@/providers/LanguagePreferenceProvider';
 
 /**
  * Biometric-disable form (F4) as a native sheet route. Deliberately ungated
@@ -12,8 +15,16 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
  * reverses the action.
  */
 export function DisableBiometricSheet() {
+  const { language } = useLanguagePreference();
+  const copy = FARMER_COPY[language].accountSecurityForms;
+  const common = copy.common;
+  const biometricCopy = copy.biometric;
   const { showToast } = useToast();
-  const { disableBiometric, errorMessage } = useAuth();
+  const { disableBiometric, errorMessage, user } = useAuth();
+  const isFarmer = user?.role === 'farmer';
+  const authError = isFarmer
+    ? farmerAuthErrorMessage(errorMessage, FARMER_COPY[language].authErrors)
+    : errorMessage;
   const [disablePassword, setDisablePassword] = useState('');
   const [pending, setPending] = useState(false);
   const [attempted, setAttempted] = useState(false);
@@ -37,7 +48,7 @@ export function DisableBiometricSheet() {
       const disabled = await disableBiometric(disablePassword);
       if (disabled) {
         setClosed(true);
-        showToast('Biometrics disabled', 'info');
+        showToast(isFarmer ? biometricCopy.toast : 'Biometrics disabled', 'info');
         router.replace('/login');
       }
     } finally {
@@ -51,24 +62,30 @@ export function DisableBiometricSheet() {
 
   return (
     <SheetScreen
-      title="Disable biometric unlock"
+      title={isFarmer ? biometricCopy.title : 'Disable biometric unlock'}
+      cancelLabel={isFarmer ? common.cancel : undefined}
+      closeAccessibilityLabel={isFarmer ? common.close : undefined}
+      discardTitle={isFarmer ? common.discardTitle : undefined}
+      discardMessage={isFarmer ? common.discardMessage : undefined}
+      keepEditingLabel={isFarmer ? common.keepEditing : undefined}
+      discardLabel={isFarmer ? common.discard : undefined}
       testID="account-security.biometric-sheet"
-      errorMessage={attempted ? errorMessage : null}
+      errorMessage={attempted ? authError : null}
       errorTestID="account-security.error"
       isDirty={dirty}
       onCancel={close}
       onSubmit={() => void submit()}
       submitDisabled={!submittable}
       submitLoading={pending}
-      submitLoadingLabel="Disabling..."
-      submitLabel="Disable biometric unlock"
+      submitLoadingLabel={isFarmer ? biometricCopy.submitting : 'Disabling...'}
+      submitLabel={isFarmer ? biometricCopy.submit : 'Disable biometric unlock'}
       submitTestID="account-security.disable-biometric">
       <TextField
         testID="account-security.disable-biometric-password"
-        label="Current password"
+        label={isFarmer ? biometricCopy.currentPassword : 'Current password'}
         value={disablePassword}
         onChangeText={setDisablePassword}
-        placeholder="Confirm to disable"
+        placeholder={isFarmer ? biometricCopy.confirmPassword : 'Confirm to disable'}
         secureTextEntry
         autoCapitalize="none"
         textContentType="password"

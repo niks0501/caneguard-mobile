@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FARMER_COPY } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
-import { useFarmerScanStates } from '@/features/records/hooks/useScanStates';
+import { useFarmerScans } from '@/features/records/hooks/useScanStates';
 import { useTheme } from '@/hooks/use-theme';
 import { useLanguagePreference } from '@/providers/LanguagePreferenceProvider';
 
@@ -15,11 +15,14 @@ export function HomeMyScansCard({ onOpen }: { onOpen: () => void }) {
   const theme = useTheme();
   const { language } = useLanguagePreference();
   const copy = FARMER_COPY[language].myScans;
-  const states = useFarmerScanStates();
-  let needsChecking = 0;
-  for (const state of states.values()) {
-    if (state === 'needs_checking') needsChecking += 1;
+  const { states, threads } = useFarmerScans();
+  const needsCheckingPlants = new Set<string>();
+  for (const [scanId, state] of states) {
+    if (state === 'needs_checking') {
+      needsCheckingPlants.add(threads.get(scanId)?.originalId ?? scanId);
+    }
   }
+  const needsChecking = needsCheckingPlants.size;
 
   return (
     <Pressable

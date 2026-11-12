@@ -3,7 +3,12 @@ import { Image as ExpoImage } from 'expo-image';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { PERSONAL_SCAN_LOCAL_STATUS, UNFINISHED_COPY, UNRECOGNIZED_LABEL_TEXT } from '@/constants/copy';
+import {
+  FARMER_COPY,
+  PERSONAL_SCAN_LOCAL_STATUS,
+  UNFINISHED_COPY,
+  type FarmerLanguage,
+} from '@/constants/copy';
 import {
   ComponentTokens,
   Radius,
@@ -15,6 +20,7 @@ import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { managedDisplayImageUriIfPresent } from '@/features/records/services/scanImageStorage';
 import type { SyncStatus } from '@/database/schema';
 import { getAuthorityReviewPresentation } from '@/features/reports/domain/reportReviewTypes';
+import { canonicalResultName } from '@/features/records/domain/canonicalResultName';
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import { SYNC_TONE_COLOR, type SyncToneColorKey } from '@/features/sync/utils/syncStatusCopy';
 import { useTheme } from '@/hooks/use-theme';
@@ -26,6 +32,11 @@ type RecordCardProps = {
   record: ScanRecordListItem;
   /** Farmer My Scans state; replaces the device and sync status line. */
   scanState?: { label: string; state: FarmerScanState };
+  /**
+   * The farmer's own wording for this card: the result line and the open
+   * label in their language.
+   */
+  farmerText?: { language: FarmerLanguage; openLabel: string; result: string };
   testID?: string;
 };
 
@@ -35,7 +46,14 @@ const FARMER_STATE_ICON: Record<FarmerScanState, keyof typeof Feather.glyphMap> 
   saved: 'check-circle',
 };
 
-export function RecordCard({ activityType, onPress, record, scanState, testID }: RecordCardProps) {
+export function RecordCard({
+  activityType,
+  farmerText,
+  onPress,
+  record,
+  scanState,
+  testID,
+}: RecordCardProps) {
   const theme = useTheme();
   const [imageUnavailable, setImageUnavailable] = useState(false);
   // Prefer the small display derivative this save wrote. It is absent for
@@ -48,11 +66,16 @@ export function RecordCard({ activityType, onPress, record, scanState, testID }:
     ? { color: SYNC_TONE_COLOR.whisper, icon: 'edit-3' as const, label: UNFINISHED_COPY.label }
     : getSyncPresentation(record.syncStatus);
   const itemLabel = activityType ?? 'record';
+  const resultText = farmerText?.result ?? getResultLabel(record.predictedLabel);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${getResultLabel(record.predictedLabel)} ${itemLabel} saved ${savedAt}`}
+      accessibilityLabel={
+        farmerText
+          ? `${farmerText.openLabel}: ${farmerText.result}, ${savedAt}`
+          : `Open ${getResultLabel(record.predictedLabel)} ${itemLabel} saved ${savedAt}`
+      }
       testID={testID}
       onPress={onPress}
       style={({ pressed }) => [
@@ -67,7 +90,11 @@ export function RecordCard({ activityType, onPress, record, scanState, testID }:
         style={[styles.thumbnail, { backgroundColor: theme.surfaceMuted }]}>
         {imageUnavailable ? (
           <Feather
-            accessibilityLabel="Saved image unavailable"
+            accessibilityLabel={
+              farmerText
+                ? FARMER_COPY[farmerText.language].record.imageUnavailable
+                : 'Saved image unavailable'
+            }
             name="image"
             size={24}
             color={theme.textSecondary}
@@ -77,7 +104,7 @@ export function RecordCard({ activityType, onPress, record, scanState, testID }:
             source={{ uri: thumbnailUri }}
             cachePolicy="memory-disk"
             contentFit="cover"
-            accessibilityLabel={`Saved image for ${getResultLabel(record.predictedLabel)}`}
+            accessibilityLabel={farmerText ? resultText : `Saved image for ${resultText}`}
             onError={() => setImageUnavailable(true)}
             style={styles.image}
           />
@@ -109,7 +136,7 @@ export function RecordCard({ activityType, onPress, record, scanState, testID }:
               numberOfLines={2}
               ellipsizeMode="tail"
               style={[styles.result, { color: theme.primaryDark }]}>
-              {getResultLabel(record.predictedLabel)}
+              {resultText}
             </Text>
             <Text
               numberOfLines={1}
@@ -128,23 +155,25 @@ export function RecordCard({ activityType, onPress, record, scanState, testID }:
           </View>
         </View>
         <View style={styles.footer}>
-          {scanState ? (
-            <View
-              testID={`record-card.state.${record.id}`}
-              accessibilityLabel={scanState.label}
-              style={styles.status}>
-              <Feather
-                name={FARMER_STATE_ICON[scanState.state]}
-                size={14}
-                color={theme.textSecondary}
-              />
-              <Text
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={[styles.statusText, { color: theme.textSecondary }]}>
-                {scanState.label}
-              </Text>
-            </View>
+          {farmerText ? (
+            scanState ? (
+              <View
+                testID={`record-card.state.${record.id}`}
+                accessibilityLabel={scanState.label}
+                style={styles.status}>
+                <Feather
+                  name={FARMER_STATE_ICON[scanState.state]}
+                  size={14}
+                  color={theme.textSecondary}
+                />
+                <Text
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={[styles.statusText, { color: theme.textSecondary }]}>
+                  {scanState.label}
+                </Text>
+              </View>
+            ) : null
           ) : (
             <View style={styles.status}>
               <Feather
@@ -164,7 +193,7 @@ export function RecordCard({ activityType, onPress, record, scanState, testID }:
             </View>
           )}
         </View>
-        {!scanState && record.syncStatus === 'synced' && record.authorityReview ? (
+        {!farmerText && !scanState && record.syncStatus === 'synced' && record.authorityReview ? (
           <View
             testID={`record-card.authority-status.${record.id}`}
             accessibilityLabel={`Authority review: ${getAuthorityReviewPresentation(record.authorityReview.rawStatus).label}`}
@@ -222,22 +251,7 @@ export function getSyncPresentation(
 }
 
 export function getResultLabel(label: string): string {
-  if (label === 'healthy') {
-    return 'Possible Condition: No supported disease detected';
-  }
-  if (label === 'mosaic') {
-    return 'Possible Condition: Mosaic';
-  }
-  if (label === 'rust') {
-    return 'Possible Condition: Rust';
-  }
-  if (label === 'smut') {
-    return 'Possible Condition: Smut';
-  }
-  if (label === 'unknown') {
-    return `Possible Condition: ${UNRECOGNIZED_LABEL_TEXT}`;
-  }
-  return `Possible Condition: ${label}`;
+  return `Possible Condition: ${canonicalResultName(label)}`;
 }
 
 function formatSavedAt(value: string): string {

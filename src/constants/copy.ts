@@ -18,20 +18,6 @@ export const NAMING = {
   plots: 'Plots',
 } as const;
 
-const LEGACY_VISIT_NAME = /\bfield (?:validation|visits?)(?:\s+assignments?)?\b/gi;
-
-/**
- * The office still words some updates with the old visit names. Presentation
- * rewrites them into the approved word list; the cached update keeps the office
- * wording.
- */
-export function visitTerminology(text: string): string {
-  return text.replace(LEGACY_VISIT_NAME, (match) => {
-    const word = match.toLowerCase().endsWith('s') ? NAMING.visits : NAMING.visit;
-    return match[0] === match[0].toUpperCase() ? word : word.toLowerCase();
-  });
-}
-
 export const DECISION_SUPPORT_DISCLAIMER =
   'This result is for decision support only. It does not confirm a disease.';
 
@@ -266,8 +252,6 @@ export const FIELD_GUIDE_INTRO =
 
 export const FIELD_GUIDE_ENTRY_TITLE = 'Field guide — diseases and pests';
 
-export const FIELD_GUIDE_ENTRY_DESCRIPTION = 'Read about sugarcane diseases and pests';
-
 export const FIELD_GUIDE_SECTION_SIGNS = 'Signs';
 export const FIELD_GUIDE_SECTION_WHERE_TO_LOOK = 'Where to look';
 export const FIELD_GUIDE_SECTION_IMPACT = 'Why it matters';
@@ -387,22 +371,242 @@ export const HOME_NOTE_COPY = {
  * language fails the type check. Sync status wording is the exception: it is
  * bilingual but single-sourced in
  * `src/features/sync/utils/syncStatusCopy.ts`.
- * Inspector screens, Field Guide entry text and model decision-support lines
- * stay English and do not live here. Words such as "Validated", "Confirmed",
+ * Inspector screens and Field Guide entry text stay English. Farmer model
+ * decision-support wording lives here. Words such as "Validated", "Confirmed",
  * "Resolved" and "Diagnosis" (and their Tagalog equivalents) never appear in
  * farmer copy; `farmerCopy.test.ts` enforces this for both languages.
  */
 export type FarmerLanguage = 'en' | 'tl';
 
+export type FarmerResultName = 'healthy' | 'mosaic' | 'rust' | 'smut' | 'unknown';
+
 export type FarmerCopyBlock = {
   greeting: { morning: string; afternoon: string; evening: string };
+  home: {
+    headline: string;
+    offline: string;
+    knowSigns: string;
+    referencePhoto: string;
+    fieldGuideLabel: string;
+    signPhrases: { healthy: string; mosaic: string; rust: string; smut: string };
+  };
+  tabs: { home: string; scan: string; myScans: string; activityWithUpdates: (count: number) => string };
+  officeUpdates: {
+    pill: (count: number) => string;
+    open: string;
+    dismiss: string;
+    close: string;
+    title: string;
+    unread: (count: number) => string;
+    allRead: string;
+    markAllRead: string;
+    markAllReadLabel: string;
+    loadError: string;
+    readError: string;
+    partial: string;
+    empty: string;
+    unreadLabel: string;
+    notOnPhone: string;
+    markedRead: string;
+    caseActivity: string;
+    recently: string;
+  };
+  record: {
+    title: string;
+    loading: string;
+    unavailable: string;
+    unavailableMessage: string;
+    tryAgain: string;
+    imageUnavailable: string;
+    backLabel: string;
+    deleteAction: string;
+    deleting: string;
+    deleteConfirmTitle: string;
+    deleteConfirmMessage: string;
+    deleteConfirm: string;
+    cancel: string;
+    deleteHint: string;
+    deleted: string;
+    deleteFailed: string;
+    imageCleanupFailed: string;
+  };
+  result: {
+    saveFailed: string;
+    saved: string;
+    discardFailed: string;
+    discarded: string;
+    recoveryTitle: string;
+    recoveryMessage: string;
+    recoveryAction: string;
+    imageLabel: string;
+    closeLabel: string;
+    decisionSupport: Record<FarmerResultName, string>;
+    aboutTitle: string;
+    explanations: Record<FarmerResultName, { message: string; description: string }>;
+    consistency: Record<'consistent' | 'inconsistent' | 'not-applicable' | 'not-enough-information', { title: string; message: string }>;
+    qualityTitle: string;
+    qualityIndependence: string;
+    qualityWarnings: Record<'low-resolution' | 'too-dark' | 'too-bright' | 'low-contrast', string>;
+    headerTitle: string;
+    pill: string;
+    cautionTitle: string;
+    lowConfidence: string;
+    cautionNote: string;
+    mismatch: string;
+    outcomeSaved: string;
+    outcomeChoose: string;
+    outcomeFailed: string;
+    outcomeSavedMessage: string;
+    outcomeChooseMessage: string;
+    scanAgain: string;
+    whyTitle: string;
+    moreActions: string;
+    fieldGuide: string;
+    cancelScan: string;
+    openSaved: string;
+    cancelTitle: string;
+    cancelMessage: string;
+    keepDraft: string;
+    discardDraft: string;
+  };
   actions: {
     startScan: string;
-    measurePlot: string;
     fieldGuide: string;
     openSettings: string;
   };
   settings: { languageLabel: string; languageDescription: string; english: string; tagalog: string };
+  settingsScreen: {
+    title: string; displaySection: string; darkMode: string; darkModeDescription: string;
+    fieldGuideSection: string; fieldGuideTitle: string; fieldGuideDescription: string;
+    accountSection: string; fallbackName: string; fallbackAccount: string;
+    accountSecurity: string; accountSecurityDescription: string; logout: string;
+    logoutAccessibility: string; clearCached: string; clearingCached: string;
+    clearCachedAccessibility: string; removeLocal: string; removingLocal: string;
+    removeLocalAccessibility: string; aboutSection: string; appName: string; version: string;
+    logoutDialogTitle: string; logoutDialogMessage: string; logoutDialogConfirm: string;
+    loggingOut: string; signingOutMessage: string; logoutIncomplete: string;
+    logoutIncompleteMessage: string; signedOutLocally: string; remoteLogoutMessage: string;
+    signedOut: string; clearCachedTitle: string; clearCachedMessage: string; cancel: string;
+    clearCachedConfirm: string; cachedCleared: string; cachedClearFailed: string;
+    removeLocalTitle: string; removeLocalMessage: string; removeLocalConfirm: string;
+    continueLocalRemoval: string; localItemsTitle: string; keepWork: string; deleteLocalItems: string;
+    removeLocalBusy: string; removeLocalFailed: string; removeLocalWarning: string;
+    removedWithWarnings: string; removed: string;
+    localItemsNote: (count: number) => string;
+    cachedClearedMessage: (count: number) => string;
+    removalCounts: (counts: { reports: number; visits: number; boundaries: number; scans: number; drafts: number; assignments: number; notifications: number }) => string;
+    localItemsWarning: (count: number) => string;
+    localItemsDeletionMessage: (count: number) => string;
+  };
+  accountSecurityScreen: {
+    title: string; subtitle: string; fallbackName: string; fallbackEmail: string; defaultInstallationName: string;
+    expiresUnavailable: string; sessionExpiryUnavailable: string; sessionExpires: (date: string) => string;
+    biometricTitle: string; biometricOn: string; biometricAvailable: string;
+    biometricNotEnrolled: string; biometricUnsupported: string; biometricUnavailable: string;
+    disableBiometric: string; enableBiometric: string; enablingBiometric: string;
+    biometricEnableToast: string; biometricEnabledMessage: string;
+    changePassword: string; changePasswordDescription: string; openChangePassword: string;
+    changeEmail: string; changeEmailDescription: (email: string) => string; openChangeEmail: string;
+    deviceEnrollment: string; deviceEnrollmentDescription: (name: string) => string;
+    openDeviceEnrollment: string; enrollmentSuccess: string;
+  };
+  accountSecurityForms: {
+    common: { close: string; cancel: string; discardTitle: string; discardMessage: string; keepEditing: string; discard: string };
+    password: { title: string; currentPassword: string; newPassword: string; submit: string; updating: string; confirmTitle: string; confirmMessage: string; confirm: string; toast: string };
+    email: { title: string; newEmail: string; currentPassword: string; confirmPassword: string; submit: string; updating: string; confirmTitle: string; confirmMessage: string; confirm: string; toast: string };
+    enrollment: { title: string; name: string; nameHelp: string; namePlaceholder: string; currentPassword: string; confirmPassword: string; submit: string; submitting: string; confirmTitle: string; confirmMessage: string; confirm: string; toast: string };
+    biometric: { title: string; currentPassword: string; confirmPassword: string; submit: string; submitting: string; toast: string };
+  };
+  notificationDetails: {
+    headerTitle: string; headerSubtitle: string; advisoryLabel: string; officeMessageLabel: string;
+    openRelated: string; openRelatedAccessibility: string; loading: string; unavailableTitle: string;
+    unavailableMessage: string; retry: string; referenceFallback: string; recently: string;
+  };
+  authErrors: {
+    generic: string; invalidCredentials: string; emailNotVerified: string; forbiddenRole: string;
+    invalidResetLink: string; invalidVerificationLink: string; invalidResponse: string;
+    rateLimited: string; registrationDisabled: string; serverUnavailable: string;
+    sessionExpired: string; stepUpRequired: string; validationError: string; signInAgain: string;
+    signInForBiometric: string; biometricUnavailable: string; biometricNotEnrolled: string;
+    biometricCancelled: string; biometricVerificationFailed: string; biometricEnableFailed: string;
+    biometricRevokeWarning: string; secureStorageUnavailable: string;
+  };
+  imagePreview: {
+    title: string; noImageTitle: string; noImageMessage: string; chooseImage: string;
+    camera: string; gallery: string; dimensionsUnavailable: string; pixels: string;
+    imageAccessibility: (source: string) => string; loadingImage: string; loading: string;
+    imageUnavailable: string; imageLoadFailed: string; source: string; size: string;
+    checkingNotice: string; replaceSection: string; replaceSummary: string;
+    replacementHelp: string; replaceShow: string; replaceHide: string; expandedSummary: string;
+    replaceCameraAccessibility: string; replaceCamera: string;
+    replaceGalleryAccessibility: string; replaceGallery: string;
+    replacementSelected: string; imageReplaced: string;
+    permissionCanAsk: string; permissionBlocked: string; pickerFailedCamera: string;
+    pickerFailedGallery: string; invalidImage: string; unsupportedImage: string;
+    preparingResult: string; checkingImage: string; preparingImage: string;
+    modelLoading: string; modelError: string; analysisComplete: string;
+    imageReady: string; analysisWaiting: string; analysisFailed: string;
+    statusIdle: string; statusImageSelected: string; statusPreprocessing: string;
+    statusAnalyzing: string; statusPreparingResult: string; statusCompleted: string; statusError: string;
+    imagePreparationFailed: string; cancelAccessibility: string;
+    cancel: string; startNew: string; viewResultAccessibility: string; viewResult: string;
+    analyzeAccessibility: string; analyzing: string; prepareImage: string; analyze: string;
+    retrySetupAccessibility: string; retrySetup: string; cancelTitle: string;
+    cancelMessage: string; keepDraft: string; discardDraft: string;
+  };
+  scanScreen: {
+    title: string;
+    intro: string;
+    errorTitle: string;
+    recoveryUnverified: string;
+    recoveryFailed: string;
+    deviceSettingsFailed: string;
+    permissionCanAsk: string;
+    permissionBlocked: string;
+    cameraFailed: string;
+    galleryFailed: string;
+    invalidImage: string;
+    unsupportedImage: string;
+    savingDraft: string;
+    savedDraftTimed: (time: string) => string;
+    savedDraft: string;
+    failedDraft: string;
+    idleDraft: string;
+    cameraBusy: string;
+    takePhoto: string;
+    galleryBusy: string;
+    chooseFromDevice: string;
+    cancelTitle: string;
+    cancelMessage: string;
+    keepDraft: string;
+    discardDraft: string;
+    selectedImage: string;
+    imageSelected: string;
+    selectedImageHelp: string;
+    checkingImage: string;
+    checkingRecovery: string;
+    noImage: string;
+    photoTip: string;
+    cameraSettings: string;
+    tryCamera: string;
+    takeAnother: string;
+    replaceImage: string;
+    chooseAnother: string;
+    clearAndStart: string;
+    startNew: string;
+    photoGuide: string;
+    guideFocus: string;
+    guideLighting: string;
+    guideSubject: string;
+    returnPreview: string;
+    resumeSaved: string;
+    viewSelected: string;
+    captureAccessibility: string;
+    galleryAccessibility: string;
+    draftNotSaved: string;
+    draftKept: string;
+    draftDiscarded: string;
+  };
   resultUncertain: {
     title: string;
     intro: string;
@@ -471,6 +675,7 @@ export type FarmerCopyBlock = {
     countMany: string;
     emptyTitle: string;
     emptyMessage: string;
+    openScan: string;
     noMatchTitle: string;
     noMatchMessage: string;
     clearFilters: string;
@@ -489,9 +694,120 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       afternoon: 'Good afternoon',
       evening: 'Good evening',
     },
+    home: {
+      headline: 'Check your plants today.',
+      offline: 'Offline',
+      knowSigns: 'Know the signs',
+      referencePhoto: 'Reference photo',
+      fieldGuideLabel: 'Open the field guide for sugarcane diseases and pests',
+      signPhrases: {
+        healthy: 'Even green leaves',
+        mosaic: 'Pale green mottling',
+        rust: 'Orange pustules beneath',
+        smut: 'Dark whip on the shoot',
+      },
+    },
+    tabs: {
+      home: 'Home', scan: 'Scan', myScans: 'My Scans',
+      activityWithUpdates: (count) => `My Scans, ${count} unread office ${count === 1 ? 'update' : 'updates'}`,
+    },
+    officeUpdates: {
+      pill: (count) => `${count} office ${count === 1 ? 'update' : 'updates'}`,
+      open: 'Open office updates', dismiss: 'Hide office updates for now', close: 'Close office updates',
+      title: 'Office updates', unread: (count) => `${count} unread item${count === 1 ? '' : 's'} from the office.`,
+      allRead: 'Every office update has been read.', markAllRead: 'Mark all read', markAllReadLabel: 'Mark all office updates as read',
+      loadError: 'Office updates could not be loaded.', readError: 'This update could not be marked as read.',
+      partial: 'Some office updates could not be loaded.',
+      empty: 'Office review results and visits appear here after a refresh.',
+      unreadLabel: 'Unread', notOnPhone: 'Not on this phone: open on the web',
+      markedRead: 'Updates marked as read', caseActivity: 'Case activity', recently: 'Recently',
+    },
+    record: {
+      title: 'Saved scan',
+      loading: 'Loading your scan',
+      unavailable: 'Scan unavailable',
+      unavailableMessage: 'This scan could not be found on this phone.',
+      tryAgain: 'Try again',
+      imageUnavailable: 'Saved photo unavailable',
+      backLabel: 'Go back',
+      deleteAction: 'Delete this scan',
+      deleting: 'Deleting...',
+      deleteConfirmTitle: 'Delete this scan?',
+      deleteConfirmMessage:
+        'This removes the scan and its photo from this phone. It cannot be undone.',
+      deleteConfirm: 'Delete',
+      cancel: 'Cancel',
+      deleteHint: 'Delete this scan and its saved photo',
+      deleted: 'Scan deleted',
+      deleteFailed: 'Could not delete the scan — please try again',
+      imageCleanupFailed: 'The scan was deleted, but its photo could not be removed from this phone.',
+    },
+    result: {
+      saveFailed: 'The scan could not be saved on this phone. Try again.',
+      saved: 'Scan saved',
+      discardFailed: 'Could not discard the saved scan — try again',
+      discarded: 'Scan discarded',
+      recoveryTitle: 'No completed scan result',
+      recoveryMessage: 'The scan result is unavailable. Return to Scan and try again.',
+      recoveryAction: 'Return to Scan',
+      imageLabel: 'Selected sugarcane image used for analysis',
+      closeLabel: 'Cancel and return home',
+      decisionSupport: {
+        healthy: 'Possible Condition only. The model did not assign its highest score to Mosaic, Rust, or Smut. This output does not decide what is wrong with your crop.',
+        mosaic: 'Possible Condition only. Mosaic may appear as irregular light and dark discoloration or mottling. This output does not decide what is wrong with your crop.',
+        rust: 'Possible Condition only. Rust may appear as orange-brown or rust-colored spots or pustules. This output does not decide what is wrong with your crop.',
+        smut: 'Possible Condition only. Look for a dark, whip-like growth emerging from the central shoot or stalk, but do not treat this observation or the model output as proof.',
+        unknown: 'This result is for decision support only. It does not decide what is wrong with your crop.',
+      },
+      aboutTitle: 'About this result',
+      explanations: {
+        healthy: { message: 'The model assigned its highest score to Healthy based on the submitted image.', description: 'The model did not assign its highest score to Mosaic, Rust, or Smut.' },
+        mosaic: { message: 'The model assigned its highest score to Mosaic based on the submitted image.', description: 'Mosaic can appear as irregular light and dark discoloration or mottling on the leaf.' },
+        rust: { message: 'The model assigned its highest score to Rust based on the submitted image.', description: 'Rust can appear as orange-brown or rust-colored spots and pustules on the leaf.' },
+        smut: { message: 'The model assigned its highest score to Smut based on the submitted image.', description: 'Smut may be associated with a dark, whip-like growth emerging from the central shoot or stalk. This visible pattern is observational and does not tell you what is wrong with your crop.' },
+        unknown: { message: 'The app could not identify this result.', description: 'This result is not recognized by this app version.' },
+      },
+      consistency: {
+        consistent: { title: 'Checklist consistent', message: 'The selected observations are consistent with the Possible Condition.' },
+        inconsistent: { title: 'Checklist inconsistent', message: 'Your observations do not match the Possible Condition. Both are kept separately.' },
+        'not-applicable': { title: 'Checklist cannot be compared', message: 'The selected observations point to more than one supported class, so they cannot be compared with one Possible Condition.' },
+        'not-enough-information': { title: 'Not enough checklist information', message: 'No clear symptom observation was provided, so checklist consistency cannot be determined.' },
+      },
+      qualityTitle: 'Image quality notice',
+      qualityIndependence: 'These warnings did not change the result.',
+      qualityWarnings: {
+        'low-resolution': 'The image resolution is low. Move closer and keep the affected area in focus.',
+        'too-dark': 'The image may be too dark. Retake the photo in better lighting for a clearer image.',
+        'too-bright': 'The image may be too bright. Avoid glare and direct overexposure when retaking it.',
+        'low-contrast': 'The image has low contrast. Use even lighting and keep the affected area clearly visible.',
+      },
+      headerTitle: 'Scan result',
+      pill: 'App check result',
+      cautionTitle: 'Check before you save',
+      lowConfidence:
+        'This result is not conclusive. You can still keep it as a scan, or scan again for a clearer image.',
+      cautionNote:
+        'This caution does not change the result. You can scan again for a clearer image or keep this scan.',
+      mismatch:
+        'Your selected symptom observations do not match this Possible Condition. Both are kept separately.',
+      outcomeSaved: 'Scan saved on this phone',
+      outcomeChoose: 'Choose what happens next',
+      outcomeFailed: 'Choose another action',
+      outcomeSavedMessage: 'This scan is saved on this phone.',
+      outcomeChooseMessage: 'Save Scan keeps this scan on this phone.',
+      scanAgain: 'Scan again',
+      whyTitle: 'Why this result?',
+      moreActions: 'More actions',
+      fieldGuide: 'Field guide',
+      cancelScan: 'Cancel scan',
+      openSaved: 'Open saved scan',
+      cancelTitle: 'Cancel scan?',
+      cancelMessage: 'Keep your unfinished scan to continue later, or discard it?',
+      keepDraft: 'Keep it',
+      discardDraft: 'Discard it',
+    },
     actions: {
       startScan: 'Start a scan',
-      measurePlot: 'Measure a plot',
       fieldGuide: 'Field guide',
       openSettings: 'Settings',
     },
@@ -500,6 +816,175 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       languageDescription: 'Choose the language for farmer screens',
       english: 'English',
       tagalog: 'Tagalog',
+    },
+    settingsScreen: {
+      title: 'Settings', displaySection: 'DISPLAY & ACCESSIBILITY', darkMode: 'Dark Mode',
+      darkModeDescription: 'Use a darker appearance throughout CaneGuard', fieldGuideSection: 'FIELD GUIDE',
+      fieldGuideTitle: 'Field guide', fieldGuideDescription: 'Read about sugarcane diseases and pests',
+      accountSection: 'ACCOUNT & SECURITY', fallbackName: 'Field Inspector', fallbackAccount: 'Authenticated mobile account',
+      accountSecurity: 'Account security', accountSecurityDescription: 'Password, email, device, and biometric controls',
+      logout: 'Logout', logoutAccessibility: 'Log out of your account', clearCached: 'Clear downloaded office data',
+      clearingCached: 'Clearing downloaded data…', clearCachedAccessibility: 'Clear downloaded office data only',
+      removeLocal: 'Remove all local records', removingLocal: 'Removing local records…',
+      removeLocalAccessibility: 'Remove all local records for this account', aboutSection: 'ABOUT', appName: 'App Name', version: 'Version',
+      logoutDialogTitle: 'Log out?', logoutDialogMessage: 'Logging out revokes the server session and removes the protected credential. Saved and unfinished scans remain on this phone; remove local records before handing it to someone else.',
+      logoutDialogConfirm: 'Log out', loggingOut: 'Signing out…', signingOutMessage: 'Signing out. Please keep CaneGuard open.',
+      logoutIncomplete: 'Logout incomplete', logoutIncompleteMessage: 'CaneGuard could not clear secure session storage. Restart the app and try again.',
+      signedOutLocally: 'Signed out locally', remoteLogoutMessage: 'The server could not be reached, so the remote session may remain active until it expires or is revoked later.',
+      signedOut: 'Signed out', clearCachedTitle: 'Clear downloaded office data?',
+      clearCachedMessage: 'This removes visits and office updates that can be downloaded again. Saved scans, drafts, reports, boundaries and completed visits stay on this device.',
+      cancel: 'Cancel', clearCachedConfirm: 'Clear downloaded data', cachedCleared: 'Downloaded office data cleared',
+      cachedClearFailed: 'Could not clear downloaded data', removeLocalTitle: 'Remove all local records?',
+      removeLocalMessage: 'This cannot be undone. Server data and other accounts are not changed.',
+      removeLocalConfirm: 'Remove local records', continueLocalRemoval: 'Continue to delete local-only items',
+      localItemsTitle: 'Delete items stored only on this phone?', keepWork: 'Keep my work', deleteLocalItems: 'Delete local-only items',
+      removeLocalBusy: 'An upload is still running. Wait for it to finish, then review local records again.',
+      removeLocalFailed: 'Could not remove local records', removeLocalWarning: 'Local records removed with cleanup warnings',
+      removedWithWarnings: 'Your local records were removed, but one or more saved images could not be deleted yet.',
+      removed: 'Saved scans, drafts, reports, boundaries, visits, and cached account data were removed from this device.',
+      localItemsNote: (count) => `${count} saved item${count === 1 ? ' remains' : 's remain'} only on this phone.`,
+      cachedClearedMessage: (count) => `${count} downloaded ${count === 1 ? 'item was' : 'items were'} removed. Saved scans and drafts were kept.`,
+      removalCounts: (counts) => `${counts.reports} reports · ${counts.visits} visits · ${counts.boundaries} boundaries · ${counts.scans} scans · ${counts.drafts} drafts · ${counts.assignments} downloaded visits · ${counts.notifications} office updates.`,
+      localItemsWarning: (count) => `Removing these ${count} local-only item${count === 1 ? '' : 's'} will permanently erase them from this phone.`,
+      localItemsDeletionMessage: (count) => `This will permanently delete ${count} item${count === 1 ? '' : 's'} stored only on this phone.`,
+    },
+    accountSecurityScreen: {
+      title: 'Account & security',
+      subtitle: 'Protect your account without changing the offline reports and scans saved on this device.',
+      fallbackName: 'Field Inspector', fallbackEmail: 'Authenticated mobile account', defaultInstallationName: 'CaneGuard mobile device',
+      expiresUnavailable: 'Local session safety expiry unavailable; sign in again before continuing.',
+      sessionExpiryUnavailable: 'Session expiry is unavailable. Sign in again to establish a server session.',
+      sessionExpires: (date) => `Session expires ${date}. Biometric unlock does not extend it.`,
+      biometricTitle: 'Biometric unlock', biometricOn: 'Biometric unlock is on for this installation.',
+      biometricAvailable: 'A strong platform biometric is available for this installation.',
+      biometricNotEnrolled: 'Enroll a strong biometric in device settings before enabling this option.',
+      biometricUnsupported: 'This device does not expose a strong platform biometric. Use password sign-in.',
+      biometricUnavailable: 'Biometric capability is unavailable until the native development build is ready. Use password sign-in.',
+      disableBiometric: 'Disable biometric unlock', enableBiometric: 'Enable biometric unlock',
+      enablingBiometric: 'Enabling…', biometricEnableToast: 'Biometrics enabled',
+      biometricEnabledMessage: 'Biometric unlock is enabled on this installation. It unlocks the stored session after a cold start and never extends the server expiry.',
+      changePassword: 'Change password',
+      changePasswordDescription: 'Password protection is on. Changing your password signs out every active session.',
+      openChangePassword: 'Open the change password form', changeEmail: 'Change email',
+      changeEmailDescription: (email) => `Current email: ${email}. Changing it signs out every active session and requires verification of the new address.`,
+      openChangeEmail: 'Open the change email form', deviceEnrollment: 'Device enrollment',
+      deviceEnrollmentDescription: (name) => `Installation identity: ${name}.`,
+      openDeviceEnrollment: 'Open the device enrollment form',
+      enrollmentSuccess: 'This installation is enrolled with a fresh server session. Existing sessions on other device identities are unchanged.',
+    },
+    accountSecurityForms: {
+      common: { close: 'Close', cancel: 'Cancel', discardTitle: 'Discard changes?', discardMessage: 'You have unsaved changes. Do you want to discard them?', keepEditing: 'Keep editing', discard: 'Discard' },
+      password: { title: 'Change password', currentPassword: 'Current password', newPassword: 'New password', submit: 'Change password', updating: 'Updating…', confirmTitle: 'Change password?', confirmMessage: 'Changing your password signs out every active session. You will need to sign in again with your new password.', confirm: 'Yes, change it', toast: 'Password updated' },
+      email: { title: 'Change email', newEmail: 'New email', currentPassword: 'Current password', confirmPassword: 'Enter your password to change email', submit: 'Change email', updating: 'Updating…', confirmTitle: 'Change email?', confirmMessage: 'Changing your email signs out every active session and requires verification of the new address.', confirm: 'Yes, change it', toast: 'Email updated' },
+      enrollment: { title: 'Device enrollment', name: 'Installation name', nameHelp: 'A name for this installation on the office system. It is stored securely and is not a hardware identifier.', namePlaceholder: 'CaneGuard mobile device', currentPassword: 'Current password', confirmPassword: 'Enter your password to enroll this device', submit: 'Enroll this installation', submitting: 'Enrolling…', confirmTitle: 'Enroll this installation?', confirmMessage: 'This installation will be enrolled with a fresh server session. Existing sessions on other device identities are unchanged.', confirm: 'Enroll', toast: 'Device enrolled' },
+      biometric: { title: 'Disable biometric unlock', currentPassword: 'Current password', confirmPassword: 'Enter your password to disable', submit: 'Disable biometric unlock', submitting: 'Disabling…', toast: 'Biometrics disabled' },
+    },
+    notificationDetails: {
+      headerTitle: 'Office update', headerSubtitle: 'Advice from the CaneGuard office',
+      advisoryLabel: 'Advisory', officeMessageLabel: 'Office message',
+      openRelated: 'Open related activity', openRelatedAccessibility: 'Open related activity',
+      loading: 'Loading office update', unavailableTitle: 'Office update unavailable',
+      unavailableMessage: 'This office update is no longer available on this device.',
+      retry: 'Try again', referenceFallback: 'Office update', recently: 'Recently',
+    },
+    authErrors: {
+      generic: 'Authentication could not be completed. Please try again.',
+      invalidCredentials: 'The email or password is incorrect.',
+      emailNotVerified: 'Verify your email address before signing in to CaneGuard.',
+      forbiddenRole: 'This account type cannot sign in to CaneGuard Mobile.',
+      invalidResetLink: 'This recovery link is invalid, expired, or already used. Request a new link.',
+      invalidVerificationLink: 'This email-verification link is invalid or expired. Request a new link.',
+      invalidResponse: 'CaneGuard could not complete authentication.',
+      rateLimited: 'Too many requests. Wait a moment and try again.',
+      registrationDisabled: 'Public self-registration is disabled. Contact your CaneGuard administrator to request an authorized account.',
+      serverUnavailable: 'CaneGuard could not reach the server. Please check your connection and try again.',
+      sessionExpired: 'Your CaneGuard session is no longer valid.',
+      stepUpRequired: 'Enter your current password to continue.',
+      validationError: 'Check the highlighted fields and try again.',
+      signInAgain: 'Sign in again before continuing this account action.',
+      signInForBiometric: 'Sign in with your password before enabling biometric unlock.',
+      biometricUnavailable: 'Biometric unlock is unavailable. Sign in with your password.',
+      biometricNotEnrolled: 'Set up a strong biometric before enabling biometric unlock.',
+      biometricCancelled: 'Biometric unlock was cancelled. Sign in with your password.',
+      biometricVerificationFailed: 'CaneGuard could not verify you biometrically. Sign in with your password.',
+      biometricEnableFailed: 'Biometric unlock could not be enabled. Your password session is still active.',
+      biometricRevokeWarning: 'Biometric unlock was disabled on this device, but the server token could not be revoked.',
+      secureStorageUnavailable: 'Secure session storage is unavailable. Device enrollment was cancelled.',
+    },
+    imagePreview: {
+      title: 'Image preview', noImageTitle: 'No image selected',
+      noImageMessage: 'Choose a gallery image or capture a photo before opening the preview.',
+      chooseImage: 'Choose an image', camera: 'Camera', gallery: 'Gallery',
+      dimensionsUnavailable: 'Dimensions unavailable', pixels: 'pixels',
+      imageAccessibility: (source) => `Selected sugarcane image from ${source.toLowerCase()}`,
+      loadingImage: 'Loading selected image', loading: 'Loading image…',
+      imageUnavailable: 'Image preview unavailable',
+      imageLoadFailed: 'The selected image could not be displayed. Please replace it.',
+      source: 'Source', size: 'Size',
+      checkingNotice: 'Your image will be checked on this device before analysis.',
+      replaceSection: 'Retake / Replace image', replaceSummary: 'Camera or gallery',
+      replacementHelp: 'The current image stays in place until you choose a replacement. A replacement clears the previous result and symptom answers.',
+      replaceShow: 'Show image replacement options', replaceHide: 'Hide image replacement options', expandedSummary: 'Hide replacement options',
+      replaceCameraAccessibility: 'Take another photo with the camera', replaceCamera: 'Take another photo',
+      replaceGalleryAccessibility: 'Choose another image from the gallery', replaceGallery: 'Choose another image',
+      replacementSelected: 'New image selected. The previous analysis result and symptom answers were cleared; the previous scan draft was replaced.',
+      imageReplaced: 'Image replaced',
+      permissionCanAsk: 'Camera access is needed to take a sugarcane photo. You can try the camera again.',
+      permissionBlocked: 'Camera access is turned off. Open device settings to allow CaneGuard to use the camera.',
+      pickerFailedCamera: 'The camera could not be opened. Please try again.',
+      pickerFailedGallery: 'The gallery could not be opened. Please try again.',
+      invalidImage: 'That selection did not contain a usable local image. Please choose another photo.',
+      unsupportedImage: 'Unsupported image format. Please choose a JPEG, PNG, or WebP image.',
+      preparingResult: 'Preparing analysis result', checkingImage: 'Checking image',
+      preparingImage: 'Preparing image', modelLoading: 'Getting ready before analysis…',
+      modelError: 'The on-device model could not load. Restart the app and try again.',
+      analysisComplete: 'Analysis complete. Open the result to review it and save this scan.',
+      imageReady: 'The image is ready. Retry analysis to continue.',
+      analysisWaiting: 'Analysis stays on this screen until the check succeeds.',
+      analysisFailed: 'The on-device analysis could not finish. Please try again.',
+      statusIdle: 'No image selected', statusImageSelected: 'Image selected',
+      statusPreprocessing: 'Preparing image', statusAnalyzing: 'Analyzing image',
+      statusPreparingResult: 'Preparing result', statusCompleted: 'Analysis complete', statusError: 'Analysis error',
+      imagePreparationFailed: 'The selected image could not be prepared. Please replace it and try again.',
+      cancelAccessibility: 'Cancel scan and return home',
+      cancel: 'Cancel Scan', startNew: 'Start New Scan',
+      viewResultAccessibility: 'View the analysis result', viewResult: 'View Analysis Result',
+      analyzeAccessibility: 'Analyze selected image', analyzing: 'Analyzing…',
+      prepareImage: 'Preparing Image…', analyze: 'Analyze',
+      retrySetupAccessibility: 'Retry analysis setup', retrySetup: 'Retry analysis setup',
+      cancelTitle: 'Cancel scan?',
+      cancelMessage: 'Do you want to keep your in-progress scan draft or discard it before returning home?',
+      keepDraft: 'Keep draft', discardDraft: 'Discard draft',
+    },
+    scanScreen: {
+      title: 'Scan sugarcane', intro: 'Add a clear photo of the affected leaf, stalk, or central shoot.',
+      errorTitle: 'Image not added', recoveryUnverified: 'An interrupted image selection was found, but its source could not be verified. Please choose the image again.',
+      recoveryFailed: 'An interrupted image selection could not be recovered. Please try again.',
+      deviceSettingsFailed: 'Device settings could not be opened. Open Settings and allow camera access.',
+      permissionCanAsk: 'Camera access is needed to take a sugarcane photo. Try the camera again.',
+      permissionBlocked: 'Camera access is turned off. Open device settings to allow CaneGuard to use the camera.',
+      cameraFailed: 'The camera could not be opened. Please try again.', galleryFailed: 'The gallery could not be opened. Please try again.',
+      invalidImage: 'That selection did not contain a usable local image. Please choose another photo.',
+      unsupportedImage: 'Unsupported image format. Please choose a JPEG, PNG, or WebP image.',
+      savingDraft: 'Saving on this device…',
+      savedDraftTimed: (time) => `Saved on this device · ${time}. You can close CaneGuard and resume this scan.`,
+      savedDraft: 'Saved on this device. You can close CaneGuard and resume this scan.',
+      failedDraft: 'Not saved on this device. Your photo is still open here — try replacing it or keep this screen open.',
+      idleDraft: 'Not saved on this device yet.', cameraBusy: 'Opening camera…', takePhoto: 'Take photo',
+      galleryBusy: 'Opening gallery…', chooseFromDevice: 'Choose from device',
+      cancelTitle: 'Cancel scan?', cancelMessage: 'Do you want to keep your in-progress scan or discard it before returning home?',
+      keepDraft: 'Keep draft', discardDraft: 'Discard draft', selectedImage: 'Currently selected sugarcane image',
+      imageSelected: 'Image selected', selectedImageHelp: 'View the selected image or start a new scan.',
+      checkingImage: 'Checking for a selected image', checkingRecovery: 'CaneGuard is checking whether Android interrupted the last picker.',
+      noImage: 'No image added yet', photoTip: 'Use a well-lit, focused photo for a more helpful result.',
+      cameraSettings: 'Open Settings', tryCamera: 'Try Camera Again', takeAnother: 'Take Another Photo',
+      replaceImage: 'Take another photo to replace the selected image', chooseAnother: 'Choose Another Image',
+      clearAndStart: 'Clear the current scan and start again', startNew: 'Start New Scan',
+      photoGuide: 'Photo quality guide', guideFocus: 'Keep the symptom clear and focused',
+      guideLighting: 'Avoid dark, blurry, or distant images', guideSubject: 'Capture the affected leaf, stalk, or shoot',
+      returnPreview: 'Return to selected image preview', resumeSaved: 'Resume Saved Scan', viewSelected: 'View Selected Image',
+      captureAccessibility: 'Capture a photo with the camera', galleryAccessibility: 'Choose one image from the gallery',
+      draftNotSaved: 'Draft not saved on this device — try again', draftKept: 'Draft kept', draftDiscarded: 'Draft discarded',
     },
     resultUncertain: {
       title: 'Result uncertain',
@@ -569,6 +1054,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       stateSaved: 'Saved',
       countOne: '1 scan',
       countMany: '{count} scans',
+      openScan: 'Open scan',
       emptyTitle: 'No scans yet',
       emptyMessage: 'Scan a leaf and it will be saved here.',
       noMatchTitle: 'No matching scans',
@@ -587,9 +1073,121 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       afternoon: 'Magandang hapon',
       evening: 'Magandang gabi',
     },
+    home: {
+      headline: 'Suriin ang iyong mga halaman ngayon.',
+      offline: 'Walang internet',
+      knowSigns: 'Kilalanin ang mga palatandaan',
+      referencePhoto: 'Litrato bilang gabay',
+      fieldGuideLabel: 'Buksan ang gabay sa bukid para sa mga sakit at peste ng tubo',
+      signPhrases: {
+        healthy: 'Pantay na luntiang dahon',
+        mosaic: 'Mapusyaw na berdeng batik',
+        rust: 'Kulay-kahel na butlig sa ilalim',
+        smut: 'Maitim na latigo sa usbong',
+      },
+    },
+    tabs: {
+      home: 'Tahanan', scan: 'Mag-scan', myScans: 'Aking mga Scan',
+      activityWithUpdates: (count) => `Aking mga Scan, ${count} hindi pa nababasang update sa opisina`,
+    },
+    officeUpdates: {
+      pill: (count) => `${count} update sa opisina`,
+      open: 'Buksan ang mga update sa opisina', dismiss: 'Itago muna ang mga update sa opisina', close: 'Isara ang mga update sa opisina',
+      title: 'Mga update mula sa opisina', unread: (count) => `${count} hindi pa nababasang update mula sa opisina.`,
+      allRead: 'Nabasa na ang lahat ng update sa opisina.', markAllRead: 'Markahang nabasa ang lahat', markAllReadLabel: 'Markahang nabasa ang lahat ng update sa opisina',
+      loadError: 'Hindi makuha ang mga update sa opisina.', readError: 'Hindi mamarkahang nabasa ang update na ito.',
+      partial: 'May ilang update sa opisina na hindi nakuha.',
+      empty: 'Lalabas dito ang mga resulta ng pagsusuri ng opisina at mga pagbisita matapos mag-refresh.',
+      unreadLabel: 'Hindi pa nababasa', notOnPhone: 'Wala sa teleponong ito: buksan sa web',
+      markedRead: 'Namarkahang nabasa ang mga update', caseActivity: 'Aktibidad sa kaso', recently: 'Kamakailan',
+    },
+
+    record: {
+      title: 'Na-save na scan',
+      loading: 'Kinukuha ang iyong scan',
+      unavailable: 'Hindi makita ang scan',
+      unavailableMessage: 'Hindi makita ang scan na ito sa teleponong ito.',
+      tryAgain: 'Subukan muli',
+      imageUnavailable: 'Wala ang na-save na litrato',
+      backLabel: 'Bumalik',
+      deleteAction: 'Burahin ang scan na ito',
+      deleting: 'Binubura...',
+      deleteConfirmTitle: 'Burahin ang scan na ito?',
+      deleteConfirmMessage:
+        'Aalisin nito ang scan at ang litrato nito sa teleponong ito. Hindi na ito maibabalik.',
+      deleteConfirm: 'Burahin',
+      cancel: 'Kanselahin',
+      deleteHint: 'Burahin ang scan na ito at ang na-save na litrato',
+      deleted: 'Nabura ang scan',
+      deleteFailed: 'Hindi nabura ang scan — subukan muli',
+      imageCleanupFailed: 'Nabura ang scan, pero hindi naalis ang litrato nito sa teleponong ito.',
+    },
+    result: {
+      saveFailed: 'Hindi na-save ang scan sa teleponong ito. Subukan muli.',
+      saved: 'Na-save ang scan',
+      discardFailed: 'Hindi maitapon ang na-save na scan — subukan muli',
+      discarded: 'Itinapon ang scan',
+      recoveryTitle: 'Walang kumpletong resulta ng scan',
+      recoveryMessage: 'Hindi makita ang resulta ng scan. Bumalik sa Scan at subukan muli.',
+      recoveryAction: 'Bumalik sa Scan',
+      imageLabel: 'Larawan ng tubo na sinuri',
+      closeLabel: 'Kanselahin at bumalik sa home',
+      decisionSupport: {
+        healthy: 'Posibleng Kondisyon lamang ito. Hindi pinakamataas ang marka ng modelo sa Mosaic, Rust, o Smut. Hindi nito sinasabi kung ano ang tiyak na sakit.',
+        mosaic: 'Posibleng Kondisyon lamang ito. Maaaring makita ang Mosaic bilang hindi pantay na mapusyaw at maitim na kulay o batik sa dahon. Hindi nito sinasabi kung ano ang tiyak na sakit.',
+        rust: 'Posibleng Kondisyon lamang ito. Maaaring makita ang Rust bilang mga batik o butlig na kahel-kayumanggi o kulay-kalawang. Hindi nito sinasabi kung ano ang tiyak na sakit.',
+        smut: 'Posibleng Kondisyon lamang ito. Tingnan kung may maitim at parang latigong tubo mula sa gitnang usbong o tangkay, ngunit huwag ituring na tiyak ang nakikita o resulta ng modelo.',
+        unknown: 'Pantulong lamang sa pagpapasya ang resultang ito. Hindi nito sinasabi kung ano ang tiyak na sakit.',
+      },
+      aboutTitle: 'Tungkol sa resultang ito',
+      explanations: {
+        healthy: { message: 'Pinakamataas ang markang ibinigay ng modelo sa Healthy batay sa isinumiteng larawan.', description: 'Hindi Mosaic, Rust, o Smut ang may pinakamataas na marka.' },
+        mosaic: { message: 'Pinakamataas ang markang ibinigay ng modelo sa Mosaic batay sa isinumiteng larawan.', description: 'Maaaring magpakita ang Mosaic ng hindi pantay na mapusyaw at maitim na kulay o batik sa dahon.' },
+        rust: { message: 'Pinakamataas ang markang ibinigay ng modelo sa Rust batay sa isinumiteng larawan.', description: 'Maaaring magpakita ang Rust ng kahel-kayumanggi o kulay-kalawang na batik at butlig sa dahon.' },
+        smut: { message: 'Pinakamataas ang markang ibinigay ng modelo sa Smut batay sa isinumiteng larawan.', description: 'Maaaring may maitim at parang latigong tubo mula sa gitnang usbong o tangkay. Paglalarawan lamang ito ng nakikita at hindi pagpapatunay ng sakit.' },
+        unknown: { message: 'Hindi matukoy ng app ang resultang ito.', description: 'Hindi kinikilala ng bersyong ito ng app ang resulta.' },
+      },
+      consistency: {
+        consistent: { title: 'Tugma ang checklist', message: 'Tugma sa Posibleng Kondisyon ang mga napiling palatandaan.' },
+        inconsistent: { title: 'Hindi tugma ang checklist', message: 'Hindi tugma sa Posibleng Kondisyon ang mga napili mong palatandaan. Magkahiwalay na itinatabi ang dalawa.' },
+        'not-applicable': { title: 'Hindi maihahambing ang checklist', message: 'Tumutukoy sa higit sa isang suportadong klase ang mga napiling palatandaan kaya hindi maihahambing sa iisang Posibleng Kondisyon.' },
+        'not-enough-information': { title: 'Kulang ang impormasyon sa checklist', message: 'Walang malinaw na palatandaan ng sintomas kaya hindi matukoy kung tugma ang checklist.' },
+      },
+      qualityTitle: 'Paunawa sa kalidad ng larawan',
+      qualityIndependence: 'Hindi binago ng mga paunawang ito ang resulta.',
+      qualityWarnings: {
+        'low-resolution': 'Mababa ang linaw ng larawan. Lumapit at ituon ang apektadong bahagi.',
+        'too-dark': 'Maaaring madilim ang larawan. Kunan muli sa mas maliwanag na lugar.',
+        'too-bright': 'Maaaring masyadong maliwanag ang larawan. Iwasan ang silaw kapag kumukuha muli.',
+        'low-contrast': 'Mahina ang pagkakaiba ng liwanag sa larawan. Gumamit ng pantay na ilaw at tiyaking kita ang apektadong bahagi.',
+      },
+      headerTitle: 'Resulta ng scan',
+      pill: 'Resulta ng app',
+      cautionTitle: 'Suriin bago i-save',
+      lowConfidence:
+        'Hindi tiyak ang resultang ito. Puwede mo pa ring itago ito bilang scan, o mag-scan ulit para sa mas malinaw na litrato.',
+      cautionNote:
+        'Hindi binabago ng babalang ito ang resulta. Puwede kang mag-scan ulit para sa mas malinaw na litrato o itago ang scan na ito.',
+      mismatch:
+        'Hindi tugma ang mga napili mong palatandaan sa Posibleng Kondisyon na ito. Magkahiwalay na itinatabi ang dalawa.',
+      outcomeSaved: 'Na-save ang scan sa teleponong ito',
+      outcomeChoose: 'Piliin ang susunod na gagawin',
+      outcomeFailed: 'Pumili ng ibang gagawin',
+      outcomeSavedMessage: 'Na-save ang scan na ito sa teleponong ito.',
+      outcomeChooseMessage: 'Itinatago ng I-save ang Scan ang scan na ito sa teleponong ito.',
+      scanAgain: 'Mag-scan ulit',
+      whyTitle: 'Bakit ito ang resulta?',
+      moreActions: 'Iba pang gagawin',
+      fieldGuide: 'Gabay sa bukid',
+      cancelScan: 'Kanselahin ang scan',
+      openSaved: 'Buksan ang na-save na scan',
+      cancelTitle: 'Kanselahin ang scan?',
+      cancelMessage: 'Itago ang hindi pa tapos na scan para ituloy mamaya, o itapon ito?',
+      keepDraft: 'Itago',
+      discardDraft: 'Itapon',
+    },
     actions: {
       startScan: 'Magsimula ng pag-scan',
-      measurePlot: 'Sukatin ang bukid',
       fieldGuide: 'Gabay sa bukid',
       openSettings: 'Mga setting',
     },
@@ -598,6 +1196,175 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       languageDescription: 'Piliin ang wika para sa mga screen ng magsasaka',
       english: 'Ingles',
       tagalog: 'Tagalog',
+    },
+    settingsScreen: {
+      title: 'Mga setting', displaySection: 'ITSURA AT ACCESSIBILITY', darkMode: 'Madilim na itsura',
+      darkModeDescription: 'Gumamit ng mas madilim na itsura sa buong CaneGuard', fieldGuideSection: 'GABAY SA BUKID',
+      fieldGuideTitle: 'Gabay sa bukid', fieldGuideDescription: 'Alamin ang tungkol sa mga sakit at peste ng tubo',
+      accountSection: 'ACCOUNT AT SEGURIDAD', fallbackName: 'Inspektor sa bukid', fallbackAccount: 'Authenticated na mobile account',
+      accountSecurity: 'Seguridad ng account', accountSecurityDescription: 'Password, email, device, at biometric na mga kontrol',
+      logout: 'Mag-log out', logoutAccessibility: 'Mag-log out sa iyong account', clearCached: 'Burahin ang na-download na datos ng opisina',
+      clearingCached: 'Binubura ang na-download na datos…', clearCachedAccessibility: 'Burahin lamang ang na-download na datos ng opisina',
+      removeLocal: 'Alisin ang lahat ng lokal na tala', removingLocal: 'Inaalis ang mga lokal na tala…',
+      removeLocalAccessibility: 'Alisin ang lahat ng lokal na tala para sa account na ito', aboutSection: 'TUNGKOL SA APP', appName: 'Pangalan ng app', version: 'Bersyon',
+      logoutDialogTitle: 'Mag-log out?', logoutDialogMessage: 'Isinasara ng pag-log out ang session sa server at inaalis ang protektadong kredensyal. Mananatili sa teleponong ito ang mga na-save at hindi pa tapos na scan; alisin ang mga lokal na tala bago ito ipagamit sa iba.',
+      logoutDialogConfirm: 'Mag-log out', loggingOut: 'Nagla-log out…', signingOutMessage: 'Nagla-log out. Panatilihing bukas ang CaneGuard.',
+      logoutIncomplete: 'Hindi kumpleto ang pag-log out', logoutIncompleteMessage: 'Hindi naalis ng CaneGuard ang ligtas na imbakan ng session. I-restart ang app at subukan muli.',
+      signedOutLocally: 'Naka-log out sa device', remoteLogoutMessage: 'Hindi makontak ang server, kaya maaaring manatiling aktibo ang remote session hanggang mag-expire o mabawi ito.',
+      signedOut: 'Naka-log out', clearCachedTitle: 'Burahin ang na-download na datos ng opisina?',
+      clearCachedMessage: 'Aalisin nito ang mga pagbisita at update sa opisina na maaaring i-download muli. Mananatili sa teleponong ito ang mga na-save na scan, draft, ulat, hangganan at kumpletong pagbisita.',
+      cancel: 'Kanselahin', clearCachedConfirm: 'Burahin ang na-download na datos', cachedCleared: 'Nabura ang na-download na datos ng opisina',
+      cachedClearFailed: 'Hindi nabura ang na-download na datos', removeLocalTitle: 'Alisin ang lahat ng lokal na tala?',
+      removeLocalMessage: 'Hindi na ito maibabalik. Hindi mababago ang datos sa server at ng ibang account.',
+      removeLocalConfirm: 'Alisin ang mga lokal na tala', continueLocalRemoval: 'Magpatuloy sa pagbura ng mga item sa teleponong ito lamang',
+      localItemsTitle: 'Burahin ang mga item na nasa teleponong ito lamang?', keepWork: 'Panatilihin ang aking gawain', deleteLocalItems: 'Burahin ang mga item sa teleponong ito lamang',
+      removeLocalBusy: 'May ipinapadalang datos. Hintaying matapos ito, saka suriin muli ang mga lokal na tala.',
+      removeLocalFailed: 'Hindi naalis ang mga lokal na tala', removeLocalWarning: 'Naalis ang mga lokal na tala ngunit may babala sa paglilinis',
+      removedWithWarnings: 'Naalis ang mga lokal na tala, ngunit may isa o higit pang litrato na hindi pa mabura.',
+      removed: 'Inalis sa teleponong ito ang mga na-save na scan, draft, ulat, hangganan, pagbisita at naka-cache na datos ng account.',
+      localItemsNote: (count) => `Nasa teleponong ito lamang ang ${count} na-save na item.`,
+      cachedClearedMessage: (count) => `Inalis ang ${count} na-download na item. Napanatili ang mga na-save na scan at draft.`,
+      removalCounts: (counts) => `${counts.reports} ulat · ${counts.visits} pagbisita · ${counts.boundaries} hangganan · ${counts.scans} scan · ${counts.drafts} draft · ${counts.assignments} na-download na pagbisita · ${counts.notifications} update sa opisina.`,
+      localItemsWarning: (count) => `Permanenteng mabubura sa teleponong ito ang ${count} item na dito lamang naka-save.`,
+      localItemsDeletionMessage: (count) => `Permanenteng mabubura ang ${count} item na naka-save lamang sa teleponong ito.`
+    },
+    accountSecurityScreen: {
+      title: 'Seguridad ng account',
+      subtitle: 'Protektahan ang iyong account nang hindi binabago ang mga ulat at scan na naka-save sa device na ito.',
+      fallbackName: 'Inspektor sa bukid', fallbackEmail: 'Naka-sign in na mobile account', defaultInstallationName: 'Mobile device ng CaneGuard',
+      expiresUnavailable: 'Hindi makuha ang lokal na takdang oras ng session; mag-sign in muli bago magpatuloy.',
+      sessionExpiryUnavailable: 'Hindi makuha ang takdang oras ng session. Mag-sign in muli para magkaroon ng server session.',
+      sessionExpires: (date) => `Mag-e-expire ang session sa ${date}. Hindi ito pinahahaba ng pagbukas gamit ang biometrics.`,
+      biometricTitle: 'Pagbukas gamit ang biometrics', biometricOn: 'Naka-on ang pagbukas gamit ang biometrics sa installation na ito.',
+      biometricAvailable: 'May magagamit na malakas na biometric sa installation na ito.',
+      biometricNotEnrolled: 'Mag-enroll muna ng malakas na biometric sa settings ng device.',
+      biometricUnsupported: 'Walang malakas na biometric ang device na ito. Mag-sign in gamit ang password.',
+      biometricUnavailable: 'Hindi pa magagamit ang biometric hangga’t hindi handa ang native development build. Mag-sign in gamit ang password.',
+      disableBiometric: 'I-off ang pagbukas gamit ang biometrics', enableBiometric: 'I-on ang pagbukas gamit ang biometrics',
+      enablingBiometric: 'Ino-on…', biometricEnableToast: 'Naka-on ang biometrics',
+      biometricEnabledMessage: 'Naka-on ang pagbukas gamit ang biometrics sa installation na ito. Binubuksan nito ang nakaimbak na session matapos magsara at muling magbukas ang app, pero hindi nito pinahahaba ang bisa ng server session.',
+      changePassword: 'Palitan ang password',
+      changePasswordDescription: 'Protektado ang account ng password. Kapag pinalitan ito, mala-log out ang lahat ng aktibong session.',
+      openChangePassword: 'Buksan ang form para palitan ang password', changeEmail: 'Palitan ang email',
+      changeEmailDescription: (email) => `Kasalukuyang email: ${email}. Kapag pinalitan ito, mala-log out ang lahat ng aktibong session at kailangang beripikahin ang bagong address.`,
+      openChangeEmail: 'Buksan ang form para palitan ang email', deviceEnrollment: 'Pag-enroll ng device',
+      deviceEnrollmentDescription: (name) => `Pagkakakilanlan ng installation: ${name}.`,
+      openDeviceEnrollment: 'Buksan ang form para mag-enroll ng device',
+      enrollmentSuccess: 'Na-enroll ang installation na ito gamit ang bagong server session. Hindi nagbago ang ibang session sa iba pang device.',
+    },
+    accountSecurityForms: {
+      common: { close: 'Isara', cancel: 'Kanselahin', discardTitle: 'Itapon ang mga pagbabago?', discardMessage: 'May mga pagbabagong hindi pa nase-save. Itapon ang mga ito?', keepEditing: 'Ipagpatuloy ang pag-edit', discard: 'Itapon' },
+      password: { title: 'Palitan ang password', currentPassword: 'Kasalukuyang password', newPassword: 'Bagong password', submit: 'Palitan ang password', updating: 'Ina-update…', confirmTitle: 'Palitan ang password?', confirmMessage: 'Mala-log out ang lahat ng aktibong session kapag pinalitan ang password. Mag-sign in muli gamit ang bagong password.', confirm: 'Kumpirmahin ang pagpapalit', toast: 'Na-update ang password' },
+      email: { title: 'Palitan ang email', newEmail: 'Bagong email', currentPassword: 'Kasalukuyang password', confirmPassword: 'Kumpirmahin para palitan ang email', submit: 'Palitan ang email', updating: 'Ina-update…', confirmTitle: 'Palitan ang email?', confirmMessage: 'Mala-log out ang lahat ng aktibong session kapag pinalitan ang email. Kailangang beripikahin ang bagong address.', confirm: 'Kumpirmahin ang pagpapalit', toast: 'Na-update ang email' },
+      enrollment: { title: 'Pag-enroll ng device', name: 'Pangalan ng installation', nameHelp: 'Pangalan ng installation na ito sa system ng opisina. Ligtas itong itinatago at hindi ito pagkakakilanlan ng hardware.', namePlaceholder: 'Mobile device ng CaneGuard', currentPassword: 'Kasalukuyang password', confirmPassword: 'Kumpirmahin ang installation na ito', submit: 'I-enroll ang installation na ito', submitting: 'Nag-e-enroll…', confirmTitle: 'I-enroll ang installation na ito?', confirmMessage: 'Gagamit ang installation na ito ng bagong server session. Hindi mababago ang ibang session sa iba pang device.', confirm: 'I-enroll', toast: 'Na-enroll ang device' },
+      biometric: { title: 'I-off ang pagbukas gamit ang biometrics', currentPassword: 'Kasalukuyang password', confirmPassword: 'Kumpirmahin para i-off', submit: 'I-off ang pagbukas gamit ang biometrics', submitting: 'Ino-off…', toast: 'Naka-off ang biometrics' },
+    },
+    notificationDetails: {
+      headerTitle: 'Update mula sa opisina', headerSubtitle: 'Payo mula sa tanggapan ng CaneGuard',
+      advisoryLabel: 'Payo', officeMessageLabel: 'Mensahe ng opisina',
+      openRelated: 'Buksan ang kaugnay na aktibidad', openRelatedAccessibility: 'Buksan ang kaugnay na aktibidad',
+      loading: 'Kinukuha ang update mula sa opisina', unavailableTitle: 'Hindi makita ang update mula sa opisina',
+      unavailableMessage: 'Hindi na available sa device na ito ang update mula sa opisina.',
+      retry: 'Subukan muli', referenceFallback: 'Update mula sa opisina', recently: 'Kamakailan',
+    },
+    authErrors: {
+      generic: 'Hindi nakumpleto ang pagpapatotoo. Subukan muli.', 
+      invalidCredentials: 'Hindi tama ang email o password.',
+      emailNotVerified: 'Beripikahin ang iyong email bago mag-sign in sa CaneGuard.',
+      forbiddenRole: 'Hindi maaaring mag-sign in sa CaneGuard Mobile ang ganitong uri ng account.',
+      invalidResetLink: 'Hindi wasto, paso na, o nagamit na ang recovery link. Humiling ng bagong link.',
+      invalidVerificationLink: 'Hindi wasto o paso na ang link ng beripikasyon sa email. Humiling ng bagong link.',
+      invalidResponse: 'Hindi nakumpleto ng CaneGuard ang pagpapatotoo.',
+      rateLimited: 'Masyadong maraming kahilingan. Maghintay sandali at subukan muli.',
+      registrationDisabled: 'Hindi bukas ang pagpaparehistro sa publiko. Makipag-ugnayan sa tagapangasiwa ng CaneGuard para humiling ng awtorisadong account.',
+      serverUnavailable: 'Hindi makakonekta ang CaneGuard sa server. Suriin ang koneksyon at subukan muli.',
+      sessionExpired: 'Hindi na wasto ang iyong session sa CaneGuard.',
+      stepUpRequired: 'Ilagay ang kasalukuyang password para magpatuloy.',
+      validationError: 'Suriin ang mga naka-highlight na field at subukan muli.',
+      signInAgain: 'Mag-sign in muli bago ipagpatuloy ang pagkilos na ito sa account.',
+      signInForBiometric: 'Mag-sign in gamit ang password bago i-on ang pagbukas gamit ang biometrics.',
+      biometricUnavailable: 'Hindi magagamit ang biometric. Mag-sign in gamit ang password.',
+      biometricNotEnrolled: 'Mag-set up muna ng malakas na biometric bago ito gamitin.',
+      biometricCancelled: 'Kinansela ang pagbukas gamit ang biometrics. Mag-sign in gamit ang password.',
+      biometricVerificationFailed: 'Hindi ka makilala ng CaneGuard gamit ang biometrics. Mag-sign in gamit ang password.',
+      biometricEnableFailed: 'Hindi na-on ang biometric. Nananatiling aktibo ang session gamit ang password.',
+      biometricRevokeWarning: 'Na-off ang biometric sa device na ito, pero hindi nabawi ang token sa server.',
+      secureStorageUnavailable: 'Hindi magagamit ang ligtas na imbakan ng session. Kinansela ang pag-enroll ng device.',
+    },
+    imagePreview: {
+      title: 'Preview ng larawan', noImageTitle: 'Walang napiling larawan',
+      noImageMessage: 'Pumili ng larawan mula sa gallery o kumuha ng litrato bago buksan ang preview.',
+      chooseImage: 'Pumili ng larawan', camera: 'Camera', gallery: 'Gallery',
+      dimensionsUnavailable: 'Hindi makuha ang sukat', pixels: 'pixel',
+      imageAccessibility: (source) => `Napiling larawan ng tubo mula sa ${source.toLowerCase()}`,
+      loadingImage: 'Kinukuha ang napiling larawan', loading: 'Kinukuha ang larawan…',
+      imageUnavailable: 'Hindi makita ang preview ng larawan',
+      imageLoadFailed: 'Hindi maipakita ang napiling larawan. Palitan ito at subukan muli.',
+      source: 'Pinagmulan', size: 'Sukat',
+      checkingNotice: 'Susuriin sa device na ito ang larawan bago ito suriin.',
+      replaceSection: 'Kumuha muli / Palitan ang larawan', replaceSummary: 'Camera o gallery',
+      replacementHelp: 'Mananatili ang kasalukuyang larawan hanggang pumili ka ng ipapalit. Buburahin ng pamalit ang dating resulta at mga sagot tungkol sa sintomas.',
+      replaceShow: 'Ipakita ang mga opsyon sa pagpapalit ng larawan', replaceHide: 'Itago ang mga opsyon sa pagpapalit ng larawan', expandedSummary: 'Itago ang mga opsyon sa pagpapalit',
+      replaceCameraAccessibility: 'Kumuha ng ibang litrato gamit ang camera', replaceCamera: 'Kumuha ng ibang litrato',
+      replaceGalleryAccessibility: 'Pumili ng ibang larawan mula sa gallery', replaceGallery: 'Pumili ng ibang larawan',
+      replacementSelected: 'Napili ang bagong larawan. Inalis ang dating resulta, mga sagot tungkol sa sintomas, at draft ng scan.',
+      imageReplaced: 'Napaltan ang larawan',
+      permissionCanAsk: 'Kailangan ng pahintulot sa camera para kumuha ng larawan ng tubo. Subukang muli.',
+      permissionBlocked: 'Naka-off ang pahintulot sa camera. Buksan ang settings ng device para payagan ang CaneGuard.',
+      pickerFailedCamera: 'Hindi mabuksan ang camera. Subukan muli.',
+      pickerFailedGallery: 'Hindi mabuksan ang gallery. Subukan muli.',
+      invalidImage: 'Walang magagamit na lokal na larawan sa pinili mo. Pumili ng ibang litrato.',
+      unsupportedImage: 'Hindi suportado ang format ng larawan. Pumili ng JPEG, PNG o WebP na larawan.',
+      preparingResult: 'Inihahanda ang resulta ng pagsusuri', checkingImage: 'Sinusuri ang larawan',
+      preparingImage: 'Inihahanda ang larawan', modelLoading: 'Inihahanda bago suriin…',
+      modelError: 'Hindi ma-load ang modelong nasa device. I-restart ang app at subukan muli.',
+      analysisComplete: 'Tapos na ang pagsusuri. Buksan ang resulta para repasuhin at i-save ang scan.',
+      imageReady: 'Handa na ang larawan. Subukang muli ang pagsusuri para magpatuloy.',
+      analysisWaiting: 'Mananatili rito ang pagsusuri hanggang matapos ito.',
+      analysisFailed: 'Hindi natapos ang pagsusuri sa device. Subukan muli.',
+      statusIdle: 'Walang napiling larawan', statusImageSelected: 'Napili ang larawan',
+      statusPreprocessing: 'Inihahanda ang larawan', statusAnalyzing: 'Sinusuri ang larawan',
+      statusPreparingResult: 'Inihahanda ang resulta', statusCompleted: 'Tapos na ang pagsusuri', statusError: 'May error sa pagsusuri',
+      imagePreparationFailed: 'Hindi naihanda ang napiling larawan. Palitan ito at subukan muli.',
+      cancelAccessibility: 'Kanselahin ang scan at bumalik sa home',
+      cancel: 'Kanselahin ang scan', startNew: 'Bagong scan',
+      viewResultAccessibility: 'Tingnan ang resulta ng pagsusuri', viewResult: 'Tingnan ang resulta',
+      analyzeAccessibility: 'Suriin ang napiling larawan', analyzing: 'Sinusuri…',
+      prepareImage: 'Inihahanda ang larawan…', analyze: 'Suriin',
+      retrySetupAccessibility: 'Subukang muli ang paghahanda ng pagsusuri', retrySetup: 'Subukang muli ang paghahanda',
+      cancelTitle: 'Kanselahin ang scan?',
+      cancelMessage: 'Itago ang kasalukuyang draft ng scan o itapon ito bago bumalik sa home?',
+      keepDraft: 'Itago ang draft', discardDraft: 'Itapon ang draft',
+    },
+    scanScreen: {
+      title: 'Mag-scan ng tubo', intro: 'Magdagdag ng malinaw na litrato ng apektadong dahon, tangkay o gitnang usbong.',
+      errorTitle: 'Hindi naidagdag ang larawan', recoveryUnverified: 'May naantalang pagpili ng larawan pero hindi matiyak ang pinagmulan nito. Piliin muli ang larawan.',
+      recoveryFailed: 'Hindi maibalik ang naantalang pagpili ng larawan. Subukan muli.',
+      deviceSettingsFailed: 'Hindi mabuksan ang settings ng device. Buksan ang Settings at payagan ang paggamit ng camera.',
+      permissionCanAsk: 'Kailangan ang pahintulot sa camera para kunan ng tubo. Subukang muli.',
+      permissionBlocked: 'Naka-off ang pahintulot sa camera. Buksan ang settings ng device para payagan ang CaneGuard.',
+      cameraFailed: 'Hindi mabuksan ang camera. Subukan muli.', galleryFailed: 'Hindi mabuksan ang gallery. Subukan muli.',
+      invalidImage: 'Walang magagamit na lokal na larawan sa pinili mo. Pumili ng ibang litrato.',
+      unsupportedImage: 'Hindi suportado ang format ng larawan. Pumili ng JPEG, PNG o WebP na larawan.',
+      savingDraft: 'Sine-save sa device…',
+      savedDraftTimed: (time) => `Na-save sa device · ${time}. Puwede mong isara ang CaneGuard at ituloy ang scan na ito.`,
+      savedDraft: 'Na-save sa device. Puwede mong isara ang CaneGuard at ituloy ang scan na ito.',
+      failedDraft: 'Hindi na-save sa device. Nananatiling bukas ang larawan — palitan ito o panatilihing bukas ang screen.',
+      idleDraft: 'Hindi pa na-save sa device.', cameraBusy: 'Binubuksan ang camera…', takePhoto: 'Kumuha ng litrato',
+      galleryBusy: 'Binubuksan ang gallery…', chooseFromDevice: 'Pumili mula sa device',
+      cancelTitle: 'Kanselahin ang scan?', cancelMessage: 'Itago ang kasalukuyang scan o itapon ito bago bumalik sa home?',
+      keepDraft: 'Itago ang draft', discardDraft: 'Itapon ang draft', selectedImage: 'Kasalukuyang piniling larawan ng tubo',
+      imageSelected: 'Napili ang larawan', selectedImageHelp: 'Tingnan ang napiling larawan o magsimula ng bagong scan.',
+      checkingImage: 'Sinusuri kung may napiling larawan', checkingRecovery: 'Sinusuri ng CaneGuard kung naputol ang huling pagpili ng larawan sa Android.',
+      noImage: 'Wala pang naidagdag na larawan', photoTip: 'Gumamit ng maliwanag at malinaw na larawan para sa mas kapaki-pakinabang na resulta.',
+      cameraSettings: 'Buksan ang Settings', tryCamera: 'Subukan muli ang camera', takeAnother: 'Kumuha ng ibang litrato',
+      replaceImage: 'Kumuha ng ibang litrato para palitan ang napili', chooseAnother: 'Pumili ng ibang larawan',
+      clearAndStart: 'Burahin ang kasalukuyang scan at magsimula muli', startNew: 'Bagong scan',
+      photoGuide: 'Gabay sa kalidad ng larawan', guideFocus: 'Panatilihing malinaw at nakatutok ang sintomas',
+      guideLighting: 'Iwasan ang madilim, malabo o malayong larawan', guideSubject: 'Kunan ang apektadong dahon, tangkay o usbong',
+      returnPreview: 'Bumalik sa preview ng napiling larawan', resumeSaved: 'Ituloy ang na-save na scan', viewSelected: 'Tingnan ang napiling larawan',
+      captureAccessibility: 'Kumuha ng larawan gamit ang camera', galleryAccessibility: 'Pumili ng isang larawan mula sa gallery',
+      draftNotSaved: 'Hindi na-save ang draft sa device — subukan muli', draftKept: 'Itinago ang draft', draftDiscarded: 'Itinapon ang draft',
     },
     resultUncertain: {
       title: 'Hindi tiyak ang resulta',
@@ -668,6 +1435,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       stateSaved: 'Na-save',
       countOne: '1 scan',
       countMany: '{count} scan',
+      openScan: 'Buksan ang scan',
       emptyTitle: 'Wala pang scan',
       emptyMessage: 'Mag-scan ng dahon at mase-save ito dito.',
       noMatchTitle: 'Walang tugmang scan',

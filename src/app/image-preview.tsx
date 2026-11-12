@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
 import { useScanSession } from '@/features/detection/context/useScanSession';
 import {
@@ -32,11 +33,17 @@ import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel'
 import { returnToTab } from '@/features/navigation/returnToTab';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
+import { useFarmerCopy } from '@/providers/LanguagePreferenceProvider';
 
 const RESULT_PREPARATION_FEEDBACK_MS = 120;
 
 export default function ImagePreviewScreen() {
   const theme = useTheme();
+  const { user } = useAuth();
+  const isFarmer = user?.role === 'farmer';
+  const farmerCopy = useFarmerCopy();
+  const copy = farmerCopy.imagePreview;
+  const scanCopy = farmerCopy.scanScreen;
   const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
   const draft = useScanDraft();
@@ -60,6 +67,17 @@ export default function ImagePreviewScreen() {
   const analysisComplete = state.status === 'completed';
   const preprocessingComplete = Boolean(state.processedUri);
   const isAnalysisActive = isPreprocessing || isRunning || isFinalizing;
+  const accessibleStatus = isFarmer
+    ? {
+        idle: copy.statusIdle,
+        'image-selected': copy.statusImageSelected,
+        preprocessing: copy.statusPreprocessing,
+        running: copy.statusAnalyzing,
+        finalizing: copy.statusPreparingResult,
+        completed: copy.statusCompleted,
+        error: copy.statusError,
+      }[state.status]
+    : state.status;
   const hasMountedPreview = useRef(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
@@ -100,10 +118,10 @@ export default function ImagePreviewScreen() {
     setShowCancelConfirm(false);
     const saved = await draft.flushSavedDraft();
     if (!saved) {
-      showToast('Draft not saved on this device — try again', 'error');
+      showToast(isFarmer ? scanCopy.draftNotSaved : 'Draft not saved on this device — try again', 'error');
       return;
     }
-    showToast('Draft kept', 'info');
+    showToast(isFarmer ? scanCopy.draftKept : 'Draft kept', 'info');
     returnToTab('/home');
   };
 
@@ -112,13 +130,13 @@ export default function ImagePreviewScreen() {
     if (draft.ownerIdentity) {
       const discarded = await draft.discardSavedDraft();
       if (!discarded) {
-        showToast('Could not discard the saved scan — try again', 'error');
+        showToast(isFarmer ? farmerCopy.result.discardFailed : 'Could not discard the saved scan — try again', 'error');
         return;
       }
     } else {
       dispatch({ type: 'RESET_SCAN' });
     }
-    showToast('Draft discarded', 'info');
+    showToast(isFarmer ? scanCopy.draftDiscarded : 'Draft discarded', 'info');
     returnToTab('/home');
   };
 
@@ -147,13 +165,27 @@ export default function ImagePreviewScreen() {
         setImageLoadFailed(false);
         setIsImageLoading(true);
         setReplacementNotice(
-          'New image selected. The previous analysis result and symptom answers were cleared; the previous scan draft was replaced.',
+          isFarmer
+            ? copy.replacementSelected
+            : 'New image selected. The previous analysis result and symptom answers were cleared; the previous scan draft was replaced.',
         );
-        showToast('Image replaced', 'success');
+        showToast(isFarmer ? copy.imageReplaced : 'Image replaced', 'success');
       } else if (outcome.kind === 'permission-denied') {
-        setReplacementNotice(getPermissionDeniedMessage(outcome.canAskAgain));
+        setReplacementNotice(
+          isFarmer
+            ? outcome.canAskAgain ? copy.permissionCanAsk : copy.permissionBlocked
+            : getPermissionDeniedMessage(outcome.canAskAgain),
+        );
       } else if (outcome.kind === 'error') {
-        setReplacementNotice(outcome.message);
+        setReplacementNotice(
+          isFarmer
+            ? outcome.code === 'PICKER_FAILED'
+              ? sourceType === 'camera' ? copy.pickerFailedCamera : copy.pickerFailedGallery
+              : outcome.code === 'INVALID_IMAGE_URI'
+                ? copy.invalidImage
+                : copy.unsupportedImage
+            : outcome.message,
+        );
       }
       // A cancelled replacement keeps the current image and everything derived
       // from it untouched.
@@ -236,9 +268,11 @@ export default function ImagePreviewScreen() {
 
       dispatch({
         type: 'SET_ERROR',
-        payload: inferenceStarted
-          ? getInferenceErrorMessage(error)
-          : getPreprocessingErrorMessage(error),
+        payload: isFarmer
+          ? inferenceStarted ? copy.analysisFailed : copy.imagePreparationFailed
+          : inferenceStarted
+            ? getInferenceErrorMessage(error)
+            : getPreprocessingErrorMessage(error),
       });
     } finally {
       analysisInFlight.current = false;
@@ -251,13 +285,14 @@ export default function ImagePreviewScreen() {
         <View style={styles.root}>
           <View
             testID="scan.session-status"
-            accessibilityValue={{ text: state.status }}
+            accessibilityValue={{ text: accessibleStatus }}
           />
           <BrandedScreenHeader
-            title="Image preview"
+            title={isFarmer ? copy.title : 'Image preview'}
             showClose
             onClosePress={handleCancel}
             closeTestID="image-preview.header-close"
+            closeAccessibilityLabel={isFarmer ? farmerCopy.record.backLabel : undefined}
           />
           <View style={styles.recoveryContent}>
             <AppCard style={styles.recoveryCard}>
@@ -265,18 +300,22 @@ export default function ImagePreviewScreen() {
                 <Feather name="image" size={36} color={theme.warning} />
               </View>
               <Text accessibilityRole="header" style={[styles.recoveryTitle, { color: theme.text }]}>
-                No image selected
+                {isFarmer ? copy.noImageTitle : 'No image selected'}
               </Text>
               <Text style={[styles.recoveryText, { color: theme.textSecondary }]}>
-                {getSessionStateErrorMessage(
-                  new SessionStateError(
-                    'SOURCE_IMAGE_MISSING',
-                    'Image preview requires a selected source image.',
-                  ),
-                )}
+                {isFarmer
+                  ? copy.noImageMessage
+                  : getSessionStateErrorMessage(
+                      new SessionStateError(
+                        'SOURCE_IMAGE_MISSING',
+                        'Image preview requires a selected source image.',
+                      ),
+                    )}
               </Text>
-              <AppButton onPress={startNewScan} accessibilityLabel="Return to scan image choices">
-                Choose an Image
+              <AppButton
+                onPress={startNewScan}
+                accessibilityLabel={isFarmer ? copy.chooseImage : 'Return to scan image choices'}>
+                {isFarmer ? copy.chooseImage : 'Choose an Image'}
               </AppButton>
             </AppCard>
           </View>
@@ -287,9 +326,11 @@ export default function ImagePreviewScreen() {
 
   const dimensions =
     state.sourceWidth && state.sourceHeight
-      ? `${state.sourceWidth} × ${state.sourceHeight} pixels`
-      : 'Dimensions unavailable';
-  const sourceLabel = state.sourceType === 'camera' ? 'Camera' : 'Gallery';
+      ? `${state.sourceWidth} × ${state.sourceHeight} ${isFarmer ? copy.pixels : 'pixels'}`
+      : isFarmer ? copy.dimensionsUnavailable : 'Dimensions unavailable';
+  const sourceLabel = state.sourceType === 'camera'
+    ? isFarmer ? copy.camera : 'Camera'
+    : isFarmer ? copy.gallery : 'Gallery';
 
   return (
     <SafeAreaView
@@ -299,13 +340,14 @@ export default function ImagePreviewScreen() {
       <View style={styles.root}>
         <View
           testID="scan.session-status"
-          accessibilityValue={{ text: state.status }}
+          accessibilityValue={{ text: accessibleStatus }}
         />
         <BrandedScreenHeader
-          title="Image preview"
+          title={isFarmer ? copy.title : 'Image preview'}
           showClose
           onClosePress={handleCancel}
           closeTestID="image-preview.header-close"
+          closeAccessibilityLabel={isFarmer ? farmerCopy.record.backLabel : undefined}
         />
 
         <ScrollView
@@ -324,7 +366,9 @@ export default function ImagePreviewScreen() {
                   cachePolicy="memory-disk"
                   contentFit="contain"
                   transition={150}
-                  accessibilityLabel={`Selected sugarcane image from ${sourceLabel.toLowerCase()}`}
+                  accessibilityLabel={isFarmer
+                    ? copy.imageAccessibility(sourceLabel)
+                    : `Selected sugarcane image from ${sourceLabel.toLowerCase()}`}
                   onLoadStart={() => {
                     setIsImageLoading(true);
                     setImageLoadFailed(false);
@@ -335,7 +379,9 @@ export default function ImagePreviewScreen() {
                     setImageLoadFailed(true);
                     dispatch({
                       type: 'SET_ERROR',
-                      payload: 'The selected image could not be displayed. Please replace it.',
+                      payload: isFarmer
+                        ? copy.imageLoadFailed
+                        : 'The selected image could not be displayed. Please replace it.'
                     });
                   }}
                   style={styles.previewImage}
@@ -346,11 +392,11 @@ export default function ImagePreviewScreen() {
                     accessibilityLiveRegion="polite"
                     style={[styles.imageOverlay, { backgroundColor: theme.surfaceMuted }]}>
                     <ActivityIndicator
-                      accessibilityLabel="Loading selected image"
+                      accessibilityLabel={isFarmer ? copy.loadingImage : 'Loading selected image'}
                       color={theme.primary}
                     />
                     <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
-                      Loading image…
+                      {isFarmer ? copy.loading : 'Loading image…'}
                     </Text>
                   </View>
                 ) : null}
@@ -361,30 +407,35 @@ export default function ImagePreviewScreen() {
                     style={[styles.imageOverlay, { backgroundColor: theme.dangerBg }]}>
                     <Feather name="alert-triangle" size={32} color={theme.danger} />
                     <Text style={[styles.loadingText, { color: theme.danger }]}>
-                      Image preview unavailable
+                      {isFarmer ? copy.imageUnavailable : 'Image preview unavailable'}
                     </Text>
                   </View>
                 ) : null}
               </View>
 
               <View style={styles.metadata}>
-                <MetadataRow label="Source" value={sourceLabel} />
-                <MetadataRow label="Size" value={dimensions} />
+                <MetadataRow label={isFarmer ? copy.source : 'Source'} value={sourceLabel} />
+                <MetadataRow label={isFarmer ? copy.size : 'Size'} value={dimensions} />
               </View>
 
               <Text style={[styles.statusText, { color: theme.textSecondary }]}>
-                Your image will be checked on this device before analysis.
+                {isFarmer ? copy.checkingNotice : 'Your image will be checked on this device before analysis.'}
               </Text>
             </AppCard>
 
             <View style={styles.actions}>
               <DisclosureSection
                 testID="image-preview.replace"
-                title="Retake / Replace image"
-                summary="Camera or gallery">
+                title={isFarmer ? copy.replaceSection : 'Retake / Replace image'}
+                accessibilityLabel={isFarmer
+                  ? (expanded) => expanded ? copy.replaceHide : copy.replaceShow
+                  : undefined}
+                summary={isFarmer ? copy.replaceSummary : 'Camera or gallery'}
+                expandedSummary={isFarmer ? copy.expandedSummary : undefined}>
                 <Text style={[styles.pipelineNotice, { color: theme.textSecondary }]}>
-                  The current image stays in place until you choose a replacement. A
-                  replacement clears the previous result and symptom answers.
+                  {isFarmer
+                    ? copy.replacementHelp
+                    : 'The current image stays in place until you choose a replacement. A replacement clears the previous result and symptom answers.'}
                 </Text>
                 <AppButton
                   testID="image-preview.replace-camera"
@@ -392,8 +443,8 @@ export default function ImagePreviewScreen() {
                   disabled={replacing || isAnalysisActive}
                   onPress={() => void replaceImage('camera')}
                   leadingIcon="camera"
-                  accessibilityLabel="Take another photo with the camera">
-                  Take another photo
+                  accessibilityLabel={isFarmer ? copy.replaceCameraAccessibility : 'Take another photo with the camera'}>
+                  {isFarmer ? copy.replaceCamera : 'Take another photo'}
                 </AppButton>
                 <AppButton
                   testID="image-preview.replace-gallery"
@@ -401,8 +452,8 @@ export default function ImagePreviewScreen() {
                   disabled={replacing || isAnalysisActive}
                   onPress={() => void replaceImage('gallery')}
                   leadingIcon="image"
-                  accessibilityLabel="Choose another image from the gallery">
-                  Choose another image
+                  accessibilityLabel={isFarmer ? copy.replaceGalleryAccessibility : 'Choose another image from the gallery'}>
+                  {isFarmer ? copy.replaceGallery : 'Choose another image'}
                 </AppButton>
               </DisclosureSection>
               {replacementNotice ? (
@@ -418,39 +469,39 @@ export default function ImagePreviewScreen() {
                   <ActivityIndicator
                     accessibilityLabel={
                       isFinalizing
-                        ? 'Preparing analysis result'
+                        ? isFarmer ? copy.preparingResult : 'Preparing analysis result'
                         : isRunning
-                          ? 'Checking image'
-                          : 'Preparing image'
+                          ? isFarmer ? copy.checkingImage : 'Checking image'
+                          : isFarmer ? copy.preparingImage : 'Preparing image'
                     }
                     color={theme.primary}
                   />
                   <Text style={[styles.pipelineNotice, { color: theme.textSecondary }]}>
                     {isFinalizing
-                      ? 'Preparing result…'
+                      ? isFarmer ? copy.preparingResult : 'Preparing result…'
                       : isRunning
-                        ? 'Checking image…'
-                        : 'Preparing image…'}
+                        ? isFarmer ? copy.checkingImage : 'Checking image…'
+                        : isFarmer ? copy.preparingImage : 'Preparing image…'}
                   </Text>
                 </View>
               ) : (
                 <Text style={[styles.pipelineNotice, { color: theme.textSecondary }]}>
                   {modelState.state === 'loading'
-                    ? 'Getting ready before analysis…'
+                    ? isFarmer ? copy.modelLoading : 'Getting ready before analysis…'
                     : modelState.state === 'error'
-                      ? getInferenceErrorMessage(modelState.error)
+                      ? isFarmer ? copy.modelError : getInferenceErrorMessage(modelState.error)
                       : analysisComplete
-                        ? 'Analysis complete. Open the result to review it and save this scan.'
+                        ? isFarmer ? copy.analysisComplete : 'Analysis complete. Open the result to review it and save this scan.'
                         : preprocessingComplete
-                          ? 'The image is ready. Retry analysis to continue.'
-                          : 'Analysis stays on this screen until the check succeeds.'}
+                          ? isFarmer ? copy.imageReady : 'The image is ready. Retry analysis to continue.'
+                          : isFarmer ? copy.analysisWaiting : 'Analysis stays on this screen until the check succeeds.'}
                 </Text>
               )}
               {state.errorMessage && !imageLoadFailed ? (
                 <Text
                   accessibilityLiveRegion="assertive"
                   style={[styles.errorText, { color: theme.danger }]}>
-                  {state.errorMessage}
+                  {isFarmer ? copy.analysisFailed : state.errorMessage}
                 </Text>
               ) : null}
               <AppButton
@@ -458,14 +509,14 @@ export default function ImagePreviewScreen() {
                 variant="text"
                 onPress={handleCancel}
                 leadingIcon="x"
-                accessibilityLabel="Cancel scan and return home">
-                Cancel Scan
+                accessibilityLabel={isFarmer ? copy.cancelAccessibility : 'Cancel scan and return home'}>
+                {isFarmer ? copy.cancel : 'Cancel Scan'}
               </AppButton>
               <AppButton
                 variant="text"
                 onPress={startNewScan}
-                accessibilityLabel="Clear this image and start a new scan">
-                Start New Scan
+                accessibilityLabel={isFarmer ? scanCopy.clearAndStart : 'Clear this image and start a new scan'}>
+                {isFarmer ? copy.startNew : 'Start New Scan'}
               </AppButton>
             </View>
           </View>
@@ -477,8 +528,8 @@ export default function ImagePreviewScreen() {
                   testID="image-preview.view-result"
                   onPress={() => router.push('/analysis-result')}
                   leadingIcon="arrow-right"
-                  accessibilityLabel="View the analysis result">
-                  View Analysis Result
+                  accessibilityLabel={isFarmer ? copy.viewResultAccessibility : 'View the analysis result'}>
+                  {isFarmer ? copy.viewResult : 'View Analysis Result'}
                 </AppButton>
               ) : (
                 <AppButton
@@ -498,24 +549,24 @@ export default function ImagePreviewScreen() {
                   leadingIcon="search"
                   accessibilityLabel={
                     isFinalizing
-                      ? 'Preparing analysis result'
+                      ? isFarmer ? copy.preparingResult : 'Preparing analysis result'
                       : isRunning
-                        ? 'Analyzing image'
+                        ? isFarmer ? copy.analyzing : 'Analyzing image'
                         : isPreprocessing
-                          ? 'Image preparation in progress'
+                          ? isFarmer ? copy.prepareImage : 'Image preparation in progress'
                           : modelState.state === 'loading'
-                            ? 'Getting ready'
+                            ? isFarmer ? copy.modelLoading : 'Getting ready'
                             : modelState.state === 'error'
-                              ? 'Check unavailable'
-                              : 'Analyze selected image'
+                              ? isFarmer ? copy.modelError : 'Check unavailable'
+                              : isFarmer ? copy.analyzeAccessibility : 'Analyze selected image'
                   }>
                   {isFinalizing
-                    ? 'Preparing Result…'
+                    ? isFarmer ? copy.preparingResult : 'Preparing Result…'
                     : isRunning
-                      ? 'Analyzing…'
+                      ? isFarmer ? copy.analyzing : 'Analyzing…'
                       : isPreprocessing
-                        ? 'Preparing Image…'
-                        : 'Analyze'}
+                        ? isFarmer ? copy.prepareImage : 'Preparing Image…'
+                        : isFarmer ? copy.analyze : 'Analyze'}
                 </AppButton>
               )
           }
@@ -528,18 +579,18 @@ export default function ImagePreviewScreen() {
                   onPress={modelState.retry}
                   disabled={replacing || isAnalysisActive}
                   leadingIcon="refresh-cw"
-                  accessibilityLabel="Retry analysis setup">
-                  Retry analysis setup
+                  accessibilityLabel={isFarmer ? copy.retrySetupAccessibility : 'Retry analysis setup'}>
+                  {isFarmer ? copy.retrySetup : 'Retry analysis setup'}
                 </AppButton>
               ) : null
           }
         />
         <ConfirmDialog
           visible={showCancelConfirm}
-          title="Cancel scan?"
-          message="Do you want to keep your in-progress scan draft or discard it before returning home?"
-          cancelLabel="Keep draft"
-          confirmLabel="Discard draft"
+          title={isFarmer ? copy.cancelTitle : 'Cancel scan?'}
+          message={isFarmer ? copy.cancelMessage : 'Do you want to keep your in-progress scan draft or discard it before returning home?'}
+          cancelLabel={isFarmer ? copy.keepDraft : 'Keep draft'}
+          confirmLabel={isFarmer ? copy.discardDraft : 'Discard draft'}
           destructive
           overlay
           onRequestClose={() => setShowCancelConfirm(false)}

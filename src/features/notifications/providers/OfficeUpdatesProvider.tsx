@@ -8,7 +8,7 @@ import {
 } from 'react';
 
 import { useToast } from '@/components/ui/Toast';
-import { OFFICE_UPDATES_MARKED_READ } from '@/constants/copy';
+import { useFarmerCopy } from '@/providers/LanguagePreferenceProvider';
 import { OfficeUpdatesPanel } from '@/features/notifications/components/OfficeUpdatesPanel';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
 import { useNotificationDestinations } from '@/features/notifications/hooks/useNotificationDestinations';
@@ -53,6 +53,7 @@ export function OfficeUpdatesProvider({ children }: { children: ReactNode }) {
   // instead of running on cold start beside the Home attention card.
   const destinations = useNotificationDestinations(notifications.notifications, isOpen);
   const { showToast } = useToast();
+  const officeUpdateCopy = useFarmerCopy().officeUpdates;
   const { markAllRead, markRead, unreadCount } = notifications;
 
   const open = useCallback(() => setIsOpen(true), []);
@@ -60,8 +61,8 @@ export function OfficeUpdatesProvider({ children }: { children: ReactNode }) {
 
   const markAllReadWithConfirmation = useCallback(() => {
     void markAllRead();
-    showToast(OFFICE_UPDATES_MARKED_READ, 'info');
-  }, [markAllRead, showToast]);
+    showToast(officeUpdateCopy.markedRead, 'info');
+  }, [markAllRead, officeUpdateCopy.markedRead, showToast]);
 
   const openNotification = useOpenMobileNotification({
     destinations,

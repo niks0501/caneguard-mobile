@@ -15,7 +15,9 @@ import {
   markAllCachedMobileNotificationsRead,
   markCachedMobileNotificationRead,
 } from '@/features/notifications/data/notificationCacheRepository';
+import { enqueueNotificationSeen } from '@/features/notifications/data/notificationSeenRepository';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
+import { sendQueuedNotificationSeen } from '@/features/notifications/services/sendNotificationSeen';
 import {
   registerDownloadStep,
   requestDownloadRun,
@@ -199,9 +201,36 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
     }
   }, [authStatus, database, enabled, isCurrentSession, markSessionExpired, ownerStore, session, sessionKey]);
 
+  /**
+   * Send the queued Seen receipts. Best effort: whatever cannot go stays queued
+   * with its wait reason and is tried again on the next run.
+   */
+  const flushSeen = useCallback(async () => {
+    const requestedSession = session;
+    if (!enabled || authStatus !== 'authenticated' || !requestedSession || database === EMPTY_DATABASE) {
+      return;
+    }
+    try {
+      const result = await sendQueuedNotificationSeen({
+        database,
+        ownerIdentity: requestedSession.user.uuid,
+        token: requestedSession.token,
+        isCurrent: () => isCurrentSession(requestedSession),
+      });
+      if (result.authRequired && isCurrentSession(requestedSession)) await markSessionExpired();
+    } catch {
+      // The receipts are still queued; the next run tries again.
+    }
+  }, [authStatus, database, enabled, isCurrentSession, markSessionExpired, session]);
+
   useEffect(
-    () => registerDownloadStep('updates', () => refresh({ force: false })),
-    [refresh],
+    () =>
+      registerDownloadStep('updates', async () => {
+        // Receipts go first so the refreshed feed already reflects them.
+        await flushSeen();
+        return refresh({ force: false });
+      }),
+    [flushSeen, refresh],
   );
 
   useEffect(() => {
@@ -230,11 +259,77 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
     };
   }, []);
 
+  /**
+   * Opening advice is a Seen of its own. The receipt is saved on the phone
+   * first, so it survives going offline; the update shows as read at once and
+   * the receipt is sent now or when the phone is back online.
+   */
+  const recordSeen = useCallback(
+    async (notificationIds: string[]) => {
+      const requestedSession = session;
+      const requestedStoreGeneration = ownerStore?.generation;
+      if (!requestedSession || notificationIds.length === 0) return;
+      const seenAt = new Date().toISOString();
+      try {
+        await enqueueNotificationSeen(
+          database,
+          requestedSession.user.uuid,
+          notificationIds,
+          seenAt,
+        );
+      } catch {
+        if (!isCurrentSession(requestedSession)) return;
+        setState((current) => ({
+          ...current,
+          readActionError: "Couldn't save that you saw this update. Open it again to retry.",
+        }));
+        return;
+      }
+      if (
+        isCurrentSession(requestedSession) &&
+        ownerStore?.generation === requestedStoreGeneration
+      ) {
+        const ids = new Set(notificationIds);
+        try {
+          for (const id of ids) {
+            await markCachedMobileNotificationRead(
+              database,
+              requestedSession.user.uuid,
+              id,
+              seenAt,
+            );
+          }
+        } catch {
+          // The cache catches up with the next refresh; the receipt is already saved.
+        }
+        const notifications = (ownerStore?.notifications?.value ?? []).map((notification) =>
+          ids.has(notification.id) && !notification.isRead
+            ? { ...notification, isRead: true, readAt: seenAt }
+            : notification,
+        );
+        if (ownerStore) {
+          setOwnerNotifications(ownerStore, notifications, ownerStore.notifications?.fetchedAt ?? Date.now());
+        }
+        setState((current) => ({ ...current, readActionError: null, notifications }));
+      }
+      await flushSeen();
+    },
+    [database, flushSeen, isCurrentSession, ownerStore, session],
+  );
+
   const markRead = useCallback(
     async (notificationId: string) => {
       const requestedSession = session;
       const requestedStoreGeneration = ownerStore?.generation;
       if (!enabled || authStatus !== 'authenticated' || !requestedSession) return;
+
+      const opened = ownerStore?.notifications?.value.find(
+        (notification) => notification.id === notificationId,
+      );
+      if (opened?.advisory) {
+        await recordSeen([notificationId]);
+        return;
+      }
 
       try {
         const result = await markMobileNotificationRead({
@@ -277,13 +372,36 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
         }));
       }
     },
-    [authStatus, database, enabled, isCurrentSession, markSessionExpired, ownerStore, session],
+    [authStatus, database, enabled, isCurrentSession, markSessionExpired, ownerStore, recordSeen, session],
   );
 
   const markAllRead = useCallback(async () => {
     const requestedSession = session;
     const requestedStoreGeneration = ownerStore?.generation;
     if (!enabled || authStatus !== 'authenticated' || !requestedSession) return;
+
+    // Mark-all counts as Seen for every unread advice update.
+    const unreadAdvice = (ownerStore?.notifications?.value ?? [])
+      .filter((notification) => notification.advisory && !notification.isRead)
+      .map((notification) => notification.id);
+    if (unreadAdvice.length > 0) {
+      try {
+        await enqueueNotificationSeen(
+          database,
+          requestedSession.user.uuid,
+          unreadAdvice,
+          new Date().toISOString(),
+        );
+      } catch {
+        if (!isCurrentSession(requestedSession)) return;
+        setState((current) => ({
+          ...current,
+          readActionError: "Couldn't mark every update as read. Unread items remain.",
+        }));
+        return;
+      }
+      await flushSeen();
+    }
 
     try {
       await markAllMobileNotificationsRead({ token: requestedSession.token });
@@ -318,7 +436,7 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
         readActionError: "Couldn't mark every update as read. Unread items remain.",
       }));
     }
-  }, [authStatus, database, enabled, isCurrentSession, markSessionExpired, ownerStore, session]);
+  }, [authStatus, database, enabled, flushSeen, isCurrentSession, markSessionExpired, ownerStore, session]);
 
   const visibleState = state.sessionKey === sessionKey
     ? {

@@ -432,6 +432,40 @@ export const mobileNotifications = sqliteTable(
   ],
 );
 
+/**
+ * Seen receipts for office advice: one row per opened advice update the office
+ * has not been told about yet. A row is deleted only once the office has it, so
+ * a Seen survives going offline, an app restart and a failed send.
+ */
+export const NOTIFICATION_SEEN_WAIT_REASONS = [
+  'no_connection',
+  'sign_in_needed',
+  'office_not_ready',
+] as const;
+export type NotificationSeenWaitReason = (typeof NOTIFICATION_SEEN_WAIT_REASONS)[number];
+
+export const notificationSeenOutbox = sqliteTable(
+  'notification_seen_outbox',
+  {
+    ownerIdentity: text('owner_identity').notNull(),
+    notificationId: text('notification_id').notNull(),
+    seenAt: text('seen_at').notNull(),
+    waitReason: text('wait_reason').$type<NotificationSeenWaitReason>(),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    lastAttemptAt: text('last_attempt_at'),
+  },
+  (table) => [
+    primaryKey({ columns: [table.ownerIdentity, table.notificationId] }),
+    check(
+      'notification_seen_outbox_wait_reason_check',
+      sql`${table.waitReason} is null or ${table.waitReason} in ('no_connection', 'sign_in_needed', 'office_not_ready')`,
+    ),
+    check('notification_seen_outbox_attempt_check', sql`${table.attemptCount} >= 0`),
+  ],
+);
+
+export type NotificationSeenRow = typeof notificationSeenOutbox.$inferSelect;
+
 export const scanClassScores = sqliteTable(
   'scan_class_scores',
   {

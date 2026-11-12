@@ -16,6 +16,8 @@ export interface PhoneCompletionSnapshot {
    * what work is still owed never reads a stale answer.
    */
   ready: boolean;
+  /** True after the latest saved-visits read failed, so Home never reports a false all clear. */
+  failed: boolean;
   states: ReadonlyMap<string, PhoneCompletionState>;
 }
 
@@ -24,6 +26,7 @@ interface OwnedPhoneCompletionSnapshot extends PhoneCompletionSnapshot {
 }
 
 const NO_SNAPSHOT: OwnedPhoneCompletionSnapshot = {
+  failed: false,
   ownerIdentity: null,
   ready: false,
   states: NO_STATES,
@@ -47,8 +50,9 @@ export function usePhoneCompletionSnapshot(): PhoneCompletionSnapshot {
       if (!ownerIdentity || !database || database === EMPTY_DATABASE) return;
       let active = true;
       let latestRead = 0;
-      const invalidate = () => {
+      const invalidate = (failed = false) => {
         setSnapshot((previous) => ({
+          failed,
           ownerIdentity,
           ready: false,
           states: previous.ownerIdentity === ownerIdentity ? previous.states : NO_STATES,
@@ -61,6 +65,7 @@ export function usePhoneCompletionSnapshot(): PhoneCompletionSnapshot {
           .then((rows) => {
             if (!active || read !== latestRead) return;
             setSnapshot({
+              failed: false,
               ownerIdentity,
               ready: true,
               states: new Map<string, PhoneCompletionState>(
@@ -73,7 +78,7 @@ export function usePhoneCompletionSnapshot(): PhoneCompletionSnapshot {
           })
           .catch(() => {
             if (!active || read !== latestRead) return;
-            invalidate();
+            invalidate(true);
           });
       };
       load();

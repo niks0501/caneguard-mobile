@@ -67,7 +67,7 @@ describe('useHomeAttention', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetLocalDateKey.mockReturnValue('2026-09-20');
-    mockUsePhoneCompletionSnapshot.mockReturnValue({ ready: true, states: new Map() });
+    mockUsePhoneCompletionSnapshot.mockReturnValue({ failed: false, ready: true, states: new Map() });
   });
 
   it('builds assignment and notification attention items and excludes uploads', async () => {
@@ -198,6 +198,7 @@ describe('useHomeAttention', () => {
     });
     mockUseDestinations.mockReturnValue(new Map());
     mockUsePhoneCompletionSnapshot.mockReturnValue({
+      failed: false,
       ready: true,
       states: new Map<string, PhoneCompletionState>([
         ['assign-done', 'sent'],
@@ -239,6 +240,7 @@ describe('useHomeAttention', () => {
     });
     mockUseDestinations.mockReturnValue(new Map());
     mockUsePhoneCompletionSnapshot.mockReturnValue({
+      failed: true,
       ready: false,
       states: new Map<string, PhoneCompletionState>([['assign-next', 'waiting']]),
     });
@@ -247,6 +249,7 @@ describe('useHomeAttention', () => {
 
     expect(result.current.items).toEqual([]);
     expect(result.current.total).toBe(0);
+    expect(result.current.visitsCheckFailed).toBe(true);
   });
 
   it('returns empty items when there are no assignments or notifications', async () => {

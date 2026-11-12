@@ -341,6 +341,19 @@ describe('usePhoneCompletionStates', () => {
 
     await waitFor(() => expect(mockSummaries).toHaveBeenCalledTimes(2));
     expect(result.current.ready).toBe(false);
+    expect(result.current.failed).toBe(true);
     expect(result.current.states.get('assignment-waiting')).toBe('waiting');
+  });
+
+  it('is not failed while a read is running or after one succeeds', async () => {
+    mockSummaries.mockResolvedValueOnce([]);
+
+    const { result } = await renderHook(() => usePhoneCompletionSnapshot(), {
+      wrapper,
+    });
+
+    expect(result.current.failed).toBe(false);
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.failed).toBe(false);
   });
 });

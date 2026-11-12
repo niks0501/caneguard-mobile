@@ -58,6 +58,7 @@ function visitCountsSentence(items: readonly NeedsAttentionItem[]): string | nul
 export function buildMorningNote(
   items: readonly NeedsAttentionItem[],
   syncNote: string | null,
+  visitsCheckFailed = false,
 ): MorningNote {
   const work = items.filter(isActionableAttentionItem);
   const primary = work[0];
@@ -85,7 +86,9 @@ export function buildMorningNote(
   } else if (action === 'visit') {
     headline = visitCounts ?? HOME_NOTE_COPY.nothingDueToday;
   }
-  const visitsLine = action === 'visit' ? null : visitCounts;
+  // A failed visit check is unknown, never empty: it must not read as "All clear.".
+  const visitsLine =
+    action === 'visit' ? null : visitCounts ?? (visitsCheckFailed ? HOME_NOTE_COPY.visitsCheckFailed : null);
 
   if (headline) {
     return {
@@ -95,6 +98,16 @@ export function buildMorningNote(
       headlineOpensActivity: false,
       syncLine: syncNote,
       visitsLine,
+    };
+  }
+  if (visitsCheckFailed && !visitCounts) {
+    return {
+      action,
+      actionLabel,
+      headline: HOME_NOTE_COPY.visitsCheckFailed,
+      headlineOpensActivity: false,
+      syncLine: syncNote,
+      visitsLine: HOME_NOTE_COPY.visitsCheckFailedDetail,
     };
   }
   return {

@@ -179,4 +179,32 @@ describe('buildMorningNote', () => {
     const many = Array.from({ length: 11 }, (_, index) => visit('today', String(index)));
     expect(buildMorningNote(many, null).headline).toBe('11 visits today.');
   });
+
+  it('says the visit check failed instead of a false "All clear."', () => {
+    expect(buildMorningNote([], null, true)).toMatchObject({
+      action: 'scan',
+      headline: "Couldn't check your visits.",
+      headlineOpensActivity: false,
+      syncLine: null,
+      visitsLine: 'Nothing is lost — they will appear when the check succeeds.',
+    });
+  });
+
+  it('keeps the send state under the failed visit check', () => {
+    expect(buildMorningNote([], 'One report is waiting to send.', true)).toMatchObject({
+      headline: "Couldn't check your visits.",
+      syncLine: 'One report is waiting to send.',
+    });
+  });
+
+  it('lets other work lead and notes the failed visit check quietly', () => {
+    expect(buildMorningNote([READABLE_UPDATE], null, true)).toMatchObject({
+      headline: 'One office update to read.',
+      visitsLine: "Couldn't check your visits.",
+    });
+  });
+
+  it('still says "All clear." when the visit check succeeded', () => {
+    expect(buildMorningNote([], null, false).headline).toBe('All clear.');
+  });
 });

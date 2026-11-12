@@ -194,6 +194,14 @@ export function useFieldValidationAssignments(enabled = true) {
           });
           return 'ok';
         },
+        () => {
+          if (isCurrentStore()) {
+            setOwnerAssignmentsReadState(store, {
+              refreshing: false,
+              failed: store.assignmentsFailed,
+            });
+          }
+        },
       );
     } catch (error: unknown) {
       if (!isCurrentSession(requestedSession) || !isCurrentStore()) return 'skipped';

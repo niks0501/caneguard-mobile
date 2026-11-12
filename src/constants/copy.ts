@@ -338,8 +338,8 @@ export const FIELD_GUIDE_NOT_FOUND_MESSAGE =
 export const FIELD_GUIDE_NOT_FOUND_ACTION = 'Back to field guide';
 
 /**
- * Home wording: the "Morning Note" sentences, plus the header band, glance strip
- * and signs strip labels. The sentences are proposals awaiting owner review; the
+ * Home wording: the "Morning Note" sentences, plus the header band and signs
+ * strip labels. The sentences are proposals awaiting owner review; the
  * app has no i18n layer, so any Filipino or Tagalog wording is a separate
  * decision. Sync-derived sentences live in `syncStatusCopy.ts`.
  */

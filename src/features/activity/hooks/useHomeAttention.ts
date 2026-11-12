@@ -91,6 +91,6 @@ export function useHomeAttention(): HomeAttention {
     items,
     markRead: notifications.markRead,
     total: items.length,
-    visitsCheckFailed: completions.failed === true,
+    visitsCheckFailed: !assignments.lastSuccessfulAt || !completions.ready,
   };
 }

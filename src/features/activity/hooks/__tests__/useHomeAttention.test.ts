@@ -252,11 +252,11 @@ describe('useHomeAttention', () => {
     expect(result.current.visitsCheckFailed).toBe(true);
   });
 
-  it('returns empty items when there are no assignments or notifications', async () => {
+  it('keeps visits unknown when an empty assignment read has not succeeded', async () => {
     mockUseAssignments.mockReturnValue({
       assignments: [],
       capabilityUnavailable: false,
-      errorMessage: null,
+      errorMessage: "Couldn't refresh visits.",
       lastSuccessfulAt: null,
       refreshing: false,
       skippedCount: 0,
@@ -286,6 +286,7 @@ describe('useHomeAttention', () => {
 
     expect(result.current.total).toBe(0);
     expect(result.current.items).toHaveLength(0);
+    expect(result.current.visitsCheckFailed).toBe(true);
   });
 
   async function renderUpcomingVisitHook() {

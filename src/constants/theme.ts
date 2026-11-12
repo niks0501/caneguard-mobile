@@ -164,7 +164,7 @@ export const ComponentTokens = {
   button: { height: 52, borderRadius: Radius.lg, paddingHorizontal: Spacing.xl, gap: Spacing.sm },
   input: { minHeight: 50, borderRadius: Radius.sm, paddingHorizontal: Spacing.lg, borderWidth: 1.5 },
   chip: { borderRadius: Radius.full, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs },
-  bottomNav: { height: 64, iconSize: 22 },
+  bottomNav: { height: 64, iconSize: 26 },
 } as const;
 
 export const IconSize = {

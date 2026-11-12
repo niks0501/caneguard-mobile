@@ -240,10 +240,10 @@ export function useFieldValidationAssignments(enabled = true) {
   );
 
   useEffect(() => {
-    if (ownerStore && ownerStore.generation > 0) {
+    if (ownerStore) {
       void refresh({ force: false });
     }
-  }, [ownerStore, ownerStore?.generation, refresh]);
+  }, [ownerStore, ownerStore?.assignmentsVerified, ownerStore?.generation, refresh]);
 
   useFocusEffect(
     useCallback(() => {

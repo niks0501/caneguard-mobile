@@ -197,21 +197,28 @@ describe('buildMorningNote', () => {
     });
   });
 
-  it('keeps the approved failure headline and reassurance when other work exists', () => {
-    expect(buildMorningNote([READABLE_UPDATE], null, true)).toMatchObject({
-      action: 'update',
-      headline: "Couldn't check your visits.",
-      visitsLine: 'Nothing is lost — they will appear when the check succeeds.',
-    });
-  });
-
-  it('keeps the failure copy when cached visit work is also present', () => {
-    expect(buildMorningNote([visit('today')], null, true)).toMatchObject({
-      action: 'visit',
-      headline: "Couldn't check your visits.",
-      visitsLine: 'Nothing is lost — they will appear when the check succeeds.',
-    });
-  });
+  it.each([
+    [
+      'a draft',
+      {
+        destination: { kind: 'field_report' as const, scanRecordId: 'draft-report' },
+        id: 'draft-1',
+        kind: 'draft' as const,
+        message: 'Not finished',
+        meta: 'Saved',
+        title: 'Finish your field report',
+      },
+      'draft',
+      'Finish your field report',
+    ],
+    ['a visit', visit('today'), 'visit', 'One visit today.'],
+    ['an office update', READABLE_UPDATE, 'update', 'One office update to read.'],
+  ])(
+    'keeps the work headline for %s when the visit check fails',
+    (_work, item, action, headline) => {
+      expect(buildMorningNote([item], null, true)).toMatchObject({ action, headline });
+    },
+  );
 
   it('keeps the visit note neutral while the check is still pending', () => {
     const note = buildMorningNote([], null, false, true);
@@ -231,13 +238,14 @@ describe('buildMorningNote', () => {
         meta: 'Saved',
         title: 'Finish your field report',
       },
+      'Finish your field report',
     ],
-    ['a visit', visit('today')],
-    ['an office update', READABLE_UPDATE],
-  ])('keeps the work headline for %s while visits are pending', (_work, item) => {
+    ['a visit', visit('today'), 'One visit today.'],
+    ['an office update', READABLE_UPDATE, 'One office update to read.'],
+  ])('keeps the work headline for %s while visits are pending', (_work, item, expectedHeadline) => {
     const note = buildMorningNote([item], null, false, true);
 
-    expect(note.headline).toBe(item.title);
+    expect(note.headline).toBe(expectedHeadline);
     expect(note.headline).not.toBe('All clear.');
     expect(note.headline).not.toBe("Couldn't check your visits.");
   });

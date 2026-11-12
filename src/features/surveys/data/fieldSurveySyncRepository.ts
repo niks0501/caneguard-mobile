@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { toStorageError } from '@/database/errors';
@@ -38,6 +38,24 @@ export function findFieldSurveySyncCandidates(
       .filter((survey) => isUploadableSubmissionArtifact('field_survey', { status: survey.status, lastSyncErrorCode: survey.lastSyncErrorCode }));
   } catch (error: unknown) {
     throw toStorageError(error, 'QUERY_FAILED', 'Reading pending field surveys failed.');
+  }
+}
+
+/** Retryable failed boundaries still inside their cooldown: not eligible yet, but a later retry will pick them up. */
+export function countCoolingRetryableFieldSurveys(database: CaneGuardDatabase, ownerIdentity: string, failedBefore: string): number {
+  const owner = requireOwnerIdentity(ownerIdentity);
+  try {
+    return database.select({ clientUuid: fieldSurveys.clientUuid })
+      .from(fieldSurveys)
+      .where(and(
+        eq(fieldSurveys.ownerIdentity, owner),
+        eq(fieldSurveys.status, 'failed'),
+        inArray(fieldSurveys.lastSyncErrorCode, AUTO_RETRYABLE_SYNC_ERROR_CODES),
+        gte(fieldSurveys.updatedAt, failedBefore),
+      ))
+      .all().length;
+  } catch (error: unknown) {
+    throw toStorageError(error, 'QUERY_FAILED', 'Reading cooling field surveys failed.');
   }
 }
 

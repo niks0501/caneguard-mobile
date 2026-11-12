@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm';
 import type { SQLiteUpdateSetSource } from 'drizzle-orm/sqlite-core/query-builders/update';
 
 import type { CaneGuardDatabase } from '@/database/database';
@@ -105,20 +105,26 @@ export async function findFieldReportSyncCandidates(
     new Date(Date.now() - SYNC_RETRY_COOLDOWN_MS).toISOString();
   try {
     const owner = submitterIdentity.trim();
-    const unsentBoundaryIds = options.districtCode.trim() !== ''
-      ? []
-      : database
-        .select({ clientUuid: fieldSurveys.clientUuid })
-        .from(fieldSurveys)
-        .where(
-          and(
-            eq(fieldSurveys.ownerIdentity, owner),
-            ne(fieldSurveys.status, 'synced'),
-            isNull(fieldSurveys.remoteId),
-          ),
-        )
-        .all()
-        .map(({ clientUuid }) => clientUuid);
+    const coolingBoundaryGuard = options.districtCode.trim() === ''
+      ? undefined
+      : and(
+          eq(fieldSurveys.status, 'failed'),
+          inArray(fieldSurveys.lastSyncErrorCode, AUTO_RETRYABLE_SYNC_ERROR_CODES),
+          gte(fieldSurveys.updatedAt, failedBefore),
+        );
+    const unsentBoundaryIds = database
+      .select({ clientUuid: fieldSurveys.clientUuid })
+      .from(fieldSurveys)
+      .where(
+        and(
+          eq(fieldSurveys.ownerIdentity, owner),
+          ne(fieldSurveys.status, 'synced'),
+          isNull(fieldSurveys.remoteId),
+          ...(coolingBoundaryGuard ? [coolingBoundaryGuard] : []),
+        ),
+      )
+      .all()
+      .map(({ clientUuid }) => clientUuid);
     const eligibleStatus = options.includeRetryableFailed
       ? or(
           eq(fieldReports.syncStatus, 'pending'),

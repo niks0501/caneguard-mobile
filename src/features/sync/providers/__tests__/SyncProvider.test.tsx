@@ -701,6 +701,56 @@ describe('SyncProvider foreground triggers', () => {
     }
   });
 
+  it('does not retry uploads after account verification rejects the session', async () => {
+    jest.useFakeTimers();
+    try {
+      const retrySessionVerification = jest.fn(async () => 'idle');
+      jest.mocked(useAuth).mockReturnValue({
+        status: 'authenticated',
+        session: { token: 'expired-token', user: { uuid: SUBMITTER_ID, role: 'field_reporter', districtCode: 'D-01' } },
+        sessionVerification: 'unavailable',
+        retrySessionVerification,
+        markSessionExpired: jest.fn(async () => undefined),
+      } as never);
+      jest.mocked(syncPendingFieldReports).mockResolvedValue({
+        attempted: 0,
+        authRequired: false,
+        failed: 0,
+        haltReason: 'transient-blocker',
+        results: [],
+        source: 'startup',
+        synced: 0,
+      });
+      jest.mocked(syncPendingFieldSurveys).mockResolvedValue({
+        attempted: 0,
+        authRequired: false,
+        failed: 0,
+        haltReason: 'empty',
+        results: [],
+        source: 'startup',
+        synced: 0,
+      });
+      await render(<SyncProvider><Text>Ready</Text></SyncProvider>);
+      await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+      await act(async () => {
+        networkListener(ONLINE);
+        await Promise.resolve();
+      });
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(1);
+      expect(syncPendingFieldSurveys).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(60_000);
+      });
+      await waitFor(() => expect(retrySessionVerification).toHaveBeenCalledTimes(1));
+
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(1);
+      expect(syncPendingFieldSurveys).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('does not schedule a timer for permanent failures and clears it on unmount', async () => {
     jest.useFakeTimers();
     try {

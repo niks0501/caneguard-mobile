@@ -1,8 +1,9 @@
-import { countUnsyncedFieldSurveys, findFieldSurveySyncCandidates } from '@/features/surveys/data/fieldSurveySyncRepository';
+import { countCoolingRetryableFieldSurveys, countUnsyncedFieldSurveys, findFieldSurveySyncCandidates } from '@/features/surveys/data/fieldSurveySyncRepository';
 import { syncFieldSurvey } from '@/features/surveys/services/syncFieldSurvey';
 import { syncPendingFieldSurveys } from '@/features/surveys/services/syncPendingFieldSurveys';
 
 jest.mock('@/features/surveys/data/fieldSurveySyncRepository', () => ({
+  countCoolingRetryableFieldSurveys: jest.fn(() => 0),
   countUnsyncedFieldSurveys: jest.fn(),
   findFieldSurveySyncCandidates: jest.fn(),
 }));
@@ -50,6 +51,16 @@ describe('syncPendingFieldSurveys', () => {
       ownerIdentity: 'owner-1',
       token: 'token-1',
     }));
+  });
+
+  // R12: a retryable boundary still cooling down is held work, not an empty queue.
+  it('keeps a retry scheduled while a retryable boundary is still in its cooldown', async () => {
+    jest.mocked(findFieldSurveySyncCandidates).mockReset().mockReturnValue([]);
+    jest.mocked(countCoolingRetryableFieldSurveys).mockReturnValueOnce(1);
+    await expect(syncPendingFieldSurveys({ ...options, source: 'startup' })).resolves.toMatchObject({
+      attempted: 0,
+      haltReason: 'transient-blocker',
+    });
   });
 
   it('coalesces concurrent runs for the same database, owner, and token', async () => {

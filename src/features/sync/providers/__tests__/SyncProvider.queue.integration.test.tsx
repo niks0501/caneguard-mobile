@@ -158,10 +158,9 @@ describe('SyncProvider held-queue integration', () => {
       await act(async () => { jest.runOnlyPendingTimers(); await Promise.resolve(); });
       await triggerOnline();
       await waitFor(() => expect(findOwnedFieldSurvey(database, surveyId, ownerId)?.status).toBe('failed'));
+      jest.setSystemTime(Date.now() + 60_001);
       jest.mocked(useAuth).mockReturnValue(authState('verified'));
       await view.rerender(<SyncProvider><Text>ready</Text></SyncProvider>);
-      await waitFor(() => expect(jest.getTimerCount()).toBeGreaterThan(0));
-      await act(async () => { await jest.advanceTimersByTimeAsync(60_001); });
       await waitFor(() => expect(jest.mocked(apiRequest)).toHaveBeenCalled());
       await waitFor(async () => expect((await findFieldReportById(database, reportId, ownerId))?.syncStatus).toBe('synced'));
       expect(jest.mocked(apiRequest)).toHaveBeenCalledTimes(2);

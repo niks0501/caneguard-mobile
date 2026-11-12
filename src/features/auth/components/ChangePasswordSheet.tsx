@@ -11,6 +11,7 @@ import {
   PASSWORD_MIN_LENGTH,
 } from '@/features/auth/components/passwordRules';
 import { FARMER_COPY } from '@/constants/copy';
+import { farmerAuthErrorMessage } from '@/features/auth/authErrorCopy';
 import { useLanguagePreference } from '@/providers/LanguagePreferenceProvider';
 
 /**
@@ -27,6 +28,9 @@ export function ChangePasswordSheet() {
   const { showToast } = useToast();
   const { changePassword, errorMessage, user } = useAuth();
   const isFarmer = user?.role === 'farmer';
+  const authError = isFarmer
+    ? farmerAuthErrorMessage(errorMessage, FARMER_COPY[language].authErrors)
+    : errorMessage;
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [pending, setPending] = useState(false);
@@ -79,7 +83,7 @@ export function ChangePasswordSheet() {
       keepEditingLabel={isFarmer ? common.keepEditing : undefined}
       discardLabel={isFarmer ? common.discard : undefined}
       testID="account-security.password-sheet"
-      errorMessage={attempted ? errorMessage : null}
+      errorMessage={attempted ? authError : null}
       errorTestID="account-security.error"
       isDirty={dirty}
       onCancel={close}

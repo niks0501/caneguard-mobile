@@ -69,7 +69,3 @@ export function useFarmerScans(): FarmerScans {
   return { ...scans, refresh };
 }
 
-/** Computed My Scans state for each of the signed-in farmer's saved scans. */
-export function useFarmerScanStates(): ReadonlyMap<string, FarmerScanState> {
-  return useFarmerScans().states;
-}

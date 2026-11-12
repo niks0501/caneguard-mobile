@@ -85,7 +85,6 @@ jest.mock('@/providers/LanguagePreferenceProvider', () => ({
 
 jest.mock('@/features/records/hooks/useScanStates', () => ({
   useFarmerScans: () => ({ states: mockScanStates, threads: mockScanThreads }),
-  useFarmerScanStates: () => mockScanStates,
 }));
 
 const mockRouterPush = router.push as jest.Mock;

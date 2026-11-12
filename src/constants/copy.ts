@@ -18,20 +18,6 @@ export const NAMING = {
   plots: 'Plots',
 } as const;
 
-const LEGACY_VISIT_NAME = /\bfield (?:validation|visits?)(?:\s+assignments?)?\b/gi;
-
-/**
- * The office still words some updates with the old visit names. Presentation
- * rewrites them into the approved word list; the cached update keeps the office
- * wording.
- */
-export function visitTerminology(text: string): string {
-  return text.replace(LEGACY_VISIT_NAME, (match) => {
-    const word = match.toLowerCase().endsWith('s') ? NAMING.visits : NAMING.visit;
-    return match[0] === match[0].toUpperCase() ? word : word.toLowerCase();
-  });
-}
-
 export const DECISION_SUPPORT_DISCLAIMER =
   'This result is for decision support only. It does not confirm a disease.';
 
@@ -266,8 +252,6 @@ export const FIELD_GUIDE_INTRO =
 
 export const FIELD_GUIDE_ENTRY_TITLE = 'Field guide — diseases and pests';
 
-export const FIELD_GUIDE_ENTRY_DESCRIPTION = 'Read about sugarcane diseases and pests';
-
 export const FIELD_GUIDE_SECTION_SIGNS = 'Signs';
 export const FIELD_GUIDE_SECTION_WHERE_TO_LOOK = 'Where to look';
 export const FIELD_GUIDE_SECTION_IMPACT = 'Why it matters';
@@ -489,7 +473,7 @@ export type FarmerCopyBlock = {
   settings: { languageLabel: string; languageDescription: string; english: string; tagalog: string };
   settingsScreen: {
     title: string; displaySection: string; darkMode: string; darkModeDescription: string;
-    fieldGuideSection: string; fieldGuideTitle: string;
+    fieldGuideSection: string; fieldGuideTitle: string; fieldGuideDescription: string;
     accountSection: string; fallbackName: string; fallbackAccount: string;
     accountSecurity: string; accountSecurityDescription: string; logout: string;
     logoutAccessibility: string; clearCached: string; clearingCached: string;
@@ -528,6 +512,20 @@ export type FarmerCopyBlock = {
     email: { title: string; newEmail: string; currentPassword: string; confirmPassword: string; submit: string; updating: string; confirmTitle: string; confirmMessage: string; confirm: string; toast: string };
     enrollment: { title: string; name: string; nameHelp: string; namePlaceholder: string; currentPassword: string; confirmPassword: string; submit: string; submitting: string; confirmTitle: string; confirmMessage: string; confirm: string; toast: string };
     biometric: { title: string; currentPassword: string; confirmPassword: string; submit: string; submitting: string; toast: string };
+  };
+  notificationDetails: {
+    headerTitle: string; headerSubtitle: string; advisoryLabel: string; officeMessageLabel: string;
+    openRelated: string; openRelatedAccessibility: string; loading: string; unavailableTitle: string;
+    unavailableMessage: string; retry: string; referenceFallback: string; recently: string;
+  };
+  authErrors: {
+    generic: string; invalidCredentials: string; emailNotVerified: string; forbiddenRole: string;
+    invalidResetLink: string; invalidVerificationLink: string; invalidResponse: string;
+    rateLimited: string; registrationDisabled: string; serverUnavailable: string;
+    sessionExpired: string; stepUpRequired: string; validationError: string; signInAgain: string;
+    signInForBiometric: string; biometricUnavailable: string; biometricNotEnrolled: string;
+    biometricCancelled: string; biometricVerificationFailed: string; biometricEnableFailed: string;
+    biometricRevokeWarning: string; secureStorageUnavailable: string;
   };
   imagePreview: {
     title: string; noImageTitle: string; noImageMessage: string; chooseImage: string;
@@ -818,7 +816,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
     settingsScreen: {
       title: 'Settings', displaySection: 'DISPLAY & ACCESSIBILITY', darkMode: 'Dark Mode',
       darkModeDescription: 'Use a darker appearance throughout CaneGuard', fieldGuideSection: 'FIELD GUIDE',
-      fieldGuideTitle: 'Field guide',
+      fieldGuideTitle: 'Field guide', fieldGuideDescription: 'Read about sugarcane diseases and pests',
       accountSection: 'ACCOUNT & SECURITY', fallbackName: 'Field Inspector', fallbackAccount: 'Authenticated mobile account',
       accountSecurity: 'Account security', accountSecurityDescription: 'Password, email, device, and biometric controls',
       logout: 'Logout', logoutAccessibility: 'Log out of your account', clearCached: 'Clear downloaded office data',
@@ -876,6 +874,38 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       email: { title: 'Change email', newEmail: 'New email', currentPassword: 'Current password', confirmPassword: 'Confirm to change email', submit: 'Change email', updating: 'Updating…', confirmTitle: 'Change email?', confirmMessage: 'Changing your email signs out every active session and requires verification of the new address.', confirm: 'Confirm change', toast: 'Email updated' },
       enrollment: { title: 'Device enrollment', name: 'Installation name', nameHelp: 'A name for this installation on the office system. It is stored securely and is not a hardware identifier.', namePlaceholder: 'CaneGuard mobile device', currentPassword: 'Current password', confirmPassword: 'Confirm this installation', submit: 'Enroll this installation', submitting: 'Enrolling…', confirmTitle: 'Enroll this installation?', confirmMessage: 'This installation will be enrolled with a fresh server session. Existing sessions on other device identities are unchanged.', confirm: 'Enroll', toast: 'Device enrolled' },
       biometric: { title: 'Disable biometric unlock', currentPassword: 'Current password', confirmPassword: 'Confirm to disable', submit: 'Disable biometric unlock', submitting: 'Disabling…', toast: 'Biometrics disabled' },
+    },
+    notificationDetails: {
+      headerTitle: 'Office update', headerSubtitle: 'Advice from the CaneGuard office',
+      advisoryLabel: 'Advisory', officeMessageLabel: 'Office message',
+      openRelated: 'Open related activity', openRelatedAccessibility: 'Open related activity',
+      loading: 'Loading office update', unavailableTitle: 'Office update unavailable',
+      unavailableMessage: 'This office update is no longer available on this device.',
+      retry: 'Try again', referenceFallback: 'Office update', recently: 'Recently',
+    },
+    authErrors: {
+      generic: 'Authentication could not be completed. Please try again.',
+      invalidCredentials: 'The email or password is incorrect.',
+      emailNotVerified: 'Verify your email address before signing in to CaneGuard.',
+      forbiddenRole: 'This account type cannot sign in to CaneGuard Mobile.',
+      invalidResetLink: 'This recovery link is invalid, expired, or already used. Request a new link.',
+      invalidVerificationLink: 'This email-verification link is invalid or expired. Request a new link.',
+      invalidResponse: 'CaneGuard could not complete authentication.',
+      rateLimited: 'Too many requests. Wait a moment and try again.',
+      registrationDisabled: 'Public self-registration is disabled. Contact your CaneGuard administrator to request an authorized account.',
+      serverUnavailable: 'CaneGuard could not reach the server. Please check your connection and try again.',
+      sessionExpired: 'Your CaneGuard session is no longer valid.',
+      stepUpRequired: 'Enter your current password to continue.',
+      validationError: 'Check the highlighted fields and try again.',
+      signInAgain: 'Sign in again before continuing this account action.',
+      signInForBiometric: 'Sign in with your password before enabling biometric unlock.',
+      biometricUnavailable: 'Biometric unlock is unavailable. Sign in with your password.',
+      biometricNotEnrolled: 'Set up a strong biometric before enabling biometric unlock.',
+      biometricCancelled: 'Biometric unlock was cancelled. Sign in with your password.',
+      biometricVerificationFailed: 'CaneGuard could not verify you biometrically. Sign in with your password.',
+      biometricEnableFailed: 'Biometric unlock could not be enabled. Your password session is still active.',
+      biometricRevokeWarning: 'Biometric unlock was disabled on this device, but the server token could not be revoked.',
+      secureStorageUnavailable: 'Secure session storage is unavailable. Device enrollment was cancelled.',
     },
     imagePreview: {
       title: 'Image preview', noImageTitle: 'No image selected',
@@ -1166,7 +1196,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
     settingsScreen: {
       title: 'Mga setting', displaySection: 'ITSURA AT ACCESSIBILITY', darkMode: 'Madilim na itsura',
       darkModeDescription: 'Gumamit ng mas madilim na itsura sa buong CaneGuard', fieldGuideSection: 'GABAY SA BUKID',
-      fieldGuideTitle: 'Gabay sa bukid',
+      fieldGuideTitle: 'Gabay sa bukid', fieldGuideDescription: 'Alamin ang tungkol sa mga sakit at peste ng tubo',
       accountSection: 'ACCOUNT AT SEGURIDAD', fallbackName: 'Inspektor sa bukid', fallbackAccount: 'Authenticated na mobile account',
       accountSecurity: 'Seguridad ng account', accountSecurityDescription: 'Password, email, device, at biometric na mga kontrol',
       logout: 'Mag-log out', logoutAccessibility: 'Mag-log out sa iyong account', clearCached: 'Burahin ang na-download na datos ng opisina',
@@ -1224,6 +1254,38 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       email: { title: 'Palitan ang email', newEmail: 'Bagong email', currentPassword: 'Kasalukuyang password', confirmPassword: 'Kumpirmahin para palitan ang email', submit: 'Palitan ang email', updating: 'Ina-update…', confirmTitle: 'Palitan ang email?', confirmMessage: 'Mala-log out ang lahat ng aktibong session kapag pinalitan ang email. Kailangang beripikahin ang bagong address.', confirm: 'Kumpirmahin ang pagpapalit', toast: 'Na-update ang email' },
       enrollment: { title: 'Pag-enroll ng device', name: 'Pangalan ng installation', nameHelp: 'Pangalan ng installation na ito sa system ng opisina. Ligtas itong itinatago at hindi ito pagkakakilanlan ng hardware.', namePlaceholder: 'Mobile device ng CaneGuard', currentPassword: 'Kasalukuyang password', confirmPassword: 'Kumpirmahin ang installation na ito', submit: 'I-enroll ang installation na ito', submitting: 'Nag-e-enroll…', confirmTitle: 'I-enroll ang installation na ito?', confirmMessage: 'Gagamit ang installation na ito ng bagong server session. Hindi mababago ang ibang session sa iba pang device.', confirm: 'I-enroll', toast: 'Na-enroll ang device' },
       biometric: { title: 'I-off ang pagbukas gamit ang biometrics', currentPassword: 'Kasalukuyang password', confirmPassword: 'Kumpirmahin para i-off', submit: 'I-off ang pagbukas gamit ang biometrics', submitting: 'Ino-off…', toast: 'Naka-off ang biometrics' },
+    },
+    notificationDetails: {
+      headerTitle: 'Update mula sa opisina', headerSubtitle: 'Payo mula sa tanggapan ng CaneGuard',
+      advisoryLabel: 'Payo', officeMessageLabel: 'Mensahe ng opisina',
+      openRelated: 'Buksan ang kaugnay na aktibidad', openRelatedAccessibility: 'Buksan ang kaugnay na aktibidad',
+      loading: 'Kinukuha ang update mula sa opisina', unavailableTitle: 'Hindi makita ang update mula sa opisina',
+      unavailableMessage: 'Hindi na available sa device na ito ang update mula sa opisina.',
+      retry: 'Subukan muli', referenceFallback: 'Update mula sa opisina', recently: 'Kamakailan',
+    },
+    authErrors: {
+      generic: 'Hindi nakumpleto ang pagpapatotoo. Subukan muli.', 
+      invalidCredentials: 'Hindi tama ang email o password.',
+      emailNotVerified: 'Beripikahin ang iyong email bago mag-sign in sa CaneGuard.',
+      forbiddenRole: 'Hindi maaaring mag-sign in sa CaneGuard Mobile ang ganitong uri ng account.',
+      invalidResetLink: 'Hindi wasto, paso na, o nagamit na ang recovery link. Humiling ng bagong link.',
+      invalidVerificationLink: 'Hindi wasto o paso na ang link ng beripikasyon sa email. Humiling ng bagong link.',
+      invalidResponse: 'Hindi nakumpleto ng CaneGuard ang pagpapatotoo.',
+      rateLimited: 'Masyadong maraming kahilingan. Maghintay sandali at subukan muli.',
+      registrationDisabled: 'Hindi bukas ang pagpaparehistro sa publiko. Makipag-ugnayan sa tagapangasiwa ng CaneGuard para humiling ng awtorisadong account.',
+      serverUnavailable: 'Hindi makakonekta ang CaneGuard sa server. Suriin ang koneksyon at subukan muli.',
+      sessionExpired: 'Hindi na wasto ang iyong session sa CaneGuard.',
+      stepUpRequired: 'Ilagay ang kasalukuyang password para magpatuloy.',
+      validationError: 'Suriin ang mga naka-highlight na field at subukan muli.',
+      signInAgain: 'Mag-sign in muli bago ipagpatuloy ang pagkilos na ito sa account.',
+      signInForBiometric: 'Mag-sign in gamit ang password bago i-on ang pagbukas gamit ang biometrics.',
+      biometricUnavailable: 'Hindi magagamit ang biometric. Mag-sign in gamit ang password.',
+      biometricNotEnrolled: 'Mag-set up muna ng malakas na biometric bago ito gamitin.',
+      biometricCancelled: 'Kinansela ang pagbukas gamit ang biometrics. Mag-sign in gamit ang password.',
+      biometricVerificationFailed: 'Hindi ka makilala ng CaneGuard gamit ang biometrics. Mag-sign in gamit ang password.',
+      biometricEnableFailed: 'Hindi na-on ang biometric. Nananatiling aktibo ang session gamit ang password.',
+      biometricRevokeWarning: 'Na-off ang biometric sa device na ito, pero hindi nabawi ang token sa server.',
+      secureStorageUnavailable: 'Hindi magagamit ang ligtas na imbakan ng session. Kinansela ang pag-enroll ng device.',
     },
     imagePreview: {
       title: 'Preview ng larawan', noImageTitle: 'Walang napiling larawan',

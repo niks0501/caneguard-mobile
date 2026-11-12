@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
-import { OFFICE_UPDATE_NOT_ON_PHONE, visitTerminology } from '@/constants/copy';
+import { FARMER_COPY, OFFICE_UPDATE_NOT_ON_PHONE } from '@/constants/copy';
 import {
   ComponentTokens,
   Layout,
@@ -22,10 +22,17 @@ import { useMobileNotifications } from '@/features/notifications/hooks/useMobile
 import { useNotificationDestinations } from '@/features/notifications/hooks/useNotificationDestinations';
 import { notificationDestinationRoute } from '@/features/notifications/services/resolveNotificationDestination';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useLanguagePreference } from '@/providers/LanguagePreferenceProvider';
 import { formatDate } from '@/lib/formatters';
 
 export default function NotificationDetailsScreen() {
   const theme = useTheme();
+  const { user } = useAuth();
+  const isFarmer = user?.role === 'farmer';
+  const { language } = useLanguagePreference();
+  const farmerCopy = FARMER_COPY[language];
+  const copy = farmerCopy.notificationDetails;
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(params.id) ? params.id[0] : (params.id ?? null);
   const notifications = useMobileNotifications();
@@ -35,12 +42,10 @@ export default function NotificationDetailsScreen() {
 
   const route = destination ? notificationDestinationRoute(destination) : null;
   const advisoryTitle = notification
-    ? visitTerminology(notification.advisory?.title ?? notification.title)
+    ? notification.advisory?.title ?? notification.title
     : null;
   const advisoryBody = notification
-    ? visitTerminology(
-        notification.advisory?.content ?? notification.content ?? notification.message,
-      )
+    ? notification.advisory?.content ?? notification.content ?? notification.message
     : null;
 
   return (
@@ -49,7 +54,10 @@ export default function NotificationDetailsScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Office update" subtitle="Advice from the CaneGuard office" />
+        <BrandedScreenHeader
+          title={isFarmer ? copy.headerTitle : 'Office update'}
+          subtitle={isFarmer ? copy.headerSubtitle : 'Advice from the CaneGuard office'}
+        />
         {notification ? (
           <ScrollView
             showsVerticalScrollIndicator={false}
@@ -63,7 +71,7 @@ export default function NotificationDetailsScreen() {
                     borderColor: theme.border,
                   },
                 ]}>
-                <Text style={[styles.label, { color: theme.primary }]}>Advisory</Text>
+                <Text style={[styles.label, { color: theme.primary }]}>{isFarmer ? copy.advisoryLabel : 'Advisory'}</Text>
                 <Text
                   testID="notification.details.title"
                   accessibilityRole="header"
@@ -77,32 +85,32 @@ export default function NotificationDetailsScreen() {
                 </Text>
                 {notification.advisory && notification.content ? (
                   <View style={[styles.context, { borderTopColor: theme.divider }]}>
-                    <Text style={[styles.contextLabel, { color: theme.textSecondary }]}>Office message</Text>
+                    <Text style={[styles.contextLabel, { color: theme.textSecondary }]}>{isFarmer ? copy.officeMessageLabel : 'Office message'}</Text>
                     <Text style={[styles.contextBody, { color: theme.textSecondary }]}>
-                      {visitTerminology(notification.content)}
+                      {notification.content}
                     </Text>
                   </View>
                 ) : null}
                 <Text style={[styles.meta, { color: theme.textSecondary }]}>
-                  {notification.referenceCode ?? 'Office update'}
-                  {notification.createdAt ? ` · ${formatDate(notification.createdAt, 'Recently')}` : ''}
+                  {notification.referenceCode ?? (isFarmer ? copy.referenceFallback : 'Office update')}
+                  {notification.createdAt ? ` · ${formatDate(notification.createdAt, isFarmer ? copy.recently : 'Recently')}` : ''}
                 </Text>
               </View>
 
               {route ? (
                 <AppButton
                   testID="notification.details.open-related"
-                  accessibilityLabel="Open related activity"
+                  accessibilityLabel={isFarmer ? copy.openRelatedAccessibility : 'Open related activity'}
                   onPress={() => router.push(route as never)}
                   leadingIcon="arrow-up-right">
-                  Open related activity
+                  {isFarmer ? copy.openRelated : 'Open related activity'}
                 </AppButton>
               ) : destination?.kind === 'unavailable' ? (
                 <Text
                   testID="notification.details.not-on-phone"
                   accessibilityLiveRegion="polite"
                   style={[styles.notOnPhone, { color: theme.textSecondary }]}>
-                  {OFFICE_UPDATE_NOT_ON_PHONE}
+                  {isFarmer ? farmerCopy.officeUpdates.notOnPhone : OFFICE_UPDATE_NOT_ON_PHONE}
                 </Text>
               ) : null}
             </View>
@@ -111,21 +119,23 @@ export default function NotificationDetailsScreen() {
           <View style={styles.state}>
             {notifications.refreshing ? (
               <ActivityIndicator
-                accessibilityLabel="Loading office update"
+                accessibilityLabel={isFarmer ? copy.loading : 'Loading office update'}
                 color={theme.primary}
                 size="large"
               />
             ) : null}
             <Text accessibilityRole="header" style={[styles.stateTitle, { color: theme.primaryDark }]}>
-              Office update unavailable
+              {isFarmer ? copy.unavailableTitle : 'Office update unavailable'}
             </Text>
             <Text style={[styles.stateMessage, { color: theme.textSecondary }]}>
-              {notifications.errorMessage ?? 'This office update is no longer available on this device.'}
+              {isFarmer
+                ? notifications.errorMessage ? farmerCopy.officeUpdates.loadError : copy.unavailableMessage
+                : notifications.errorMessage ?? 'This office update is no longer available on this device.'}
             </Text>
             <AppButton
               onPress={() => void notifications.refresh({ force: true })}
               leadingIcon="refresh-cw">
-              Refresh updates
+              {isFarmer ? copy.retry : 'Refresh updates'}
             </AppButton>
           </View>
         )}

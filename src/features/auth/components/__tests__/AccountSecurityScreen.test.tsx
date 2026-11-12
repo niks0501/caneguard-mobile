@@ -168,6 +168,34 @@ describe('AccountSecurityScreen', () => {
     expect(screen.getByTestId('account-security.success')).toHaveTextContent(/fresh server session/);
   });
 
+  it('localizes known farmer auth errors on Account security', async () => {
+    mockLanguage = 'tl';
+    mockUseAuth.mockReturnValue(authState({
+      errorMessage: 'The email or password is incorrect.',
+      user: { ...SESSION.user, role: 'farmer' },
+    }));
+    await render(<AccountSecurityScreen />);
+
+    expect(screen.getByTestId('account-security.error')).toHaveTextContent('Hindi tama ang email o password.');
+    expect(screen.queryByText('The email or password is incorrect.')).toBeNull();
+  });
+
+  it('localizes known auth errors returned by the farmer change-password form', async () => {
+    mockLanguage = 'tl';
+    mockUseAuth.mockReturnValue(authState({
+      errorMessage: 'The email or password is incorrect.',
+      user: { ...SESSION.user, role: 'farmer' },
+    }));
+    await render(<AccountPasswordRoute />);
+    await fireEvent.changeText(screen.getByTestId('account-security.current-password'), 'current-password');
+    await fireEvent.changeText(screen.getByTestId('account-security.new-password'), 'a-new-password-long');
+    await fireEvent.press(screen.getByTestId('account-security.change-password'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Kumpirmahin ang pagpapalit' }));
+
+    expect(screen.getByTestId('account-security.error')).toHaveTextContent('Hindi tama ang email o password.');
+    expect(screen.queryByText('The email or password is incorrect.')).toBeNull();
+  });
+
   it('localizes the farmer change-password sheet and dismissal guard', async () => {
     mockLanguage = 'tl';
     mockUseAuth.mockReturnValue(authState({ user: { ...SESSION.user, role: 'farmer' } }));

@@ -6,6 +6,7 @@ import { TextField } from '@/components/ui/TextField';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { FARMER_COPY } from '@/constants/copy';
+import { farmerAuthErrorMessage } from '@/features/auth/authErrorCopy';
 import { useLanguagePreference } from '@/providers/LanguagePreferenceProvider';
 
 /**
@@ -21,6 +22,9 @@ export function DisableBiometricSheet() {
   const { showToast } = useToast();
   const { disableBiometric, errorMessage, user } = useAuth();
   const isFarmer = user?.role === 'farmer';
+  const authError = isFarmer
+    ? farmerAuthErrorMessage(errorMessage, FARMER_COPY[language].authErrors)
+    : errorMessage;
   const [disablePassword, setDisablePassword] = useState('');
   const [pending, setPending] = useState(false);
   const [attempted, setAttempted] = useState(false);
@@ -66,7 +70,7 @@ export function DisableBiometricSheet() {
       keepEditingLabel={isFarmer ? common.keepEditing : undefined}
       discardLabel={isFarmer ? common.discard : undefined}
       testID="account-security.biometric-sheet"
-      errorMessage={attempted ? errorMessage : null}
+      errorMessage={attempted ? authError : null}
       errorTestID="account-security.error"
       isDirty={dirty}
       onCancel={close}

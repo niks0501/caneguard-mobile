@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { FARMER_COPY, FIELD_GUIDE_ENTRY_DESCRIPTION, LOGOUT_DIALOG_COPY } from '@/constants/copy';
+import { FARMER_COPY, LOGOUT_DIALOG_COPY } from '@/constants/copy';
 import { ComponentTokens, Layout, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import {
@@ -346,7 +346,7 @@ export default function SettingsScreen() {
                 <View style={styles.toggleCopy}>
                   <Text style={[styles.menuLabel, { color: theme.text }]}>{isFarmer ? copy.fieldGuideTitle : 'Field guide'}</Text>
                   <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>
-                    {FIELD_GUIDE_ENTRY_DESCRIPTION}
+                    {copy.fieldGuideDescription}
                   </Text>
                 </View>
                 <Feather name="chevron-right" size={18} color={theme.textSecondary} />

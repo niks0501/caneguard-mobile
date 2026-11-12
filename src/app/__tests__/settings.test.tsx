@@ -127,6 +127,15 @@ describe('SettingsScreen', () => {
     });
   });
 
+  it('localizes the Settings field-guide description in Tagalog', async () => {
+    mockRole = 'farmer';
+    await render(<SettingsScreen />);
+    await fireEvent.press(screen.getByTestId('settings.language.tl'));
+
+    expect(screen.getByText('Alamin ang tungkol sa mga sakit at peste ng tubo')).toBeOnTheScreen();
+    expect(screen.queryByText('Read about sugarcane diseases and pests')).not.toBeOnTheScreen();
+  });
+
   it('links to the field guide', async () => {
     await render(<SettingsScreen />);
 

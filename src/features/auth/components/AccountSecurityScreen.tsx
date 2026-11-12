@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime } from '@/lib/formatters';
 import { FARMER_COPY, type FarmerCopyBlock } from '@/constants/copy';
+import { farmerAuthErrorMessage } from '@/features/auth/authErrorCopy';
 import { useLanguagePreference } from '@/providers/LanguagePreferenceProvider';
 
 export function AccountSecurityScreen() {
@@ -27,7 +28,11 @@ export function AccountSecurityScreen() {
     user,
   } = useAuth();
   const isFarmer = user?.role === 'farmer';
-  const farmerCopy = FARMER_COPY[language].accountSecurityScreen;
+  const languageCopy = FARMER_COPY[language];
+  const farmerCopy = languageCopy.accountSecurityScreen;
+  const displayedError = isFarmer
+    ? farmerAuthErrorMessage(errorMessage, languageCopy.authErrors)
+    : errorMessage;
   const { showToast } = useToast();
   const params = useLocalSearchParams<{ notice?: string | string[] }>();
   const notice = Array.isArray(params.notice) ? params.notice[0] : params.notice;
@@ -67,8 +72,8 @@ export function AccountSecurityScreen() {
         <Text style={[styles.identityExpiry, { color: theme.textSecondary }]}>{formatExpiry(session?.expiresAt, isFarmer ? farmerCopy : undefined)}</Text>
       </View>
 
-      {errorMessage ? (
-        <Text testID="account-security.error" accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>{errorMessage}</Text>
+      {displayedError ? (
+        <Text testID="account-security.error" accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>{displayedError}</Text>
       ) : null}
       {notice === 'enrolled' || successMessage ? (
         <Text testID="account-security.success" accessibilityLiveRegion="polite" style={[styles.success, { color: theme.primaryDark, backgroundColor: theme.successBg }]}>{notice === 'enrolled'

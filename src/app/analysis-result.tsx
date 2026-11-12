@@ -39,7 +39,8 @@ import { getQualityWarningMessage } from '@/features/detection/validation/assess
 import { returnToTab } from '@/features/navigation/returnToTab';
 import { MAX_PERSONAL_PLACE_LENGTH } from '@/features/records/domain/recordTypes';
 import { FollowUpComparison } from '@/features/records/components/FollowUpComparison';
-import { farmerResultName, possibleConditionLine } from '@/features/records/components/possibleConditionLine';
+import { possibleConditionLine } from '@/features/records/components/possibleConditionLine';
+import { canonicalResultName } from '@/features/records/domain/canonicalResultName';
 import { WhatNowCard } from '@/features/records/components/WhatNowCard';
 import { SavedScanCard } from '@/features/records/components/ScanCard';
 import { useSaveCompletedScan } from '@/features/records/hooks/useSaveCompletedScan';
@@ -410,7 +411,7 @@ export default function AnalysisResultScreen() {
               />
               {showUncertainCard ? (
                 <UncertainResult
-                  closestMatch={farmerResultName(result.predictedLabel)}
+                  closestMatch={canonicalResultName(result.predictedLabel)}
                   onRetake={startNewScan}
                   onReviewSigns={() => router.push(`/field-guide/${result.predictedLabel}`)}
                   disabled={isSaving}

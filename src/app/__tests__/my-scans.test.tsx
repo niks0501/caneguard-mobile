@@ -29,7 +29,6 @@ jest.mock('@/features/records/hooks/useRecords', () => ({
 }));
 jest.mock('@/features/records/hooks/useScanStates', () => ({
   useFarmerScans: () => ({ states: mockStates, threads: mockThreads, status: mockThreadStatus, refresh: jest.fn(async () => undefined) }),
-  useFarmerScanStates: () => mockStates,
 }));
 jest.mock('@/providers/LanguagePreferenceProvider', () => ({
   useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY[mockLanguage],

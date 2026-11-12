@@ -7,6 +7,7 @@ import { TextField } from '@/components/ui/TextField';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { FARMER_COPY } from '@/constants/copy';
+import { farmerAuthErrorMessage } from '@/features/auth/authErrorCopy';
 import { useLanguagePreference } from '@/providers/LanguagePreferenceProvider';
 
 /**
@@ -23,6 +24,9 @@ export function ChangeEmailSheet() {
   const { showToast } = useToast();
   const { changeEmail, errorMessage, user } = useAuth();
   const isFarmer = user?.role === 'farmer';
+  const authError = isFarmer
+    ? farmerAuthErrorMessage(errorMessage, FARMER_COPY[language].authErrors)
+    : errorMessage;
   const [newEmail, setNewEmail] = useState('');
   const [emailPassword, setEmailPassword] = useState('');
   const [pending, setPending] = useState(false);
@@ -74,7 +78,7 @@ export function ChangeEmailSheet() {
       keepEditingLabel={isFarmer ? common.keepEditing : undefined}
       discardLabel={isFarmer ? common.discard : undefined}
       testID="account-security.email-sheet"
-      errorMessage={attempted ? errorMessage : null}
+      errorMessage={attempted ? authError : null}
       errorTestID="account-security.error"
       isDirty={dirty}
       onCancel={close}

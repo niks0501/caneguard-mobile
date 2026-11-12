@@ -2,7 +2,6 @@ import { Feather } from '@expo/vector-icons';
 import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { visitTerminology } from '@/constants/copy';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
 import { Radius, Spacing, Typography } from '@/constants/theme';
@@ -136,8 +135,7 @@ const NotificationRow = memo(function NotificationRow({
 }) {
   const theme = useTheme();
   const copy = useFarmerCopy().officeUpdates;
-  const title = visitTerminology(notification.title);
-  const message = visitTerminology(notification.message);
+  const { title, message } = notification;
   const actionable =
     Boolean(notification.content || notification.advisory) ||
     (destination !== undefined && destination.kind !== 'unavailable');

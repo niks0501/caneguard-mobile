@@ -19,7 +19,7 @@ const database = {} as CaneGuardDatabase;
 const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 const OTHER_SUBMITTER_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
 const findSyncCandidates = jest.fn();
-const repository = { findSyncCandidates };
+const repository = { findSyncCandidates, resetStaleSyncingReports: jest.fn(async () => undefined) };
 
 describe('pending Field Report queue', () => {
   beforeEach(() => {

@@ -1,3 +1,4 @@
+import { clearedStatus } from '@/features/detection/context/scanCheckState';
 import type { ScanSessionAction, ScanSessionState } from '@/features/detection/types';
 
 export const initialScanSessionState: ScanSessionState = {
@@ -107,7 +108,7 @@ export function scanSessionReducer(
     case 'CLEAR_ERROR':
       return {
         ...state,
-        status: state.result ? 'completed' : state.sourceUri ? 'image-selected' : 'idle',
+        status: clearedStatus(state),
         errorMessage: null,
         photoPreparationFailed: false,
       };

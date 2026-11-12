@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "dca4f3d8-8194-4522-bbd9-dea73069440c",
+  "id": "30fef278-c5ef-4054-a9eb-7732422d698a",
   "prevId": "6d5f4d1a-6bd9-4ff4-ab24-45c76b986817",
   "tables": {
     "field_reports": {
@@ -301,13 +301,6 @@
         },
         "authority_status_raw": {
           "name": "authority_status_raw",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "authority_workflow_status": {
-          "name": "authority_workflow_status",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -1407,6 +1400,76 @@
         "notifications_cache_is_read_check": {
           "name": "notifications_cache_is_read_check",
           "value": "\"notifications_cache\".\"is_read\" in (0, 1)"
+        }
+      }
+    },
+    "notification_seen_outbox": {
+      "name": "notification_seen_outbox",
+      "columns": {
+        "owner_identity": {
+          "name": "owner_identity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "notification_id": {
+          "name": "notification_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "seen_at": {
+          "name": "seen_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "wait_reason": {
+          "name": "wait_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "attempt_count": {
+          "name": "attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "last_attempt_at": {
+          "name": "last_attempt_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "notification_seen_outbox_owner_identity_notification_id_pk": {
+          "columns": [
+            "owner_identity",
+            "notification_id"
+          ],
+          "name": "notification_seen_outbox_owner_identity_notification_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "notification_seen_outbox_wait_reason_check": {
+          "name": "notification_seen_outbox_wait_reason_check",
+          "value": "\"notification_seen_outbox\".\"wait_reason\" is null or \"notification_seen_outbox\".\"wait_reason\" in ('no_connection', 'sign_in_needed', 'office_not_ready')"
+        },
+        "notification_seen_outbox_attempt_check": {
+          "name": "notification_seen_outbox_attempt_check",
+          "value": "\"notification_seen_outbox\".\"attempt_count\" >= 0"
         }
       }
     },

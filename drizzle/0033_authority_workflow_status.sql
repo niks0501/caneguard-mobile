@@ -1,1 +1,0 @@
-ALTER TABLE `field_reports` ADD `authority_workflow_status` text;

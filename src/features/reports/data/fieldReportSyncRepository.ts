@@ -11,8 +11,9 @@ import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
 import { AUTO_RETRYABLE_SYNC_ERROR_CODES } from '@/features/sync/errors/syncErrors';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { isUploadableSubmissionArtifact } from '@/features/sync/domain/submissionArtifacts';
+import { SYNC_RETRY_COOLDOWN_MS, SYNC_TRANSITIONS } from '@/features/sync/domain/outboxState';
 
-export const SYNC_RETRY_COOLDOWN_MS = 60_000;
+export { SYNC_RETRY_COOLDOWN_MS };
 
 export interface FindSyncCandidatesOptions {
   districtCode: string;
@@ -36,7 +37,7 @@ export interface FieldReportSyncRepository {
   markFailed(reportId: string, errorCode: string, attemptedAt: string): Promise<void>;
   markPending(reportId: string): Promise<void>;
   markSynced(reportId: string, remoteId: string, syncedAt: string): Promise<void>;
-  markSyncing(reportId: string, attemptedAt: string): Promise<void>;
+  markSyncing(reportId: string, attemptedAt: string): Promise<number>;
   resetStaleSyncingReports(staleBefore: string): Promise<void>;
 }
 
@@ -64,7 +65,7 @@ export function createFieldReportSyncRepository(
     markSynced: (id, remoteId, at) =>
       markFieldReportSynced(database, id, submitterIdentity, remoteId, at).then(() => undefined),
     markSyncing: (id, at) =>
-      markFieldReportSyncing(database, id, submitterIdentity, at).then(() => undefined),
+      markFieldReportSyncing(database, id, submitterIdentity, at),
     resetStaleSyncingReports: (before) =>
       resetStaleSyncingFieldReports(database, submitterIdentity, before),
   };
@@ -197,7 +198,7 @@ export async function markFieldReportPending(
       lastSyncErrorCode: null,
       updatedAt: new Date().toISOString(),
     },
-    TRANSITIONS.pending,
+    SYNC_TRANSITIONS.pending,
     submitterIdentity,
   );
 }
@@ -218,7 +219,7 @@ export async function markFieldReportSyncing(
       syncAttemptCount: sql`${fieldReports.syncAttemptCount} + 1`,
       updatedAt: attemptedAt,
     },
-    TRANSITIONS.syncing,
+    SYNC_TRANSITIONS.syncing,
     submitterIdentity,
   );
 }
@@ -240,7 +241,7 @@ export async function markFieldReportSynced(
       lastSyncErrorCode: null,
       updatedAt: syncedAt,
     },
-    TRANSITIONS.synced,
+    SYNC_TRANSITIONS.synced,
     submitterIdentity,
   );
 }
@@ -261,7 +262,7 @@ export async function markFieldReportFailed(
       lastSyncErrorCode: errorCode,
       updatedAt: attemptedAt,
     },
-    TRANSITIONS.failed,
+    SYNC_TRANSITIONS.failed,
     submitterIdentity,
   );
 }
@@ -345,14 +346,6 @@ export async function findLastSuccessfulFieldReportSyncAt(
     );
   }
 }
-
-/** Statuses each guarded update may start from; a row in any other status is left untouched. */
-export const TRANSITIONS = {
-  pending: ['pending', 'failed'],
-  syncing: ['pending', 'failed'],
-  synced: ['syncing'],
-  failed: ['pending', 'syncing', 'failed'],
-} as const satisfies Record<'pending' | 'syncing' | 'synced' | 'failed', readonly FieldReport['syncStatus'][]>;
 
 /** Returns the number of rows changed; 0 means the guard refused the update. */
 async function updateSyncState(

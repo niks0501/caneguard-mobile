@@ -1,3 +1,4 @@
+import { visibleSyncErrorCode } from '@/features/sync/domain/outboxState';
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 
 /**
@@ -17,7 +18,7 @@ export interface SyncAttentionPresentation {
 export function getSyncAttention(
   code: string | null | undefined,
 ): SyncAttentionPresentation | null {
-  if (typeof code !== 'string' || code.length === 0) {
+  if (visibleSyncErrorCode(code) === null) {
     return null;
   }
 

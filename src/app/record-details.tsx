@@ -47,6 +47,8 @@ import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
 import { deleteScanRecord } from '@/features/records/services/deleteScanRecord';
 import { useFieldReportForScan } from '@/features/reports/hooks/useFieldReportDraft';
 import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
+import { deriveOutboxState, visibleSyncErrorCode } from '@/features/sync/domain/outboxState';
+import { getOutboxStateSentence, isServerUnavailable } from '@/features/sync/utils/syncStatusCopy';
 import { getSyncErrorMessage } from '@/features/sync/errors/syncErrors';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
@@ -84,6 +86,18 @@ export default function RecordDetailsScreen() {
   const deleteBlockedByLinkedReport =
     !canReportToOffice && record.data?.hasLinkedFieldReport === true;
   const sync = useSync();
+  const outboxSentence =
+    fieldReport.data && fieldReport.data.syncStatus !== 'synced' && fieldReport.data.syncStatus !== 'local_only'
+      ? getOutboxStateSentence(
+          deriveOutboxState({
+            isOnline: sync.isOnline,
+            lastAttemptAt: fieldReport.data.lastSyncAttemptAt,
+            lastSyncErrorCode: visibleSyncErrorCode(fieldReport.data.lastSyncErrorCode),
+            officeDown: isServerUnavailable(sync.apiReachability, undefined, sync.isOnline),
+            status: fieldReport.data.syncStatus,
+          }),
+        )
+      : null;
   const [imageUnavailable, setImageUnavailable] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -423,14 +437,14 @@ export default function RecordDetailsScreen() {
               </DisclosureSection>
               )}
 
-              {!isFarmer && (synchronizationMetadata?.lastSyncErrorCode ||
+              {!isFarmer && (visibleSyncErrorCode(synchronizationMetadata?.lastSyncErrorCode) ||
               fieldReport.data?.syncStatus === 'pending' ||
               fieldReport.data?.syncStatus === 'failed') ? (
                 <DisclosureSection
                   testID="records.sync-details"
                   title="Sending to the office"
-                  summary={synchronizationMetadata?.lastSyncErrorCode ? 'Could not send — try again' : 'Waiting to send'}>
-                  {synchronizationMetadata?.lastSyncErrorCode ? (
+                  summary={visibleSyncErrorCode(synchronizationMetadata?.lastSyncErrorCode) ? 'Could not send — try again' : 'Waiting to send'}>
+                  {visibleSyncErrorCode(synchronizationMetadata?.lastSyncErrorCode) ? (
                     <View
                       accessibilityLiveRegion="assertive"
                       style={[
@@ -440,11 +454,19 @@ export default function RecordDetailsScreen() {
                       <Feather name="alert-triangle" size={19} color={theme.danger} />
                       <Text style={[styles.syncErrorText, { color: theme.text }]}>
                         {getSyncErrorMessage(
-                          synchronizationMetadata.lastSyncErrorCode,
+                          synchronizationMetadata?.lastSyncErrorCode ?? null,
                         ) ??
                           'Could not send the report.'}
                       </Text>
                     </View>
+                  ) : null}
+
+                  {outboxSentence ? (
+                    <Text
+                      testID="records.outbox-reason"
+                      style={[styles.deleteError, { color: theme.textSecondary }]}>
+                      {outboxSentence}
+                    </Text>
                   ) : null}
 
                   {retryError ? (

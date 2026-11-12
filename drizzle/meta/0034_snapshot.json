@@ -1,8 +1,8 @@
 {
-  "id": "ac54b970-057a-4156-9b2a-56db90f0573f",
-  "prevId": "dca4f3d8-8194-4522-bbd9-dea73069440c",
   "version": "6",
   "dialect": "sqlite",
+  "id": "604f90cc-8730-4fd6-9f0f-5afd2ec9fab0",
+  "prevId": "30fef278-c5ef-4054-a9eb-7732422d698a",
   "tables": {
     "field_reports": {
       "name": "field_reports",
@@ -406,15 +406,15 @@
         "field_reports_scan_record_id_scan_records_id_fk": {
           "name": "field_reports_scan_record_id_scan_records_id_fk",
           "tableFrom": "field_reports",
+          "tableTo": "scan_records",
           "columnsFrom": [
             "scan_record_id"
           ],
-          "tableTo": "scan_records",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1410,6 +1410,76 @@
         }
       }
     },
+    "notification_seen_outbox": {
+      "name": "notification_seen_outbox",
+      "columns": {
+        "owner_identity": {
+          "name": "owner_identity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "notification_id": {
+          "name": "notification_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "seen_at": {
+          "name": "seen_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "wait_reason": {
+          "name": "wait_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "attempt_count": {
+          "name": "attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "last_attempt_at": {
+          "name": "last_attempt_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "notification_seen_outbox_owner_identity_notification_id_pk": {
+          "columns": [
+            "owner_identity",
+            "notification_id"
+          ],
+          "name": "notification_seen_outbox_owner_identity_notification_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "notification_seen_outbox_wait_reason_check": {
+          "name": "notification_seen_outbox_wait_reason_check",
+          "value": "\"notification_seen_outbox\".\"wait_reason\" is null or \"notification_seen_outbox\".\"wait_reason\" in ('no_connection', 'sign_in_needed', 'office_not_ready')"
+        },
+        "notification_seen_outbox_attempt_check": {
+          "name": "notification_seen_outbox_attempt_check",
+          "value": "\"notification_seen_outbox\".\"attempt_count\" >= 0"
+        }
+      }
+    },
     "scan_class_scores": {
       "name": "scan_class_scores",
       "columns": {
@@ -1440,15 +1510,15 @@
         "scan_class_scores_scan_record_id_scan_records_id_fk": {
           "name": "scan_class_scores_scan_record_id_scan_records_id_fk",
           "tableFrom": "scan_class_scores",
+          "tableTo": "scan_records",
           "columnsFrom": [
             "scan_record_id"
           ],
-          "tableTo": "scan_records",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -1491,15 +1561,15 @@
         "scan_quality_warnings_scan_record_id_scan_records_id_fk": {
           "name": "scan_quality_warnings_scan_record_id_scan_records_id_fk",
           "tableFrom": "scan_quality_warnings",
+          "tableTo": "scan_records",
           "columnsFrom": [
             "scan_record_id"
           ],
-          "tableTo": "scan_records",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -1804,15 +1874,15 @@
         "scan_records_follows_up_scan_id_scan_records_id_fk": {
           "name": "scan_records_follows_up_scan_id_scan_records_id_fk",
           "tableFrom": "scan_records",
+          "tableTo": "scan_records",
           "columnsFrom": [
             "follows_up_scan_id"
           ],
-          "tableTo": "scan_records",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "set null"
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1883,15 +1953,15 @@
         "scan_symptoms_scan_record_id_scan_records_id_fk": {
           "name": "scan_symptoms_scan_record_id_scan_records_id_fk",
           "tableFrom": "scan_symptoms",
+          "tableTo": "scan_records",
           "columnsFrom": [
             "scan_record_id"
           ],
-          "tableTo": "scan_records",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -1994,9 +2064,9 @@
   "views": {},
   "enums": {},
   "_meta": {
-    "columns": {},
     "schemas": {},
-    "tables": {}
+    "tables": {},
+    "columns": {}
   },
   "internal": {
     "indexes": {}

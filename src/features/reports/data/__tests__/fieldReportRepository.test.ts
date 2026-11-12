@@ -1,3 +1,4 @@
+import { SYNC_TRANSITIONS } from '@/features/sync/domain/outboxState';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -36,7 +37,6 @@ import {
   markFieldReportPending,
   markFieldReportSynced,
   markFieldReportSyncing,
-  TRANSITIONS,
 } from '@/features/reports/data/fieldReportSyncRepository';
 import {
   findOwnedFieldSurvey,
@@ -109,7 +109,7 @@ function openTestDatabase(): {
     '0025_field_survey_author_role.sql',
     '0028_field_report_survey_link.sql',
     '0029_scan_personal_place.sql',
-    '0033_authority_workflow_status.sql',
+    '0034_authority_workflow_status.sql',
   ]) {
     native.exec(readMigration(migration));
   }
@@ -1250,7 +1250,7 @@ describe('Field Report draft repository', () => {
   });
 
   it('declares the statuses each guarded sync update may start from', () => {
-    expect(TRANSITIONS).toEqual({
+    expect(SYNC_TRANSITIONS).toEqual({
       pending: ['pending', 'failed'],
       syncing: ['pending', 'failed'],
       synced: ['syncing'],

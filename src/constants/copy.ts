@@ -1575,6 +1575,7 @@ export const SCAN_CHECK_COPY = {
   checking: 'Checking your photo…',
   checkingDetail: 'Looking at light and focus, then reading the photo.',
   checkedTitle: 'Photo checked',
+  notAnalysed: 'This photo was not analysed. Please use a new photo.',
   ready: 'Photo checked. Choose a picture, then continue.',
   continue: 'Continue',
   continueWaiting: 'Checking photo…',

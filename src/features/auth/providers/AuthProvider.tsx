@@ -1,4 +1,3 @@
-import NetInfo from '@react-native-community/netinfo';
 import * as Device from 'expo-device';
 import type { PropsWithChildren } from 'react';
 import {
@@ -9,7 +8,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import { AppState } from 'react-native';
 
 import {
   changeEmail as changeEmailApi,
@@ -26,6 +24,7 @@ import {
   authenticateWithBiometrics,
   getBiometricCapability,
 } from '@/features/auth/services/biometricAuth';
+import { checkAccountStep, net } from '@/features/net/reconnectCoordinator';
 import { cancelOfficeMediaPrefetch } from '@/features/assignments/services/officeMediaCache';
 import { getOrCreateMobileDeviceId, DeviceIdentityError } from '@/features/auth/services/deviceIdentity';
 import {
@@ -353,19 +352,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
     if (status !== 'authenticated') {
       return undefined;
     }
-    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') {
-        void retrySessionVerification();
-      }
-    });
-    const unsubscribeNetwork = NetInfo.addEventListener((state) => {
-      if (state.isConnected === true && state.isInternetReachable !== false) {
-        void retrySessionVerification();
-      }
-    });
+    // Check account is one step of the coordinator's reconnect order; the
+    // coordinator owns the network and foreground listeners.
+    const release = net.acquire();
+    const unregister = net.registerCheckAccount(() =>
+      checkAccountStep(sessionVerificationRef.current, retrySessionVerification),
+    );
     return () => {
-      appStateSubscription.remove();
-      unsubscribeNetwork();
+      unregister();
+      release();
     };
   }, [retrySessionVerification, status]);
 

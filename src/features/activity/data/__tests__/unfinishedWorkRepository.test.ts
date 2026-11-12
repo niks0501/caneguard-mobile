@@ -29,7 +29,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
     '0020_nasty_captain_midlands.sql', '0021_field_survey_affected_areas.sql',
     '0022_peaceful_titania.sql', '0023_affected_area_waypoints.sql',
     '0024_active_affected_waypoints.sql', '0025_field_survey_author_role.sql',
-    '0028_field_report_survey_link.sql', '0029_scan_personal_place.sql', '0033_authority_workflow_status.sql',
+    '0028_field_report_survey_link.sql', '0029_scan_personal_place.sql', '0034_authority_workflow_status.sql',
   ]) {
     native.exec(readFileSync(join(process.cwd(), 'drizzle', migration), 'utf8').replaceAll('--> statement-breakpoint', ''));
   }

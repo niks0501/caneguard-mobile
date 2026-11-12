@@ -6,6 +6,7 @@ jest.mock('@/features/surveys/data/fieldSurveySyncRepository', () => ({
   countCoolingRetryableFieldSurveys: jest.fn(() => 0),
   countUnsyncedFieldSurveys: jest.fn(),
   findFieldSurveySyncCandidates: jest.fn(),
+  resetStaleSyncingFieldSurveys: jest.fn(),
 }));
 jest.mock('@/features/surveys/services/syncFieldSurvey', () => ({
   syncFieldSurvey: jest.fn(),

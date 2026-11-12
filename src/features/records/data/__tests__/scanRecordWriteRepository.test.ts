@@ -61,7 +61,7 @@ function openTestDatabase(): {
   native.exec(readMigration('0013_v1_local_scan_migration.sql'));
   native.exec(readMigration('0026_scan_follow_up_check.sql'));
   native.exec(readMigration('0029_scan_personal_place.sql'));
-  native.exec(readMigration('0033_authority_workflow_status.sql'));
+  native.exec(readMigration('0034_authority_workflow_status.sql'));
   const client = {
     prepareSync(sql: string) {
       return createStatementAdapter(native.prepare(sql));

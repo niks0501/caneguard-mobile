@@ -11,6 +11,7 @@ import {
   fieldValidationCompletions,
   localDrafts,
   mobileNotifications,
+  notificationSeenOutbox,
   scanRecords,
   syncCheckpoints,
 } from '@/database/schema';
@@ -257,6 +258,10 @@ export async function clearLocalDataForOwner(
         deletedRows += transaction
           .delete(mobileNotifications)
           .where(eq(mobileNotifications.ownerIdentity, owner))
+          .run().changes;
+        deletedRows += transaction
+          .delete(notificationSeenOutbox)
+          .where(eq(notificationSeenOutbox.ownerIdentity, owner))
           .run().changes;
         deletedRows += transaction
           .delete(localDrafts)

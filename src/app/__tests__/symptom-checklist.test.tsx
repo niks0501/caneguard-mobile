@@ -288,10 +288,13 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
       ).toBeGreaterThan(0);
     });
     expect(mockRouterPush).not.toHaveBeenCalled();
+    expect(screen.getByTestId('scan.retake-camera')).toBeEnabled();
+    expect(screen.getByTestId('scan.retake-gallery')).toBeEnabled();
 
     await fireEvent.press(screen.getByTestId('scan.try-again'));
     await waitFor(() => {
       expect(mockPreprocessImage).toHaveBeenCalledTimes(2);
+      expect(screen.queryByTestId('scan.photo-failed-check')).not.toBeOnTheScreen();
     });
   });
 
@@ -307,6 +310,8 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
       ).toBeGreaterThan(0);
     });
     expect(screen.getByTestId('scan.continue-to-result')).toBeDisabled();
+    expect(screen.queryByTestId('scan.retake-camera')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.retake-gallery')).not.toBeOnTheScreen();
   });
 
   it('offers an in-app retry after a recoverable model-load failure', async () => {

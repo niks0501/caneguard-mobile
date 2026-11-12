@@ -441,7 +441,12 @@ export default function ScanScreen() {
           primary={
             state.sourceUri ? (
               <AppButton
-                onPress={() => router.push('/symptom-checklist')}
+                onPress={() => {
+                  if (state.result && state.status === 'error') {
+                    dispatch({ type: 'CLEAR_ERROR' });
+                  }
+                  router.push('/symptom-checklist');
+                }}
                 disabled={isBusy}
                 trailingIcon="arrow-right"
                 accessibilityLabel="Continue with the selected photo">

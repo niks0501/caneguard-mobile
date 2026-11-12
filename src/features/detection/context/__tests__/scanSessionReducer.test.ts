@@ -212,6 +212,29 @@ describe('scanSessionReducer', () => {
     });
   });
 
+  it('preserves a completed result when clearing picker and permission errors', () => {
+    const completed: ScanSessionState = {
+      ...initialScanSessionState,
+      sourceUri: 'file:///leaf.jpg',
+      sourceType: 'gallery',
+      status: 'completed',
+      result: completedResult,
+    };
+
+    const afterOpeningPicker = scanSessionReducer(completed, { type: 'CLEAR_ERROR' });
+    expect(afterOpeningPicker).toMatchObject({ status: 'completed', result: completedResult });
+
+    const denied = scanSessionReducer(afterOpeningPicker, {
+      type: 'SET_ERROR',
+      payload: 'Permission denied',
+    });
+    expect(scanSessionReducer(denied, { type: 'CLEAR_ERROR' })).toMatchObject({
+      status: 'completed',
+      result: completedResult,
+      errorMessage: null,
+    });
+  });
+
   it('resets every scan-specific field', () => {
     const populated: ScanSessionState = {
       ...initialScanSessionState,

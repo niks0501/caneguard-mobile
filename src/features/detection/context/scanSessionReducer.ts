@@ -56,6 +56,7 @@ export function scanSessionReducer(
         preprocessMs: null,
         result: null,
         qualityAssessment: null,
+        photoPreparationFailed: false,
         status: 'preprocessing',
         errorMessage: null,
       };
@@ -101,12 +102,14 @@ export function scanSessionReducer(
         ...state,
         status: 'error',
         errorMessage: action.payload,
+        photoPreparationFailed: action.photoPreparationFailed ?? false,
       };
     case 'CLEAR_ERROR':
       return {
         ...state,
-        status: state.sourceUri ? 'image-selected' : 'idle',
+        status: state.result ? 'completed' : state.sourceUri ? 'image-selected' : 'idle',
         errorMessage: null,
+        photoPreparationFailed: false,
       };
   }
 }

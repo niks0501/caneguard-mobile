@@ -606,6 +606,27 @@ describe('ScanScreen', () => {
     ).toBeOnTheScreen();
   });
 
+  it('clears a picker error before resuming a completed scan', async () => {
+    await renderScan({
+      ...initialScanSessionState,
+      sourceUri: 'file:///saved-leaf.jpg',
+      sourceType: 'gallery',
+      status: 'error',
+      errorMessage: 'Camera permission denied',
+      result: {
+        predictedLabel: 'rust',
+        confidence: 0.8,
+        scores: [],
+        timings: { preprocessMs: 1, inferenceMs: 1, totalMs: 2 },
+        modelVersion: 'test',
+      },
+    });
+
+    await fireEvent.press(screen.getByLabelText('Continue with the selected photo'));
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'CLEAR_ERROR' });
+    expect(mockRouterPush).toHaveBeenCalledWith('/symptom-checklist');
+  });
+
   it('does not claim a kept draft after a failed checkpoint write', async () => {
     const flushSavedDraft = jest.fn(async () => false);
     mockDraftOverride = {

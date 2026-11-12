@@ -125,6 +125,7 @@ export function useScanAnalysis() {
         }
         dispatch({
           type: 'SET_ERROR',
+          photoPreparationFailed: !inferenceStarted,
           payload: inferenceStarted
             ? getInferenceErrorMessage(error)
             : getPreprocessingErrorMessage(error),
@@ -152,7 +153,7 @@ export function useScanAnalysis() {
     isChecking:
       status === 'preprocessing' || status === 'running' || status === 'finalizing',
     isReady: status === 'completed' && Boolean(result),
-    // Retake is offered only when the photo-quality check flagged the photo.
-    photoFailedCheck: (state.qualityAssessment?.warnings.length ?? 0) > 0,
+    photoFailedCheck:
+      Boolean(state.photoPreparationFailed) || (state.qualityAssessment?.warnings.length ?? 0) > 0,
   };
 }

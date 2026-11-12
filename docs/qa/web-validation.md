@@ -51,8 +51,9 @@ first check plus two follow-ups, each with its own image and date; the
 follow-ups carry notes) so the first-check history and the retained-note case
 are visible immediately. Seeding is recorded in this browser profile, so a check
 the validator deletes stays deleted; use a fresh profile or clear site data for
-a fresh seed. The notification feed is empty, and any other `GET` answers a
-well-formed empty page.
+a fresh seed. The inspector's notifications feed includes one legacy-worded
+office update for validating approved Visit presentation; the farmer feed stays
+empty. Any other `GET` answers a well-formed empty page.
 
 ## Why the flags exist
 
@@ -62,7 +63,7 @@ well-formed empty page.
 | COOP/COEP | `metro.config.js` (`server.enhanceMiddleware`) | The web SQLite bridge uses `SharedArrayBuffer`, which needs a cross-origin-isolated page. The dev server now sends the headers, so no proxy is needed. |
 | Async warm-up | `src/database/DatabaseProvider.tsx` | The first synchronous SQLite open busy-waits while the SQLite worker is still starting, and a blocked main thread starves that startup. On web only, one async open runs first, and the synchronous open is skipped unless it succeeds; a rejection or a 10-second timeout shows the retryable storage screen, and the warm-up connection is closed on retry and unmount. Native is untouched. |
 | Secure-store stand-in | `validation/expo-secure-store/ExpoSecureStore.web.ts` | `expo-secure-store` has no web implementation, so nobody can sign in on web. The stand-in keeps a fake session in `localStorage`. |
-| Stub API | `validation/stub-api/` | Two fake accounts (the inspector's `/me` response carries the capability set the inspector screens require), two fake visits, the farmer's seeded checks and images, read-only feeds. The only write is a validation image held in memory until the run ends. |
+| Stub API | `validation/stub-api/` | Two fake accounts (the inspector's `/me` response carries the capability set the inspector screens require), two fake visits, one legacy-worded inspector office update, the farmer's seeded checks and images, and read-only feeds. The only write is a validation image held in memory until the run ends. |
 | Web model stub | `src/features/detection/model/useCaneGuardModel.web.tsx` | Without a native TFLite runtime the web bundle fails closed. On the validation route only (`__DEV__`, flag and fixed stub origin) a fixed deterministic output lets a captured photo reach the result screen. Native inference is untouched. |
 | File-system stand-in | `validation/expo-file-system/ExpoFileSystem.web.ts` | Keeps validation scan images in memory, mirrors new captures to the stub, and restores their metadata after a reload so a saved draft checkpoint can be recovered. Same flag, stub-only and release-build gates as the secure-store stand-in. |
 

@@ -154,6 +154,8 @@ export function prefetchOfficeMedia(options: {
   now?: Date;
   ownerIdentity: string;
   token: string;
+  /** False once the session that owns this token is gone; stops further downloads. */
+  isSessionCurrent?: () => boolean;
 }): Promise<void> {
   const owner = requireOwnerIdentity(options.ownerIdentity);
   const generation = generationOf(owner);
@@ -171,12 +173,14 @@ async function runPrefetch(
     now: Date;
     ownerIdentity: string;
     token: string;
+    isSessionCurrent?: () => boolean;
   },
   generation: number,
 ): Promise<void> {
   const owner = options.ownerIdentity;
   const directory = ownerDirectory(owner);
-  const stale = () => generationOf(owner) !== generation;
+  const stale = () =>
+    generationOf(owner) !== generation || !(options.isSessionCurrent?.() ?? true);
 
   // Plan: admit whole cases, nearest first, while they fit the budget.
   const admitted: OfficeMediaItem[][] = [];
@@ -190,6 +194,7 @@ async function runPrefetch(
     admitted.push(items);
   }
 
+  if (stale()) return;
   const keep = new Set(admitted.flat().map((entry) => entry.fileName));
   if (directory.exists) {
     for (const entry of directory.list()) {
@@ -259,6 +264,12 @@ async function downloadPhoto(
     if (partial.exists) partial.delete();
     return false;
   }
+}
+
+/** Stops queued and in-flight prefetches for the owner without touching files already cached. */
+export function cancelOfficeMediaPrefetch(ownerIdentity: string): void {
+  const owner = requireOwnerIdentity(ownerIdentity);
+  generations.set(owner, generationOf(owner) + 1);
 }
 
 /** Deletes every cached photo for the owner and cancels in-flight prefetches. */

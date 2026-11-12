@@ -183,6 +183,26 @@ describe('assignment feed checkpoints', () => {
     expect(String(request.mock.calls[0][0])).not.toContain('since=');
   });
 
+  // Proves: a refresh whose session ended while the download was in flight saves nothing (logout/account switch boundary).
+  it('persists nothing when the session ends during the download', async () => {
+    const database = openTestDatabase();
+    serve({ total: 3, delivered: 3, version: 'v-3', truncated: false });
+    let live = true;
+    const baseline = request.getMockImplementation()!;
+    request.mockImplementation(async (...args: Parameters<typeof apiRequest>) => {
+      const answer = await baseline(...args);
+      live = false;
+      return answer;
+    });
+
+    await expect(
+      refreshFieldValidationAssignments({ database, ownerIdentity: OWNER, token: 't', isSessionCurrent: () => live }),
+    ).rejects.toThrow('superseded');
+
+    await expect(listCachedFieldValidationAssignments(database, OWNER)).resolves.toHaveLength(0);
+    await expect(readSyncCheckpoint(database, OWNER, 'assignments')).resolves.toBeNull();
+  });
+
   // Proves: a download whose pages exceed what total/cap allow is rejected and leaves the old checkpoint alone.
   it('rejects a feed that runs past the derived page count', async () => {
     const database = openTestDatabase();

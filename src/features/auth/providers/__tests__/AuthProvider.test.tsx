@@ -619,6 +619,31 @@ describe('AuthProvider', () => {
     expect(result.current.session).toBeNull();
   });
 
+  // Proves: pending assignment work is invalidated as soon as logout starts, before the revocation call returns.
+  it('marks the session no longer current while logout revocation is still pending', async () => {
+    mockLogin.mockResolvedValueOnce(SESSION);
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+    await act(async () => {
+      await result.current.login('field@caneguard.test', 'password');
+    });
+    expect(result.current.isSessionCurrent(SESSION.token, SESSION.user.uuid)).toBe(true);
+
+    let release: () => void = () => undefined;
+    mockLogout.mockReturnValueOnce(new Promise<void>((resolve) => { release = resolve; }));
+    let finished: Promise<unknown> = Promise.resolve();
+    await act(async () => {
+      finished = result.current.logout();
+      await Promise.resolve();
+    });
+
+    expect(result.current.isSessionCurrent(SESSION.token, SESSION.user.uuid)).toBe(false);
+    await act(async () => {
+      release();
+      await finished;
+    });
+  });
+
   it('expires a cached session at its fixed server deadline and attempts revocation', async () => {
     jest.useFakeTimers();
     const expiringSession = {

@@ -64,6 +64,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const database = useCaneGuardDatabase();
   const {
     markSessionExpired,
+    retrySessionVerification,
     session,
     sessionVerification,
     status: authStatus,
@@ -99,6 +100,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const sessionKey = session ? `${session.token}:${session.user.uuid}` : null;
   const sessionRef = useRef<MobileSession | null>(session);
   const sessionVerificationRef = useRef(sessionVerification);
+  const retrySessionVerificationRef = useRef(retrySessionVerification);
+  const previousVerificationRef = useRef(sessionVerification);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryTimerSessionKey = useRef<string | null>(null);
   const syncNowRef = useRef<
@@ -127,14 +130,25 @@ export function SyncProvider({ children }: PropsWithChildren) {
       const scheduledSessionKey = retryTimerSessionKey.current;
       retryTimer.current = null;
       retryTimerSessionKey.current = null;
-      if (
+      const canRetry = () =>
         mounted.current &&
         onlineRef.current === true &&
         appStateRef.current === 'active' &&
-        scheduledSessionKey === getSessionKey(sessionRef.current)
-      ) {
-        void syncNowRef.current?.('retry-timer');
+        scheduledSessionKey === getSessionKey(sessionRef.current);
+      if (!canRetry()) {
+        return;
       }
+      void (async () => {
+        // An unverified account holds reports and boundaries; reattempt /me first.
+        // When it lands, the verification effect resumes the held queues.
+        if (sessionVerificationRef.current === 'unavailable') {
+          const verification = await retrySessionVerificationRef.current?.();
+          if (verification === 'verified' || !canRetry()) {
+            return;
+          }
+        }
+        void syncNowRef.current?.('retry-timer');
+      })();
     }, SYNC_RETRY_COOLDOWN_MS);
   }, [sessionKey]);
 
@@ -145,6 +159,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     sessionVerificationRef.current = sessionVerification;
   }, [sessionVerification]);
+
+  useEffect(() => {
+    retrySessionVerificationRef.current = retrySessionVerification;
+  }, [retrySessionVerification]);
 
   useEffect(() => () => clearRetryTimer(), [clearRetryTimer, sessionKey]);
 
@@ -365,6 +383,22 @@ export function SyncProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     syncNowRef.current = syncNow;
   }, [syncNow]);
+
+  // Held reports and boundaries wait on the verified account district, so verification
+  // completing is itself the trigger to reconsider them, cooldowns included.
+  useEffect(() => {
+    const wasVerified = previousVerificationRef.current === 'verified';
+    previousVerificationRef.current = sessionVerification;
+    if (
+      sessionVerification === 'verified' &&
+      !wasVerified &&
+      authStatus === 'authenticated' &&
+      onlineRef.current === true &&
+      appStateRef.current === 'active'
+    ) {
+      void syncNow('retry-timer');
+    }
+  }, [authStatus, sessionVerification, syncNow]);
 
   const retryReport = useCallback(
     async (reportId: string) => {

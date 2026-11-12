@@ -572,6 +572,118 @@ describe('SyncProvider foreground triggers', () => {
     );
   });
 
+  // Models the held queue: a record is sent only once a verified district is supplied,
+  // otherwise it stays pending and the batch reports a transient blocker.
+  function simulateHeldQueues() {
+    const sent: string[] = [];
+    const batch = (kind: string) => (options: { districtCode: string; source: never }) => {
+      if (!options.districtCode) {
+        return Promise.resolve({
+          attempted: 0, authRequired: false, failed: 0, haltReason: 'transient-blocker' as const,
+          results: [], source: options.source, synced: 0,
+        });
+      }
+      if (!sent.includes(kind)) sent.push(kind);
+      return Promise.resolve({
+        attempted: 1, authRequired: false, failed: 0, haltReason: 'empty' as const,
+        results: [], source: options.source, synced: 1,
+      });
+    };
+    jest.mocked(syncPendingFieldReports).mockImplementation(batch('report') as never);
+    jest.mocked(syncPendingFieldSurveys).mockImplementation(batch('boundary') as never);
+    return sent;
+  }
+
+  const cachedUser = { uuid: SUBMITTER_ID, role: 'field_reporter' as const, districtCode: 'D-01' };
+  const authState = (sessionVerification: string, retrySessionVerification?: () => Promise<string>) => ({
+    status: 'authenticated',
+    session: { token: 'secure-token', user: cachedUser },
+    sessionVerification,
+    retrySessionVerification,
+    markSessionExpired: jest.fn(async () => undefined),
+  }) as never;
+
+  // R12: verification completing resumes held reports and boundaries with no reconnect or foreground event.
+  it('sends held reports and boundaries once verification completes, without another trigger', async () => {
+    const sent = simulateHeldQueues();
+    jest.mocked(useAuth).mockReturnValue(authState('pending'));
+    const view = await render(<SyncProvider><Text>Ready</Text></SyncProvider>);
+    await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+    await act(async () => {
+      networkListener(ONLINE);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(syncPendingFieldSurveys).toHaveBeenCalled());
+    expect(sent).toEqual([]);
+
+    jest.mocked(useAuth).mockReturnValue(authState('verified'));
+    await view.rerender(<SyncProvider><Text>Ready</Text></SyncProvider>);
+
+    await waitFor(() => expect(sent.sort()).toEqual(['boundary', 'report']));
+  });
+
+  // R13: with /me unavailable, the retry timer reattempts verification, then the held queues resume.
+  it('reattempts account verification on the retry timer, then sends the held queues', async () => {
+    jest.useFakeTimers();
+    try {
+      const sent = simulateHeldQueues();
+      let rerenderVerified: () => Promise<void> = async () => undefined;
+      const retryVerification = jest.fn(async () => {
+        jest.mocked(useAuth).mockReturnValue(authState('verified', retryVerification));
+        await rerenderVerified();
+        return 'verified';
+      });
+      jest.mocked(useAuth).mockReturnValue(authState('unavailable', retryVerification));
+      const view = await render(<SyncProvider><Text>Ready</Text></SyncProvider>);
+      rerenderVerified = async () => {
+        await view.rerender(<SyncProvider><Text>Ready</Text></SyncProvider>);
+      };
+      await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+      await act(async () => {
+        networkListener(ONLINE);
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(syncPendingFieldSurveys).toHaveBeenCalled());
+      expect(sent).toEqual([]);
+      expect(retryVerification).not.toHaveBeenCalled();
+
+      await act(async () => {
+        jest.advanceTimersByTime(60_000);
+        await Promise.resolve();
+      });
+
+      await waitFor(() => expect(retryVerification).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(sent.sort()).toEqual(['boundary', 'report']));
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps retrying while verification stays unavailable', async () => {
+    jest.useFakeTimers();
+    try {
+      const sent = simulateHeldQueues();
+      const retryVerification = jest.fn(async () => 'unavailable');
+      jest.mocked(useAuth).mockReturnValue(authState('unavailable', retryVerification));
+      await render(<SyncProvider><Text>Ready</Text></SyncProvider>);
+      await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+      await act(async () => {
+        networkListener(ONLINE);
+        await Promise.resolve();
+      });
+      for (let round = 1; round <= 2; round += 1) {
+        await act(async () => {
+          jest.advanceTimersByTime(60_000);
+          await Promise.resolve();
+        });
+        await waitFor(() => expect(retryVerification).toHaveBeenCalledTimes(round));
+      }
+      expect(sent).toEqual([]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('tracks API unavailability separately from phone network availability', async () => {
     jest.mocked(syncPendingFieldReports).mockResolvedValue({
       attempted: 1,

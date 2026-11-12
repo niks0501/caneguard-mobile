@@ -70,6 +70,8 @@ interface AuthContextValue {
     remoteRevocationFailed: boolean;
   }>;
   markSessionExpired: () => Promise<void>;
+  /** Re-attempts a pending /me verification; resolves with the verification status afterwards. */
+  retrySessionVerification: () => Promise<SessionVerificationStatus>;
   session: MobileSession | null;
   sessionVerification: SessionVerificationStatus;
   status: AuthStatus;
@@ -93,7 +95,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const verificationGeneration = useRef(0);
   const sessionRef = useRef<MobileSession | null>(null);
   const sessionVerificationRef = useRef<SessionVerificationStatus>('idle');
-  const verificationRetryRef = useRef<Promise<void> | null>(null);
+  const verificationRetryRef = useRef<Promise<SessionVerificationStatus> | null>(null);
   const lastVerificationRetryAt = useRef(0);
 
   useEffect(() => {
@@ -259,17 +261,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
    * prompts for biometrics, and coalesces overlapping foreground/network
    * events so reconnecting cannot start a request loop.
    */
-  const retrySessionVerification = useCallback(async () => {
+  const retrySessionVerification = useCallback(async (): Promise<SessionVerificationStatus> => {
     const activeSession = sessionRef.current;
     if (!activeSession || sessionVerificationRef.current !== 'unavailable') {
-      return;
+      return sessionVerificationRef.current;
     }
     if (verificationRetryRef.current) {
-      return verificationRetryRef.current;
+      await verificationRetryRef.current;
+      return sessionVerificationRef.current;
     }
     const now = Date.now();
     if (now - lastVerificationRetryAt.current < 10_000) {
-      return;
+      return sessionVerificationRef.current;
     }
     lastVerificationRetryAt.current = now;
 
@@ -281,19 +284,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     // `holder` lets the operation's own `finally` compare identities without
     // reading the `operation` binding during its own initializer.
-    const holder: { current: Promise<void> | null } = { current: null };
-    const operation = (async () => {
+    const holder: { current: Promise<SessionVerificationStatus> | null } = { current: null };
+    const operation = (async (): Promise<SessionVerificationStatus> => {
       try {
         const user = await verifyMobileSession(activeSession.token);
         if (!isCurrent()) {
-          return;
+          return sessionVerificationRef.current;
         }
         setCurrentSession({ ...activeSession, user });
         setSessionVerification('verified');
         setErrorMessage(null);
+        return 'verified';
       } catch (error: unknown) {
         if (!isCurrent()) {
-          return;
+          return sessionVerificationRef.current;
         }
         if (isAuthoritativeSessionRejection(error)) {
           await clearMobileSession().catch(() => undefined);
@@ -304,12 +308,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
             setBiometricEnabled(false);
             setErrorMessage('Your session expired. Sign in to resume pending uploads.');
           }
-          return;
+          return 'idle';
         }
         // Still offline or the office is still unavailable: keep the honest
         // "working offline" state without prompting for biometrics.
         setCurrentSession(unverifiedSession(activeSession));
         setSessionVerification('unavailable');
+        return 'unavailable';
       } finally {
         if (verificationRetryRef.current === holder.current) {
           verificationRetryRef.current = null;
@@ -892,6 +897,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       login,
       logout,
       markSessionExpired,
+      retrySessionVerification,
       session,
       sessionVerification,
       status,
@@ -913,6 +919,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       login,
       logout,
       markSessionExpired,
+      retrySessionVerification,
       session,
       sessionVerification,
       status,

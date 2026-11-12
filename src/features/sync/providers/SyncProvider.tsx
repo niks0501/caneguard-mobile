@@ -143,7 +143,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         // When it lands, the verification effect resumes the held queues.
         if (sessionVerificationRef.current === 'unavailable') {
           const verification = await retrySessionVerificationRef.current?.();
-          if (verification === 'verified' || !canRetry()) {
+          if (verification === 'verified' || verification === 'idle' || !canRetry()) {
             return;
           }
         }

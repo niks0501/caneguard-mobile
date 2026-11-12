@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { EMPTY_DATABASE, useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { net } from '@/features/net/reconnectCoordinator';
 import {
   markAllMobileNotificationsRead,
   markMobileNotificationRead,
@@ -214,6 +215,14 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
     useCallback(() => {
       if (enabled && refreshOnFocus) requestDownloadRun();
     }, [enabled, refreshOnFocus]),
+  );
+
+  // Back online, the coordinator's Download step calls this feed's own refresh.
+  useEffect(
+    () => net.registerDownload(() => {
+      void refresh({ force: false });
+    }),
+    [refresh],
   );
 
   useEffect(() => {

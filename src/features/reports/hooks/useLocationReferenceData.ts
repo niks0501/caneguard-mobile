@@ -1,6 +1,6 @@
-import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { net } from '@/features/net/reconnectCoordinator';
 import { SEED_LOCATION_REFERENCE_DATA } from '@/features/reports/referenceData/nasugbuSeed';
 import {
   resolveLocationReferenceData,
@@ -82,19 +82,13 @@ export function useLocationReferenceData(): ReferenceDataState & {
       }
     });
 
-    const unsubscribeNetwork = NetInfo.addEventListener((networkState) => {
-      const online =
-        networkState.isConnected === true &&
-        networkState.isInternetReachable !== false;
-      if (online) {
-        void refresh();
-      }
-    });
+    // Back online, the coordinator's Download step calls this refresh.
+    const unregisterDownload = net.registerDownload(refresh);
 
     return () => {
       active = false;
       mounted.current = false;
-      unsubscribeNetwork();
+      unregisterDownload();
     };
   }, [applyResolution, refresh]);
 

@@ -3,6 +3,7 @@ import {
   createFieldReportSyncRepository,
   SYNC_RETRY_COOLDOWN_MS,
 } from '@/features/reports/data/fieldReportSyncRepository';
+import { staleSyncingCutoff } from '@/features/sync/domain/outboxState';
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import {
   syncFieldReport,
@@ -102,6 +103,9 @@ async function executeBatch({
     Math.max(Math.trunc(limit), 1),
     MAX_SYNC_REPORTS_PER_RUN,
   );
+  // Left sending rows (closed app, killed upload) are recovered at the start of
+  // every run, not only at app start; the 5-minute guard spares live sends.
+  await repository.resetStaleSyncingReports(staleSyncingCutoff());
   const results: SyncResult[] = [];
   let authRequired = false;
   let haltReason: SyncHaltReason = null;

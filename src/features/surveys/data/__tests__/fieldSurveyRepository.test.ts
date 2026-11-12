@@ -99,7 +99,7 @@ describe('field survey local repository', () => {
       polygon: ['Move the boundary inside the assigned plot.'],
     });
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'syncing' });
-    updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'pending', lastSyncErrorCode: 'UPLOAD_FAILED' });
+    updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'failed', lastSyncErrorCode: 'UPLOAD_FAILED' });
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'syncing' });
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'synced', remoteId: 'remote-1' });
     expect(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')).toMatchObject({ status: 'synced', remoteId: 'remote-1', syncAttemptCount: 2 });

@@ -1,3 +1,4 @@
+import { SYNC_TRANSITIONS } from '@/features/sync/domain/outboxState';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync, type SQLInputValue, type StatementSync } from 'node:sqlite';
@@ -15,7 +16,6 @@ import {
   markFieldValidationCompletionSynced,
   markFieldValidationCompletionSyncing,
   saveFieldValidationCompletion,
-  TRANSITIONS,
 } from '@/features/assignments/data/fieldValidationCompletionRepository';
 import type { SaveFieldValidationCompletionInput } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 
@@ -177,7 +177,7 @@ describe('field validation completion repository', () => {
   });
 
   it('declares the statuses each guarded update may start from', () => {
-    expect(TRANSITIONS).toEqual({
+    expect(SYNC_TRANSITIONS).toEqual({
       pending: ['pending', 'failed'],
       syncing: ['pending', 'failed'],
       synced: ['syncing'],

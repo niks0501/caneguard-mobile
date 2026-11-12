@@ -3,10 +3,11 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
-import { fieldSurveys, type FieldSurveyRow, type FieldSurveyStatus } from '@/database/schema';
+import { fieldSurveys, type FieldSurveyRow } from '@/database/schema';
 import type { MobileUserRole } from '@/features/auth/types';
 import { planAttachedBoundarySend } from '@/features/surveys/domain/attachedBoundary';
 import { boundaryCanDelete, boundaryCanEdit, boundaryCanSubmit, boundaryState } from '@/features/surveys/domain/boundaryState';
+import { SYNC_TRANSITIONS } from '@/features/sync/domain/outboxState';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 
@@ -174,14 +175,6 @@ export function queueAttachedFieldSurvey(
   return true;
 }
 
-/** Statuses each sync write may start from; a row in any other status is left untouched. */
-export const TRANSITIONS = {
-  pending: ['syncing', 'failed'],
-  syncing: ['pending', 'failed'],
-  synced: ['syncing'],
-  failed: ['pending', 'syncing', 'failed'],
-} as const satisfies Record<'pending' | 'syncing' | 'synced' | 'failed', readonly FieldSurveyStatus[]>;
-
 /** Returns the number of rows changed; 0 means the guard refused the write. */
 export function updateFieldSurveySyncResult(
   database: CaneGuardDatabase,
@@ -210,7 +203,7 @@ export function updateFieldSurveySyncResult(
   }).where(and(
     eq(fieldSurveys.clientUuid, clientUuid),
     eq(fieldSurveys.ownerIdentity, owner),
-    inArray(fieldSurveys.status, [...TRANSITIONS[update.status]]),
+    inArray(fieldSurveys.status, [...SYNC_TRANSITIONS[update.status]]),
   )).run();
   if (result.changes > 0) emitSyncRecordsChanged();
   return result.changes;

@@ -1,6 +1,7 @@
 import type { ApiReachability } from '@/features/sync/providers/SyncProvider';
 import { type FarmerLanguage } from '@/constants/copy';
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
+import type { OutboxState, OutboxWaitReason } from '@/features/sync/domain/outboxState';
 import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 
 /** Single-sourced sync status copy for offline field-survey submissions. */
@@ -38,6 +39,32 @@ export const SYNC_TONE_COLOR = {
 } as const satisfies Record<SyncTone, 'textSecondary' | 'warning' | 'danger'>;
 
 export type SyncToneColorKey = (typeof SYNC_TONE_COLOR)[SyncTone];
+
+/** One plain sentence per named reason a saved item is waiting. */
+export const OUTBOX_WAIT_COPY: Record<OutboxWaitReason, string> = {
+  offline: 'Waiting for a connection. This stays saved on this phone.',
+  'office-down': 'Waiting for the office to be reachable again.',
+  'cool-down': 'Waiting about a minute before trying again.',
+  'account-check': 'Waiting for your account check to finish.',
+  'boundary-first': 'Waiting for the boundary to upload first.',
+};
+
+/** The one sentence for an outbox state, or null when the state needs no explanation. */
+export function getOutboxStateSentence(state: OutboxState): string | null {
+  switch (state.kind) {
+    case 'waiting':
+      return OUTBOX_WAIT_COPY[state.reason];
+    case 'queued':
+      return 'Saved. It will send as soon as it can.';
+    case 'sending':
+      return 'Sending to the office now.';
+    case 'left-sending':
+      return 'The last send did not finish. It will be tried again.';
+    case 'sent':
+    case 'needs-you':
+      return null;
+  }
+}
 
 /** State label for a visit completed on this phone but not yet sent to the office. */
 export const VISIT_DONE_WAITING_LABEL = 'Done · waiting to send';

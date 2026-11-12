@@ -7,6 +7,7 @@ import {
   syncFieldValidationCompletion,
   type FieldValidationCompletionSyncResult,
 } from '@/features/assignments/services/syncFieldValidationCompletion';
+import { staleSyncingCutoff } from '@/features/sync/domain/outboxState';
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import type { SyncBatchResult, SyncHaltReason, SyncTriggerSource } from '@/features/sync/services/syncPendingFieldReports';
 
@@ -65,6 +66,7 @@ async function executeBatch(options: {
   const repository = createFieldValidationCompletionSyncRepository(options.database, options.ownerIdentity);
   const batchSize = Math.min(Math.max(Math.trunc(options.limit ?? 10), 1), 50);
   const results: FieldValidationCompletionSyncResult[] = [];
+  await repository.resetStaleSyncing(staleSyncingCutoff());
   let authRequired = false;
   let haltReason: SyncHaltReason = null;
 

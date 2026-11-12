@@ -25,9 +25,12 @@ jest.mock('@/features/records/hooks/useRecords', () => ({
 const mockRefreshAssignments = jest.fn(async () => true);
 let mockAssignmentsState: ReturnType<typeof useFieldValidationAssignments> = {
   assignments: [],
+  canRead: true,
   capabilityUnavailable: false,
   errorMessage: null,
+  failed: false,
   lastSuccessfulAt: null,
+  ready: true,
   refreshing: false,
   skippedCount: 0,
   refresh: mockRefreshAssignments,

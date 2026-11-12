@@ -179,4 +179,98 @@ describe('buildMorningNote', () => {
     const many = Array.from({ length: 11 }, (_, index) => visit('today', String(index)));
     expect(buildMorningNote(many, null).headline).toBe('11 visits today.');
   });
+
+  it('says the visit check failed instead of a false "All clear."', () => {
+    expect(buildMorningNote([], null, true)).toMatchObject({
+      action: 'scan',
+      headline: "Couldn't check your visits.",
+      headlineOpensActivity: false,
+      syncLine: null,
+      visitsLine: 'Nothing is lost — they will appear when the check succeeds.',
+    });
+  });
+
+  it('keeps the send state under the failed visit check', () => {
+    expect(buildMorningNote([], 'One report is waiting to send.', true)).toMatchObject({
+      headline: "Couldn't check your visits.",
+      syncLine: 'One report is waiting to send.',
+    });
+  });
+
+  it.each([
+    [
+      'a draft',
+      {
+        destination: { kind: 'field_report' as const, scanRecordId: 'draft-report' },
+        id: 'draft-1',
+        kind: 'draft' as const,
+        message: 'Not finished',
+        meta: 'Saved',
+        title: 'Finish your field report',
+      },
+      'draft',
+      'Finish your field report',
+    ],
+    ['a visit', visit('today'), 'visit', 'One visit today.'],
+    ['an office update', READABLE_UPDATE, 'update', 'One office update to read.'],
+  ])(
+    'keeps the work headline for %s when the visit check fails',
+    (_work, item, action, headline) => {
+      expect(buildMorningNote([item], null, true)).toMatchObject({ action, headline });
+    },
+  );
+
+  it('keeps the visit note neutral while the check is still pending', () => {
+    const note = buildMorningNote([], null, false, true);
+
+    expect(note.headline).not.toBe("Couldn't check your visits.");
+    expect(note.headline).not.toBe('All clear.');
+  });
+
+  it.each([
+    [
+      'a draft',
+      {
+        destination: { kind: 'field_report' as const, scanRecordId: 'draft-report' },
+        id: 'draft-1',
+        kind: 'draft' as const,
+        message: 'Not finished',
+        meta: 'Saved',
+        title: 'Finish your field report',
+      },
+      'Finish your field report',
+    ],
+    ['a visit', visit('today'), 'One visit today.'],
+    ['an office update', READABLE_UPDATE, 'One office update to read.'],
+  ])('keeps the work headline for %s while visits are pending', (_work, item, expectedHeadline) => {
+    const note = buildMorningNote([item], null, false, true);
+
+    expect(note.headline).toBe(expectedHeadline);
+    expect(note.headline).not.toBe('All clear.');
+    expect(note.headline).not.toBe("Couldn't check your visits.");
+  });
+
+  it('keeps a sync note while visits are pending', () => {
+    expect(buildMorningNote([], 'Working offline.', false, true).headline).toBe(
+      'Working offline.',
+    );
+  });
+
+  it('does not claim all is clear when visits cannot be read', () => {
+    const note = buildMorningNote([], null, false, false, true);
+
+    expect(note.headline).not.toBe("Couldn't check your visits.");
+    expect(note.headline).not.toBe('All clear.');
+  });
+
+  it('keeps known work and sync notes visible when visits cannot be read', () => {
+    expect(buildMorningNote([READABLE_UPDATE], null, false, false, true).headline)
+      .toBe('One office update to read.');
+    expect(buildMorningNote([], 'Working offline.', false, false, true).headline)
+      .toBe('Working offline.');
+  });
+
+  it('still says "All clear." when the visit check succeeded', () => {
+    expect(buildMorningNote([], null, false).headline).toBe('All clear.');
+  });
 });

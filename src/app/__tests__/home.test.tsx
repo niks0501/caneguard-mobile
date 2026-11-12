@@ -13,6 +13,8 @@ let mockUserName: string | null = 'Ari Santos';
 let mockApiReachability: 'unknown' | 'available' | 'unavailable' = 'unknown';
 let mockSessionVerification: 'idle' | 'pending' | 'verified' | 'unavailable' = 'idle';
 let mockAttentionItems: NeedsAttentionItem[] = [];
+let mockVisitsCheckFailed = false;
+let mockCanReadVisits = true;
 let mockPendingCount = 1;
 let mockRole: 'field_reporter' | 'farmer' = 'field_reporter';
 let mockInspectorWorkWaiting = false;
@@ -37,6 +39,8 @@ jest.mock('@/features/activity/hooks/useHomeAttention', () => ({
     items: mockAttentionItems,
     markRead: mockMarkRead,
     total: mockAttentionItems.length,
+    canReadVisits: mockCanReadVisits,
+    visitsCheckFailed: mockVisitsCheckFailed,
   }),
 }));
 jest.mock('@/features/auth/hooks/useAuth', () => ({
@@ -129,10 +133,32 @@ describe('HomeScreen', () => {
     mockUserName = 'Ari Santos';
     mockSessionVerification = 'idle';
     mockAttentionItems = [];
+    mockVisitsCheckFailed = false;
+    mockCanReadVisits = true;
     mockPendingCount = 1;
     mockSyncError = null;
     mockUnreadCount = 0;
     mockIsSyncing = false;
+  });
+
+  it('says the visit check failed instead of a false "All clear."', async () => {
+    mockPendingCount = 0;
+    mockVisitsCheckFailed = true;
+    await render(<HomeScreen />);
+
+    expect(screen.getByTestId('home.note')).toHaveTextContent("Couldn't check your visits.");
+    expect(screen.getByTestId('home.visit-counts')).toHaveTextContent(
+      'Nothing is lost — they will appear when the check succeeds.',
+    );
+    expect(screen.queryByText('All clear.')).not.toBeOnTheScreen();
+  });
+
+  it('does not say all clear when the inspector cannot read visits', async () => {
+    mockPendingCount = 0;
+    mockCanReadVisits = false;
+    await render(<HomeScreen />);
+
+    expect(screen.getByTestId('home.note')).not.toHaveTextContent('All clear.');
   });
 
   it('leads with one sentence and one button, and drops the dashboard furniture', async () => {

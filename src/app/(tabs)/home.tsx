@@ -63,7 +63,13 @@ export default function HomeScreen() {
     sessionVerification,
   });
   // Farmers have no visits or office work, so their note never leads with them.
-  const note = buildMorningNote(isFarmer ? [] : attention.items, syncNote);
+  const note = buildMorningNote(
+    isFarmer ? [] : attention.items,
+    syncNote,
+    !isFarmer && attention.canReadVisits && attention.visitsCheckFailed,
+    !isFarmer && attention.canReadVisits && attention.visitsCheckPending,
+    !isFarmer && !attention.canReadVisits,
+  );
   const now = useNow();
   // Stable identity so the memoized attention rows can skip re-rendering when
   // only unrelated Home state changes.

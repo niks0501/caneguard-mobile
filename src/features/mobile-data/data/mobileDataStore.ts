@@ -30,6 +30,9 @@ type RefreshKey = 'assignments' | 'notifications';
 
 export interface OwnerMobileDataStore {
   assignments: AssignmentsSnapshot | null;
+  assignmentsRefreshing: boolean;
+  assignmentsFailed: boolean;
+  assignmentsVerified: boolean;
   notifications: CachedValue<MobileNotification[]> | null;
   timeline: Map<string, TimelineSnapshot>;
   generation: number;
@@ -60,6 +63,9 @@ export function getOwnerMobileDataStore(
   if (!store) {
     store = {
       assignments: null,
+      assignmentsRefreshing: false,
+      assignmentsFailed: false,
+      assignmentsVerified: false,
       notifications: null,
       timeline: new Map(),
       generation: 0,
@@ -91,6 +97,16 @@ export function setOwnerAssignments(
     fetchedAt: toTimestamp(fetchedAt),
     skippedCount,
   };
+  notify(store);
+}
+
+export function setOwnerAssignmentsReadState(
+  store: OwnerMobileDataStore,
+  state: { refreshing: boolean; failed: boolean; verified?: boolean },
+): void {
+  store.assignmentsRefreshing = state.refreshing;
+  store.assignmentsFailed = state.failed;
+  if (state.verified !== undefined) store.assignmentsVerified = state.verified;
   notify(store);
 }
 
@@ -131,6 +147,9 @@ export function clearOwnerMobileDataStore(
   const cacheFetchedAt = options.cacheFetchedAt ?? Date.now();
   store.generation += 1;
   store.assignments = { value: [], fetchedAt: cacheFetchedAt, skippedCount: 0 };
+  store.assignmentsRefreshing = false;
+  store.assignmentsFailed = false;
+  store.assignmentsVerified = false;
   store.notifications = { value: [], fetchedAt: cacheFetchedAt };
   store.timeline.clear();
   store.cacheLoads = {};
@@ -150,6 +169,7 @@ export function beginOwnerRefresh<T>(
   key: RefreshKey,
   sessionKey: string,
   task: () => Promise<T>,
+  onSettled?: () => void,
 ): Promise<T> {
   const active = store.refreshes[key];
   if (active?.sessionKey === sessionKey) {
@@ -159,6 +179,7 @@ export function beginOwnerRefresh<T>(
   const promise = task().finally(() => {
     if (store.refreshes[key]?.promise === promise) {
       delete store.refreshes[key];
+      onSettled?.();
     }
   });
   store.refreshes[key] = { promise, sessionKey };

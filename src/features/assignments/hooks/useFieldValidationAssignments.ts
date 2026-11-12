@@ -59,7 +59,7 @@ function describeRefreshFailure(error: unknown, hasCachedAssignments: boolean): 
 
 export function useFieldValidationAssignments(enabled = true) {
   const database = useCaneGuardDatabase();
-  const { markSessionExpired, session, status: authStatus } = useAuth();
+  const { isSessionCurrent, markSessionExpired, session, status: authStatus } = useAuth();
   const canRead = canReadFieldValidationAssignments(session?.user);
   const [state, setState] = useState<AssignmentState>({
     assignments: [],
@@ -69,7 +69,6 @@ export function useFieldValidationAssignments(enabled = true) {
     refreshing: false,
     sessionKey: null,
   });
-  const sessionRef = useRef(session);
   const mounted = useRef(true);
   const sessionKey = session ? `${session.user.uuid}:${session.token}` : null;
   const ownerStore =
@@ -83,15 +82,13 @@ export function useFieldValidationAssignments(enabled = true) {
     return subscribeOwnerMobileData(ownerStore, () => setStoreRevision((value) => value + 1));
   }, [ownerStore]);
 
-  useEffect(() => {
-    sessionRef.current = session;
-  }, [session]);
-
   const isCurrentSession = useCallback(
     (requestedSession: typeof session) =>
-      requestedSession?.token === sessionRef.current?.token &&
-      requestedSession?.user.uuid === sessionRef.current?.user.uuid,
-    [],
+      Boolean(
+        requestedSession &&
+        isSessionCurrent(requestedSession.token, requestedSession.user.uuid),
+      ),
+    [isSessionCurrent],
   );
 
   const refreshOutcome = useCallback(async (options?: { force?: boolean }): Promise<RefreshOutcome> => {
@@ -182,7 +179,9 @@ export function useFieldValidationAssignments(enabled = true) {
             result.skippedCount,
           );
           setOwnerAssignmentsReadState(store, { refreshing: false, failed: false, verified: true });
-          prefetchAfterDownload(requestedSession.user.uuid, requestedSession.token, result.assignments);
+          if (mounted.current && isCurrentSession(requestedSession)) {
+            prefetchAfterDownload(requestedSession.user.uuid, requestedSession.token, result.assignments);
+          }
           if (mounted.current) {
             setState({
               assignments: result.assignments,
@@ -197,10 +196,12 @@ export function useFieldValidationAssignments(enabled = true) {
         },
         () => {
           if (isCurrentStore()) {
-            setOwnerAssignmentsReadState(store, {
-              refreshing: false,
-              failed: store.assignmentsFailed,
-            });
+            setOwnerAssignmentsReadState(
+              store,
+              isCurrentSession(requestedSession)
+                ? { refreshing: false, failed: store.assignmentsFailed }
+                : { refreshing: false, failed: false, verified: false },
+            );
           }
         },
       );
@@ -211,7 +212,7 @@ export function useFieldValidationAssignments(enabled = true) {
         error instanceof MobileFieldValidationAssignmentsApiError &&
         error.code === 'AUTH_REQUIRED'
       ) {
-        await markSessionExpired();
+        await markSessionExpired(requestedSession.token);
         return 'failed';
       }
       const capabilityUnavailable =

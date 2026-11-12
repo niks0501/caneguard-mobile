@@ -31,12 +31,10 @@ click "id=scan.report-to-office"
 wait "id=field-report.screen" 30000
 scroll down 0.5 --settle
 fill "id=field-report.farmer-name-input" "P0 Draft Farmer"
-scroll down 0.25 --settle
-click "id=field-report.save-draft"
-# The save acknowledgement is below inherited evidence, not beside Save.
-# A hidden keyboard after fill does not imply that this footer is exposed.
-scroll down 1 --settle
-wait "id=field-report.saved" 30000
+# There is no manual Save Draft: entries are kept on the phone as you type.
+# The single status line below the header confirms it (the farmer field sits on the Place step).
+wait "id=field-report.form-draft-status" 30000
+wait stable 1500 10000
 open "com.niks0501.caneguard" --relaunch --platform android --test-ime
 wait "label=\"Welcome back\"" 120000
 fill "id=auth.email-input" "${AUTH_EMAIL}"
@@ -52,7 +50,7 @@ click "id=activity.latest-record"
 wait "id=records.details-screen" 30000
 scroll down 0.5 --settle
 click "id=records.open-field-report"
-wait "label=Draft" 30000
+wait "id=field-report.form-draft-status" 30000
 scroll down 0.5 --settle
 is text "id=field-report.farmer-name-input" "P0 Draft Farmer"
 close

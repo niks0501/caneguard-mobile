@@ -8,6 +8,7 @@ import { useTheme } from '@/hooks/use-theme';
 export type DisclosureSectionProps = {
   accessibilityLabel?: string | ((expanded: boolean) => string);
   children: ReactNode;
+  defaultExpanded?: boolean;
   summary?: string;
   expandedSummary?: string;
   testID?: string;
@@ -17,13 +18,14 @@ export type DisclosureSectionProps = {
 export function DisclosureSection({
   accessibilityLabel,
   children,
+  defaultExpanded = false,
   summary,
   expandedSummary = 'Hide details',
   testID,
   title,
 }: DisclosureSectionProps) {
   const theme = useTheme();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const action = expanded ? 'Hide' : 'Show';
 
   return (

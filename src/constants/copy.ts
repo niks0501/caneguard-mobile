@@ -1450,6 +1450,26 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
   },
 };
 
+/** Field Report steps, in order: where, what you saw, then send. */
+export const FIELD_REPORT_STEP_TITLES = ['Place', 'What you saw', 'Send'] as const;
+
+export const FIELD_REPORT_COPY = {
+  draftSaved: 'Saved on this device as you go. Drafts are not sent.',
+  placeTitle: 'Where is this?',
+  addressSuggestion: (barangay: string, municipality: string) =>
+    `Your location looks like ${barangay}, ${municipality}.`,
+  addressSuggestionUse: 'Use this address',
+  addressSuggestionDismiss: 'Not this',
+  referenceListFallback: 'Using the place list saved on this phone.',
+  scanAnswerHint: 'Filled in from your scan answer. Change it if it is not right.',
+  sendReadyTitle: 'Ready to send',
+  sendReadyBody: 'Everything needed is filled in. You can finalize this report.',
+  sendMissingTitle: 'Still needed',
+  sendMissingHint: 'Tap an item to fill it in.',
+  sendExtrasTitle: 'More you can add',
+  sendExtrasSummary: 'Plot boundary and field details (optional)',
+} as const;
+
 /** Finalize confirmation: a refusal because other work is running is not a failure. */
 export const FINALIZE_DIALOG_COPY = {
   busyLabel: 'Finalizing…',

@@ -25,7 +25,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { HelpHintGroup } from '@/components/ui/HelpHint';
 import { Notice } from '@/components/ui/Notice';
-import { getResultLabel, getSyncPresentation } from '@/components/ui/RecordCard';
+import { getSyncPresentation } from '@/components/ui/RecordCard';
 import { Row } from '@/components/ui/Row';
 import { TextField } from '@/components/ui/TextField';
 import { useToast } from '@/components/ui/Toast';
@@ -37,6 +37,8 @@ import {
   Typography,
 } from '@/constants/theme';
 import {
+  FIELD_REPORT_COPY,
+  FIELD_REPORT_STEP_TITLES,
   FINALIZE_DIALOG_COPY,
   LOCATION_ADDED,
   LOCATION_CLOSER_READING_ACTION,
@@ -72,6 +74,10 @@ import {
 import { useFieldReportDraft } from '@/features/reports/hooks/useFieldReportDraft';
 import { PREFERRED_GPS_ACCURACY_METERS } from '@/features/reports/services/captureGpsLocation';
 import {
+  suggestPlaceFromCoordinates,
+  type PlaceSuggestion,
+} from '@/features/reports/services/suggestPlaceFromCoordinates';
+import {
   deleteFieldReportFormCheckpoint,
   readFieldReportFormCheckpoint,
   writeFieldReportFormCheckpoint,
@@ -80,6 +86,7 @@ import {
 import { usePossibleRecentMatch } from '@/features/reports/hooks/usePossibleRecentMatch';
 import { useAuthorityReviewStatus } from '@/features/reports/hooks/useAuthorityReviewStatus';
 import { useLocationReferenceData } from '@/features/reports/hooks/useLocationReferenceData';
+import { canonicalResultName } from '@/features/records/domain/canonicalResultName';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 import {
   getSubmissionImageUri,
@@ -102,44 +109,36 @@ import { formatDateTime, formatTime } from '@/lib/formatters';
 const MAX_AFFECTED_AREA_HECTARES = 10_000;
 const ATTACHABLE_SURVEY_LIMIT = 20;
 
-export const STEP_TITLES = [
-  'Original scan',
-  'Farm & area',
-  'Your observation',
-  'Location',
-  'Review & submit',
-];
+export const STEP_TITLES = [...FIELD_REPORT_STEP_TITLES];
 
-const STEP_SHORT_LABELS = [
-  'Scan',
-  'Farm',
-  'Observe',
-  'Location',
-  'Review',
-];
+const STEP_COUNT = STEP_TITLES.length;
+const PLACE_STEP = 1;
+const SAW_STEP = 2;
+const SEND_STEP = 3;
 
 const REQUIREMENT_OWNING_STEP: Record<FieldReportSubmissionRequirement, number> = {
-  original_scan_image: 1,
-  submission_image: 1,
-  source_image_dimensions: 1,
-  ai_supported_result: 1,
-  confidence: 1,
-  class_scores: 1,
-  symptom_checklist: 1,
-  submitter_identity: 1,
-  submitter_role: 1,
-  province: 2,
-  municipality: 2,
-  barangay: 2,
-  farmer_or_farm_owner_name: 2,
-  affected_area_hectares: 2,
-  affected_portion_percent: 2,
-  final_coordinates: 4,
-  location_source: 4,
-  location_unavailable_reason: 4,
-  gps_accuracy: 4,
-  observation_time: 1,
-  attached_boundary: 5,
+  // Saved scan facts cannot be edited here; they are listed on the Send step.
+  original_scan_image: SEND_STEP,
+  submission_image: SEND_STEP,
+  source_image_dimensions: SEND_STEP,
+  ai_supported_result: SEND_STEP,
+  confidence: SEND_STEP,
+  class_scores: SEND_STEP,
+  symptom_checklist: SEND_STEP,
+  submitter_identity: SEND_STEP,
+  submitter_role: SEND_STEP,
+  province: PLACE_STEP,
+  municipality: PLACE_STEP,
+  barangay: PLACE_STEP,
+  farmer_or_farm_owner_name: PLACE_STEP,
+  affected_area_hectares: PLACE_STEP,
+  affected_portion_percent: PLACE_STEP,
+  final_coordinates: PLACE_STEP,
+  location_source: PLACE_STEP,
+  location_unavailable_reason: PLACE_STEP,
+  gps_accuracy: PLACE_STEP,
+  observation_time: SEND_STEP,
+  attached_boundary: SEND_STEP,
 };
 
 type ReporterConcernChoice = 'none' | 'rssi' | 'other';
@@ -266,7 +265,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   const isFinalized = report.data?.authoringState === 'finalized';
 
   const [currentStep, setCurrentStep] = useState<number>(
-    resolvedInitialStep >= 1 && resolvedInitialStep <= 5 ? resolvedInitialStep : 1,
+    resolvedInitialStep >= 1 && resolvedInitialStep <= STEP_COUNT ? resolvedInitialStep : 1,
   );
   const [stepDirection, setStepDirection] = useState<'forward' | 'backward'>('forward');
 
@@ -475,7 +474,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
         reporterSuspectedCondition: saved.reporterSuspectedCondition,
       });
       if (propsInitialStep === undefined && stepParam === undefined) {
-        setCurrentStep(Math.max(1, Math.min(5, saved.step)));
+        setCurrentStep(Math.max(1, Math.min(STEP_COUNT, saved.step)));
       }
       setFormDraftSignature(checkpointSignature(saved));
       setFormDraftSavedAt(saved.savedAt);
@@ -643,7 +642,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
 
 
   const goToStep = (targetStep: number) => {
-    const clamped = Math.max(1, Math.min(5, targetStep));
+    const clamped = Math.max(1, Math.min(STEP_COUNT, targetStep));
     setStepDirection(clamped >= currentStep ? 'forward' : 'backward');
     setCurrentStep(clamped);
   };
@@ -830,7 +829,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       // Invalid numeric input keeps the inspector on the form with the
       // offending step identified; nothing is announced as saved.
       showToast('Draft not saved — fix the highlighted field first', 'error');
-      goToStep(2);
+      goToStep(PLACE_STEP);
       return;
     }
     const saved = await report.save(values);
@@ -864,25 +863,6 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     returnToTab('/home');
   };
 
-  const handleSave = async () => {
-    const values = collectValues(false);
-    if (!values) {
-      showToast('Draft not saved — fix the highlighted field first', 'error');
-      goToStep(2);
-      return;
-    }
-    const result = await report.save(values);
-    if (!result) {
-      showToast(
-        report.getLastOperationError() ?? 'Draft not saved — please try again',
-        'error',
-      );
-      return;
-    }
-    clearFormCheckpoint();
-    showToast('Draft saved', 'success');
-  };
-
   const handleFinalize = () => {
     const values = collectValues(true);
     if (values) {
@@ -899,7 +879,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       setShowFinalizeConfirm(true);
     } else {
       // Numerical error on Step 2; navigate back to Step 2 so inspector sees it
-      goToStep(2);
+      goToStep(PLACE_STEP);
     }
   };
 
@@ -1207,6 +1187,76 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     user?.districtCode,
   ]);
 
+  // GPS or map coordinates suggest an address from the place list saved on the
+  // phone. It is only a suggestion: nothing changes until the inspector taps Use.
+  const finalLatitude = report.data?.finalLatitude ?? null;
+  const finalLongitude = report.data?.finalLongitude ?? null;
+  const coordinateKey =
+    finalLatitude !== null && finalLongitude !== null
+      ? `${finalLatitude},${finalLongitude}`
+      : null;
+  const [placeSuggestion, setPlaceSuggestion] = useState<{
+    key: string;
+    suggestion: PlaceSuggestion | null;
+  } | null>(null);
+  const [dismissedPlaceKey, setDismissedPlaceKey] = useState<string | null>(null);
+  const referenceListData = referenceData.data;
+  useEffect(() => {
+    if (coordinateKey === null || finalLatitude === null || finalLongitude === null || isFinalized) {
+      return;
+    }
+    let cancelled = false;
+    void suggestPlaceFromCoordinates(finalLatitude, finalLongitude, referenceListData).then(
+      (suggestion) => {
+        if (!cancelled) {
+          setPlaceSuggestion({ key: coordinateKey, suggestion });
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [coordinateKey, finalLatitude, finalLongitude, isFinalized, referenceListData]);
+  const currentPlaceSuggestion =
+    !isFinalized && placeSuggestion !== null && placeSuggestion.key === coordinateKey
+      ? placeSuggestion.suggestion
+      : null;
+  const visiblePlaceSuggestion =
+    currentPlaceSuggestion !== null &&
+    coordinateKey !== dismissedPlaceKey &&
+    (currentPlaceSuggestion.barangay !== barangay ||
+      currentPlaceSuggestion.municipality !== municipality ||
+      currentPlaceSuggestion.province !== province)
+      ? currentPlaceSuggestion
+      : null;
+
+  // What-you-saw starts from the scan answer already given, once per report.
+  const [prefilledObservationFor, setPrefilledObservationFor] = useState<string | null>(null);
+  if (
+    report.data &&
+    report.data.authoringState === 'draft' &&
+    loadedReportId === report.data.id &&
+    record.data &&
+    prefilledObservationFor !== report.data.id
+  ) {
+    setPrefilledObservationFor(report.data.id);
+    const answer = scanAnswerText(record.data.symptoms);
+    if (answer && mismatchDraft.reporterObservationText.trim() === '') {
+      // A prefill is not an edit: an untouched draft must not start a checkpoint.
+      const untouched =
+        formDraftSignature === checkpointSignature(currentFormCheckpoint());
+      setMismatchDraft({ ...mismatchDraft, reporterObservationText: answer });
+      if (untouched) {
+        setFormDraftSignature(
+          checkpointSignature({
+            ...currentFormCheckpoint(),
+            reporterObservationText: answer,
+          }),
+        );
+      }
+    }
+  }
+
   const reporterDisplayName =
     user && user.uuid === report.data?.submitterIdentity
       ? user.name
@@ -1270,24 +1320,22 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
               contentContainerStyle={styles.scrollContent}>
               <HelpHintGroup>
               <View style={styles.content}>
-                {/* A draft or finalized report is a normal state: plain ink, no box. */}
-                <Notice
-                  testID="field-report.authoring-status"
-                  stateValue={`authoring=${report.data.authoringState};sync=${report.data.syncStatus}`}
-                  icon={report.data.authoringState === 'finalized' ? 'check-circle' : 'edit-3'}>
-                  <View style={styles.statusCopy}>
-                    <Text style={[styles.statusTitle, { color: theme.text }]}>
-                      {report.data.authoringState === 'finalized'
-                        ? `Finalized · ${getSyncPresentation(report.data.syncStatus, report.data.lastSyncErrorCode).label}`
-                        : 'Draft'}
-                    </Text>
-                    <Text style={[styles.statusMessage, { color: theme.textSecondary }]}>
-                      {report.data.authoringState === 'finalized'
-                        ? `This report is finalized and saved on this device. Status: ${getSyncPresentation(report.data.syncStatus, report.data.lastSyncErrorCode).label}.`
-                        : 'Save incomplete information now and return later. Drafts are saved only on this device and are not sent.'}
-                    </Text>
-                  </View>
-                </Notice>
+                {/* A finalized report is a normal state: plain ink, no box. Drafts show one status line. */}
+                {report.data.authoringState === 'finalized' ? (
+                  <Notice
+                    testID="field-report.authoring-status"
+                    stateValue={`authoring=${report.data.authoringState};sync=${report.data.syncStatus}`}
+                    icon="check-circle">
+                    <View style={styles.statusCopy}>
+                      <Text style={[styles.statusTitle, { color: theme.text }]}>
+                        {`Finalized · ${getSyncPresentation(report.data.syncStatus, report.data.lastSyncErrorCode).label}`}
+                      </Text>
+                      <Text style={[styles.statusMessage, { color: theme.textSecondary }]}>
+                        {`This report is finalized and saved on this device. Status: ${getSyncPresentation(report.data.syncStatus, report.data.lastSyncErrorCode).label}.`}
+                      </Text>
+                    </View>
+                  </Notice>
+                ) : null}
 
                 {report.data.authoringState === 'draft' ? (
                   <Text
@@ -1339,7 +1387,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                     />
                   </>
                 ) : (
-                  // 5-Step Stepped Wizard (§6.1, D-5, W-1, W-2, W-3)
+                  // 3-step wizard: Place, What you saw, Send
                   <>
                     {/* Stepper Navigation Pills */}
                     <ScrollView
@@ -1347,7 +1395,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                       showsHorizontalScrollIndicator={false}
                       contentContainerStyle={styles.stepPillsContainer}
                       style={styles.stepPillsScroll}>
-                      {STEP_SHORT_LABELS.map((label, index) => {
+                      {STEP_TITLES.map((label, index) => {
                         const stepNum = index + 1;
                         const isActive = currentStep === stepNum;
                         const incomplete = isStepIncomplete(stepNum, missingRequirements);
@@ -1372,7 +1420,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                                 styles.stepPillText,
                                 { color: isActive ? theme.background : theme.text },
                               ]}>
-                              {isActive ? `${stepNum}. ${label}` : `${stepNum}`}
+                              {`${stepNum}. ${label}`}
                             </Text>
                             {incomplete ? (
                               <View
@@ -1391,7 +1439,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                     <Text
                       testID="field-report.wizard-step-title"
                       style={[styles.wizardStepTitle, { color: theme.text }]}>
-                      Step {currentStep} of 5: {STEP_TITLES[currentStep - 1]}
+                      Step {currentStep} of {STEP_COUNT}: {STEP_TITLES[currentStep - 1]}
                     </Text>
 
                     {/* Active Step with Slide Transition */}
@@ -1403,26 +1451,110 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                           : SlideInLeft.duration(200)
                       }
                       style={styles.stepContainer}>
-                      {currentStep === 1 ? (
-                        /* Step 1: Scan evidence (read-only) */
-                        <AutomaticSummaryCard
+                      {currentStep === PLACE_STEP ? (
+                        /* Step 1: Place — location, address, farmer, area */
+                        <>
+                        <LocationCapture
                           fieldReport={report.data}
-                          record={record.data}
-                          reporterName={reporterDisplayName}
+                          capturing={report.capturingLocation}
+                          isOnline={sync.isOnline}
+                          locationPermissionDenied={report.locationPermissionDenied}
+                          locationServicesDisabled={report.locationServicesDisabled}
+                          markingUnavailable={report.markingLocationUnavailable}
+                          saveInProgress={report.saving || report.finalizing}
+                          onCancelCapture={report.cancelLocationCapture}
+                          onCapture={() => void handleLocationCapture()}
+                          onClearUnavailable={() => void handleClearUnavailable()}
+                          onMarkUnavailable={(reason) =>
+                            void handleMarkUnavailable(reason)
+                          }
+                          onOpenLocationSettings={openDeviceLocationSettings}
+                          onOpenMap={() =>
+                            router.push({
+                              pathname: './manual-map',
+                              params: {
+                                reportId: report.data!.id,
+                                scanRecordId: report.data!.scanRecordId,
+                              },
+                            })
+                          }
                         />
-                      ) : currentStep === 2 ? (
-                        /* Step 2: Farm & area */
-                        <View
-                          style={[
-                            styles.formCard,
-                            { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
-                          ]}>
-                          <View style={styles.sectionHeading}>
-                            <Feather name="edit-3" size={20} color={theme.primary} />
-                            <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                              Farm & area
+                          {visiblePlaceSuggestion ? (
+                            <View
+                              testID="field-report.address-suggestion"
+                              accessibilityLiveRegion="polite"
+                              style={[
+                                styles.formCard,
+                                { backgroundColor: theme.surfaceElevated, borderColor: theme.primary },
+                              ]}>
+                              <Text style={[styles.statusMessage, { color: theme.text }]}>
+                                {FIELD_REPORT_COPY.addressSuggestion(
+                                  visiblePlaceSuggestion.barangay,
+                                  visiblePlaceSuggestion.municipality,
+                                )}
+                              </Text>
+                              <AppButton
+                                testID="field-report.address-suggestion-use"
+                                leadingIcon="check"
+                                onPress={() => {
+                                  setProvince(visiblePlaceSuggestion.province);
+                                  setMunicipality(visiblePlaceSuggestion.municipality);
+                                  setBarangay(visiblePlaceSuggestion.barangay);
+                                  setDismissedPlaceKey(coordinateKey);
+                                }}>
+                                {FIELD_REPORT_COPY.addressSuggestionUse}
+                              </AppButton>
+                              <AppButton
+                                testID="field-report.address-suggestion-dismiss"
+                                variant="text"
+                                onPress={() => setDismissedPlaceKey(coordinateKey)}>
+                                {FIELD_REPORT_COPY.addressSuggestionDismiss}
+                              </AppButton>
+                            </View>
+                          ) : null}
+                          <View
+                            style={[
+                              styles.formCard,
+                              { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+                            ]}>
+                            <View style={styles.sectionHeading}>
+                              <Feather name="map" size={20} color={theme.primary} />
+                              <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                                Address
+                              </Text>
+                            </View>
+                          <RegionPicker
+                            province={province}
+                            municipality={municipality}
+                            provinces={provinceOptions}
+                            municipalities={municipalityOptions}
+                            onProvinceChange={changeProvince}
+                            onMunicipalityChange={setMunicipality}
+                          />
+                          <BarangayPicker
+                            barangays={referenceData.data.barangays}
+                            value={barangay}
+                            onChange={setBarangay}
+                          />
+                          {referenceData.errorMessage ? (
+                            <Text
+                              testID="field-report.reference-data-error"
+                              style={[styles.helpText, { color: theme.warning }]}>
+                              {FIELD_REPORT_COPY.referenceListFallback}
                             </Text>
+                          ) : null}
                           </View>
+                          <View
+                            style={[
+                              styles.formCard,
+                              { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+                            ]}>
+                            <View style={styles.sectionHeading}>
+                              <Feather name="edit-3" size={20} color={theme.primary} />
+                              <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                                Farmer & area
+                              </Text>
+                            </View>
                           <TextField
                             testID="field-report.farmer-name-input"
                             label="Farmer or farm reference"
@@ -1447,11 +1579,6 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                             Use a farmer or owner name, farm name, or another usable local farm
                             reference.
                           </Text>
-                          <BarangayPicker
-                            barangays={referenceData.data.barangays}
-                            value={barangay}
-                            onChange={setBarangay}
-                          />
                           <View style={styles.numericRow}>
                             <View style={styles.numericField}>
                               <TextField
@@ -1534,24 +1661,16 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                             Enter a measurement, or mark it Not measured when the field cannot be
                             estimated. Guessing is not required. Decimals are accepted (0.5 or 0,5).
                           </Text>
-                          <RegionPicker
-                            province={province}
-                            municipality={municipality}
-                            provinces={provinceOptions}
-                            municipalities={municipalityOptions}
-                            onProvinceChange={changeProvince}
-                            onMunicipalityChange={setMunicipality}
+                          </View>
+                        </>
+                      ) : currentStep === SAW_STEP ? (
+                        /* Step 2: What you saw — scan facts, then your observation */
+                        <>
+                          <AutomaticSummaryCard
+                            fieldReport={report.data}
+                            record={record.data}
+                            reporterName={reporterDisplayName}
                           />
-                          {referenceData.errorMessage ? (
-                            <Text
-                              testID="field-report.reference-data-error"
-                              style={[styles.helpText, { color: theme.warning }]}>
-                              {referenceData.errorMessage} Showing the offline list; saved values are unchanged.
-                            </Text>
-                          ) : null}
-                        </View>
-                      ) : currentStep === 3 ? (
-                        /* Step 3: Your observation */
                         <View
                           style={[
                             styles.formCard,
@@ -1574,35 +1693,9 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                             reporterSuspectedCondition={mismatchDraft.reporterSuspectedCondition}
                           />
                         </View>
-                      ) : currentStep === 4 ? (
-                        /* Step 4: Location */
-                        <LocationCapture
-                          fieldReport={report.data}
-                          capturing={report.capturingLocation}
-                          isOnline={sync.isOnline}
-                          locationPermissionDenied={report.locationPermissionDenied}
-                          locationServicesDisabled={report.locationServicesDisabled}
-                          markingUnavailable={report.markingLocationUnavailable}
-                          saveInProgress={report.saving || report.finalizing}
-                          onCancelCapture={report.cancelLocationCapture}
-                          onCapture={() => void handleLocationCapture()}
-                          onClearUnavailable={() => void handleClearUnavailable()}
-                          onMarkUnavailable={(reason) =>
-                            void handleMarkUnavailable(reason)
-                          }
-                          onOpenLocationSettings={openDeviceLocationSettings}
-                          onOpenMap={() =>
-                            router.push({
-                              pathname: './manual-map',
-                              params: {
-                                reportId: report.data!.id,
-                                scanRecordId: report.data!.scanRecordId,
-                              },
-                            })
-                          }
-                        />
+                        </>
                       ) : (
-                        /* Step 5: Review & submit */
+                        /* Step 3: Send — only what is still missing, extras folded */
                         <>
                           {report.submissionIssues.length > 0 ? (
                             <View
@@ -1635,6 +1728,11 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                             onJumpToStep={goToStep}
                           />
 
+                          <DisclosureSection
+                            testID="field-report.extras-disclosure"
+                            title={FIELD_REPORT_COPY.sendExtrasTitle}
+                            summary={FIELD_REPORT_COPY.sendExtrasSummary}
+                            defaultExpanded={missingRequirements.has('attached_boundary')}>
                           <ReportSurveyCard
                             attachedSurvey={attachedSurvey}
                             attachedUuid={attachedSurveyUuid}
@@ -1672,6 +1770,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                               {variety || cropAge || caneClass || notes ? 'Edit optional details' : 'Add optional details'}
                             </AppButton>
                           </View>
+                          </DisclosureSection>
                         </>
                       )}
                     </Animated.View>
@@ -1728,14 +1827,6 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                     {`Office detail: ${retryDetail}`}
                   </Text>
                 ) : null}
-                {report.saved ? (
-                  <Text
-                    testID="field-report.saved"
-                    accessibilityLiveRegion="polite"
-                    style={[styles.saved, { color: theme.success }]}>
-                    Draft saved on this device.
-                  </Text>
-                ) : null}
               </View>
               </HelpHintGroup>
             </ScrollView>
@@ -1789,7 +1880,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
             ) : (
               <ActionDock
                 primary={
-                  currentStep < 5 ? (
+                  currentStep < STEP_COUNT ? (
                     <AppButton
                       testID="field-report.wizard-next"
                       onPress={() => goToStep(currentStep + 1)}
@@ -1824,23 +1915,6 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                         Previous
                       </AppButton>
                     ) : null}
-                    <AppButton
-                      testID="field-report.save-draft"
-                      busy={report.saving}
-                      onPress={handleSave}
-                      variant="secondary"
-                      style={dockSecondaryButtonStyle}
-                      disabled={report.saving || report.finalizing}
-                      leadingIcon="save"
-                      accessibilityLabel={
-                        report.finalizing
-                          ? 'Save Field Report draft unavailable while finalizing'
-                          : report.saving
-                            ? 'Saving Field Report draft'
-                            : 'Save Field Report draft'
-                      }>
-                      {report.saving ? 'Saving Draft...' : 'Save Draft'}
-                    </AppButton>
                   </>
                 }
               />
@@ -1889,11 +1963,11 @@ function isStepIncomplete(
   stepNumber: number,
   missing: Set<FieldReportSubmissionRequirement>,
 ): boolean {
-  if (stepNumber === 3) {
-    // Step 3 is Observation: optional, never blocks finalization
+  if (stepNumber === SAW_STEP) {
+    // What you saw is optional and never blocks finalization
     return false;
   }
-  if (stepNumber === 5) {
+  if (stepNumber === SEND_STEP) {
     return missing.size > 0;
   }
   for (const req of missing) {
@@ -1902,6 +1976,16 @@ function isStepIncomplete(
     }
   }
   return false;
+}
+
+function scanAnswerText(symptoms: string[]): string {
+  return symptoms
+    .map(
+      (symptom) =>
+        CHECKLIST_OBSERVATIONS.find((observation) => observation.id === symptom)?.label ??
+        symptom,
+    )
+    .join(' · ');
 }
 
 function AutomaticSummaryCard({
@@ -1948,7 +2032,7 @@ function AutomaticSummaryCard({
               Possible Condition
             </Text>
             <Text style={[styles.automaticValue, { color: theme.text }]}>
-              {getResultLabel(record.predictedLabel)}
+              {canonicalResultName(record.predictedLabel)}
             </Text>
           </View>
           {record.symptoms.length ? (
@@ -1957,14 +2041,7 @@ function AutomaticSummaryCard({
                 Symptoms observed
               </Text>
               <Text style={[styles.automaticValue, { color: theme.text }]}>
-                {record.symptoms
-                  .map(
-                    (symptom) =>
-                      CHECKLIST_OBSERVATIONS.find(
-                        (observation) => observation.id === symptom,
-                      )?.label ?? symptom,
-                  )
-                  .join(' · ')}
+                {scanAnswerText(record.symptoms)}
               </Text>
             </View>
           ) : null}
@@ -2034,8 +2111,18 @@ function LocationCapture({
   const theme = useTheme();
   const presentation = getGpsPresentation(fieldReport);
   const locationConfirmed = isLocationConfirmed(fieldReport);
-  const [unavailableReason, setUnavailableReason] =
+  const [pickedReason, setUnavailableReason] =
     useState<LocationUnavailableReason | null>(null);
+  // The app often already knows why there is no location; start from that
+  // reason and let the inspector change it.
+  const unavailableReason =
+    pickedReason ??
+    knownUnavailableReason({
+      fieldReport,
+      isOnline,
+      locationPermissionDenied,
+      locationServicesDisabled,
+    });
   const [showUnavailable, setShowUnavailable] = useState(
     fieldReport.locationSource === 'unavailable',
   );
@@ -2415,7 +2502,7 @@ function InheritedScanEvidence({
             contentFit="cover"
             style={styles.evidenceImage}
           />
-          <EvidenceRow label="Possible Condition" value={getResultLabel(record.predictedLabel)} />
+          <EvidenceRow label="Possible Condition" value={canonicalResultName(record.predictedLabel)} />
           <EvidenceRow
             label="Symptom checklist"
             value={record.symptoms.length ? record.symptoms.join(', ') : 'No symptoms selected'}
@@ -2663,7 +2750,7 @@ function finalizeConfirmMessage({
 }): string {
   const farmer = farmerName.trim() || 'this Field Report';
   const condition = record
-    ? getResultLabel(record.predictedLabel)
+    ? canonicalResultName(record.predictedLabel)
     : 'unknown condition';
   return `Finalize the report for ${farmer}? Possible Condition: ${condition}. Location: ${describeReportLocation(report)}. A finalized report can no longer be edited.`;
 }
@@ -2736,6 +2823,35 @@ function getGpsPresentation(fieldReport: FieldReport): {
         message: 'No location added yet.',
       };
   }
+}
+
+function knownUnavailableReason({
+  fieldReport,
+  isOnline,
+  locationPermissionDenied,
+  locationServicesDisabled,
+}: {
+  fieldReport: FieldReport;
+  isOnline: boolean | null;
+  locationPermissionDenied: boolean;
+  locationServicesDisabled: boolean;
+}): LocationUnavailableReason | null {
+  if (fieldReport.locationUnavailableReason) {
+    return fieldReport.locationUnavailableReason;
+  }
+  if (locationPermissionDenied || fieldReport.gpsCaptureOutcome === 'permission_denied') {
+    return 'permission_denied';
+  }
+  if (locationServicesDisabled || fieldReport.gpsCaptureOutcome === 'unavailable') {
+    return 'services_unavailable';
+  }
+  if (fieldReport.gpsCaptureOutcome === 'low_accuracy') {
+    return 'low_accuracy';
+  }
+  if (isOnline === false && fieldReport.gpsCaptureOutcome !== null) {
+    return 'offline_no_map';
+  }
+  return null;
 }
 
 function describeConfirmedLocation(fieldReport: FieldReport): string {
@@ -3111,9 +3227,9 @@ const TOTAL_REQUIREMENTS_COUNT = ALL_REQUIREMENT_GROUPS.reduce(
 );
 
 /**
- * Step 5: Truthful readiness checklist (W-3, D-5).
- * Shows only missing items inline, with direct jump links back to their owning step.
- * Full 21 requirements are preserved inside a disclosure.
+ * Send step: a truthful readiness checklist that lists only what is still
+ * missing, each item jumping back to the step that owns it. The full
+ * requirement list stays inside a disclosure.
  */
 function ReadyToSubmitChecklist({
   missing,
@@ -3124,7 +3240,6 @@ function ReadyToSubmitChecklist({
 }) {
   const theme = useTheme();
   const ready = missing.size === 0;
-  const completeCount = TOTAL_REQUIREMENTS_COUNT - missing.size;
 
   // Find all missing requirements in defined order
   const missingList: FieldReportSubmissionRequirement[] = [];
@@ -3153,32 +3268,36 @@ function ReadyToSubmitChecklist({
           color={ready ? theme.success : theme.primary}
         />
         <Text style={[styles.sectionTitle, { color: theme.text }]}>
-          Ready to submit
+          {ready ? FIELD_REPORT_COPY.sendReadyTitle : FIELD_REPORT_COPY.sendMissingTitle}
         </Text>
       </View>
-      <Text
-        accessibilityLiveRegion="polite"
-        style={[styles.helpText, { color: theme.textSecondary }]}>
-        {ready
-          ? 'Every requirement is complete. You can finalize this report.'
-          : `${missing.size} of ${TOTAL_REQUIREMENTS_COUNT} requirements still block finalizing.`}
-      </Text>
-
-      {/* W-3: Only missing items shown inline, each jumping back to owning step */}
-      {!ready && missingList.length > 0 ? (
+      {ready ? (
+        <Text
+          accessibilityLiveRegion="polite"
+          style={[styles.helpText, { color: theme.textSecondary }]}>
+          {FIELD_REPORT_COPY.sendReadyBody}
+        </Text>
+      ) : (
         <View style={styles.readinessGroup}>
-          <Text style={[styles.readinessGroupTitle, { color: theme.textSecondary }]}>
-            Missing requirements (tap to fill):
+          <Text
+            accessibilityLiveRegion="polite"
+            style={[styles.helpText, { color: theme.textSecondary }]}>
+            {FIELD_REPORT_COPY.sendMissingHint}
           </Text>
           {missingList.map((requirement) => {
             const targetStep = REQUIREMENT_OWNING_STEP[requirement];
+            const fillsHere = targetStep === SEND_STEP;
             return (
               <Pressable
                 key={requirement}
                 testID={`field-report.ready.${requirement}`}
                 onPress={() => onJumpToStep(targetStep)}
                 accessibilityRole="button"
-                accessibilityLabel={`${SUBMISSION_REQUIREMENT_LABELS[requirement]}. Tap to go to Step ${targetStep}`}
+                accessibilityLabel={
+                  fillsHere
+                    ? SUBMISSION_REQUIREMENT_LABELS[requirement]
+                    : `${SUBMISSION_REQUIREMENT_LABELS[requirement]}. Tap to go to ${STEP_TITLES[targetStep - 1]}`
+                }
                 style={({ pressed }) => [
                   styles.readinessRowPressable,
                   { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
@@ -3188,27 +3307,21 @@ function ReadyToSubmitChecklist({
                 <Text style={[styles.statusMessage, { color: theme.text, flex: 1 }]}>
                   {SUBMISSION_REQUIREMENT_LABELS[requirement]}
                 </Text>
-                <View style={styles.stepBadge}>
-                  <Text style={[styles.stepBadgeText, { color: theme.primary }]}>
-                    Step {targetStep}
-                  </Text>
-                  <Feather name="chevron-right" size={14} color={theme.primary} />
-                </View>
+                {fillsHere ? null : (
+                  <View style={styles.stepBadge}>
+                    <Text style={[styles.stepBadgeText, { color: theme.primary }]}>
+                      {STEP_TITLES[targetStep - 1]}
+                    </Text>
+                    <Feather name="chevron-right" size={14} color={theme.primary} />
+                  </View>
+                )}
               </Pressable>
             );
           })}
         </View>
-      ) : null}
+      )}
 
-      {!ready && completeCount > 0 ? (
-        <Text
-          testID="field-report.ready.complete-count"
-          style={[styles.helpText, { color: theme.textSecondary }]}>
-          {completeCount} other {completeCount === 1 ? 'requirement is' : 'requirements are'} already complete.
-        </Text>
-      ) : null}
-
-      {/* W-3: Full 21 requirements disclosure */}
+      {/* The full list stays available, folded away. */}
       <DisclosureSection
         testID="field-report.all-requirements-disclosure"
         title={`All requirements (${TOTAL_REQUIREMENTS_COUNT})`}>
@@ -3303,12 +3416,12 @@ function formatFormDraftStatus(
       return 'Saving on this device…';
     case 'saved':
       return savedAt
-        ? `Unsaved entries saved on this device · ${formatTime(savedAt)}. Drafts are not sent.`
-        : 'Unsaved entries saved on this device. Drafts are not sent.';
+        ? `Saved on this device · ${formatTime(savedAt)}. Drafts are not sent.`
+        : FIELD_REPORT_COPY.draftSaved;
     case 'failed':
       return 'Not saved on this device. The last good draft is unchanged — keep this screen open or save again.';
     default:
-      return 'Entered values are saved on this device as you go. Drafts are not sent.';
+      return FIELD_REPORT_COPY.draftSaved;
   }
 }
 

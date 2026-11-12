@@ -3,7 +3,10 @@ import { useCallback, useContext, useState } from 'react';
 
 import { EMPTY_DATABASE, useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { listFieldValidationCompletionSummaries } from '@/features/assignments/data/fieldValidationCompletionRepository';
-import type { PhoneCompletionState } from '@/features/assignments/domain/fieldValidationCompletionTypes';
+import {
+  toPhoneCompletionState,
+  type PhoneCompletionState,
+} from '@/features/assignments/domain/fieldValidationCompletionTypes';
 import { AuthContext } from '@/features/auth/providers/AuthProvider';
 import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 
@@ -71,7 +74,7 @@ export function usePhoneCompletionSnapshot(): PhoneCompletionSnapshot {
               states: new Map<string, PhoneCompletionState>(
                 rows.map((row) => [
                   row.assignmentId,
-                  row.syncStatus === 'synced' ? 'sent' : 'waiting',
+                  toPhoneCompletionState(row),
                 ]),
               ),
             });

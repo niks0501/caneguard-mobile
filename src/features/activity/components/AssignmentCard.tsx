@@ -17,7 +17,7 @@ import {
   getLocalDateKey,
   type TodayVisitBucket,
 } from '@/features/assignments/domain/todayVisits';
-import { VISIT_DONE_WAITING_LABEL } from '@/features/sync/utils/syncStatusCopy';
+import { VISIT_DONE_WAITING_LABEL, VISIT_END_STATE_COPY } from '@/features/sync/utils/syncStatusCopy';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateKey } from '@/lib/formatters';
 
@@ -58,6 +58,11 @@ export function AssignmentCard({
       ? UNFINISHED_COPY.label
       : progressLabel(assignment.fieldValidationState, phoneCompletion);
 
+  const endState =
+    phoneCompletion && phoneCompletion !== 'waiting' && phoneCompletion !== 'sent'
+      ? VISIT_END_STATE_COPY[phoneCompletion]
+      : null;
+
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : undefined}
@@ -92,6 +97,13 @@ export function AssignmentCard({
               ? assignment.referenceCode
               : `${assignment.referenceCode} · ${progress}`}
           </Text>
+          {endState ? (
+            <Text
+              style={[styles.reference, { color: theme.textSecondary }]}
+              testID={testID ? `${testID}-next-step` : undefined}>
+              {endState.nextStep}
+            </Text>
+          ) : null}
           {variant ? (
             <DiseasePill
               variant={variant}
@@ -162,9 +174,9 @@ function progressLabel(
   if (!phoneCompletion || serverState === 'completed') {
     return stateLabel(serverState);
   }
-  return phoneCompletion === 'waiting'
-    ? VISIT_DONE_WAITING_LABEL
-    : stateLabel('completed');
+  if (phoneCompletion === 'waiting') return VISIT_DONE_WAITING_LABEL;
+  if (phoneCompletion === 'sent') return stateLabel('completed');
+  return VISIT_END_STATE_COPY[phoneCompletion].label;
 }
 
 function stateLabel(state: FieldValidationAssignment['fieldValidationState']): string {

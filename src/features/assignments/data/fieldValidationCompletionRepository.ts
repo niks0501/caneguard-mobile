@@ -146,17 +146,23 @@ export async function listFieldValidationCompletions(
 export async function listFieldValidationCompletionSummaries(
   database: CaneGuardDatabase,
   ownerIdentity: string,
-): Promise<{ assignmentId: string; syncStatus: SyncStatus; visitedAt: string }[]> {
+): Promise<{ assignmentId: string; lastSyncErrorCode?: string | null; syncStatus: SyncStatus; visitedAt: string }[]> {
   try {
-    return await database
+    const rows = await database
       .select({
         assignmentId: fieldValidationCompletions.assignmentId,
+        lastSyncErrorCode: fieldValidationCompletions.lastSyncErrorCode,
         syncStatus: fieldValidationCompletions.syncStatus,
         visitedAt: fieldValidationCompletions.visitedAt,
       })
       .from(fieldValidationCompletions)
       .where(eq(fieldValidationCompletions.ownerIdentity, requireOwner(ownerIdentity)))
       .orderBy(asc(fieldValidationCompletions.visitedAt));
+    // The failure code is reported only when one is set, so a clean row keeps
+    // its plain shape.
+    return rows.map(({ lastSyncErrorCode, ...row }) =>
+      lastSyncErrorCode ? { ...row, lastSyncErrorCode } : row,
+    );
   } catch (error: unknown) {
     throw toStorageError(error, 'QUERY_FAILED', 'Reading saved visits failed.');
   }

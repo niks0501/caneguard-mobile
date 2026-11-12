@@ -32,8 +32,37 @@ export interface FieldValidationCompletion {
   visitedAt: string;
 }
 
-/** The phone's own view of a saved visit: still waiting to send, or delivered. */
-export type PhoneCompletionState = 'waiting' | 'sent';
+/**
+ * The phone's own view of a saved visit: waiting to send, delivered, or one of
+ * the named end states where the office refused it. A refused visit keeps its
+ * saved evidence on the phone.
+ */
+export type PhoneCompletionState =
+  | 'waiting'
+  | 'sent'
+  | 'moved'
+  | 'case-closed'
+  | 'done-by-someone'
+  | 'visit-cancelled';
+
+export function toPhoneCompletionState(row: {
+  lastSyncErrorCode?: string | null;
+  syncStatus: string;
+}): PhoneCompletionState {
+  if (row.syncStatus === 'synced') return 'sent';
+  switch (row.lastSyncErrorCode) {
+    case 'VISIT_MOVED':
+      return 'moved';
+    case 'VISIT_CASE_CLOSED':
+      return 'case-closed';
+    case 'VISIT_DONE_BY_SOMEONE':
+      return 'done-by-someone';
+    case 'VISIT_CANCELLED':
+      return 'visit-cancelled';
+    default:
+      return 'waiting';
+  }
+}
 
 export interface SaveFieldValidationCompletionInput {
   actionTaken: string;

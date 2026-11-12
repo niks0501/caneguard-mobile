@@ -358,8 +358,9 @@ describe('SyncProvider foreground triggers', () => {
   });
 
   it('stops later uploads when the session is demoted during a report sync', async () => {
+    // Boundaries are the first stage of a run; reports and visits come after.
     let finishReport!: (result: SyncBatchResult) => void;
-    jest.mocked(syncPendingFieldReports).mockReturnValueOnce(
+    jest.mocked(syncPendingFieldSurveys).mockReturnValueOnce(
       new Promise<SyncBatchResult>((resolve) => {
         finishReport = resolve;
       }),
@@ -377,7 +378,7 @@ describe('SyncProvider foreground triggers', () => {
       await Promise.resolve();
     });
     await waitFor(() =>
-      expect(syncPendingFieldReports).toHaveBeenCalledTimes(1),
+      expect(syncPendingFieldSurveys).toHaveBeenCalledTimes(1),
     );
 
     jest.mocked(useAuth).mockReturnValue({
@@ -409,7 +410,7 @@ describe('SyncProvider foreground triggers', () => {
       await Promise.resolve();
     });
 
-    expect(syncPendingFieldSurveys).not.toHaveBeenCalled();
+    expect(syncPendingFieldReports).not.toHaveBeenCalled();
     expect(syncPendingFieldValidationCompletions).not.toHaveBeenCalled();
   });
 

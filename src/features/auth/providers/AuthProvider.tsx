@@ -267,8 +267,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       return sessionVerificationRef.current;
     }
     if (verificationRetryRef.current) {
-      await verificationRetryRef.current;
-      return sessionVerificationRef.current;
+      return verificationRetryRef.current;
     }
     const now = Date.now();
     if (now - lastVerificationRetryAt.current < 10_000) {
@@ -292,6 +291,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           return sessionVerificationRef.current;
         }
         setCurrentSession({ ...activeSession, user });
+        sessionVerificationRef.current = 'verified';
         setSessionVerification('verified');
         setErrorMessage(null);
         return 'verified';
@@ -303,6 +303,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           await clearMobileSession().catch(() => undefined);
           if (isCurrent()) {
             setCurrentSession(null);
+            sessionVerificationRef.current = 'idle';
             setStatus('unauthenticated');
             setSessionVerification('idle');
             setBiometricEnabled(false);
@@ -313,6 +314,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         // Still offline or the office is still unavailable: keep the honest
         // "working offline" state without prompting for biometrics.
         setCurrentSession(unverifiedSession(activeSession));
+        sessionVerificationRef.current = 'unavailable';
         setSessionVerification('unavailable');
         return 'unavailable';
       } finally {

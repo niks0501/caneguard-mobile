@@ -169,6 +169,7 @@ export function beginOwnerRefresh<T>(
   key: RefreshKey,
   sessionKey: string,
   task: () => Promise<T>,
+  onSettled?: () => void,
 ): Promise<T> {
   const active = store.refreshes[key];
   if (active?.sessionKey === sessionKey) {
@@ -178,6 +179,7 @@ export function beginOwnerRefresh<T>(
   const promise = task().finally(() => {
     if (store.refreshes[key]?.promise === promise) {
       delete store.refreshes[key];
+      onSettled?.();
     }
   });
   store.refreshes[key] = { promise, sessionKey };

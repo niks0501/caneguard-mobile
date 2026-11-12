@@ -16,6 +16,10 @@ import {
   markCachedMobileNotificationRead,
 } from '@/features/notifications/data/notificationCacheRepository';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
+import {
+  registerDownloadStep,
+  requestDownloadRun,
+} from '@/features/mobile-data/services/downloadCoordinator';
 import { refreshMobileNotifications } from '@/features/notifications/services/refreshMobileNotifications';
 import {
   beginOwnerCacheLoad,
@@ -195,16 +199,21 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
     }
   }, [authStatus, database, enabled, isCurrentSession, markSessionExpired, ownerStore, session, sessionKey]);
 
+  useEffect(
+    () => registerDownloadStep('updates', () => refresh({ force: false })),
+    [refresh],
+  );
+
   useEffect(() => {
     if (ownerStore && ownerStore.generation > 0) {
-      void refresh({ force: false });
+      requestDownloadRun();
     }
   }, [ownerStore, ownerStore?.generation, refresh]);
 
   useFocusEffect(
     useCallback(() => {
-      if (enabled && refreshOnFocus) void refresh({ force: false });
-    }, [enabled, refresh, refreshOnFocus]),
+      if (enabled && refreshOnFocus) requestDownloadRun();
+    }, [enabled, refreshOnFocus]),
   );
 
   useEffect(() => {
@@ -213,13 +222,13 @@ export function useMobileNotifications(enabled = true, refreshOnFocus = true) {
     const subscription = AppState.addEventListener('change', (nextState) => {
       const becameActive = nextState === 'active' && previousState !== 'active';
       previousState = nextState;
-      if (becameActive) void refresh({ force: false });
+      if (becameActive) requestDownloadRun();
     });
     return () => {
       mounted.current = false;
       subscription.remove();
     };
-  }, [refresh]);
+  }, []);
 
   const markRead = useCallback(
     async (notificationId: string) => {

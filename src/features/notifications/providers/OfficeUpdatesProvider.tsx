@@ -8,6 +8,14 @@ import {
 } from 'react';
 
 import { useToast } from '@/components/ui/Toast';
+import { EMPTY_DATABASE, useCaneGuardDatabase } from '@/database/DatabaseProvider';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { downloadVisitsOnce } from '@/features/mobile-data/services/downloadCoordinator';
+import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
+import {
+  resolveNotificationDestination,
+  type NotificationDestination,
+} from '@/features/notifications/services/resolveNotificationDestination';
 import { useFarmerCopy } from '@/providers/LanguagePreferenceProvider';
 import { OfficeUpdatesPanel } from '@/features/notifications/components/OfficeUpdatesPanel';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
@@ -64,10 +72,23 @@ export function OfficeUpdatesProvider({ children }: { children: ReactNode }) {
     showToast(officeUpdateCopy.markedRead, 'info');
   }, [markAllRead, officeUpdateCopy.markedRead, showToast]);
 
+  const database = useCaneGuardDatabase();
+  const { user } = useAuth();
+  const ownerIdentity = user?.uuid ?? null;
+  const resolveAgain = useCallback(
+    (notification: MobileNotification) =>
+      ownerIdentity && database !== EMPTY_DATABASE
+        ? resolveNotificationDestination(database, ownerIdentity, notification, {
+            fetchVisitsOnMiss: downloadVisitsOnce,
+          })
+        : Promise.resolve<NotificationDestination>({ kind: 'unavailable' }),
+    [database, ownerIdentity],
+  );
   const openNotification = useOpenMobileNotification({
     destinations,
     markRead,
     onClose: close,
+    resolveAgain,
   });
 
   const value = useMemo(

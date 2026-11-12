@@ -32,13 +32,15 @@ const NOTIFICATION: MobileNotification = {
 async function renderOpenNotification({
   destinations = new Map<string, NotificationDestination>(),
   markRead = jest.fn(async () => undefined),
+  resolveAgain,
 }: {
   destinations?: Map<string, NotificationDestination>;
   markRead?: (notificationId: string) => Promise<void>;
+  resolveAgain?: (notification: MobileNotification) => Promise<NotificationDestination>;
 } = {}) {
   const onClose = jest.fn();
   const view = await renderHook(() =>
-    useOpenMobileNotification({ destinations, markRead, onClose }),
+    useOpenMobileNotification({ destinations, markRead, onClose, resolveAgain }),
   );
 
   return { markRead, onClose, ...view };
@@ -128,6 +130,45 @@ describe('useOpenMobileNotification', () => {
     expect(mockShowToast).toHaveBeenCalledWith(expect.any(String), 'info');
     expect(markRead).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  // Intent: tapping an update for a visit not yet downloaded opens it once the one visits fetch finds it.
+  it('opens the visit after the one visits fetch finds it', async () => {
+    const resolveAgain = jest.fn(async () => ({
+      kind: 'assignment' as const,
+      assignmentId: 'assignment-7',
+    }));
+    const { onClose, result } = await renderOpenNotification({
+      destinations: new Map([[NOTIFICATION.id, { kind: 'unavailable' }]]),
+      resolveAgain,
+    });
+
+    await act(async () => {
+      await result.current(NOTIFICATION);
+    });
+
+    expect(resolveAgain).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/field-validation',
+      params: { assignmentId: 'assignment-7' },
+    });
+  });
+
+  // Intent: when the fetch still finds nothing, keep the Not on this phone web fallback.
+  it('keeps the web fallback when the fetch finds nothing', async () => {
+    const resolveAgain = jest.fn(async () => ({ kind: 'unavailable' as const }));
+    const { result } = await renderOpenNotification({
+      destinations: new Map([[NOTIFICATION.id, { kind: 'unavailable' }]]),
+      resolveAgain,
+    });
+
+    await act(async () => {
+      await result.current(NOTIFICATION);
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith('Not on this phone: open on the web', 'info');
     expect(mockPush).not.toHaveBeenCalled();
   });
 });

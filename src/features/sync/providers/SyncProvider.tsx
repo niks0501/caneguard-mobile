@@ -149,7 +149,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         }
         void syncNowRef.current?.('retry-timer');
       })();
-    }, SYNC_RETRY_COOLDOWN_MS);
+    }, SYNC_RETRY_COOLDOWN_MS + 1); // Retry predicates exclude records exactly at the cutoff.
   }, [sessionKey]);
 
   useEffect(() => {

@@ -13,12 +13,25 @@ import * as schema from '@/database/schema';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { createOrGetFieldReportDraft, finalizeFieldReport, saveFieldReportDraft, setLocationUnavailable } from '@/features/reports/data/fieldReportRepository';
 import { findFieldReportById } from '@/features/reports/data/fieldReportRepository';
+import * as scanImageStorage from '@/features/records/services/scanImageStorage';
 import { markFieldSurveyPending, updateFieldSurveySyncResult } from '@/features/surveys/data/fieldSurveyRepository';
 import { findOwnedFieldSurvey, saveFieldSurveyDraft } from '@/features/surveys/data/fieldSurveyRepository';
 import { ringArea, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { SyncProvider } from '@/features/sync/providers/SyncProvider';
 import { apiRequest } from '@/features/shared/api/apiClient';
 
+jest.mock('expo-file-system', () => {
+  const actual = jest.requireActual('expo-file-system');
+  class TestFile extends actual.File {
+    constructor(uriOrDirectory: unknown, ...args: unknown[]) {
+      if (typeof uriOrDirectory === 'string') {
+        return new Blob([new Uint8Array(4096)], { type: 'image/jpeg' });
+      }
+      super(uriOrDirectory, ...args);
+    }
+  }
+  return { ...actual, File: TestFile };
+});
 jest.mock('@react-native-community/netinfo', () => ({
   __esModule: true,
   default: { addEventListener: jest.fn(), fetch: jest.fn() },
@@ -79,7 +92,7 @@ function openDatabase() {
     '0011_tidy_meteorite.sql', '0012_dapper_sumo.sql', '0013_v1_local_scan_migration.sql',
     '0014_safe_songbird.sql', '0019_add_field_surveys.sql',
     '0021_field_survey_affected_areas.sql', '0022_peaceful_titania.sql', '0023_affected_area_waypoints.sql',
-    '0024_active_affected_waypoints.sql', '0025_field_survey_author_role.sql', '0028_field_report_survey_link.sql',
+    '0024_active_affected_waypoints.sql', '0025_field_survey_author_role.sql', '0026_scan_follow_up_check.sql', '0028_field_report_survey_link.sql',
     '0029_scan_personal_place.sql',
   ]) native.exec(migration(name));
   native.prepare(`INSERT INTO scan_records (
@@ -93,6 +106,7 @@ function openDatabase() {
   const sqlite = { prepareSync: (sql: string) => statementAdapter(native.prepare(sql)) } as unknown as SQLiteDatabase;
   native.prepare('INSERT INTO scan_class_scores (scan_record_id, label, score) VALUES (?, ?, ?)').run(scanId, 'healthy', 0.1);
   for (const label of ['mosaic', 'rust', 'smut']) native.prepare('INSERT INTO scan_class_scores (scan_record_id, label, score) VALUES (?, ?, ?)').run(scanId, label, label === 'rust' ? 0.8 : 0.05);
+  native.prepare('INSERT INTO scan_symptoms (scan_record_id, symptom_key) VALUES (?, ?)').run(scanId, 'rust');
   return { database: drizzle(sqlite, { schema }) as CaneGuardDatabase, native };
 }
 
@@ -145,6 +159,7 @@ function mockNetworkListener() {
 describe('SyncProvider held-queue integration', () => {
   beforeEach(() => {
     Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
+    jest.spyOn(scanImageStorage, 'managedImageExists').mockReturnValue(true);
     jest.mocked(apiRequest).mockImplementation(async (path) => path === '/api/v3/mobile/reports'
       ? { identity: { uuid: 'report-remote' } } as never
       : { id: 'survey-remote', status: 'kept' } as never);
@@ -196,6 +211,7 @@ describe('SyncProvider held-queue integration', () => {
       expect(findOwnedFieldSurvey(database, surveyId, ownerId)).toMatchObject({
         status: 'failed', lastSyncErrorCode: 'NETWORK_UNAVAILABLE',
       });
+      await waitFor(() => expect(jest.getTimerCount()).toBeGreaterThan(0));
 
       await act(async () => { await jest.advanceTimersByTimeAsync(60_001); });
       await waitFor(() => expect(jest.mocked(apiRequest)).toHaveBeenCalled());

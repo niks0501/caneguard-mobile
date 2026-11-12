@@ -30,7 +30,7 @@ import {
   authenticateWithBiometrics,
   getBiometricCapability,
 } from '@/features/auth/services/biometricAuth';
-import type { MobileSession } from '@/features/auth/types';
+import type { MobileSession, SessionVerificationStatus } from '@/features/auth/types';
 
 jest.mock('expo-device', () => ({
   deviceName: 'Test Android phone',
@@ -457,6 +457,29 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
     expect(result.current.session).toBeNull();
     expect(mockClear).toHaveBeenCalled();
+  });
+
+  it('returns authoritative rejection to overlapping verification callers', async () => {
+    prepareProtectedStartup();
+    mockVerify.mockRejectedValueOnce(
+      new MobileAuthError('SERVER_UNAVAILABLE', 'CaneGuard could not reach the server.'),
+    );
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.sessionVerification).toBe('unavailable'));
+
+    let rejectRetry!: (error: unknown) => void;
+    mockVerify.mockReturnValueOnce(new Promise((_resolve, reject) => { rejectRetry = reject; }));
+    let verificationResults: SessionVerificationStatus[] = [];
+    await act(async () => {
+      const first = result.current.retrySessionVerification();
+      const coalesced = result.current.retrySessionVerification();
+      rejectRetry(new MobileAuthError('SESSION_EXPIRED', 'Expired'));
+      verificationResults = await Promise.all([first, coalesced]);
+    });
+
+    expect(verificationResults).toEqual(['idle', 'idle']);
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+    expect(result.current.session).toBeNull();
   });
 
   it('clears a server-rejected restored session', async () => {

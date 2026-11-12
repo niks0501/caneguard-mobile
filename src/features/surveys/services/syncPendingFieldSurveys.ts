@@ -3,7 +3,7 @@ import { SYNC_RETRY_COOLDOWN_MS } from '@/features/reports/data/fieldReportSyncR
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import type { SyncBatchResult, SyncHaltReason, SyncTriggerSource } from '@/features/sync/services/syncPendingFieldReports';
 import { DEFAULT_SYNC_BATCH_SIZE, MAX_SYNC_REPORTS_PER_RUN } from '@/features/sync/services/syncPendingFieldReports';
-import { countUnsyncedFieldSurveys, findFieldSurveySyncCandidates } from '@/features/surveys/data/fieldSurveySyncRepository';
+import { countCoolingRetryableFieldSurveys, countUnsyncedFieldSurveys, findFieldSurveySyncCandidates } from '@/features/surveys/data/fieldSurveySyncRepository';
 import { syncFieldSurvey } from '@/features/surveys/services/syncFieldSurvey';
 import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 
@@ -56,11 +56,16 @@ async function executeBatch(options: Options & { ownerIdentity: string }): Promi
         : 'transient-blocker';
       break;
     }
+    const failedBefore = new Date(Date.now() - SYNC_RETRY_COOLDOWN_MS).toISOString();
     const candidates = findFieldSurveySyncCandidates(options.database, options.ownerIdentity, Math.min(batchSize, remaining), {
-      failedBefore: new Date(Date.now() - SYNC_RETRY_COOLDOWN_MS).toISOString(),
+      failedBefore,
       includeRetryableFailed: true,
     });
-    if (!candidates.length) { haltReason = 'empty'; break; }
+    if (!candidates.length) {
+      // A boundary still cooling down is not "empty": keep a retry scheduled so it, and any report held on it, resumes.
+      haltReason = countCoolingRetryableFieldSurveys(options.database, options.ownerIdentity, failedBefore) > 0 ? 'transient-blocker' : 'empty';
+      break;
+    }
     for (const { clientUuid } of candidates) {
       const result = await syncFieldSurvey({
         allowImmediateRetries: options.source === 'manual',

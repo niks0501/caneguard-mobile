@@ -39,7 +39,7 @@ Android development build
 Completed scans are saved locally before upload is attempted.
 A Field Report Draft can remain incomplete and local-only while offline.
 Finalization makes a complete report non-editable and queues it as `pending`.
-Synchronization runs after save, at startup, on app resume, after connectivity returns, or from the manual sync action.
+Synchronization runs after save, at startup, on app resume, after connectivity returns, when account verification completes, or from the manual sync action. Online foreground retries recheck unavailable account verification and reconsider held uploads, including after their cooldown.
 Failed uploads preserve the local report and image for retry.
 Only an authenticated `field_reporter` session can synchronize mobile reports.
 A registered `farmer` account can sign in and keep personal scans on the device, while official Field Reports stay restricted to `field_reporter` accounts that the API also grants the `report:submit` capability (see [Mobile project context](PROJECT_CONTEXT.md#inspector-capabilities)).

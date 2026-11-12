@@ -230,8 +230,12 @@ Sync may be triggered:
 - after save;
 - at startup;
 - when the app resumes;
-- when network connectivity is restored; or
+- when network connectivity is restored;
+- when account verification completes, to reconsider work held for the verified account district;
+- by an online, foreground retry timer, which retries unavailable `/me` verification before reconsidering held work; or
 - manually.
+
+A retryable failed boundary inside its cooldown remains scheduled for later reconsideration rather than being treated as an empty queue. The retry timer runs just beyond the cooldown cutoff so eligible boundaries and reports held on them can be attempted.
 
 A `farmer` session does not synchronize: it reports no pending count and no
 last successful sync time, and its queued Field Reports, field surveys, and

@@ -30,6 +30,8 @@ type RefreshKey = 'assignments' | 'notifications';
 
 export interface OwnerMobileDataStore {
   assignments: AssignmentsSnapshot | null;
+  assignmentsRefreshing: boolean;
+  assignmentsFailed: boolean;
   notifications: CachedValue<MobileNotification[]> | null;
   timeline: Map<string, TimelineSnapshot>;
   generation: number;
@@ -60,6 +62,8 @@ export function getOwnerMobileDataStore(
   if (!store) {
     store = {
       assignments: null,
+      assignmentsRefreshing: false,
+      assignmentsFailed: false,
       notifications: null,
       timeline: new Map(),
       generation: 0,
@@ -91,6 +95,15 @@ export function setOwnerAssignments(
     fetchedAt: toTimestamp(fetchedAt),
     skippedCount,
   };
+  notify(store);
+}
+
+export function setOwnerAssignmentsReadState(
+  store: OwnerMobileDataStore,
+  state: { refreshing: boolean; failed: boolean },
+): void {
+  store.assignmentsRefreshing = state.refreshing;
+  store.assignmentsFailed = state.failed;
   notify(store);
 }
 
@@ -131,6 +144,8 @@ export function clearOwnerMobileDataStore(
   const cacheFetchedAt = options.cacheFetchedAt ?? Date.now();
   store.generation += 1;
   store.assignments = { value: [], fetchedAt: cacheFetchedAt, skippedCount: 0 };
+  store.assignmentsRefreshing = false;
+  store.assignmentsFailed = false;
   store.notifications = { value: [], fetchedAt: cacheFetchedAt };
   store.timeline.clear();
   store.cacheLoads = {};

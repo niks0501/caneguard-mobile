@@ -18,7 +18,6 @@ export type AttachedBoundaryInput = Pick<
   | 'affectedAreaPolygonsJson'
   | 'affectedAreaWaypointsJson'
   | 'capturedAt'
-  | 'districtCode'
   | 'lastSyncErrorCode'
   | 'remoteId'
   | 'status'
@@ -65,19 +64,21 @@ function asWaypoints(value: unknown): SurveyWaypoint[] | null {
  * "Send together": decides how an attached boundary travels with its report.
  * A boundary that can still be edited is queued with its current measurement; a
  * boundary the office will never receive without more work blocks the report.
+ * The district always comes from the account, never from the stored draft.
  */
 export function planAttachedBoundarySend(
   row: AttachedBoundaryInput,
+  districtCode: string,
 ): AttachedBoundarySendPlan {
   const state = boundaryState(row);
   if (row.remoteId || state === 'sent') return { status: 'on_its_way' };
+  if (!districtCode.trim()) {
+    return { status: 'blocked' };
+  }
   if (!boundaryCanEdit(state)) {
     return boundaryRetriesItself(state) || state === 'sending'
       ? { status: 'on_its_way' }
       : { status: 'blocked' };
-  }
-  if (!row.districtCode.trim() || row.districtCode === 'UNSPECIFIED') {
-    return { status: 'blocked' };
   }
   const waypoints = asWaypoints(jsonArray(row.waypointsJson));
   if (!waypoints) return { status: 'blocked' };

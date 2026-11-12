@@ -115,7 +115,13 @@ export function parseMobileUser(value: unknown): MobileUser {
   return {
     ...(value as unknown as MobileUser),
     capabilities: normalizeCapabilities(value.capabilities),
+    ...districtFrom(value.district_code),
   };
+}
+
+// Only a non-blank string is a district; anything else leaves the field out.
+function districtFrom(value: unknown): { districtCode?: string } {
+  return typeof value === 'string' && value.trim() !== '' ? { districtCode: value.trim() } : {};
 }
 
 export function parseRegistrationResponse(

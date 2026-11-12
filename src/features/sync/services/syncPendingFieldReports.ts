@@ -39,6 +39,7 @@ export interface SyncBatchResult {
 
 interface SyncPendingFieldReportsOptions {
   database: CaneGuardDatabase;
+  districtCode: string;
   limit?: number;
   source: SyncTriggerSource;
   submitterIdentity: string;
@@ -87,6 +88,7 @@ export function syncPendingFieldReports(
 
 async function executeBatch({
   database,
+  districtCode,
   limit = DEFAULT_SYNC_BATCH_SIZE,
   source,
   submitterIdentity,
@@ -109,6 +111,7 @@ async function executeBatch({
     const candidates = await repository.findSyncCandidates(
       Math.min(batchSize, remaining),
       {
+        districtCode,
         failedBefore: new Date(
           Date.now() - SYNC_RETRY_COOLDOWN_MS,
         ).toISOString(),

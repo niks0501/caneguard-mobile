@@ -21,6 +21,7 @@ describe('syncFieldSurvey authentication gate', () => {
     await expect(syncFieldSurvey({
       clientUuid: 'survey-client-1',
       database: EMPTY_DATABASE,
+      districtCode: 'D-01',
       ownerIdentity: 'owner-1',
       token: null,
     })).resolves.toMatchObject({ status: 'failed', error: { code: 'AUTH_REQUIRED' } });
@@ -91,6 +92,7 @@ describe('syncFieldSurvey upload contract', () => {
       database,
       draft.clientUuid,
       'owner-1',
+      'D-01',
       plotPolygon,
       ringArea(plotPolygon.coordinates[0]),
       '2026-10-31T02:03:00.000Z',
@@ -104,6 +106,7 @@ describe('syncFieldSurvey upload contract', () => {
       allowImmediateRetries: false,
       clientUuid: draft.clientUuid,
       database,
+      districtCode: 'D-07',
       ownerIdentity: 'owner-1',
       token: 'access-token',
     })).resolves.toEqual({ status: 'synced', remoteId: 'remote-1' });
@@ -111,6 +114,9 @@ describe('syncFieldSurvey upload contract', () => {
     const request = jest.mocked(apiRequest).mock.calls[0][1];
     const body = JSON.parse(String(request?.body));
     expect(body).not.toHaveProperty('affected_area_waypoints');
+    // Intent (item 8): the account district is what leaves the phone, even for a row queued earlier.
+    expect(body.district_code).toBe('D-07');
+    expect(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')?.districtCode).toBe('D-07');
     expect(Object.keys(body.measurement_provenance).sort()).toEqual([
       'affected_area_sqm',
       'affected_area_waypoint_provenance',

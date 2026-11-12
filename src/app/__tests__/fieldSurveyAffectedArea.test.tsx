@@ -1,6 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { renderWithGestures } from '../../../test/render-with-gestures';
-import { StyleSheet } from 'react-native';
 
 import FieldSurveyScreen from '@/app/field-survey';
 import { FIELD_SURVEY_COPY } from '@/constants/copy';
@@ -13,6 +12,13 @@ import type { FieldSurveyRow } from '@/database/schema';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
 import type { SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 
+// The map is full height; affected areas, GPS capture and the point lists sit behind More.
+async function renderOpen() {
+  const view = await renderWithGestures(<FieldSurveyScreen />);
+  await fireEvent.press(screen.getByTestId('field-survey.more'));
+  return view;
+}
+
 jest.mock('expo-crypto', () => ({
   randomUUID: () => '3f1de2d8-2ca9-4c26-9e37-2f4c5f6f7a10',
 }));
@@ -24,7 +30,7 @@ jest.mock('@/database/DatabaseProvider', () => {
   };
 });
 jest.mock('@/features/auth/hooks/useAuth', () => ({
-  useAuth: () => ({ session: { token: 'test-session-token', user: { capabilities: ['report:submit'], role: 'field_reporter', uuid: 'owner-1' } } }),
+  useAuth: () => ({ session: { token: 'test-session-token', user: { capabilities: ['report:submit'], districtCode: 'D9', role: 'field_reporter', uuid: 'owner-1' } } }),
 }));
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({ isOnline: true, syncNow: jest.fn(async () => ({ results: [] })) }),
@@ -98,18 +104,6 @@ function affectedSqmFromReadout(): number {
   return Number(match[1]);
 }
 
-type RenderedNode = ReturnType<typeof screen.getByText>;
-
-function ancestorsOf(node: RenderedNode): RenderedNode[] {
-  const chain: RenderedNode[] = [];
-  let current = node.parent;
-  while (current) {
-    chain.push(current);
-    current = current.parent;
-  }
-  return chain;
-}
-
 beforeEach(() => {
   mockListSurveys.mockReturnValue([]);
   mockSaveDraft.mockResolvedValue(draftRow());
@@ -117,27 +111,20 @@ beforeEach(() => {
   mockCaptureGps.mockReset();
 });
 
-it('stacks the four survey action controls in one vertical group so Capture GPS point stays reachable', async () => {
+it('keeps only the Walk / Tap switch on the map and puts affected areas and GPS capture behind More', async () => {
   await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
 
-  const plotButton = screen.getByText(FIELD_SURVEY_COPY.plotBoundary);
-  const affectedButton = screen.getByText(FIELD_SURVEY_COPY.affectedAreaBoundary);
-  const walkButton = screen.getByText(FIELD_SURVEY_COPY.walkStart);
-  const gpsButton = screen.getByText(FIELD_SURVEY_COPY.addGpsPoint);
-  expect(plotButton).toBeTruthy();
-  expect(affectedButton).toBeTruthy();
-  expect(walkButton).toBeTruthy();
-  expect(gpsButton).toBeTruthy();
+  expect(screen.getByTestId('field-survey.walk')).toBeTruthy();
+  expect(screen.getByTestId('field-survey.tap')).toBeTruthy();
+  expect(screen.queryByText(FIELD_SURVEY_COPY.plotBoundary)).toBeNull();
+  expect(screen.queryByText(FIELD_SURVEY_COPY.affectedAreaBoundary)).toBeNull();
+  expect(screen.queryByText(FIELD_SURVEY_COPY.addGpsPoint)).toBeNull();
 
-  const chains = [plotButton, affectedButton, walkButton, gpsButton].map(ancestorsOf);
-  const group = chains[0].find((node) => chains.every((chain) => chain.includes(node)));
-  expect(group).toBeTruthy();
-  const groupStyle = StyleSheet.flatten(group!.props.style) as Record<string, unknown> | undefined;
-  expect(groupStyle?.flexDirection ?? 'column').not.toBe('row');
-  expect(groupStyle?.flexWrap).toBeUndefined();
-  const groupChildren = group!.props.children;
-  expect(Array.isArray(groupChildren) ? groupChildren.length : 1).toBe(4);
+  await fireEvent.press(screen.getByTestId('field-survey.more'));
+  expect(screen.getByText(FIELD_SURVEY_COPY.plotBoundary)).toBeTruthy();
+  expect(screen.getByText(FIELD_SURVEY_COPY.affectedAreaBoundary)).toBeTruthy();
+  expect(screen.getByText(FIELD_SURVEY_COPY.addGpsPoint)).toBeTruthy();
 
   mockCaptureGps.mockResolvedValue({
     status: 'captured',
@@ -155,7 +142,7 @@ it('stacks the four survey action controls in one vertical group so Capture GPS 
 });
 
 it('shows the union affected area on screen instead of the sum of overlapping boundaries', async () => {
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
 
   await pressMap(100, 100);
@@ -187,7 +174,7 @@ it('shows the union affected area on screen instead of the sum of overlapping bo
 });
 
 it('reports too-few and self-crossing plot boundaries and keeps Submit disabled', async () => {
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
 
   await pressMap(100, 100);

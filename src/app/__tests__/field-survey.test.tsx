@@ -16,6 +16,13 @@ import { validateSurveyWaypoints, type SurveyWaypoint } from '@/features/surveys
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
 import { FIELD_SURVEY_SYNC_COPY } from '@/features/sync/utils/syncStatusCopy';
 
+// The map is full height; affected areas, GPS capture and the point lists sit behind More.
+async function renderOpen() {
+  const view = await renderWithGestures(<FieldSurveyScreen />);
+  await fireEvent.press(screen.getByTestId('field-survey.more'));
+  return view;
+}
+
 jest.mock('expo-crypto', () => ({
   randomUUID: () => '3f1de2d8-2ca9-4c26-9e37-2f4c5f6f7a10',
 }));
@@ -26,8 +33,9 @@ jest.mock('@/database/DatabaseProvider', () => {
     useDatabaseState: () => ({ database, ready: true }),
   };
 });
+let mockAccountDistrict: string | undefined = 'D9';
 jest.mock('@/features/auth/hooks/useAuth', () => ({
-  useAuth: () => ({ session: { token: 'test-session-token', user: { capabilities: ['report:submit'], role: 'field_reporter', uuid: 'owner-1' } } }),
+  useAuth: () => ({ session: { token: 'test-session-token', user: { capabilities: ['report:submit'], districtCode: mockAccountDistrict, role: 'field_reporter', uuid: 'owner-1' } } }),
 }));
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({ isOnline: true, syncNow: jest.fn(async () => ({ results: [] })) }),
@@ -150,6 +158,7 @@ function findRenderedParent(
 }
 
 beforeEach(() => {
+  mockAccountDistrict = 'D9';
   mockListSurveys.mockReturnValue([]);
   mockFindSurvey.mockReturnValue(null);
   mockSaveDraft.mockResolvedValue(draftRow());
@@ -168,7 +177,7 @@ it('recaptures the named point even when a point ahead of it is removed while sa
   ];
   mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(boundary) })]);
 
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.recapturePoint(2))).toBeTruthy());
 
   let resolveCapture!: (value: Awaited<ReturnType<typeof captureSurveyWaypoint>>) => void;
@@ -208,7 +217,7 @@ it('recaptures the named point even when a point ahead of it is removed while sa
 it('drops a boundary capture when the affected-area mode is opened while sampling', async () => {
   mockListSurveys.mockReturnValue([draftRow()]);
 
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
 
   let resolveCapture!: (value: Awaited<ReturnType<typeof captureSurveyWaypoint>>) => void;
@@ -240,7 +249,7 @@ it('reports a cancelled recapture when the named point is removed while sampling
   ];
   mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(boundary) })]);
 
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.recapturePoint(2))).toBeTruthy());
 
   let resolveCapture!: (value: Awaited<ReturnType<typeof captureSurveyWaypoint>>) => void;
@@ -280,7 +289,7 @@ it('labels a boundary drawn only on the map "Drawn on map", not low GPS accuracy
   const mapped = PLOT_WAYPOINTS.map((point) => ({ ...point, accuracyMeters: null, source: 'map' as const }));
   mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(mapped) })]);
 
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
 
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.qualityState.drawn_on_map)).toBeTruthy());
   expect(screen.queryByText(FIELD_SURVEY_COPY.qualityState.low_accuracy)).toBeNull();
@@ -288,7 +297,7 @@ it('labels a boundary drawn only on the map "Drawn on map", not low GPS accuracy
 });
 
 it('adds a finite vertex when a web-shaped map press has no locationX/locationY', async () => {
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
 
   await fireEvent.press(screen.getByTestId('field-survey.map'), {
     nativeEvent: { locationX: undefined, locationY: undefined, offsetX: 180, offsetY: 190, pageX: 200, pageY: 300 },
@@ -304,7 +313,7 @@ it('adds a finite vertex when a web-shaped map press has no locationX/locationY'
 it('ignores a map press with no usable coordinates and drops non-finite vertices on load', async () => {
   const damaged = [PLOT_WAYPOINTS[0], { ...PLOT_WAYPOINTS[1], latitude: null, longitude: null }, ...PLOT_WAYPOINTS.slice(2)];
   mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(damaged) })]);
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
 
   await fireEvent.press(screen.getByTestId('field-survey.map'), { nativeEvent: { locationX: undefined, locationY: undefined, pageX: 5, pageY: 5 } });
 
@@ -313,7 +322,7 @@ it('ignores a map press with no usable coordinates and drops non-finite vertices
 });
 
 it('keeps captured affected-waypoint provenance when the affected mode button is tapped again', async () => {
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
 
   await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.affectedAreaBoundary));
@@ -344,7 +353,7 @@ it('keeps restored unfinished affected waypoints and blocks submit until they ar
     draftRow({ activeAffectedWaypointsJson: JSON.stringify(ACTIVE_AFFECTED_WAYPOINTS) }),
   ]);
 
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
 
   await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.affectedAreaBoundary} (3)`)).toBeTruthy());
   expect(submitDisabled()).toBe(true);
@@ -371,7 +380,7 @@ it('keeps restored unfinished affected waypoints and blocks submit until they ar
 });
 
 it('keeps the in-screen Close control available beside the docked submit', async () => {
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
 
   await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.close));
@@ -380,18 +389,18 @@ it('keeps the in-screen Close control available beside the docked submit', async
 });
 
 it('keeps the map first and the docked actions outside the details scroll', async () => {
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
 
   const tree = screen.toJSON() as unknown as RenderedNode;
   const order = collectTestIds(tree);
   expect(order).toContain('field-survey.map');
 
-  // The map owns the top of the screen; district details and notes scroll
-  // beneath it.
+  // The map owns the top of the screen; the More panel scrolls beneath it.
   expect(order.indexOf('field-survey.map')).toBeLessThan(
-    order.indexOf('field-survey.district-code'),
+    order.indexOf('field-survey.more-panel'),
   );
+  expect(order).not.toContain('field-survey.district-code');
 
   const scroll = findRenderedNode(tree, (node) => node.type === 'RCTScrollView');
   const dock = findRenderedNode(tree, (node) => node.props.testID === 'action-dock');
@@ -403,7 +412,6 @@ it('keeps the map first and the docked actions outside the details scroll', asyn
   expect(findRenderedParent(tree, dock!)).toBe(findRenderedParent(tree, scroll!));
   const siblings = findRenderedParent(tree, dock!)!.children;
   expect(siblings.indexOf(dock!)).toBeGreaterThan(siblings.indexOf(scroll!));
-  expect(collectTestIds(scroll)).toContain('field-survey.district-code');
   expect(collectTestIds(scroll!)).not.toContain('field-survey.submit');
   expect(collectTestIds(dock)).toContain('field-survey.submit');
 });
@@ -414,7 +422,7 @@ it('keeps a synced boundary saved instead of autosaving it again', async () => {
   mockUseLocalSearchParams.mockReturnValue({ surveyId: synced.clientUuid });
   mockSaveDraft.mockRejectedValue(new Error('A submitted field survey cannot be edited.'));
 
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_SYNC_COPY.savedOffline)).toBeTruthy());
 
   expect(mockFindSurvey).toHaveBeenCalledWith(expect.anything(), synced.clientUuid, 'owner-1');
@@ -428,7 +436,7 @@ it('still allows resubmitting a boundary that is only waiting to send', async ()
   mockFindSurvey.mockReturnValue(pending);
   mockUseLocalSearchParams.mockReturnValue({ surveyId: pending.clientUuid });
 
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_SYNC_COPY.savedOffline)).toBeTruthy());
 
   expect(submitDisabled()).toBe(false);
@@ -439,7 +447,7 @@ it('does not resume another boundary or save a draft when the requested survey i
   mockFindSurvey.mockReturnValue(null);
   mockUseLocalSearchParams.mockReturnValue({ surveyId: 'requested-but-gone' });
 
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await waitFor(() => expect(mockFindSurvey).toHaveBeenCalled());
   await act(async () => undefined);
 
@@ -456,14 +464,12 @@ it('only saves a missing linked survey after the user edits the new boundary', a
   mockFindSurvey.mockReturnValue(null);
   mockUseLocalSearchParams.mockReturnValue({ surveyId: 'requested-but-gone' });
 
-  await renderWithGestures(<FieldSurveyScreen />);
+  await renderOpen();
   await waitFor(() => expect(mockFindSurvey).toHaveBeenCalled());
   await act(async () => undefined);
 
-  expect(screen.getByTestId('field-survey.district-code').props.editable).toBe(false);
-
   await act(async () => {
-    fireEvent.changeText(screen.getByTestId('field-survey.district-code'), 'D9');
+    await pressMap(10, 10);
   });
   await act(async () => undefined);
 
@@ -474,14 +480,35 @@ it('only saves a missing linked survey after the user edits the new boundary', a
     fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.newSurvey));
   });
 
-  expect(screen.getByTestId('field-survey.district-code').props.editable).toBe(true);
   expect(mockSaveDraft).not.toHaveBeenCalled();
 
   await act(async () => {
-    fireEvent.changeText(screen.getByTestId('field-survey.district-code'), 'D9');
+    await pressMap(10, 10);
   });
 
   await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
+});
+
+// Intent (item 8): the district comes from the account with no typed field, and an account without one cannot send.
+it('has no district field and blocks sending when the account carries no district', async () => {
+  mockAccountDistrict = undefined;
+  mockListSurveys.mockReturnValue([draftRow()]);
+  await renderOpen();
+  await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+  expect(screen.queryByTestId('field-survey.district-code')).toBeNull();
+
+  await fireEvent.press(submitButton());
+  expect(screen.getByText(FIELD_SURVEY_COPY.districtMissing)).toBeTruthy();
+  expect(mockMarkPending).not.toHaveBeenCalled();
+});
+
+// Intent (item 8): a boundary drawn by an account with a district is saved under that district.
+it('saves the account district with the boundary', async () => {
+  await renderOpen();
+  await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
+  await pressMap(100, 100);
+  await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
+  expect(mockSaveDraft.mock.lastCall?.[1]).toMatchObject({ districtCode: 'D9' });
 });
 
 describe('drawing tool (phone)', () => {
@@ -491,7 +518,7 @@ describe('drawing tool (phone)', () => {
   });
 
   it('draws a touch target for the first point of an affected area', async () => {
-    await renderWithGestures(<FieldSurveyScreen />);
+    await renderOpen();
     await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
     await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.affectedAreaBoundary));
     expect(screen.queryByTestId('field-survey.point.active.0')).toBeNull();
@@ -503,7 +530,7 @@ describe('drawing tool (phone)', () => {
   });
 
   it('adds a point between two others from the + on an edge', async () => {
-    await renderWithGestures(<FieldSurveyScreen />);
+    await renderOpen();
     await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
 
     await fireEvent.press(screen.getByTestId('field-survey.insert.plot.0'));
@@ -513,7 +540,7 @@ describe('drawing tool (phone)', () => {
   });
 
   it('saves the first edit when it is a dragged point', async () => {
-    await renderWithGestures(<FieldSurveyScreen />);
+    await renderOpen();
     await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
     expect(mockSaveDraft).not.toHaveBeenCalled();
 
@@ -530,7 +557,7 @@ describe('drawing tool (phone)', () => {
   });
 
   it('undoes a removal, not just the last added point', async () => {
-    await renderWithGestures(<FieldSurveyScreen />);
+    await renderOpen();
     await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
 
     await fireEvent.press(screen.getByTestId('field-survey.point.plot.1'));
@@ -545,7 +572,7 @@ describe('drawing tool (phone)', () => {
 
   it('removes a chosen affected area from its own button', async () => {
     mockListSurveys.mockReturnValue([]);
-    await renderWithGestures(<FieldSurveyScreen />);
+    await renderOpen();
     await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
     for (const [x, y] of [[100, 100], [260, 100], [260, 240], [100, 240]]) await pressMap(x, y);
     await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.affectedAreaBoundary));
@@ -569,7 +596,7 @@ describe('drawing tool (phone)', () => {
       affectedAreaPolygonsJson: JSON.stringify([{ type: 'Polygon', coordinates: [[...outside, outside[0]].map((w) => [w.longitude, w.latitude])] }]),
       affectedAreaWaypointsJson: JSON.stringify([outside]),
     })]);
-    await renderWithGestures(<FieldSurveyScreen />);
+    await renderOpen();
     await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.affectedAreas} (1)`)).toBeTruthy());
 
     await fireEvent.press(screen.getByTestId('field-survey.submit'));
@@ -584,13 +611,13 @@ describe('drawing tool (phone)', () => {
     const bowtie = [PLOT_WAYPOINTS[0], PLOT_WAYPOINTS[2], PLOT_WAYPOINTS[3], PLOT_WAYPOINTS[1]];
     mockListSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(bowtie) })]);
 
-    await renderWithGestures(<FieldSurveyScreen />);
+    await renderOpen();
 
     expect((await screen.findByTestId('field-survey.validity')).props.children).toBe(FIELD_SURVEY_COPY.validity.crosses_itself);
   });
 
   it('opens a resumed boundary with its shape on screen', async () => {
-    await renderWithGestures(<FieldSurveyScreen />);
+    await renderOpen();
     await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
 
     await act(async () => {
@@ -610,7 +637,7 @@ describe('drawing tool (phone)', () => {
 
   it('moves the map to my location without adding a point', async () => {
     mockCaptureWaypoint.mockResolvedValue({ status: 'captured', waypoint: { latitude: 14.5, longitude: 121.5, accuracyMeters: 5, capturedAt: '2026-11-10T00:00:00.000Z', source: 'gps' } });
-    await renderWithGestures(<FieldSurveyScreen />);
+    await renderOpen();
     await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
 
     await act(async () => { fireEvent.press(screen.getByTestId('field-survey.my-location')); });
@@ -620,7 +647,7 @@ describe('drawing tool (phone)', () => {
   });
 
   it('keeps a GPS point captured while another point is being dragged', async () => {
-    await renderWithGestures(<FieldSurveyScreen />);
+    await renderOpen();
     await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
 
     let resolveCapture!: (value: Awaited<ReturnType<typeof captureSurveyWaypoint>>) => void;
@@ -648,7 +675,7 @@ describe('drawing tool (phone)', () => {
   });
 
   it('undoes a GPS capture committed mid-drag before the drag itself', async () => {
-    await renderWithGestures(<FieldSurveyScreen />);
+    await renderOpen();
     await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
 
     let resolveCapture!: (value: Awaited<ReturnType<typeof captureSurveyWaypoint>>) => void;
@@ -688,7 +715,7 @@ describe('drawing tool (phone)', () => {
     })]);
     mockCaptureWaypoint.mockResolvedValue({ status: 'captured', waypoint: { latitude: 14.5, longitude: 121.5, accuracyMeters: 25, capturedAt: '2026-11-10T06:00:00.000Z', source: 'gps' } });
 
-    await renderWithGestures(<FieldSurveyScreen />);
+    await renderOpen();
     await waitFor(() => expect(screen.getByTestId('field-survey.area-chip.0')).toBeTruthy());
 
     await act(async () => { fireEvent.press(screen.getByTestId('field-survey.area-chip.0')); });
@@ -708,7 +735,7 @@ describe('drawing tool (phone)', () => {
         status: 'captured',
         waypoint: { latitude: 14.5, longitude: 121.5, accuracyMeters: 5, capturedAt: '2026-11-10T00:00:00.000Z', source: 'gps' },
       });
-      const view = await renderWithGestures(<FieldSurveyScreen />);
+      const view = await renderOpen();
       await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
 
       const drag = createGestureController(getByGestureTestId('field-survey.point.plot.0.drag'));
@@ -750,7 +777,7 @@ describe('drawing tool (phone)', () => {
       affectedAreaWaypointsJson: JSON.stringify([mixedArea]),
     })]);
 
-    await renderWithGestures(<FieldSurveyScreen />);
+    await renderOpen();
 
     const mapPoint = await screen.findByTestId('field-survey.area-point.0.0');
     const gpsPoint = screen.getByTestId('field-survey.area-point.0.1');
@@ -771,7 +798,7 @@ describe('drawing tool (phone)', () => {
       affectedAreaWaypointsJson: JSON.stringify([outside]),
     })]);
 
-    await renderWithGestures(<FieldSurveyScreen />);
+    await renderOpen();
 
     const row = await screen.findByText(/^Area 1 · /);
     const shownSqm = Number(String(row.props.children).replace(/^Area 1 · /, '').replace(/[^\d.]/g, ''));

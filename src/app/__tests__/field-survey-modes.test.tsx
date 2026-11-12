@@ -14,7 +14,7 @@ jest.mock('@/database/DatabaseProvider', () => {
   return { EMPTY_DATABASE: null, useDatabaseState: () => ({ database, ready: true }) };
 });
 jest.mock('@/features/auth/hooks/useAuth', () => ({
-  useAuth: () => ({ session: { token: 't', user: { capabilities: ['report:submit'], role: 'field_reporter', uuid: 'owner-1' } } }),
+  useAuth: () => ({ session: { token: 't', user: { capabilities: ['report:submit'], districtCode: 'D9', role: 'field_reporter', uuid: 'owner-1' } } }),
 }));
 jest.mock('@/features/sync/hooks/useSync', () => ({ useSync: () => ({ isOnline: true, syncNow: jest.fn(async () => ({ results: [] })) }) }));
 jest.mock('@/features/surveys/data/fieldSurveyRepository', () => ({
@@ -76,7 +76,7 @@ it('shows the save-failed copy, not Saving, when the draft cannot be written', a
   mockSave.mockRejectedValue(new Error('disk full'));
   await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(screen.getByTestId('field-survey.status-strip').props.accessibilityValue).toEqual({ text: 'mode=drawing_new' }));
-  await fireEvent.changeText(screen.getByTestId('field-survey.district-code'), 'D9');
+  await fireEvent.press(screen.getByTestId('field-survey.map'), { nativeEvent: { locationX: 10, locationY: 10 } });
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.saveFailed, { exact: false })).toBeTruthy());
   expect(screen.queryByText(FIELD_SURVEY_COPY.savingOffline)).toBeNull();
   mockSave.mockResolvedValue(row());
@@ -90,9 +90,9 @@ it('opens and closes a new boundary without writing an empty draft', async () =>
   await waitFor(() => expect(screen.getByTestId('field-survey.status-strip').props.accessibilityValue).toEqual({ text: 'mode=drawing_new' }));
   expect(mockSave).not.toHaveBeenCalled();
 
-  await fireEvent.changeText(screen.getByTestId('field-survey.district-code'), 'D9');
+  await fireEvent.press(screen.getByTestId('field-survey.map'), { nativeEvent: { locationX: 10, locationY: 10 } });
   await waitFor(() => expect(mockSave).toHaveBeenCalled());
-  expect(mockSave.mock.lastCall?.[1]).toMatchObject({ districtCode: 'D9', waypoints: [] });
+  expect(mockSave.mock.lastCall?.[1]).toMatchObject({ districtCode: 'D9' });
 });
 
 // Intent (D3): a correction that arrives from a background attempt shows on the open screen, with its field messages.

@@ -122,11 +122,11 @@ and returns actionable missing requirements. A report's attached boundary is
 part of that gate: finalizing first queues a boundary that is still editable
 local work, so the report and its attachment send together, while one already
 queued, sending, retrying on its own, or sent is left alone. A boundary that is
-no longer saved on this phone, cannot be sent from its current state, still has
-no district or an unfinished affected area, or has unusable or damaged saved
-geometry makes finalization return `attached_boundary` and keeps the report an
-editable Draft. `planAttachedBoundarySend` in
-`src/features/surveys/domain/attachedBoundary.ts` owns that decision and
+no longer saved on this phone, cannot be sent from its current state, lacks a
+current account district while still unsent, has an unfinished affected area,
+or has unusable or damaged saved geometry makes finalization return
+`attached_boundary` and keeps the report an editable Draft.
+`planAttachedBoundarySend` in `src/features/surveys/domain/attachedBoundary.ts` owns that decision and
 `queueAttachedFieldSurvey` in
 `src/features/surveys/data/fieldSurveyRepository.ts` owns the queueing.
 Successful local finalization makes the report non-editable, preserves the

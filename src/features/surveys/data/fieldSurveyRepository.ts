@@ -98,6 +98,7 @@ export function markFieldSurveyPending(
   database: CaneGuardDatabase,
   clientUuid: string,
   ownerIdentity: string,
+  districtCode: string,
   polygon: SurveyPolygon,
   areaSqm: number,
   capturedAt: string,
@@ -131,6 +132,7 @@ export function markFieldSurveyPending(
     throw new StorageError('INVALID_FIELD_REPORT', provenanceCheck.error.message);
   }
   database.update(fieldSurveys).set({
+    districtCode,
     polygonJson: JSON.stringify(polygon),
     areaSqm,
     affectedAreaPolygonsJson: JSON.stringify(affectedAreaPolygons),
@@ -156,15 +158,16 @@ export function queueAttachedFieldSurvey(
   database: CaneGuardDatabase,
   clientUuid: string,
   ownerIdentity: string,
+  districtCode: string,
 ): boolean {
   const row = findOwnedFieldSurvey(database, clientUuid, ownerIdentity);
   if (!row) return false;
-  const plan = planAttachedBoundarySend(row);
+  const plan = planAttachedBoundarySend(row, districtCode);
   if (plan.status === 'blocked') return false;
   if (plan.status === 'queue') {
     const { send } = plan;
     markFieldSurveyPending(
-      database, clientUuid, ownerIdentity, send.polygon, send.areaSqm, send.capturedAt,
+      database, clientUuid, ownerIdentity, districtCode, send.polygon, send.areaSqm, send.capturedAt,
       send.affectedAreas, send.affectedAreaSqm, send.affectedAreaWaypoints,
     );
   }
@@ -185,6 +188,7 @@ export function updateFieldSurveySyncResult(
   clientUuid: string,
   ownerIdentity: string,
   update: {
+    districtCode?: string;
     fieldErrors?: Record<string, string[]> | null;
     lastSyncErrorCode?: string | null;
     remoteId?: string | null;
@@ -196,6 +200,7 @@ export function updateFieldSurveySyncResult(
   if (!row) throw new StorageError('RECORD_NOT_FOUND', 'This field survey no longer exists.');
   const result = database.update(fieldSurveys).set({
     status: update.status,
+    ...(update.districtCode === undefined ? {} : { districtCode: update.districtCode }),
     ...(update.remoteId === undefined ? {} : { remoteId: update.remoteId }),
     ...(update.fieldErrors === undefined ? {} : { fieldErrorsJson: update.fieldErrors ? JSON.stringify(update.fieldErrors) : null }),
     lastSyncErrorCode: update.lastSyncErrorCode === undefined ? row.lastSyncErrorCode : update.lastSyncErrorCode,

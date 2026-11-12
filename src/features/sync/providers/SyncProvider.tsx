@@ -20,7 +20,7 @@ import {
   resetStaleSyncingFieldValidationCompletions,
 } from '@/features/assignments/data/fieldValidationCompletionRepository';
 import { syncPendingFieldValidationCompletions } from '@/features/assignments/services/syncPendingFieldValidationCompletions';
-import type { MobileSession } from '@/features/auth/types';
+import type { MobileSession, SessionVerificationStatus } from '@/features/auth/types';
 import {
   countUnsyncedFieldReports,
   findFieldReportUploadRecord,
@@ -65,6 +65,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const {
     markSessionExpired,
     session,
+    sessionVerification,
     status: authStatus,
   } = useAuth();
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
@@ -97,6 +98,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const isFarmerSession = session?.user.role === 'farmer';
   const sessionKey = session ? `${session.token}:${session.user.uuid}` : null;
   const sessionRef = useRef<MobileSession | null>(session);
+  const sessionVerificationRef = useRef(sessionVerification);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryTimerSessionKey = useRef<string | null>(null);
   const syncNowRef = useRef<
@@ -139,6 +141,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
+
+  useEffect(() => {
+    sessionVerificationRef.current = sessionVerification;
+  }, [sessionVerification]);
 
   useEffect(() => () => clearRetryTimer(), [clearRetryTimer, sessionKey]);
 
@@ -258,8 +264,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
           await refreshPendingCount();
           return null;
         }
+        const district = accountDistrict(sessionVerificationRef.current, sessionRef.current);
         const reportResult = await syncPendingFieldReports({
           database,
+          districtCode: district.code,
           source,
           submitterIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
@@ -270,6 +278,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
         }
         const surveyResult = await syncPendingFieldSurveys({
           database,
+          districtCode: district.code,
+          districtVerified: district.verified,
           source,
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
@@ -666,6 +676,15 @@ function inferApiReachability(
 
 function getSessionKey(session: MobileSession | null): string | null {
   return session ? `${session.token}:${session.user.uuid}` : null;
+}
+
+function accountDistrict(
+  verification: SessionVerificationStatus,
+  session: MobileSession | null,
+): { code: string; verified: boolean } {
+  return verification === 'verified'
+    ? { code: session?.user.districtCode?.trim() ?? '', verified: true }
+    : { code: '', verified: false };
 }
 
 /**

@@ -33,6 +33,9 @@ export interface MobileUser {
   // Server-granted abilities from /mobile/auth/me. Sessions stored before this
   // field existed omit it and grant nothing until the next verification.
   capabilities?: string[];
+  // The inspector's pilot district from /mobile/auth/me; null or absent when the
+  // account has none (or the session predates the field).
+  districtCode?: string | null;
   role: MobileUserRole;
   uuid: string;
 }

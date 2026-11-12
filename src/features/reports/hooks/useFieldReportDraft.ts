@@ -816,6 +816,7 @@ export function useFieldReportDraft(
           user.uuid,
           {
             ...values,
+            districtCode: user.districtCode ?? '',
             submittedAt,
             updatedAt: submittedAt,
           },

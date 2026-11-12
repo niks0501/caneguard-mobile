@@ -1185,7 +1185,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     );
     if (
       attachedSurveyUuid &&
-      (!attachedSurvey || planAttachedBoundarySend(attachedSurvey).status === 'blocked')
+      (!attachedSurvey || planAttachedBoundarySend(attachedSurvey, user?.districtCode ?? '').status === 'blocked')
     ) {
       missing.add('attached_boundary');
     }
@@ -1204,6 +1204,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     province,
     record.data,
     report.data,
+    user?.districtCode,
   ]);
 
   const reporterDisplayName =

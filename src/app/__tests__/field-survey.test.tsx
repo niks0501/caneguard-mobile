@@ -4,7 +4,7 @@ import { createGestureController, getByGestureTestId } from 'react-native-gestur
 import { router, useLocalSearchParams } from 'expo-router';
 
 import FieldSurveyScreen from '@/app/field-survey';
-import { FIELD_SURVEY_COPY } from '@/constants/copy';
+import { AUTHORING_WINDOW_COPY, FIELD_SURVEY_COPY } from '@/constants/copy';
 import {
   findOwnedFieldSurvey,
   listOwnedFieldSurveys,
@@ -34,8 +34,9 @@ jest.mock('@/database/DatabaseProvider', () => {
   };
 });
 let mockAccountDistrict: string | undefined = 'D9';
+let mockAuthoringProvenance: { basis: string; verifiedAt: string } | null = { basis: 'verified', verifiedAt: '2026-11-12T08:00:00.000Z' };
 jest.mock('@/features/auth/hooks/useAuth', () => ({
-  useAuth: () => ({ session: { token: 'test-session-token', user: { capabilities: ['report:submit'], districtCode: mockAccountDistrict, role: 'field_reporter', uuid: 'owner-1' } } }),
+  useAuth: () => ({ getAuthoringProvenance: () => mockAuthoringProvenance, session: { token: 'test-session-token', user: { capabilities: ['report:submit'], districtCode: mockAccountDistrict, role: 'field_reporter', uuid: 'owner-1' } } }),
 }));
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({ isOnline: true, syncNow: jest.fn(async () => ({ results: [] })) }),
@@ -159,6 +160,7 @@ function findRenderedParent(
 
 beforeEach(() => {
   mockAccountDistrict = 'D9';
+  mockAuthoringProvenance = { basis: 'verified', verifiedAt: '2026-11-12T08:00:00.000Z' };
   mockListSurveys.mockReturnValue([]);
   mockFindSurvey.mockReturnValue(null);
   mockSaveDraft.mockResolvedValue(draftRow());
@@ -166,6 +168,23 @@ beforeEach(() => {
   mockCaptureWaypoint.mockReset();
   mockCaptureWaypoint.mockResolvedValue({ status: 'unavailable' });
   mockUseLocalSearchParams.mockReturnValue({});
+});
+
+// Intent: "the 72-hour authoring window": finishing a survey locks once the window is exceeded, and still finishes inside it.
+it('refuses to finish a survey past the authoring window and finishes it inside the window', async () => {
+  mockListSurveys.mockReturnValue([draftRow()]);
+  await renderOpen();
+  await waitFor(() => expect(submitDisabled()).toBe(false));
+
+  mockAuthoringProvenance = null;
+  await fireEvent.press(submitButton());
+  await waitFor(() => expect(screen.getByText(AUTHORING_WINDOW_COPY.ended)).toBeTruthy());
+  expect(mockMarkPending).not.toHaveBeenCalled();
+
+  mockAuthoringProvenance = { basis: 'carryover', verifiedAt: '2026-11-12T08:00:00.000Z' };
+  await fireEvent.press(submitButton());
+  await waitFor(() => expect(mockMarkPending).toHaveBeenCalledTimes(1));
+  expect(mockMarkPending.mock.calls[0].at(-1)).toEqual({ basis: 'carryover', verifiedAt: '2026-11-12T08:00:00.000Z' });
 });
 
 it('recaptures the named point even when a point ahead of it is removed while sampling', async () => {

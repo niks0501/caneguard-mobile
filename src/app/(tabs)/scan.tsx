@@ -119,7 +119,7 @@ export default function ScanScreen() {
             });
           }
           if (applyPickerResult(pendingResult, pendingLaunch.sourceType)) {
-            router.push('/image-preview');
+            router.push('/symptom-checklist');
           }
         }
       } catch {
@@ -182,7 +182,7 @@ export default function ScanScreen() {
     }
 
     if (shouldOpenPreview) {
-      router.push('/image-preview');
+      router.push('/symptom-checklist');
     }
   };
 
@@ -441,11 +441,11 @@ export default function ScanScreen() {
           primary={
             state.sourceUri ? (
               <AppButton
-                onPress={() => router.push('/image-preview')}
+                onPress={() => router.push('/symptom-checklist')}
                 disabled={isBusy}
                 trailingIcon="arrow-right"
-                accessibilityLabel="Return to selected image preview">
-                {draft.draftStatus === 'saved' ? 'Resume Saved Scan' : 'View Selected Image'}
+                accessibilityLabel="Continue with the selected photo">
+                {draft.draftStatus === 'saved' ? 'Resume Saved Scan' : 'Continue with this photo'}
               </AppButton>
             ) : (
               <AppButton

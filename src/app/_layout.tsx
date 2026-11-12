@@ -91,7 +91,6 @@ export function AppNavigator() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={status === 'authenticated'}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="image-preview" />
           <Stack.Screen name="symptom-checklist" />
           <Stack.Screen name="analysis-result" />
           <Stack.Screen name="records" />

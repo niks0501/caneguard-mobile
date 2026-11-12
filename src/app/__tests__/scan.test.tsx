@@ -177,7 +177,7 @@ describe('ScanScreen', () => {
     expect(screen.getByLabelText('Currently selected sugarcane image')).toHaveProp('source', {
       uri: 'content://sugarcane/leaf-1',
     });
-    expect(mockRouterPush).toHaveBeenCalledWith('/image-preview');
+    expect(mockRouterPush).toHaveBeenCalledWith('/symptom-checklist');
   });
 
   it.each(supportedImageFormats)(
@@ -191,7 +191,7 @@ describe('ScanScreen', () => {
       expect(mockDispatch).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'SELECT_IMAGE' }),
       );
-      expect(mockRouterPush).toHaveBeenCalledWith('/image-preview');
+      expect(mockRouterPush).toHaveBeenCalledWith('/symptom-checklist');
     },
   );
 
@@ -267,7 +267,7 @@ describe('ScanScreen', () => {
         sourceType: 'camera',
       },
     });
-    expect(mockRouterPush).toHaveBeenCalledWith('/image-preview');
+    expect(mockRouterPush).toHaveBeenCalledWith('/symptom-checklist');
   });
 
   it.each(supportedImageFormats)(
@@ -283,7 +283,7 @@ describe('ScanScreen', () => {
       expect(mockDispatch).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'SELECT_IMAGE' }),
       );
-      expect(mockRouterPush).toHaveBeenCalledWith('/image-preview');
+      expect(mockRouterPush).toHaveBeenCalledWith('/symptom-checklist');
     },
   );
 
@@ -370,7 +370,7 @@ describe('ScanScreen', () => {
     await renderScan();
 
     await waitFor(() => {
-      expect(mockRouterPush).toHaveBeenCalledWith('/image-preview');
+      expect(mockRouterPush).toHaveBeenCalledWith('/symptom-checklist');
     });
     expect(mockDispatch).toHaveBeenCalledWith({
       type: 'SELECT_IMAGE',
@@ -405,7 +405,7 @@ describe('ScanScreen', () => {
     });
 
     await waitFor(() => {
-      expect(mockRouterPush).toHaveBeenCalledWith('/image-preview');
+      expect(mockRouterPush).toHaveBeenCalledWith('/symptom-checklist');
     });
     expect(mockDispatch).toHaveBeenNthCalledWith(1, {
       type: 'START_FOLLOW_UP',
@@ -437,7 +437,7 @@ describe('ScanScreen', () => {
       await renderScan();
 
       await waitFor(() => {
-        expect(mockRouterPush).toHaveBeenCalledWith('/image-preview');
+        expect(mockRouterPush).toHaveBeenCalledWith('/symptom-checklist');
       });
       expect(mockDispatch).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'SELECT_IMAGE' }),
@@ -572,7 +572,7 @@ describe('ScanScreen', () => {
     expect(mockDispatch).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: 'SELECT_IMAGE' }),
     );
-    expect(mockRouterPush).not.toHaveBeenCalledWith('/image-preview');
+    expect(mockRouterPush).not.toHaveBeenCalledWith('/symptom-checklist');
   });
 
   it('shows honest draft status and a resume entry for a saved scan', async () => {

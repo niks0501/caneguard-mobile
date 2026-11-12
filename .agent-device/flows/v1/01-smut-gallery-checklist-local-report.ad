@@ -22,10 +22,8 @@ wait stable 2000 15000
 # Android owns this picker. The preflow removes only prior controlled V1 media
 # and stages one named fixture; do not replace this with coordinate tapping.
 find "Photo taken on" click --first
-wait "id=scan.preview-screen" 30000
-is visible "label=\"Selected sugarcane image from gallery\""
-click "id=scan.analyze-image"
-wait "id=scan.symptom-checklist-screen" 120000
+wait "id=scan.symptom-checklist-screen" 30000
+wait "label=\"Photo checked\"" 120000
 is visible "id=scan.guided-question"
 is visible "id=scan.symptom-smut"
 click "id=scan.symptom-smut"

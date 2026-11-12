@@ -15,6 +15,8 @@ let mockSessionVerification: 'idle' | 'pending' | 'verified' | 'unavailable' = '
 let mockAttentionItems: NeedsAttentionItem[] = [];
 let mockPendingCount = 1;
 let mockRole: 'field_reporter' | 'farmer' = 'field_reporter';
+let mockScanStates = new Map<string, string>();
+let mockScanThreads = new Map<string, { originalId: string }>();
 let mockInspectorWorkWaiting = false;
 let mockLanguage: 'en' | 'tl' = 'en';
 let mockSyncError: string | null = null;
@@ -82,6 +84,9 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
 
 jest.mock('@/providers/LanguagePreferenceProvider', () => ({
   useLanguagePreference: () => ({ language: mockLanguage }),
+}));
+jest.mock('@/features/records/hooks/useScanStates', () => ({
+  useFarmerScans: () => ({ states: mockScanStates, threads: mockScanThreads }),
 }));
 
 const mockRouterPush = router.push as jest.Mock;

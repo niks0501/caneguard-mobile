@@ -13,6 +13,7 @@ let mockAttentionItems: NeedsAttentionItem[] = [];
 let mockPendingCount = 1;
 let mockRole: 'field_reporter' | 'farmer' = 'field_reporter';
 let mockScanStates = new Map<string, string>();
+let mockScanThreads = new Map<string, { originalId: string }>();
 let mockInspectorWorkWaiting = false;
 let mockLanguage: 'en' | 'tl' = 'en';
 let mockSyncError: string | null = null;
@@ -83,6 +84,7 @@ jest.mock('@/providers/LanguagePreferenceProvider', () => ({
 }));
 
 jest.mock('@/features/records/hooks/useScanStates', () => ({
+  useFarmerScans: () => ({ states: mockScanStates, threads: mockScanThreads }),
   useFarmerScanStates: () => mockScanStates,
 }));
 
@@ -96,6 +98,7 @@ describe('HomeScreen by role (P1-5)', () => {
     mockPendingCount = 3;
     mockUnreadCount = 0;
     mockScanStates = new Map();
+    mockScanThreads = new Map();
     mockAttentionItems = [
       {
         bucket: 'today',
@@ -134,8 +137,14 @@ describe('HomeScreen by role (P1-5)', () => {
     mockScanStates = new Map([
       ['a', 'needs_checking'],
       ['b', 'needs_checking'],
+      ['a-follow-up', 'needs_checking'],
       ['c', 'saved'],
       ['d', 'followed_up'],
+    ]);
+    mockScanThreads = new Map([
+      ['a', { originalId: 'a' }],
+      ['b', { originalId: 'b' }],
+      ['a-follow-up', { originalId: 'a' }],
     ]);
     await render(<HomeScreen />);
     expect(screen.getByTestId('home.my-scans.needs-checking')).toHaveTextContent('2 Needs checking');

@@ -399,6 +399,26 @@ describe('RecordDetailsScreen', () => {
     );
   });
 
+  it('tells a farmer when scan deletion leaves its photo behind', async () => {
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'farmer' },
+    } as never);
+    mockDeleteScanRecord.mockResolvedValue({ id: RECORD_ID, imageCleanupError: new Error('cleanup') as never });
+
+    await render(
+      <ToastProvider>
+        <RecordDetailsScreen />
+      </ToastProvider>,
+    );
+    await fireEvent.press(screen.getByLabelText('Delete this scan and its saved photo'));
+    await fireEvent.press(screen.getByTestId('records.confirm-delete.confirm'));
+
+    expect(jest.mocked(Alert.alert)).toHaveBeenCalledWith(
+      'Scan deleted',
+      'The scan was deleted, but its photo could not be removed from this phone.',
+    );
+  });
+
   it('requires one confirmation and deletes before returning to records', async () => {
     await render(
       <ToastProvider>

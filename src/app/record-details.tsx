@@ -133,10 +133,12 @@ export default function RecordDetailsScreen() {
       const result = await deleteScanRecord(database, id, user.uuid, {
         allowLinkedFieldReportDeletion: canReportToOffice,
       });
-      if (result.imageCleanupError && !isFarmer) {
+      if (result.imageCleanupError) {
         Alert.alert(
-          'Record deleted',
-          'The database record was removed, but the saved image could not be cleaned up. CaneGuard can identify it for later maintenance.',
+          isFarmer ? copy.deleted : 'Record deleted',
+          isFarmer
+            ? copy.imageCleanupFailed
+            : 'The database record was removed, but the saved image could not be cleaned up. CaneGuard can identify it for later maintenance.',
         );
       }
       showToast(isFarmer ? copy.deleted : 'Record deleted', 'success');
@@ -148,7 +150,7 @@ export default function RecordDetailsScreen() {
         'Deleting a scan record failed.',
       );
       const msg = getStorageErrorMessage(storageError);
-      setDeleteError(msg);
+      setDeleteError(isFarmer ? copy.deleteFailed : msg);
       showToast(isFarmer ? copy.deleteFailed : 'Could not delete record — please try again', 'error');
       setDeleting(false);
     }

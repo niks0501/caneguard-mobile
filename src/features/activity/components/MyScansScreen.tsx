@@ -36,7 +36,7 @@ import { possibleConditionLine } from '@/features/records/components/possibleCon
 import { useFarmerScans } from '@/features/records/hooks/useScanStates';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { useTheme } from '@/hooks/use-theme';
-import { useFarmerCopy } from '@/providers/LanguagePreferenceProvider';
+import { useFarmerCopy, useLanguagePreference } from '@/providers/LanguagePreferenceProvider';
 
 type StateFilter = 'all' | FarmerScanState;
 
@@ -54,6 +54,7 @@ function TimelineSeparator() {
 export default function MyScansScreen() {
   const theme = useTheme();
   const farmerCopy = useFarmerCopy();
+  const { language } = useLanguagePreference();
   const copy = farmerCopy.myScans;
   const [filter, setFilter] = useState<StateFilter>('all');
   const [searchInput, setSearchInput] = useState('');
@@ -97,6 +98,7 @@ export default function MyScansScreen() {
             record={item}
             scanState={state ? { label: stateLabel(state), state } : undefined}
             farmerText={{
+              language,
               checks:
                 checkCount > 1
                   ? copy.checkCount.replace('{count}', String(checkCount))
@@ -114,7 +116,7 @@ export default function MyScansScreen() {
         </View>
       );
     },
-    [copy, farmerCopy, stateLabel, states, threads],
+    [copy, farmerCopy, language, stateLabel, states, threads],
   );
 
   const submitSearch = () => setSubmittedSearch(searchInput.trim());

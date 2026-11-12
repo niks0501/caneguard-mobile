@@ -32,6 +32,7 @@ jest.mock('@/features/records/hooks/useScanStates', () => ({
 }));
 jest.mock('@/providers/LanguagePreferenceProvider', () => ({
   useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY.en,
+  useLanguagePreference: () => ({ language: 'en' }),
 }));
 
 const base: ScanRecordListItem = {
@@ -89,6 +90,13 @@ describe('My Scans (farmer Activity)', () => {
   });
 
   // Proves: state chips filter the list by computed state.
+  it('does not reveal inspector send status while computed state is unavailable', async () => {
+    mockStates.clear();
+    await renderAsFarmer();
+    expect(screen.queryByText(/not sent|On this device|Waiting to send/i)).toBeNull();
+    expect(screen.queryByTestId('record-card.state.scan-a')).toBeNull();
+  });
+
   it('filters the list by state chip', async () => {
     await renderAsFarmer();
     await fireEvent.press(screen.getByTestId('my-scans.filter.followed_up'));

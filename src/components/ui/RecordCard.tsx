@@ -3,7 +3,13 @@ import { Image as ExpoImage } from 'expo-image';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { PERSONAL_SCAN_LOCAL_STATUS, UNFINISHED_COPY, UNRECOGNIZED_LABEL_TEXT } from '@/constants/copy';
+import {
+  FARMER_COPY,
+  PERSONAL_SCAN_LOCAL_STATUS,
+  UNFINISHED_COPY,
+  UNRECOGNIZED_LABEL_TEXT,
+  type FarmerLanguage,
+} from '@/constants/copy';
 import {
   ComponentTokens,
   Radius,
@@ -30,7 +36,7 @@ type RecordCardProps = {
    * The farmer's own wording for this card: the result line and the open
    * label in their language, plus how many checks of this plant it stands for.
    */
-  farmerText?: { checks?: string; openLabel: string; result: string };
+  farmerText?: { checks?: string; language: FarmerLanguage; openLabel: string; result: string };
   testID?: string;
 };
 
@@ -84,7 +90,11 @@ export function RecordCard({
         style={[styles.thumbnail, { backgroundColor: theme.surfaceMuted }]}>
         {imageUnavailable ? (
           <Feather
-            accessibilityLabel="Saved image unavailable"
+            accessibilityLabel={
+              farmerText
+                ? FARMER_COPY[farmerText.language].record.imageUnavailable
+                : 'Saved image unavailable'
+            }
             name="image"
             size={24}
             color={theme.textSecondary}
@@ -154,23 +164,25 @@ export function RecordCard({
           </View>
         </View>
         <View style={styles.footer}>
-          {scanState ? (
-            <View
-              testID={`record-card.state.${record.id}`}
-              accessibilityLabel={scanState.label}
-              style={styles.status}>
-              <Feather
-                name={FARMER_STATE_ICON[scanState.state]}
-                size={14}
-                color={theme.textSecondary}
-              />
-              <Text
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={[styles.statusText, { color: theme.textSecondary }]}>
-                {scanState.label}
-              </Text>
-            </View>
+          {farmerText ? (
+            scanState ? (
+              <View
+                testID={`record-card.state.${record.id}`}
+                accessibilityLabel={scanState.label}
+                style={styles.status}>
+                <Feather
+                  name={FARMER_STATE_ICON[scanState.state]}
+                  size={14}
+                  color={theme.textSecondary}
+                />
+                <Text
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={[styles.statusText, { color: theme.textSecondary }]}>
+                  {scanState.label}
+                </Text>
+              </View>
+            ) : null
           ) : (
             <View style={styles.status}>
               <Feather
@@ -190,7 +202,7 @@ export function RecordCard({
             </View>
           )}
         </View>
-        {!scanState && record.syncStatus === 'synced' && record.authorityReview ? (
+        {!farmerText && !scanState && record.syncStatus === 'synced' && record.authorityReview ? (
           <View
             testID={`record-card.authority-status.${record.id}`}
             accessibilityLabel={`Authority review: ${getAuthorityReviewPresentation(record.authorityReview.rawStatus).label}`}

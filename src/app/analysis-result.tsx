@@ -139,12 +139,14 @@ export default function AnalysisResultScreen() {
         // A null result is a failure or busy, never success: keep the entered
         // state visible and let the inspector retry from this screen.
         showToast(
-          saveRecord.getLastError() ?? 'Scan not saved on this device — try again',
+          isFarmer
+            ? rc.saveFailed
+            : saveRecord.getLastError() ?? 'Scan not saved on this device — try again',
           'error',
         );
         return;
       }
-      showToast('Scan saved', 'success');
+      showToast(isFarmer ? rc.saved : 'Scan saved', 'success');
       dispatch({ type: 'RESET_SCAN' });
       returnToTab('/home');
     } finally {
@@ -157,13 +159,13 @@ export default function AnalysisResultScreen() {
     if (draft.ownerIdentity) {
       const discarded = await draft.discardSavedDraft();
       if (!discarded) {
-        showToast('Could not discard the saved scan — try again', 'error');
+        showToast(isFarmer ? rc.discardFailed : 'Could not discard the saved scan — try again', 'error');
         return;
       }
     } else {
       dispatch({ type: 'RESET_SCAN' });
     }
-    showToast('Scan discarded', 'info');
+    showToast(isFarmer ? rc.discarded : 'Scan discarded', 'info');
     returnToTab('/home');
   };
 
@@ -213,10 +215,10 @@ export default function AnalysisResultScreen() {
   const keepAsScanOnly = async () => {
     const saved = await persistScanForOutcome();
     if (!saved) {
-      showToast('Could not save scan', 'error');
+      showToast(isFarmer ? rc.saveFailed : 'Could not save scan', 'error');
       return;
     }
-    showToast('Scan saved', 'success');
+    showToast(isFarmer ? rc.saved : 'Scan saved', 'success');
   };
 
   if (state.status !== 'completed' || !state.result || !state.sourceUri) {
@@ -226,7 +228,7 @@ export default function AnalysisResultScreen() {
         edges={['top', 'bottom']}>
         <View style={styles.root}>
           <BrandedScreenHeader
-            title="Analysis result"
+            title={isFarmer ? rc.headerTitle : 'Analysis result'}
             showClose
             onClosePress={handleCancel}
             closeTestID="analysis-result.header-close"
@@ -244,30 +246,38 @@ export default function AnalysisResultScreen() {
                 <Feather name="alert-circle" size={24} color={theme.warning} />
               </View>
               <Text style={[styles.recoveryTitle, { color: theme.primaryDark }]}>
-                No completed scan result
+                {isFarmer ? rc.recoveryTitle : 'No completed scan result'}
               </Text>
               <Text style={[styles.recoveryText, { color: theme.textSecondary }]}>
-                {getSessionStateErrorMessage(
-                  new SessionStateError(
-                    'RESULT_MISSING',
-                    'Analysis result requires a completed scan state.',
-                  ),
-                )}
+                {isFarmer
+                  ? rc.recoveryMessage
+                  : getSessionStateErrorMessage(
+                      new SessionStateError(
+                        'RESULT_MISSING',
+                        'Analysis result requires a completed scan state.',
+                      ),
+                    )}
               </Text>
               <AppButton
                 onPress={startNewScan}
                 leadingIcon="camera"
-                accessibilityLabel="Return to scan and clear incomplete result">
-                Return to Scan
+                accessibilityLabel={
+                  isFarmer ? rc.recoveryAction : 'Return to scan and clear incomplete result'
+                }>
+                {isFarmer ? rc.recoveryAction : 'Return to Scan'}
               </AppButton>
             </View>
           </View>
           <ConfirmDialog
             visible={showCancelConfirm}
-            title="Cancel scan?"
-            message="Do you want to keep your in-progress scan draft or discard it before returning home?"
-            cancelLabel="Keep draft"
-            confirmLabel="Discard draft"
+            title={isFarmer ? rc.cancelTitle : 'Cancel scan?'}
+            message={
+              isFarmer
+                ? rc.cancelMessage
+                : 'Do you want to keep your in-progress scan draft or discard it before returning home?'
+            }
+            cancelLabel={isFarmer ? rc.keepDraft : 'Keep draft'}
+            confirmLabel={isFarmer ? rc.discardDraft : 'Discard draft'}
             destructive
             overlay
             onRequestClose={() => setShowCancelConfirm(false)}
@@ -287,11 +297,10 @@ export default function AnalysisResultScreen() {
     state.selectedSymptoms,
   );
   const consistencyPresentation = CONSISTENCY_PRESENTATION[consistency];
-  const consistencyMessage =
-    consistency === 'inconsistent' && !canReportToOffice
-      ? isFarmer
-        ? rc.consistencyMismatch
-        : "The reporter's observation does not match the Possible Condition. Both are kept separately."
+  const consistencyMessage = isFarmer
+    ? rc.consistency[consistency].message
+    : consistency === 'inconsistent' && !canReportToOffice
+      ? "The reporter's observation does not match the Possible Condition. Both are kept separately."
       : consistencyPresentation.message;
   const isLowScore = isBelowConfidenceCautionThreshold(
     result.confidence,
@@ -363,7 +372,9 @@ export default function AnalysisResultScreen() {
                 source={{ uri: state.sourceUri }}
                 cachePolicy="memory-disk"
                 contentFit="cover"
-                accessibilityLabel="Selected sugarcane image used for analysis"
+                accessibilityLabel={
+                  isFarmer ? rc.imageLabel : 'Selected sugarcane image used for analysis'
+                }
                 style={[styles.resultImage, { borderColor: theme.border }]}
               />
             )}
@@ -456,7 +467,7 @@ export default function AnalysisResultScreen() {
                     <Text
                       key={warning}
                       style={[styles.cautionBody, { color: theme.text }]}>
-                      {getQualityWarningMessage(warning)}
+                      {isFarmer ? rc.qualityWarnings[warning] : getQualityWarningMessage(warning)}
                     </Text>
                   ))}
                   {!isLowScore ? (
@@ -510,7 +521,9 @@ export default function AnalysisResultScreen() {
                       ? rc.outcomeSavedMessage
                       : 'This scan is saved on this device.'
                   : isFailed
-                    ? saveRecord.errorMessage ?? 'The scan could not be saved on this device.'
+                    ? isFarmer
+                      ? rc.saveFailed
+                      : saveRecord.errorMessage ?? 'The scan could not be saved on this device.'
                     : canReportToOffice
                       ? 'Report to Office saves this scan and opens a short Field Report Draft. Save Scan stores the scan on this device without sending a report.'
                       : isFarmer
@@ -546,12 +559,16 @@ export default function AnalysisResultScreen() {
             <DisclosureSection
               testID="scan.why-this-result"
               title={isFarmer ? rc.whyTitle : 'Why this result?'}>
-              <SectionCard title="About this result">
+              <SectionCard title={isFarmer ? rc.aboutTitle : 'About this result'}>
                 <Text style={[styles.resultMessage, { color: theme.text }]}>
-                  {metadata.resultMessage}
+                  {isFarmer
+                    ? rc.explanations[result.predictedLabel].message
+                    : metadata.resultMessage}
                 </Text>
                 <Text style={[styles.description, { color: theme.textSecondary }]}>
-                  {metadata.shortDescription}
+                  {isFarmer
+                    ? rc.explanations[result.predictedLabel].description
+                    : metadata.shortDescription}
                 </Text>
               </SectionCard>
 
@@ -575,7 +592,7 @@ export default function AnalysisResultScreen() {
                       styles.consistencyTitle,
                       { color: theme[consistencyPresentation.foreground] },
                     ]}>
-                    {consistencyPresentation.title}
+                    {isFarmer ? rc.consistency[consistency].title : consistencyPresentation.title}
                   </Text>
                   <Text style={[styles.consistencyMessage, { color: theme.text }]}>
                     {consistencyMessage}
@@ -595,10 +612,10 @@ export default function AnalysisResultScreen() {
                   <Feather name="camera" size={22} color={theme.warning} />
                   <View style={styles.qualityCopy}>
                     <Text style={[styles.qualityTitle, { color: theme.warning }]}>
-                      Image quality notice
+                      {isFarmer ? rc.qualityTitle : 'Image quality notice'}
                     </Text>
                     <Text style={[styles.qualityIndependence, { color: theme.text }]}>
-                      These warnings did not change the result.
+                      {isFarmer ? rc.qualityIndependence : 'These warnings did not change the result.'}
                     </Text>
                     {qualityWarnings.map((warning) => (
                       <View key={warning} style={styles.qualityWarning}>
@@ -613,7 +630,9 @@ export default function AnalysisResultScreen() {
                             styles.qualityWarningText,
                             { color: theme.textSecondary },
                           ]}>
-                          {getQualityWarningMessage(warning)}
+                          {isFarmer
+                            ? rc.qualityWarnings[warning]
+                            : getQualityWarningMessage(warning)}
                         </Text>
                       </View>
                     ))}
@@ -625,7 +644,9 @@ export default function AnalysisResultScreen() {
             <DisclosureSection
               testID="scan.more-actions"
               title={isFarmer ? rc.moreActions : 'More actions'}
-              summary={isSaved && saveRecord.recordId ? '3 more actions' : '2 more actions'}>
+              summary={
+                isFarmer ? undefined : isSaved && saveRecord.recordId ? '3 more actions' : '2 more actions'
+              }>
               <AppButton
                 testID="scan.view-disease-reference"
                 onPress={() => router.push(`/field-guide/${result.predictedLabel}`)}

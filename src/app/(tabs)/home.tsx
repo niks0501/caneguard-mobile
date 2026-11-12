@@ -129,7 +129,7 @@ export default function HomeScreen() {
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Open settings"
+                accessibilityLabel={isFarmer ? farmerCopy.actions.openSettings : 'Open settings'}
                 hitSlop={8}
                 onPress={() => router.push('/settings')}
                 style={({ pressed }) => [

@@ -426,8 +426,23 @@ export type FarmerCopyBlock = {
     deleteHint: string;
     deleted: string;
     deleteFailed: string;
+    imageCleanupFailed: string;
   };
   result: {
+    saveFailed: string;
+    saved: string;
+    discardFailed: string;
+    discarded: string;
+    recoveryTitle: string;
+    recoveryMessage: string;
+    recoveryAction: string;
+    imageLabel: string;
+    aboutTitle: string;
+    explanations: Record<FarmerResultName, { message: string; description: string }>;
+    consistency: Record<'consistent' | 'inconsistent' | 'not-applicable' | 'not-enough-information', { title: string; message: string }>;
+    qualityTitle: string;
+    qualityIndependence: string;
+    qualityWarnings: Record<'low-resolution' | 'too-dark' | 'too-bright' | 'low-contrast', string>;
     headerTitle: string;
     pill: string;
     cautionTitle: string;
@@ -584,8 +599,39 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       deleteHint: 'Delete this scan and its saved photo',
       deleted: 'Scan deleted',
       deleteFailed: 'Could not delete the scan — please try again',
+      imageCleanupFailed: 'The scan was deleted, but its photo could not be removed from this phone.',
     },
     result: {
+      saveFailed: 'The scan could not be saved on this phone. Try again.',
+      saved: 'Scan saved',
+      discardFailed: 'Could not discard the saved scan — try again',
+      discarded: 'Scan discarded',
+      recoveryTitle: 'No completed scan result',
+      recoveryMessage: 'The scan result is unavailable. Return to Scan and try again.',
+      recoveryAction: 'Return to Scan',
+      imageLabel: 'Selected sugarcane image used for analysis',
+      aboutTitle: 'About this result',
+      explanations: {
+        healthy: { message: 'The model assigned its highest score to Healthy based on the submitted image.', description: 'The model did not assign its highest score to Mosaic, Rust, or Smut.' },
+        mosaic: { message: 'The model assigned its highest score to Mosaic based on the submitted image.', description: 'Mosaic can appear as irregular light and dark discoloration or mottling on the leaf.' },
+        rust: { message: 'The model assigned its highest score to Rust based on the submitted image.', description: 'Rust can appear as orange-brown or rust-colored spots and pustules on the leaf.' },
+        smut: { message: 'The model assigned its highest score to Smut based on the submitted image.', description: 'Smut may be associated with a dark, whip-like growth emerging from the central shoot or stalk. This visible pattern is observational and does not confirm the disease.' },
+        unknown: { message: 'The app could not identify this result.', description: 'This result is not recognized by this app version.' },
+      },
+      consistency: {
+        consistent: { title: 'Checklist consistent', message: 'The selected observations are consistent with the Possible Condition.' },
+        inconsistent: { title: 'Checklist inconsistent', message: 'Your observations do not match the Possible Condition. Both are kept separately.' },
+        'not-applicable': { title: 'Checklist cannot be compared', message: 'The selected observations point to more than one supported class, so they cannot be compared with one Possible Condition.' },
+        'not-enough-information': { title: 'Not enough checklist information', message: 'No clear symptom observation was provided, so checklist consistency cannot be determined.' },
+      },
+      qualityTitle: 'Image quality notice',
+      qualityIndependence: 'These warnings did not change the result.',
+      qualityWarnings: {
+        'low-resolution': 'The image resolution is low. Move closer and keep the affected area in focus.',
+        'too-dark': 'The image may be too dark. Retake the photo in better lighting for a clearer image.',
+        'too-bright': 'The image may be too bright. Avoid glare and direct overexposure when retaking it.',
+        'low-contrast': 'The image has low contrast. Use even lighting and keep the affected area clearly visible.',
+      },
       headerTitle: 'Scan result',
       pill: 'App check result',
       cautionTitle: 'Check before you save',
@@ -752,8 +798,39 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       deleteHint: 'Burahin ang scan na ito at ang na-save na litrato',
       deleted: 'Nabura ang scan',
       deleteFailed: 'Hindi nabura ang scan — subukan muli',
+      imageCleanupFailed: 'Nabura ang scan, pero hindi naalis ang litrato nito sa teleponong ito.',
     },
     result: {
+      saveFailed: 'Hindi na-save ang scan sa teleponong ito. Subukan muli.',
+      saved: 'Na-save ang scan',
+      discardFailed: 'Hindi maitapon ang na-save na scan — subukan muli',
+      discarded: 'Itinapon ang scan',
+      recoveryTitle: 'Walang kumpletong resulta ng scan',
+      recoveryMessage: 'Hindi makita ang resulta ng scan. Bumalik sa Scan at subukan muli.',
+      recoveryAction: 'Bumalik sa Scan',
+      imageLabel: 'Larawan ng tubo na sinuri',
+      aboutTitle: 'Tungkol sa resultang ito',
+      explanations: {
+        healthy: { message: 'Pinakamataas ang markang ibinigay ng modelo sa Healthy batay sa isinumiteng larawan.', description: 'Hindi Mosaic, Rust, o Smut ang may pinakamataas na marka.' },
+        mosaic: { message: 'Pinakamataas ang markang ibinigay ng modelo sa Mosaic batay sa isinumiteng larawan.', description: 'Maaaring magpakita ang Mosaic ng hindi pantay na mapusyaw at maitim na kulay o batik sa dahon.' },
+        rust: { message: 'Pinakamataas ang markang ibinigay ng modelo sa Rust batay sa isinumiteng larawan.', description: 'Maaaring magpakita ang Rust ng kahel-kayumanggi o kulay-kalawang na batik at butlig sa dahon.' },
+        smut: { message: 'Pinakamataas ang markang ibinigay ng modelo sa Smut batay sa isinumiteng larawan.', description: 'Maaaring may maitim at parang latigong tubo mula sa gitnang usbong o tangkay. Paglalarawan lamang ito ng nakikita at hindi pagpapatunay ng sakit.' },
+        unknown: { message: 'Hindi matukoy ng app ang resultang ito.', description: 'Hindi kinikilala ng bersyong ito ng app ang resulta.' },
+      },
+      consistency: {
+        consistent: { title: 'Tugma ang checklist', message: 'Tugma sa Posibleng Kondisyon ang mga napiling palatandaan.' },
+        inconsistent: { title: 'Hindi tugma ang checklist', message: 'Hindi tugma sa Posibleng Kondisyon ang mga napili mong palatandaan. Magkahiwalay na itinatabi ang dalawa.' },
+        'not-applicable': { title: 'Hindi maihahambing ang checklist', message: 'Tumutukoy sa higit sa isang suportadong klase ang mga napiling palatandaan kaya hindi maihahambing sa iisang Posibleng Kondisyon.' },
+        'not-enough-information': { title: 'Kulang ang impormasyon sa checklist', message: 'Walang malinaw na palatandaan ng sintomas kaya hindi matukoy kung tugma ang checklist.' },
+      },
+      qualityTitle: 'Paunawa sa kalidad ng larawan',
+      qualityIndependence: 'Hindi binago ng mga paunawang ito ang resulta.',
+      qualityWarnings: {
+        'low-resolution': 'Mababa ang linaw ng larawan. Lumapit at ituon ang apektadong bahagi.',
+        'too-dark': 'Maaaring madilim ang larawan. Kunan muli sa mas maliwanag na lugar.',
+        'too-bright': 'Maaaring masyadong maliwanag ang larawan. Iwasan ang silaw kapag kumukuha muli.',
+        'low-contrast': 'Mahina ang pagkakaiba ng liwanag sa larawan. Gumamit ng pantay na ilaw at tiyaking kita ang apektadong bahagi.',
+      },
       headerTitle: 'Resulta ng scan',
       pill: 'Resulta ng app',
       cautionTitle: 'Suriin bago i-save',

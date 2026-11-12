@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,6 +32,7 @@ export default function LoginScreen() {
   const headerSubtitleColor = colorScheme === 'dark' ? theme.textSecondary : theme.accent;
   const { showToast } = useToast();
   const {
+    biometricCapability,
     biometricEnabled,
     biometricLoading,
     errorMessage,
@@ -53,6 +54,10 @@ export default function LoginScreen() {
     if (authenticated) {
       showToast('Signed in', 'success');
       router.replace('/home');
+      // One time per password sign-in, only while biometric setup is possible.
+      if (!biometricEnabled && biometricCapability?.status === 'available') {
+        router.push('/ready-for-field' as Href);
+      }
     }
   };
 

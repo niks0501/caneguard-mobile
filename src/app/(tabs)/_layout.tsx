@@ -26,6 +26,7 @@ export default function TabLayout() {
               ? { home: farmerTabs.home, scan: farmerTabs.scan, activity: farmerTabs.myScans }
               : undefined
           }
+          icons={isFarmer ? { activity: 'sprout' } : undefined}
           notificationCount={unreadCount}
           activityAccessibilityLabel={isFarmer ? farmerTabs.activityWithUpdates : undefined}
         />

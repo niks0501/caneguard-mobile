@@ -182,7 +182,7 @@ function readRequiredString(value: unknown, label: string): string {
   if (typeof value !== 'string') {
     throw new ReferenceDataApiError(
       'MALFORMED_RESPONSE',
-      `The location reference ${label} is not text.`,
+      'The location list could not be read.',
     );
   }
   const normalized = value.trim();

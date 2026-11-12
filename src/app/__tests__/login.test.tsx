@@ -176,3 +176,34 @@ describe('LoginScreen biometric fallback', () => {
     expect(router.push).toHaveBeenCalledWith('/field-guide');
   });
 });
+
+describe('LoginScreen ready-for-field sheet', () => {
+  const fill = async () => {
+    await fireEvent.changeText(screen.getByTestId('auth.email-input'), 'a@b.test');
+    await fireEvent.changeText(screen.getByTestId('auth.password-input'), 'secret-pass');
+    await fireEvent.press(screen.getByTestId('auth.login-submit'));
+  };
+
+  it('opens the sheet once after a password sign-in when biometric is available but off', async () => {
+    setAuthValue({ login: jest.fn(async () => true) });
+    await render(
+      <ToastProvider>
+        <LoginScreen />
+      </ToastProvider>,
+    );
+    await fill();
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/ready-for-field'));
+  });
+
+  it('skips the sheet when biometric unlock is already on', async () => {
+    setAuthValue({ biometricEnabled: true, login: jest.fn(async () => true) });
+    await render(
+      <ToastProvider>
+        <LoginScreen />
+      </ToastProvider>,
+    );
+    await fill();
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/home'));
+    expect(router.push).not.toHaveBeenCalledWith('/ready-for-field');
+  });
+});

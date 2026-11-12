@@ -12,6 +12,7 @@ import {
   type NeedsAttentionItem,
 } from '@/features/activity/domain/needsAttention';
 import { useHomeAttention } from '@/features/activity/hooks/useHomeAttention';
+import { HomeReadinessLine } from '@/features/home/components/HomeReadinessLine';
 import { HomeMyScansCard } from '@/features/home/components/HomeMyScansCard';
 import { HomeHeaderBand } from '@/features/home/components/HomeHeaderBand';
 import { HomeSignsStrip, HomeToolTiles } from '@/features/home/components/HomeFieldTools';
@@ -201,6 +202,8 @@ export default function HomeScreen() {
                   {INSPECTOR_WORK_WAITING_COPY[language]}
                 </Text>
               ) : null}
+
+              {isFarmer ? null : <HomeReadinessLine />}
 
               <AppButton testID="home.primary-action" onPress={onPrimaryAction}>
                 {note.actionLabel}

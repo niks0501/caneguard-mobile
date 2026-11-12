@@ -96,8 +96,12 @@ tests. "Implemented" does not mean "verified on a device":
   `assignment:complete`. Without it the screen shows an unavailable notice
   instead of the visit form.
 - Offline field boundary surveys (authoring needs the `report:submit`
-  capability): plot and affected-area polygons drawn on the
-  coordinate map. Every point of the boundary being drawn is a touch target
+  capability): a full-height coordinate map with a **Walk / Tap corners** switch;
+  affected-area tools, GPS capture, and point lists are behind **More**. The
+  district comes from the account (there is no typed district field), and an
+  account without a district cannot submit or attach an unsent boundary. Plot
+  and affected-area polygons are drawn on the coordinate map. Every point of
+  the boundary being drawn is a touch target
   that can be tapped to select or dragged to move, each edge carries a **+**
   that inserts a point between its two neighbours, and selecting a finished
   area's chip makes its points editable the same way; **Undo** steps back
@@ -123,7 +127,8 @@ tests. "Implemented" does not mean "verified on a device":
   accuracy never blocks saving. A self-crossing plot edge, or an affected area
   outside the plot, is outlined in red with one line naming the problem. The map
   opens fitted to the boundary, and a **My location** button recentres it on the
-  phone without placing a point. Opened from a report it restores that exact
+  phone without placing a point. The server checks district membership when the
+  boundary syncs. Opened from a report it restores that exact
   saved boundary rather than the open draft, shows a boundary that can no longer
   be edited read-only, and leaves the report card to say when the linked
   boundary is no longer saved on the phone.

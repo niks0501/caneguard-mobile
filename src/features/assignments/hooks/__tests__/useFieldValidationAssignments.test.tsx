@@ -101,7 +101,9 @@ describe('useFieldValidationAssignments capabilities', () => {
     });
     expect(result.current.assignments).toEqual([]);
     expect(mockRefreshAssignments).toHaveBeenCalledTimes(1);
-    completeRefresh({ assignments: [], fetchedAt: Date.now() } as never);
+    await act(() => {
+      completeRefresh({ assignments: [], fetchedAt: Date.now() } as never);
+    });
   });
 
   it('never reads the assignment cache without assignment:read', async () => {
@@ -187,7 +189,7 @@ describe('useFieldValidationAssignments capabilities', () => {
     expect(result.current.failed).toBe(false);
     expect(result.current.assignments).toEqual([]);
 
-    act(() => {
+    await act(() => {
       completeRefresh({ assignments: [], fetchedAt: Date.now() } as never);
     });
     await waitFor(() => expect(result.current.ready).toBe(true));
@@ -217,9 +219,11 @@ describe('useFieldValidationAssignments capabilities', () => {
     const second = await renderHook(() => useFieldValidationAssignments());
     expect(second.result.current.refreshing).toBe(true);
     expect(second.result.current.ready).toBe(false);
-    first.unmount();
+    await first.unmount();
 
-    completeRefresh({ assignments: [], fetchedAt: Date.now() } as never);
+    await act(() => {
+      completeRefresh({ assignments: [], fetchedAt: Date.now() } as never);
+    });
     await waitFor(() => expect(second.result.current.refreshing).toBe(false));
     expect(second.result.current.failed).toBe(false);
     expect(second.result.current.ready).toBe(true);
@@ -245,10 +249,12 @@ describe('useFieldValidationAssignments capabilities', () => {
 
     const { result } = await renderHook(() => useFieldValidationAssignments());
     await waitFor(() => expect(result.current.ready).toBe(true));
-    act(() => { void result.current.refresh({ force: true }); });
+    await act(() => { void result.current.refresh({ force: true }); });
     await waitFor(() => expect(mockRefreshAssignments).toHaveBeenCalledTimes(2));
     activeSession = false;
-    completeRefresh({ assignments: [{ id: ASSIGNMENT_ID }], fetchedAt: Date.now() } as never);
+    await act(() => {
+      completeRefresh({ assignments: [{ id: ASSIGNMENT_ID }], fetchedAt: Date.now() } as never);
+    });
 
     await waitFor(() => expect(result.current.refreshing).toBe(false));
     expect(result.current.ready).toBe(false);
@@ -334,7 +340,9 @@ describe('useFieldValidationAssignments capabilities', () => {
     const { result } = await renderHook(() => useFieldValidationAssignments());
     await waitFor(() => expect(mockRefreshAssignments).toHaveBeenCalled());
     activeSession = false;
-    rejectRefresh(new MobileFieldValidationAssignmentsApiError('AUTH_REQUIRED', 'Expired token'));
+    await act(() => {
+      rejectRefresh(new MobileFieldValidationAssignmentsApiError('AUTH_REQUIRED', 'Expired token'));
+    });
 
     await waitFor(() => expect(result.current.refreshing).toBe(false));
     expect(markSessionExpired).not.toHaveBeenCalled();

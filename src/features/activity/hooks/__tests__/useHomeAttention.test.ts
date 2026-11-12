@@ -373,7 +373,7 @@ describe('useHomeAttention', () => {
 
   it('marks an in-flight completion read as pending rather than failed', async () => {
     const { unmount } = await renderUpcomingVisitHook();
-    unmount();
+    await unmount();
     mockUsePhoneCompletionSnapshot.mockReturnValue({
       failed: false,
       ready: false,

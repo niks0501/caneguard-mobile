@@ -24,6 +24,7 @@ import {
   getOwnerMobileDataStore,
   isFresh,
   setOwnerAssignments,
+  setOwnerAssignmentsReadState,
   subscribeOwnerMobileData,
 } from '@/features/mobile-data/data/mobileDataStore';
 
@@ -126,6 +127,7 @@ export function useFieldValidationAssignments(enabled = true) {
       return 'ok';
     }
 
+    setOwnerAssignmentsReadState(store, { refreshing: true, failed: false });
     setState((current) => ({
       ...current,
       errorMessage: null,
@@ -154,6 +156,7 @@ export function useFieldValidationAssignments(enabled = true) {
       if (!isCurrentStore()) return 'skipped';
       if (!force && isFresh(store.assignments)) {
         applyCached(store.assignments?.value ?? []);
+        setOwnerAssignmentsReadState(store, { refreshing: false, failed: false });
         setState((current) => ({ ...current, refreshing: false }));
         return 'ok';
       }
@@ -179,6 +182,7 @@ export function useFieldValidationAssignments(enabled = true) {
             result.fetchedAt,
             result.skippedCount,
           );
+          setOwnerAssignmentsReadState(store, { refreshing: false, failed: false });
           prefetchAfterDownload(requestedSession.user.uuid, requestedSession.token, result.assignments);
           setState({
             assignments: result.assignments,
@@ -193,6 +197,7 @@ export function useFieldValidationAssignments(enabled = true) {
       );
     } catch (error: unknown) {
       if (!isCurrentSession(requestedSession) || !isCurrentStore()) return 'skipped';
+      setOwnerAssignmentsReadState(store, { refreshing: false, failed: true });
       if (
         error instanceof MobileFieldValidationAssignmentsApiError &&
         error.code === 'AUTH_REQUIRED'
@@ -271,7 +276,9 @@ export function useFieldValidationAssignments(enabled = true) {
   return {
     ...visibleState,
     ready: assignmentsSnapshot !== null,
-    failed: Boolean(state.sessionKey === sessionKey && state.errorMessage),
+    failed: ownerStore?.assignmentsFailed ?? false,
+    refreshing: ownerStore?.assignmentsRefreshing ?? visibleState.refreshing,
+    canRead,
     refresh,
     refreshOutcome,
   };

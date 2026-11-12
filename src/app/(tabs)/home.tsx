@@ -66,8 +66,8 @@ export default function HomeScreen() {
   const note = buildMorningNote(
     isFarmer ? [] : attention.items,
     syncNote,
-    !isFarmer && attention.visitsCheckFailed,
-    !isFarmer && attention.visitsCheckPending,
+    !isFarmer && attention.canReadVisits && attention.visitsCheckFailed,
+    !isFarmer && attention.canReadVisits && attention.visitsCheckPending,
   );
   const now = useNow();
   // Stable identity so the memoized attention rows can skip re-rendering when

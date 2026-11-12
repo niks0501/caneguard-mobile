@@ -125,6 +125,7 @@ describe('useHomeAttention', () => {
       assignments: [mockAssignment],
       ready: true,
       failed: false,
+      canRead: true,
       capabilityUnavailable: false,
       errorMessage: null,
       lastSuccessfulAt: null,
@@ -177,6 +178,7 @@ describe('useHomeAttention', () => {
       ],
       ready: true,
       failed: false,
+      canRead: true,
       capabilityUnavailable: false,
       errorMessage: null,
       lastSuccessfulAt: null,
@@ -221,6 +223,7 @@ describe('useHomeAttention', () => {
       assignments: [visitAssignment('assign-next', '2026-09-21')],
       ready: true,
       failed: false,
+      canRead: true,
       capabilityUnavailable: false,
       errorMessage: null,
       lastSuccessfulAt: null,
@@ -263,6 +266,7 @@ describe('useHomeAttention', () => {
       assignments: [],
       ready: true,
       failed: true,
+      canRead: true,
       capabilityUnavailable: false,
       errorMessage: "Couldn't refresh visits.",
       lastSuccessfulAt: null,
@@ -297,7 +301,7 @@ describe('useHomeAttention', () => {
     expect(result.current.visitsCheckFailed).toBe(true);
   });
 
-  async function renderUpcomingVisitHook() {
+  async function renderUpcomingVisitHook(canRead = true) {
     mockUseAssignments.mockReturnValue({
       assignments: [
         {
@@ -331,6 +335,7 @@ describe('useHomeAttention', () => {
       ],
       ready: true,
       failed: false,
+      canRead,
       capabilityUnavailable: false,
       errorMessage: null,
       lastSuccessfulAt: null,
@@ -357,6 +362,14 @@ describe('useHomeAttention', () => {
     mockUseDestinations.mockReturnValue(new Map());
     return renderHook(() => useHomeAttention());
   }
+
+  it('omits visit status when the user cannot read assignments', async () => {
+    const { result } = await renderUpcomingVisitHook(false);
+
+    expect(result.current.canReadVisits).toBe(false);
+    expect(result.current.visitsCheckFailed).toBe(false);
+    expect(result.current.visitsCheckPending).toBe(false);
+  });
 
   it('marks an in-flight completion read as pending rather than failed', async () => {
     const { unmount } = await renderUpcomingVisitHook();

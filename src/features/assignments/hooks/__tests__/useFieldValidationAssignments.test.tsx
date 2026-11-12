@@ -136,6 +136,39 @@ describe('useFieldValidationAssignments capabilities', () => {
 
     await waitFor(() => expect(result.current.errorMessage).toContain('CG-2026-0142'));
     expect(result.current.errorMessage).toContain('report_uuid');
+    expect(result.current.failed).toBe(true);
+    expect(result.current.ready).toBe(true);
+
+    const secondConsumer = await renderHook(() => useFieldValidationAssignments());
+    await waitFor(() => expect(secondConsumer.result.current.failed).toBe(true));
+  });
+
+  it('shares an in-flight refresh state while a stale cache remains available', async () => {
+    const ownerId = '3b6e7a1f-8b43-4d22-a6d2-5a8de94b819e';
+    let completeRefresh!: (value: never) => void;
+    mockUseAuth.mockReturnValue({
+      markSessionExpired,
+      session: { ...READ_SESSION, user: { ...READ_SESSION.user, uuid: ownerId } },
+      status: 'authenticated',
+    } as never);
+    mockListCached.mockResolvedValue([
+      { id: ASSIGNMENT_ID, cachedAt: '2026-01-01T00:00:00.000Z' } as never,
+    ]);
+    mockRefreshAssignments.mockReturnValue(
+      new Promise((resolve) => { completeRefresh = resolve; }) as never,
+    );
+
+    const first = await renderHook(() => useFieldValidationAssignments());
+    await waitFor(() => expect(first.result.current.refreshing).toBe(true));
+    expect(first.result.current.ready).toBe(true);
+
+    const second = await renderHook(() => useFieldValidationAssignments());
+    expect(second.result.current.refreshing).toBe(true);
+    expect(second.result.current.ready).toBe(true);
+
+    completeRefresh({ assignments: [], fetchedAt: Date.now() } as never);
+    await waitFor(() => expect(second.result.current.refreshing).toBe(false));
+    expect(second.result.current.failed).toBe(false);
   });
 
   it('shares the skipped-record count with later consumers through the owner snapshot', async () => {

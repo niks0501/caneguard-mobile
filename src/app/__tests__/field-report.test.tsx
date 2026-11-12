@@ -15,6 +15,8 @@ import type { PossibleRecentMatchState } from '@/features/reports/hooks/usePossi
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
 
 const SCAN_ID = '2b4666c0-ad10-4d0d-a233-cf9f8ef73ed2';
+const SCAN_ANSWER_TEXT =
+  'Raised rust-colored or orange-brown spots or pustules, mainly on the leaf underside';
 const REPORT_ID = '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e';
 
 interface FormValues {
@@ -40,6 +42,11 @@ let mockSavedSurveys: unknown[] = [];
 jest.mock('@/features/surveys/data/fieldSurveyRepository', () => ({
   findOwnedFieldSurvey: () => null,
   listOwnedFieldSurveys: () => mockSavedSurveys,
+}));
+
+let mockPlaceSuggestion: unknown = null;
+jest.mock('@/features/reports/services/suggestPlaceFromCoordinates', () => ({
+  suggestPlaceFromCoordinates: async () => mockPlaceSuggestion,
 }));
 
 const mockSave = jest.fn(async () => draft());
@@ -288,7 +295,8 @@ function expectFormValues(values: Partial<FormValues> = {}): FormValues {
     fieldNotes: '',
     fieldSurveyClientUuid: null,
     mismatchReported: null,
-    reporterObservationText: '',
+    // Prefilled from the scan answer (symptoms: ['rust']).
+    reporterObservationText: SCAN_ANSWER_TEXT,
     reporterSuspectedCondition: '',
     municipality: 'Nasugbu',
     province: 'Batangas',
@@ -297,9 +305,21 @@ function expectFormValues(values: Partial<FormValues> = {}): FormValues {
   return { ...base, ...values };
 }
 
-async function goToStep(step: 1 | 2 | 3 | 4 | 5): Promise<void> {
+// 1 = Place, 2 = What you saw, 3 = Send
+async function goToStep(step: 1 | 2 | 3): Promise<void> {
   await act(async () => {
     fireEvent.press(screen.getByTestId(`field-report.step-${step}`));
+  });
+}
+
+// There is no manual Save Draft button: the draft is kept by leaving through
+// the cancel dialog's Keep draft choice, which saves the current form values.
+async function keepDraft(): Promise<void> {
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('field-report.cancel'));
+  });
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('field-report.cancel-dialog.cancel'));
   });
 }
 
@@ -311,6 +331,7 @@ describe('FieldReportScreen', () => {
     mockFinalizeBusy = false;
     mockIsOnline = true;
     mockSavedSurveys = [];
+    mockPlaceSuggestion = null;
     mockPossibleRecentMatchState = {
       match: null,
       unavailable: false,
@@ -375,20 +396,27 @@ describe('FieldReportScreen', () => {
 
     await act(async () => undefined);
 
-    expect(screen.getByText('Draft')).toBeOnTheScreen();
-    expect(
-      screen.getByText(/Drafts are saved only on this device and are not sent./),
-    ).toBeOnTheScreen();
+    expect(screen.getByText('Field Report Draft')).toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.form-draft-status')).toHaveTextContent(
+      /Drafts are not sent/,
+    );
+    await goToStep(2);
     expect(screen.getByTestId('field-report.summary')).toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.possible-match-warning')).not.toBeOnTheScreen();
     expect(screen.getByText('Nasugbu, Batangas')).toBeOnTheScreen();
     expect(screen.getByTestId('field-report.submitter')).toHaveTextContent(
       'Ana Reyes · Field Inspector',
     );
-    expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
-    expect(screen.getByText('Raised rust-colored or orange-brown spots or pustules, mainly on the leaf underside')).toBeOnTheScreen();
+    // The label is not doubled: one "Possible Condition" label, value is just the name.
+    expect(screen.queryByText(/Possible Condition: Possible Condition/)).not.toBeOnTheScreen();
+    expect(screen.getByText('Rust')).toBeOnTheScreen();
+    // What you saw starts from the scan answer.
+    expect(screen.getByTestId('field-report.reporter-observation-input')).toHaveProp(
+      'value',
+      SCAN_ANSWER_TEXT,
+    );
 
-    await goToStep(2);
+    await goToStep(1);
     expect(screen.getByLabelText('Farmer or farm reference')).toHaveProp(
       'placeholder',
       'Farmer, farm name, or local farm ID',
@@ -400,23 +428,21 @@ describe('FieldReportScreen', () => {
         'Maria Santos',
       );
     });
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
-    });
+    await keepDraft();
 
     expect(mockSave).toHaveBeenCalledWith(
       expectFormValues({ farmerOrFarmOwnerName: 'Maria Santos' }),
     );
 
-    await goToStep(5);
+    await goToStep(3);
     expect(screen.getByTestId('field-report.ready-to-submit')).toHaveTextContent(
-      /Ready to submit/,
+      /Still needed/,
     );
   });
 
   it('saves an empty owner name when Owner not known is chosen', async () => {
     await render(<FieldReportScreen />);
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.farmer-name-input'),
@@ -430,9 +456,7 @@ describe('FieldReportScreen', () => {
       'editable',
       false,
     );
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
-    });
+    await keepDraft();
 
     expect(mockSave).toHaveBeenCalledWith(
       expectFormValues({ farmerOrFarmOwnerName: '' }),
@@ -441,7 +465,7 @@ describe('FieldReportScreen', () => {
 
   it('accepts a local farm reference in place of a farmer name', async () => {
     await render(<FieldReportScreen />);
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.farmer-name-input'),
@@ -460,7 +484,7 @@ describe('FieldReportScreen', () => {
         '30',
       );
     });
-    await goToStep(5);
+    await goToStep(3);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
@@ -481,10 +505,11 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
+    await goToStep(2);
+    expect(screen.getByText('Rust')).toBeOnTheScreen();
     expect(screen.queryByText('healthy: 8% · mosaic: 10% · rust: 82%')).not.toBeOnTheScreen();
 
-    await goToStep(3);
+    await goToStep(2);
     // The concern choices are independent of the Possible Condition agreement
     // question, so they are available before it is answered.
     expect(screen.getByTestId('field-report.concern-option-none')).toBeOnTheScreen();
@@ -504,14 +529,14 @@ describe('FieldReportScreen', () => {
         'Leaves show suspected rust-like symptoms and RSSI concern in the field.',
       );
     });
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '0.5');
     });
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.affected-portion-input'), '30');
     });
-    await goToStep(5);
+    await goToStep(3);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
@@ -540,7 +565,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(3);
+    await goToStep(2);
     await act(async () => {
       fireEvent.press(screen.getByTestId('field-report.concern-option-rssi'));
     });
@@ -555,9 +580,7 @@ describe('FieldReportScreen', () => {
       fireEvent.press(screen.getByTestId('field-report.concern-option-none'));
     });
     expect(screen.queryByTestId('field-report.reporter-condition-input')).not.toBeOnTheScreen();
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
-    });
+    await keepDraft();
 
     expect(mockSave).toHaveBeenCalledWith(
       expectFormValues({ reporterSuspectedCondition: '', mismatchReported: null }),
@@ -568,7 +591,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(3);
+    await goToStep(2);
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.reporter-observation-input'),
@@ -589,9 +612,7 @@ describe('FieldReportScreen', () => {
         screen.getByLabelText('The Possible Condition matches what I see'),
       );
     });
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
-    });
+    await keepDraft();
 
     expect(screen.getByTestId('field-report.reporter-observation-input')).toBeOnTheScreen();
     expect(mockSave).toHaveBeenCalledWith(
@@ -607,7 +628,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(3);
+    await goToStep(2);
     await act(async () => {
       fireEvent.press(screen.getByTestId('field-report.mismatch-toggle'));
     });
@@ -626,7 +647,7 @@ describe('FieldReportScreen', () => {
         'Local field observation',
       );
     });
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
@@ -639,7 +660,7 @@ describe('FieldReportScreen', () => {
         '30',
       );
     });
-    await goToStep(5);
+    await goToStep(3);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
@@ -661,20 +682,20 @@ describe('FieldReportScreen', () => {
   it('captures GPS without discarding unsaved form values', async () => {
     await render(<FieldReportScreen />);
 
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.farmer-name-input'),
         'Maria Santos',
       );
     });
-    await goToStep(4);
+    await goToStep(1);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Add location'));
     });
 
     expect(mockCaptureLocation).toHaveBeenCalledTimes(1);
-    await goToStep(2);
+    await goToStep(1);
     expect(screen.getByTestId('field-report.farmer-name-input')).toHaveProp(
       'value',
       'Maria Santos',
@@ -710,7 +731,7 @@ describe('FieldReportScreen', () => {
       </ToastProvider>,
     );
     await act(async () => undefined);
-    await goToStep(4);
+    await goToStep(1);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Change the saved report location'));
     });
@@ -747,7 +768,7 @@ describe('FieldReportScreen', () => {
 
     await render(<FieldReportScreen />);
     await act(async () => undefined);
-    await goToStep(4);
+    await goToStep(1);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Change the saved report location'));
     });
@@ -792,7 +813,7 @@ describe('FieldReportScreen', () => {
       </ToastProvider>,
     );
     await act(async () => undefined);
-    await goToStep(4);
+    await goToStep(1);
 
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Add location'));
@@ -832,7 +853,7 @@ describe('FieldReportScreen', () => {
       </ToastProvider>,
     );
     await act(async () => undefined);
-    await goToStep(4);
+    await goToStep(1);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Add location'));
     });
@@ -858,7 +879,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(4);
+    await goToStep(1);
     expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
       /Location could not be confirmed/,
     );
@@ -886,7 +907,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(4);
+    await goToStep(1);
     expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
       'Location added · about ±38 m',
     );
@@ -894,7 +915,7 @@ describe('FieldReportScreen', () => {
     expect(screen.getByTestId('field-report.confirmed-location')).toBeOnTheScreen();
     expect(screen.getByLabelText('Try for a closer reading')).toBeOnTheScreen();
 
-    await goToStep(5);
+    await goToStep(3);
     expect(screen.queryByTestId('field-report.ready.final_coordinates')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.ready.location_source')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.ready.gps_accuracy')).not.toBeOnTheScreen();
@@ -929,7 +950,7 @@ describe('FieldReportScreen', () => {
       </ToastProvider>,
     );
     await act(async () => undefined);
-    await goToStep(4);
+    await goToStep(1);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Try for a closer reading'));
     });
@@ -959,7 +980,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(4);
+    await goToStep(1);
     expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
       'Location added · about ±5 m',
     );
@@ -988,7 +1009,7 @@ describe('FieldReportScreen', () => {
       </ToastProvider>,
     );
     await act(async () => undefined);
-    await goToStep(4);
+    await goToStep(1);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Add location'));
     });
@@ -1015,7 +1036,7 @@ describe('FieldReportScreen', () => {
       </ToastProvider>,
     );
     await act(async () => undefined);
-    await goToStep(4);
+    await goToStep(1);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Add location'));
     });
@@ -1040,7 +1061,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(4);
+    await goToStep(1);
     expect(screen.getByTestId('field-report.location-services-off')).toHaveTextContent(
       /Location services are off/,
     );
@@ -1073,7 +1094,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(4);
+    await goToStep(1);
     expect(screen.getByTestId('field-report.location-permission-off')).toHaveTextContent(
       /Location permission is off/,
     );
@@ -1096,7 +1117,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(4);
+    await goToStep(1);
     expect(screen.queryByTestId('field-report.location-services-off')).not.toBeOnTheScreen();
     expect(screen.queryByLabelText('Open device location settings')).not.toBeOnTheScreen();
   });
@@ -1114,16 +1135,16 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(4);
+    await goToStep(1);
     expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
       /permission was not given/,
     );
-    await goToStep(2);
+    await goToStep(1);
     expect(screen.getByTestId('field-report.farmer-name-input')).toHaveProp(
       'value',
       'Maria Santos',
     );
-    await goToStep(4);
+    await goToStep(1);
     expect(screen.getByLabelText('Retry location')).toBeOnTheScreen();
     expect(screen.getByLabelText('Choose location on map')).toBeOnTheScreen();
 
@@ -1155,7 +1176,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(4);
+    await goToStep(1);
     expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
       /Location added from the map/,
     );
@@ -1180,7 +1201,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(4);
+    await goToStep(1);
     expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
       /Location added/,
     );
@@ -1229,7 +1250,7 @@ describe('FieldReportScreen', () => {
     };
 
     await render(<FieldReportScreen />);
-    await goToStep(4);
+    await goToStep(1);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Change the saved report location'));
     });
@@ -1262,7 +1283,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(4);
+    await goToStep(1);
     expect(screen.getByTestId('field-report.confirmed-location')).toHaveTextContent(
       /Saved from the map/,
     );
@@ -1288,7 +1309,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(4);
+    await goToStep(1);
     expect(screen.getByTestId('field-report.gps-status')).toHaveTextContent(
       /Location could not be confirmed/,
     );
@@ -1305,19 +1326,18 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(4);
+    await goToStep(1);
     expect(screen.getByLabelText('Adding location')).toBeOnTheScreen();
     expect(screen.getByText('Adding location...')).toBeOnTheScreen();
     // A bounded wait still lets the inspector stop or save without GPS.
     expect(screen.getByLabelText('Stop locating and keep the current draft')).toBeOnTheScreen();
     expect(screen.getByTestId('field-report.open-location-unavailable')).toBeEnabled();
-    expect(screen.getByTestId('field-report.save-draft')).toBeEnabled();
   });
 
   it('selects a barangay from the searchable picker', async () => {
     await render(<FieldReportScreen />);
 
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.press(screen.getByTestId('field-report.barangay-input'));
     });
@@ -1331,9 +1351,7 @@ describe('FieldReportScreen', () => {
       fireEvent.press(screen.getByLabelText('Lumbangan'));
     });
 
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
-    });
+    await keepDraft();
     expect(mockSave).toHaveBeenCalledWith(
       expectFormValues({ barangay: 'Lumbangan' }),
     );
@@ -1348,7 +1366,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(2);
+    await goToStep(1);
     expect(screen.getByTestId('field-report.barangay-input')).toHaveTextContent(
       'Old Barrio',
     );
@@ -1359,9 +1377,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Keep “Old Barrio”'));
     });
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
-    });
+    await keepDraft();
     expect(mockSave).toHaveBeenCalledWith(
       expectFormValues({ barangay: 'Old Barrio' }),
     );
@@ -1370,7 +1386,7 @@ describe('FieldReportScreen', () => {
   it('saves a typed barangay that matches nothing as-is', async () => {
     await render(<FieldReportScreen />);
 
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.press(screen.getByTestId('field-report.barangay-input'));
     });
@@ -1383,9 +1399,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Use “San Isidro Norte” as typed'));
     });
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
-    });
+    await keepDraft();
     expect(mockSave).toHaveBeenCalledWith(
       expectFormValues({ barangay: 'San Isidro Norte' }),
     );
@@ -1394,7 +1408,7 @@ describe('FieldReportScreen', () => {
   it('saves affected numbers with locale-safe decimal parsing', async () => {
     await render(<FieldReportScreen />);
 
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
@@ -1407,9 +1421,7 @@ describe('FieldReportScreen', () => {
         '30',
       );
     });
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
-    });
+    await keepDraft();
 
     expect(mockSave).toHaveBeenCalledWith(
       expectFormValues({
@@ -1424,16 +1436,14 @@ describe('FieldReportScreen', () => {
   it('blocks Draft save with an inline error when a number is invalid', async () => {
     await render(<FieldReportScreen />);
 
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
         '-2',
       );
     });
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
-    });
+    await keepDraft();
 
     expect(mockSave).not.toHaveBeenCalled();
     expect(
@@ -1443,7 +1453,7 @@ describe('FieldReportScreen', () => {
 
   it('cancels the finalize confirmation without saving anything', async () => {
     await render(<FieldReportScreen />);
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.farmer-name-input'), 'Maria Santos');
     });
@@ -1459,7 +1469,7 @@ describe('FieldReportScreen', () => {
         '40',
       );
     });
-    await goToStep(5);
+    await goToStep(3);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
@@ -1495,7 +1505,7 @@ describe('FieldReportScreen', () => {
 
     await render(<FieldReportScreen />);
     await act(async () => undefined);
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
@@ -1508,7 +1518,7 @@ describe('FieldReportScreen', () => {
         '40',
       );
     });
-    await goToStep(5);
+    await goToStep(3);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
@@ -1525,7 +1535,7 @@ describe('FieldReportScreen', () => {
       errorMessage: 'Only a Draft Field Report can be finalized.',
     };
     await render(<FieldReportScreen />);
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.farmer-name-input'), 'Maria Santos');
     });
@@ -1541,7 +1551,7 @@ describe('FieldReportScreen', () => {
         '40',
       );
     });
-    await goToStep(5);
+    await goToStep(3);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
@@ -1557,7 +1567,7 @@ describe('FieldReportScreen', () => {
   it('says the finalize was refused as busy, not failed, and keeps the gate open', async () => {
     mockFinalizeBusy = true;
     await render(<FieldReportScreen />);
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.farmer-name-input'), 'Maria Santos');
     });
@@ -1567,7 +1577,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.affected-portion-input'), '40');
     });
-    await goToStep(5);
+    await goToStep(3);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
@@ -1590,7 +1600,7 @@ describe('FieldReportScreen', () => {
         }),
     );
     await render(<FieldReportScreen />);
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.farmer-name-input'), 'Maria Santos');
     });
@@ -1600,7 +1610,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.affected-portion-input'), '40');
     });
-    await goToStep(5);
+    await goToStep(3);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
@@ -1619,7 +1629,7 @@ describe('FieldReportScreen', () => {
 
   it('finalizes using the latest form values including affected numbers', async () => {
     await render(<FieldReportScreen />);
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.farmer-name-input'), 'Maria Santos');
     });
@@ -1647,7 +1657,7 @@ describe('FieldReportScreen', () => {
         '40',
       );
     });
-    await goToStep(5);
+    await goToStep(3);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
@@ -1667,7 +1677,7 @@ describe('FieldReportScreen', () => {
 
   it('requires an explicit measured or not-measured decision before finalizing', async () => {
     await render(<FieldReportScreen />);
-    await goToStep(5);
+    await goToStep(3);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
@@ -1692,14 +1702,14 @@ describe('FieldReportScreen', () => {
 
     await render(<FieldReportScreen />);
 
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Affected area: Not measured'));
       fireEvent.press(
         screen.getByLabelText('Estimated affected portion: Not measured'),
       );
     });
-    await goToStep(5);
+    await goToStep(3);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
@@ -1728,7 +1738,7 @@ describe('FieldReportScreen', () => {
 
     await render(<FieldReportScreen />);
 
-    await goToStep(2);
+    await goToStep(1);
     expect(
       screen.getByLabelText('Affected area: Not measured'),
     ).toHaveProp('accessibilityState', { selected: true });
@@ -1754,11 +1764,11 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(5);
+    await goToStep(3);
     expect(screen.getByTestId('field-report.possible-match-warning')).toHaveTextContent(
       /Possible recent match.*only a possible match, not a duplicate decision/s,
     );
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
@@ -1771,7 +1781,7 @@ describe('FieldReportScreen', () => {
         '30',
       );
     });
-    await goToStep(5);
+    await goToStep(3);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
@@ -1809,7 +1819,7 @@ describe('FieldReportScreen', () => {
 
     const view = await render(<FieldReportScreen />);
     await act(async () => undefined);
-    await goToStep(5);
+    await goToStep(3);
 
     // Baseline rendered through to step 5: on a Draft the controls are live,
     // so the absence below cannot be a card that never rendered.
@@ -1842,14 +1852,14 @@ describe('FieldReportScreen', () => {
     mockFinalize.mockResolvedValueOnce(finalized);
 
     await render(<FieldReportScreen />);
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '0.5');
     });
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.affected-portion-input'), '30');
     });
-    await goToStep(5);
+    await goToStep(3);
     await fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     await fireEvent.press(screen.getByTestId('field-report.confirm-finalize'));
 
@@ -1869,10 +1879,10 @@ describe('FieldReportScreen', () => {
 
     await render(<FieldReportScreen />);
 
-    await goToStep(5);
+    await goToStep(3);
     expect(screen.queryByTestId('field-report.offline-finalize-block')).not.toBeOnTheScreen();
     expect(screen.getByLabelText('Finalize Field Report')).not.toBeDisabled();
-    await goToStep(2);
+    await goToStep(1);
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
@@ -1885,7 +1895,7 @@ describe('FieldReportScreen', () => {
         '30',
       );
     });
-    await goToStep(5);
+    await goToStep(3);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
@@ -1903,17 +1913,13 @@ describe('FieldReportScreen', () => {
     expect(mockRefresh).toHaveBeenCalled();
   });
 
-  it('disables Draft save while finalization is in flight', async () => {
-    mockDraftState = { ...mockDraftState, finalizing: true };
-
+  it('has no manual Save Draft button; one status line says entries are kept on the phone', async () => {
     await render(<FieldReportScreen />);
+    await act(async () => undefined);
 
-    const saveButton = screen.getByLabelText(
-      'Save Field Report draft unavailable while finalizing',
-    );
-    expect(saveButton).toBeDisabled();
-    await fireEvent.press(saveButton);
-    expect(mockSave).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('field-report.save-draft')).not.toBeOnTheScreen();
+    expect(screen.getAllByText(/Drafts are not sent/)).toHaveLength(1);
+    expect(screen.queryByTestId('field-report.authoring-status')).not.toBeOnTheScreen();
   });
 
   it('shows actionable submission issues while retaining Draft status', async () => {
@@ -1927,8 +1933,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(5);
-    expect(screen.getByText('Draft')).toBeOnTheScreen();
+    await goToStep(3);
     expect(screen.getByTestId('field-report.submission-issues')).toHaveTextContent(
       /Barangay.*Report location.*Location added.*latest entries were saved/s,
     );
@@ -2132,7 +2137,7 @@ describe('FieldReportScreen', () => {
 
     await act(async () => undefined);
 
-    await goToStep(2);
+    await goToStep(1);
     expect(screen.getByTestId('field-report.farmer-name-input')).toHaveProp(
       'value',
       'Maria Santos',
@@ -2145,16 +2150,20 @@ describe('FieldReportScreen', () => {
       'value',
       '30',
     );
-    await goToStep(5);
-    expect(screen.getByTestId('field-report.saved')).toHaveTextContent(
-      'Draft saved on this device.',
+    // One status line tells the inspector entries are kept on the phone.
+    expect(screen.getByTestId('field-report.form-draft-status')).toHaveTextContent(
+      /on this device/,
     );
   });
 
   it('opens the optional details as a sheet route and keeps the Draft save path', async () => {
     await render(<FieldReportScreen />);
 
-    await goToStep(5);
+    await goToStep(3);
+    // Extras are folded on the Send step until opened.
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Show More you can add'));
+    });
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Show More field details'));
     });
@@ -2185,10 +2194,8 @@ describe('FieldReportScreen', () => {
     });
     await render(<FieldReportScreen />);
 
-    await goToStep(5);
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText('Save Field Report draft'));
-    });
+    await goToStep(3);
+    await keepDraft();
 
     expect(mockSave).toHaveBeenCalledWith(
       expectFormValues({
@@ -2222,23 +2229,24 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(5);
+    await goToStep(3);
     const checklist = screen.getByTestId('field-report.ready-to-submit');
-    expect(checklist).toHaveTextContent(/requirements still block finalizing/);
+    expect(checklist).toHaveTextContent(/Still needed/);
+    expect(checklist).not.toHaveTextContent(/Ready to send/);
+    expect(checklist).not.toHaveTextContent(/requirements still block finalizing/);
     expect(screen.getByTestId('field-report.ready.farmer_or_farm_owner_name')).toBeOnTheScreen();
     expect(screen.getByTestId('field-report.ready.barangay')).toBeOnTheScreen();
     expect(screen.getByTestId('field-report.ready.final_coordinates')).toBeOnTheScreen();
     // D-01 removes the measurement blockers once they are explicitly declared.
     expect(screen.queryByTestId('field-report.ready.affected_area_hectares')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('field-report.ready.affected_portion_percent')).not.toBeOnTheScreen();
-    expect(screen.getByTestId('field-report.ready.complete-count')).toBeOnTheScreen();
   });
 
   it('records an unavailable location with a reason instead of forcing coordinates', async () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(4);
+    await goToStep(1);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Continue without an exact location'));
     });
@@ -2257,6 +2265,82 @@ describe('FieldReportScreen', () => {
     expect(mockMarkLocationUnavailable).toHaveBeenCalledWith('offline_no_map');
   });
 
+  it('preselects the no-location reason the app already knows, and it stays editable', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({ gpsCaptureOutcome: 'permission_denied' }),
+      locationPermissionDenied: true,
+    };
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Continue without an exact location'));
+    });
+
+    expect(
+      screen.getByLabelText('Location permission was denied'),
+    ).toHaveProp('accessibilityState', { selected: true });
+    expect(screen.getByTestId('field-report.mark-location-unavailable')).toBeEnabled();
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Another reason'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Send without an exact location'));
+    });
+    expect(mockMarkLocationUnavailable).toHaveBeenCalledWith('other');
+  });
+
+  it('suggests an address from GPS and only applies it when the inspector accepts', async () => {
+    mockPlaceSuggestion = {
+      barangay: 'Wawa',
+      municipality: 'Nasugbu',
+      province: 'Batangas',
+    };
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        gpsAccuracy: 5,
+        locationSource: 'gps',
+      }),
+    };
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    expect(screen.getByTestId('field-report.address-suggestion')).toHaveTextContent(
+      /Your location looks like Wawa, Nasugbu\./,
+    );
+    // Nothing is filled in until Use this address is tapped.
+    expect(screen.getByTestId('field-report.barangay-input')).toHaveTextContent(
+      'Select barangay',
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-report.address-suggestion-use'));
+    });
+    expect(screen.queryByTestId('field-report.address-suggestion')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('field-report.barangay-input')).toHaveTextContent('Wawa');
+  });
+
+  it('shows no address suggestion when the lookup finds nothing in the saved list', async () => {
+    mockDraftState = {
+      ...mockDraftState,
+      data: draft({
+        finalLatitude: 14.0667,
+        finalLongitude: 120.6319,
+        gpsAccuracy: 5,
+        locationSource: 'gps',
+      }),
+    };
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+
+    expect(screen.queryByTestId('field-report.address-suggestion')).not.toBeOnTheScreen();
+  });
+
   it('can recover from unavailable provenance into location capture', async () => {
     mockDraftState = {
       ...mockDraftState,
@@ -2267,7 +2351,7 @@ describe('FieldReportScreen', () => {
     };
 
     await render(<FieldReportScreen />);
-    await goToStep(4);
+    await goToStep(1);
     await fireEvent.press(screen.getByLabelText('Add a location instead'));
 
     expect(mockClearLocationUnavailable).toHaveBeenCalledTimes(1);
@@ -2288,120 +2372,101 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
 
-    await goToStep(4);
+    await goToStep(1);
     expect(screen.getByTestId('field-report.location-unavailable')).toHaveTextContent(
       /The location could not be confirmed/,
     );
     expect(screen.getByLabelText('Add a location instead')).toBeOnTheScreen();
   });
 
-  describe('stepped wizard navigation and requirements handling', () => {
-    it('supports sequential navigation between steps with Next and Prev buttons', async () => {
+  describe('three-step wizard: Place, What you saw, Send', () => {
+    it('supports sequential navigation between steps with Next and Previous buttons', async () => {
       await render(<FieldReportScreen />);
       await act(async () => undefined);
 
       expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
-        'Step 1 of 5: Original scan',
+        'Step 1 of 3: Place',
       );
       expect(screen.queryByTestId('field-report.wizard-prev')).not.toBeOnTheScreen();
-      expect(screen.getByTestId('field-report.wizard-next')).toBeOnTheScreen();
+      expect(screen.queryByTestId('field-report.step-4')).not.toBeOnTheScreen();
 
       await act(async () => {
         fireEvent.press(screen.getByTestId('field-report.wizard-next'));
       });
       expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
-        'Step 2 of 5: Farm & area',
+        'Step 2 of 3: What you saw',
       );
-      expect(screen.getByTestId('field-report.wizard-prev')).toBeOnTheScreen();
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.wizard-next'));
+      });
+      expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
+        'Step 3 of 3: Send',
+      );
+      expect(screen.queryByTestId('field-report.wizard-next')).not.toBeOnTheScreen();
+      expect(screen.getByTestId('field-report.finalize')).toBeOnTheScreen();
 
       await act(async () => {
         fireEvent.press(screen.getByTestId('field-report.wizard-prev'));
       });
       expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
-        'Step 1 of 5: Original scan',
+        'Step 2 of 3: What you saw',
       );
     });
 
-    it('allows non-blocking Next navigation even when required fields are empty (W-2)', async () => {
+    it('puts location, address (province, town, barangay), farmer and area on the Place step', async () => {
       await render(<FieldReportScreen />);
       await act(async () => undefined);
 
-      await goToStep(2);
-      expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
-        'Step 2 of 5: Farm & area',
+      expect(screen.getByTestId('field-report.capture-gps')).toBeOnTheScreen();
+      expect(screen.getByTestId('field-report.province-input')).toBeOnTheScreen();
+      expect(screen.getByTestId('field-report.farmer-name-input')).toBeOnTheScreen();
+      expect(screen.getByTestId('field-report.affected-area-input')).toBeOnTheScreen();
+      // Province comes before town, town before barangay.
+      const order = ['province-input', 'municipality-input', 'barangay-input'].map((id) =>
+        JSON.stringify(screen.toJSON()).indexOf(`field-report.${id}`),
       );
-      await act(async () => {
-        fireEvent.press(screen.getByTestId('field-report.wizard-next'));
-      });
-      expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
-        'Step 3 of 5: Your observation',
-      );
+      expect(order[0]).toBeGreaterThan(-1);
+      expect(order[0]).toBeLessThan(order[1]);
+      expect(order[1]).toBeLessThan(order[2]);
     });
 
-    it('indicates incomplete steps on tab pills (W-2)', async () => {
+    it('indicates incomplete steps on the step pills', async () => {
       await render(<FieldReportScreen />);
       await act(async () => undefined);
 
+      expect(screen.getByTestId('field-report.step-1')).toHaveProp(
+        'accessibilityLabel',
+        'Step 1: Place (incomplete)',
+      );
       expect(screen.getByTestId('field-report.step-2')).toHaveProp(
         'accessibilityLabel',
-        'Step 2: Farm & area (incomplete)',
+        'Step 2: What you saw',
       );
-      expect(screen.getByTestId('field-report.step-4')).toHaveProp(
+      expect(screen.getByTestId('field-report.step-3')).toHaveProp(
         'accessibilityLabel',
-        'Step 4: Location (incomplete)',
-      );
-      expect(screen.getByTestId('field-report.step-5')).toHaveProp(
-        'accessibilityLabel',
-        'Step 5: Review & submit (incomplete)',
+        'Step 3: Send (incomplete)',
       );
     });
 
-    it('renders step-aware labels to prevent stepper overflow', async () => {
+    it('jumps directly to the owning step when tapping a missing item on Send', async () => {
       await render(<FieldReportScreen />);
       await act(async () => undefined);
 
-      // On Step 1: Step 1 shows full label, others show step number
-      expect(screen.getByTestId('field-report.step-1')).toHaveTextContent('1. Scan');
-      expect(screen.getByTestId('field-report.step-2')).toHaveTextContent('2');
-      expect(screen.getByTestId('field-report.step-3')).toHaveTextContent('3');
-
-      // Navigate to Step 3: Step 3 shows condensed full label "3. Observe"
       await goToStep(3);
-      expect(screen.getByTestId('field-report.step-1')).toHaveTextContent('1');
-      expect(screen.getByTestId('field-report.step-3')).toHaveTextContent('3. Observe');
-      expect(screen.getByTestId('field-report.step-4')).toHaveTextContent('4');
-    });
-
-    it('jumps directly to owning step when tapping a missing requirement on Step 5 (W-3)', async () => {
-      await render(<FieldReportScreen />);
-      await act(async () => undefined);
-
-      await goToStep(5);
-      expect(screen.getByTestId('field-report.ready.farmer_or_farm_owner_name')).toBeOnTheScreen();
-
       await act(async () => {
         fireEvent.press(screen.getByTestId('field-report.ready.farmer_or_farm_owner_name'));
       });
       expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
-        'Step 2 of 5: Farm & area',
+        'Step 1 of 3: Place',
       );
       expect(screen.getByTestId('field-report.farmer-name-input')).toBeOnTheScreen();
-
-      await goToStep(5);
-      await act(async () => {
-        fireEvent.press(screen.getByTestId('field-report.ready.final_coordinates'));
-      });
-      expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
-        'Step 4 of 5: Location',
-      );
-      expect(screen.getByLabelText('Add location')).toBeOnTheScreen();
     });
 
-    it('holds all 21 submission requirements inside disclosure on Step 5 (W-3, Rule 4)', async () => {
+    it('holds all 21 submission requirements inside disclosure on Send', async () => {
       await render(<FieldReportScreen />);
       await act(async () => undefined);
 
-      await goToStep(5);
+      await goToStep(3);
       await act(async () => {
         fireEvent.press(screen.getByLabelText('Show All requirements (21)'));
       });
@@ -2415,6 +2480,26 @@ describe('FieldReportScreen', () => {
       expect(disclosure.getByText('Confirmed location')).toBeOnTheScreen();
     });
 
+    it('lists only missing items on Send, with no count that contradicts the headline', async () => {
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+
+      await goToStep(3);
+      const checklist = screen.getByTestId('field-report.ready-to-submit');
+      expect(checklist).toHaveTextContent(/Still needed/);
+      expect(checklist).not.toHaveTextContent(/Ready to/);
+      expect(checklist).not.toHaveTextContent(/of 21/);
+    });
+
+    it('keeps plot boundary and field details folded on Send', async () => {
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+
+      await goToStep(3);
+      expect(screen.getByTestId('field-report.extras-disclosure')).toBeOnTheScreen();
+      expect(screen.queryByTestId('field-report.more-details')).not.toBeOnTheScreen();
+    });
+
     it('surfaces an attached boundary that is gone from this phone as a blocking requirement', async () => {
       mockDraftState = {
         ...mockDraftState,
@@ -2423,17 +2508,18 @@ describe('FieldReportScreen', () => {
 
       await render(<FieldReportScreen />);
       await act(async () => undefined);
-      await goToStep(5);
+      await goToStep(3);
 
       const blocked = screen.getByTestId('field-report.ready.attached_boundary');
       expect(blocked).toHaveTextContent(/Plot boundary ready to send/);
-      expect(blocked).toHaveTextContent(/Step 5/);
+      // Its fix lives on Send itself, and the folded extras open by default.
+      expect(screen.getByTestId('field-report.more-details')).toBeOnTheScreen();
 
       await act(async () => {
         fireEvent.press(blocked);
       });
       expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
-        'Step 5 of 5: Review & submit',
+        'Step 3 of 3: Send',
       );
     });
 
@@ -2443,7 +2529,7 @@ describe('FieldReportScreen', () => {
 
       expect(screen.queryByText(REPORT_ID)).not.toBeOnTheScreen();
 
-      await goToStep(5);
+      await goToStep(3);
       expect(screen.queryByText(REPORT_ID)).not.toBeOnTheScreen();
       expect(screen.queryByText('Report identifiers')).not.toBeOnTheScreen();
     });
@@ -2552,9 +2638,7 @@ describe('FieldReportScreen', () => {
       );
       await act(async () => undefined);
 
-      await act(async () => {
-        fireEvent.press(screen.getByTestId('field-report.save-draft'));
-      });
+      await keepDraft();
 
       expect(mockSave).toHaveBeenCalledTimes(1);
       expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
@@ -2669,14 +2753,14 @@ describe('FieldReportScreen', () => {
       });
       expect(screen.getByTestId('field-report.cancel-dialog')).toBeOnTheScreen();
 
-      await goToStep(2);
+      await goToStep(1);
       await act(async () => {
         fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '0.5');
       });
       await act(async () => {
         fireEvent.changeText(screen.getByTestId('field-report.affected-portion-input'), '30');
       });
-      await goToStep(5);
+      await goToStep(3);
       await act(async () => {
         fireEvent.press(screen.getByLabelText('Finalize Field Report'));
       });
@@ -2698,7 +2782,7 @@ describe('FieldReportScreen', () => {
           <FieldReportScreen />
         </ToastProvider>,
       );
-      await goToStep(2);
+      await goToStep(1);
       await act(async () => {
         fireEvent.changeText(
           screen.getByTestId('field-report.affected-area-input'),
@@ -2715,7 +2799,7 @@ describe('FieldReportScreen', () => {
       expect(mockSave).not.toHaveBeenCalled();
       expect(router.dismissTo).not.toHaveBeenCalled();
       expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
-        /Step 2 of 5/,
+        /Step 1 of 3: Place/,
       );
       expect(screen.getByText(/fix the highlighted field first/i)).toBeOnTheScreen();
     });
@@ -2730,9 +2814,7 @@ describe('FieldReportScreen', () => {
           <FieldReportScreen />
         </ToastProvider>,
       );
-      await act(async () => {
-        fireEvent.press(screen.getByTestId('field-report.save-draft'));
-      });
+      await keepDraft();
 
       expect(mockSave).toHaveBeenCalledTimes(1);
       expect(screen.getByTestId('app-toast')).toHaveTextContent(
@@ -2900,7 +2982,7 @@ describe('FieldReportScreen', () => {
           reporterObservationText: '',
           reporterSuspectedCondition: '',
           savedAt: '2026-10-23T08:00:00.000Z',
-          step: 2,
+          step: 1,
           variety: 'Phil 2000',
         },
         updatedAt: '2026-10-23T08:00:00.000Z',
@@ -2910,7 +2992,7 @@ describe('FieldReportScreen', () => {
       await act(async () => undefined);
 
       expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
-        /Step 2 of 5/,
+        /Step 1 of 3: Place/,
       );
       expect(screen.getByTestId('field-report.farmer-name-input')).toHaveProp(
         'value',
@@ -2946,7 +3028,7 @@ describe('FieldReportScreen', () => {
       jest.useFakeTimers();
       try {
         await render(<FieldReportScreen />);
-        await goToStep(2);
+        await goToStep(1);
         await act(async () => {
           fireEvent.changeText(
             screen.getByTestId('field-report.farmer-name-input'),
@@ -2963,16 +3045,14 @@ describe('FieldReportScreen', () => {
           REPORT_ID,
           expect.objectContaining({
             farmerName: 'Maria Santos',
-            step: 2,
+            step: 1,
           }),
         );
         expect(screen.getByTestId('field-report.form-draft-status')).toHaveTextContent(
           /saved on this device/i,
         );
 
-        await act(async () => {
-          fireEvent.press(screen.getByTestId('field-report.save-draft'));
-        });
+        await keepDraft();
         expect(mockDeleteFormCheckpoint).toHaveBeenCalledWith(
           expect.anything(),
           'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
@@ -2993,7 +3073,7 @@ describe('FieldReportScreen', () => {
       jest.useFakeTimers();
       try {
         const view = await render(<FieldReportScreen />);
-        await goToStep(2);
+        await goToStep(1);
         await act(async () => {
           fireEvent.changeText(
             screen.getByTestId('field-report.farmer-name-input'),
@@ -3011,7 +3091,7 @@ describe('FieldReportScreen', () => {
           expect.anything(),
           'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17',
           REPORT_ID,
-          expect.objectContaining({ farmerName: 'Maria Santos', step: 2 }),
+          expect.objectContaining({ farmerName: 'Maria Santos', step: 1 }),
         );
       } finally {
         jest.useRealTimers();
@@ -3023,7 +3103,7 @@ describe('FieldReportScreen', () => {
       mockWriteFormCheckpoint.mockRejectedValueOnce(new Error('disk full'));
       try {
         await render(<FieldReportScreen />);
-        await goToStep(2);
+        await goToStep(1);
         await act(async () => {
           fireEvent.changeText(
             screen.getByTestId('field-report.farmer-name-input'),

@@ -6,11 +6,16 @@ import { getLocalDateKey } from '@/features/assignments/domain/todayVisits';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateKey } from '@/lib/formatters';
 
-export function greetingFor(now: Date): string {
+type BandCopy = { greeting: { morning: string; afternoon: string; evening: string }; offline: string };
+
+export function greetingFor(
+  now: Date,
+  greeting: BandCopy['greeting'] = HOME_NOTE_COPY.greeting,
+): string {
   const hour = now.getHours();
-  if (hour < 12) return HOME_NOTE_COPY.greeting.morning;
-  if (hour < 18) return HOME_NOTE_COPY.greeting.afternoon;
-  return HOME_NOTE_COPY.greeting.evening;
+  if (hour < 12) return greeting.morning;
+  if (hour < 18) return greeting.afternoon;
+  return greeting.evening;
 }
 
 export function firstNameOf(name: string | null | undefined): string | null {
@@ -19,16 +24,20 @@ export function firstNameOf(name: string | null | undefined): string | null {
 }
 
 export type HomeHeaderBandProps = {
+  /** Greeting and Offline wording; the farmer's language on a farmer session. */
+  copy?: BandCopy;
   isOffline: boolean;
   name?: string | null;
   now: Date;
 };
 
 /** Tinted band under the brand row: greeting, date, and an Offline chip only while offline. */
-export function HomeHeaderBand({ isOffline, name, now }: HomeHeaderBandProps) {
+export function HomeHeaderBand({ copy, isOffline, name, now }: HomeHeaderBandProps) {
   const theme = useTheme();
   const first = firstNameOf(name);
-  const greeting = first ? `${greetingFor(now)}, ${first}` : greetingFor(now);
+  const offlineLabel = copy?.offline ?? HOME_NOTE_COPY.offlineChip;
+  const base = greetingFor(now, copy?.greeting);
+  const greeting = first ? `${base}, ${first}` : base;
 
   return (
     <View style={[styles.band, { backgroundColor: theme.surfaceMuted }]} testID="home.header-band">
@@ -42,10 +51,10 @@ export function HomeHeaderBand({ isOffline, name, now }: HomeHeaderBandProps) {
       </View>
       {isOffline ? (
         <View
-          accessibilityLabel={HOME_NOTE_COPY.offlineChip}
+          accessibilityLabel={offlineLabel}
           style={[styles.chip, { backgroundColor: theme.warningBg }]}
           testID="home.offline-chip">
-          <Text style={[styles.chipText, { color: theme.warning }]}>{HOME_NOTE_COPY.offlineChip}</Text>
+          <Text style={[styles.chipText, { color: theme.warning }]}>{offlineLabel}</Text>
         </View>
       ) : null}
     </View>

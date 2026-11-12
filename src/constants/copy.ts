@@ -391,8 +391,66 @@ export const HOME_NOTE_COPY = {
  */
 export type FarmerLanguage = 'en' | 'tl';
 
+export type FarmerResultName = 'healthy' | 'mosaic' | 'rust' | 'smut' | 'unknown';
+
 export type FarmerCopyBlock = {
   greeting: { morning: string; afternoon: string; evening: string };
+  home: {
+    headline: string;
+    offline: string;
+    knowSigns: string;
+    referencePhoto: string;
+    fieldGuideLabel: string;
+    signPhrases: { healthy: string; mosaic: string; rust: string; smut: string };
+  };
+  tabs: { home: string; scan: string; myScans: string };
+  /**
+   * Result names shown after "Possible Condition". The Tagalog names still need
+   * review by an agriculture officer before release, so both languages carry the
+   * English names until then.
+   */
+  results: Record<FarmerResultName, string>;
+  record: {
+    title: string;
+    loading: string;
+    unavailable: string;
+    unavailableMessage: string;
+    tryAgain: string;
+    imageUnavailable: string;
+    deleteAction: string;
+    deleting: string;
+    deleteConfirmTitle: string;
+    deleteConfirmMessage: string;
+    deleteConfirm: string;
+    cancel: string;
+    deleteHint: string;
+    deleted: string;
+    deleteFailed: string;
+  };
+  result: {
+    headerTitle: string;
+    pill: string;
+    cautionTitle: string;
+    lowConfidence: string;
+    cautionNote: string;
+    mismatch: string;
+    consistencyMismatch: string;
+    outcomeSaved: string;
+    outcomeChoose: string;
+    outcomeFailed: string;
+    outcomeSavedMessage: string;
+    outcomeChooseMessage: string;
+    scanAgain: string;
+    whyTitle: string;
+    moreActions: string;
+    fieldGuide: string;
+    cancelScan: string;
+    openSaved: string;
+    cancelTitle: string;
+    cancelMessage: string;
+    keepDraft: string;
+    discardDraft: string;
+  };
   actions: {
     startScan: string;
     measurePlot: string;
@@ -468,6 +526,8 @@ export type FarmerCopyBlock = {
     countMany: string;
     emptyTitle: string;
     emptyMessage: string;
+    checkCount: string;
+    openScan: string;
     noMatchTitle: string;
     noMatchMessage: string;
     clearFilters: string;
@@ -485,6 +545,73 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       morning: 'Good morning',
       afternoon: 'Good afternoon',
       evening: 'Good evening',
+    },
+    home: {
+      headline: 'Check your plants today.',
+      offline: 'Offline',
+      knowSigns: 'Know the signs',
+      referencePhoto: 'Reference photo',
+      fieldGuideLabel: 'Open the field guide for sugarcane diseases and pests',
+      signPhrases: {
+        healthy: 'Even green leaves',
+        mosaic: 'Pale green mottling',
+        rust: 'Orange pustules beneath',
+        smut: 'Dark whip on the shoot',
+      },
+    },
+    tabs: { home: 'Home', scan: 'Scan', myScans: 'My Scans' },
+    results: {
+      healthy: 'No supported disease detected',
+      mosaic: 'Mosaic',
+      rust: 'Rust',
+      smut: 'Smut',
+      unknown: 'Not recognized by this app version',
+    },
+    record: {
+      title: 'Saved scan',
+      loading: 'Loading your scan',
+      unavailable: 'Scan unavailable',
+      unavailableMessage: 'This scan could not be found on this phone.',
+      tryAgain: 'Try again',
+      imageUnavailable: 'Saved photo unavailable',
+      deleteAction: 'Delete this scan',
+      deleting: 'Deleting...',
+      deleteConfirmTitle: 'Delete this scan?',
+      deleteConfirmMessage:
+        'This removes the scan and its photo from this phone. It cannot be undone.',
+      deleteConfirm: 'Delete',
+      cancel: 'Cancel',
+      deleteHint: 'Delete this scan and its saved photo',
+      deleted: 'Scan deleted',
+      deleteFailed: 'Could not delete the scan — please try again',
+    },
+    result: {
+      headerTitle: 'Scan result',
+      pill: 'App check result',
+      cautionTitle: 'Check before you save',
+      lowConfidence:
+        'This result is not conclusive. You can still keep it as a scan, or scan again for a clearer image.',
+      cautionNote:
+        'This caution does not change the result. You can scan again for a clearer image or keep this scan.',
+      mismatch:
+        'Your selected symptom observations do not match this Possible Condition. Both are kept separately.',
+      consistencyMismatch:
+        'What you selected does not match the Possible Condition. Both are kept separately.',
+      outcomeSaved: 'Scan saved on this phone',
+      outcomeChoose: 'Choose what happens next',
+      outcomeFailed: 'Choose another action',
+      outcomeSavedMessage: 'This scan is saved on this phone.',
+      outcomeChooseMessage: 'Save Scan keeps this scan on this phone.',
+      scanAgain: 'Scan again',
+      whyTitle: 'Why this result?',
+      moreActions: 'More actions',
+      fieldGuide: 'Field guide',
+      cancelScan: 'Cancel scan',
+      openSaved: 'Open saved scan',
+      cancelTitle: 'Cancel scan?',
+      cancelMessage: 'Keep your unfinished scan to continue later, or discard it?',
+      keepDraft: 'Keep it',
+      discardDraft: 'Discard it',
     },
     actions: {
       startScan: 'Start a scan',
@@ -566,6 +693,8 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       stateSaved: 'Saved',
       countOne: '1 scan',
       countMany: '{count} scans',
+      checkCount: '{count} checks of this plant',
+      openScan: 'Open scan',
       emptyTitle: 'No scans yet',
       emptyMessage: 'Scan a leaf and it will be saved here.',
       noMatchTitle: 'No matching scans',
@@ -583,6 +712,74 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       morning: 'Magandang umaga',
       afternoon: 'Magandang hapon',
       evening: 'Magandang gabi',
+    },
+    home: {
+      headline: 'Suriin ang iyong mga halaman ngayon.',
+      offline: 'Walang internet',
+      knowSigns: 'Kilalanin ang mga palatandaan',
+      referencePhoto: 'Litrato bilang gabay',
+      fieldGuideLabel: 'Buksan ang gabay sa bukid para sa mga sakit at peste ng tubo',
+      signPhrases: {
+        healthy: 'Pantay na luntiang dahon',
+        mosaic: 'Mapusyaw na berdeng batik',
+        rust: 'Kulay-kahel na butlig sa ilalim',
+        smut: 'Maitim na latigo sa usbong',
+      },
+    },
+    tabs: { home: 'Home', scan: 'Scan', myScans: 'Aking mga Scan' },
+    // Tagalog result names need review by an agriculture officer before release.
+    results: {
+      healthy: 'No supported disease detected',
+      mosaic: 'Mosaic',
+      rust: 'Rust',
+      smut: 'Smut',
+      unknown: 'Not recognized by this app version',
+    },
+    record: {
+      title: 'Na-save na scan',
+      loading: 'Kinukuha ang iyong scan',
+      unavailable: 'Hindi makita ang scan',
+      unavailableMessage: 'Hindi makita ang scan na ito sa teleponong ito.',
+      tryAgain: 'Subukan muli',
+      imageUnavailable: 'Wala ang na-save na litrato',
+      deleteAction: 'Burahin ang scan na ito',
+      deleting: 'Binubura...',
+      deleteConfirmTitle: 'Burahin ang scan na ito?',
+      deleteConfirmMessage:
+        'Aalisin nito ang scan at ang litrato nito sa teleponong ito. Hindi na ito maibabalik.',
+      deleteConfirm: 'Burahin',
+      cancel: 'Kanselahin',
+      deleteHint: 'Burahin ang scan na ito at ang na-save na litrato',
+      deleted: 'Nabura ang scan',
+      deleteFailed: 'Hindi nabura ang scan — subukan muli',
+    },
+    result: {
+      headerTitle: 'Resulta ng scan',
+      pill: 'Resulta ng app',
+      cautionTitle: 'Suriin bago i-save',
+      lowConfidence:
+        'Hindi tiyak ang resultang ito. Puwede mo pa ring itago ito bilang scan, o mag-scan ulit para sa mas malinaw na litrato.',
+      cautionNote:
+        'Hindi binabago ng babalang ito ang resulta. Puwede kang mag-scan ulit para sa mas malinaw na litrato o itago ang scan na ito.',
+      mismatch:
+        'Hindi tugma ang mga napili mong palatandaan sa Posibleng Kondisyon na ito. Magkahiwalay na itinatabi ang dalawa.',
+      consistencyMismatch:
+        'Hindi tugma ang napili mo sa Posibleng Kondisyon. Magkahiwalay na itinatabi ang dalawa.',
+      outcomeSaved: 'Na-save ang scan sa teleponong ito',
+      outcomeChoose: 'Piliin ang susunod na gagawin',
+      outcomeFailed: 'Pumili ng ibang gagawin',
+      outcomeSavedMessage: 'Na-save ang scan na ito sa teleponong ito.',
+      outcomeChooseMessage: 'Itinatago ng I-save ang Scan ang scan na ito sa teleponong ito.',
+      scanAgain: 'Mag-scan ulit',
+      whyTitle: 'Bakit ito ang resulta?',
+      moreActions: 'Iba pang gagawin',
+      fieldGuide: 'Gabay sa bukid',
+      cancelScan: 'Kanselahin ang scan',
+      openSaved: 'Buksan ang na-save na scan',
+      cancelTitle: 'Kanselahin ang scan?',
+      cancelMessage: 'Itago ang hindi pa tapos na scan para ituloy mamaya, o itapon ito?',
+      keepDraft: 'Itago',
+      discardDraft: 'Itapon',
     },
     actions: {
       startScan: 'Magsimula ng pag-scan',
@@ -665,6 +862,8 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       stateSaved: 'Na-save',
       countOne: '1 scan',
       countMany: '{count} scan',
+      checkCount: '{count} pagsusuri sa halamang ito',
+      openScan: 'Buksan ang scan',
       emptyTitle: 'Wala pang scan',
       emptyMessage: 'Mag-scan ng dahon at mase-save ito dito.',
       noMatchTitle: 'Walang tugmang scan',

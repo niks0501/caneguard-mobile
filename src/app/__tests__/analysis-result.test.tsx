@@ -552,7 +552,7 @@ describe('AnalysisResultScreen', () => {
     await fireEvent.press(screen.getByLabelText('Show Why this result?'));
     expect(
       screen.getByText(
-        "The reporter's observation does not match the Possible Condition. Both are kept separately.",
+        'What you selected does not match the Possible Condition. Both are kept separately.',
       ),
     ).toBeOnTheScreen();
   });
@@ -587,7 +587,7 @@ describe('AnalysisResultScreen', () => {
     };
     await renderResult(createCompletedState('rust', ['rust']));
 
-    expect(screen.getByText('This scan is saved on this device.')).toBeOnTheScreen();
+    expect(screen.getByText('This scan is saved on this phone.')).toBeOnTheScreen();
     expect(
       screen.queryByText(/Reporting it to the office/),
     ).not.toBeOnTheScreen();

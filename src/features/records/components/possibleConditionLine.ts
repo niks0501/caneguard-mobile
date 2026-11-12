@@ -1,11 +1,13 @@
-import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
-import type { ModelLabel } from '@/features/detection/constants/modelContract';
+import type { FarmerCopyBlock, FarmerResultName } from '@/constants/copy';
 
-/** "Possible Condition: Rust" with the heading in the farmer's language. */
-export function possibleConditionLine(heading: string, predictedLabel: string): string {
-  const name =
-    predictedLabel in diseaseCatalog
-      ? diseaseCatalog[predictedLabel as ModelLabel].displayName
-      : predictedLabel;
-  return `${heading}: ${name}`;
+/** The result name in the farmer's language; an unlisted label shows as it was saved. */
+export function farmerResultName(copy: FarmerCopyBlock, predictedLabel: string): string {
+  return predictedLabel in copy.results
+    ? copy.results[predictedLabel as FarmerResultName]
+    : predictedLabel;
+}
+
+/** "Possible Condition: Rust" with the heading and name in the farmer's language. */
+export function possibleConditionLine(copy: FarmerCopyBlock, predictedLabel: string): string {
+  return `${copy.checkAgain.possibleCondition}: ${farmerResultName(copy, predictedLabel)}`;
 }

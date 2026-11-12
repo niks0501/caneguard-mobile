@@ -26,6 +26,11 @@ type RecordCardProps = {
   record: ScanRecordListItem;
   /** Farmer My Scans state; replaces the device and sync status line. */
   scanState?: { label: string; state: FarmerScanState };
+  /**
+   * The farmer's own wording for this card: the result line and the open
+   * label in their language, plus how many checks of this plant it stands for.
+   */
+  farmerText?: { checks?: string; openLabel: string; result: string };
   testID?: string;
 };
 
@@ -35,7 +40,14 @@ const FARMER_STATE_ICON: Record<FarmerScanState, keyof typeof Feather.glyphMap> 
   saved: 'check-circle',
 };
 
-export function RecordCard({ activityType, onPress, record, scanState, testID }: RecordCardProps) {
+export function RecordCard({
+  activityType,
+  farmerText,
+  onPress,
+  record,
+  scanState,
+  testID,
+}: RecordCardProps) {
   const theme = useTheme();
   const [imageUnavailable, setImageUnavailable] = useState(false);
   // Prefer the small display derivative this save wrote. It is absent for
@@ -48,11 +60,16 @@ export function RecordCard({ activityType, onPress, record, scanState, testID }:
     ? { color: SYNC_TONE_COLOR.whisper, icon: 'edit-3' as const, label: UNFINISHED_COPY.label }
     : getSyncPresentation(record.syncStatus);
   const itemLabel = activityType ?? 'record';
+  const resultText = farmerText?.result ?? getResultLabel(record.predictedLabel);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${getResultLabel(record.predictedLabel)} ${itemLabel} saved ${savedAt}`}
+      accessibilityLabel={
+        farmerText
+          ? `${farmerText.openLabel}: ${farmerText.result}, ${savedAt}`
+          : `Open ${getResultLabel(record.predictedLabel)} ${itemLabel} saved ${savedAt}`
+      }
       testID={testID}
       onPress={onPress}
       style={({ pressed }) => [
@@ -77,7 +94,7 @@ export function RecordCard({ activityType, onPress, record, scanState, testID }:
             source={{ uri: thumbnailUri }}
             cachePolicy="memory-disk"
             contentFit="cover"
-            accessibilityLabel={`Saved image for ${getResultLabel(record.predictedLabel)}`}
+            accessibilityLabel={farmerText ? resultText : `Saved image for ${resultText}`}
             onError={() => setImageUnavailable(true)}
             style={styles.image}
           />
@@ -109,7 +126,7 @@ export function RecordCard({ activityType, onPress, record, scanState, testID }:
               numberOfLines={2}
               ellipsizeMode="tail"
               style={[styles.result, { color: theme.primaryDark }]}>
-              {getResultLabel(record.predictedLabel)}
+              {resultText}
             </Text>
             <Text
               numberOfLines={1}
@@ -117,6 +134,15 @@ export function RecordCard({ activityType, onPress, record, scanState, testID }:
               style={[styles.date, { color: theme.textSecondary }]}>
               {savedAt}
             </Text>
+            {farmerText?.checks ? (
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                testID={`record-card.checks.${record.id}`}
+                style={[styles.location, { color: theme.textSecondary }]}>
+                {farmerText.checks}
+              </Text>
+            ) : null}
             {record.barangay ? (
               <Text
                 numberOfLines={1}

@@ -12,6 +12,7 @@ import type { FarmerScanState } from '@/features/records/domain/scanState';
 // of "On this device / not sent"; inspector rendering is unchanged.
 
 const mockStates = new Map<string, FarmerScanState>();
+const mockThreads = new Map<string, { checkCount: number; originalId: string }>();
 const mockRecords: { data: ScanRecordListItem[] } = { data: [] };
 
 jest.mock('@/features/records/hooks/useRecords', () => ({
@@ -26,6 +27,7 @@ jest.mock('@/features/records/hooks/useRecords', () => ({
   }),
 }));
 jest.mock('@/features/records/hooks/useScanStates', () => ({
+  useFarmerScans: () => ({ states: mockStates, threads: mockThreads }),
   useFarmerScanStates: () => mockStates,
 }));
 jest.mock('@/providers/LanguagePreferenceProvider', () => ({
@@ -55,6 +57,7 @@ function renderAsFarmer() {
 describe('My Scans (farmer Activity)', () => {
   beforeEach(() => {
     mockStates.clear();
+    mockThreads.clear();
     mockStates.set('scan-a', 'needs_checking');
     mockStates.set('scan-b', 'followed_up');
     mockStates.set('scan-c', 'saved');
@@ -91,6 +94,19 @@ describe('My Scans (farmer Activity)', () => {
     await fireEvent.press(screen.getByTestId('my-scans.filter.followed_up'));
     expect(screen.getByTestId('my-scans.item.scan-b')).toBeOnTheScreen();
     expect(screen.queryByTestId('my-scans.item.scan-a')).toBeNull();
+  });
+
+  // Proves: "group checks by plant" - a first check and its follow-ups are one card.
+  it('shows one card per plant with its check count', async () => {
+    mockThreads.set('scan-a', { checkCount: 2, originalId: 'scan-b' });
+    mockThreads.set('scan-b', { checkCount: 2, originalId: 'scan-b' });
+    await renderAsFarmer();
+    expect(screen.getByTestId('my-scans.item.scan-a')).toBeOnTheScreen();
+    expect(screen.queryByTestId('my-scans.item.scan-b')).toBeNull();
+    expect(screen.getByTestId('record-card.checks.scan-a')).toHaveTextContent(
+      '2 checks of this plant',
+    );
+    expect(screen.getByTestId('my-scans.count')).toHaveTextContent('2 scans');
   });
 
   it('opens the record on press', async () => {

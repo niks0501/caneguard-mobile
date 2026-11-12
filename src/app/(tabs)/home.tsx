@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { HomeAttentionCard } from '@/features/activity/components/HomeAttentionCard';
-import { buildMorningNote } from '@/features/activity/domain/morningNote';
+import { buildMorningNote, type MorningNote } from '@/features/activity/domain/morningNote';
 import {
   firstActionableAttentionItem,
   type NeedsAttentionItem,
@@ -24,7 +24,7 @@ import { useOfficeUpdates } from '@/features/notifications/providers/OfficeUpdat
 import { notificationDestinationRoute } from '@/features/notifications/services/resolveNotificationDestination';
 import { getHomeSyncNote, INSPECTOR_WORK_WAITING_COPY } from '@/features/sync/utils/syncStatusCopy';
 import { useSync } from '@/features/sync/hooks/useSync';
-import { FIELD_SURVEY_COPY, HOME_NOTE_COPY } from '@/constants/copy';
+import { FARMER_COPY, FIELD_SURVEY_COPY, HOME_NOTE_COPY } from '@/constants/copy';
 import {
   ComponentTokens,
   Fonts,
@@ -62,8 +62,19 @@ export default function HomeScreen() {
     pendingSurveysCount: sync.pendingSurveysCount,
     sessionVerification,
   });
-  // Farmers have no visits or office work, so their note never leads with them.
-  const note = buildMorningNote(isFarmer ? [] : attention.items, syncNote);
+  const farmerCopy = FARMER_COPY[language];
+  // Farmers have no visits or office work and send nothing, so their headline is
+  // a prompt in their language: never "All clear." and never a send state.
+  const note: MorningNote = isFarmer
+    ? {
+        action: 'scan',
+        actionLabel: farmerCopy.actions.startScan,
+        headline: farmerCopy.home.headline,
+        headlineOpensActivity: false,
+        syncLine: null,
+        visitsLine: null,
+      }
+    : buildMorningNote(attention.items, syncNote);
   const now = useNow();
   // Stable identity so the memoized attention rows can skip re-rendering when
   // only unrelated Home state changes.
@@ -131,7 +142,12 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.band}>
-              <HomeHeaderBand isOffline={sync.isOnline === false} name={user?.name} now={now} />
+              <HomeHeaderBand
+                copy={isFarmer ? { greeting: farmerCopy.greeting, offline: farmerCopy.home.offline } : undefined}
+                isOffline={sync.isOnline === false}
+                name={user?.name}
+                now={now}
+              />
             </View>
 
             <View style={styles.content}>
@@ -205,7 +221,7 @@ export default function HomeScreen() {
                     : [
                         {
                           icon: 'camera' as const,
-                          label: HOME_NOTE_COPY.startScan,
+                          label: isFarmer ? farmerCopy.actions.startScan : HOME_NOTE_COPY.startScan,
                           onPress: () => router.push('/scan'),
                           testID: 'home.start-scan',
                         },
@@ -227,16 +243,28 @@ export default function HomeScreen() {
                         },
                       ]),
                   {
-                    accessibilityLabel: HOME_NOTE_COPY.fieldGuideLabel,
+                    accessibilityLabel: isFarmer
+                      ? farmerCopy.home.fieldGuideLabel
+                      : HOME_NOTE_COPY.fieldGuideLabel,
                     icon: 'book-open',
-                    label: HOME_NOTE_COPY.fieldGuideLink,
+                    label: isFarmer ? farmerCopy.actions.fieldGuide : HOME_NOTE_COPY.fieldGuideLink,
                     onPress: () => router.push('/field-guide'),
                     testID: 'home.disease-reference',
                   },
                 ]}
               />
 
-              <HomeSignsStrip onOpenEntry={(id) => router.push(`/field-guide/${id}` as Href)} />
+              <HomeSignsStrip
+                copy={
+                  isFarmer
+                    ? {
+                        referencePhoto: farmerCopy.home.referencePhoto,
+                        signPhrases: farmerCopy.home.signPhrases,
+                        signsHeading: farmerCopy.home.knowSigns,
+                      }
+                    : undefined
+                }
+                onOpenEntry={(id) => router.push(`/field-guide/${id}` as Href)} />
             </View>
           </View>
         </ScrollView>

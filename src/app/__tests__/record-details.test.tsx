@@ -350,8 +350,26 @@ describe('RecordDetailsScreen', () => {
     await render(<RecordDetailsScreen />);
 
     expect(
-      screen.queryByLabelText('Delete this local record and saved image'),
+      screen.queryByLabelText('Delete this scan and its saved photo'),
     ).not.toBeOnTheScreen();
+  });
+
+  it('shows a farmer no send state and no inspector-only rows', async () => {
+    jest.mocked(useAuth).mockReturnValue({
+      user: { uuid: SUBMITTER_ID, role: 'farmer' },
+    } as never);
+
+    await render(<RecordDetailsScreen />);
+
+    expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
+    expect(
+      screen.queryByText(/not sent|Waiting to send|Sent to office|On this device/i),
+    ).not.toBeOnTheScreen();
+    expect(screen.queryByText('Checklist')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Reported severity')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Image quality notices')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('records.saved-details')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('records.sync-details')).not.toBeOnTheScreen();
   });
 
   it('lets a farmer delete a standalone scan but keeps the delete policy enforced', async () => {
@@ -369,7 +387,7 @@ describe('RecordDetailsScreen', () => {
       </ToastProvider>,
     );
     await fireEvent.press(
-      screen.getByLabelText('Delete this local record and saved image'),
+      screen.getByLabelText('Delete this scan and its saved photo'),
     );
     await fireEvent.press(screen.getByTestId('records.confirm-delete.confirm'));
 

@@ -107,6 +107,26 @@ describe('HomeScreen', () => {
     expect(screen.getByTestId('home.inspector-work-waiting')).toHaveTextContent(/teleponong ito/);
   });
 
+  it('never shows a farmer the All clear headline or a send state', async () => {
+    mockRole = 'farmer';
+    mockPendingCount = 3;
+    await render(<HomeScreen />);
+    expect(screen.getByTestId('home.note')).toHaveTextContent('Check your plants today.');
+    expect(screen.queryByText(/all clear|waiting to send|not sent/i)).toBeNull();
+    expect(screen.queryByTestId('home.sync-status')).toBeNull();
+  });
+
+  it('shows every farmer Home label in Tagalog when the language is Tagalog', async () => {
+    mockRole = 'farmer';
+    mockLanguage = 'tl';
+    await render(<HomeScreen />);
+    expect(screen.getByTestId('home.note')).toHaveTextContent('Suriin ang iyong mga halaman ngayon.');
+    expect(screen.getByTestId('home.primary-action')).toHaveTextContent('Magsimula ng pag-scan');
+    expect(screen.getByTestId('home.disease-reference')).toHaveTextContent('Gabay sa bukid');
+    expect(screen.getByTestId('home.signs')).toHaveTextContent(/Kilalanin ang mga palatandaan/);
+    expect(screen.getByTestId('home.greeting')).toHaveTextContent(/^Magandang/);
+  });
+
   it('hides the sentence for a farmer when no inspector work is waiting', async () => {
     mockRole = 'farmer';
     await render(<HomeScreen />);

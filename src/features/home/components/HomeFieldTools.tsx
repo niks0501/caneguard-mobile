@@ -42,28 +42,40 @@ export function HomeToolTiles({ tiles }: { tiles: HomeToolTile[] }) {
 
 const SIGN_ENTRY_IDS = ['healthy', 'mosaic', 'rust', 'smut'] as const;
 
+type SignsCopy = {
+  referencePhoto: string;
+  signPhrases: Record<(typeof SIGN_ENTRY_IDS)[number], string>;
+  signsHeading: string;
+};
+
 const signEntries = SIGN_ENTRY_IDS.flatMap((id) => {
   const entry = fieldGuideEntries.find((candidate) => candidate.id === id);
   const photo = entry?.images[0];
-  return entry && photo
-    ? [{ id, name: entry.shortName, sign: HOME_NOTE_COPY.signPhrases[id], photo }]
-    : [];
+  return entry && photo ? [{ id, name: entry.shortName, photo }] : [];
 });
 
 /** Horizontal strip of reference photos with one sign each; tapping opens that field-guide entry. */
-export function HomeSignsStrip({ onOpenEntry }: { onOpenEntry: (id: string) => void }) {
+export function HomeSignsStrip({
+  copy = HOME_NOTE_COPY,
+  onOpenEntry,
+}: {
+  /** Heading and sign wording; the farmer's language block on a farmer session. */
+  copy?: SignsCopy;
+  onOpenEntry: (id: string) => void;
+}) {
   const theme = useTheme();
   if (signEntries.length === 0) return null;
+
 
   return (
     <View style={styles.section} testID="home.signs">
       <Text style={[styles.heading, { color: theme.textSecondary }]}>
-        {HOME_NOTE_COPY.signsHeading}
+        {copy.signsHeading}
       </Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
         {signEntries.map((entry) => (
           <Pressable
-            accessibilityLabel={`${entry.name}. ${entry.sign}`}
+            accessibilityLabel={`${entry.name}. ${copy.signPhrases[entry.id]}`}
             accessibilityRole="button"
             key={entry.id}
             onPress={() => onOpenEntry(entry.id)}
@@ -74,7 +86,7 @@ export function HomeSignsStrip({ onOpenEntry }: { onOpenEntry: (id: string) => v
             ]}
             testID={`home.sign.${entry.id}`}>
             <Image
-              accessibilityLabel={`${entry.name} ${HOME_NOTE_COPY.referencePhoto.toLowerCase()}`}
+              accessibilityLabel={`${entry.name} ${copy.referencePhoto.toLowerCase()}`}
               source={entry.photo.source as ImageSourcePropType}
               style={styles.photo}
               resizeMode="cover"
@@ -82,10 +94,10 @@ export function HomeSignsStrip({ onOpenEntry }: { onOpenEntry: (id: string) => v
             <View style={styles.cardText}>
               <Text style={[styles.cardName, { color: theme.text }]}>{entry.name}</Text>
               <Text numberOfLines={2} style={[styles.cardSign, { color: theme.textSecondary }]}>
-                {entry.sign}
+                {copy.signPhrases[entry.id]}
               </Text>
               <Text style={[styles.cardCue, { color: theme.textSecondary }]}>
-                {HOME_NOTE_COPY.referencePhoto}
+                {copy.referencePhoto}
               </Text>
             </View>
           </Pressable>

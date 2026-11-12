@@ -32,7 +32,8 @@ import {
   type FarmerScanState,
 } from '@/features/records/domain/scanState';
 import { usePaginatedScanRecords } from '@/features/records/hooks/useRecords';
-import { useFarmerScanStates } from '@/features/records/hooks/useScanStates';
+import { possibleConditionLine } from '@/features/records/components/possibleConditionLine';
+import { useFarmerScans } from '@/features/records/hooks/useScanStates';
 import type { ScanRecordListItem } from '@/features/records/domain/recordTypes';
 import { useTheme } from '@/hooks/use-theme';
 import { useFarmerCopy } from '@/providers/LanguagePreferenceProvider';
@@ -52,7 +53,8 @@ function TimelineSeparator() {
 /** Farmer version of the Activity tab: the farmer's own scans with a computed state. */
 export default function MyScansScreen() {
   const theme = useTheme();
-  const copy = useFarmerCopy().myScans;
+  const farmerCopy = useFarmerCopy();
+  const copy = farmerCopy.myScans;
   const [filter, setFilter] = useState<StateFilter>('all');
   const [searchInput, setSearchInput] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
@@ -60,19 +62,24 @@ export default function MyScansScreen() {
     { search: submittedSearch || undefined },
     DEFAULT_RECORD_PAGE_SIZE,
   );
-  const states = useFarmerScanStates();
+  const { states, threads } = useFarmerScans();
   const stateLabel = useCallback(
     (state: FarmerScanState) => copy[STATE_COPY_KEY[state]],
     [copy],
   );
 
-  const visible = useMemo(
-    () =>
-      filter === 'all'
-        ? records.data
-        : records.data.filter((record) => states.get(record.id) === filter),
-    [filter, records.data, states],
-  );
+  // One card per plant: the newest loaded check stands for the first check and
+  // its follow-ups, which stay reachable from that record's check history.
+  const visible = useMemo(() => {
+    const seenPlants = new Set<string>();
+    return records.data.filter((record) => {
+      if (filter !== 'all' && states.get(record.id) !== filter) return false;
+      const plant = threads.get(record.id)?.originalId ?? record.id;
+      if (seenPlants.has(plant)) return false;
+      seenPlants.add(plant);
+      return true;
+    });
+  }, [filter, records.data, states, threads]);
   const hasFilters = filter !== 'all' || Boolean(submittedSearch);
   const chips: { key: StateFilter; label: string }[] = [
     { key: 'all', label: copy.filterAll },
@@ -82,12 +89,21 @@ export default function MyScansScreen() {
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<ScanRecordListItem>) => {
       const state = states.get(item.id);
+      const checkCount = threads.get(item.id)?.checkCount ?? 1;
       return (
         <View style={styles.listRow}>
           <RecordCard
             testID={`my-scans.item.${item.id}`}
             record={item}
             scanState={state ? { label: stateLabel(state), state } : undefined}
+            farmerText={{
+              checks:
+                checkCount > 1
+                  ? copy.checkCount.replace('{count}', String(checkCount))
+                  : undefined,
+              openLabel: copy.openScan,
+              result: possibleConditionLine(farmerCopy, item.predictedLabel),
+            }}
             onPress={() =>
               router.push({
                 pathname: '/record-details',
@@ -98,7 +114,7 @@ export default function MyScansScreen() {
         </View>
       );
     },
-    [stateLabel, states],
+    [copy, farmerCopy, stateLabel, states, threads],
   );
 
   const submitSearch = () => setSubmittedSearch(searchInput.trim());

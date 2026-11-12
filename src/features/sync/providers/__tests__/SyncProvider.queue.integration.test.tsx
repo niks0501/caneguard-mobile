@@ -96,7 +96,7 @@ function openDatabase() {
   return { database: drizzle(sqlite, { schema }) as CaneGuardDatabase, native };
 }
 
-async function seedHeldQueues(database: CaneGuardDatabase) {
+async function seedHeldQueues(database: CaneGuardDatabase, native: DatabaseSync, boundaryCooling = true) {
   const draft = await saveFieldSurveyDraft(database, {
     authorRole: 'field_reporter', capturedAt: '2026-07-25T05:30:00.000Z', clientUuid: surveyId,
     districtCode: 'D-01', ownerIdentity: ownerId, waypoints,
@@ -118,6 +118,10 @@ async function seedHeldQueues(database: CaneGuardDatabase) {
   }, imageReady);
   expect(result.status).toBe('finalized');
   updateFieldSurveySyncResult(database, surveyId, ownerId, { status: 'failed', lastSyncErrorCode: 'NETWORK_UNAVAILABLE' });
+  if (!boundaryCooling) {
+    native.prepare('UPDATE field_surveys SET updated_at = ? WHERE client_uuid = ? AND owner_identity = ?')
+      .run(new Date(Date.now() - 120_000).toISOString(), surveyId, ownerId);
+  }
   return { draft, report: reportId, survey: surveyId };
 }
 
@@ -146,19 +150,18 @@ describe('SyncProvider held-queue integration', () => {
       : { id: 'survey-remote', status: 'kept' } as never);
   });
 
-  it('uploads persisted report and boundary after verification completes without another trigger', async () => {
+  it('immediately uploads a non-cooling queue when verification completes', async () => {
     jest.useFakeTimers();
     try {
       const { database, native } = openDatabase();
       jest.mocked(useCaneGuardDatabase).mockReturnValue(database);
-      await seedHeldQueues(database);
+      await seedHeldQueues(database, native, false);
       jest.mocked(useAuth).mockReturnValue(authState('pending'));
       const triggerOnline = mockNetworkListener();
       const view = await render(<SyncProvider><Text>ready</Text></SyncProvider>);
       await act(async () => { jest.runOnlyPendingTimers(); await Promise.resolve(); });
       await triggerOnline();
       await waitFor(() => expect(findOwnedFieldSurvey(database, surveyId, ownerId)?.status).toBe('failed'));
-      jest.setSystemTime(Date.now() + 60_001);
       jest.mocked(useAuth).mockReturnValue(authState('verified'));
       await view.rerender(<SyncProvider><Text>ready</Text></SyncProvider>);
       await waitFor(() => expect(jest.mocked(apiRequest)).toHaveBeenCalled());
@@ -174,11 +177,41 @@ describe('SyncProvider held-queue integration', () => {
     }
   });
 
+  it('keeps a cooling boundary held until the retry timer reaches cooldown', async () => {
+    jest.useFakeTimers();
+    try {
+      const { database, native } = openDatabase();
+      jest.mocked(useCaneGuardDatabase).mockReturnValue(database);
+      await seedHeldQueues(database, native, true);
+      jest.mocked(useAuth).mockReturnValue(authState('pending'));
+      const triggerOnline = mockNetworkListener();
+      const view = await render(<SyncProvider><Text>ready</Text></SyncProvider>);
+      await act(async () => { jest.runOnlyPendingTimers(); await Promise.resolve(); });
+      await triggerOnline();
+      await waitFor(() => expect(findOwnedFieldSurvey(database, surveyId, ownerId)?.status).toBe('failed'));
+      jest.mocked(useAuth).mockReturnValue(authState('verified'));
+      await view.rerender(<SyncProvider><Text>ready</Text></SyncProvider>);
+      await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+      expect(jest.mocked(apiRequest)).not.toHaveBeenCalled();
+      expect(findOwnedFieldSurvey(database, surveyId, ownerId)).toMatchObject({
+        status: 'failed', lastSyncErrorCode: 'NETWORK_UNAVAILABLE',
+      });
+
+      await act(async () => { await jest.advanceTimersByTimeAsync(60_001); });
+      await waitFor(() => expect(jest.mocked(apiRequest)).toHaveBeenCalled());
+      await waitFor(async () => expect((await findFieldReportById(database, reportId, ownerId))?.syncStatus).toBe('synced'));
+      expect(findOwnedFieldSurvey(database, surveyId, ownerId)).toMatchObject({ status: 'synced', remoteId: 'survey-remote' });
+      native.close();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('retries verification on the timer and uploads held records after success', async () => {
     jest.useFakeTimers();
     const { database, native } = openDatabase();
     jest.mocked(useCaneGuardDatabase).mockReturnValue(database);
-    await seedHeldQueues(database);
+    await seedHeldQueues(database, native);
     let rerenderVerified: () => Promise<void> = async () => undefined;
     const retry = jest.fn(async () => {
       jest.mocked(useAuth).mockReturnValue(authState('verified', retry));
@@ -209,7 +242,7 @@ describe('SyncProvider held-queue integration', () => {
     jest.useFakeTimers();
     const { database, native } = openDatabase();
     jest.mocked(useCaneGuardDatabase).mockReturnValue(database);
-    await seedHeldQueues(database);
+    await seedHeldQueues(database, native);
     const retry = jest.fn(async () => 'unavailable');
     jest.mocked(useAuth).mockReturnValue(authState('unavailable', retry));
     let listener: ((state: never) => void) | undefined;

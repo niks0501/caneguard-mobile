@@ -228,6 +228,34 @@ export async function markMobileNotificationRead(options: {
   }
 }
 
+/**
+ * Tell the office the inspector saw an advice update. `seenAt` is the moment
+ * the update was opened on the phone, so a Seen sent after a long offline wait
+ * still shows the true time. The agreed shape (SEAM-4) is a POST of
+ * `{ seen_at }`; a server that predates it answers 404/405 and the caller
+ * falls back to mark-read.
+ */
+export async function markMobileNotificationSeen(options: {
+  id: string;
+  seenAt: string;
+  token: string;
+}): Promise<void> {
+  try {
+    await apiRequest<unknown>(
+      `${NOTIFICATION_PATH}/${encodeURIComponent(options.id)}/seen`,
+      {
+        method: 'POST',
+        token: options.token,
+        timeoutMs: 20_000,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seen_at: options.seenAt }),
+      },
+    );
+  } catch (error: unknown) {
+    throw mapApiError(error);
+  }
+}
+
 /** Mark every unread notification owned by the signed-in inspector as read. */
 export async function markAllMobileNotificationsRead(options: {
   token: string;

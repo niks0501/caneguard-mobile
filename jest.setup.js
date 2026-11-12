@@ -1,5 +1,10 @@
 process.env.EXPO_PUBLIC_API_BASE_URL ??= 'http://127.0.0.1:8000';
 
+// The download coordinator watches reconnects through NetInfo; the native module does not exist under Jest.
+jest.mock('@react-native-community/netinfo', () =>
+  require('@react-native-community/netinfo/jest/netinfo-mock.js'),
+);
+
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );

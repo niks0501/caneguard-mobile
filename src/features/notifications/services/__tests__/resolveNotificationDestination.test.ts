@@ -41,6 +41,39 @@ describe('resolveNotificationDestination', () => {
     expect(findLocal).not.toHaveBeenCalled();
   });
 
+  // Intent: an update for a case not on the phone fetches visits once, then opens the visit that arrived.
+  it('fetches visits once for an unknown case and opens the visit that arrives', async () => {
+    findByCase.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'assignment-7' } as never);
+    findLocal.mockResolvedValue(null);
+    const fetchVisitsOnMiss = jest.fn(async () => undefined);
+
+    await expect(
+      resolveNotificationDestination(
+        database,
+        'owner-1',
+        { assignmentUuid: null, caseUuid: 'case-7', referenceCode: 'CG-2026-0007' },
+        { fetchVisitsOnMiss },
+      ),
+    ).resolves.toEqual({ kind: 'assignment', assignmentId: 'assignment-7' });
+    expect(fetchVisitsOnMiss).toHaveBeenCalledTimes(1);
+  });
+
+  // Intent: when the visit still is not there after the one fetch, the answer stays unavailable.
+  it('falls back to unavailable after one fetch finds nothing', async () => {
+    findLocal.mockResolvedValue(null);
+    const fetchVisitsOnMiss = jest.fn(async () => undefined);
+
+    await expect(
+      resolveNotificationDestination(
+        database,
+        'owner-1',
+        { assignmentUuid: null, caseUuid: 'case-8', referenceCode: null },
+        { fetchVisitsOnMiss },
+      ),
+    ).resolves.toEqual({ kind: 'unavailable' });
+    expect(fetchVisitsOnMiss).toHaveBeenCalledTimes(1);
+  });
+
   it('prefers a cached owner assignment without touching local reports', async () => {
     await expect(
       resolveNotificationDestination(database, 'owner-1', {

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { useToast } from '@/components/ui/Toast';
 import { OFFICE_UPDATE_NOT_ON_PHONE, OFFICE_UPDATE_STILL_OPENING } from '@/constants/copy';
@@ -27,17 +27,37 @@ export function useOpenMobileNotification({
   destinations,
   markRead,
   onClose,
+  resolveAgain,
 }: {
   destinations: Map<string, NotificationDestination>;
   markRead: (notificationId: string) => Promise<void>;
   onClose: () => void;
+  /** Looks the destination up again after one visits download; used for a case not on this phone. */
+  resolveAgain?: (notification: MobileNotification) => Promise<NotificationDestination>;
 }) {
   const { showToast } = useToast();
+  const resolving = useRef(new Set<string>());
 
   return useCallback(
-    (notification: MobileNotification) => {
-      const destination = destinations.get(notification.id);
+    async (notification: MobileNotification) => {
+      let destination = destinations.get(notification.id);
       const hasDetail = Boolean(notification.content || notification.advisory);
+
+      if (
+        !hasDetail &&
+        destination?.kind === 'unavailable' &&
+        resolveAgain &&
+        !resolving.current.has(notification.id)
+      ) {
+        resolving.current.add(notification.id);
+        try {
+          destination = await resolveAgain(notification);
+        } catch {
+          // Keep the unavailable answer; the toast below still explains it.
+        } finally {
+          resolving.current.delete(notification.id);
+        }
+      }
       const openable = hasDetail || (destination && destination.kind !== 'unavailable');
 
       if (!hasDetail && !destination) {
@@ -65,6 +85,6 @@ export function useOpenMobileNotification({
         router.push(route as never);
       }
     },
-    [destinations, markRead, onClose, showToast],
+    [destinations, markRead, onClose, resolveAgain, showToast],
   );
 }

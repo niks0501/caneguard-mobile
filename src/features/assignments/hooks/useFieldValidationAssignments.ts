@@ -16,6 +16,10 @@ import {
 } from '@/features/assignments/data/assignmentCacheRepository';
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import { prefetchOfficeMedia } from '@/features/assignments/services/officeMediaCache';
+import {
+  registerDownloadStep,
+  requestDownloadRun,
+} from '@/features/mobile-data/services/downloadCoordinator';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { refreshFieldValidationAssignments } from '@/features/assignments/services/refreshFieldValidationAssignments';
 import {
@@ -245,16 +249,21 @@ export function useFieldValidationAssignments(enabled = true) {
     [refreshOutcome],
   );
 
+  useEffect(
+    () => registerDownloadStep('visits', () => refreshOutcome({ force: false })),
+    [refreshOutcome],
+  );
+
   useEffect(() => {
     if (ownerStore) {
-      void refresh({ force: false });
+      requestDownloadRun();
     }
   }, [ownerStore, ownerStore?.assignmentsVerified, ownerStore?.generation, refresh]);
 
   useFocusEffect(
     useCallback(() => {
-      if (enabled) void refresh({ force: false });
-    }, [enabled, refresh]),
+      if (enabled) requestDownloadRun();
+    }, [enabled]),
   );
 
   useEffect(() => {
@@ -263,13 +272,13 @@ export function useFieldValidationAssignments(enabled = true) {
     const subscription = AppState.addEventListener('change', (nextState) => {
       const becameActive = nextState === 'active' && previousState !== 'active';
       previousState = nextState;
-      if (becameActive) void refresh({ force: false });
+      if (becameActive) requestDownloadRun();
     });
     return () => {
       mounted.current = false;
       subscription.remove();
     };
-  }, [refresh]);
+  }, []);
 
   const assignmentsSnapshot = canRead ? ownerStore?.assignments ?? null : null;
   const visibleState =

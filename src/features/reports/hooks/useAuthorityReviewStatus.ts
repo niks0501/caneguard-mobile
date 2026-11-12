@@ -8,6 +8,10 @@ import {
   ReportStatusesApiError,
 } from '@/features/reports/api/mobileReportStatusesApi';
 import { hasStaleAuthorityReviewCache } from '@/features/reports/data/fieldReportReviewRepository';
+import {
+  registerDownloadStep,
+  requestDownloadRun,
+} from '@/features/mobile-data/services/downloadCoordinator';
 import { refreshAuthorityReviewStatus } from '@/features/reports/services/refreshAuthorityReviewStatus';
 
 const STALE_AFTER_MS = 45_000;
@@ -150,12 +154,17 @@ export function useAuthorityReviewStatus(enabled = true) {
     sessionKey,
   ]);
 
+  useEffect(
+    () => registerDownloadStep('officeStatus', refreshIfStale),
+    [refreshIfStale],
+  );
+
   useFocusEffect(
     useCallback(() => {
       if (enabled) {
-        void refreshIfStale();
+        requestDownloadRun();
       }
-    }, [enabled, refreshIfStale]),
+    }, [enabled]),
   );
 
   useEffect(() => {
@@ -166,14 +175,14 @@ export function useAuthorityReviewStatus(enabled = true) {
         nextState === 'active' && previousState !== 'active';
       previousState = nextState;
       if (becameActive) {
-        void refreshIfStale();
+        requestDownloadRun();
       }
     });
     return () => {
       mounted.current = false;
       subscription.remove();
     };
-  }, [refreshIfStale]);
+  }, []);
 
   const visibleState =
     state.sessionKey === sessionKey

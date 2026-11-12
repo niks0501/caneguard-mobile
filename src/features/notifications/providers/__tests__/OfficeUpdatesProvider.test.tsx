@@ -16,6 +16,14 @@ jest.mock('@/providers/LanguagePreferenceProvider', () => ({
   useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY.en,
 }));
 
+jest.mock('@/database/DatabaseProvider', () => ({
+  EMPTY_DATABASE: {},
+  useCaneGuardDatabase: () => ({}),
+}));
+jest.mock('@/features/auth/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { uuid: 'owner-1' } }),
+}));
+
 const mockPush = router.push as jest.Mock;
 const mockRefreshNotifications = jest.fn(async () => true);
 const mockMarkRead = jest.fn(async () => undefined);

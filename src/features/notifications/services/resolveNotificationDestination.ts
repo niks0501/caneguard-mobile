@@ -21,8 +21,37 @@ export type NotificationDestination =
  * office-case assignment for that case, and then to their local Field Report,
  * instead of advertising a dead assignment route. A case that was never stored
  * on this device (or was removed) resolves to `unavailable`.
+ *
+ * When `fetchVisitsOnMiss` is given, an unknown case downloads visits once and
+ * looks again before settling on `unavailable`, so a new visit that has not been
+ * downloaded yet still opens.
  */
 export async function resolveNotificationDestination(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  notification: Pick<
+    MobileNotification,
+    'assignmentUuid' | 'caseUuid' | 'referenceCode'
+  >,
+  options?: { fetchVisitsOnMiss?: () => Promise<void> },
+): Promise<NotificationDestination> {
+  const destination = await lookupNotificationDestination(
+    database,
+    ownerIdentity,
+    notification,
+  );
+  if (destination.kind !== 'unavailable' || !options?.fetchVisitsOnMiss) {
+    return destination;
+  }
+  try {
+    await options.fetchVisitsOnMiss();
+  } catch {
+    return destination;
+  }
+  return lookupNotificationDestination(database, ownerIdentity, notification);
+}
+
+async function lookupNotificationDestination(
   database: CaneGuardDatabase,
   ownerIdentity: string,
   notification: Pick<

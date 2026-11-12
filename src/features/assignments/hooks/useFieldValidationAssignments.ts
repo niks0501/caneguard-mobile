@@ -243,7 +243,7 @@ export function useFieldValidationAssignments(enabled = true) {
     if (ownerStore && ownerStore.generation > 0) {
       void refresh({ force: false });
     }
-  }, [ownerStore, ownerStore?.generation, refresh]);
+  }, [ownerStore, ownerStore?.assignmentsVerified, ownerStore?.generation, refresh]);
 
   useFocusEffect(
     useCallback(() => {

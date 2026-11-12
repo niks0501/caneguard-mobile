@@ -231,13 +231,14 @@ describe('buildMorningNote', () => {
         meta: 'Saved',
         title: 'Finish your field report',
       },
+      'Finish your field report',
     ],
-    ['a visit', visit('today')],
-    ['an office update', READABLE_UPDATE],
-  ])('keeps the work headline for %s while visits are pending', (_work, item) => {
+    ['a visit', visit('today'), 'One visit today.'],
+    ['an office update', READABLE_UPDATE, 'One office update to read.'],
+  ])('keeps the work headline for %s while visits are pending', (_work, item, expectedHeadline) => {
     const note = buildMorningNote([item], null, false, true);
 
-    expect(note.headline).toBe(item.title);
+    expect(note.headline).toBe(expectedHeadline);
     expect(note.headline).not.toBe('All clear.');
     expect(note.headline).not.toBe("Couldn't check your visits.");
   });

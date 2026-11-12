@@ -68,6 +68,10 @@ describe('useFieldValidationAssignments capabilities', () => {
   });
 
   it('keeps cached assignments visible on the read grant and withdraws them without it', async () => {
+    let completeRefresh!: (value: never) => void;
+    mockRefreshAssignments.mockReturnValue(
+      new Promise((resolve) => { completeRefresh = resolve; }) as never,
+    );
     mockUseAuth.mockReturnValue({
       isSessionCurrent: () => true,
       markSessionExpired,
@@ -79,6 +83,7 @@ describe('useFieldValidationAssignments capabilities', () => {
       useFieldValidationAssignments(),
     );
     await waitFor(() => expect(result.current.assignments).toHaveLength(1));
+    expect(mockRefreshAssignments).toHaveBeenCalledTimes(1);
 
     mockUseAuth.mockReturnValue({
       isSessionCurrent: () => true,
@@ -95,7 +100,8 @@ describe('useFieldValidationAssignments capabilities', () => {
       await Promise.resolve();
     });
     expect(result.current.assignments).toEqual([]);
-    expect(mockRefreshAssignments).not.toHaveBeenCalled();
+    expect(mockRefreshAssignments).toHaveBeenCalledTimes(1);
+    completeRefresh({ assignments: [], fetchedAt: Date.now() } as never);
   });
 
   it('never reads the assignment cache without assignment:read', async () => {

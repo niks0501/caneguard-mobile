@@ -3,6 +3,15 @@ import { randomUUID } from 'expo-crypto';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import {
+  canTransition,
+  createFieldReportFlowState,
+  isFlowBusy,
+  reduceFieldReportFlow,
+  type FieldReportFlowEvent,
+  type FieldReportFlowState,
+} from '@/features/reports/domain/fieldReportFlow';
+
 import type {
   LocationUnavailableReason,
   MeasurementProvenance,
@@ -23,7 +32,6 @@ import {
 } from '@/features/reports/data/fieldReportRepository';
 import type {
   FieldReport,
-  FieldReportSubmissionRequirement,
   SaveFieldReportDraftInput,
 } from '@/features/reports/domain/fieldReportTypes';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -62,13 +70,10 @@ export type FinalizeOutcome =
   | { report: FieldReport; status: 'finalized' }
   | { status: 'busy' | 'failed' | 'invalid' };
 
-interface FieldReportState {
+interface FieldReportLookupState {
   data: FieldReport | null;
   errorMessage: string | null;
   loading: boolean;
-}
-
-interface FieldReportLookupState extends FieldReportState {
   hasOtherOwnerReport: boolean;
 }
 
@@ -204,6 +209,30 @@ export function useFieldReportForScan(scanRecordId: string | null) {
   return { ...visibleState, refresh };
 }
 
+/**
+ * The report flow's single state. `send` runs the shared reducer against a
+ * synchronously updated ref, so two callers in the same tick see the same
+ * phase and the transition table, not a render's closure, decides who wins.
+ * Returns false when the table refuses the event.
+ */
+function useFieldReportFlowStore() {
+  const [state, setState] = useState<FieldReportFlowState>(() =>
+    createFieldReportFlowState(),
+  );
+  const latest = useRef<FieldReportFlowState>(state);
+  const send = useCallback((event: FieldReportFlowEvent): boolean => {
+    const next = reduceFieldReportFlow(latest.current, event);
+    if (next === latest.current) {
+      return false;
+    }
+    latest.current = next;
+    setState(next);
+    return true;
+  }, []);
+  const get = useCallback(() => latest.current, []);
+  return { get, send, state };
+}
+
 export function useFieldReportDraft(
   scanRecordId: string | null,
   createIfMissing = true,
@@ -211,29 +240,13 @@ export function useFieldReportDraft(
 ) {
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
-  const [state, setState] = useState<FieldReportState>({
-    data: null,
-    errorMessage: null,
-    loading: true,
-  });
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [capturingLocation, setCapturingLocation] = useState(false);
-  const [locationServicesDisabled, setLocationServicesDisabled] = useState(false);
-  const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
-  const [finalizing, setFinalizing] = useState(false);
-  const [savingManualLocation, setSavingManualLocation] = useState(false);
-  const [submissionIssues, setSubmissionIssues] = useState<
-    FieldReportSubmissionRequirement[]
-  >([]);
+  const { get: getFlow, send, state } = useFieldReportFlowStore();
   const reportId = useRef<{
     id: string;
     scanRecordId: string;
     submitterIdentity: string;
   } | null>(null);
   const saveInFlight = useRef<Promise<FieldReport> | null>(null);
-  const finalizeInFlight = useRef(false);
-  const locationCaptureInFlight = useRef(false);
   // Increments whenever a newer location action supersedes an in-flight
   // reading; a late native result is then discarded instead of persisted.
   const locationAttempt = useRef(0);
@@ -274,37 +287,26 @@ export function useFieldReportDraft(
 
   const runLocationCapture = useCallback(
     async (report: FieldReport): Promise<FieldReport | null> => {
-      if (
-        !user ||
-        !canAuthorReports ||
-        locationCaptureInFlight.current ||
-        finalizing ||
-        finalizeInFlight.current
-      ) {
+      if (!user || !canAuthorReports || !send({ type: 'LOCATE_STARTED' })) {
         return null;
       }
 
       const attempt = ++locationAttempt.current;
       const attemptStartedAt = new Date().toISOString();
-      locationCaptureInFlight.current = true;
-      setCapturingLocation(true);
-      setLocationServicesDisabled(false);
-      setLocationPermissionDenied(false);
-      setSaved(false);
-      setSubmissionIssues([]);
       lastError.current = null;
-      setState((current) => ({ ...current, errorMessage: null }));
       try {
         const result = await captureGpsLocation(expoForegroundLocationClient);
         if (attempt !== locationAttempt.current) {
           // Cancelled, superseded, or the owner changed while the reading ran.
           return null;
         }
-        setLocationServicesDisabled(
-          result.outcome === 'unavailable' &&
+        send({
+          type: 'LOCATE_NOTICES',
+          permissionDenied: result.outcome === 'permission_denied',
+          servicesDisabled:
+            result.outcome === 'unavailable' &&
             result.reason === 'location_services_disabled',
-        );
-        setLocationPermissionDenied(result.outcome === 'permission_denied');
+        });
         const data = await saveGpsCapture(database, report.id, user.uuid, {
           ...result,
           startedAt: attemptStartedAt,
@@ -316,7 +318,7 @@ export function useFieldReportDraft(
         if (attempt !== locationAttempt.current) {
           return null;
         }
-        setState({ data, errorMessage: null, loading: false });
+        send({ type: 'LOCATE_SUCCEEDED', data });
         return data;
       } catch (error: unknown) {
         const storageError = toStorageError(
@@ -326,27 +328,25 @@ export function useFieldReportDraft(
         );
         if (attempt === locationAttempt.current && isCurrentInput()) {
           lastError.current = getStorageErrorMessage(storageError);
-          setState((current) => ({
-            ...current,
-            errorMessage: getStorageErrorMessage(storageError),
-          }));
+          send({
+            type: 'LOCATE_FAILED',
+            message: getStorageErrorMessage(storageError),
+          });
         }
         return null;
       } finally {
         if (attempt === locationAttempt.current) {
-          locationCaptureInFlight.current = false;
-          setCapturingLocation(false);
+          send({ type: 'LOCATE_ENDED' });
         }
       }
     },
-    [canAuthorReports, database, finalizing, isCurrentInput, user],
+    [canAuthorReports, database, isCurrentInput, send, user],
   );
 
   const invalidateLocationAttempt = useCallback(() => {
     locationAttempt.current += 1;
-    locationCaptureInFlight.current = false;
-    setCapturingLocation(false);
-  }, []);
+    send({ type: 'LOCATE_ENDED' });
+  }, [send]);
 
   const cancelLocationCapture = useCallback(() => {
     // A foreground native read cannot be cancelled directly; invalidating the
@@ -355,11 +355,12 @@ export function useFieldReportDraft(
   }, [invalidateLocationAttempt]);
 
   const captureLocation = useCallback(async (): Promise<FieldReport | null> => {
-    if (!state.data || !hasCurrentReport || !user) {
+    const data = getFlow().data;
+    if (!data || !hasCurrentReport || !user) {
       return null;
     }
-    return runLocationCapture(state.data);
-  }, [hasCurrentReport, runLocationCapture, state.data, user]);
+    return runLocationCapture(data);
+  }, [getFlow, hasCurrentReport, runLocationCapture, user]);
 
   const attemptAutomaticLocationCapture = useCallback(
     async (report: FieldReport) => {
@@ -380,7 +381,7 @@ export function useFieldReportDraft(
   );
   // Stable handle for `refresh`: the focus effect re-runs when `refresh`
   // changes identity, so the auto-capture callback must not be a direct
-  // dependency (it changes while a GPS capture or finalize is in flight).
+  // dependency.
   const attemptAutomaticLocationCaptureRef = useRef(
     attemptAutomaticLocationCapture,
   );
@@ -398,33 +399,29 @@ export function useFieldReportDraft(
       isCurrentInput();
 
     if (!scanRecordId) {
-      setState({
-        data: null,
-        errorMessage: 'This completed scan link is invalid.',
-        loading: false,
+      send({
+        type: 'LOAD_FAILED',
+        message: 'This completed scan link is invalid.',
       });
       return null;
     }
     if (!user) {
-      setState({
-        data: null,
-        errorMessage: 'Sign in before creating a Field Report.',
-        loading: false,
+      send({
+        type: 'LOAD_FAILED',
+        message: 'Sign in before creating a Field Report.',
       });
       return null;
     }
     if (!canAuthorReports) {
-      setState({
-        data: null,
-        errorMessage: FIELD_REPORT_ROLE_ERROR,
-        loading: false,
-      });
+      send({ type: 'LOAD_FAILED', message: FIELD_REPORT_ROLE_ERROR });
       return null;
     }
 
-    setState({ data: null, errorMessage: null, loading: true });
-    setSaved(false);
-    setSubmissionIssues([]);
+    // Refused while a save, place or finalize is mid-flight: reloading then
+    // would wipe the report the running operation is about to update.
+    if (!send({ type: 'LOAD_STARTED' })) {
+      return null;
+    }
     try {
       const existing = await findFieldReportByScanRecordId(
         database,
@@ -435,10 +432,9 @@ export function useFieldReportDraft(
         return null;
       }
       if (!existing && !createIfMissing) {
-        setState({
-          data: null,
-          errorMessage: 'This Field Report Draft could not be found.',
-          loading: false,
+        send({
+          type: 'LOAD_FAILED',
+          message: 'This Field Report Draft could not be found.',
         });
         return null;
       }
@@ -473,8 +469,7 @@ export function useFieldReportDraft(
         scanRecordId,
         submitterIdentity: user.uuid,
       };
-      setState({ data, errorMessage: null, loading: false });
-      setSubmissionIssues([]);
+      send({ type: 'LOADED', data });
       if (!existing) {
         // D5: a brand-new draft automatically attempts one foreground GPS
         // reading. The manual map remains the fallback and may override;
@@ -491,10 +486,9 @@ export function useFieldReportDraft(
         'QUERY_FAILED',
         'Opening the Field Report draft failed.',
       );
-      setState({
-        data: null,
-        errorMessage: getStorageErrorMessage(storageError),
-        loading: false,
+      send({
+        type: 'LOAD_FAILED',
+        message: getStorageErrorMessage(storageError),
       });
       return null;
     }
@@ -504,6 +498,7 @@ export function useFieldReportDraft(
     database,
     isCurrentInput,
     scanRecordId,
+    send,
     user,
   ]);
 
@@ -520,26 +515,19 @@ export function useFieldReportDraft(
     async (
       values: Omit<SaveFieldReportDraftInput, 'updatedAt'>,
     ): Promise<FieldReport | null> => {
-      if (
-        !state.data ||
-        !hasCurrentReport ||
-        !user ||
-        !canAuthorReports ||
-        finalizing ||
-        finalizeInFlight.current
-      ) {
+      const current = getFlow().data;
+      if (!current || !hasCurrentReport || !user || !canAuthorReports) {
         return null;
       }
       if (saveInFlight.current) {
         return saveInFlight.current;
       }
+      if (!send({ type: 'SAVE_STARTED' })) {
+        return null;
+      }
 
       lastError.current = null;
-      setSaving(true);
-      setSaved(false);
-      setSubmissionIssues([]);
-      setState((current) => ({ ...current, errorMessage: null }));
-      const operation = saveFieldReportDraft(database, state.data.id, user.uuid, {
+      const operation = saveFieldReportDraft(database, current.id, user.uuid, {
         ...values,
         updatedAt: new Date().toISOString(),
       });
@@ -550,8 +538,7 @@ export function useFieldReportDraft(
         if (!isCurrentInput()) {
           return null;
         }
-        setState({ data, errorMessage: null, loading: false });
-        setSaved(true);
+        send({ type: 'SAVE_SUCCEEDED', data });
         return data;
       } catch (error: unknown) {
         const storageError = toStorageError(
@@ -561,258 +548,149 @@ export function useFieldReportDraft(
         );
         lastError.current = getStorageErrorMessage(storageError);
         if (isCurrentInput()) {
-          setState((current) => ({
-            ...current,
-            errorMessage: getStorageErrorMessage(storageError),
-          }));
+          send({
+            type: 'SAVE_FAILED',
+            message: getStorageErrorMessage(storageError),
+          });
         }
         return null;
       } finally {
         if (saveInFlight.current === operation) {
           saveInFlight.current = null;
-          if (isCurrentInput()) {
-            setSaving(false);
-          }
+          // No-op when the success/failure above already left `saving`.
+          send({ type: 'SAVE_ENDED' });
         }
       }
     },
     [
       canAuthorReports,
       database,
-      finalizing,
+      getFlow,
       hasCurrentReport,
       isCurrentInput,
-      state.data,
+      send,
       user,
     ],
   );
 
-  const saveManualLocation = useCallback(
-    async (latitude: number, longitude: number): Promise<FieldReport | null> => {
+  /**
+   * Manual map point, clear, or "unavailable" mark: one place write at a time,
+   * never alongside a save or finalize, and it supersedes a running reading.
+   */
+  const runPlaceOperation = useCallback(
+    async (
+      write: (
+        reportIdToWrite: string,
+        owner: string,
+      ) => Promise<FieldReport | null>,
+      failureMessage: string,
+    ): Promise<FieldReport | null> => {
+      const current = getFlow().data;
       if (
-        !state.data ||
+        !current ||
         !hasCurrentReport ||
         !user ||
         !canAuthorReports ||
-        savingManualLocation ||
-        finalizing ||
-        finalizeInFlight.current ||
-        saveInFlight.current
+        saveInFlight.current ||
+        !send({ type: 'PLACE_STARTED' })
       ) {
         return null;
       }
 
-      invalidateLocationAttempt();
+      locationAttempt.current += 1;
       lastError.current = null;
-      setSavingManualLocation(true);
-      setSaved(false);
-      setSubmissionIssues([]);
-      setState((current) => ({ ...current, errorMessage: null }));
-      const selectedAt = new Date().toISOString();
       try {
-        const data = await saveManualMapLocation(
-          database,
-          state.data.id,
-          user.uuid,
-          {
+        const data = await write(current.id, user.uuid);
+        if (!isCurrentInput() || !data) {
+          return null;
+        }
+        send({ type: 'PLACE_SUCCEEDED', data });
+        return data;
+      } catch (error: unknown) {
+        const storageError = toStorageError(
+          error,
+          'UPDATE_FAILED',
+          failureMessage,
+        );
+        lastError.current = getStorageErrorMessage(storageError);
+        if (isCurrentInput()) {
+          send({
+            type: 'PLACE_FAILED',
+            message: getStorageErrorMessage(storageError),
+          });
+        }
+        return null;
+      } finally {
+        send({ type: 'PLACE_ENDED' });
+      }
+    },
+    [canAuthorReports, getFlow, hasCurrentReport, isCurrentInput, send, user],
+  );
+
+  const saveManualLocation = useCallback(
+    (latitude: number, longitude: number): Promise<FieldReport | null> => {
+      const selectedAt = new Date().toISOString();
+      return runPlaceOperation(
+        (id, owner) =>
+          saveManualMapLocation(database, id, owner, {
             latitude,
             longitude,
             selectedAt,
             updatedAt: selectedAt,
-          },
-        );
-        if (!isCurrentInput()) {
-          return null;
-        }
-        setState({ data, errorMessage: null, loading: false });
-        setSaved(true);
-        return data;
-      } catch (error: unknown) {
-        const storageError = toStorageError(
-          error,
-          'UPDATE_FAILED',
-          'Saving the manual map location failed.',
-        );
-        lastError.current = getStorageErrorMessage(storageError);
-        if (isCurrentInput()) {
-          setState((current) => ({
-            ...current,
-            errorMessage: getStorageErrorMessage(storageError),
-          }));
-        }
-        return null;
-      } finally {
-        setSavingManualLocation(false);
-      }
-    }, [
-      canAuthorReports,
-      database,
-      finalizing,
-      hasCurrentReport,
-      invalidateLocationAttempt,
-      isCurrentInput,
-      savingManualLocation,
-      state.data,
-      user,
-    ],
+          }),
+        'Saving the manual map location failed.',
+      );
+    },
+    [database, runPlaceOperation],
   );
 
   const clearUnavailableLocation = useCallback(
-    async (): Promise<FieldReport | null> => {
-      if (
-        !state.data ||
-        !hasCurrentReport ||
-        !user ||
-        !canAuthorReports ||
-        savingManualLocation ||
-        finalizing ||
-        finalizeInFlight.current ||
-        saveInFlight.current
-      ) {
-        return null;
-      }
-
-      invalidateLocationAttempt();
-      lastError.current = null;
-      setSavingManualLocation(true);
-      setSaved(false);
-      setSubmissionIssues([]);
-      setState((current) => ({ ...current, errorMessage: null }));
-      try {
-        const data = await clearLocationUnavailable(
-          database,
-          state.data.id,
-          user.uuid,
-          { updatedAt: new Date().toISOString() },
-        );
-        if (!isCurrentInput()) {
-          return null;
-        }
-        setState({ data, errorMessage: null, loading: false });
-        setSaved(true);
-        return data;
-      } catch (error: unknown) {
-        const storageError = toStorageError(
-          error,
-          'UPDATE_FAILED',
-          'Changing the report location failed.',
-        );
-        lastError.current = getStorageErrorMessage(storageError);
-        if (isCurrentInput()) {
-          setState((current) => ({
-            ...current,
-            errorMessage: getStorageErrorMessage(storageError),
-          }));
-        }
-        return null;
-      } finally {
-        setSavingManualLocation(false);
-      }
-    },
-    [
-      canAuthorReports,
-      database,
-      finalizing,
-      hasCurrentReport,
-      invalidateLocationAttempt,
-      isCurrentInput,
-      savingManualLocation,
-      state.data,
-      user,
-    ],
+    (): Promise<FieldReport | null> =>
+      runPlaceOperation(
+        (id, owner) =>
+          clearLocationUnavailable(database, id, owner, {
+            updatedAt: new Date().toISOString(),
+          }),
+        'Changing the report location failed.',
+      ),
+    [database, runPlaceOperation],
   );
 
   const markLocationUnavailable = useCallback(
-    async (reason: LocationUnavailableReason): Promise<FieldReport | null> => {
-      if (
-        !state.data ||
-        !hasCurrentReport ||
-        !user ||
-        !canAuthorReports ||
-        savingManualLocation ||
-        finalizing ||
-        finalizeInFlight.current ||
-        saveInFlight.current
-      ) {
-        return null;
-      }
-
-      invalidateLocationAttempt();
-      lastError.current = null;
-      setSavingManualLocation(true);
-      setSaved(false);
-      setSubmissionIssues([]);
-      setState((current) => ({ ...current, errorMessage: null }));
-      try {
-        const data = await setLocationUnavailable(database, state.data.id, user.uuid, {
-          reason,
-          updatedAt: new Date().toISOString(),
-        });
-        if (!isCurrentInput()) {
-          return null;
-        }
-        setState({ data, errorMessage: null, loading: false });
-        setSaved(true);
-        return data;
-      } catch (error: unknown) {
-        const storageError = toStorageError(
-          error,
-          'UPDATE_FAILED',
-          'Recording the unavailable location failed.',
-        );
-        lastError.current = getStorageErrorMessage(storageError);
-        if (isCurrentInput()) {
-          setState((current) => ({
-            ...current,
-            errorMessage: getStorageErrorMessage(storageError),
-          }));
-        }
-        return null;
-      } finally {
-        setSavingManualLocation(false);
-      }
-    },
-    [
-      canAuthorReports,
-      database,
-      finalizing,
-      hasCurrentReport,
-      invalidateLocationAttempt,
-      isCurrentInput,
-      savingManualLocation,
-      state.data,
-      user,
-    ],
+    (reason: LocationUnavailableReason): Promise<FieldReport | null> =>
+      runPlaceOperation(
+        (id, owner) =>
+          setLocationUnavailable(database, id, owner, {
+            reason,
+            updatedAt: new Date().toISOString(),
+          }),
+        'Recording the unavailable location failed.',
+      ),
+    [database, runPlaceOperation],
   );
 
   const finalizeWithOutcome = useCallback(
     async (values: FinalizeValues): Promise<FinalizeOutcome> => {
-      if (!state.data || !hasCurrentReport || !user || !canAuthorReports) {
+      const current = getFlow().data;
+      if (!current || !hasCurrentReport || !user || !canAuthorReports) {
         return { status: 'failed' };
       }
       // Refused because other work on this report is running, not because
       // finalizing failed: the caller can show a busy state and try again.
-      if (
-        finalizing ||
-        savingManualLocation ||
-        capturingLocation ||
-        finalizeInFlight.current ||
-        saveInFlight.current
-      ) {
+      if (isFlowBusy(getFlow()) || saveInFlight.current) {
+        send({ type: 'FINALIZE_REFUSED_BUSY' });
         return { status: 'busy' };
       }
+      if (!send({ type: 'FINALIZE_STARTED' })) {
+        return { status: 'failed' };
+      }
 
-      invalidateLocationAttempt();
-      finalizeInFlight.current = true;
-      setFinalizing(true);
-      setSaved(false);
-      setSubmissionIssues([]);
-      setState((current) => ({ ...current, errorMessage: null }));
+      locationAttempt.current += 1;
       const submittedAt = new Date().toISOString();
       try {
         const result = await finalizeFieldReport(
           database,
-          state.data.id,
+          current.id,
           user.uuid,
           {
             ...values,
@@ -824,12 +702,15 @@ export function useFieldReportDraft(
         if (!isCurrentInput()) {
           return { status: 'failed' };
         }
-        setState({ data: result.report, errorMessage: null, loading: false });
         if (result.status === 'invalid') {
-          setSubmissionIssues(result.missingRequirements);
-          setSaved(true);
+          send({
+            type: 'FINALIZE_INVALID',
+            data: result.report,
+            issues: result.missingRequirements,
+          });
           return { status: 'invalid' };
         }
+        send({ type: 'FINALIZE_SUCCEEDED', data: result.report });
         return { report: result.report, status: 'finalized' };
       } catch (error: unknown) {
         const storageError = toStorageError(
@@ -839,26 +720,24 @@ export function useFieldReportDraft(
         );
         lastError.current = getStorageErrorMessage(storageError);
         if (isCurrentInput()) {
-          setState((current) => ({
-            ...current,
-            errorMessage: getStorageErrorMessage(storageError),
-          }));
+          send({
+            type: 'FINALIZE_FAILED',
+            message: getStorageErrorMessage(storageError),
+          });
         }
         return { status: 'failed' };
       } finally {
-        finalizeInFlight.current = false;
-        setFinalizing(false);
+        // No-op when a result above already left `finalizing`.
+        send({ type: 'FINALIZE_ENDED' });
       }
-    }, [
+    },
+    [
       canAuthorReports,
-      capturingLocation,
       database,
-      finalizing,
+      getFlow,
       hasCurrentReport,
-      invalidateLocationAttempt,
       isCurrentInput,
-      savingManualLocation,
-      state.data,
+      send,
       user,
     ],
   );
@@ -872,13 +751,20 @@ export function useFieldReportDraft(
   );
 
   const discardDraft = useCallback(async (): Promise<boolean> => {
-    if (!state.data || !hasCurrentReport || !user || !canAuthorReports) {
+    const current = getFlow().data;
+    if (
+      !current ||
+      !hasCurrentReport ||
+      !user ||
+      !canAuthorReports ||
+      !canTransition(getFlow().phase, 'DISCARDED')
+    ) {
       return false;
     }
     try {
-      await deleteFieldReportDraft(database, state.data.id, user.uuid);
+      await deleteFieldReportDraft(database, current.id, user.uuid);
       if (isCurrentInput()) {
-        setState({ data: null, errorMessage: null, loading: false });
+        send({ type: 'DISCARDED' });
       }
       return true;
     } catch {
@@ -887,49 +773,67 @@ export function useFieldReportDraft(
   }, [
     canAuthorReports,
     database,
+    getFlow,
     hasCurrentReport,
     isCurrentInput,
-    state.data,
+    send,
     user,
   ]);
 
-  const visibleState = !canAuthorReports
+  const openFinalizeConfirm = useCallback(
+    () => send({ type: 'CONFIRM_OPENED' }),
+    [send],
+  );
+  const dismissFinalizeConfirm = useCallback(
+    () => send({ type: 'CONFIRM_DISMISSED' }),
+    [send],
+  );
+  /** The finalized report has been handed to sync; the flow is complete. */
+  const endSending = useCallback(() => send({ type: 'SEND_ENDED' }), [send]);
+
+  // What the screen sees. A report from another scan or owner, or a role that
+  // cannot author, never shows through: it reads as opening or unavailable.
+  const visible: FieldReportFlowState = !canAuthorReports
     ? {
-        data: null,
+        ...createFieldReportFlowState(
+          user || state.errorMessage ? 'load-failed' : 'empty',
+        ),
         errorMessage: user ? FIELD_REPORT_ROLE_ERROR : state.errorMessage,
-        loading: false,
       }
     : state.data && !hasCurrentReport
-      ? { data: null, errorMessage: null, loading: true }
+      ? createFieldReportFlowState('loading')
       : state;
+  const own = hasCurrentReport && canAuthorReports;
 
   return {
-    ...visibleState,
     cancelLocationCapture,
     captureLocation,
-    capturingLocation: hasCurrentReport ? capturingLocation : false,
-    getLastOperationError: () => lastError.current,
+    capturingLocation: own ? visible.reading : false,
     clearLocationUnavailable: clearUnavailableLocation,
+    confirmNotice: own ? visible.confirmNotice : null,
+    data: visible.data,
     discardDraft,
+    dismissFinalizeConfirm,
+    endSending,
+    errorMessage: visible.errorMessage,
     finalize,
     finalizeWithOutcome,
-    finalizing: hasCurrentReport ? finalizing : false,
-    locationServicesDisabled: hasCurrentReport
-      ? locationServicesDisabled
-      : false,
-    locationPermissionDenied: hasCurrentReport
-      ? locationPermissionDenied
-      : false,
+    finalizing: own ? visible.phase === 'finalizing' : false,
+    getLastOperationError: () => lastError.current,
+    loading: visible.phase === 'loading',
+    locationPermissionDenied: own ? visible.locationPermissionDenied : false,
+    locationServicesDisabled: own ? visible.locationServicesDisabled : false,
     markLocationUnavailable,
-    markingLocationUnavailable: hasCurrentReport
-      ? savingManualLocation
-      : false,
+    markingLocationUnavailable: own ? visible.phase === 'saving-location' : false,
+    openFinalizeConfirm,
+    /** The one named answer to where the report flow stands. */
+    phase: visible.phase,
     refresh,
     save,
     saveManualLocation,
-    saved: hasCurrentReport ? saved : false,
-    saving: hasCurrentReport ? saving : false,
-    savingManualLocation: hasCurrentReport ? savingManualLocation : false,
-    submissionIssues: hasCurrentReport ? submissionIssues : [],
+    saved: own ? visible.saved : false,
+    saving: own ? visible.phase === 'saving' : false,
+    savingManualLocation: own ? visible.phase === 'saving-location' : false,
+    submissionIssues: own ? visible.submissionIssues : [],
   };
 }

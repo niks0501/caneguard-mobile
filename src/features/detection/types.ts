@@ -54,6 +54,7 @@ export interface ScanSessionState {
   selectedSymptoms: ChecklistObservationId[];
   reportedSeverity: ReportedSeverity | null;
   errorMessage: string | null;
+  photoPreparationFailed?: boolean;
   /** Set when this scan is a Check Again of the saved scan with this id. */
   followUpOf?: string | null;
   /** The farmer's own words about what they see now (follow-up only). */
@@ -90,5 +91,5 @@ export type ScanSessionAction =
   | { type: 'COMPLETE_INFERENCE'; payload: DetectionResult }
   | { type: 'SET_SYMPTOMS'; payload: ChecklistObservationId[] }
   | { type: 'SET_REPORTED_SEVERITY'; payload: ReportedSeverity | null }
-  | { type: 'SET_ERROR'; payload: string }
+  | { type: 'SET_ERROR'; payload: string; photoPreparationFailed?: boolean }
   | { type: 'CLEAR_ERROR' };

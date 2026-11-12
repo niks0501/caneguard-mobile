@@ -137,7 +137,7 @@ export default function ScanScreen() {
             });
           }
           if (applyPickerResult(pendingResult, pendingLaunch.sourceType)) {
-            router.push('/image-preview');
+            router.push('/symptom-checklist');
           }
         }
       } catch {
@@ -217,7 +217,7 @@ export default function ScanScreen() {
     }
 
     if (shouldOpenPreview) {
-      router.push('/image-preview');
+      router.push('/symptom-checklist');
     }
   };
 
@@ -488,13 +488,20 @@ export default function ScanScreen() {
           primary={
             state.sourceUri ? (
               <AppButton
-                onPress={() => router.push('/image-preview')}
+                onPress={() => {
+                  if (state.result && state.status === 'error') {
+                    dispatch({ type: 'CLEAR_ERROR' });
+                  }
+                  router.push('/symptom-checklist');
+                }}
                 disabled={isBusy}
                 trailingIcon="arrow-right"
-                accessibilityLabel={isFarmer ? scanCopy.returnPreview : 'Return to selected image preview'}>
+                accessibilityLabel={
+                  isFarmer ? scanCopy.viewSelected : 'Continue with the selected photo'
+                }>
                 {draft.draftStatus === 'saved'
                   ? isFarmer ? scanCopy.resumeSaved : 'Resume Saved Scan'
-                  : isFarmer ? scanCopy.viewSelected : 'View Selected Image'}
+                  : isFarmer ? scanCopy.viewSelected : 'Continue with this photo'}
               </AppButton>
             ) : (
               <AppButton

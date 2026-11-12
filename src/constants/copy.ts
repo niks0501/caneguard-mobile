@@ -1495,3 +1495,39 @@ export const OFFICE_CASE_COPY = {
   viewerOpen: (label: string) => `Open ${label.toLowerCase()}`,
   version: (version: number) => `Version ${version}`,
 } as const;
+
+/**
+ * Scan path words shown right after the photo. English only for now: Tagalog
+ * labels for farmer screens ship after a reviewer approves them, so none are
+ * guessed here. Nothing on this path mentions sync state.
+ */
+export const SCAN_CHECK_COPY = {
+  title: 'Check your photo',
+  question: 'Which picture looks most like what you see?',
+  questionHint: 'Your choice is kept with this scan and never changes the result.',
+  checking: 'Checking your photo…',
+  checkingDetail: 'Looking at light and focus, then reading the photo.',
+  checkedTitle: 'Photo checked',
+  ready: 'Photo checked. Choose a picture, then continue.',
+  continue: 'Continue',
+  continueWaiting: 'Checking photo…',
+  continueNeedsChoice: 'Choose a picture',
+  noReferencePhoto: 'No photo yet',
+  failedTitle: 'This photo may be hard to read',
+  failedHint: 'A new photo usually gives a clearer result.',
+  retakeCamera: 'Take another photo',
+  retakeGallery: 'Choose another photo',
+  tryAgain: 'Try again',
+  cancel: 'Cancel Scan',
+} as const;
+
+/** Short names under the pictures; the full sentence stays as the screen-reader label. */
+export const SCAN_PICTURE_NAMES = {
+  mosaic: 'Mosaic',
+  rust: 'Rust',
+  smut: 'Smut',
+  'yellow-midrib': 'Yellow midrib',
+  none: 'Looks healthy',
+  'something-else': 'Something else',
+  'unable-to-tell': 'Not sure',
+} as const;

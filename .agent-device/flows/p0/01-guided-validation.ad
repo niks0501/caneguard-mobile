@@ -20,10 +20,9 @@ wait "id=scan.screen" 30000
 click "id=scan.choose-gallery"
 wait stable 2000 15000
 find "Photo taken on" click --first
-wait "id=scan.preview-screen" 30000
-click "id=scan.analyze-image"
-wait "id=scan.symptom-checklist-screen" 120000
-is visible "label=\"What visible pattern, if any, best describes the area you are checking?\""
+wait "id=scan.symptom-checklist-screen" 30000
+wait "label=\"Photo checked\"" 120000
+is visible "id=scan.guided-question"
 is visible "id=scan.symptom-yellow-midrib"
 is visible "id=scan.symptom-something-else"
 is visible "id=scan.symptom-unable-to-tell"

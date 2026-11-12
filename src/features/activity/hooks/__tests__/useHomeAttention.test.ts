@@ -123,6 +123,8 @@ describe('useHomeAttention', () => {
 
     mockUseAssignments.mockReturnValue({
       assignments: [mockAssignment],
+      ready: true,
+      failed: false,
       capabilityUnavailable: false,
       errorMessage: null,
       lastSuccessfulAt: null,
@@ -173,6 +175,8 @@ describe('useHomeAttention', () => {
         visitAssignment('assign-waiting', '2026-09-10'),
         visitAssignment('assign-next', '2026-09-21'),
       ],
+      ready: true,
+      failed: false,
       capabilityUnavailable: false,
       errorMessage: null,
       lastSuccessfulAt: null,
@@ -215,6 +219,8 @@ describe('useHomeAttention', () => {
   it('holds visit work back until the saved visits read is current', async () => {
     mockUseAssignments.mockReturnValue({
       assignments: [visitAssignment('assign-next', '2026-09-21')],
+      ready: true,
+      failed: false,
       capabilityUnavailable: false,
       errorMessage: null,
       lastSuccessfulAt: null,
@@ -252,9 +258,11 @@ describe('useHomeAttention', () => {
     expect(result.current.visitsCheckFailed).toBe(true);
   });
 
-  it('keeps visits unknown when an empty assignment read has not succeeded', async () => {
+  it('keeps visits unknown when a refresh fails after an empty shared snapshot', async () => {
     mockUseAssignments.mockReturnValue({
       assignments: [],
+      ready: true,
+      failed: true,
       capabilityUnavailable: false,
       errorMessage: "Couldn't refresh visits.",
       lastSuccessfulAt: null,
@@ -321,6 +329,8 @@ describe('useHomeAttention', () => {
           },
         },
       ],
+      ready: true,
+      failed: false,
       capabilityUnavailable: false,
       errorMessage: null,
       lastSuccessfulAt: null,
@@ -347,6 +357,20 @@ describe('useHomeAttention', () => {
     mockUseDestinations.mockReturnValue(new Map());
     return renderHook(() => useHomeAttention());
   }
+
+  it('marks an in-flight completion read as pending rather than failed', async () => {
+    const { unmount } = await renderUpcomingVisitHook();
+    unmount();
+    mockUsePhoneCompletionSnapshot.mockReturnValue({
+      failed: false,
+      ready: false,
+      states: new Map(),
+    });
+    const { result } = await renderHook(() => useHomeAttention());
+
+    expect(result.current.visitsCheckFailed).toBe(false);
+    expect(result.current.visitsCheckPending).toBe(true);
+  });
 
   it('rolls the visit buckets over at local midnight while Home stays open', async () => {
     jest.useFakeTimers();

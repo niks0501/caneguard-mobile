@@ -73,8 +73,10 @@ export default function RecordDetailsScreen() {
   const database = useCaneGuardDatabase();
   const { user } = useAuth();
   const canReportToOffice = canAuthorInspectorWork(user);
-  const canCheckAgain = user?.role === 'farmer';
+  const isFarmer = user?.role === 'farmer';
+  const canCheckAgain = isFarmer;
   const farmerCopy = useFarmerCopy();
+  const copy = farmerCopy.record;
   const startCheckAgain = useStartCheckAgain({
     id: record.data?.id ?? '',
     followsUpScanId: record.data?.followsUpScanId ?? null,
@@ -133,11 +135,13 @@ export default function RecordDetailsScreen() {
       });
       if (result.imageCleanupError) {
         Alert.alert(
-          'Record deleted',
-          'The database record was removed, but the saved image could not be cleaned up. CaneGuard can identify it for later maintenance.',
+          isFarmer ? copy.deleted : 'Record deleted',
+          isFarmer
+            ? copy.imageCleanupFailed
+            : 'The database record was removed, but the saved image could not be cleaned up. CaneGuard can identify it for later maintenance.',
         );
       }
-      showToast('Record deleted', 'success');
+      showToast(isFarmer ? copy.deleted : 'Record deleted', 'success');
       returnToTab('/activity');
     } catch (error: unknown) {
       const storageError = toStorageError(
@@ -146,8 +150,8 @@ export default function RecordDetailsScreen() {
         'Deleting a scan record failed.',
       );
       const msg = getStorageErrorMessage(storageError);
-      setDeleteError(msg);
-      showToast('Could not delete record — please try again', 'error');
+      setDeleteError(isFarmer ? copy.deleteFailed : msg);
+      showToast(isFarmer ? copy.deleteFailed : 'Could not delete record — please try again', 'error');
       setDeleting(false);
     }
   };
@@ -158,25 +162,32 @@ export default function RecordDetailsScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Saved record" />
+        <BrandedScreenHeader
+          title={isFarmer ? copy.title : 'Saved record'}
+          backAccessibilityLabel={isFarmer ? copy.backLabel : undefined}
+        />
         {record.loading ? (
           <CenteredState
             icon="loader"
-            title="Loading saved record"
-            message="Reading record details from this device.">
+            title={isFarmer ? copy.loading : 'Loading saved record'}
+            message={isFarmer ? '' : 'Reading record details from this device.'}>
             <ActivityIndicator
-              accessibilityLabel="Loading saved record details"
+              accessibilityLabel={isFarmer ? copy.loading : 'Loading saved record details'}
               color={theme.primary}
             />
           </CenteredState>
         ) : record.errorMessage || !record.data ? (
           <CenteredState
             icon="alert-triangle"
-            title="Saved record unavailable"
-            message={record.errorMessage ?? 'This saved record could not be found.'}
+            title={isFarmer ? copy.unavailable : 'Saved record unavailable'}
+            message={
+              isFarmer
+                ? copy.unavailableMessage
+                : (record.errorMessage ?? 'This saved record could not be found.')
+            }
             liveRegion="assertive">
             <AppButton onPress={() => void record.refresh()} leadingIcon="refresh-cw">
-              Try Again
+              {isFarmer ? copy.tryAgain : 'Try Again'}
             </AppButton>
           </CenteredState>
         ) : (
@@ -194,7 +205,11 @@ export default function RecordDetailsScreen() {
                 ]}>
                 {imageUnavailable ? (
                   <View
-                    accessibilityLabel="Saved image unavailable; record metadata remains available"
+                    accessibilityLabel={
+                      isFarmer
+                        ? copy.imageUnavailable
+                        : 'Saved image unavailable; record metadata remains available'
+                    }
                     style={styles.imageFallback}>
                     <Feather name="image" size={34} color={theme.textSecondary} />
                     <Text
@@ -202,7 +217,7 @@ export default function RecordDetailsScreen() {
                         styles.imageFallbackText,
                         { color: theme.textSecondary },
                       ]}>
-                      Saved image unavailable
+                      {isFarmer ? copy.imageUnavailable : 'Saved image unavailable'}
                     </Text>
                   </View>
                 ) : (
@@ -210,7 +225,9 @@ export default function RecordDetailsScreen() {
                     source={{ uri: record.data.managedImageUri }}
                     cachePolicy="memory-disk"
                     contentFit="cover"
-                    accessibilityLabel="Saved sugarcane scan image"
+                    accessibilityLabel={
+                      isFarmer ? farmerCopy.scanCard.photoLabel : 'Saved sugarcane scan image'
+                    }
                     onError={() => setImageUnavailable(true)}
                     style={styles.image}
                   />
@@ -233,16 +250,17 @@ export default function RecordDetailsScreen() {
                   testID="records.result-title"
                   style={[styles.result, { color: theme.primaryDark }]}>
                   {canCheckAgain
-                    ? possibleConditionLine(
-                        farmerCopy.checkAgain.possibleCondition,
-                        record.data.predictedLabel,
-                      )
+                    ? possibleConditionLine(farmerCopy, record.data.predictedLabel)
                     : getResultLabel(record.data.predictedLabel)}
                 </Text>
-                <RecordSyncStatus
-                  errorCode={synchronizationMetadata?.lastSyncErrorCode}
-                  status={fieldReport.data?.syncStatus ?? record.data.syncStatus}
-                />
+                {/* Farmers send nothing to the office, so a send state would only
+                    mislead them. */}
+                {isFarmer ? null : (
+                  <RecordSyncStatus
+                    errorCode={synchronizationMetadata?.lastSyncErrorCode}
+                    status={fieldReport.data?.syncStatus ?? record.data.syncStatus}
+                  />
+                )}
               </View>
 
               {canReportToOffice ? (
@@ -320,10 +338,14 @@ export default function RecordDetailsScreen() {
               ) : null}
               <ConfirmDialog
                 visible={showDeleteConfirm}
-                title="Delete local record?"
-                message="This removes the scan, its saved image, and any associated Field Report from this device. This action cannot be undone."
-                confirmLabel="Delete"
-                cancelLabel="Cancel"
+                title={isFarmer ? copy.deleteConfirmTitle : 'Delete local record?'}
+                message={
+                  isFarmer
+                    ? copy.deleteConfirmMessage
+                    : 'This removes the scan, its saved image, and any associated Field Report from this device. This action cannot be undone.'
+                }
+                confirmLabel={isFarmer ? copy.deleteConfirm : 'Delete'}
+                cancelLabel={isFarmer ? copy.cancel : 'Cancel'}
                 destructive
                 onConfirm={() => {
                   setShowDeleteConfirm(false);
@@ -339,11 +361,20 @@ export default function RecordDetailsScreen() {
                   disabled={deleting}
                   variant="secondary"
                   leadingIcon="trash-2"
-                  accessibilityLabel="Delete this local record and saved image">
-                  {deleting ? 'Deleting...' : 'Delete Local Record'}
+                  accessibilityLabel={
+                    isFarmer ? copy.deleteHint : 'Delete this local record and saved image'
+                  }>
+                  {isFarmer
+                    ? deleting
+                      ? copy.deleting
+                      : copy.deleteAction
+                    : deleting
+                      ? 'Deleting...'
+                      : 'Delete Local Record'}
                 </AppButton>
               )}
 
+              {isFarmer ? null : (
               <Section title="Observation context">
                 <DetailRow
                   label="Checklist"
@@ -368,7 +399,9 @@ export default function RecordDetailsScreen() {
                   visibleCount={1}
                 />
               </Section>
+              )}
 
+              {isFarmer ? null : (
               <DisclosureSection
                 testID="records.saved-details"
                 title="Saved record details"
@@ -388,10 +421,11 @@ export default function RecordDetailsScreen() {
                   }
                 />
               </DisclosureSection>
+              )}
 
-              {synchronizationMetadata?.lastSyncErrorCode ||
+              {!isFarmer && (synchronizationMetadata?.lastSyncErrorCode ||
               fieldReport.data?.syncStatus === 'pending' ||
-              fieldReport.data?.syncStatus === 'failed' ? (
+              fieldReport.data?.syncStatus === 'failed') ? (
                 <DisclosureSection
                   testID="records.sync-details"
                   title="Sending to the office"
@@ -445,7 +479,7 @@ export default function RecordDetailsScreen() {
                 ]}>
                 <Feather name="info" size={19} color={theme.info} />
                 <Text style={[styles.disclaimerText, { color: theme.text }]}>
-                  {DECISION_SUPPORT_DISCLAIMER}
+                  {isFarmer ? farmerCopy.scanCard.aiOnlyLine : DECISION_SUPPORT_DISCLAIMER}
                 </Text>
               </View>
             </View>

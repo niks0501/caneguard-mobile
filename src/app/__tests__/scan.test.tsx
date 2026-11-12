@@ -86,6 +86,15 @@ function formattedImageResult(
 }
 
 let mockDraftOverride: Record<string, unknown> | null = null;
+let mockRole: 'farmer' | 'field_reporter' = 'field_reporter';
+let mockLanguage: 'en' | 'tl' = 'en';
+
+jest.mock('@/features/auth/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { role: mockRole, uuid: 'scan-test-user' } }),
+}));
+jest.mock('@/providers/LanguagePreferenceProvider', () => ({
+  useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY[mockLanguage],
+}));
 
 async function renderScan(initialState: ScanSessionState = initialScanSessionState) {
   function ScanHarness() {
@@ -119,6 +128,8 @@ async function renderScan(initialState: ScanSessionState = initialScanSessionSta
 describe('ScanScreen', () => {
   beforeEach(() => {
     mockDraftOverride = null;
+    mockRole = 'field_reporter';
+    mockLanguage = 'en';
     Object.defineProperty(Platform, 'OS', {
       configurable: true,
       value: originalPlatformOS,
@@ -139,6 +150,23 @@ describe('ScanScreen', () => {
       configurable: true,
       value: originalPlatformOS,
     });
+  });
+
+  it('localizes farmer scan chrome and picker errors in Tagalog', async () => {
+    mockRole = 'farmer';
+    mockLanguage = 'tl';
+    mockLaunchImageLibrary.mockResolvedValue({
+      canceled: false,
+      assets: [],
+    });
+
+    await renderScan();
+    expect(screen.getByText('Mag-scan ng tubo')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Pumili ng isang larawan mula sa gallery'));
+
+    expect(screen.getByText('Hindi naidagdag ang larawan')).toBeOnTheScreen();
+    expect(screen.getByText('Walang magagamit na lokal na larawan sa pinili mo. Pumili ng ibang litrato.')).toBeOnTheScreen();
+    expect(screen.queryByText('Image not added')).toBeNull();
   });
 
   it('selects one gallery image with the Phase 3 picker options and opens its preview', async () => {

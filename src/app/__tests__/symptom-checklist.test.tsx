@@ -7,6 +7,7 @@ import {
   CHECKLIST_OBSERVATIONS,
   GUIDED_VALIDATION_QUESTIONS,
 } from '@/features/detection/checklist/checklistConsistency';
+import { FARMER_COPY } from '@/constants/copy';
 import { ScanSessionContext } from '@/features/detection/context/ScanSessionProvider';
 import {
   initialScanSessionState,
@@ -41,6 +42,16 @@ jest.mock('@/features/detection/imagePicker/pickScanImage', () => ({
       ? 'Camera access is needed to take a sugarcane photo. You can try the camera again.'
       : 'Camera access is turned off. Open device settings to allow CaneGuard to use the camera.',
   pickScanImage: jest.fn(),
+}));
+
+let mockRole: 'farmer' | 'field_reporter' = 'field_reporter';
+let mockLanguage: 'en' | 'tl' = 'en';
+
+jest.mock('@/features/auth/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { role: mockRole, uuid: 'scan-check-test-user' } }),
+}));
+jest.mock('@/providers/LanguagePreferenceProvider', () => ({
+  useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY[mockLanguage],
 }));
 
 const mockDispatch = jest.fn<void, [ScanSessionAction]>();
@@ -133,6 +144,8 @@ const loadedModel = () => ({
 describe('SymptomChecklistScreen (photo check and picture grid)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRole = 'field_reporter';
+    mockLanguage = 'en';
     mockPreprocessImage.mockResolvedValue(successfulPreprocessingResult);
     mockRunInference.mockResolvedValue(successfulInferenceResult);
     mockUseCaneGuardModel.mockReturnValue(loadedModel());
@@ -410,6 +423,26 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     await renderScreen(selectedState);
 
     expect(screen.queryByText(/not sent|not synced|sync/i)).not.toBeOnTheScreen();
+  });
+
+  it('keeps the reviewed Tagalog wording for a farmer on the cancel dialog and replace actions', async () => {
+    mockRole = 'farmer';
+    mockLanguage = 'tl';
+    mockPreprocessImage.mockResolvedValueOnce({
+      ...successfulPreprocessingResult,
+      qualityAssessment: { warnings: ['too-dark'], meanLuminance: 10, luminanceStandardDeviation: 40 },
+    });
+    await renderScreen(selectedState);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('scan.photo-failed-check')).toBeOnTheScreen();
+    });
+    expect(screen.getByText('Kumuha ng ibang litrato')).toBeOnTheScreen();
+    expect(screen.getByText('Pumili ng ibang larawan')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('symptom-checklist.cancel'));
+    expect(screen.getByText(FARMER_COPY.tl.imagePreview.cancelTitle)).toBeOnTheScreen();
+    expect(screen.getByText(FARMER_COPY.tl.imagePreview.keepDraft)).toBeOnTheScreen();
   });
 
   it('shows a recovery action when there is no photo', async () => {

@@ -1,11 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import {
-  OFFICE_UPDATES_DISMISS_LABEL,
-  OFFICE_UPDATES_OPEN_LABEL,
-  officeUpdatesPillLabel,
-} from '@/constants/copy';
+import { useFarmerCopy } from '@/providers/LanguagePreferenceProvider';
 import { Layout, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -42,10 +38,11 @@ export function OfficeUpdatesPill({
   testID = 'office-updates.pill',
 }: OfficeUpdatesPillProps) {
   const theme = useTheme();
+  const copy = useFarmerCopy().officeUpdates;
 
   if (count <= 0) return null;
 
-  const label = officeUpdatesPillLabel(count);
+  const label = copy.pill(count);
 
   return (
     <View pointerEvents="box-none" style={styles.layer}>
@@ -56,7 +53,7 @@ export function OfficeUpdatesPill({
           Shadows.md,
         ]}>
         <Pressable
-          accessibilityLabel={`${label}. ${OFFICE_UPDATES_OPEN_LABEL}.`}
+          accessibilityLabel={`${label}. ${copy.open}.`}
           accessibilityRole="button"
           onPress={onOpen}
           testID={testID}
@@ -67,7 +64,7 @@ export function OfficeUpdatesPill({
           </Text>
         </Pressable>
         <Pressable
-          accessibilityLabel={OFFICE_UPDATES_DISMISS_LABEL}
+          accessibilityLabel={copy.dismiss}
           accessibilityRole="button"
           hitSlop={6}
           onPress={onDismiss}

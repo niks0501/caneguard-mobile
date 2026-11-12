@@ -6,9 +6,10 @@ import { Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type DisclosureSectionProps = {
-  accessibilityLabel?: string;
+  accessibilityLabel?: string | ((expanded: boolean) => string);
   children: ReactNode;
   summary?: string;
+  expandedSummary?: string;
   testID?: string;
   title: string;
 };
@@ -17,6 +18,7 @@ export function DisclosureSection({
   accessibilityLabel,
   children,
   summary,
+  expandedSummary = 'Hide details',
   testID,
   title,
 }: DisclosureSectionProps) {
@@ -30,7 +32,11 @@ export function DisclosureSection({
       style={[styles.container, { borderColor: theme.border }]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel ?? `${action} ${title}`}
+        accessibilityLabel={
+          typeof accessibilityLabel === 'function'
+            ? accessibilityLabel(expanded)
+            : accessibilityLabel ?? `${action} ${title}`
+        }
         accessibilityState={{ expanded }}
         onPress={() => setExpanded((value) => !value)}
         style={({ pressed }) => [styles.header, pressed && styles.pressed]}>
@@ -39,7 +45,7 @@ export function DisclosureSection({
           <Text
             testID={testID ? `${testID}.summary` : undefined}
             style={[styles.hint, { color: theme.textSecondary }]}>
-            {expanded ? 'Hide details' : (summary ?? 'View details')}
+            {expanded ? expandedSummary : (summary ?? 'View details')}
           </Text>
         </View>
         <Feather

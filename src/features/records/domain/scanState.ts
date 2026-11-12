@@ -22,6 +22,26 @@ export interface ScanThreadRow {
   predictedLabel: string;
 }
 
+/** Which plant a saved check belongs to: its first check. */
+export interface FarmerScanThread {
+  originalId: string;
+}
+
+/**
+ * Groups every check by plant. A first check and its Check Again follow-ups
+ * share one thread, so My Scans can show one card per plant.
+ */
+export function buildFarmerScanThreads(
+  rows: readonly ScanThreadRow[],
+): Map<string, FarmerScanThread> {
+  const threads = new Map<string, FarmerScanThread>();
+  for (const row of rows) {
+    const originalId = row.followsUpScanId ?? row.id;
+    threads.set(row.id, { originalId });
+  }
+  return threads;
+}
+
 /**
  * Computes the state of every scan from all of an owner's checks. A first check
  * and its Check Again follow-ups share one state:

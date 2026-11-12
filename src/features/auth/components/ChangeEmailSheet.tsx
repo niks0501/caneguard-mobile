@@ -6,6 +6,9 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { TextField } from '@/components/ui/TextField';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { FARMER_COPY } from '@/constants/copy';
+import { farmerAuthErrorMessage } from '@/features/auth/authErrorCopy';
+import { useLanguagePreference } from '@/providers/LanguagePreferenceProvider';
 
 /**
  * Change-email form (F2) as a native sheet route with its confirmation
@@ -14,8 +17,16 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
  * the login route.
  */
 export function ChangeEmailSheet() {
+  const { language } = useLanguagePreference();
+  const copy = FARMER_COPY[language].accountSecurityForms;
+  const common = copy.common;
+  const emailCopy = copy.email;
   const { showToast } = useToast();
-  const { changeEmail, errorMessage } = useAuth();
+  const { changeEmail, errorMessage, user } = useAuth();
+  const isFarmer = user?.role === 'farmer';
+  const authError = isFarmer
+    ? farmerAuthErrorMessage(errorMessage, FARMER_COPY[language].authErrors)
+    : errorMessage;
   const [newEmail, setNewEmail] = useState('');
   const [emailPassword, setEmailPassword] = useState('');
   const [pending, setPending] = useState(false);
@@ -45,7 +56,7 @@ export function ChangeEmailSheet() {
       });
       if (changed) {
         setClosed(true);
-        showToast('Email updated', 'success');
+        showToast(isFarmer ? emailCopy.toast : 'Email updated', 'success');
         router.replace('/login');
       }
     } finally {
@@ -59,21 +70,27 @@ export function ChangeEmailSheet() {
 
   return (
     <SheetScreen
-      title="Change email"
+      title={isFarmer ? emailCopy.title : 'Change email'}
+      cancelLabel={isFarmer ? common.cancel : undefined}
+      closeAccessibilityLabel={isFarmer ? common.close : undefined}
+      discardTitle={isFarmer ? common.discardTitle : undefined}
+      discardMessage={isFarmer ? common.discardMessage : undefined}
+      keepEditingLabel={isFarmer ? common.keepEditing : undefined}
+      discardLabel={isFarmer ? common.discard : undefined}
       testID="account-security.email-sheet"
-      errorMessage={attempted ? errorMessage : null}
+      errorMessage={attempted ? authError : null}
       errorTestID="account-security.error"
       isDirty={dirty}
       onCancel={close}
       onSubmit={() => setShowConfirm(true)}
       submitDisabled={!submittable}
       submitLoading={pending}
-      submitLoadingLabel="Updating..."
-      submitLabel="Change email"
+      submitLoadingLabel={isFarmer ? emailCopy.updating : 'Updating...'}
+      submitLabel={isFarmer ? emailCopy.submit : 'Change email'}
       submitTestID="account-security.change-email">
       <TextField
         testID="account-security.new-email"
-        label="New email"
+        label={isFarmer ? emailCopy.newEmail : 'New email'}
         value={newEmail}
         onChangeText={setNewEmail}
         placeholder="you@example.com"
@@ -85,10 +102,10 @@ export function ChangeEmailSheet() {
       />
       <TextField
         testID="account-security.email-password"
-        label="Current password"
+        label={isFarmer ? emailCopy.currentPassword : 'Current password'}
         value={emailPassword}
         onChangeText={setEmailPassword}
-        placeholder="Confirm to change email"
+        placeholder={isFarmer ? emailCopy.confirmPassword : 'Confirm to change email'}
         secureTextEntry
         autoCapitalize="none"
         textContentType="password"
@@ -96,10 +113,10 @@ export function ChangeEmailSheet() {
       />
       <ConfirmDialog
         visible={showConfirm}
-        title="Change email?"
-        message="Changing your email signs out every active session and requires verification of the new address."
-        confirmLabel="Confirm change"
-        cancelLabel="Cancel"
+        title={isFarmer ? emailCopy.confirmTitle : 'Change email?'}
+        message={isFarmer ? emailCopy.confirmMessage : 'Changing your email signs out every active session and requires verification of the new address.'}
+        confirmLabel={isFarmer ? emailCopy.confirm : 'Confirm change'}
+        cancelLabel={isFarmer ? common.cancel : 'Cancel'}
         overlay
         testID="account-security.confirm-dialog-email"
         onConfirm={() => void submit()}

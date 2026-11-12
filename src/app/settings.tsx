@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { FARMER_COPY, FIELD_GUIDE_ENTRY_DESCRIPTION, LOGOUT_DIALOG_COPY } from '@/constants/copy';
+import { FARMER_COPY, LOGOUT_DIALOG_COPY } from '@/constants/copy';
 import { ComponentTokens, Layout, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import {
@@ -113,12 +113,14 @@ function LanguageRow() {
 
 export default function SettingsScreen() {
   const theme = useTheme();
+  const { language } = useLanguagePreference();
   const { showToast } = useToast();
   const { isDarkMode, setDarkMode } = useThemePreference();
   const database = useCaneGuardDatabase();
   const { logout, user } = useAuth();
   const { pendingCount } = useSync();
   const isFarmer = user?.role === 'farmer';
+  const copy = FARMER_COPY[language].settingsScreen;
   const [clearingLocalData, setClearingLocalData] = useState(false);
   const [clearingCachedData, setClearingCachedData] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -134,19 +136,23 @@ export default function SettingsScreen() {
     try {
       const { localClearFailed, remoteRevocationFailed } = await logout();
       if (localClearFailed) {
-        showToast('Logout incomplete', 'error');
+        showToast(isFarmer ? copy.logoutIncomplete : 'Logout incomplete', 'error');
         Alert.alert(
-          'Logout incomplete',
-          'CaneGuard could not clear secure session storage. Restart the app and try again.',
+          isFarmer ? copy.logoutIncomplete : 'Logout incomplete',
+          isFarmer
+            ? copy.logoutIncompleteMessage
+            : 'CaneGuard could not clear secure session storage. Restart the app and try again.',
         );
       } else if (remoteRevocationFailed) {
-        showToast('Signed out locally', 'info');
+        showToast(isFarmer ? copy.signedOutLocally : 'Signed out locally', 'info');
         Alert.alert(
-          'Signed out locally',
-          'The server could not be reached, so the remote token may remain active until it expires or is revoked later.',
+          isFarmer ? copy.signedOutLocally : 'Signed out locally',
+          isFarmer
+            ? copy.remoteLogoutMessage
+            : 'The server could not be reached, so the remote token may remain active until it expires or is revoked later.',
         );
       } else {
-        showToast('Signed out', 'info');
+        showToast(isFarmer ? copy.signedOut : 'Signed out', 'info');
       }
     } finally {
       setLoggingOut(false);
@@ -161,20 +167,23 @@ export default function SettingsScreen() {
     setClearingCachedData(true);
     try {
       const result = await clearCachedOfficeDataForOwner(database, user.uuid);
-      showToast('Downloaded office data cleared', 'success');
+      showToast(isFarmer ? copy.cachedCleared : 'Downloaded office data cleared', 'success');
       Alert.alert(
-        'Downloaded office data cleared',
-        `${result.deletedRows} downloaded ${result.deletedRows === 1 ? 'item was' : 'items were'} removed. Saved scans, drafts, unsent reports, boundaries and completed visits were kept on this device.`,
+        isFarmer ? copy.cachedCleared : 'Downloaded office data cleared',
+        isFarmer
+          ? copy.cachedClearedMessage(result.deletedRows)
+          : `${result.deletedRows} downloaded ${result.deletedRows === 1 ? 'item was' : 'items were'} removed. Saved scans, drafts, unsent reports, boundaries and completed visits were kept on this device.`,
       );
     } catch {
-      showToast('Could not clear downloaded data', 'error');
+      showToast(isFarmer ? copy.cachedClearFailed : 'Could not clear downloaded data', 'error');
     } finally {
       setClearingCachedData(false);
     }
   };
 
-  const describeRemovalPreview = (preview: LocalDataRemovalPreview): string =>
-    [
+  const describeRemovalPreview = (preview: LocalDataRemovalPreview): string => isFarmer
+    ? `${copy.removalCounts({ reports: preview.reports, visits: preview.visits, boundaries: preview.boundaries, scans: preview.scans, drafts: preview.draftCheckpoints, assignments: preview.assignments, notifications: preview.notifications })}\n${preview.totalUnsent > 0 ? copy.localItemsWarning(preview.totalUnsent) : copy.removeLocalMessage}`
+    : [
       `${preview.reports} report${preview.reports === 1 ? '' : 's'} (${preview.draftReports} draft, ${preview.finalizedUnsentReports} finalized but not sent)`,
       `${preview.visits} completed visit${preview.visits === 1 ? '' : 's'} (${preview.unsentVisits} not sent)`,
       `${preview.boundaries} boundar${preview.boundaries === 1 ? 'y' : 'ies'} (${preview.unsentBoundaries} not sent)`,
@@ -190,31 +199,35 @@ export default function SettingsScreen() {
   const confirmPermanentRemoval = (preview: LocalDataRemovalPreview) => {
     if (preview.uploadInFlight) {
       Alert.alert(
-        'An upload is still running',
-        'Wait for the current upload to finish, then review the local records again before removing anything.',
+        isFarmer ? copy.removeLocalBusy : 'An upload is still running',
+        isFarmer
+          ? copy.removeLocalBusy
+          : 'Wait for the current upload to finish, then review the local records again before removing anything.',
       );
       return;
     }
     Alert.alert(
-      'Remove all local records?',
-      `${describeRemovalPreview(preview)}\n\nThis cannot be undone. Server data and other accounts are not changed.`,
+      isFarmer ? copy.removeLocalTitle : 'Remove all local records?',
+      `${describeRemovalPreview(preview)}\n\n${isFarmer ? copy.removeLocalMessage : 'This cannot be undone. Server data and other accounts are not changed.'}`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: isFarmer ? copy.cancel : 'Cancel', style: 'cancel' },
         {
           text:
             preview.totalUnsent > 0
-              ? 'Continue without unsent work'
-              : 'Remove local records',
+              ? isFarmer ? copy.continueLocalRemoval : 'Continue without unsent work'
+              : isFarmer ? copy.removeLocalConfirm : 'Remove local records',
           style: 'destructive',
           onPress: () => {
             if (preview.totalUnsent > 0) {
               Alert.alert(
-                'Lose unsent work permanently?',
-                `${preview.totalUnsent} unsent item${preview.totalUnsent === 1 ? '' : 's'} will be deleted and cannot be sent afterwards.`,
+                isFarmer ? copy.localItemsTitle : 'Lose unsent work permanently?',
+                isFarmer
+                  ? copy.localItemsDeletionMessage(preview.totalUnsent)
+                  : `${preview.totalUnsent} unsent item${preview.totalUnsent === 1 ? '' : 's'} will be deleted and cannot be sent afterwards.`,
                 [
-                  { text: 'Keep my work', style: 'cancel' },
+                  { text: isFarmer ? copy.keepWork : 'Keep my work', style: 'cancel' },
                   {
-                    text: 'Delete unsent work',
+                    text: isFarmer ? copy.deleteLocalItems : 'Delete unsent work',
                     style: 'destructive',
                     onPress: () => void removeLocalData(preview),
                   },
@@ -236,7 +249,7 @@ export default function SettingsScreen() {
     try {
       confirmPermanentRemoval(getLocalDataRemovalPreview(database, user.uuid));
     } catch {
-      showToast('Could not read local record counts', 'error');
+      showToast(isFarmer ? copy.removeLocalFailed : 'Could not read local record counts', 'error');
     }
   };
 
@@ -250,25 +263,27 @@ export default function SettingsScreen() {
         expectedPreview,
       });
       if (result.imageCleanupErrors.length > 0) {
-        showToast('Local records removed with warnings', 'info');
+        showToast(isFarmer ? copy.removeLocalWarning : 'Local records removed with warnings', 'info');
       } else {
-        showToast('Local records removed', 'success');
+        showToast(isFarmer ? copy.removeLocalConfirm : 'Local records removed', 'success');
       }
       Alert.alert(
         result.imageCleanupErrors.length > 0
-          ? 'Local records removed with cleanup warnings'
-          : 'Local records removed',
+          ? isFarmer ? copy.removeLocalWarning : 'Local records removed with cleanup warnings'
+          : isFarmer ? copy.removeLocalConfirm : 'Local records removed',
         result.imageCleanupErrors.length > 0
-          ? 'Your local records were removed, but one or more saved images could not be deleted yet.'
-          : 'Saved scans, drafts, reports, boundaries, visits, and cached account data were removed from this device.',
+          ? isFarmer ? copy.removedWithWarnings : 'Your local records were removed, but one or more saved images could not be deleted yet.'
+          : isFarmer ? copy.removed : 'Saved scans, drafts, reports, boundaries, visits, and cached account data were removed from this device.',
       );
     } catch (error: unknown) {
-      showToast('Could not remove local records', 'error');
+      showToast(isFarmer ? copy.removeLocalFailed : 'Could not remove local records', 'error');
       Alert.alert(
-        'Could not remove local records',
-        error instanceof Error
-          ? error.message
-          : 'CaneGuard could not remove all local records. Review the counts and try again.',
+        isFarmer ? copy.removeLocalFailed : 'Could not remove local records',
+        isFarmer
+          ? copy.removeLocalFailed
+          : error instanceof Error
+            ? error.message
+            : 'CaneGuard could not remove all local records. Review the counts and try again.',
       );
     } finally {
       setClearingLocalData(false);
@@ -278,14 +293,18 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
       <View style={styles.root}>
-        <BrandedScreenHeader title="Settings" variant="plain" />
+        <BrandedScreenHeader
+          title={isFarmer ? copy.title : 'Settings'}
+          variant="plain"
+          backAccessibilityLabel={isFarmer ? FARMER_COPY[language].record.backLabel : undefined}
+        />
 
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
           style={styles.scrollView}>
           <View style={styles.content}>
-            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>DISPLAY & ACCESSIBILITY</Text>
+            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>{isFarmer ? copy.displaySection : 'DISPLAY & ACCESSIBILITY'}</Text>
 
             <View
               style={[
@@ -293,18 +312,22 @@ export default function SettingsScreen() {
                 { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
               ]}>
               <ToggleRow
-                label="Dark Mode"
-                description="Use a darker appearance throughout CaneGuard"
+                label={isFarmer ? copy.darkMode : 'Dark Mode'}
+                description={isFarmer ? copy.darkModeDescription : 'Use a darker appearance throughout CaneGuard'}
                 value={isDarkMode}
                 onToggle={setDarkMode}
               />
               {isFarmer ? <LanguageRow /> : null}
             </View>
 
-            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>FIELD READINESS</Text>
-            <OfflineReadinessCard />
+            {isFarmer ? null : (
+              <>
+                <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>FIELD READINESS</Text>
+                <OfflineReadinessCard />
+              </>
+            )}
 
-            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>FIELD GUIDE</Text>
+            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>{isFarmer ? copy.fieldGuideSection : 'FIELD GUIDE'}</Text>
 
             <View
               style={[
@@ -314,23 +337,23 @@ export default function SettingsScreen() {
               <Pressable
                 testID="settings.disease-reference"
                 accessibilityRole="button"
-                accessibilityLabel="Field guide"
+                accessibilityLabel={isFarmer ? copy.fieldGuideTitle : 'Field guide'}
                 onPress={() => router.push('/field-guide')}
                 style={({ pressed }) => [
                   styles.menuRow,
                   pressed && styles.pressed,
                 ]}>
                 <View style={styles.toggleCopy}>
-                  <Text style={[styles.menuLabel, { color: theme.text }]}>Field guide</Text>
+                  <Text style={[styles.menuLabel, { color: theme.text }]}>{isFarmer ? copy.fieldGuideTitle : 'Field guide'}</Text>
                   <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>
-                    {FIELD_GUIDE_ENTRY_DESCRIPTION}
+                    {copy.fieldGuideDescription}
                   </Text>
                 </View>
                 <Feather name="chevron-right" size={18} color={theme.textSecondary} />
               </Pressable>
             </View>
 
-            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>ACCOUNT & SECURITY</Text>
+            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>{isFarmer ? copy.accountSection : 'ACCOUNT & SECURITY'}</Text>
 
             <View
               style={[
@@ -340,17 +363,17 @@ export default function SettingsScreen() {
               <View style={[styles.menuRow, { borderBottomColor: theme.divider }]}>
                 <View style={styles.toggleCopy}>
                   <Text style={[styles.menuLabel, { color: theme.text }]}>
-                    {user?.name ?? 'Field Inspector'}
+                    {user?.name ?? (isFarmer ? copy.fallbackName : 'Field Inspector')}
                   </Text>
                   <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>
-                    {user?.email ?? 'Authenticated mobile account'}
+                    {user?.email ?? (isFarmer ? copy.fallbackAccount : 'Authenticated mobile account')}
                   </Text>
                 </View>
               </View>
               <Pressable
                 testID="settings.account-security"
                 accessibilityRole="button"
-                accessibilityLabel="Account and security"
+                accessibilityLabel={isFarmer ? copy.accountSecurity : 'Account and security'}
                 onPress={() => router.push('/account-security')}
                 style={({ pressed }) => [
                   styles.menuRow,
@@ -358,8 +381,8 @@ export default function SettingsScreen() {
                   pressed && styles.pressed,
                 ]}>
                 <View style={styles.toggleCopy}>
-                  <Text style={[styles.menuLabel, { color: theme.text }]}>Account security</Text>
-                  <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>Password, email, device, and biometric controls</Text>
+                  <Text style={[styles.menuLabel, { color: theme.text }]}>{isFarmer ? copy.accountSecurity : 'Account security'}</Text>
+                  <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>{isFarmer ? copy.accountSecurityDescription : 'Password, email, device, and biometric controls'}</Text>
                 </View>
                 <Feather name="chevron-right" size={18} color={theme.textSecondary} />
               </Pressable>
@@ -368,9 +391,9 @@ export default function SettingsScreen() {
                   testID="settings.logout"
                   variant="text"
                   onPress={() => setShowLogoutConfirm(true)}
-                  accessibilityLabel="Log out of your account"
+                  accessibilityLabel={isFarmer ? copy.logoutAccessibility : 'Log out of your account'}
                   style={styles.logoutButton}>
-                  <Text style={[styles.logoutText, { color: theme.danger }]}>Logout</Text>
+                  <Text style={[styles.logoutText, { color: theme.danger }]}>{isFarmer ? copy.logout : 'Logout'}</Text>
                 </AppButton>
                 <AppButton
                   testID="settings.clear-cached-office-data"
@@ -379,23 +402,23 @@ export default function SettingsScreen() {
                   disabled={clearingCachedData}
                   onPress={() =>
                     Alert.alert(
-                      'Clear downloaded office data?',
-                      'This removes only data that can be downloaded again: visits and office updates. Every saved scan, draft, unsent report, boundary and completed visit stays on this device.',
+                      isFarmer ? copy.clearCachedTitle : 'Clear downloaded office data?',
+                      isFarmer ? copy.clearCachedMessage : 'This removes only data that can be downloaded again: visits and office updates. Every saved scan, draft, unsent report, boundary and completed visit stays on this device.',
                       [
-                        { text: 'Cancel', style: 'cancel' },
+                        { text: isFarmer ? copy.cancel : 'Cancel', style: 'cancel' },
                         {
                           text: clearingCachedData
-                            ? 'Clearing…'
-                            : 'Clear downloaded data',
+                            ? isFarmer ? copy.clearingCached : 'Clearing…'
+                            : isFarmer ? copy.clearCachedConfirm : 'Clear downloaded data',
                           onPress: () => void clearCachedData(),
                         },
                       ],
                     )
                   }
-                  accessibilityLabel="Clear downloaded office data only">
+                  accessibilityLabel={isFarmer ? copy.clearCachedAccessibility : 'Clear downloaded office data only'}>
                   {clearingCachedData
-                    ? 'Clearing downloaded data…'
-                    : 'Clear downloaded office data'}
+                    ? isFarmer ? copy.clearingCached : 'Clearing downloaded data…'
+                    : isFarmer ? copy.clearCached : 'Clear downloaded office data'}
                 </AppButton>
                 <AppButton
                   testID="settings.remove-local-records"
@@ -403,15 +426,15 @@ export default function SettingsScreen() {
                   busy={clearingLocalData}
                   disabled={clearingLocalData}
                   onPress={startPermanentRemoval}
-                  accessibilityLabel="Remove all local records for this account">
+                  accessibilityLabel={isFarmer ? copy.removeLocalAccessibility : 'Remove all local records for this account'}>
                   {clearingLocalData
-                    ? 'Removing local records…'
-                    : 'Remove all local records'}
+                    ? isFarmer ? copy.removingLocal : 'Removing local records…'
+                    : isFarmer ? copy.removeLocal : 'Remove all local records'}
                 </AppButton>
               </View>
             </View>
 
-            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>ABOUT</Text>
+            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>{isFarmer ? copy.aboutSection : 'ABOUT'}</Text>
 
             <View
               style={[
@@ -419,11 +442,11 @@ export default function SettingsScreen() {
                 { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
               ]}>
               <View style={[styles.menuRow, { borderBottomColor: theme.divider }]}>
-                <Text style={[styles.menuLabel, { color: theme.text }]}>App Name</Text>
+                <Text style={[styles.menuLabel, { color: theme.text }]}>{isFarmer ? copy.appName : 'App Name'}</Text>
                 <Text style={[styles.menuValue, { color: theme.textSecondary }]}>CaneGuard</Text>
               </View>
               <View style={styles.menuRow}>
-                <Text style={[styles.menuLabel, { color: theme.text }]}>Version</Text>
+                <Text style={[styles.menuLabel, { color: theme.text }]}>{isFarmer ? copy.version : 'Version'}</Text>
                 <Text style={[styles.menuValue, { color: theme.textSecondary }]}>
                   v{appVersion}
                 </Text>
@@ -436,17 +459,19 @@ export default function SettingsScreen() {
 
         <ConfirmDialog
           visible={showLogoutConfirm}
-          title={LOGOUT_DIALOG_COPY.title}
+          title={isFarmer ? copy.logoutDialogTitle : LOGOUT_DIALOG_COPY.title}
           message={
             loggingOut
-              ? LOGOUT_DIALOG_COPY.busyMessage
-              : pendingCount > 0
-                ? `${LOGOUT_DIALOG_COPY.message} ${LOGOUT_DIALOG_COPY.pendingNote(pendingCount)}`
-                : LOGOUT_DIALOG_COPY.message
+              ? isFarmer ? copy.signingOutMessage : LOGOUT_DIALOG_COPY.busyMessage
+              : isFarmer
+                ? `${copy.logoutDialogMessage}${pendingCount > 0 ? ` ${copy.localItemsNote(pendingCount)}` : ''}`
+                : pendingCount > 0
+                  ? `${LOGOUT_DIALOG_COPY.message} ${LOGOUT_DIALOG_COPY.pendingNote(pendingCount)}`
+                  : LOGOUT_DIALOG_COPY.message
           }
-          confirmLabel={LOGOUT_DIALOG_COPY.confirmLabel}
+          confirmLabel={isFarmer ? copy.logoutDialogConfirm : LOGOUT_DIALOG_COPY.confirmLabel}
           busy={loggingOut}
-          busyLabel={LOGOUT_DIALOG_COPY.busyLabel}
+          busyLabel={isFarmer ? copy.loggingOut : LOGOUT_DIALOG_COPY.busyLabel}
           destructive
           overlay
           testID="settings.logout-dialog"

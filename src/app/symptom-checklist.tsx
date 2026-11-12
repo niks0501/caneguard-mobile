@@ -9,6 +9,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { SCAN_CHECK_COPY } from '@/constants/copy';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { useScanAnalysis } from '@/features/detection/analysis/useScanAnalysis';
@@ -27,9 +28,16 @@ import { getInferenceErrorMessage } from '@/features/detection/model/inferenceEr
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import { returnToTab } from '@/features/navigation/returnToTab';
 import { useTheme } from '@/hooks/use-theme';
+import { useFarmerCopy } from '@/providers/LanguagePreferenceProvider';
 
 export default function SymptomChecklistScreen() {
   const theme = useTheme();
+  const { user } = useAuth();
+  const isFarmer = user?.role === 'farmer';
+  // Farmers keep the reviewed wording already approved for their language
+  // setting. Words new to this screen stay English until a Tagalog label is
+  // reviewed; inspector screens are English throughout.
+  const farmer = useFarmerCopy().imagePreview;
   const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
   const draft = useScanDraft();
@@ -124,10 +132,14 @@ export default function SymptomChecklistScreen() {
   const cancelDialog = (
     <ConfirmDialog
       visible={showCancelConfirm}
-      title="Cancel scan?"
-      message="Do you want to keep your in-progress scan draft or discard it before returning home?"
-      cancelLabel="Keep draft"
-      confirmLabel="Discard draft"
+      title={isFarmer ? farmer.cancelTitle : 'Cancel scan?'}
+      message={
+        isFarmer
+          ? farmer.cancelMessage
+          : 'Do you want to keep your in-progress scan draft or discard it before returning home?'
+      }
+      cancelLabel={isFarmer ? farmer.keepDraft : 'Keep draft'}
+      confirmLabel={isFarmer ? farmer.discardDraft : 'Discard draft'}
       destructive
       overlay
       onRequestClose={() => setShowCancelConfirm(false)}
@@ -159,7 +171,7 @@ export default function SymptomChecklistScreen() {
                 <Feather name="alert-circle" size={22} color={theme.warning} />
               </View>
               <Text style={[styles.recoveryTitle, { color: theme.primaryDark }]}>
-                No photo selected
+                {isFarmer ? farmer.noImageTitle : 'No photo selected'}
               </Text>
               <Text style={[styles.recoveryText, { color: theme.textSecondary }]}>
                 Take or choose a sugarcane photo to start a scan.
@@ -259,8 +271,10 @@ export default function SymptomChecklistScreen() {
                   disabled={replacing || isChecking}
                   onPress={() => void replaceImage('camera')}
                   leadingIcon="camera"
-                  accessibilityLabel="Take another photo with the camera">
-                  {SCAN_CHECK_COPY.retakeCamera}
+                  accessibilityLabel={
+                    isFarmer ? farmer.replaceCameraAccessibility : 'Take another photo with the camera'
+                  }>
+                  {isFarmer ? farmer.replaceCamera : SCAN_CHECK_COPY.retakeCamera}
                 </AppButton>
                 <AppButton
                   testID="scan.retake-gallery"
@@ -268,8 +282,12 @@ export default function SymptomChecklistScreen() {
                   disabled={replacing || isChecking}
                   onPress={() => void replaceImage('gallery')}
                   leadingIcon="image"
-                  accessibilityLabel="Choose another photo from the gallery">
-                  {SCAN_CHECK_COPY.retakeGallery}
+                  accessibilityLabel={
+                    isFarmer
+                      ? farmer.replaceGalleryAccessibility
+                      : 'Choose another photo from the gallery'
+                  }>
+                  {isFarmer ? farmer.replaceGallery : SCAN_CHECK_COPY.retakeGallery}
                 </AppButton>
               </View>
             ) : null}
@@ -290,8 +308,8 @@ export default function SymptomChecklistScreen() {
                     variant="secondary"
                     onPress={modelState.retry}
                     leadingIcon="refresh-cw"
-                    accessibilityLabel="Retry analysis setup">
-                    Retry analysis setup
+                    accessibilityLabel={isFarmer ? farmer.retrySetupAccessibility : 'Retry analysis setup'}>
+                    {isFarmer ? farmer.retrySetup : 'Retry analysis setup'}
                   </AppButton>
                 ) : null}
                 {state.status === 'error' ? (
@@ -345,7 +363,7 @@ export default function SymptomChecklistScreen() {
               onPress={() => setShowCancelConfirm(true)}
               leadingIcon="x"
               accessibilityLabel="Cancel scan and return home">
-              {SCAN_CHECK_COPY.cancel}
+              {isFarmer ? farmer.cancel : SCAN_CHECK_COPY.cancel}
             </AppButton>
           </View>
         </ScrollView>

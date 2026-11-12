@@ -2,12 +2,13 @@ import { Feather } from '@expo/vector-icons';
 import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { NAMING, OFFICE_UPDATE_NOT_ON_PHONE, visitTerminology } from '@/constants/copy';
 import type { MobileNotification } from '@/features/notifications/domain/notificationTypes';
 import type { NotificationDestination } from '@/features/notifications/services/resolveNotificationDestination';
+import { FARMER_COPY } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDate } from '@/lib/formatters';
+import { useFarmerCopy } from '@/providers/LanguagePreferenceProvider';
 
 /**
  * The panel is a content-sized card capped at 72% of the viewport, so its list
@@ -37,6 +38,8 @@ export function NotificationInbox({
   unreadCount: number;
 }) {
   const theme = useTheme();
+  const copy = useFarmerCopy().officeUpdates;
+  const isEnglish = copy === FARMER_COPY.en.officeUpdates;
   // Sorting the whole cached notification history on every parent render is
   // what scales with the cache size. The panel only ever shows the newest ten,
   // so the sort is derived once per notification change.
@@ -55,31 +58,29 @@ export function NotificationInbox({
     <View testID="activity.notifications" style={styles.container}>
       <View style={styles.header}>
         <View style={styles.copy}>
-          <Text style={[styles.title, { color: theme.primaryDark }]}>Office updates</Text>
+          <Text style={[styles.title, { color: theme.primaryDark }]}>{copy.title}</Text>
           <Text style={[styles.message, { color: theme.textSecondary }]}>
-            {unreadCount > 0
-              ? `${unreadCount} unread item${unreadCount === 1 ? '' : 's'} from the office.`
-              : 'Every office update has been read.'}
+            {unreadCount > 0 ? copy.unread(unreadCount) : copy.allRead}
           </Text>
           {errorMessage ? (
             <Text accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>
-              {errorMessage}
+              {isEnglish ? errorMessage : copy.loadError}
             </Text>
           ) : null}
           {partial ? (
             <Text accessibilityLiveRegion="polite" style={[styles.message, { color: theme.warning }]}>
-              Some office updates could not be loaded.
+              {copy.partial}
             </Text>
           ) : null}
           {readActionError ? (
             <Text accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>
-              {readActionError}
+              {isEnglish ? readActionError : copy.readError}
             </Text>
           ) : null}
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Mark all office updates as read"
+          accessibilityLabel={copy.markAllReadLabel}
           accessibilityState={{ disabled: unreadCount === 0 }}
           disabled={unreadCount === 0}
           onPress={onMarkAllRead}
@@ -93,13 +94,13 @@ export function NotificationInbox({
             pressed && unreadCount > 0 ? styles.pressed : null,
           ]}>
           <Feather name="check-circle" size={16} color={theme.primaryDark} />
-          <Text style={[styles.markAllText, { color: theme.primaryDark }]}>Mark all read</Text>
+          <Text style={[styles.markAllText, { color: theme.primaryDark }]}>{copy.markAllRead}</Text>
         </Pressable>
       </View>
 
       {recent.length === 0 ? (
         <Text style={[styles.empty, { color: theme.textSecondary }]}>
-          Office review results and {NAMING.visits.toLowerCase()} appear here after a refresh.
+          {copy.empty}
         </Text>
       ) : (
         <View>
@@ -135,8 +136,9 @@ const NotificationRow = memo(function NotificationRow({
   onPress: (notification: MobileNotification) => void;
 }) {
   const theme = useTheme();
-  const title = visitTerminology(notification.title);
-  const message = visitTerminology(notification.message);
+  const copy = useFarmerCopy().officeUpdates;
+  // Office-authored text is shown exactly as the office wrote it.
+  const { title, message } = notification;
   const actionable =
     Boolean(notification.content || notification.advisory) ||
     (destination !== undefined && destination.kind !== 'unavailable');
@@ -167,7 +169,7 @@ const NotificationRow = memo(function NotificationRow({
             {title}
           </Text>
           {!notification.isRead ? (
-            <Text style={[styles.unread, { color: theme.primary }]}>Unread</Text>
+            <Text style={[styles.unread, { color: theme.primary }]}>{copy.unreadLabel}</Text>
           ) : null}
         </View>
         <Text style={[styles.itemMessage, { color: theme.textSecondary }]}>
@@ -175,8 +177,8 @@ const NotificationRow = memo(function NotificationRow({
         </Text>
         <Text style={[styles.meta, { color: theme.textSecondary }]}>
           {destination?.kind === 'unavailable'
-            ? OFFICE_UPDATE_NOT_ON_PHONE
-            : `${notification.referenceCode ?? 'Case activity'}${notification.createdAt ? ` · ${formatDate(notification.createdAt, 'Recently')}` : ''}`}
+            ? copy.notOnPhone
+            : `${notification.referenceCode ?? copy.caseActivity}${notification.createdAt ? ` · ${formatDate(notification.createdAt, copy.recently)}` : ''}`}
         </Text>
       </View>
       {actionable ? (

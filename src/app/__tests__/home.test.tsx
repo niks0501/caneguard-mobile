@@ -17,6 +17,8 @@ let mockVisitsCheckFailed = false;
 let mockCanReadVisits = true;
 let mockPendingCount = 1;
 let mockRole: 'field_reporter' | 'farmer' = 'field_reporter';
+let mockScanStates = new Map<string, string>();
+let mockScanThreads = new Map<string, { originalId: string }>();
 let mockInspectorWorkWaiting = false;
 let mockLanguage: 'en' | 'tl' = 'en';
 let mockSyncError: string | null = null;
@@ -86,6 +88,10 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
 
 jest.mock('@/providers/LanguagePreferenceProvider', () => ({
   useLanguagePreference: () => ({ language: mockLanguage }),
+  useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY[mockLanguage],
+}));
+jest.mock('@/features/records/hooks/useScanStates', () => ({
+  useFarmerScans: () => ({ states: mockScanStates, threads: mockScanThreads }),
 }));
 
 const mockRouterPush = router.push as jest.Mock;
@@ -109,6 +115,26 @@ describe('HomeScreen', () => {
     mockLanguage = 'tl';
     await render(<HomeScreen />);
     expect(screen.getByTestId('home.inspector-work-waiting')).toHaveTextContent(/teleponong ito/);
+  });
+
+  it('never shows a farmer the All clear headline or a send state', async () => {
+    mockRole = 'farmer';
+    mockPendingCount = 3;
+    await render(<HomeScreen />);
+    expect(screen.getByTestId('home.note')).toHaveTextContent('Check your plants today.');
+    expect(screen.queryByText(/all clear|waiting to send|not sent/i)).toBeNull();
+    expect(screen.queryByTestId('home.sync-status')).toBeNull();
+  });
+
+  it('shows every farmer Home label in Tagalog when the language is Tagalog', async () => {
+    mockRole = 'farmer';
+    mockLanguage = 'tl';
+    await render(<HomeScreen />);
+    expect(screen.getByTestId('home.note')).toHaveTextContent('Suriin ang iyong mga halaman ngayon.');
+    expect(screen.getByTestId('home.primary-action')).toHaveTextContent('Magsimula ng pag-scan');
+    expect(screen.getByTestId('home.disease-reference')).toHaveTextContent('Gabay sa bukid');
+    expect(screen.getByTestId('home.signs')).toHaveTextContent(/Kilalanin ang mga palatandaan/);
+    expect(screen.getByTestId('home.greeting')).toHaveTextContent(/^Magandang/);
   });
 
   it('hides the sentence for a farmer when no inspector work is waiting', async () => {

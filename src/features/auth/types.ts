@@ -1,4 +1,5 @@
 import { isSafeOwnerIdentity } from '@/database/ownerIdentity';
+import type { CapabilityGrant } from '@/features/auth/domain/sessionState';
 
 export type MobileUserRole = 'field_reporter' | 'farmer';
 
@@ -45,6 +46,12 @@ export interface MobileRegistrationUser extends MobileUser {
 }
 
 export interface MobileSession {
+  /**
+   * The dated record of what /me last confirmed, kept only inside the protected
+   * session entry. It alone lets capabilities survive an offline restart; the
+   * undated `user.capabilities` stays inert on restore.
+   */
+  capabilityGrant?: CapabilityGrant;
   // Older local sessions may omit this value, but new sessions always carry it.
   deviceId?: string;
   expiresAt: string | null;

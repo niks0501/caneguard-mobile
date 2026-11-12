@@ -716,7 +716,13 @@ export async function finalizeFieldReport(
     const attachedSurveyUuid = draftContext.draft.fieldSurveyClientUuid;
     if (
       attachedSurveyUuid &&
-      !queueAttachedFieldSurvey(database, attachedSurveyUuid, owner, input.districtCode?.trim() ?? '')
+      !queueAttachedFieldSurvey(
+        database,
+        attachedSurveyUuid,
+        owner,
+        input.districtCode?.trim() ?? '',
+        input.provenance ?? null,
+      )
     ) {
       return {
         missingRequirements: ['attached_boundary'],
@@ -794,6 +800,8 @@ export async function finalizeFieldReport(
         .update(fieldReports)
         .set({
           authoringState: 'finalized',
+          authorizationBasis: input.provenance?.basis ?? null,
+          capabilitiesVerifiedAt: input.provenance?.verifiedAt ?? null,
           submittedAt: values.submittedAt,
           syncStatus: 'pending',
           updatedAt: values.updatedAt,
@@ -1200,6 +1208,12 @@ export async function deleteFieldReportDraft(
 
 function toFieldReport(row: typeof fieldReports.$inferSelect): FieldReport {
   return {
+    ...(row.authorizationBasis === 'verified' || row.authorizationBasis === 'carryover'
+      ? {
+          authorizationBasis: row.authorizationBasis,
+          ...(row.capabilitiesVerifiedAt ? { capabilitiesVerifiedAt: row.capabilitiesVerifiedAt } : {}),
+        }
+      : {}),
     id: row.id,
     scanRecordId: row.scanRecordId,
     fieldSurveyClientUuid: row.fieldSurveyClientUuid,

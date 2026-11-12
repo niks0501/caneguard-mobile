@@ -30,6 +30,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
   native.exec(readFileSync('drizzle/0023_affected_area_waypoints.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   native.exec(readFileSync('drizzle/0024_active_affected_waypoints.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   native.exec(readFileSync('drizzle/0025_field_survey_author_role.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
+  native.exec(readFileSync('drizzle/0037_net3_survey_provenance.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   const client = {
     prepareSync(sql: string) {
       const statement = native.prepare(sql);

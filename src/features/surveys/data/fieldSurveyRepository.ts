@@ -4,6 +4,7 @@ import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import { fieldSurveys, type FieldSurveyRow } from '@/database/schema';
+import type { AuthoringProvenance } from '@/features/auth/domain/sessionState';
 import type { MobileUserRole } from '@/features/auth/types';
 import { planAttachedBoundarySend } from '@/features/surveys/domain/attachedBoundary';
 import { boundaryCanDelete, boundaryCanEdit, boundaryCanSubmit, boundaryState } from '@/features/surveys/domain/boundaryState';
@@ -106,6 +107,7 @@ export function markFieldSurveyPending(
   affectedAreaPolygons: SurveyPolygon[] = [],
   affectedAreaSqm = 0,
   affectedAreaWaypoints: SurveyWaypoint[][] = [],
+  provenance: AuthoringProvenance | null = null,
 ): void {
   const owner = requireOwnerIdentity(ownerIdentity);
   const row = findOwnedFieldSurvey(database, clientUuid, owner);
@@ -142,6 +144,8 @@ export function markFieldSurveyPending(
     activeAffectedWaypointsJson: JSON.stringify([]),
     measurementProvenanceJson: JSON.stringify(affectedMeasurement.provenance),
     capturedAt,
+    authorizationBasis: provenance?.basis ?? null,
+    capabilitiesVerifiedAt: provenance?.verifiedAt ?? null,
     status: 'pending',
     fieldErrorsJson: null,
     lastSyncErrorCode: null,
@@ -160,6 +164,7 @@ export function queueAttachedFieldSurvey(
   clientUuid: string,
   ownerIdentity: string,
   districtCode: string,
+  provenance: AuthoringProvenance | null = null,
 ): boolean {
   const row = findOwnedFieldSurvey(database, clientUuid, ownerIdentity);
   if (!row) return false;
@@ -169,7 +174,7 @@ export function queueAttachedFieldSurvey(
     const { send } = plan;
     markFieldSurveyPending(
       database, clientUuid, ownerIdentity, districtCode, send.polygon, send.areaSqm, send.capturedAt,
-      send.affectedAreas, send.affectedAreaSqm, send.affectedAreaWaypoints,
+      send.affectedAreas, send.affectedAreaSqm, send.affectedAreaWaypoints, provenance,
     );
   }
   return true;

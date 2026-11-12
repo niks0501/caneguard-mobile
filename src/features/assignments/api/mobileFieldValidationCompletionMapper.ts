@@ -36,6 +36,12 @@ export function mapFieldValidationCompletionToMultipart(
   form.append('visited_at', completion.visitedAt);
   form.append('gps_outcome', completion.gpsOutcome);
   form.append('gps_attempted_at', completion.gpsAttemptedAt);
+  if (completion.authorizationBasis) {
+    form.append('authorization_basis', completion.authorizationBasis);
+    if (completion.capabilitiesVerifiedAt) {
+      form.append('capabilities_verified_at', completion.capabilitiesVerifiedAt);
+    }
+  }
   appendNumber(form, 'gps_latitude', completion.gpsLatitude);
   appendNumber(form, 'gps_longitude', completion.gpsLongitude);
   appendNumber(form, 'gps_accuracy', completion.gpsAccuracy);

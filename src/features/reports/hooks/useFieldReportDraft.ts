@@ -1,4 +1,6 @@
 import { canAuthorInspectorWork } from '@/features/auth/capabilities';
+import { AUTHORING_WINDOW_COPY } from '@/constants/copy';
+import { readAuthoringBound } from '@/features/auth/domain/authoringBound';
 import { randomUUID } from 'expo-crypto';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -239,7 +241,8 @@ export function useFieldReportDraft(
   regionDefaults?: { municipality: string; province: string },
 ) {
   const database = useCaneGuardDatabase();
-  const { user } = useAuth();
+  const auth = useAuth();
+  const { user } = auth;
   const { get: getFlow, send, state } = useFieldReportFlowStore();
   const reportId = useRef<{
     id: string;
@@ -688,6 +691,14 @@ export function useFieldReportDraft(
       locationAttempt.current += 1;
       const submittedAt = new Date().toISOString();
       try {
+        // The authoring bound, checked at the moment of finishing: a report is
+        // finished only under Verified, or Carry-over with window left.
+        const provenance = readAuthoringBound(auth);
+        if (provenance === null) {
+          lastError.current = AUTHORING_WINDOW_COPY.ended;
+          send({ type: 'FINALIZE_FAILED', message: AUTHORING_WINDOW_COPY.ended });
+          return { status: 'failed' };
+        }
         const result = await finalizeFieldReport(
           database,
           current.id,
@@ -695,6 +706,7 @@ export function useFieldReportDraft(
           {
             ...values,
             districtCode: user.districtCode ?? '',
+            provenance: provenance ?? null,
             submittedAt,
             updatedAt: submittedAt,
           },
@@ -732,6 +744,7 @@ export function useFieldReportDraft(
       }
     },
     [
+      auth,
       canAuthorReports,
       database,
       getFlow,

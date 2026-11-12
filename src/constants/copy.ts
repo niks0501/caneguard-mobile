@@ -251,6 +251,26 @@ export const OFFLINE_READINESS_COPY = {
     'Password-only sign-in: if CaneGuard closes while you are offline, you must sign in again when a connection returns. Turn on biometric unlock in Account security before visits to resume offline after a restart.',
 } as const;
 
+/** NET-3: shown when a record cannot be finished because the offline access window has closed. */
+export const AUTHORING_WINDOW_COPY = {
+  ended:
+    'Your offline access window ended. Your saved work is safe. Connect to the internet so your office can confirm your access, then finish this.',
+} as const;
+
+/**
+ * NET-3: the one missing step named when this device is not ready for offline
+ * work. Keys are the `MissingStep` values from the session domain.
+ */
+export const MISSING_STEP_COPY = {
+  'sign-in': 'Sign in again while you are online.',
+  'turn-on-biometric': 'Turn on biometric unlock in Account security.',
+  'confirm-access':
+    'Connect to the internet so your office can confirm your access. Your saved work is safe.',
+  'wait-for-check': 'Checking your inspector access…',
+  'ask-office': 'Your access changed. Ask your office to restore it. Your saved work is safe.',
+  'download-visits': 'Download your visits while you are online.',
+} as const;
+
 /** One-time "Ready for the field" sheet after a password sign-in, and the quiet Home line. */
 export const READY_FOR_FIELD_COPY = {
   sheetTitle: 'Ready for the field?',

@@ -3,10 +3,14 @@ import type {
   FieldValidationGpsOutcome,
   SyncStatus,
 } from '@/database/schema';
+import type { AuthoringProvenance } from '@/features/auth/domain/sessionState';
 
 export interface FieldValidationCompletion {
   actionTaken: string;
   assignmentId: string;
+  /** NET-3 provenance frozen when the visit was saved; absent on rows saved before it existed. */
+  authorizationBasis?: AuthoringProvenance['basis'];
+  capabilitiesVerifiedAt?: string;
   createdAt: string;
   fieldFinding: string;
   fieldObservation: string;
@@ -80,6 +84,8 @@ export interface SaveFieldValidationCompletionInput {
   gpsOutcome: FieldValidationGpsOutcome;
   id: string;
   ownerIdentity: string;
+  /** Frozen with the saved visit (NET-3); omitted only by callers that predate the session union. */
+  provenance?: AuthoringProvenance | null;
   reportUuid: string;
   visitedAt: string;
 }

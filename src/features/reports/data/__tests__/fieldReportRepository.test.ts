@@ -110,6 +110,8 @@ function openTestDatabase(): {
     '0028_field_report_survey_link.sql',
     '0029_scan_personal_place.sql',
     '0034_authority_workflow_status.sql',
+    '0036_net3_report_provenance.sql',
+    '0037_net3_survey_provenance.sql',
   ]) {
     native.exec(readMigration(migration));
   }

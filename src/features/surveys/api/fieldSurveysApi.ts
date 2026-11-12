@@ -26,6 +26,9 @@ export interface FieldSurveyMeasurementProvenance {
  */
 export interface SubmitFieldSurveyPayload {
   area_sqm: number;
+  /** NET-3 provenance frozen when the boundary was queued; stored as-is by the office. */
+  authorization_basis?: 'verified' | 'carryover';
+  capabilities_verified_at?: string;
   affected_area_polygons: SurveyPolygon[];
   affected_area_sqm: number;
   measurement_provenance: FieldSurveyMeasurementProvenance;

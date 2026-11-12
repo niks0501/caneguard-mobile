@@ -32,9 +32,17 @@ export const VISIT_REFUSAL_SYNC_ERROR_CODES = [
   'VISIT_CANCELLED',
 ] as const;
 
+/**
+ * A 403 whose body names CAPABILITY_REVOKED: the office took access away while
+ * the token survives. Its own code, kept apart like the visit refusals, so it is
+ * never read as the generic API_FORBIDDEN.
+ */
+export const ACCESS_REFUSAL_SYNC_ERROR_CODES = ['CAPABILITY_REVOKED'] as const;
+
 export type SyncErrorCode =
   | (typeof SYNC_ERROR_CODES)[number]
-  | (typeof VISIT_REFUSAL_SYNC_ERROR_CODES)[number];
+  | (typeof VISIT_REFUSAL_SYNC_ERROR_CODES)[number]
+  | (typeof ACCESS_REFUSAL_SYNC_ERROR_CODES)[number];
 
 /** Web reason code on a refused visit completion -> the phone's end state. */
 const VISIT_REFUSAL_REASON_CODES: Record<string, SyncErrorCode> = {
@@ -43,6 +51,20 @@ const VISIT_REFUSAL_REASON_CODES: Record<string, SyncErrorCode> = {
   COMPLETED_ELSEWHERE: 'VISIT_DONE_BY_SOMEONE',
   VISIT_REMOVED: 'VISIT_CANCELLED',
 };
+
+/** True when the response body names the web's CAPABILITY_REVOKED reason code. */
+export function bodyNamesCapabilityRevoked(body: unknown): boolean {
+  if (!body || typeof body !== 'object') return false;
+  const record = body as Record<string, unknown>;
+  const nested =
+    record.data && typeof record.data === 'object'
+      ? (record.data as Record<string, unknown>)
+      : {};
+  return [record.code, record.reason_code, record.reason, nested.code, nested.reason_code, nested.reason].some(
+    (candidate) =>
+      typeof candidate === 'string' && candidate.trim().toUpperCase() === 'CAPABILITY_REVOKED',
+  );
+}
 
 /**
  * Reads the web's refusal reason from a response body, or null while the web
@@ -129,6 +151,12 @@ export function toSyncError(error: unknown): SyncError {
       );
     }
     if (error.status === 403) {
+      if (bodyNamesCapabilityRevoked(error.body)) {
+        return new SyncError(
+          'CAPABILITY_REVOKED',
+          getSyncErrorMessage('CAPABILITY_REVOKED') ?? '',
+        );
+      }
       return new SyncError(
         'API_FORBIDDEN',
         'This account is not allowed to submit field reports.',
@@ -207,6 +235,8 @@ export function getSyncErrorMessage(code: string | null): string | null {
       return 'The server rejected saved report data.';
     case 'CLIENT_UUID_CONFLICT':
       return 'Start a new boundary before sending again.';
+    case 'CAPABILITY_REVOKED':
+      return 'Your access changed. Ask your office to restore it. Your saved work is safe.';
     case 'API_FORBIDDEN':
       return 'This account cannot submit field reports.';
     case 'API_RATE_LIMITED':

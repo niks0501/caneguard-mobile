@@ -39,6 +39,8 @@ export async function apiRequest<T>(
   path: string,
   options: RequestInit & {
     csrf?: boolean;
+    /** Called with the server's `Date` header (ms since epoch) when a response carries one. */
+    onServerTime?: (serverNowMs: number) => void;
     timeoutMs?: number;
     token?: string | null;
   } = {},
@@ -46,6 +48,7 @@ export async function apiRequest<T>(
   const controller = new AbortController();
   const {
     csrf = false,
+    onServerTime,
     timeoutMs = DEFAULT_API_TIMEOUT_MS,
     token,
     signal: callerSignal,
@@ -91,6 +94,10 @@ export async function apiRequest<T>(
           signal: controller.signal,
         });
         const body = await readResponseBody(response);
+        if (onServerTime) {
+          const serverNowMs = Date.parse(response.headers.get('Date') ?? '');
+          if (Number.isFinite(serverNowMs)) onServerTime(serverNowMs);
+        }
 
         if (!response.ok) {
           throw new ApiHttpError(

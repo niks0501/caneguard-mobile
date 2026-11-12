@@ -6,6 +6,7 @@ import type {
   MeasurementProvenance,
   SyncStatus,
 } from '@/database/schema';
+import type { AuthoringProvenance } from '@/features/auth/domain/sessionState';
 import type { FieldReportSubmitterRole } from '@/features/auth/types';
 import type { AuthorityReviewSnapshot } from '@/features/reports/domain/reportReviewTypes';
 
@@ -34,6 +35,9 @@ export const LOCATION_UNAVAILABLE_REASON_LABELS: Record<
 
 export interface FieldReport {
   affectedAreaHectares: number | null;
+  /** NET-3 provenance frozen at finish; absent on drafts and on rows finished before it existed. */
+  authorizationBasis?: AuthoringProvenance['basis'];
+  capabilitiesVerifiedAt?: string;
   /**
    * D-01: resolved provenance. A row written before provenance existed reads as
    * measured when a value is stored and not measured when it is empty.
@@ -151,6 +155,11 @@ export interface FinalizeFieldReportInput {
   mismatchReported?: boolean | null;
   reporterObservationText?: string | null;
   reporterSuspectedCondition?: string | null;
+  /**
+   * Frozen onto the report in the same transaction that finalizes it (NET-3).
+   * Omitted only by callers that predate the session union; the screen always sends it.
+   */
+  provenance?: AuthoringProvenance | null;
   submittedAt: string;
   sugarcaneVariety?: string;
   updatedAt: string;

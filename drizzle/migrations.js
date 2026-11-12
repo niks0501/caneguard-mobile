@@ -35,6 +35,9 @@ import m0032 from './0032_office_case_projection.sql';
 import m0033 from './0033_notification_seen_outbox.sql';
 import m0034 from './0034_authority_workflow_status.sql';
 import m0035 from './0035_authority_status_redownload.sql';
+import m0036 from './0036_net3_report_provenance.sql';
+import m0037 from './0037_net3_survey_provenance.sql';
+import m0038 from './0038_net3_visit_provenance.sql';
 
   export default {
     journal,
@@ -74,7 +77,10 @@ m0031,
 m0032,
 m0033,
 m0034,
-m0035
+m0035,
+m0036,
+m0037,
+m0038
     }
   }
   

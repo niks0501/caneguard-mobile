@@ -191,11 +191,30 @@ export async function loginMobile(
   }
 }
 
+let lastServerTimeSample: number | null = null;
+
+/**
+ * The server's clock (from the `Date` header) at the last successful /me, or
+ * null when the server sent none. Read once, straight after `verifyMobileSession`
+ * resolves: the carry-over window is measured against server time.
+ */
+export function consumeServerTimeSample(): number | null {
+  const sample = lastServerTimeSample;
+  lastServerTimeSample = null;
+  return sample;
+}
+
 export async function verifyMobileSession(token: string): Promise<MobileUser> {
+  lastServerTimeSample = null;
   try {
     const response = await apiRequest<unknown>(
       '/api/v1/mobile/auth/me',
-      { token },
+      {
+        onServerTime: (serverNowMs) => {
+          lastServerTimeSample = serverNowMs;
+        },
+        token,
+      },
     );
     const user =
       isRecord(response) && 'user' in response

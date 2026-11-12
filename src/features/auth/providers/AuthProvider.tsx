@@ -1,4 +1,5 @@
 import * as Device from 'expo-device';
+import { AppState } from 'react-native';
 import type { PropsWithChildren } from 'react';
 import {
   createContext,
@@ -18,6 +19,7 @@ import {
   logoutMobile,
   LOCAL_SESSION_MAX_AGE_MS,
   MobileAuthError,
+  consumeServerTimeSample,
   verifyMobileSession,
 } from '@/features/auth/api/mobileAuthApi';
 import {
@@ -39,6 +41,19 @@ import {
   saveProtectedMobileSession,
   StoredSessionExpiredError,
 } from '@/features/auth/services/tokenStore';
+import {
+  assessGrant,
+  authoringProvenance,
+  buildCapabilityGrant,
+  deriveSessionState,
+  deviceClockNow,
+  estimateServerNow,
+  REVERIFY_AFTER_MS,
+  type AuthoringProvenance,
+  type CapabilityGrant,
+  type RevocationReason,
+  type SessionState,
+} from '@/features/auth/domain/sessionState';
 import type {
   AuthStatus,
   BiometricAuthResult,
@@ -59,6 +74,11 @@ interface AuthContextValue {
   changeEmail: (input: EmailChangeInput) => Promise<boolean>;
   changePassword: (input: PasswordChangeInput) => Promise<boolean>;
   clearSessionAfterRemoteRevocation: () => Promise<boolean>;
+  /**
+   * The authoring bound, checked at the moment a record is finished: the
+   * provenance to freeze onto it, or null when the session may not author now.
+   */
+  getAuthoringProvenance: () => AuthoringProvenance | null;
   disableBiometric: (currentPassword: string) => Promise<boolean>;
   enableBiometricUnlock: () => Promise<boolean>;
   enrollMobileDevice: (currentPassword: string, deviceName: string) => Promise<boolean>;
@@ -71,9 +91,18 @@ interface AuthContextValue {
   }>;
   isSessionCurrent: (token: string, ownerIdentity: string) => boolean;
   markSessionExpired: (expectedToken?: string) => Promise<void>;
+  /**
+   * An upload came back CAPABILITY_REVOKED: carried capabilities drop at once,
+   * the session and the unsent records stay, and /me is asked again.
+   */
+  reportCapabilityRevoked: () => Promise<void>;
   /** Re-attempts a pending /me verification; resolves with the verification status afterwards. */
-  retrySessionVerification: () => Promise<SessionVerificationStatus>;
+  retrySessionVerification: (
+    options?: { reason?: 'stale' | 'revoked' },
+  ) => Promise<SessionVerificationStatus>;
   session: MobileSession | null;
+  /** NET-3: the one session union; read this, not status plus sessionVerification. */
+  sessionState: SessionState;
   sessionVerification: SessionVerificationStatus;
   status: AuthStatus;
   unlockWithBiometrics: () => Promise<boolean>;
@@ -93,8 +122,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [hasCompletedLogin, setHasCompletedLogin] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
+  const [revocation, setRevocation] = useState<RevocationReason | null>(null);
+  const [liveVerifiedAt, setLiveVerifiedAt] = useState<string | null>(null);
+  // Bumped when the window may have closed, so the derived state is recomputed.
+  const [clockTick, setClockTick] = useState(0);
   const verificationGeneration = useRef(0);
   const sessionRef = useRef<MobileSession | null>(null);
+  const statusRef = useRef<AuthStatus>('restoring');
+  const revocationRef = useRef<RevocationReason | null>(null);
+  const liveVerifiedAtRef = useRef<string | null>(null);
   const sessionVerificationRef = useRef<SessionVerificationStatus>('idle');
   const verificationRetryRef = useRef<Promise<SessionVerificationStatus> | null>(null);
   const lastVerificationRetryAt = useRef(0);
@@ -102,6 +138,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     sessionVerificationRef.current = sessionVerification;
   }, [sessionVerification]);
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+  useEffect(() => {
+    revocationRef.current = revocation;
+  }, [revocation]);
+  useEffect(() => {
+    liveVerifiedAtRef.current = liveVerifiedAt;
+  }, [liveVerifiedAt]);
   const biometricPromptRef = useRef<Promise<BiometricAuthResult> | null>(null);
   const biometricEnableRef = useRef<Promise<boolean> | null>(null);
   const biometricUnlockRef = useRef<Promise<boolean> | null>(null);
@@ -116,7 +161,41 @@ export function AuthProvider({ children }: PropsWithChildren) {
         : nextSession;
     sessionRef.current = normalizedSession;
     setSession(normalizedSession);
+    if (normalizedSession === null) {
+      liveVerifiedAtRef.current = null;
+      setLiveVerifiedAt(null);
+    }
   }, []);
+
+  /**
+   * A /me success: the server's list replaces everything, a new dated grant is
+   * built from it, and any revocation notice is cleared. The grant lives on the
+   * session object, so it is only persisted where the session already is.
+   */
+  const recordVerified = useCallback(
+    (base: MobileSession, user: MobileUser, serverNowMs: number | null): MobileSession => {
+      const deviceNow = Date.now();
+      const grant = buildCapabilityGrant({
+        capabilities: user.capabilities ?? [],
+        deviceId: base.deviceId ?? null,
+        deviceNow,
+        serverNow: serverNowMs,
+        sessionExpiresAt: base.expiresAt,
+        userUuid: user.uuid,
+      });
+      const verifiedAt =
+        grant?.verifiedAt ??
+        new Date(deviceNow + (serverNowMs === null ? 0 : serverNowMs - deviceNow)).toISOString();
+      liveVerifiedAtRef.current = verifiedAt;
+      setLiveVerifiedAt(verifiedAt);
+      revocationRef.current = null;
+      setRevocation(null);
+      const { capabilityGrant: _previous, ...rest } = base;
+      void _previous;
+      return grant ? { ...rest, capabilityGrant: grant, user } : { ...rest, user };
+    },
+    [],
+  );
 
   const authenticateBiometricOnce = useCallback((): Promise<BiometricAuthResult> => {
     const inFlight = biometricPromptRef.current;
@@ -201,7 +280,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     ): Promise<{ session: MobileSession; verified: boolean }> => {
       try {
         const user = await verifyMobileSession(tokenSession.token);
-        return { session: { ...tokenSession, user }, verified: true };
+        return {
+          session: recordVerified(tokenSession, user, readServerTimeSample()),
+          verified: true,
+        };
       } catch (error: unknown) {
         if (isAuthoritativeSessionRejection(error)) {
           throw error;
@@ -209,7 +291,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return { session: unverifiedSession(tokenSession), verified: false };
       }
     },
-    [],
+    [recordVerified],
   );
 
   const verifyAndHydrateSession = useCallback(
@@ -234,11 +316,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       try {
         const user = await verifyMobileSession(stored.token);
+        const serverNowMs = readServerTimeSample();
         if (!isCurrent()) {
           return false;
         }
 
-        const verified = { ...stored, user };
+        const verified = recordVerified(stored, user, serverNowMs);
         setCurrentSession(verified);
         setStatus('authenticated');
         setSessionVerification('verified');
@@ -256,12 +339,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
             setSessionVerification('idle');
             setBiometricEnabled(false);
             setErrorMessage(null);
+            revocationRef.current = 'session-rejected';
+            setRevocation('session-rejected');
           }
           return false;
         }
 
         if (isCurrent()) {
-          setCurrentSession(unverifiedSession(stored));
+          // /me could not be reached: only a dated, owner-matching, unexpired
+          // grant may stand in for it (Q3: `pending` above stayed fail-closed).
+          setCurrentSession(carriedOverSession(stored, Date.now()));
           setStatus('authenticated');
           setSessionVerification('unavailable');
           setErrorMessage(
@@ -271,7 +358,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return true;
       }
     },
-    [setCurrentSession],
+    [recordVerified, setCurrentSession],
   );
 
   /**
@@ -280,16 +367,25 @@ export function AuthProvider({ children }: PropsWithChildren) {
    * prompts for biometrics, and coalesces overlapping foreground/network
    * events so reconnecting cannot start a request loop.
    */
-  const retrySessionVerification = useCallback(async (): Promise<SessionVerificationStatus> => {
+  const retrySessionVerification = useCallback(async (
+    options: { reason?: 'stale' | 'revoked' } = {},
+  ): Promise<SessionVerificationStatus> => {
     const activeSession = sessionRef.current;
-    if (!activeSession || sessionVerificationRef.current !== 'unavailable') {
+    // A warm verified session is re-verified only when it has gone stale or an
+    // upload said access was revoked; otherwise only `unavailable` retries.
+    const allowVerified = options.reason !== undefined;
+    if (
+      !activeSession ||
+      (sessionVerificationRef.current !== 'unavailable' &&
+        !(allowVerified && sessionVerificationRef.current === 'verified'))
+    ) {
       return sessionVerificationRef.current;
     }
     if (verificationRetryRef.current) {
       return verificationRetryRef.current;
     }
     const now = Date.now();
-    if (now - lastVerificationRetryAt.current < 10_000) {
+    if (options.reason !== 'revoked' && now - lastVerificationRetryAt.current < 10_000) {
       return sessionVerificationRef.current;
     }
     lastVerificationRetryAt.current = now;
@@ -306,10 +402,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const operation = (async (): Promise<SessionVerificationStatus> => {
       try {
         const user = await verifyMobileSession(activeSession.token);
+        const serverNowMs = readServerTimeSample();
         if (!isCurrent()) {
           return sessionVerificationRef.current;
         }
-        setCurrentSession({ ...activeSession, user });
+        setCurrentSession(recordVerified(activeSession, user, serverNowMs));
         sessionVerificationRef.current = 'verified';
         setSessionVerification('verified');
         setErrorMessage(null);
@@ -327,12 +424,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
             setSessionVerification('idle');
             setBiometricEnabled(false);
             setErrorMessage('Your session expired. Sign in to resume pending uploads.');
+            revocationRef.current = 'session-rejected';
+            setRevocation('session-rejected');
           }
           return 'idle';
         }
         // Still offline or the office is still unavailable: keep the honest
-        // "working offline" state without prompting for biometrics.
-        setCurrentSession(unverifiedSession(activeSession));
+        // "working offline" state without prompting for biometrics. A revoked
+        // session keeps its empty list: its grant was dropped when it was reported.
+        setCurrentSession(carriedOverSession(sessionRef.current ?? activeSession, Date.now()));
         sessionVerificationRef.current = 'unavailable';
         setSessionVerification('unavailable');
         return 'unavailable';
@@ -346,7 +446,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     holder.current = operation;
     verificationRetryRef.current = operation;
     return operation;
-  }, [setCurrentSession]);
+  }, [recordVerified, setCurrentSession]);
 
   useEffect(() => {
     if (status !== 'authenticated') {
@@ -509,6 +609,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const login = useCallback(
     async (email: string, password: string) => {
       verificationGeneration.current += 1;
+      revocationRef.current = null;
+      setRevocation(null);
       setErrorMessage(null);
       setSessionVerification('pending');
       let issuedSession: MobileSession | null = null;
@@ -855,6 +957,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const logout = useCallback(async () => {
     verificationGeneration.current += 1;
+    revocationRef.current = null;
+    setRevocation(null);
     // Logout is always terminal for this installation: revoke the current
     // bearer token where possible and remove both password and biometric
     // credentials. A separate lock/unlock flow can be added later without
@@ -899,6 +1003,125 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return { localClearFailed: false, remoteRevocationFailed };
   }, [endPendingSessionWork, setCurrentSession]);
 
+  const sessionState = useMemo<SessionState>(
+    () => {
+      // `clockTick` has no value of its own; it only forces this recompute
+      // when the window may have closed since the last render.
+      void clockTick;
+      return computeSessionState(
+        status,
+        sessionVerification,
+        session,
+        revocation,
+        liveVerifiedAt,
+        deviceClockNow(),
+      );
+    },
+    [clockTick, liveVerifiedAt, revocation, session, sessionVerification, status],
+  );
+
+  const getAuthoringProvenance = useCallback((): AuthoringProvenance | null => {
+    const current = sessionRef.current;
+    if (!current) return null;
+    return authoringProvenance(
+      computeSessionState(
+        statusRef.current,
+        sessionVerificationRef.current,
+        current,
+        revocationRef.current,
+        liveVerifiedAtRef.current,
+        Date.now(),
+      ),
+    );
+  }, []);
+
+  /** Drops capabilities that the window no longer covers, then re-derives the state. */
+  const enforceCapabilityWindow = useCallback(() => {
+    const current = sessionRef.current;
+    if (current) {
+      const state = computeSessionState(
+        statusRef.current,
+        sessionVerificationRef.current,
+        current,
+        revocationRef.current,
+        liveVerifiedAtRef.current,
+        Date.now(),
+      );
+      if (state.kind === 'expired' && (current.user.capabilities?.length ?? 0) > 0) {
+        setCurrentSession(unverifiedSession(current));
+      }
+    }
+    setClockTick((tick) => tick + 1);
+  }, [setCurrentSession]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') {
+      return undefined;
+    }
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+      const grant = sessionRef.current?.capabilityGrant;
+      if (!grant) return;
+      const remaining =
+        Date.parse(grant.validUntil) - estimateServerNow(Date.now(), grant);
+      // A window that has already closed needs no timer: restore and the next
+      // foreground apply it, and re-arming at zero delay would spin.
+      if (!Number.isFinite(remaining) || remaining <= 0) return;
+      timer = setTimeout(
+        () => {
+          enforceCapabilityWindow();
+          schedule();
+        },
+        Math.min(remaining, MAX_SESSION_TIMER_DELAY_MS),
+      );
+    };
+    schedule();
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next !== 'active') return;
+      enforceCapabilityWindow();
+      schedule();
+      // A warm session is never trusted longer than the foreground re-verify
+      // interval: ask /me again, silently, once it has gone stale.
+      const verifiedAt = liveVerifiedAtRef.current;
+      if (
+        sessionVerificationRef.current === 'verified' &&
+        verifiedAt !== null &&
+        estimateServerNow(Date.now(), sessionRef.current?.capabilityGrant ?? null) -
+          Date.parse(verifiedAt) >
+          REVERIFY_AFTER_MS
+      ) {
+        void retrySessionVerification({ reason: 'stale' });
+      }
+    });
+    return () => {
+      if (timer !== null) clearTimeout(timer);
+      subscription.remove();
+    };
+  }, [enforceCapabilityWindow, retrySessionVerification, session?.capabilityGrant, status]);
+
+  const reportCapabilityRevoked = useCallback(async (): Promise<void> => {
+    const current = sessionRef.current;
+    if (!current || statusRef.current !== 'authenticated') return;
+    // Carried capabilities and the grant that would revive them are dropped now;
+    // the session, the unsent records and their evidence stay where they are.
+    const { capabilityGrant: _dropped, ...rest } = current;
+    void _dropped;
+    const next: MobileSession = { ...rest, user: { ...rest.user, capabilities: [] } };
+    revocationRef.current = 'capability-revoked';
+    setRevocation('capability-revoked');
+    setCurrentSession(next);
+    // Best effort: without this a restart that cannot reach /me would revive
+    // the old grant from the protected entry.
+    try {
+      await saveProtectedMobileSession(next);
+    } catch {
+      // The in-memory drop already holds; the next successful /me replaces the grant.
+    }
+    await retrySessionVerification({ reason: 'revoked' });
+  }, [retrySessionVerification, setCurrentSession]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       biometricCapability,
@@ -911,13 +1134,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
       enableBiometricUnlock,
       enrollMobileDevice,
       errorMessage,
+      getAuthoringProvenance,
       hasCompletedLogin,
       isSessionCurrent,
       login,
       logout,
       markSessionExpired,
+      reportCapabilityRevoked,
       retrySessionVerification,
       session,
+      sessionState,
       sessionVerification,
       status,
       unlockWithBiometrics,
@@ -934,13 +1160,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
       enableBiometricUnlock,
       enrollMobileDevice,
       errorMessage,
+      getAuthoringProvenance,
       hasCompletedLogin,
       isSessionCurrent,
       login,
       logout,
       markSessionExpired,
+      reportCapabilityRevoked,
       retrySessionVerification,
       session,
+      sessionState,
       sessionVerification,
       status,
       unlockWithBiometrics,
@@ -955,6 +1184,50 @@ function shouldDisableBiometricUnlock(unlock: BiometricAuthResult): boolean {
     !unlock.success &&
     (unlock.code === 'NOT_AVAILABLE' || unlock.code === 'NOT_ENROLLED')
   );
+}
+
+/** Tolerates test doubles of the auth API that do not model the server clock. */
+function readServerTimeSample(): number | null {
+  return typeof consumeServerTimeSample === 'function' ? consumeServerTimeSample() : null;
+}
+
+function computeSessionState(
+  status: AuthStatus,
+  verification: SessionVerificationStatus,
+  session: MobileSession | null,
+  revocation: RevocationReason | null,
+  liveVerifiedAt: string | null,
+  deviceNow: number,
+): SessionState {
+  const grant: CapabilityGrant | null = session?.capabilityGrant ?? null;
+  return deriveSessionState({
+    assessment: assessGrant(
+      grant,
+      { deviceId: session?.deviceId ?? null, userUuid: session?.user.uuid ?? '' },
+      deviceNow,
+    ),
+    liveVerifiedAt,
+    revocation,
+    status,
+    verification,
+  });
+}
+
+/**
+ * The session as it stands while /me cannot be reached: the grant's
+ * capabilities when it is well-formed, owner-matching and inside its window,
+ * otherwise none. The undated `user.capabilities` is never used here.
+ */
+function carriedOverSession(session: MobileSession, deviceNow: number): MobileSession {
+  const assessment = assessGrant(
+    session.capabilityGrant ?? null,
+    { deviceId: session.deviceId ?? null, userUuid: session.user.uuid },
+    deviceNow,
+  );
+  return {
+    ...session,
+    user: { ...session.user, capabilities: assessment.ok ? [...assessment.capabilities] : [] },
+  };
 }
 
 function unverifiedSession(session: MobileSession): MobileSession {

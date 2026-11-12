@@ -65,6 +65,14 @@ export function getSyncAttention(
           'The office already knows this report reference with different saved details. CaneGuard will not create or re-key a copy; ask the office to reconcile it with your support reference.',
         title: 'Needs office attention',
       };
+    case 'CAPABILITY_REVOKED':
+      return {
+        action: 'support',
+        actionLabel: 'Contact support',
+        reason:
+          'Your office changed your inspector access. This record is kept on your phone and CaneGuard will not send a copy under a new reference; ask the office to restore your access.',
+        title: 'Your access changed',
+      };
     case 'API_FORBIDDEN':
       return {
         action: 'support',

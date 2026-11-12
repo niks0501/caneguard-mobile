@@ -74,6 +74,12 @@ export async function syncFieldSurvey(options: {
           },
           captured_at: row.capturedAt,
           district_code: options.districtCode,
+          ...(row.authorizationBasis === 'verified' || row.authorizationBasis === 'carryover'
+            ? {
+                authorization_basis: row.authorizationBasis,
+                ...(row.capabilitiesVerifiedAt ? { capabilities_verified_at: row.capabilitiesVerifiedAt } : {}),
+              }
+            : {}),
         }, options.token);
         break;
       } catch (error: unknown) {

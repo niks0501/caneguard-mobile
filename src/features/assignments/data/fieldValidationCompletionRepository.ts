@@ -107,6 +107,8 @@ export async function saveFieldValidationCompletion(
           freshPhotoUri: input.freshPhotoUri ?? null,
           freshPhotoMimeType: input.freshPhotoMimeType ?? null,
           freshPhotoSizeBytes: input.freshPhotoSizeBytes ?? null,
+          authorizationBasis: input.provenance?.basis ?? null,
+          capabilitiesVerifiedAt: input.provenance?.verifiedAt ?? null,
           syncStatus: 'pending',
           createdAt: input.visitedAt,
           updatedAt: input.visitedAt,
@@ -408,6 +410,12 @@ async function updateSyncState(
 
 function toCompletion(row: FieldValidationCompletionRow): FieldValidationCompletion {
   return {
+    ...(row.authorizationBasis === 'verified' || row.authorizationBasis === 'carryover'
+      ? {
+          authorizationBasis: row.authorizationBasis,
+          ...(row.capabilitiesVerifiedAt ? { capabilitiesVerifiedAt: row.capabilitiesVerifiedAt } : {}),
+        }
+      : {}),
     id: row.id,
     ownerIdentity: row.ownerIdentity,
     assignmentId: row.assignmentId,

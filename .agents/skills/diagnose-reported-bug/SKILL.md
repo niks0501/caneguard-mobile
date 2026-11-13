@@ -1,6 +1,6 @@
 ---
 name: diagnose-reported-bug
-description: Load at the first report of an app defect, including login, navigation, or form behavior, or a repeated command/check failure; use before investigation or implementation changes.
+description: Load and follow before the first diagnostic query or source inspection for a reported app defect, even in read-only investigations. Load at the first report of an app defect, including login, navigation, or form behavior, or a repeated command/check failure; use before investigation or implementation changes.
 user-invocable: false
 metadata:
   internal: true

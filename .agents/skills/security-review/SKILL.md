@@ -1,6 +1,6 @@
 ---
 name: security-review
-description: Perform a change-focused security review of trust boundaries, authorization, secrets, untrusted input, and abuse paths.
+description: Load before reviewing changes involving authorization boundaries, protected/user data, or untrusted input, including structured code-review requests. Perform a change-focused security review of trust boundaries, authorization, secrets, untrusted input, and abuse paths.
 ---
 
 # Security Review

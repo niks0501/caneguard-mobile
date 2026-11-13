@@ -1,6 +1,6 @@
 ---
 name: review-feature
-description: Review a current change independently against its requirements, risks, and verification evidence.
+description: Load and follow before reviewing a branch, diff, or current code change, including structured findings and risk-assessment requests. Review a current change independently against its requirements, risks, and verification evidence.
 ---
 
 # Review Feature

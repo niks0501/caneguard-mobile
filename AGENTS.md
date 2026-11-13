@@ -9,6 +9,7 @@
 - Ask before destructive actions, production changes, deployments, publishing, force operations, dependency changes, credential access, or other externally consequential actions. Approval must be explicit and received before the action starts.
 - Resolve facts that can be discovered from the repository before asking the user.
 - Ask only when a genuine product decision, missing credential, destructive behavior, or material tradeoff requires user input.
+- Before stopping a process, verify its exact PID or owned session and target only that process; do not use broad name-pattern kills such as `pkill -f`.
 
 ## Graphify
 
@@ -35,7 +36,7 @@ When `graphify-out/graph.json` exists, use Graphify as the first source for unde
 ## Failure Handling
 
 - Read the actual error before attempting a fix.
-- After an unexpected command failure, investigate it before continuing; if it remains unresolved, report it. Inspect failure details and relevant prerequisites; do not silently skip the failed step.
+- After an unexpected command failure, investigate it before continuing; if it remains unresolved, report it. Inspect failure details and relevant prerequisites; do not silently skip the failed step. This applies to navigation tools, dependency-source inspection, and verification helpers too; if evidence remains unavailable, name the resulting inspection gap in the report.
 - Report blockers clearly when further progress requires user action or an unsafe assumption.
 
 ## No-Mistakes Test Policy
@@ -47,6 +48,8 @@ This includes smoke checks and rechecks of implementation-phase behavior; launch
 Start with fast non-interactive automated checks, including targeted unit tests, integration tests, type checks, lint, and static validation, then run the live checks the tier calls for.
 
 E2E validation belongs to both the implementation phase and no-mistakes validation.
+
+Required live checks are acceptance criteria, not optional follow-up: passing unit, type, and lint checks does not replace them. If a required browser/device flow cannot run, report the specific blocker and leave that acceptance unverified.
 
 ## Phone UI patterns
 

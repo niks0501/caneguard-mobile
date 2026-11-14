@@ -115,8 +115,38 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx --yes eas-cli@25.3.0 env:exec preview 'EXPO_NO_DOTENV=1 eas build --platform android --profile qa --non-interactive --no-wait --json'
 
-      - name: Build production Android artifact
+      - name: Build production Android APK
         if: inputs.lane == 'production'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: npx --yes eas-cli@25.3.0 build --platform android --profile production --non-interactive --no-wait --json
+        run: npx --yes eas-cli@25.3.0 env:exec production 'EXPO_NO_DOTENV=1 eas build --platform android --profile production --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"'
+
+      - name: Prove production APK is finished and installable
+        if: inputs.lane == 'production'
+        run: |
+          set -euo pipefail
+          STATUS="$(node -p "const b = require(process.env.RUNNER_TEMP + '/eas-build.json')[0]; b.status")"
+          URL="$(node -p "const b = require(process.env.RUNNER_TEMP + '/eas-build.json')[0]; b.artifacts?.buildUrl ?? ''")"
+          if [ "$STATUS" != "FINISHED" ] || [ -z "$URL" ]; then
+            echo "Production build did not finish with an artifact (status: $STATUS)." >&2
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/apk"
+          curl --fail --location --silent --show-error --output "$RUNNER_TEMP/apk/caneguard-production.apk" "$URL"
+          unzip -l "$RUNNER_TEMP/apk/caneguard-production.apk" | grep -q 'AndroidManifest.xml'
+          unzip -l "$RUNNER_TEMP/apk/caneguard-production.apk" | grep -q 'classes.dex'
+          SHA="$(sha256sum "$RUNNER_TEMP/apk/caneguard-production.apk" | cut -d' ' -f1)"
+          {
+            echo "### Production APK"
+            echo "- Artifact URL: $URL"
+            echo "- SHA-256: $SHA"
+            echo "- Smoke check: downloaded; zip contains AndroidManifest.xml and classes.dex"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload production APK
+        if: inputs.lane == 'production'
+        uses: actions/upload-artifact@v4
+        with:
+          name: caneguard-production-apk
+          path: ${{ runner.temp }}/apk/caneguard-production.apk
+          if-no-files-found: error

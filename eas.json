@@ -32,6 +32,11 @@
     },
     "production": {
       "autoIncrement": true,
+      "distribution": "internal",
+      "environment": "production",
+      "android": {
+        "buildType": "apk"
+      },
       "channel": "production"
     }
   },

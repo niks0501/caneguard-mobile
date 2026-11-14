@@ -28,6 +28,18 @@ describe('public auth entry', () => {
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/login'));
   });
 
+  it('sends a cold-start authenticated session from the entry route to the dashboard', async () => {
+    mockUseAuth.mockReturnValue({
+      hasCompletedLogin: true,
+      status: 'authenticated',
+    } as unknown as ReturnType<typeof useAuth>);
+
+    await render(<SplashScreen />);
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/home'));
+    expect(screen.queryByTestId('welcome.screen')).toBeNull();
+  });
+
   it('keeps the welcome entry for a new installation', async () => {
     mockUseAuth.mockReturnValue({
       hasCompletedLogin: false,

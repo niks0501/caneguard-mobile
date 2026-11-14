@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useEffect } from 'react';
 import { Image, StyleSheet, Text, useColorScheme, View } from 'react-native';
 
@@ -22,6 +22,12 @@ export default function SplashScreen() {
       router.replace('/login');
     }
   }, [hasCompletedLogin, status]);
+
+  // A cold start opens at '/'. Once authenticated this route must still match,
+  // or the router reports it unmatched; send the session to the dashboard.
+  if (status === 'authenticated') {
+    return <Redirect href="/home" />;
+  }
 
   return (
     <ScreenContainer

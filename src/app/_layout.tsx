@@ -174,8 +174,13 @@ export function AppNavigator() {
             }}
           />
         </Stack.Protected>
+        {/*
+          '/' is where a cold start opens. It stays registered while signed in
+          (index redirects to /home); guarding it out leaves that start route
+          unmatched.
+        */}
+        <Stack.Screen name="index" />
         <Stack.Protected guard={status === 'unauthenticated'}>
-          <Stack.Screen name="index" />
           <Stack.Screen name="login" />
         </Stack.Protected>
         <Stack.Screen name="forgot-password" />

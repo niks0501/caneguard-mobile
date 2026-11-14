@@ -280,6 +280,11 @@ export default function ScanScreen() {
   };
 
   const isBusy = activeOperation !== null;
+  // Direct entry has nothing to cancel or keep, and a back button there can
+  // only dead-end. The X needs scan progress (a photo or a Check Again in
+  // flight); back also needs real navigation history from the scan workflow.
+  const hasScanProgress = Boolean(state.sourceUri || state.followUpOf);
+  const canLeaveScan = hasScanProgress && router.canGoBack();
   return (
     <SafeAreaView
       testID="scan.screen"
@@ -288,7 +293,8 @@ export default function ScanScreen() {
       <View style={styles.root}>
         <BrandedScreenHeader
           title={isFarmer ? scanCopy.title : 'Scan sugarcane'}
-          showClose
+          showBack={canLeaveScan}
+          showClose={hasScanProgress}
           onClosePress={handleCancel}
           closeTestID="scan.header-close"
           closeAccessibilityLabel={isFarmer ? farmerCopy.result.closeLabel : undefined}

@@ -44,7 +44,11 @@ jest.mock(
       setParams: jest.fn(),
     };
 
-    function Screen() {
+    // Screens that are registered (not filtered out by a closed guard) this render.
+    const registeredScreens = new Set<string>();
+
+    function Screen({ name }: { name: string }) {
+      registeredScreens.add(name);
       return null;
     }
 
@@ -65,6 +69,13 @@ jest.mock(
         }
       }
       return guard ? <>{children}</> : null;
+    }
+
+    function Redirect({ href }: { href: string }) {
+      React.useEffect(() => {
+        routerMock.replace(href);
+      }, [href]);
+      return null;
     }
 
     const Stack = Object.assign(({ children }: { children: React.ReactNode }) => <>{children}</>, {
@@ -89,6 +100,8 @@ jest.mock(
         navigationListeners.forEach((notify) => notify());
       },
       __navigationState: navigationState,
+      __registeredScreens: registeredScreens,
+      Redirect,
       useRootNavigationState,
       router: routerMock,
       DarkTheme: {},
@@ -151,6 +164,8 @@ const mockReplace = jest.mocked(router.replace);
 const navigationState = (jest.requireMock('expo-router') as {
   __navigationState: { route: string; lastProtectedRoute: string; navigatorMounted: boolean };
 }).__navigationState;
+const registeredScreens = (jest.requireMock('expo-router') as { __registeredScreens: Set<string> })
+  .__registeredScreens;
 const mountNavigator = (jest.requireMock('expo-router') as { __mountNavigator: () => void }).__mountNavigator;
 
 function setAuthStatus(status: AuthStatus) {
@@ -210,6 +225,18 @@ describe('post-login landing', () => {
     await waitFor(() => expect(navigationState.route).toBe('/home'));
     expect(mockReplace).toHaveBeenCalledTimes(1);
     expect(mockReplace).toHaveBeenCalledWith('/home');
+  });
+
+  it('keeps the cold-start route registered when authenticated so it is never unmatched', async () => {
+    // Cold start opens at '/'. If the signed-in tree hides that route the
+    // router reports it unmatched instead of landing on the dashboard.
+    registeredScreens.clear();
+    setAuthStatus('authenticated');
+    await render(<AppNavigator />);
+
+    expect(registeredScreens.has('index')).toBe(true);
+    expect(registeredScreens.has('(tabs)')).toBe(true);
+    expect(registeredScreens.has('login')).toBe(false);
   });
 
   it('does not yank the route again once the session is stable', async () => {

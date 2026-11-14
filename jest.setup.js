@@ -52,8 +52,7 @@ jest.mock('expo-image', () => {
 jest.mock('expo-router', () => {
   const React = require('react');
 
-  return {
-    router: {
+  const mockRouter = {
       back: jest.fn(),
       canGoBack: jest.fn(() => true),
       dismissTo: jest.fn(),
@@ -61,6 +60,16 @@ jest.mock('expo-router', () => {
       push: jest.fn(),
       replace: jest.fn(),
       setParams: jest.fn(),
+  };
+
+  return {
+    router: mockRouter,
+    // Like the real component, a redirect replaces the route once mounted.
+    Redirect: ({ href }) => {
+      React.useEffect(() => {
+        mockRouter.replace(href);
+      }, [href]);
+      return null;
     },
     // The real hook runs the callback from an effect once the screen is focused.
     // Running it during render turns an ordinary state update into a render-phase

@@ -2,7 +2,14 @@
 // pipeline is installed before any other module runs.
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider } from 'expo-router';
+import {
+  DarkTheme,
+  DefaultTheme,
+  router,
+  Stack,
+  ThemeProvider,
+  useRootNavigationState,
+} from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
@@ -62,6 +69,8 @@ export function AppNavigator() {
   const { colorScheme, isHydrated } = useThemePreference();
   const { status } = useAuth();
   const previousStatusRef = useRef(status);
+  const landingPendingRef = useRef(false);
+  const navigatorReady = Boolean(useRootNavigationState()?.key);
 
   useEffect(() => {
     if (isHydrated && status !== 'restoring') {
@@ -72,13 +81,20 @@ export function AppNavigator() {
   useEffect(() => {
     const previousStatus = previousStatusRef.current;
     previousStatusRef.current = status;
-    // Every successful login lands on the dashboard unconditionally. The
+    // Every successful sign-in lands on the dashboard unconditionally. The
     // login screen's own replace can be lost when the auth guard flips and
     // unmounts it, letting the router restore the pre-login route instead.
     if (previousStatus !== 'authenticated' && status === 'authenticated') {
+      landingPendingRef.current = true;
+    }
+    // A cold-start biometric unlock goes restoring -> authenticated, so the
+    // navigator only mounts in this same commit, at a route the sign-in guard
+    // hides. Hold the landing until the navigator can take the replace.
+    if (landingPendingRef.current && navigatorReady) {
+      landingPendingRef.current = false;
       router.replace('/home');
     }
-  }, [status]);
+  }, [navigatorReady, status]);
 
   if (!isHydrated || status === 'restoring') {
     return null;

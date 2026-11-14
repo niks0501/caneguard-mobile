@@ -67,6 +67,7 @@ jest.mock('expo-router', () => {
     // update, which React retries until it throws "Too many re-renders".
     useFocusEffect: (callback) => React.useEffect(() => callback(), [callback]),
     useLocalSearchParams: jest.fn(() => ({})),
+    useRootNavigationState: jest.fn(() => ({ key: 'root' })),
   };
 });
 

@@ -67,7 +67,13 @@ export async function getBiometricCapability(): Promise<BiometricCapability> {
   }
 }
 
-export async function authenticateWithBiometrics(): Promise<BiometricAuthResult> {
+/**
+ * Checks that a strong biometric can be used, without showing a prompt.
+ * The protected session is stored with `requireAuthentication`, so the OS
+ * shows its own prompt when that item is read (and, on Android, written).
+ * Prompting here as well would ask for two finger touches per action.
+ */
+export async function ensureBiometricReady(): Promise<BiometricAuthResult> {
   const capability = await getBiometricCapability();
   if (capability.status === 'not-enrolled') {
     return {
@@ -82,6 +88,26 @@ export async function authenticateWithBiometrics(): Promise<BiometricAuthResult>
       message: 'Biometric unlock is unavailable. Sign in with your password.',
       success: false,
     };
+  }
+  return { success: true };
+}
+
+/**
+ * Confirmation before saving the protected session. Android's authentication-
+ * bound Keystore key prompts on that write itself, so only a readiness check
+ * is needed there. iOS adds a gated Keychain item without a prompt, so the
+ * explicit prompt stays the single confirmation on that platform.
+ */
+export async function confirmBeforeProtectedWrite(): Promise<BiometricAuthResult> {
+  return Platform.OS === 'android'
+    ? ensureBiometricReady()
+    : authenticateWithBiometrics();
+}
+
+export async function authenticateWithBiometrics(): Promise<BiometricAuthResult> {
+  const ready = await ensureBiometricReady();
+  if (!ready.success) {
+    return ready;
   }
 
   try {

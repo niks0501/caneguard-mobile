@@ -67,14 +67,21 @@ jest.mock('@/features/auth/services/deviceIdentity', () => ({
   DeviceIdentityError: class DeviceIdentityError extends Error {},
   getOrCreateMobileDeviceId: jest.fn(async () => 'installation-uuid'),
 }));
-jest.mock('@/features/auth/services/biometricAuth', () => ({
-  authenticateWithBiometrics: jest.fn(async () => ({ success: false, code: 'CANCELLED', message: 'Cancelled' })),
+jest.mock('@/features/auth/services/biometricAuth', () => {
+  const authenticate = jest.fn(async () => ({ success: false, code: 'CANCELLED', message: 'Cancelled' }));
+  return {
+  authenticateWithBiometrics: authenticate,
+  // The readiness checks used by the provider share one mock so each test's
+  // single `authenticateWithBiometrics` expectation still drives them.
+  confirmBeforeProtectedWrite: () => authenticate(),
+  ensureBiometricReady: () => authenticate(),
   getBiometricCapability: jest.fn(async () => ({
     deviceCredentialAvailable: true,
     status: 'available',
     strongBiometricsAvailable: true,
   })),
-}));
+  };
+});
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({
     apiReachability: 'unknown',

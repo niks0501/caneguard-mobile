@@ -1,7 +1,7 @@
 {
   "name": "caneguard-mobile",
   "main": "expo-router/entry",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "dependencies": {
     "@expo/ui": "~58.0.27",
     "@expo/vector-icons": "^15.0.2",

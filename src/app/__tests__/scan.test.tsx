@@ -515,6 +515,51 @@ describe('ScanScreen', () => {
     expect(screen.getByText('No image added yet')).toBeOnTheScreen();
   });
 
+  describe('header navigation controls', () => {
+    const inProgress = {
+      ...initialScanSessionState,
+      sourceUri: 'file:///selected.jpg',
+      sourceWidth: 800,
+      sourceHeight: 600,
+      sourceType: 'camera' as const,
+      status: 'image-selected' as const,
+    };
+
+    afterEach(() => {
+      jest.mocked(router.canGoBack).mockReturnValue(true);
+    });
+
+    it('shows neither X nor back on the first scan screen reached directly', async () => {
+      jest.mocked(router.canGoBack).mockReturnValue(false);
+      await renderScan();
+
+      expect(screen.queryByTestId('scan.header-close')).not.toBeOnTheScreen();
+      expect(screen.queryByLabelText('Go back')).not.toBeOnTheScreen();
+    });
+
+    it('shows no back button without workflow history even once a photo is chosen', async () => {
+      jest.mocked(router.canGoBack).mockReturnValue(false);
+      await renderScan(inProgress);
+
+      expect(screen.getByTestId('scan.header-close')).toBeOnTheScreen();
+      expect(screen.queryByLabelText('Go back')).not.toBeOnTheScreen();
+    });
+
+    it('shows back and X mid-workflow, with history and scan progress', async () => {
+      jest.mocked(router.canGoBack).mockReturnValue(true);
+      await renderScan(inProgress);
+
+      expect(screen.getByTestId('scan.header-close')).toBeOnTheScreen();
+      expect(screen.getByLabelText('Go back')).toBeOnTheScreen();
+    });
+
+    it('treats a Check Again in flight as scan progress for the X', async () => {
+      await renderScan({ ...initialScanSessionState, followUpOf: 'scan-1' });
+
+      expect(screen.getByTestId('scan.header-close')).toBeOnTheScreen();
+    });
+  });
+
   describe('cancel and return home', () => {
     it('opens cancel dialog when header close button is pressed', async () => {
       await renderScan({

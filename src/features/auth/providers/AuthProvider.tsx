@@ -23,7 +23,8 @@ import {
   verifyMobileSession,
 } from '@/features/auth/api/mobileAuthApi';
 import {
-  authenticateWithBiometrics,
+  confirmBeforeProtectedWrite,
+  ensureBiometricReady,
   getBiometricCapability,
 } from '@/features/auth/services/biometricAuth';
 import { checkAccountStep, net } from '@/features/net/reconnectCoordinator';
@@ -197,13 +198,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [],
   );
 
-  const authenticateBiometricOnce = useCallback((): Promise<BiometricAuthResult> => {
+  const readyBiometricOnce = useCallback((): Promise<BiometricAuthResult> => {
     const inFlight = biometricPromptRef.current;
     if (inFlight) {
       return inFlight;
     }
 
-    const pending = authenticateWithBiometrics();
+    const pending = ensureBiometricReady();
     biometricPromptRef.current = pending;
     void pending.then(
       () => {
@@ -501,7 +502,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return;
       }
 
-      const unlock = await authenticateBiometricOnce();
+      const unlock = await readyBiometricOnce();
       if (!isCurrent()) {
         return;
       }
@@ -564,7 +565,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       active = false;
     };
-  }, [authenticateBiometricOnce, setCurrentSession, verifyAndHydrateSession]);
+  }, [readyBiometricOnce, setCurrentSession, verifyAndHydrateSession]);
 
   useEffect(() => {
     let active = true;
@@ -694,7 +695,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           setErrorMessage('Biometric unlock is not set up. Sign in with your password.');
           return false;
         }
-        const unlock = await authenticateBiometricOnce();
+        const unlock = await readyBiometricOnce();
         if (!unlock.success) {
           if (shouldDisableBiometricUnlock(unlock)) {
             if (typeof disableBiometricUnlock === 'function') {
@@ -755,7 +756,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       },
     );
     return operation;
-  }, [authenticateBiometricOnce, setCurrentSession, verifyAndHydrateSession]);
+  }, [readyBiometricOnce, setCurrentSession, verifyAndHydrateSession]);
 
   const enableBiometricUnlock = useCallback((): Promise<boolean> => {
     const inFlight = biometricEnableRef.current;
@@ -772,7 +773,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setBiometricLoading(true);
       setErrorMessage(null);
       try {
-        const unlock = await authenticateBiometricOnce();
+        const unlock = await confirmBeforeProtectedWrite();
         if (!unlock.success) {
           setErrorMessage(unlock.message);
           return false;
@@ -805,7 +806,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       },
     );
     return operation;
-  }, [authenticateBiometricOnce]);
+  }, []);
 
   const clearSessionAfterRemoteRevocation = useCallback(
     () => clearLocalSession(null),

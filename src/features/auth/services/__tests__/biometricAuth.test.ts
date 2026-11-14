@@ -1,8 +1,12 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 
+import { Platform } from 'react-native';
+
 import {
   authenticateWithBiometrics,
+  confirmBeforeProtectedWrite,
+  ensureBiometricReady,
   getBiometricCapability,
 } from '@/features/auth/services/biometricAuth';
 
@@ -111,6 +115,35 @@ describe('mobile biometric capability and authentication', () => {
         promptSubtitle: 'Use your enrolled strong biometric.',
       }),
     );
+  });
+
+  it('checks readiness without showing a prompt', async () => {
+    await expect(ensureBiometricReady()).resolves.toEqual({ success: true });
+    expect(mockAuthenticate).not.toHaveBeenCalled();
+
+    mockEnrolled.mockResolvedValue(false);
+    mockLevel.mockResolvedValue(LocalAuthentication.SecurityLevel.NONE);
+    await expect(ensureBiometricReady()).resolves.toMatchObject({
+      code: 'NOT_ENROLLED',
+      success: false,
+    });
+    expect(mockAuthenticate).not.toHaveBeenCalled();
+  });
+
+  it('leaves the prompt before a protected write to Android Keystore and keeps it on iOS', async () => {
+    const originalOs = Platform.OS;
+    try {
+      Platform.OS = 'android';
+      await expect(confirmBeforeProtectedWrite()).resolves.toEqual({ success: true });
+      expect(mockAuthenticate).not.toHaveBeenCalled();
+
+      Platform.OS = 'ios';
+      mockAuthenticate.mockResolvedValueOnce({ success: true });
+      await expect(confirmBeforeProtectedWrite()).resolves.toEqual({ success: true });
+      expect(mockAuthenticate).toHaveBeenCalledTimes(1);
+    } finally {
+      Platform.OS = originalOs;
+    }
   });
 
   it('maps cancellation and native authentication failures to password fallback states', async () => {

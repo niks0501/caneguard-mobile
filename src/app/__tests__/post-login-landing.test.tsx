@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react-native';
+import { act, render, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import { AppNavigator } from '@/app/_layout';
@@ -23,7 +23,10 @@ jest.mock(
     const navigationState = {
       route: '/login',
       lastProtectedRoute: '/records',
+      // Whether the root navigator has mounted and can take a navigation.
+      navigatorMounted: true,
     };
+    const navigationListeners = new Set<() => void>();
 
     const routerMock = {
       back: jest.fn(),
@@ -33,7 +36,10 @@ jest.mock(
         navigationState.route = href;
       }),
       replace: jest.fn((href: string) => {
-        navigationState.route = href;
+        // A replace sent before the navigator mounts is dropped.
+        if (navigationState.navigatorMounted) {
+          navigationState.route = href;
+        }
       }),
       setParams: jest.fn(),
     };
@@ -66,8 +72,24 @@ jest.mock(
       Screen,
     });
 
+    function useRootNavigationState() {
+      const [, rerender] = React.useReducer((n: number) => n + 1, 0);
+      React.useEffect(() => {
+        navigationListeners.add(rerender);
+        return () => {
+          navigationListeners.delete(rerender);
+        };
+      }, []);
+      return navigationState.navigatorMounted ? { key: 'root' } : undefined;
+    }
+
     return {
+      __mountNavigator: () => {
+        navigationState.navigatorMounted = true;
+        navigationListeners.forEach((notify) => notify());
+      },
       __navigationState: navigationState,
+      useRootNavigationState,
       router: routerMock,
       DarkTheme: {},
       DefaultTheme: {},
@@ -126,8 +148,10 @@ jest.mock('@/features/notifications/components/MobileAttentionLifecycle', () => 
 
 const mockUseAuth = jest.mocked(useAuth);
 const mockReplace = jest.mocked(router.replace);
-const navigationState = (jest.requireMock('expo-router') as { __navigationState: { route: string; lastProtectedRoute: string } })
-  .__navigationState;
+const navigationState = (jest.requireMock('expo-router') as {
+  __navigationState: { route: string; lastProtectedRoute: string; navigatorMounted: boolean };
+}).__navigationState;
+const mountNavigator = (jest.requireMock('expo-router') as { __mountNavigator: () => void }).__mountNavigator;
 
 function setAuthStatus(status: AuthStatus) {
   mockUseAuth.mockReturnValue({ status } as unknown as ReturnType<typeof useAuth>);
@@ -138,6 +162,7 @@ describe('post-login landing', () => {
     jest.clearAllMocks();
     navigationState.route = '/login';
     navigationState.lastProtectedRoute = '/records';
+    navigationState.navigatorMounted = true;
     setAuthStatus('unauthenticated');
   });
 
@@ -164,6 +189,27 @@ describe('post-login landing', () => {
 
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/home'));
     expect(navigationState.route).toBe('/home');
+  });
+
+  it('lands a cold-start biometric unlock on the dashboard once the navigator mounts', async () => {
+    // Cold start: restoring -> authenticated, so the navigator is not mounted
+    // yet when the status flips, and its initial route is the guarded '/'.
+    navigationState.navigatorMounted = false;
+    navigationState.route = '/';
+    setAuthStatus('restoring');
+    const { rerender } = await render(<AppNavigator />);
+
+    setAuthStatus('authenticated');
+    await rerender(<AppNavigator />);
+    expect(navigationState.route).toBe('/');
+
+    await act(async () => {
+      mountNavigator();
+    });
+
+    await waitFor(() => expect(navigationState.route).toBe('/home'));
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith('/home');
   });
 
   it('does not yank the route again once the session is stable', async () => {

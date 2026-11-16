@@ -2648,7 +2648,7 @@ function ReporterObservationSection({
         ) : null}
         {reporterConcernChoice === 'rssi' ? (
           <Text testID="field-report.rssi-not-model-copy" style={[styles.helpText, { color: theme.textSecondary }]}>
-            RSSI can be reported as a field concern. It remains separate from the Possible Condition, which is the scan model's output.
+            RSSI can be reported as a field concern. It remains separate from the Possible Condition, which is the output of the scan model.
           </Text>
         ) : null}
         <Text style={[styles.helpText, { color: theme.textSecondary }]}>Optional. Reporting a concern never blocks finalization.</Text>

@@ -26,6 +26,7 @@ import {
   getChecklistConsistency,
   type ChecklistConsistency,
 } from '@/features/detection/checklist/checklistConsistency';
+import { ModelScoreList } from '@/features/detection/components/ModelScoreList';
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import { isBelowConfidenceCautionThreshold } from '@/features/detection/constants/confidenceCaution';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -575,6 +576,10 @@ export default function AnalysisResultScreen() {
                     ? rc.explanations[result.predictedLabel].description
                     : metadata.shortDescription}
                 </Text>
+              </SectionCard>
+
+              <SectionCard title={isFarmer ? rc.scoresTitle : 'Model scores'}>
+                <ModelScoreList scores={result.scores} />
               </SectionCard>
 
               <View

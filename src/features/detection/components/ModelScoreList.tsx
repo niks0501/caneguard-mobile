@@ -15,11 +15,6 @@ export type ModelScore = {
   score: number;
 };
 
-/**
- * The single shared definition of the per-condition model score table,
- * rendered on both the analysis result (T2) and the saved record detail
- * (T1) screens so the two presentations cannot drift apart.
- */
 export function ModelScoreList({ scores }: { scores: ModelScore[] }) {
   // A V2 result carries a fifth (RSSI) score; saved V1 results keep four rows.
   const labels = scores.some((item) => item.label === 'rssi')

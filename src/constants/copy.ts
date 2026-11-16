@@ -502,6 +502,7 @@ export type FarmerCopyBlock = {
     closeLabel: string;
     decisionSupport: Record<FarmerResultName, string>;
     aboutTitle: string;
+    scoresTitle: string;
     explanations: Record<FarmerResultName, { message: string; description: string }>;
     consistency: Record<'consistent' | 'inconsistent' | 'not-applicable' | 'not-enough-information', { title: string; message: string }>;
     qualityTitle: string;
@@ -821,6 +822,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
         unknown: 'This result is for decision support only. It does not decide what is wrong with your crop.',
       },
       aboutTitle: 'About this result',
+      scoresTitle: 'Model scores',
       explanations: {
         healthy: { message: 'The model assigned its highest score to Healthy based on the submitted image.', description: 'The model did not assign its highest score to Mosaic, Rust, Smut, or RSSI.' },
         rssi: { message: 'The model assigned its highest score to RSSI based on the submitted image.', description: 'RSSI is a sap-sucking insect pest, not a leaf disease. It may be associated with small red-striped insects, sticky honeydew, or black sooty mold, mostly on the underside of lower leaves. This visible pattern is observational and does not prove an infestation.' },
@@ -1203,6 +1205,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
         unknown: 'Pantulong lamang sa pagpapasya ang resultang ito. Hindi nito sinasabi kung ano ang tiyak na sakit.',
       },
       aboutTitle: 'Tungkol sa resultang ito',
+      scoresTitle: 'Mga marka ng modelo',
       explanations: {
         healthy: { message: 'Pinakamataas ang markang ibinigay ng modelo sa Healthy batay sa isinumiteng larawan.', description: 'Hindi Mosaic, Rust, Smut, o RSSI ang may pinakamataas na marka.' },
         rssi: { message: 'Pinakamataas ang markang ibinigay ng modelo sa RSSI batay sa isinumiteng larawan.', description: 'Ang RSSI ay peste na sumisipsip ng katas, hindi sakit sa dahon. Maaaring may maliliit na insektong may pulang guhit, malagkit na honeydew, o itim na amag, higit sa ilalim ng mga mababang dahon. Paglalarawan lamang ito ng nakikita at hindi pagpapatunay ng pagkakaroon ng peste.' },

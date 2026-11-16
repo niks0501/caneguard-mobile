@@ -202,7 +202,7 @@ function projectPestEntry(): FieldGuideEntry {
     guide: content.guide,
     sourceIds: content.sourceIds,
     images: FIELD_GUIDE_DROP_PHOTOS[FIELD_GUIDE_PEST_ENTRY_ID],
-    // The app can only record RSSI as something the reporter says they saw.
+    // The guide page is the pest guide; the scan's RSSI output is separate.
     detectableByApp: false,
     contentVersion: content.contentVersion,
     updatedAt: content.updatedAt,

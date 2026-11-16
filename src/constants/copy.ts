@@ -371,9 +371,8 @@ export function fieldGuidePhotoOpenLabel(caption: string): string {
 }
 
 /**
- * Per-entry app-capability line. RSSI is deliberately the honest "cannot"
- * wording, so nobody scans a leaf expecting a pest result the model can never
- * produce.
+ * Per-entry app-capability line. The pest entry still uses the "cannot"
+ * wording until the badge is revisited for the five-class model.
  */
 export const FIELD_GUIDE_APP_CAN_CHECK = 'The app can check this one';
 export const FIELD_GUIDE_APP_CANNOT_CHECK =

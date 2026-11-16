@@ -270,7 +270,9 @@ describe('AnalysisResultScreen', () => {
         ],
       };
       await renderResult(createCompletedState('rust', ['rust'], { result }));
-      await fireEvent.press(screen.getByLabelText('Show Why this result?'));
+      await fireEvent.press(screen.getByLabelText(
+        role === 'farmer' ? 'Show Bakit ito ang resulta?' : 'Show Why this result?',
+      ));
 
       expect(screen.getByLabelText('Healthy score 10%')).toBeOnTheScreen();
       expect(screen.getByLabelText('Mosaic score 8%')).toBeOnTheScreen();

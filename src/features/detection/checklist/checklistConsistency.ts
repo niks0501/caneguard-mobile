@@ -1,6 +1,5 @@
 import {
   MODEL_LABELS,
-  MODEL_V2_LABELS,
   type ModelLabel,
 } from '@/features/detection/constants/modelContract';
 
@@ -81,7 +80,7 @@ export const GUIDED_VALIDATION_QUESTIONS = [
     prompt: 'What visible pattern, if any, best describes the area you are checking?',
     helperText:
       'Choose the closest description. This is your observation and does not change the Possible Condition.',
-    relevantModelLabels: MODEL_V2_LABELS,
+    relevantModelLabels: CHECKLIST_COMPARABLE_LABELS,
     options: [
       MOSAIC_OBSERVATION,
       RUST_OBSERVATION,

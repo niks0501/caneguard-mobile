@@ -54,7 +54,7 @@ describe('getChecklistConsistency', () => {
     expect(getChecklistConsistency('rssi', ['smut'])).toBe('not-applicable');
     expect(getChecklistConsistency('rssi', ['none'])).toBe('not-applicable');
     expect(getChecklistConsistency('rssi', [])).toBe('not-applicable');
-    expect(getGuidedValidationQuestions('rssi')).toHaveLength(1);
+    expect(getGuidedValidationQuestions('rssi')).toEqual([]);
   });
 
   it('compares Smut with an independent observational Smut option', () => {

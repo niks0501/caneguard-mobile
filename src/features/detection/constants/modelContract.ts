@@ -92,6 +92,15 @@ export function modelLabelsForVersion(modelVersion: string): readonly ModelLabel
   return modelVersion === MODEL_V2_VERSION ? MODEL_V2_LABELS : MODEL_LABELS;
 }
 
+export function modelScoreLabelsForVersion(
+  modelVersion: string,
+  scoreCount: number,
+): readonly ModelLabel[] {
+  return modelVersion === MODEL_V2_VERSION && scoreCount === MODEL_LABELS.length
+    ? MODEL_LABELS
+    : modelLabelsForVersion(modelVersion);
+}
+
 export const MODEL_V2_INPUT = {
   name: 'serving_default_rgb_0_255:0',
   shape: [1, 224, 224, 3],

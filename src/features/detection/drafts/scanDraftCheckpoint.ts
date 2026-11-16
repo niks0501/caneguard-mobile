@@ -8,7 +8,7 @@ import {
 } from '@/database/localDraftRepository';
 import {
   isModelLabel,
-  modelLabelsForVersion,
+  modelScoreLabelsForVersion,
   type ModelLabel,
 } from '@/features/detection/constants/modelContract';
 import type { ChecklistObservationId } from '@/features/detection/checklist/checklistConsistency';
@@ -336,7 +336,6 @@ function sanitizeResult(value: unknown): DetectionResult | null {
     result.confidence > 1 ||
     !Array.isArray(result.scores) ||
     typeof result.modelVersion !== 'string' ||
-    result.scores.length !== modelLabelsForVersion(result.modelVersion).length ||
     !result.timings ||
     typeof result.timings.preprocessMs !== 'number' ||
     typeof result.timings.inferenceMs !== 'number' ||
@@ -352,7 +351,13 @@ function sanitizeResult(value: unknown): DetectionResult | null {
       typeof score.score === 'number' &&
       Number.isFinite(score.score),
   );
-  if (scores.length !== modelLabelsForVersion(result.modelVersion).length) {
+  const labels = modelScoreLabelsForVersion(result.modelVersion, result.scores.length);
+  if (
+    scores.length !== labels.length ||
+    !labels.includes(result.predictedLabel) ||
+    new Set(scores.map((score) => score.label)).size !== labels.length ||
+    scores.some((score) => !labels.includes(score.label))
+  ) {
     return null;
   }
   const predictedLabel = result.predictedLabel as ModelLabel;

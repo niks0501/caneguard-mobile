@@ -74,6 +74,22 @@ describe('scan draft checkpoint Check Again metadata', () => {
     expect(reread(completedFollowUp())?.personalPlace).toBeNull();
   });
 
+  it('restores historical four-score and current five-score V2 results', () => {
+    const state = completedFollowUp();
+    const result = { ...state.result!, modelVersion: 'v2.0-mobilenetv2' };
+    const historical = reread({ ...state, result });
+    expect(historical).toMatchObject({
+      status: 'completed',
+      managedImageUri: MANAGED_URI,
+      personalNote: NOTE,
+      result: { modelVersion: 'v2.0-mobilenetv2', scores: result.scores },
+    });
+    const scores = [...result.scores, { label: 'rssi' as const, score: 0.01 }];
+    expect(reread({ ...state, result: { ...result, scores } })?.result?.scores).toEqual(scores);
+    expect(reread({ ...state, result: { ...result, predictedLabel: 'rssi' } })).toBeNull();
+    expect(reread({ ...state, result: { ...result, scores: scores.slice(1) } })).toBeNull();
+  });
+
   it('keeps an ordinary scan ordinary', () => {
     const restored = reread(completedFollowUp({ followUpOf: null, personalNote: null }));
 

@@ -139,6 +139,26 @@ describe('completed scan record validation', () => {
     ).toThrow(expect.objectContaining<Partial<StorageError>>({ code: 'INVALID_SCAN_RECORD' }));
   });
 
+  it('saves historical four-score V2 results without inventing RSSI', () => {
+    const result = {
+      ...completedState().result!,
+      modelVersion: 'v2.0-mobilenetv2',
+      scores: [
+        { label: 'healthy' as const, score: 0.05 },
+        { label: 'mosaic' as const, score: 0.1 },
+        { label: 'rust' as const, score: 0.8 },
+        { label: 'smut' as const, score: 0.04 },
+      ],
+    };
+    const draft = createCompletedScanDraft(completedState({ result }), RECORD_ID, NOW);
+    expect(draft.classScores).toEqual(result.scores);
+    expect(() => validateCompletedScanDraft({ ...draft, predictedLabel: 'rssi' })).toThrow();
+    expect(() => validateCompletedScanDraft({
+      ...draft,
+      classScores: [...result.scores.slice(0, 3), { label: 'rssi', score: 0.01 }],
+    })).toThrow();
+  });
+
   it.each([
     ['incomplete session', completedState({ status: 'running' })],
     ['missing source', completedState({ sourceUri: null })],

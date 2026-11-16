@@ -1,6 +1,6 @@
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import {
-  MODEL_LABELS,
+  MODEL_V2_LABELS,
   type ModelLabel,
 } from '@/features/detection/constants/modelContract';
 import { referenceMedia } from '@/features/detection/constants/referenceMedia';
@@ -188,8 +188,7 @@ function projectPestEntry(): FieldGuideEntry {
     category: 'pest',
     displayName: 'Red-Striped Soft Scale Insect',
     shortName: content.shortName,
-    // The gallery entry is the pest guide, not a model-linked class entry.
-    modelLabel: null,
+    modelLabel: 'rssi',
     summary: content.summary,
     signs: content.signs,
     whereToLook: content.whereToLook,
@@ -202,8 +201,7 @@ function projectPestEntry(): FieldGuideEntry {
     guide: content.guide,
     sourceIds: content.sourceIds,
     images: FIELD_GUIDE_DROP_PHOTOS[FIELD_GUIDE_PEST_ENTRY_ID],
-    // The guide page is the pest guide; the scan's RSSI output is separate.
-    detectableByApp: false,
+    detectableByApp: true,
     contentVersion: content.contentVersion,
     updatedAt: content.updatedAt,
   };
@@ -236,12 +234,12 @@ export function fieldGuideEntriesForCategory(
   return fieldGuideEntries.filter((entry) => entry.category === category);
 }
 
-/** The four entries the model can produce, for the catalog/gallery drift test. */
+/** The entries the model can produce, for the catalog/gallery drift test. */
 export function modelLinkedFieldGuideEntries(): readonly FieldGuideEntry[] {
   return fieldGuideEntries.filter(
     (entry) =>
       entry.modelLabel !== null &&
-      (MODEL_LABELS as readonly string[]).includes(entry.modelLabel),
+      (MODEL_V2_LABELS as readonly string[]).includes(entry.modelLabel),
   );
 }
 

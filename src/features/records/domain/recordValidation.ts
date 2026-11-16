@@ -4,7 +4,7 @@ import {
 } from '@/features/detection/checklist/checklistConsistency';
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import {
-  modelLabelsForVersion,
+  modelScoreLabelsForVersion,
   type ModelLabel,
 } from '@/features/detection/constants/modelContract';
 import type {
@@ -115,7 +115,7 @@ export function validateCompletedScanDraft(draft: CompletedScanDraft): void {
   if (draft.imageSourceType !== 'camera' && draft.imageSourceType !== 'gallery') {
     invalid('The image source type is invalid.');
   }
-  if (!modelLabelsForVersion(draft.modelVersion).includes(draft.predictedLabel)) {
+  if (!modelScoreLabelsForVersion(draft.modelVersion, draft.classScores.length).includes(draft.predictedLabel)) {
     invalid('The predicted model label is unsupported.');
   }
   validateProbability(draft.confidence, 'confidence');
@@ -217,9 +217,7 @@ function validateClassScores(
   scores: readonly ClassScore[],
   modelVersion: string,
 ): void {
-  // Keep historical V0 and V1 rows readable: each model version carries exactly
-  // its own labels (V2 adds RSSI), so a V1 row never needs a fifth score.
-  const supportedLabels = modelLabelsForVersion(modelVersion);
+  const supportedLabels = modelScoreLabelsForVersion(modelVersion, scores.length);
 
   if (scores.length !== supportedLabels.length) {
     invalid('Every model class score is required.');

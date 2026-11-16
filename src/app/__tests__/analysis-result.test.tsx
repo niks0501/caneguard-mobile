@@ -481,6 +481,7 @@ describe('AnalysisResultScreen', () => {
         await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, 'tl');
         mockUserRole = 'farmer';
         await renderResult(createCompletedState(label, observations));
+        await fireEvent.press(screen.getByLabelText('Show Bakit ito ang resulta?'));
 
         await waitFor(() => expect(screen.getByText(
           'Hindi maihahambing ang checklist sa Posibleng Kondisyon. Higit sa isang pattern ang napili, o walang katugmang opsyon sa checklist para sa resultang ito.',

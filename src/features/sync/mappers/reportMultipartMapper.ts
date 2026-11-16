@@ -3,6 +3,7 @@ import { File } from 'expo-file-system';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import {
   MODEL_LABELS,
+  MODEL_V2_LABELS,
   MODEL_VERSION,
 } from '@/features/detection/constants/modelContract';
 import type { ScanRecordDetails } from '@/features/records/domain/recordTypes';
@@ -255,7 +256,7 @@ function validateReport(
   if (!isOneOf(record.imageSourceType, IMAGE_SOURCE_TYPES)) {
     invalid('The image source type is unsupported.');
   }
-  if (!isOneOf(record.predictedLabel, MODEL_LABELS)) {
+  if (!isOneOf(record.predictedLabel, MODEL_V2_LABELS)) {
     invalid('The predicted label is unsupported.');
   }
   validateProbability(record.confidence, 'confidence');

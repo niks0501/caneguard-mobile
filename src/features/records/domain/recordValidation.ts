@@ -4,9 +4,7 @@ import {
 } from '@/features/detection/checklist/checklistConsistency';
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import {
-  LEGACY_MODEL_LABELS,
-  LEGACY_MODEL_VERSION,
-  MODEL_LABELS,
+  modelLabelsForVersion,
   type ModelLabel,
 } from '@/features/detection/constants/modelContract';
 import type {
@@ -117,7 +115,7 @@ export function validateCompletedScanDraft(draft: CompletedScanDraft): void {
   if (draft.imageSourceType !== 'camera' && draft.imageSourceType !== 'gallery') {
     invalid('The image source type is invalid.');
   }
-  if (!MODEL_LABELS.includes(draft.predictedLabel)) {
+  if (!modelLabelsForVersion(draft.modelVersion).includes(draft.predictedLabel)) {
     invalid('The predicted model label is unsupported.');
   }
   validateProbability(draft.confidence, 'confidence');
@@ -219,10 +217,9 @@ function validateClassScores(
   scores: readonly ClassScore[],
   modelVersion: string,
 ): void {
-  // Keep historical V0 rows readable without weakening the V1 runtime
-  // contract. New inference results always carry all four V1 scores.
-  const supportedLabels =
-    modelVersion === LEGACY_MODEL_VERSION ? LEGACY_MODEL_LABELS : MODEL_LABELS;
+  // Keep historical V0 and V1 rows readable: each model version carries exactly
+  // its own labels (V2 adds RSSI), so a V1 row never needs a fifth score.
+  const supportedLabels = modelLabelsForVersion(modelVersion);
 
   if (scores.length !== supportedLabels.length) {
     invalid('Every model class score is required.');

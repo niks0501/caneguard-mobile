@@ -50,6 +50,13 @@ describe('getChecklistConsistency', () => {
       ]);
     },
   );
+  it('never compares an RSSI result with the leaf-pattern checklist', () => {
+    expect(getChecklistConsistency('rssi', ['smut'])).toBe('not-applicable');
+    expect(getChecklistConsistency('rssi', ['none'])).toBe('not-applicable');
+    expect(getChecklistConsistency('rssi', [])).toBe('not-applicable');
+    expect(getGuidedValidationQuestions('rssi')).toHaveLength(1);
+  });
+
   it('compares Smut with an independent observational Smut option', () => {
     expect(getGuidedValidationQuestions('smut')).toHaveLength(1);
     expect(getChecklistConsistency('smut', ['smut'])).toBe('consistent');

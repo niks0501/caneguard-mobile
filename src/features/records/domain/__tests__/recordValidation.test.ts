@@ -103,6 +103,42 @@ describe('completed scan record validation', () => {
     expect(draft.decisionSupportWording).toMatch(/whip-like|confirmation/i);
   });
 
+  it('stores a V2 RSSI-top result with all five scores and its observational wording', () => {
+    const result = {
+      predictedLabel: 'rssi' as const,
+      confidence: 0.64,
+      scores: [
+        { label: 'healthy' as const, score: 0.1 },
+        { label: 'mosaic' as const, score: 0.1 },
+        { label: 'rust' as const, score: 0.1 },
+        { label: 'smut' as const, score: 0.06 },
+        { label: 'rssi' as const, score: 0.64 },
+      ],
+      timings: { preprocessMs: 3, inferenceMs: 7, totalMs: 10 },
+      modelVersion: 'v2.0-mobilenetv2',
+    };
+    const draft = createCompletedScanDraft(
+      completedState({ selectedSymptoms: ['unable-to-tell'], result }),
+      RECORD_ID,
+      NOW,
+    );
+
+    expect(draft.predictedLabel).toBe('rssi');
+    expect(draft.classScores).toHaveLength(5);
+    expect(draft.checklistConsistency).toBe('not-applicable');
+    expect(draft.decisionSupportWording).toMatch(/do not treat/i);
+
+    expect(() =>
+      createCompletedScanDraft(
+        completedState({
+          result: { ...result, modelVersion: 'v1.0-mobilenetv2' },
+        }),
+        RECORD_ID,
+        NOW,
+      ),
+    ).toThrow(expect.objectContaining<Partial<StorageError>>({ code: 'INVALID_SCAN_RECORD' }));
+  });
+
   it.each([
     ['incomplete session', completedState({ status: 'running' })],
     ['missing source', completedState({ sourceUri: null })],

@@ -5,6 +5,7 @@ import { Spacing, Typography } from '@/constants/theme';
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import {
   MODEL_LABELS,
+  MODEL_V2_LABELS,
   type ModelLabel,
 } from '@/features/detection/constants/modelContract';
 import { useTheme } from '@/hooks/use-theme';
@@ -20,9 +21,13 @@ export type ModelScore = {
  * (T1) screens so the two presentations cannot drift apart.
  */
 export function ModelScoreList({ scores }: { scores: ModelScore[] }) {
+  // A V2 result carries a fifth (RSSI) score; saved V1 results keep four rows.
+  const labels = scores.some((item) => item.label === 'rssi')
+    ? MODEL_V2_LABELS
+    : MODEL_LABELS;
   return (
     <View>
-      {MODEL_LABELS.map((label) => (
+      {labels.map((label) => (
         <ModelScoreRow
           key={label}
           label={label}

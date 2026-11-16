@@ -197,7 +197,7 @@ function formatDate(value: string): string {
 }
 
 function toPillVariant(label: string): DiseasePillVariant {
-  return label === 'healthy' || label === 'mosaic' || label === 'rust' || label === 'smut'
+  return label === 'healthy' || label === 'mosaic' || label === 'rust' || label === 'smut' || label === 'rssi'
     ? label
     : 'unclear';
 }

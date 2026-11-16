@@ -442,7 +442,7 @@ export const HOME_NOTE_COPY = {
  */
 export type FarmerLanguage = 'en' | 'tl';
 
-export type FarmerResultName = 'healthy' | 'mosaic' | 'rust' | 'smut' | 'unknown';
+export type FarmerResultName = 'healthy' | 'mosaic' | 'rust' | 'smut' | 'rssi' | 'unknown';
 
 export type FarmerCopyBlock = {
   greeting: { morning: string; afternoon: string; evening: string };
@@ -817,7 +817,8 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       imageLabel: 'Selected sugarcane image used for analysis',
       closeLabel: 'Cancel and return home',
       decisionSupport: {
-        healthy: 'Possible Condition only. The model did not assign its highest score to Mosaic, Rust, or Smut. This output does not decide what is wrong with your crop.',
+        healthy: 'Possible Condition only. The model did not assign its highest score to Mosaic, Rust, Smut, or RSSI. This output does not decide what is wrong with your crop.',
+        rssi: 'Possible Condition only. Check the underside of the lower leaves for small red-striped insects, sticky honeydew, or black sooty mold, but do not treat this observation or the model output as proof. Ask your agriculture officer before acting.',
         mosaic: 'Possible Condition only. Mosaic may appear as irregular light and dark discoloration or mottling. This output does not decide what is wrong with your crop.',
         rust: 'Possible Condition only. Rust may appear as orange-brown or rust-colored spots or pustules. This output does not decide what is wrong with your crop.',
         smut: 'Possible Condition only. Look for a dark, whip-like growth emerging from the central shoot or stalk, but do not treat this observation or the model output as proof.',
@@ -825,7 +826,8 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       },
       aboutTitle: 'About this result',
       explanations: {
-        healthy: { message: 'The model assigned its highest score to Healthy based on the submitted image.', description: 'The model did not assign its highest score to Mosaic, Rust, or Smut.' },
+        healthy: { message: 'The model assigned its highest score to Healthy based on the submitted image.', description: 'The model did not assign its highest score to Mosaic, Rust, Smut, or RSSI.' },
+        rssi: { message: 'The model assigned its highest score to RSSI based on the submitted image.', description: 'RSSI is a sap-sucking insect pest, not a leaf disease. It may be associated with small red-striped insects, sticky honeydew, or black sooty mold, mostly on the underside of lower leaves. This visible pattern is observational and does not prove an infestation.' },
         mosaic: { message: 'The model assigned its highest score to Mosaic based on the submitted image.', description: 'Mosaic can appear as irregular light and dark discoloration or mottling on the leaf.' },
         rust: { message: 'The model assigned its highest score to Rust based on the submitted image.', description: 'Rust can appear as orange-brown or rust-colored spots and pustules on the leaf.' },
         smut: { message: 'The model assigned its highest score to Smut based on the submitted image.', description: 'Smut may be associated with a dark, whip-like growth emerging from the central shoot or stalk. This visible pattern is observational and does not tell you what is wrong with your crop.' },
@@ -834,7 +836,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       consistency: {
         consistent: { title: 'Checklist consistent', message: 'The selected observations are consistent with the Possible Condition.' },
         inconsistent: { title: 'Checklist inconsistent', message: 'Your observations do not match the Possible Condition. Both are kept separately.' },
-        'not-applicable': { title: 'Checklist cannot be compared', message: 'The selected observations point to more than one supported class, so they cannot be compared with one Possible Condition.' },
+        'not-applicable': { title: 'Checklist cannot be compared', message: 'The checklist cannot be compared with this Possible Condition. More than one pattern was chosen, or the checklist has no option for this result.' },
         'not-enough-information': { title: 'Not enough checklist information', message: 'No clear symptom observation was provided, so checklist consistency cannot be determined.' },
       },
       qualityTitle: 'Image quality notice',
@@ -1197,15 +1199,17 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       imageLabel: 'Larawan ng tubo na sinuri',
       closeLabel: 'Kanselahin at bumalik sa home',
       decisionSupport: {
-        healthy: 'Posibleng Kondisyon lamang ito. Hindi pinakamataas ang marka ng modelo sa Mosaic, Rust, o Smut. Hindi nito sinasabi kung ano ang tiyak na sakit.',
+        healthy: 'Posibleng Kondisyon lamang ito. Hindi pinakamataas ang marka ng modelo sa Mosaic, Rust, Smut, o RSSI. Hindi nito sinasabi kung ano ang tiyak na sakit.',
         mosaic: 'Posibleng Kondisyon lamang ito. Maaaring makita ang Mosaic bilang hindi pantay na mapusyaw at maitim na kulay o batik sa dahon. Hindi nito sinasabi kung ano ang tiyak na sakit.',
         rust: 'Posibleng Kondisyon lamang ito. Maaaring makita ang Rust bilang mga batik o butlig na kahel-kayumanggi o kulay-kalawang. Hindi nito sinasabi kung ano ang tiyak na sakit.',
         smut: 'Posibleng Kondisyon lamang ito. Tingnan kung may maitim at parang latigong tubo mula sa gitnang usbong o tangkay, ngunit huwag ituring na tiyak ang nakikita o resulta ng modelo.',
+        rssi: 'Posibleng Kondisyon lamang ito. Tingnan ang ilalim ng mga mababang dahon para sa maliliit na insektong may pulang guhit, malagkit na honeydew, o itim na amag, ngunit huwag ituring na tiyak ang nakikita o resulta ng modelo. Magtanong sa agriculture officer bago kumilos.',
         unknown: 'Pantulong lamang sa pagpapasya ang resultang ito. Hindi nito sinasabi kung ano ang tiyak na sakit.',
       },
       aboutTitle: 'Tungkol sa resultang ito',
       explanations: {
-        healthy: { message: 'Pinakamataas ang markang ibinigay ng modelo sa Healthy batay sa isinumiteng larawan.', description: 'Hindi Mosaic, Rust, o Smut ang may pinakamataas na marka.' },
+        healthy: { message: 'Pinakamataas ang markang ibinigay ng modelo sa Healthy batay sa isinumiteng larawan.', description: 'Hindi Mosaic, Rust, Smut, o RSSI ang may pinakamataas na marka.' },
+        rssi: { message: 'Pinakamataas ang markang ibinigay ng modelo sa RSSI batay sa isinumiteng larawan.', description: 'Ang RSSI ay peste na sumisipsip ng katas, hindi sakit sa dahon. Maaaring may maliliit na insektong may pulang guhit, malagkit na honeydew, o itim na amag, higit sa ilalim ng mga mababang dahon. Paglalarawan lamang ito ng nakikita at hindi pagpapatunay ng pagkakaroon ng peste.' },
         mosaic: { message: 'Pinakamataas ang markang ibinigay ng modelo sa Mosaic batay sa isinumiteng larawan.', description: 'Maaaring magpakita ang Mosaic ng hindi pantay na mapusyaw at maitim na kulay o batik sa dahon.' },
         rust: { message: 'Pinakamataas ang markang ibinigay ng modelo sa Rust batay sa isinumiteng larawan.', description: 'Maaaring magpakita ang Rust ng kahel-kayumanggi o kulay-kalawang na batik at butlig sa dahon.' },
         smut: { message: 'Pinakamataas ang markang ibinigay ng modelo sa Smut batay sa isinumiteng larawan.', description: 'Maaaring may maitim at parang latigong tubo mula sa gitnang usbong o tangkay. Paglalarawan lamang ito ng nakikita at hindi pagpapatunay ng sakit.' },

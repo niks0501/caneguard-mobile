@@ -229,6 +229,29 @@ describe('AnalysisResultScreen', () => {
     },
   );
 
+  // Proves: an RSSI top score is a real result with observational wording.
+  it('renders an RSSI result as an observational Possible Condition', async () => {
+    const result: DetectionResult = {
+      ...createResult('rssi', 0.7),
+      modelVersion: 'v2.0-mobilenetv2',
+      scores: [
+        { label: 'rssi', score: 0.7 },
+        { label: 'healthy', score: 0.1 },
+        { label: 'mosaic', score: 0.1 },
+        { label: 'rust', score: 0.06 },
+        { label: 'smut', score: 0.04 },
+      ],
+    };
+    await renderResult(createCompletedState('rssi', ['unable-to-tell'], { result }));
+
+    expect(screen.getByTestId('scan.result-title')).toHaveTextContent(
+      'Possible Condition: RSSI (Red-Striped Soft Scale Insect)',
+    );
+    expect(screen.getByTestId('scan.decision-support-wording')).toHaveTextContent(
+      /do not treat this observation or the model output as confirmation/i,
+    );
+  });
+
   it('renders the selected image and Possible Condition without technical internals', async () => {
     const result = createResult('rust');
     const state = createCompletedState('rust', ['rust'], {

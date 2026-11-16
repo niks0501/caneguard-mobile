@@ -3,7 +3,11 @@ import type {
   MeasurementProvenance,
 } from '@/database/schema';
 import { StorageError } from '@/database/errors';
-import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
+import {
+  isModelLabel,
+  MODEL_LABELS,
+  MODEL_V2_LABELS,
+} from '@/features/detection/constants/modelContract';
 import { isValidSubmissionImageMetadata } from '@/features/sync/constants/mobileReportUploadContract';
 import type {
   CreateFieldReportDraftInput,
@@ -32,9 +36,12 @@ const MAX_AFFECTED_AREA_HECTARES = 10_000;
 function hasCompleteClassScores(
   scores: FieldReportSubmissionEvidence['classScores'],
 ): boolean {
+  // A V1 scan carries its four scores; a V2 scan carries all five, RSSI included.
+  const expected =
+    scores.length === MODEL_V2_LABELS.length ? MODEL_V2_LABELS : MODEL_LABELS;
   if (
-    scores.length !== MODEL_LABELS.length ||
-    new Set(scores.map(({ label }) => label)).size !== MODEL_LABELS.length
+    scores.length !== expected.length ||
+    new Set(scores.map(({ label }) => label)).size !== expected.length
   ) {
     return false;
   }
@@ -42,12 +49,12 @@ function hasCompleteClassScores(
   return (
     scores.every(
       ({ label, score }) =>
-        MODEL_LABELS.some((supportedLabel) => supportedLabel === label) &&
+        expected.some((supportedLabel) => supportedLabel === label) &&
         Number.isFinite(score) &&
         score >= 0 &&
         score <= 1,
     ) &&
-    MODEL_LABELS.every((supportedLabel) =>
+    expected.every((supportedLabel) =>
       scores.some(({ label }) => label === supportedLabel),
     )
   );
@@ -222,7 +229,7 @@ export function getMissingSubmissionRequirements(
   }
   if (
     !evidence.predictedLabel ||
-    !MODEL_LABELS.some((label) => label === evidence.predictedLabel)
+    !isModelLabel(evidence.predictedLabel)
   ) {
     missing.push('ai_supported_result');
   }

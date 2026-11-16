@@ -109,10 +109,12 @@ describe('field guide entry data', () => {
     expect(fieldGuideEntriesForCategory('disease')).toHaveLength(3);
   });
 
-  it('keeps RSSI out of the model class catalog', () => {
-    expect(Object.keys(diseaseCatalog)).toEqual(MODEL_LABELS);
-    expect(diseaseCatalog).not.toHaveProperty(FIELD_GUIDE_PEST_ENTRY_ID);
+  it('keeps the RSSI pest guide separate from the four V1 leaf-class entries', () => {
+    expect(Object.keys(diseaseCatalog)).toEqual([...MODEL_LABELS, FIELD_GUIDE_PEST_ENTRY_ID]);
     expect(MODEL_LABELS).not.toContain(FIELD_GUIDE_PEST_ENTRY_ID);
+    expect(modelLinkedFieldGuideEntries().map((entry) => entry.modelLabel)).not.toContain(
+      FIELD_GUIDE_PEST_ENTRY_ID,
+    );
   });
 
   it('bundles the captain drop on all five entries, after the model reference photo', () => {

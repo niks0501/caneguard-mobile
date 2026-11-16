@@ -76,7 +76,7 @@ const CONSISTENCY_PRESENTATION: Record<
   'not-applicable': {
     title: 'Checklist cannot be compared',
     message:
-      'The selected observations point to more than one supported class, so they cannot be compared with one Possible Condition.',
+      'The checklist cannot be compared with this Possible Condition. More than one pattern was chosen, or the checklist has no option for this result.',
     icon: 'help-circle',
     foreground: 'warning',
     background: 'warningBg',

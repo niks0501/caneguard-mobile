@@ -472,6 +472,22 @@ describe('AnalysisResultScreen', () => {
       expect(screen.getByLabelText('Kanselahin at bumalik sa home')).toBeOnTheScreen();
     });
 
+    it.each([
+      ['rssi', ['smut']],
+      ['rust', ['mosaic', 'rust']],
+    ] as [ModelLabel, ChecklistObservationId[]][])(
+      'explains both reasons a Tagalog farmer cannot compare %s',
+      async (label, observations) => {
+        await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, 'tl');
+        mockUserRole = 'farmer';
+        await renderResult(createCompletedState(label, observations));
+
+        await waitFor(() => expect(screen.getByText(
+          'Hindi maihahambing ang checklist sa Posibleng Kondisyon. Higit sa isang pattern ang napili, o walang katugmang opsyon sa checklist para sa resultang ito.',
+        )).toBeOnTheScreen());
+      },
+    );
+
     // Proves: saving stays allowed and the predicted label is unchanged under Result uncertain.
     it('keeps saving available and the result unchanged', async () => {
       mockUserRole = 'farmer';

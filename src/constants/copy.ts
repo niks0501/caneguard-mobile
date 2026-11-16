@@ -370,10 +370,7 @@ export function fieldGuidePhotoOpenLabel(caption: string): string {
   return `Open the photo: ${caption}`;
 }
 
-/**
- * Per-entry app-capability line. The pest entry still uses the "cannot"
- * wording until the badge is revisited for the five-class model.
- */
+/** Per-entry app-capability line. */
 export const FIELD_GUIDE_APP_CAN_CHECK = 'The app can check this one';
 export const FIELD_GUIDE_APP_CANNOT_CHECK =
   'The app cannot check this one — record it as something you saw';
@@ -1217,7 +1214,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       consistency: {
         consistent: { title: 'Tugma ang checklist', message: 'Tugma sa Posibleng Kondisyon ang mga napiling palatandaan.' },
         inconsistent: { title: 'Hindi tugma ang checklist', message: 'Hindi tugma sa Posibleng Kondisyon ang mga napili mong palatandaan. Magkahiwalay na itinatabi ang dalawa.' },
-        'not-applicable': { title: 'Hindi maihahambing ang checklist', message: 'Tumutukoy sa higit sa isang suportadong klase ang mga napiling palatandaan kaya hindi maihahambing sa iisang Posibleng Kondisyon.' },
+        'not-applicable': { title: 'Hindi maihahambing ang checklist', message: 'Hindi maihahambing ang checklist sa Posibleng Kondisyon. Higit sa isang pattern ang napili, o walang katugmang opsyon sa checklist para sa resultang ito.' },
         'not-enough-information': { title: 'Kulang ang impormasyon sa checklist', message: 'Walang malinaw na palatandaan ng sintomas kaya hindi matukoy kung tugma ang checklist.' },
       },
       qualityTitle: 'Paunawa sa kalidad ng larawan',

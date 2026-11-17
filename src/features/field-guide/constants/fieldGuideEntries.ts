@@ -1,6 +1,6 @@
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import {
-  MODEL_LABELS,
+  MODEL_V2_LABELS,
   type ModelLabel,
 } from '@/features/detection/constants/modelContract';
 import { referenceMedia } from '@/features/detection/constants/referenceMedia';
@@ -19,11 +19,11 @@ import { fieldGuideEntryContent } from './fieldGuideEntryContent';
 /**
  * The gallery's own content module.
  *
- * It exists because the gallery holds one entry the model can never produce a
- * label for: RSSI is a pest and a reporter-observed concern
- * (`REPORTER_OBSERVED_CONCERN_RSSI`), never a `MODEL_LABELS` member. Adding it
- * to `diseaseCatalog` would break the catalog-completeness guard, so the four
- * model-linked entries are *projected* from `referenceMedia` (name and bundled
+ * It exists because the gallery holds one entry that is a pest guide rather
+ * than a leaf-disease class: RSSI is also a reporter-observed concern
+ * (`REPORTER_OBSERVED_CONCERN_RSSI`) and a V2 model output with its own
+ * `diseaseCatalog` entry, but its gallery page is the pest guide. The four
+ * leaf-class entries are *projected* from `referenceMedia` (name and bundled
  * reference photo) and `diseaseCatalog` (the app's own observational wording)
  * instead of being duplicated, and the pest entry lives in its own data block
  * below. Every entry's `images` is that reference photo (where the class ships
@@ -130,7 +130,7 @@ const FIELD_GUIDE_DROP_PHOTOS: Record<FieldGuideLaunchEntryId, readonly FieldGui
 };
 
 const BUNDLED_PHOTO_DESCRIPTIONS: Record<
-  Exclude<ModelLabel, 'smut'>,
+  Exclude<ModelLabel, 'smut' | 'rssi'>,
   { caption: string; subject: FieldGuideImage['subject'] }
 > = {
   healthy: {
@@ -147,7 +147,7 @@ const BUNDLED_PHOTO_DESCRIPTIONS: Record<
   },
 };
 
-function projectModelEntry(label: ModelLabel): FieldGuideEntry {
+function projectModelEntry(label: Exclude<ModelLabel, 'rssi'>): FieldGuideEntry {
   const content = fieldGuideEntryContent[label];
   const photoDescription = label === 'smut' ? undefined : BUNDLED_PHOTO_DESCRIPTIONS[label];
 
@@ -188,8 +188,7 @@ function projectPestEntry(): FieldGuideEntry {
     category: 'pest',
     displayName: 'Red-Striped Soft Scale Insect',
     shortName: content.shortName,
-    // The model has four classes and RSSI is not one of them.
-    modelLabel: null,
+    modelLabel: 'rssi',
     summary: content.summary,
     signs: content.signs,
     whereToLook: content.whereToLook,
@@ -202,8 +201,7 @@ function projectPestEntry(): FieldGuideEntry {
     guide: content.guide,
     sourceIds: content.sourceIds,
     images: FIELD_GUIDE_DROP_PHOTOS[FIELD_GUIDE_PEST_ENTRY_ID],
-    // The app can only record RSSI as something the reporter says they saw.
-    detectableByApp: false,
+    detectableByApp: true,
     contentVersion: content.contentVersion,
     updatedAt: content.updatedAt,
   };
@@ -236,10 +234,12 @@ export function fieldGuideEntriesForCategory(
   return fieldGuideEntries.filter((entry) => entry.category === category);
 }
 
-/** The four entries the model can produce, for the catalog/gallery drift test. */
+/** The entries the model can produce, for the catalog/gallery drift test. */
 export function modelLinkedFieldGuideEntries(): readonly FieldGuideEntry[] {
   return fieldGuideEntries.filter(
-    (entry) => entry.modelLabel !== null && MODEL_LABELS.includes(entry.modelLabel),
+    (entry) =>
+      entry.modelLabel !== null &&
+      (MODEL_V2_LABELS as readonly string[]).includes(entry.modelLabel),
   );
 }
 

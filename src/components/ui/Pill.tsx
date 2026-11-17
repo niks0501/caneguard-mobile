@@ -15,6 +15,7 @@ export type PillVariant =
   | 'smut'
   | 'mosaic'
   | 'rust'
+  | 'rssi'
   | 'unclear';
 
 export type PillProps = {
@@ -45,6 +46,7 @@ const VARIANT_CONFIG: Record<
   smut: NEUTRAL_VARIANT,
   mosaic: NEUTRAL_VARIANT,
   rust: NEUTRAL_VARIANT,
+  rssi: NEUTRAL_VARIANT,
   unclear: NEUTRAL_VARIANT,
 };
 

@@ -3,7 +3,11 @@ import {
   type ModelLabel,
 } from '@/features/detection/constants/modelContract';
 
-const CHECKLIST_MODEL_LABELS: readonly ModelLabel[] = MODEL_LABELS;
+/**
+ * Labels the checklist options can be compared with. RSSI is an insect pest
+ * with no matching option, so its result is never compared (not-applicable).
+ */
+const CHECKLIST_COMPARABLE_LABELS: readonly ModelLabel[] = MODEL_LABELS;
 
 const MOSAIC_OBSERVATION = {
   id: 'mosaic',
@@ -76,7 +80,7 @@ export const GUIDED_VALIDATION_QUESTIONS = [
     prompt: 'What visible pattern, if any, best describes the area you are checking?',
     helperText:
       'Choose the closest description. This is your observation and does not change the Possible Condition.',
-    relevantModelLabels: CHECKLIST_MODEL_LABELS,
+    relevantModelLabels: CHECKLIST_COMPARABLE_LABELS,
     options: [
       MOSAIC_OBSERVATION,
       RUST_OBSERVATION,
@@ -112,7 +116,7 @@ export function getChecklistConsistency(
   predictedLabel: ModelLabel,
   selectedObservations: readonly ChecklistObservationId[],
 ): ChecklistConsistency {
-  if (!CHECKLIST_MODEL_LABELS.includes(predictedLabel)) {
+  if (!CHECKLIST_COMPARABLE_LABELS.includes(predictedLabel)) {
     return 'not-applicable';
   }
 

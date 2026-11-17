@@ -229,7 +229,60 @@ describe('AnalysisResultScreen', () => {
     },
   );
 
-  it('renders the selected image and Possible Condition without technical internals', async () => {
+  // Proves: an RSSI top score is a real result with observational wording.
+  it('renders an RSSI result as an observational Possible Condition', async () => {
+    const result: DetectionResult = {
+      ...createResult('rssi', 0.7),
+      modelVersion: 'v2.0-mobilenetv2',
+      scores: [
+        { label: 'rssi', score: 0.7 },
+        { label: 'healthy', score: 0.1 },
+        { label: 'mosaic', score: 0.1 },
+        { label: 'rust', score: 0.06 },
+        { label: 'smut', score: 0.04 },
+      ],
+    };
+    await renderResult(createCompletedState('rssi', ['unable-to-tell'], { result }));
+
+    expect(screen.getByTestId('scan.result-title')).toHaveTextContent(
+      'Possible Condition: RSSI (Red-Striped Soft Scale Insect)',
+    );
+    expect(screen.getByTestId('scan.decision-support-wording')).toHaveTextContent(
+      /do not treat this observation or the model output as confirmation/i,
+    );
+    await fireEvent.press(screen.getByLabelText('Show Why this result?'));
+    expect(screen.getByLabelText('RSSI (Red-Striped Soft Scale Insect) score 70%')).toBeOnTheScreen();
+  });
+
+  it.each(['field_reporter', 'farmer'] as const)(
+    'shows all V2 model scores for %s, including lower-ranked RSSI',
+    async (role) => {
+      mockUserRole = role;
+      const result: DetectionResult = {
+        ...createResult('rust'),
+        modelVersion: 'v2.0-mobilenetv2',
+        scores: [
+          { label: 'rust', score: 0.7 },
+          { label: 'healthy', score: 0.1 },
+          { label: 'mosaic', score: 0.08 },
+          { label: 'smut', score: 0.07 },
+          { label: 'rssi', score: 0.05 },
+        ],
+      };
+      await renderResult(createCompletedState('rust', ['rust'], { result }));
+      await fireEvent.press(screen.getByLabelText(
+        role === 'farmer' ? 'Show Bakit ito ang resulta?' : 'Show Why this result?',
+      ));
+
+      expect(screen.getByLabelText('Healthy score 10%')).toBeOnTheScreen();
+      expect(screen.getByLabelText('Mosaic score 8%')).toBeOnTheScreen();
+      expect(screen.getByLabelText('Rust score 70%')).toBeOnTheScreen();
+      expect(screen.getByLabelText('Smut score 7%')).toBeOnTheScreen();
+      expect(screen.getByLabelText('RSSI (Red-Striped Soft Scale Insect) score 5%')).toBeOnTheScreen();
+    },
+  );
+
+  it('renders the selected image and Possible Condition with scores in the disclosure', async () => {
     const result = createResult('rust');
     const state = createCompletedState('rust', ['rust'], {
       result,
@@ -250,7 +303,6 @@ describe('AnalysisResultScreen', () => {
       screen.getByLabelText('Selected sugarcane image used for analysis'),
     ).toHaveProp('source', { uri: 'file:///result-leaf.jpg' });
     expect(screen.getByText('Possible Condition: Rust')).toBeOnTheScreen();
-    // Technical internals never appear in the normal workflow.
     expect(screen.queryByTestId('scan.technical-details')).not.toBeOnTheScreen();
     expect(screen.queryByText('Model details')).not.toBeOnTheScreen();
     expect(screen.queryByText('Analysis details')).not.toBeOnTheScreen();
@@ -259,6 +311,9 @@ describe('AnalysisResultScreen', () => {
     expect(screen.queryByText('78%')).not.toBeOnTheScreen();
     await fireEvent.press(screen.getByLabelText('Show Why this result?'));
     expect(screen.getByText('About this result')).toBeOnTheScreen();
+    expect(screen.getByText('Model scores')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Rust score 78%')).toBeOnTheScreen();
+    expect(screen.queryByLabelText(/RSSI.*score/)).not.toBeOnTheScreen();
     expect(screen.queryByTestId('scan.technical-details')).not.toBeOnTheScreen();
     expect(screen.queryByText('Model details')).not.toBeOnTheScreen();
     expect(screen.queryByText('v1.0-mobilenetv2')).not.toBeOnTheScreen();
@@ -270,7 +325,7 @@ describe('AnalysisResultScreen', () => {
     expect(screen.queryByText('Downy Mildew')).not.toBeOnTheScreen();
   });
 
-  it('uses the frozen V1 low-confidence caution without exposing scores', async () => {
+  it('uses the frozen V1 low-confidence caution and shows scores in the disclosure', async () => {
     await renderResult(
       createCompletedState('mosaic', ['mosaic'], {
         result: createResult('mosaic', 0.42),
@@ -287,6 +342,7 @@ describe('AnalysisResultScreen', () => {
     ).not.toBeOnTheScreen();
 
     await fireEvent.press(screen.getByLabelText('Show Why this result?'));
+    expect(screen.getByLabelText('Mosaic score 42%')).toBeOnTheScreen();
     expect(screen.queryByText('55.2%')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('scan.technical-details')).not.toBeOnTheScreen();
     expect(screen.queryByText('Model details')).not.toBeOnTheScreen();
@@ -448,6 +504,23 @@ describe('AnalysisResultScreen', () => {
       );
       expect(screen.getByLabelText('Kanselahin at bumalik sa home')).toBeOnTheScreen();
     });
+
+    it.each([
+      ['rssi', ['smut']],
+      ['rust', ['mosaic', 'rust']],
+    ] as [ModelLabel, ChecklistObservationId[]][])(
+      'explains both reasons a Tagalog farmer cannot compare %s',
+      async (label, observations) => {
+        await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, 'tl');
+        mockUserRole = 'farmer';
+        await renderResult(createCompletedState(label, observations));
+        await fireEvent.press(screen.getByLabelText('Show Bakit ito ang resulta?'));
+
+        await waitFor(() => expect(screen.getByText(
+          'Hindi maihahambing ang checklist sa Posibleng Kondisyon. Higit sa isang pattern ang napili, o walang katugmang opsyon sa checklist para sa resultang ito.',
+        )).toBeOnTheScreen());
+      },
+    );
 
     // Proves: saving stays allowed and the predicted label is unchanged under Result uncertain.
     it('keeps saving available and the result unchanged', async () => {

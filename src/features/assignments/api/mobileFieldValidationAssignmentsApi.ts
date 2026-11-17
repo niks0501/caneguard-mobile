@@ -20,7 +20,7 @@ import {
   parseSyncEnvelope,
   SyncEnvelopeFieldError,
 } from '@/features/sync/api/syncEnvelope';
-import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
+import { isModelLabel } from '@/features/detection/constants/modelContract';
 
 const ASSIGNMENT_PATH = '/api/v1/mobile/assignments';
 /**
@@ -653,7 +653,7 @@ function parseAiFields(rawCase: Record<string, unknown>): {
 /** Strict on shape (must be a string), tolerant on vocabulary (unknown label => 'unknown'). */
 function parsePredictedLabel(value: unknown): string {
   if (typeof value !== 'string' || !value.trim()) throw malformed('case.predicted_label');
-  return (MODEL_LABELS as readonly string[]).includes(value) ? value : UNKNOWN_PREDICTED_LABEL;
+  return isModelLabel(value) ? value : UNKNOWN_PREDICTED_LABEL;
 }
 
 function malformed(field: string): MobileFieldValidationAssignmentsApiError {

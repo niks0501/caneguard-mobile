@@ -107,11 +107,11 @@ describe('FieldGuideIndexScreen', () => {
     expect(screen.queryByText('No photo available · description only')).not.toBeOnTheScreen();
   });
 
-  it('states which entries the app can check and which it cannot', async () => {
+  it('shows all five entries as app-checkable', async () => {
     await render(<FieldGuideIndexScreen />);
 
-    expect(screen.getAllByText(FIELD_GUIDE_APP_CAN_CHECK)).toHaveLength(4);
-    expect(screen.getByText(FIELD_GUIDE_APP_CANNOT_CHECK)).toBeOnTheScreen();
+    expect(screen.getAllByText(FIELD_GUIDE_APP_CAN_CHECK)).toHaveLength(5);
+    expect(screen.queryByText(FIELD_GUIDE_APP_CANNOT_CHECK)).not.toBeOnTheScreen();
   });
 
   it('opens an entry when its card is pressed', async () => {
@@ -148,14 +148,14 @@ describe('FieldGuideEntryScreen', () => {
     expect(screen.queryByText(FIELD_GUIDE_APP_CANNOT_CHECK)).not.toBeOnTheScreen();
   });
 
-  it('tells the reader the app cannot check RSSI and never the possible-condition line', async () => {
+  it('tells the reader the app can check RSSI without presenting a diagnosis', async () => {
     showEntry('rssi');
     await render(<FieldGuideEntryScreen />);
 
     expect(screen.getByTestId('field-guide.detail.rssi.app-check')).toHaveTextContent(
-      FIELD_GUIDE_APP_CANNOT_CHECK,
+      FIELD_GUIDE_APP_CAN_CHECK,
     );
-    expect(screen.queryByText(FIELD_GUIDE_APP_CAN_CHECK)).not.toBeOnTheScreen();
+    expect(screen.queryByText(FIELD_GUIDE_APP_CANNOT_CHECK)).not.toBeOnTheScreen();
     expect(screen.queryByText(/Possible Condition/i)).not.toBeOnTheScreen();
     expect(screen.getAllByText(/Red-Striped Soft Scale Insect/).length).toBeGreaterThan(0);
   });

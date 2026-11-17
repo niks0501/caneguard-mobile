@@ -1,6 +1,6 @@
 import { Pill } from '@/components/ui/Pill';
 
-export type DiseasePillVariant = 'smut' | 'rust' | 'mosaic' | 'healthy' | 'unclear';
+export type DiseasePillVariant = 'smut' | 'rust' | 'mosaic' | 'healthy' | 'rssi' | 'unclear';
 
 type DiseasePillProps = {
   variant: DiseasePillVariant;
@@ -18,6 +18,7 @@ const VARIANT_MAP: Record<DiseasePillVariant, string> = {
   rust: 'Rust',
   mosaic: 'Mosaic',
   healthy: 'No supported disease detected',
+  rssi: 'RSSI',
   unclear: 'Unclear',
 };
 

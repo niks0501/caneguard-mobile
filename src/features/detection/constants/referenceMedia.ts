@@ -43,4 +43,9 @@ export const referenceMedia: Record<ModelLabel, ReferenceMediaEntry> = {
     patternDescription:
       'Dark, whip-like growth emerging from the central shoot or stalk',
   },
+  rssi: {
+    name: 'RSSI',
+    patternDescription:
+      'Small red-striped insects, sticky honeydew, or black sooty mold on the underside of lower leaves',
+  },
 };

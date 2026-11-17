@@ -26,6 +26,7 @@ import {
   getChecklistConsistency,
   type ChecklistConsistency,
 } from '@/features/detection/checklist/checklistConsistency';
+import { ModelScoreList } from '@/features/detection/components/ModelScoreList';
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import { isBelowConfidenceCautionThreshold } from '@/features/detection/constants/confidenceCaution';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -76,7 +77,7 @@ const CONSISTENCY_PRESENTATION: Record<
   'not-applicable': {
     title: 'Checklist cannot be compared',
     message:
-      'The selected observations point to more than one supported class, so they cannot be compared with one Possible Condition.',
+      'The checklist cannot be compared with this Possible Condition. More than one pattern was chosen, or the checklist has no option for this result.',
     icon: 'help-circle',
     foreground: 'warning',
     background: 'warningBg',
@@ -575,6 +576,10 @@ export default function AnalysisResultScreen() {
                     ? rc.explanations[result.predictedLabel].description
                     : metadata.shortDescription}
                 </Text>
+              </SectionCard>
+
+              <SectionCard title={isFarmer ? rc.scoresTitle : 'Model scores'}>
+                <ModelScoreList scores={result.scores} />
               </SectionCard>
 
               <View

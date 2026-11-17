@@ -889,6 +889,13 @@ describe('scan record write repository', () => {
         managedImageUri: `${MANAGED_ROOT}/2b4666c0-ad10-4d0d-a233-000000000011.jpg`,
         confidence: 0.6,
         modelVersion: 'v2.0-mobilenetv2',
+        classScores: [
+          { label: 'healthy', score: 0.05 },
+          { label: 'mosaic', score: 0.13 },
+          { label: 'rust', score: 0.82 },
+          { label: 'smut', score: 0 },
+          { label: 'rssi', score: 0 },
+        ],
         createdAt: '2026-07-02T00:00:00.000Z',
         updatedAt: '2026-07-02T00:00:00.000Z',
       }),

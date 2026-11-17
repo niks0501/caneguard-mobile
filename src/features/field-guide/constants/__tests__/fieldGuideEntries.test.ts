@@ -1,5 +1,5 @@
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
-import { MODEL_LABELS } from '@/features/detection/constants/modelContract';
+import { MODEL_V2_LABELS } from '@/features/detection/constants/modelContract';
 import {
   FIELD_GUIDE_PEST_ENTRY_ID,
   fieldGuideEntries,
@@ -91,28 +91,26 @@ describe('field guide entry data', () => {
         expect(entry.modelLabel).not.toBeNull();
       }
       if (entry.modelLabel !== null) {
-        expect(MODEL_LABELS).toContain(entry.modelLabel);
-      }
-      // A pest is never a model label, so it can never be app-detectable.
-      if (entry.category === 'pest') {
-        expect(entry.detectableByApp).toBe(false);
-        expect(entry.modelLabel).toBeNull();
+        expect(MODEL_V2_LABELS).toContain(entry.modelLabel);
       }
     }
   });
 
   it('projects one entry per model label so the catalog and the gallery cannot drift', () => {
     const projected = modelLinkedFieldGuideEntries().map((entry) => entry.modelLabel);
-    expect(projected).toEqual([...MODEL_LABELS]);
+    expect(projected).toEqual([...MODEL_V2_LABELS]);
     expect(fieldGuideEntriesForCategory('pest')).toHaveLength(1);
     expect(fieldGuideEntriesForCategory('healthy')).toHaveLength(1);
     expect(fieldGuideEntriesForCategory('disease')).toHaveLength(3);
   });
 
-  it('keeps RSSI out of the model class catalog', () => {
-    expect(Object.keys(diseaseCatalog)).toEqual(MODEL_LABELS);
-    expect(diseaseCatalog).not.toHaveProperty(FIELD_GUIDE_PEST_ENTRY_ID);
-    expect(MODEL_LABELS).not.toContain(FIELD_GUIDE_PEST_ENTRY_ID);
+  it('links the RSSI pest guide to the supported scan result', () => {
+    expect(Object.keys(diseaseCatalog)).toEqual([...MODEL_V2_LABELS]);
+    expect(findFieldGuideEntry(FIELD_GUIDE_PEST_ENTRY_ID)).toMatchObject({
+      category: 'pest',
+      detectableByApp: true,
+      modelLabel: 'rssi',
+    });
   });
 
   it('bundles the captain drop on all five entries, after the model reference photo', () => {

@@ -8,22 +8,14 @@ This is the one place to check what the mobile app currently does, what depends
 on deployment configuration, and which older plans are historical. When a
 document disagrees with this index, this index and the source win.
 
-## Model classes (four in scan output)
+## Model classes
 
-The live scan flow runs the Model V2 artifact, which also scores a fifth **RSSI**
-class. Scan results, stored records, and sync carry **exactly four** classes, in
-this order:
+The live scan flow can present **RSSI** (a pest) as a Possible Condition and
+shows the model's class scores. RSSI also remains available as a separate
+reporter observation; neither is proof of infestation. For result, storage,
+recovery, and checklist details, see the [model contract](../PROJECT_CONTEXT.md#model-contract).
 
-1. Healthy
-2. Mosaic
-3. Rust
-4. Smut
-
-A scan whose top class is RSSI ends in a scan error instead of a result, and a
-lower-ranked RSSI entry is dropped without renormalizing the four scores shown.
-Expect that error until a follow-up carries the fifth class end to end.
-
-Source of truth: `MODEL_LABELS` and `ACTIVE_MODEL_ID` in
+Source of truth: `MODEL_V2_LABELS` and `ACTIVE_MODEL_ID` in
 `src/features/detection/constants/modelContract.ts`; model-version-specific
 caution artifacts are `threshold/v1-confidence-caution-threshold.json` and
 `threshold/v2-confidence-caution-threshold.json`. The V2 artifact records its
@@ -35,9 +27,7 @@ provenance, are owned by
 The scan output is labelled **Possible Condition** and is decision support, not
 a diagnosis. A farmer session uses the confidence caution cutoff for the stored
 model version: V1 records keep the OOF-derived V1 cutoff, and V2 records use the
-provisional V2 selected-checkpoint cutoff. For V2, the score is the maximum
-softmax over the five outputs for scans whose top class is not RSSI; RSSI-top
-scans already end as a scan error. Below the applicable cutoff, a `farmer`
+provisional V2 selected-checkpoint cutoff. Below the applicable cutoff, a `farmer`
 session sees **Result uncertain** as the result title, with guided retake steps,
 **Retake Photo**, **Review Signs**, and the closest match as a smaller line;
 saving stays available and the model scores are unchanged. The low-confidence,
@@ -248,7 +238,7 @@ guidance:
 - [`docs/features/caneguard-uiux-enhancement-handoff/03-SCREEN-SPECS.md`](features/caneguard-uiux-enhancement-handoff/03-SCREEN-SPECS.md)
   — specifies a three-class Home education section (Healthy, Mosaic, Rust) and
   at most two secondary shortcuts, both since superseded by the current Home and
-  the four-class model contract above.
+  the current model contract above.
 - [`docs/features/caneGuard-p0-implementation-phases/P0-07-Field-Report-Synchronization-and-API.md`](features/caneGuard-p0-implementation-phases/P0-07-Field-Report-Synchronization-and-API.md)
   — records the P0 requirement for final coordinates; the current contract also
   supports an explicit unavailable-location reason with null coordinates.

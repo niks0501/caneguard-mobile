@@ -579,7 +579,7 @@ describe('FieldReportScreen', () => {
     });
 
     expect(screen.getByTestId('field-report.rssi-not-model-copy')).toHaveTextContent(
-      /RSSI can be reported as a field concern, but the scan does not detect RSSI\./,
+      /RSSI can be reported as a field concern\. It remains separate from the Possible Condition/,
     );
     await act(async () => {
       fireEvent.changeText(

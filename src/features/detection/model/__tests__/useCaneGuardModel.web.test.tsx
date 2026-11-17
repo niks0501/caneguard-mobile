@@ -64,7 +64,7 @@ describe('web validation model stub', () => {
     );
 
     expect(result.predictedLabel).toBe('rust');
-    expect(result.scores).toHaveLength(4);
+    expect(result.scores).toHaveLength(5);
   });
 
   it('stays fail-closed without the validation runtime', async () => {

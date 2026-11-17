@@ -1,10 +1,10 @@
 /**
  * Model contracts.
  *
- * `MODEL_*` / `ModelLabel` below are the Model V1 contract. Downstream code
- * (stored-record validation, sync mapping, the V1 QA oracle and the V1
- * confidence-caution artifact) is bound to them, so they keep their V1 meaning
- * until the display/storage/sync follow-up lands.
+ * `MODEL_*` below are the Model V1 contract (four labels); the V1 QA oracle and
+ * the V1 confidence-caution artifact stay bound to them. `ModelLabel` is every
+ * label a scan result can carry, which is the five V2 outputs; use
+ * `modelLabelsForVersion` to get the labels a stored model version declares.
  *
  * `ACTIVE_MODEL` is the contract the live scan flow uses by default; model-layer
  * functions also accept an explicit contract. Both `.tflite` files stay bundled.
@@ -17,8 +17,6 @@ export const MODEL_SHA256 =
   '9ebad12450866b47abc94ffb6b820048c1759e3f3e728a71775af42a0541bae7' as const;
 
 export const MODEL_LABELS = ['healthy', 'mosaic', 'rust', 'smut'] as const;
-
-export type ModelLabel = (typeof MODEL_LABELS)[number];
 
 export const LEGACY_MODEL_VERSION = 'v0.1-baseline' as const;
 
@@ -71,6 +69,37 @@ export const MODEL_V2_LABELS = [
 ] as const;
 
 export type ModelOutputLabel = (typeof MODEL_V2_LABELS)[number];
+
+/** Every label a scan result, stored record or score row can carry. */
+export type ModelLabel = ModelOutputLabel;
+
+/** Narrows a string to a label the results layer represents (all five). */
+export function isModelLabel(value: unknown): value is ModelLabel {
+  return (
+    typeof value === 'string' &&
+    (MODEL_V2_LABELS as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * The labels a result produced by `modelVersion` carries scores for: three for
+ * the legacy baseline, five for V2, four for V1 and any unknown version.
+ */
+export function modelLabelsForVersion(modelVersion: string): readonly ModelLabel[] {
+  if (modelVersion === LEGACY_MODEL_VERSION) {
+    return LEGACY_MODEL_LABELS;
+  }
+  return modelVersion === MODEL_V2_VERSION ? MODEL_V2_LABELS : MODEL_LABELS;
+}
+
+export function modelScoreLabelsForVersion(
+  modelVersion: string,
+  scoreCount: number,
+): readonly ModelLabel[] {
+  return modelVersion === MODEL_V2_VERSION && scoreCount === MODEL_LABELS.length
+    ? MODEL_LABELS
+    : modelLabelsForVersion(modelVersion);
+}
 
 export const MODEL_V2_INPUT = {
   name: 'serving_default_rgb_0_255:0',
@@ -140,8 +169,6 @@ export type ModelId = keyof typeof MODEL_CONTRACTS;
 
 /**
  * Model the live scan flow loads. Setting this to `'v1'` is the rollback path.
- * Until the display/storage/sync follow-up carries the fifth (RSSI) output,
- * the scan flow errors when RSSI is V2's top class and drops it otherwise.
  */
 export const ACTIVE_MODEL_ID: ModelId = 'v2' as ModelId;
 

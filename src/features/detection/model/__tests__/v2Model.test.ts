@@ -129,15 +129,20 @@ describe('V2 letterbox padding', () => {
 });
 
 describe('Live scan flow on V2', () => {
-  it('runs the active V2 contract and drops a non-top RSSI score and errors when RSSI is the top class', async () => {
+  it('runs the active V2 contract and returns RSSI as a real score and as a top result', async () => {
     const run = (values: number[]) =>
       runInference({ run: jest.fn().mockResolvedValue([floatBuffer(values)]) }, new ArrayBuffer(602_112), 0);
     const ok = await run([0.7, 0.1, 0.1, 0.05, 0.05]);
     expect(ok.predictedLabel).toBe('healthy');
     expect(ok.modelVersion).toBe('v2.0-mobilenetv2');
-    expect(ok.scores.map((s) => s.label)).toEqual(['healthy', 'mosaic', 'rust', 'smut']);
+    expect(ok.scores.map((s) => s.label)).toEqual(['healthy', 'mosaic', 'rust', 'smut', 'rssi']);
     expect(ok.confidence).toBeCloseTo(0.7, 6);
     expect(ok.scores[1].score).toBeCloseTo(0.1, 6);
-    await expect(run([0.1, 0.1, 0.1, 0.1, 0.6])).rejects.toMatchObject({ code: 'LABEL_MAPPING_FAILED' });
+    expect(ok.scores[4]).toEqual({ label: 'rssi', score: expect.closeTo(0.05, 6) });
+    const rssiTop = await run([0.1, 0.1, 0.1, 0.1, 0.6]);
+    expect(rssiTop.predictedLabel).toBe('rssi');
+    expect(rssiTop.confidence).toBeCloseTo(0.6, 6);
+    expect(rssiTop.scores).toHaveLength(5);
+    expect(rssiTop.decisionSupportWording).toMatch(/^Possible Condition only\./);
   });
 });

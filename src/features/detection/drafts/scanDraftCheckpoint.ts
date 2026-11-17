@@ -6,7 +6,11 @@ import {
   readLocalDraft,
   saveLocalDraft,
 } from '@/database/localDraftRepository';
-import { MODEL_LABELS, type ModelLabel } from '@/features/detection/constants/modelContract';
+import {
+  isModelLabel,
+  modelScoreLabelsForVersion,
+  type ModelLabel,
+} from '@/features/detection/constants/modelContract';
 import type { ChecklistObservationId } from '@/features/detection/checklist/checklistConsistency';
 import type {
   DetectionResult,
@@ -325,13 +329,12 @@ function sanitizeResult(value: unknown): DetectionResult | null {
   const result = value as Partial<DetectionResult>;
   if (
     typeof result.predictedLabel !== 'string' ||
-    !(MODEL_LABELS as readonly string[]).includes(result.predictedLabel) ||
+    !isModelLabel(result.predictedLabel) ||
     typeof result.confidence !== 'number' ||
     !Number.isFinite(result.confidence) ||
     result.confidence < 0 ||
     result.confidence > 1 ||
     !Array.isArray(result.scores) ||
-    result.scores.length !== MODEL_LABELS.length ||
     typeof result.modelVersion !== 'string' ||
     !result.timings ||
     typeof result.timings.preprocessMs !== 'number' ||
@@ -344,11 +347,17 @@ function sanitizeResult(value: unknown): DetectionResult | null {
     (score): score is DetectionResult['scores'][number] =>
       Boolean(score) &&
       typeof score.label === 'string' &&
-      (MODEL_LABELS as readonly string[]).includes(score.label) &&
+      isModelLabel(score.label) &&
       typeof score.score === 'number' &&
       Number.isFinite(score.score),
   );
-  if (scores.length !== MODEL_LABELS.length) {
+  const labels = modelScoreLabelsForVersion(result.modelVersion, result.scores.length);
+  if (
+    scores.length !== labels.length ||
+    !labels.includes(result.predictedLabel) ||
+    new Set(scores.map((score) => score.label)).size !== labels.length ||
+    scores.some((score) => !labels.includes(score.label))
+  ) {
     return null;
   }
   const predictedLabel = result.predictedLabel as ModelLabel;

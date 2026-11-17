@@ -500,8 +500,8 @@ export const fieldGuideEntryContent: Record<FieldGuideLaunchEntryId, FieldGuideE
           id: 'what-the-app-reports',
           heading: 'What the app reports',
           paragraphs: [
-            'The app cannot detect RSSI. It has four classes, and none of them is a pest, so a scan can never return an RSSI result.',
-            'Record RSSI as something you observed in the field, with a photo and the block name. That record is what a follow-up visit can act on.',
+            'The scan model has five classes, and RSSI is one of them. A scan can return RSSI as a Possible Condition, but that is a model output on a photo, not proof of an infestation.',
+            'Whatever a scan returns, also record RSSI as something you observed in the field, with a photo and the block name. That record is what a follow-up visit can act on.',
           ],
         },
       ],

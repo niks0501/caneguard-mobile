@@ -11,11 +11,16 @@ import { decodePng } from '@/features/detection/preprocessing/decodePng';
 const mockArrayBuffer = jest.fn<Promise<ArrayBuffer>, []>();
 const mockDelete = jest.fn();
 const mockFileUri = jest.fn();
+const mockFileSize = jest.fn<number | undefined, [uri: string]>(() => undefined);
 
 jest.mock('expo-file-system', () => ({
   File: function File(uri: string) {
     mockFileUri(uri);
-    return { arrayBuffer: () => mockArrayBuffer(), delete: () => mockDelete(uri) };
+    return {
+      get size() { return mockFileSize(uri); },
+      arrayBuffer: () => mockArrayBuffer(),
+      delete: () => mockDelete(uri),
+    };
   },
 }));
 
@@ -91,6 +96,26 @@ function jpegDeclaring(width: number, height: number): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
+function jpegWithOrientation(width: number, height: number, orientation: number): ArrayBuffer {
+  const source = Buffer.from(jpegDeclaring(width, height));
+  const exif = Buffer.alloc(26);
+  exif.write('II', 0, 'ascii');
+  exif.writeUInt16LE(42, 2);
+  exif.writeUInt32LE(8, 4);
+  exif.writeUInt16LE(1, 8);
+  exif.writeUInt16LE(0x0112, 10);
+  exif.writeUInt16LE(3, 12);
+  exif.writeUInt32LE(1, 14);
+  exif.writeUInt16LE(orientation, 18);
+  const app1 = Buffer.alloc(10 + exif.length);
+  app1.set([0xff, 0xe1], 0);
+  app1.writeUInt16BE(app1.length - 2, 2);
+  app1.write('Exif\0\0', 4, 'binary');
+  exif.copy(app1, 10);
+  const result = Buffer.concat([source.subarray(0, 2), app1, source.subarray(2)]);
+  return result.buffer.slice(result.byteOffset, result.byteOffset + result.byteLength) as ArrayBuffer;
+}
+
 function pngDeclaring(width: number, height: number): ArrayBuffer {
   const bytes = Buffer.from(pngBytes(quadrantSource(8, 8), 8, 8));
   bytes.writeUInt32BE(width, 16);
@@ -140,6 +165,7 @@ describe('preprocessGuardImage', () => {
     mockManipulate.mockReset();
     mockDelete.mockReset();
     mockFileUri.mockReset();
+    mockFileSize.mockReset();
     mockJpegDecode.mockClear();
     mockDecodePng.mockClear();
   });
@@ -240,6 +266,18 @@ describe('preprocessGuardImage', () => {
     expect(mockManipulate).not.toHaveBeenCalled();
   });
 
+  it('counts the source and orientation copy before allowing JPEG decode', async () => {
+    mockArrayBuffer.mockResolvedValueOnce(jpegWithOrientation(6000, 4000, 6));
+    mockFileSize.mockImplementation((uri) =>
+      uri === 'content://large-rotated.jpg' ? 128 * 1024 * 1024 : undefined,
+    );
+
+    await expect(preprocessGuardImage('content://large-rotated.jpg')).rejects.toMatchObject({
+      code: 'GUARD_INPUT_TOO_LARGE',
+    });
+    expect(mockJpegDecode).not.toHaveBeenCalled();
+  });
+
   it('reports the PNG decoder memory limit as an actionable size failure', async () => {
     const source = Buffer.from(pngDeclaring(6000, 4000));
     source[24] = 16;
@@ -274,34 +312,78 @@ describe('preprocessGuardImage', () => {
   });
 
   describe('WebP uploads (converted by the platform manipulator)', () => {
-    const webpHeader = (tag: string, flagsOrBytes: number[] = []): ArrayBuffer => {
+    const webpHeader = (
+      tag: string,
+      flagsOrBytes: number[] = [],
+      width = 224,
+      height = 224,
+    ): ArrayBuffer => {
       const bytes = new Uint8Array(32);
       bytes.set([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50], 0);
       bytes.set(Array.from(tag, (c) => c.charCodeAt(0)), 12);
       bytes.set(flagsOrBytes, 20);
+      if (tag === 'VP8X') {
+        for (let i = 0; i < 3; i += 1) {
+          bytes[24 + i] = ((width - 1) >> (i * 8)) & 0xff;
+          bytes[27 + i] = ((height - 1) >> (i * 8)) & 0xff;
+        }
+      } else if (tag === 'VP8 ') {
+        bytes.set([0x9d, 0x01, 0x2a], 23);
+        bytes[26] = 224;
+        bytes[28] = 224;
+      }
       return bytes.buffer;
     };
-    const jpegBase64 = (): string =>
-      Buffer.from(encode({ data: quadrantSource(224, 224), width: 224, height: 224 }, 100).data).toString('base64');
+    const jpegBytes = (): ArrayBuffer => {
+      const bytes = Buffer.from(encode({ data: quadrantSource(224, 224), width: 224, height: 224 }, 100).data);
+      return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    };
 
     beforeEach(() => {
       mockManipulate.mockReset();
       mockDelete.mockReset();
       mockFileUri.mockReset();
+      mockFileSize.mockReset();
     });
 
     // Proves: an opaque WebP is delegated without resize and its scratch file is deleted.
     it('delegates an opaque WebP without resizing and deletes the scratch file', async () => {
-      mockArrayBuffer.mockResolvedValueOnce(webpHeader('VP8 '));
+      mockArrayBuffer.mockResolvedValueOnce(webpHeader('VP8 ')).mockResolvedValueOnce(jpegBytes());
       mockManipulate.mockResolvedValueOnce({
-        uri: 'file:///cache/converted.jpg', width: 224, height: 224, base64: jpegBase64(),
+        uri: 'file:///cache/converted.jpg', width: 224, height: 224,
       } as Awaited<ReturnType<typeof manipulateAsync>>);
       const tensor = new Float32Array(await preprocessGuardImage('content://photo.webp'));
       expect(tensor.byteLength).toBe(GUARD_V1.inputByteLength / 4 * 4);
       expect(mockManipulate).toHaveBeenCalledWith('content://photo.webp', [], {
-        base64: true, compress: 1, format: 'jpeg',
+        base64: false, compress: 1, format: 'jpeg',
       });
+      expect(mockArrayBuffer).toHaveBeenCalledTimes(2);
       expect(mockDelete).toHaveBeenCalledWith('file:///cache/converted.jpg');
+    });
+
+    it('refuses an oversized converted WebP before reading the scratch file', async () => {
+      mockArrayBuffer.mockResolvedValueOnce(webpHeader('VP8 '));
+      mockManipulate.mockResolvedValueOnce({
+        uri: 'file:///cache/converted.jpg', width: 224, height: 224,
+      } as Awaited<ReturnType<typeof manipulateAsync>>);
+      mockFileSize.mockImplementation((uri) =>
+        uri === 'file:///cache/converted.jpg' ? 128 * 1024 * 1024 + 1 : undefined,
+      );
+
+      await expect(preprocessGuardImage('content://photo.webp')).rejects.toMatchObject({
+        code: 'GUARD_INPUT_TOO_LARGE',
+      });
+      expect(mockArrayBuffer).toHaveBeenCalledTimes(1);
+      expect(mockDelete).toHaveBeenCalledWith('file:///cache/converted.jpg');
+    });
+
+    it('refuses an oversized WebP before platform conversion', async () => {
+      mockArrayBuffer.mockResolvedValueOnce(webpHeader('VP8X', [], 6000, 5000));
+
+      await expect(preprocessGuardImage('content://huge.webp')).rejects.toMatchObject({
+        code: 'GUARD_INPUT_TOO_LARGE',
+      });
+      expect(mockManipulate).not.toHaveBeenCalled();
     });
 
     // Proves: transparent WebP (VP8X alpha flag, VP8L alpha bit) is refused before conversion, like transparent PNG.
@@ -317,11 +399,16 @@ describe('preprocessGuardImage', () => {
     });
 
     // Proves: a photo beyond any safe size is refused before conversion with the dedicated too-large fault.
-    it('refuses an absurdly large photo before conversion', async () => {
-      mockArrayBuffer.mockResolvedValueOnce(jpegDeclaring(30000, 20000));
+    it.each([
+      ['JPEG', jpegDeclaring(30000, 20000)],
+      ['PNG', pngDeclaring(30000, 20000)],
+    ])('refuses an absurdly large %s before decoding', async (_format, bytes) => {
+      mockArrayBuffer.mockResolvedValueOnce(bytes);
       await expect(preprocessGuardImage('content://huge.jpg')).rejects.toMatchObject({
         code: 'GUARD_INPUT_TOO_LARGE',
       });
+      expect(mockJpegDecode).not.toHaveBeenCalled();
+      expect(mockDecodePng).not.toHaveBeenCalled();
       expect(mockManipulate).not.toHaveBeenCalled();
     });
 

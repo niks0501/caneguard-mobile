@@ -49,6 +49,12 @@ function expectTooLarge(action: () => unknown): void {
   expect(error).toMatchObject({ code: 'image-too-large' });
 }
 
+function invalidateIdat(bytes: Buffer): void {
+  const idat = bytes.indexOf(Buffer.from('IDAT'));
+  if (idat < 0) throw new Error('PNG fixture has no IDAT data.');
+  bytes[idat + 4] = 0;
+}
+
 describe('decodePng', () => {
   const files = readdirSync(FIXTURES).filter((f) => f.endsWith('.png'));
 
@@ -142,6 +148,7 @@ describe('decodePng', () => {
     const bytes = Buffer.from(readFileSync(join(FIXTURES, files[0])));
     bytes.writeUInt32BE(7000, 16);
     bytes.writeUInt32BE(4000, 20);
+    invalidateIdat(bytes);
     expectTooLarge(() => decodePng(new Uint8Array(bytes)));
   });
 
@@ -151,6 +158,7 @@ describe('decodePng', () => {
     bytes.writeUInt32BE(4000, 20);
     bytes[IHDR_COLOR_TYPE_INDEX - 1] = 16;
     bytes[IHDR_COLOR_TYPE_INDEX] = 6;
+    invalidateIdat(bytes);
     expectTooLarge(() => decodePng(new Uint8Array(bytes)));
   });
 });

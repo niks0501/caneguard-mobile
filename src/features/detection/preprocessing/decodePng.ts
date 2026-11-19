@@ -1,5 +1,6 @@
 import { PreprocessingError } from '@/features/detection/preprocessing/preprocessingErrors';
 import {
+  MAX_GUARD_WORKING_BYTES,
   MAX_GUARD_IMAGE_PIXELS,
   MAX_PNG_DECODE_BYTES,
 } from '@/features/detection/preprocessing/guardPreprocessLimits';
@@ -89,12 +90,20 @@ function fixedTables(): [Huffman, Huffman] {
   return [FIXED_LITERALS, FIXED_DISTANCES];
 }
 
-export function inflateZlib(input: Uint8Array, maxOutputBytes = MAX_PNG_DECODE_BYTES): Uint8Array {
+export function inflateZlib(
+  input: Uint8Array,
+  maxOutputBytes = MAX_PNG_DECODE_BYTES,
+  initialOutputBytes?: number,
+): Uint8Array {
   if (input.length < 6 || (input[0] & 0x0f) !== 8) fail('Unsupported zlib stream.');
   let position = 2;
   let bitBuffer = 0;
   let bitCount = 0;
-  let out = new Uint8Array(Math.min(maxOutputBytes, Math.max(1024, input.length * 4)));
+  const initialCapacity = initialOutputBytes ?? Math.min(maxOutputBytes, Math.max(1024, input.length * 4));
+  if (initialCapacity < 0 || initialCapacity > maxOutputBytes) {
+    fail('PNG decompressed data exceeds the safety limit.', 'image-too-large');
+  }
+  let out = new Uint8Array(initialCapacity);
   let outLength = 0;
 
   const readBits = (count: number): number => {
@@ -471,15 +480,18 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
     expectedDecodedBytes += passHeight * rowBytes;
   }
   const expectedRgbBytes = width * height * 3;
-  const rotatedRgbBytes = orientation >= 5 && orientation <= 8 ? expectedRgbBytes : 0;
+  const rotatedRgbBytes = orientation === 1 ? 0 : expectedRgbBytes;
+  const compressedLength = idat.reduce((sum, chunk) => sum + chunk.length, 0);
+  const decodedWorkingBytes =
+    expectedRawBytes + expectedDecodedBytes + expectedRgbBytes + rotatedRgbBytes;
   if (
-    expectedRawBytes + expectedDecodedBytes + expectedRgbBytes + rotatedRgbBytes >
-    MAX_PNG_DECODE_BYTES
+    decodedWorkingBytes > MAX_PNG_DECODE_BYTES ||
+    bytes.byteLength + compressedLength + expectedRawBytes + expectedDecodedBytes +
+      expectedRgbBytes + rotatedRgbBytes > MAX_GUARD_WORKING_BYTES
   ) {
-    fail('PNG decode exceeds the safety limit.', 'image-too-large');
+    fail('PNG working set exceeds the safety limit.', 'image-too-large');
   }
 
-  const compressedLength = idat.reduce((sum, chunk) => sum + chunk.length, 0);
   const compressed = new Uint8Array(compressedLength);
   let cursor = 0;
   for (const chunk of idat) {
@@ -488,7 +500,7 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
   }
 
   const pixels = new Uint8Array(expectedRgbBytes);
-  const raw = inflateZlib(compressed, expectedRawBytes);
+  const raw = inflateZlib(compressed, expectedRawBytes, expectedRawBytes);
   let rawOffset = 0;
 
   const decodePass = (startX: number, startY: number, stepX: number, stepY: number) => {

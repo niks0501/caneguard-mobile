@@ -1,5 +1,4 @@
 import { decode as decodeJpegBytes } from 'jpeg-js';
-import { toByteArray } from 'base64-js';
 import { File } from 'expo-file-system';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
@@ -7,12 +6,17 @@ import { GUARD_V1 } from '@/features/detection/constants/guardContract';
 import { GuardError } from '@/features/detection/model/guardInference';
 import { createInputTensor } from '@/features/detection/preprocessing/createInputTensor';
 import { decodePng } from '@/features/detection/preprocessing/decodePng';
-import { MAX_GUARD_IMAGE_PIXELS } from '@/features/detection/preprocessing/guardPreprocessLimits';
+import {
+  MAX_GUARD_IMAGE_PIXELS,
+  MAX_GUARD_WORKING_BYTES,
+} from '@/features/detection/preprocessing/guardPreprocessLimits';
 import { PreprocessingError } from '@/features/detection/preprocessing/preprocessingErrors';
 import { rgbaToRgb } from '@/features/detection/preprocessing/rgbaToRgb';
 
 const [, GUARD_HEIGHT, GUARD_WIDTH] = GUARD_V1.input.shape;
 const MAX_SOURCE_BYTES = 128 * 1024 * 1024;
+const MAX_JPEG_DECODER_MEMORY_MB = 256;
+const MEBIBYTE = 1024 * 1024;
 
 const tooLarge = (cause?: unknown): GuardError =>
   new GuardError('GUARD_INPUT_TOO_LARGE', 'The photo is too large to prepare safely.', cause);
@@ -190,22 +194,25 @@ function webpHasAlpha(bytes: Uint8Array): boolean {
   return false;
 }
 
-/**
- * WebP photos are converted by the platform image manipulator without resizing.
- * The base64 result is decoded in memory and the scratch file the call wrote is
- * deleted at once, even when decoding fails.
- */
 async function manipulatorJpegBytes(sourceUri: string): Promise<Uint8Array> {
   let scratchUri: string | undefined;
   try {
     const converted = await manipulateAsync(sourceUri, [], {
-      base64: true,
+      base64: false,
       compress: 1,
       format: SaveFormat.JPEG,
     });
     scratchUri = converted.uri;
-    if (!converted.base64) throw new Error('The photo could not be converted.');
-    const bytes = toByteArray(converted.base64);
+    if (converted.width <= 0 || converted.height <= 0) {
+      throw new Error('The photo could not be converted.');
+    }
+    if (converted.width * converted.height > MAX_GUARD_IMAGE_PIXELS) throw tooLarge();
+    const file = new File(scratchUri);
+    const declaredSize = (file as unknown as { size?: unknown }).size;
+    if (typeof declaredSize === 'number' && Number.isFinite(declaredSize) && declaredSize > MAX_SOURCE_BYTES) {
+      throw tooLarge();
+    }
+    const bytes = new Uint8Array(await file.arrayBuffer());
     if (bytes.byteLength > MAX_SOURCE_BYTES) throw tooLarge();
     return bytes;
   } finally {
@@ -221,13 +228,18 @@ async function manipulatorJpegBytes(sourceUri: string): Promise<Uint8Array> {
 
 async function readSourceImage(sourceUri: string): Promise<RgbImage> {
   let bytes: Uint8Array;
+  let sourceByteLength = 0;
   try {
     const file = new File(sourceUri);
     const declaredSize = (file as unknown as { size?: unknown }).size;
+    if (typeof declaredSize === 'number' && Number.isFinite(declaredSize)) {
+      sourceByteLength = declaredSize;
+    }
     if (typeof declaredSize === 'number' && Number.isFinite(declaredSize) && declaredSize > MAX_SOURCE_BYTES) {
       throw tooLarge();
     }
     bytes = new Uint8Array(await file.arrayBuffer());
+    sourceByteLength = Math.max(sourceByteLength, bytes.byteLength);
     if (bytes.byteLength > MAX_SOURCE_BYTES) {
       throw tooLarge();
     }
@@ -242,22 +254,30 @@ async function readSourceImage(sourceUri: string): Promise<RgbImage> {
 
   try {
     const dimensions = peekDimensions(bytes);
-    const pixels = dimensions ? dimensions.width * dimensions.height : 0;
-      if (dimensions && pixels > MAX_GUARD_IMAGE_PIXELS) throw tooLarge();
+    let pixels = dimensions ? dimensions.width * dimensions.height : 0;
+    if (dimensions && pixels > MAX_GUARD_IMAGE_PIXELS) throw tooLarge();
     const webp = isWebp(bytes);
     const png = bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71;
+    if ((webp || !png) && !dimensions) {
+      throw new Error('The photo dimensions could not be read safely.');
+    }
     if (webp && webpHasAlpha(bytes)) {
       throw new Error('Transparent images are not supported. Please choose an opaque photo.');
     }
     if (webp) {
+      bytes = new Uint8Array(0);
       bytes = await manipulatorJpegBytes(sourceUri);
+      sourceByteLength = bytes.byteLength;
       const convertedDimensions = peekDimensions(bytes);
       const convertedPixels = convertedDimensions ? convertedDimensions.width * convertedDimensions.height : 0;
-      if (convertedDimensions && convertedPixels > MAX_GUARD_IMAGE_PIXELS) {
+      if (!convertedDimensions) throw new Error('The converted photo dimensions could not be read safely.');
+      if (convertedPixels > MAX_GUARD_IMAGE_PIXELS) {
         throw tooLarge();
       }
+      pixels = convertedPixels;
     } else if (png) {
       const decoded = decodePng(bytes);
+      bytes = new Uint8Array(0);
       return orientImage(
         { width: decoded.width, height: decoded.height, rgb: decoded.rgb },
         decoded.orientation,
@@ -265,16 +285,24 @@ async function readSourceImage(sourceUri: string): Promise<RgbImage> {
     }
     const jpeg = bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xd8;
     if (!jpeg) throw new Error('Only JPEG, PNG and WebP photos are supported by the guard.');
+    const orientation = exifOrientation(bytes);
+    const rgbBytes = pixels * 3;
+    const rotatedRgbBytes = orientation === 1 ? 0 : rgbBytes;
+    const jpegWorkingBytes =
+      sourceByteLength + MAX_JPEG_DECODER_MEMORY_MB * MEBIBYTE + rgbBytes + rotatedRgbBytes;
+    if (jpegWorkingBytes > MAX_GUARD_WORKING_BYTES) throw tooLarge();
     const decoded = decodeJpegBytes(bytes, {
       useTArray: true,
       formatAsRGBA: true,
       tolerantDecoding: false,
       maxResolutionInMP: MAX_GUARD_IMAGE_PIXELS / 1_000_000,
-      maxMemoryUsageInMB: 256,
+      maxMemoryUsageInMB: MAX_JPEG_DECODER_MEMORY_MB,
     });
+    const rgb = rgbaToRgb(decoded.data, decoded.width, decoded.height);
+    bytes = new Uint8Array(0);
     return orientImage(
-      { width: decoded.width, height: decoded.height, rgb: rgbaToRgb(decoded.data, decoded.width, decoded.height) },
-      exifOrientation(bytes),
+      { width: decoded.width, height: decoded.height, rgb },
+      orientation,
     );
   } catch (error) {
     if (error instanceof GuardError) throw error;

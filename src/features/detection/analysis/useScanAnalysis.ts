@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
 import { GUARD_COPY } from '@/constants/copy';
 import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
@@ -38,11 +38,10 @@ function isCurrentSession(
   owner: string | null,
   sourceUri: string,
   generation: number,
-  currentSourceUri: string | null,
 ): boolean {
   return (
     draft.isOwnerCurrent(owner) &&
-    draft.isSessionCurrent(sourceUri, generation) && currentSourceUri === sourceUri
+    draft.isSessionCurrent(sourceUri, generation)
   );
 }
 
@@ -65,10 +64,6 @@ export function useScanAnalysis(replacing = false) {
   } = state;
   const generation = draft.sessionGeneration;
   const appActive = draft.appActive ?? true;
-  const currentSourceUriRef = useRef(sourceUri);
-  useEffect(() => {
-    currentSourceUriRef.current = sourceUri;
-  }, [sourceUri]);
   const key = sourceUri ? workKey(draft.sessionIdentity, generation, sourceUri) : null;
   const prepared = key ? preparedPhotos.get(key) : undefined;
   const photoHasWarnings = (qualityAssessment?.warnings.length ?? 0) > 0;
@@ -118,7 +113,6 @@ export function useScanAnalysis(replacing = false) {
             startingOwner,
             startingSource,
             startingGeneration,
-            currentSourceUriRef.current,
           ) || activeWork.get(key) !== work
         ) {
           return;
@@ -145,7 +139,6 @@ export function useScanAnalysis(replacing = false) {
             startingOwner,
             startingSource,
             startingGeneration,
-            currentSourceUriRef.current,
           ) && activeWork.get(key) === work
         ) {
           dispatch({
@@ -203,7 +196,6 @@ export function useScanAnalysis(replacing = false) {
         startingOwner,
         startingSource,
         startingGeneration,
-        currentSourceUriRef.current,
       ) && activeWork.get(key) === work;
     work = (async () => {
       let stage: 'guard' | 'v2' = 'guard';

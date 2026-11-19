@@ -1,0 +1,56 @@
+
+> caneguard-mobile@2.2.1 web:validate
+> node ./scripts/web-validate.js
+
+
+[web:validate] stub API       http://127.0.0.1:8210
+[web:validate] fake inspector inspector@validation.invalid / validation-only
+[web:validate] fake farmer    farmer@validation.invalid / validation-only
+[web:validate] farmer scans   first check plus two follow-ups are seeded
+[web:validate] open           http://127.0.0.1:8199/login
+[web:validate] open /login, not / — the single-page manifest at / skips COOP/COEP.
+[web:validate] one browser profile per origin; never a second tab on the same origin.
+[web:validate] fake account, stub API and fake records only.
+
+[web:validate] seeded visits: CG-LAB-0002 (Mabini, due 2026-11-17), CG-LAB-0001 (Balayan, due 2026-11-19)
+Starting project at {run-worktree}
+Using src/app as the root directory for Expo Router.
+React Compiler enabled
+Starting Metro Bundler
+
+Waiting on http://localhost:8199
+
+Logs for your project will appear below.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+Web Bundled 16788ms node_modules/expo-router/entry.js (2853 modules)
+Web  INFO  %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+Web Bundled 452ms node_modules/expo-sqlite/web/worker.ts (16 modules)
+Web  WARN  Using synchronous SQLite operations can cause significant performance impact. Consider using async operations instead.
+[web:validate] stub OPTIONS /api/v1/mobile/auth/login
+[web:validate] stub POST /api/v1/mobile/auth/login
+[web:validate] stub OPTIONS /api/v1/mobile/auth/me
+[web:validate] stub GET /api/v1/mobile/auth/me
+[web:validate] stub OPTIONS /api/v1/mobile/notifications
+[web:validate] stub GET /api/v1/mobile/notifications
+[web:validate] stub OPTIONS /api/v1/mobile/assignments
+[web:validate] stub GET /api/v1/mobile/assignments
+Web  WARN  navigation.isFocused() was called while rendering the screen '__root'. During render it can return a stale value, because focus state is updated after render. Use the useIsFocused() hook to read focus during render.
+[web:validate] stub OPTIONS /__validation__/files
+[web:validate] stub PUT /__validation__/files
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.

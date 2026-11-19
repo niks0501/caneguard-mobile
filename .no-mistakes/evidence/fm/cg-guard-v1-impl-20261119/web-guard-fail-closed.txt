@@ -1,0 +1,32 @@
+page:
+  title: CaneGuard
+  refs: 24
+snapshot:
+uid=g6279:1_0 RootWebArea "CaneGuard" url="http://127.0.0.1:8199/symptom-checklist"
+  uid=g6279:10_0 button "Go back"
+  uid=g6279:10_1 heading "Check your photo" level="1"
+  uid=g6279:10_2 button "Cancel and return home"
+  uid=g6279:10_3 image "Your sugarcane photo" url="blob:http://127.0.0.1:8199/492f2526-2ca2-4949-8edd-7a68e6f4460a"
+  uid=g6279:10_4 generic live="polite" relevant="additions text"
+    uid=g6279:10_5 StaticText "Checking your photo…"
+    uid=g6279:10_6 StaticText "The sugarcane photo check is not available on this phone, so scans are paused. Update or reinstall the app, then try again."
+  uid=g6279:10_7 StaticText "This photo may be hard to read"
+  uid=g6279:10_8 StaticText "The image resolution is low. Move closer and keep the affected area in focus."
+  uid=g6279:10_9 StaticText "A new photo usually gives a clearer result."
+  uid=g6279:10_10 button "Take another photo with the camera"
+  uid=g6279:10_11 button "Choose another photo from the gallery"
+  uid=g6279:10_12 heading "Which picture looks most like what you see?" level="1"
+  uid=g6279:10_13 StaticText "Your choice is kept with this scan and never changes the result."
+  uid=g6279:10_14 radio "Contrasting islands or streaks of normal green among paler green or yellowish leaf areas"
+  uid=g6279:10_15 radio "Raised rust-colored or orange-brown spots or pustules, mainly on the leaf underside"
+  uid=g6279:10_16 radio "Dark, whip-like growth emerging from the central shoot or stalk"
+  uid=g6279:10_17 radio "Bright yellow midrib on lower or older leaves, or yellowing spreading outward from the midrib"
+  uid=g6279:10_18 radio "No visible symptom from Mosaic, Rust, or Smut" focusable focused
+  uid=g6279:10_19 radio "Something else"
+  uid=g6279:10_20 radio "Unable to tell"
+  uid=g6279:10_21 button "Continue to analysis result" disableable disabled
+  uid=g6279:10_22 button "Cancel scan and return home"
+help[3]:
+  Run `chrome-devtools-axi click @g6279:10_0` to click the "Go back" button
+  Run `chrome-devtools-axi scroll down` to scroll down
+  Use `chrome-devtools-axi eval <expr>` for JS expressions. For multi-statement code, pass a function: `eval "() => { ...; return result }"`

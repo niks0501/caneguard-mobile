@@ -1,0 +1,23 @@
+revision=86e4b95fddc21b687f85b2b5f9ee2d623ba63d73
+command=.guard-v1-venv/bin/python scripts/tests/test_guard_v1_model.py && scripts/verify_guard_v1_assets.py
+
+test_binary_is_present_and_matches_the_pinned_sha (__main__.GuardV1BinaryTests.test_binary_is_present_and_matches_the_pinned_sha) ... ok
+test_real_tensor_metadata_matches_the_contract (__main__.GuardV1BinaryTests.test_real_tensor_metadata_matches_the_contract) ... ok
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+test_double_normalisation_is_detected (__main__.GuardV1ReferenceOracleTests.test_double_normalisation_is_detected) ... ok
+test_exif_orientation_is_decisive (__main__.GuardV1ReferenceOracleTests.test_exif_orientation_is_decisive) ... ok
+test_fixture_decisions_match_the_contract_threshold (__main__.GuardV1ReferenceOracleTests.test_fixture_decisions_match_the_contract_threshold) ... ok
+test_runtime_tensor_abi (__main__.GuardV1ReferenceOracleTests.test_runtime_tensor_abi) ... ok
+test_scores_match_the_goldens_through_two_independent_paths (__main__.GuardV1ReferenceOracleTests.test_scores_match_the_goldens_through_two_independent_paths) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.169s
+
+OK
+guard tensor names: input='serving_default_rgb_float32_0_255:0' output='StatefulPartitionedCall_1:0'
+cane-like-accept: golden=0.980837 pillow=0.980837 numpy=0.985148
+cane-like-exif-rotated: golden=0.979495 pillow=0.979495 numpy=0.982810
+reject-sky-gradient: golden=0.113288 pillow=0.113288 numpy=0.112846
+PASS: Guard V1 assets, checksums, tensor shapes, and decision threshold verified.
+Model: {run-worktree}/assets/models/caneguard_guard_v1_float32.tflite (5441252 bytes)
+SHA-256: 36c514184aaa4f96ee762dcbc0ca32eb26df40acec919f6c4264e8ee44fe6d60

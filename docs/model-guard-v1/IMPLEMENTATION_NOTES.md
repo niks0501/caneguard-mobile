@@ -40,7 +40,7 @@ Every Guard rejection (p_sugarcane below 0.75, or any invalid output) blocks the
 
 ## Upload formats
 
-Guard preprocessing reads the same photos V2 accepts. JPEG and PNG (opaque only, with EXIF or PNG orientation applied) are decoded in memory. WebP has no in-memory decoder in the app, so it is converted to JPEG by the platform image manipulator (the same API the V2 path uses, no new dependency), and the scratch file that call writes is deleted immediately; transparent WebP and transparent PNG are refused with a retake message.
+Guard preprocessing reads the same photos V2 accepts. JPEG and PNG (opaque only, with EXIF or PNG orientation applied) are decoded in memory. WebP has no in-memory decoder in the app, so it is converted to JPEG by the platform image manipulator (the same API the V2 path uses, no new dependency), and the scratch file that call writes is deleted immediately; transparent WebP and transparent PNG are refused as failed photo preparation (the check could not finish, with Try again), never as an accepted or rejected verdict.
 
 ## Evidence
 
@@ -69,6 +69,6 @@ Revert this branch's commits. V2 files and weights were not modified.
 
 - No independent field validation; 36-image visual sample; internal-test false acceptance 6.75% (grass/weeds, banana, trees).
 - Image-level rights for the online-collected positive photographs are not individually established; the captain accepted this for the production release (`DATASET_LICENSES.md`), and public APK artifacts embed the model.
-- Guard preprocessing decodes source JPEG/PNG in JavaScript (no scratch file), applies EXIF orientation, then bilinearly stretches once to the Guard input. Photos above 24 MP or the bounded decoder memory limits are refused with a smaller-photo prompt; WebP uses full-resolution platform conversion without resizing. Large-photo preparation remains untimed on device.
+- Guard preprocessing decodes source JPEG/PNG in JavaScript (no scratch file), applies EXIF orientation, then bilinearly stretches once to the Guard input. Photos above 24 MP, or past the bounded PNG/JPEG decoder memory and total working-set limits, are refused with a smaller-photo prompt; WebP uses full-resolution platform conversion without resizing. Large-photo preparation remains untimed on device.
 - Real-device Android inference, EXIF handling and bilinear parity are unverified by the worker.
 - The guard and V2 share one native-call queue, so scans are strictly serial.

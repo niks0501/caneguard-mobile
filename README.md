@@ -308,7 +308,7 @@ Use the local passwords you configured in `api/.env` and do not paste them into 
 1. **API:** `curl http://127.0.0.1:8000/api/health` returns `data.status: ok` with ready dependency checks.
 2. **Web:** open `http://localhost:5173`, sign in as `mao@caneguard.test` with the locally configured reviewer password, and confirm the dashboard loads API-backed data.
 3. **Mobile authentication:** open the development build, sign in as `field@caneguard.test` with the locally configured field-reporter password, and confirm the authenticated home screen loads.
-4. **Offline creation:** make the API unavailable or take the device offline, capture or choose an image, complete the on-device analysis, save the scan, and create or edit a Field Report Draft.
+4. **Offline creation:** make the API unavailable or take the device offline, capture or choose a photo of a sugarcane plant (the required on-device sugarcane check rejects photos without visible sugarcane), complete the on-device analysis, save the scan, and create or edit a Field Report Draft.
 5. **Local persistence:** confirm the draft remains present and editable while offline and is not shown as remotely synchronized.
 6. **Finalize and synchronize:** restore API reachability, complete the required report fields and location, finalize the report, and use the normal sync action or resume path until its state becomes synced.
 7. **Web review:** refresh the Web queue, open the uploaded report, and confirm the report image and AI evidence are present without describing the AI output as a diagnosis.

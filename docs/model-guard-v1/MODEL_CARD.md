@@ -1,4 +1,4 @@
-# CaneGuard Guard V1 — experimental model card
+# CaneGuard Guard V1 — model card
 
 **Status:** Capstone model bundled in the app. Production activation of this exact artifact was approved by the captain on 2026-11-19. Not independently field validated.
 
@@ -10,7 +10,7 @@ This separate binary sugarcane-presence gate precedes the unchanged five-class V
 
 - Android offline model asset: `assets/models/caneguard_guard_v1_float32.tflite`
 - Model SHA-256: `36c514184aaa4f96ee762dcbc0ca32eb26df40acec919f6c4264e8ee44fe6d60`
-- Manifest SHA-256: `989fc0303c1ba9269f85e98ec16d664f5d4b8413b1987e0ad49673c14b031490`
+- Training manifest SHA-256 (not committed to this repository): `989fc0303c1ba9269f85e98ec16d664f5d4b8413b1987e0ad49673c14b031490`
 - Input: float32 RGB NHWC `[1,224,224,3]`. Apply EXIF orientation then bilinear **direct stretch** to 224 × 224. Supply 0–255; normalization (`x/127.5-1`) is embedded. **No V2 letterbox, padding, crop, or normalization outside model.**
 - Output: one float32 sigmoid scalar `[1,1]` representing `p_sugarcane`.
 - Accept: finite `p_sugarcane >= 0.75`; reject below 0.75; fail closed on invalid output or inference errors.

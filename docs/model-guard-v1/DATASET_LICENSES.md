@@ -3,7 +3,7 @@
 **Last reviewed:** 2026-11-19
 **Scope:** Frozen Guard V1 binary sugarcane-presence model.
 **Model:** `assets/models/caneguard_guard_v1_float32.tflite` (tracked offline app asset).
-**Frozen manifest SHA-256:** `989fc0303c1ba9269f85e98ec16d664f5d4b8413b1987e0ad49673c14b031490`.
+**Frozen training manifest SHA-256 (not committed to this repository):** `989fc0303c1ba9269f85e98ec16d664f5d4b8413b1987e0ad49673c14b031490`.
 
 This record credits the datasets used to train Guard V1 and states the production decision. It is an attribution record, not a blanket license to third parties. Raw source images, field-session identifiers, collection locations, contributor names and internal evidence links are intentionally **not** published here.
 

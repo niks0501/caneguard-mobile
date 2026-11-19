@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { useEffect, useRef } from 'react';
 
 import { GUARD_COPY } from '@/constants/copy';
 import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
@@ -20,11 +19,7 @@ import { useGuardModel } from '@/features/detection/model/useGuardModel';
 import { preprocessGuardImage } from '@/features/detection/preprocessing/guardPreprocess';
 import { getPreprocessingErrorMessage } from '@/features/detection/preprocessing/preprocessingErrors';
 import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
-import {
-  activeWork,
-  clearScanAnalysisWork,
-  preparedPhotos,
-} from '@/features/detection/analysis/scanAnalysisWork';
+import { activeWork, preparedPhotos } from '@/features/detection/analysis/scanAnalysisWork';
 
 function prunePhotoCaches(currentKey: string | null): void {
   for (const candidate of preparedPhotos.keys()) {
@@ -69,35 +64,11 @@ export function useScanAnalysis(replacing = false) {
     qualityAssessment,
   } = state;
   const generation = draft.sessionGeneration;
+  const appActive = draft.appActive ?? true;
   const currentSourceUriRef = useRef(sourceUri);
   useEffect(() => {
     currentSourceUriRef.current = sourceUri;
   }, [sourceUri]);
-  // Lifecycle is part of the work-validity boundary: moving to the background drops
-  // in-flight work (stale callbacks then fail the activeWork check) and returns a
-  // transient status to the selected photo; the scan restarts once the app is active.
-  const [appActive, setAppActive] = useState(AppState.currentState !== 'background');
-  const statusRef = useRef(status);
-  const sessionIdentityRef = useRef(draft.sessionIdentity);
-  useEffect(() => {
-    statusRef.current = status;
-    sessionIdentityRef.current = draft.sessionIdentity;
-  });
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (next) => {
-      if (next === 'background') {
-        clearScanAnalysisWork(sessionIdentityRef.current);
-        setAppActive(false);
-        const current = statusRef.current;
-        if (current === 'preprocessing' || current === 'running' || current === 'finalizing') {
-          dispatch({ type: 'CLEAR_ERROR' });
-        }
-      } else if (next === 'active') {
-        setAppActive(true);
-      }
-    });
-    return () => subscription.remove();
-  }, [dispatch]);
   const key = sourceUri ? workKey(draft.sessionIdentity, generation, sourceUri) : null;
   const prepared = key ? preparedPhotos.get(key) : undefined;
   const photoHasWarnings = (qualityAssessment?.warnings.length ?? 0) > 0;
@@ -255,6 +226,7 @@ export function useScanAnalysis(replacing = false) {
         const assessment = await runGuard(
           {
             run: exclusiveRun(async (input) => {
+              await (draft.waitForAppActive?.() ?? Promise.resolve());
               if (!isCurrentWork()) {
                 throw new GuardError('GUARD_RUN_FAILED', 'The guard work is no longer current.');
               }
@@ -279,6 +251,7 @@ export function useScanAnalysis(replacing = false) {
         const inferenceResult = await runInference(
           {
             run: exclusiveRun(async (input) => {
+              await (draft.waitForAppActive?.() ?? Promise.resolve());
               if (!isCurrentWork()) {
                 throw new GuardError('GUARD_RUN_FAILED', 'The scan work is no longer current.');
               }

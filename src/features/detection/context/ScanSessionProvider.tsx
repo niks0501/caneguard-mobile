@@ -1,4 +1,5 @@
 import { randomUUID } from 'expo-crypto';
+import { AppState } from 'react-native';
 import {
   createContext,
   useCallback,
@@ -65,6 +66,10 @@ export interface ScanDraftContextValue {
   flushSavedDraft: () => Promise<boolean>;
   /** True while `owner` is still the signed-in owner for this process. */
   isOwnerCurrent: (owner: string | null) => boolean;
+  /** True while the app is not backgrounded. */
+  appActive?: boolean;
+  /** Resolves when the app can safely start a native scan call. */
+  waitForAppActive?: () => Promise<void>;
   isSessionCurrent: (sourceUri: string, generation: number) => boolean;
   ownerIdentity: string | null;
   sessionGeneration: number;
@@ -161,6 +166,9 @@ function ScanSessionOwner({
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(
     initialDraft?.checkpoint.savedAt ?? null,
   );
+  const [appActive, setAppActive] = useState(AppState.currentState !== 'background');
+  const appActiveRef = useRef(appActive);
+  const appActiveWaiters = useRef(new Set<() => void>());
 
   const stateRef = useRef(state);
   const draftImageRef = useRef<StoredDraftImage | null>(
@@ -192,6 +200,30 @@ function ScanSessionOwner({
     return () => {
       mounted.current = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const nextActive = nextState !== 'background';
+      appActiveRef.current = nextActive;
+      setAppActive(nextActive);
+      if (nextActive) {
+        for (const resolve of appActiveWaiters.current) resolve();
+        appActiveWaiters.current.clear();
+      }
+    });
+    return () => {
+      subscription.remove();
+      for (const resolve of appActiveWaiters.current) resolve();
+      appActiveWaiters.current.clear();
+    };
+  }, []);
+
+  const waitForAppActive = useCallback((): Promise<void> => {
+    if (appActiveRef.current) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      appActiveWaiters.current.add(resolve);
+    });
   }, []);
 
   const persistCheckpoint = useCallback(
@@ -491,16 +523,19 @@ function ScanSessionOwner({
       draftStatus,
       finalizeSavedDraft,
       flushSavedDraft,
+      appActive,
       isOwnerCurrent,
       isSessionCurrent,
       ownerIdentity,
       sessionGeneration: sessionGenerationValue,
       sessionIdentity,
+      waitForAppActive,
     }),
     [
       discardSavedDraft,
       draftSavedAt,
       draftStatus,
+      appActive,
       finalizeSavedDraft,
       flushSavedDraft,
       isOwnerCurrent,
@@ -508,6 +543,7 @@ function ScanSessionOwner({
       ownerIdentity,
       sessionGenerationValue,
       sessionIdentity,
+      waitForAppActive,
     ],
   );
 

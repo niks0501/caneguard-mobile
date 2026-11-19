@@ -32,6 +32,15 @@ const QUADRANTS = {
   bottomRight: [230, 220, 30],
 } as const;
 
+const FFMPEG_JPEG_LANDMARK_TOLERANCE = 24;
+const FFMPEG_JPEG_LANDMARKS = [
+  { x: 45, y: 45, rgb: [105, 176, 76] },
+  { x: 179, y: 45, rgb: [138, 140, 71] },
+  { x: 45, y: 179, rgb: [82, 189, 105] },
+  { x: 179, y: 179, rgb: [85, 113, 58] },
+  { x: 112, y: 112, rgb: [97, 185, 64] },
+] as const;
+
 function quadrantSource(width: number, height: number): Uint8Array {
   const rgba = new Uint8Array(width * height * 4);
   for (let y = 0; y < height; y += 1) {
@@ -87,6 +96,17 @@ function pixel(tensor: Float32Array, x: number, y: number): number[] {
   return [tensor[i], tensor[i + 1], tensor[i + 2]];
 }
 
+function expectJpegLandmarks(tensor: Float32Array): void {
+  for (const landmark of FFMPEG_JPEG_LANDMARKS) {
+    const actual = pixel(tensor, landmark.x, landmark.y);
+    for (let channel = 0; channel < 3; channel += 1) {
+      expect(Math.abs(actual[channel] - landmark.rgb[channel])).toBeLessThanOrEqual(
+        FFMPEG_JPEG_LANDMARK_TOLERANCE,
+      );
+    }
+  }
+}
+
 describe('preprocessGuardImage', () => {
   beforeEach(() => mockArrayBuffer.mockReset());
 
@@ -136,7 +156,7 @@ describe('preprocessGuardImage', () => {
     expect(pixel(tensor, 0, 223)).toEqual([30, 40, 220]);
   });
 
-  it('applies JPEG EXIF orientation to the real Guard fixture', async () => {
+  it('matches independent RGB landmarks for upright and EXIF-rotated JPEGs', async () => {
     const upright = readFileSync(join(GUARD_FIXTURES, 'cane-like-accept.jpg'));
     const rotated = readFileSync(join(GUARD_FIXTURES, 'cane-like-exif-rotated.jpg'));
     const toArrayBuffer = (bytes: Buffer): ArrayBuffer =>
@@ -147,12 +167,9 @@ describe('preprocessGuardImage', () => {
 
     const uprightTensor = new Float32Array(await preprocessGuardImage('content://upright.jpg'));
     const rotatedTensor = new Float32Array(await preprocessGuardImage('content://rotated.jpg'));
-    const meanAbsoluteDifference = uprightTensor.reduce(
-      (sum, value, index) => sum + Math.abs(value - rotatedTensor[index]),
-      0,
-    ) / uprightTensor.length;
 
-    expect(meanAbsoluteDifference).toBeLessThan(12);
+    expectJpegLandmarks(uprightTensor);
+    expectJpegLandmarks(rotatedTensor);
   });
 
   it('rejects transparent source PNG pixels before resizing', async () => {

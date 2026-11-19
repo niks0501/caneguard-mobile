@@ -214,8 +214,10 @@ async function select(uri: string, sourceType: ScanSourceType = 'camera') {
 
 function RealProviderHarness({
   owner,
+  showProbe = true,
 }: {
   owner: string;
+  showProbe?: boolean;
 }) {
   const auth = {
     status: 'authenticated',
@@ -225,7 +227,7 @@ function RealProviderHarness({
   return (
     <AuthContext.Provider value={auth}>
       <ScanSessionProvider>
-        <Probe />
+        {showProbe ? <Probe /> : null}
       </ScanSessionProvider>
     </AuthContext.Provider>
   );
@@ -668,8 +670,8 @@ describe('guarded scan: production session lifecycle', () => {
     await view.unmount();
   });
 
-  // Proves: a real lifecycle transition invalidates in-flight work (a stale guard verdict commits nothing and V2 stays unrun) and the scan restarts from the stored photo when the app is active again, ending with exactly one V2 run.
-  it('drops in-flight work on background and restarts it once the app is active', async () => {
+  // Proves: provider-owned lifecycle state keeps one accepted run attached across a background transition and checklist remount.
+  it('reattaches one accepted run after background and checklist unmount', async () => {
     const pending = deferred<ArrayBuffer[]>();
     const listeners: ((state: AppStateStatus) => void)[] = [];
     jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
@@ -683,16 +685,51 @@ describe('guarded scan: production session lifecycle', () => {
     await select('file:///lifecycle.jpg');
     await waitFor(() => expect(mockGuard.run).toHaveBeenCalledTimes(1));
 
+    await view.rerender(<RealProviderHarness owner={OWNER_A} showProbe={false} />);
     await act(async () => listeners.forEach((listener) => listener('background')));
     await act(async () => pending.resolve(guardOutput(0.99)));
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(mockV2.run).not.toHaveBeenCalled();
-    expect(latest.state.status).not.toBe('completed');
-    expect(mockGuard.run).toHaveBeenCalledTimes(1); // nothing restarts while backgrounded
+    expect(mockGuard.run).toHaveBeenCalledTimes(1);
 
     await act(async () => listeners.forEach((listener) => listener('active')));
+    await waitFor(() => expect(mockV2.run).toHaveBeenCalledTimes(1));
+    await view.rerender(<RealProviderHarness owner={OWNER_A} />);
     await waitFor(() => expect(latest.state.status).toBe('completed'));
-    expect(mockGuard.run).toHaveBeenCalledTimes(2);
+    expect(mockGuard.run).toHaveBeenCalledTimes(1);
+    await view.unmount();
+  });
+
+  it('keeps an already-started V2 call across background and checklist unmount', async () => {
+    const pendingV2 = deferred<ArrayBuffer[]>();
+    mockGuard = guardController(jest.fn().mockResolvedValue(guardOutput(0.9)));
+    mockV2 = {
+      state: 'loaded',
+      model: undefined,
+      error: null,
+      errorKind: null,
+      start: jest.fn(),
+      retry: jest.fn(),
+      run: jest.fn().mockReturnValue(pendingV2.promise),
+    };
+    const listeners: ((state: AppStateStatus) => void)[] = [];
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+      listeners.push(listener as (state: AppStateStatus) => void);
+      return { remove: jest.fn() } as never;
+    });
+    const view = await render(<RealProviderHarness owner={OWNER_A} />);
+    await select('file:///v2-lifecycle.jpg');
+    await waitFor(() => expect(mockV2.run).toHaveBeenCalledTimes(1));
+
+    await view.rerender(<RealProviderHarness owner={OWNER_A} showProbe={false} />);
+    await act(async () => listeners.forEach((listener) => listener('background')));
+    await act(async () => pendingV2.resolve(v2Output()));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(mockV2.run).toHaveBeenCalledTimes(1);
+
+    await act(async () => listeners.forEach((listener) => listener('active')));
+    await view.rerender(<RealProviderHarness owner={OWNER_A} />);
+    await waitFor(() => expect(latest.state.status).toBe('completed'));
     expect(mockV2.run).toHaveBeenCalledTimes(1);
     await view.unmount();
   });

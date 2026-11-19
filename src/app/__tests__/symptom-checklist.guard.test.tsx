@@ -4,6 +4,7 @@ import { useReducer } from 'react';
 
 import SymptomChecklistScreen from '@/app/symptom-checklist';
 import { GUARD_COPY, SCAN_CHECK_COPY } from '@/constants/copy';
+import { clearScanAnalysisWork } from '@/features/detection/analysis/scanAnalysisWork';
 import {
   ScanDraftContext,
   ScanSessionContext,
@@ -105,6 +106,10 @@ const out = (...v: number[]) => [Float32Array.from(v).buffer];
 describe('SymptomChecklistScreen with required Guard V1', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Prepared-photo and in-flight work caches are module-scoped; every case here
+    // reuses the same session identity and source URI, so a previous case would
+    // otherwise short-circuit this case's photo work.
+    clearScanAnalysisWork(scanDraft.sessionIdentity);
     mockPreprocessImage.mockResolvedValue({
       processedUri: 'file:///processed.jpg',
       inputBuffer: new ArrayBuffer(602_112),

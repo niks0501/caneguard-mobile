@@ -67,6 +67,7 @@ function followUpState(overrides: Partial<ScanSessionState> = {}): ScanSessionSt
       ],
       timings: { preprocessMs: 1, inferenceMs: 1, totalMs: 2 },
       modelVersion: 'v1.0-mobilenetv2',
+      guardModelId: 'caneguard_guard_v1' as const,
     },
     ...overrides,
   };

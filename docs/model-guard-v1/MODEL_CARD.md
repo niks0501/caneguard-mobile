@@ -29,3 +29,11 @@ Validation: 97.50% accuracy (TN 154, FP 8, FN 1, TP 197). Internal test: 95.08% 
 ## Limitations and release conditions
 
 Evaluation data share source collections with development data, so this is **not independent field validation**. Only 36 images received sample visual review. Rights for positive images and derived model redistribution require review. No dataset photos or private manifests should enter the public repository. Preserve V2 and its separate 130-image holdout. Use a local, private binary and a disabled-by-default experimental flag until independently tested and legally cleared.
+
+## Data sources and attribution
+
+Full record: [DATASET_LICENSES.md](DATASET_LICENSES.md). Summary:
+
+- **Non-sugarcane (1,085 images):** selected from eight Roboflow Universe datasets, each declaring [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): banana-leaf-classification (pikachu-fhc5p), banana-leaf-diseases (kewalee), grass-weeds (Roboflow object-detection), trees (aeonx-dev), cars (trabajo-y9216), building (airpioneer), table (samuel-messias-jlp0e), shoes (changshininc). Images were filtered, selected and resized for training; see the linked project pages for publishers.
+- **Sugarcane (1,174 images):** team field photographs plus public datasets. Credited Mendeley Data sets (CC BY 4.0 declared by the publishers): [Sugarcane Disease Dataset v2](https://data.mendeley.com/datasets/7fbnxcbnhp/2) (Shikalgar, Jadhav, Surve, Bamane, Kamble), [Sugarcane Plant Disease Dataset of Assam v1](https://data.mendeley.com/datasets/x98kpjvxxg/1) (Agarwala, Rahman, Zaman), [S2RMCMD v2](https://data.mendeley.com/datasets/rt8sv9t445/2) (Jain, Nain, Nitharwal). Other positive sources (online pest/disease collections, public Facebook/Google images) have unestablished rights; see the record.
+- This attribution does not clear redistribution. The trained binary is delivered privately, not published (`IMPLEMENTATION_NOTES.md`).

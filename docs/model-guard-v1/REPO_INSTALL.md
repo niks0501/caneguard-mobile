@@ -1,3 +1,5 @@
+> **Updated 2026-11-19:** Guard V1 is required in the scan workflow (no flag) and is delivered privately: the binary stays Git-ignored and is supplied by an EAS file secret, a SHA-verified download, or a local copy. See `IMPLEMENTATION_NOTES.md` ("Binary and private delivery"); the steps below remain valid for a local copy.
+
 # Install Guard V1 locally
 
 This repository intentionally omits the Guard V1 binary because source and model redistribution rights are not fully confirmed.

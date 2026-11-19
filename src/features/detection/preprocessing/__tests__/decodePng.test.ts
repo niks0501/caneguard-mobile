@@ -8,7 +8,14 @@ import { decodePng, inflateZlib } from '@/features/detection/preprocessing/decod
 const FIXTURES = join(__dirname, '../../../../../dev-assets/model-fixtures/v2-parity');
 const IHDR_COLOR_TYPE_INDEX = 8 + 4 + 4 + 9;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { PNG } = require('pngjs') as { PNG: { sync: { read(b: Buffer): { width: number; height: number; data: Buffer } } } };
+const { PNG } = require('pngjs') as {
+  PNG: {
+    sync: {
+      read(b: Buffer): { width: number; height: number; data: Buffer };
+      write(value: { width: number; height: number; data: Buffer }): Buffer;
+    };
+  };
+};
 
 describe('decodePng', () => {
   const files = readdirSync(FIXTURES).filter((f) => f.endsWith('.png'));
@@ -37,10 +44,19 @@ describe('decodePng', () => {
     expect(() => decodePng(new Uint8Array(40))).toThrow(/Not a PNG/);
   });
 
-  it('rejects PNGs whose IHDR colour type is not RGB', () => {
+  it('rejects PNGs whose IHDR colour type is not RGB or RGBA', () => {
     const bytes = Buffer.from(readFileSync(join(FIXTURES, files[0])));
     expect(bytes[IHDR_COLOR_TYPE_INDEX]).toBe(2);
-    bytes[IHDR_COLOR_TYPE_INDEX] = 6;
+    bytes[IHDR_COLOR_TYPE_INDEX] = 3;
     expect(() => decodePng(new Uint8Array(bytes))).toThrow(/RGB PNGs/);
+  });
+
+  it('rejects transparent pixels instead of discarding alpha', () => {
+    const bytes = PNG.sync.write({
+      width: 1,
+      height: 1,
+      data: Buffer.from([20, 30, 40, 0]),
+    });
+    expect(() => decodePng(new Uint8Array(bytes))).toThrow(/Transparent PNGs/);
   });
 });

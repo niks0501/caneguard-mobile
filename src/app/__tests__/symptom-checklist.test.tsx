@@ -36,6 +36,24 @@ jest.mock('@/features/detection/model/useCaneGuardModel', () => ({
   useCaneGuardModel: jest.fn(),
 }));
 
+// Guard V1 is required in the scan flow; these tests exercise the photo check and
+// picture grid, so the guard accepts every photo (its own behavior is covered in
+// symptom-checklist.guard.test.tsx and useScanAnalysis.guard.test.tsx).
+jest.mock('@/features/detection/model/useGuardModel', () => {
+  const controller = {
+    state: 'loaded',
+    error: null,
+    errorKind: null,
+    start: () => undefined,
+    retry: () => undefined,
+    run: async () => [Float32Array.of(0.95).buffer],
+  };
+  return { useGuardModel: () => controller };
+});
+jest.mock('@/features/detection/preprocessing/guardPreprocess', () => ({
+  preprocessGuardImage: jest.fn(async () => new ArrayBuffer(602_112)),
+}));
+
 jest.mock('@/features/detection/imagePicker/pickScanImage', () => ({
   getPermissionDeniedMessage: (canAskAgain: boolean) =>
     canAskAgain
@@ -100,6 +118,7 @@ const successfulInferenceResult = {
     totalMs: 60,
   },
   modelVersion: 'v1.0-mobilenetv2',
+  guardModelId: 'caneguard_guard_v1' as const,
 };
 
 const selectedState: ScanSessionState = {
@@ -167,7 +186,7 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
       expect(mockRunInference).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith({
         type: 'COMPLETE_INFERENCE',
-        payload: successfulInferenceResult,
+        payload: { ...successfulInferenceResult, guardModelId: 'caneguard_guard_v1' },
       });
     });
 

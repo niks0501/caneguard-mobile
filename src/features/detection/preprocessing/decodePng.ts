@@ -1,9 +1,9 @@
 import { PreprocessingError } from '@/features/detection/preprocessing/preprocessingErrors';
 
 /**
- * Minimal dependency-free PNG decoder for the V2 parity fixtures: 8-bit RGB,
- * non-interlaced. It returns the exact stored pixels (no resize, no re-encode,
- * no color management) as interleaved RGB.
+ * Minimal dependency-free PNG decoder for 8-bit RGB/RGBA, non-interlaced images.
+ * It returns the exact stored pixels (no resize, no re-encode, no color management)
+ * as interleaved RGB.
  */
 export interface DecodedPng {
   width: number;
@@ -215,6 +215,7 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let width = 0;
   let height = 0;
+  let bytesPerPixel = 0;
   const idat: Uint8Array[] = [];
   let offset = 8;
 
@@ -228,11 +229,14 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
       width = view.getUint32(offset - 12 - length + 8);
       height = view.getUint32(offset - 12 - length + 12);
       const [bitDepth, colorType, , , interlace] = data.subarray(8, 13);
-      if (bitDepth !== 8 || colorType !== 2 || interlace !== 0) {
+      if (bitDepth !== 8 || (colorType !== 2 && colorType !== 6) || interlace !== 0) {
         fail('Only 8-bit non-interlaced RGB PNGs are supported.');
       }
+      bytesPerPixel = colorType === 6 ? 4 : 3;
     } else if (type === 'IDAT') {
       idat.push(data);
+    } else if (type === 'tRNS') {
+      fail('Transparent PNGs are not supported.');
     } else if (type === 'IEND') {
       break;
     }
@@ -248,18 +252,22 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
   }
 
   const raw = inflateZlib(compressed);
-  const stride = width * 3;
-  if (raw.length < (stride + 1) * height) fail('PNG pixel data is truncated.');
+  const stride = width * bytesPerPixel;
+  if (bytesPerPixel === 0 || raw.length < (stride + 1) * height) {
+    fail('PNG pixel data is truncated.');
+  }
 
-  const pixels = new Uint8Array(stride * height);
+  const decoded = new Uint8Array(stride * height);
   for (let row = 0; row < height; row += 1) {
     const filter = raw[row * (stride + 1)];
     const source = row * (stride + 1) + 1;
     const target = row * stride;
     for (let i = 0; i < stride; i += 1) {
-      const left = i >= 3 ? pixels[target + i - 3] : 0;
-      const up = row > 0 ? pixels[target - stride + i] : 0;
-      const upLeft = row > 0 && i >= 3 ? pixels[target - stride + i - 3] : 0;
+      const left = i >= bytesPerPixel ? decoded[target + i - bytesPerPixel] : 0;
+      const up = row > 0 ? decoded[target - stride + i] : 0;
+      const upLeft = row > 0 && i >= bytesPerPixel
+        ? decoded[target - stride + i - bytesPerPixel]
+        : 0;
       let predictor: number;
       switch (filter) {
         case 0: predictor = 0; break;
@@ -269,9 +277,19 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
         case 4: predictor = paeth(left, up, upLeft); break;
         default: return fail(`Unknown PNG filter ${filter}.`);
       }
-      pixels[target + i] = (raw[source + i] + predictor) & 0xff;
+      decoded[target + i] = (raw[source + i] + predictor) & 0xff;
     }
   }
 
+  const pixels = new Uint8Array(width * height * 3);
+  for (let source = 0, target = 0; source < decoded.length; source += bytesPerPixel) {
+    if (bytesPerPixel === 4 && decoded[source + 3] !== 255) {
+      fail('Transparent PNGs are not supported.');
+    }
+    pixels[target] = decoded[source];
+    pixels[target + 1] = decoded[source + 1];
+    pixels[target + 2] = decoded[source + 2];
+    target += 3;
+  }
   return { width, height, rgb: pixels };
 }

@@ -119,6 +119,7 @@ function createResult(
       totalMs: 60,
     },
     modelVersion: 'v1.0-mobilenetv2',
+    guardModelId: 'caneguard_guard_v1' as const,
   };
 }
 

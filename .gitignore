@@ -103,3 +103,6 @@ qa-mobile-*.json
 # <<< AkiDev project-local runtime <<<
 .no-mistakes.yaml
 .no-mistakes-review.json
+
+# Generated Python bytecode from the test scripts
+scripts/tests/__pycache__/

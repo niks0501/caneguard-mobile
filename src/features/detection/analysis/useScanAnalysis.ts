@@ -1,121 +1,176 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { GUARD_COPY } from '@/constants/copy';
 import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
 import { deriveScanCheckState } from '@/features/detection/context/scanCheckState';
 import { useScanSession } from '@/features/detection/context/useScanSession';
+import { GUARD_V1, isGuardedResult } from '@/features/detection/constants/guardContract';
+import { exclusiveRun } from '@/features/detection/model/exclusiveRun';
+import {
+  asGuardError,
+  getGuardErrorMessage,
+  runGuard,
+} from '@/features/detection/model/guardInference';
 import { getInferenceErrorMessage } from '@/features/detection/model/inferenceErrors';
 import { runInference } from '@/features/detection/model/runInference';
 import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
+import { useGuardModel } from '@/features/detection/model/useGuardModel';
+import { preprocessGuardImage } from '@/features/detection/preprocessing/guardPreprocess';
 import { getPreprocessingErrorMessage } from '@/features/detection/preprocessing/preprocessingErrors';
 import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
 
-const RESULT_PREPARATION_FEEDBACK_MS = 120;
+type PreparedPhoto = {
+  inputBuffer: ArrayBuffer;
+  preprocessMs: number;
+};
+
+let nextStandaloneSession = 0;
+const activeWork = new Map<string, Promise<void>>();
+const preparedPhotos = new Map<string, PreparedPhoto>();
+const qualityRejectedPhotos = new Set<string>();
+
+function prunePhotoCaches(currentKey: string | null): void {
+  for (const candidate of preparedPhotos.keys()) {
+    if (candidate !== currentKey && !activeWork.has(candidate)) {
+      preparedPhotos.delete(candidate);
+    }
+  }
+  for (const candidate of qualityRejectedPhotos) {
+    if (candidate !== currentKey) {
+      qualityRejectedPhotos.delete(candidate);
+    }
+  }
+}
+
+function workKey(
+  owner: string | null,
+  sessionIdentity: string,
+  generation: number,
+  sourceUri: string,
+): string {
+  return `${owner ?? 'anonymous'}:${sessionIdentity}:${generation}:${sourceUri}`;
+}
+
+function isCurrentSession(
+  draft: ReturnType<typeof useScanDraft>,
+  owner: string | null,
+  sourceUri: string,
+  generation: number,
+  currentSourceUri: string | null,
+): boolean {
+  return (
+    draft.isOwnerCurrent(owner) &&
+    (draft.isSessionCurrent
+      ? draft.isSessionCurrent(sourceUri, generation)
+      : currentSourceUri === sourceUri)
+  );
+}
 
 /**
- * Starts the photo-quality check and analysis as soon as a photo is in the
- * session, with no button in between. The model download and native load are
- * deferred to this hook so a cold start does not pay for them.
- *
- * Model inputs, quality checks and the stored result are exactly what the old
- * Preview screen produced. The observation the inspector or farmer answers
- * beside it is stored separately and never feeds back into this analysis.
+ * Starts the quality check and analysis as soon as a photo is in the session.
+ * Guard V1 is required and runs before V2 for every captured or uploaded photo.
  */
 export function useScanAnalysis(replacing = false) {
   const { state, dispatch } = useScanSession();
   const draft = useScanDraft();
   const modelState = useCaneGuardModel();
-  const startModelLoad = modelState.start;
-  const preprocessingInFlight = useRef(false);
-  const inferenceInFlight = useRef(false);
-  const [prepared, setPrepared] = useState<{
-    ownerIdentity: typeof draft.ownerIdentity;
-    sourceUri: string;
-    processedUri: string;
-    inputBuffer: ArrayBuffer;
-    preprocessMs: number;
-  } | null>(null);
-  const isMounted = useRef(true);
-  const isOwnerCurrentRef = useRef(draft.isOwnerCurrent);
-  const ownerIdentity = draft.ownerIdentity;
-  const mountedStatus = useRef(state.status);
+  const guard = useGuardModel();
+  const {
+    sourceUri,
+    sourceWidth,
+    sourceHeight,
+    status,
+    result,
+    qualityAssessment,
+  } = state;
+  // Without a mounted scan-session provider each hook instance is its own session, so
+  // module-level work caches never leak between unrelated screens.
+  const [standaloneSession] = useState(() => `standalone-${++nextStandaloneSession}`);
+  const generation = draft.sessionGeneration ?? 0;
+  const currentSourceUriRef = useRef(sourceUri);
+  useEffect(() => {
+    currentSourceUriRef.current = sourceUri;
+  }, [sourceUri]);
+  const key = sourceUri
+    ? workKey(
+        draft.ownerIdentity,
+        draft.sessionIdentity ?? standaloneSession,
+        generation,
+        sourceUri,
+      )
+    : null;
+  const prepared = key ? preparedPhotos.get(key) : undefined;
+  const photoHasWarnings = (qualityAssessment?.warnings.length ?? 0) > 0;
+  const guardReady = guard.state === 'loaded';
+
+  const startModel = modelState.start;
+  const startGuard = guard.start;
+  useEffect(() => {
+    startModel();
+  }, [startModel]);
 
   useEffect(() => {
-    startModelLoad();
-  }, [startModelLoad]);
+    startGuard();
+  }, [startGuard]);
 
   useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
-  // A previous screen may have been abandoned while native analysis was in
-  // flight. The provider does not checkpoint those transient statuses, so a
-  // freshly mounted screen restarts instead of waiting on work that is gone.
-  useEffect(() => {
-    if (
-      !preprocessingInFlight.current &&
-      !inferenceInFlight.current &&
-      (mountedStatus.current === 'preprocessing' ||
-        mountedStatus.current === 'running' ||
-        mountedStatus.current === 'finalizing')
-    ) {
-      dispatch({ type: 'CLEAR_ERROR' });
+    if (status !== 'completed' || !result || isGuardedResult(result)) {
+      return;
     }
-    mountedStatus.current = 'idle';
-  }, [dispatch]);
-
-  // An owner change abandons any in-flight analysis from the previous account.
-  useEffect(() => {
-    preprocessingInFlight.current = false;
-    inferenceInFlight.current = false;
-    isOwnerCurrentRef.current = draft.isOwnerCurrent;
-  }, [draft.isOwnerCurrent, ownerIdentity]);
-
-  // A photo that already failed the quality check is not sent to the model.
-  const photoHasWarnings = (state.qualityAssessment?.warnings.length ?? 0) > 0;
-  const { sourceUri, sourceWidth, sourceHeight, processedUri, status, result } = state;
-  // Prepared data belongs to the owner that produced it; a different owner
-  // never reuses it, so no reset effect is needed.
-  const hasPreparedPhoto = Boolean(
-    prepared &&
-      prepared.ownerIdentity === ownerIdentity &&
-      prepared.sourceUri === sourceUri &&
-      prepared.processedUri === processedUri,
-  );
+    dispatch({
+      type: 'SET_ERROR',
+      guardFailure: 'error',
+      payload: GUARD_COPY.unavailable,
+    });
+  }, [dispatch, result, status]);
 
   useEffect(() => {
+    prunePhotoCaches(key);
+    if (!key) {
+      return;
+    }
     if (
       !sourceUri ||
       status !== 'image-selected' ||
       result ||
-      hasPreparedPhoto ||
-      preprocessingInFlight.current
+      (qualityAssessment && qualityRejectedPhotos.has(key)) ||
+      preparedPhotos.has(key) ||
+      activeWork.has(key)
     ) {
       return;
     }
 
-    const startingOwner = ownerIdentity;
-    const isCurrentWork = () =>
-      isMounted.current && isOwnerCurrentRef.current(startingOwner);
-    preprocessingInFlight.current = true;
-
-    const run = async () => {
+    const startingOwner = draft.ownerIdentity;
+    const startingGeneration = generation;
+    const startingSource = sourceUri;
+    let work!: Promise<void>;
+    work = (async () => {
       dispatch({ type: 'START_PREPROCESSING' });
       try {
-        const preprocessingResult = await preprocessImage(sourceUri, {
+        const preprocessingResult = await preprocessImage(startingSource, {
           width: sourceWidth,
           height: sourceHeight,
         });
-        if (!isCurrentWork()) return;
-        setPrepared({
-          ownerIdentity: startingOwner,
-          sourceUri,
-          processedUri: preprocessingResult.processedUri,
-          inputBuffer: preprocessingResult.inputBuffer,
-          preprocessMs: preprocessingResult.preprocessMs,
-        });
+        if (
+          !isCurrentSession(
+            draft,
+            startingOwner,
+            startingSource,
+            startingGeneration,
+            currentSourceUriRef.current,
+          ) || activeWork.get(key) !== work
+        ) {
+          return;
+        }
+        const hasQualityWarnings = preprocessingResult.qualityAssessment.warnings.length > 0;
+        if (hasQualityWarnings) {
+          qualityRejectedPhotos.add(key);
+        } else {
+          preparedPhotos.set(key, {
+            inputBuffer: preprocessingResult.inputBuffer,
+            preprocessMs: preprocessingResult.preprocessMs,
+          });
+        }
         dispatch({
           type: 'COMPLETE_PREPROCESSING',
           payload: {
@@ -125,22 +180,34 @@ export function useScanAnalysis(replacing = false) {
           },
         });
       } catch (error) {
-        if (!isCurrentWork()) return;
-        dispatch({
-          type: 'SET_ERROR',
-          photoPreparationFailed: true,
-          payload: getPreprocessingErrorMessage(error),
-        });
+        if (
+          isCurrentSession(
+            draft,
+            startingOwner,
+            startingSource,
+            startingGeneration,
+            currentSourceUriRef.current,
+          )
+        ) {
+          dispatch({
+            type: 'SET_ERROR',
+            photoPreparationFailed: true,
+            payload: getPreprocessingErrorMessage(error),
+          });
+        }
       } finally {
-        preprocessingInFlight.current = false;
+        if (activeWork.get(key) === work) {
+          activeWork.delete(key);
+        }
       }
-    };
-
-    void run();
+    })();
+    activeWork.set(key, work);
   }, [
     dispatch,
-    hasPreparedPhoto,
-    ownerIdentity,
+    draft,
+    generation,
+    key,
+    qualityAssessment,
     result,
     sourceHeight,
     sourceUri,
@@ -150,73 +217,153 @@ export function useScanAnalysis(replacing = false) {
 
   useEffect(() => {
     if (
+      !sourceUri ||
+      !key ||
       !prepared ||
-      !hasPreparedPhoto ||
       photoHasWarnings ||
       status !== 'image-selected' ||
       result ||
       replacing ||
       modelState.state !== 'loaded' ||
-      inferenceInFlight.current
+      !guardReady ||
+      activeWork.has(key)
     ) {
       return;
     }
 
-    const startingOwner = ownerIdentity;
-    const isCurrentWork = () =>
-      isMounted.current && isOwnerCurrentRef.current(startingOwner);
-    inferenceInFlight.current = true;
-
-    const run = async () => {
+    const startingOwner = draft.ownerIdentity;
+    const startingGeneration = generation;
+    const startingSource = sourceUri;
+    let work!: Promise<void>;
+    work = (async () => {
+      let stage: 'guard' | 'v2' = 'guard';
       dispatch({ type: 'START_INFERENCE' });
       try {
+        const guardInput = await preprocessGuardImage(startingSource);
+        if (
+          !isCurrentSession(
+            draft,
+            startingOwner,
+            startingSource,
+            startingGeneration,
+            currentSourceUriRef.current,
+          ) || activeWork.get(key) !== work
+        ) {
+          return;
+        }
+        const assessment = await runGuard(
+          { run: exclusiveRun(guard.run) },
+          guardInput,
+        );
+        if (
+          !isCurrentSession(
+            draft,
+            startingOwner,
+            startingSource,
+            startingGeneration,
+            currentSourceUriRef.current,
+          ) || activeWork.get(key) !== work
+        ) {
+          return;
+        }
+        if (!assessment.accepted) {
+          dispatch({
+            type: 'SET_ERROR',
+            guardFailure: 'rejected',
+            payload: GUARD_COPY.rejectedStatus,
+          });
+          return;
+        }
+
+        stage = 'v2';
         const inferenceResult = await runInference(
-          modelState,
+          { run: exclusiveRun(modelState.run) },
           prepared.inputBuffer,
           prepared.preprocessMs,
         );
-        if (!isCurrentWork()) return;
-        dispatch({ type: 'START_RESULT_PREPARATION' });
-        await new Promise<void>((resolve) => {
-          setTimeout(resolve, RESULT_PREPARATION_FEEDBACK_MS);
+        if (
+          !isCurrentSession(
+            draft,
+            startingOwner,
+            startingSource,
+            startingGeneration,
+            currentSourceUriRef.current,
+          ) || activeWork.get(key) !== work
+        ) {
+          return;
+        }
+        dispatch({
+          type: 'COMPLETE_INFERENCE',
+          payload: { ...inferenceResult, guardModelId: GUARD_V1.modelId },
         });
-        if (!isCurrentWork()) return;
-        dispatch({ type: 'COMPLETE_INFERENCE', payload: inferenceResult });
       } catch (error) {
-        if (!isCurrentWork()) return;
-        dispatch({ type: 'SET_ERROR', payload: getInferenceErrorMessage(error) });
+        if (
+          !isCurrentSession(
+            draft,
+            startingOwner,
+            startingSource,
+            startingGeneration,
+            currentSourceUriRef.current,
+          )
+        ) {
+          return;
+        }
+        if (stage === 'guard') {
+          dispatch({
+            type: 'SET_ERROR',
+            guardFailure: 'error',
+            payload: getGuardErrorMessage(asGuardError(error)),
+          });
+        } else {
+          dispatch({ type: 'SET_ERROR', payload: getInferenceErrorMessage(error) });
+        }
       } finally {
-        inferenceInFlight.current = false;
+        if (activeWork.get(key) === work) {
+          activeWork.delete(key);
+        }
+        preparedPhotos.delete(key);
+        qualityRejectedPhotos.delete(key);
       }
-    };
-
-    void run();
+    })();
+    activeWork.set(key, work);
   }, [
     dispatch,
-    hasPreparedPhoto,
+    draft,
+    generation,
+    guard,
+    guardReady,
+    key,
     modelState,
-    ownerIdentity,
     photoHasWarnings,
     prepared,
     replacing,
     result,
+    sourceUri,
     status,
   ]);
 
+  const guardLoadFailed = guard.state === 'error';
   const photoFailedCheck = Boolean(state.photoPreparationFailed) || photoHasWarnings;
   const checkState = deriveScanCheckState({
     session: state,
-    modelState: modelState.state,
+    modelState: guardLoadFailed
+      ? 'error'
+      : guard.state === 'loading' && modelState.state === 'loaded'
+        ? 'loading'
+        : modelState.state,
     photoFailedCheck,
     replacing,
   });
 
   return {
     modelState,
+    guardState: guard,
+    guardError: guardLoadFailed ? getGuardErrorMessage(guard.error) : null,
+    guardRejected: checkState === 'not-sugarcane',
     checkState,
     isChecking:
       status === 'preprocessing' || status === 'running' || status === 'finalizing',
-    isReady: status === 'completed' && Boolean(result),
+    isReady: status === 'completed' && isGuardedResult(result),
     photoFailedCheck,
   };
 }

@@ -12,6 +12,7 @@ import {
   type PropsWithChildren,
 } from 'react';
 
+import { cleanupGuardScratchFiles } from '@/features/detection/preprocessing/guardPreprocess';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import type { CaneGuardDatabase } from '@/database/database';
 import { AuthContext } from '@/features/auth/providers/AuthProvider';
@@ -45,6 +46,8 @@ export type ScanSessionContextValue = {
 
 export const ScanSessionContext = createContext<ScanSessionContextValue | null>(null);
 
+let nextSessionOwnerId = 0;
+
 /** Honest recovery state for the in-progress scan draft. */
 export type ScanDraftStatus = 'idle' | 'saving' | 'saved' | 'failed';
 
@@ -62,7 +65,10 @@ export interface ScanDraftContextValue {
   flushSavedDraft: () => Promise<boolean>;
   /** True while `owner` is still the signed-in owner for this process. */
   isOwnerCurrent: (owner: string | null) => boolean;
+  isSessionCurrent?: (sourceUri: string, generation: number) => boolean;
   ownerIdentity: string | null;
+  sessionGeneration?: number;
+  sessionIdentity?: string;
 }
 
 export const ScanDraftContext = createContext<ScanDraftContextValue | null>(null);
@@ -84,6 +90,9 @@ interface StoredDraftImage {
 
 export function ScanSessionProvider({ children }: PropsWithChildren) {
   const database = useCaneGuardDatabase();
+  useEffect(() => {
+    cleanupGuardScratchFiles();
+  }, []);
   // Optional so a screen or provider suite can render in isolation; the app
   // always mounts this provider under AuthProvider.
   const auth = useContext(AuthContext);
@@ -171,6 +180,9 @@ function ScanSessionOwner({
   );
   const mounted = useRef(true);
   const finalized = useRef(false);
+  const sessionGeneration = useRef(0);
+  const [sessionGenerationValue, setSessionGenerationValue] = useState(0);
+  const [sessionIdentity] = useState(() => `scan-session-${++nextSessionOwnerId}`);
 
   useEffect(() => {
     stateRef.current = state;
@@ -306,6 +318,8 @@ function ScanSessionOwner({
     (action: ScanSessionAction) => {
       if (action.type === 'SELECT_IMAGE') {
         finalized.current = false;
+        sessionGeneration.current += 1;
+        setSessionGenerationValue(sessionGeneration.current);
         rawDispatch(action);
         void persistSelectedImage(action.payload);
         return;
@@ -315,6 +329,10 @@ function ScanSessionOwner({
           action.type === 'START_FOLLOW_UP'
             ? true
             : resetAppliesToSession(stateRef.current, action.payload);
+        if (applies) {
+          sessionGeneration.current += 1;
+        setSessionGenerationValue(sessionGeneration.current);
+        }
         finalized.current = false;
         rawDispatch(action);
         if (!applies) {
@@ -393,6 +411,8 @@ function ScanSessionOwner({
     draftImageRef.current = null;
     imageOperation.current += 1;
     finalized.current = false;
+    sessionGeneration.current += 1;
+        setSessionGenerationValue(sessionGeneration.current);
     rawDispatch({ type: 'RESET_SCAN' });
     setDraftStatus('idle');
     setDraftSavedAt(null);
@@ -453,6 +473,14 @@ function ScanSessionOwner({
     [ownerIdentity],
   );
 
+  const isSessionCurrent = useCallback(
+    (sourceUri: string, generation: number) =>
+      mounted.current &&
+      sessionGeneration.current === generation &&
+      stateRef.current.sourceUri === sourceUri,
+    [],
+  );
+
   const sessionValue = useMemo(() => ({ dispatch, state }), [dispatch, state]);
   const draftValue = useMemo<ScanDraftContextValue>(
     () => ({
@@ -462,7 +490,10 @@ function ScanSessionOwner({
       finalizeSavedDraft,
       flushSavedDraft,
       isOwnerCurrent,
+      isSessionCurrent,
       ownerIdentity,
+      sessionGeneration: sessionGenerationValue,
+      sessionIdentity,
     }),
     [
       discardSavedDraft,
@@ -471,7 +502,10 @@ function ScanSessionOwner({
       finalizeSavedDraft,
       flushSavedDraft,
       isOwnerCurrent,
+      isSessionCurrent,
       ownerIdentity,
+      sessionGenerationValue,
+      sessionIdentity,
     ],
   );
 
@@ -528,5 +562,7 @@ const NO_DRAFT: ScanDraftContextValue = {
   finalizeSavedDraft: () => undefined,
   flushSavedDraft: async () => true,
   isOwnerCurrent: () => true,
+  isSessionCurrent: () => true,
   ownerIdentity: null,
+  sessionGeneration: 0,
 };

@@ -86,7 +86,7 @@
     "qa:preflight": "node ./scripts/validate-qa-env.js --require-qa",
     "qa:export": "node ./scripts/qa-export.js",
     "security:config": "node ./scripts/validate-security-config.js",
-    "eas-build-pre-install": "node ./scripts/validate-qa-env.js && node ./scripts/validate-security-config.js --eas",
+    "eas-build-pre-install": "node ./scripts/validate-qa-env.js && node ./scripts/validate-security-config.js --eas && node ./scripts/install-guard-model.js --require",
     "test:coverage": "jest --coverage",
     "e2e": "agent-device test .agent-device/flows",
     "e2e:flow": "agent-device replay",

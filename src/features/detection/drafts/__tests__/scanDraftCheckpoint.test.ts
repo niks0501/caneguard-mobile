@@ -32,6 +32,7 @@ function completedFollowUp(overrides: Partial<ScanSessionState> = {}): ScanSessi
         { label: 'smut', score: 0 },
       ],
       timings: { preprocessMs: 4, inferenceMs: 8, totalMs: 12 },
+      guardModelId: 'caneguard_guard_v1' as const,
       modelVersion: 'v1.0-mobilenetv2',
     },
     ...overrides,

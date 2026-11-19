@@ -60,6 +60,9 @@ jobs:
       - name: Run free verification lane
         run: npm run verify:fast
 
+      - name: Run Guard V1 real-binary oracle
+        run: python3 scripts/tests/test_guard_v1_model.py
+
       - name: Require dispatch from main
         run: |
           if [ "$GITHUB_REF" != "refs/heads/main" ]; then

@@ -42,6 +42,9 @@ jobs:
       - name: Run fast verification
         run: npm run verify:fast
 
+      - name: Run Guard V1 real-binary oracle
+        run: python3 scripts/tests/test_guard_v1_model.py
+
   version-guard:
     name: Protect app version
     if: github.event_name == 'pull_request'

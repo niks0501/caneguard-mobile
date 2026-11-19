@@ -1,0 +1,3 @@
+PASS: Guard V1 assets, checksums, and frozen model contract verified.
+Model: {run-worktree}/assets/models/caneguard_guard_v1_float32.tflite (5441252 bytes)
+SHA-256: 36c514184aaa4f96ee762dcbc0ca32eb26df40acec919f6c4264e8ee44fe6d60

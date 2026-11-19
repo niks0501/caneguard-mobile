@@ -1,0 +1,20 @@
+Revision: 79b5ef84de93e6240ca2d033b064721511620a52 (worktree HEAD with test-isolation fix)
+Device: adb serial AYAUFIN76LEYR46X (physical phone), dev client com.niks0501.caneguard, Metro on :8081 + local stub API :8210
+
+$ python3 scripts/verify_guard_v1_assets.py
+PASS: Guard V1 assets, checksums, and frozen model contract verified.
+Model: assets/models/caneguard_guard_v1_float32.tflite (5441252 bytes)
+SHA-256: 36c514184aaa4f96ee762dcbc0ca32eb26df40acec919f6c4264e8ee44fe6d60
+
+$ python3 scripts/tests/test_guard_v1_model.py
+Ran 7 tests in 0.201s -- OK
+cane-like-accept: golden=0.980837 pillow=0.980837 numpy=0.985148
+cane-like-exif-rotated: golden=0.979495 pillow=0.979495 numpy=0.982810
+reject-sky-gradient: golden=0.113288 pillow=0.113288 numpy=0.112846
+
+$ npx jest --runInBand src/features/detection/analysis src/features/detection/model/__tests__ \
+    src/features/detection/preprocessing/__tests__/guardPreprocess.test.ts \
+    src/app/__tests__/symptom-checklist.guard.test.tsx
+BEFORE fix: 1 failed, 160 passed (symptom-checklist.guard.test.tsx "holds the scan when the guard artifact is refused":
+  expected preprocessImage to have been called; module-level preparedPhotos/activeWork leaked from the previous case)
+AFTER fix: all suites pass (18 suites / 161 tests)

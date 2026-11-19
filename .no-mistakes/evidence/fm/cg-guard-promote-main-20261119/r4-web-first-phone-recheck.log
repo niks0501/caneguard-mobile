@@ -1,0 +1,41 @@
+# Guard V1 promotion — pipeline test phase, round 4 (web-first re-drive + device recheck)
+revision: a9c22b50428e0d2e42b8ca34a0fc8112373e4465 (branch fm/cg-guard-promote-main-20261119, base de6cb21)
+date: 2026-11-19T19:49Z
+
+## Session bootstrap
+npm run web:validate -> stub API :8210 + Expo web dev server :8199.
+chrome-devtools-axi open http://127.0.0.1:8199/login (not /), farmer@validation.invalid / validation-only.
+
+## Web: choosing a photo reaches the checklist and Guard fails closed
+/scan -> "Pumili ng isang larawan mula sa gallery" (_method: page file input injected with the repo fixture
+dev-assets/model-fixtures/v1-rust.jpg, served by the dev server at /assets/?unstable_path=...).
+Result: routed to /symptom-checklist with "Checking your photo…" and
+  "The sugarcane photo check is not available on this phone, so scans are paused. Update or reinstall the app, then try again."
+Selecting the "Raised rust-colored …" symptom afterwards leaves "Continue to analysis result" disabled
+  (state stays paused; no analysis screen is reachable).
+evidence: web-guard-fail-closed.png (this round), r3-web-03-guard-unavailable-fail-closed.png (round 3)
+
+## Device recheck after an adb server hang
+The Windows-side adb server that exposes the USB phone had hung (client connects, no response). The two hung
+adb processes were stopped by exact PID and the server was restarted with the Windows platform-tools adb.
+After restart: `adb devices -l` -> AYAUFIN76LEYR46X device product:duchamp_global model:2311DRK48G.
+Installed app: com.niks0501.caneguard versionName=2.2.1 (lastUpdateTime 2026-11-15 00:22:44).
+`npm run start:dev-client -- --port 8081` + `adb reverse tcp:8081` + `adb reverse tcp:8210` reused the installed
+dev client over Metro (no native delta in this change, so the runbook's reuse path applies; a local gradlew build is
+not possible here: Android platform-tools only, no gradle/sdkmanager, no android/ project).
+Fresh screenshot of the live app on that bundle: r4-device-00-current.png (scan result screen from the round-3
+acceptance sequence, same revision).
+
+## Phone scenarios (driven in round 3 of this same pipeline run, revision a9c22b5)
+Recorded in r3-live-acceptance.log with screenshots r3-device-0*.png and persisted-state dumps r3-caneguard-*.db:
+- gallery sugarcane photo -> Guard accepts -> five-label V2 result (smut 0.9823, rssi 0.0142, rust 0.0018,
+  healthy 0.0017, mosaic 0.0001 in scan_class_scores)
+- gallery non-sugarcane photo -> "This does not look like sugarcane", Continue absent, scan_records unchanged (0)
+- airplane mode repeat: accept still yields a result, reject still shows the retake message, no new record
+- EXIF-rotated portrait accepted (orientation applied; oracle 0.979 upright vs 0.259 without EXIF)
+- per-scan latency/memory recorded from scan_records (inference_ms 113.0/150.6, total_ms 395.1/758.2)
+
+## Not drivable
+- Camera capture: the device viewfinder renders an all-black (rear) / near-black (front) frame in this setup, so a
+  camera-originated photo fails the photo-quality gate ("The image has low contrast"). Gallery capture on the same
+  device is the substitute path and is what the accept/reject scenarios used.

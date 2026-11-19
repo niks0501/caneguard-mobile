@@ -1,0 +1,31 @@
+# Guard V1 promotion — pipeline test phase round 3 (live validation)
+revision: a9c22b50428e0d2e42b8ca34a0fc8112373e4465
+date: 2026-11-19T19:08:49Z
+
+## native-change scope (why no rebuild)
+(empty above = no native-affecting change; runbook says rebuild only on native change)
+
+## Android SDK availability
+ANDROID_HOME content:
+NOTICE.txt
+adb
+etc1tool
+fastboot
+hprof-conv
+lib64
+make_f2fs
+make_f2fs_casefold
+mke2fs
+mke2fs.conf
+source.properties
+sqlite3
+gradle: MISSING
+sdkmanager: MISSING
+android/ project dir: MISSING
+
+## device
+    versionName=2.2.1
+    lastUpdateTime=2026-11-15 00:22:44
+## app memory after 4 scans (dev client over Metro)
+         Native Heap:   146208                         187388
+           TOTAL PSS:  1007065            TOTAL RSS:   479804       TOTAL SWAP PSS:   611197

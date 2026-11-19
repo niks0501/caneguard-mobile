@@ -1,0 +1,22 @@
+
+> caneguard-mobile@2.2.1 start:dev-client
+> node ./scripts/start-dev-client.js --port 8081
+
+Starting project at {run-worktree}
+Using src/app as the root directory for Expo Router.
+React Compiler enabled
+Starting Metro Bundler
+
+Waiting on http://localhost:8081
+
+An update for expo is available: 58.0.23 → ~58.0.26
+19 other packages may need updating. Run npx expo install --check for details.
+Logs for your project will appear below.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+Android Bundled 1530ms node_modules/expo-router/entry.js (3248 modules)
+ WARN  navigation.isFocused() was called while rendering the screen '__root'. During render it can return a stale value, because focus state is updated after render. Use the useIsFocused() hook to read focus during render.

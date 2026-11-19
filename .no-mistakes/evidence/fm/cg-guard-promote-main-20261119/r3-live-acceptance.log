@@ -1,0 +1,61 @@
+# Guard V1 promotion — live acceptance (round 3)
+revision: a9c22b50428e0d2e42b8ca34a0fc8112373e4465
+device: adb serial AYAUFIN76LEYR46X (2311DRK48G), dev client com.niks0501.caneguard 2.2.1 (installed 2026-11-15)
+app runtime: installed dev client reused over Metro (`npm run start:dev-client -- --port 8081`, project script supplies
+  certs/certificate.pem signing key path), stub API on :8210 via `npm run web:validate`, adb reverse 8081+8210.
+rationale: `git diff --stat de6cb2..a9c22b5 -- package.json package-lock.json app.json app.config.js plugins
+  metro.config.js babel.config.js eas.json` is empty, so the change carries no native delta and the runbook's
+  "rebuild only on native change" reuse path applies. A local `./gradlew :app:assembleDebug` build is not possible in
+  this environment: ANDROID_HOME (~/.local/share/android-platform-tools) holds platform-tools only,
+  gradle/sdkmanager are absent and no android/ project exists (see r3-device-availability-and-scope.log).
+
+## Web (first): guarded scan fails closed
+npm run web:validate (CANEGUARD_WEB_VALIDATE_TODAY=2026-11-01) -> http://127.0.0.1:8199/login, farmer sign-in
+/scan -> "Pumili ng isang larawan mula sa gallery" -> uploaded 1024x768 cane fixture
+result: checklist shows "The sugarcane photo check is not available on this phone, so scans are paused. Update or
+  reinstall the app, then try again."; choosing a picture leaves "Continue to analysis result" disabled -> scans paused.
+  A 320x240 upload first shows the photo-quality rejection ("This photo may be hard to read" / low resolution),
+  which keeps precedence over the unavailable-model message.
+evidence: r3-web-03-guard-unavailable-fail-closed.png
+
+## Phone: gallery sugarcane photo accepted -> V2 result (5 labels)
+gallery 1024x768 cane fixture -> guard accepts -> "Photo checked. Choose a picture, then continue." -> Mosaic chosen
+-> "Posibleng kondisyon: Smut" result screen.
+Real field photograph: dev-assets/model-fixtures/v1-smut.jpg (3000x4000) -> guard accepts -> result Smut (0.9823).
+Persisted rows (r3-caneguard-final.db, `scan_class_scores`): smut 0.9823, rssi 0.0142, rust 0.0018, healthy 0.0017,
+  mosaic 0.0001 -> five-label V2 output.
+evidence: r3-device-01-guard-accept-checklist.png, r3-device-02-guard-accept-v2-result.png,
+  r3-device-05-real-photo-guard-accept.png
+
+## Phone: gallery non-sugarcane photo rejected, no Continue, no saved scan
+1024x1024 high-contrast non-sugarcane image (mean luminance 150, sd 82) -> guard rejects:
+  "This does not look like sugarcane" + "CaneGuard could not see sugarcane in this photo, so it was not analysed..."
+"Continue to analysis result" is absent (raw node: enabled=false, height 0); scan_records count stayed 0 after the
+  rejection (r3-caneguard-after-reject.db).
+evidence: r3-device-03-guard-rejects-not-sugarcane.png
+
+## Phone: airplane mode repeat
+cmd connectivity airplane-mode enable + `adb reverse --remove tcp:8210` (true API offline; Metro kept on 8081)
+accept: cane fixture -> "Photo checked..." -> result "Posibleng kondisyon: Smut"
+reject: non-sugarcane image -> "This does not look like sugarcane", Continue absent; scan_records still 1 (no new save)
+restored: airplane-mode disable + reverse 8210 re-added.
+evidence: r3-device-04-airplane-guard-reject.png
+
+## Phone: EXIF-rotated portrait accepted
+qa/guard-v1/cane-like-exif-rotated.jpg (Orientation=8, stored 240x320) upscaled to 768x1024 with the original APP1
+  EXIF segment re-attached -> gallery -> guard accepts ("Photo checked. Choose a picture, then continue.") and the
+  V2 result is reached; the Python oracle scores the same content 0.979 upright vs 0.259 when orientation is dropped,
+  so the accept is only reachable with EXIF applied.
+saved record: smut 0.9392, rssi 0.0604, healthy 0.0003, mosaic 0.0001, rust 0.0
+
+## Per-scan latency / memory
+scan_records timings (EXIF-rotated): inference_ms 113.0, total_ms 395.1
+scan_records timings (real gallery photo): inference_ms 150.6, total_ms 758.2
+memory after four scans (dev client over Metro, includes dev tooling): TOTAL PSS ~1007 MB, Native Heap 187 MB.
+
+## Not driven (environment blockers)
+- Camera capture: the rear viewfinder returns an all-black frame and the front viewfinder a near-black scene
+  (r3-device-camera-viewfinder.png, r3-device-camera-front-viewfinder.png); the captured frame then fails the photo
+  quality gate ("The image has low contrast"), so no camera-originated photo can be scored in this physical setup.
+- The non-sugarcane rejection used a synthetic high-contrast image, not a photograph of a non-sugarcane plant, because
+  no such photograph exists in the repository and the camera is unusable.

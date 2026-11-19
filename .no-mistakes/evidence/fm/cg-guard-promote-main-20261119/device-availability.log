@@ -1,0 +1,10 @@
+# Device availability evidence 2026-11-19T18:37:35Z
+## adb devices -l (30s timeout)
+List of devices attached
+AYAUFIN76LEYR46X       device product:duchamp_global model:2311DRK48G device:duchamp transport_id:1
+
+adb_exit=0
+## agent-device device status
+No local device claims found.
+## git revision
+a9c22b50428e0d2e42b8ca34a0fc8112373e4465

@@ -2,7 +2,7 @@
 
 **Last reviewed:** 2026-11-19  
 **Scope:** Frozen experimental Guard V1 binary sugarcane-presence model.  
-**Model:** `assets/models/caneguard_guard_v1_float32.tflite` (kept local, not in this public repository).  
+**Model:** `assets/models/caneguard_guard_v1_float32.tflite` (intended public offline app asset; repository upload pending).  
 **Frozen manifest SHA-256:** `989fc0303c1ba9269f85e98ec16d664f5d4b8413b1987e0ad49673c14b031490`.
 
 This record identifies the datasets and collected photos used in Guard V1 and distinguishes available license declarations from permissions that still require review. It does **not** claim that all source rights are cleared. Public visibility, including public Facebook posts or openly downloadable datasets, is not itself a copyright license.
@@ -74,7 +74,7 @@ These publisher pages provide useful attribution and license declarations. The i
 - Images were inventoried, filtered for relevance/quality, and split for experimental model development.
 - A frozen 2,259-image manifest was used to train a binary MobileNetV2 sugarcane-presence classifier.
 - Training preprocessing used EXIF-aware RGB conversion and direct bilinear resize to 224 × 224. Training also used model/data augmentations.
-- The training process generated weights in a separate TFLite file. Raw source images are **not** committed with this documentation.
+- The training process generated a separate TFLite model. The project owner intends to publish this model as an offline Android asset. Raw source images are **not** committed with this documentation.
 - Dataset citations acknowledge sources; citations alone do not replace any required licenses, terms or permissions.
 
 ## 5. Current review status and release controls
@@ -86,7 +86,7 @@ These publisher pages provide useful attribution and license declarations. The i
 | Additional named online sugarcane datasets | Sources identifiable in Drive; specific licenses not documented | Locate original publishers and their actual license/permission terms |
 | Publicly accessible Facebook/Google images | Public provenance known; redistribution permission unknown | Find image-level author/terms or obtain authorization; otherwise replace and retrain |
 | Field-collected photographs | Collection session folders exist | Confirm photographer ownership and any participant, site, or data-use permissions that apply |
-| Public model distribution | Rights review incomplete | Keep trained `.tflite` binary out of public GitHub and public APK distribution until permissions and institutional review are resolved |
+| Public model distribution | Rights review incomplete; owner requests public model asset for capstone | Do not mistake repository availability for proof of third-party rights or unrestricted redistribution permission. Preserve source provenance and confirm outstanding authorizations |
 
 **No explicit source permission is invented by this file.** This is a transparent attribution and review record, not a blanket open-data license or a grant of permissions to third parties. It does not change the repository's software license or the trained model's distribution status.
 

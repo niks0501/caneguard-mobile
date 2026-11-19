@@ -38,9 +38,9 @@ Read `assets/models/caneguard_guard_v1_contract.json` and `docs/model-guard-v1/M
 - Real CPU TFLite output and input tensor metadata verified on Android. Compare generated reference inputs/predictions with **licensed or self-created fixtures** and documented tolerance.
 - Keep existing V1/V2 regression tests green. Capture exact commands, device evidence, inference latency and memory.
 
-## Public repo and local binary
+## Public repo and model binary
 
-The repository is public. `assets/models/.gitignore` excludes `caneguard_guard_v1_float32.tflite`. **The agent must not force-add, base64-embed, upload, or commit the model binary** while its redistribution rights are unresolved. The repo-local user will copy the binary manually from the private package. Verify with `python3 scripts/verify_guard_v1_assets.py`. Mocked/CI tests should not require the private binary unless a secure fixture mechanism exists.
+The repository is public. The project owner requested that the trained Guard V1 artifact be committed at `assets/models/caneguard_guard_v1_float32.tflite`, alongside the other shipped offline model assets. The owner will supply the exact validated binary if it is absent. Verify its SHA-256 using `python3 scripts/verify_guard_v1_assets.py`. Do not commit raw training images, private evidence, photographer signatures, or personal metadata. Existing source provenance is described in `DATASET_LICENSES.md`; do not claim unverified permissions or that the dataset rights review is complete. Keep the model experimental and the feature flag disabled by default until Android verification.
 
 ## Deliverable
 

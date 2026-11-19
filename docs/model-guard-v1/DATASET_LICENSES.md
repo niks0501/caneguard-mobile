@@ -2,7 +2,7 @@
 
 **Last reviewed:** 2026-11-19  
 **Scope:** Frozen experimental Guard V1 binary sugarcane-presence model.  
-**Model:** `assets/models/caneguard_guard_v1_float32.tflite` (intended public offline app asset; repository upload pending).  
+**Model:** `assets/models/caneguard_guard_v1_float32.tflite` (tracked public offline app asset).
 **Frozen manifest SHA-256:** `989fc0303c1ba9269f85e98ec16d664f5d4b8413b1987e0ad49673c14b031490`.
 
 This record identifies the datasets and collected photos used in Guard V1 and distinguishes available license declarations from permissions that still require review. It does **not** claim that all source rights are cleared. Public visibility, including public Facebook posts or openly downloadable datasets, is not itself a copyright license.

@@ -27,6 +27,7 @@ import {
   type ChecklistConsistency,
 } from '@/features/detection/checklist/checklistConsistency';
 import { ModelScoreList } from '@/features/detection/components/ModelScoreList';
+import { isGuardedResult } from '@/features/detection/constants/guardContract';
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import { isBelowConfidenceCautionThreshold } from '@/features/detection/constants/confidenceCaution';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -223,7 +224,12 @@ export default function AnalysisResultScreen() {
     showToast(isFarmer ? rc.saved : 'Scan saved', 'success');
   };
 
-  if (state.status !== 'completed' || !state.result || !state.sourceUri) {
+  if (
+    state.status !== 'completed' ||
+    !state.result ||
+    !isGuardedResult(state.result) ||
+    !state.sourceUri
+  ) {
     return (
       <SafeAreaView
         style={[styles.safe, { backgroundColor: theme.background }]}

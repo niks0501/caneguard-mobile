@@ -2,6 +2,7 @@ import {
   CHECKLIST_OBSERVATIONS,
   getChecklistConsistency,
 } from '@/features/detection/checklist/checklistConsistency';
+import { isGuardedResult } from '@/features/detection/constants/guardContract';
 import { diseaseCatalog } from '@/features/detection/constants/diseaseCatalog';
 import {
   modelScoreLabelsForVersion,
@@ -54,6 +55,9 @@ export function createCompletedScanDraft(
     !state.sourceType
   ) {
     invalid('A completed inference result and source image are required.');
+  }
+  if (!isGuardedResult(state.result)) {
+    invalid('The result did not pass the Guard V1 sugarcane check.');
   }
 
   let timestamp: string;

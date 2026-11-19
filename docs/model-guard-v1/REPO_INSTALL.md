@@ -1,14 +1,9 @@
 # Install and bundle Guard V1
 
-The model binary is intended to be tracked at `assets/models/caneguard_guard_v1_float32.tflite` alongside the existing V2 model for Android offline builds. The exact verified artifact must be used.
+The verified model binary is tracked at `assets/models/caneguard_guard_v1_float32.tflite` alongside the existing V2 model for Android offline builds. Use only the pinned artifact; do not substitute a locally trained or otherwise unverified binary.
 
-1. Switch to branch `feat/guard-v1-integration`.
-2. If the binary is absent, extract `assets/models/caneguard_guard_v1_float32.tflite` from the Guard V1 drop-in package into that relative path.
-3. Run `python3 scripts/verify_guard_v1_assets.py`.
-4. Check `git status --short` and `git check-ignore assets/models/caneguard_guard_v1_float32.tflite`. The binary should be eligible for Git tracking and `git check-ignore` should produce no matching path.
-5. Stage and commit the model with `git add assets/models/caneguard_guard_v1_float32.tflite` and `git commit -m "chore(guard-v1): add offline TFLite model"`.
-6. Push to `feat/guard-v1-integration` and review draft PR #291.
-7. Give the coding agent `docs/model-guard-v1/AGENT_IMPLEMENTATION_BRIEF.md`.
+1. Run `python3 scripts/verify_guard_v1_assets.py`.
+2. Check `git status --short` and `git check-ignore assets/models/caneguard_guard_v1_float32.tflite`. The tracked binary must not be ignored.
 
 Expected model SHA-256: `36c514184aaa4f96ee762dcbc0ca32eb26df40acec919f6c4264e8ee44fe6d60`.
 

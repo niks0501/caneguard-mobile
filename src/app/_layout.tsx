@@ -19,6 +19,7 @@ import { MobileAttentionLifecycle } from '@/features/notifications/components/Mo
 import { OfficeUpdatesProvider } from '@/features/notifications/providers/OfficeUpdatesProvider';
 import { ScanSessionProvider } from '@/features/detection/context/ScanSessionProvider';
 import { CaneGuardModelProvider } from '@/features/detection/model/useCaneGuardModel';
+import { GuardModelProvider } from '@/features/detection/model/useGuardModel';
 import { CaneGuardDatabaseProvider } from '@/database/DatabaseProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { AuthProvider } from '@/features/auth/providers/AuthProvider';
@@ -48,12 +49,14 @@ export default function RootLayout() {
               <CaneGuardDatabaseProvider>
                 <ScanSessionProvider>
                   <CaneGuardModelProvider>
-                    <SyncProvider>
-                      <OfficeUpdatesProvider>
-                        <WebValidationSeed />
-                        <AppNavigator />
-                      </OfficeUpdatesProvider>
-                    </SyncProvider>
+                    <GuardModelProvider>
+                      <SyncProvider>
+                        <OfficeUpdatesProvider>
+                          <WebValidationSeed />
+                          <AppNavigator />
+                        </OfficeUpdatesProvider>
+                      </SyncProvider>
+                    </GuardModelProvider>
                   </CaneGuardModelProvider>
                 </ScanSessionProvider>
               </CaneGuardDatabaseProvider>

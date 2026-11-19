@@ -8,6 +8,7 @@ export type ScanCheckState =
   | 'no-photo'
   | 'checking-photo'
   | 'photo-rejected'
+  | 'not-sugarcane'
   | 'waiting-model'
   | 'analysing'
   | 'result'
@@ -19,7 +20,12 @@ export interface ScanCheckInputs {
   /** Source 1: session status and the data it carries. */
   session: Pick<
     ScanSessionState,
-    'sourceUri' | 'status' | 'result' | 'qualityAssessment' | 'photoPreparationFailed'
+    | 'sourceUri'
+    | 'status'
+    | 'result'
+    | 'qualityAssessment'
+    | 'photoPreparationFailed'
+    | 'guardFailure'
   >;
   /** Source 2: the model hook's own state. */
   modelState: 'idle' | 'loading' | 'loaded' | 'error' | (string & {});
@@ -45,6 +51,8 @@ export function deriveScanCheckState({
   if (!session.sourceUri) return 'no-photo';
   if (replacing) return 'checking-photo';
   if (session.status === 'error') {
+    // The guard judged the photo: it is not sugarcane. Distinct from a fault.
+    if (session.guardFailure === 'rejected') return 'not-sugarcane';
     return session.photoPreparationFailed ? 'check-failed' : 'model-failed';
   }
   if (session.status === 'completed' && session.result) {

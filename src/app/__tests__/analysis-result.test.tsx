@@ -42,7 +42,10 @@ const mockDraftValue = {
   finalizeSavedDraft: mockFinalizeSavedDraft,
   flushSavedDraft: jest.fn(async () => true),
   isOwnerCurrent: jest.fn(() => true),
+  isSessionCurrent: jest.fn(() => true),
   ownerIdentity: null,
+  sessionGeneration: 0,
+  sessionIdentity: 'analysis-result-test-session',
 };
 const mockRouterBack = router.back as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
@@ -119,6 +122,7 @@ function createResult(
       totalMs: 60,
     },
     modelVersion: 'v1.0-mobilenetv2',
+    guardModelId: 'caneguard_guard_v1' as const,
   };
 }
 

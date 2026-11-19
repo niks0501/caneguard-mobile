@@ -1,6 +1,6 @@
 # CaneGuard Mobile — current capability and readiness index
 
-**Status:** current guidance. Last reviewed: 11 November 2026.
+**Status:** current guidance. Last reviewed: 19 November 2026.
 **Applies to:** this repository (`caneguard-mobile`) at the revision recorded in
 [`docs/RELEASE-EVIDENCE.md`](RELEASE-EVIDENCE.md).
 
@@ -15,26 +15,31 @@ shows the model's class scores. RSSI also remains available as a separate
 reporter observation; neither is proof of infestation. For result, storage,
 recovery, and checklist details, see the [model contract](../PROJECT_CONTEXT.md#model-contract).
 
-Source of truth: `MODEL_V2_LABELS` and `ACTIVE_MODEL_ID` in
-`src/features/detection/constants/modelContract.ts`; model-version-specific
+Source of truth for the V2 classifier: `MODEL_V2_LABELS` and `ACTIVE_MODEL_ID`
+in `src/features/detection/constants/modelContract.ts`; model-version-specific
 caution artifacts are `threshold/v1-confidence-caution-threshold.json` and
-`threshold/v2-confidence-caution-threshold.json`. The V2 artifact records its
-selected-checkpoint, non-OOF provenance and remains provisional. Contract field
-values, including the deployed V2 SHA-256 and the V2 cutoff's derivation and
-provenance, are owned by
+`threshold/v2-confidence-caution-threshold.json`. The required Guard V1
+presence gate has its separate contract in
+`src/features/detection/constants/guardContract.ts` and runs before V2. The V2
+artifact records its selected-checkpoint, non-OOF provenance and remains
+provisional. Contract field values, including the Guard/V2 relationship, the
+deployed V2 SHA-256, and the V2 cutoff's derivation and provenance, are owned by
 [`PROJECT_CONTEXT.md` — Model contract](../PROJECT_CONTEXT.md#model-contract).
 
-The scan output is labelled **Possible Condition** and is decision support, not
-a diagnosis. A farmer session uses the confidence caution cutoff for the stored
-model version: V1 records keep the OOF-derived V1 cutoff, and V2 records use the
-provisional V2 selected-checkpoint cutoff. Below the applicable cutoff, a `farmer`
-session sees **Result uncertain** as the result title, with guided retake steps,
-**Retake Photo**, **Review Signs**, and the closest match as a smaller line;
-saving stays available and the model scores are unchanged. The low-confidence,
-photo-quality, and checklist cautions stay visible to every signed-in account
-and never alter the model scores. Fixed QA fixtures are deterministic oracles,
-not evidence of field accuracy, and a browser or mocked test is never native
-inference proof.
+The required Guard V1 presence gate runs on every captured or uploaded photo
+before V2. A Guard rejection or fault blocks V2, result creation, saving and
+reporting; an accepted photo proceeds to the unchanged five-class V2 classifier
+once. The scan output is labelled **Possible Condition** and is decision support,
+not a diagnosis. A farmer session uses the confidence caution cutoff for the
+stored model version: V1 records keep the OOF-derived V1 cutoff, and V2 records
+use the provisional V2 selected-checkpoint cutoff. Below the applicable cutoff,
+a `farmer` session sees **Result uncertain** as the result title, with guided
+retake steps, **Retake Photo**, **Review Signs**, and the closest match as a
+smaller line; saving stays available and the model scores are unchanged. The
+low-confidence, photo-quality, and checklist cautions stay visible to every
+signed-in account and never alter the model scores. Fixed QA fixtures are
+deterministic oracles, not evidence of field accuracy, and a browser or mocked
+test is never native inference proof.
 
 ## Implemented mobile screens
 

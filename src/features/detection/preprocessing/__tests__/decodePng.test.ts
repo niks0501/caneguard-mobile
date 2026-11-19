@@ -69,7 +69,7 @@ describe('decodePng', () => {
   it('rejects PNGs whose IHDR colour type is not RGB or RGBA', () => {
     const bytes = Buffer.from(readFileSync(join(FIXTURES, files[0])));
     expect(bytes[IHDR_COLOR_TYPE_INDEX]).toBe(2);
-    bytes[IHDR_COLOR_TYPE_INDEX] = 3;
+    bytes[IHDR_COLOR_TYPE_INDEX] = 1;
     expect(() => decodePng(new Uint8Array(bytes))).toThrow(/Unsupported PNG/);
   });
 

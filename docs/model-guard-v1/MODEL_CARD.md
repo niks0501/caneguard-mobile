@@ -1,0 +1,31 @@
+# CaneGuard Guard V1 — experimental model card
+
+**Status:** Research-only. Not approved for unrestricted field deployment or public model redistribution.
+
+## Intended use
+
+This separate binary sugarcane-presence gate precedes the unchanged five-class V2 disease/RSSI classifier. It cannot diagnose diseases, verify field authenticity, or replace expert judgment. Related investigation: [issue #290](https://github.com/niks0501/caneguard-mobile/issues/290).
+
+## Fixed artifact and contract
+
+- Local-only model: `assets/models/caneguard_guard_v1_float32.tflite`
+- Model SHA-256: `36c514184aaa4f96ee762dcbc0ca32eb26df40acec919f6c4264e8ee44fe6d60`
+- Manifest SHA-256: `989fc0303c1ba9269f85e98ec16d664f5d4b8413b1987e0ad49673c14b031490`
+- Input: float32 RGB NHWC `[1,224,224,3]`. Apply EXIF orientation then bilinear **direct stretch** to 224 × 224. Supply 0–255; normalization (`x/127.5-1`) is embedded. **No V2 letterbox, padding, crop, or normalization outside model.**
+- Output: one float32 sigmoid scalar `[1,1]` representing `p_sugarcane`.
+- Accept: finite `p_sugarcane >= 0.75`; reject below 0.75; fail closed on invalid output or inference errors.
+- Tensor names must be read from actual TFLite metadata, not inferred from V2.
+
+## Study evidence
+
+| Split | Sugarcane | Not sugarcane | Total |
+| --- | ---: | ---: | ---: |
+| Train | 895 | 760 | 1,655 |
+| Validation | 198 | 162 | 360 |
+| Internal test | 81 | 163 | 244 |
+
+Validation: 97.50% accuracy (TN 154, FP 8, FN 1, TP 197). Internal test: 95.08% accuracy (TN 152, FP 11, FN 1, TP 80). False acceptance 6.75%; false rejection 1.23% at threshold 0.75. Major false acceptances: grass/weeds 5, banana 4, trees 2.
+
+## Limitations and release conditions
+
+Evaluation data share source collections with development data, so this is **not independent field validation**. Only 36 images received sample visual review. Rights for positive images and derived model redistribution require review. No dataset photos or private manifests should enter the public repository. Preserve V2 and its separate 130-image holdout. Use a local, private binary and a disabled-by-default experimental flag until independently tested and legally cleared.

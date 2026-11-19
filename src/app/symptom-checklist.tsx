@@ -207,9 +207,10 @@ export default function SymptomChecklistScreen() {
     modelState.state === 'error' ? getInferenceErrorMessage(modelState.error) : null;
   const completedGuardedResult =
     state.status === 'completed' && state.result !== null && isGuardedResult(state.result);
-  const activeGuardError = completedGuardedResult ? null : guardError;
-  const activeModelError = completedGuardedResult ? null : modelError;
   const photoRejected = checkState === 'photo-rejected';
+  const photoCheckFailed = photoRejected || checkState === 'check-failed';
+  const activeGuardError = completedGuardedResult || photoCheckFailed ? null : guardError;
+  const activeModelError = completedGuardedResult || photoCheckFailed ? null : modelError;
   const statusText = guardRejected
     ? GUARD_COPY.rejectedStatus
     : photoRejected

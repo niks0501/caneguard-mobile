@@ -1,0 +1,2 @@
+export const MAX_GUARD_IMAGE_PIXELS = 24_000_000;
+export const MAX_PNG_DECODE_BYTES = 384 * 1024 * 1024;

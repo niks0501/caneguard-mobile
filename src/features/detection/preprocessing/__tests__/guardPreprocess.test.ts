@@ -3,9 +3,10 @@ import { join } from 'node:path';
 
 import { GUARD_V1 } from '@/features/detection/constants/guardContract';
 import { manipulateAsync } from 'expo-image-manipulator';
-import { encode } from 'jpeg-js';
+import { decode as decodeJpeg, encode } from 'jpeg-js';
 
 import { preprocessGuardImage } from '@/features/detection/preprocessing/guardPreprocess';
+import { decodePng } from '@/features/detection/preprocessing/decodePng';
 
 const mockArrayBuffer = jest.fn<Promise<ArrayBuffer>, []>();
 const mockDelete = jest.fn();
@@ -22,7 +23,17 @@ jest.mock('expo-image-manipulator', () => ({
   manipulateAsync: jest.fn(),
   SaveFormat: { JPEG: 'jpeg' },
 }));
+jest.mock('jpeg-js', () => {
+  const actual = jest.requireActual('jpeg-js') as typeof import('jpeg-js');
+  return { ...actual, decode: jest.fn(actual.decode) };
+});
+jest.mock('@/features/detection/preprocessing/decodePng', () => {
+  const actual = jest.requireActual('@/features/detection/preprocessing/decodePng') as typeof import('@/features/detection/preprocessing/decodePng');
+  return { ...actual, decodePng: jest.fn(actual.decodePng) };
+});
 const mockManipulate = manipulateAsync as jest.MockedFunction<typeof manipulateAsync>;
+const mockJpegDecode = jest.mocked(decodeJpeg);
+const mockDecodePng = jest.mocked(decodePng);
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { PNG } = require('pngjs') as {
   PNG: { sync: { write(value: { data: Uint8Array; width: number; height: number }): Buffer } };
@@ -72,6 +83,21 @@ function setSource(rgba: Uint8Array, width: number, height: number): void {
   mockArrayBuffer.mockResolvedValueOnce(pngBytes(rgba, width, height));
 }
 
+function jpegDeclaring(width: number, height: number): ArrayBuffer {
+  const bytes = Buffer.from(encode({ data: quadrantSource(8, 8), width: 8, height: 8 }, 100).data);
+  const sof = bytes.indexOf(Buffer.from([0xff, 0xc0]));
+  bytes.writeUInt16BE(height, sof + 5);
+  bytes.writeUInt16BE(width, sof + 7);
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+function pngDeclaring(width: number, height: number): ArrayBuffer {
+  const bytes = Buffer.from(pngBytes(quadrantSource(8, 8), 8, 8));
+  bytes.writeUInt32BE(width, 16);
+  bytes.writeUInt32BE(height, 20);
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
 function pngWithOrientation(rgba: Uint8Array, width: number, height: number, orientation: number): ArrayBuffer {
   const source = Buffer.from(pngBytes(rgba, width, height));
   const exif = Buffer.alloc(26);
@@ -109,7 +135,14 @@ function expectJpegLandmarks(tensor: Float32Array): void {
 }
 
 describe('preprocessGuardImage', () => {
-  beforeEach(() => mockArrayBuffer.mockReset());
+  beforeEach(() => {
+    mockArrayBuffer.mockReset();
+    mockManipulate.mockReset();
+    mockDelete.mockReset();
+    mockFileUri.mockReset();
+    mockJpegDecode.mockClear();
+    mockDecodePng.mockClear();
+  });
 
   it('builds a 602112-byte raw 0..255 float32 RGB tensor', async () => {
     setSource(quadrantSource(320, 180), 320, 180);
@@ -173,6 +206,54 @@ describe('preprocessGuardImage', () => {
     expectJpegLandmarks(rotatedTensor);
   });
 
+  it('passes a 6000x4000 JPEG to the in-memory decoder without an intermediate resize', async () => {
+    mockArrayBuffer.mockResolvedValueOnce(jpegDeclaring(6000, 4000));
+    mockJpegDecode.mockReturnValueOnce({
+      data: quadrantSource(224, 224),
+      width: 224,
+      height: 224,
+    } as ReturnType<typeof decodeJpeg>);
+
+    const input = await preprocessGuardImage('content://large.jpg');
+
+    expect(input.byteLength).toBe(GUARD_V1.inputByteLength);
+    expect(mockJpegDecode).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      expect.objectContaining({ maxResolutionInMP: 24, maxMemoryUsageInMB: 256 }),
+    );
+    expect(mockManipulate).not.toHaveBeenCalled();
+  });
+
+  it('passes a 6000x4000 PNG to the in-memory decoder without an intermediate conversion', async () => {
+    mockArrayBuffer.mockResolvedValueOnce(pngDeclaring(6000, 4000));
+    mockDecodePng.mockReturnValueOnce({
+      width: 224,
+      height: 224,
+      rgb: new Uint8Array(224 * 224 * 3),
+      orientation: 1,
+    });
+
+    const input = await preprocessGuardImage('content://large.png');
+
+    expect(input.byteLength).toBe(GUARD_V1.inputByteLength);
+    expect(mockDecodePng).toHaveBeenCalledTimes(1);
+    expect(mockManipulate).not.toHaveBeenCalled();
+  });
+
+  it('reports the PNG decoder memory limit as an actionable size failure', async () => {
+    const source = Buffer.from(pngDeclaring(6000, 4000));
+    source[24] = 16;
+    source[25] = 6;
+    mockArrayBuffer.mockResolvedValueOnce(
+      source.buffer.slice(source.byteOffset, source.byteOffset + source.byteLength) as ArrayBuffer,
+    );
+
+    await expect(preprocessGuardImage('content://large-16bit.png')).rejects.toMatchObject({
+      code: 'GUARD_INPUT_TOO_LARGE',
+    });
+    expect(mockManipulate).not.toHaveBeenCalled();
+  });
+
   it('rejects transparent source PNG pixels before resizing', async () => {
     const bytes = PNG.sync.write({ data: Uint8Array.from([20, 30, 40, 0]), width: 1, height: 1 });
     mockArrayBuffer.mockResolvedValueOnce(
@@ -209,8 +290,8 @@ describe('preprocessGuardImage', () => {
       mockFileUri.mockReset();
     });
 
-    // Proves: an opaque WebP is converted to JPEG by the manipulator (EXIF applied, no resize), guarded in memory, and its scratch file is deleted.
-    it('accepts an opaque WebP and deletes the scratch file', async () => {
+    // Proves: an opaque WebP is delegated without resize and its scratch file is deleted.
+    it('delegates an opaque WebP without resizing and deletes the scratch file', async () => {
       mockArrayBuffer.mockResolvedValueOnce(webpHeader('VP8 '));
       mockManipulate.mockResolvedValueOnce({
         uri: 'file:///cache/converted.jpg', width: 224, height: 224, base64: jpegBase64(),
@@ -221,7 +302,6 @@ describe('preprocessGuardImage', () => {
         base64: true, compress: 1, format: 'jpeg',
       });
       expect(mockDelete).toHaveBeenCalledWith('file:///cache/converted.jpg');
-      expect(Math.abs(tensor[(3 * 224 + 3) * 3] - 220)).toBeLessThanOrEqual(12);
     });
 
     // Proves: transparent WebP (VP8X alpha flag, VP8L alpha bit) is refused before conversion, like transparent PNG.
@@ -234,28 +314,6 @@ describe('preprocessGuardImage', () => {
         code: 'GUARD_INPUT_INVALID',
       });
       expect(mockManipulate).not.toHaveBeenCalled();
-    });
-
-    const jpegDeclaring = (width: number, height: number): ArrayBuffer => {
-      const bytes = Buffer.from(encode({ data: quadrantSource(8, 8), width: 8, height: 8 }, 100).data);
-      const sof = bytes.indexOf(Buffer.from([0xff, 0xc0]));
-      bytes.writeUInt16BE(height, sof + 5);
-      bytes.writeUInt16BE(width, sof + 7);
-      return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-    };
-
-    // Proves: a normal 6000x4000 gallery photo keeps Guard eligibility via a bounded native downscale (aspect preserved, scratch deleted).
-    it('downscales a photo above the in-memory decoder cap instead of refusing it', async () => {
-      mockArrayBuffer.mockResolvedValueOnce(jpegDeclaring(6000, 4000));
-      mockManipulate.mockResolvedValueOnce({
-        uri: 'file:///cache/down.jpg', width: 2048, height: 1365, base64: jpegBase64(),
-      } as Awaited<ReturnType<typeof manipulateAsync>>);
-      const tensor = new Float32Array(await preprocessGuardImage('content://big.jpg'));
-      expect(tensor.length * 4).toBe(GUARD_V1.inputByteLength);
-      expect(mockManipulate).toHaveBeenCalledWith('content://big.jpg', [{ resize: { width: 2048 } }], {
-        base64: true, compress: 1, format: 'jpeg',
-      });
-      expect(mockDelete).toHaveBeenCalledWith('file:///cache/down.jpg');
     });
 
     // Proves: a photo beyond any safe size is refused before conversion with the dedicated too-large fault.

@@ -13,7 +13,7 @@ const contract = JSON.parse(
 );
 
 describe('Guard V1 constants', () => {
-  // Proves: the in-app guard constants are exactly the frozen contract (shape, dtype, range, threshold, SHA).
+  // Proves: the in-app guard constants match the frozen identity, tensor shapes and dtypes, threshold, and checksum.
   it('mirror the frozen contract JSON', () => {
     expect(GUARD_V1.sha256).toBe(contract.tflite_sha256);
     expect([...GUARD_V1.input.shape]).toEqual(contract.input.shape);

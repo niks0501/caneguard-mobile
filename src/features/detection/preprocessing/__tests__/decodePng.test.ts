@@ -39,6 +39,16 @@ function rgbPng(red: number, green: number, blue: number): Buffer {
   ]);
 }
 
+function expectTooLarge(action: () => unknown): void {
+  let error: unknown;
+  try {
+    action();
+  } catch (caught) {
+    error = caught;
+  }
+  expect(error).toMatchObject({ code: 'image-too-large' });
+}
+
 describe('decodePng', () => {
   const files = readdirSync(FIXTURES).filter((f) => f.endsWith('.png'));
 
@@ -130,8 +140,17 @@ describe('decodePng', () => {
 
   it('rejects oversized dimensions before inflating pixel data', () => {
     const bytes = Buffer.from(readFileSync(join(FIXTURES, files[0])));
-    bytes.writeUInt32BE(5000, 16);
+    bytes.writeUInt32BE(7000, 16);
     bytes.writeUInt32BE(4000, 20);
-    expect(() => decodePng(new Uint8Array(bytes))).toThrow(/safety limit/);
+    expectTooLarge(() => decodePng(new Uint8Array(bytes)));
+  });
+
+  it('rejects high-memory PNGs before inflating pixel data', () => {
+    const bytes = Buffer.from(readFileSync(join(FIXTURES, files[0])));
+    bytes.writeUInt32BE(6000, 16);
+    bytes.writeUInt32BE(4000, 20);
+    bytes[IHDR_COLOR_TYPE_INDEX - 1] = 16;
+    bytes[IHDR_COLOR_TYPE_INDEX] = 6;
+    expectTooLarge(() => decodePng(new Uint8Array(bytes)));
   });
 });

@@ -6,7 +6,6 @@
  */
 export const GUARD_V1 = {
   modelId: 'caneguard_guard_v1',
-  filename: 'caneguard_guard_v1_float32.tflite',
   sha256: '36c514184aaa4f96ee762dcbc0ca32eb26df40acec919f6c4264e8ee44fe6d60',
   input: {
     shape: [1, 224, 224, 3],

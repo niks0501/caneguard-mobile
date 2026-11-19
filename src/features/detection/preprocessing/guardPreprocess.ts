@@ -7,16 +7,12 @@ import { GUARD_V1 } from '@/features/detection/constants/guardContract';
 import { GuardError } from '@/features/detection/model/guardInference';
 import { createInputTensor } from '@/features/detection/preprocessing/createInputTensor';
 import { decodePng } from '@/features/detection/preprocessing/decodePng';
+import { MAX_GUARD_IMAGE_PIXELS } from '@/features/detection/preprocessing/guardPreprocessLimits';
+import { PreprocessingError } from '@/features/detection/preprocessing/preprocessingErrors';
 import { rgbaToRgb } from '@/features/detection/preprocessing/rgbaToRgb';
 
 const [, GUARD_HEIGHT, GUARD_WIDTH] = GUARD_V1.input.shape;
 const MAX_SOURCE_BYTES = 128 * 1024 * 1024;
-/** Largest photo the in-memory JS decoders handle; larger ones are downscaled natively first. */
-const MAX_INMEMORY_PIXELS = 16_000_000;
-/** Beyond this even the native downscale is refused up front, before any conversion. */
-const MAX_SOURCE_PIXELS = 250_000_000;
-/** Aspect-preserving long edge for the native downscale (EXIF applied, no crop or padding). */
-const DOWNSCALE_LONG_EDGE = 2048;
 
 const tooLarge = (cause?: unknown): GuardError =>
   new GuardError('GUARD_INPUT_TOO_LARGE', 'The photo is too large to prepare safely.', cause);
@@ -195,29 +191,23 @@ function webpHasAlpha(bytes: Uint8Array): boolean {
 }
 
 /**
- * WebP, and photos above the in-memory decoder caps, are converted by the platform
- * image manipulator to a bounded JPEG (EXIF applied, aspect preserved, long edge at
- * most ${DOWNSCALE_LONG_EDGE}px, no crop or padding), so the Guard contract's
- * direct-stretch resize still starts from an upright full-frame image. The base64
- * result is decoded in memory and the scratch file the call wrote is deleted at once,
- * even when decoding fails.
+ * WebP photos are converted by the platform image manipulator without resizing.
+ * The base64 result is decoded in memory and the scratch file the call wrote is
+ * deleted at once, even when decoding fails.
  */
-async function manipulatorJpegBytes(sourceUri: string, dimensions: Dimensions | null): Promise<Uint8Array> {
-  const longEdge = dimensions ? Math.max(dimensions.width, dimensions.height) : 0;
-  const actions =
-    dimensions && longEdge > DOWNSCALE_LONG_EDGE
-      ? [{ resize: dimensions.width >= dimensions.height ? { width: DOWNSCALE_LONG_EDGE } : { height: DOWNSCALE_LONG_EDGE } }]
-      : [];
+async function manipulatorJpegBytes(sourceUri: string): Promise<Uint8Array> {
   let scratchUri: string | undefined;
   try {
-    const converted = await manipulateAsync(sourceUri, actions, {
+    const converted = await manipulateAsync(sourceUri, [], {
       base64: true,
       compress: 1,
       format: SaveFormat.JPEG,
     });
     scratchUri = converted.uri;
     if (!converted.base64) throw new Error('The photo could not be converted.');
-    return toByteArray(converted.base64);
+    const bytes = toByteArray(converted.base64);
+    if (bytes.byteLength > MAX_SOURCE_BYTES) throw tooLarge();
+    return bytes;
   } finally {
     if (scratchUri) {
       try {
@@ -253,17 +243,19 @@ async function readSourceImage(sourceUri: string): Promise<RgbImage> {
   try {
     const dimensions = peekDimensions(bytes);
     const pixels = dimensions ? dimensions.width * dimensions.height : 0;
-    if (pixels > MAX_SOURCE_PIXELS) throw tooLarge();
+      if (dimensions && pixels > MAX_GUARD_IMAGE_PIXELS) throw tooLarge();
     const webp = isWebp(bytes);
     const png = bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71;
     if (webp && webpHasAlpha(bytes)) {
       throw new Error('Transparent images are not supported. Please choose an opaque photo.');
     }
-    if (png && pixels > MAX_INMEMORY_PIXELS && (bytes[25] === 4 || bytes[25] === 6)) {
-      throw new Error('Transparent images are not supported. Please choose an opaque photo.');
-    }
-    if (webp || pixels > MAX_INMEMORY_PIXELS) {
-      bytes = await manipulatorJpegBytes(sourceUri, dimensions);
+    if (webp) {
+      bytes = await manipulatorJpegBytes(sourceUri);
+      const convertedDimensions = peekDimensions(bytes);
+      const convertedPixels = convertedDimensions ? convertedDimensions.width * convertedDimensions.height : 0;
+      if (convertedDimensions && convertedPixels > MAX_GUARD_IMAGE_PIXELS) {
+        throw tooLarge();
+      }
     } else if (png) {
       const decoded = decodePng(bytes);
       return orientImage(
@@ -277,8 +269,8 @@ async function readSourceImage(sourceUri: string): Promise<RgbImage> {
       useTArray: true,
       formatAsRGBA: true,
       tolerantDecoding: false,
-      maxResolutionInMP: 16,
-      maxMemoryUsageInMB: 128,
+      maxResolutionInMP: MAX_GUARD_IMAGE_PIXELS / 1_000_000,
+      maxMemoryUsageInMB: 256,
     });
     return orientImage(
       { width: decoded.width, height: decoded.height, rgb: rgbaToRgb(decoded.data, decoded.width, decoded.height) },
@@ -286,6 +278,7 @@ async function readSourceImage(sourceUri: string): Promise<RgbImage> {
     );
   } catch (error) {
     if (error instanceof GuardError) throw error;
+    if (error instanceof PreprocessingError && error.code === 'image-too-large') throw tooLarge(error);
     throw new GuardError(
       'GUARD_INPUT_INVALID',
       `The guard could not decode the photo: ${error instanceof Error ? error.message : String(error)}`,

@@ -1,4 +1,8 @@
 import { PreprocessingError } from '@/features/detection/preprocessing/preprocessingErrors';
+import {
+  MAX_GUARD_IMAGE_PIXELS,
+  MAX_PNG_DECODE_BYTES,
+} from '@/features/detection/preprocessing/guardPreprocessLimits';
 
 export interface DecodedPng {
   width: number;
@@ -8,8 +12,6 @@ export interface DecodedPng {
 }
 
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
-const MAX_PIXELS = 16_000_000;
-const MAX_INFLATED_BYTES = 128 * 1024 * 1024;
 const ADAM7 = [
   [0, 0, 8, 8],
   [4, 0, 8, 8],
@@ -20,8 +22,11 @@ const ADAM7 = [
   [0, 1, 1, 2],
 ] as const;
 
-function fail(message: string): never {
-  throw new PreprocessingError('png-decode-failed', message);
+function fail(
+  message: string,
+  code: 'png-decode-failed' | 'image-too-large' = 'png-decode-failed',
+): never {
+  throw new PreprocessingError(code, message);
 }
 
 const LENGTH_BASE = [
@@ -84,7 +89,7 @@ function fixedTables(): [Huffman, Huffman] {
   return [FIXED_LITERALS, FIXED_DISTANCES];
 }
 
-export function inflateZlib(input: Uint8Array, maxOutputBytes = MAX_INFLATED_BYTES): Uint8Array {
+export function inflateZlib(input: Uint8Array, maxOutputBytes = MAX_PNG_DECODE_BYTES): Uint8Array {
   if (input.length < 6 || (input[0] & 0x0f) !== 8) fail('Unsupported zlib stream.');
   let position = 2;
   let bitBuffer = 0;
@@ -407,8 +412,14 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
       bitDepth = data[8];
       colorType = data[9];
       interlace = data[12];
-      if (!width || !height || width > MAX_PIXELS || height > MAX_PIXELS || width * height > MAX_PIXELS) {
-        fail('PNG dimensions exceed the safety limit.');
+      if (
+        !width ||
+        !height ||
+        width > MAX_GUARD_IMAGE_PIXELS ||
+        height > MAX_GUARD_IMAGE_PIXELS ||
+        width * height > MAX_GUARD_IMAGE_PIXELS
+      ) {
+        fail('PNG dimensions exceed the safety limit.', 'image-too-large');
       }
       if (!allowedBitDepth(colorType, bitDepth) || channelsFor(colorType) === 0 || (interlace !== 0 && interlace !== 1)) {
         fail('Unsupported PNG colour, bit depth, or interlace mode.');
@@ -446,14 +457,6 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
   if (width <= 0 || height <= 0 || channels === 0 || idat.length === 0) fail('Incomplete PNG.');
   if (colorType === 3 && !palette) fail('PNG palette is missing.');
 
-  const compressedLength = idat.reduce((sum, chunk) => sum + chunk.length, 0);
-  const compressed = new Uint8Array(compressedLength);
-  let cursor = 0;
-  for (const chunk of idat) {
-    compressed.set(chunk, cursor);
-    cursor += chunk.length;
-  }
-
   const bitsPerPixel = channels * bitDepth;
   const bytesPerPixel = Math.max(1, Math.ceil(bitsPerPixel / 8));
   const passes = interlace === 0 ? [[0, 0, 1, 1]] as const : ADAM7;
@@ -468,9 +471,22 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
     expectedDecodedBytes += passHeight * rowBytes;
   }
   const expectedRgbBytes = width * height * 3;
-  if (expectedRawBytes + expectedDecodedBytes + expectedRgbBytes > MAX_INFLATED_BYTES) {
-    fail('PNG decode exceeds the safety limit.');
+  const rotatedRgbBytes = orientation >= 5 && orientation <= 8 ? expectedRgbBytes : 0;
+  if (
+    expectedRawBytes + expectedDecodedBytes + expectedRgbBytes + rotatedRgbBytes >
+    MAX_PNG_DECODE_BYTES
+  ) {
+    fail('PNG decode exceeds the safety limit.', 'image-too-large');
   }
+
+  const compressedLength = idat.reduce((sum, chunk) => sum + chunk.length, 0);
+  const compressed = new Uint8Array(compressedLength);
+  let cursor = 0;
+  for (const chunk of idat) {
+    compressed.set(chunk, cursor);
+    cursor += chunk.length;
+  }
+
   const pixels = new Uint8Array(expectedRgbBytes);
   const raw = inflateZlib(compressed, expectedRawBytes);
   let rawOffset = 0;

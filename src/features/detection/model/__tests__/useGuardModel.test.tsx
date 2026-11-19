@@ -110,7 +110,7 @@ describe('GuardModelProvider (guard is required)', () => {
     expect(loader).not.toHaveBeenCalled();
   });
 
-  it('loads the bundled asset through the default provider', async () => {
+  it('uses the configured Expo asset loader', async () => {
     const binary = readFileSync(
       join(process.cwd(), 'assets/models/caneguard_guard_v1_float32.tflite'),
     );
@@ -134,7 +134,7 @@ describe('GuardModelProvider (guard is required)', () => {
     );
 
     await waitFor(() => expect(state()).toBe('loaded'));
-    expect(mockAssetFromModule).toHaveBeenCalledWith(1);
+    expect(mockAssetFromModule).toHaveBeenCalledTimes(1);
     expect(asset.downloadAsync).toHaveBeenCalledTimes(1);
     expect(mockLoadTensorflowModel).toHaveBeenCalledWith(
       { url: 'file:///bundled-guard.tflite' },

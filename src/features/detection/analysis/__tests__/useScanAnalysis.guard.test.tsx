@@ -384,12 +384,16 @@ describe('guarded scan: rejection and faults produce no result', () => {
     expect(latest.state.guardFailure).toBe('error');
   });
 
-  // Proves: a guard that cannot be used (wrong artifact, bad contract, failed load) holds the scan: no silent unguarded V2.
-  it.each(['integrity', 'contract', 'load'])('holds the scan when the guard is unusable (%s)', async (kind) => {
+  // Proves: each Guard setup failure holds the scan and never reaches V2.
+  it.each([
+    ['integrity', 'GUARD_ARTIFACT_MISMATCH', GUARD_COPY.unavailable],
+    ['contract', 'GUARD_CONTRACT_MISMATCH', GUARD_COPY.unavailable],
+    ['load', 'GUARD_MODEL_LOAD_FAILED', GUARD_COPY.failed],
+  ] as const)('holds the scan when the guard has a %s failure', async (kind, code, message) => {
     mockGuard = {
       ...guardController(jest.fn()),
       state: 'error',
-      error: new GuardError('GUARD_ARTIFACT_MISMATCH', 'wrong binary'),
+      error: new GuardError(code, 'Guard setup failed.'),
       errorKind: kind,
     };
     await mount();
@@ -403,7 +407,7 @@ describe('guarded scan: rejection and faults produce no result', () => {
     expect(mockV2.run).not.toHaveBeenCalled();
     expect(latest.state.result).toBeNull();
     expect(latest.state.status).not.toBe('completed');
-    expect(latest.analysis.guardError).toBe(GUARD_COPY.unavailable);
+    expect(latest.analysis.guardError).toBe(message);
   });
 
   // Proves: the basic image-quality gate still runs first; a flagged photo reaches neither guard nor V2.
@@ -411,6 +415,21 @@ describe('guarded scan: rejection and faults produce no result', () => {
     await mount();
     await select('file:///dark.jpg');
     await waitFor(() => expect(latest.analysis.checkState).toBe('photo-rejected'));
+    expect(mockGuard.run).not.toHaveBeenCalled();
+    expect(mockV2.run).not.toHaveBeenCalled();
+  });
+
+  it('shows actionable guidance when a photo exceeds the Guard size limit', async () => {
+    jest.mocked(preprocessGuardImage).mockRejectedValueOnce(
+      new GuardError('GUARD_INPUT_TOO_LARGE', 'The image exceeds decoder limits.'),
+    );
+    await mount();
+    await select('file:///large-leaf.jpg');
+
+    await waitFor(() => expect(latest.state.status).toBe('error'));
+    expect(latest.state.photoPreparationFailed).toBe(true);
+    expect(latest.state.errorMessage).toBe(GUARD_COPY.photoTooLarge);
+    expect(latest.analysis.checkState).toBe('check-failed');
     expect(mockGuard.run).not.toHaveBeenCalled();
     expect(mockV2.run).not.toHaveBeenCalled();
   });

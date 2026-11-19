@@ -69,6 +69,6 @@ Revert this branch's commits. V2 files and weights were not modified.
 
 - No independent field validation; 36-image visual sample; internal-test false acceptance 6.75% (grass/weeds, banana, trees).
 - Image-level rights for the online-collected positive photographs are not individually established; the captain accepted this for the production release (`DATASET_LICENSES.md`), and public APK artifacts embed the model.
-- Guard preprocessing decodes the source JPEG/PNG in JavaScript (no scratch file), orients by EXIF and resizes bilinearly; very large camera photos cost time and memory (cap 16 MP / 128 MB) and are untimed on device.
+- Guard preprocessing decodes source JPEG/PNG in JavaScript (no scratch file), applies EXIF orientation, then bilinearly stretches once to the Guard input. Photos above 24 MP or the bounded decoder memory limits are refused with a smaller-photo prompt; WebP uses full-resolution platform conversion without resizing. Large-photo preparation remains untimed on device.
 - Real-device Android inference, EXIF handling and bilinear parity are unverified by the worker.
 - The guard and V2 share one native-call queue, so scans are strictly serial.

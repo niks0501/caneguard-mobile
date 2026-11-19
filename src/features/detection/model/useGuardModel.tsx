@@ -65,9 +65,7 @@ export function classifyGuardLoadError(error: unknown): {
       errorKind:
         error.code === 'GUARD_ARTIFACT_MISMATCH'
           ? 'integrity'
-          : error.code === 'GUARD_UNSUPPORTED_PLATFORM'
-            ? 'unsupported'
-            : 'load',
+          : 'load',
     };
   }
   return {

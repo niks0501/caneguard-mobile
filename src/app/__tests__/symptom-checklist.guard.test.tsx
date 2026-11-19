@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useReducer } from 'react';
 
 import SymptomChecklistScreen from '@/app/symptom-checklist';
-import { GUARD_COPY } from '@/constants/copy';
+import { GUARD_COPY, SCAN_CHECK_COPY } from '@/constants/copy';
 import {
   ScanDraftContext,
   ScanSessionContext,
@@ -180,6 +180,66 @@ describe('SymptomChecklistScreen with required Guard V1', () => {
     await fireEvent.press(screen.getByTestId('scan.symptom-rust'));
     await waitFor(() => expect(screen.getByTestId('scan.continue-to-result')).toBeEnabled());
     expect(guardRun).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows photo guidance without Guard setup recovery for a rejected photo', async () => {
+    const retry = jest.fn();
+    mockPreprocessImage.mockResolvedValueOnce({
+      processedUri: 'file:///processed.jpg',
+      inputBuffer: new ArrayBuffer(602_112),
+      width: 224,
+      height: 224,
+      channels: 3,
+      dataType: 'float32',
+      minValue: 0,
+      maxValue: 255,
+      meanValue: 8,
+      letterbox: { resizedWidth: 224, resizedHeight: 126, paddingLeft: 0, paddingTop: 49 },
+      qualityAssessment: { warnings: ['too-dark'], meanLuminance: 8, luminanceStandardDeviation: 1 },
+      preprocessMs: 4,
+    });
+    mockUseGuard.mockReturnValue(
+      guardController({
+        state: 'error',
+        error: new GuardError('GUARD_MODEL_LOAD_FAILED', 'runtime unavailable'),
+        errorKind: 'load',
+        retry,
+      }),
+    );
+    await renderScreen();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('scan.check-state')).toHaveProp('accessibilityValue', {
+        text: 'photo-rejected',
+      }),
+    );
+    expect(screen.getByText(SCAN_CHECK_COPY.notAnalysed)).toBeOnTheScreen();
+    expect(screen.queryByText(GUARD_COPY.unavailable)).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.retry-guard')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.try-again')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('scan.retake-camera')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.retake-gallery')).toBeOnTheScreen();
+    expect(retry).not.toHaveBeenCalled();
+    expect(mockRunInference).not.toHaveBeenCalled();
+  });
+
+  it('offers retry when the native Guard loader fails', async () => {
+    const retry = jest.fn();
+    mockUseGuard.mockReturnValue(
+      guardController({
+        state: 'error',
+        error: new GuardError('GUARD_MODEL_LOAD_FAILED', 'runtime unavailable'),
+        errorKind: 'load',
+        retry,
+      }),
+    );
+    await renderScreen();
+
+    await waitFor(() => expect(screen.getByTestId('scan.retry-guard')).toBeOnTheScreen());
+    expect(screen.getByText(GUARD_COPY.failed)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('scan.retry-guard'));
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(mockRunInference).not.toHaveBeenCalled();
   });
 
   // Proves: an unusable guard (wrong artifact) holds the scan with an explicit message; V2 and the guard never run.

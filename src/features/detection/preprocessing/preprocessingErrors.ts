@@ -1,3 +1,4 @@
+import { GUARD_COPY } from '@/constants/copy';
 import {
   DetectionError,
   type DetectionErrorStage,
@@ -9,6 +10,7 @@ export type PreprocessingErrorCode =
   | 'missing-encoded-image'
   | 'jpeg-decode-failed'
   | 'png-decode-failed'
+  | 'image-too-large'
   | 'dimension-mismatch'
   | 'channel-mismatch'
   | 'element-count-mismatch'
@@ -26,6 +28,7 @@ function getPreprocessingStage(
     case 'missing-encoded-image':
     case 'jpeg-decode-failed':
     case 'png-decode-failed':
+    case 'image-too-large':
     case 'dimension-mismatch':
     case 'channel-mismatch':
       return 'image-decoding';
@@ -69,6 +72,8 @@ export function getPreprocessingErrorMessage(error: unknown): string {
     case 'dimension-mismatch':
     case 'channel-mismatch':
       return 'The resized image could not be decoded correctly. Please replace it and try again.';
+    case 'image-too-large':
+      return GUARD_COPY.photoTooLarge;
     case 'element-count-mismatch':
     case 'byte-length-mismatch':
     case 'invalid-tensor-value':

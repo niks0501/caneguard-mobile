@@ -53,13 +53,15 @@ export function deriveScanCheckState({
   if (session.status === 'error') {
     // The guard judged the photo: it is not sugarcane. Distinct from a fault.
     if (session.guardFailure === 'rejected') return 'not-sugarcane';
-    return session.photoPreparationFailed ? 'check-failed' : 'model-failed';
+    if (session.photoPreparationFailed) return 'check-failed';
+    if (photoFailedCheck && isPhotoChecked(session)) return 'photo-rejected';
+    return 'model-failed';
   }
   if (session.status === 'completed' && session.result) {
     return photoFailedCheck ? 'result-doubtful' : 'result';
   }
-  if (modelState === 'error') return 'model-failed';
   if (photoFailedCheck && isPhotoChecked(session)) return 'photo-rejected';
+  if (modelState === 'error') return 'model-failed';
   if (session.status === 'running' || session.status === 'finalizing') return 'analysing';
   if (isPhotoChecked(session)) return 'waiting-model';
   return 'checking-photo';

@@ -48,6 +48,17 @@ describe('deriveScanCheckState', () => {
     ).toBe('photo-rejected');
   });
 
+  it('keeps a settled photo rejection ahead of model availability', () => {
+    expect(
+      deriveScanCheckState(
+        inputs(
+          { status: 'image-selected', qualityAssessment: assessment(['too-dark']) },
+          { modelState: 'error', photoFailedCheck: true },
+        ),
+      ),
+    ).toBe('photo-rejected');
+  });
+
   // Proves: Analysing covers running and finalizing.
   it('names analysing', () => {
     expect(
@@ -70,6 +81,14 @@ describe('deriveScanCheckState', () => {
       ),
     ).toBe('check-failed');
     expect(deriveScanCheckState(inputs({ status: 'error' }))).toBe('model-failed');
+    expect(
+      deriveScanCheckState(
+        inputs(
+          { status: 'error', qualityAssessment: assessment(['too-dark']) },
+          { modelState: 'error', photoFailedCheck: true },
+        ),
+      ),
+    ).toBe('photo-rejected');
     expect(deriveScanCheckState(inputs({ status: 'image-selected' }, { modelState: 'error' }))).toBe(
       'model-failed',
     );

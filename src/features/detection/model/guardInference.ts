@@ -8,6 +8,7 @@ export type GuardErrorCode =
   | 'GUARD_UNSUPPORTED_PLATFORM'
   | 'GUARD_NOT_READY'
   | 'GUARD_INPUT_INVALID'
+  | 'GUARD_INPUT_TOO_LARGE'
   | 'GUARD_RUN_FAILED'
   | 'GUARD_OUTPUT_INVALID';
 
@@ -121,6 +122,8 @@ export function getGuardErrorMessage(error: unknown): string {
     case 'GUARD_CONTRACT_MISMATCH':
     case 'GUARD_UNSUPPORTED_PLATFORM':
       return GUARD_COPY.unavailable;
+    case 'GUARD_INPUT_TOO_LARGE':
+      return GUARD_COPY.photoTooLarge;
     default:
       return GUARD_COPY.failed;
   }

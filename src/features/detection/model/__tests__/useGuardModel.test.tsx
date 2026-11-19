@@ -134,7 +134,7 @@ describe('GuardModelProvider (guard is required)', () => {
     );
 
     await waitFor(() => expect(state()).toBe('loaded'));
-    expect(mockAssetFromModule).toHaveBeenCalledWith(101);
+    expect(mockAssetFromModule).toHaveBeenCalledWith(1);
     expect(asset.downloadAsync).toHaveBeenCalledTimes(1);
     expect(mockLoadTensorflowModel).toHaveBeenCalledWith(
       { url: 'file:///bundled-guard.tflite' },

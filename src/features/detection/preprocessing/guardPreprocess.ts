@@ -11,6 +11,15 @@ import { rgbaToRgb } from '@/features/detection/preprocessing/rgbaToRgb';
 
 const [, GUARD_HEIGHT, GUARD_WIDTH] = GUARD_V1.input.shape;
 const MAX_SOURCE_BYTES = 128 * 1024 * 1024;
+/** Largest photo the in-memory JS decoders handle; larger ones are downscaled natively first. */
+const MAX_INMEMORY_PIXELS = 16_000_000;
+/** Beyond this even the native downscale is refused up front, before any conversion. */
+const MAX_SOURCE_PIXELS = 250_000_000;
+/** Aspect-preserving long edge for the native downscale (EXIF applied, no crop or padding). */
+const DOWNSCALE_LONG_EDGE = 2048;
+
+const tooLarge = (cause?: unknown): GuardError =>
+  new GuardError('GUARD_INPUT_TOO_LARGE', 'The photo is too large to prepare safely.', cause);
 
 type RgbImage = {
   width: number;
@@ -130,6 +139,45 @@ function resizeBilinear(image: RgbImage, width: number, height: number): Uint8Ar
   return output;
 }
 
+type Dimensions = { width: number; height: number };
+
+/** Cheap header peek: JPEG SOF, PNG IHDR or WebP chunk dimensions; null when unknown. */
+function peekDimensions(bytes: Uint8Array): Dimensions | null {
+  let width = 0;
+  let height = 0;
+  if (bytes.length >= 26 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71) {
+    width = readUint32(bytes, 16, false);
+    height = readUint32(bytes, 20, false);
+  } else if (bytes.length >= 4 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+    let offset = 2;
+    while (offset + 9 <= bytes.length && bytes[offset] === 0xff) {
+      const marker = bytes[offset + 1];
+      if (marker === 0xd9 || marker === 0xda) break;
+      const isFrame =
+        marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
+      if (isFrame) {
+        height = readUint16(bytes, offset + 5, false);
+        width = readUint16(bytes, offset + 7, false);
+        break;
+      }
+      offset += 2 + readUint16(bytes, offset + 2, false);
+    }
+  } else if (isWebp(bytes) && bytes.length >= 30) {
+    const tag = String.fromCharCode(bytes[12], bytes[13], bytes[14], bytes[15]);
+    if (tag === 'VP8X') {
+      width = 1 + (bytes[24] | (bytes[25] << 8) | (bytes[26] << 16));
+      height = 1 + (bytes[27] | (bytes[28] << 8) | (bytes[29] << 16));
+    } else if (tag === 'VP8L' && bytes[20] === 0x2f) {
+      width = 1 + (bytes[21] | ((bytes[22] & 0x3f) << 8));
+      height = 1 + ((bytes[22] >> 6) | (bytes[23] << 2) | ((bytes[24] & 0x0f) << 10));
+    } else if (tag === 'VP8 ' && bytes[23] === 0x9d && bytes[24] === 0x01 && bytes[25] === 0x2a) {
+      width = readUint16(bytes, 26, true) & 0x3fff;
+      height = readUint16(bytes, 28, true) & 0x3fff;
+    }
+  }
+  return width > 0 && height > 0 ? { width, height } : null;
+}
+
 function isWebp(bytes: Uint8Array): boolean {
   return (
     bytes.length >= 16 &&
@@ -147,24 +195,28 @@ function webpHasAlpha(bytes: Uint8Array): boolean {
 }
 
 /**
- * WebP has no in-memory decoder in the app. Like the V2 path, the platform image
- * manipulator converts it to JPEG (EXIF applied, no resize); the bytes come back as
- * base64 and the scratch file it wrote is deleted at once. Transparent WebP is
- * refused first, like transparent PNG.
+ * WebP, and photos above the in-memory decoder caps, are converted by the platform
+ * image manipulator to a bounded JPEG (EXIF applied, aspect preserved, long edge at
+ * most ${DOWNSCALE_LONG_EDGE}px, no crop or padding), so the Guard contract's
+ * direct-stretch resize still starts from an upright full-frame image. The base64
+ * result is decoded in memory and the scratch file the call wrote is deleted at once,
+ * even when decoding fails.
  */
-async function webpToJpegBytes(sourceUri: string, webp: Uint8Array): Promise<Uint8Array> {
-  if (webpHasAlpha(webp)) {
-    throw new Error('Transparent images are not supported. Please choose an opaque photo.');
-  }
+async function manipulatorJpegBytes(sourceUri: string, dimensions: Dimensions | null): Promise<Uint8Array> {
+  const longEdge = dimensions ? Math.max(dimensions.width, dimensions.height) : 0;
+  const actions =
+    dimensions && longEdge > DOWNSCALE_LONG_EDGE
+      ? [{ resize: dimensions.width >= dimensions.height ? { width: DOWNSCALE_LONG_EDGE } : { height: DOWNSCALE_LONG_EDGE } }]
+      : [];
   let scratchUri: string | undefined;
   try {
-    const converted = await manipulateAsync(sourceUri, [], {
+    const converted = await manipulateAsync(sourceUri, actions, {
       base64: true,
       compress: 1,
       format: SaveFormat.JPEG,
     });
     scratchUri = converted.uri;
-    if (!converted.base64) throw new Error('The WebP photo could not be converted.');
+    if (!converted.base64) throw new Error('The photo could not be converted.');
     return toByteArray(converted.base64);
   } finally {
     if (scratchUri) {
@@ -183,13 +235,14 @@ async function readSourceImage(sourceUri: string): Promise<RgbImage> {
     const file = new File(sourceUri);
     const declaredSize = (file as unknown as { size?: unknown }).size;
     if (typeof declaredSize === 'number' && Number.isFinite(declaredSize) && declaredSize > MAX_SOURCE_BYTES) {
-      throw new Error('The photo is too large to prepare safely.');
+      throw tooLarge();
     }
     bytes = new Uint8Array(await file.arrayBuffer());
     if (bytes.byteLength > MAX_SOURCE_BYTES) {
-      throw new Error('The photo is too large to prepare safely.');
+      throw tooLarge();
     }
   } catch (error) {
+    if (error instanceof GuardError) throw error;
     throw new GuardError(
       'GUARD_INPUT_INVALID',
       `The guard could not read the photo: ${error instanceof Error ? error.message : String(error)}`,
@@ -198,9 +251,20 @@ async function readSourceImage(sourceUri: string): Promise<RgbImage> {
   }
 
   try {
-    if (isWebp(bytes)) bytes = await webpToJpegBytes(sourceUri, bytes);
+    const dimensions = peekDimensions(bytes);
+    const pixels = dimensions ? dimensions.width * dimensions.height : 0;
+    if (pixels > MAX_SOURCE_PIXELS) throw tooLarge();
+    const webp = isWebp(bytes);
     const png = bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71;
-    if (png) {
+    if (webp && webpHasAlpha(bytes)) {
+      throw new Error('Transparent images are not supported. Please choose an opaque photo.');
+    }
+    if (png && pixels > MAX_INMEMORY_PIXELS && (bytes[25] === 4 || bytes[25] === 6)) {
+      throw new Error('Transparent images are not supported. Please choose an opaque photo.');
+    }
+    if (webp || pixels > MAX_INMEMORY_PIXELS) {
+      bytes = await manipulatorJpegBytes(sourceUri, dimensions);
+    } else if (png) {
       const decoded = decodePng(bytes);
       return orientImage(
         { width: decoded.width, height: decoded.height, rgb: decoded.rgb },

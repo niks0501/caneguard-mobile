@@ -236,6 +236,37 @@ describe('preprocessGuardImage', () => {
       expect(mockManipulate).not.toHaveBeenCalled();
     });
 
+    const jpegDeclaring = (width: number, height: number): ArrayBuffer => {
+      const bytes = Buffer.from(encode({ data: quadrantSource(8, 8), width: 8, height: 8 }, 100).data);
+      const sof = bytes.indexOf(Buffer.from([0xff, 0xc0]));
+      bytes.writeUInt16BE(height, sof + 5);
+      bytes.writeUInt16BE(width, sof + 7);
+      return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    };
+
+    // Proves: a normal 6000x4000 gallery photo keeps Guard eligibility via a bounded native downscale (aspect preserved, scratch deleted).
+    it('downscales a photo above the in-memory decoder cap instead of refusing it', async () => {
+      mockArrayBuffer.mockResolvedValueOnce(jpegDeclaring(6000, 4000));
+      mockManipulate.mockResolvedValueOnce({
+        uri: 'file:///cache/down.jpg', width: 2048, height: 1365, base64: jpegBase64(),
+      } as Awaited<ReturnType<typeof manipulateAsync>>);
+      const tensor = new Float32Array(await preprocessGuardImage('content://big.jpg'));
+      expect(tensor.length * 4).toBe(GUARD_V1.inputByteLength);
+      expect(mockManipulate).toHaveBeenCalledWith('content://big.jpg', [{ resize: { width: 2048 } }], {
+        base64: true, compress: 1, format: 'jpeg',
+      });
+      expect(mockDelete).toHaveBeenCalledWith('file:///cache/down.jpg');
+    });
+
+    // Proves: a photo beyond any safe size is refused before conversion with the dedicated too-large fault.
+    it('refuses an absurdly large photo before conversion', async () => {
+      mockArrayBuffer.mockResolvedValueOnce(jpegDeclaring(30000, 20000));
+      await expect(preprocessGuardImage('content://huge.jpg')).rejects.toMatchObject({
+        code: 'GUARD_INPUT_TOO_LARGE',
+      });
+      expect(mockManipulate).not.toHaveBeenCalled();
+    });
+
     // Proves: a failed conversion is a guard fault, never a pass.
     it('fails closed when the conversion fails', async () => {
       mockArrayBuffer.mockResolvedValueOnce(webpHeader('VP8 '));

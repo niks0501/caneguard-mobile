@@ -1623,6 +1623,8 @@ export const GUARD_COPY = {
     'CaneGuard could not see sugarcane in this photo, so it was not analysed. Take a new photo of a sugarcane leaf, stalk, or shoot and fill most of the frame with the plant.',
   rejectedHint: 'A close, well-lit photo of the plant usually works best.',
   failed: 'The sugarcane photo check could not finish. Your photo was not analysed. Please try again.',
+  photoTooLarge:
+    'This photo is too large for the sugarcane photo check. Choose a smaller photo or take a new one.',
   unavailable:
     'The sugarcane photo check is not available on this phone, so scans are paused. Update or reinstall the app, then try again.',
 } as const;

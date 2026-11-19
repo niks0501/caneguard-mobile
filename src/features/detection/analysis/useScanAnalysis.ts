@@ -85,17 +85,6 @@ export function useScanAnalysis(replacing = false) {
   }, [startGuard]);
 
   useEffect(() => {
-    if (status !== 'completed' || !result || isGuardedResult(result)) {
-      return;
-    }
-    dispatch({
-      type: 'SET_ERROR',
-      guardFailure: 'error',
-      payload: GUARD_COPY.unavailable,
-    });
-  }, [dispatch, result, status]);
-
-  useEffect(() => {
     prunePhotoCaches(key);
     if (!key) {
       return;
@@ -249,6 +238,12 @@ export function useScanAnalysis(replacing = false) {
         }
 
         stage = 'v2';
+        // Wait for the foreground before the timed V2 call so a backgrounded scan does
+        // not record the wait as inference time; the queued call re-checks freshness.
+        await (draft.waitForAppActive?.() ?? Promise.resolve());
+        if (!isCurrentWork()) {
+          return;
+        }
         const inferenceResult = await runInference(
           {
             run: exclusiveRun(async (input) => {
@@ -278,7 +273,8 @@ export function useScanAnalysis(replacing = false) {
           dispatch({
             type: 'SET_ERROR',
             guardFailure: 'error',
-            photoPreparationFailed: guardError.code === 'GUARD_INPUT_INVALID',
+            photoPreparationFailed:
+              guardError.code === 'GUARD_INPUT_INVALID' || guardError.code === 'GUARD_INPUT_TOO_LARGE',
             payload: getGuardErrorMessage(guardError),
           });
         } else {

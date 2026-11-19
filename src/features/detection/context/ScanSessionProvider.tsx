@@ -221,7 +221,9 @@ function ScanSessionOwner({
   }, []);
 
   const waitForAppActive = useCallback((): Promise<void> => {
-    if (appActiveRef.current) return Promise.resolve();
+    // A closed provider can never be resumed by a listener, so new waits settle at once;
+    // callers re-check session freshness afterwards.
+    if (appActiveRef.current || !mounted.current) return Promise.resolve();
     return new Promise<void>((resolve) => {
       appActiveWaiters.current.add(resolve);
     });

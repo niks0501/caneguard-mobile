@@ -38,6 +38,14 @@ Device, emulator, ADB, Agent Device, and staging checks run whenever the tier or
 - browser validation route: `npm run web:validate` (stub API on `:8210`, web dev server on `:8199`) — see [`docs/qa/web-validation.md`](docs/qa/web-validation.md) for what it can and cannot prove
 - E2E: `npm run e2e` (separate escalated native/device gate)
 
+## Guard V1 (required, bundled)
+
+Guard V1 is a required, bundled sugarcane-presence gate in front of V2 (see `docs/model-guard-v1/IMPLEMENTATION_NOTES.md`). Its detection/inference files are T3.
+
+- Targeted tests: `npm test -- --runInBand src/features/detection/analysis src/features/detection/model/__tests__ src/features/detection/preprocessing/__tests__/guardPreprocess.test.ts src/app/__tests__/symptom-checklist.guard.test.tsx`. The TFLite runtime is mocked.
+- Real binary behavioral oracle: `python3 scripts/verify_guard_v1_assets.py` and `python3 scripts/tests/test_guard_v1_model.py` (needs `pip install numpy pillow ai-edge-litert`; CI invokes it explicitly after the package-independent Jest suite).
+- Then `npm run verify:fast && npm run db:check`. Real Android camera/gallery, offline and latency/memory checks are a captain-run manual step (checklist in the notes).
+
 ## Manual verification
 
 Native-boundary behavior such as biometrics, image picker, permissions, secure storage, notifications, TFLite, and device persistence uses the existing mock/abstraction tests for ordinary verification. Use a small representative native/device check only when the E2E decision gate justifies it.

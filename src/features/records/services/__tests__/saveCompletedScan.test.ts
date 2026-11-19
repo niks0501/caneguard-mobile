@@ -41,6 +41,7 @@ function completedState(
         { label: 'smut', score: 0 },
       ],
       timings: { preprocessMs: 3, inferenceMs: 7, totalMs: 10 },
+      guardModelId: 'caneguard_guard_v1' as const,
       modelVersion: 'v1.0-mobilenetv2',
     },
     ...overrides,

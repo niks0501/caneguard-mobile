@@ -39,6 +39,7 @@ function completedState(
         inferenceMs: 8.5,
         totalMs: 12.75,
       },
+      guardModelId: 'caneguard_guard_v1' as const,
       modelVersion: 'v0.1-baseline',
     },
     ...overrides,
@@ -91,6 +92,7 @@ describe('completed scan record validation', () => {
             { label: 'smut', score: 0.91 },
           ],
           timings: { preprocessMs: 3, inferenceMs: 7, totalMs: 10 },
+          guardModelId: 'caneguard_guard_v1' as const,
           modelVersion: 'v1.0-mobilenetv2',
         },
       }),
@@ -115,6 +117,7 @@ describe('completed scan record validation', () => {
         { label: 'rssi' as const, score: 0.64 },
       ],
       timings: { preprocessMs: 3, inferenceMs: 7, totalMs: 10 },
+      guardModelId: 'caneguard_guard_v1' as const,
       modelVersion: 'v2.0-mobilenetv2',
     };
     const draft = createCompletedScanDraft(
@@ -142,6 +145,7 @@ describe('completed scan record validation', () => {
   it('saves historical four-score V2 results without inventing RSSI', () => {
     const result = {
       ...completedState().result!,
+      guardModelId: 'caneguard_guard_v1' as const,
       modelVersion: 'v2.0-mobilenetv2',
       scores: [
         { label: 'healthy' as const, score: 0.05 },

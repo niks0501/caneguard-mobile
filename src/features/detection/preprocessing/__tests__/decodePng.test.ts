@@ -8,7 +8,36 @@ import { decodePng, inflateZlib } from '@/features/detection/preprocessing/decod
 const FIXTURES = join(__dirname, '../../../../../dev-assets/model-fixtures/v2-parity');
 const IHDR_COLOR_TYPE_INDEX = 8 + 4 + 4 + 9;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { PNG } = require('pngjs') as { PNG: { sync: { read(b: Buffer): { width: number; height: number; data: Buffer } } } };
+const { PNG } = require('pngjs') as {
+  PNG: {
+    sync: {
+      read(b: Buffer): { width: number; height: number; data: Buffer };
+      write(value: { width: number; height: number; data: Buffer }): Buffer;
+    };
+  };
+};
+
+function rgbPng(red: number, green: number, blue: number): Buffer {
+  const chunk = (type: string, data: Buffer) => {
+    const result = Buffer.alloc(12 + data.length);
+    result.writeUInt32BE(data.length, 0);
+    result.write(type, 4, 'ascii');
+    data.copy(result, 8);
+    return result;
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(1, 0);
+  ihdr.writeUInt32BE(1, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 2;
+  const raw = Buffer.from([0, red, green, blue]);
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+}
 
 describe('decodePng', () => {
   const files = readdirSync(FIXTURES).filter((f) => f.endsWith('.png'));
@@ -37,10 +66,72 @@ describe('decodePng', () => {
     expect(() => decodePng(new Uint8Array(40))).toThrow(/Not a PNG/);
   });
 
-  it('rejects PNGs whose IHDR colour type is not RGB', () => {
+  it('rejects PNGs whose IHDR colour type is not RGB or RGBA', () => {
     const bytes = Buffer.from(readFileSync(join(FIXTURES, files[0])));
     expect(bytes[IHDR_COLOR_TYPE_INDEX]).toBe(2);
-    bytes[IHDR_COLOR_TYPE_INDEX] = 6;
-    expect(() => decodePng(new Uint8Array(bytes))).toThrow(/RGB PNGs/);
+    bytes[IHDR_COLOR_TYPE_INDEX] = 1;
+    expect(() => decodePng(new Uint8Array(bytes))).toThrow(/Unsupported PNG/);
+  });
+
+  it('rejects a non-opaque 16-bit alpha sample', () => {
+    const bytes = PNG.sync.write({
+      width: 1,
+      height: 1,
+      data: Buffer.from([20, 30, 40, 255]),
+    });
+    const ihdr = bytes.indexOf(Buffer.from('IHDR'));
+    bytes[ihdr + 12] = 16;
+    bytes[ihdr + 13] = 6;
+    const raw = Buffer.from([0, 0, 20, 0, 30, 0, 40, 255, 254]);
+    const idat = bytes.indexOf(Buffer.from('IDAT')) - 4;
+    const replacement = Buffer.alloc(12 + deflateSync(raw).length);
+    replacement.writeUInt32BE(deflateSync(raw).length, 0);
+    replacement.write('IDAT', 4, 'ascii');
+    deflateSync(raw).copy(replacement, 8);
+    const end = idat + 12 + bytes.readUInt32BE(idat);
+    const rewritten = Buffer.concat([bytes.subarray(0, idat), replacement, bytes.subarray(end)]);
+    expect(() => decodePng(new Uint8Array(rewritten))).toThrow(/Transparent PNGs/);
+  });
+
+  it('rejects transparent pixels instead of discarding alpha', () => {
+    const bytes = PNG.sync.write({
+      width: 1,
+      height: 1,
+      data: Buffer.from([20, 30, 40, 0]),
+    });
+    expect(() => decodePng(new Uint8Array(bytes))).toThrow(/Transparent PNGs/);
+  });
+
+  it('allows an unused RGB transparency key', () => {
+    const source = rgbPng(20, 30, 40);
+    const chunk = Buffer.alloc(18);
+    chunk.writeUInt32BE(6, 0);
+    chunk.write('tRNS', 4, 'ascii');
+    chunk.writeUInt16BE(200, 8);
+    chunk.writeUInt16BE(200, 10);
+    chunk.writeUInt16BE(200, 12);
+    const idat = source.indexOf(Buffer.from('IDAT')) - 4;
+    const bytes = Buffer.concat([source.subarray(0, idat), chunk, source.subarray(idat)]);
+    expect(decodePng(new Uint8Array(bytes)).rgb).toEqual(Uint8Array.from([20, 30, 40]));
+  });
+
+  it('rejects a pixel matching an RGB transparency key', () => {
+    const source = rgbPng(20, 30, 40);
+    const chunk = Buffer.alloc(18);
+    chunk.writeUInt32BE(6, 0);
+    chunk.write('tRNS', 4, 'ascii');
+    chunk.writeUInt16BE(20, 8);
+    chunk.writeUInt16BE(30, 10);
+    chunk.writeUInt16BE(40, 12);
+    const idat = source.indexOf(Buffer.from('IDAT')) - 4;
+    const bytes = Buffer.concat([source.subarray(0, idat), chunk, source.subarray(idat)]);
+    expect(() => decodePng(new Uint8Array(bytes))).toThrow(/Transparent PNGs/);
+  });
+
+  it('rejects oversized dimensions before inflating pixel data', () => {
+    const bytes = Buffer.from(readFileSync(join(FIXTURES, files[0])));
+    bytes.writeUInt32BE(5000, 16);
+    bytes.writeUInt32BE(4000, 20);
+    expect(() => decodePng(new Uint8Array(bytes))).toThrow(/safety limit/);
   });
 });

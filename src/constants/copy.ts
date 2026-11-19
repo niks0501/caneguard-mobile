@@ -1612,6 +1612,21 @@ export const SCAN_CHECK_COPY = {
   cancel: 'Cancel Scan',
 } as const;
 
+/**
+ * Guard V1 (experimental sugarcane-presence check). A rejection means the photo
+ * was judged and does not look like sugarcane; a fault means the check itself
+ * could not finish. The two are never worded alike.
+ */
+export const GUARD_COPY = {
+  rejectedTitle: 'This does not look like sugarcane',
+  rejectedStatus:
+    'CaneGuard could not see sugarcane in this photo, so it was not analysed. Take a new photo of a sugarcane leaf, stalk, or shoot and fill most of the frame with the plant.',
+  rejectedHint: 'A close, well-lit photo of the plant usually works best.',
+  failed: 'The sugarcane photo check could not finish. Your photo was not analysed. Please try again.',
+  unavailable:
+    'The sugarcane photo check is not available on this phone, so scans are paused. Update or reinstall the app, then try again.',
+} as const;
+
 /** Short names under the pictures; the full sentence stays as the screen-reader label. */
 export const SCAN_PICTURE_NAMES = {
   mosaic: 'Mosaic',

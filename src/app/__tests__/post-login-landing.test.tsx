@@ -133,6 +133,7 @@ jest.mock('@/database/DatabaseProvider', () => {
 jest.mock('@/features/detection/context/ScanSessionProvider', () => {
   const React = jest.requireActual('react');
   return {
+    ScanSessionContext: React.createContext(null),
     ScanSessionProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   };
 });

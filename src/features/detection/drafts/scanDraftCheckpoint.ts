@@ -6,6 +6,7 @@ import {
   readLocalDraft,
   saveLocalDraft,
 } from '@/database/localDraftRepository';
+import { GUARD_V1, isGuardedResult } from '@/features/detection/constants/guardContract';
 import {
   isModelLabel,
   modelScoreLabelsForVersion,
@@ -89,7 +90,8 @@ export function buildScanDraftCheckpoint(input: {
   if (!input.managedImageUri || !isManagedScanImageUri(input.managedImageUri)) {
     return null;
   }
-  const completed = state.result !== null && state.status === 'completed';
+  const completed =
+    state.result !== null && state.status === 'completed' && isGuardedResult(state.result);
   return {
     draftId: input.draftId,
     followUpOf: sanitizeFollowUpId(state.followUpOf),
@@ -163,8 +165,7 @@ export function readScanDraftCheckpoint(
 
 /**
  * Removes the checkpoint row and, unless the caller keeps it, its managed
- * draft image. Returns true when the checkpoint is gone afterwards; a failed
- * row delete reports false so the caller never claims the draft was discarded.
+ * draft image. Throws when either deletion fails.
  */
 export function deleteScanDraftCheckpoint(
   database: CaneGuardDatabase,
@@ -172,8 +173,8 @@ export function deleteScanDraftCheckpoint(
   options: { keepManagedImage?: boolean } = {},
 ): boolean {
   const owner = requireOwnerIdentity(ownerIdentity);
-  let rowDeleted = true;
   try {
+    let checkpoint: ScanDraftCheckpoint | null = null;
     if (!options.keepManagedImage) {
       const record = readLocalDraft<unknown>(
         database,
@@ -182,21 +183,22 @@ export function deleteScanDraftCheckpoint(
         SCAN_DRAFT_KEY,
         SCAN_DRAFT_VERSION,
       );
-      const checkpoint = record ? parseScanDraftCheckpoint(record.payload, owner) : null;
-      if (checkpoint) {
-        deleteManagedScanImage(checkpoint.managedImageUri, owner);
-      }
+      checkpoint = record ? parseScanDraftCheckpoint(record.payload, owner) : null;
+    }
+    // Image first: if the row cannot be removed the checkpoint stays (and resumable
+    // reads clean up a checkpoint whose image is gone); nothing is left orphaned.
+    if (checkpoint) {
+      deleteManagedScanImage(checkpoint.managedImageUri, owner);
     }
     deleteLocalDraft(database, owner, SCAN_DRAFT_KIND, SCAN_DRAFT_KEY);
   } catch (error: unknown) {
-    rowDeleted = false;
     throw toStorageError(
       error,
       'DELETE_FAILED',
       'Discarding the saved scan draft failed.',
     );
   }
-  return rowDeleted;
+  return true;
 }
 
 export function parseScanDraftCheckpoint(
@@ -218,10 +220,15 @@ export function parseScanDraftCheckpoint(
   ) {
     return null;
   }
-  const result = value.status === 'completed' ? sanitizeResult(value.result) : null;
-  if (value.status === 'completed' && !result) {
+  const storedResult = value.status === 'completed' ? sanitizeResult(value.result) : null;
+  if (value.status === 'completed' && !storedResult) {
     return null;
   }
+  // A completed result that never passed Guard V1 (a draft from before the guard)
+  // is not trusted: the photo is kept and checked again, the result is dropped.
+  const guarded = isGuardedResult(storedResult);
+  const result = guarded ? storedResult : null;
+  const status = guarded ? 'completed' : 'image-selected';
   return {
     draftId: value.draftId,
     followUpOf: sanitizeFollowUpId(value.followUpOf),
@@ -245,7 +252,7 @@ export function parseScanDraftCheckpoint(
     sourceHeight: finiteOrNull(value.sourceHeight),
     sourceType: value.sourceType,
     sourceWidth: finiteOrNull(value.sourceWidth),
-    status: value.status,
+    status,
   };
 }
 
@@ -363,6 +370,7 @@ function sanitizeResult(value: unknown): DetectionResult | null {
   const predictedLabel = result.predictedLabel as ModelLabel;
   return {
     confidence: result.confidence,
+    ...(result.guardModelId === GUARD_V1.modelId ? { guardModelId: GUARD_V1.modelId } : {}),
     ...(typeof result.decisionSupportWording === 'string'
       ? { decisionSupportWording: result.decisionSupportWording.slice(0, 300) }
       : {}),

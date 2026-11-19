@@ -51,8 +51,9 @@ AI results are decision-support outputs only. User-facing copy must not present 
 5. `CaneGuardDatabaseProvider`
 6. `ScanSessionProvider`
 7. `CaneGuardModelProvider`
-8. `SyncProvider`
-9. `OfficeUpdatesProvider`
+8. `GuardModelProvider`
+9. `SyncProvider`
+10. `OfficeUpdatesProvider`
 
 Expo Router protected routes separate unauthenticated screens from authenticated application screens.
 Password recovery and email-verification routes remain public so deep links can be handled even when protected session material exists.
@@ -72,8 +73,9 @@ Primary flow:
 camera/gallery
   -> image selection
   -> image-quality assessment
-  -> preprocessing
-  -> bundled TFLite inference
+  -> required Guard V1 presence gate
+       reject or fault -> no V2 inference or result
+       accept -> existing V2 preprocessing and inference
   -> model postprocessing
   -> short guided differential observations / consistency check
   -> analysis result
@@ -81,7 +83,7 @@ camera/gallery
 
 Detection code lives under `src/features/detection/`.
 
-The bundled model contracts are defined in `src/features/detection/constants/modelContract.ts` and are the source of truth for contract id, model version, filename, SHA-256, labels, input tensor, and output tensor.
+The V2 classifier contract is defined in `src/features/detection/constants/modelContract.ts`. The required Guard V1 presence-gate contract is separate in `src/features/detection/constants/guardContract.ts`; Guard uses its own pinned artifact, direct-stretch preprocessing, and scalar decision before V2 runs.
 
 ### Local persistence
 
@@ -374,7 +376,7 @@ A successful report upload must return a remote identity UUID.
 
 ### Model contract
 
-`modelContract.ts` defines the active Model V2 contract plus the bundled, inactive Model V1 contract. `ACTIVE_MODEL_ID` selects the model the live scan flow loads, so changing that constant is the V1/V2 switch and the rollback path. Model-layer functions also accept an explicit contract.
+`modelContract.ts` defines the active Model V2 contract plus the bundled, inactive diagnostic Model V1 contract. `ACTIVE_MODEL_ID` selects the V2 model the live classifier loads; it is not the Guard switch. The required Guard V1 presence gate is defined separately by `src/features/detection/constants/guardContract.ts` and runs before V2. Model-layer functions also accept an explicit contract.
 
 Active model:
 
@@ -393,7 +395,7 @@ Confidence cautions are selected by each result or saved record's stored `modelV
 
 Bundled but not active: Model V1 (`assets/models/caneguard_v1_mobilenetv2_float32.tflite`) outputs four classes in `healthy`, `mosaic`, `rust`, `smut` order with padding `127.5`. The V1 `MODEL_*` constants, V1 QA oracle, and V1 confidence-caution artifact keep that V1 meaning; `ModelLabel` covers all V2 result labels. The developer `model-debug` and `model-smoke-test` routes pin it explicitly rather than following `ACTIVE_MODEL_ID`.
 
-Treat `modelContract.ts`, the bundled artifacts, labels, parity fixtures, preprocessing, and model tests as one compatibility surface.
+Treat each model contract, its bundled artifact, labels, parity fixtures, preprocessing, and model tests as one compatibility surface. The Guard V1 surface is owned by `guardContract.ts` and the Guard-specific implementation notes; the V2 classifier surface remains owned by `modelContract.ts` and the model contract section above.
 
 ### Local database
 

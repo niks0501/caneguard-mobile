@@ -109,6 +109,7 @@
     ],
     "moduleNameMapper": {
       "\\.css$": "<rootDir>/test/__mocks__/fileMock.js",
+      "caneguard_guard_v1_float32\\.tflite$": "<rootDir>/test/__mocks__/guardModelAsset.js",
       "\\.tflite$": "<rootDir>/test/__mocks__/fileMock.js"
     },
     "resolver": "react-native-reanimated/jest/resolver"

@@ -10,9 +10,10 @@ import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { SCAN_CHECK_COPY } from '@/constants/copy';
+import { GUARD_COPY, SCAN_CHECK_COPY } from '@/constants/copy';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { useScanAnalysis } from '@/features/detection/analysis/useScanAnalysis';
+import { isGuardedResult } from '@/features/detection/constants/guardContract';
 import {
   GUIDED_VALIDATION_QUESTIONS,
   type ChecklistObservationId,
@@ -48,7 +49,16 @@ export default function SymptomChecklistScreen() {
     () => state.selectedSymptoms[0] ?? null,
   );
   const [replacing, setReplacing] = useState(false);
-  const { modelState, checkState, isChecking, isReady, photoFailedCheck } = useScanAnalysis(replacing);
+  const {
+    modelState,
+    guardState,
+    guardError,
+    guardRejected,
+    checkState,
+    isChecking,
+    isReady,
+    photoFailedCheck,
+  } = useScanAnalysis(replacing);
   const [replacementNotice, setReplacementNotice] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const isMounted = useRef(true);
@@ -195,11 +205,19 @@ export default function SymptomChecklistScreen() {
 
   const modelError =
     modelState.state === 'error' ? getInferenceErrorMessage(modelState.error) : null;
+  const completedGuardedResult =
+    state.status === 'completed' && state.result !== null && isGuardedResult(state.result);
+  const activeGuardError = completedGuardedResult ? null : guardError;
+  const activeModelError = completedGuardedResult ? null : modelError;
   const photoRejected = checkState === 'photo-rejected';
-  const statusText = photoRejected
+  const statusText = guardRejected
+    ? GUARD_COPY.rejectedStatus
+    : photoRejected
     ? SCAN_CHECK_COPY.notAnalysed
-    : modelError
-      ? modelError
+    : activeGuardError
+      ? activeGuardError
+      : activeModelError
+      ? activeModelError
       : state.status === 'error'
         ? (state.errorMessage ?? SCAN_CHECK_COPY.checking)
         : isReady
@@ -234,7 +252,12 @@ export default function SymptomChecklistScreen() {
               <View style={styles.statusCopy} accessibilityLiveRegion="polite">
                 <View style={styles.statusHeading}>
                   {isChecking ||
-                  (!isReady && !photoRejected && state.status !== 'error' && !modelError) ? (
+                  (!isReady &&
+                    !photoRejected &&
+                    !guardRejected &&
+                    state.status !== 'error' &&
+                    !activeModelError &&
+                    !activeGuardError) ? (
                     <ActivityIndicator
                       accessibilityLabel={SCAN_CHECK_COPY.checking}
                       color={theme.primary}
@@ -243,7 +266,7 @@ export default function SymptomChecklistScreen() {
                   <Text
                     testID="scan.check-status"
                     style={[styles.statusTitle, { color: theme.primaryDark }]}>
-                    {isReady || photoRejected ? SCAN_CHECK_COPY.checkedTitle : SCAN_CHECK_COPY.checking}
+                    {isReady || photoRejected || guardRejected ? SCAN_CHECK_COPY.checkedTitle : SCAN_CHECK_COPY.checking}
                   </Text>
                 </View>
                 <Text style={[styles.helperText, { color: theme.textSecondary }]}>
@@ -252,23 +275,25 @@ export default function SymptomChecklistScreen() {
               </View>
             </View>
 
-            {photoFailedCheck ? (
+            {photoFailedCheck || guardRejected ? (
               <View
-                testID="scan.photo-failed-check"
+                testID={guardRejected ? 'scan.guard-rejected' : 'scan.photo-failed-check'}
                 style={[
                   styles.failedCard,
                   { backgroundColor: theme.warningBg, borderColor: theme.warning },
                 ]}>
                 <Text style={[styles.statusTitle, { color: theme.warning }]}>
-                  {SCAN_CHECK_COPY.failedTitle}
+                  {guardRejected ? GUARD_COPY.rejectedTitle : SCAN_CHECK_COPY.failedTitle}
                 </Text>
-                {(state.qualityAssessment?.warnings ?? []).map((warning) => (
-                  <Text key={warning} style={[styles.helperText, { color: theme.text }]}>
-                    {getQualityWarningMessage(warning)}
-                  </Text>
-                ))}
+                {guardRejected
+                  ? null
+                  : (state.qualityAssessment?.warnings ?? []).map((warning) => (
+                      <Text key={warning} style={[styles.helperText, { color: theme.text }]}>
+                        {getQualityWarningMessage(warning)}
+                      </Text>
+                    ))}
                 <Text style={[styles.helperText, { color: theme.textSecondary }]}>
-                  {SCAN_CHECK_COPY.failedHint}
+                  {guardRejected ? GUARD_COPY.rejectedHint : SCAN_CHECK_COPY.failedHint}
                 </Text>
                 <AppButton
                   testID="scan.retake-camera"
@@ -305,9 +330,9 @@ export default function SymptomChecklistScreen() {
               </Text>
             ) : null}
 
-            {state.status === 'error' || modelState.state === 'error' ? (
+            {state.status === 'error' || activeModelError || activeGuardError ? (
               <View style={styles.recoveryActions}>
-                {modelState.state === 'error' && modelState.errorKind === 'load' ? (
+                {activeModelError && modelState.state === 'error' && modelState.errorKind === 'load' ? (
                   <AppButton
                     testID="scan.retry-model"
                     variant="secondary"
@@ -317,7 +342,17 @@ export default function SymptomChecklistScreen() {
                     {isFarmer ? farmer.retrySetup : 'Retry analysis setup'}
                   </AppButton>
                 ) : null}
-                {state.status === 'error' ? (
+                {activeGuardError && guardState.state === 'error' && guardState.errorKind === 'load' ? (
+                  <AppButton
+                    testID="scan.retry-guard"
+                    variant="secondary"
+                    onPress={guardState.retry}
+                    leadingIcon="refresh-cw"
+                    accessibilityLabel="Retry the photo check setup">
+                    {SCAN_CHECK_COPY.tryAgain}
+                  </AppButton>
+                ) : null}
+                {state.status === 'error' && !guardRejected ? (
                   <AppButton
                     testID="scan.try-again"
                     variant="secondary"

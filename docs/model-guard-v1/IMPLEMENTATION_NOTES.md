@@ -19,7 +19,7 @@ photo (camera or gallery) -> V2 letterbox + quality gate (unchanged)
 | Decision rule, fail-closed output reader, errors | `model/guardInference.ts` |
 | Loader: SHA-256 pin check, then tensor-metadata check (web always fails closed) | `model/guardArtifact.ts`, `useGuardModel.tsx`, `.web.tsx`, `validateGuardContract.ts` |
 | Exclusive native invocation (no overlap, outputs copied) | `model/exclusiveRun.ts` |
-| Direct-resize tensor: in-memory JS decode, EXIF orient, bilinear resize, opaque alpha only (602112 bytes, no scratch file) | `preprocessing/guardPreprocess.ts`, `decodePng.ts` |
+| Direct-resize tensor: JPEG/PNG in-memory JS decode, EXIF orient, bilinear resize, opaque alpha only (602112 bytes); WebP uses the documented conversion path | `preprocessing/guardPreprocess.ts`, `decodePng.ts` |
 | Gate, run tokens, stale photo/owner protection | `analysis/useScanAnalysis.ts` |
 | Failure state; resumed drafts and records require the marker | `scanSessionReducer.ts`, `scanCheckState.ts`, `scanDraftCheckpoint.ts`, `recordValidation.ts` |
 | Copy / UI | `GUARD_COPY` in `src/constants/copy.ts`, `src/app/symptom-checklist.tsx` |

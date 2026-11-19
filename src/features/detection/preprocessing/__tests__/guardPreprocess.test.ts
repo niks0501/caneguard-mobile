@@ -23,6 +23,10 @@ jest.mock('expo-image-manipulator', () => ({
   SaveFormat: { JPEG: 'jpeg' },
 }));
 const mockManipulate = manipulateAsync as jest.MockedFunction<typeof manipulateAsync>;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { PNG } = require('pngjs') as {
+  PNG: { sync: { write(value: { data: Uint8Array; width: number; height: number }): Buffer } };
+};
 const GUARD_FIXTURES = join(process.cwd(), 'qa/guard-v1');
 
 const QUADRANTS = {
@@ -60,9 +64,6 @@ function quadrantSource(width: number, height: number): Uint8Array {
 }
 
 function pngBytes(rgba: Uint8Array, width: number, height: number): ArrayBuffer {
-  const { PNG } = require('pngjs') as {
-    PNG: { sync: { write(value: { data: Uint8Array; width: number; height: number }): Buffer } };
-  };
   const bytes = PNG.sync.write({ data: rgba, width, height });
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
@@ -173,9 +174,6 @@ describe('preprocessGuardImage', () => {
   });
 
   it('rejects transparent source PNG pixels before resizing', async () => {
-    const { PNG } = require('pngjs') as {
-      PNG: { sync: { write(value: { data: Uint8Array; width: number; height: number }): Buffer } };
-    };
     const bytes = PNG.sync.write({ data: Uint8Array.from([20, 30, 40, 0]), width: 1, height: 1 });
     mockArrayBuffer.mockResolvedValueOnce(
       bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,

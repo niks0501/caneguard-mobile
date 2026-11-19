@@ -48,6 +48,7 @@ jest.mock('expo-crypto', () => ({
   randomUUID: jest.fn(() => '00000000-0000-4000-8000-000000000001'),
 }));
 jest.mock('@/features/auth/providers/AuthProvider', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   AuthContext: require('react').createContext(null),
 }));
 jest.mock('@/database/DatabaseProvider', () => ({
@@ -101,10 +102,12 @@ function fixtureRgba(width: number, height: number, dark: boolean): Uint8Array {
   return rgba;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { PNG } = require('pngjs') as {
+  PNG: { sync: { write(value: { data: Uint8Array; width: number; height: number }): Buffer } };
+};
+
 function fixturePng(width: number, height: number, dark: boolean): string {
-  const { PNG } = require('pngjs') as {
-    PNG: { sync: { write(value: { data: Uint8Array; width: number; height: number }): Buffer } };
-  };
   return PNG.sync.write({ data: fixtureRgba(width, height, dark), width, height }).toString('base64');
 }
 

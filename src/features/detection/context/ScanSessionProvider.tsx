@@ -203,19 +203,20 @@ function ScanSessionOwner({
   }, []);
 
   useEffect(() => {
+    const waiters = appActiveWaiters.current;
     const subscription = AppState.addEventListener('change', (nextState) => {
       const nextActive = nextState !== 'background';
       appActiveRef.current = nextActive;
       setAppActive(nextActive);
       if (nextActive) {
-        for (const resolve of appActiveWaiters.current) resolve();
-        appActiveWaiters.current.clear();
+        for (const resolve of waiters) resolve();
+        waiters.clear();
       }
     });
     return () => {
       subscription.remove();
-      for (const resolve of appActiveWaiters.current) resolve();
-      appActiveWaiters.current.clear();
+      for (const resolve of waiters) resolve();
+      waiters.clear();
     };
   }, []);
 

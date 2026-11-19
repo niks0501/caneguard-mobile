@@ -5,9 +5,9 @@ Always (standard library only): pinned SHA-256, TFL3 marker and real tensor meta
 (one float32 [1,224,224,3] input, one float32 [1,1] output; tensor names are read from
 the model, never assumed).
 
-When numpy, Pillow and a TFLite interpreter (ai_edge_litert, tflite_runtime or
-tensorflow) are installed: real CPU inference on the self-created fixtures in
-qa/guard-v1/, preprocessed by an independent pipeline (EXIF transpose, then bilinear
+When numpy, Pillow and ai-edge-litert are installed: real CPU inference on the
+self-created fixtures in qa/guard-v1/, preprocessed by an independent pipeline
+(EXIF transpose, then bilinear
 direct stretch to 224x224, raw 0..255 RGB). Fixture decisions must satisfy the
 contract threshold, the EXIF-rotated fixture must differ strongly without the transpose,
 and a double-normalised input must not reproduce the accept behavior.

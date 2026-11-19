@@ -1,6 +1,6 @@
 # CaneGuard Guard V1 — experimental model card
 
-**Status:** Experimental capstone model. Public source release is being prepared at the project owner's request. Not independently field validated. Source permissions are documented separately and not all confirmed.
+**Status:** Experimental capstone model bundled in the public source release at the project owner's request. Not independently field validated. Source permissions are documented separately and not all confirmed.
 
 ## Intended use
 

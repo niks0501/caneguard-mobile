@@ -178,6 +178,7 @@ export function useScanAnalysis(replacing = false) {
     draft,
     generation,
     key,
+    photoHasWarnings,
     qualityAssessment,
     result,
     sourceHeight,

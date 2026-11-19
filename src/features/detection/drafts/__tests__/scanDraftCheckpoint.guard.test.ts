@@ -1,4 +1,21 @@
-import { parseScanDraftCheckpoint } from '@/features/detection/drafts/scanDraftCheckpoint';
+import {
+  deleteScanDraftCheckpoint,
+  parseScanDraftCheckpoint,
+} from '@/features/detection/drafts/scanDraftCheckpoint';
+
+const mockDeleteLocalDraft = jest.fn();
+const mockReadLocalDraft = jest.fn();
+const mockDeleteManagedScanImage = jest.fn();
+
+jest.mock('@/database/localDraftRepository', () => ({
+  deleteLocalDraft: (...args: unknown[]) => mockDeleteLocalDraft(...args),
+  readLocalDraft: (...args: unknown[]) => mockReadLocalDraft(...args),
+}));
+jest.mock('@/features/records/services/scanImageStorage', () => ({
+  deleteManagedScanImage: (...args: unknown[]) => mockDeleteManagedScanImage(...args),
+  isManagedScanImageUri: () => true,
+  managedImageExists: () => true,
+}));
 
 const OWNER = 'owner-1';
 const checkpoint = (guardModelId: unknown) => ({
@@ -17,13 +34,12 @@ const checkpoint = (guardModelId: unknown) => ({
   },
 });
 
-jest.mock('@/features/records/services/scanImageStorage', () => ({
-  deleteManagedScanImage: jest.fn(),
-  isManagedScanImageUri: () => true,
-  managedImageExists: () => true,
-}));
-
 describe('resumed scan drafts and the guard marker', () => {
+  beforeEach(() => {
+    mockDeleteLocalDraft.mockReset();
+    mockReadLocalDraft.mockReset();
+    mockDeleteManagedScanImage.mockReset();
+  });
   // Proves: a guard-accepted completed draft resumes as completed.
   it('keeps a guarded completed result', () => {
     const parsed = parseScanDraftCheckpoint(checkpoint('caneguard_guard_v1'), OWNER);
@@ -38,5 +54,25 @@ describe('resumed scan drafts and the guard marker', () => {
     expect(parsed?.status).toBe('image-selected');
     expect(parsed?.result).toBeNull();
     expect(parsed?.selectedSymptoms).toEqual(['rust']);
+  });
+
+  it('removes the checkpoint row before deleting its managed image', () => {
+    const events: string[] = [];
+    mockReadLocalDraft.mockReturnValue({ payload: checkpoint('caneguard_guard_v1') });
+    mockDeleteLocalDraft.mockImplementation(() => events.push('row'));
+    mockDeleteManagedScanImage.mockImplementation(() => events.push('image'));
+
+    expect(deleteScanDraftCheckpoint({} as never, OWNER)).toBe(true);
+    expect(events).toEqual(['row', 'image']);
+  });
+
+  it('keeps the image when the checkpoint row cannot be deleted', () => {
+    mockReadLocalDraft.mockReturnValue({ payload: checkpoint('caneguard_guard_v1') });
+    mockDeleteLocalDraft.mockImplementation(() => {
+      throw new Error('database unavailable');
+    });
+
+    expect(() => deleteScanDraftCheckpoint({} as never, OWNER)).toThrow();
+    expect(mockDeleteManagedScanImage).not.toHaveBeenCalled();
   });
 });

@@ -43,7 +43,7 @@ Device, emulator, ADB, Agent Device, and staging checks run whenever the tier or
 Guard V1 is a required, bundled sugarcane-presence gate in front of V2 (see `docs/model-guard-v1/IMPLEMENTATION_NOTES.md`). Its detection/inference files are T3.
 
 - Targeted tests: `npm test -- --runInBand src/features/detection/analysis src/features/detection/model/__tests__ src/features/detection/preprocessing/__tests__/guardPreprocess.test.ts src/app/__tests__/symptom-checklist.guard.test.tsx`. The TFLite runtime is mocked.
-- Real binary behavioral oracle: `python3 scripts/verify_guard_v1_assets.py` and `python3 scripts/tests/test_guard_v1_model.py` (needs `pip install numpy pillow ai-edge-litert`; a skipped oracle fails `guardModelAsset.test.ts`; CI installs the packages).
+- Real binary behavioral oracle: `python3 scripts/verify_guard_v1_assets.py` and `python3 scripts/tests/test_guard_v1_model.py` (needs `pip install numpy pillow ai-edge-litert`; CI invokes it explicitly after the package-independent Jest suite).
 - Then `npm run verify:fast && npm run db:check`. Real Android camera/gallery, offline and latency/memory checks are a captain-run manual step (checklist in the notes).
 
 ## Manual verification

@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { GUARD_V1 } from '@/features/detection/constants/guardContract';
 import { manipulateAsync } from 'expo-image-manipulator';
 import { encode } from 'jpeg-js';
@@ -20,6 +23,7 @@ jest.mock('expo-image-manipulator', () => ({
   SaveFormat: { JPEG: 'jpeg' },
 }));
 const mockManipulate = manipulateAsync as jest.MockedFunction<typeof manipulateAsync>;
+const GUARD_FIXTURES = join(process.cwd(), 'qa/guard-v1');
 
 const QUADRANTS = {
   topLeft: [220, 30, 30],
@@ -130,6 +134,25 @@ describe('preprocessGuardImage', () => {
     const tensor = new Float32Array(await preprocessGuardImage('content://oriented-png'));
     expect(pixel(tensor, 0, 0)).toEqual([220, 30, 30]);
     expect(pixel(tensor, 0, 223)).toEqual([30, 40, 220]);
+  });
+
+  it('applies JPEG EXIF orientation to the real Guard fixture', async () => {
+    const upright = readFileSync(join(GUARD_FIXTURES, 'cane-like-accept.jpg'));
+    const rotated = readFileSync(join(GUARD_FIXTURES, 'cane-like-exif-rotated.jpg'));
+    const toArrayBuffer = (bytes: Buffer): ArrayBuffer =>
+      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    mockArrayBuffer
+      .mockResolvedValueOnce(toArrayBuffer(upright))
+      .mockResolvedValueOnce(toArrayBuffer(rotated));
+
+    const uprightTensor = new Float32Array(await preprocessGuardImage('content://upright.jpg'));
+    const rotatedTensor = new Float32Array(await preprocessGuardImage('content://rotated.jpg'));
+    const meanAbsoluteDifference = uprightTensor.reduce(
+      (sum, value, index) => sum + Math.abs(value - rotatedTensor[index]),
+      0,
+    ) / uprightTensor.length;
+
+    expect(meanAbsoluteDifference).toBeLessThan(12);
   });
 
   it('rejects transparent source PNG pixels before resizing', async () => {

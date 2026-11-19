@@ -286,6 +286,9 @@ describe('guarded scan: accepted photo', () => {
   it.each<ScanSourceType>(['camera', 'gallery'])(
     'runs the guard once then V2 once for a %s photo',
     async (sourceType) => {
+      const expectedGuardInput = new ArrayBuffer(GUARD_V1.inputByteLength);
+      new Float32Array(expectedGuardInput).set([17, 29, 43]);
+      jest.mocked(preprocessGuardImage).mockResolvedValueOnce(expectedGuardInput);
       await mount();
       await select('file:///leaf.jpg', sourceType);
       await waitFor(() => expect(latest.state.status).toBe('completed'));
@@ -293,6 +296,8 @@ describe('guarded scan: accepted photo', () => {
       expect(mockGuard.run).toHaveBeenCalledTimes(1);
       expect(mockV2.run).toHaveBeenCalledTimes(1);
       const guardInput = mockGuard.run.mock.calls[0][0][0] as ArrayBuffer;
+      expect(preprocessGuardImage).toHaveBeenCalledWith('file:///leaf.jpg');
+      expect(guardInput).toBe(expectedGuardInput);
       expect(guardInput.byteLength).toBe(GUARD_V1.inputByteLength);
       // The V2 letterbox tensor is its own buffer, never handed to the guard.
       expect(mockV2.run.mock.calls[0][0][0]).not.toBe(guardInput);

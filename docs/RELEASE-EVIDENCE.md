@@ -9,48 +9,58 @@ a browser, mock, or fixture.
 | Field | Value |
 | --- | --- |
 | Repository | `caneguard-mobile` |
-| Branch | `fm/cg-mobile-ux-build-20261023` |
-| Candidate commit | `c21f701fa4922b2dc75b79cac0c51eef7a858560` — the revision this evidence table was produced on. Review fixes and any other commit after it are separate revisions: re-run the commands below and re-stamp this file before calling any of them a candidate |
-| Audit source | `data/cg-mobile-ux-audit-20261023/report.md` (16 findings) |
+| Branch | `fm/cg-guard-promote-main-20261119` |
+| Verified commit | `a9c22b50428e0d2e42b8ca34a0fc8112373e4465` — the revision the pipeline test phase verified. Commit `0bc60ba` and later commits on this branch change documentation and test isolation only; re-run the commands below and re-stamp this file before calling any later revision verified |
+| Change | Guard V1 sugarcane-presence gate promoted into the main scan flow (integration PR #292) |
 
-## Decision: native device verification skipped
+## Verification scope for this candidate
 
-On the captain's word, the phone is not attached, so **native device
-verification is explicitly skipped for this candidate — not parked**.
-This is a recorded release-evidence gap, not a pass. Nothing in this repository
-may describe a browser check, a mocked module, or a TFLite fixture as native
-inference, biometric, permission, or persistence proof.
-The Expo Web checks above therefore cover layout, wording, and navigation only;
-the web runtime uses a different SQLite/session implementation from Android.
+Native verification ran inside this candidate's no-mistakes pipeline test phase,
+web first and then on the attached phone. The phone ran the already installed
+development client reused over Metro: the change has no native-affecting diff, so
+the runbook's reuse path applied and no APK was rebuilt. A local
+`./gradlew :app:assembleDebug` was not possible in this environment — the Android
+SDK here has `platform-tools` only (no `gradle`, no `sdkmanager`) and the
+repository has no `android/` project.
 
-The alternative evidence below was requested by the captain for this candidate.
+Evidence artifacts of that phase, by name in the pipeline's evidence record:
+`r3-live-acceptance.log`, `r4-web-first-phone-recheck.log`, `r3-web-validate.log`,
+`r3-device-availability-and-scope.log`, `r3-device-0*.png`,
+`r3-caneguard-*.db`, `guard-checks.log`, `oracle-verify.log`, `oracle-model.log`.
 
-## Alternative evidence collected
+Nothing in this repository may describe a browser check, a mocked module, or a
+TFLite fixture as native inference, biometric, permission, or persistence proof.
+
+## Evidence collected
 
 | Evidence | How to reproduce | Status |
 | --- | --- | --- |
-| Full Jest / React Native Testing Library suite | `npm test -- --runInBand` | **PASS** on `c21f701` — 154 suites, 1,335 tests |
-| Type check | `npm run typecheck` (`tsc --noEmit`) | **PASS** on `c21f701`, no diagnostics |
-| Lint | `npm run lint` (Expo lint) | **PASS** on `c21f701`, no errors or warnings |
-| Database migration check | `npm run db:check` | **PASS** on `c21f701`, additive `0020` migration only |
-| Expo Web rendering checks with screenshots for user-visible flows | `npx expo start --web` behind a temporary COOP/COEP proxy; screenshots in the task data directory | **PASS for the public flows**: login (including the password-only restart limit), register, forgot-password, field-guide index, and the Healthy/Mosaic/Rust/Smut entries. **Not covered in a browser**: authenticated screens. The web dev server's synchronous SQLite bridge (`expo-sqlite` web worker) timed out in this environment, and no live API session was available, so scan/report/visit/settings screens were exercised by RNTL tests only. SPA output mode and verbose DB logging were temporary local overrides and were reverted before commit. |
-| Host-level TFLite tensor-shape fixture | `npm test -- --runInBand src/features/detection/model/__tests__/modelAsset.contract.test.ts` | **PASS** — parses the bundled FlatBuffer on the host and asserts one float32 input `[1,224,224,3]` and one float32 output `[1,4]`, then feeds those names/shapes through `validateModelContract` |
-| Static contract assertions | `npm test -- --runInBand src/features/detection/model/__tests__/validateModelContract.test.ts src/features/sync/mappers/__tests__/reportMultipartMapper.contract.test.ts` | **PASS** |
+| Full Jest / React Native Testing Library suite | `npm test -- --runInBand` | **Not run** in this candidate's pipeline test phase: only the configured pipeline test file and the targeted guard suites ran. CI's `verify:fast` job runs the full suite on the promoted revision |
+| Configured pipeline test | `npm test -- --runInBand src/features/sync/services/__tests__/syncFieldReport.test.ts` | **PASS** on `a9c22b5` — 1 suite, 9 tests |
+| Targeted guard suites | `npm test -- --runInBand src/features/detection/analysis src/features/detection/model/__tests__ src/features/detection/preprocessing/__tests__/guardPreprocess.test.ts src/app/__tests__/symptom-checklist.guard.test.tsx` | **PASS** on `a9c22b5` — 17 suites, 142 tests (the TFLite runtime is mocked, so this is workflow evidence, not inference proof) |
+| Type check | `npm run typecheck` (`tsc --noEmit`) | **PASS** on `0bc60ba`, no diagnostics |
+| Lint | `npm run lint` (Expo lint) | **PASS** on `0bc60ba` over the changed `src/` paths, no findings |
+| Database migration check | `npm run db:check` | **PASS** on `0bc60ba` |
+| Guard asset verifier | `python3 scripts/verify_guard_v1_assets.py` | **PASS** on `a9c22b5` — pinned SHA-256, checksums and frozen contract verified for `assets/models/caneguard_guard_v1_float32.tflite` (5,441,252 bytes) |
+| Guard real-binary oracle | `python3 scripts/tests/test_guard_v1_model.py` | **PASS** on `a9c22b5` — 7 tests: real tensor ABI, real CPU inference, numeric goldens (accept 0.980837, EXIF-rotated 0.979495 against 0.259 with orientation dropped, reject 0.113288), arrangement and double-normalization checks |
+| Expo Web guarded scan, fail-closed | `npm run web:validate` (stub API on `:8210`, web dev server on `:8199`), open `/login`, `farmer@validation.invalid`, choose a photo on `/scan` | **PASS** — the photo reaches `/symptom-checklist` with "The sugarcane photo check is not available on this phone, so scans are paused…" and **Continue to analysis result** stays disabled, so no result is reachable. The web bundle has no native Guard runtime by design; a 320×240 upload shows the photo-quality rejection first, which keeps precedence over the unavailable-model message |
+| Phone: guarded scan accepted | Gallery photos on the attached phone (`AYAUFIN76LEYR46X`, `2311DRK48G`; app `com.niks0501.caneguard` 2.2.1 installed 2026-11-15, Metro on `:8081`, stub API on `:8210`) | **PASS** — a 1024×768 cane fixture and the real field photo `dev-assets/model-fixtures/v1-smut.jpg` (3000×4000) both passed Guard and reached a V2 result; the persisted `scan_class_scores` row carries all five labels (smut 0.9823, rssi 0.0142, rust 0.0018, healthy 0.0017, mosaic 0.0001) |
+| Phone: non-sugarcane photo rejected | Same app, gallery | **PASS for the gate** — "This does not look like sugarcane", **Continue to analysis result** absent, `scan_records` unchanged (0). The input was a synthetic high-contrast image, not a photograph of a non-sugarcane plant, because no such photograph exists in the repository and the device camera is unusable |
+| Phone: airplane mode repeat | `adb shell cmd connectivity airplane-mode enable`, `adb reverse --remove tcp:8210` | **PASS** — the accepted photo still produced a result and the rejected photo still showed the retake message, with no new saved record |
+| Phone: EXIF-rotated portrait | `qa/guard-v1/cane-like-exif-rotated.jpg` (Orientation=8), upscaled to 768×1024 with its original APP1 segment re-attached | **PASS** — accepted and reached V2; the oracle scores the same content 0.979 upright against 0.259 with orientation dropped, so the accept is only reachable with EXIF applied |
+| Phone: per-scan latency and memory | `scan_records` timings and `dumpsys meminfo` after four scans | **PASS (recorded)** — `inference_ms` 113.0 / `total_ms` 395.1 for the EXIF run and `inference_ms` 150.6 / `total_ms` 758.2 for the real gallery photo; TOTAL PSS ≈ 1007 MB with the development client over Metro, which includes dev tooling |
 
 ## Required native / cross-system outcomes
 
-Every outcome below needs a device or a live Mobile → API → Web → Mobile
-journey. None of them is evidenced for this candidate.
+Every outcome below needs a device or a live Mobile → API → Web → Mobile journey.
 
 | Outcome | Status | Owner | Consequence |
 | --- | --- | --- | --- |
-| Offline cold start with a biometric-protected session | Explicitly skipped (captain's word) | Release owner | Offline restart remains unproven on the release candidate; the readiness check only reflects configured state |
-| Android picker interruption and pending-result recovery | Explicitly skipped | Release owner | Recovery is best-effort and remains unproven on hardware |
-| Native inference on the bundled Model V1 asset | Explicitly skipped | Release owner | Host shape fixtures and static contract checks do not prove runtime inference |
-| Camera and location permission denial on device | Explicitly skipped | Release owner | UI copy and mocked branches are tested; OS behaviour is unproven |
-| Process-restart persistence of scan, report and visit drafts | Explicitly skipped | Release owner | Checkpoint persistence is covered by repository/component tests, not OS termination |
-| Upload → office review → status return | Explicitly skipped | Release owner | The round trip against a live API/Web pair is unproven for this candidate |
-| Clear-data preview and permanent removal on a real device | Explicitly skipped | Release owner | Count preview, re-check and refusal paths are covered by database tests only |
+| Guard-gated scan accept on hardware | **PASS** on `a9c22b5` (gallery path) | Release owner | Guard, V2 and save/report gating are proven on this phone for gallery photos |
+| Guard rejection on hardware | **PASS** on `a9c22b5` (synthetic non-sugarcane image) | Release owner | A rejection blocks the result and the save; a real non-sugarcane photograph was not scored |
+| Camera-originated capture | **NOT TESTED** — the rear viewfinder returned an all-black frame and the front viewfinder a near-black scene, so the captured frame failed the photo-quality gate | Release owner | The camera path is unproven on this phone; gallery capture is the substitute path used above |
+| Offline repeat, EXIF orientation, latency and memory on device | **PASS** on `a9c22b5` (see the evidence table) | Release owner | Airplane-mode scans and EXIF handling are proven on this phone; preparation time for oversized photos and offline sync/recovery journeys were not measured |
+| Offline cold start with a biometric-protected session, Android picker interruption recovery, camera and location permission denial, process-restart persistence of scan/report/visit drafts, upload → office review → status return, clear-data preview and permanent removal | **Not re-verified** for this candidate | Release owner | Each remains unproven on this candidate; earlier candidate-era results do not transfer, and repository or component tests do not replace the OS or live-service journey |
 
 ## Standing rules
 

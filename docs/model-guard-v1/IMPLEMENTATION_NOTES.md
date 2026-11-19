@@ -59,7 +59,7 @@ Run web acceptance first, then the native journeys on the attached phone through
 3. Non-sugarcane photos (desk, face, grass, banana): "does not look like sugarcane", no result, no Continue, no saved scan; retake works.
 4. Airplane mode: repeat 2 and 3.
 5. Rotate-photo check: a portrait photo taken with the phone sideways still accepted (EXIF).
-6. Record latency and memory on device (not measured here; host CPU is about 5 ms).
+6. Record latency and memory on device (host CPU is about 5 ms; the device timings of the promotion pass are recorded in `docs/RELEASE-EVIDENCE.md`).
 
 ## Rollback
 
@@ -70,5 +70,5 @@ Revert this branch's commits. V2 files and weights were not modified.
 - No independent field validation; 36-image visual sample; internal-test false acceptance 6.75% (grass/weeds, banana, trees).
 - Image-level rights for the online-collected positive photographs are not individually established; the captain accepted this for the production release (`DATASET_LICENSES.md`), and public APK artifacts embed the model.
 - Guard preprocessing decodes source JPEG/PNG in JavaScript (no scratch file), applies EXIF orientation, then bilinearly stretches once to the Guard input. Photos above 24 MP, or past the bounded PNG/JPEG decoder memory and total working-set limits, are refused with a smaller-photo prompt; WebP uses full-resolution platform conversion without resizing. Large-photo preparation remains untimed on device.
-- Real-device Android inference, EXIF handling and bilinear parity are unverified by the worker.
+- Real-device Android inference and EXIF handling were exercised only by this promotion's pipeline device pass (gallery photos only; the test phone's viewfinder returned black frames), and bilinear parity against the host goldens was not checked on device. The recorded device evidence and remaining gaps live in `docs/RELEASE-EVIDENCE.md`.
 - The guard and V2 share one native-call queue, so scans are strictly serial.

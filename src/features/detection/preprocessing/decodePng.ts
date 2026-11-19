@@ -46,6 +46,12 @@ const CODE_LENGTH_ORDER = [
 
 type Huffman = { counts: number[]; symbols: number[] };
 
+type PngTransparency = {
+  gray: number | null;
+  rgb: readonly [number, number, number] | null;
+  palette: Uint8Array | null;
+};
+
 function buildHuffman(lengths: readonly number[]): Huffman {
   const counts = new Array<number>(16).fill(0);
   for (const length of lengths) {
@@ -298,15 +304,23 @@ function unfilterRows(raw: Uint8Array, offset: number, rowBytes: number, rows: n
   return { pixels, nextOffset: offset };
 }
 
-function sample(row: Uint8Array, x: number, channel: number, channels: number, bitDepth: number): number {
+function rawSample(row: Uint8Array, x: number, channel: number, channels: number, bitDepth: number): number {
   if (bitDepth === 8) return row[x * channels + channel];
   if (bitDepth === 16) {
     const index = (x * channels + channel) * 2;
-    return Math.round(((row[index] << 8) | row[index + 1]) * 255 / 65535);
+    return (row[index] << 8) | row[index + 1];
   }
   const bit = (x * channels + channel) * bitDepth;
-  const value = (row[bit >> 3] >> (8 - bitDepth - (bit & 7))) & ((1 << bitDepth) - 1);
-  return Math.round(value * 255 / ((1 << bitDepth) - 1));
+  return (row[bit >> 3] >> (8 - bitDepth - (bit & 7))) & ((1 << bitDepth) - 1);
+}
+
+function sample(row: Uint8Array, x: number, channel: number, channels: number, bitDepth: number): number {
+  const value = rawSample(row, x, channel, channels, bitDepth);
+  return bitDepth === 16
+    ? Math.round(value * 255 / 65535)
+    : bitDepth === 8
+      ? value
+      : Math.round(value * 255 / ((1 << bitDepth) - 1));
 }
 
 function writePixel(
@@ -318,23 +332,33 @@ function writePixel(
   bitDepth: number,
   channels: number,
   palette: Uint8Array | null,
+  transparency: PngTransparency,
 ): void {
   let red: number;
   let green: number;
   let blue: number;
   let alpha = 255;
   if (colorType === 0) {
+    const gray = rawSample(row, x, 0, channels, bitDepth);
     red = green = blue = sample(row, x, 0, channels, bitDepth);
+    if (transparency.gray !== null && gray === transparency.gray) alpha = 0;
   } else if (colorType === 2) {
+    const rawRed = rawSample(row, x, 0, channels, bitDepth);
+    const rawGreen = rawSample(row, x, 1, channels, bitDepth);
+    const rawBlue = rawSample(row, x, 2, channels, bitDepth);
     red = sample(row, x, 0, channels, bitDepth);
     green = sample(row, x, 1, channels, bitDepth);
     blue = sample(row, x, 2, channels, bitDepth);
+    if (transparency.rgb && rawRed === transparency.rgb[0] && rawGreen === transparency.rgb[1] && rawBlue === transparency.rgb[2]) {
+      alpha = 0;
+    }
   } else if (colorType === 3) {
-    const index = bitDepth === 8 ? row[x] : Math.round(sample(row, x, 0, 1, bitDepth) * ((1 << bitDepth) - 1) / 255);
+    const index = rawSample(row, x, 0, 1, bitDepth);
     if (!palette || index * 3 + 2 >= palette.length) fail('PNG palette index is out of range.');
     red = palette[index * 3];
     green = palette[index * 3 + 1];
     blue = palette[index * 3 + 2];
+    if (transparency.palette && index < transparency.palette.length) alpha = transparency.palette[index];
   } else if (colorType === 4) {
     red = green = blue = sample(row, x, 0, channels, bitDepth);
     alpha = sample(row, x, 1, channels, bitDepth);
@@ -363,7 +387,7 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
   let interlace = 0;
   let palette: Uint8Array | null = null;
   let orientation = 1;
-  let hasTransparencyChunk = false;
+  const transparency: PngTransparency = { gray: null, rgb: null, palette: null };
   const idat: Uint8Array[] = [];
   let offset = 8;
 
@@ -395,7 +419,19 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
     } else if (type === 'IDAT') {
       idat.push(data);
     } else if (type === 'tRNS') {
-      hasTransparencyChunk = true;
+      if (colorType === 0 && length === 2) {
+        transparency.gray = (data[0] << 8) | data[1];
+      } else if (colorType === 2 && length === 6) {
+        transparency.rgb = [
+          (data[0] << 8) | data[1],
+          (data[2] << 8) | data[3],
+          (data[4] << 8) | data[5],
+        ];
+      } else if (colorType === 3 && length <= 256) {
+        transparency.palette = data;
+      } else {
+        fail('Invalid PNG transparency data.');
+      }
     } else if (type === 'eXIf') {
       const hasExifHeader = data.length >= 6 &&
         data[0] === 0x45 && data[1] === 0x78 && data[2] === 0x69 &&
@@ -409,7 +445,6 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
   const channels = channelsFor(colorType);
   if (width <= 0 || height <= 0 || channels === 0 || idat.length === 0) fail('Incomplete PNG.');
   if (colorType === 3 && !palette) fail('PNG palette is missing.');
-  if (hasTransparencyChunk) fail('Transparent PNGs are not supported.');
 
   const compressedLength = idat.reduce((sum, chunk) => sum + chunk.length, 0);
   const compressed = new Uint8Array(compressedLength);
@@ -451,7 +486,7 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
       const row = decoded.pixels.subarray(y * rowBytes, (y + 1) * rowBytes);
       for (let x = 0; x < passWidth; x += 1) {
         const outputIndex = ((startY + y * stepY) * width + startX + x * stepX) * 3;
-        writePixel(row, x, pixels, outputIndex, colorType, bitDepth, channels, palette);
+        writePixel(row, x, pixels, outputIndex, colorType, bitDepth, channels, palette, transparency);
       }
     }
   };

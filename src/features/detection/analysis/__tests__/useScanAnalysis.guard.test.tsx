@@ -1,13 +1,16 @@
 import { act, render, waitFor } from '@testing-library/react-native';
 import { manipulateAsync } from 'expo-image-manipulator';
+import { AppState, type AppStateStatus } from 'react-native';
 import { encode } from 'jpeg-js';
 import { useCallback, useEffect, useReducer, useRef, useState, type Dispatch } from 'react';
 
 import { GUARD_COPY } from '@/constants/copy';
+import { AuthContext } from '@/features/auth/providers/AuthProvider';
 import { GUARD_V1 } from '@/features/detection/constants/guardContract';
 import {
   ScanDraftContext,
   ScanSessionContext,
+  ScanSessionProvider,
   type ScanDraftContextValue,
 } from '@/features/detection/context/ScanSessionProvider';
 import {
@@ -39,6 +42,30 @@ jest.mock('expo-file-system', () => ({
 jest.mock('expo-image-manipulator', () => ({
   manipulateAsync: jest.fn(),
   SaveFormat: { JPEG: 'jpeg', PNG: 'png' },
+}));
+
+jest.mock('expo-crypto', () => ({
+  randomUUID: jest.fn(() => '00000000-0000-4000-8000-000000000001'),
+}));
+jest.mock('@/features/auth/providers/AuthProvider', () => ({
+  AuthContext: require('react').createContext(null),
+}));
+jest.mock('@/database/DatabaseProvider', () => ({
+  useCaneGuardDatabase: () => ({}),
+}));
+jest.mock('@/database/localDraftRepository', () => ({
+  deleteLocalDraft: jest.fn(),
+  readLocalDraft: jest.fn(() => null),
+  saveLocalDraft: jest.fn(async () => undefined),
+}));
+jest.mock('@/features/records/services/scanImageStorage', () => ({
+  copyScanImageToManagedStorage: jest.fn(async (input: { ownerIdentity: string; sourceUri: string }) => ({
+    managedUri: `file:///managed/scan-images/${input.ownerIdentity}/scan.jpg`,
+    mimeType: 'image/jpeg',
+    sizeBytes: 1024,
+    sourceUri: input.sourceUri,
+  })),
+  deleteManagedScanImage: jest.fn(),
 }));
 jest.mock('@/features/detection/preprocessing/guardPreprocess', () => ({
   preprocessGuardImage: jest.fn(async () => new ArrayBuffer(602_112)),
@@ -179,6 +206,36 @@ async function select(uri: string, sourceType: ScanSourceType = 'camera') {
       payload: { sourceUri: uri, sourceWidth: 1600, sourceHeight: 900, sourceType },
     });
   });
+}
+
+function LifecycleDriver({ onChange }: { onChange: (state: AppStateStatus) => void }) {
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', onChange);
+    return () => subscription.remove();
+  }, [onChange]);
+  return null;
+}
+
+function RealProviderHarness({
+  owner,
+  onAppStateChange,
+}: {
+  owner: string;
+  onAppStateChange?: (state: AppStateStatus) => void;
+}) {
+  const auth = {
+    status: 'authenticated',
+    user: { uuid: owner },
+    session: { user: { uuid: owner } },
+  } as never;
+  return (
+    <AuthContext.Provider value={auth}>
+      <ScanSessionProvider>
+        <Probe />
+        {onAppStateChange ? <LifecycleDriver onChange={onAppStateChange} /> : null}
+      </ScanSessionProvider>
+    </AuthContext.Provider>
+  );
 }
 
 const guardController = (run: jest.Mock): Controller => ({
@@ -572,5 +629,68 @@ describe('guarded scan: stale and duplicate protection', () => {
     await waitFor(() => expect(latest.state.status).toBe('completed'));
     expect(mockGuard.run).toHaveBeenCalledTimes(1);
     expect(mockV2.run).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('guarded scan: production session lifecycle', () => {
+  const OWNER_A = 'owner-a';
+  const OWNER_B = 'owner-b';
+
+  it('invalidates same-URI work through the real provider generation', async () => {
+    const pending = deferred<ArrayBuffer[]>();
+    mockGuard = guardController(
+      jest.fn().mockReturnValueOnce(pending.promise).mockResolvedValue(guardOutput(0.9)),
+    );
+    const view = await render(<RealProviderHarness owner={OWNER_A} />);
+    await select('file:///same.jpg');
+    await waitFor(() => expect(mockGuard.run).toHaveBeenCalledTimes(1));
+
+    await select('file:///same.jpg');
+    await act(async () => pending.resolve(guardOutput(0.99)));
+    await waitFor(() => expect(latest.state.status).toBe('completed'));
+
+    expect(mockGuard.run).toHaveBeenCalledTimes(2);
+    expect(mockV2.run).toHaveBeenCalledTimes(1);
+    await view.unmount();
+  });
+
+  it('drops pending work when the real provider remounts for an owner change', async () => {
+    const pending = deferred<ArrayBuffer[]>();
+    mockGuard = guardController(jest.fn().mockReturnValue(pending.promise));
+    const view = await render(<RealProviderHarness owner={OWNER_A} />);
+    await select('file:///owner-a.jpg');
+    await waitFor(() => expect(mockGuard.run).toHaveBeenCalledTimes(1));
+
+    await view.rerender(<RealProviderHarness owner={OWNER_B} />);
+    await act(async () => pending.resolve(guardOutput(0.99)));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(mockV2.run).not.toHaveBeenCalled();
+    expect(latest.state.result).toBeNull();
+    await view.unmount();
+  });
+
+  it('does not restart pending work across an AppState transition', async () => {
+    const pending = deferred<ArrayBuffer[]>();
+    let changeListener: ((state: AppStateStatus) => void) | undefined;
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+      changeListener = listener;
+      return { remove: jest.fn() } as never;
+    });
+    mockGuard = guardController(jest.fn().mockReturnValue(pending.promise));
+    const view = await render(<RealProviderHarness owner={OWNER_A} onAppStateChange={() => undefined} />);
+    await select('file:///lifecycle.jpg');
+    await waitFor(() => expect(mockGuard.run).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      changeListener?.('background');
+      changeListener?.('active');
+    });
+    await act(async () => pending.resolve(guardOutput(0.9)));
+    await waitFor(() => expect(latest.state.status).toBe('completed'));
+
+    expect(mockGuard.run).toHaveBeenCalledTimes(1);
+    expect(mockV2.run).toHaveBeenCalledTimes(1);
+    await view.unmount();
   });
 });

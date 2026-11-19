@@ -98,11 +98,15 @@ describe('preprocessGuardImage', () => {
     expect(mockArrayBuffer).toHaveBeenCalledTimes(1);
   });
 
-  it('clamps bilinear edge samples instead of extrapolating below the first row', async () => {
+  it('clamps bilinear edge samples and matches the independent midpoint', async () => {
     setSource(Uint8Array.from([20, 30, 40, 255, 220, 230, 240, 255]), 1, 2);
-    const tensor = new Float32Array(await preprocessGuardImage('content://edge'));
+    let tensor = new Float32Array(await preprocessGuardImage('content://edge'));
     expect(pixel(tensor, 0, 0)).toEqual([20, 30, 40]);
     expect(pixel(tensor, 0, 223)).toEqual([220, 230, 240]);
+
+    setSource(Uint8Array.from([0, 0, 0, 255, 100, 100, 100, 255]), 2, 1);
+    tensor = new Float32Array(await preprocessGuardImage('content://midpoint'));
+    expect(pixel(tensor, 112, 0)).toEqual([50, 50, 50]);
   });
 
   it('applies PNG EXIF orientation before the direct stretch', async () => {

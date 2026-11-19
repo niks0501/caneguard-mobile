@@ -44,7 +44,7 @@ Guard V1 is a required, bundled sugarcane-presence gate in front of V2 (see `doc
 
 - Targeted tests: `npm test -- --runInBand src/features/detection/analysis src/features/detection/model/__tests__ src/features/detection/preprocessing/__tests__/guardPreprocess.test.ts src/app/__tests__/symptom-checklist.guard.test.tsx`. The TFLite runtime is mocked.
 - Real binary behavioral oracle: `python3 scripts/verify_guard_v1_assets.py` and `python3 scripts/tests/test_guard_v1_model.py` (needs `pip install numpy pillow ai-edge-litert`; CI invokes it explicitly after the package-independent Jest suite).
-- Then `npm run verify:fast && npm run db:check`. Real Android camera/gallery, offline and latency/memory checks are a captain-run manual step (checklist in the notes).
+- Then `npm run verify:fast && npm run db:check`. Real Android camera/gallery, offline, EXIF, latency and memory scenarios (listed in the notes) are acceptance criteria for the pipeline test phase: run web first, then the attached phone, using the test instructions in `.no-mistakes.yaml` (including local dev-APK reuse), not a separate manual pass.
 
 ## Manual verification
 

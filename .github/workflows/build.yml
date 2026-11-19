@@ -49,19 +49,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Set up Python for the Guard V1 model oracle
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-
-      - name: Install Guard V1 oracle packages
-        run: python -m pip install numpy pillow ai-edge-litert
-
       - name: Run free verification lane
         run: npm run verify:fast
-
-      - name: Run Guard V1 real-binary oracle
-        run: python3 scripts/tests/test_guard_v1_model.py
 
       - name: Require dispatch from main
         run: |

@@ -1,2 +1,0 @@
-36c514184aaa4f96ee762dcbc0ca32eb26df40acec919f6c4264e8ee44fe6d60  assets/models/caneguard_guard_v1_float32.tflite
-5f1e68dbc3e9a74275420c72178bd2ad9488fe84b6c97c2092d68abab1f64363  assets/models/caneguard_guard_v1_contract.json

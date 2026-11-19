@@ -1,6 +1,6 @@
 # CaneGuard Guard V1 — experimental model card
 
-**Status:** Experimental capstone model bundled in the public source release at the project owner's request. Not independently field validated. Source permissions are documented separately and not all confirmed.
+**Status:** Capstone model bundled in the app. Production activation of this exact artifact was approved by the captain on 2026-11-19. Not independently field validated.
 
 ## Intended use
 
@@ -28,12 +28,12 @@ Validation: 97.50% accuracy (TN 154, FP 8, FN 1, TP 197). Internal test: 95.08% 
 
 ## Limitations and release conditions
 
-Evaluation data share source collections with development data, so this is **not independent field validation**. Only 36 images received sample visual review. Rights for positive images and derived model redistribution require review. No dataset photos or private manifests should enter the public repository. Preserve V2 and its separate 130-image holdout. The Guard gate is required for scans in this app; production activation remains pending independent testing. Public repository availability does not establish a license for underlying photographs, model weights, or third-party redistribution.
+Evaluation data share source collections with development data, so this is **not independent field validation**. Only 36 images received sample visual review. Image-level rights for the online-collected positive photographs are not individually established; the captain accepted this for the production release (see `DATASET_LICENSES.md`). No dataset photos or private manifests should enter the public repository. Preserve V2 and its separate 130-image holdout. The Guard gate is required for scans in this app. Public repository availability does not establish a license for underlying photographs or model weights.
 
 ## Data sources and attribution
 
 Full record: [DATASET_LICENSES.md](DATASET_LICENSES.md). Summary:
 
 - **Non-sugarcane (1,085 images):** selected from eight Roboflow Universe datasets, each declaring [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): banana-leaf-classification (pikachu-fhc5p), banana-leaf-diseases (kewalee), grass-weeds (Roboflow object-detection), trees (aeonx-dev), cars (trabajo-y9216), building (airpioneer), table (samuel-messias-jlp0e), shoes (changshininc). Images were filtered, selected and resized for training; see the linked project pages for publishers.
-- **Sugarcane (1,174 images):** team field photographs plus public datasets. Credited Mendeley Data sets (CC BY 4.0 declared by the publishers): [Sugarcane Disease Dataset v2](https://data.mendeley.com/datasets/7fbnxcbnhp/2) (Shikalgar, Jadhav, Surve, Bamane, Kamble), [Sugarcane Plant Disease Dataset of Assam v1](https://data.mendeley.com/datasets/x98kpjvxxg/1) (Agarwala, Rahman, Zaman), [S2RMCMD v2](https://data.mendeley.com/datasets/rt8sv9t445/2) (Jain, Nain, Nitharwal). Other positive sources (online pest/disease collections, public Facebook/Google images) have unestablished rights; see the record.
-- This attribution does not clear redistribution or establish a license for the underlying photographs. The captain added the trained binary to this public branch for the capstone; see `REPO_INSTALL.md` and `IMPLEMENTATION_NOTES.md`.
+- **Sugarcane (1,174 images):** team field photographs plus public datasets. Credited Mendeley Data sets (CC BY 4.0 declared by the publishers): [Sugarcane Disease Dataset v2](https://data.mendeley.com/datasets/7fbnxcbnhp/2) (Shikalgar, Jadhav, Surve, Bamane, Kamble), [Sugarcane Plant Disease Dataset of Assam v1](https://data.mendeley.com/datasets/x98kpjvxxg/1) (Agarwala, Rahman, Zaman), [S2RMCMD v2](https://data.mendeley.com/datasets/rt8sv9t445/2) (Jain, Nain, Nitharwal). The remaining positive images are team field photographs and other online-collected photographs; see the record.
+- This attribution does not establish a license for the underlying photographs; see `REPO_INSTALL.md` and `IMPLEMENTATION_NOTES.md`.

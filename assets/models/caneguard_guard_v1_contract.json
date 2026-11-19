@@ -1,7 +1,7 @@
 {
   "model_id": "caneguard_guard_v1",
   "model_kind": "binary_sugarcane_presence",
-  "training_purpose": "research-only experimental",
+  "training_purpose": "capstone production gate",
   "labels": {
     "0": "not_sugarcane",
     "1": "sugarcane"
@@ -38,5 +38,5 @@
   "frozen_manifest_sha256": "989fc0303c1ba9269f85e98ec16d664f5d4b8413b1987e0ad49673c14b031490",
   "tflite_sha256": "36c514184aaa4f96ee762dcbc0ca32eb26df40acec919f6c4264e8ee44fe6d60",
   "v2_classifier_unchanged": true,
-  "evaluation_clearance": "INTERNAL_ONLY_PENDING_FIELD_NEGATIVES_VISUAL_LICENSE_REVIEW"
+  "evaluation_clearance": "PRODUCTION_ACTIVATION_APPROVED_2026-11-19_FIELD_VALIDATION_PENDING"
 }

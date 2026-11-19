@@ -1,6 +1,6 @@
 # Guard V1 implementation notes
 
-Status: **required in the scan workflow, model bundled, research-only.** The captain added the binary to this public branch for the capstone and ordered the PR handed over; production activation and source/model-license clearance remain pending (see `MODEL_CARD.md` and `DATASET_LICENSES.md`). Guard V1 is a presence gate, never a disease score. There is no experimental flag: every captured or uploaded photo goes through it.
+Status: **required in the scan workflow, model bundled, production activation approved by the captain on 2026-11-19** for this exact artifact (SHA-256 below). Attribution and the clearance record are in `DATASET_LICENSES.md`; the remaining limits are in `MODEL_CARD.md`. Guard V1 is a presence gate, never a disease score. There is no experimental flag: every captured or uploaded photo goes through it.
 
 ## What runs
 
@@ -28,7 +28,7 @@ V2 preprocessing, weights, labels, versions and the RSSI confidence-caution thre
 
 ## Binary
 
-`assets/models/caneguard_guard_v1_float32.tflite` (5441252 bytes, SHA-256 `36c51418...fe6d60`) is tracked and bundled like the V2 model (`require` in `useGuardModel.tsx`; no environment or install step). The app refuses any bundled file whose SHA-256 differs before loading it, and `python3 scripts/verify_guard_v1_assets.py` verifies the same offline. Rights are not cleared by publishing it: the dataset attribution and review record is `DATASET_LICENSES.md` (CC BY 4.0 credits for the eight Roboflow negative sets and the Mendeley sugarcane sets; mixed positive-image provenance), summarised in `MODEL_CARD.md`.
+`assets/models/caneguard_guard_v1_float32.tflite` (5441252 bytes, SHA-256 `36c51418...fe6d60`) is tracked and bundled like the V2 model (`require` in `useGuardModel.tsx`; no environment or install step). The app refuses any bundled file whose SHA-256 differs before loading it, and `python3 scripts/verify_guard_v1_assets.py` verifies the same offline. The dataset attribution and clearance record is `DATASET_LICENSES.md` (CC BY 4.0 credits for the eight Roboflow negative sets and the Mendeley sugarcane sets), summarised in `MODEL_CARD.md`.
 
 ## Lifecycle
 
@@ -50,10 +50,12 @@ Guard preprocessing reads the same photos V2 accepts. JPEG and PNG (opaque only,
 
 All worker-written tests are proposals until the captain or the named delegate promotes them. Frozen T3 suites were not edited. Existing non-frozen fixtures (`symptom-checklist.test.tsx`, record/draft tests) were updated only to carry the guard marker / guard mock.
 
-## Manual captain checklist (not run by the worker)
+## Acceptance scenarios (run in the no-mistakes pipeline test phase)
+
+Run web acceptance first, then the native journeys on the attached phone through the pipeline test phase, following the test instructions in `.no-mistakes.yaml` (including local dev-APK reuse). Do not run them as a separate checklist outside the pipeline.
 
 1. `python3 scripts/verify_guard_v1_assets.py && python3 scripts/tests/test_guard_v1_model.py`.
-2. Build the Android app (the device pass is run by the captain). Real sugarcane photo from camera and from gallery: accepted, V2 result with five labels.
+2. Real sugarcane photo from camera and from gallery: accepted, V2 result with five labels.
 3. Non-sugarcane photos (desk, face, grass, banana): "does not look like sugarcane", no result, no Continue, no saved scan; retake works.
 4. Airplane mode: repeat 2 and 3.
 5. Rotate-photo check: a portrait photo taken with the phone sideways still accepted (EXIF).
@@ -66,8 +68,7 @@ Revert this branch's commits. V2 files and weights were not modified.
 ## Open risks
 
 - No independent field validation; 36-image visual sample; internal-test false acceptance 6.75% (grass/weeds, banana, trees).
-- Rights for positive images and derived-model redistribution are unreviewed (`DATASET_LICENSES.md`); the public bundle is the captain's explicit order, and public APK artifacts will embed the model.
+- Image-level rights for the online-collected positive photographs are not individually established; the captain accepted this for the production release (`DATASET_LICENSES.md`), and public APK artifacts embed the model.
 - Guard preprocessing decodes the source JPEG/PNG in JavaScript (no scratch file), orients by EXIF and resizes bilinearly; very large camera photos cost time and memory (cap 16 MP / 128 MB) and are untimed on device.
 - Real-device Android inference, EXIF handling and bilinear parity are unverified by the worker.
 - The guard and V2 share one native-call queue, so scans are strictly serial.
-- Production activation is pending.

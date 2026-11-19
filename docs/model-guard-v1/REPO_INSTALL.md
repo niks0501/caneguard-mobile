@@ -7,6 +7,6 @@ The verified model binary is tracked at `assets/models/caneguard_guard_v1_float3
 
 Expected model SHA-256: `36c514184aaa4f96ee762dcbc0ca32eb26df40acec919f6c4264e8ee44fe6d60`.
 
-The user requested a public-repository artifact to support their academic capstone. This instruction does not certify image rights, waive original authors' permissions, or establish production/field suitability. Do not upload training images, private evidence, or personal consent forms to the public repository.
+Production activation of this artifact was approved by the captain on 2026-11-19 (see `DATASET_LICENSES.md`); that does not establish field validation. Do not upload training images, private evidence, or personal consent forms to the public repository.
 
 Guard V1 is a *sugarcane-presence gate*, not diagnostic Model V1. Preserve the separate five-class V2 disease classifier, its preprocessing, and labels.

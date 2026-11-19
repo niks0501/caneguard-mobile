@@ -185,10 +185,12 @@ export function deleteScanDraftCheckpoint(
       );
       checkpoint = record ? parseScanDraftCheckpoint(record.payload, owner) : null;
     }
-    deleteLocalDraft(database, owner, SCAN_DRAFT_KIND, SCAN_DRAFT_KEY);
+    // Image first: if the row cannot be removed the checkpoint stays (and resumable
+    // reads clean up a checkpoint whose image is gone); nothing is left orphaned.
     if (checkpoint) {
       deleteManagedScanImage(checkpoint.managedImageUri, owner);
     }
+    deleteLocalDraft(database, owner, SCAN_DRAFT_KIND, SCAN_DRAFT_KEY);
   } catch (error: unknown) {
     throw toStorageError(
       error,

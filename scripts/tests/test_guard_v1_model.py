@@ -43,17 +43,9 @@ def _load_reader():
 
 
 def _interpreter_class():
-    for name in ("ai_edge_litert.interpreter", "tflite_runtime.interpreter"):
-        if importlib.util.find_spec(name.split(".")[0]) is not None:
-            try:
-                return importlib.import_module(name).Interpreter
-            except Exception:  # noqa: BLE001 - try the next runtime
-                continue
-    if importlib.util.find_spec("tensorflow") is not None:
-        import tensorflow as tf  # type: ignore
-
-        return tf.lite.Interpreter
-    return None
+    if importlib.util.find_spec("ai_edge_litert") is None:
+        return None
+    return importlib.import_module("ai_edge_litert.interpreter").Interpreter
 
 
 class GuardV1BinaryTests(unittest.TestCase):
@@ -107,6 +99,42 @@ class GuardV1ReferenceOracleTests(unittest.TestCase):
         self.assertEqual(tuple(self.output["shape"]), (1, 1))
         self.assertEqual(self.input["dtype"], self.np.float32)
         self.assertEqual(int(self.np.prod(self.input["shape"])) * 4, 602112)
+
+    def _numpy_tensor(self, name: str):
+        """Second, independent path: numpy-only EXIF orientation and half-pixel bilinear
+        resize without antialiasing (the app's semantics); Pillow only decodes the JPEG."""
+        np = self.np
+        image = self.Image.open(FIXTURES / f"{name}.jpg")
+        orientation = image.getexif().get(274, 1)
+        pixels = np.asarray(image.convert("RGB"), np.float32)
+        ops = {
+            2: lambda a: a[:, ::-1], 3: lambda a: a[::-1, ::-1], 4: lambda a: a[::-1],
+            5: lambda a: a.transpose(1, 0, 2), 6: lambda a: a.transpose(1, 0, 2)[:, ::-1],
+            7: lambda a: a.transpose(1, 0, 2)[::-1, ::-1], 8: lambda a: a.transpose(1, 0, 2)[::-1],
+        }
+        pixels = ops.get(orientation, lambda a: a)(pixels)
+        height, width = pixels.shape[:2]
+
+        def axis(size: int):
+            source = np.clip((np.arange(224) + 0.5) * size / 224 - 0.5, 0, size - 1)
+            low = np.floor(source).astype(int)
+            return low, np.minimum(low + 1, size - 1), (source - low).astype(np.float32)
+
+        y0, y1, fy = axis(height)
+        x0, x1, fx = axis(width)
+        top = pixels[y0][:, x0] * (1 - fx)[None, :, None] + pixels[y0][:, x1] * fx[None, :, None]
+        bottom = pixels[y1][:, x0] * (1 - fx)[None, :, None] + pixels[y1][:, x1] * fx[None, :, None]
+        out = top * (1 - fy)[:, None, None] + bottom * fy[:, None, None]
+        return np.round(out).astype(np.float32)[None]
+
+    def test_scores_match_the_goldens_through_two_independent_paths(self) -> None:
+        tolerance = EXPECTED["tolerance_abs"]
+        for name, case in EXPECTED["cases"].items():
+            pillow = self._score(self._tensor(name))
+            numpy_path = self._score(self._numpy_tensor(name))
+            print(f"{name}: golden={case['p_sugarcane']:.6f} pillow={pillow:.6f} numpy={numpy_path:.6f}")
+            self.assertAlmostEqual(pillow, case["p_sugarcane"], delta=tolerance, msg=f"{name} (pillow)")
+            self.assertAlmostEqual(numpy_path, case["p_sugarcane"], delta=tolerance, msg=f"{name} (numpy)")
 
     def test_fixture_decisions_match_the_contract_threshold(self) -> None:
         for name, case in EXPECTED["cases"].items():

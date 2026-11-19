@@ -56,23 +56,25 @@ describe('resumed scan drafts and the guard marker', () => {
     expect(parsed?.selectedSymptoms).toEqual(['rust']);
   });
 
-  it('removes the checkpoint row before deleting its managed image', () => {
+  // Proves: the managed image is deleted before the checkpoint row, so a failure leaves a resumable checkpoint and no orphaned file.
+  it('deletes the managed image before the checkpoint row', () => {
     const events: string[] = [];
     mockReadLocalDraft.mockReturnValue({ payload: checkpoint('caneguard_guard_v1') });
     mockDeleteLocalDraft.mockImplementation(() => events.push('row'));
     mockDeleteManagedScanImage.mockImplementation(() => events.push('image'));
 
     expect(deleteScanDraftCheckpoint({} as never, OWNER)).toBe(true);
-    expect(events).toEqual(['row', 'image']);
+    expect(events).toEqual(['image', 'row']);
   });
 
-  it('keeps the image when the checkpoint row cannot be deleted', () => {
+  // Proves: when the image cannot be deleted the checkpoint row is kept, so the draft stays resumable.
+  it('keeps the checkpoint row when the image cannot be deleted', () => {
     mockReadLocalDraft.mockReturnValue({ payload: checkpoint('caneguard_guard_v1') });
-    mockDeleteLocalDraft.mockImplementation(() => {
-      throw new Error('database unavailable');
+    mockDeleteManagedScanImage.mockImplementation(() => {
+      throw new Error('disk unavailable');
     });
 
     expect(() => deleteScanDraftCheckpoint({} as never, OWNER)).toThrow();
-    expect(mockDeleteManagedScanImage).not.toHaveBeenCalled();
+    expect(mockDeleteLocalDraft).not.toHaveBeenCalled();
   });
 });

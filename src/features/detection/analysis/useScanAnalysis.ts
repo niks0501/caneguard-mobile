@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { GUARD_COPY } from '@/constants/copy';
 import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
@@ -21,6 +22,7 @@ import { getPreprocessingErrorMessage } from '@/features/detection/preprocessing
 import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
 import {
   activeWork,
+  clearScanAnalysisWork,
   preparedPhotos,
 } from '@/features/detection/analysis/scanAnalysisWork';
 
@@ -71,6 +73,31 @@ export function useScanAnalysis(replacing = false) {
   useEffect(() => {
     currentSourceUriRef.current = sourceUri;
   }, [sourceUri]);
+  // Lifecycle is part of the work-validity boundary: moving to the background drops
+  // in-flight work (stale callbacks then fail the activeWork check) and returns a
+  // transient status to the selected photo; the scan restarts once the app is active.
+  const [appActive, setAppActive] = useState(AppState.currentState !== 'background');
+  const statusRef = useRef(status);
+  const sessionIdentityRef = useRef(draft.sessionIdentity);
+  useEffect(() => {
+    statusRef.current = status;
+    sessionIdentityRef.current = draft.sessionIdentity;
+  });
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'background') {
+        clearScanAnalysisWork(sessionIdentityRef.current);
+        setAppActive(false);
+        const current = statusRef.current;
+        if (current === 'preprocessing' || current === 'running' || current === 'finalizing') {
+          dispatch({ type: 'CLEAR_ERROR' });
+        }
+      } else if (next === 'active') {
+        setAppActive(true);
+      }
+    });
+    return () => subscription.remove();
+  }, [dispatch]);
   const key = sourceUri ? workKey(draft.sessionIdentity, generation, sourceUri) : null;
   const prepared = key ? preparedPhotos.get(key) : undefined;
   const photoHasWarnings = (qualityAssessment?.warnings.length ?? 0) > 0;
@@ -104,6 +131,7 @@ export function useScanAnalysis(replacing = false) {
     }
     if (
       !sourceUri ||
+      !appActive ||
       status !== 'image-selected' ||
       result ||
       photoHasWarnings ||
@@ -174,6 +202,7 @@ export function useScanAnalysis(replacing = false) {
     })();
     activeWork.set(key, work);
   }, [
+    appActive,
     dispatch,
     draft,
     generation,
@@ -191,6 +220,7 @@ export function useScanAnalysis(replacing = false) {
       !sourceUri ||
       !key ||
       !prepared ||
+      !appActive ||
       photoHasWarnings ||
       status !== 'image-selected' ||
       result ||
@@ -289,6 +319,7 @@ export function useScanAnalysis(replacing = false) {
     })();
     activeWork.set(key, work);
   }, [
+    appActive,
     dispatch,
     draft,
     generation,

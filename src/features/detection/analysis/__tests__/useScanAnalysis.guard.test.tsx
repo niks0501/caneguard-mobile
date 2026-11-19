@@ -212,20 +212,10 @@ async function select(uri: string, sourceType: ScanSourceType = 'camera') {
   });
 }
 
-function LifecycleDriver({ onChange }: { onChange: (state: AppStateStatus) => void }) {
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', onChange);
-    return () => subscription.remove();
-  }, [onChange]);
-  return null;
-}
-
 function RealProviderHarness({
   owner,
-  onAppStateChange,
 }: {
   owner: string;
-  onAppStateChange?: (state: AppStateStatus) => void;
 }) {
   const auth = {
     status: 'authenticated',
@@ -236,7 +226,6 @@ function RealProviderHarness({
     <AuthContext.Provider value={auth}>
       <ScanSessionProvider>
         <Probe />
-        {onAppStateChange ? <LifecycleDriver onChange={onAppStateChange} /> : null}
       </ScanSessionProvider>
     </AuthContext.Provider>
   );
@@ -622,7 +611,7 @@ describe('guarded scan: stale and duplicate protection', () => {
   });
 
   // Proves: remounting while native work is pending does not repeat either model.
-  it('keeps one accepted run across background transitions and a screen remount', async () => {
+  it('keeps one accepted run across a screen remount', async () => {
     const pending = deferred<ArrayBuffer[]>();
     mockGuard = guardController(jest.fn().mockReturnValue(pending.promise));
     const view = await mount();
@@ -679,26 +668,31 @@ describe('guarded scan: production session lifecycle', () => {
     await view.unmount();
   });
 
-  it('does not restart pending work across an AppState transition', async () => {
+  // Proves: a real lifecycle transition invalidates in-flight work (a stale guard verdict commits nothing and V2 stays unrun) and the scan restarts from the stored photo when the app is active again, ending with exactly one V2 run.
+  it('drops in-flight work on background and restarts it once the app is active', async () => {
     const pending = deferred<ArrayBuffer[]>();
-    let changeListener: ((state: AppStateStatus) => void) | undefined;
+    const listeners: ((state: AppStateStatus) => void)[] = [];
     jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
-      changeListener = listener;
+      listeners.push(listener as (state: AppStateStatus) => void);
       return { remove: jest.fn() } as never;
     });
-    mockGuard = guardController(jest.fn().mockReturnValue(pending.promise));
-    const view = await render(<RealProviderHarness owner={OWNER_A} onAppStateChange={() => undefined} />);
+    mockGuard = guardController(
+      jest.fn().mockReturnValueOnce(pending.promise).mockResolvedValue(guardOutput(0.9)),
+    );
+    const view = await render(<RealProviderHarness owner={OWNER_A} />);
     await select('file:///lifecycle.jpg');
     await waitFor(() => expect(mockGuard.run).toHaveBeenCalledTimes(1));
 
-    await act(async () => {
-      changeListener?.('background');
-      changeListener?.('active');
-    });
-    await act(async () => pending.resolve(guardOutput(0.9)));
-    await waitFor(() => expect(latest.state.status).toBe('completed'));
+    await act(async () => listeners.forEach((listener) => listener('background')));
+    await act(async () => pending.resolve(guardOutput(0.99)));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(mockV2.run).not.toHaveBeenCalled();
+    expect(latest.state.status).not.toBe('completed');
+    expect(mockGuard.run).toHaveBeenCalledTimes(1); // nothing restarts while backgrounded
 
-    expect(mockGuard.run).toHaveBeenCalledTimes(1);
+    await act(async () => listeners.forEach((listener) => listener('active')));
+    await waitFor(() => expect(latest.state.status).toBe('completed'));
+    expect(mockGuard.run).toHaveBeenCalledTimes(2);
     expect(mockV2.run).toHaveBeenCalledTimes(1);
     await view.unmount();
   });

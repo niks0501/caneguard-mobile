@@ -57,13 +57,8 @@ def _interpreter_class():
     return None
 
 
-HAS_BINARY = MODEL_PATH.is_file()
-SKIP_REASON = "private Guard V1 binary not supplied (assets/models is Git-ignored for it)"
-
-
-@unittest.skipUnless(HAS_BINARY, SKIP_REASON)
 class GuardV1BinaryTests(unittest.TestCase):
-    def test_binary_matches_the_pinned_sha(self) -> None:
+    def test_binary_is_present_and_matches_the_pinned_sha(self) -> None:
         data = MODEL_PATH.read_bytes()
         self.assertEqual(data[4:8], b"TFL3")
         self.assertEqual(hashlib.sha256(data).hexdigest(), CONTRACT["tflite_sha256"])
@@ -75,7 +70,6 @@ class GuardV1BinaryTests(unittest.TestCase):
         self.assertEqual(output_contract[1:], (tuple(CONTRACT["output"]["shape"]), FLOAT32))
 
 
-@unittest.skipUnless(HAS_BINARY, SKIP_REASON)
 class GuardV1ReferenceOracleTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:

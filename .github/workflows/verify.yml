@@ -39,15 +39,6 @@ jobs:
       - name: Install Guard V1 oracle packages
         run: python -m pip install numpy pillow ai-edge-litert
 
-      # The Guard V1 binary is delivered privately. When the repository defines the
-      # secrets below, the verified model is installed so the real-model oracle runs;
-      # without them the oracle tests skip and the rest of the suite is unaffected.
-      - name: Install private Guard V1 model (optional)
-        env:
-          GUARD_V1_MODEL_URL: ${{ secrets.GUARD_V1_MODEL_URL }}
-          GUARD_V1_MODEL_TOKEN: ${{ secrets.GUARD_V1_MODEL_TOKEN }}
-        run: node scripts/install-guard-model.js
-
       - name: Run fast verification
         run: npm run verify:fast
 

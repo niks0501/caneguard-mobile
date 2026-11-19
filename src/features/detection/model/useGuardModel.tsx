@@ -18,23 +18,11 @@ import {
   type GuardMetadata,
 } from '@/features/detection/model/validateGuardContract';
 
-/**
- * Guard V1 is required in the scan workflow but delivered privately: the binary is
- * Git-ignored and supplied at build time (see scripts/install-guard-model.js). The
- * static require sits in a try/catch so a checkout without the file still bundles;
- * the guard then fails closed with a "missing" error and V2 never runs unguarded.
- */
-function resolveGuardAsset(): number | null {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require('../../../../assets/models/caneguard_guard_v1_float32.tflite') as number;
-  } catch {
-    return null;
-  }
-}
-const GUARD_ASSET = resolveGuardAsset();
+// Guard V1 is bundled with the app and required in the scan workflow.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const GUARD_ASSET = require('../../../../assets/models/caneguard_guard_v1_float32.tflite') as number;
 
-export type GuardErrorKind = 'missing' | 'integrity' | 'contract' | 'load' | 'unsupported';
+export type GuardErrorKind = 'integrity' | 'contract' | 'load' | 'unsupported';
 type GuardRun = (input: ArrayBuffer[]) => Promise<ArrayBuffer[]>;
 
 export type GuardModelController = {
@@ -52,16 +40,10 @@ type LoadState =
   | { state: 'loaded'; model: TfliteModel }
   | { state: 'error'; error: GuardError; errorKind: GuardErrorKind };
 
-export type GuardModelLoader = (assetModule: number | null) => Promise<TfliteModel>;
+export type GuardModelLoader = (assetModule: number) => Promise<TfliteModel>;
 
 /** Downloads the bundled asset, verifies the pinned SHA-256, then loads it on CPU. */
 export const loadGuardModel: GuardModelLoader = async (assetModule) => {
-  if (assetModule === null) {
-    throw new GuardError(
-      'GUARD_MODEL_MISSING',
-      'The Guard V1 model is not included in this build.',
-    );
-  }
   const asset = Asset.fromModule(assetModule);
   await asset.downloadAsync();
   if (!asset.localUri) {
@@ -83,10 +65,8 @@ export function classifyGuardLoadError(error: unknown): {
       errorKind:
         error.code === 'GUARD_ARTIFACT_MISMATCH'
           ? 'integrity'
-          : error.code === 'GUARD_MODEL_MISSING'
-            ? 'missing'
-            : error.code === 'GUARD_UNSUPPORTED_PLATFORM'
-              ? 'unsupported'
+          : error.code === 'GUARD_UNSUPPORTED_PLATFORM'
+            ? 'unsupported'
             : 'load',
     };
   }

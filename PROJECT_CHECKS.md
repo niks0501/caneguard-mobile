@@ -38,12 +38,12 @@ Device, emulator, ADB, Agent Device, and staging checks run whenever the tier or
 - browser validation route: `npm run web:validate` (stub API on `:8210`, web dev server on `:8199`) — see [`docs/qa/web-validation.md`](docs/qa/web-validation.md) for what it can and cannot prove
 - E2E: `npm run e2e` (separate escalated native/device gate)
 
-## Guard V1 (required, privately delivered)
+## Guard V1 (required, bundled)
 
-Guard V1 is a required sugarcane-presence gate in front of V2 (see `docs/model-guard-v1/IMPLEMENTATION_NOTES.md`). Its detection/inference files are T3. The binary is Git-ignored and supplied privately; tests that need its bytes skip when it is absent.
+Guard V1 is a required, bundled sugarcane-presence gate in front of V2 (see `docs/model-guard-v1/IMPLEMENTATION_NOTES.md`). Its detection/inference files are T3.
 
-- Targeted tests: `npm test -- --runInBand src/features/detection/analysis src/features/detection/model/__tests__ src/features/detection/preprocessing/__tests__/guardPreprocess.test.ts src/app/__tests__/symptom-checklist.guard.test.tsx scripts/__tests__/install-guard-model.test.js`. The TFLite runtime is mocked.
-- With the binary supplied: `python3 scripts/verify_guard_v1_assets.py` and `python3 scripts/tests/test_guard_v1_model.py` (needs `pip install numpy pillow ai-edge-litert`; with the binary present a skipped score oracle fails `guardModelAsset.test.ts`).
+- Targeted tests: `npm test -- --runInBand src/features/detection/analysis src/features/detection/model/__tests__ src/features/detection/preprocessing/__tests__/guardPreprocess.test.ts src/app/__tests__/symptom-checklist.guard.test.tsx`. The TFLite runtime is mocked.
+- Real binary and independent oracle: `python3 scripts/verify_guard_v1_assets.py` and `python3 scripts/tests/test_guard_v1_model.py` (needs `pip install numpy pillow ai-edge-litert`; a skipped score oracle fails `guardModelAsset.test.ts`; CI installs the packages).
 - Then `npm run verify:fast && npm run db:check`. Real Android camera/gallery, offline and latency/memory checks are a captain-run manual step (checklist in the notes).
 
 ## Manual verification

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Pressable, Text } from 'react-native';
 import { useEffect } from 'react';
@@ -7,7 +7,6 @@ import type { TfliteModel } from 'react-native-fast-tflite';
 
 import { GuardError } from '@/features/detection/model/guardInference';
 import {
-  classifyGuardLoadError,
   GuardModelProvider,
   loadGuardModel,
   useGuardModel,
@@ -60,11 +59,6 @@ function Probe({ autoStart = true }: { autoStart?: boolean }) {
 
 const state = () => screen.getByTestId('state').props.children;
 
-// The private binary is Git-ignored: tests that need its real bytes run only where it is supplied.
-const hasBinary = existsSync(
-  join(process.cwd(), 'assets/models/caneguard_guard_v1_float32.tflite'),
-);
-const itWithBinary = hasBinary ? it : it.skip;
 
 describe('GuardModelProvider (guard is required)', () => {
   beforeEach(() => {
@@ -73,7 +67,7 @@ describe('GuardModelProvider (guard is required)', () => {
     mockLoadTensorflowModel.mockReset();
   });
 
-  itWithBinary('verifies the downloaded frozen bytes before native loading', async () => {
+  it('verifies the downloaded frozen bytes before native loading', async () => {
     const binary = readFileSync(
       join(process.cwd(), 'assets/models/caneguard_guard_v1_float32.tflite'),
     );
@@ -101,20 +95,6 @@ describe('GuardModelProvider (guard is required)', () => {
     expect(mockLoadTensorflowModel).toHaveBeenCalledTimes(1);
   });
 
-  // Proves: a build without the private binary (asset resolved to null) fails closed as "missing" and never touches the native loader. (Jest maps every .tflite require to a stub, so the null asset is passed explicitly.)
-  it('reports a missing model when the build has no binary', async () => {
-    await expect(loadGuardModel(null)).rejects.toMatchObject({ code: 'GUARD_MODEL_MISSING' });
-    expect(classifyGuardLoadError(new GuardError('GUARD_MODEL_MISSING', 'x')).errorKind).toBe('missing');
-    expect(mockLoadTensorflowModel).not.toHaveBeenCalled();
-    await render(
-      <GuardModelProvider loader={() => loadGuardModel(null)}>
-        <Probe />
-      </GuardModelProvider>,
-    );
-    await waitFor(() => expect(state()).toBe('error'));
-    expect(screen.getByTestId('kind').props.children).toBe('missing');
-  });
-
   // Proves: nothing loads until the scan flow starts it.
   it('defers loading until started', async () => {
     const loader = jest.fn<ReturnType<GuardModelLoader>, Parameters<GuardModelLoader>>();
@@ -127,7 +107,7 @@ describe('GuardModelProvider (guard is required)', () => {
     expect(loader).not.toHaveBeenCalled();
   });
 
-  itWithBinary('loads the bundled asset through the default provider', async () => {
+  it('loads the bundled asset through the default provider', async () => {
     const binary = readFileSync(
       join(process.cwd(), 'assets/models/caneguard_guard_v1_float32.tflite'),
     );

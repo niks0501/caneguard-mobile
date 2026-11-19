@@ -18,6 +18,7 @@ import {
 import { useScanSession } from '@/features/detection/context/useScanSession';
 import { useScanAnalysis } from '@/features/detection/analysis/useScanAnalysis';
 import { GuardError } from '@/features/detection/model/guardInference';
+import { preprocessGuardImage } from '@/features/detection/preprocessing/guardPreprocess';
 import type {
   DetectionResult,
   ScanSessionAction,
@@ -294,16 +295,9 @@ describe('guarded scan: rejection and faults produce no result', () => {
 
   // Proves: a guard failure to prepare its tensor is a fault that never reaches V2.
   it('fails closed when the guard cannot prepare its tensor', async () => {
-    mockManipulate.mockImplementation(async (_uri, actions) => {
-      const resize = ((actions ?? [])[0] as { resize: { width: number; height: number } }).resize;
-      if (resize.width === 224 && resize.height === 224) throw new Error('decoder failed');
-      return {
-        uri: 'file:///p.jpg',
-        width: resize.width,
-        height: resize.height,
-        base64: fixtureJpeg(resize.width, resize.height, false),
-      } as Awaited<ReturnType<typeof manipulateAsync>>;
-    });
+    jest
+      .mocked(preprocessGuardImage)
+      .mockRejectedValueOnce(new GuardError('GUARD_INPUT_INVALID', 'decoder failed'));
     await mount();
     await select('file:///leaf.jpg');
     await settled();

@@ -2,7 +2,6 @@ import { GUARD_V1 } from '@/features/detection/constants/guardContract';
 import { GUARD_COPY } from '@/constants/copy';
 
 export type GuardErrorCode =
-  | 'GUARD_MODEL_MISSING'
   | 'GUARD_ARTIFACT_MISMATCH'
   | 'GUARD_MODEL_LOAD_FAILED'
   | 'GUARD_CONTRACT_MISMATCH'
@@ -118,7 +117,6 @@ export function asGuardError(error: unknown): GuardError {
 /** Actionable copy for a guard fault (distinct from the not-sugarcane rejection). */
 export function getGuardErrorMessage(error: unknown): string {
   switch (asGuardError(error).code) {
-    case 'GUARD_MODEL_MISSING':
     case 'GUARD_ARTIFACT_MISMATCH':
     case 'GUARD_CONTRACT_MISMATCH':
     case 'GUARD_UNSUPPORTED_PLATFORM':

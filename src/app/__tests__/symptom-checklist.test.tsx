@@ -127,18 +127,20 @@ const guardedInferenceResult = {
   guardModelId: 'caneguard_guard_v1' as const,
 };
 
-const scanDraft = {
+let nextChecklistSession = 0;
+// Each render is its own scan session, so module-level analysis caches never leak between tests.
+const makeScanDraft = () => ({
   discardSavedDraft: async () => false,
   draftSavedAt: null,
   draftStatus: 'idle' as const,
   finalizeSavedDraft: () => undefined,
-  flushSavedDraft: async () => false,
+  flushSavedDraft: async () => true,
   isOwnerCurrent: () => true,
   isSessionCurrent: () => true,
-  ownerIdentity: 'checklist-test-user',
+  ownerIdentity: null,
   sessionGeneration: 0,
-  sessionIdentity: 'checklist-test-session',
-};
+  sessionIdentity: `checklist-test-session-${++nextChecklistSession}`,
+});
 
 const selectedState: ScanSessionState = {
   ...initialScanSessionState,
@@ -150,6 +152,7 @@ const selectedState: ScanSessionState = {
 };
 
 async function renderScreen(initialState: ScanSessionState) {
+  const scanDraft = makeScanDraft();
   function Harness() {
     const [state, dispatch] = useReducer(
       (current: ScanSessionState, action: ScanSessionAction) => {

@@ -39,7 +39,7 @@ function pngBytes(rgba: Uint8Array, width: number, height: number): ArrayBuffer 
     PNG: { sync: { write(value: { data: Uint8Array; width: number; height: number }): Buffer } };
   };
   const bytes = PNG.sync.write({ data: rgba, width, height });
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 function setSource(rgba: Uint8Array, width: number, height: number): void {
@@ -83,7 +83,9 @@ describe('preprocessGuardImage', () => {
       PNG: { sync: { write(value: { data: Uint8Array; width: number; height: number }): Buffer } };
     };
     const bytes = PNG.sync.write({ data: Uint8Array.from([20, 30, 40, 0]), width: 1, height: 1 });
-    mockArrayBuffer.mockResolvedValueOnce(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+    mockArrayBuffer.mockResolvedValueOnce(
+      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+    );
     await expect(preprocessGuardImage('content://transparent')).rejects.toMatchObject({
       code: 'GUARD_INPUT_INVALID',
     });

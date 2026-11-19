@@ -1,13 +1,25 @@
 import { GUARD_V1 } from '@/features/detection/constants/guardContract';
+import { manipulateAsync } from 'expo-image-manipulator';
+import { encode } from 'jpeg-js';
+
 import { preprocessGuardImage } from '@/features/detection/preprocessing/guardPreprocess';
 
 const mockArrayBuffer = jest.fn<Promise<ArrayBuffer>, []>();
+const mockDelete = jest.fn();
+const mockFileUri = jest.fn();
 
 jest.mock('expo-file-system', () => ({
-  File: function File() {
-    return { arrayBuffer: () => mockArrayBuffer() };
+  File: function File(uri: string) {
+    mockFileUri(uri);
+    return { arrayBuffer: () => mockArrayBuffer(), delete: () => mockDelete(uri) };
   },
 }));
+
+jest.mock('expo-image-manipulator', () => ({
+  manipulateAsync: jest.fn(),
+  SaveFormat: { JPEG: 'jpeg' },
+}));
+const mockManipulate = manipulateAsync as jest.MockedFunction<typeof manipulateAsync>;
 
 const QUADRANTS = {
   topLeft: [220, 30, 30],
@@ -140,5 +152,59 @@ describe('preprocessGuardImage', () => {
     mockArrayBuffer.mockResolvedValueOnce(unsupported);
     await expect(preprocessGuardImage('content://webp')).rejects.toMatchObject({ code: 'GUARD_INPUT_INVALID' });
     await expect(preprocessGuardImage('  ')).rejects.toMatchObject({ code: 'GUARD_INPUT_INVALID' });
+  });
+
+  describe('WebP uploads (converted by the platform manipulator)', () => {
+    const webpHeader = (tag: string, flagsOrBytes: number[] = []): ArrayBuffer => {
+      const bytes = new Uint8Array(32);
+      bytes.set([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50], 0);
+      bytes.set(Array.from(tag, (c) => c.charCodeAt(0)), 12);
+      bytes.set(flagsOrBytes, 20);
+      return bytes.buffer;
+    };
+    const jpegBase64 = (): string =>
+      Buffer.from(encode({ data: quadrantSource(224, 224), width: 224, height: 224 }, 100).data).toString('base64');
+
+    beforeEach(() => {
+      mockManipulate.mockReset();
+      mockDelete.mockReset();
+      mockFileUri.mockReset();
+    });
+
+    // Proves: an opaque WebP is converted to JPEG by the manipulator (EXIF applied, no resize), guarded in memory, and its scratch file is deleted.
+    it('accepts an opaque WebP and deletes the scratch file', async () => {
+      mockArrayBuffer.mockResolvedValueOnce(webpHeader('VP8 '));
+      mockManipulate.mockResolvedValueOnce({
+        uri: 'file:///cache/converted.jpg', width: 224, height: 224, base64: jpegBase64(),
+      } as Awaited<ReturnType<typeof manipulateAsync>>);
+      const tensor = new Float32Array(await preprocessGuardImage('content://photo.webp'));
+      expect(tensor.byteLength).toBe(GUARD_V1.inputByteLength / 4 * 4);
+      expect(mockManipulate).toHaveBeenCalledWith('content://photo.webp', [], {
+        base64: true, compress: 1, format: 'jpeg',
+      });
+      expect(mockDelete).toHaveBeenCalledWith('file:///cache/converted.jpg');
+      expect(Math.abs(tensor[(3 * 224 + 3) * 3] - 220)).toBeLessThanOrEqual(12);
+    });
+
+    // Proves: transparent WebP (VP8X alpha flag, VP8L alpha bit) is refused before conversion, like transparent PNG.
+    it.each([
+      ['VP8X alpha flag', webpHeader('VP8X', [0x10])],
+      ['VP8L alpha bit', webpHeader('VP8L', [0x2f, 0, 0, 0, 0x10])],
+    ])('refuses transparent WebP (%s)', async (_name, bytes) => {
+      mockArrayBuffer.mockResolvedValueOnce(bytes);
+      await expect(preprocessGuardImage('content://alpha.webp')).rejects.toMatchObject({
+        code: 'GUARD_INPUT_INVALID',
+      });
+      expect(mockManipulate).not.toHaveBeenCalled();
+    });
+
+    // Proves: a failed conversion is a guard fault, never a pass.
+    it('fails closed when the conversion fails', async () => {
+      mockArrayBuffer.mockResolvedValueOnce(webpHeader('VP8 '));
+      mockManipulate.mockRejectedValueOnce(new Error('cannot decode'));
+      await expect(preprocessGuardImage('content://bad.webp')).rejects.toMatchObject({
+        code: 'GUARD_INPUT_INVALID',
+      });
+    });
   });
 });

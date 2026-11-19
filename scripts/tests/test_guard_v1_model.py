@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the bundled Guard V1 binary against the frozen contract and behavioral references.
+"""Check the bundled Guard V1 binary against the frozen contract and independent references.
 
 Always (standard library only): pinned SHA-256, TFL3 marker and real tensor metadata
 (one float32 [1,224,224,3] input, one float32 [1,1] output; tensor names are read from
@@ -8,9 +8,10 @@ the model, never assumed).
 When numpy, Pillow and a TFLite interpreter (ai_edge_litert, tflite_runtime or
 tensorflow) are installed: real CPU inference on the self-created fixtures in
 qa/guard-v1/, preprocessed by an independent pipeline (EXIF transpose, then bilinear
-direct stretch to 224x224, raw 0..255 RGB). Fixture decisions must satisfy the
-contract threshold, the EXIF-rotated fixture must differ strongly without the transpose,
-and a double-normalised input must not reproduce the accept behavior.
+direct stretch to 224x224, raw 0..255 RGB). Scores must match qa/guard-v1/expected.json
+within its documented tolerance, accept/reject decisions at 0.75 must hold, the
+EXIF-rotated fixture must differ strongly without the transpose, and a double-normalised
+input must not reproduce the accept score.
 
 Run: python3 scripts/tests/test_guard_v1_model.py
 """
@@ -79,7 +80,7 @@ class GuardV1ReferenceOracleTests(unittest.TestCase):
             or importlib.util.find_spec("PIL") is None
         ):
             raise RuntimeError(
-                "Guard V1 behavioral oracle requires numpy, Pillow and ai-edge-litert"
+                "Guard V1 score oracle requires numpy, Pillow and ai-edge-litert"
             )
         import numpy as np  # type: ignore
         from PIL import Image, ImageOps  # type: ignore
@@ -108,15 +109,18 @@ class GuardV1ReferenceOracleTests(unittest.TestCase):
         self.assertEqual(self.input["dtype"], self.np.float32)
         self.assertEqual(int(self.np.prod(self.input["shape"])) * 4, 602112)
 
-    def test_fixture_decisions_match_the_contract_threshold(self) -> None:
+    def test_scores_match_the_independent_reference_within_tolerance(self) -> None:
+        tolerance = EXPECTED["tolerance_abs"]
         for name, case in EXPECTED["cases"].items():
             score = self._score(self._tensor(name))
-            if case["decision"] == "accept":
-                self.assertGreaterEqual(score, THRESHOLD, msg=name)
-            elif case["decision"] == "reject":
-                self.assertLess(score, THRESHOLD, msg=name)
-            else:
-                self.fail(f"Unknown expected decision for {name}: {case['decision']}")
+            print(f"{name}: p_sugarcane={score:.6f} expected={case['p_sugarcane']:.6f}")
+            self.assertAlmostEqual(score, case["p_sugarcane"], delta=tolerance, msg=name)
+
+    def test_accept_and_reject_decisions(self) -> None:
+        score = lambda n: self._score(self._tensor(n))  # noqa: E731
+        self.assertGreaterEqual(score("cane-like-accept"), THRESHOLD)
+        self.assertGreaterEqual(score("cane-like-exif-rotated"), THRESHOLD)
+        self.assertLess(score("reject-sky-gradient"), THRESHOLD)
 
     def test_exif_orientation_is_decisive(self) -> None:
         upright = self._score(self._tensor("cane-like-exif-rotated", transpose=True))

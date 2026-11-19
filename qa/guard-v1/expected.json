@@ -1,14 +1,15 @@
 {
- "purpose": "Contract fixture decisions for Guard V1 at the threshold. Fixtures are self-created synthetic images; no dataset photos.",
+ "purpose": "Independent reference scores for Guard V1 (Python PIL + ai-edge-litert, EXIF transpose then bilinear direct 224x224). Fixtures are self-created synthetic images; no dataset photos.",
+ "tolerance_abs": 0.05,
  "cases": {
   "cane-like-accept": {
-   "decision": "accept"
+   "p_sugarcane": 0.980837
   },
   "cane-like-exif-rotated": {
-   "decision": "accept"
+   "p_sugarcane": 0.979495
   },
   "reject-sky-gradient": {
-   "decision": "reject"
+   "p_sugarcane": 0.113288
   }
  }
 }

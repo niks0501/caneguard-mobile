@@ -1,5 +1,7 @@
 import { decode as decodeJpegBytes } from 'jpeg-js';
+import { toByteArray } from 'base64-js';
 import { File } from 'expo-file-system';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 import { GUARD_V1 } from '@/features/detection/constants/guardContract';
 import { GuardError } from '@/features/detection/model/guardInference';
@@ -128,6 +130,53 @@ function resizeBilinear(image: RgbImage, width: number, height: number): Uint8Ar
   return output;
 }
 
+function isWebp(bytes: Uint8Array): boolean {
+  return (
+    bytes.length >= 16 &&
+    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+  );
+}
+
+/** True when a WebP declares an alpha channel (VP8X flag, ALPH chunk or VP8L alpha bit). */
+function webpHasAlpha(bytes: Uint8Array): boolean {
+  const tag = String.fromCharCode(bytes[12], bytes[13], bytes[14], bytes[15]);
+  if (tag === 'VP8X') return (bytes[20] & 0x10) !== 0;
+  if (tag === 'VP8L') return bytes.length > 24 && bytes[20] === 0x2f && (bytes[24] & 0x10) !== 0;
+  return false;
+}
+
+/**
+ * WebP has no in-memory decoder in the app. Like the V2 path, the platform image
+ * manipulator converts it to JPEG (EXIF applied, no resize); the bytes come back as
+ * base64 and the scratch file it wrote is deleted at once. Transparent WebP is
+ * refused first, like transparent PNG.
+ */
+async function webpToJpegBytes(sourceUri: string, webp: Uint8Array): Promise<Uint8Array> {
+  if (webpHasAlpha(webp)) {
+    throw new Error('Transparent images are not supported. Please choose an opaque photo.');
+  }
+  let scratchUri: string | undefined;
+  try {
+    const converted = await manipulateAsync(sourceUri, [], {
+      base64: true,
+      compress: 1,
+      format: SaveFormat.JPEG,
+    });
+    scratchUri = converted.uri;
+    if (!converted.base64) throw new Error('The WebP photo could not be converted.');
+    return toByteArray(converted.base64);
+  } finally {
+    if (scratchUri) {
+      try {
+        new File(scratchUri).delete();
+      } catch {
+        // Best effort: the cache directory is evicted by the OS regardless.
+      }
+    }
+  }
+}
+
 async function readSourceImage(sourceUri: string): Promise<RgbImage> {
   let bytes: Uint8Array;
   try {
@@ -149,6 +198,7 @@ async function readSourceImage(sourceUri: string): Promise<RgbImage> {
   }
 
   try {
+    if (isWebp(bytes)) bytes = await webpToJpegBytes(sourceUri, bytes);
     const png = bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71;
     if (png) {
       const decoded = decodePng(bytes);
@@ -158,7 +208,7 @@ async function readSourceImage(sourceUri: string): Promise<RgbImage> {
       );
     }
     const jpeg = bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xd8;
-    if (!jpeg) throw new Error('Only JPEG and PNG photos are supported by the guard.');
+    if (!jpeg) throw new Error('Only JPEG, PNG and WebP photos are supported by the guard.');
     const decoded = decodeJpegBytes(bytes, {
       useTArray: true,
       formatAsRGBA: true,

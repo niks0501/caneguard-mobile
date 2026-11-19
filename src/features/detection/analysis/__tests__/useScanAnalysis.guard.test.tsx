@@ -66,6 +66,8 @@ jest.mock('@/features/records/services/scanImageStorage', () => ({
     sourceUri: input.sourceUri,
   })),
   deleteManagedScanImage: jest.fn(),
+  isManagedScanImageUri: () => true,
+  managedImageExists: () => true,
 }));
 jest.mock('@/features/detection/preprocessing/guardPreprocess', () => ({
   preprocessGuardImage: jest.fn(async () => new ArrayBuffer(602_112)),
@@ -158,8 +160,10 @@ function Harness({
   const [sessionGeneration, setSessionGeneration] = useState(0);
   const stateRef = useRef(state);
   const generationRef = useRef(sessionGeneration);
-  stateRef.current = state;
-  generationRef.current = sessionGeneration;
+  useEffect(() => {
+    stateRef.current = state;
+    generationRef.current = sessionGeneration;
+  });
   const sessionIdentity = 'guard-test-session';
   const dispatch = useCallback<Dispatch<ScanSessionAction>>((action) => {
     if (

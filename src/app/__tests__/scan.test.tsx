@@ -41,12 +41,12 @@ const supportedImageFormats = [
   ['JPEG', 'image/jpeg', 'leaf.jpeg'],
   ['JPG', 'image/jpeg', 'leaf.jpg'],
   ['PNG', 'image/png', 'leaf.png'],
+  ['WebP', 'image/webp', 'leaf.webp'],
 ] as const;
 const unsupportedImageFormats = [
   ['HEIC', 'image/heic', 'leaf.heic'],
   ['HEIF', 'image/heif', 'leaf.heif'],
   ['AVIF', 'image/avif', 'leaf.avif'],
-  ['WebP', 'image/webp', 'leaf.webp'],
   ['GIF', 'image/gif', 'leaf.gif'],
 ] as const;
 
@@ -232,7 +232,7 @@ describe('ScanScreen', () => {
       await fireEvent.press(screen.getByLabelText('Choose one image from the gallery'));
 
       expect(
-        screen.getByText('Unsupported image format. Please choose a JPEG or PNG image.'),
+        screen.getByText('Unsupported image format. Please choose a JPEG, PNG, or WebP image.'),
       ).toBeOnTheScreen();
       expect(mockDispatch).not.toHaveBeenCalledWith(
         expect.objectContaining({ type: 'SELECT_IMAGE' }),
@@ -326,7 +326,7 @@ describe('ScanScreen', () => {
       await fireEvent.press(screen.getByLabelText('Capture a photo with the camera'));
 
       expect(
-        screen.getByText('Unsupported image format. Please choose a JPEG or PNG image.'),
+        screen.getByText('Unsupported image format. Please choose a JPEG, PNG, or WebP image.'),
       ).toBeOnTheScreen();
       expect(mockDispatch).not.toHaveBeenCalledWith(
         expect.objectContaining({ type: 'SELECT_IMAGE' }),
@@ -489,7 +489,7 @@ describe('ScanScreen', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText('Unsupported image format. Please choose a JPEG or PNG image.'),
+          screen.getByText('Unsupported image format. Please choose a JPEG, PNG, or WebP image.'),
         ).toBeOnTheScreen();
       });
       expect(mockDispatch).not.toHaveBeenCalledWith(

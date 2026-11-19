@@ -59,7 +59,6 @@ describe('readPickerOutcome', () => {
     ['JPG', 'image/jpeg', 'leaf.JPG'],
     ['JPG MIME alias', 'image/jpg', 'leaf.jpg'],
     ['PNG', 'image/png', 'leaf.png'],
-    ['WebP', 'image/webp', 'leaf.webp'],
   ])('accepts a supported %s format from its filename', (_label, mimeType, fileName) => {
     const result: ImagePickerResult = {
       canceled: false,
@@ -89,7 +88,7 @@ describe('readPickerOutcome', () => {
   it('keeps a supported image when Android omits its MIME and generic type metadata', () => {
     const result: ImagePickerResult = {
       canceled: false,
-      assets: [{ uri: 'content://leaf/3', fileName: 'leaf.webp', width: 0, height: 0 }],
+      assets: [{ uri: 'content://leaf/3', fileName: 'leaf.jpg', width: 0, height: 0 }],
     };
 
     expect(readPickerOutcome(result, 'camera')).toEqual({
@@ -107,6 +106,7 @@ describe('readPickerOutcome', () => {
     ['HEIC', 'image/heic', 'leaf.heic'],
     ['HEIF', 'image/heif', 'leaf.heif'],
     ['AVIF', 'image/avif', 'leaf.avif'],
+    ['WebP', 'image/webp', 'leaf.webp'],
     ['GIF', 'image/gif', 'leaf.gif'],
   ])('rejects a new %s selection before analysis', (_label, mimeType, fileName) => {
     const result: ImagePickerResult = {
@@ -127,7 +127,7 @@ describe('readPickerOutcome', () => {
       kind: 'error',
       stage: 'image-acquisition',
       code: 'UNSUPPORTED_IMAGE_FORMAT',
-      message: 'Unsupported image format. Please choose a JPEG, PNG, or WebP image.',
+      message: 'Unsupported image format. Please choose a JPEG or PNG image.',
     });
   });
 
@@ -165,7 +165,7 @@ describe('readPickerOutcome', () => {
       kind: 'error',
       stage: 'image-acquisition',
       code: 'UNSUPPORTED_IMAGE_FORMAT',
-      message: 'Unsupported image format. Please choose a JPEG, PNG, or WebP image.',
+      message: 'Unsupported image format. Please choose a JPEG or PNG image.',
     });
   });
 

@@ -5,25 +5,23 @@ import type {
 
 import type { ScanSourceType } from '@/features/detection/types';
 
-type SupportedImageFormat = 'jpeg' | 'png' | 'webp';
+type SupportedImageFormat = 'jpeg' | 'png';
 type ImageFormatEvidence = SupportedImageFormat | 'unsupported' | null;
 
 const MIME_TO_FORMAT: Readonly<Record<string, SupportedImageFormat>> = {
   'image/jpeg': 'jpeg',
   'image/jpg': 'jpeg',
   'image/png': 'png',
-  'image/webp': 'webp',
 };
 
 const EXTENSION_TO_FORMAT: Readonly<Record<string, SupportedImageFormat>> = {
   jpeg: 'jpeg',
   jpg: 'jpeg',
   png: 'png',
-  webp: 'webp',
 };
 
 const UNSUPPORTED_IMAGE_FORMAT_MESSAGE =
-  'Unsupported image format. Please choose a JPEG, PNG, or WebP image.';
+  'Unsupported image format. Please choose a JPEG or PNG image.';
 
 export type PickerOutcome =
   | { kind: 'canceled' }

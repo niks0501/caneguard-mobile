@@ -396,13 +396,13 @@ function ScanSessionOwner({
     if (!ownerIdentity) {
       return false;
     }
-    clearScanAnalysisWork(sessionIdentity);
     const trackedImage = draftImageRef.current;
     try {
       deleteScanDraftCheckpoint(database, ownerIdentity);
     } catch {
       return false;
     }
+    clearScanAnalysisWork(sessionIdentity);
     if (trackedImage) {
       try {
         deleteManagedScanImage(trackedImage.managedImageUri, ownerIdentity);

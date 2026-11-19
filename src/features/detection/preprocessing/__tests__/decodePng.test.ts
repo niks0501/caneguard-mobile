@@ -48,7 +48,7 @@ describe('decodePng', () => {
     const bytes = Buffer.from(readFileSync(join(FIXTURES, files[0])));
     expect(bytes[IHDR_COLOR_TYPE_INDEX]).toBe(2);
     bytes[IHDR_COLOR_TYPE_INDEX] = 3;
-    expect(() => decodePng(new Uint8Array(bytes))).toThrow(/RGB PNGs/);
+    expect(() => decodePng(new Uint8Array(bytes))).toThrow(/Unsupported PNG/);
   });
 
   it('rejects transparent pixels instead of discarding alpha', () => {
@@ -58,5 +58,12 @@ describe('decodePng', () => {
       data: Buffer.from([20, 30, 40, 0]),
     });
     expect(() => decodePng(new Uint8Array(bytes))).toThrow(/Transparent PNGs/);
+  });
+
+  it('rejects oversized dimensions before inflating pixel data', () => {
+    const bytes = Buffer.from(readFileSync(join(FIXTURES, files[0])));
+    bytes.writeUInt32BE(5000, 16);
+    bytes.writeUInt32BE(4000, 20);
+    expect(() => decodePng(new Uint8Array(bytes))).toThrow(/safety limit/);
   });
 });

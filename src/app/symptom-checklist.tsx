@@ -352,7 +352,7 @@ export default function SymptomChecklistScreen() {
                     {SCAN_CHECK_COPY.tryAgain}
                   </AppButton>
                 ) : null}
-                {state.status === 'error' && !guardRejected ? (
+                {state.status === 'error' && !guardRejected && !photoFailedCheck ? (
                   <AppButton
                     testID="scan.try-again"
                     variant="secondary"

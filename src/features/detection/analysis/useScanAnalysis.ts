@@ -1,5 +1,4 @@
-import { AppState } from 'react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { GUARD_COPY } from '@/constants/copy';
 import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
@@ -10,6 +9,7 @@ import { exclusiveRun } from '@/features/detection/model/exclusiveRun';
 import {
   asGuardError,
   getGuardErrorMessage,
+  GuardError,
   runGuard,
 } from '@/features/detection/model/guardInference';
 import { getInferenceErrorMessage } from '@/features/detection/model/inferenceErrors';
@@ -73,13 +73,6 @@ export function useScanAnalysis(replacing = false) {
     qualityAssessment,
   } = state;
   const generation = draft.sessionGeneration;
-  const [lifecycleVersion, setLifecycleVersion] = useState(0);
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', () => {
-      setLifecycleVersion((current) => current + 1);
-    });
-    return () => subscription.remove();
-  }, []);
   const currentSourceUriRef = useRef(sourceUri);
   useEffect(() => {
     currentSourceUriRef.current = sourceUri;
@@ -173,7 +166,7 @@ export function useScanAnalysis(replacing = false) {
             startingSource,
             startingGeneration,
             currentSourceUriRef.current,
-          )
+          ) && activeWork.get(key) === work
         ) {
           dispatch({
             type: 'SET_ERROR',
@@ -193,7 +186,6 @@ export function useScanAnalysis(replacing = false) {
     draft,
     generation,
     key,
-    lifecycleVersion,
     qualityAssessment,
     result,
     sourceHeight,
@@ -222,35 +214,34 @@ export function useScanAnalysis(replacing = false) {
     const startingGeneration = generation;
     const startingSource = sourceUri;
     let work!: Promise<void>;
+    const isCurrentWork = () =>
+      isCurrentSession(
+        draft,
+        startingOwner,
+        startingSource,
+        startingGeneration,
+        currentSourceUriRef.current,
+      ) && activeWork.get(key) === work;
     work = (async () => {
       let stage: 'guard' | 'v2' = 'guard';
       dispatch({ type: 'START_INFERENCE' });
       try {
         const guardInput = await preprocessGuardImage(startingSource);
-        if (
-          !isCurrentSession(
-            draft,
-            startingOwner,
-            startingSource,
-            startingGeneration,
-            currentSourceUriRef.current,
-          ) || activeWork.get(key) !== work
-        ) {
+        if (!isCurrentWork()) {
           return;
         }
         const assessment = await runGuard(
-          { run: exclusiveRun(guard.run) },
+          {
+            run: exclusiveRun(async (input) => {
+              if (!isCurrentWork()) {
+                throw new GuardError('GUARD_RUN_FAILED', 'The guard work is no longer current.');
+              }
+              return guard.run(input);
+            }),
+          },
           guardInput,
         );
-        if (
-          !isCurrentSession(
-            draft,
-            startingOwner,
-            startingSource,
-            startingGeneration,
-            currentSourceUriRef.current,
-          ) || activeWork.get(key) !== work
-        ) {
+        if (!isCurrentWork()) {
           return;
         }
         if (!assessment.accepted) {
@@ -264,19 +255,18 @@ export function useScanAnalysis(replacing = false) {
 
         stage = 'v2';
         const inferenceResult = await runInference(
-          { run: exclusiveRun(modelState.run) },
+          {
+            run: exclusiveRun(async (input) => {
+              if (!isCurrentWork()) {
+                throw new GuardError('GUARD_RUN_FAILED', 'The scan work is no longer current.');
+              }
+              return modelState.run(input);
+            }),
+          },
           prepared.inputBuffer,
           prepared.preprocessMs,
         );
-        if (
-          !isCurrentSession(
-            draft,
-            startingOwner,
-            startingSource,
-            startingGeneration,
-            currentSourceUriRef.current,
-          ) || activeWork.get(key) !== work
-        ) {
+        if (!isCurrentWork()) {
           return;
         }
         dispatch({
@@ -284,22 +274,16 @@ export function useScanAnalysis(replacing = false) {
           payload: { ...inferenceResult, guardModelId: GUARD_V1.modelId },
         });
       } catch (error) {
-        if (
-          !isCurrentSession(
-            draft,
-            startingOwner,
-            startingSource,
-            startingGeneration,
-            currentSourceUriRef.current,
-          )
-        ) {
+        if (!isCurrentWork()) {
           return;
         }
         if (stage === 'guard') {
+          const guardError = asGuardError(error);
           dispatch({
             type: 'SET_ERROR',
             guardFailure: 'error',
-            payload: getGuardErrorMessage(asGuardError(error)),
+            photoPreparationFailed: guardError.code === 'GUARD_INPUT_INVALID',
+            payload: getGuardErrorMessage(guardError),
           });
         } else {
           dispatch({ type: 'SET_ERROR', payload: getInferenceErrorMessage(error) });
@@ -320,7 +304,6 @@ export function useScanAnalysis(replacing = false) {
     guard,
     guardReady,
     key,
-    lifecycleVersion,
     modelState,
     photoHasWarnings,
     prepared,

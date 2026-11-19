@@ -8,6 +8,7 @@ import { decodePng } from '@/features/detection/preprocessing/decodePng';
 import { rgbaToRgb } from '@/features/detection/preprocessing/rgbaToRgb';
 
 const [, GUARD_HEIGHT, GUARD_WIDTH] = GUARD_V1.input.shape;
+const MAX_SOURCE_BYTES = 128 * 1024 * 1024;
 
 type RgbImage = {
   width: number;
@@ -103,12 +104,12 @@ function resizeBilinear(image: RgbImage, width: number, height: number): Uint8Ar
   const scaleX = image.width / width;
   const scaleY = image.height / height;
   for (let y = 0; y < height; y += 1) {
-    const sourceY = Math.min(image.height - 1, (y + 0.5) * scaleY - 0.5);
+    const sourceY = Math.max(0, Math.min(image.height - 1, (y + 0.5) * scaleY - 0.5));
     const y0 = Math.max(0, Math.floor(sourceY));
     const y1 = Math.min(image.height - 1, y0 + 1);
     const fy = sourceY - y0;
     for (let x = 0; x < width; x += 1) {
-      const sourceX = Math.min(image.width - 1, (x + 0.5) * scaleX - 0.5);
+      const sourceX = Math.max(0, Math.min(image.width - 1, (x + 0.5) * scaleX - 0.5));
       const x0 = Math.max(0, Math.floor(sourceX));
       const x1 = Math.min(image.width - 1, x0 + 1);
       const fx = sourceX - x0;
@@ -130,7 +131,15 @@ function resizeBilinear(image: RgbImage, width: number, height: number): Uint8Ar
 async function readSourceImage(sourceUri: string): Promise<RgbImage> {
   let bytes: Uint8Array;
   try {
-    bytes = new Uint8Array(await new File(sourceUri).arrayBuffer());
+    const file = new File(sourceUri);
+    const declaredSize = (file as unknown as { size?: unknown }).size;
+    if (typeof declaredSize === 'number' && Number.isFinite(declaredSize) && declaredSize > MAX_SOURCE_BYTES) {
+      throw new Error('The photo is too large to prepare safely.');
+    }
+    bytes = new Uint8Array(await file.arrayBuffer());
+    if (bytes.byteLength > MAX_SOURCE_BYTES) {
+      throw new Error('The photo is too large to prepare safely.');
+    }
   } catch (error) {
     throw new GuardError(
       'GUARD_INPUT_INVALID',
@@ -143,7 +152,10 @@ async function readSourceImage(sourceUri: string): Promise<RgbImage> {
     const png = bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71;
     if (png) {
       const decoded = decodePng(bytes);
-      return { width: decoded.width, height: decoded.height, rgb: decoded.rgb };
+      return orientImage(
+        { width: decoded.width, height: decoded.height, rgb: decoded.rgb },
+        decoded.orientation,
+      );
     }
     const jpeg = bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xd8;
     if (!jpeg) throw new Error('Only JPEG and PNG photos are supported by the guard.');

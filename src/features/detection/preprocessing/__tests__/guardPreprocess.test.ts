@@ -46,6 +46,26 @@ function setSource(rgba: Uint8Array, width: number, height: number): void {
   mockArrayBuffer.mockResolvedValueOnce(pngBytes(rgba, width, height));
 }
 
+function pngWithOrientation(rgba: Uint8Array, width: number, height: number, orientation: number): ArrayBuffer {
+  const source = Buffer.from(pngBytes(rgba, width, height));
+  const exif = Buffer.alloc(26);
+  exif.write('II', 0, 'ascii');
+  exif.writeUInt16LE(42, 2);
+  exif.writeUInt32LE(8, 4);
+  exif.writeUInt16LE(1, 8);
+  exif.writeUInt16LE(0x0112, 10);
+  exif.writeUInt16LE(3, 12);
+  exif.writeUInt32LE(1, 14);
+  exif.writeUInt16LE(orientation, 18);
+  const chunk = Buffer.alloc(12 + exif.length);
+  chunk.writeUInt32BE(exif.length, 0);
+  chunk.write('eXIf', 4, 'ascii');
+  exif.copy(chunk, 8);
+  const idat = source.indexOf(Buffer.from('IDAT')) - 4;
+  const result = Buffer.concat([source.subarray(0, idat), chunk, source.subarray(idat)]);
+  return result.buffer.slice(result.byteOffset, result.byteOffset + result.byteLength) as ArrayBuffer;
+}
+
 function pixel(tensor: Float32Array, x: number, y: number): number[] {
   const i = (y * 224 + x) * 3;
   return [tensor[i], tensor[i + 1], tensor[i + 2]];
@@ -76,6 +96,24 @@ describe('preprocessGuardImage', () => {
     expect(pixel(tensor, 3, 220)).toEqual(QUADRANTS.bottomLeft);
     expect(pixel(tensor, 220, 220)).toEqual(QUADRANTS.bottomRight);
     expect(mockArrayBuffer).toHaveBeenCalledTimes(1);
+  });
+
+  it('clamps bilinear edge samples instead of extrapolating below the first row', async () => {
+    setSource(Uint8Array.from([20, 30, 40, 255, 220, 230, 240, 255]), 1, 2);
+    const tensor = new Float32Array(await preprocessGuardImage('content://edge'));
+    expect(pixel(tensor, 0, 0)).toEqual([20, 30, 40]);
+    expect(pixel(tensor, 0, 223)).toEqual([220, 230, 240]);
+  });
+
+  it('applies PNG EXIF orientation before the direct stretch', async () => {
+    const source = Uint8Array.from([
+      220, 30, 30, 255,
+      30, 40, 220, 255,
+    ]);
+    mockArrayBuffer.mockResolvedValueOnce(pngWithOrientation(source, 2, 1, 6));
+    const tensor = new Float32Array(await preprocessGuardImage('content://oriented-png'));
+    expect(pixel(tensor, 0, 0)).toEqual([220, 30, 30]);
+    expect(pixel(tensor, 0, 223)).toEqual([30, 40, 220]);
   });
 
   it('rejects transparent source PNG pixels before resizing', async () => {

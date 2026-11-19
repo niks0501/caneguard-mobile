@@ -1,8 +1,7 @@
 import { act, render, waitFor } from '@testing-library/react-native';
-import { AppState } from 'react-native';
 import { manipulateAsync } from 'expo-image-manipulator';
 import { encode } from 'jpeg-js';
-import { useEffect, useReducer, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState, type Dispatch } from 'react';
 
 import { GUARD_COPY } from '@/constants/copy';
 import { GUARD_V1 } from '@/features/detection/constants/guardContract';
@@ -15,6 +14,7 @@ import {
   initialScanSessionState,
   scanSessionReducer,
 } from '@/features/detection/context/scanSessionReducer';
+import { clearScanAnalysisWork } from '@/features/detection/analysis/scanAnalysisWork';
 import { useScanSession } from '@/features/detection/context/useScanSession';
 import { useScanAnalysis } from '@/features/detection/analysis/useScanAnalysis';
 import { GuardError } from '@/features/detection/model/guardInference';
@@ -127,19 +127,37 @@ function Harness({
   initial: ScanSessionState;
   showProbe?: boolean;
 }) {
-  const [state, dispatch] = useReducer(scanSessionReducer, initial);
-  const [draft] = useState<ScanDraftContextValue>(() => ({
+  const [state, reducerDispatch] = useReducer(scanSessionReducer, initial);
+  const [sessionGeneration, setSessionGeneration] = useState(0);
+  const stateRef = useRef(state);
+  const generationRef = useRef(sessionGeneration);
+  stateRef.current = state;
+  generationRef.current = sessionGeneration;
+  const sessionIdentity = 'guard-test-session';
+  const dispatch = useCallback<Dispatch<ScanSessionAction>>((action) => {
+    if (
+      action.type === 'SELECT_IMAGE' ||
+      action.type === 'RESET_SCAN' ||
+      action.type === 'START_FOLLOW_UP'
+    ) {
+      clearScanAnalysisWork(sessionIdentity);
+      setSessionGeneration((current) => current + 1);
+    }
+    reducerDispatch(action);
+  }, []);
+  const draft: ScanDraftContextValue = {
     discardSavedDraft: async () => false,
     draftSavedAt: null,
     draftStatus: 'idle',
     finalizeSavedDraft: () => undefined,
     flushSavedDraft: async () => false,
     isOwnerCurrent: (owner) => owner === activeOwner,
-    isSessionCurrent: () => true,
+    isSessionCurrent: (sourceUri, generation) =>
+      stateRef.current.sourceUri === sourceUri && generationRef.current === generation,
     ownerIdentity: 'owner-a',
-    sessionGeneration: 0,
-    sessionIdentity: 'guard-test-session',
-  }));
+    sessionGeneration,
+    sessionIdentity,
+  };
   return (
     <ScanSessionContext.Provider value={{ state, dispatch }}>
       <ScanDraftContext.Provider value={draft}>
@@ -405,6 +423,26 @@ describe('guarded scan: stale and duplicate protection', () => {
     expect(mockV2.run).toHaveBeenCalledTimes(1);
   });
 
+  // Proves: a same-URI reselection still creates a new session generation.
+  it('drops stale work when the same photo is selected again', async () => {
+    const first = deferred<ArrayBuffer[]>();
+    const run = jest
+      .fn()
+      .mockReturnValueOnce(first.promise)
+      .mockResolvedValue(guardOutput(0.9));
+    mockGuard = guardController(run);
+    await mount();
+    await select('file:///same.jpg');
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+
+    await select('file:///same.jpg');
+    await act(async () => first.resolve(guardOutput(0.99)));
+    await waitFor(() => expect(latest.state.status).toBe('completed'));
+
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(mockV2.run).toHaveBeenCalledTimes(1);
+  });
+
   // Proves: a stale guard rejection from the old photo cannot mark the new photo as an error.
   it('drops a stale rejection when the photo is replaced', async () => {
     const first = deferred<ArrayBuffer[]>();
@@ -462,6 +500,37 @@ describe('guarded scan: stale and duplicate protection', () => {
   });
 
   // Proves: a stale photo's pending native call is never overlapped by the next photo's call (exclusive native invocation), and only the current photo completes.
+  it('does not invoke a queued native call after the current photo is discarded', async () => {
+    const pendingV2 = deferred<ArrayBuffer[]>();
+    mockGuard = guardController(jest.fn().mockResolvedValue(guardOutput(0.9)));
+    mockV2 = {
+      state: 'loaded',
+      model: undefined,
+      error: null,
+      errorKind: null,
+      start: jest.fn(),
+      retry: jest.fn(),
+      run: jest.fn().mockReturnValueOnce(pendingV2.promise),
+    };
+    await mount();
+    await select('file:///old.jpg');
+    await waitFor(() => expect(mockV2.run).toHaveBeenCalledTimes(1));
+
+    await select('file:///new.jpg');
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    });
+    expect(mockGuard.run).toHaveBeenCalledTimes(1);
+
+    await act(async () => latest.dispatch({ type: 'RESET_SCAN' }));
+    await act(async () => {
+      pendingV2.resolve(v2Output());
+    });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(mockGuard.run).toHaveBeenCalledTimes(1);
+    expect(mockV2.run).toHaveBeenCalledTimes(1);
+  });
+
   it('does not overlap native guard calls across photos', async () => {
     const first = deferred<ArrayBuffer[]>();
     const run = jest
@@ -489,20 +558,11 @@ describe('guarded scan: stale and duplicate protection', () => {
   // Proves: remounting while native work is pending does not repeat either model.
   it('keeps one accepted run across background transitions and a screen remount', async () => {
     const pending = deferred<ArrayBuffer[]>();
-    let onAppStateChange: (() => void) | undefined;
-    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
-      onAppStateChange = listener as unknown as () => void;
-      return { remove: jest.fn() } as never;
-    });
     mockGuard = guardController(jest.fn().mockReturnValue(pending.promise));
     const view = await mount();
     await select('file:///leaf.jpg');
     await waitFor(() => expect(mockGuard.run).toHaveBeenCalledTimes(1));
 
-    await act(async () => {
-      onAppStateChange?.();
-      onAppStateChange?.();
-    });
     await view.rerender(<Harness initial={initialScanSessionState} showProbe={false} />);
     await view.rerender(<Harness initial={initialScanSessionState} showProbe />);
     await act(async () => {

@@ -16,12 +16,13 @@ import {
 const mockAssetFromModule = jest.fn();
 const mockFileArrayBuffer = jest.fn();
 const mockLoadTensorflowModel = jest.fn();
+const mockFileBytes = new Map<string, ArrayBuffer>();
 jest.mock('expo-asset', () => ({
   Asset: { fromModule: (...args: unknown[]) => mockAssetFromModule(...args) },
 }));
 jest.mock('expo-file-system', () => ({
-  File: function File() {
-    return { arrayBuffer: () => mockFileArrayBuffer() };
+  File: function File(uri: string) {
+    return { arrayBuffer: () => mockFileArrayBuffer(uri) };
   },
 }));
 jest.mock('expo-crypto', () => ({
@@ -64,6 +65,8 @@ describe('GuardModelProvider (guard is required)', () => {
   beforeEach(() => {
     mockAssetFromModule.mockReset();
     mockFileArrayBuffer.mockReset();
+    mockFileArrayBuffer.mockImplementation(async (uri: string) => mockFileBytes.get(uri) ?? new ArrayBuffer(0));
+    mockFileBytes.clear();
     mockLoadTensorflowModel.mockReset();
   });
 
@@ -80,7 +83,7 @@ describe('GuardModelProvider (guard is required)', () => {
       downloadAsync: jest.fn(),
       localUri: 'file:///guard.tflite',
     });
-    mockFileArrayBuffer.mockResolvedValue(bytes);
+    mockFileBytes.set('file:///guard.tflite', bytes);
     mockLoadTensorflowModel.mockResolvedValue(model);
 
     await expect(loadGuardModel(42)).resolves.toBe(model);
@@ -88,7 +91,7 @@ describe('GuardModelProvider (guard is required)', () => {
 
     const altered = new Uint8Array(bytes.slice(0));
     altered[altered.length - 1] ^= 0xff;
-    mockFileArrayBuffer.mockResolvedValue(altered.buffer);
+    mockFileBytes.set('file:///guard.tflite', altered.buffer);
     await expect(loadGuardModel(42)).rejects.toMatchObject({
       code: 'GUARD_ARTIFACT_MISMATCH',
     });
@@ -121,7 +124,7 @@ describe('GuardModelProvider (guard is required)', () => {
       localUri: 'file:///bundled-guard.tflite',
     };
     mockAssetFromModule.mockReturnValue(asset);
-    mockFileArrayBuffer.mockResolvedValue(bytes);
+    mockFileBytes.set('file:///bundled-guard.tflite', bytes);
     mockLoadTensorflowModel.mockResolvedValue(model);
 
     await render(

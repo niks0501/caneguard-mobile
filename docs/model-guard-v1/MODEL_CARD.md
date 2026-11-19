@@ -28,7 +28,7 @@ Validation: 97.50% accuracy (TN 154, FP 8, FN 1, TP 197). Internal test: 95.08% 
 
 ## Limitations and release conditions
 
-Evaluation data share source collections with development data, so this is **not independent field validation**. Only 36 images received sample visual review. Rights for positive images and derived model redistribution require review. No dataset photos or private manifests should enter the public repository. Preserve V2 and its separate 130-image holdout. Use a local, private binary and a disabled-by-default experimental flag until independently tested and legally cleared.
+Evaluation data share source collections with development data, so this is **not independent field validation**. Only 36 images received sample visual review. Rights for positive images and derived model redistribution require review. No dataset photos or private manifests should enter the public repository. Preserve V2 and its separate 130-image holdout. Use a local, private binary in authorized private builds; the Guard gate is required for scans in those builds. Production activation and public model redistribution remain disabled until independently tested and legally cleared.
 
 ## Data sources and attribution
 

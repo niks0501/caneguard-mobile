@@ -86,7 +86,7 @@
     "qa:preflight": "node ./scripts/validate-qa-env.js --require-qa",
     "qa:export": "node ./scripts/qa-export.js",
     "security:config": "node ./scripts/validate-security-config.js",
-    "eas-build-pre-install": "node ./scripts/validate-qa-env.js && node ./scripts/validate-security-config.js --eas && node ./scripts/install-guard-model.js --require",
+    "eas-build-pre-install": "node ./scripts/validate-qa-env.js && node ./scripts/validate-security-config.js --eas && if [ \"$EAS_BUILD_PROFILE\" != \"production\" ]; then node ./scripts/install-guard-model.js --require; fi",
     "test:coverage": "jest --coverage",
     "e2e": "agent-device test .agent-device/flows",
     "e2e:flow": "agent-device replay",
@@ -109,6 +109,8 @@
     ],
     "moduleNameMapper": {
       "\\.css$": "<rootDir>/test/__mocks__/fileMock.js",
+      "caneguard_guard_v1_float32\\.tflite$": "<rootDir>/test/__mocks__/guardModelAsset.js",
+      "caneguard_v2\\.tflite$": "<rootDir>/test/__mocks__/v2ModelAsset.js",
       "\\.tflite$": "<rootDir>/test/__mocks__/fileMock.js"
     },
     "resolver": "react-native-reanimated/jest/resolver"

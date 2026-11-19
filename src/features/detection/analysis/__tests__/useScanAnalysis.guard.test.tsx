@@ -1,4 +1,5 @@
 import { act, render, waitFor } from '@testing-library/react-native';
+import { AppState } from 'react-native';
 import { manipulateAsync } from 'expo-image-manipulator';
 import { encode } from 'jpeg-js';
 import { useEffect, useReducer, useState } from 'react';
@@ -37,6 +38,9 @@ jest.mock('expo-file-system', () => ({
 jest.mock('expo-image-manipulator', () => ({
   manipulateAsync: jest.fn(),
   SaveFormat: { JPEG: 'jpeg', PNG: 'png' },
+}));
+jest.mock('@/features/detection/preprocessing/guardPreprocess', () => ({
+  preprocessGuardImage: jest.fn(async () => new ArrayBuffer(602_112)),
 }));
 
 type Controller = Record<string, unknown> & { run: jest.Mock };
@@ -130,7 +134,10 @@ function Harness({
     finalizeSavedDraft: () => undefined,
     flushSavedDraft: async () => false,
     isOwnerCurrent: (owner) => owner === activeOwner,
+    isSessionCurrent: () => true,
     ownerIdentity: 'owner-a',
+    sessionGeneration: 0,
+    sessionIdentity: 'guard-test-session',
   }));
   return (
     <ScanSessionContext.Provider value={{ state, dispatch }}>
@@ -222,8 +229,8 @@ describe('guarded scan: accepted photo', () => {
       expect(result.predictedLabel).toBe('rust');
       expect(result.guardModelId).toBe('caneguard_guard_v1');
       expect(latest.analysis.isReady).toBe(true);
-      // The guard read the same source photo with a single direct-stretch resize.
-      expect(mockManipulate).toHaveBeenCalledWith(
+      // Guard preprocessing is isolated from the V2 manipulator path.
+      expect(mockManipulate).not.toHaveBeenCalledWith(
         'file:///leaf.jpg',
         [{ resize: { width: 224, height: 224 } }],
         expect.anything(),
@@ -486,13 +493,22 @@ describe('guarded scan: stale and duplicate protection', () => {
   });
 
   // Proves: remounting while native work is pending does not repeat either model.
-  it('keeps one accepted run across a screen remount', async () => {
+  it('keeps one accepted run across background transitions and a screen remount', async () => {
     const pending = deferred<ArrayBuffer[]>();
+    let onAppStateChange: (() => void) | undefined;
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+      onAppStateChange = listener as unknown as () => void;
+      return { remove: jest.fn() } as never;
+    });
     mockGuard = guardController(jest.fn().mockReturnValue(pending.promise));
     const view = await mount();
     await select('file:///leaf.jpg');
     await waitFor(() => expect(mockGuard.run).toHaveBeenCalledTimes(1));
 
+    await act(async () => {
+      onAppStateChange?.();
+      onAppStateChange?.();
+    });
     await view.rerender(<Harness initial={initialScanSessionState} showProbe={false} />);
     await view.rerender(<Harness initial={initialScanSessionState} showProbe />);
     await act(async () => {

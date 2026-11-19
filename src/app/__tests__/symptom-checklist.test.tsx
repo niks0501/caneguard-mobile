@@ -8,7 +8,10 @@ import {
   GUIDED_VALIDATION_QUESTIONS,
 } from '@/features/detection/checklist/checklistConsistency';
 import { FARMER_COPY } from '@/constants/copy';
-import { ScanSessionContext } from '@/features/detection/context/ScanSessionProvider';
+import {
+  ScanDraftContext,
+  ScanSessionContext,
+} from '@/features/detection/context/ScanSessionProvider';
 import {
   initialScanSessionState,
   scanSessionReducer,
@@ -118,7 +121,23 @@ const successfulInferenceResult = {
     totalMs: 60,
   },
   modelVersion: 'v1.0-mobilenetv2',
+};
+const guardedInferenceResult = {
+  ...successfulInferenceResult,
   guardModelId: 'caneguard_guard_v1' as const,
+};
+
+const scanDraft = {
+  discardSavedDraft: async () => false,
+  draftSavedAt: null,
+  draftStatus: 'idle' as const,
+  finalizeSavedDraft: () => undefined,
+  flushSavedDraft: async () => false,
+  isOwnerCurrent: () => true,
+  isSessionCurrent: () => true,
+  ownerIdentity: 'checklist-test-user',
+  sessionGeneration: 0,
+  sessionIdentity: 'checklist-test-session',
 };
 
 const selectedState: ScanSessionState = {
@@ -142,7 +161,9 @@ async function renderScreen(initialState: ScanSessionState) {
 
     return (
       <ScanSessionContext.Provider value={{ state, dispatch }}>
-        <SymptomChecklistScreen />
+        <ScanDraftContext.Provider value={scanDraft}>
+          <SymptomChecklistScreen />
+        </ScanDraftContext.Provider>
       </ScanSessionContext.Provider>
     );
   }
@@ -432,7 +453,7 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
   it('lets a restored completed scan answer and continue without re-running the check', async () => {
     await renderScreen({
       ...selectedState,
-      result: successfulInferenceResult,
+      result: guardedInferenceResult,
       status: 'completed',
     });
 

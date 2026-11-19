@@ -12,7 +12,7 @@ import {
   type PropsWithChildren,
 } from 'react';
 
-import { cleanupGuardScratchFiles } from '@/features/detection/preprocessing/guardPreprocess';
+import { clearScanAnalysisWork } from '@/features/detection/analysis/scanAnalysisWork';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import type { CaneGuardDatabase } from '@/database/database';
 import { AuthContext } from '@/features/auth/providers/AuthProvider';
@@ -65,10 +65,10 @@ export interface ScanDraftContextValue {
   flushSavedDraft: () => Promise<boolean>;
   /** True while `owner` is still the signed-in owner for this process. */
   isOwnerCurrent: (owner: string | null) => boolean;
-  isSessionCurrent?: (sourceUri: string, generation: number) => boolean;
+  isSessionCurrent: (sourceUri: string, generation: number) => boolean;
   ownerIdentity: string | null;
-  sessionGeneration?: number;
-  sessionIdentity?: string;
+  sessionGeneration: number;
+  sessionIdentity: string;
 }
 
 export const ScanDraftContext = createContext<ScanDraftContextValue | null>(null);
@@ -90,9 +90,6 @@ interface StoredDraftImage {
 
 export function ScanSessionProvider({ children }: PropsWithChildren) {
   const database = useCaneGuardDatabase();
-  useEffect(() => {
-    cleanupGuardScratchFiles();
-  }, []);
   // Optional so a screen or provider suite can render in isolation; the app
   // always mounts this provider under AuthProvider.
   const auth = useContext(AuthContext);
@@ -183,6 +180,8 @@ function ScanSessionOwner({
   const sessionGeneration = useRef(0);
   const [sessionGenerationValue, setSessionGenerationValue] = useState(0);
   const [sessionIdentity] = useState(() => `scan-session-${++nextSessionOwnerId}`);
+
+  useEffect(() => () => clearScanAnalysisWork(sessionIdentity), [sessionIdentity]);
 
   useEffect(() => {
     stateRef.current = state;
@@ -317,6 +316,7 @@ function ScanSessionOwner({
   const dispatch = useCallback(
     (action: ScanSessionAction) => {
       if (action.type === 'SELECT_IMAGE') {
+        clearScanAnalysisWork(sessionIdentity);
         finalized.current = false;
         sessionGeneration.current += 1;
         setSessionGenerationValue(sessionGeneration.current);
@@ -330,8 +330,9 @@ function ScanSessionOwner({
             ? true
             : resetAppliesToSession(stateRef.current, action.payload);
         if (applies) {
+          clearScanAnalysisWork(sessionIdentity);
           sessionGeneration.current += 1;
-        setSessionGenerationValue(sessionGeneration.current);
+          setSessionGenerationValue(sessionGeneration.current);
         }
         finalized.current = false;
         rawDispatch(action);
@@ -361,7 +362,7 @@ function ScanSessionOwner({
       }
       rawDispatch(action);
     },
-    [database, ownerIdentity, persistSelectedImage],
+    [database, ownerIdentity, persistSelectedImage, sessionIdentity],
   );
 
   // Checkpoint each settled state change (selection, analysis result, guided
@@ -395,6 +396,7 @@ function ScanSessionOwner({
     if (!ownerIdentity) {
       return false;
     }
+    clearScanAnalysisWork(sessionIdentity);
     const trackedImage = draftImageRef.current;
     try {
       deleteScanDraftCheckpoint(database, ownerIdentity);
@@ -412,12 +414,12 @@ function ScanSessionOwner({
     imageOperation.current += 1;
     finalized.current = false;
     sessionGeneration.current += 1;
-        setSessionGenerationValue(sessionGeneration.current);
+    setSessionGenerationValue(sessionGeneration.current);
     rawDispatch({ type: 'RESET_SCAN' });
     setDraftStatus('idle');
     setDraftSavedAt(null);
     return true;
-  }, [database, ownerIdentity]);
+  }, [database, ownerIdentity, sessionIdentity]);
 
   const finalizeSavedDraft = useCallback(() => {
     if (!ownerIdentity) {
@@ -562,7 +564,8 @@ const NO_DRAFT: ScanDraftContextValue = {
   finalizeSavedDraft: () => undefined,
   flushSavedDraft: async () => true,
   isOwnerCurrent: () => true,
-  isSessionCurrent: () => true,
+  isSessionCurrent: () => false,
   ownerIdentity: null,
   sessionGeneration: 0,
+  sessionIdentity: 'no-scan-session',
 };

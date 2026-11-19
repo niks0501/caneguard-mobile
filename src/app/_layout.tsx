@@ -12,16 +12,12 @@ import {
 } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useContext, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { MobileAttentionLifecycle } from '@/features/notifications/components/MobileAttentionLifecycle';
 import { OfficeUpdatesProvider } from '@/features/notifications/providers/OfficeUpdatesProvider';
-import {
-  ScanSessionContext,
-  ScanSessionProvider,
-} from '@/features/detection/context/ScanSessionProvider';
-import { isGuardedResult } from '@/features/detection/constants/guardContract';
+import { ScanSessionProvider } from '@/features/detection/context/ScanSessionProvider';
 import { CaneGuardModelProvider } from '@/features/detection/model/useCaneGuardModel';
 import { GuardModelProvider } from '@/features/detection/model/useGuardModel';
 import { CaneGuardDatabaseProvider } from '@/database/DatabaseProvider';
@@ -75,8 +71,6 @@ export default function RootLayout() {
 export function AppNavigator() {
   const { colorScheme, isHydrated } = useThemePreference();
   const { status } = useAuth();
-  const scanSession = useContext(ScanSessionContext);
-  const canOpenAnalysisResult = isGuardedResult(scanSession?.state.result);
   const previousStatusRef = useRef(status);
   const landingPendingRef = useRef(false);
   const navigatorReady = Boolean(useRootNavigationState()?.key);
@@ -117,9 +111,7 @@ export function AppNavigator() {
         <Stack.Protected guard={status === 'authenticated'}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="symptom-checklist" />
-          <Stack.Protected guard={canOpenAnalysisResult}>
-            <Stack.Screen name="analysis-result" />
-          </Stack.Protected>
+          <Stack.Screen name="analysis-result" />
           <Stack.Screen name="records" />
           <Stack.Screen name="record-details" />
           <Stack.Screen name="field-report" />

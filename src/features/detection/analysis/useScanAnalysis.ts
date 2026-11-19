@@ -1,3 +1,4 @@
+import { AppState } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 
 import { GUARD_COPY } from '@/constants/copy';
@@ -18,16 +19,11 @@ import { useGuardModel } from '@/features/detection/model/useGuardModel';
 import { preprocessGuardImage } from '@/features/detection/preprocessing/guardPreprocess';
 import { getPreprocessingErrorMessage } from '@/features/detection/preprocessing/preprocessingErrors';
 import { preprocessImage } from '@/features/detection/preprocessing/preprocessImage';
-
-type PreparedPhoto = {
-  inputBuffer: ArrayBuffer;
-  preprocessMs: number;
-};
-
-let nextStandaloneSession = 0;
-const activeWork = new Map<string, Promise<void>>();
-const preparedPhotos = new Map<string, PreparedPhoto>();
-const qualityRejectedPhotos = new Set<string>();
+import {
+  activeWork,
+  preparedPhotos,
+  qualityRejectedPhotos,
+} from '@/features/detection/analysis/scanAnalysisWork';
 
 function prunePhotoCaches(currentKey: string | null): void {
   for (const candidate of preparedPhotos.keys()) {
@@ -42,13 +38,8 @@ function prunePhotoCaches(currentKey: string | null): void {
   }
 }
 
-function workKey(
-  owner: string | null,
-  sessionIdentity: string,
-  generation: number,
-  sourceUri: string,
-): string {
-  return `${owner ?? 'anonymous'}:${sessionIdentity}:${generation}:${sourceUri}`;
+function workKey(sessionIdentity: string, generation: number, sourceUri: string): string {
+  return `${sessionIdentity}:${generation}:${sourceUri}`;
 }
 
 function isCurrentSession(
@@ -60,9 +51,7 @@ function isCurrentSession(
 ): boolean {
   return (
     draft.isOwnerCurrent(owner) &&
-    (draft.isSessionCurrent
-      ? draft.isSessionCurrent(sourceUri, generation)
-      : currentSourceUri === sourceUri)
+    draft.isSessionCurrent(sourceUri, generation) && currentSourceUri === sourceUri
   );
 }
 
@@ -83,22 +72,19 @@ export function useScanAnalysis(replacing = false) {
     result,
     qualityAssessment,
   } = state;
-  // Without a mounted scan-session provider each hook instance is its own session, so
-  // module-level work caches never leak between unrelated screens.
-  const [standaloneSession] = useState(() => `standalone-${++nextStandaloneSession}`);
-  const generation = draft.sessionGeneration ?? 0;
+  const generation = draft.sessionGeneration;
+  const [lifecycleVersion, setLifecycleVersion] = useState(0);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', () => {
+      setLifecycleVersion((current) => current + 1);
+    });
+    return () => subscription.remove();
+  }, []);
   const currentSourceUriRef = useRef(sourceUri);
   useEffect(() => {
     currentSourceUriRef.current = sourceUri;
   }, [sourceUri]);
-  const key = sourceUri
-    ? workKey(
-        draft.ownerIdentity,
-        draft.sessionIdentity ?? standaloneSession,
-        generation,
-        sourceUri,
-      )
-    : null;
+  const key = sourceUri ? workKey(draft.sessionIdentity, generation, sourceUri) : null;
   const prepared = key ? preparedPhotos.get(key) : undefined;
   const photoHasWarnings = (qualityAssessment?.warnings.length ?? 0) > 0;
   const guardReady = guard.state === 'loaded';
@@ -207,6 +193,7 @@ export function useScanAnalysis(replacing = false) {
     draft,
     generation,
     key,
+    lifecycleVersion,
     qualityAssessment,
     result,
     sourceHeight,
@@ -333,6 +320,7 @@ export function useScanAnalysis(replacing = false) {
     guard,
     guardReady,
     key,
+    lifecycleVersion,
     modelState,
     photoHasWarnings,
     prepared,

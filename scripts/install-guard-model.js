@@ -19,7 +19,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const modelsDir = process.env.GUARD_V1_MODEL_DIR || path.join(root, 'assets', 'models');
+const modelsDir = path.join(root, 'assets', 'models');
 const destination = path.join(modelsDir, 'caneguard_guard_v1_float32.tflite');
 const contract = JSON.parse(
   fs.readFileSync(path.join(root, 'assets', 'models', 'caneguard_guard_v1_contract.json'), 'utf8'),
@@ -45,7 +45,10 @@ async function readSource(env) {
     const headers = env.GUARD_V1_MODEL_TOKEN
       ? { Authorization: 'Bearer ' + env.GUARD_V1_MODEL_TOKEN }
       : {};
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers, redirect: 'manual' });
+    if (response.status >= 300 && response.status < 400) {
+      fail('Guard model downloads must not redirect.');
+    }
     if (!response.ok) fail('Download failed with HTTP ' + response.status + '.');
     return { label: 'GUARD_V1_MODEL_URL', bytes: Buffer.from(await response.arrayBuffer()) };
   }

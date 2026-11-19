@@ -4,7 +4,10 @@ import { useReducer } from 'react';
 
 import SymptomChecklistScreen from '@/app/symptom-checklist';
 import { GUARD_COPY } from '@/constants/copy';
-import { ScanSessionContext } from '@/features/detection/context/ScanSessionProvider';
+import {
+  ScanDraftContext,
+  ScanSessionContext,
+} from '@/features/detection/context/ScanSessionProvider';
 import {
   initialScanSessionState,
   scanSessionReducer,
@@ -47,6 +50,19 @@ const mockUseGuard = jest.mocked(useGuardModel);
 const mockRouterPush = router.push as jest.Mock;
 const guardRun = jest.fn();
 
+const scanDraft = {
+  discardSavedDraft: async () => false,
+  draftSavedAt: null,
+  draftStatus: 'idle' as const,
+  finalizeSavedDraft: () => undefined,
+  flushSavedDraft: async () => false,
+  isOwnerCurrent: () => true,
+  isSessionCurrent: () => true,
+  ownerIdentity: 'guard-screen-user',
+  sessionGeneration: 0,
+  sessionIdentity: 'guard-screen-session',
+};
+
 const selectedState: ScanSessionState = {
   ...initialScanSessionState,
   sourceUri: 'content://sugarcane/selected-leaf',
@@ -75,7 +91,9 @@ async function renderScreen() {
     );
     return (
       <ScanSessionContext.Provider value={{ state, dispatch }}>
-        <SymptomChecklistScreen />
+        <ScanDraftContext.Provider value={scanDraft}>
+          <SymptomChecklistScreen />
+        </ScanDraftContext.Provider>
       </ScanSessionContext.Provider>
     );
   }

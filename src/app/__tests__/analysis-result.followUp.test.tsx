@@ -46,7 +46,10 @@ const DRAFT = {
   finalizeSavedDraft: jest.fn(),
   flushSavedDraft: jest.fn(async () => true),
   isOwnerCurrent: jest.fn(() => true),
+  isSessionCurrent: jest.fn(() => true),
   ownerIdentity: null,
+  sessionGeneration: 0,
+  sessionIdentity: 'analysis-follow-up-test-session',
 };
 
 function followUpState(overrides: Partial<ScanSessionState> = {}): ScanSessionState {

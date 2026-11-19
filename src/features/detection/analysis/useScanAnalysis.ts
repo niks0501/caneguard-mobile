@@ -22,18 +22,12 @@ import { preprocessImage } from '@/features/detection/preprocessing/preprocessIm
 import {
   activeWork,
   preparedPhotos,
-  qualityRejectedPhotos,
 } from '@/features/detection/analysis/scanAnalysisWork';
 
 function prunePhotoCaches(currentKey: string | null): void {
   for (const candidate of preparedPhotos.keys()) {
     if (candidate !== currentKey && !activeWork.has(candidate)) {
       preparedPhotos.delete(candidate);
-    }
-  }
-  for (const candidate of qualityRejectedPhotos) {
-    if (candidate !== currentKey) {
-      qualityRejectedPhotos.delete(candidate);
     }
   }
 }
@@ -112,7 +106,7 @@ export function useScanAnalysis(replacing = false) {
       !sourceUri ||
       status !== 'image-selected' ||
       result ||
-      (qualityAssessment && qualityRejectedPhotos.has(key)) ||
+      photoHasWarnings ||
       preparedPhotos.has(key) ||
       activeWork.has(key)
     ) {
@@ -142,9 +136,7 @@ export function useScanAnalysis(replacing = false) {
           return;
         }
         const hasQualityWarnings = preprocessingResult.qualityAssessment.warnings.length > 0;
-        if (hasQualityWarnings) {
-          qualityRejectedPhotos.add(key);
-        } else {
+        if (!hasQualityWarnings) {
           preparedPhotos.set(key, {
             inputBuffer: preprocessingResult.inputBuffer,
             preprocessMs: preprocessingResult.preprocessMs,
@@ -293,7 +285,6 @@ export function useScanAnalysis(replacing = false) {
           activeWork.delete(key);
         }
         preparedPhotos.delete(key);
-        qualityRejectedPhotos.delete(key);
       }
     })();
     activeWork.set(key, work);

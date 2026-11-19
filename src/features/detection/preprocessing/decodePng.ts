@@ -361,12 +361,12 @@ function writePixel(
     if (transparency.palette && index < transparency.palette.length) alpha = transparency.palette[index];
   } else if (colorType === 4) {
     red = green = blue = sample(row, x, 0, channels, bitDepth);
-    alpha = sample(row, x, 1, channels, bitDepth);
+    alpha = rawSample(row, x, 1, channels, bitDepth) === (bitDepth === 16 ? 65535 : 255) ? 255 : 0;
   } else {
     red = sample(row, x, 0, channels, bitDepth);
     green = sample(row, x, 1, channels, bitDepth);
     blue = sample(row, x, 2, channels, bitDepth);
-    alpha = sample(row, x, 3, channels, bitDepth);
+    alpha = rawSample(row, x, 3, channels, bitDepth) === (bitDepth === 16 ? 65535 : 255) ? 255 : 0;
   }
   if (alpha !== 255) fail('Transparent PNGs are not supported.');
   target[targetIndex] = red;

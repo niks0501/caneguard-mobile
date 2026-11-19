@@ -73,6 +73,26 @@ describe('decodePng', () => {
     expect(() => decodePng(new Uint8Array(bytes))).toThrow(/Unsupported PNG/);
   });
 
+  it('rejects a non-opaque 16-bit alpha sample', () => {
+    const bytes = PNG.sync.write({
+      width: 1,
+      height: 1,
+      data: Buffer.from([20, 30, 40, 255]),
+    });
+    const ihdr = bytes.indexOf(Buffer.from('IHDR'));
+    bytes[ihdr + 12] = 16;
+    bytes[ihdr + 13] = 6;
+    const raw = Buffer.from([0, 0, 20, 0, 30, 0, 40, 255, 254]);
+    const idat = bytes.indexOf(Buffer.from('IDAT')) - 4;
+    const replacement = Buffer.alloc(12 + deflateSync(raw).length);
+    replacement.writeUInt32BE(deflateSync(raw).length, 0);
+    replacement.write('IDAT', 4, 'ascii');
+    deflateSync(raw).copy(replacement, 8);
+    const end = idat + 12 + bytes.readUInt32BE(idat);
+    const rewritten = Buffer.concat([bytes.subarray(0, idat), replacement, bytes.subarray(end)]);
+    expect(() => decodePng(new Uint8Array(rewritten))).toThrow(/Transparent PNGs/);
+  });
+
   it('rejects transparent pixels instead of discarding alpha', () => {
     const bytes = PNG.sync.write({
       width: 1,

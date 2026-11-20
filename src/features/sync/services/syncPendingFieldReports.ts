@@ -1,6 +1,7 @@
 import type { CaneGuardDatabase } from '@/database/database';
 import {
   createFieldReportSyncRepository,
+  hasCoolingRetryableFieldReport,
   SYNC_RETRY_COOLDOWN_MS,
 } from '@/features/reports/data/fieldReportSyncRepository';
 import { staleSyncingCutoff } from '@/features/sync/domain/outboxState';
@@ -41,7 +42,9 @@ export interface SyncBatchResult {
 interface SyncPendingFieldReportsOptions {
   database: CaneGuardDatabase;
   districtCode: string;
+  isSendHeld?: () => boolean;
   limit?: number;
+  onOutcome?: (result: SyncResult) => void;
   source: SyncTriggerSource;
   submitterIdentity: string;
   token: string | null;
@@ -91,6 +94,8 @@ async function executeBatch({
   database,
   districtCode,
   limit = DEFAULT_SYNC_BATCH_SIZE,
+  isSendHeld,
+  onOutcome,
   source,
   submitterIdentity,
   token,
@@ -112,18 +117,20 @@ async function executeBatch({
 
   while (results.length < MAX_SYNC_REPORTS_PER_RUN) {
     const remaining = MAX_SYNC_REPORTS_PER_RUN - results.length;
+    const failedBefore = new Date(Date.now() - SYNC_RETRY_COOLDOWN_MS).toISOString();
     const candidates = await repository.findSyncCandidates(
       Math.min(batchSize, remaining),
       {
         districtCode,
-        failedBefore: new Date(
-          Date.now() - SYNC_RETRY_COOLDOWN_MS,
-        ).toISOString(),
+        failedBefore,
         includeRetryableFailed: true,
       },
     );
     if (candidates.length === 0) {
-      haltReason = 'empty';
+      // A report still cooling down is not "empty": keep a retry scheduled so it resumes.
+      haltReason = (await hasCoolingRetryableFieldReport(database, submitterIdentity, failedBefore))
+        ? 'transient-blocker'
+        : 'empty';
       break;
     }
 
@@ -131,8 +138,14 @@ async function executeBatch({
       // Automatic runs hand a transient outage back to SyncProvider after one
       // request. Repeating long multipart timeouts here can postpone the
       // lifecycle retry timer until after the API has already recovered.
+      if (isSendHeld?.()) {
+        haltReason = 'transient-blocker';
+        break;
+      }
       const result = await syncFieldReport({
         allowImmediateRetries: source === 'manual',
+        isSendHeld,
+        onOutcome,
         reportId: candidate.id,
         repository,
         token,

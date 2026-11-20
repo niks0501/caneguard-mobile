@@ -25,6 +25,7 @@ export function getSyncAttention(
   switch (code) {
     case 'NETWORK_UNAVAILABLE':
     case 'NETWORK_REQUEST_FAILED':
+    case 'OFFICE_NOT_READY':
     case 'SERVER_ERROR':
       return {
         action: 'automatic-retry',

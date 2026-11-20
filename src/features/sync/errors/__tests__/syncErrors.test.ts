@@ -1,6 +1,5 @@
 import { ApiHttpError } from '@/features/shared/api/apiClient';
 import {
-  AUTO_RETRYABLE_SYNC_ERROR_CODES,
   isAutoRetryableSyncErrorCode,
   SyncError,
   toSyncError,
@@ -11,6 +10,7 @@ describe('synchronization retry policy', () => {
     'NETWORK_UNAVAILABLE',
     'NETWORK_REQUEST_FAILED',
     'API_RATE_LIMITED',
+    'OFFICE_NOT_READY',
     'SERVER_ERROR',
   ])('classifies %s as automatically retryable', (code) => {
     expect(isAutoRetryableSyncErrorCode(code)).toBe(true);
@@ -30,13 +30,7 @@ describe('synchronization retry policy', () => {
     expect(isAutoRetryableSyncErrorCode(code)).toBe(false);
   });
 
-  it('uses the persisted code policy for in-memory errors and HTTP mapping', () => {
-    expect(AUTO_RETRYABLE_SYNC_ERROR_CODES).toEqual([
-      'NETWORK_UNAVAILABLE',
-      'NETWORK_REQUEST_FAILED',
-      'API_RATE_LIMITED',
-      'SERVER_ERROR',
-    ]);
+  it('classifies in-memory errors and HTTP responses by retryability', () => {
     expect(new SyncError('SERVER_ERROR', 'temporary').retryable).toBe(true);
     expect(new SyncError('API_VALIDATION_FAILED', 'permanent').retryable).toBe(false);
     expect(toSyncError(new ApiHttpError(503, 'unavailable')).retryable).toBe(true);
@@ -46,6 +40,26 @@ describe('synchronization retry policy', () => {
     });
     expect(toSyncError(new ApiHttpError(422, 'invalid')).retryable).toBe(false);
   });
+
+  describe('404 by endpoint', () => {
+    it.each(['report', 'boundary'] as const)('is a retryable office-not-ready on a %s upload', (endpoint) => {
+      const error = toSyncError(new ApiHttpError(404, 'missing', { retryAfterMs: 90_000 }), { endpoint });
+      expect(error).toMatchObject({ code: 'OFFICE_NOT_READY', retryable: true, retryAfterMs: 90_000 });
+    });
+
+    it('stays a cancelled visit when no upload endpoint is named', () => {
+      expect(toSyncError(new ApiHttpError(404, 'gone'))).toMatchObject({ code: 'VISIT_CANCELLED', retryable: false });
+    });
+
+    it('treats a non-finite Retry-After as no hint', () => {
+      expect(toSyncError(new ApiHttpError(503, 'down', { retryAfterMs: Number.POSITIVE_INFINITY })).retryAfterMs).toBeNull();
+    });
+
+    it('carries Retry-After on a 503', () => {
+      expect(toSyncError(new ApiHttpError(503, 'down', { retryAfterMs: 30_000 })).retryAfterMs).toBe(30_000);
+    });
+  });
+
 
   describe('bounded validation detail (M13)', () => {
     it('keeps a short field-level reason from a 422 response', () => {

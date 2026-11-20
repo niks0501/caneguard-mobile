@@ -15,7 +15,7 @@ function repository(): jest.Mocked<FieldReportSyncRepository> {
     findById: jest.fn(async () => ({ report: REPORT, scanRecord: {} as never })),
     findSyncCandidates: jest.fn(async () => [REPORT]),
     markFailed: jest.fn(async () => undefined),
-    markPending: jest.fn(async () => undefined),
+    releaseClaim: jest.fn(async () => undefined),
     markSynced: jest.fn(async () => undefined),
     markSyncing: jest.fn(async () => undefined),
     resetStaleSyncingReports: jest.fn(async () => undefined),
@@ -41,6 +41,22 @@ describe('single Field Report synchronization', () => {
     expect(repo.markSynced).toHaveBeenCalledWith(
       REPORT.id, 'server-report-uuid', '2026-08-10T04:00:01.000Z',
     );
+  });
+
+  it('defers a server Retry-After to the queue instead of waiting inside the call', async () => {
+    const repo = repository();
+    const upload = jest.fn(async () => { throw new ApiHttpError(503, 'down', { retryAfterMs: 300_000 }); });
+    const delay = jest.fn(async () => undefined);
+
+    await expect(syncFieldReport({
+      reportId: REPORT.id, repository: repo, token: 'secure-token', delay,
+      mapMultipart: jest.fn(() => new FormData()),
+      upload,
+    })).resolves.toMatchObject({ status: 'failed', error: { retryAfterMs: 300_000 } });
+
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(delay).not.toHaveBeenCalled();
+    expect(repo.markSynced).not.toHaveBeenCalled();
   });
 
   it('does not upload or mutate an already-synced report when the queue delivers it again', async () => {
@@ -203,4 +219,61 @@ describe('single Field Report synchronization', () => {
       expect(repo.markSynced).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('held single Field Report synchronization', () => {
+  it('returns a claim taken during a server hold to the queue without uploading', async () => {
+    const repo = repository();
+    let held = false;
+    repo.markSyncing.mockImplementationOnce(async () => {
+      held = true;
+      return 1;
+    });
+    const upload = jest.fn(async () => ({ remoteId: 'server-report-uuid' }));
+
+    await expect(syncFieldReport({
+      reportId: REPORT.id, repository: repo, token: 'secure-token',
+      isSendHeld: () => held,
+      mapMultipart: jest.fn(() => new FormData()),
+      upload,
+    })).resolves.toEqual({ reportId: REPORT.id, status: 'skipped' });
+
+    expect(repo.releaseClaim).toHaveBeenCalledWith(REPORT.id);
+    expect(upload).not.toHaveBeenCalled();
+    expect(repo.markFailed).not.toHaveBeenCalled();
+  });
+
+  it('publishes a synced outcome before its SQLite write', async () => {
+    const repo = repository();
+    const order: string[] = [];
+    repo.markSynced.mockImplementationOnce(async () => {
+      order.push('write');
+    });
+
+    await syncFieldReport({
+      reportId: REPORT.id, repository: repo, token: 'secure-token',
+      mapMultipart: jest.fn(() => new FormData()),
+      onOutcome: (result) => order.push(`outcome:${result.status}`),
+      upload: jest.fn(async () => ({ remoteId: 'server-report-uuid' })),
+    });
+
+    expect(order).toEqual(['outcome:synced', 'write']);
+  });
+
+  it('ends a retry that a server hold overtakes instead of posting again', async () => {
+    const repo = repository();
+    let held = false;
+    const upload = jest.fn(async () => { throw new ApiHttpError(503, 'down'); });
+    const delay = jest.fn(async () => { held = true; });
+
+    await expect(syncFieldReport({
+      isSendHeld: () => held,
+      reportId: REPORT.id, repository: repo, token: 'secure-token', delay,
+      mapMultipart: jest.fn(() => new FormData()),
+      upload,
+    })).resolves.toMatchObject({ status: 'failed' });
+
+    expect(delay).toHaveBeenCalledTimes(1);
+    expect(upload).toHaveBeenCalledTimes(1);
+  });
 });

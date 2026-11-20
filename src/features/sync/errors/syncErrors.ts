@@ -15,6 +15,7 @@ export const SYNC_ERROR_CODES = [
   'CLIENT_UUID_CONFLICT',
   'API_FORBIDDEN',
   'API_RATE_LIMITED',
+  'OFFICE_NOT_READY',
   'IMAGE_MISSING',
   'INVALID_LOCAL_RECORD',
   'SERVER_ERROR',
@@ -98,6 +99,7 @@ export const AUTO_RETRYABLE_SYNC_ERROR_CODES = [
   'NETWORK_UNAVAILABLE',
   'NETWORK_REQUEST_FAILED',
   'API_RATE_LIMITED',
+  'OFFICE_NOT_READY',
   'SERVER_ERROR',
 ] as const satisfies readonly SyncErrorCode[];
 
@@ -133,12 +135,23 @@ export class SyncError extends Error {
     this.name = 'SyncError';
     this.code = code;
     this.retryable = options.retryable ?? isAutoRetryableSyncErrorCode(code);
-    this.retryAfterMs = options.retryAfterMs ?? null;
+    const hintMs = options.retryAfterMs ?? null;
+    this.retryAfterMs = hintMs !== null && Number.isFinite(hintMs) && hintMs > 0 ? hintMs : null;
     this.detail = options.detail ?? null;
   }
 }
 
-export function toSyncError(error: unknown): SyncError {
+/**
+ * Which upload a failure came from. A 404 means different things per endpoint:
+ * on a report or boundary upload the office has not published that endpoint
+ * yet (retryable), while on a visit completion the visit no longer exists.
+ */
+export type SyncEndpoint = 'report' | 'boundary';
+
+export function toSyncError(
+  error: unknown,
+  options: { endpoint?: SyncEndpoint } = {},
+): SyncError {
   if (error instanceof SyncError) {
     return error;
   }
@@ -173,6 +186,13 @@ export function toSyncError(error: unknown): SyncError {
         { detail: extractValidationDetail(error.body) },
       );
     }
+    if (error.status === 404 && options.endpoint) {
+      return new SyncError(
+        'OFFICE_NOT_READY',
+        getSyncErrorMessage('OFFICE_NOT_READY') ?? '',
+        { retryAfterMs: error.retryAfterMs },
+      );
+    }
     if (error.status === 404) {
       // The visit no longer exists on the office side.
       return new SyncError(
@@ -201,7 +221,8 @@ export function toSyncError(error: unknown): SyncError {
     if (error.status >= 500) {
       return new SyncError(
         'SERVER_ERROR',
-        'The server could not accept the report yet.'
+        'The server could not accept the report yet.',
+        { retryAfterMs: error.retryAfterMs },
       );
     }
   }
@@ -245,6 +266,8 @@ export function getSyncErrorMessage(code: string | null): string | null {
       return 'The saved image is missing from this device.';
     case 'INVALID_LOCAL_RECORD':
       return 'This saved record is incomplete and cannot be sent.';
+    case 'OFFICE_NOT_READY':
+      return 'The office is not ready to receive this yet. Try again later.';
     case 'SERVER_ERROR':
       return 'The office was unavailable. Try again later.';
     case 'UNKNOWN_SYNC_ERROR':

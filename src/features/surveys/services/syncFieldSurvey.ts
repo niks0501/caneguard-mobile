@@ -3,6 +3,7 @@ import { findOwnedFieldSurvey, updateFieldSurveySyncResult } from '@/features/su
 import { FieldSurveyValidationError, submitFieldSurvey, type FieldSurveyAffectedAreaWaypointProvenance, type FieldSurveyMeasurementProvenance } from '@/features/surveys/api/fieldSurveysApi';
 import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
+import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 
 export type FieldSurveySyncResult =
   | { status: 'synced' | 'already-synced'; remoteId: string }
@@ -10,12 +11,18 @@ export type FieldSurveySyncResult =
 
 const RETRY_DELAYS_MS = [2_000, 5_000, 15_000] as const;
 
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 export async function syncFieldSurvey(options: {
   allowImmediateRetries?: boolean;
   clientUuid: string;
   database: CaneGuardDatabase;
   delay?: (milliseconds: number) => Promise<void>;
   districtCode: string;
+  isSendHeld?: () => boolean;
+  onOutcome?: (result: SyncResult) => void;
   ownerIdentity: string;
   token: string | null;
 }): Promise<FieldSurveySyncResult> {
@@ -85,13 +92,15 @@ export async function syncFieldSurvey(options: {
       } catch (error: unknown) {
         const syncError = error instanceof FieldSurveyValidationError
           ? new SyncError('API_VALIDATION_FAILED', 'The server needs a correction to this boundary.')
-          : toSyncError(error);
-        if (!syncError.retryable || options.allowImmediateRetries === false || retryIndex >= RETRY_DELAYS_MS.length) throw error;
-        const waitFor = Math.min(syncError.retryAfterMs ?? RETRY_DELAYS_MS[retryIndex], 60_000);
+          : toSyncError(error, { endpoint: 'boundary' });
+        if (!syncError.retryable || options.allowImmediateRetries === false || syncError.retryAfterMs !== null || retryIndex >= RETRY_DELAYS_MS.length) throw error;
+        const waitFor = RETRY_DELAYS_MS[retryIndex];
         retryIndex += 1;
         await (options.delay ?? delay)(waitFor);
+        if (options.isSendHeld?.()) throw error;
       }
     }
+    options.onOutcome?.({ reportId: row.clientUuid, remoteId: response.id, status: 'synced' });
     updateFieldSurveySyncResult(options.database, row.clientUuid, options.ownerIdentity, {
       remoteId: response.id, status: 'synced', fieldErrors: null, lastSyncErrorCode: null,
     });
@@ -102,7 +111,8 @@ export async function syncFieldSurvey(options: {
       ? new SyncError('CLIENT_UUID_CONFLICT', 'This boundary identity was rejected. Start a new boundary before sending again.')
       : error instanceof FieldSurveyValidationError
         ? new SyncError('API_VALIDATION_FAILED', 'The server needs a correction to this boundary.')
-        : toSyncError(error);
+        : toSyncError(error, { endpoint: 'boundary' });
+    options.onOutcome?.({ reportId: row.clientUuid, status: 'failed', error: syncError });
     updateFieldSurveySyncResult(options.database, row.clientUuid, options.ownerIdentity, {
       fieldErrors: error instanceof FieldSurveyValidationError ? error.fieldErrors : null,
       lastSyncErrorCode: syncError.code,
@@ -165,8 +175,4 @@ function toWireAffectedAreaWaypointProvenance(waypointSets: SurveyWaypoint[][]):
       captured_at: waypoint.capturedAt,
     })),
   );
-}
-
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }

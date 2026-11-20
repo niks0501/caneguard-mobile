@@ -237,7 +237,9 @@ Sync may be triggered:
 - by an online, foreground retry timer, which retries unavailable `/me` verification before reconsidering held work; or
 - manually.
 
-A retryable failed boundary inside its cooldown remains scheduled for later reconsideration rather than being treated as an empty queue. The retry timer runs just beyond the cooldown cutoff so eligible boundaries and reports held on them can be attempted.
+A retryable failed boundary, report, or visit completion inside its cooldown stays scheduled for later reconsideration rather than being treated as an empty queue. The foreground retry timer waits at least just beyond the cooldown cutoff, so eligible boundaries and reports held on them can be attempted, and adds up to half that wait again as jitter so phones recovering from one outage do not retry together.
+
+An upload answered with `Retry-After` — whole seconds or an HTTP date — records a session-wide hold until that server deadline, jittered the same way above the hint. The hold defers every later upload of reports, boundaries, and visit completions, manual `Retry now` and Activity sends included, and arms the retry timer for the time remaining to the deadline; a request already sent finishes, but nothing further is posted before it. A report or boundary upload answered `404` means the office has not published that endpoint yet, so it is recorded as `OFFICE_NOT_READY` and retried automatically, while a visit-completion `404` still means that visit no longer exists.
 
 A `farmer` session does not synchronize: it reports no pending count and no
 last successful sync time, and its queued Field Reports, field surveys, and

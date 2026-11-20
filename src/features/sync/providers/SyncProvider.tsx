@@ -25,15 +25,17 @@ import {
   findLastSuccessfulFieldReportSyncAt,
   markFieldReportPending,
   resetStaleSyncingFieldReports,
-  SYNC_RETRY_COOLDOWN_MS,
 } from '@/features/reports/data/fieldReportSyncRepository';
+import { nextAutoRetryDelayMs } from '@/features/sync/domain/retryBackoff';
 import { hasUnsentInspectorWork } from '@/features/sync/data/inspectorWorkWaiting';
+import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import {
   checkAccountStep,
   net,
   type StepOutcome,
 } from '@/features/net/reconnectCoordinator';
 import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
+import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 import {
   syncPendingFieldReports,
   type SyncBatchResult,
@@ -43,6 +45,8 @@ import { countUnsyncedFieldSurveys, findLastSuccessfulFieldSurveySyncAt, resetSt
 import { syncPendingFieldSurveys } from '@/features/surveys/services/syncPendingFieldSurveys';
 
 export type ApiReachability = 'unknown' | 'available' | 'unavailable';
+
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
 
 interface SyncContextValue {
   apiReachability: ApiReachability;
@@ -62,6 +66,7 @@ interface SyncContextValue {
 }
 
 export const SyncContext = createContext<SyncContextValue | null>(null);
+
 
 export function SyncProvider({ children }: PropsWithChildren) {
   const database = useCaneGuardDatabase();
@@ -107,6 +112,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const previousVerificationRef = useRef(sessionVerification);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryTimerSessionKey = useRef<string | null>(null);
+  const retryNotBefore = useRef(0);
+  const latestReachabilityRef = useRef<ApiReachability>('unknown');
   const syncNowRef = useRef<
     ((source?: SyncTriggerSource) => Promise<SyncBatchResult | null>) | null
   >(null);
@@ -119,9 +126,9 @@ export function SyncProvider({ children }: PropsWithChildren) {
     retryTimerSessionKey.current = null;
   }, []);
 
-  const scheduleRetryTimer = useCallback(() => {
+  const armRetryTimer = useCallback((delayMs: number) => {
+    clearRetryTimer();
     if (
-      retryTimer.current !== null ||
       onlineRef.current !== true ||
       appStateRef.current !== 'active' ||
       !sessionKey
@@ -150,8 +157,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
             retrySessionVerificationRef.current,
           ),
       });
-    }, SYNC_RETRY_COOLDOWN_MS + 1); // Retry predicates exclude records exactly at the cutoff.
-  }, [sessionKey]);
+    }, Math.min(Math.max(delayMs, 0), MAX_TIMER_DELAY_MS));
+  }, [clearRetryTimer, sessionKey]);
 
   useEffect(() => {
     sessionRef.current = session;
@@ -165,7 +172,14 @@ export function SyncProvider({ children }: PropsWithChildren) {
     retrySessionVerificationRef.current = retrySessionVerification;
   }, [retrySessionVerification]);
 
-  useEffect(() => () => clearRetryTimer(), [clearRetryTimer, sessionKey]);
+  useEffect(
+    () => () => {
+      clearRetryTimer();
+      retryNotBefore.current = 0;
+      latestReachabilityRef.current = 'unknown';
+    },
+    [clearRetryTimer, sessionKey],
+  );
 
   const refreshPendingCount = useCallback(async () => {
     const requestedToken = sessionToken;
@@ -244,6 +258,11 @@ export function SyncProvider({ children }: PropsWithChildren) {
     async (
       source: SyncTriggerSource = 'manual',
     ): Promise<SyncBatchResult | null> => {
+      const sendHeld = () => retryNotBefore.current > performance.now();
+      if (sendHeld()) {
+        armRetryTimer(retryNotBefore.current - performance.now());
+        return null;
+      }
       if (source !== 'retry-timer') {
         clearRetryTimer();
       }
@@ -278,6 +297,27 @@ export function SyncProvider({ children }: PropsWithChildren) {
       const canContinueOfficialRecordSync = () =>
         isInitiatingSessionCurrent() &&
         sessionRef.current?.user.role === 'field_reporter';
+      const publishSendOutcome = (result: SyncResult) => {
+        if (!canContinueOfficialRecordSync()) {
+          return;
+        }
+        const observedApiReachability = inferApiReachability([result]);
+        if (observedApiReachability) {
+          latestReachabilityRef.current = observedApiReachability;
+          setSyncState((current) => ({
+            ...current,
+            apiReachability: observedApiReachability,
+          }));
+        }
+        if (
+          result.status === 'failed' &&
+          result.error.retryAfterMs !== null &&
+          isAutoRetryableSyncErrorCode(result.error.code)
+        ) {
+          retryNotBefore.current = Math.max(retryNotBefore.current, performance.now() + nextAutoRetryDelayMs(result.error.retryAfterMs));
+          armRetryTimer(retryNotBefore.current - performance.now());
+        }
+      };
       try {
         if (!canContinueOfficialRecordSync()) {
           await refreshPendingCount();
@@ -291,6 +331,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
           database,
           districtCode: district.code,
           districtVerified: district.verified,
+          isSendHeld: sendHeld,
+          onOutcome: publishSendOutcome,
           source,
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
@@ -302,6 +344,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
         const reportResult = await syncPendingFieldReports({
           database,
           districtCode: district.code,
+          isSendHeld: sendHeld,
+          onOutcome: publishSendOutcome,
           source,
           submitterIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
@@ -312,20 +356,15 @@ export function SyncProvider({ children }: PropsWithChildren) {
         }
         const completionResult = await syncPendingFieldValidationCompletions({
           database,
+          isSendHeld: sendHeld,
+          onOutcome: publishSendOutcome,
           source,
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
-        const result = mergeSyncBatchResults(reportResult, surveyResult, completionResult);
+        const result = mergeSyncBatchResults(surveyResult, reportResult, completionResult);
         if (!isInitiatingSessionCurrent()) {
           return result;
-        }
-        const observedApiReachability = inferApiReachability(result);
-        if (observedApiReachability) {
-          setSyncState((current) => ({
-            ...current,
-            apiReachability: observedApiReachability,
-          }));
         }
         if (
           result.results.some(
@@ -341,8 +380,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
           await markSessionExpired();
           return result;
         }
-        if (result.haltReason === 'transient-blocker') {
-          scheduleRetryTimer();
+        if (retryNotBefore.current > performance.now()) {
+          armRetryTimer(retryNotBefore.current - performance.now());
+        } else if (result.haltReason === 'transient-blocker') {
+          armRetryTimer(nextAutoRetryDelayMs(null));
         } else {
           clearRetryTimer();
         }
@@ -382,12 +423,12 @@ export function SyncProvider({ children }: PropsWithChildren) {
     [
       authStatus,
       canSyncOfficialRecords,
+      armRetryTimer,
       clearRetryTimer,
       database,
       markSessionExpired,
       refreshPendingCount,
       reportCapabilityRevoked,
-      scheduleRetryTimer,
       session,
       sessionKey,
       sessionToken,
@@ -588,11 +629,11 @@ export function SyncProvider({ children }: PropsWithChildren) {
     const unregisterSend = net.registerSendSaved(
       async (source): Promise<StepOutcome> => {
         const result = await syncNowRef.current?.(source);
-        if (!result) return 'ok';
-        if (result.authRequired) return 'sign-in-again';
-        return inferApiReachability(result) === 'unavailable'
-          ? 'office-unreachable'
-          : 'ok';
+        if (result?.authRequired) return 'sign-in-again';
+        const reachability = retryNotBefore.current > performance.now()
+          ? latestReachabilityRef.current
+          : result ? inferApiReachability(result.results) : null;
+        return reachability === 'unavailable' ? 'office-unreachable' : 'ok';
       },
     );
     return () => {
@@ -682,11 +723,11 @@ function latestTimestamp(first: string | null, second: string | null): string | 
  * separate phone-network signal used for offline gating.
  */
 function inferApiReachability(
-  result: SyncBatchResult,
+  results: readonly SyncResult[],
 ): ApiReachability | null {
   let observation: ApiReachability | null = null;
 
-  for (const syncResult of result.results) {
+  for (const syncResult of results) {
     if (syncResult.status === 'synced') {
       observation = 'available';
       continue;
@@ -706,6 +747,7 @@ function inferApiReachability(
       case 'CAPABILITY_REVOKED':
       case 'API_FORBIDDEN':
       case 'API_RATE_LIMITED':
+      case 'OFFICE_NOT_READY':
         observation = 'available';
         break;
       default:

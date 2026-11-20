@@ -1,6 +1,7 @@
 import type { CaneGuardDatabase } from '@/database/database';
 import {
   createFieldValidationCompletionSyncRepository,
+  hasCoolingRetryableFieldValidationCompletion,
   FIELD_VALIDATION_SYNC_RETRY_COOLDOWN_MS,
 } from '@/features/assignments/data/fieldValidationCompletionRepository';
 import {
@@ -31,7 +32,9 @@ const activeRuns = new WeakMap<CaneGuardDatabase, DatabaseRunState>();
 
 export function syncPendingFieldValidationCompletions(options: {
   database: CaneGuardDatabase;
+  isSendHeld?: () => boolean;
   limit?: number;
+  onOutcome?: (result: FieldValidationCompletionSyncResult) => void;
   source: SyncTriggerSource;
   ownerIdentity: string;
   token: string | null;
@@ -58,7 +61,9 @@ export function syncPendingFieldValidationCompletions(options: {
 
 async function executeBatch(options: {
   database: CaneGuardDatabase;
+  isSendHeld?: () => boolean;
   limit?: number;
+  onOutcome?: (result: FieldValidationCompletionSyncResult) => void;
   source: SyncTriggerSource;
   ownerIdentity: string;
   token: string | null;
@@ -71,22 +76,32 @@ async function executeBatch(options: {
   let haltReason: SyncHaltReason = null;
 
   while (results.length < 50) {
+    const failedBefore = new Date(Date.now() - FIELD_VALIDATION_SYNC_RETRY_COOLDOWN_MS).toISOString();
     const candidates = await repository.findSyncCandidates(
       Math.min(batchSize, 50 - results.length),
       {
-        failedBefore: new Date(Date.now() - FIELD_VALIDATION_SYNC_RETRY_COOLDOWN_MS).toISOString(),
+        failedBefore,
         includeRetryableFailed: true,
       },
     );
     if (candidates.length === 0) {
-      haltReason = 'empty';
+      // A visit still cooling down is not "empty": keep a retry scheduled so it resumes.
+      haltReason = (await hasCoolingRetryableFieldValidationCompletion(options.database, options.ownerIdentity, failedBefore))
+        ? 'transient-blocker'
+        : 'empty';
       break;
     }
 
     for (const candidate of candidates) {
+      if (options.isSendHeld?.()) {
+        haltReason = 'transient-blocker';
+        break;
+      }
       const result = await syncFieldValidationCompletion({
         allowImmediateRetries: options.source === 'manual',
         completionId: candidate.id,
+        isSendHeld: options.isSendHeld,
+        onOutcome: options.onOutcome,
         repository,
         token: options.token,
       });

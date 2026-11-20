@@ -2,6 +2,7 @@ import {
   and,
   asc,
   eq,
+  gte,
   inArray,
   isNull,
   lt,
@@ -23,9 +24,29 @@ import type {
 } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 import { validateFieldValidationCompletionInput } from '@/features/assignments/domain/fieldValidationCompletionValidation';
 import { SYNC_TRANSITIONS } from '@/features/sync/domain/outboxState';
+import { AUTO_RETRYABLE_SYNC_ERROR_CODES } from '@/features/sync/errors/syncErrors';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 export const FIELD_VALIDATION_SYNC_RETRY_COOLDOWN_MS = 60_000;
+
+export async function hasCoolingRetryableFieldValidationCompletion(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  failedBefore: string,
+): Promise<boolean> {
+  const row = await database
+    .select({ id: fieldValidationCompletions.id })
+    .from(fieldValidationCompletions)
+    .where(and(
+      eq(fieldValidationCompletions.ownerIdentity, requireOwner(ownerIdentity)),
+      eq(fieldValidationCompletions.syncStatus, 'failed'),
+      inArray(fieldValidationCompletions.lastSyncErrorCode, AUTO_RETRYABLE_SYNC_ERROR_CODES),
+      gte(fieldValidationCompletions.lastSyncAttemptAt, failedBefore),
+    ))
+    .limit(1)
+    .get();
+  return row !== undefined;
+}
 
 export interface FieldValidationCompletionSyncRepository {
   countUnsynced(): Promise<number>;
@@ -36,9 +57,9 @@ export interface FieldValidationCompletionSyncRepository {
     options?: { failedBefore?: string; includeRetryableFailed?: boolean },
   ): Promise<FieldValidationCompletion[]>;
   markFailed(id: string, errorCode: string, attemptedAt: string): Promise<void>;
-  markPending(id: string): Promise<void>;
   markSynced(id: string, remoteId: string, syncedAt: string): Promise<void>;
-  markSyncing(id: string, attemptedAt: string): Promise<void>;
+  markSyncing(id: string, attemptedAt: string): Promise<number>;
+  releaseClaim(id: string): Promise<void>;
   resetStaleSyncing(staleBefore: string): Promise<void>;
 }
 
@@ -52,9 +73,9 @@ export function createFieldValidationCompletionSyncRepository(
     findLastSuccessfulSyncAt: () => findLastSuccessfulFieldValidationCompletionSyncAt(database, ownerIdentity),
     findSyncCandidates: (limit, options) => findFieldValidationCompletionSyncCandidates(database, ownerIdentity, limit, options),
     markFailed: (id, code, at) => markFieldValidationCompletionFailed(database, id, ownerIdentity, code, at).then(() => undefined),
-    markPending: (id) => markFieldValidationCompletionPending(database, id, ownerIdentity).then(() => undefined),
     markSynced: (id, remoteId, at) => markFieldValidationCompletionSynced(database, id, ownerIdentity, remoteId, at).then(() => undefined),
-    markSyncing: (id, at) => markFieldValidationCompletionSyncing(database, id, ownerIdentity, at).then(() => undefined),
+    markSyncing: (id, at) => markFieldValidationCompletionSyncing(database, id, ownerIdentity, at),
+    releaseClaim: (id) => releaseFieldValidationCompletionClaim(database, id, ownerIdentity).then(() => undefined),
     resetStaleSyncing: (before) => resetStaleSyncingFieldValidationCompletions(database, ownerIdentity, before),
   };
 }
@@ -231,12 +252,7 @@ export async function findFieldValidationCompletionSyncCandidates(
         eq(fieldValidationCompletions.syncStatus, 'pending'),
         and(
           eq(fieldValidationCompletions.syncStatus, 'failed'),
-          inArray(fieldValidationCompletions.lastSyncErrorCode, [
-            'NETWORK_UNAVAILABLE',
-            'NETWORK_REQUEST_FAILED',
-            'API_RATE_LIMITED',
-            'SERVER_ERROR',
-          ]),
+          inArray(fieldValidationCompletions.lastSyncErrorCode, AUTO_RETRYABLE_SYNC_ERROR_CODES),
           or(
             isNull(fieldValidationCompletions.lastSyncAttemptAt),
             lt(fieldValidationCompletions.lastSyncAttemptAt, failedBefore),
@@ -268,6 +284,18 @@ export async function markFieldValidationCompletionPending(
     lastSyncErrorCode: null,
     updatedAt: new Date().toISOString(),
   }, SYNC_TRANSITIONS.pending);
+}
+
+export async function releaseFieldValidationCompletionClaim(
+  database: CaneGuardDatabase,
+  id: string,
+  ownerIdentity: string,
+): Promise<number> {
+  return updateSyncState(database, id, ownerIdentity, {
+    syncStatus: 'pending',
+    lastSyncErrorCode: null,
+    updatedAt: new Date().toISOString(),
+  }, ['syncing']);
 }
 
 export async function markFieldValidationCompletionSyncing(

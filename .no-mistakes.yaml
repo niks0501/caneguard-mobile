@@ -19,18 +19,6 @@ document:
 commands:
   test: "npm test -- --runInBand src/features/sync/services/__tests__/syncFieldReport.test.ts"
 
-review:
-  conversation: false
-  path_instructions:
-    - path: "src/features/detection/**"
-      instructions: "Preserve TFLite preprocessing, tensor shapes, labels and inference semantics; browser evidence is not native proof."
-    - path: "src/database/**"
-      instructions: "Preserve ownership isolation, atomic writes and existing persisted records."
-    - path: "drizzle/**"
-      instructions: "Preserve migration ordering and existing data; flag destructive or incompatible changes."
-    - path: "src/features/sync/**"
-      instructions: "Preserve unsynchronized reports, retry safety and idempotent uploads."
-
 test:
   instructions: |
     Use PROJECT_CHECKS.md to select affected fast tests; full regression belongs in CI.

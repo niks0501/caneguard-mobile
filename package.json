@@ -91,7 +91,10 @@
     "e2e": "agent-device test .agent-device/flows",
     "e2e:flow": "agent-device replay",
     "e2e:doctor": "agent-device doctor",
-    "e2e:env": "bash scripts/ad-flow-env.sh preflight"
+    "e2e:env": "bash scripts/ad-flow-env.sh preflight",
+    "live:up": "node ./scripts/live-up.js",
+    "live:ad": "node ./scripts/live-up.js ad",
+    "live:build": "node ./scripts/live-up.js build"
   },
   "jest": {
     "preset": "jest-expo",

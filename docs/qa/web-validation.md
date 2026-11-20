@@ -96,6 +96,8 @@ quality. A browser reload is the nearest available equivalent to a process
 restart for draft recovery; it still cannot prove Android picker recovery or
 native persistence.
 
+When `adb devices` shows no ready native target, `npm run live:up` records device-unavailable and this route is the fallback; a fallback run is inconclusive for native behaviour, never a pass (see [`live-validation.md`](live-validation.md)).
+
 Validation runs count as product acceptance evidence for exactly what this route proves above; only the native-only items still need `npm run e2e` / agent-device with an attached device.
 
 ## Reading a failure

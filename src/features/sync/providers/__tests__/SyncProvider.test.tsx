@@ -906,6 +906,12 @@ describe('SyncProvider foreground triggers', () => {
         jest.advanceTimersByTime(1);
         await Promise.resolve();
       });
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        jest.advanceTimersByTime(1);
+        await Promise.resolve();
+      });
       await waitFor(() => expect(syncPendingFieldReports).toHaveBeenCalledTimes(2));
     } finally {
       dateSpy.mockRestore();

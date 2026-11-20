@@ -216,10 +216,17 @@ describe('getHomeSyncNote', () => {
 });
 
 describe('getBatchSendOutcome', () => {
-  const run = { authRequired: false, failed: 0, haltReason: null, results: [], synced: 0 } as const;
+  const run = {
+    attempted: 0,
+    authRequired: false,
+    failed: 0,
+    haltReason: null,
+    results: [],
+    synced: 0,
+  } as const;
 
   it('says "Sent to office" only when something was accepted and nothing failed', () => {
-    expect(getBatchSendOutcome({ ...run, synced: 2 }, null)).toEqual({
+    expect(getBatchSendOutcome({ ...run, attempted: 2, synced: 2 }, null)).toEqual({
       kind: 'sent',
       message: 'Sent to office',
     });
@@ -228,22 +235,61 @@ describe('getBatchSendOutcome', () => {
   it('never says "Sent to office" for a run that sent nothing', () => {
     const outcome = getBatchSendOutcome(run, null);
     expect(outcome.kind).toBe('still-waiting');
-    expect(outcome.message).not.toMatch(/Sent to office/);
+    expect(outcome.message).toBe('Nothing to send on this device');
   });
 
   it('reports failures, sign-in and a missing result honestly', () => {
-    expect(getBatchSendOutcome({ ...run, synced: 1, failed: 1 }, null).kind).toBe('failed');
+    expect(
+      getBatchSendOutcome(
+        {
+          ...run,
+          attempted: 2,
+          synced: 1,
+          failed: 1,
+          results: [
+            { reportId: 'r1', status: 'synced', remoteId: 'remote-1' },
+            { reportId: 'r2', status: 'failed', error: { code: 'INVALID_LOCAL_RECORD' } },
+          ],
+        } as never,
+        null,
+      ),
+    ).toEqual({
+      kind: 'failed',
+      message:
+        '1 record was sent to office — 1 remaining record was not sent; some records need attention; check each record’s status',
+    });
     expect(getBatchSendOutcome({ ...run, authRequired: true }, null).kind).toBe('sign-in');
     expect(getBatchSendOutcome(null, 'Office is busy').message).toBe('Office is busy');
     expect(getBatchSendOutcome(null, null).kind).toBe('failed');
   });
 
+  it('acknowledges accepted records when the remaining failures will retry', () => {
+    expect(
+      getBatchSendOutcome(
+        {
+          ...run,
+          attempted: 2,
+          failed: 1,
+          results: [
+            { reportId: 'r1', status: 'synced', remoteId: 'remote-1' },
+            { reportId: 'r2', status: 'failed', error: { code: 'NETWORK_UNAVAILABLE' } },
+          ],
+          synced: 1,
+        } as never,
+        null,
+      ),
+    ).toEqual({
+      kind: 'still-waiting',
+      message: '1 record was sent to office — 1 remaining record was not sent; will try again',
+    });
+  });
+
   it('promises a retry only when every failure is auto-retryable', () => {
     const retryable = { reportId: 'r1', status: 'failed', error: { code: 'NETWORK_UNAVAILABLE' } };
     const terminal = { reportId: 'r2', status: 'failed', error: { code: 'INVALID_LOCAL_RECORD' } };
-    expect(getBatchSendOutcome({ ...run, failed: 1, results: [retryable] } as never, null).message)
+    expect(getBatchSendOutcome({ ...run, attempted: 1, failed: 1, results: [retryable] } as never, null).message)
       .toBe('Could not send — will try again');
-    expect(getBatchSendOutcome({ ...run, failed: 1, results: [retryable, terminal] } as never, null).message)
+    expect(getBatchSendOutcome({ ...run, attempted: 2, failed: 2, results: [retryable, terminal] } as never, null).message)
       .toBe('Not sent — some records need attention; check each record’s status');
   });
 

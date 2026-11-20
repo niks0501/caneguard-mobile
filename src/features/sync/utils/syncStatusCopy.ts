@@ -329,7 +329,10 @@ export interface BatchSendOutcome {
  * run that sent nothing is never a success.
  */
 export function getBatchSendOutcome(
-  result: Pick<SyncBatchResult, 'authRequired' | 'failed' | 'haltReason' | 'results' | 'synced'> | null,
+  result: Pick<
+    SyncBatchResult,
+    'attempted' | 'authRequired' | 'failed' | 'haltReason' | 'results' | 'synced'
+  > | null,
   errorMessage: string | null,
 ): BatchSendOutcome {
   if (result?.authRequired) {
@@ -339,6 +342,19 @@ export function getBatchSendOutcome(
     const needsAttention = result.results.some(
       (item) => item.status === 'failed' && !isAutoRetryableSyncErrorCode(item.error.code),
     );
+    if (result.synced > 0) {
+      const sentSummary = `${result.synced} ${result.synced === 1 ? 'record was' : 'records were'} sent to office`;
+      const failedSummary = `${result.failed} ${result.failed === 1 ? 'remaining record was' : 'remaining records were'} not sent`;
+      return needsAttention
+        ? {
+            kind: 'failed',
+            message: `${sentSummary} — ${failedSummary}; some records need attention; check each record’s status`,
+          }
+        : {
+            kind: 'still-waiting',
+            message: `${sentSummary} — ${failedSummary}; will try again`,
+          };
+    }
     return {
       kind: 'failed',
       message: needsAttention
@@ -352,9 +368,12 @@ export function getBatchSendOutcome(
   if (result) {
     return {
       kind: 'still-waiting',
-      message: result.haltReason === 'transient-blocker'
-        ? 'Nothing was sent yet — sending is paused on this device; check each record’s status'
-        : 'Nothing was sent yet — check each record’s status',
+      message:
+        result.haltReason === 'transient-blocker'
+          ? 'Nothing was sent yet — sending is paused on this device; check each record’s status'
+          : result.attempted === 0
+            ? 'Nothing to send on this device'
+            : 'Nothing was sent yet — check each record’s status',
     };
   }
   return {

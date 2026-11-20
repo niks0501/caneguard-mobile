@@ -2,22 +2,11 @@
 ignore_patterns:
   - "graphify-out/**"
 
-protected_paths:
-  - ".no-mistakes.yaml"
-  - "drizzle/**"
-  - "*.tflite"
-  - "eas.json"
-  - "app.config.js"
-  - ".github/workflows/**"
-
 document:
   instructions: |
     README.md owns setup; PROJECT_CHECKS.md owns verification commands.
     PROJECT_STACK.md owns architecture and platform rules.
     docs/ owns detailed feature and operational guidance.
-
-commands:
-  test: "npm test -- --runInBand src/features/sync/services/__tests__/syncFieldReport.test.ts"
 
 test:
   instructions: |

@@ -37,6 +37,7 @@ Device, emulator, ADB, Agent Device, and staging checks run whenever the tier or
 - database schema: `npm run db:check`
 - browser validation route: `npm run web:validate` (stub API on `:8210`, web dev server on `:8199`) — see [`docs/qa/web-validation.md`](docs/qa/web-validation.md) for what it can and cannot prove
 - E2E: `npm run e2e` (separate escalated native/device gate)
+- live device validation: `npm run live:up` (stub API, Metro, adb reverse, fingerprint-gated dev client; READY or one fix command), driven by agent-device via `npm run live:ad -- <args>`; no ready device is recorded as device-unavailable with `npm run web:validate` as the fallback. See [`docs/qa/live-validation.md`](docs/qa/live-validation.md)
 
 ## Guard V1 (required, bundled)
 

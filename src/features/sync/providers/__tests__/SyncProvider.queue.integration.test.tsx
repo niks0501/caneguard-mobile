@@ -258,7 +258,7 @@ describe('SyncProvider held-queue integration', () => {
     await waitFor(() => expect(retry).toHaveBeenCalledTimes(1));
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     expect(jest.mocked(apiRequest)).not.toHaveBeenCalled();
-    await act(async () => { await jest.advanceTimersByTimeAsync(120_000); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(60_001); });
     await waitFor(() => expect(jest.mocked(apiRequest)).toHaveBeenCalled());
     await waitFor(async () => expect((await findFieldReportById(database, reportId, ownerId))?.syncStatus).toBe('synced'));
     expect(jest.mocked(apiRequest)).toHaveBeenCalledTimes(2);
@@ -281,8 +281,7 @@ describe('SyncProvider held-queue integration', () => {
     await act(async () => { jest.runOnlyPendingTimers(); await Promise.resolve(); });
     await waitFor(() => expect(listener).toBeDefined());
     await act(async () => { listener?.(online); await Promise.resolve(); });
-    // The cooldown floor, then the doubled wait for the second consecutive failure.
-    for (const [index, waitMs] of [60_001, 120_000].entries()) {
+    for (const [index, waitMs] of [60_001, 60_001].entries()) {
       await waitFor(() => expect(jest.getTimerCount()).toBeGreaterThan(0));
       await act(async () => { await jest.advanceTimersByTimeAsync(waitMs - 1); });
       expect(retry).toHaveBeenCalledTimes(index);

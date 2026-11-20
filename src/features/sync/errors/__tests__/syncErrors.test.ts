@@ -1,6 +1,5 @@
 import { ApiHttpError } from '@/features/shared/api/apiClient';
 import {
-  immediateRetryDelayMs,
   isAutoRetryableSyncErrorCode,
   SyncError,
   toSyncError,
@@ -57,17 +56,6 @@ describe('synchronization retry policy', () => {
     });
   });
 
-  describe('immediate in-call retry delay', () => {
-    it('keeps the short schedule for a 503 that names Retry-After', () => {
-      const error = toSyncError(new ApiHttpError(503, 'down', { retryAfterMs: 60_000 }));
-      expect(immediateRetryDelayMs(error, 2_000)).toBe(2_000);
-    });
-
-    it('honours a rate limit Retry-After', () => {
-      const error = toSyncError(new ApiHttpError(429, 'slow down', { retryAfterMs: 20_000 }));
-      expect(immediateRetryDelayMs(error, 2_000)).toBe(20_000);
-    });
-  });
 
   describe('bounded validation detail (M13)', () => {
     it('keeps a short field-level reason from a 422 response', () => {

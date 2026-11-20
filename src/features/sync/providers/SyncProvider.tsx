@@ -110,7 +110,6 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const previousVerificationRef = useRef(sessionVerification);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryTimerSessionKey = useRef<string | null>(null);
-  const consecutiveRetryFailures = useRef(0);
   const retryNotBefore = useRef(0);
   const syncNowRef = useRef<
     ((source?: SyncTriggerSource) => Promise<SyncBatchResult | null>) | null
@@ -159,9 +158,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
   }, [clearRetryTimer, sessionKey]);
 
   const scheduleRetryTimer = useCallback((retryAfterMs: number | null = null) => {
-    retryNotBefore.current =
-      Date.now() + nextAutoRetryDelayMs(consecutiveRetryFailures.current, retryAfterMs);
-    consecutiveRetryFailures.current += 1;
+    retryNotBefore.current = Date.now() + nextAutoRetryDelayMs(retryAfterMs);
     armRetryTimer();
   }, [armRetryTimer]);
 
@@ -180,7 +177,6 @@ export function SyncProvider({ children }: PropsWithChildren) {
   useEffect(
     () => () => {
       clearRetryTimer();
-      consecutiveRetryFailures.current = 0;
       retryNotBefore.current = 0;
     },
     [clearRetryTimer, sessionKey],
@@ -365,10 +361,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
           return result;
         }
         if (result.haltReason === 'transient-blocker') {
-          if (result.synced > 0) consecutiveRetryFailures.current = 0;
           scheduleRetryTimer(longestRetryAfterMs(result));
         } else {
-          consecutiveRetryFailures.current = 0;
           retryNotBefore.current = 0;
           clearRetryTimer();
         }

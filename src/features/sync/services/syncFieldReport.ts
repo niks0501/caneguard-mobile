@@ -1,6 +1,6 @@
 import type { FieldReportSyncRepository } from '@/features/reports/data/fieldReportSyncRepository';
 import { uploadMobileReport } from '@/features/sync/api/mobileReportsApi';
-import { immediateRetryDelayMs, SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
+import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
 import { mapFieldReportToMultipart } from '@/features/sync/mappers/reportMultipartMapper';
 
 const RETRY_DELAYS_MS = [2_000, 5_000, 15_000] as const;
@@ -73,10 +73,7 @@ export async function syncFieldReport({
         ) {
           throw syncError;
         }
-        const retryDelay = Math.min(
-          immediateRetryDelayMs(syncError, RETRY_DELAYS_MS[retryIndex]),
-          60_000,
-        );
+        const retryDelay = syncError.retryAfterMs ?? RETRY_DELAYS_MS[retryIndex];
         retryIndex += 1;
         await delay(retryDelay);
       }

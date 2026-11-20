@@ -43,6 +43,23 @@ describe('single Field Report synchronization', () => {
     );
   });
 
+  it('waits the full server Retry-After before its in-call retry', async () => {
+    const repo = repository();
+    const upload = jest.fn()
+      .mockRejectedValueOnce(new ApiHttpError(503, 'down', { retryAfterMs: 300_000 }))
+      .mockResolvedValueOnce({ remoteId: 'server-report-uuid' });
+    const delay = jest.fn(async () => undefined);
+
+    await expect(syncFieldReport({
+      reportId: REPORT.id, repository: repo, token: 'secure-token', delay,
+      mapMultipart: jest.fn(() => new FormData()),
+      upload,
+    })).resolves.toMatchObject({ status: 'synced', remoteId: 'server-report-uuid' });
+
+    expect(delay).toHaveBeenCalledTimes(1);
+    expect(delay).toHaveBeenCalledWith(300_000);
+  });
+
   it('does not upload or mutate an already-synced report when the queue delivers it again', async () => {
     const repo = repository();
     const syncedReport = {

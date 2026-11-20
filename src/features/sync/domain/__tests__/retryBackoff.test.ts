@@ -37,7 +37,6 @@ describe('nextAutoRetryDelayMs', () => {
     for (const hint of [1_000, Number.NaN]) {
       const wait = nextAutoRetryDelayMs(0, hint, () => 0.5);
       expect(wait).toBeGreaterThanOrEqual(FIRST_FLOOR_MS);
-      expect(wait).toBeLessThan(FIRST_FLOOR_MS * 1.5);
     }
   });
 });

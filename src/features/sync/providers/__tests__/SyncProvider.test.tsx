@@ -127,8 +127,15 @@ function SyncApiHealthProbe() {
 describe('SyncProvider foreground triggers', () => {
   let networkListener: (state: never) => void;
   let appStateListener: (state: string) => void;
+  let randomSpy: jest.SpyInstance<number, []>;
+
+  afterEach(() => {
+    randomSpy.mockRestore();
+  });
 
   beforeEach(() => {
+    // Jitter draw 0 puts the automatic retry on its cooldown floor, so the timing below is exact.
+    randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0);
     Object.defineProperty(AppState, 'currentState', {
       configurable: true,
       value: 'active',
@@ -684,7 +691,7 @@ describe('SyncProvider foreground triggers', () => {
       expect(syncPendingFieldReports).toHaveBeenCalledTimes(1);
 
       await act(async () => {
-        jest.advanceTimersByTime(60_000);
+        jest.advanceTimersByTime(60_001);
         await Promise.resolve();
       });
       await waitFor(() =>
@@ -741,7 +748,7 @@ describe('SyncProvider foreground triggers', () => {
       expect(syncPendingFieldSurveys).toHaveBeenCalledTimes(1);
 
       await act(async () => {
-        await jest.advanceTimersByTimeAsync(60_000);
+        await jest.advanceTimersByTimeAsync(60_001);
       });
       await waitFor(() => expect(retrySessionVerification).toHaveBeenCalledTimes(1));
 
@@ -776,7 +783,7 @@ describe('SyncProvider foreground triggers', () => {
         await Promise.resolve();
       });
       await act(async () => {
-        jest.advanceTimersByTime(60_000);
+        jest.advanceTimersByTime(60_001);
         await Promise.resolve();
       });
       expect(syncPendingFieldReports).toHaveBeenCalledTimes(1);
@@ -787,7 +794,7 @@ describe('SyncProvider foreground triggers', () => {
     }
   });
 
-  it('clears a pending retry timer when a later resume sync succeeds', async () => {
+  it('clears a pending retry timer once the retry it waited for succeeds', async () => {
     jest.useFakeTimers();
     try {
       jest.mocked(syncPendingFieldReports)
@@ -825,10 +832,16 @@ describe('SyncProvider foreground triggers', () => {
         await Promise.resolve();
         await Promise.resolve();
       });
-      expect(syncPendingFieldReports).toHaveBeenCalledTimes(2);
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(1);
 
       await act(async () => {
-        jest.advanceTimersByTime(60_000);
+        jest.advanceTimersByTime(60_001);
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(syncPendingFieldReports).toHaveBeenCalledTimes(2));
+
+      await act(async () => {
+        jest.advanceTimersByTime(60_001);
         await Promise.resolve();
       });
       expect(syncPendingFieldReports).toHaveBeenCalledTimes(2);
@@ -862,7 +875,7 @@ describe('SyncProvider foreground triggers', () => {
       });
       await act(async () => {
         appStateListener('background');
-        jest.advanceTimersByTime(60_000);
+        jest.advanceTimersByTime(60_001);
         await Promise.resolve();
       });
       expect(syncPendingFieldReports).toHaveBeenCalledTimes(1);

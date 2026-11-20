@@ -102,18 +102,16 @@ export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } 
           {sync.isSyncing ? 'Sending...' : 'Send Now'}
         </AppButton>
       ) : null}
-      {showAction ? (
-        <AppButton
-          variant="secondary"
-          onPress={() => void handleSendAllAgain()}
-          disabled={
-            sync.isSyncing || sync.isOnline !== true || sync.pendingCount === 0
-          }
-          leadingIcon="send"
-          accessibilityLabel="Send all saved reports again">
-          Send all again
-        </AppButton>
-      ) : null}
+      <AppButton
+        variant="secondary"
+        onPress={() => void handleSendAllAgain()}
+        disabled={
+          sync.isSyncing || sync.isOnline !== true || sync.pendingCount === 0
+        }
+        leadingIcon="send"
+        accessibilityLabel="Send all saved reports again">
+        Send all again
+      </AppButton>
     </View>
   );
 }

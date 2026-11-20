@@ -8,11 +8,13 @@ import {
 } from '@/features/sync/errors/syncErrors';
 
 /**
- * 'access': only failures caused by the account's standing (sign-in, access),
- *   run after a fresh sign-in or capability grant.
+ * 'access': only failures caused by the account's standing, re-queued for the
+ *   record types the account holds the capability to send again.
  * 'all': every failure that sending again could still fix ("Send all again").
  */
-export type RequeueScope = 'access' | 'all';
+export type RequeueScope =
+  | 'all'
+  | { access: { authorReports: boolean; completeValidations: boolean } };
 
 /** Moves failed reports, boundaries and visit evidence back to waiting; returns how many moved. */
 export async function requeueFailedSends(
@@ -21,13 +23,15 @@ export async function requeueFailedSends(
   scope: RequeueScope,
 ): Promise<number> {
   const codes =
-    scope === 'access'
-      ? ACCESS_FAILURE_SYNC_ERROR_CODES
-      : RESENDABLE_SYNC_ERROR_CODES;
-  const surveys = requeueFailedFieldSurveys(database, ownerIdentity, codes);
-  const [reports, completions] = await Promise.all([
-    requeueFailedFieldReports(database, ownerIdentity, codes),
-    requeueFailedFieldValidationCompletions(database, ownerIdentity, codes),
+    scope === 'all' ? RESENDABLE_SYNC_ERROR_CODES : ACCESS_FAILURE_SYNC_ERROR_CODES;
+  const authorReports = scope === 'all' || scope.access.authorReports;
+  const completeValidations = scope === 'all' || scope.access.completeValidations;
+  const [surveys, reports, completions] = await Promise.all([
+    authorReports ? requeueFailedFieldSurveys(database, ownerIdentity, codes) : 0,
+    authorReports ? requeueFailedFieldReports(database, ownerIdentity, codes) : 0,
+    completeValidations
+      ? requeueFailedFieldValidationCompletions(database, ownerIdentity, codes)
+      : 0,
   ]);
   return surveys + reports + completions;
 }

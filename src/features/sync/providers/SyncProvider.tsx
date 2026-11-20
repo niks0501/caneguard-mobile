@@ -10,6 +10,7 @@ import {
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { purgeExpiredLocalData } from '@/database/localDataLifecycle';
+import { canAuthorInspectorWork, canCompleteFieldValidation } from '@/features/auth/capabilities';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
   countUnsyncedFieldValidationCompletions,
@@ -505,10 +506,11 @@ export function SyncProvider({ children }: PropsWithChildren) {
     return syncNow('manual');
   }, [authStatus, canSyncOfficialRecords, database, submitterIdentity, syncNow]);
 
-  // A verified account (fresh sign-in, or a fresh capability grant from /me)
-  // is the moment sign-in and access failures can succeed, so they go back in
-  // the queue instead of waiting on a manual retry that would never be offered.
-  const grantVerifiedAt = session?.capabilityGrant?.verifiedAt ?? null;
+  // Access failures go back in the queue on a fresh sign-in, or when the account
+  // holds again the capability each record type needs. Losing a grant is never
+  // recovery, and a capability the account still lacks keeps its records held.
+  const canAuthorReports = canAuthorInspectorWork(session?.user);
+  const canCompleteValidations = canCompleteFieldValidation(session?.user);
   useEffect(() => {
     if (
       authStatus !== 'authenticated' ||
@@ -519,7 +521,12 @@ export function SyncProvider({ children }: PropsWithChildren) {
       return;
     }
     let active = true;
-    void requeueFailedSends(database, submitterIdentity, 'access')
+    void requeueFailedSends(database, submitterIdentity, {
+      access: {
+        authorReports: canAuthorReports,
+        completeValidations: canCompleteValidations,
+      },
+    })
       .then(async (moved) => {
         if (!active || moved === 0) return;
         await refreshPendingCount();
@@ -533,9 +540,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
     };
   }, [
     authStatus,
+    canAuthorReports,
+    canCompleteValidations,
     canSyncOfficialRecords,
     database,
-    grantVerifiedAt,
     refreshPendingCount,
     sessionKey,
     sessionVerification,

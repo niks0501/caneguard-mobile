@@ -22,8 +22,12 @@ const database = {} as never;
 describe('requeueFailedSends', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('re-queues only sign-in and access failures after a fresh grant', async () => {
-    await expect(requeueFailedSends(database, 'owner-1', 'access')).resolves.toBe(7);
+  it('re-queues only sign-in and access failures for the record types the account can send', async () => {
+    await expect(
+      requeueFailedSends(database, 'owner-1', {
+        access: { authorReports: true, completeValidations: true },
+      }),
+    ).resolves.toBe(7);
 
     for (const mock of [
       requeueFailedFieldReports,
@@ -37,6 +41,22 @@ describe('requeueFailedSends', () => {
       'API_FORBIDDEN',
       'CAPABILITY_REVOKED',
     ]);
+  });
+
+  it('leaves records held when the account lacks the capability that sends them', async () => {
+    await expect(
+      requeueFailedSends(database, 'owner-1', {
+        access: { authorReports: false, completeValidations: true },
+      }),
+    ).resolves.toBe(1);
+
+    expect(requeueFailedFieldReports).not.toHaveBeenCalled();
+    expect(requeueFailedFieldSurveys).not.toHaveBeenCalled();
+    expect(requeueFailedFieldValidationCompletions).toHaveBeenCalledWith(
+      database,
+      'owner-1',
+      ACCESS_FAILURE_SYNC_ERROR_CODES,
+    );
   });
 
   it('"send all again" re-queues every failure that resending can fix', async () => {

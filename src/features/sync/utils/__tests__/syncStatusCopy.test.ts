@@ -216,7 +216,7 @@ describe('getHomeSyncNote', () => {
 });
 
 describe('getBatchSendOutcome', () => {
-  const run = { authRequired: false, failed: 0, synced: 0 };
+  const run = { authRequired: false, failed: 0, haltReason: null, results: [], synced: 0 } as const;
 
   it('says "Sent to office" only when something was accepted and nothing failed', () => {
     expect(getBatchSendOutcome({ ...run, synced: 2 }, null)).toEqual({
@@ -236,6 +236,20 @@ describe('getBatchSendOutcome', () => {
     expect(getBatchSendOutcome({ ...run, authRequired: true }, null).kind).toBe('sign-in');
     expect(getBatchSendOutcome(null, 'Office is busy').message).toBe('Office is busy');
     expect(getBatchSendOutcome(null, null).kind).toBe('failed');
+  });
+
+  it('promises a retry only when every failure is auto-retryable', () => {
+    const retryable = { reportId: 'r1', status: 'failed', error: { code: 'NETWORK_UNAVAILABLE' } };
+    const terminal = { reportId: 'r2', status: 'failed', error: { code: 'INVALID_LOCAL_RECORD' } };
+    expect(getBatchSendOutcome({ ...run, failed: 1, results: [retryable] } as never, null).message)
+      .toBe('Could not send — will try again');
+    expect(getBatchSendOutcome({ ...run, failed: 1, results: [retryable, terminal] } as never, null).message)
+      .toBe('Not sent — some records need attention; check each record’s status');
+  });
+
+  it('does not claim the device is ready when a halted run sent nothing', () => {
+    expect(getBatchSendOutcome({ ...run, haltReason: 'transient-blocker' } as never, null).message)
+      .toBe('Nothing was sent yet — sending is paused on this device; check each record’s status');
   });
 });
 

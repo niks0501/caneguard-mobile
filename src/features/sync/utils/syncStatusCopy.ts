@@ -3,6 +3,7 @@ import { type FarmerLanguage } from '@/constants/copy';
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import type { OutboxState, OutboxWaitReason } from '@/features/sync/domain/outboxState';
 import type { SyncResult } from '@/features/sync/services/syncFieldReport';
+import type { SyncBatchResult } from '@/features/sync/services/syncPendingFieldReports';
 
 /** Single-sourced sync status copy for offline field-survey submissions. */
 export const FIELD_SURVEY_SYNC_COPY = {
@@ -328,18 +329,22 @@ export interface BatchSendOutcome {
  * run that sent nothing is never a success.
  */
 export function getBatchSendOutcome(
-  result: {
-    authRequired: boolean;
-    failed: number;
-    synced: number;
-  } | null,
+  result: Pick<SyncBatchResult, 'authRequired' | 'failed' | 'haltReason' | 'results' | 'synced'> | null,
   errorMessage: string | null,
 ): BatchSendOutcome {
   if (result?.authRequired) {
     return { kind: 'sign-in', message: 'Session expired — please sign in again' };
   }
   if (result && result.failed > 0) {
-    return { kind: 'failed', message: 'Could not send — will try again' };
+    const needsAttention = result.results.some(
+      (item) => item.status === 'failed' && !isAutoRetryableSyncErrorCode(item.error.code),
+    );
+    return {
+      kind: 'failed',
+      message: needsAttention
+        ? 'Not sent — some records need attention; check each record’s status'
+        : 'Could not send — will try again',
+    };
   }
   if (result && result.synced > 0) {
     return { kind: 'sent', message: 'Sent to office' };
@@ -347,7 +352,9 @@ export function getBatchSendOutcome(
   if (result) {
     return {
       kind: 'still-waiting',
-      message: 'Nothing was sent yet — nothing on this device is ready to send again; check each record’s status',
+      message: result.haltReason === 'transient-blocker'
+        ? 'Nothing was sent yet — sending is paused on this device; check each record’s status'
+        : 'Nothing was sent yet — check each record’s status',
     };
   }
   return {

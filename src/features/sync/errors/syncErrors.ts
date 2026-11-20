@@ -106,7 +106,7 @@ export const AUTO_RETRYABLE_SYNC_ERROR_CODES = [
 /**
  * Failures caused by the account's standing, not by the record: they end in
  * "failed" with no automatic retry, and are re-queued once the phone has a
- * fresh sign-in or a fresh capability grant.
+ * fresh sign-in.
  */
 export const ACCESS_FAILURE_SYNC_ERROR_CODES = [
   'AUTH_REQUIRED',

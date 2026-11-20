@@ -63,6 +63,9 @@ interface SyncContextValue {
 
 export const SyncContext = createContext<SyncContextValue | null>(null);
 
+/** Largest delay a JS timer accepts; longer ones fire immediately. */
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+
 export function SyncProvider({ children }: PropsWithChildren) {
   const database = useCaneGuardDatabase();
   const {
@@ -108,6 +111,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryTimerSessionKey = useRef<string | null>(null);
   const consecutiveRetryFailures = useRef(0);
+  const retryNotBefore = useRef(0);
   const syncNowRef = useRef<
     ((source?: SyncTriggerSource) => Promise<SyncBatchResult | null>) | null
   >(null);
@@ -120,9 +124,9 @@ export function SyncProvider({ children }: PropsWithChildren) {
     retryTimerSessionKey.current = null;
   }, []);
 
-  const scheduleRetryTimer = useCallback((retryAfterMs: number | null = null) => {
+  const armRetryTimer = useCallback(() => {
+    clearRetryTimer();
     if (
-      retryTimer.current !== null ||
       onlineRef.current !== true ||
       appStateRef.current !== 'active' ||
       !sessionKey
@@ -151,9 +155,15 @@ export function SyncProvider({ children }: PropsWithChildren) {
             retrySessionVerificationRef.current,
           ),
       });
-    }, nextAutoRetryDelayMs(consecutiveRetryFailures.current, retryAfterMs));
+    }, Math.min(Math.max(retryNotBefore.current - Date.now(), 0), MAX_TIMER_DELAY_MS));
+  }, [clearRetryTimer, sessionKey]);
+
+  const scheduleRetryTimer = useCallback((retryAfterMs: number | null = null) => {
+    retryNotBefore.current =
+      Date.now() + nextAutoRetryDelayMs(consecutiveRetryFailures.current, retryAfterMs);
     consecutiveRetryFailures.current += 1;
-  }, [sessionKey]);
+    armRetryTimer();
+  }, [armRetryTimer]);
 
   useEffect(() => {
     sessionRef.current = session;
@@ -167,7 +177,14 @@ export function SyncProvider({ children }: PropsWithChildren) {
     retrySessionVerificationRef.current = retrySessionVerification;
   }, [retrySessionVerification]);
 
-  useEffect(() => () => clearRetryTimer(), [clearRetryTimer, sessionKey]);
+  useEffect(
+    () => () => {
+      clearRetryTimer();
+      consecutiveRetryFailures.current = 0;
+      retryNotBefore.current = 0;
+    },
+    [clearRetryTimer, sessionKey],
+  );
 
   const refreshPendingCount = useCallback(async () => {
     const requestedToken = sessionToken;
@@ -246,6 +263,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
     async (
       source: SyncTriggerSource = 'manual',
     ): Promise<SyncBatchResult | null> => {
+      if (source !== 'manual' && retryNotBefore.current > Date.now()) {
+        armRetryTimer();
+        return null;
+      }
       if (source !== 'retry-timer') {
         clearRetryTimer();
       }
@@ -348,6 +369,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
           scheduleRetryTimer(longestRetryAfterMs(result));
         } else {
           consecutiveRetryFailures.current = 0;
+          retryNotBefore.current = 0;
           clearRetryTimer();
         }
         if (result.synced > 0) {
@@ -386,6 +408,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
     [
       authStatus,
       canSyncOfficialRecords,
+      armRetryTimer,
       clearRetryTimer,
       database,
       markSessionExpired,
@@ -713,7 +736,6 @@ function inferApiReachability(
     switch (syncResult.error.code) {
       case 'NETWORK_UNAVAILABLE':
       case 'NETWORK_REQUEST_FAILED':
-      case 'OFFICE_NOT_READY':
       case 'SERVER_ERROR':
         observation = 'unavailable';
         break;

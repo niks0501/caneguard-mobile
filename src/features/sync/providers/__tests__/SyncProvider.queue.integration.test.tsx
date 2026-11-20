@@ -156,12 +156,20 @@ function mockNetworkListener() {
 }
 
 describe('SyncProvider held-queue integration', () => {
+  let randomSpy: jest.SpyInstance<number, []>;
+
   beforeEach(() => {
     Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
     jest.spyOn(scanImageStorage, 'managedImageExists').mockReturnValue(true);
     jest.mocked(apiRequest).mockImplementation(async (path) => path === '/api/v3/mobile/reports'
       ? { identity: { uuid: 'report-remote' } } as never
       : { id: 'survey-remote', status: 'kept' } as never);
+    // Jitter draw 0 puts each automatic wait on its floor, so the timing below is exact.
+    randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0);
+  });
+
+  afterEach(() => {
+    randomSpy.mockRestore();
   });
 
   it('immediately uploads a non-cooling queue when verification completes', async () => {
@@ -178,6 +186,9 @@ describe('SyncProvider held-queue integration', () => {
       await waitFor(() => expect(findOwnedFieldSurvey(database, surveyId, ownerId)?.status).toBe('failed'));
       jest.mocked(useAuth).mockReturnValue(authState('verified'));
       await view.rerender(<SyncProvider><Text>ready</Text></SyncProvider>);
+      await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+      expect(jest.mocked(apiRequest)).not.toHaveBeenCalled();
+      await act(async () => { await jest.advanceTimersByTimeAsync(60_001); });
       await waitFor(() => expect(jest.mocked(apiRequest)).toHaveBeenCalled());
       await waitFor(async () => expect((await findFieldReportById(database, reportId, ownerId))?.syncStatus).toBe('synced'));
       expect(jest.mocked(apiRequest)).toHaveBeenCalledTimes(2);
@@ -245,6 +256,9 @@ describe('SyncProvider held-queue integration', () => {
     await waitFor(() => expect(jest.getTimerCount()).toBeGreaterThan(0));
     await act(async () => { await jest.advanceTimersByTimeAsync(60_001); });
     await waitFor(() => expect(retry).toHaveBeenCalledTimes(1));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(jest.mocked(apiRequest)).not.toHaveBeenCalled();
+    await act(async () => { await jest.advanceTimersByTimeAsync(120_000); });
     await waitFor(() => expect(jest.mocked(apiRequest)).toHaveBeenCalled());
     await waitFor(async () => expect((await findFieldReportById(database, reportId, ownerId))?.syncStatus).toBe('synced'));
     expect(jest.mocked(apiRequest)).toHaveBeenCalledTimes(2);
@@ -267,10 +281,13 @@ describe('SyncProvider held-queue integration', () => {
     await act(async () => { jest.runOnlyPendingTimers(); await Promise.resolve(); });
     await waitFor(() => expect(listener).toBeDefined());
     await act(async () => { listener?.(online); await Promise.resolve(); });
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
+    // The cooldown floor, then the doubled wait for the second consecutive failure.
+    for (const [index, waitMs] of [60_001, 120_000].entries()) {
       await waitFor(() => expect(jest.getTimerCount()).toBeGreaterThan(0));
-      await act(async () => { await jest.advanceTimersByTimeAsync(60_001 * attempt); }); // backoff doubles per failure, so attempt N waits at most N x the cooldown here
-      await waitFor(() => expect(retry).toHaveBeenCalledTimes(attempt));
+      await act(async () => { await jest.advanceTimersByTimeAsync(waitMs - 1); });
+      expect(retry).toHaveBeenCalledTimes(index);
+      await act(async () => { await jest.advanceTimersByTimeAsync(1); });
+      await waitFor(() => expect(retry).toHaveBeenCalledTimes(index + 1));
     }
     expect(jest.mocked(apiRequest)).not.toHaveBeenCalled();
     expect(findOwnedFieldSurvey(database, surveyId, ownerId)).toMatchObject({ status: 'failed', lastSyncErrorCode: 'NETWORK_UNAVAILABLE' });

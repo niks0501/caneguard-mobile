@@ -1,7 +1,7 @@
 import { uploadMobileFieldValidationCompletion } from '@/features/assignments/api/mobileFieldValidationCompletionApi';
 import type { FieldValidationCompletionSyncRepository } from '@/features/assignments/data/fieldValidationCompletionRepository';
 import type { FieldValidationCompletionUploadRecord } from '@/features/assignments/domain/fieldValidationCompletionTypes';
-import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
+import { immediateRetryDelayMs, SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
 import { mapFieldValidationCompletionToMultipart } from '@/features/assignments/api/mobileFieldValidationCompletionMapper';
 
 const RETRY_DELAYS_MS = [2_000, 5_000, 15_000] as const;
@@ -58,7 +58,7 @@ export async function syncFieldValidationCompletion({
         if (!syncError.retryable || !allowImmediateRetries || retryIndex >= RETRY_DELAYS_MS.length) {
           throw syncError;
         }
-        const retryDelay = Math.min(syncError.retryAfterMs ?? RETRY_DELAYS_MS[retryIndex], 60_000);
+        const retryDelay = Math.min(immediateRetryDelayMs(syncError, RETRY_DELAYS_MS[retryIndex]), 60_000);
         retryIndex += 1;
         await delay(retryDelay);
       }

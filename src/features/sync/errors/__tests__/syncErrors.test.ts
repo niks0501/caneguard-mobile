@@ -1,6 +1,7 @@
 import { ApiHttpError } from '@/features/shared/api/apiClient';
 import {
   AUTO_RETRYABLE_SYNC_ERROR_CODES,
+  immediateRetryDelayMs,
   isAutoRetryableSyncErrorCode,
   SyncError,
   toSyncError,
@@ -61,6 +62,18 @@ describe('synchronization retry policy', () => {
 
     it('carries Retry-After on a 503', () => {
       expect(toSyncError(new ApiHttpError(503, 'down', { retryAfterMs: 30_000 })).retryAfterMs).toBe(30_000);
+    });
+  });
+
+  describe('immediate in-call retry delay', () => {
+    it('keeps the short schedule for a 503 that names Retry-After', () => {
+      const error = toSyncError(new ApiHttpError(503, 'down', { retryAfterMs: 60_000 }));
+      expect(immediateRetryDelayMs(error, 2_000)).toBe(2_000);
+    });
+
+    it('honours a rate limit Retry-After', () => {
+      const error = toSyncError(new ApiHttpError(429, 'slow down', { retryAfterMs: 20_000 }));
+      expect(immediateRetryDelayMs(error, 2_000)).toBe(20_000);
     });
   });
 

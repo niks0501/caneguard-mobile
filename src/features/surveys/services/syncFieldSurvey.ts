@@ -2,7 +2,7 @@ import type { CaneGuardDatabase } from '@/database/database';
 import { findOwnedFieldSurvey, updateFieldSurveySyncResult } from '@/features/surveys/data/fieldSurveyRepository';
 import { FieldSurveyValidationError, submitFieldSurvey, type FieldSurveyAffectedAreaWaypointProvenance, type FieldSurveyMeasurementProvenance } from '@/features/surveys/api/fieldSurveysApi';
 import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
-import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
+import { immediateRetryDelayMs, SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
 
 export type FieldSurveySyncResult =
   | { status: 'synced' | 'already-synced'; remoteId: string }
@@ -87,7 +87,7 @@ export async function syncFieldSurvey(options: {
           ? new SyncError('API_VALIDATION_FAILED', 'The server needs a correction to this boundary.')
           : toSyncError(error, { endpoint: 'boundary' });
         if (!syncError.retryable || options.allowImmediateRetries === false || retryIndex >= RETRY_DELAYS_MS.length) throw error;
-        const waitFor = Math.min(syncError.retryAfterMs ?? RETRY_DELAYS_MS[retryIndex], 60_000);
+        const waitFor = Math.min(immediateRetryDelayMs(syncError, RETRY_DELAYS_MS[retryIndex]), 60_000);
         retryIndex += 1;
         await (options.delay ?? delay)(waitFor);
       }

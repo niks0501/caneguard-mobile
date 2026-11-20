@@ -147,6 +147,15 @@ export class SyncError extends Error {
  */
 export type SyncEndpoint = 'report' | 'boundary';
 
+/**
+ * Wait before an immediate in-call retry. Only a rate limit's Retry-After shapes
+ * it; other retryable failures keep the short schedule and leave their hint to
+ * automatic scheduling.
+ */
+export function immediateRetryDelayMs(error: SyncError, scheduledMs: number): number {
+  return error.code === 'API_RATE_LIMITED' ? error.retryAfterMs ?? scheduledMs : scheduledMs;
+}
+
 export function toSyncError(
   error: unknown,
   options: { endpoint?: SyncEndpoint } = {},

@@ -363,6 +363,13 @@ export function getBatchSendOutcome(
     };
   }
   if (result && result.synced > 0) {
+    if (result.haltReason === 'run-limit') {
+      const sentSummary = `${result.synced} ${result.synced === 1 ? 'record was' : 'records were'} sent to office`;
+      return {
+        kind: 'still-waiting',
+        message: `${sentSummary} — more records are still waiting to send`,
+      };
+    }
     return { kind: 'sent', message: 'Sent to office' };
   }
   if (result) {

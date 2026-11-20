@@ -232,6 +232,18 @@ describe('getBatchSendOutcome', () => {
     });
   });
 
+  it('keeps a capped run in the waiting state when more records remain', () => {
+    expect(
+      getBatchSendOutcome(
+        { ...run, attempted: 50, haltReason: 'run-limit', synced: 50 },
+        null,
+      ),
+    ).toEqual({
+      kind: 'still-waiting',
+      message: '50 records were sent to office — more records are still waiting to send',
+    });
+  });
+
   it('never says "Sent to office" for a run that sent nothing', () => {
     const outcome = getBatchSendOutcome(run, null);
     expect(outcome.kind).toBe('still-waiting');

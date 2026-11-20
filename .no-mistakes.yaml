@@ -11,16 +11,11 @@ document:
 test:
   instructions: |
     Use PROJECT_CHECKS.md to select affected fast tests; full regression belongs in CI.
-    Run live acceptance in no-mistakes whenever the tier justifies it; no separate authorization is needed.
-    For browser-compatible UI acceptance, use npm run web:validate (stub API and fake accounts only) in an isolated session and open /login, not /; see docs/qa/web-validation.md.
-    Browser/Jest mocks cannot prove TFLite, permissions, secure storage or device persistence; prove those with agent-device on an attached device or emulator (npm run e2e for flows).
-    Live device validation has one entry point: npm run live:up (see docs/qa/live-validation.md). It checks adb devices, reuses or installs the fingerprint-matched dev client, starts the stub API (:8210) and Metro (:8081), sets adb reverse and prints READY, or fails with one fixing command.
-    agent-device is the mandated driver: device proof means agent-device commands issued through npm run live:ad. The run log (.agent-device/test-artifacts/live/<rev>/transcript.md) must name agent-device and list every navigation and input command verbatim; adb-only or unlogged taps are not device proof.
-    Evidence has fixed paths under .agent-device/test-artifacts/live/<rev>/ (screenshots/, db/, transcript.md with the revision stamped, run.json).
-    If adb devices shows no ready native target, npm run live:up records DEVICE_UNAVAILABLE and the fallback is npm run web:validate; report that as device-unavailable (inconclusive), never as a pass.
-    Record revision, command and actual evidence; unavailable required evidence is inconclusive, defects are no-go.
-    Dev APK reuse: never spend EAS for dev verification (local-only dev APK).
-    Reuse .apk-cache/<fingerprint>/<sha>.apk when expo fingerprint matches.
-    Rebuild with ./gradlew :app:assembleDebug + adb install -r only on native change.
-    Web-first proof before any phone claim; missing phone or fresh APK is inconclusive, not pass.
-    Record fingerprint, APK SHA, and evidence paths.
+    Run live acceptance whenever the tier justifies it; no separate authorization is needed.
+    Web-first proof before any phone claim: npm run web:validate (stub API, fake accounts, isolated session, open /login not /; docs/qa/web-validation.md).
+    Browser/Jest mocks cannot prove TFLite, permissions, secure storage or device persistence; prove those on a device or emulator (npm run e2e for flows).
+    Device entry point is npm run live:up (docs/qa/live-validation.md). Never spend EAS for dev verification; the dev APK is local-only.
+    Reuse the fingerprint-matched .apk-cache/<fingerprint>/<sha>.apk; rebuild with ./gradlew :app:assembleDebug + adb install -r only on native change.
+    agent-device is the mandated phone driver: issue every command through npm run live:ad. The run log (.agent-device/test-artifacts/live/<rev>/transcript.md) must name agent-device and list every navigation and input command verbatim; adb-only or unlogged taps are not device proof.
+    A missing phone or APK (no ready native target; live:up records DEVICE_UNAVAILABLE and the web:validate fallback) is inconclusive, never a pass; defects are no-go.
+    Record revision, command, fingerprint, APK SHA and evidence paths (screenshots/, db/, transcript.md, run.json under .agent-device/test-artifacts/live/<rev>/); unavailable required evidence is inconclusive.

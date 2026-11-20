@@ -34,6 +34,7 @@ export interface SyncBatchResult {
   authRequired: boolean;
   failed: number;
   haltReason: SyncHaltReason;
+  pendingCount?: number;
   results: SyncResult[];
   source: SyncTriggerSource;
   synced: number;

@@ -237,10 +237,11 @@ describe('getBatchSendOutcome', () => {
       getBatchSendOutcome(
         { ...run, attempted: 50, haltReason: 'run-limit', synced: 50 },
         null,
+        10,
       ),
     ).toEqual({
       kind: 'still-waiting',
-      message: '50 records were sent to office — more records are still waiting to send',
+      message: '50 records were sent to office — 10 records still waiting to send',
     });
   });
 
@@ -306,8 +307,35 @@ describe('getBatchSendOutcome', () => {
   });
 
   it('does not claim the device is ready when a halted run sent nothing', () => {
-    expect(getBatchSendOutcome({ ...run, haltReason: 'transient-blocker' } as never, null).message)
-      .toBe('Nothing was sent yet — sending is paused on this device; check each record’s status');
+    expect(
+      getBatchSendOutcome(
+        { ...run, haltReason: 'transient-blocker' } as never,
+        null,
+        3,
+      ).message,
+    ).toBe('Nothing is ready to send — 3 records still waiting to send');
+  });
+
+  it('uses pending work when a transient halt masks a capped batch', () => {
+    expect(
+      getBatchSendOutcome(
+        { ...run, attempted: 50, haltReason: 'transient-blocker', synced: 50 },
+        null,
+        10,
+      ),
+    ).toEqual({
+      kind: 'still-waiting',
+      message: '50 records were sent to office — 10 records still waiting to send',
+    });
+  });
+
+  it('names pending records when no send candidate was ready', () => {
+    expect(
+      getBatchSendOutcome({ ...run, haltReason: 'empty' }, null, 1),
+    ).toEqual({
+      kind: 'still-waiting',
+      message: 'Nothing is ready to send — 1 record still waiting to send',
+    });
   });
 });
 

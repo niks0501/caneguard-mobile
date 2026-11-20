@@ -23,7 +23,12 @@ export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } 
 
   const runSend = async (send: () => Promise<SyncBatchResult | null>) => {
     try {
-      const outcome = getBatchSendOutcome(await send(), sync.errorMessage);
+      const result = await send();
+      const outcome = getBatchSendOutcome(
+        result,
+        sync.errorMessage,
+        result?.pendingCount ?? null,
+      );
       showToast(
         outcome.message,
         outcome.kind === 'sent'

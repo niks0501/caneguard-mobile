@@ -334,7 +334,12 @@ export function getBatchSendOutcome(
     'attempted' | 'authRequired' | 'failed' | 'haltReason' | 'results' | 'synced'
   > | null,
   errorMessage: string | null,
+  pendingCount: number | null = null,
 ): BatchSendOutcome {
+  const waitingSummary =
+    pendingCount !== null && pendingCount > 0
+      ? `${pendingCount} ${pendingCount === 1 ? 'record' : 'records'} still waiting to send`
+      : null;
   if (result?.authRequired) {
     return { kind: 'sign-in', message: 'Session expired — please sign in again' };
   }
@@ -363,11 +368,11 @@ export function getBatchSendOutcome(
     };
   }
   if (result && result.synced > 0) {
-    if (result.haltReason === 'run-limit') {
+    if (waitingSummary) {
       const sentSummary = `${result.synced} ${result.synced === 1 ? 'record was' : 'records were'} sent to office`;
       return {
         kind: 'still-waiting',
-        message: `${sentSummary} — more records are still waiting to send`,
+        message: `${sentSummary} — ${waitingSummary}`,
       };
     }
     return { kind: 'sent', message: 'Sent to office' };
@@ -376,11 +381,13 @@ export function getBatchSendOutcome(
     return {
       kind: 'still-waiting',
       message:
-        result.haltReason === 'transient-blocker'
-          ? 'Nothing was sent yet — sending is paused on this device; check each record’s status'
+        waitingSummary
+          ? `Nothing is ready to send — ${waitingSummary}`
           : result.attempted === 0
             ? 'Nothing to send on this device'
-            : 'Nothing was sent yet — check each record’s status',
+            : result.haltReason === 'transient-blocker'
+              ? 'Nothing was sent yet — sending is paused on this device; check each record’s status'
+              : 'Nothing was sent yet — check each record’s status',
     };
   }
   return {

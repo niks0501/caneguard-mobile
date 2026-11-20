@@ -185,7 +185,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
     [clearRetryTimer, sessionKey],
   );
 
-  const refreshPendingCount = useCallback(async () => {
+  const refreshPendingCount = useCallback(async (): Promise<number> => {
     const requestedToken = sessionToken;
     const requestedSubmitterIdentity = submitterIdentity;
     if (!requestedSubmitterIdentity) {
@@ -203,7 +203,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         setPendingCompletionsCount(0);
         setLastSuccessfulSyncAt(null);
       }
-      return;
+      return 0;
     }
     if (!canSyncOfficialRecords) {
       if (
@@ -229,7 +229,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
           setInspectorWorkWaiting(waiting);
         }
       }
-      return;
+      return 0;
     }
 
     const [reportCount, surveyCount, completionCount, reportLastSyncedAt, surveyLastSyncedAt, completionLastSyncedAt] =
@@ -241,6 +241,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         findLastSuccessfulFieldSurveySyncAt(database, requestedSubmitterIdentity),
         findLastSuccessfulFieldValidationCompletionSyncAt(database, requestedSubmitterIdentity),
       ]);
+    const nextPendingCount = reportCount + surveyCount + completionCount;
     const lastSyncedAt = latestTimestamp(latestTimestamp(reportLastSyncedAt, surveyLastSyncedAt), completionLastSyncedAt);
     if (
       mounted.current &&
@@ -250,12 +251,13 @@ export function SyncProvider({ children }: PropsWithChildren) {
         requestedSubmitterIdentity,
       )
     ) {
-      setPendingCount(reportCount + surveyCount + completionCount);
+      setPendingCount(nextPendingCount);
       setPendingReportsCount(reportCount);
       setPendingSurveysCount(surveyCount);
       setPendingCompletionsCount(completionCount);
       setLastSuccessfulSyncAt(lastSyncedAt);
     }
+    return nextPendingCount;
   }, [canSyncOfficialRecords, database, isFarmerSession, sessionToken, submitterIdentity]);
 
   const syncNow = useCallback(
@@ -405,8 +407,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
             sessionKey,
           }));
         }
-        await refreshPendingCount();
-        return result;
+        const pendingCount = await refreshPendingCount();
+        return { ...result, pendingCount };
       } catch {
         if (isInitiatingSessionCurrent()) {
           setSyncState((current) => ({

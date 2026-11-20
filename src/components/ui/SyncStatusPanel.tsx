@@ -105,9 +105,7 @@ export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } 
       <AppButton
         variant="secondary"
         onPress={() => void handleSendAllAgain()}
-        disabled={
-          sync.isSyncing || sync.isOnline !== true || sync.pendingCount === 0
-        }
+        disabled={sync.isSyncing || sync.isOnline !== true}
         leadingIcon="send"
         accessibilityLabel="Send all saved reports again">
         Send all again

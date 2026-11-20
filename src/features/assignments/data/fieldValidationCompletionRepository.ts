@@ -2,6 +2,7 @@ import {
   and,
   asc,
   eq,
+  gte,
   inArray,
   isNull,
   lt,
@@ -26,6 +27,30 @@ import { SYNC_TRANSITIONS } from '@/features/sync/domain/outboxState';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 export const FIELD_VALIDATION_SYNC_RETRY_COOLDOWN_MS = 60_000;
+
+const FIELD_VALIDATION_RETRYABLE_SYNC_ERROR_CODES = [
+  'NETWORK_UNAVAILABLE',
+  'NETWORK_REQUEST_FAILED',
+  'API_RATE_LIMITED',
+  'SERVER_ERROR',
+] as const;
+
+export async function countCoolingRetryableFieldValidationCompletions(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  failedBefore: string,
+): Promise<number> {
+  const rows = await database
+    .select({ id: fieldValidationCompletions.id })
+    .from(fieldValidationCompletions)
+    .where(and(
+      eq(fieldValidationCompletions.ownerIdentity, requireOwner(ownerIdentity)),
+      eq(fieldValidationCompletions.syncStatus, 'failed'),
+      inArray(fieldValidationCompletions.lastSyncErrorCode, FIELD_VALIDATION_RETRYABLE_SYNC_ERROR_CODES),
+      gte(fieldValidationCompletions.lastSyncAttemptAt, failedBefore),
+    ));
+  return rows.length;
+}
 
 export interface FieldValidationCompletionSyncRepository {
   countUnsynced(): Promise<number>;
@@ -231,12 +256,7 @@ export async function findFieldValidationCompletionSyncCandidates(
         eq(fieldValidationCompletions.syncStatus, 'pending'),
         and(
           eq(fieldValidationCompletions.syncStatus, 'failed'),
-          inArray(fieldValidationCompletions.lastSyncErrorCode, [
-            'NETWORK_UNAVAILABLE',
-            'NETWORK_REQUEST_FAILED',
-            'API_RATE_LIMITED',
-            'SERVER_ERROR',
-          ]),
+          inArray(fieldValidationCompletions.lastSyncErrorCode, FIELD_VALIDATION_RETRYABLE_SYNC_ERROR_CODES),
           or(
             isNull(fieldValidationCompletions.lastSyncAttemptAt),
             lt(fieldValidationCompletions.lastSyncAttemptAt, failedBefore),

@@ -164,6 +164,15 @@ export function SyncProvider({ children }: PropsWithChildren) {
     armRetryTimer(delayMs);
   }, [armRetryTimer]);
 
+  // Registered as each queue returns, so an overlapping automatic run cannot resend
+  // the record before its server deadline while this run is still uploading.
+  const holdAutomaticRetries = useCallback((batch: SyncBatchResult) => {
+    const retryAfterMs = batch.haltReason === 'transient-blocker' ? longestRetryAfterMs(batch) : null;
+    if (retryAfterMs !== null) {
+      retryNotBefore.current = Math.max(retryNotBefore.current, performance.now() + nextAutoRetryDelayMs(retryAfterMs));
+    }
+  }, []);
+
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
@@ -316,6 +325,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
+        holdAutomaticRetries(surveyResult);
         if (!canContinueOfficialRecordSync()) {
           await refreshPendingCount();
           return null;
@@ -327,6 +337,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
           submitterIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
+        holdAutomaticRetries(reportResult);
         if (!canContinueOfficialRecordSync()) {
           await refreshPendingCount();
           return null;
@@ -337,7 +348,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
-        const result = mergeSyncBatchResults(reportResult, surveyResult, completionResult);
+        holdAutomaticRetries(completionResult);
+        const result = mergeSyncBatchResults(surveyResult, reportResult, completionResult);
         if (!isInitiatingSessionCurrent()) {
           return result;
         }
@@ -407,6 +419,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       armRetryTimer,
       clearRetryTimer,
       database,
+      holdAutomaticRetries,
       markSessionExpired,
       refreshPendingCount,
       reportCapabilityRevoked,

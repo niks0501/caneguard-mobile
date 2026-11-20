@@ -301,6 +301,26 @@ export async function resetStaleSyncingFieldReports(
   }
 }
 
+export async function countCoolingRetryableFieldReports(
+  database: CaneGuardDatabase,
+  submitterIdentity: string,
+  failedBefore: string,
+): Promise<number> {
+  const rows = await database
+    .select({ id: fieldReports.id })
+    .from(fieldReports)
+    .where(
+      and(
+        eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
+        eq(fieldReports.authoringState, 'finalized'),
+        eq(fieldReports.syncStatus, 'failed'),
+        inArray(fieldReports.lastSyncErrorCode, AUTO_RETRYABLE_SYNC_ERROR_CODES),
+        gte(fieldReports.lastSyncAttemptAt, failedBefore),
+      ),
+    );
+  return rows.length;
+}
+
 export async function countUnsyncedFieldReports(
   database: CaneGuardDatabase,
   submitterIdentity: string,

@@ -1,5 +1,6 @@
 import type { CaneGuardDatabase } from '@/database/database';
 import {
+  countCoolingRetryableFieldReports,
   createFieldReportSyncRepository,
   SYNC_RETRY_COOLDOWN_MS,
 } from '@/features/reports/data/fieldReportSyncRepository';
@@ -112,18 +113,20 @@ async function executeBatch({
 
   while (results.length < MAX_SYNC_REPORTS_PER_RUN) {
     const remaining = MAX_SYNC_REPORTS_PER_RUN - results.length;
+    const failedBefore = new Date(Date.now() - SYNC_RETRY_COOLDOWN_MS).toISOString();
     const candidates = await repository.findSyncCandidates(
       Math.min(batchSize, remaining),
       {
         districtCode,
-        failedBefore: new Date(
-          Date.now() - SYNC_RETRY_COOLDOWN_MS,
-        ).toISOString(),
+        failedBefore,
         includeRetryableFailed: true,
       },
     );
     if (candidates.length === 0) {
-      haltReason = 'empty';
+      // A report still cooling down is not "empty": keep a retry scheduled so it resumes.
+      haltReason = (await countCoolingRetryableFieldReports(database, submitterIdentity, failedBefore)) > 0
+        ? 'transient-blocker'
+        : 'empty';
       break;
     }
 

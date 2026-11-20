@@ -1,7 +1,10 @@
 import { waitFor } from '@testing-library/react-native';
 
 import type { CaneGuardDatabase } from '@/database/database';
-import { createFieldReportSyncRepository } from '@/features/reports/data/fieldReportSyncRepository';
+import {
+  countCoolingRetryableFieldReports,
+  createFieldReportSyncRepository,
+} from '@/features/reports/data/fieldReportSyncRepository';
 import { SyncError } from '@/features/sync/errors/syncErrors';
 import { syncFieldReport } from '@/features/sync/services/syncFieldReport';
 import {
@@ -10,6 +13,7 @@ import {
 } from '@/features/sync/services/syncPendingFieldReports';
 
 jest.mock('@/features/reports/data/fieldReportSyncRepository', () => ({
+  countCoolingRetryableFieldReports: jest.fn(async () => 0),
   createFieldReportSyncRepository: jest.fn(),
   SYNC_RETRY_COOLDOWN_MS: 60_000,
 }));
@@ -167,6 +171,20 @@ describe('pending Field Report queue', () => {
       synced: 1,
     });
     expect(syncFieldReport).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps a retry scheduled while a failed report is still cooling down', async () => {
+    findSyncCandidates.mockResolvedValueOnce([]);
+    jest.mocked(countCoolingRetryableFieldReports).mockResolvedValueOnce(1);
+
+    await expect(syncPendingFieldReports({
+      database,
+      districtCode: 'D-01',
+      source: 'resume',
+      submitterIdentity: SUBMITTER_ID,
+      token: 'secure-token',
+    })).resolves.toMatchObject({ attempted: 0, haltReason: 'transient-blocker' });
+    expect(syncFieldReport).not.toHaveBeenCalled();
   });
 
   it('hands automatic transient failures to the provider retry timer', async () => {

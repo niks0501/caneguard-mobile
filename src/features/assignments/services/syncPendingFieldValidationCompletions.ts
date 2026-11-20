@@ -1,5 +1,6 @@
 import type { CaneGuardDatabase } from '@/database/database';
 import {
+  countCoolingRetryableFieldValidationCompletions,
   createFieldValidationCompletionSyncRepository,
   FIELD_VALIDATION_SYNC_RETRY_COOLDOWN_MS,
 } from '@/features/assignments/data/fieldValidationCompletionRepository';
@@ -71,15 +72,19 @@ async function executeBatch(options: {
   let haltReason: SyncHaltReason = null;
 
   while (results.length < 50) {
+    const failedBefore = new Date(Date.now() - FIELD_VALIDATION_SYNC_RETRY_COOLDOWN_MS).toISOString();
     const candidates = await repository.findSyncCandidates(
       Math.min(batchSize, 50 - results.length),
       {
-        failedBefore: new Date(Date.now() - FIELD_VALIDATION_SYNC_RETRY_COOLDOWN_MS).toISOString(),
+        failedBefore,
         includeRetryableFailed: true,
       },
     );
     if (candidates.length === 0) {
-      haltReason = 'empty';
+      // A visit still cooling down is not "empty": keep a retry scheduled so it resumes.
+      haltReason = (await countCoolingRetryableFieldValidationCompletions(options.database, options.ownerIdentity, failedBefore)) > 0
+        ? 'transient-blocker'
+        : 'empty';
       break;
     }
 

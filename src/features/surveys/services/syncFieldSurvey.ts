@@ -87,8 +87,8 @@ export async function syncFieldSurvey(options: {
         const syncError = error instanceof FieldSurveyValidationError
           ? new SyncError('API_VALIDATION_FAILED', 'The server needs a correction to this boundary.')
           : toSyncError(error, { endpoint: 'boundary' });
-        if (!syncError.retryable || options.allowImmediateRetries === false || retryIndex >= RETRY_DELAYS_MS.length) throw error;
-        const waitFor = syncError.retryAfterMs ?? RETRY_DELAYS_MS[retryIndex];
+        if (!syncError.retryable || options.allowImmediateRetries === false || syncError.retryAfterMs !== null || retryIndex >= RETRY_DELAYS_MS.length) throw error;
+        const waitFor = RETRY_DELAYS_MS[retryIndex];
         retryIndex += 1;
         await (options.delay ?? waitMs)(waitFor);
       }

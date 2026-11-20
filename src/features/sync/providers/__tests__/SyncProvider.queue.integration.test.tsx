@@ -186,9 +186,6 @@ describe('SyncProvider held-queue integration', () => {
       await waitFor(() => expect(findOwnedFieldSurvey(database, surveyId, ownerId)?.status).toBe('failed'));
       jest.mocked(useAuth).mockReturnValue(authState('verified'));
       await view.rerender(<SyncProvider><Text>ready</Text></SyncProvider>);
-      await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-      expect(jest.mocked(apiRequest)).not.toHaveBeenCalled();
-      await act(async () => { await jest.advanceTimersByTimeAsync(60_001); });
       await waitFor(() => expect(jest.mocked(apiRequest)).toHaveBeenCalled());
       await waitFor(async () => expect((await findFieldReportById(database, reportId, ownerId))?.syncStatus).toBe('synced'));
       expect(jest.mocked(apiRequest)).toHaveBeenCalledTimes(2);
@@ -256,9 +253,6 @@ describe('SyncProvider held-queue integration', () => {
     await waitFor(() => expect(jest.getTimerCount()).toBeGreaterThan(0));
     await act(async () => { await jest.advanceTimersByTimeAsync(60_001); });
     await waitFor(() => expect(retry).toHaveBeenCalledTimes(1));
-    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    expect(jest.mocked(apiRequest)).not.toHaveBeenCalled();
-    await act(async () => { await jest.advanceTimersByTimeAsync(60_001); });
     await waitFor(() => expect(jest.mocked(apiRequest)).toHaveBeenCalled());
     await waitFor(async () => expect((await findFieldReportById(database, reportId, ownerId))?.syncStatus).toBe('synced'));
     expect(jest.mocked(apiRequest)).toHaveBeenCalledTimes(2);

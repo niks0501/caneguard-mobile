@@ -794,7 +794,7 @@ describe('SyncProvider foreground triggers', () => {
     }
   });
 
-  it('clears a pending retry timer once the retry it waited for succeeds', async () => {
+  it('clears a pending retry timer once a later run succeeds', async () => {
     jest.useFakeTimers();
     try {
       jest.mocked(syncPendingFieldReports)
@@ -832,12 +832,6 @@ describe('SyncProvider foreground triggers', () => {
         await Promise.resolve();
         await Promise.resolve();
       });
-      expect(syncPendingFieldReports).toHaveBeenCalledTimes(1);
-
-      await act(async () => {
-        jest.advanceTimersByTime(60_001);
-        await Promise.resolve();
-      });
       await waitFor(() => expect(syncPendingFieldReports).toHaveBeenCalledTimes(2));
 
       await act(async () => {
@@ -846,6 +840,75 @@ describe('SyncProvider foreground triggers', () => {
       });
       expect(syncPendingFieldReports).toHaveBeenCalledTimes(2);
     } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('holds a server Retry-After for its full elapsed time when the wall clock jumps forward', async () => {
+    jest.useFakeTimers();
+    let clockSkewMs = 0;
+    const fakeDateNow = Date.now;
+    const dateSpy = jest.spyOn(Date, 'now').mockImplementation(() => fakeDateNow() + clockSkewMs);
+    try {
+      jest.mocked(syncPendingFieldReports)
+        .mockResolvedValueOnce({
+          attempted: 1,
+          authRequired: false,
+          failed: 1,
+          haltReason: 'transient-blocker',
+          results: [
+            {
+              reportId: 'report-1',
+              status: 'failed',
+              error: new SyncError('API_RATE_LIMITED', 'Slow down.', { retryAfterMs: 300_000 }),
+            },
+          ],
+          source: 'startup',
+          synced: 0,
+        })
+        .mockResolvedValue({
+          attempted: 0,
+          authRequired: false,
+          failed: 0,
+          haltReason: 'empty',
+          results: [],
+          source: 'retry-timer',
+          synced: 0,
+        });
+      await render(
+        <SyncProvider>
+          <Text>Ready</Text>
+        </SyncProvider>,
+      );
+      await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+
+      await act(async () => {
+        networkListener(ONLINE);
+        await Promise.resolve();
+      });
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(1);
+
+      clockSkewMs = 600_000;
+      await act(async () => {
+        appStateListener('active');
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        jest.advanceTimersByTime(299_999);
+        await Promise.resolve();
+      });
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        jest.advanceTimersByTime(1);
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(syncPendingFieldReports).toHaveBeenCalledTimes(2));
+    } finally {
+      dateSpy.mockRestore();
       jest.useRealTimers();
     }
   });

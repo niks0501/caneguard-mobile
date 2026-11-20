@@ -70,11 +70,12 @@ export async function syncFieldReport({
         if (
           !syncError.retryable ||
           !allowImmediateRetries ||
+          syncError.retryAfterMs !== null ||
           retryIndex >= RETRY_DELAYS_MS.length
         ) {
           throw syncError;
         }
-        const retryDelay = syncError.retryAfterMs ?? RETRY_DELAYS_MS[retryIndex];
+        const retryDelay = RETRY_DELAYS_MS[retryIndex];
         retryIndex += 1;
         await delay(retryDelay);
       }

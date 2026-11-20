@@ -122,7 +122,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
     retryTimerSessionKey.current = null;
   }, []);
 
-  const armRetryTimer = useCallback(() => {
+  const armRetryTimer = useCallback((delayMs: number) => {
     clearRetryTimer();
     if (
       onlineRef.current !== true ||
@@ -153,12 +153,15 @@ export function SyncProvider({ children }: PropsWithChildren) {
             retrySessionVerificationRef.current,
           ),
       });
-    }, Math.min(Math.max(retryNotBefore.current - Date.now(), 0), MAX_TIMER_DELAY_MS));
+    }, Math.min(Math.max(delayMs, 0), MAX_TIMER_DELAY_MS));
   }, [clearRetryTimer, sessionKey]);
 
-  const scheduleRetryTimer = useCallback((retryAfterMs: number | null = null) => {
-    retryNotBefore.current = Date.now() + nextAutoRetryDelayMs(retryAfterMs);
-    armRetryTimer();
+  const scheduleRetryTimer = useCallback((retryAfterMs: number | null) => {
+    const delayMs = nextAutoRetryDelayMs(retryAfterMs);
+    if (retryAfterMs !== null) {
+      retryNotBefore.current = Math.max(retryNotBefore.current, performance.now() + delayMs);
+    }
+    armRetryTimer(delayMs);
   }, [armRetryTimer]);
 
   useEffect(() => {
@@ -258,8 +261,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
     async (
       source: SyncTriggerSource = 'manual',
     ): Promise<SyncBatchResult | null> => {
-      if (source !== 'manual' && retryNotBefore.current > Date.now()) {
-        armRetryTimer();
+      if (source !== 'manual' && retryNotBefore.current > performance.now()) {
+        armRetryTimer(retryNotBefore.current - performance.now());
         return null;
       }
       if (source !== 'retry-timer') {

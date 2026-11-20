@@ -56,10 +56,10 @@ export async function syncFieldValidationCompletion({
         return { reportId: completionId, remoteId: uploaded.remoteId, status: 'synced' };
       } catch (error: unknown) {
         const syncError = toSyncError(error);
-        if (!syncError.retryable || !allowImmediateRetries || retryIndex >= RETRY_DELAYS_MS.length) {
+        if (!syncError.retryable || !allowImmediateRetries || syncError.retryAfterMs !== null || retryIndex >= RETRY_DELAYS_MS.length) {
           throw syncError;
         }
-        const retryDelay = syncError.retryAfterMs ?? RETRY_DELAYS_MS[retryIndex];
+        const retryDelay = RETRY_DELAYS_MS[retryIndex];
         retryIndex += 1;
         await delay(retryDelay);
       }

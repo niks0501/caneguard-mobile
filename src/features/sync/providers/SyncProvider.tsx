@@ -28,12 +28,14 @@ import {
 } from '@/features/reports/data/fieldReportSyncRepository';
 import { nextAutoRetryDelayMs } from '@/features/sync/domain/retryBackoff';
 import { hasUnsentInspectorWork } from '@/features/sync/data/inspectorWorkWaiting';
+import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import {
   checkAccountStep,
   net,
   type StepOutcome,
 } from '@/features/net/reconnectCoordinator';
 import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
+import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 import {
   syncPendingFieldReports,
   type SyncBatchResult,
@@ -112,7 +114,6 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const retryTimerSessionKey = useRef<string | null>(null);
   const retryNotBefore = useRef(0);
   const latestReachabilityRef = useRef<ApiReachability>('unknown');
-  const registeredHoldBatches = useRef(new WeakSet<SyncBatchResult>());
   const syncNowRef = useRef<
     ((source?: SyncTriggerSource) => Promise<SyncBatchResult | null>) | null
   >(null);
@@ -257,13 +258,12 @@ export function SyncProvider({ children }: PropsWithChildren) {
     async (
       source: SyncTriggerSource = 'manual',
     ): Promise<SyncBatchResult | null> => {
-      const automaticSendHeld = () =>
-        source !== 'manual' && retryNotBefore.current > performance.now();
-      if (automaticSendHeld()) {
+      const sendHeld = () => retryNotBefore.current > performance.now();
+      if (sendHeld()) {
         armRetryTimer(retryNotBefore.current - performance.now());
         return null;
       }
-      if (source !== 'retry-timer' && retryNotBefore.current <= performance.now()) {
+      if (source !== 'retry-timer') {
         clearRetryTimer();
       }
       if (
@@ -297,14 +297,11 @@ export function SyncProvider({ children }: PropsWithChildren) {
       const canContinueOfficialRecordSync = () =>
         isInitiatingSessionCurrent() &&
         sessionRef.current?.user.role === 'field_reporter';
-      // Registered as each queue returns, only for the session still owning the
-      // queue, so overlapping automatic runs honour the server deadline.
-      const holdAutomaticRetries = (batch: SyncBatchResult) => {
-        if (!canContinueOfficialRecordSync() || registeredHoldBatches.current.has(batch)) {
+      const publishSendOutcome = (result: SyncResult) => {
+        if (!canContinueOfficialRecordSync()) {
           return;
         }
-        registeredHoldBatches.current.add(batch);
-        const observedApiReachability = inferApiReachability(batch);
+        const observedApiReachability = inferApiReachability([result]);
         if (observedApiReachability) {
           latestReachabilityRef.current = observedApiReachability;
           setSyncState((current) => ({
@@ -312,9 +309,12 @@ export function SyncProvider({ children }: PropsWithChildren) {
             apiReachability: observedApiReachability,
           }));
         }
-        const retryAfterMs = batch.haltReason === 'transient-blocker' ? longestRetryAfterMs(batch) : null;
-        if (retryAfterMs !== null) {
-          retryNotBefore.current = Math.max(retryNotBefore.current, performance.now() + nextAutoRetryDelayMs(retryAfterMs));
+        if (
+          result.status === 'failed' &&
+          result.error.retryAfterMs !== null &&
+          isAutoRetryableSyncErrorCode(result.error.code)
+        ) {
+          retryNotBefore.current = Math.max(retryNotBefore.current, performance.now() + nextAutoRetryDelayMs(result.error.retryAfterMs));
           armRetryTimer(retryNotBefore.current - performance.now());
         }
       };
@@ -331,12 +331,12 @@ export function SyncProvider({ children }: PropsWithChildren) {
           database,
           districtCode: district.code,
           districtVerified: district.verified,
-          isSendHeld: automaticSendHeld,
+          isSendHeld: sendHeld,
+          onOutcome: publishSendOutcome,
           source,
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
-        holdAutomaticRetries(surveyResult);
         if (!canContinueOfficialRecordSync()) {
           await refreshPendingCount();
           return null;
@@ -344,24 +344,24 @@ export function SyncProvider({ children }: PropsWithChildren) {
         const reportResult = await syncPendingFieldReports({
           database,
           districtCode: district.code,
-          isSendHeld: automaticSendHeld,
+          isSendHeld: sendHeld,
+          onOutcome: publishSendOutcome,
           source,
           submitterIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
-        holdAutomaticRetries(reportResult);
         if (!canContinueOfficialRecordSync()) {
           await refreshPendingCount();
           return null;
         }
         const completionResult = await syncPendingFieldValidationCompletions({
           database,
-          isSendHeld: automaticSendHeld,
+          isSendHeld: sendHeld,
+          onOutcome: publishSendOutcome,
           source,
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
-        holdAutomaticRetries(completionResult);
         const result = mergeSyncBatchResults(surveyResult, reportResult, completionResult);
         if (!isInitiatingSessionCurrent()) {
           return result;
@@ -632,7 +632,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         if (result?.authRequired) return 'sign-in-again';
         const reachability = retryNotBefore.current > performance.now()
           ? latestReachabilityRef.current
-          : result ? inferApiReachability(result) : null;
+          : result ? inferApiReachability(result.results) : null;
         return reachability === 'unavailable' ? 'office-unreachable' : 'ok';
       },
     );
@@ -712,17 +712,6 @@ function mergeSyncBatchResults(...batches: SyncBatchResult[]): SyncBatchResult {
   };
 }
 
-/** The longest Retry-After the server sent on a failed upload in this run, or null. */
-function longestRetryAfterMs(result: SyncBatchResult): number | null {
-  let longest: number | null = null;
-  for (const item of result.results) {
-    if (item.status === 'failed' && item.error.retryAfterMs !== null) {
-      longest = Math.max(longest ?? 0, item.error.retryAfterMs);
-    }
-  }
-  return longest;
-}
-
 function latestTimestamp(first: string | null, second: string | null): string | null {
   if (!first) return second;
   if (!second) return first;
@@ -734,11 +723,11 @@ function latestTimestamp(first: string | null, second: string | null): string | 
  * separate phone-network signal used for offline gating.
  */
 function inferApiReachability(
-  result: SyncBatchResult,
+  results: readonly SyncResult[],
 ): ApiReachability | null {
   let observation: ApiReachability | null = null;
 
-  for (const syncResult of result.results) {
+  for (const syncResult of results) {
     if (syncResult.status === 'synced') {
       observation = 'available';
       continue;

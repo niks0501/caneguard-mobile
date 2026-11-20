@@ -1,7 +1,7 @@
 import type { CaneGuardDatabase } from '@/database/database';
 import {
-  countCoolingRetryableFieldReports,
   createFieldReportSyncRepository,
+  hasCoolingRetryableFieldReport,
   SYNC_RETRY_COOLDOWN_MS,
 } from '@/features/reports/data/fieldReportSyncRepository';
 import { staleSyncingCutoff } from '@/features/sync/domain/outboxState';
@@ -44,6 +44,7 @@ interface SyncPendingFieldReportsOptions {
   districtCode: string;
   isSendHeld?: () => boolean;
   limit?: number;
+  onOutcome?: (result: SyncResult) => void;
   source: SyncTriggerSource;
   submitterIdentity: string;
   token: string | null;
@@ -94,6 +95,7 @@ async function executeBatch({
   districtCode,
   limit = DEFAULT_SYNC_BATCH_SIZE,
   isSendHeld,
+  onOutcome,
   source,
   submitterIdentity,
   token,
@@ -126,7 +128,7 @@ async function executeBatch({
     );
     if (candidates.length === 0) {
       // A report still cooling down is not "empty": keep a retry scheduled so it resumes.
-      haltReason = (await countCoolingRetryableFieldReports(database, submitterIdentity, failedBefore)) > 0
+      haltReason = (await hasCoolingRetryableFieldReport(database, submitterIdentity, failedBefore))
         ? 'transient-blocker'
         : 'empty';
       break;
@@ -143,6 +145,7 @@ async function executeBatch({
       const result = await syncFieldReport({
         allowImmediateRetries: source === 'manual',
         isSendHeld,
+        onOutcome,
         reportId: candidate.id,
         repository,
         token,

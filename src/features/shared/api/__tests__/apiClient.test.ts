@@ -101,6 +101,34 @@ describe('api client', () => {
       .rejects.toMatchObject({ status: 503, retryAfterMs: 300_000 });
   });
 
+  it('reads every HTTP-date Retry-After form even where Date.parse rejects them', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-10-21T07:00:00Z'));
+    const parse = jest.spyOn(Date, 'parse').mockReturnValue(Number.NaN);
+    try {
+      for (const retryAfter of [
+        'Wed, 21 Oct 2026 07:05:00 GMT',
+        'Wednesday, 21-Oct-26 07:05:00 GMT',
+        'Wed Oct 21 07:05:00 2026',
+      ]) {
+        fetchMock.mockResolvedValueOnce({
+          ok: false,
+          status: 503,
+          headers: new Headers({
+            Date: 'Wed, 21 Oct 2026 07:00:00 GMT',
+            'Retry-After': retryAfter,
+          }),
+          text: async () => '{}',
+        });
+
+        await expect(apiRequest('/api/v3/mobile/reports', { token: 'test-token' }))
+          .rejects.toMatchObject({ status: 503, retryAfterMs: 300_000 });
+      }
+    } finally {
+      parse.mockRestore();
+    }
+  });
+
   it.each(['86400.5', '1e3', '2026-12-01T00:00:00Z'])('ignores a malformed Retry-After %s instead of deferring by a date parse', async (value) => {
     fetchMock.mockResolvedValueOnce({
       ok: false,

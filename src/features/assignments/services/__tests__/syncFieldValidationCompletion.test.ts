@@ -44,7 +44,7 @@ function repository(): FieldValidationCompletionSyncRepository {
     findLastSuccessfulSyncAt: jest.fn(),
     findSyncCandidates: jest.fn(),
     markFailed: jest.fn(),
-    markPending: jest.fn(),
+    releaseClaim: jest.fn(),
     markSynced: jest.fn(),
     markSyncing: jest.fn(),
     resetStaleSyncing: jest.fn(),

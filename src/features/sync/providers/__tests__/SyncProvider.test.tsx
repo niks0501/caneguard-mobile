@@ -19,6 +19,7 @@ import {
   resetStaleSyncingFieldReports,
 } from '@/features/reports/data/fieldReportSyncRepository';
 import { hasUnsentInspectorWork } from '@/features/sync/data/inspectorWorkWaiting';
+import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 import { SyncError } from '@/features/sync/errors/syncErrors';
 import {
   SyncContext,
@@ -91,6 +92,13 @@ const ONLINE = {
 } as never;
 const SUBMITTER_ID = 'a66e3cc9-6c21-4c66-98e2-f63eb0b2ff17';
 const OTHER_SUBMITTER_ID = '51214146-7439-48e0-aef4-d0e003f194b4';
+
+function batchEmittingOutcomes(batch: SyncBatchResult) {
+  return async (options: { onOutcome?: (result: SyncResult) => void }) => {
+    batch.results.forEach((result) => options.onOutcome?.(result));
+    return batch;
+  };
+}
 
 function SyncStateProbe() {
   const sync = useContext(SyncContext);
@@ -581,7 +589,7 @@ describe('SyncProvider foreground triggers', () => {
   });
 
   it('tracks API unavailability separately from phone network availability', async () => {
-    jest.mocked(syncPendingFieldReports).mockResolvedValue({
+    jest.mocked(syncPendingFieldReports).mockImplementation(batchEmittingOutcomes({
       attempted: 1,
       authRequired: false,
       failed: 1,
@@ -598,7 +606,7 @@ describe('SyncProvider foreground triggers', () => {
       ],
       source: 'startup',
       synced: 0,
-    });
+    }));
     const view = await render(
       <SyncProvider>
         <SyncApiHealthProbe />
@@ -620,7 +628,7 @@ describe('SyncProvider foreground triggers', () => {
   });
 
   it('tracks API availability after a successful report upload', async () => {
-    jest.mocked(syncPendingFieldReports).mockResolvedValue({
+    jest.mocked(syncPendingFieldReports).mockImplementation(batchEmittingOutcomes({
       attempted: 1,
       authRequired: false,
       failed: 0,
@@ -634,7 +642,7 @@ describe('SyncProvider foreground triggers', () => {
       ],
       source: 'startup',
       synced: 1,
-    });
+    }));
     const view = await render(
       <SyncProvider>
         <SyncApiHealthProbe />
@@ -851,7 +859,7 @@ describe('SyncProvider foreground triggers', () => {
     const dateSpy = jest.spyOn(Date, 'now').mockImplementation(() => fakeDateNow() + clockSkewMs);
     try {
       jest.mocked(syncPendingFieldReports)
-        .mockResolvedValueOnce({
+        .mockImplementationOnce(batchEmittingOutcomes({
           attempted: 1,
           authRequired: false,
           failed: 1,
@@ -865,7 +873,7 @@ describe('SyncProvider foreground triggers', () => {
           ],
           source: 'startup',
           synced: 0,
-        })
+        }))
         .mockResolvedValue({
           attempted: 0,
           authRequired: false,

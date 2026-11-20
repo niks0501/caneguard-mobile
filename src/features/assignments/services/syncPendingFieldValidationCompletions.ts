@@ -1,7 +1,7 @@
 import type { CaneGuardDatabase } from '@/database/database';
 import {
-  countCoolingRetryableFieldValidationCompletions,
   createFieldValidationCompletionSyncRepository,
+  hasCoolingRetryableFieldValidationCompletion,
   FIELD_VALIDATION_SYNC_RETRY_COOLDOWN_MS,
 } from '@/features/assignments/data/fieldValidationCompletionRepository';
 import {
@@ -34,6 +34,7 @@ export function syncPendingFieldValidationCompletions(options: {
   database: CaneGuardDatabase;
   isSendHeld?: () => boolean;
   limit?: number;
+  onOutcome?: (result: FieldValidationCompletionSyncResult) => void;
   source: SyncTriggerSource;
   ownerIdentity: string;
   token: string | null;
@@ -62,6 +63,7 @@ async function executeBatch(options: {
   database: CaneGuardDatabase;
   isSendHeld?: () => boolean;
   limit?: number;
+  onOutcome?: (result: FieldValidationCompletionSyncResult) => void;
   source: SyncTriggerSource;
   ownerIdentity: string;
   token: string | null;
@@ -84,7 +86,7 @@ async function executeBatch(options: {
     );
     if (candidates.length === 0) {
       // A visit still cooling down is not "empty": keep a retry scheduled so it resumes.
-      haltReason = (await countCoolingRetryableFieldValidationCompletions(options.database, options.ownerIdentity, failedBefore)) > 0
+      haltReason = (await hasCoolingRetryableFieldValidationCompletion(options.database, options.ownerIdentity, failedBefore))
         ? 'transient-blocker'
         : 'empty';
       break;
@@ -99,6 +101,7 @@ async function executeBatch(options: {
         allowImmediateRetries: options.source === 'manual',
         completionId: candidate.id,
         isSendHeld: options.isSendHeld,
+        onOutcome: options.onOutcome,
         repository,
         token: options.token,
       });

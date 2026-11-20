@@ -3,6 +3,7 @@ import { findOwnedFieldSurvey, updateFieldSurveySyncResult } from '@/features/su
 import { FieldSurveyValidationError, submitFieldSurvey, type FieldSurveyAffectedAreaWaypointProvenance, type FieldSurveyMeasurementProvenance } from '@/features/surveys/api/fieldSurveysApi';
 import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
+import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 
 export type FieldSurveySyncResult =
   | { status: 'synced' | 'already-synced'; remoteId: string }
@@ -20,6 +21,8 @@ export async function syncFieldSurvey(options: {
   database: CaneGuardDatabase;
   delay?: (milliseconds: number) => Promise<void>;
   districtCode: string;
+  isSendHeld?: () => boolean;
+  onOutcome?: (result: SyncResult) => void;
   ownerIdentity: string;
   token: string | null;
 }): Promise<FieldSurveySyncResult> {
@@ -94,8 +97,10 @@ export async function syncFieldSurvey(options: {
         const waitFor = RETRY_DELAYS_MS[retryIndex];
         retryIndex += 1;
         await (options.delay ?? delay)(waitFor);
+        if (options.isSendHeld?.()) throw error;
       }
     }
+    options.onOutcome?.({ reportId: row.clientUuid, remoteId: response.id, status: 'synced' });
     updateFieldSurveySyncResult(options.database, row.clientUuid, options.ownerIdentity, {
       remoteId: response.id, status: 'synced', fieldErrors: null, lastSyncErrorCode: null,
     });
@@ -107,6 +112,7 @@ export async function syncFieldSurvey(options: {
       : error instanceof FieldSurveyValidationError
         ? new SyncError('API_VALIDATION_FAILED', 'The server needs a correction to this boundary.')
         : toSyncError(error, { endpoint: 'boundary' });
+    options.onOutcome?.({ reportId: row.clientUuid, status: 'failed', error: syncError });
     updateFieldSurveySyncResult(options.database, row.clientUuid, options.ownerIdentity, {
       fieldErrors: error instanceof FieldSurveyValidationError ? error.fieldErrors : null,
       lastSyncErrorCode: syncError.code,

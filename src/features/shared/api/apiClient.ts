@@ -95,8 +95,8 @@ export async function apiRequest<T>(
         });
         const body = await readResponseBody(response);
         if (onServerTime) {
-          const serverNowMs = Date.parse(response.headers.get('Date') ?? '');
-          if (Number.isFinite(serverNowMs)) onServerTime(serverNowMs);
+          const serverNowMs = responseServerTimeMs(response);
+          if (serverNowMs !== null) onServerTime(serverNowMs);
         }
 
         if (!response.ok) {
@@ -282,11 +282,46 @@ function readServerMessage(body: unknown): string | null {
   return null;
 }
 
-const HTTP_DATE_FORMATS = [
-  /^[A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} GMT$/,
-  /^[A-Za-z]+, \d{2}-[A-Za-z]{3}-\d{2} \d{2}:\d{2}:\d{2} GMT$/,
-  /^[A-Za-z]{3} [A-Za-z]{3} [ \d]\d \d{2}:\d{2}:\d{2} \d{4}$/,
-];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH = `(${MONTH_NAMES.join('|')})`;
+const CLOCK = '(\\d{2}):(\\d{2}):(\\d{2})';
+const SHORT_WEEKDAY = '(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)';
+const LONG_WEEKDAY = '(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)';
+const IMF_FIXDATE = new RegExp(`^${SHORT_WEEKDAY}, (\\d{2}) ${MONTH} (\\d{4}) ${CLOCK} GMT$`);
+const RFC850_DATE = new RegExp(`^${LONG_WEEKDAY}, (\\d{2})-${MONTH}-(\\d{2}) ${CLOCK} GMT$`);
+const ASCTIME_DATE = new RegExp(`^${SHORT_WEEKDAY} ${MONTH} ( \\d|\\d{2}) ${CLOCK} (\\d{4})$`);
+
+function parseHttpDate(value: string | null, nowMs: number): number | null {
+  const text = value ?? '';
+  const imf = IMF_FIXDATE.exec(text);
+  if (imf) {
+    return utcTimestamp(Number(imf[3]), imf[2], Number(imf[1]), imf[4], imf[5], imf[6]);
+  }
+  const rfc850 = RFC850_DATE.exec(text);
+  if (rfc850) {
+    return utcTimestamp(resolveTwoDigitYear(Number(rfc850[3]), nowMs), rfc850[2], Number(rfc850[1]), rfc850[4], rfc850[5], rfc850[6]);
+  }
+  const asctime = ASCTIME_DATE.exec(text);
+  if (asctime) {
+    return utcTimestamp(Number(asctime[6]), asctime[1], Number(asctime[2]), asctime[3], asctime[4], asctime[5]);
+  }
+  return null;
+}
+
+function utcTimestamp(year: number, monthName: string, day: number, hour: string, minute: string, second: string): number | null {
+  const date = new Date(Date.UTC(year, MONTH_NAMES.indexOf(monthName), day, Number(hour), Number(minute), Number(second)));
+  return date.getUTCDate() === day ? date.getTime() : null;
+}
+
+function resolveTwoDigitYear(twoDigits: number, nowMs: number): number {
+  const nowYear = new Date(nowMs).getUTCFullYear();
+  const year = Math.floor(nowYear / 100) * 100 + twoDigits;
+  return year - nowYear > 50 ? year - 100 : year;
+}
+
+function responseServerTimeMs(response: Response): number | null {
+  return parseHttpDate(response.headers.get('Date'), Date.now());
+}
 
 function parseRetryAfter(response: Response): number | null {
   const value = response.headers.get('Retry-After');
@@ -297,15 +332,8 @@ function parseRetryAfter(response: Response): number | null {
   if (/^\d+$/.test(value)) {
     return Math.min(Number(value) * 1_000, Number.MAX_SAFE_INTEGER);
   }
-  if (!HTTP_DATE_FORMATS.some((format) => format.test(value))) {
-    return null;
-  }
 
-  const retryAtMs = Date.parse(/ GMT$/.test(value) ? value : `${value} GMT`);
-  if (Number.isNaN(retryAtMs)) {
-    return null;
-  }
-  const serverNowMs = Date.parse(response.headers.get('Date') ?? '');
-  const nowMs = Number.isFinite(serverNowMs) ? serverNowMs : Date.now();
-  return Math.max(0, retryAtMs - nowMs);
+  const nowMs = responseServerTimeMs(response) ?? Date.now();
+  const retryAtMs = parseHttpDate(value, nowMs);
+  return retryAtMs === null ? null : Math.max(0, retryAtMs - nowMs);
 }

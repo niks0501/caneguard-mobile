@@ -2,7 +2,7 @@ import { waitFor } from '@testing-library/react-native';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import {
-  countCoolingRetryableFieldReports,
+  hasCoolingRetryableFieldReport,
   createFieldReportSyncRepository,
 } from '@/features/reports/data/fieldReportSyncRepository';
 import { SyncError } from '@/features/sync/errors/syncErrors';
@@ -13,7 +13,7 @@ import {
 } from '@/features/sync/services/syncPendingFieldReports';
 
 jest.mock('@/features/reports/data/fieldReportSyncRepository', () => ({
-  countCoolingRetryableFieldReports: jest.fn(async () => 0),
+  hasCoolingRetryableFieldReport: jest.fn(async () => false),
   createFieldReportSyncRepository: jest.fn(),
   SYNC_RETRY_COOLDOWN_MS: 60_000,
 }));
@@ -175,7 +175,7 @@ describe('pending Field Report queue', () => {
 
   it('keeps a retry scheduled while a failed report is still cooling down', async () => {
     findSyncCandidates.mockResolvedValueOnce([]);
-    jest.mocked(countCoolingRetryableFieldReports).mockResolvedValueOnce(1);
+    jest.mocked(hasCoolingRetryableFieldReport).mockResolvedValueOnce(true);
 
     await expect(syncPendingFieldReports({
       database,

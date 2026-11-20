@@ -17,6 +17,7 @@ interface SyncFieldReportOptions {
   isSendHeld?: () => boolean;
   mapMultipart?: typeof mapFieldReportToMultipart;
   now?: () => Date;
+  onOutcome?: (result: SyncResult) => void;
   reportId: string;
   repository: FieldReportSyncRepository;
   token: string | null;
@@ -33,6 +34,7 @@ export async function syncFieldReport({
   isSendHeld,
   mapMultipart = mapFieldReportToMultipart,
   now = () => new Date(),
+  onOutcome,
   reportId,
   repository,
   token,
@@ -46,13 +48,14 @@ export async function syncFieldReport({
       status: 'already-synced',
     };
   }
-  if (!token) {
-    const error = new SyncError(
-      'AUTH_REQUIRED',
-      'Sign in before uploading pending reports.',
-    );
+  const fail = async (error: SyncError): Promise<SyncResult> => {
+    const result: SyncResult = { reportId, status: 'failed', error };
+    onOutcome?.(result);
     await repository.markFailed(reportId, error.code, now().toISOString());
-    return { reportId, status: 'failed', error };
+    return result;
+  };
+  if (!token) {
+    return fail(new SyncError('AUTH_REQUIRED', 'Sign in before uploading pending reports.'));
   }
 
   const attemptedAt = now().toISOString();
@@ -63,7 +66,7 @@ export async function syncFieldReport({
   try {
     const form = mapMultipart(uploadRecord);
     if (isSendHeld?.()) {
-      await repository.markPending(reportId);
+      await repository.releaseClaim(reportId);
       return { reportId, status: 'skipped' };
     }
     let retryIndex = 0;
@@ -72,8 +75,10 @@ export async function syncFieldReport({
       try {
         const uploaded = await upload(form, token);
         const syncedAt = now().toISOString();
+        const result: SyncResult = { reportId, remoteId: uploaded.remoteId, status: 'synced' };
+        onOutcome?.(result);
         await repository.markSynced(reportId, uploaded.remoteId, syncedAt);
-        return { reportId, remoteId: uploaded.remoteId, status: 'synced' };
+        return result;
       } catch (error: unknown) {
         const syncError = toSyncError(error, { endpoint: 'report' });
         if (
@@ -87,11 +92,12 @@ export async function syncFieldReport({
         const retryDelay = RETRY_DELAYS_MS[retryIndex];
         retryIndex += 1;
         await delay(retryDelay);
+        if (isSendHeld?.()) {
+          throw syncError;
+        }
       }
     }
   } catch (error: unknown) {
-    const syncError = toSyncError(error, { endpoint: 'report' });
-    await repository.markFailed(reportId, syncError.code, now().toISOString());
-    return { reportId, status: 'failed', error: syncError };
+    return fail(toSyncError(error, { endpoint: 'report' }));
   }
 }

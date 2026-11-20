@@ -35,9 +35,9 @@ export interface FieldReportSyncRepository {
     options: FindSyncCandidatesOptions,
   ): Promise<FieldReport[]>;
   markFailed(reportId: string, errorCode: string, attemptedAt: string): Promise<void>;
-  markPending(reportId: string): Promise<void>;
   markSynced(reportId: string, remoteId: string, syncedAt: string): Promise<void>;
   markSyncing(reportId: string, attemptedAt: string): Promise<number>;
+  releaseClaim(reportId: string): Promise<void>;
   resetStaleSyncingReports(staleBefore: string): Promise<void>;
 }
 
@@ -60,12 +60,12 @@ export function createFieldReportSyncRepository(
       ),
     markFailed: (id, code, at) =>
       markFieldReportFailed(database, id, submitterIdentity, code, at).then(() => undefined),
-    markPending: (id) =>
-      markFieldReportPending(database, id, submitterIdentity).then(() => undefined),
     markSynced: (id, remoteId, at) =>
       markFieldReportSynced(database, id, submitterIdentity, remoteId, at).then(() => undefined),
     markSyncing: (id, at) =>
       markFieldReportSyncing(database, id, submitterIdentity, at),
+    releaseClaim: (id) =>
+      releaseFieldReportClaim(database, id, submitterIdentity).then(() => undefined),
     resetStaleSyncingReports: (before) =>
       resetStaleSyncingFieldReports(database, submitterIdentity, before),
   };
@@ -203,6 +203,24 @@ export async function markFieldReportPending(
   );
 }
 
+export async function releaseFieldReportClaim(
+  database: CaneGuardDatabase,
+  reportId: string,
+  submitterIdentity: string,
+): Promise<number> {
+  return updateSyncState(
+    database,
+    reportId,
+    {
+      syncStatus: 'pending',
+      lastSyncErrorCode: null,
+      updatedAt: new Date().toISOString(),
+    },
+    ['syncing'],
+    submitterIdentity,
+  );
+}
+
 export async function markFieldReportSyncing(
   database: CaneGuardDatabase,
   reportId: string,
@@ -301,12 +319,12 @@ export async function resetStaleSyncingFieldReports(
   }
 }
 
-export async function countCoolingRetryableFieldReports(
+export async function hasCoolingRetryableFieldReport(
   database: CaneGuardDatabase,
   submitterIdentity: string,
   failedBefore: string,
-): Promise<number> {
-  const rows = await database
+): Promise<boolean> {
+  const row = await database
     .select({ id: fieldReports.id })
     .from(fieldReports)
     .where(
@@ -317,8 +335,10 @@ export async function countCoolingRetryableFieldReports(
         inArray(fieldReports.lastSyncErrorCode, AUTO_RETRYABLE_SYNC_ERROR_CODES),
         gte(fieldReports.lastSyncAttemptAt, failedBefore),
       ),
-    );
-  return rows.length;
+    )
+    .limit(1)
+    .get();
+  return row !== undefined;
 }
 
 export async function countUnsyncedFieldReports(

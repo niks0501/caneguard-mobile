@@ -12,6 +12,7 @@ interface Options {
   database: CaneGuardDatabase;
   districtCode: string;
   isSendHeld?: () => boolean;
+  onOutcome?: (result: SyncResult) => void;
   /** The account district is verified for this session; while it is not, a blank code may still arrive. */
   districtVerified: boolean;
   limit?: number;
@@ -76,7 +77,7 @@ async function executeBatch(options: Options & { ownerIdentity: string }): Promi
       }
       const result = await syncFieldSurvey({
         allowImmediateRetries: options.source === 'manual',
-        clientUuid, database: options.database, districtCode: options.districtCode, ownerIdentity: options.ownerIdentity, token: options.token,
+        clientUuid, database: options.database, districtCode: options.districtCode, isSendHeld: options.isSendHeld, onOutcome: options.onOutcome, ownerIdentity: options.ownerIdentity, token: options.token,
       });
       if (result.status !== 'failed') {
         results.push({ reportId: clientUuid, status: result.status, remoteId: result.remoteId });

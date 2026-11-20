@@ -35,12 +35,12 @@ const FIELD_VALIDATION_RETRYABLE_SYNC_ERROR_CODES = [
   'SERVER_ERROR',
 ] as const;
 
-export async function countCoolingRetryableFieldValidationCompletions(
+export async function hasCoolingRetryableFieldValidationCompletion(
   database: CaneGuardDatabase,
   ownerIdentity: string,
   failedBefore: string,
-): Promise<number> {
-  const rows = await database
+): Promise<boolean> {
+  const row = await database
     .select({ id: fieldValidationCompletions.id })
     .from(fieldValidationCompletions)
     .where(and(
@@ -48,8 +48,10 @@ export async function countCoolingRetryableFieldValidationCompletions(
       eq(fieldValidationCompletions.syncStatus, 'failed'),
       inArray(fieldValidationCompletions.lastSyncErrorCode, FIELD_VALIDATION_RETRYABLE_SYNC_ERROR_CODES),
       gte(fieldValidationCompletions.lastSyncAttemptAt, failedBefore),
-    ));
-  return rows.length;
+    ))
+    .limit(1)
+    .get();
+  return row !== undefined;
 }
 
 export interface FieldValidationCompletionSyncRepository {
@@ -61,9 +63,9 @@ export interface FieldValidationCompletionSyncRepository {
     options?: { failedBefore?: string; includeRetryableFailed?: boolean },
   ): Promise<FieldValidationCompletion[]>;
   markFailed(id: string, errorCode: string, attemptedAt: string): Promise<void>;
-  markPending(id: string): Promise<void>;
   markSynced(id: string, remoteId: string, syncedAt: string): Promise<void>;
-  markSyncing(id: string, attemptedAt: string): Promise<void>;
+  markSyncing(id: string, attemptedAt: string): Promise<number>;
+  releaseClaim(id: string): Promise<void>;
   resetStaleSyncing(staleBefore: string): Promise<void>;
 }
 
@@ -77,9 +79,9 @@ export function createFieldValidationCompletionSyncRepository(
     findLastSuccessfulSyncAt: () => findLastSuccessfulFieldValidationCompletionSyncAt(database, ownerIdentity),
     findSyncCandidates: (limit, options) => findFieldValidationCompletionSyncCandidates(database, ownerIdentity, limit, options),
     markFailed: (id, code, at) => markFieldValidationCompletionFailed(database, id, ownerIdentity, code, at).then(() => undefined),
-    markPending: (id) => markFieldValidationCompletionPending(database, id, ownerIdentity).then(() => undefined),
     markSynced: (id, remoteId, at) => markFieldValidationCompletionSynced(database, id, ownerIdentity, remoteId, at).then(() => undefined),
-    markSyncing: (id, at) => markFieldValidationCompletionSyncing(database, id, ownerIdentity, at).then(() => undefined),
+    markSyncing: (id, at) => markFieldValidationCompletionSyncing(database, id, ownerIdentity, at),
+    releaseClaim: (id) => releaseFieldValidationCompletionClaim(database, id, ownerIdentity).then(() => undefined),
     resetStaleSyncing: (before) => resetStaleSyncingFieldValidationCompletions(database, ownerIdentity, before),
   };
 }
@@ -288,6 +290,18 @@ export async function markFieldValidationCompletionPending(
     lastSyncErrorCode: null,
     updatedAt: new Date().toISOString(),
   }, SYNC_TRANSITIONS.pending);
+}
+
+export async function releaseFieldValidationCompletionClaim(
+  database: CaneGuardDatabase,
+  id: string,
+  ownerIdentity: string,
+): Promise<number> {
+  return updateSyncState(database, id, ownerIdentity, {
+    syncStatus: 'pending',
+    lastSyncErrorCode: null,
+    updatedAt: new Date().toISOString(),
+  }, ['syncing']);
 }
 
 export async function markFieldValidationCompletionSyncing(

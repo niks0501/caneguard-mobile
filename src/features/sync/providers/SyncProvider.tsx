@@ -164,15 +164,6 @@ export function SyncProvider({ children }: PropsWithChildren) {
     armRetryTimer(delayMs);
   }, [armRetryTimer]);
 
-  // Registered as each queue returns, so an overlapping automatic run cannot resend
-  // the record before its server deadline while this run is still uploading.
-  const holdAutomaticRetries = useCallback((batch: SyncBatchResult) => {
-    const retryAfterMs = batch.haltReason === 'transient-blocker' ? longestRetryAfterMs(batch) : null;
-    if (retryAfterMs !== null) {
-      retryNotBefore.current = Math.max(retryNotBefore.current, performance.now() + nextAutoRetryDelayMs(retryAfterMs));
-    }
-  }, []);
-
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
@@ -270,8 +261,14 @@ export function SyncProvider({ children }: PropsWithChildren) {
     async (
       source: SyncTriggerSource = 'manual',
     ): Promise<SyncBatchResult | null> => {
-      if (source !== 'manual' && retryNotBefore.current > performance.now()) {
+      const holdsAutomaticDispatch = () => {
+        if (source === 'manual' || retryNotBefore.current <= performance.now()) {
+          return false;
+        }
         armRetryTimer(retryNotBefore.current - performance.now());
+        return true;
+      };
+      if (holdsAutomaticDispatch()) {
         return null;
       }
       if (source !== 'retry-timer') {
@@ -308,6 +305,14 @@ export function SyncProvider({ children }: PropsWithChildren) {
       const canContinueOfficialRecordSync = () =>
         isInitiatingSessionCurrent() &&
         sessionRef.current?.user.role === 'field_reporter';
+      // Registered as each queue returns, only for the session still owning the
+      // queue, so overlapping automatic runs honour the server deadline.
+      const holdAutomaticRetries = (batch: SyncBatchResult) => {
+        const retryAfterMs = batch.haltReason === 'transient-blocker' ? longestRetryAfterMs(batch) : null;
+        if (retryAfterMs !== null && canContinueOfficialRecordSync()) {
+          retryNotBefore.current = Math.max(retryNotBefore.current, performance.now() + nextAutoRetryDelayMs(retryAfterMs));
+        }
+      };
       try {
         if (!canContinueOfficialRecordSync()) {
           await refreshPendingCount();
@@ -326,7 +331,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
           token: initiatingSession.token,
         });
         holdAutomaticRetries(surveyResult);
-        if (!canContinueOfficialRecordSync()) {
+        if (!canContinueOfficialRecordSync() || holdsAutomaticDispatch()) {
           await refreshPendingCount();
           return null;
         }
@@ -338,7 +343,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
           token: initiatingSession.token,
         });
         holdAutomaticRetries(reportResult);
-        if (!canContinueOfficialRecordSync()) {
+        if (!canContinueOfficialRecordSync() || holdsAutomaticDispatch()) {
           await refreshPendingCount();
           return null;
         }
@@ -419,7 +424,6 @@ export function SyncProvider({ children }: PropsWithChildren) {
       armRetryTimer,
       clearRetryTimer,
       database,
-      holdAutomaticRetries,
       markSessionExpired,
       refreshPendingCount,
       reportCapabilityRevoked,

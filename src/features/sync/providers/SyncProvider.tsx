@@ -307,6 +307,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
         const observedApiReachability = inferApiReachability(batch);
         if (observedApiReachability) {
           latestReachabilityRef.current = observedApiReachability;
+          setSyncState((current) => ({
+            ...current,
+            apiReachability: observedApiReachability,
+          }));
         }
         const retryAfterMs = batch.haltReason === 'transient-blocker' ? longestRetryAfterMs(batch) : null;
         if (retryAfterMs !== null) {
@@ -361,14 +365,6 @@ export function SyncProvider({ children }: PropsWithChildren) {
         const result = mergeSyncBatchResults(surveyResult, reportResult, completionResult);
         if (!isInitiatingSessionCurrent()) {
           return result;
-        }
-        const observedApiReachability = inferApiReachability(result);
-        if (observedApiReachability) {
-          latestReachabilityRef.current = observedApiReachability;
-          setSyncState((current) => ({
-            ...current,
-            apiReachability: observedApiReachability,
-          }));
         }
         if (
           result.results.some(
@@ -633,15 +629,11 @@ export function SyncProvider({ children }: PropsWithChildren) {
     const unregisterSend = net.registerSendSaved(
       async (source): Promise<StepOutcome> => {
         const result = await syncNowRef.current?.(source);
-        if (!result) {
-          return retryNotBefore.current > performance.now() && latestReachabilityRef.current === 'unavailable'
-            ? 'office-unreachable'
-            : 'ok';
-        }
-        if (result.authRequired) return 'sign-in-again';
-        return inferApiReachability(result) === 'unavailable'
-          ? 'office-unreachable'
-          : 'ok';
+        if (result?.authRequired) return 'sign-in-again';
+        const reachability = retryNotBefore.current > performance.now()
+          ? latestReachabilityRef.current
+          : result ? inferApiReachability(result) : null;
+        return reachability === 'unavailable' ? 'office-unreachable' : 'ok';
       },
     );
     return () => {

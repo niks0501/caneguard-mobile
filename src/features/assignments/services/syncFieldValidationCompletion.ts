@@ -8,11 +8,13 @@ const RETRY_DELAYS_MS = [2_000, 5_000, 15_000] as const;
 
 export type FieldValidationCompletionSyncResult =
   | { reportId: string; status: 'already-synced' | 'synced'; remoteId: string | null }
-  | { reportId: string; status: 'failed'; error: SyncError };
+  | { reportId: string; status: 'failed'; error: SyncError }
+  | { reportId: string; status: 'skipped' };
 
 export interface SyncFieldValidationCompletionOptions {
   allowImmediateRetries?: boolean;
   delay?: (milliseconds: number) => Promise<void>;
+  isSendHeld?: () => boolean;
   mapMultipart?: typeof mapFieldValidationCompletionToMultipart;
   now?: () => Date;
   completionId: string;
@@ -29,6 +31,7 @@ export async function syncFieldValidationCompletion({
   allowImmediateRetries = true,
   completionId,
   delay = wait,
+  isSendHeld,
   mapMultipart = mapFieldValidationCompletionToMultipart,
   now = () => new Date(),
   repository,
@@ -50,6 +53,10 @@ export async function syncFieldValidationCompletion({
   try {
     const record: FieldValidationCompletionUploadRecord = { completion };
     const form = mapMultipart(record);
+    if (isSendHeld?.()) {
+      await repository.markPending(completionId);
+      return { reportId: completionId, status: 'skipped' };
+    }
     let retryIndex = 0;
     while (true) {
       try {

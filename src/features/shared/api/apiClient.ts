@@ -282,6 +282,12 @@ function readServerMessage(body: unknown): string | null {
   return null;
 }
 
+const HTTP_DATE_FORMATS = [
+  /^[A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} GMT$/,
+  /^[A-Za-z]+, \d{2}-[A-Za-z]{3}-\d{2} \d{2}:\d{2}:\d{2} GMT$/,
+  /^[A-Za-z]{3} [A-Za-z]{3} [ \d]\d \d{2}:\d{2}:\d{2} \d{4}$/,
+];
+
 function parseRetryAfter(response: Response): number | null {
   const value = response.headers.get('Retry-After');
   if (!value) {
@@ -291,11 +297,11 @@ function parseRetryAfter(response: Response): number | null {
   if (/^\d+$/.test(value)) {
     return Math.min(Number(value) * 1_000, Number.MAX_SAFE_INTEGER);
   }
-  if (!/^[A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(value)) {
+  if (!HTTP_DATE_FORMATS.some((format) => format.test(value))) {
     return null;
   }
 
-  const retryAtMs = Date.parse(value);
+  const retryAtMs = Date.parse(/ GMT$/.test(value) ? value : `${value} GMT`);
   if (Number.isNaN(retryAtMs)) {
     return null;
   }

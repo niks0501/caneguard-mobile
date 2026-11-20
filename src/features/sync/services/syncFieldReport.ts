@@ -14,6 +14,7 @@ export type SyncResult =
 interface SyncFieldReportOptions {
   allowImmediateRetries?: boolean;
   delay?: (milliseconds: number) => Promise<void>;
+  isSendHeld?: () => boolean;
   mapMultipart?: typeof mapFieldReportToMultipart;
   now?: () => Date;
   reportId: string;
@@ -29,6 +30,7 @@ function wait(milliseconds: number): Promise<void> {
 export async function syncFieldReport({
   allowImmediateRetries = true,
   delay = wait,
+  isSendHeld,
   mapMultipart = mapFieldReportToMultipart,
   now = () => new Date(),
   reportId,
@@ -60,6 +62,10 @@ export async function syncFieldReport({
 
   try {
     const form = mapMultipart(uploadRecord);
+    if (isSendHeld?.()) {
+      await repository.markPending(reportId);
+      return { reportId, status: 'skipped' };
+    }
     let retryIndex = 0;
 
     while (true) {

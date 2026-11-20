@@ -142,6 +142,7 @@ async function executeBatch({
       }
       const result = await syncFieldReport({
         allowImmediateRetries: source === 'manual',
+        isSendHeld,
         reportId: candidate.id,
         repository,
         token,

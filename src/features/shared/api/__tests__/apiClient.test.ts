@@ -70,6 +70,37 @@ describe('api client', () => {
     expect(hintMs).toBeGreaterThan(2 * 60 * 60_000);
   });
 
+  it('measures a legacy RFC 850 HTTP-date Retry-After against the server Date', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-10-21T07:10:00Z'));
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      headers: new Headers({
+        Date: 'Wed, 21 Oct 2026 07:00:00 GMT',
+        'Retry-After': 'Wednesday, 21-Oct-26 07:05:00 GMT',
+      }),
+      text: async () => '{}',
+    });
+
+    await expect(apiRequest('/api/v3/mobile/reports', { token: 'test-token' }))
+      .rejects.toMatchObject({ status: 503, retryAfterMs: 300_000 });
+  });
+
+  it('reads an asctime HTTP-date Retry-After as GMT', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-10-21T07:00:00Z'));
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      headers: new Headers({ 'Retry-After': 'Wed Oct 21 07:05:00 2026' }),
+      text: async () => '{}',
+    });
+
+    await expect(apiRequest('/api/v3/mobile/reports', { token: 'test-token' }))
+      .rejects.toMatchObject({ status: 503, retryAfterMs: 300_000 });
+  });
+
   it.each(['86400.5', '1e3', '2026-12-01T00:00:00Z'])('ignores a malformed Retry-After %s instead of deferring by a date parse', async (value) => {
     fetchMock.mockResolvedValueOnce({
       ok: false,

@@ -98,6 +98,7 @@ async function executeBatch(options: {
       const result = await syncFieldValidationCompletion({
         allowImmediateRetries: options.source === 'manual',
         completionId: candidate.id,
+        isSendHeld: options.isSendHeld,
         repository,
         token: options.token,
       });

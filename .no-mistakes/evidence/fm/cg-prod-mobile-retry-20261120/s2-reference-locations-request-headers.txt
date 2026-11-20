@@ -1,0 +1,12 @@
+request:
+## Request http://127.0.0.1:8210/api/v1/reference/locations
+Status: 200
+### Request Headers
+- sec-ch-ua-platform:"Linux"
+- authorization:Bearer validation-only-token
+- referer:http://127.0.0.1:8199/
+- user-agent:Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36
+- accept:application/json
+- sec-ch-ua:"Not-A.Brand";v="99", "Google Chrome";v="157", "Chromium";v="157"
+- sec-ch-ua-mobile:?0
+- accept-encoding:gzip, deflate, br, zstd

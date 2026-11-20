@@ -1,0 +1,42 @@
+{
+  "model_id": "caneguard_guard_v1",
+  "model_kind": "binary_sugarcane_presence",
+  "training_purpose": "capstone production gate",
+  "labels": {
+    "0": "not_sugarcane",
+    "1": "sugarcane"
+  },
+  "input": {
+    "shape": [
+      1,
+      224,
+      224,
+      3
+    ],
+    "dtype": "float32",
+    "color_order": "RGB",
+    "range": [
+      0,
+      255
+    ],
+    "orientation": "apply EXIF orientation before resize",
+    "resize": "bilinear direct stretch to 224x224; NO LETTERBOX or center padding",
+    "normalization": "inside TFLite model: x/127.5-1"
+  },
+  "output": {
+    "shape": [
+      1,
+      1
+    ],
+    "dtype": "float32",
+    "meaning": "probability of sugarcane"
+  },
+  "decision": {
+    "accept_if_p_sugarcane_at_least": 0.75,
+    "target_val_false_acceptance_rate": 0.05
+  },
+  "frozen_manifest_sha256": "989fc0303c1ba9269f85e98ec16d664f5d4b8413b1987e0ad49673c14b031490",
+  "tflite_sha256": "36c514184aaa4f96ee762dcbc0ca32eb26df40acec919f6c4264e8ee44fe6d60",
+  "v2_classifier_unchanged": true,
+  "evaluation_clearance": "PRODUCTION_ACTIVATION_APPROVED_2026-11-19_FIELD_VALIDATION_PENDING"
+}

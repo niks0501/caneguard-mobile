@@ -1,4 +1,5 @@
 import { randomUUID } from 'expo-crypto';
+import { AppState } from 'react-native';
 import {
   createContext,
   useCallback,
@@ -12,6 +13,7 @@ import {
   type PropsWithChildren,
 } from 'react';
 
+import { clearScanAnalysisWork } from '@/features/detection/analysis/scanAnalysisWork';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import type { CaneGuardDatabase } from '@/database/database';
 import { AuthContext } from '@/features/auth/providers/AuthProvider';
@@ -45,6 +47,8 @@ export type ScanSessionContextValue = {
 
 export const ScanSessionContext = createContext<ScanSessionContextValue | null>(null);
 
+let nextSessionOwnerId = 0;
+
 /** Honest recovery state for the in-progress scan draft. */
 export type ScanDraftStatus = 'idle' | 'saving' | 'saved' | 'failed';
 
@@ -62,7 +66,14 @@ export interface ScanDraftContextValue {
   flushSavedDraft: () => Promise<boolean>;
   /** True while `owner` is still the signed-in owner for this process. */
   isOwnerCurrent: (owner: string | null) => boolean;
+  /** True while the app is not backgrounded. */
+  appActive?: boolean;
+  /** Resolves when the app can safely start a native scan call. */
+  waitForAppActive?: () => Promise<void>;
+  isSessionCurrent: (sourceUri: string, generation: number) => boolean;
   ownerIdentity: string | null;
+  sessionGeneration: number;
+  sessionIdentity: string;
 }
 
 export const ScanDraftContext = createContext<ScanDraftContextValue | null>(null);
@@ -155,6 +166,9 @@ function ScanSessionOwner({
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(
     initialDraft?.checkpoint.savedAt ?? null,
   );
+  const [appActive, setAppActive] = useState(AppState.currentState !== 'background');
+  const appActiveRef = useRef(appActive);
+  const appActiveWaiters = useRef(new Set<() => void>());
 
   const stateRef = useRef(state);
   const draftImageRef = useRef<StoredDraftImage | null>(
@@ -171,6 +185,11 @@ function ScanSessionOwner({
   );
   const mounted = useRef(true);
   const finalized = useRef(false);
+  const sessionGeneration = useRef(0);
+  const [sessionGenerationValue, setSessionGenerationValue] = useState(0);
+  const [sessionIdentity] = useState(() => `scan-session-${++nextSessionOwnerId}`);
+
+  useEffect(() => () => clearScanAnalysisWork(sessionIdentity), [sessionIdentity]);
 
   useEffect(() => {
     stateRef.current = state;
@@ -181,6 +200,33 @@ function ScanSessionOwner({
     return () => {
       mounted.current = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const waiters = appActiveWaiters.current;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const nextActive = nextState !== 'background';
+      appActiveRef.current = nextActive;
+      setAppActive(nextActive);
+      if (nextActive) {
+        for (const resolve of waiters) resolve();
+        waiters.clear();
+      }
+    });
+    return () => {
+      subscription.remove();
+      for (const resolve of waiters) resolve();
+      waiters.clear();
+    };
+  }, []);
+
+  const waitForAppActive = useCallback((): Promise<void> => {
+    // A closed provider can never be resumed by a listener, so new waits settle at once;
+    // callers re-check session freshness afterwards.
+    if (appActiveRef.current || !mounted.current) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      appActiveWaiters.current.add(resolve);
+    });
   }, []);
 
   const persistCheckpoint = useCallback(
@@ -305,7 +351,10 @@ function ScanSessionOwner({
   const dispatch = useCallback(
     (action: ScanSessionAction) => {
       if (action.type === 'SELECT_IMAGE') {
+        clearScanAnalysisWork(sessionIdentity);
         finalized.current = false;
+        sessionGeneration.current += 1;
+        setSessionGenerationValue(sessionGeneration.current);
         rawDispatch(action);
         void persistSelectedImage(action.payload);
         return;
@@ -315,6 +364,11 @@ function ScanSessionOwner({
           action.type === 'START_FOLLOW_UP'
             ? true
             : resetAppliesToSession(stateRef.current, action.payload);
+        if (applies) {
+          clearScanAnalysisWork(sessionIdentity);
+          sessionGeneration.current += 1;
+          setSessionGenerationValue(sessionGeneration.current);
+        }
         finalized.current = false;
         rawDispatch(action);
         if (!applies) {
@@ -343,7 +397,7 @@ function ScanSessionOwner({
       }
       rawDispatch(action);
     },
-    [database, ownerIdentity, persistSelectedImage],
+    [database, ownerIdentity, persistSelectedImage, sessionIdentity],
   );
 
   // Checkpoint each settled state change (selection, analysis result, guided
@@ -383,6 +437,7 @@ function ScanSessionOwner({
     } catch {
       return false;
     }
+    clearScanAnalysisWork(sessionIdentity);
     if (trackedImage) {
       try {
         deleteManagedScanImage(trackedImage.managedImageUri, ownerIdentity);
@@ -393,11 +448,13 @@ function ScanSessionOwner({
     draftImageRef.current = null;
     imageOperation.current += 1;
     finalized.current = false;
+    sessionGeneration.current += 1;
+    setSessionGenerationValue(sessionGeneration.current);
     rawDispatch({ type: 'RESET_SCAN' });
     setDraftStatus('idle');
     setDraftSavedAt(null);
     return true;
-  }, [database, ownerIdentity]);
+  }, [database, ownerIdentity, sessionIdentity]);
 
   const finalizeSavedDraft = useCallback(() => {
     if (!ownerIdentity) {
@@ -453,6 +510,14 @@ function ScanSessionOwner({
     [ownerIdentity],
   );
 
+  const isSessionCurrent = useCallback(
+    (sourceUri: string, generation: number) =>
+      mounted.current &&
+      sessionGeneration.current === generation &&
+      stateRef.current.sourceUri === sourceUri,
+    [],
+  );
+
   const sessionValue = useMemo(() => ({ dispatch, state }), [dispatch, state]);
   const draftValue = useMemo<ScanDraftContextValue>(
     () => ({
@@ -461,17 +526,27 @@ function ScanSessionOwner({
       draftStatus,
       finalizeSavedDraft,
       flushSavedDraft,
+      appActive,
       isOwnerCurrent,
+      isSessionCurrent,
       ownerIdentity,
+      sessionGeneration: sessionGenerationValue,
+      sessionIdentity,
+      waitForAppActive,
     }),
     [
       discardSavedDraft,
       draftSavedAt,
       draftStatus,
+      appActive,
       finalizeSavedDraft,
       flushSavedDraft,
       isOwnerCurrent,
+      isSessionCurrent,
       ownerIdentity,
+      sessionGenerationValue,
+      sessionIdentity,
+      waitForAppActive,
     ],
   );
 
@@ -528,5 +603,8 @@ const NO_DRAFT: ScanDraftContextValue = {
   finalizeSavedDraft: () => undefined,
   flushSavedDraft: async () => true,
   isOwnerCurrent: () => true,
+  isSessionCurrent: () => false,
   ownerIdentity: null,
+  sessionGeneration: 0,
+  sessionIdentity: 'no-scan-session',
 };

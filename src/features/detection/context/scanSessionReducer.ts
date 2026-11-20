@@ -58,6 +58,7 @@ export function scanSessionReducer(
         result: null,
         qualityAssessment: null,
         photoPreparationFailed: false,
+        guardFailure: null,
         status: 'preprocessing',
         errorMessage: null,
       };
@@ -72,6 +73,7 @@ export function scanSessionReducer(
       return {
         ...state,
         result: null,
+        guardFailure: null,
         status: 'running',
         errorMessage: null,
       };
@@ -104,6 +106,9 @@ export function scanSessionReducer(
         status: 'error',
         errorMessage: action.payload,
         photoPreparationFailed: action.photoPreparationFailed ?? false,
+        guardFailure: action.guardFailure ?? null,
+        // A guard fault or rejection never leaves a result behind.
+        ...(action.guardFailure ? { result: null } : {}),
       };
     case 'CLEAR_ERROR':
       return {
@@ -111,6 +116,7 @@ export function scanSessionReducer(
         status: clearedStatus(state),
         errorMessage: null,
         photoPreparationFailed: false,
+        guardFailure: null,
       };
   }
 }

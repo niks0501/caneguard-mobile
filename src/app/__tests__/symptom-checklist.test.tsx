@@ -8,7 +8,10 @@ import {
   GUIDED_VALIDATION_QUESTIONS,
 } from '@/features/detection/checklist/checklistConsistency';
 import { FARMER_COPY } from '@/constants/copy';
-import { ScanSessionContext } from '@/features/detection/context/ScanSessionProvider';
+import {
+  ScanDraftContext,
+  ScanSessionContext,
+} from '@/features/detection/context/ScanSessionProvider';
 import {
   initialScanSessionState,
   scanSessionReducer,
@@ -34,6 +37,24 @@ jest.mock('@/features/detection/model/runInference', () => ({
 
 jest.mock('@/features/detection/model/useCaneGuardModel', () => ({
   useCaneGuardModel: jest.fn(),
+}));
+
+// Guard V1 is required in the scan flow; these tests exercise the photo check and
+// picture grid, so the guard accepts every photo (its own behavior is covered in
+// symptom-checklist.guard.test.tsx and useScanAnalysis.guard.test.tsx).
+jest.mock('@/features/detection/model/useGuardModel', () => {
+  const controller = {
+    state: 'loaded',
+    error: null,
+    errorKind: null,
+    start: () => undefined,
+    retry: () => undefined,
+    run: async () => [Float32Array.of(0.95).buffer],
+  };
+  return { useGuardModel: () => controller };
+});
+jest.mock('@/features/detection/preprocessing/guardPreprocess', () => ({
+  preprocessGuardImage: jest.fn(async () => new ArrayBuffer(602_112)),
 }));
 
 jest.mock('@/features/detection/imagePicker/pickScanImage', () => ({
@@ -101,6 +122,25 @@ const successfulInferenceResult = {
   },
   modelVersion: 'v1.0-mobilenetv2',
 };
+const guardedInferenceResult = {
+  ...successfulInferenceResult,
+  guardModelId: 'caneguard_guard_v1' as const,
+};
+
+let nextChecklistSession = 0;
+// Each render is its own scan session, so module-level analysis caches never leak between tests.
+const makeScanDraft = () => ({
+  discardSavedDraft: async () => false,
+  draftSavedAt: null,
+  draftStatus: 'idle' as const,
+  finalizeSavedDraft: () => undefined,
+  flushSavedDraft: async () => true,
+  isOwnerCurrent: () => true,
+  isSessionCurrent: () => true,
+  ownerIdentity: null,
+  sessionGeneration: 0,
+  sessionIdentity: `checklist-test-session-${++nextChecklistSession}`,
+});
 
 const selectedState: ScanSessionState = {
   ...initialScanSessionState,
@@ -112,6 +152,7 @@ const selectedState: ScanSessionState = {
 };
 
 async function renderScreen(initialState: ScanSessionState) {
+  const scanDraft = makeScanDraft();
   function Harness() {
     const [state, dispatch] = useReducer(
       (current: ScanSessionState, action: ScanSessionAction) => {
@@ -123,7 +164,9 @@ async function renderScreen(initialState: ScanSessionState) {
 
     return (
       <ScanSessionContext.Provider value={{ state, dispatch }}>
-        <SymptomChecklistScreen />
+        <ScanDraftContext.Provider value={scanDraft}>
+          <SymptomChecklistScreen />
+        </ScanDraftContext.Provider>
       </ScanSessionContext.Provider>
     );
   }
@@ -167,7 +210,7 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
       expect(mockRunInference).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith({
         type: 'COMPLETE_INFERENCE',
-        payload: successfulInferenceResult,
+        payload: { ...successfulInferenceResult, guardModelId: 'caneguard_guard_v1' },
       });
     });
 
@@ -413,7 +456,7 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
   it('lets a restored completed scan answer and continue without re-running the check', async () => {
     await renderScreen({
       ...selectedState,
-      result: successfulInferenceResult,
+      result: guardedInferenceResult,
       status: 'completed',
     });
 

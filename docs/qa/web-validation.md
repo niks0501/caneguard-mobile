@@ -64,7 +64,7 @@ empty. Any other `GET` answers a well-formed empty page.
 | Async warm-up | `src/database/DatabaseProvider.tsx` | The first synchronous SQLite open busy-waits while the SQLite worker is still starting, and a blocked main thread starves that startup. On web only, one async open runs first, and the synchronous open is skipped unless it succeeds; a rejection or a 10-second timeout shows the retryable storage screen, and the warm-up connection is closed on retry and unmount. Native is untouched. |
 | Secure-store stand-in | `validation/expo-secure-store/ExpoSecureStore.web.ts` | `expo-secure-store` has no web implementation, so nobody can sign in on web. The stand-in keeps a fake session in `localStorage`. |
 | Stub API | `validation/stub-api/` | Two fake accounts (the inspector's `/me` response carries the capability set the inspector screens require), two fake visits, one legacy-worded inspector office update, the farmer's seeded checks and images, and read-only feeds. The only write is a validation image held in memory until the run ends. |
-| Web model stub | `src/features/detection/model/useCaneGuardModel.web.tsx` | Without a native TFLite runtime the web bundle fails closed. On the validation route only (`__DEV__`, flag and fixed stub origin) a fixed deterministic output lets a captured photo reach the result screen. Native inference is untouched. |
+| Web model stub | `src/features/detection/model/useCaneGuardModel.web.tsx` | The validation route can provide a fixed deterministic V2 output, but the required Guard V1 controller still fails closed without the native runtime. Browser validation therefore cannot reach a new scan result or prove Guard/V2 inference. Native inference is untouched. |
 | File-system stand-in | `validation/expo-file-system/ExpoFileSystem.web.ts` | Keeps validation scan images in memory, mirrors new captures to the stub, and restores their metadata after a reload so a saved draft checkpoint can be recovered. Same flag, stub-only and release-build gates as the secure-store stand-in. |
 
 The stand-ins are deliberately narrow: web platform only, each requires
@@ -81,10 +81,10 @@ server with them. The gate is pinned by
   (Home, Activity, Visits, notifications list);
 - that the web data path returns complete records, so "All clear." is not hiding
   a failed refresh;
-- that the farmer Check Again flow runs in a browser: start from a saved scan,
-  capture a new photo, see the two photos side by side with their own dates and
-  Possible Condition lines, write a note, save the follow-up, review history in
-  date order, and keep the surviving note after the first check is deleted;
+- that saved scan and Check Again presentation screens render in a browser; a
+  new guarded scan cannot reach a result because the required native Guard V1
+  runtime fails closed on web, so new-photo inference and follow-up save behavior
+  remain native-only;
 - that a field-reporter session opening a saved record shows no Check Again
   button and no check-history section.
 

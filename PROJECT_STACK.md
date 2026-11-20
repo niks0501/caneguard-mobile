@@ -79,20 +79,23 @@ Use the configured import aliases:
 
 ## Detection and model rules
 
-The active bundled TFLite model is a versioned application contract. `ACTIVE_MODEL_ID` in the source below selects it; another bundled artifact is not active until that constant changes.
+The bundled TFLite models are versioned application contracts. `ACTIVE_MODEL_ID` selects the live V2 classifier; the required Guard V1 presence gate has its own contract and always runs before V2.
 
-Source of truth:
+Sources of truth:
 
-`src/features/detection/constants/modelContract.ts`
+- V2 classifier: `src/features/detection/constants/modelContract.ts`
+- Guard V1 presence gate: `src/features/detection/constants/guardContract.ts`
 
-The bundled contracts' field values and which one is active are owned by [`PROJECT_CONTEXT.md` — Model contract](PROJECT_CONTEXT.md#model-contract); read them there instead of restating them.
+The bundled contracts' field values and runtime relationship are owned by [`PROJECT_CONTEXT.md` — Model contract](PROJECT_CONTEXT.md#model-contract); read them there instead of restating them.
 
-When changing the model artifact, preprocessing, tensor interpretation, labels, or postprocessing:
+When changing either model artifact, preprocessing, tensor interpretation, labels, or postprocessing:
 
-1. update the model contract intentionally;
+1. update the relevant model contract intentionally;
 2. preserve or update SHA/parity evidence;
 3. update the relevant tests and fixtures;
 4. validate the model in a compatible native development build.
+
+Do not bypass the required Guard V1 gate or silently route a Guard failure to unguarded V2.
 
 Do not silently change preprocessing assumptions or label ordering.
 

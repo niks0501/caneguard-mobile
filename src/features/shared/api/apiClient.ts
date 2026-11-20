@@ -106,9 +106,7 @@ export async function apiRequest<T>(
               `The server returned HTTP ${response.status}.`,
             {
               body,
-              retryAfterMs: parseRetryAfter(
-                response.headers.get('Retry-After'),
-              ),
+              retryAfterMs: parseRetryAfter(response),
             },
           );
         }
@@ -156,9 +154,7 @@ export async function initializeCsrf(
               `The server returned HTTP ${response.status}.`,
             {
               body,
-              retryAfterMs: parseRetryAfter(
-                response.headers.get('Retry-After'),
-              ),
+              retryAfterMs: parseRetryAfter(response),
             },
           );
         }
@@ -225,7 +221,7 @@ async function readResponseBody(response: Response): Promise<unknown> {
       response.status,
       `The server returned HTTP ${response.status}.`,
       {
-        retryAfterMs: parseRetryAfter(response.headers.get('Retry-After')),
+        retryAfterMs: parseRetryAfter(response),
       },
     );
   }
@@ -286,7 +282,8 @@ function readServerMessage(body: unknown): string | null {
   return null;
 }
 
-function parseRetryAfter(value: string | null): number | null {
+function parseRetryAfter(response: Response): number | null {
+  const value = response.headers.get('Retry-After');
   if (!value) {
     return null;
   }
@@ -296,6 +293,11 @@ function parseRetryAfter(value: string | null): number | null {
     return seconds * 1_000;
   }
 
-  const timestamp = Date.parse(value);
-  return Number.isNaN(timestamp) ? null : Math.max(0, timestamp - Date.now());
+  const retryAtMs = Date.parse(value);
+  if (Number.isNaN(retryAtMs)) {
+    return null;
+  }
+  const serverNowMs = Date.parse(response.headers.get('Date') ?? '');
+  const nowMs = Number.isFinite(serverNowMs) ? serverNowMs : Date.now();
+  return Math.max(0, retryAtMs - nowMs);
 }

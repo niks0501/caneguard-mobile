@@ -33,6 +33,23 @@ describe('api client', () => {
     );
   });
 
+  it('measures an HTTP-date Retry-After against the server Date, not a skewed device clock', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-10-21T07:10:00Z'));
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      headers: new Headers({
+        Date: 'Wed, 21 Oct 2026 07:00:00 GMT',
+        'Retry-After': 'Wed, 21 Oct 2026 07:05:00 GMT',
+      }),
+      text: async () => '{}',
+    });
+
+    await expect(apiRequest('/api/v3/mobile/reports', { token: 'test-token' }))
+      .rejects.toMatchObject({ status: 503, retryAfterMs: 300_000 });
+  });
+
   it('initializes CSRF and sends the decoded token with cookie credentials', async () => {
     fetchMock
       .mockResolvedValueOnce({

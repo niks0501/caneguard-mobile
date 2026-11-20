@@ -110,6 +110,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryTimerSessionKey = useRef<string | null>(null);
   const retryNotBefore = useRef(0);
+  const latestReachabilityRef = useRef<ApiReachability>('unknown');
   const syncNowRef = useRef<
     ((source?: SyncTriggerSource) => Promise<SyncBatchResult | null>) | null
   >(null);
@@ -259,7 +260,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         armRetryTimer(retryNotBefore.current - performance.now());
         return null;
       }
-      if (source !== 'retry-timer') {
+      if (source !== 'retry-timer' && retryNotBefore.current <= performance.now()) {
         clearRetryTimer();
       }
       if (
@@ -299,6 +300,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         const retryAfterMs = batch.haltReason === 'transient-blocker' ? longestRetryAfterMs(batch) : null;
         if (retryAfterMs !== null && canContinueOfficialRecordSync()) {
           retryNotBefore.current = Math.max(retryNotBefore.current, performance.now() + nextAutoRetryDelayMs(retryAfterMs));
+          armRetryTimer(retryNotBefore.current - performance.now());
         }
       };
       try {
@@ -352,6 +354,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         }
         const observedApiReachability = inferApiReachability(result);
         if (observedApiReachability) {
+          latestReachabilityRef.current = observedApiReachability;
           setSyncState((current) => ({
             ...current,
             apiReachability: observedApiReachability,
@@ -620,7 +623,11 @@ export function SyncProvider({ children }: PropsWithChildren) {
     const unregisterSend = net.registerSendSaved(
       async (source): Promise<StepOutcome> => {
         const result = await syncNowRef.current?.(source);
-        if (!result) return 'ok';
+        if (!result) {
+          return retryNotBefore.current > performance.now() && latestReachabilityRef.current === 'unavailable'
+            ? 'office-unreachable'
+            : 'ok';
+        }
         if (result.authRequired) return 'sign-in-again';
         return inferApiReachability(result) === 'unavailable'
           ? 'office-unreachable'

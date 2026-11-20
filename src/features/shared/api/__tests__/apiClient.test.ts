@@ -50,11 +50,11 @@ describe('api client', () => {
       .rejects.toMatchObject({ status: 503, retryAfterMs: 300_000 });
   });
 
-  it('keeps a valid delay-seconds Retry-After too large to multiply into milliseconds', async () => {
+  it.each([306, 309])('keeps a valid delay-seconds Retry-After with %i zeros as a finite hint', async (zeros) => {
     fetchMock.mockResolvedValueOnce({
       ok: false,
       status: 503,
-      headers: new Headers({ 'Retry-After': `1${'0'.repeat(306)}` }),
+      headers: new Headers({ 'Retry-After': `1${'0'.repeat(zeros)}` }),
       text: async () => '{}',
     });
 

@@ -288,9 +288,8 @@ function parseRetryAfter(response: Response): number | null {
     return null;
   }
 
-  const seconds = Number(value);
-  if (Number.isFinite(seconds) && seconds >= 0) {
-    return Math.min(seconds * 1_000, Number.MAX_SAFE_INTEGER);
+  if (/^\d+(\.\d+)?$/.test(value)) {
+    return Math.min(Number(value) * 1_000, Number.MAX_SAFE_INTEGER);
   }
 
   const retryAtMs = Date.parse(value);

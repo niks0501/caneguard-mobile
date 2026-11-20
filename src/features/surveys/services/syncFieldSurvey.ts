@@ -3,6 +3,7 @@ import { findOwnedFieldSurvey, updateFieldSurveySyncResult } from '@/features/su
 import { FieldSurveyValidationError, submitFieldSurvey, type FieldSurveyAffectedAreaWaypointProvenance, type FieldSurveyMeasurementProvenance } from '@/features/surveys/api/fieldSurveysApi';
 import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
+import { waitMs } from '@/features/sync/utils/waitMs';
 
 export type FieldSurveySyncResult =
   | { status: 'synced' | 'already-synced'; remoteId: string }
@@ -89,7 +90,7 @@ export async function syncFieldSurvey(options: {
         if (!syncError.retryable || options.allowImmediateRetries === false || retryIndex >= RETRY_DELAYS_MS.length) throw error;
         const waitFor = syncError.retryAfterMs ?? RETRY_DELAYS_MS[retryIndex];
         retryIndex += 1;
-        await (options.delay ?? delay)(waitFor);
+        await (options.delay ?? waitMs)(waitFor);
       }
     }
     updateFieldSurveySyncResult(options.database, row.clientUuid, options.ownerIdentity, {
@@ -165,8 +166,4 @@ function toWireAffectedAreaWaypointProvenance(waypointSets: SurveyWaypoint[][]):
       captured_at: waypoint.capturedAt,
     })),
   );
-}
-
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }

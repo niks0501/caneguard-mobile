@@ -27,6 +27,7 @@ import {
   resetStaleSyncingFieldReports,
 } from '@/features/reports/data/fieldReportSyncRepository';
 import { nextAutoRetryDelayMs } from '@/features/sync/domain/retryBackoff';
+import { MAX_TIMER_DELAY_MS } from '@/features/sync/utils/waitMs';
 import { hasUnsentInspectorWork } from '@/features/sync/data/inspectorWorkWaiting';
 import {
   checkAccountStep,
@@ -63,8 +64,6 @@ interface SyncContextValue {
 
 export const SyncContext = createContext<SyncContextValue | null>(null);
 
-/** Largest delay a JS timer accepts; longer ones fire immediately. */
-const MAX_TIMER_DELAY_MS = 2_147_483_647;
 
 export function SyncProvider({ children }: PropsWithChildren) {
   const database = useCaneGuardDatabase();
@@ -738,6 +737,7 @@ function inferApiReachability(
       case 'CAPABILITY_REVOKED':
       case 'API_FORBIDDEN':
       case 'API_RATE_LIMITED':
+      case 'OFFICE_NOT_READY':
         observation = 'available';
         break;
       default:

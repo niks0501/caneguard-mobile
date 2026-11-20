@@ -51,6 +51,10 @@ describe('synchronization retry policy', () => {
       expect(toSyncError(new ApiHttpError(404, 'gone'))).toMatchObject({ code: 'VISIT_CANCELLED', retryable: false });
     });
 
+    it('treats a non-finite Retry-After as no hint', () => {
+      expect(toSyncError(new ApiHttpError(503, 'down', { retryAfterMs: Number.POSITIVE_INFINITY })).retryAfterMs).toBeNull();
+    });
+
     it('carries Retry-After on a 503', () => {
       expect(toSyncError(new ApiHttpError(503, 'down', { retryAfterMs: 30_000 })).retryAfterMs).toBe(30_000);
     });

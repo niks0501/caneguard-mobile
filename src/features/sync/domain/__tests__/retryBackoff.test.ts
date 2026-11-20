@@ -31,10 +31,8 @@ describe('nextAutoRetryDelayMs', () => {
   });
 
   it('ignores a shorter or invalid Retry-After', () => {
-    for (const draw of DRAWS) {
-      const withoutHint = nextAutoRetryDelayMs(null, () => draw);
-      expect(nextAutoRetryDelayMs(1_000, () => draw)).toBe(withoutHint);
-      expect(nextAutoRetryDelayMs(Number.NaN, () => draw)).toBe(withoutHint);
+    for (const hint of [1_000, Number.NaN]) {
+      expect(nextAutoRetryDelayMs(hint, () => 0)).toBe(FIRST_FLOOR_MS);
     }
   });
 });

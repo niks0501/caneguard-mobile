@@ -135,7 +135,8 @@ export class SyncError extends Error {
     this.name = 'SyncError';
     this.code = code;
     this.retryable = options.retryable ?? isAutoRetryableSyncErrorCode(code);
-    this.retryAfterMs = options.retryAfterMs ?? null;
+    const hintMs = options.retryAfterMs ?? null;
+    this.retryAfterMs = hintMs !== null && Number.isFinite(hintMs) && hintMs > 0 ? hintMs : null;
     this.detail = options.detail ?? null;
   }
 }

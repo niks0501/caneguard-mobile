@@ -30,6 +30,14 @@ describe('nextAutoRetryDelayMs', () => {
     expect(new Set(waits).size).toBe(DRAWS.length);
   });
 
+  it('keeps an extreme finite Retry-After finite so its deadline can be stored', () => {
+    for (const draw of DRAWS) {
+      const wait = nextAutoRetryDelayMs(Number.MAX_VALUE, () => draw);
+      expect(Number.isFinite(wait)).toBe(true);
+      expect(wait).toBeGreaterThanOrEqual(Number.MAX_SAFE_INTEGER);
+    }
+  });
+
   it('ignores a shorter or invalid Retry-After', () => {
     for (const hint of [1_000, Number.NaN]) {
       expect(nextAutoRetryDelayMs(hint, () => 0)).toBe(FIRST_FLOOR_MS);

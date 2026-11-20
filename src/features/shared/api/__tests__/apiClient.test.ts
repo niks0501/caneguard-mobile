@@ -70,6 +70,18 @@ describe('api client', () => {
     expect(hintMs).toBeGreaterThan(2 * 60 * 60_000);
   });
 
+  it.each(['86400.5', '1e3'])('ignores a malformed Retry-After %s instead of deferring by a date parse', async (value) => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      headers: new Headers({ 'Retry-After': value }),
+      text: async () => '{}',
+    });
+
+    await expect(apiRequest('/api/v3/mobile/reports', { token: 'test-token' }))
+      .rejects.toMatchObject({ status: 503, retryAfterMs: null });
+  });
+
   it('initializes CSRF and sends the decoded token with cookie credentials', async () => {
     fetchMock
       .mockResolvedValueOnce({

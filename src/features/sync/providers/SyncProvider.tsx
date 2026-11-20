@@ -156,14 +156,6 @@ export function SyncProvider({ children }: PropsWithChildren) {
     }, Math.min(Math.max(delayMs, 0), MAX_TIMER_DELAY_MS));
   }, [clearRetryTimer, sessionKey]);
 
-  const scheduleRetryTimer = useCallback((retryAfterMs: number | null) => {
-    const delayMs = nextAutoRetryDelayMs(retryAfterMs);
-    if (retryAfterMs !== null) {
-      retryNotBefore.current = Math.max(retryNotBefore.current, performance.now() + delayMs);
-    }
-    armRetryTimer(delayMs);
-  }, [armRetryTimer]);
-
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
@@ -261,14 +253,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
     async (
       source: SyncTriggerSource = 'manual',
     ): Promise<SyncBatchResult | null> => {
-      const holdsAutomaticDispatch = () => {
-        if (source === 'manual' || retryNotBefore.current <= performance.now()) {
-          return false;
-        }
+      const automaticSendHeld = () =>
+        source !== 'manual' && retryNotBefore.current > performance.now();
+      if (automaticSendHeld()) {
         armRetryTimer(retryNotBefore.current - performance.now());
-        return true;
-      };
-      if (holdsAutomaticDispatch()) {
         return null;
       }
       if (source !== 'retry-timer') {
@@ -331,28 +319,32 @@ export function SyncProvider({ children }: PropsWithChildren) {
           token: initiatingSession.token,
         });
         holdAutomaticRetries(surveyResult);
-        if (!canContinueOfficialRecordSync() || holdsAutomaticDispatch()) {
+        if (!canContinueOfficialRecordSync()) {
           await refreshPendingCount();
           return null;
         }
-        const reportResult = await syncPendingFieldReports({
-          database,
-          districtCode: district.code,
-          source,
-          submitterIdentity: initiatingSession.user.uuid,
-          token: initiatingSession.token,
-        });
+        const reportResult = automaticSendHeld()
+          ? idleBatch(source)
+          : await syncPendingFieldReports({
+              database,
+              districtCode: district.code,
+              source,
+              submitterIdentity: initiatingSession.user.uuid,
+              token: initiatingSession.token,
+            });
         holdAutomaticRetries(reportResult);
-        if (!canContinueOfficialRecordSync() || holdsAutomaticDispatch()) {
+        if (!canContinueOfficialRecordSync()) {
           await refreshPendingCount();
           return null;
         }
-        const completionResult = await syncPendingFieldValidationCompletions({
-          database,
-          source,
-          ownerIdentity: initiatingSession.user.uuid,
-          token: initiatingSession.token,
-        });
+        const completionResult = automaticSendHeld()
+          ? idleBatch(source)
+          : await syncPendingFieldValidationCompletions({
+              database,
+              source,
+              ownerIdentity: initiatingSession.user.uuid,
+              token: initiatingSession.token,
+            });
         holdAutomaticRetries(completionResult);
         const result = mergeSyncBatchResults(surveyResult, reportResult, completionResult);
         if (!isInitiatingSessionCurrent()) {
@@ -379,10 +371,11 @@ export function SyncProvider({ children }: PropsWithChildren) {
           await markSessionExpired();
           return result;
         }
-        if (result.haltReason === 'transient-blocker') {
-          scheduleRetryTimer(longestRetryAfterMs(result));
+        if (retryNotBefore.current > performance.now()) {
+          armRetryTimer(retryNotBefore.current - performance.now());
+        } else if (result.haltReason === 'transient-blocker') {
+          armRetryTimer(nextAutoRetryDelayMs(null));
         } else {
-          retryNotBefore.current = 0;
           clearRetryTimer();
         }
         if (result.synced > 0) {
@@ -427,7 +420,6 @@ export function SyncProvider({ children }: PropsWithChildren) {
       markSessionExpired,
       refreshPendingCount,
       reportCapabilityRevoked,
-      scheduleRetryTimer,
       session,
       sessionKey,
       sessionToken,
@@ -709,6 +701,10 @@ function mergeSyncBatchResults(...batches: SyncBatchResult[]): SyncBatchResult {
     source: batches[0]?.source ?? 'manual',
     synced: batches.reduce((total, batch) => total + batch.synced, 0),
   };
+}
+
+function idleBatch(source: SyncTriggerSource): SyncBatchResult {
+  return { attempted: 0, authRequired: false, failed: 0, haltReason: null, results: [], source, synced: 0 };
 }
 
 /** The longest Retry-After the server sent on a failed upload in this run, or null. */

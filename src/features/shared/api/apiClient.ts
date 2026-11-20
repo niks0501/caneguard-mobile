@@ -288,8 +288,11 @@ function parseRetryAfter(response: Response): number | null {
     return null;
   }
 
-  if (/^\d+(\.\d+)?$/.test(value)) {
+  if (/^\d+$/.test(value)) {
     return Math.min(Number(value) * 1_000, Number.MAX_SAFE_INTEGER);
+  }
+  if (!/[a-z]/i.test(value)) {
+    return null;
   }
 
   const retryAtMs = Date.parse(value);

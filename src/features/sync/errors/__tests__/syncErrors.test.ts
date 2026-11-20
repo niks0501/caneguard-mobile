@@ -11,6 +11,7 @@ describe('synchronization retry policy', () => {
     'NETWORK_UNAVAILABLE',
     'NETWORK_REQUEST_FAILED',
     'API_RATE_LIMITED',
+    'OFFICE_NOT_READY',
     'SERVER_ERROR',
   ])('classifies %s as automatically retryable', (code) => {
     expect(isAutoRetryableSyncErrorCode(code)).toBe(true);
@@ -35,6 +36,7 @@ describe('synchronization retry policy', () => {
       'NETWORK_UNAVAILABLE',
       'NETWORK_REQUEST_FAILED',
       'API_RATE_LIMITED',
+      'OFFICE_NOT_READY',
       'SERVER_ERROR',
     ]);
     expect(new SyncError('SERVER_ERROR', 'temporary').retryable).toBe(true);
@@ -45,6 +47,21 @@ describe('synchronization retry policy', () => {
       retryable: false,
     });
     expect(toSyncError(new ApiHttpError(422, 'invalid')).retryable).toBe(false);
+  });
+
+  describe('404 by endpoint', () => {
+    it.each(['report', 'boundary'] as const)('is a retryable office-not-ready on a %s upload', (endpoint) => {
+      const error = toSyncError(new ApiHttpError(404, 'missing', { retryAfterMs: 90_000 }), { endpoint });
+      expect(error).toMatchObject({ code: 'OFFICE_NOT_READY', retryable: true, retryAfterMs: 90_000 });
+    });
+
+    it('stays a cancelled visit when no upload endpoint is named', () => {
+      expect(toSyncError(new ApiHttpError(404, 'gone'))).toMatchObject({ code: 'VISIT_CANCELLED', retryable: false });
+    });
+
+    it('carries Retry-After on a 503', () => {
+      expect(toSyncError(new ApiHttpError(503, 'down', { retryAfterMs: 30_000 })).retryAfterMs).toBe(30_000);
+    });
   });
 
   describe('bounded validation detail (M13)', () => {

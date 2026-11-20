@@ -269,7 +269,7 @@ describe('SyncProvider held-queue integration', () => {
     await act(async () => { listener?.(online); await Promise.resolve(); });
     for (let attempt = 1; attempt <= 2; attempt += 1) {
       await waitFor(() => expect(jest.getTimerCount()).toBeGreaterThan(0));
-      await act(async () => { await jest.advanceTimersByTimeAsync(60_001); });
+      await act(async () => { await jest.advanceTimersByTimeAsync(60_001 * attempt); }); // backoff doubles per failure, so attempt N waits at most N x the cooldown here
       await waitFor(() => expect(retry).toHaveBeenCalledTimes(attempt));
     }
     expect(jest.mocked(apiRequest)).not.toHaveBeenCalled();

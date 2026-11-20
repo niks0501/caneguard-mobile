@@ -51,6 +51,7 @@ describe('boundaryState', () => {
       CLIENT_UUID_CONFLICT: 'identity_rejected',
       API_FORBIDDEN: 'refused',
       API_RATE_LIMITED: 'will_retry',
+      OFFICE_NOT_READY: 'will_retry',
       IMAGE_MISSING: 'refused',
       INVALID_LOCAL_RECORD: 'damaged',
       SERVER_ERROR: 'will_retry',

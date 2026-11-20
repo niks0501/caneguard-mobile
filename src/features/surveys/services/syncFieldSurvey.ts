@@ -85,7 +85,7 @@ export async function syncFieldSurvey(options: {
       } catch (error: unknown) {
         const syncError = error instanceof FieldSurveyValidationError
           ? new SyncError('API_VALIDATION_FAILED', 'The server needs a correction to this boundary.')
-          : toSyncError(error);
+          : toSyncError(error, { endpoint: 'boundary' });
         if (!syncError.retryable || options.allowImmediateRetries === false || retryIndex >= RETRY_DELAYS_MS.length) throw error;
         const waitFor = Math.min(syncError.retryAfterMs ?? RETRY_DELAYS_MS[retryIndex], 60_000);
         retryIndex += 1;
@@ -102,7 +102,7 @@ export async function syncFieldSurvey(options: {
       ? new SyncError('CLIENT_UUID_CONFLICT', 'This boundary identity was rejected. Start a new boundary before sending again.')
       : error instanceof FieldSurveyValidationError
         ? new SyncError('API_VALIDATION_FAILED', 'The server needs a correction to this boundary.')
-        : toSyncError(error);
+        : toSyncError(error, { endpoint: 'boundary' });
     updateFieldSurveySyncResult(options.database, row.clientUuid, options.ownerIdentity, {
       fieldErrors: error instanceof FieldSurveyValidationError ? error.fieldErrors : null,
       lastSyncErrorCode: syncError.code,

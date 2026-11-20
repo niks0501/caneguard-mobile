@@ -65,7 +65,7 @@ export async function syncFieldReport({
         await repository.markSynced(reportId, uploaded.remoteId, syncedAt);
         return { reportId, remoteId: uploaded.remoteId, status: 'synced' };
       } catch (error: unknown) {
-        const syncError = toSyncError(error);
+        const syncError = toSyncError(error, { endpoint: 'report' });
         if (
           !syncError.retryable ||
           !allowImmediateRetries ||
@@ -82,7 +82,7 @@ export async function syncFieldReport({
       }
     }
   } catch (error: unknown) {
-    const syncError = toSyncError(error);
+    const syncError = toSyncError(error, { endpoint: 'report' });
     await repository.markFailed(reportId, syncError.code, now().toISOString());
     return { reportId, status: 'failed', error: syncError };
   }

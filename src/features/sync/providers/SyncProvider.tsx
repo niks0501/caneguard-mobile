@@ -25,8 +25,8 @@ import {
   findLastSuccessfulFieldReportSyncAt,
   markFieldReportPending,
   resetStaleSyncingFieldReports,
-  SYNC_RETRY_COOLDOWN_MS,
 } from '@/features/reports/data/fieldReportSyncRepository';
+import { nextAutoRetryDelayMs } from '@/features/sync/domain/retryBackoff';
 import { hasUnsentInspectorWork } from '@/features/sync/data/inspectorWorkWaiting';
 import {
   checkAccountStep,
@@ -107,6 +107,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const previousVerificationRef = useRef(sessionVerification);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryTimerSessionKey = useRef<string | null>(null);
+  const consecutiveRetryFailures = useRef(0);
   const syncNowRef = useRef<
     ((source?: SyncTriggerSource) => Promise<SyncBatchResult | null>) | null
   >(null);
@@ -119,7 +120,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
     retryTimerSessionKey.current = null;
   }, []);
 
-  const scheduleRetryTimer = useCallback(() => {
+  const scheduleRetryTimer = useCallback((retryAfterMs: number | null = null) => {
     if (
       retryTimer.current !== null ||
       onlineRef.current !== true ||
@@ -150,7 +151,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
             retrySessionVerificationRef.current,
           ),
       });
-    }, SYNC_RETRY_COOLDOWN_MS + 1); // Retry predicates exclude records exactly at the cutoff.
+    }, nextAutoRetryDelayMs(consecutiveRetryFailures.current, retryAfterMs));
+    consecutiveRetryFailures.current += 1;
   }, [sessionKey]);
 
   useEffect(() => {
@@ -342,8 +344,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
           return result;
         }
         if (result.haltReason === 'transient-blocker') {
-          scheduleRetryTimer();
+          if (result.synced > 0) consecutiveRetryFailures.current = 0;
+          scheduleRetryTimer(longestRetryAfterMs(result));
         } else {
+          consecutiveRetryFailures.current = 0;
           clearRetryTimer();
         }
         if (result.synced > 0) {
@@ -671,6 +675,17 @@ function mergeSyncBatchResults(...batches: SyncBatchResult[]): SyncBatchResult {
   };
 }
 
+/** The longest Retry-After the server sent on a failed upload in this run, or null. */
+function longestRetryAfterMs(result: SyncBatchResult): number | null {
+  let longest: number | null = null;
+  for (const item of result.results) {
+    if (item.status === 'failed' && item.error.retryAfterMs !== null) {
+      longest = Math.max(longest ?? 0, item.error.retryAfterMs);
+    }
+  }
+  return longest;
+}
+
 function latestTimestamp(first: string | null, second: string | null): string | null {
   if (!first) return second;
   if (!second) return first;
@@ -698,6 +713,7 @@ function inferApiReachability(
     switch (syncResult.error.code) {
       case 'NETWORK_UNAVAILABLE':
       case 'NETWORK_REQUEST_FAILED':
+      case 'OFFICE_NOT_READY':
       case 'SERVER_ERROR':
         observation = 'unavailable';
         break;

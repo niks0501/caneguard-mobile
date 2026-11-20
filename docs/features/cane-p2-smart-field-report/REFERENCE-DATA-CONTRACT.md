@@ -19,11 +19,13 @@ Headers:
 | Header | Value | Purpose |
 |--------|-------|---------|
 | `Accept` | `application/json` | Response negotiation |
+| `Authorization` | `Bearer <session token>` (when signed in) | Sent whenever the phone holds a session; omitted while signed out |
 | `If-None-Match` | `<etag from previous response>` (optional) | Bandwidth optimization; the `version` field is the authoritative change signal |
 
-No bearer token is sent: this is reference data, not submitter data. If the
-backend requires a session anyway, return `401` and the client will keep its
-cached list and surface a non-blocking message.
+The phone sends its session token on this request (D7), so a backend that
+gates the endpoint on a session answers it normally. A signed-out phone asks
+without the header and keeps its cached or seeded list; `401`/`403` keeps the
+cache and surfaces a non-blocking message.
 
 ## Success response (200)
 

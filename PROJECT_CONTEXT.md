@@ -235,7 +235,9 @@ Sync may be triggered:
 - when network connectivity is restored;
 - when account verification completes, to reconsider work held for the verified account district;
 - by an online, foreground retry timer, which retries unavailable `/me` verification before reconsidering held work; or
-- manually.
+- manually, either the ordinary send or Activity's **Send all again**, which re-queues every failed send that sending again could still fix before sending.
+
+`AUTH_REQUIRED`, `API_FORBIDDEN`, and `CAPABILITY_REVOKED` come from the account's standing, not from the record, so they end in `failed` with no retry of their own. A fresh verified sign-in re-queues them for the record types that account may send; a capability re-verified under the same session token never does, so a denied account cannot loop at upload speed, and access restored mid-session is sent with the manual action. Failures that end the same way on every attempt — a conflicting identity, a missing image, an unusable record, a cancelled visit — stay failed and are never re-queued automatically.
 
 A retryable failed boundary, report, or visit completion inside its cooldown stays scheduled for later reconsideration rather than being treated as an empty queue. The foreground retry timer waits at least just beyond the cooldown cutoff, so eligible boundaries and reports held on them can be attempted, and adds up to half that wait again as jitter so phones recovering from one outage do not retry together.
 

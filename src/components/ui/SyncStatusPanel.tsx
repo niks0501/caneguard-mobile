@@ -5,7 +5,9 @@ import { AppButton } from '@/components/ui/AppButton';
 import { useToast } from '@/components/ui/Toast';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useSync } from '@/features/sync/hooks/useSync';
+import type { SyncBatchResult } from '@/features/sync/services/syncPendingFieldReports';
 import {
+  getBatchSendOutcome,
   getConnectionLabel,
   getConnectionTone,
   isServerUnavailable,
@@ -19,24 +21,23 @@ export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } 
   const { showToast } = useToast();
   const sync = useSync();
 
-  const handleManualSync = async () => {
+  const runSend = async (send: () => Promise<SyncBatchResult | null>) => {
     try {
-      const result = await sync.syncNow('manual');
-      if (result && !result.authRequired && result.failed === 0) {
-        showToast('Sent to office', 'success');
-      } else if (result && result.failed > 0) {
-        showToast('Could not send — will try again', 'error');
-      } else if (result?.authRequired) {
-        showToast('Session expired — please sign in again', 'error');
-      } else if (result === null && sync.errorMessage) {
-        showToast(sync.errorMessage, 'error');
-      } else if (result === null) {
-        showToast('Could not send — will try again', 'error');
-      }
+      const outcome = getBatchSendOutcome(await send(), sync.errorMessage);
+      showToast(
+        outcome.message,
+        outcome.kind === 'sent'
+          ? 'success'
+          : outcome.kind === 'still-waiting'
+            ? 'info'
+            : 'error',
+      );
     } catch {
       showToast('Could not send — will try again', 'error');
     }
   };
+  const handleManualSync = () => runSend(() => sync.syncNow('manual'));
+  const handleSendAllAgain = () => runSend(() => sync.sendAllAgain());
   const apiUnavailable = isServerUnavailable(sync.apiReachability, undefined, sync.isOnline);
   const connectionLabel = getConnectionLabel(sync.isOnline, sync.apiReachability);
   const icon = apiUnavailable
@@ -99,6 +100,18 @@ export function SyncStatusPanel({ showAction = true }: { showAction?: boolean } 
             sync.isSyncing ? 'Sending saved reports' : 'Send reports now'
           }>
           {sync.isSyncing ? 'Sending...' : 'Send Now'}
+        </AppButton>
+      ) : null}
+      {showAction ? (
+        <AppButton
+          variant="secondary"
+          onPress={() => void handleSendAllAgain()}
+          disabled={
+            sync.isSyncing || sync.isOnline !== true || sync.pendingCount === 0
+          }
+          leadingIcon="send"
+          accessibilityLabel="Send all saved reports again">
+          Send all again
         </AppButton>
       ) : null}
     </View>

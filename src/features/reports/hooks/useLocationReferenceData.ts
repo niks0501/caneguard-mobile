@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { net } from '@/features/net/reconnectCoordinator';
 import { SEED_LOCATION_REFERENCE_DATA } from '@/features/reports/referenceData/nasugbuSeed';
 import {
@@ -38,6 +39,8 @@ export function useLocationReferenceData(): ReferenceDataState & {
     refreshing: false,
     errorMessage: null,
   });
+  const { session } = useAuth();
+  const token = session?.token ?? null;
   const mounted = useRef(true);
   const inFlight = useRef<Promise<ReferenceDataResolution> | null>(null);
 
@@ -58,7 +61,7 @@ export function useLocationReferenceData(): ReferenceDataState & {
     if (inFlight.current) {
       return inFlight.current.then(() => undefined);
     }
-    const operation = resolveLocationReferenceData().then((resolution) => {
+    const operation = resolveLocationReferenceData({ token }).then((resolution) => {
       applyResolution(resolution);
       return resolution;
     });
@@ -71,12 +74,12 @@ export function useLocationReferenceData(): ReferenceDataState & {
         inFlight.current = null;
       }
     }
-  }, [applyResolution]);
+  }, [applyResolution, token]);
 
   useEffect(() => {
     mounted.current = true;
     let active = true;
-    void resolveLocationReferenceData().then((resolution) => {
+    void resolveLocationReferenceData({ token }).then((resolution) => {
       if (active) {
         applyResolution(resolution);
       }
@@ -90,7 +93,7 @@ export function useLocationReferenceData(): ReferenceDataState & {
       mounted.current = false;
       unregisterDownload();
     };
-  }, [applyResolution, refresh]);
+  }, [applyResolution, refresh, token]);
 
   return { ...state, refresh };
 }

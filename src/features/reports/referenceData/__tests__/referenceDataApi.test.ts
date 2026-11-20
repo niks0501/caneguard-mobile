@@ -130,6 +130,24 @@ describe('fetchLocationReferenceData', () => {
     );
   });
 
+  it('sends the session token as a Bearer header only when signed in', async () => {
+    const body = {
+      version: 'v2',
+      regions: [{ province: 'Batangas', municipalities: ['Nasugbu'] }],
+      barangays: ['Wawa'],
+    };
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse(body, 200));
+
+    await fetchLocationReferenceData({ baseUrl: BASE_URL, token: 'session-token' });
+    await fetchLocationReferenceData({ baseUrl: BASE_URL });
+
+    const calls = jest.mocked(global.fetch).mock.calls;
+    expect(calls[0][1]?.headers).toEqual(
+      expect.objectContaining({ Authorization: 'Bearer session-token' }),
+    );
+    expect(calls[1][1]?.headers).not.toHaveProperty('Authorization');
+  });
+
   it('returns the parsed payload on 200 and captures the server ETag', async () => {
     const body = {
       version: 'v2',

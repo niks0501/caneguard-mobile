@@ -286,6 +286,28 @@ export async function markFieldValidationCompletionPending(
   }, SYNC_TRANSITIONS.pending);
 }
 
+/** Puts failed visit evidence whose last error is one of `codes` back in the queue. */
+export async function requeueFailedFieldValidationCompletions(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  codes: readonly string[],
+): Promise<number> {
+  try {
+    const result = await database
+      .update(fieldValidationCompletions)
+      .set({ syncStatus: 'pending', lastSyncErrorCode: null, updatedAt: new Date().toISOString() })
+      .where(and(
+        eq(fieldValidationCompletions.ownerIdentity, requireOwner(ownerIdentity)),
+        eq(fieldValidationCompletions.syncStatus, 'failed'),
+        inArray(fieldValidationCompletions.lastSyncErrorCode, [...codes]),
+      ));
+    emitSyncRecordsChanged();
+    return result.changes;
+  } catch (error: unknown) {
+    throw toStorageError(error, 'UPDATE_FAILED', 'Re-queuing failed visit evidence failed.');
+  }
+}
+
 export async function releaseFieldValidationCompletionClaim(
   database: CaneGuardDatabase,
   id: string,

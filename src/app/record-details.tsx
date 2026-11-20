@@ -48,7 +48,7 @@ import { deleteScanRecord } from '@/features/records/services/deleteScanRecord';
 import { useFieldReportForScan } from '@/features/reports/hooks/useFieldReportDraft';
 import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
 import { deriveOutboxState, visibleSyncErrorCode } from '@/features/sync/domain/outboxState';
-import { getOutboxStateSentence, isServerUnavailable } from '@/features/sync/utils/syncStatusCopy';
+import { getOutboxStateSentence, getReportSyncAttemptOutcome, isServerUnavailable } from '@/features/sync/utils/syncStatusCopy';
 import { getSyncErrorMessage } from '@/features/sync/errors/syncErrors';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
@@ -113,9 +113,27 @@ export default function RecordDetailsScreen() {
     setRetrying(true);
     setRetryError(null);
     try {
-      await sync.retryReport(fieldReport.data.id);
+      const targetReportId = fieldReport.data.id;
+      const result = await sync.retryReport(targetReportId);
       await fieldReport.refresh();
-      showToast('Sent to office', 'success');
+      // Only a report the office accepted is "Sent to office"; a null result
+      // or an auth/validation failure never is.
+      const outcome = getReportSyncAttemptOutcome({
+        isOnline: sync.isOnline,
+        lastSyncErrorCode: null,
+        reportSyncStatus: null,
+        targetResult:
+          result?.results.find((entry) => entry.reportId === targetReportId) ??
+          null,
+      });
+      showToast(
+        outcome.message,
+        outcome.kind === 'sent'
+          ? 'success'
+          : outcome.kind === 'still-waiting'
+            ? 'info'
+            : 'error',
+      );
     } catch (error: unknown) {
       setRetryError(
         getStorageErrorMessage(

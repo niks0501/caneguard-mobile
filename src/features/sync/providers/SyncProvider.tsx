@@ -34,6 +34,7 @@ import {
   net,
   type StepOutcome,
 } from '@/features/net/reconnectCoordinator';
+import { requeueFailedSends } from '@/features/sync/services/requeueFailedSends';
 import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 import {
@@ -61,6 +62,8 @@ interface SyncContextValue {
   pendingSurveysCount: number;
   pendingCompletionsCount: number;
   retryReport: (reportId: string) => Promise<SyncBatchResult | null>;
+  /** Re-queues every failed send that sending again could fix, then sends. */
+  sendAllAgain: () => Promise<SyncBatchResult | null>;
   retryFieldValidationCompletion: (completionId: string) => Promise<SyncBatchResult | null>;
   syncNow: (source?: SyncTriggerSource) => Promise<SyncBatchResult | null>;
 }
@@ -490,6 +493,55 @@ export function SyncProvider({ children }: PropsWithChildren) {
     [authStatus, canSyncOfficialRecords, database, submitterIdentity, syncNow],
   );
 
+  const sendAllAgain = useCallback(async () => {
+    if (
+      authStatus !== 'authenticated' ||
+      !submitterIdentity ||
+      !canSyncOfficialRecords
+    ) {
+      return null;
+    }
+    await requeueFailedSends(database, submitterIdentity, 'all');
+    return syncNow('manual');
+  }, [authStatus, canSyncOfficialRecords, database, submitterIdentity, syncNow]);
+
+  // A verified account (fresh sign-in, or a fresh capability grant from /me)
+  // is the moment sign-in and access failures can succeed, so they go back in
+  // the queue instead of waiting on a manual retry that would never be offered.
+  const grantVerifiedAt = session?.capabilityGrant?.verifiedAt ?? null;
+  useEffect(() => {
+    if (
+      authStatus !== 'authenticated' ||
+      sessionVerification !== 'verified' ||
+      !submitterIdentity ||
+      !canSyncOfficialRecords
+    ) {
+      return;
+    }
+    let active = true;
+    void requeueFailedSends(database, submitterIdentity, 'access')
+      .then(async (moved) => {
+        if (!active || moved === 0) return;
+        await refreshPendingCount();
+        if (onlineRef.current === true && appStateRef.current === 'active') {
+          void net.run('retry-timer', { startAt: 'send-saved' });
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [
+    authStatus,
+    canSyncOfficialRecords,
+    database,
+    grantVerifiedAt,
+    refreshPendingCount,
+    sessionKey,
+    sessionVerification,
+    submitterIdentity,
+  ]);
+
   useEffect(() => {
     let active = true;
     void Promise.resolve().then(() => {
@@ -667,6 +719,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         : 0,
       retryFieldValidationCompletion,
       retryReport,
+      sendAllAgain,
       syncNow,
     }),
     [
@@ -681,6 +734,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       pendingCompletionsCount,
       retryFieldValidationCompletion,
       retryReport,
+      sendAllAgain,
       sessionKey,
       syncNow,
       syncState.apiReachability,

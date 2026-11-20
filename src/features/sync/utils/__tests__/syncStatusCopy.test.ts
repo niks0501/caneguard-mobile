@@ -1,6 +1,7 @@
 import { SyncError } from '@/features/sync/errors/syncErrors';
 import {
   formatPendingSummary,
+  getBatchSendOutcome,
   getConnectionLabel,
   getHomeSyncNote,
   getReportSyncAttemptOutcome,
@@ -211,6 +212,30 @@ describe('getHomeSyncNote', () => {
         pendingCount: 2,
       }),
     ).toBe('Cannot reach the office. 2 reports waiting to send.');
+  });
+});
+
+describe('getBatchSendOutcome', () => {
+  const run = { authRequired: false, failed: 0, synced: 0 };
+
+  it('says "Sent to office" only when something was accepted and nothing failed', () => {
+    expect(getBatchSendOutcome({ ...run, synced: 2 }, null)).toEqual({
+      kind: 'sent',
+      message: 'Sent to office',
+    });
+  });
+
+  it('never says "Sent to office" for a run that sent nothing', () => {
+    const outcome = getBatchSendOutcome(run, null);
+    expect(outcome.kind).toBe('still-waiting');
+    expect(outcome.message).not.toMatch(/Sent to office/);
+  });
+
+  it('reports failures, sign-in and a missing result honestly', () => {
+    expect(getBatchSendOutcome({ ...run, synced: 1, failed: 1 }, null).kind).toBe('failed');
+    expect(getBatchSendOutcome({ ...run, authRequired: true }, null).kind).toBe('sign-in');
+    expect(getBatchSendOutcome(null, 'Office is busy').message).toBe('Office is busy');
+    expect(getBatchSendOutcome(null, null).kind).toBe('failed');
   });
 });
 

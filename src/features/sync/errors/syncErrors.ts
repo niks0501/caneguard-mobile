@@ -103,6 +103,29 @@ export const AUTO_RETRYABLE_SYNC_ERROR_CODES = [
   'SERVER_ERROR',
 ] as const satisfies readonly SyncErrorCode[];
 
+/**
+ * Failures caused by the account's standing, not by the record: they end in
+ * "failed" with no automatic retry, and are re-queued once the phone has a
+ * fresh sign-in or a fresh capability grant.
+ */
+export const ACCESS_FAILURE_SYNC_ERROR_CODES = [
+  'AUTH_REQUIRED',
+  'API_FORBIDDEN',
+  'CAPABILITY_REVOKED',
+] as const satisfies readonly SyncErrorCode[];
+
+/**
+ * Every failed code that sending again could still fix. The rest (a conflicting
+ * identity, a missing image, an unusable record, a refused visit) end the same
+ * way on every attempt, so "send all again" leaves them alone.
+ */
+export const RESENDABLE_SYNC_ERROR_CODES = [
+  ...AUTO_RETRYABLE_SYNC_ERROR_CODES,
+  ...ACCESS_FAILURE_SYNC_ERROR_CODES,
+  'API_VALIDATION_FAILED',
+  'UNKNOWN_SYNC_ERROR',
+] as const satisfies readonly SyncErrorCode[];
+
 export function isAutoRetryableSyncErrorCode(
   code: string | null | undefined,
 ): boolean {

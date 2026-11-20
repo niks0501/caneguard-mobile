@@ -317,6 +317,45 @@ export function getReportSyncAttemptOutcome(input: {
   };
 }
 
+export interface BatchSendOutcome {
+  kind: 'sent' | 'sign-in' | 'failed' | 'still-waiting';
+  message: string;
+}
+
+/**
+ * Chooses the confirmation after a manual "send everything" attempt. "Sent to
+ * office" needs at least one report actually accepted and none left failed; a
+ * run that sent nothing is never a success.
+ */
+export function getBatchSendOutcome(
+  result: {
+    authRequired: boolean;
+    failed: number;
+    synced: number;
+  } | null,
+  errorMessage: string | null,
+): BatchSendOutcome {
+  if (result?.authRequired) {
+    return { kind: 'sign-in', message: 'Session expired — please sign in again' };
+  }
+  if (result && result.failed > 0) {
+    return { kind: 'failed', message: 'Could not send — will try again' };
+  }
+  if (result && result.synced > 0) {
+    return { kind: 'sent', message: 'Sent to office' };
+  }
+  if (result) {
+    return {
+      kind: 'still-waiting',
+      message: 'Nothing was sent yet — CaneGuard will retry automatically',
+    };
+  }
+  return {
+    kind: 'failed',
+    message: errorMessage ?? 'Could not send — will try again',
+  };
+}
+
 function formatPendingCounts(input: SyncWordingInput): string {
   const {
     pendingCompletionsCount = 0,

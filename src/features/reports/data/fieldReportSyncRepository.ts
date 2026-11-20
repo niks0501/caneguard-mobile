@@ -203,6 +203,39 @@ export async function markFieldReportPending(
   );
 }
 
+/** Puts failed reports whose last error is one of `codes` back in the queue. */
+export async function requeueFailedFieldReports(
+  database: CaneGuardDatabase,
+  submitterIdentity: string,
+  codes: readonly string[],
+): Promise<number> {
+  try {
+    const result = await database
+      .update(fieldReports)
+      .set({
+        syncStatus: 'pending',
+        lastSyncErrorCode: null,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(
+        and(
+          eq(fieldReports.submitterIdentity, submitterIdentity.trim()),
+          eq(fieldReports.authoringState, 'finalized'),
+          eq(fieldReports.syncStatus, 'failed'),
+          inArray(fieldReports.lastSyncErrorCode, [...codes]),
+        ),
+      );
+    emitSyncRecordsChanged();
+    return result.changes;
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'UPDATE_FAILED',
+      'Re-queuing failed Field Reports failed.',
+    );
+  }
+}
+
 export async function releaseFieldReportClaim(
   database: CaneGuardDatabase,
   reportId: string,

@@ -349,7 +349,7 @@ export function getBatchSendOutcome(
     );
     if (result.synced > 0) {
       const sentSummary = `${result.synced} ${result.synced === 1 ? 'record was' : 'records were'} sent to office`;
-      const failedSummary = `${result.failed} ${result.failed === 1 ? 'remaining record was' : 'remaining records were'} not sent`;
+      const failedSummary = `${result.failed} ${result.failed === 1 ? 'record was' : 'records were'} not sent`;
       return needsAttention
         ? {
             kind: 'failed',

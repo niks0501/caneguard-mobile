@@ -538,7 +538,11 @@ export function SyncProvider({ children }: PropsWithChildren) {
           void net.run('retry-timer', { startAt: 'send-saved' });
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (requeuedSessionKey.current === sessionKey) {
+          requeuedSessionKey.current = null;
+        }
+      });
   }, [
     authStatus,
     canAuthorReports,

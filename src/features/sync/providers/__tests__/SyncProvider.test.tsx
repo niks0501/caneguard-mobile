@@ -25,6 +25,7 @@ import {
   SyncContext,
   SyncProvider,
 } from '@/features/sync/providers/SyncProvider';
+import { requeueFailedSends } from '@/features/sync/services/requeueFailedSends';
 import {
   syncPendingFieldReports,
   type SyncBatchResult,
@@ -70,6 +71,9 @@ jest.mock('@/features/sync/data/inspectorWorkWaiting', () => ({
 }));
 jest.mock('@/features/sync/services/syncPendingFieldReports', () => ({
   syncPendingFieldReports: jest.fn(),
+}));
+jest.mock('@/features/sync/services/requeueFailedSends', () => ({
+  requeueFailedSends: jest.fn(),
 }));
 jest.mock('@/features/surveys/data/fieldSurveySyncRepository', () => ({
   countUnsyncedFieldSurveys: jest.fn(),
@@ -183,6 +187,7 @@ describe('SyncProvider foreground triggers', () => {
       source: 'startup',
       synced: 0,
     });
+    jest.mocked(requeueFailedSends).mockResolvedValue(0);
     jest.mocked(syncPendingFieldReports).mockResolvedValue({
       attempted: 1,
       authRequired: false,
@@ -470,6 +475,53 @@ describe('SyncProvider foreground triggers', () => {
       ),
     );
     expect(syncPendingFieldSurveys).toHaveBeenCalledWith(expect.objectContaining({ source: 'resume' }));
+  });
+
+  it('retries automatic access requeue after a storage failure', async () => {
+    jest.mocked(requeueFailedSends)
+      .mockRejectedValueOnce(new Error('database busy'))
+      .mockResolvedValueOnce(0);
+
+    const view = await render(
+      <SyncProvider>
+        <Text>Ready</Text>
+      </SyncProvider>,
+    );
+    await waitFor(() => expect(requeueFailedSends).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: {
+        token: 'secure-token',
+        user: { uuid: SUBMITTER_ID, role: 'field_reporter', districtCode: 'D-01' },
+      },
+      sessionVerification: 'pending',
+      markSessionExpired: jest.fn(async () => undefined),
+    } as never);
+    await view.rerender(
+      <SyncProvider>
+        <Text>Ready</Text>
+      </SyncProvider>,
+    );
+    jest.mocked(useAuth).mockReturnValue({
+      status: 'authenticated',
+      session: {
+        token: 'secure-token',
+        user: { uuid: SUBMITTER_ID, role: 'field_reporter', districtCode: 'D-01' },
+      },
+      sessionVerification: 'verified',
+      markSessionExpired: jest.fn(async () => undefined),
+    } as never);
+    await view.rerender(
+      <SyncProvider>
+        <Text>Ready</Text>
+      </SyncProvider>,
+    );
+
+    await waitFor(() => expect(requeueFailedSends).toHaveBeenCalledTimes(2));
   });
 
   // Intent (item 8): a restored session carries the cached district until /me verifies it,

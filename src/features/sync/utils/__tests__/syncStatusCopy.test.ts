@@ -265,11 +265,12 @@ describe('getBatchSendOutcome', () => {
           ],
         } as never,
         null,
+        59,
       ),
     ).toEqual({
       kind: 'failed',
       message:
-        '1 record was sent to office — 1 remaining record was not sent; some records need attention; check each record’s status',
+        '1 record was sent to office — 1 record was not sent; some records need attention; check each record’s status',
     });
     expect(getBatchSendOutcome({ ...run, authRequired: true }, null).kind).toBe('sign-in');
     expect(getBatchSendOutcome(null, 'Office is busy').message).toBe('Office is busy');
@@ -290,10 +291,11 @@ describe('getBatchSendOutcome', () => {
           synced: 1,
         } as never,
         null,
+        59,
       ),
     ).toEqual({
       kind: 'still-waiting',
-      message: '1 record was sent to office — 1 remaining record was not sent; will try again',
+      message: '1 record was sent to office — 1 record was not sent; will try again',
     });
   });
 

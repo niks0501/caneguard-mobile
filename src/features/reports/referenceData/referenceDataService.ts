@@ -27,6 +27,8 @@ export interface ResolveLocationReferenceOptions {
   loadCache?: () => Promise<LocationReferenceData | null>;
   saveCache?: (data: LocationReferenceData) => Promise<void>;
   now?: () => Date;
+  /** The signed-in session token, sent on the refresh when present. */
+  token?: string | null;
 }
 
 /**
@@ -59,6 +61,7 @@ export async function resolveLocationReferenceData(
     const result = await fetchData({
       etag: data.etag,
       now,
+      token: options.token,
     });
     if (result.status === 'updated' && result.data) {
       if (result.data.version !== data.version) {

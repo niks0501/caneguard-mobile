@@ -59,6 +59,24 @@ export function countCoolingRetryableFieldSurveys(database: CaneGuardDatabase, o
   }
 }
 
+/** Puts failed boundaries whose last error is one of `codes` back in the queue. */
+export function requeueFailedFieldSurveys(database: CaneGuardDatabase, ownerIdentity: string, codes: readonly string[]): number {
+  const owner = requireOwnerIdentity(ownerIdentity);
+  try {
+    const result = database.update(fieldSurveys).set({
+      status: 'pending', lastSyncErrorCode: null, updatedAt: new Date().toISOString(),
+    }).where(and(
+      eq(fieldSurveys.ownerIdentity, owner),
+      eq(fieldSurveys.status, 'failed'),
+      inArray(fieldSurveys.lastSyncErrorCode, [...codes]),
+    )).run();
+    emitSyncRecordsChanged();
+    return result.changes;
+  } catch (error: unknown) {
+    throw toStorageError(error, 'UPDATE_FAILED', 'Re-queuing failed field surveys failed.');
+  }
+}
+
 export function countUnsyncedFieldSurveys(database: CaneGuardDatabase, ownerIdentity: string): number {
   const owner = requireOwnerIdentity(ownerIdentity);
   try {

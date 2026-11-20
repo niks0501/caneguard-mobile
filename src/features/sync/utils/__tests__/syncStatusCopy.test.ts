@@ -1,6 +1,7 @@
 import { SyncError } from '@/features/sync/errors/syncErrors';
 import {
   formatPendingSummary,
+  getBatchSendOutcome,
   getConnectionLabel,
   getHomeSyncNote,
   getReportSyncAttemptOutcome,
@@ -211,6 +212,132 @@ describe('getHomeSyncNote', () => {
         pendingCount: 2,
       }),
     ).toBe('Cannot reach the office. 2 reports waiting to send.');
+  });
+});
+
+describe('getBatchSendOutcome', () => {
+  const run = {
+    attempted: 0,
+    authRequired: false,
+    failed: 0,
+    haltReason: null,
+    results: [],
+    synced: 0,
+  } as const;
+
+  it('says "Sent to office" only when something was accepted and nothing failed', () => {
+    expect(getBatchSendOutcome({ ...run, attempted: 2, synced: 2 }, null)).toEqual({
+      kind: 'sent',
+      message: 'Sent to office',
+    });
+  });
+
+  it('keeps a capped run in the waiting state when more records remain', () => {
+    expect(
+      getBatchSendOutcome(
+        { ...run, attempted: 50, haltReason: 'run-limit', synced: 50 },
+        null,
+        10,
+      ),
+    ).toEqual({
+      kind: 'still-waiting',
+      message: '50 records were sent to office — 10 records still waiting to send',
+    });
+  });
+
+  it('never says "Sent to office" for a run that sent nothing', () => {
+    const outcome = getBatchSendOutcome(run, null);
+    expect(outcome.kind).toBe('still-waiting');
+    expect(outcome.message).toBe('Nothing to send on this device');
+  });
+
+  it('reports failures, sign-in and a missing result honestly', () => {
+    expect(
+      getBatchSendOutcome(
+        {
+          ...run,
+          attempted: 2,
+          synced: 1,
+          failed: 1,
+          results: [
+            { reportId: 'r1', status: 'synced', remoteId: 'remote-1' },
+            { reportId: 'r2', status: 'failed', error: { code: 'INVALID_LOCAL_RECORD' } },
+          ],
+        } as never,
+        null,
+        59,
+      ),
+    ).toEqual({
+      kind: 'failed',
+      message:
+        '1 record was sent to office — 1 record was not sent; some records need attention; check each record’s status',
+    });
+    expect(getBatchSendOutcome({ ...run, authRequired: true }, null).kind).toBe('sign-in');
+    expect(getBatchSendOutcome(null, 'Office is busy').message).toBe('Office is busy');
+    expect(getBatchSendOutcome(null, null).kind).toBe('failed');
+  });
+
+  it('acknowledges accepted records when the remaining failures will retry', () => {
+    expect(
+      getBatchSendOutcome(
+        {
+          ...run,
+          attempted: 2,
+          failed: 1,
+          results: [
+            { reportId: 'r1', status: 'synced', remoteId: 'remote-1' },
+            { reportId: 'r2', status: 'failed', error: { code: 'NETWORK_UNAVAILABLE' } },
+          ],
+          synced: 1,
+        } as never,
+        null,
+        59,
+      ),
+    ).toEqual({
+      kind: 'still-waiting',
+      message: '1 record was sent to office — 1 record was not sent; will try again',
+    });
+  });
+
+  it('promises a retry only when every failure is auto-retryable', () => {
+    const retryable = { reportId: 'r1', status: 'failed', error: { code: 'NETWORK_UNAVAILABLE' } };
+    const terminal = { reportId: 'r2', status: 'failed', error: { code: 'INVALID_LOCAL_RECORD' } };
+    expect(getBatchSendOutcome({ ...run, attempted: 1, failed: 1, results: [retryable] } as never, null).message)
+      .toBe('Could not send — will try again');
+    expect(getBatchSendOutcome({ ...run, attempted: 2, failed: 2, results: [retryable, terminal] } as never, null).message)
+      .toBe('Not sent — some records need attention; check each record’s status');
+  });
+
+  it('does not claim the device is ready when a halted run sent nothing', () => {
+    expect(
+      getBatchSendOutcome(
+        { ...run, haltReason: 'transient-blocker' } as never,
+        null,
+        3,
+      ).message,
+    ).toBe('Nothing is ready to send — 3 records still waiting to send');
+  });
+
+  it('uses pending work when a transient halt masks a capped batch', () => {
+    expect(
+      getBatchSendOutcome(
+        { ...run, attempted: 50, haltReason: 'transient-blocker', synced: 50 },
+        null,
+        10,
+      ),
+    ).toEqual({
+      kind: 'still-waiting',
+      message: '50 records were sent to office — 10 records still waiting to send',
+    });
+  });
+
+  it('names pending records when no send candidate was ready', () => {
+    expect(
+      getBatchSendOutcome({ ...run, haltReason: 'empty' }, null, 1),
+    ).toEqual({
+      kind: 'still-waiting',
+      message: 'Nothing is ready to send — 1 record still waiting to send',
+    });
   });
 });
 

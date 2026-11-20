@@ -16,6 +16,7 @@ import {
  *   GET {apiBaseUrl}/api/v1/reference/locations
  *   Headers:
  *     Accept: application/json
+ *     Authorization: Bearer <session token>                (when signed in)
  *     If-None-Match: <etag from the previous response>   (optional)
  *
  *   200 OK:
@@ -32,12 +33,13 @@ import {
  *   304 Not Modified: when the If-None-Match ETag still matches; the client
  *   keeps its cached lists.
  *
- *   401 Unauthorized: AUTH_REQUIRED (the endpoint is expected to be public,
- *   but the client handles the case where the server requires a session).
+ *   401 Unauthorized: AUTH_REQUIRED (the client handles the case where the
+ *   server requires a session).
  *
  * The client treats `version` as the authoritative change signal and uses the
- * ETag purely as a bandwidth optimization. No auth token is sent: the list is
- * reference data, not submitter data.
+ * ETag purely as a bandwidth optimization. The session token is sent as a
+ * Bearer token when the phone has one (D7); a signed-out phone still asks
+ * without it and keeps its cached or seeded list.
  */
 export const LOCATION_REFERENCE_PATH = '/api/v1/reference/locations';
 
@@ -45,6 +47,8 @@ const FETCH_TIMEOUT_MS = 20_000;
 
 export interface FetchLocationReferenceOptions {
   etag?: string | null;
+  /** The signed-in session token; omitted while signed out. */
+  token?: string | null;
   signal?: AbortSignal;
   baseUrl?: string;
   now?: () => Date;
@@ -68,6 +72,7 @@ export async function fetchLocationReferenceData(
       {
         headers: {
           Accept: 'application/json',
+          ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
           ...(options.etag ? { 'If-None-Match': options.etag } : {}),
         },
         signal,

@@ -3,6 +3,7 @@ import { type FarmerLanguage } from '@/constants/copy';
 import { isAutoRetryableSyncErrorCode } from '@/features/sync/errors/syncErrors';
 import type { OutboxState, OutboxWaitReason } from '@/features/sync/domain/outboxState';
 import type { SyncResult } from '@/features/sync/services/syncFieldReport';
+import type { SyncBatchResult } from '@/features/sync/services/syncPendingFieldReports';
 
 /** Single-sourced sync status copy for offline field-survey submissions. */
 export const FIELD_SURVEY_SYNC_COPY = {
@@ -314,6 +315,86 @@ export function getReportSyncAttemptOutcome(input: {
       isOnline === false
         ? 'Still waiting to send — you are offline. This report stays on this device'
         : 'Not confirmed as sent — check the status above before trying again',
+  };
+}
+
+export interface BatchSendOutcome {
+  kind: 'sent' | 'sign-in' | 'failed' | 'still-waiting';
+  message: string;
+}
+
+/**
+ * Chooses the confirmation after a manual "send everything" attempt. "Sent to
+ * office" needs at least one report actually accepted and none left failed; a
+ * run that sent nothing is never a success.
+ */
+export function getBatchSendOutcome(
+  result:
+    | (Pick<
+        SyncBatchResult,
+        'attempted' | 'authRequired' | 'failed' | 'haltReason' | 'synced'
+      > & { results: readonly SyncResult[] })
+    | null,
+  errorMessage: string | null,
+  pendingCount: number | null = null,
+): BatchSendOutcome {
+  const waitingSummary =
+    pendingCount !== null && pendingCount > 0
+      ? `${pendingCount} ${pendingCount === 1 ? 'record' : 'records'} still waiting to send`
+      : null;
+  if (result?.authRequired) {
+    return { kind: 'sign-in', message: 'Session expired — please sign in again' };
+  }
+  if (result && result.failed > 0) {
+    const needsAttention = result.results.some(
+      (item) => item.status === 'failed' && !isAutoRetryableSyncErrorCode(item.error.code),
+    );
+    if (result.synced > 0) {
+      const sentSummary = `${result.synced} ${result.synced === 1 ? 'record was' : 'records were'} sent to office`;
+      const failedSummary = `${result.failed} ${result.failed === 1 ? 'record was' : 'records were'} not sent`;
+      return needsAttention
+        ? {
+            kind: 'failed',
+            message: `${sentSummary} — ${failedSummary}; some records need attention; check each record’s status`,
+          }
+        : {
+            kind: 'still-waiting',
+            message: `${sentSummary} — ${failedSummary}; will try again`,
+          };
+    }
+    return {
+      kind: 'failed',
+      message: needsAttention
+        ? 'Not sent — some records need attention; check each record’s status'
+        : 'Could not send — will try again',
+    };
+  }
+  if (result && result.synced > 0) {
+    if (waitingSummary) {
+      const sentSummary = `${result.synced} ${result.synced === 1 ? 'record was' : 'records were'} sent to office`;
+      return {
+        kind: 'still-waiting',
+        message: `${sentSummary} — ${waitingSummary}`,
+      };
+    }
+    return { kind: 'sent', message: 'Sent to office' };
+  }
+  if (result) {
+    return {
+      kind: 'still-waiting',
+      message:
+        waitingSummary
+          ? `Nothing is ready to send — ${waitingSummary}`
+          : result.attempted === 0
+            ? 'Nothing to send on this device'
+            : result.haltReason === 'transient-blocker'
+              ? 'Nothing was sent yet — sending is paused on this device; check each record’s status'
+              : 'Nothing was sent yet — check each record’s status',
+    };
+  }
+  return {
+    kind: 'failed',
+    message: errorMessage ?? 'Could not send — will try again',
   };
 }
 

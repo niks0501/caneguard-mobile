@@ -10,6 +10,7 @@ import {
 
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { purgeExpiredLocalData } from '@/database/localDataLifecycle';
+import { canAuthorInspectorWork, canCompleteFieldValidation } from '@/features/auth/capabilities';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
   countUnsyncedFieldValidationCompletions,
@@ -34,6 +35,7 @@ import {
   net,
   type StepOutcome,
 } from '@/features/net/reconnectCoordinator';
+import { requeueFailedSends } from '@/features/sync/services/requeueFailedSends';
 import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 import {
@@ -61,6 +63,8 @@ interface SyncContextValue {
   pendingSurveysCount: number;
   pendingCompletionsCount: number;
   retryReport: (reportId: string) => Promise<SyncBatchResult | null>;
+  /** Re-queues every failed send that sending again could fix, then sends. */
+  sendAllAgain: () => Promise<SyncBatchResult | null>;
   retryFieldValidationCompletion: (completionId: string) => Promise<SyncBatchResult | null>;
   syncNow: (source?: SyncTriggerSource) => Promise<SyncBatchResult | null>;
 }
@@ -181,7 +185,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
     [clearRetryTimer, sessionKey],
   );
 
-  const refreshPendingCount = useCallback(async () => {
+  const refreshPendingCount = useCallback(async (): Promise<number> => {
     const requestedToken = sessionToken;
     const requestedSubmitterIdentity = submitterIdentity;
     if (!requestedSubmitterIdentity) {
@@ -199,7 +203,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         setPendingCompletionsCount(0);
         setLastSuccessfulSyncAt(null);
       }
-      return;
+      return 0;
     }
     if (!canSyncOfficialRecords) {
       if (
@@ -225,7 +229,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
           setInspectorWorkWaiting(waiting);
         }
       }
-      return;
+      return 0;
     }
 
     const [reportCount, surveyCount, completionCount, reportLastSyncedAt, surveyLastSyncedAt, completionLastSyncedAt] =
@@ -237,6 +241,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         findLastSuccessfulFieldSurveySyncAt(database, requestedSubmitterIdentity),
         findLastSuccessfulFieldValidationCompletionSyncAt(database, requestedSubmitterIdentity),
       ]);
+    const nextPendingCount = reportCount + surveyCount + completionCount;
     const lastSyncedAt = latestTimestamp(latestTimestamp(reportLastSyncedAt, surveyLastSyncedAt), completionLastSyncedAt);
     if (
       mounted.current &&
@@ -246,12 +251,13 @@ export function SyncProvider({ children }: PropsWithChildren) {
         requestedSubmitterIdentity,
       )
     ) {
-      setPendingCount(reportCount + surveyCount + completionCount);
+      setPendingCount(nextPendingCount);
       setPendingReportsCount(reportCount);
       setPendingSurveysCount(surveyCount);
       setPendingCompletionsCount(completionCount);
       setLastSuccessfulSyncAt(lastSyncedAt);
     }
+    return nextPendingCount;
   }, [canSyncOfficialRecords, database, isFarmerSession, sessionToken, submitterIdentity]);
 
   const syncNow = useCallback(
@@ -401,8 +407,8 @@ export function SyncProvider({ children }: PropsWithChildren) {
             sessionKey,
           }));
         }
-        await refreshPendingCount();
-        return result;
+        const pendingCount = await refreshPendingCount();
+        return { ...result, pendingCount };
       } catch {
         if (isInitiatingSessionCurrent()) {
           setSyncState((current) => ({
@@ -489,6 +495,65 @@ export function SyncProvider({ children }: PropsWithChildren) {
     },
     [authStatus, canSyncOfficialRecords, database, submitterIdentity, syncNow],
   );
+
+  const sendAllAgain = useCallback(async () => {
+    if (
+      authStatus !== 'authenticated' ||
+      !submitterIdentity ||
+      !canSyncOfficialRecords
+    ) {
+      return null;
+    }
+    await requeueFailedSends(database, submitterIdentity, 'all');
+    return syncNow('manual');
+  }, [authStatus, canSyncOfficialRecords, database, submitterIdentity, syncNow]);
+
+  // Access failures go back in the queue once per verified sign-in (a session
+  // token), for the record types the account can send. A capability re-verified
+  // under the same token never re-queues: a denied upload would otherwise loop.
+  const canAuthorReports = canAuthorInspectorWork(session?.user);
+  const canCompleteValidations = canCompleteFieldValidation(session?.user);
+  const requeuedSessionKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      authStatus !== 'authenticated' ||
+      sessionVerification !== 'verified' ||
+      !submitterIdentity ||
+      !canSyncOfficialRecords ||
+      requeuedSessionKey.current === sessionKey
+    ) {
+      return;
+    }
+    requeuedSessionKey.current = sessionKey;
+    void requeueFailedSends(database, submitterIdentity, {
+      access: {
+        authorReports: canAuthorReports,
+        completeValidations: canCompleteValidations,
+      },
+    })
+      .then(async (moved) => {
+        if (moved === 0) return;
+        await refreshPendingCount();
+        if (onlineRef.current === true && appStateRef.current === 'active') {
+          void net.run('retry-timer', { startAt: 'send-saved' });
+        }
+      })
+      .catch(() => {
+        if (requeuedSessionKey.current === sessionKey) {
+          requeuedSessionKey.current = null;
+        }
+      });
+  }, [
+    authStatus,
+    canAuthorReports,
+    canCompleteValidations,
+    canSyncOfficialRecords,
+    database,
+    refreshPendingCount,
+    sessionKey,
+    sessionVerification,
+    submitterIdentity,
+  ]);
 
   useEffect(() => {
     let active = true;
@@ -667,6 +732,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
         : 0,
       retryFieldValidationCompletion,
       retryReport,
+      sendAllAgain,
       syncNow,
     }),
     [
@@ -681,6 +747,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       pendingCompletionsCount,
       retryFieldValidationCompletion,
       retryReport,
+      sendAllAgain,
       sessionKey,
       syncNow,
       syncState.apiReachability,

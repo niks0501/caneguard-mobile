@@ -24,16 +24,10 @@ import type {
 } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 import { validateFieldValidationCompletionInput } from '@/features/assignments/domain/fieldValidationCompletionValidation';
 import { SYNC_TRANSITIONS } from '@/features/sync/domain/outboxState';
+import { AUTO_RETRYABLE_SYNC_ERROR_CODES } from '@/features/sync/errors/syncErrors';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 
 export const FIELD_VALIDATION_SYNC_RETRY_COOLDOWN_MS = 60_000;
-
-const FIELD_VALIDATION_RETRYABLE_SYNC_ERROR_CODES = [
-  'NETWORK_UNAVAILABLE',
-  'NETWORK_REQUEST_FAILED',
-  'API_RATE_LIMITED',
-  'SERVER_ERROR',
-] as const;
 
 export async function hasCoolingRetryableFieldValidationCompletion(
   database: CaneGuardDatabase,
@@ -46,7 +40,7 @@ export async function hasCoolingRetryableFieldValidationCompletion(
     .where(and(
       eq(fieldValidationCompletions.ownerIdentity, requireOwner(ownerIdentity)),
       eq(fieldValidationCompletions.syncStatus, 'failed'),
-      inArray(fieldValidationCompletions.lastSyncErrorCode, FIELD_VALIDATION_RETRYABLE_SYNC_ERROR_CODES),
+      inArray(fieldValidationCompletions.lastSyncErrorCode, AUTO_RETRYABLE_SYNC_ERROR_CODES),
       gte(fieldValidationCompletions.lastSyncAttemptAt, failedBefore),
     ))
     .limit(1)
@@ -258,7 +252,7 @@ export async function findFieldValidationCompletionSyncCandidates(
         eq(fieldValidationCompletions.syncStatus, 'pending'),
         and(
           eq(fieldValidationCompletions.syncStatus, 'failed'),
-          inArray(fieldValidationCompletions.lastSyncErrorCode, FIELD_VALIDATION_RETRYABLE_SYNC_ERROR_CODES),
+          inArray(fieldValidationCompletions.lastSyncErrorCode, AUTO_RETRYABLE_SYNC_ERROR_CODES),
           or(
             isNull(fieldValidationCompletions.lastSyncAttemptAt),
             lt(fieldValidationCompletions.lastSyncAttemptAt, failedBefore),

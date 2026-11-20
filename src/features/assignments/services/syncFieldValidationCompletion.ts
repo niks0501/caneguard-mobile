@@ -2,7 +2,6 @@ import { uploadMobileFieldValidationCompletion } from '@/features/assignments/ap
 import type { FieldValidationCompletionSyncRepository } from '@/features/assignments/data/fieldValidationCompletionRepository';
 import type { FieldValidationCompletionUploadRecord } from '@/features/assignments/domain/fieldValidationCompletionTypes';
 import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
-import { waitMs } from '@/features/sync/utils/waitMs';
 import { mapFieldValidationCompletionToMultipart } from '@/features/assignments/api/mobileFieldValidationCompletionMapper';
 
 const RETRY_DELAYS_MS = [2_000, 5_000, 15_000] as const;
@@ -22,10 +21,14 @@ export interface SyncFieldValidationCompletionOptions {
   upload?: typeof uploadMobileFieldValidationCompletion;
 }
 
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 export async function syncFieldValidationCompletion({
   allowImmediateRetries = true,
   completionId,
-  delay = waitMs,
+  delay = wait,
   mapMultipart = mapFieldValidationCompletionToMultipart,
   now = () => new Date(),
   repository,

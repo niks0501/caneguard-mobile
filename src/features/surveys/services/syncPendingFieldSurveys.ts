@@ -11,6 +11,7 @@ import type { SyncResult } from '@/features/sync/services/syncFieldReport';
 interface Options {
   database: CaneGuardDatabase;
   districtCode: string;
+  isSendHeld?: () => boolean;
   /** The account district is verified for this session; while it is not, a blank code may still arrive. */
   districtVerified: boolean;
   limit?: number;
@@ -69,6 +70,10 @@ async function executeBatch(options: Options & { ownerIdentity: string }): Promi
       break;
     }
     for (const { clientUuid } of candidates) {
+      if (options.isSendHeld?.()) {
+        haltReason = 'transient-blocker';
+        break;
+      }
       const result = await syncFieldSurvey({
         allowImmediateRetries: options.source === 'manual',
         clientUuid, database: options.database, districtCode: options.districtCode, ownerIdentity: options.ownerIdentity, token: options.token,

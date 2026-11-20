@@ -32,6 +32,7 @@ const activeRuns = new WeakMap<CaneGuardDatabase, DatabaseRunState>();
 
 export function syncPendingFieldValidationCompletions(options: {
   database: CaneGuardDatabase;
+  isSendHeld?: () => boolean;
   limit?: number;
   source: SyncTriggerSource;
   ownerIdentity: string;
@@ -59,6 +60,7 @@ export function syncPendingFieldValidationCompletions(options: {
 
 async function executeBatch(options: {
   database: CaneGuardDatabase;
+  isSendHeld?: () => boolean;
   limit?: number;
   source: SyncTriggerSource;
   ownerIdentity: string;
@@ -89,6 +91,10 @@ async function executeBatch(options: {
     }
 
     for (const candidate of candidates) {
+      if (options.isSendHeld?.()) {
+        haltReason = 'transient-blocker';
+        break;
+      }
       const result = await syncFieldValidationCompletion({
         allowImmediateRetries: options.source === 'manual',
         completionId: candidate.id,

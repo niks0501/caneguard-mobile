@@ -27,7 +27,6 @@ import {
   resetStaleSyncingFieldReports,
 } from '@/features/reports/data/fieldReportSyncRepository';
 import { nextAutoRetryDelayMs } from '@/features/sync/domain/retryBackoff';
-import { MAX_TIMER_DELAY_MS } from '@/features/sync/utils/waitMs';
 import { hasUnsentInspectorWork } from '@/features/sync/data/inspectorWorkWaiting';
 import {
   checkAccountStep,
@@ -44,6 +43,8 @@ import { countUnsyncedFieldSurveys, findLastSuccessfulFieldSurveySyncAt, resetSt
 import { syncPendingFieldSurveys } from '@/features/surveys/services/syncPendingFieldSurveys';
 
 export type ApiReachability = 'unknown' | 'available' | 'unavailable';
+
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
 
 interface SyncContextValue {
   apiReachability: ApiReachability;
@@ -111,6 +112,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
   const retryTimerSessionKey = useRef<string | null>(null);
   const retryNotBefore = useRef(0);
   const latestReachabilityRef = useRef<ApiReachability>('unknown');
+  const registeredHoldBatches = useRef(new WeakSet<SyncBatchResult>());
   const syncNowRef = useRef<
     ((source?: SyncTriggerSource) => Promise<SyncBatchResult | null>) | null
   >(null);
@@ -173,6 +175,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
     () => () => {
       clearRetryTimer();
       retryNotBefore.current = 0;
+      latestReachabilityRef.current = 'unknown';
     },
     [clearRetryTimer, sessionKey],
   );
@@ -297,8 +300,16 @@ export function SyncProvider({ children }: PropsWithChildren) {
       // Registered as each queue returns, only for the session still owning the
       // queue, so overlapping automatic runs honour the server deadline.
       const holdAutomaticRetries = (batch: SyncBatchResult) => {
+        if (!canContinueOfficialRecordSync() || registeredHoldBatches.current.has(batch)) {
+          return;
+        }
+        registeredHoldBatches.current.add(batch);
+        const observedApiReachability = inferApiReachability(batch);
+        if (observedApiReachability) {
+          latestReachabilityRef.current = observedApiReachability;
+        }
         const retryAfterMs = batch.haltReason === 'transient-blocker' ? longestRetryAfterMs(batch) : null;
-        if (retryAfterMs !== null && canContinueOfficialRecordSync()) {
+        if (retryAfterMs !== null) {
           retryNotBefore.current = Math.max(retryNotBefore.current, performance.now() + nextAutoRetryDelayMs(retryAfterMs));
           armRetryTimer(retryNotBefore.current - performance.now());
         }
@@ -316,6 +327,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
           database,
           districtCode: district.code,
           districtVerified: district.verified,
+          isSendHeld: automaticSendHeld,
           source,
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
@@ -325,28 +337,26 @@ export function SyncProvider({ children }: PropsWithChildren) {
           await refreshPendingCount();
           return null;
         }
-        const reportResult = automaticSendHeld()
-          ? idleBatch(source)
-          : await syncPendingFieldReports({
-              database,
-              districtCode: district.code,
-              source,
-              submitterIdentity: initiatingSession.user.uuid,
-              token: initiatingSession.token,
-            });
+        const reportResult = await syncPendingFieldReports({
+          database,
+          districtCode: district.code,
+          isSendHeld: automaticSendHeld,
+          source,
+          submitterIdentity: initiatingSession.user.uuid,
+          token: initiatingSession.token,
+        });
         holdAutomaticRetries(reportResult);
         if (!canContinueOfficialRecordSync()) {
           await refreshPendingCount();
           return null;
         }
-        const completionResult = automaticSendHeld()
-          ? idleBatch(source)
-          : await syncPendingFieldValidationCompletions({
-              database,
-              source,
-              ownerIdentity: initiatingSession.user.uuid,
-              token: initiatingSession.token,
-            });
+        const completionResult = await syncPendingFieldValidationCompletions({
+          database,
+          isSendHeld: automaticSendHeld,
+          source,
+          ownerIdentity: initiatingSession.user.uuid,
+          token: initiatingSession.token,
+        });
         holdAutomaticRetries(completionResult);
         const result = mergeSyncBatchResults(surveyResult, reportResult, completionResult);
         if (!isInitiatingSessionCurrent()) {
@@ -708,10 +718,6 @@ function mergeSyncBatchResults(...batches: SyncBatchResult[]): SyncBatchResult {
     source: batches[0]?.source ?? 'manual',
     synced: batches.reduce((total, batch) => total + batch.synced, 0),
   };
-}
-
-function idleBatch(source: SyncTriggerSource): SyncBatchResult {
-  return { attempted: 0, authRequired: false, failed: 0, haltReason: null, results: [], source, synced: 0 };
 }
 
 /** The longest Retry-After the server sent on a failed upload in this run, or null. */

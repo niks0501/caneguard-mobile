@@ -291,7 +291,7 @@ function parseRetryAfter(response: Response): number | null {
   if (/^\d+$/.test(value)) {
     return Math.min(Number(value) * 1_000, Number.MAX_SAFE_INTEGER);
   }
-  if (!/[a-z]/i.test(value)) {
+  if (!/^[A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(value)) {
     return null;
   }
 

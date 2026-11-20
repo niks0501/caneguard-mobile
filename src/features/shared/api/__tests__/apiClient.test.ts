@@ -70,7 +70,7 @@ describe('api client', () => {
     expect(hintMs).toBeGreaterThan(2 * 60 * 60_000);
   });
 
-  it.each(['86400.5', '1e3'])('ignores a malformed Retry-After %s instead of deferring by a date parse', async (value) => {
+  it.each(['86400.5', '1e3', '2026-12-01T00:00:00Z'])('ignores a malformed Retry-After %s instead of deferring by a date parse', async (value) => {
     fetchMock.mockResolvedValueOnce({
       ok: false,
       status: 503,

@@ -42,6 +42,7 @@ export interface SyncBatchResult {
 interface SyncPendingFieldReportsOptions {
   database: CaneGuardDatabase;
   districtCode: string;
+  isSendHeld?: () => boolean;
   limit?: number;
   source: SyncTriggerSource;
   submitterIdentity: string;
@@ -92,6 +93,7 @@ async function executeBatch({
   database,
   districtCode,
   limit = DEFAULT_SYNC_BATCH_SIZE,
+  isSendHeld,
   source,
   submitterIdentity,
   token,
@@ -134,6 +136,10 @@ async function executeBatch({
       // Automatic runs hand a transient outage back to SyncProvider after one
       // request. Repeating long multipart timeouts here can postpone the
       // lifecycle retry timer until after the API has already recovered.
+      if (isSendHeld?.()) {
+        haltReason = 'transient-blocker';
+        break;
+      }
       const result = await syncFieldReport({
         allowImmediateRetries: source === 'manual',
         reportId: candidate.id,

@@ -2,7 +2,6 @@ import type { FieldReportSyncRepository } from '@/features/reports/data/fieldRep
 import { uploadMobileReport } from '@/features/sync/api/mobileReportsApi';
 import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
 import { mapFieldReportToMultipart } from '@/features/sync/mappers/reportMultipartMapper';
-import { waitMs } from '@/features/sync/utils/waitMs';
 
 const RETRY_DELAYS_MS = [2_000, 5_000, 15_000] as const;
 
@@ -23,9 +22,13 @@ interface SyncFieldReportOptions {
   upload?: typeof uploadMobileReport;
 }
 
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 export async function syncFieldReport({
   allowImmediateRetries = true,
-  delay = waitMs,
+  delay = wait,
   mapMultipart = mapFieldReportToMultipart,
   now = () => new Date(),
   reportId,

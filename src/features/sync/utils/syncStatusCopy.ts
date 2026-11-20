@@ -329,10 +329,12 @@ export interface BatchSendOutcome {
  * run that sent nothing is never a success.
  */
 export function getBatchSendOutcome(
-  result: Pick<
-    SyncBatchResult,
-    'attempted' | 'authRequired' | 'failed' | 'haltReason' | 'results' | 'synced'
-  > | null,
+  result:
+    | (Pick<
+        SyncBatchResult,
+        'attempted' | 'authRequired' | 'failed' | 'haltReason' | 'synced'
+      > & { results: readonly SyncResult[] })
+    | null,
   errorMessage: string | null,
   pendingCount: number | null = null,
 ): BatchSendOutcome {

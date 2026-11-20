@@ -347,7 +347,7 @@ export function getBatchSendOutcome(
   if (result) {
     return {
       kind: 'still-waiting',
-      message: 'Nothing was sent yet — CaneGuard will retry automatically',
+      message: 'Nothing was sent yet — nothing on this device is ready to send again; check each record’s status',
     };
   }
   return {

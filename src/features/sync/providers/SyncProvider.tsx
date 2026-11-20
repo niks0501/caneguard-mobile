@@ -506,21 +506,23 @@ export function SyncProvider({ children }: PropsWithChildren) {
     return syncNow('manual');
   }, [authStatus, canSyncOfficialRecords, database, submitterIdentity, syncNow]);
 
-  // Access failures go back in the queue on a fresh sign-in, or when the account
-  // holds again the capability each record type needs. Losing a grant is never
-  // recovery, and a capability the account still lacks keeps its records held.
+  // Access failures go back in the queue once per verified sign-in (a session
+  // token), for the record types the account can send. A capability re-verified
+  // under the same token never re-queues: a denied upload would otherwise loop.
   const canAuthorReports = canAuthorInspectorWork(session?.user);
   const canCompleteValidations = canCompleteFieldValidation(session?.user);
+  const requeuedSessionKey = useRef<string | null>(null);
   useEffect(() => {
     if (
       authStatus !== 'authenticated' ||
       sessionVerification !== 'verified' ||
       !submitterIdentity ||
-      !canSyncOfficialRecords
+      !canSyncOfficialRecords ||
+      requeuedSessionKey.current === sessionKey
     ) {
       return;
     }
-    let active = true;
+    requeuedSessionKey.current = sessionKey;
     void requeueFailedSends(database, submitterIdentity, {
       access: {
         authorReports: canAuthorReports,
@@ -528,16 +530,13 @@ export function SyncProvider({ children }: PropsWithChildren) {
       },
     })
       .then(async (moved) => {
-        if (!active || moved === 0) return;
+        if (moved === 0) return;
         await refreshPendingCount();
         if (onlineRef.current === true && appStateRef.current === 'active') {
           void net.run('retry-timer', { startAt: 'send-saved' });
         }
       })
       .catch(() => undefined);
-    return () => {
-      active = false;
-    };
   }, [
     authStatus,
     canAuthorReports,

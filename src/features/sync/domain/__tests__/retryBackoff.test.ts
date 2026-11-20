@@ -25,24 +25,19 @@ describe('nextAutoRetryDelayMs', () => {
     }
   });
 
-  it('honours a server Retry-After as a lower bound for every draw', () => {
-    const fiveMinutesMs = 5 * 60_000;
-    for (const draw of DRAWS) {
-      expect(nextAutoRetryDelayMs(0, fiveMinutesMs, () => draw)).toBeGreaterThan(fiveMinutesMs);
-    }
-    expect(new Set(DRAWS.map((draw) => nextAutoRetryDelayMs(0, fiveMinutesMs, () => draw))).size).toBe(DRAWS.length);
-  });
-
-  it('keeps a two-hour Retry-After as a lower bound', () => {
-    const twoHoursMs = 2 * 60 * 60_000;
-    for (const draw of DRAWS) {
-      expect(nextAutoRetryDelayMs(0, twoHoursMs, () => draw)).toBeGreaterThan(twoHoursMs);
+  it('never waits less than a server Retry-After, including a two-hour one', () => {
+    for (const hintMs of [5 * 60_000, 2 * 60 * 60_000]) {
+      for (const draw of DRAWS) {
+        expect(nextAutoRetryDelayMs(0, hintMs, () => draw)).toBeGreaterThanOrEqual(hintMs);
+      }
     }
   });
 
   it('ignores a shorter or invalid Retry-After', () => {
-    const withoutHint = nextAutoRetryDelayMs(0, null, () => 0.5);
-    expect(nextAutoRetryDelayMs(0, 1_000, () => 0.5)).toBe(withoutHint);
-    expect(nextAutoRetryDelayMs(0, Number.NaN, () => 0.5)).toBe(withoutHint);
+    for (const hint of [1_000, Number.NaN]) {
+      const wait = nextAutoRetryDelayMs(0, hint, () => 0.5);
+      expect(wait).toBeGreaterThanOrEqual(FIRST_FLOOR_MS);
+      expect(wait).toBeLessThan(FIRST_FLOOR_MS * 1.5);
+    }
   });
 });

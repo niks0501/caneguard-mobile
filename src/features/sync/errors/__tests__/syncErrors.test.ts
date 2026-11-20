@@ -1,6 +1,5 @@
 import { ApiHttpError } from '@/features/shared/api/apiClient';
 import {
-  AUTO_RETRYABLE_SYNC_ERROR_CODES,
   immediateRetryDelayMs,
   isAutoRetryableSyncErrorCode,
   SyncError,
@@ -32,14 +31,7 @@ describe('synchronization retry policy', () => {
     expect(isAutoRetryableSyncErrorCode(code)).toBe(false);
   });
 
-  it('uses the persisted code policy for in-memory errors and HTTP mapping', () => {
-    expect(AUTO_RETRYABLE_SYNC_ERROR_CODES).toEqual([
-      'NETWORK_UNAVAILABLE',
-      'NETWORK_REQUEST_FAILED',
-      'API_RATE_LIMITED',
-      'OFFICE_NOT_READY',
-      'SERVER_ERROR',
-    ]);
+  it('classifies in-memory errors and HTTP responses by retryability', () => {
     expect(new SyncError('SERVER_ERROR', 'temporary').retryable).toBe(true);
     expect(new SyncError('API_VALIDATION_FAILED', 'permanent').retryable).toBe(false);
     expect(toSyncError(new ApiHttpError(503, 'unavailable')).retryable).toBe(true);

@@ -50,6 +50,26 @@ describe('api client', () => {
       .rejects.toMatchObject({ status: 503, retryAfterMs: 300_000 });
   });
 
+  it('keeps a valid delay-seconds Retry-After too large to multiply into milliseconds', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      headers: new Headers({ 'Retry-After': `1${'0'.repeat(306)}` }),
+      text: async () => '{}',
+    });
+
+    const failure: unknown = await apiRequest('/api/v3/mobile/reports', { token: 'test-token' }).then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+    expect(failure).toMatchObject({ status: 503 });
+    const hintMs = (failure as { retryAfterMs: number | null }).retryAfterMs;
+    expect(hintMs).not.toBeNull();
+    expect(Number.isFinite(hintMs)).toBe(true);
+    expect(hintMs).toBeGreaterThan(2 * 60 * 60_000);
+  });
+
   it('initializes CSRF and sends the decoded token with cookie credentials', async () => {
     fetchMock
       .mockResolvedValueOnce({

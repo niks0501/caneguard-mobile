@@ -15,7 +15,7 @@ export function nextAutoRetryDelayMs(
   const serverFloor =
     retryAfterMs === null || !Number.isFinite(retryAfterMs) || retryAfterMs <= 0
       ? 0
-      : Math.min(Math.ceil(retryAfterMs) + 1, Number.MAX_SAFE_INTEGER);
+      : Math.ceil(retryAfterMs) + 1;
   const lowerBound = Math.max(cooldownFloor, serverFloor);
   return lowerBound + Math.floor((random() * lowerBound) / 2);
 }

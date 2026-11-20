@@ -290,7 +290,7 @@ function parseRetryAfter(response: Response): number | null {
 
   const seconds = Number(value);
   if (Number.isFinite(seconds) && seconds >= 0) {
-    return seconds * 1_000;
+    return Math.min(seconds * 1_000, Number.MAX_SAFE_INTEGER);
   }
 
   const retryAtMs = Date.parse(value);

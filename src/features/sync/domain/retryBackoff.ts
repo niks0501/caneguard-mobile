@@ -1,6 +1,6 @@
 import { SYNC_RETRY_COOLDOWN_MS } from '@/features/sync/domain/outboxState';
 
-/** The longest an automatic retry waits on its own growth; a server Retry-After may exceed it. */
+/** The growth stops doubling at this lower bound; jitter spreads up to half above it. A server Retry-After may exceed it. */
 export const MAX_AUTO_RETRY_BACKOFF_MS = 10 * 60_000;
 
 /**
@@ -20,7 +20,7 @@ export function nextAutoRetryDelayMs(
   const cooldownFloor = SYNC_RETRY_COOLDOWN_MS + 1;
   const backoff = Math.min(
     Math.max(SYNC_RETRY_COOLDOWN_MS * 2 ** attempt, cooldownFloor),
-    MAX_AUTO_RETRY_BACKOFF_MS / 2,
+    MAX_AUTO_RETRY_BACKOFF_MS,
   );
   const serverFloor =
     retryAfterMs === null || !Number.isFinite(retryAfterMs) || retryAfterMs <= 0

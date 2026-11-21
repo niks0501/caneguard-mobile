@@ -10,7 +10,7 @@ photo (camera or gallery) -> V2 letterbox + quality gate (unchanged)
    Guard V1: direct-stretch tensor from the SAME source photo -> p_sugarcane
       >= 0.75 -> V2 runs once (five labels incl. RSSI); result carries guardModelId
       <  0.75 -> "not sugarcane" retake message, zero V2, no result
-      file fault -> "Photo could not be used" (check-failed) or "This photo can't be checked" (photo-unusable) + cause + retake actions, zero V2, no result
+      file fault -> "Photo could not be used" (check-failed) or "This photo can't be checked" (photo-unusable) + cause + retake actions only, zero V2, no result
       runtime fault -> "check could not finish" + Try again, zero V2, no result
 ```
 

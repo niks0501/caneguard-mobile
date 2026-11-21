@@ -30,13 +30,15 @@ type Props = {
   options: readonly GridOption[];
   selected: ChecklistObservationId | null;
   onSelect: (id: ChecklistObservationId) => void;
+  /** Shows the tiles but ignores taps, e.g. while the photo is still being checked. */
+  disabled?: boolean;
 };
 
-export function ObservationPictureGrid({ options, selected, onSelect }: Props) {
+export function ObservationPictureGrid({ options, selected, onSelect, disabled = false }: Props) {
   const theme = useTheme();
 
   return (
-    <View style={styles.grid} accessibilityRole="radiogroup">
+    <View style={styles.grid} accessibilityRole="radiogroup" accessibilityState={{ disabled }}>
       {options.map((option) => {
         const isSelected = selected === option.id;
         const photo = referencePhoto(option.id);
@@ -45,7 +47,8 @@ export function ObservationPictureGrid({ options, selected, onSelect }: Props) {
             key={option.id}
             testID={`scan.symptom-${option.id}`}
             accessibilityRole="radio"
-            accessibilityState={{ selected: isSelected }}
+            accessibilityState={{ selected: isSelected, disabled }}
+            disabled={disabled}
             accessibilityLabel={option.label}
             onPress={() => onSelect(option.id)}
             style={({ pressed }) => [
@@ -54,7 +57,8 @@ export function ObservationPictureGrid({ options, selected, onSelect }: Props) {
                 backgroundColor: isSelected ? theme.backgroundSelected : theme.surfaceElevated,
                 borderColor: isSelected ? theme.primary : theme.border,
               },
-              pressed && { opacity: 0.78 },
+              disabled && { opacity: 0.5 },
+              pressed && !disabled && { opacity: 0.78 },
             ]}>
             <View style={[styles.photoFrame, { backgroundColor: theme.surfaceMuted }]}>
               {photo ? (

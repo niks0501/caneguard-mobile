@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { useReducer } from 'react';
 
@@ -35,6 +35,8 @@ jest.mock('@/features/detection/model/runInference', () => ({
   runInference: jest.fn(),
 }));
 
+const mockGuardRun = jest.fn<Promise<ArrayBuffer[]>, unknown[]>();
+
 jest.mock('@/features/detection/model/useCaneGuardModel', () => ({
   useCaneGuardModel: jest.fn(),
 }));
@@ -49,7 +51,7 @@ jest.mock('@/features/detection/model/useGuardModel', () => {
     errorKind: null,
     start: () => undefined,
     retry: () => undefined,
-    run: async () => [Float32Array.of(0.95).buffer],
+    run: (...args: unknown[]) => mockGuardRun(...args),
   };
   return { useGuardModel: () => controller };
 });
@@ -171,7 +173,9 @@ async function renderScreen(initialState: ScanSessionState) {
     );
   }
 
-  return render(<Harness />);
+  const view = await render(<Harness />);
+  // Re-renders the same screen (same state) so a changed model mock is read again.
+  return { ...view, refresh: () => view.rerender(<Harness />) };
 }
 
 const loadedModel = () => ({
@@ -189,6 +193,8 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     jest.clearAllMocks();
     mockRole = 'field_reporter';
     mockLanguage = 'en';
+    mockGuardRun.mockReset();
+    mockGuardRun.mockResolvedValue([Float32Array.of(0.95).buffer]);
     mockPreprocessImage.mockResolvedValue(successfulPreprocessingResult);
     mockRunInference.mockResolvedValue(successfulInferenceResult);
     mockUseCaneGuardModel.mockReturnValue(loadedModel());
@@ -229,7 +235,7 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
 
   it('checks the photo while the model loads and runs inference when it is ready', async () => {
     mockUseCaneGuardModel.mockReturnValue({ ...loadedModel(), state: 'loading' as const });
-    await renderScreen(selectedState);
+    const view = await renderScreen(selectedState);
 
     await waitFor(() => {
       expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'COMPLETE_PREPROCESSING' }));
@@ -239,11 +245,12 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     expect(screen.getByTestId('scan.continue-to-result')).toBeDisabled();
 
     mockUseCaneGuardModel.mockReturnValue(loadedModel());
-    await fireEvent.press(screen.getByTestId('scan.symptom-rust'));
+    await view.refresh();
     await waitFor(() => {
       expect(mockRunInference).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'COMPLETE_INFERENCE' }));
     });
+    await fireEvent.press(screen.getByTestId('scan.symptom-rust'));
     expect(mockPreprocessImage).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('scan.continue-to-result')).toBeEnabled();
   });
@@ -260,9 +267,10 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     expect(screen.getByText('Choose a picture')).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByTestId('scan.symptom-mosaic'));
-    expect(screen.getByTestId('scan.symptom-mosaic')).toHaveProp('accessibilityState', {
-      selected: true,
-    });
+    expect(screen.getByTestId('scan.symptom-mosaic')).toHaveProp(
+      'accessibilityState',
+      expect.objectContaining({ selected: true }),
+    );
     await fireEvent.press(screen.getByLabelText('Continue to analysis result'));
 
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'SET_SYMPTOMS', payload: ['mosaic'] });
@@ -270,6 +278,66 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
       expect.objectContaining({ type: 'SET_REPORTED_SEVERITY' }),
     );
     expect(mockRouterPush).toHaveBeenCalledWith('/analysis-result');
+  });
+
+  it('shows the question but locks it until the guard accepts, then unlocks it at analysing', async () => {
+    let finishGuard: (value: ArrayBuffer[]) => void = () => undefined;
+    const guardRun = jest.fn(
+      () => new Promise<ArrayBuffer[]>((resolve) => (finishGuard = resolve)),
+    );
+    mockGuardRun.mockImplementation(guardRun);
+    await renderScreen(selectedState);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('scan.check-state')).toHaveProp('accessibilityValue', {
+        text: 'checking-sugarcane',
+      });
+    });
+    expect(screen.getByTestId('scan.guided-question')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.question-locked')).toHaveTextContent(
+      'You can answer once the photo is confirmed as sugarcane.',
+    );
+    expect(screen.getByTestId('scan.symptom-rust')).toBeDisabled();
+
+    await fireEvent.press(screen.getByTestId('scan.symptom-rust'));
+    expect(screen.getByTestId('scan.symptom-rust')).toHaveProp(
+      'accessibilityState',
+      expect.objectContaining({ selected: false }),
+    );
+    expect(mockDispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_SYMPTOMS' }));
+
+    await act(async () => {
+      finishGuard([Float32Array.of(0.95).buffer]);
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId('scan.question-locked')).not.toBeOnTheScreen();
+    });
+    expect(screen.getByTestId('scan.symptom-rust')).toBeEnabled();
+    await fireEvent.press(screen.getByTestId('scan.symptom-rust'));
+    expect(screen.getByTestId('scan.symptom-rust')).toHaveProp(
+      'accessibilityState',
+      expect.objectContaining({ selected: true }),
+    );
+  });
+
+  it('keeps the question locked while the photo is still being checked or waiting for the models', async () => {
+    mockUseCaneGuardModel.mockReturnValue({ ...loadedModel(), state: 'loading' as const });
+    await renderScreen(selectedState);
+
+    await waitFor(() => {
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'COMPLETE_PREPROCESSING' }),
+      );
+    });
+    expect(screen.getByTestId('scan.check-state')).toHaveProp('accessibilityValue', {
+      text: 'waiting-model',
+    });
+    expect(screen.getByTestId('scan.question-locked')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('scan.symptom-mosaic'));
+    expect(screen.getByTestId('scan.symptom-mosaic')).toHaveProp(
+      'accessibilityState',
+      expect.objectContaining({ selected: false }),
+    );
   });
 
   it('keeps answers single-choice, including the fallback answers', async () => {

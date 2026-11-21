@@ -1681,6 +1681,7 @@ export const SCAN_CHECK_COPY = {
   title: 'Check your photo',
   question: 'Which picture looks most like what you see?',
   questionHint: 'Your choice is kept with this scan and never changes the result.',
+  questionLocked: 'You can answer once the photo is confirmed as sugarcane.',
   checking: 'Checking your photo…',
   checkedTitle: 'Photo checked',
   notAnalysed: 'This photo was not analysed. Please use a new photo.',

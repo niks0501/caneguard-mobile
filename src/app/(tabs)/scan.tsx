@@ -64,8 +64,7 @@ export default function ScanScreen() {
   // it, or its preparation failed. A picker or permission failure is not this.
   const photoNotUsable =
     state.status === 'error' &&
-    (state.guardFailure === 'rejected' ||
-      (state.guardFailure === 'error' && state.photoPreparationFailed === true));
+    (state.guardFailure === 'rejected' || state.photoPreparationFailed === true);
   const draftOwner = draft.ownerIdentity;
   const [activeOperation, setActiveOperation] = useState<ActiveOperation>(
     Platform.OS === 'android' ? 'recovery' : null,

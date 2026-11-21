@@ -203,7 +203,7 @@ describe('ScanScreen', () => {
     });
 
     it('shows the neutral line for an unusable photo file', async () => {
-      await renderScan(withPhoto({ guardFailure: 'error', photoPreparationFailed: true }));
+      await renderScan(withPhoto({ photoPreparationFailed: true }));
       expect(screen.getByText(NEUTRAL)).toBeOnTheScreen();
       expect(screen.queryByText('Image not added')).toBeNull();
     });

@@ -1699,9 +1699,10 @@ export const SCAN_CHECK_COPY = {
 } as const;
 
 /**
- * Guard V1 (experimental sugarcane-presence check). A rejection means the photo
- * was judged and does not look like sugarcane; a fault means the check itself
- * could not finish. The two are never worded alike.
+ * Guard V1 (required sugarcane-presence check). A rejection means the photo was
+ * judged and does not look like sugarcane; a fault means the file could not be
+ * used (too large, transparent, unreadable) or the check itself could not
+ * finish. Rejection and the two fault kinds are never worded alike.
  */
 export const GUARD_COPY = {
   unusableTitle: "This photo can't be checked",

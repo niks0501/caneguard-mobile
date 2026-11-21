@@ -800,8 +800,8 @@ describe('AuthProvider', () => {
     expect(result.current.hasCompletedLogin).toBe(true);
   });
 
-  it('keeps the password sign-in when the protected-session refresh prompt is cancelled', async () => {
-    mockBiometricEnabled.mockResolvedValue(true);
+  it('keeps the password sign-in when the protected-session refresh fails', async () => {
+    mockBiometricEnabled.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
 
     const { result } = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
@@ -818,7 +818,7 @@ describe('AuthProvider', () => {
     });
 
     expect(result.current.status).toBe('authenticated');
-    expect(result.current.biometricEnabled).toBe(true);
+    expect(result.current.biometricEnabled).toBe(false);
     expect(mockClear).not.toHaveBeenCalled();
     expect(mockLogout).not.toHaveBeenCalled();
     expect(result.current.errorMessage).toBeNull();

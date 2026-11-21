@@ -109,14 +109,17 @@ export async function readProtectedMobileSession(): Promise<MobileSession | null
     if (deviceCredentialGate) {
       const auth = await authenticateWithDeviceCredential();
       if (!auth.success) {
-        throw new Error(auth.message);
+        throw new BiometricSessionError('ACCESS_FAILED', auth.message);
       }
     }
     stored = await SecureStore.getItemAsync(
       PROTECTED_SESSION_KEY,
       deviceCredentialGate ? STORE_OPTIONS : PROTECTED_STORE_OPTIONS,
     );
-  } catch {
+  } catch (error: unknown) {
+    if (error instanceof BiometricSessionError) {
+      throw error;
+    }
     throw new BiometricSessionError(
       'ACCESS_FAILED',
       'Protected unlock could not access the stored session.',

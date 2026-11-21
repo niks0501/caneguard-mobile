@@ -223,11 +223,12 @@ describe('mobile secure session store', () => {
       );
       jest.mocked(authenticateWithDeviceCredential).mockResolvedValueOnce({
         code: 'CANCELLED',
-        message: 'cancelled',
+        message: 'Device unlock was cancelled. Sign in with your password.',
         success: false,
       });
       await expect(readProtectedMobileSession()).rejects.toMatchObject({
         code: 'ACCESS_FAILED',
+        message: 'Device unlock was cancelled. Sign in with your password.',
       });
       expect(mockGet).not.toHaveBeenCalledWith(
         'caneguard.mobile.session.protected.v1',
@@ -299,12 +300,13 @@ describe('mobile secure session store', () => {
       );
       jest.mocked(authenticateWithDeviceCredential).mockResolvedValueOnce({
         code: 'CANCELLED',
-        message: 'cancelled',
+        message: 'Device unlock was cancelled. Sign in with your password.',
         success: false,
       });
 
       await expect(readProtectedMobileSession()).rejects.toMatchObject({
         code: 'ACCESS_FAILED',
+        message: 'Device unlock was cancelled. Sign in with your password.',
       });
       expect(mockGet).not.toHaveBeenCalledWith(
         'caneguard.mobile.session.protected.v1',

@@ -395,6 +395,30 @@ function ScanSessionOwner({
         }
         return;
       }
+      if (action.type === 'SET_ERROR' && action.guardFailure === 'rejected') {
+        // The photo was auto-saved when picked, before the guard ran. Drop that
+        // checkpoint and its image so resume never restores a rejected photo.
+        const trackedImage = draftImageRef.current;
+        draftImageRef.current = null;
+        imageOperation.current += 1;
+        lastSignature.current = null;
+        if (mounted.current) {
+          setDraftStatus('idle');
+          setDraftSavedAt(null);
+        }
+        if (ownerIdentity) {
+          saveChain.current = saveChain.current.then(async () => {
+            try {
+              deleteScanDraftCheckpoint(database, ownerIdentity);
+              if (trackedImage) {
+                deleteManagedScanImage(trackedImage.managedImageUri, ownerIdentity);
+              }
+            } catch {
+              // Best effort: an explicit discard retries this cleanup.
+            }
+          });
+        }
+      }
       rawDispatch(action);
     },
     [database, ownerIdentity, persistSelectedImage, sessionIdentity],

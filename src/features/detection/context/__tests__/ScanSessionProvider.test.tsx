@@ -137,6 +137,13 @@ function SessionProbe() {
       />
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel="Reject test photo"
+        onPress={() =>
+          dispatch({ type: 'SET_ERROR', payload: 'not sugarcane', guardFailure: 'rejected' })
+        }
+      />
+      <Pressable
+        accessibilityRole="button"
         accessibilityLabel="Change test symptoms"
         onPress={() =>
           dispatch({ type: 'SET_SYMPTOMS', payload: ['rust'] })
@@ -254,6 +261,27 @@ describe('ScanSessionProvider', () => {
       ).toBeOnTheScreen(),
     );
     expect(screen.getByText('draft:saved')).toBeOnTheScreen();
+  });
+
+  // Proves: a guard-rejected photo auto-saved at pick time is dropped (row and image) and never restored on restart; a new photo saves again.
+  it('drops the saved draft when the guard rejects the photo and saves a new one', async () => {
+    await render(<Harness owner={OWNER_A} />);
+    await fireEvent.press(screen.getByLabelText('Select test image'));
+    await waitFor(() => expect(screen.getByText('draft:saved')).toBeOnTheScreen());
+    expect(mockDraftRows.get(`${OWNER_A}:scan:current`)).toBeDefined();
+
+    await fireEvent.press(screen.getByLabelText('Reject test photo'));
+    await waitFor(() => expect(screen.getByText('draft:idle')).toBeOnTheScreen());
+    expect(mockDraftRows.get(`${OWNER_A}:scan:current`)).toBeUndefined();
+    expect(mockDeleteManagedScanImage).toHaveBeenCalledWith(
+      expect.stringContaining(`/scan-images/${OWNER_A}/`),
+      OWNER_A,
+    );
+
+    // A new photo clears the rejection and checkpoints normally.
+    await fireEvent.press(screen.getByLabelText('Select test image'));
+    await waitFor(() => expect(screen.getByText('draft:saved')).toBeOnTheScreen());
+    expect(mockDraftRows.get(`${OWNER_A}:scan:current`)).toBeDefined();
   });
 
   it('keeps the newest selection when an older image copy settles later', async () => {

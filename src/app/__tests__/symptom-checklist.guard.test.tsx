@@ -51,12 +51,16 @@ const mockUseGuard = jest.mocked(useGuardModel);
 const mockRouterPush = router.push as jest.Mock;
 const guardRun = jest.fn();
 
+const mockDiscardSavedDraft = jest.fn(async () => true);
+const mockFlushSavedDraft = jest.fn(async () => false);
+const mockRouterDismissTo = router.dismissTo as jest.Mock;
+
 const scanDraft = {
-  discardSavedDraft: async () => false,
+  discardSavedDraft: () => mockDiscardSavedDraft(),
   draftSavedAt: null,
   draftStatus: 'idle' as const,
   finalizeSavedDraft: () => undefined,
-  flushSavedDraft: async () => false,
+  flushSavedDraft: () => mockFlushSavedDraft(),
   isOwnerCurrent: () => true,
   isSessionCurrent: () => true,
   ownerIdentity: 'guard-screen-user',
@@ -168,6 +172,49 @@ describe('SymptomChecklistScreen with required Guard V1', () => {
     await fireEvent.press(screen.getByTestId('scan.continue-to-result'));
     expect(mockRouterPush).not.toHaveBeenCalled();
     expect(mockRunInference).not.toHaveBeenCalled();
+  });
+
+  // Proves: Go to Home on a rejected scan discards the photo like Cancel, saves no draft, and leads home.
+  it('discards the rejected scan and goes home from Go to Home', async () => {
+    guardRun.mockResolvedValue(out(0.1));
+    await renderScreen();
+    await waitFor(() => expect(screen.getByTestId('scan.guard-rejected')).toBeOnTheScreen());
+
+    await fireEvent.press(screen.getByTestId('scan.go-home'));
+
+    await waitFor(() => expect(mockRouterDismissTo).toHaveBeenCalledWith('/home'));
+    expect(mockDiscardSavedDraft).toHaveBeenCalledTimes(1);
+    expect(mockFlushSavedDraft).not.toHaveBeenCalled();
+  });
+
+  // Proves: Cancel on a rejected scan asks to discard, offers no Keep draft, Keep scanning stays, Discard goes home.
+  it('opens a Discard this scan dialog without Keep draft for a rejected photo', async () => {
+    guardRun.mockResolvedValue(out(0.1));
+    await renderScreen();
+    await waitFor(() => expect(screen.getByTestId('scan.guard-rejected')).toBeOnTheScreen());
+
+    await fireEvent.press(screen.getByTestId('symptom-checklist.cancel'));
+    expect(screen.getByText(GUARD_COPY.discardTitle)).toBeOnTheScreen();
+    expect(screen.getByText(GUARD_COPY.keepScanning)).toBeOnTheScreen();
+    expect(screen.queryByText('Keep draft')).not.toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('symptom-checklist.cancel-dialog.cancel'));
+    expect(mockDiscardSavedDraft).not.toHaveBeenCalled();
+    expect(mockFlushSavedDraft).not.toHaveBeenCalled();
+    expect(mockRouterDismissTo).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByTestId('symptom-checklist.header-close'));
+    await fireEvent.press(screen.getByTestId('symptom-checklist.cancel-dialog.confirm'));
+    await waitFor(() => expect(mockRouterDismissTo).toHaveBeenCalledWith('/home'));
+    expect(mockDiscardSavedDraft).toHaveBeenCalledTimes(1);
+  });
+
+  // Proves: Go to Home is only offered for a guard rejection, not a quality warning.
+  it('does not show Go to Home when the guard accepted the photo', async () => {
+    guardRun.mockResolvedValue(out(0.9));
+    await renderScreen();
+    await waitFor(() => expect(mockRunInference).toHaveBeenCalled());
+    expect(screen.queryByTestId('scan.go-home')).not.toBeOnTheScreen();
   });
 
   // Proves: a guard fault reads as a model error (not a photo rejection), offers Try again, and the retry can complete.

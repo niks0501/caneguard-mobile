@@ -87,6 +87,10 @@ export function buildScanDraftCheckpoint(input: {
   if (!state.sourceUri || !state.sourceType) {
     return null;
   }
+  // A photo the guard rejected can never pass, so it is never saved as a draft.
+  if (state.guardFailure === 'rejected') {
+    return null;
+  }
   if (!input.managedImageUri || !isManagedScanImageUri(input.managedImageUri)) {
     return null;
   }

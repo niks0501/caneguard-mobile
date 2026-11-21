@@ -110,3 +110,19 @@ describe('scan draft checkpoint Check Again metadata', () => {
     expect(restored?.personalNote ?? null).toBeNull();
   });
 });
+
+describe('scan draft checkpoint and a guard-rejected photo', () => {
+  // Proves: a photo the guard rejected builds no checkpoint, so no draft mark is ever saved for it.
+  it('builds no checkpoint for a guard-rejected photo', () => {
+    const rejected: ScanSessionState = {
+      ...initialScanSessionState,
+      sourceUri: 'file:///picker/not-cane.jpg',
+      sourceType: 'gallery',
+      status: 'error',
+      guardFailure: 'rejected',
+    };
+    expect(checkpointFor(rejected)).toBeNull();
+    // A guard runtime fault is not a rejection and still checkpoints the photo.
+    expect(checkpointFor({ ...rejected, guardFailure: 'error' })).not.toBeNull();
+  });
+});

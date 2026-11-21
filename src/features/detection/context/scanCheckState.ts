@@ -8,7 +8,9 @@ export type ScanCheckState =
   | 'no-photo'
   | 'checking-photo'
   | 'photo-rejected'
+  | 'checking-sugarcane'
   | 'not-sugarcane'
+  | 'photo-unusable'
   | 'waiting-model'
   | 'analysing'
   | 'result'
@@ -26,6 +28,7 @@ export interface ScanCheckInputs {
     | 'qualityAssessment'
     | 'photoPreparationFailed'
     | 'guardFailure'
+    | 'guardPassed'
   >;
   /** Source 2: the model hook's own state. */
   modelState: 'idle' | 'loading' | 'loaded' | 'error' | (string & {});
@@ -53,6 +56,8 @@ export function deriveScanCheckState({
   if (session.status === 'error') {
     // The guard judged the photo: it is not sugarcane. Distinct from a fault.
     if (session.guardFailure === 'rejected') return 'not-sugarcane';
+    // The guard could not read the file (too large, transparent, unreadable).
+    if (session.guardFailure === 'error' && session.photoPreparationFailed) return 'photo-unusable';
     if (session.photoPreparationFailed) return 'check-failed';
     if (photoFailedCheck && isPhotoChecked(session)) return 'photo-rejected';
     return 'model-failed';
@@ -62,6 +67,7 @@ export function deriveScanCheckState({
   }
   if (photoFailedCheck && isPhotoChecked(session)) return 'photo-rejected';
   if (modelState === 'error') return 'model-failed';
+  if (session.status === 'running' && !session.guardPassed) return 'checking-sugarcane';
   if (session.status === 'running' || session.status === 'finalizing') return 'analysing';
   if (isPhotoChecked(session)) return 'waiting-model';
   return 'checking-photo';

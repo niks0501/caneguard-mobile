@@ -1629,6 +1629,41 @@ export const GUARD_COPY = {
     'The sugarcane photo check is not available on this phone, so scans are paused. Update or reinstall the app, then try again.',
 } as const;
 
+/**
+ * Heading and status line per scan check state. "Photo checked" is only for the
+ * two result states; every other state names what is happening or what failed.
+ * An `error` state shows the session's own message when it has one.
+ */
+export const SCAN_STATE_COPY = {
+  'no-photo': { title: 'No photo selected', detail: 'Take or choose a photo to start.' },
+  'checking-photo': { title: 'Checking your photo…', detail: 'Checking light and focus…' },
+  'photo-rejected': { title: 'Photo not used', detail: SCAN_CHECK_COPY.notAnalysed },
+  'waiting-model': {
+    title: 'Checking your photo…',
+    detail: 'Getting the photo check ready…',
+  },
+  'checking-sugarcane': {
+    title: 'Checking your photo…',
+    detail: 'Checking that this is sugarcane…',
+  },
+  'not-sugarcane': {
+    title: 'Photo not used',
+    detail: GUARD_COPY.rejectedStatus,
+  },
+  'photo-unusable': {
+    title: 'Photo not used',
+    detail: 'This photo can\'t be checked. Choose a smaller photo or take a new one.',
+  },
+  'model-failed': {
+    title: 'Check did not finish',
+    detail: 'The photo check could not finish. Your photo was not analysed. Please try again.',
+  },
+  'check-failed': { title: 'Photo not used', detail: SCAN_CHECK_COPY.notAnalysed },
+  analysing: { title: 'Checking your photo…', detail: 'Sugarcane found. Reading the photo…' },
+  result: { title: SCAN_CHECK_COPY.checkedTitle, detail: SCAN_CHECK_COPY.ready },
+  'result-doubtful': { title: SCAN_CHECK_COPY.checkedTitle, detail: SCAN_CHECK_COPY.ready },
+} as const;
+
 /** Short names under the pictures; the full sentence stays as the screen-reader label. */
 export const SCAN_PICTURE_NAMES = {
   mosaic: 'Mosaic',

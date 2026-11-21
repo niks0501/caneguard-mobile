@@ -26,6 +26,7 @@ const completedResult: DetectionResult = {
 describe('scanSessionReducer', () => {
   it('starts with an empty temporary scan', () => {
     expect(initialScanSessionState).toEqual({
+      guardPassed: false,
       sourceUri: null,
       processedUri: null,
       preprocessMs: null,

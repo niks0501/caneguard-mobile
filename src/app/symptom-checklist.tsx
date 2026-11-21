@@ -10,7 +10,7 @@ import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { GUARD_COPY, SCAN_CHECK_COPY } from '@/constants/copy';
+import { GUARD_COPY, SCAN_CHECK_COPY, SCAN_STATE_COPY } from '@/constants/copy';
 import { ComponentTokens, Layout, Radius, Spacing, Typography } from '@/constants/theme';
 import { useScanAnalysis } from '@/features/detection/analysis/useScanAnalysis';
 import { isGuardedResult } from '@/features/detection/constants/guardContract';
@@ -211,19 +211,13 @@ export default function SymptomChecklistScreen() {
   const photoCheckFailed = photoRejected || checkState === 'check-failed';
   const activeGuardError = completedGuardedResult || photoCheckFailed ? null : guardError;
   const activeModelError = completedGuardedResult || photoCheckFailed ? null : modelError;
-  const statusText = guardRejected
-    ? GUARD_COPY.rejectedStatus
-    : photoRejected
-    ? SCAN_CHECK_COPY.notAnalysed
-    : activeGuardError
-      ? activeGuardError
-      : activeModelError
-      ? activeModelError
-      : state.status === 'error'
-        ? (state.errorMessage ?? SCAN_CHECK_COPY.checking)
-        : isReady
-          ? SCAN_CHECK_COPY.ready
-          : SCAN_CHECK_COPY.checkingDetail;
+  const stateCopy = SCAN_STATE_COPY[checkState];
+  const statusText =
+    guardRejected || photoRejected
+      ? stateCopy.detail
+      : (activeGuardError ??
+        activeModelError ??
+        (state.status === 'error' ? (state.errorMessage ?? stateCopy.detail) : stateCopy.detail));
 
   return (
     <SafeAreaView
@@ -267,7 +261,7 @@ export default function SymptomChecklistScreen() {
                   <Text
                     testID="scan.check-status"
                     style={[styles.statusTitle, { color: theme.primaryDark }]}>
-                    {isReady || photoRejected || guardRejected ? SCAN_CHECK_COPY.checkedTitle : SCAN_CHECK_COPY.checking}
+                    {stateCopy.title}
                   </Text>
                 </View>
                 <Text style={[styles.helperText, { color: theme.textSecondary }]}>

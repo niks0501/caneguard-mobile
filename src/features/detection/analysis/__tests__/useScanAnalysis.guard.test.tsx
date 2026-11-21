@@ -429,7 +429,7 @@ describe('guarded scan: rejection and faults produce no result', () => {
     await waitFor(() => expect(latest.state.status).toBe('error'));
     expect(latest.state.photoPreparationFailed).toBe(true);
     expect(latest.state.errorMessage).toBe(GUARD_COPY.photoTooLarge);
-    expect(latest.analysis.checkState).toBe('check-failed');
+    expect(latest.analysis.checkState).toBe('photo-unusable');
     expect(mockGuard.run).not.toHaveBeenCalled();
     expect(mockV2.run).not.toHaveBeenCalled();
   });

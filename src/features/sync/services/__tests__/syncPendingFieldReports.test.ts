@@ -173,6 +173,37 @@ describe('pending Field Report queue', () => {
     expect(syncFieldReport).toHaveBeenCalledTimes(2);
   });
 
+  it('continues after a too-large report failure', async () => {
+    findSyncCandidates
+      .mockResolvedValueOnce([{ id: 'large-report' }, { id: 'good-report' }])
+      .mockResolvedValueOnce([]);
+    jest.mocked(syncFieldReport)
+      .mockResolvedValueOnce({
+        reportId: 'large-report',
+        status: 'failed',
+        error: new SyncError('UPLOAD_TOO_LARGE', 'Upload is too large.'),
+      })
+      .mockResolvedValueOnce({
+        reportId: 'good-report',
+        remoteId: 'remote-good',
+        status: 'synced',
+      });
+
+    await expect(syncPendingFieldReports({
+      database,
+      districtCode: 'D-01',
+      source: 'startup',
+      submitterIdentity: SUBMITTER_ID,
+      token: 'secure-token',
+    })).resolves.toMatchObject({
+      attempted: 2,
+      failed: 1,
+      haltReason: 'empty',
+      synced: 1,
+    });
+    expect(syncFieldReport).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps a retry scheduled while a failed report is still cooling down', async () => {
     findSyncCandidates.mockResolvedValueOnce([]);
     jest.mocked(hasCoolingRetryableFieldReport).mockResolvedValueOnce(true);

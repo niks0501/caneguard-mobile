@@ -806,7 +806,6 @@ function inferApiReachability(
     switch (syncResult.error.code) {
       case 'NETWORK_UNAVAILABLE':
       case 'NETWORK_REQUEST_FAILED':
-      case 'UPLOAD_TIMED_OUT':
       case 'SERVER_ERROR':
         observation = 'unavailable';
         break;
@@ -816,6 +815,7 @@ function inferApiReachability(
       case 'API_FORBIDDEN':
       case 'API_RATE_LIMITED':
       case 'OFFICE_NOT_READY':
+      case 'UPLOAD_TIMED_OUT':
       case 'UPLOAD_TOO_LARGE':
         observation = 'available';
         break;

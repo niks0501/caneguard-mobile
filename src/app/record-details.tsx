@@ -103,9 +103,11 @@ export default function RecordDetailsScreen() {
           }),
         )
       : null;
+  const deleteLookupUnknown = Boolean(fieldReport.errorMessage);
   const deleteLosesUnsentReport =
-    fieldReport.data?.authoringState === 'finalized' &&
-    fieldReport.data.syncStatus !== 'synced';
+    deleteLookupUnknown ||
+    (fieldReport.data?.authoringState === 'finalized' &&
+      fieldReport.data.syncStatus !== 'synced');
   const [imageUnavailable, setImageUnavailable] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -159,11 +161,14 @@ export default function RecordDetailsScreen() {
   };
 
   const confirmDelete = () => {
+    if (fieldReport.loading) {
+      return;
+    }
     setShowDeleteConfirm(true);
   };
 
   const performDelete = async () => {
-    if (!id || !user || deleting || deleteBlockedByLinkedReport) {
+    if (!id || !user || deleting || fieldReport.loading || deleteBlockedByLinkedReport) {
       return;
     }
     setDeleting(true);
@@ -412,7 +417,7 @@ export default function RecordDetailsScreen() {
                 <AppButton
                   onPress={confirmDelete}
                   busy={deleting}
-                  disabled={deleting}
+                  disabled={deleting || fieldReport.loading}
                   variant="secondary"
                   leadingIcon="trash-2"
                   accessibilityLabel={

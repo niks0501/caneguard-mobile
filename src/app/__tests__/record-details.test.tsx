@@ -515,6 +515,47 @@ describe('RecordDetailsScreen', () => {
     expect(mockDeleteScanRecord).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps delete unavailable while the Field Report lookup is loading', async () => {
+    mockFieldReportState = {
+      ...mockFieldReportState,
+      loading: true,
+    };
+
+    await render(
+      <ToastProvider>
+        <RecordDetailsScreen />
+      </ToastProvider>,
+    );
+
+    const deleteButton = screen.getByLabelText('Delete this local record and saved image');
+    expect(deleteButton).toBeDisabled();
+    await fireEvent.press(deleteButton);
+    expect(screen.queryByTestId('records.confirm-delete')).toBeNull();
+    expect(mockDeleteScanRecord).not.toHaveBeenCalled();
+  });
+
+  it('warns before deleting when the Field Report lookup fails', async () => {
+    mockFieldReportState = {
+      ...mockFieldReportState,
+      errorMessage: 'Reading the Field Report failed.',
+    };
+
+    await render(
+      <ToastProvider>
+        <RecordDetailsScreen />
+      </ToastProvider>,
+    );
+    await fireEvent.press(
+      screen.getByLabelText('Delete this local record and saved image'),
+    );
+
+    expect(screen.getByTestId('records.confirm-delete')).toHaveTextContent(
+      /has not reached the office/,
+    );
+    await fireEvent.press(screen.getByTestId('records.confirm-delete.cancel'));
+    expect(mockDeleteScanRecord).not.toHaveBeenCalled();
+  });
+
   it('deletes nothing when the single delete confirmation is cancelled', async () => {
     await render(
       <ToastProvider>

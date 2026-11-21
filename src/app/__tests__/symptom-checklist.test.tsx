@@ -478,7 +478,7 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     expect(mockRunInference).not.toHaveBeenCalled();
   });
 
-  it('shows a recoverable preprocessing failure and checks again on request', async () => {
+  it('shows a preprocessing file fault with retake actions and no Try again', async () => {
     mockPreprocessImage.mockRejectedValueOnce(
       new PreprocessingError('jpeg-decode-failed', 'decode failed'),
     );
@@ -491,15 +491,12 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
         ).length,
       ).toBeGreaterThan(0);
     });
+    expect(screen.getByTestId('scan.check-status')).toHaveTextContent('Photo could not be used');
+    expect(screen.queryByText('This photo may be hard to read')).not.toBeOnTheScreen();
     expect(mockRouterPush).not.toHaveBeenCalled();
     expect(screen.getByTestId('scan.retake-camera')).toBeEnabled();
     expect(screen.getByTestId('scan.retake-gallery')).toBeEnabled();
-
-    await fireEvent.press(screen.getByTestId('scan.try-again'));
-    await waitFor(() => {
-      expect(mockPreprocessImage).toHaveBeenCalledTimes(2);
-      expect(screen.queryByTestId('scan.photo-failed-check')).not.toBeOnTheScreen();
-    });
+    expect(screen.queryByTestId('scan.try-again')).not.toBeOnTheScreen();
   });
 
   it('shows a recoverable inference failure', async () => {

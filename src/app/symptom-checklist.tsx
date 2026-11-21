@@ -263,7 +263,9 @@ export default function SymptomChecklistScreen() {
   const questionLocked = !state.guardPassed && !completedGuardedResult;
   const photoRejected = checkState === 'photo-rejected';
   const photoUnusable = checkState === 'photo-unusable';
-  const photoCheckFailed = photoRejected || photoUnusable || checkState === 'check-failed';
+  const checkFailed = checkState === 'check-failed';
+  const photoFileFault = photoUnusable || checkFailed;
+  const photoCheckFailed = photoRejected || photoFileFault;
   const activeGuardError = completedGuardedResult || photoCheckFailed ? null : guardError;
   const activeModelError = completedGuardedResult || photoCheckFailed ? null : modelError;
   const stateCopy = SCAN_STATE_COPY[checkState];
@@ -390,7 +392,7 @@ export default function SymptomChecklistScreen() {
                   styles.failedCard,
                   { backgroundColor: theme.warningBg, borderColor: theme.warning },
                 ]}>
-                {photoUnusable ? null : (
+                {photoFileFault ? null : (
                   <>
                     <Text style={[styles.statusTitle, { color: theme.warning }]}>
                       {SCAN_CHECK_COPY.failedTitle}
@@ -476,7 +478,7 @@ export default function SymptomChecklistScreen() {
                     {SCAN_CHECK_COPY.tryAgain}
                   </AppButton>
                 ) : null}
-                {state.status === 'error' && !guardRejected && !photoUnusable ? (
+                {state.status === 'error' && !guardRejected && !photoFileFault ? (
                   <AppButton
                     testID="scan.try-again"
                     variant="secondary"

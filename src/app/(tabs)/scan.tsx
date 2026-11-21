@@ -20,6 +20,8 @@ import {
   takePendingPickerSource,
 } from '@/features/detection/imagePicker/pickScanImage';
 import { readPickerOutcome } from '@/features/detection/imagePicker/readPickerOutcome';
+import { useCaneGuardModel } from '@/features/detection/model/useCaneGuardModel';
+import { useGuardModel } from '@/features/detection/model/useGuardModel';
 import type { ScanSourceType } from '@/features/detection/types';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
@@ -69,6 +71,17 @@ export default function ScanScreen() {
   const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
   const [cameraPermissionBlocked, setCameraPermissionBlocked] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  // Begin loading both models now so the first verdict does not wait for them.
+  // The checklist screen still starts them as a fallback.
+  const startModel = useCaneGuardModel().start;
+  const startGuard = useGuardModel().start;
+  useEffect(() => {
+    startModel();
+  }, [startModel]);
+  useEffect(() => {
+    startGuard();
+  }, [startGuard]);
 
   const applyPickerResult = useCallback(
     (

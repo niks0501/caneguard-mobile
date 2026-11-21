@@ -46,6 +46,19 @@ function readSentryExpoPluginConfig() {
   };
 }
 
+/**
+ * The deployment environment that crash reports are tagged with. Build
+ * profiles name it through EAS_BUILD_PROFILE; `eas update` has no build
+ * profile, so the update workflow names it through EXPO_PUBLIC_APP_ENVIRONMENT.
+ */
+function readAppEnvironment() {
+  return (
+    process.env.EAS_BUILD_PROFILE?.trim() ||
+    process.env.EXPO_PUBLIC_APP_ENVIRONMENT?.trim() ||
+    'development'
+  );
+}
+
 module.exports = ({ config }) => {
   const isQa =
     process.env.EXPO_PUBLIC_QA_MODE === 'true' ||
@@ -58,6 +71,12 @@ module.exports = ({ config }) => {
     process.env.NODE_ENV === 'production';
   const authLinkHost = readAuthLinkHost();
   const sentryPluginConfig = readSentryExpoPluginConfig();
+  const appEnvironment = readAppEnvironment();
+  if (easBuildProfile === 'production' && !sentryPluginConfig) {
+    throw new Error(
+      'Production builds require SENTRY_ORG, SENTRY_PROJECT, and SENTRY_AUTH_TOKEN so source maps and native symbols are uploaded.',
+    );
+  }
   const plugins = [...(config.plugins ?? [])];
   if (sentryPluginConfig) {
     plugins.push(['@sentry/react-native/expo', sentryPluginConfig]);
@@ -75,6 +94,7 @@ module.exports = ({ config }) => {
     // use verified HTTPS App Links so another app cannot claim the token.
     scheme: isReleaseBuild ? undefined : AUTH_LINK_SCHEME,
     plugins,
+    extra: { ...config.extra, appEnvironment },
     android: {
       ...config.android,
       intentFilters: authLinkHost

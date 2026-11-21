@@ -1,0 +1,73 @@
+name: Production over-the-air update
+
+# Manual, separate from the build workflow: the first production release never
+# waits on this lane. Updates are code-signed and published to the `production`
+# channel against the `production` EAS environment.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-ota
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Require dispatch from main
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$REF" != "refs/heads/main" ]; then
+            echo "Production updates must be dispatched from main; received $REF." >&2
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run free verification lane
+        run: npm run verify:fast
+
+      - name: Check production EAS environment
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx --yes eas-cli@25.3.0 env:exec production 'EXPO_NO_DOTENV=1 EAS_BUILD_PROFILE=production node scripts/release-env.js --require-production --skip-upload'
+
+      - name: Write OTA signing key
+        env:
+          EXPO_UPDATES_PRIVATE_KEY: ${{ secrets.EXPO_UPDATES_PRIVATE_KEY }}
+        run: |
+          if [ -z "$EXPO_UPDATES_PRIVATE_KEY" ]; then
+            echo "Required GitHub Actions secret EXPO_UPDATES_PRIVATE_KEY is missing; add the Expo Updates signing private key before publishing." >&2
+            exit 1
+          fi
+          umask 077
+          printf '%s\n' "$EXPO_UPDATES_PRIVATE_KEY" > "$RUNNER_TEMP/updates-key.pem"
+
+      - name: Publish signed update to production channel
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: >-
+          npx --yes eas-cli@25.3.0 env:exec production
+          "EXPO_NO_DOTENV=1 EXPO_PUBLIC_APP_ENVIRONMENT=production eas update --channel production --environment production --platform android --private-key-path \"\$RUNNER_TEMP/updates-key.pem\" --message \"production/\${GITHUB_SHA:0:7}\" --non-interactive --json"
+
+      - name: Remove OTA signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/updates-key.pem"

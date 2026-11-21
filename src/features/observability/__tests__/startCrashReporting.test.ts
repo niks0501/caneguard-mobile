@@ -35,6 +35,9 @@ describe('parseSentryDsn', () => {
     'https://public-key@o123.ingest.sentry.io/1',
     'https://0123456789abcdef0123456789abcdef@o123.ingest.sentry.io',
     'https://0123456789abcdef0123456789abcdef@o123.ingest.sentry.io/1?secret=1',
+    'https://0123456789abcdef0123456789abcdef@o123.ingest.sentry.io/not-a-project',
+    'https://0123456789abcdef0123456789abcdef@o123.ingest.sentry.io/123abc',
+    'https://0123456789abcdef0123456789abcdef@o123.ingest.sentry.io/sentry/9/',
   ])('rejects a malformed DSN: %s', (value) => {
     expect(parseSentryDsn(value)).toBeNull();
   });
@@ -65,6 +68,25 @@ describe('resolveCrashReportingIdentity', () => {
         ios: { bundleIdentifier: 'com.niks0501.caneguard', buildNumber: '7' },
       }),
     ).toEqual({ release: 'com.niks0501.caneguard@1.1.1+7', dist: '7' });
+  });
+
+  it('tags the environment from the app config, with or without a build number', () => {
+    expect(
+      resolveCrashReportingIdentity({
+        ...FULL_APP_CONFIG,
+        extra: { appEnvironment: 'production' },
+      }),
+    ).toEqual({
+      environment: 'production',
+      release: 'com.niks0501.caneguard@1.1.1+42',
+      dist: '42',
+    });
+    expect(
+      resolveCrashReportingIdentity({ extra: { appEnvironment: 'qa' } }),
+    ).toEqual({ environment: 'qa' });
+    expect(
+      resolveCrashReportingIdentity({ extra: { appEnvironment: 7 } }),
+    ).toEqual({});
   });
 
   it('leaves the native SDK to report release and dist without a build number', () => {

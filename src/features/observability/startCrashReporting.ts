@@ -14,6 +14,7 @@ export const SENTRY_DSN_ENV_KEY = 'EXPO_PUBLIC_SENTRY_DSN';
 /** The subset of the Expo app config used to name the release. */
 export interface ExpoAppIdentity {
   slug?: string | null;
+  extra?: { appEnvironment?: unknown } | null;
   name?: string | null;
   version?: string | null;
   android?: { package?: string | null; versionCode?: number | string | null } | null;
@@ -21,6 +22,7 @@ export interface ExpoAppIdentity {
 }
 
 export interface CrashReportingIdentity {
+  environment?: string;
   release?: string;
   dist?: string;
 }
@@ -51,13 +53,14 @@ export function parseSentryDsn(value: string | undefined): string | null {
     return null;
   }
 
+  const projectId = url.pathname.split('/').pop() ?? '';
   // A DSN is `https://<public key>@<host>/<project id>` and may carry a
   // self-hosted path prefix. The key charset matches the one the SDK accepts,
   // so a typo is reported here instead of disabling the SDK silently.
   if (
     url.protocol !== 'https:' ||
     !/^\w+$/.test(url.username) ||
-    url.pathname.length <= 1 ||
+    !/^\d+$/.test(projectId) ||
     url.search ||
     url.hash
   ) {
@@ -85,10 +88,17 @@ export function resolveCrashReportingIdentity(
     nonEmptyString(appConfig?.android?.versionCode) ??
     nonEmptyString(appConfig?.ios?.buildNumber);
 
+  const environment = nonEmptyString(
+    typeof appConfig?.extra?.appEnvironment === 'string'
+      ? appConfig.extra.appEnvironment
+      : null,
+  );
+  const tag = environment ? { environment } : {};
+
   if (!appId || !version || !build) {
-    return {};
+    return tag;
   }
-  return { release: `${appId}@${version}+${build}`, dist: build };
+  return { ...tag, release: `${appId}@${version}+${build}`, dist: build };
 }
 
 /**

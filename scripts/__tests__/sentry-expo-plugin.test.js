@@ -15,7 +15,12 @@ const SENTRY_ENV_KEYS = [
  */
 function resolveConfigWithSentryEnv(values) {
   const previous = new Map();
-  for (const key of [...SENTRY_ENV_KEYS, 'EXPO_PUBLIC_QA_MODE']) {
+  for (const key of [
+    ...SENTRY_ENV_KEYS,
+    'EXPO_PUBLIC_QA_MODE',
+    'EAS_BUILD_PROFILE',
+    'EXPO_PUBLIC_APP_ENVIRONMENT',
+  ]) {
     previous.set(key, process.env[key]);
     delete process.env[key];
   }
@@ -84,6 +89,30 @@ describe('Sentry release-build upload configuration', () => {
 
     expect(JSON.stringify(config)).not.toContain(
       'token-that-must-not-be-embedded',
+    );
+  });
+
+  it('refuses a production build that cannot upload symbols', () => {
+    expect(() =>
+      resolveConfigWithSentryEnv({ EAS_BUILD_PROFILE: 'production' }),
+    ).toThrow(/SENTRY_ORG, SENTRY_PROJECT, and SENTRY_AUTH_TOKEN/);
+  });
+
+  it('tags the environment from the build profile or the update workflow', () => {
+    const production = resolveConfigWithSentryEnv({
+      EAS_BUILD_PROFILE: 'production',
+      SENTRY_ORG: 'caneguard',
+      SENTRY_PROJECT: 'caneguard-mobile',
+      SENTRY_AUTH_TOKEN: 'token',
+    });
+    expect(production.extra.appEnvironment).toBe('production');
+
+    expect(
+      resolveConfigWithSentryEnv({ EXPO_PUBLIC_APP_ENVIRONMENT: 'qa' }).extra
+        .appEnvironment,
+    ).toBe('qa');
+    expect(resolveConfigWithSentryEnv({}).extra.appEnvironment).toBe(
+      'development',
     );
   });
 });

@@ -1,5 +1,9 @@
 import * as SecureStore from 'expo-secure-store';
 
+import {
+  authenticateWithDeviceCredential,
+  getBiometricCapability,
+} from '@/features/auth/services/biometricAuth';
 import { parseCapabilityGrant } from '@/features/auth/domain/sessionState';
 import {
   isMobileUser,
@@ -9,6 +13,9 @@ import {
 const LEGACY_SESSION_KEY = 'caneguard.mobile.session.v1';
 const PROTECTED_SESSION_KEY = 'caneguard.mobile.session.protected.v1';
 const BIOMETRIC_ENABLED_KEY = 'caneguard.mobile.biometric-enabled.v1';
+// Marks a protected session stored behind the device PIN/pattern/password
+// instead of a strong-biometric-bound key (offline cold-start fallback).
+const DEVICE_CREDENTIAL_GATE_KEY = 'caneguard.mobile.device-credential-gate.v1';
 const LOGIN_HISTORY_KEY = 'caneguard.mobile.login-history.v1';
 
 const STORE_OPTIONS: SecureStore.SecureStoreOptions = {
@@ -60,10 +67,13 @@ export async function saveProtectedMobileSession(
 ): Promise<void> {
   assertPersistableSession(session);
   try {
+    const capability = await getBiometricCapability();
+    const deviceCredentialGate =
+      !capability.strongBiometricsAvailable && capability.deviceCredentialAvailable;
     await SecureStore.setItemAsync(
       PROTECTED_SESSION_KEY,
       JSON.stringify(session),
-      PROTECTED_STORE_OPTIONS,
+      deviceCredentialGate ? STORE_OPTIONS : PROTECTED_STORE_OPTIONS,
     );
     try {
       await SecureStore.setItemAsync(
@@ -71,10 +81,16 @@ export async function saveProtectedMobileSession(
         'true',
         STORE_OPTIONS,
       );
+      if (deviceCredentialGate) {
+        await SecureStore.setItemAsync(DEVICE_CREDENTIAL_GATE_KEY, 'true', STORE_OPTIONS);
+      } else {
+        await SecureStore.deleteItemAsync(DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS);
+      }
       await SecureStore.deleteItemAsync(LEGACY_SESSION_KEY, STORE_OPTIONS);
     } catch (error: unknown) {
       await deleteBestEffort(PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS);
       await deleteBestEffort(BIOMETRIC_ENABLED_KEY, STORE_OPTIONS);
+      await deleteBestEffort(DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS);
       throw error;
     }
   } catch (error: unknown) {
@@ -85,9 +101,17 @@ export async function saveProtectedMobileSession(
 export async function readProtectedMobileSession(): Promise<MobileSession | null> {
   let stored: string | null;
   try {
+    const deviceCredentialGate =
+      (await SecureStore.getItemAsync(DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS)) === 'true';
+    if (deviceCredentialGate) {
+      const auth = await authenticateWithDeviceCredential();
+      if (!auth.success) {
+        throw new Error(auth.message);
+      }
+    }
     stored = await SecureStore.getItemAsync(
       PROTECTED_SESSION_KEY,
-      PROTECTED_STORE_OPTIONS,
+      deviceCredentialGate ? STORE_OPTIONS : PROTECTED_STORE_OPTIONS,
     );
   } catch {
     throw new BiometricSessionError(
@@ -159,6 +183,7 @@ export async function disableBiometricUnlock(): Promise<void> {
   for (const [key, options] of [
     [PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS],
     [BIOMETRIC_ENABLED_KEY, STORE_OPTIONS],
+    [DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS],
   ] as const) {
     try {
       await SecureStore.deleteItemAsync(key, options);
@@ -177,6 +202,7 @@ export async function clearMobileSession(): Promise<void> {
     [LEGACY_SESSION_KEY, STORE_OPTIONS],
     [PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS],
     [BIOMETRIC_ENABLED_KEY, STORE_OPTIONS],
+    [DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS],
   ] as const) {
     try {
       await SecureStore.deleteItemAsync(key, options);

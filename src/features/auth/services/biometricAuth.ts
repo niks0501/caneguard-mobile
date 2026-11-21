@@ -26,24 +26,21 @@ export async function getBiometricCapability(): Promise<BiometricCapability> {
       types.length > 0 &&
       level === LocalAuthentication.SecurityLevel.BIOMETRIC_STRONG;
 
-    if (!hasHardware || types.length === 0) {
-      return {
-        deviceCredentialAvailable,
-        status: 'unsupported',
-        strongBiometricsAvailable: false,
-      };
-    }
-    if (!enrolled || level === LocalAuthentication.SecurityLevel.NONE) {
-      return {
-        deviceCredentialAvailable,
-        status: 'not-enrolled',
-        strongBiometricsAvailable: false,
-      };
-    }
+    // A strong biometric gates the stored session at the OS level. Without
+    // one, a device PIN/pattern/password is accepted as a weaker fallback so an
+    // inspector can still reopen the app offline after a restart.
     if (!strongBiometricsAvailable) {
+      if (deviceCredentialAvailable) {
+        return {
+          deviceCredentialAvailable,
+          status: 'available',
+          strongBiometricsAvailable: false,
+        };
+      }
       return {
         deviceCredentialAvailable,
-        status: 'unsupported',
+        status:
+          hasHardware && types.length > 0 && !enrolled ? 'not-enrolled' : 'unsupported',
         strongBiometricsAvailable: false,
       };
     }
@@ -99,9 +96,37 @@ export async function ensureBiometricReady(): Promise<BiometricAuthResult> {
  * explicit prompt stays the single confirmation on that platform.
  */
 export async function confirmBeforeProtectedWrite(): Promise<BiometricAuthResult> {
+  const capability = await getBiometricCapability();
+  if (capability.status === 'available' && !capability.strongBiometricsAvailable) {
+    // The device-credential fallback is not OS-gated per read, so the prompt
+    // here is the explicit confirmation for the write.
+    return authenticateWithDeviceCredential();
+  }
   return Platform.OS === 'android'
     ? ensureBiometricReady()
     : authenticateWithBiometrics();
+}
+
+/** Prompts for the device PIN, pattern, password or any enrolled biometric. */
+export async function authenticateWithDeviceCredential(): Promise<BiometricAuthResult> {
+  const ready = await ensureBiometricReady();
+  if (!ready.success) {
+    return ready;
+  }
+  try {
+    const result = await LocalAuthentication.authenticateAsync({
+      cancelLabel: 'Use password instead',
+      disableDeviceFallback: false,
+      promptMessage: 'Unlock CaneGuard',
+    });
+    return result.success ? { success: true } : mapAuthenticationFailure(result.error);
+  } catch {
+    return {
+      code: 'NOT_AVAILABLE',
+      message: 'Biometric unlock is unavailable. Sign in with your password.',
+      success: false,
+    };
+  }
 }
 
 export async function authenticateWithBiometrics(): Promise<BiometricAuthResult> {

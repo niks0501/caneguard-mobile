@@ -89,7 +89,11 @@ export function AccountSecurityScreen() {
           <Text style={[styles.rowDescription, { color: theme.textSecondary }]}>
             {biometricEnabled
               ? isFarmer ? farmerCopy.biometricOn : 'Biometric unlock is on for this installation.'
-              : biometricCapabilityMessage(biometricCapability?.status, isFarmer ? farmerCopy : undefined)}
+              : biometricCapabilityMessage(
+                  biometricCapability?.status,
+                  isFarmer ? farmerCopy : undefined,
+                  biometricCapability?.strongBiometricsAvailable === false,
+                )}
           </Text>
         </View>
         {biometricEnabled ? (
@@ -184,9 +188,13 @@ function SecurityRow({
 function biometricCapabilityMessage(
   status: 'available' | 'not-enrolled' | 'unsupported' | 'unavailable' | undefined,
   copy?: FarmerCopyBlock['accountSecurityScreen'],
+  deviceCredentialOnly = false,
 ): string {
   switch (status) {
     case 'available':
+      if (deviceCredentialOnly) {
+        return copy?.biometricAvailableDeviceCredential ?? 'No strong biometric found. Your device PIN, pattern or password can unlock CaneGuard offline, with weaker protection.';
+      }
       return copy?.biometricAvailable ?? 'A strong platform biometric is available for this installation.';
     case 'not-enrolled':
       return copy?.biometricNotEnrolled ?? 'Enroll a strong biometric in device settings before enabling this option.';

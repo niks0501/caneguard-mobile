@@ -628,25 +628,27 @@ export function AuthProvider({ children }: PropsWithChildren) {
         });
         const acceptance = await acceptTokenSession(issuedSession);
         const nextSession = acceptance.session;
-        try {
-          if (biometricEnabled) {
-            // A password fallback refreshes the protected credential without
-            // disabling the user's biometric preference for the next cold open.
+        if (biometricEnabled) {
+          // A password fallback refreshes the protected credential without
+          // disabling the user's biometric preference for the next cold open.
+          // Cancelling or failing that refresh must not undo the sign-in: the
+          // password session stays active in memory and the previously stored
+          // credential is left as it was, so a retry never loops on the prompt.
+          try {
             await saveProtectedMobileSession(nextSession);
-          } else {
-            // Password sessions intentionally remain in memory only. A process
-            // restart must return to the login form instead of auto-resuming.
-            if (typeof clearLegacyMobileSession === 'function') {
-              await clearLegacyMobileSession().catch(() => undefined);
+          } catch {
+            const stillConfigured =
+              typeof isBiometricUnlockEnabled === 'function'
+                ? await isBiometricUnlockEnabled().catch(() => false)
+                : false;
+            if (!stillConfigured) {
+              setBiometricEnabled(false);
             }
           }
-        } catch {
-          await clearMobileSession().catch(() => undefined);
-          void logoutMobile(nextSession.token).catch(() => undefined);
-          throw new MobileAuthError(
-            'INVALID_RESPONSE',
-            'Secure session storage is unavailable. Sign in was cancelled.',
-          );
+        } else if (typeof clearLegacyMobileSession === 'function') {
+          // Password sessions intentionally remain in memory only. A process
+          // restart must return to the login form instead of auto-resuming.
+          await clearLegacyMobileSession().catch(() => undefined);
         }
         if (typeof markMobileLoginCompleted === 'function') {
           await markMobileLoginCompleted().catch(() => undefined);

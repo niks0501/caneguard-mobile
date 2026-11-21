@@ -801,6 +801,30 @@ describe('AuthProvider', () => {
     expect(result.current.hasCompletedLogin).toBe(true);
   });
 
+  it('keeps the password sign-in when the protected-session refresh prompt is cancelled', async () => {
+    mockBiometricEnabled.mockResolvedValue(true);
+
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+    expect(result.current.biometricEnabled).toBe(true);
+
+    mockSaveProtected.mockRejectedValueOnce(new Error('cancelled'));
+    mockLogin.mockResolvedValueOnce(SESSION);
+    mockClear.mockClear();
+    mockLogout.mockClear();
+    await act(async () => {
+      await expect(result.current.login('field@caneguard.test', 'password')).resolves.toBe(
+        true,
+      );
+    });
+
+    expect(result.current.status).toBe('authenticated');
+    expect(result.current.biometricEnabled).toBe(true);
+    expect(mockClear).not.toHaveBeenCalled();
+    expect(mockLogout).not.toHaveBeenCalled();
+    expect(result.current.errorMessage).toBeNull();
+  });
+
   it('keeps a protected session with its finite server expiry after biometric unlock', async () => {
     mockBiometricEnabled.mockResolvedValueOnce(true);
     mockBiometricAuth.mockResolvedValueOnce({ success: true });

@@ -63,8 +63,19 @@ describe('mobile biometric capability and authentication', () => {
     });
   });
 
-  it('reports weak biometric enrollment as unsupported', async () => {
+  it('falls back to the device credential when only a weak biometric is enrolled', async () => {
     mockLevel.mockResolvedValue(LocalAuthentication.SecurityLevel.BIOMETRIC_WEAK);
+
+    await expect(getBiometricCapability()).resolves.toEqual({
+      deviceCredentialAvailable: true,
+      status: 'available',
+      strongBiometricsAvailable: false,
+    });
+  });
+
+  it('reports weak biometric enrollment without a device credential as unsupported', async () => {
+    mockLevel.mockResolvedValue(LocalAuthentication.SecurityLevel.NONE);
+    mockEnrolled.mockResolvedValue(true);
 
     await expect(getBiometricCapability()).resolves.toMatchObject({
       status: 'unsupported',
@@ -87,9 +98,16 @@ describe('mobile biometric capability and authentication', () => {
     mockTypes.mockResolvedValue([]);
 
     await expect(getBiometricCapability()).resolves.toMatchObject({
-      status: 'unsupported',
+      status: 'available',
       strongBiometricsAvailable: false,
       deviceCredentialAvailable: true,
+    });
+
+    mockLevel.mockResolvedValue(LocalAuthentication.SecurityLevel.NONE);
+
+    await expect(getBiometricCapability()).resolves.toMatchObject({
+      status: 'unsupported',
+      deviceCredentialAvailable: false,
     });
   });
 

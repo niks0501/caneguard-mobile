@@ -562,7 +562,7 @@ export type FarmerCopyBlock = {
   accountSecurityScreen: {
     title: string; subtitle: string; fallbackName: string; fallbackEmail: string; defaultInstallationName: string;
     expiresUnavailable: string; sessionExpiryUnavailable: string; sessionExpires: (date: string) => string;
-    biometricTitle: string; biometricOn: string; biometricAvailable: string;
+    biometricTitle: string; biometricOn: string; biometricAvailable: string; biometricAvailableDeviceCredential: string;
     biometricNotEnrolled: string; biometricUnsupported: string; biometricUnavailable: string;
     disableBiometric: string; enableBiometric: string; enablingBiometric: string;
     biometricEnableToast: string; biometricEnabledMessage: string;
@@ -921,6 +921,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       sessionExpires: (date) => `Session expires ${date}. Biometric unlock does not extend it.`,
       biometricTitle: 'Biometric unlock', biometricOn: 'Biometric unlock is on for this installation.',
       biometricAvailable: 'A strong platform biometric is available for this installation.',
+      biometricAvailableDeviceCredential: 'No strong biometric found. Your device PIN, pattern or password can unlock CaneGuard offline, with weaker protection.',
       biometricNotEnrolled: 'Enroll a strong biometric in device settings before enabling this option.',
       biometricUnsupported: 'This device does not expose a strong platform biometric. Use password sign-in.',
       biometricUnavailable: 'Biometric capability is unavailable until the native development build is ready. Use password sign-in.',
@@ -1304,6 +1305,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       sessionExpires: (date) => `Mag-e-expire ang session sa ${date}. Hindi ito pinahahaba ng pagbukas gamit ang biometrics.`,
       biometricTitle: 'Pagbukas gamit ang biometrics', biometricOn: 'Naka-on ang pagbukas gamit ang biometrics sa installation na ito.',
       biometricAvailable: 'May magagamit na malakas na biometric sa installation na ito.',
+      biometricAvailableDeviceCredential: 'Walang malakas na biometric. Magagamit ang PIN, pattern o password ng device para i-unlock ang CaneGuard offline, na mas mahina ang proteksyon.',
       biometricNotEnrolled: 'Mag-enroll muna ng malakas na biometric sa settings ng device.',
       biometricUnsupported: 'Walang malakas na biometric ang device na ito. Mag-sign in gamit ang password.',
       biometricUnavailable: 'Hindi pa magagamit ang biometric hangga’t hindi handa ang native development build. Mag-sign in gamit ang password.',

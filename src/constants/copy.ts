@@ -249,68 +249,21 @@ export const OFFLINE_READINESS_COPY = {
     'CaneGuard keeps the existing protected-session boundary: a password-only sign-in is not stored, so closing the app while offline returns you to the sign-in screen. Protected device unlock keeps the same unexpired account resumable offline; it never stores your password or ignores a rejected credential.',
 } as const;
 
-export const OFFLINE_UNLOCK_COPY = {
-  biometric: {
-    title: 'Biometric unlock',
-    on: 'Biometric unlock is on for this installation.',
-    disable: 'Disable biometric unlock',
-    disableToast: 'Biometrics disabled',
-    enable: 'Enable biometric unlock',
-    enabling: 'Enabling…',
-    enableToast: 'Biometrics enabled',
-    enabledMessage:
-      'Biometric unlock is enabled on this installation. It unlocks the stored session after a cold start and never extends the server expiry.',
-    sessionExpires: (date: string) =>
-      `Session expires ${date}. Biometric unlock does not extend it.`,
-    loginButton: 'Unlock with biometrics',
-    loginAccessibility: 'Unlock with biometrics',
-    loading: 'Unlocking...',
-    passwordOnlyRestartLimit:
-      'Password-only sign-in: if CaneGuard closes while you are offline, you must sign in again when a connection returns. Turn on biometric unlock in Account security before visits to resume offline after a restart.',
-    readySheetBody:
-      'Without a signal, closing CaneGuard signs you out. Turn on biometric unlock so you can keep working offline.',
-    readySheetSetUp: 'Set up biometric unlock',
-    readinessTurnOn: 'Turn on biometric unlock in Account security.',
-    homeLine: 'Not ready for offline work. Turn on biometric unlock.',
-    protectedSessionLabel: 'Biometric-protected session',
-    protectedSessionOff:
-      'Off — the protected session cannot restore after a restart. Turn on biometric unlock in Account security.',
-  },
-  deviceCredential: {
-    title: 'Device unlock',
-    on: 'Device unlock is on for this installation.',
-    disable: 'Disable device unlock',
-    disableToast: 'Device unlock disabled',
-    enable: 'Enable device unlock',
-    enabling: 'Enabling…',
-    enableToast: 'Device unlock enabled',
-    enabledMessage:
-      'Device unlock is enabled on this installation. It uses your device PIN, pattern, or password to unlock the stored session after a cold start and never extends the server expiry.',
-    sessionExpires: (date: string) =>
-      `Session expires ${date}. Device unlock does not extend it.`,
-    loginButton: 'Unlock with device credentials',
-    loginAccessibility: 'Unlock with device credentials',
-    loading: 'Unlocking...',
-    passwordOnlyRestartLimit:
-      'Password-only sign-in: if CaneGuard closes while you are offline, you must sign in again when a connection returns. Turn on device unlock in Account security before visits to resume offline after a restart.',
-    readySheetBody:
-      'Without a signal, closing CaneGuard signs you out. Turn on device unlock so you can keep working offline.',
-    readySheetSetUp: 'Set up device unlock',
-    readinessTurnOn: 'Turn on device unlock in Account security.',
-    homeLine: 'Not ready for offline work. Turn on device unlock.',
-    protectedSessionLabel: 'Device-unlock-protected session',
-    protectedSessionOff:
-      'Off — the protected session cannot restore after a restart. Turn on device unlock in Account security.',
-  },
-} as const;
-
+/**
+ * The one reader of the offline-unlock wording. `FARMER_COPY[language].unlock`
+ * owns every string; this only picks the per-capability variant (device PIN
+ * fallback when no strong biometric exists, biometric otherwise). Surfaces
+ * that are not farmer-language pass nothing and get English.
+ */
 export function getOfflineUnlockCopy(
   strongBiometricsAvailable: boolean | null | undefined,
   deviceCredentialAvailable = false,
+  language: FarmerLanguage = 'en',
 ) {
+  const unlock = FARMER_COPY[language].unlock;
   return strongBiometricsAvailable === false && deviceCredentialAvailable
-    ? OFFLINE_UNLOCK_COPY.deviceCredential
-    : OFFLINE_UNLOCK_COPY.biometric;
+    ? unlock.deviceCredential
+    : unlock.biometric;
 }
 
 /** NET-3: shown when a record cannot be finished because the offline access window has closed. */
@@ -492,6 +445,21 @@ export const HOME_NOTE_COPY = {
   },
 } as const;
 
+/** One capability's offline-unlock wording; `FARMER_COPY[language].unlock` owns it. */
+export type OfflineUnlockVariantCopy = {
+  title: string; on: string; disable: string; disableToast: string;
+  enable: string; enabling: string; enableToast: string; enabledMessage: string;
+  sessionExpires: (date: string) => string;
+  loginButton: string; loginAccessibility: string; loading: string;
+  passwordOnlyRestartLimit: string; readySheetBody: string; readySheetSetUp: string;
+  readinessTurnOn: string; homeLine: string;
+  protectedSessionLabel: string; protectedSessionOff: string;
+};
+
+export type FarmerLanguage = 'en' | 'tl';
+
+export type FarmerResultName = 'healthy' | 'mosaic' | 'rust' | 'smut' | 'rssi' | 'unknown';
+
 /**
  * Farmer-facing copy in both supported languages. `FarmerCopyBlock` is the one
  * shared shape for these per-screen blocks, so a string missing from either
@@ -503,10 +471,6 @@ export const HOME_NOTE_COPY = {
  * "Resolved" and "Diagnosis" (and their Tagalog equivalents) never appear in
  * farmer copy; `farmerCopy.test.ts` enforces this for both languages.
  */
-export type FarmerLanguage = 'en' | 'tl';
-
-export type FarmerResultName = 'healthy' | 'mosaic' | 'rust' | 'smut' | 'rssi' | 'unknown';
-
 export type FarmerCopyBlock = {
   greeting: { morning: string; afternoon: string; evening: string };
   home: {
@@ -628,14 +592,9 @@ export type FarmerCopyBlock = {
   };
   accountSecurityScreen: {
     title: string; subtitle: string; fallbackName: string; fallbackEmail: string; defaultInstallationName: string;
-    expiresUnavailable: string; sessionExpiryUnavailable: string; sessionExpires: (date: string) => string;
-    biometricTitle: string; biometricOn: string; biometricAvailable: string; biometricAvailableDeviceCredential: string;
-    deviceCredentialTitle: string; deviceCredentialOn: string; deviceCredentialSessionExpires: (date: string) => string;
-    deviceCredentialDisable: string; deviceCredentialEnable: string; deviceCredentialEnabling: string;
-    deviceCredentialEnableToast: string; deviceCredentialEnabledMessage: string;
+    expiresUnavailable: string; sessionExpiryUnavailable: string;
+    biometricAvailable: string; biometricAvailableDeviceCredential: string;
     biometricNotEnrolled: string; biometricUnsupported: string; biometricUnavailable: string;
-    disableBiometric: string; enableBiometric: string; enablingBiometric: string;
-    biometricEnableToast: string; biometricEnabledMessage: string;
     changePassword: string; changePasswordDescription: string; openChangePassword: string;
     changeEmail: string; changeEmailDescription: (email: string) => string; openChangeEmail: string;
     deviceEnrollment: string; deviceEnrollmentDescription: (name: string) => string;
@@ -646,9 +605,10 @@ export type FarmerCopyBlock = {
     password: { title: string; currentPassword: string; newPassword: string; submit: string; updating: string; confirmTitle: string; confirmMessage: string; confirm: string; toast: string };
     email: { title: string; newEmail: string; currentPassword: string; confirmPassword: string; submit: string; updating: string; confirmTitle: string; confirmMessage: string; confirm: string; toast: string };
     enrollment: { title: string; name: string; nameHelp: string; namePlaceholder: string; currentPassword: string; confirmPassword: string; submit: string; submitting: string; confirmTitle: string; confirmMessage: string; confirm: string; toast: string };
-    biometric: { title: string; currentPassword: string; confirmPassword: string; submit: string; submitting: string; toast: string };
-    deviceCredential: { title: string; currentPassword: string; confirmPassword: string; submit: string; submitting: string; toast: string };
+    disableUnlock: { currentPassword: string; confirmPassword: string; submitting: string };
   };
+  /** Offline-unlock wording, the single owner for every unlock surface. */
+  unlock: { biometric: OfflineUnlockVariantCopy; deviceCredential: OfflineUnlockVariantCopy };
   notificationDetails: {
     headerTitle: string; headerSubtitle: string; advisoryLabel: string; officeMessageLabel: string;
     openRelated: string; openRelatedAccessibility: string; loading: string; unavailableTitle: string;
@@ -990,21 +950,11 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       fallbackName: 'Field Inspector', fallbackEmail: 'Authenticated mobile account', defaultInstallationName: 'CaneGuard mobile device',
       expiresUnavailable: 'Local session safety expiry unavailable; sign in again before continuing.',
       sessionExpiryUnavailable: 'Session expiry is unavailable. Sign in again to establish a server session.',
-      sessionExpires: (date) => `Session expires ${date}. Biometric unlock does not extend it.`,
-      biometricTitle: 'Biometric unlock', biometricOn: 'Biometric unlock is on for this installation.',
       biometricAvailable: 'A strong platform biometric is available for this installation.',
       biometricAvailableDeviceCredential: 'No strong biometric found. Your device PIN, pattern or password can unlock CaneGuard offline, with weaker protection.',
-      deviceCredentialTitle: 'Device unlock', deviceCredentialOn: 'Device unlock is on for this installation.',
-      deviceCredentialSessionExpires: (date) => `Session expires ${date}. Device unlock does not extend it.`,
-      deviceCredentialDisable: 'Disable device unlock', deviceCredentialEnable: 'Enable device unlock',
-      deviceCredentialEnabling: 'Enabling…', deviceCredentialEnableToast: 'Device unlock enabled',
-      deviceCredentialEnabledMessage: 'Device unlock is enabled on this installation. It uses your device PIN, pattern, or password to unlock the stored session after a cold start and never extends the server expiry.',
       biometricNotEnrolled: 'Enroll a strong biometric in device settings before enabling this option.',
       biometricUnsupported: 'This device does not expose a strong platform biometric. Use password sign-in.',
       biometricUnavailable: 'Biometric capability is unavailable until the native development build is ready. Use password sign-in.',
-      disableBiometric: 'Disable biometric unlock', enableBiometric: 'Enable biometric unlock',
-      enablingBiometric: 'Enabling…', biometricEnableToast: 'Biometrics enabled',
-      biometricEnabledMessage: 'Biometric unlock is enabled on this installation. It unlocks the stored session after a cold start and never extends the server expiry.',
       changePassword: 'Change password',
       changePasswordDescription: 'Password protection is on. Changing your password signs out every active session.',
       openChangePassword: 'Open the change password form', changeEmail: 'Change email',
@@ -1019,8 +969,61 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       password: { title: 'Change password', currentPassword: 'Current password', newPassword: 'New password', submit: 'Change password', updating: 'Updating…', confirmTitle: 'Change password?', confirmMessage: 'Changing your password signs out every active session. You will need to sign in again with your new password.', confirm: 'Yes, change it', toast: 'Password updated' },
       email: { title: 'Change email', newEmail: 'New email', currentPassword: 'Current password', confirmPassword: 'Enter your password to change email', submit: 'Change email', updating: 'Updating…', confirmTitle: 'Change email?', confirmMessage: 'Changing your email signs out every active session and requires verification of the new address.', confirm: 'Yes, change it', toast: 'Email updated' },
       enrollment: { title: 'Device enrollment', name: 'Installation name', nameHelp: 'A name for this installation on the office system. It is stored securely and is not a hardware identifier.', namePlaceholder: 'CaneGuard mobile device', currentPassword: 'Current password', confirmPassword: 'Enter your password to enroll this device', submit: 'Enroll this installation', submitting: 'Enrolling…', confirmTitle: 'Enroll this installation?', confirmMessage: 'This installation will be enrolled with a fresh server session. Existing sessions on other device identities are unchanged.', confirm: 'Enroll', toast: 'Device enrolled' },
-      biometric: { title: 'Disable biometric unlock', currentPassword: 'Current password', confirmPassword: 'Enter your password to disable', submit: 'Disable biometric unlock', submitting: 'Disabling…', toast: 'Biometrics disabled' },
-      deviceCredential: { title: 'Disable device unlock', currentPassword: 'Current password', confirmPassword: 'Enter your password to disable', submit: 'Disable device unlock', submitting: 'Disabling…', toast: 'Device unlock disabled' },
+      disableUnlock: { currentPassword: 'Current password', confirmPassword: 'Enter your password to disable', submitting: 'Disabling…' },
+    },
+    unlock: {
+      biometric: {
+        title: 'Biometric unlock',
+        on: 'Biometric unlock is on for this installation.',
+        disable: 'Disable biometric unlock',
+        disableToast: 'Biometrics disabled',
+        enable: 'Enable biometric unlock',
+        enabling: 'Enabling…',
+        enableToast: 'Biometrics enabled',
+        enabledMessage:
+          'Biometric unlock is enabled on this installation. It unlocks the stored session after a cold start and never extends the server expiry.',
+        sessionExpires: (date: string) =>
+          `Session expires ${date}. Biometric unlock does not extend it.`,
+        loginButton: 'Unlock with biometrics',
+        loginAccessibility: 'Unlock with biometrics',
+        loading: 'Unlocking...',
+        passwordOnlyRestartLimit:
+          'Password-only sign-in: if CaneGuard closes while you are offline, you must sign in again when a connection returns. Turn on biometric unlock in Account security before visits to resume offline after a restart.',
+        readySheetBody:
+          'Without a signal, closing CaneGuard signs you out. Turn on biometric unlock so you can keep working offline.',
+        readySheetSetUp: 'Set up biometric unlock',
+        readinessTurnOn: 'Turn on biometric unlock in Account security.',
+        homeLine: 'Not ready for offline work. Turn on biometric unlock.',
+        protectedSessionLabel: 'Biometric-protected session',
+        protectedSessionOff:
+          'Off — the protected session cannot restore after a restart. Turn on biometric unlock in Account security.',
+      },
+      deviceCredential: {
+        title: 'Device unlock',
+        on: 'Device unlock is on for this installation.',
+        disable: 'Disable device unlock',
+        disableToast: 'Device unlock disabled',
+        enable: 'Enable device unlock',
+        enabling: 'Enabling…',
+        enableToast: 'Device unlock enabled',
+        enabledMessage:
+          'Device unlock is enabled on this installation. It uses your device PIN, pattern, or password to unlock the stored session after a cold start and never extends the server expiry.',
+        sessionExpires: (date: string) =>
+          `Session expires ${date}. Device unlock does not extend it.`,
+        loginButton: 'Unlock with device credentials',
+        loginAccessibility: 'Unlock with device credentials',
+        loading: 'Unlocking...',
+        passwordOnlyRestartLimit:
+          'Password-only sign-in: if CaneGuard closes while you are offline, you must sign in again when a connection returns. Turn on device unlock in Account security before visits to resume offline after a restart.',
+        readySheetBody:
+          'Without a signal, closing CaneGuard signs you out. Turn on device unlock so you can keep working offline.',
+        readySheetSetUp: 'Set up device unlock',
+        readinessTurnOn: 'Turn on device unlock in Account security.',
+        homeLine: 'Not ready for offline work. Turn on device unlock.',
+        protectedSessionLabel: 'Device-unlock-protected session',
+        protectedSessionOff:
+          'Off — the protected session cannot restore after a restart. Turn on device unlock in Account security.',
+      },
     },
     notificationDetails: {
       headerTitle: 'Office update', headerSubtitle: 'Advice from the CaneGuard office',
@@ -1380,21 +1383,11 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       fallbackName: 'Inspektor sa bukid', fallbackEmail: 'Naka-sign in na mobile account', defaultInstallationName: 'Mobile device ng CaneGuard',
       expiresUnavailable: 'Hindi makuha ang lokal na takdang oras ng session; mag-sign in muli bago magpatuloy.',
       sessionExpiryUnavailable: 'Hindi makuha ang takdang oras ng session. Mag-sign in muli para magkaroon ng server session.',
-      sessionExpires: (date) => `Mag-e-expire ang session sa ${date}. Hindi ito pinahahaba ng pagbukas gamit ang biometrics.`,
-      biometricTitle: 'Pagbukas gamit ang biometrics', biometricOn: 'Naka-on ang pagbukas gamit ang biometrics sa installation na ito.',
       biometricAvailable: 'May magagamit na malakas na biometric sa installation na ito.',
       biometricAvailableDeviceCredential: 'Walang malakas na biometric. Magagamit ang PIN, pattern o password ng device para i-unlock ang CaneGuard offline, na mas mahina ang proteksyon.',
-      deviceCredentialTitle: 'Pagbukas gamit ang device', deviceCredentialOn: 'Naka-on ang pagbukas gamit ang device sa installation na ito.',
-      deviceCredentialSessionExpires: (date) => `Mag-e-expire ang session sa ${date}. Hindi ito pinahahaba ng pagbukas gamit ang device.`,
-      deviceCredentialDisable: 'I-off ang pagbukas gamit ang device', deviceCredentialEnable: 'I-on ang pagbukas gamit ang device',
-      deviceCredentialEnabling: 'Ino-on…', deviceCredentialEnableToast: 'Naka-on ang pagbukas gamit ang device',
-      deviceCredentialEnabledMessage: 'Naka-on ang pagbukas gamit ang device sa installation na ito. Gagamit ito ng PIN, pattern o password ng device para buksan ang nakaimbak na session matapos magsara at muling magbukas ang app, pero hindi nito pinahahaba ang bisa ng server session.',
       biometricNotEnrolled: 'Mag-enroll muna ng malakas na biometric sa settings ng device.',
       biometricUnsupported: 'Walang malakas na biometric ang device na ito. Mag-sign in gamit ang password.',
       biometricUnavailable: 'Hindi pa magagamit ang biometric hangga’t hindi handa ang native development build. Mag-sign in gamit ang password.',
-      disableBiometric: 'I-off ang pagbukas gamit ang biometrics', enableBiometric: 'I-on ang pagbukas gamit ang biometrics',
-      enablingBiometric: 'Ino-on…', biometricEnableToast: 'Naka-on ang biometrics',
-      biometricEnabledMessage: 'Naka-on ang pagbukas gamit ang biometrics sa installation na ito. Binubuksan nito ang nakaimbak na session matapos magsara at muling magbukas ang app, pero hindi nito pinahahaba ang bisa ng server session.',
       changePassword: 'Palitan ang password',
       changePasswordDescription: 'Protektado ang account ng password. Kapag pinalitan ito, mala-log out ang lahat ng aktibong session.',
       openChangePassword: 'Buksan ang form para palitan ang password', changeEmail: 'Palitan ang email',
@@ -1409,8 +1402,61 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       password: { title: 'Palitan ang password', currentPassword: 'Kasalukuyang password', newPassword: 'Bagong password', submit: 'Palitan ang password', updating: 'Ina-update…', confirmTitle: 'Palitan ang password?', confirmMessage: 'Mala-log out ang lahat ng aktibong session kapag pinalitan ang password. Mag-sign in muli gamit ang bagong password.', confirm: 'Kumpirmahin ang pagpapalit', toast: 'Na-update ang password' },
       email: { title: 'Palitan ang email', newEmail: 'Bagong email', currentPassword: 'Kasalukuyang password', confirmPassword: 'Kumpirmahin para palitan ang email', submit: 'Palitan ang email', updating: 'Ina-update…', confirmTitle: 'Palitan ang email?', confirmMessage: 'Mala-log out ang lahat ng aktibong session kapag pinalitan ang email. Kailangang beripikahin ang bagong address.', confirm: 'Kumpirmahin ang pagpapalit', toast: 'Na-update ang email' },
       enrollment: { title: 'Pag-enroll ng device', name: 'Pangalan ng installation', nameHelp: 'Pangalan ng installation na ito sa system ng opisina. Ligtas itong itinatago at hindi ito pagkakakilanlan ng hardware.', namePlaceholder: 'Mobile device ng CaneGuard', currentPassword: 'Kasalukuyang password', confirmPassword: 'Kumpirmahin ang installation na ito', submit: 'I-enroll ang installation na ito', submitting: 'Nag-e-enroll…', confirmTitle: 'I-enroll ang installation na ito?', confirmMessage: 'Gagamit ang installation na ito ng bagong server session. Hindi mababago ang ibang session sa iba pang device.', confirm: 'I-enroll', toast: 'Na-enroll ang device' },
-      biometric: { title: 'I-off ang pagbukas gamit ang biometrics', currentPassword: 'Kasalukuyang password', confirmPassword: 'Kumpirmahin para i-off', submit: 'I-off ang pagbukas gamit ang biometrics', submitting: 'Ino-off…', toast: 'Naka-off ang biometrics' },
-      deviceCredential: { title: 'I-off ang pagbukas gamit ang device', currentPassword: 'Kasalukuyang password', confirmPassword: 'Kumpirmahin para i-off', submit: 'I-off ang pagbukas gamit ang device', submitting: 'Ino-off…', toast: 'Naka-off ang pagbukas gamit ang device' },
+      disableUnlock: { currentPassword: 'Kasalukuyang password', confirmPassword: 'Kumpirmahin para i-off', submitting: 'Ino-off…' },
+    },
+    unlock: {
+      biometric: {
+        title: 'Pagbukas gamit ang biometrics',
+        on: 'Naka-on ang pagbukas gamit ang biometrics sa installation na ito.',
+        disable: 'I-off ang pagbukas gamit ang biometrics',
+        disableToast: 'Naka-off ang biometrics',
+        enable: 'I-on ang pagbukas gamit ang biometrics',
+        enabling: 'Ino-on…',
+        enableToast: 'Naka-on ang biometrics',
+        enabledMessage:
+          'Naka-on ang pagbukas gamit ang biometrics sa installation na ito. Binubuksan nito ang nakaimbak na session matapos magsara at muling magbukas ang app, pero hindi nito pinahahaba ang bisa ng server session.',
+        sessionExpires: (date) =>
+          `Mag-e-expire ang session sa ${date}. Hindi ito pinahahaba ng pagbukas gamit ang biometrics.`,
+        loginButton: 'Buksan gamit ang biometrics',
+        loginAccessibility: 'Buksan gamit ang biometrics',
+        loading: 'Binubuksan…',
+        passwordOnlyRestartLimit:
+          'Password lang ang ginamit sa pag-sign in: kung magsara ang CaneGuard habang offline ka, kailangan mong mag-sign in muli pagbalik ng koneksyon. I-on ang pagbukas gamit ang biometrics sa Seguridad ng account bago ang mga pagbisita para makapagpatuloy offline matapos magsara ang app.',
+        readySheetBody:
+          'Kapag walang signal, mala-log out ka kapag isinara ang CaneGuard. I-on ang pagbukas gamit ang biometrics para makapagtrabaho ka pa rin offline.',
+        readySheetSetUp: 'I-set up ang pagbukas gamit ang biometrics',
+        readinessTurnOn: 'I-on ang pagbukas gamit ang biometrics sa Seguridad ng account.',
+        homeLine: 'Hindi pa handa para sa offline na trabaho. I-on ang pagbukas gamit ang biometrics.',
+        protectedSessionLabel: 'Session na protektado ng biometrics',
+        protectedSessionOff:
+          'Off — hindi maibabalik ang protektadong session matapos magsara ang app. I-on ang pagbukas gamit ang biometrics sa Seguridad ng account.',
+      },
+      deviceCredential: {
+        title: 'Pagbukas gamit ang device',
+        on: 'Naka-on ang pagbukas gamit ang device sa installation na ito.',
+        disable: 'I-off ang pagbukas gamit ang device',
+        disableToast: 'Naka-off ang pagbukas gamit ang device',
+        enable: 'I-on ang pagbukas gamit ang device',
+        enabling: 'Ino-on…',
+        enableToast: 'Naka-on ang pagbukas gamit ang device',
+        enabledMessage:
+          'Naka-on ang pagbukas gamit ang device sa installation na ito. Gagamit ito ng PIN, pattern o password ng device para buksan ang nakaimbak na session matapos magsara at muling magbukas ang app, pero hindi nito pinahahaba ang bisa ng server session.',
+        sessionExpires: (date) =>
+          `Mag-e-expire ang session sa ${date}. Hindi ito pinahahaba ng pagbukas gamit ang device.`,
+        loginButton: 'Buksan gamit ang device',
+        loginAccessibility: 'Buksan gamit ang device',
+        loading: 'Binubuksan…',
+        passwordOnlyRestartLimit:
+          'Password lang ang ginamit sa pag-sign in: kung magsara ang CaneGuard habang offline ka, kailangan mong mag-sign in muli pagbalik ng koneksyon. I-on ang pagbukas gamit ang device sa Seguridad ng account bago ang mga pagbisita para makapagpatuloy offline matapos magsara ang app.',
+        readySheetBody:
+          'Kapag walang signal, mala-log out ka kapag isinara ang CaneGuard. I-on ang pagbukas gamit ang device para makapagtrabaho ka pa rin offline.',
+        readySheetSetUp: 'I-set up ang pagbukas gamit ang device',
+        readinessTurnOn: 'I-on ang pagbukas gamit ang device sa Seguridad ng account.',
+        homeLine: 'Hindi pa handa para sa offline na trabaho. I-on ang pagbukas gamit ang device.',
+        protectedSessionLabel: 'Session na protektado ng pagbukas gamit ang device',
+        protectedSessionOff:
+          'Off — hindi maibabalik ang protektadong session matapos magsara ang app. I-on ang pagbukas gamit ang device sa Seguridad ng account.',
+      },
     },
     notificationDetails: {
       headerTitle: 'Update mula sa opisina', headerSubtitle: 'Payo mula sa tanggapan ng CaneGuard',

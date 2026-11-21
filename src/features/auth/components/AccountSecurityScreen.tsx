@@ -37,32 +37,11 @@ export function AccountSecurityScreen() {
   const deviceCredentialOnly =
     biometricCapability?.strongBiometricsAvailable === false &&
     biometricCapability?.deviceCredentialAvailable === true;
-  const unlockCopy = isFarmer
-    ? deviceCredentialOnly
-      ? {
-          title: farmerCopy.deviceCredentialTitle,
-          on: farmerCopy.deviceCredentialOn,
-          disable: farmerCopy.deviceCredentialDisable,
-          enable: farmerCopy.deviceCredentialEnable,
-          enabling: farmerCopy.deviceCredentialEnabling,
-          enableToast: farmerCopy.deviceCredentialEnableToast,
-          enabledMessage: farmerCopy.deviceCredentialEnabledMessage,
-          sessionExpires: farmerCopy.deviceCredentialSessionExpires,
-        }
-      : {
-          title: farmerCopy.biometricTitle,
-          on: farmerCopy.biometricOn,
-          disable: farmerCopy.disableBiometric,
-          enable: farmerCopy.enableBiometric,
-          enabling: farmerCopy.enablingBiometric,
-          enableToast: farmerCopy.biometricEnableToast,
-          enabledMessage: farmerCopy.biometricEnabledMessage,
-          sessionExpires: farmerCopy.sessionExpires,
-        }
-    : getOfflineUnlockCopy(
-        biometricCapability?.strongBiometricsAvailable,
-        biometricCapability?.deviceCredentialAvailable,
-      );
+  const unlockCopy = getOfflineUnlockCopy(
+    biometricCapability?.strongBiometricsAvailable,
+    biometricCapability?.deviceCredentialAvailable,
+    isFarmer ? language : 'en',
+  );
   const displayedError = isFarmer
     ? farmerAuthErrorMessage(errorMessage, languageCopy.authErrors)
     : errorMessage;

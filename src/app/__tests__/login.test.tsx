@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { FARMER_COPY } from '@/constants/copy';
 import { router } from 'expo-router';
 
 import LoginScreen from '@/app/login';
@@ -106,6 +107,9 @@ describe('LoginScreen biometric fallback', () => {
 
     await render(<LoginScreen />);
 
+    expect(screen.getByTestId('auth.biometric-unlock')).toHaveTextContent(
+      FARMER_COPY.en.unlock.deviceCredential.loginButton,
+    );
     expect(screen.getByTestId('auth.biometric-unlock')).toHaveTextContent(
       'Unlock with device credentials',
     );

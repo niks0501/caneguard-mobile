@@ -1421,7 +1421,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       retry: 'Subukan muli', referenceFallback: 'Update mula sa opisina', recently: 'Kamakailan',
     },
     authErrors: {
-      generic: 'Hindi nakumpleto ang pagpapatotoo. Subukan muli.', 
+      generic: 'Hindi nakumpleto ang pagpapatotoo. Subukan muli.',
       invalidCredentials: 'Hindi tama ang email o password.',
       emailNotVerified: 'Beripikahin ang iyong email bago mag-sign in sa CaneGuard.',
       forbiddenRole: 'Hindi maaaring mag-sign in sa CaneGuard Mobile ang ganitong uri ng account.',

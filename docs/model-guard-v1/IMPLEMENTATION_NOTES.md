@@ -11,6 +11,9 @@ photo (camera or gallery) -> V2 letterbox + quality gate (unchanged)
       >= 0.75 -> V2 runs once (five labels incl. RSSI); result carries guardModelId
       <  0.75 -> "not sugarcane" retake message, zero V2, no result
       fault   -> "check could not finish" + Try again, zero V2, no result
+   the observation question is visible throughout but answerable only after
+   this gate accepts the current photo (a restored guarded result stays
+   answerable); a rejection or fault leaves it locked
 ```
 
 | Piece | File |
@@ -22,7 +25,7 @@ photo (camera or gallery) -> V2 letterbox + quality gate (unchanged)
 | Direct-resize tensor: JPEG/PNG in-memory JS decode, EXIF orient, bilinear resize, opaque alpha only (602112 bytes); WebP uses the documented conversion path | `preprocessing/guardPreprocess.ts`, `decodePng.ts` |
 | Gate, run tokens, stale photo/owner protection | `analysis/useScanAnalysis.ts` |
 | Failure state; resumed drafts and records require the marker | `scanSessionReducer.ts`, `scanCheckState.ts`, `scanDraftCheckpoint.ts`, `recordValidation.ts` |
-| Copy / UI | `GUARD_COPY` and the per-state heading/status line in `SCAN_STATE_COPY`, both in `src/constants/copy.ts`; `src/app/symptom-checklist.tsx` renders them. The Scan tab shows `FARMER_COPY.scanScreen.photoNotUsable` instead of the error card when the photo is rejected or unusable; a guard fault or a picker/permission failure keeps the error card (`src/app/(tabs)/scan.tsx`) |
+| Copy / UI | `GUARD_COPY`, the per-state heading/status line in `SCAN_STATE_COPY`, and the locked-question line in `SCAN_CHECK_COPY`, all in `src/constants/copy.ts`; `src/app/symptom-checklist.tsx` renders them. The Scan tab shows `FARMER_COPY.scanScreen.photoNotUsable` instead of the error card when the photo is rejected or unusable; a guard fault or a picker/permission failure keeps the error card (`src/app/(tabs)/scan.tsx`) |
 
 V2 preprocessing, weights, labels, versions and the RSSI confidence-caution threshold are untouched.
 

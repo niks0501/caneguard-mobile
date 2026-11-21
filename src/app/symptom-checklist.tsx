@@ -335,9 +335,17 @@ export default function SymptomChecklistScreen() {
                   onPress={() => void replaceImage('camera')}
                   leadingIcon="camera"
                   accessibilityLabel={
-                    isFarmer ? farmer.replaceCameraAccessibility : 'Take another photo with the camera'
+                    photoUnusable
+                      ? GUARD_COPY.unusableRetakeCamera
+                      : isFarmer
+                        ? farmer.replaceCameraAccessibility
+                        : 'Take another photo with the camera'
                   }>
-                  {isFarmer ? farmer.replaceCamera : SCAN_CHECK_COPY.retakeCamera}
+                  {photoUnusable
+                    ? GUARD_COPY.unusableRetakeCamera
+                    : isFarmer
+                      ? farmer.replaceCamera
+                      : SCAN_CHECK_COPY.retakeCamera}
                 </AppButton>
                 <AppButton
                   testID="scan.retake-gallery"
@@ -346,11 +354,17 @@ export default function SymptomChecklistScreen() {
                   onPress={() => void replaceImage('gallery')}
                   leadingIcon="image"
                   accessibilityLabel={
-                    isFarmer
-                      ? farmer.replaceGalleryAccessibility
-                      : 'Choose another photo from the gallery'
+                    photoUnusable
+                      ? GUARD_COPY.unusableRetakeGallery
+                      : isFarmer
+                        ? farmer.replaceGalleryAccessibility
+                        : 'Choose another photo from the gallery'
                   }>
-                  {isFarmer ? farmer.replaceGallery : SCAN_CHECK_COPY.retakeGallery}
+                  {photoUnusable
+                    ? GUARD_COPY.unusableRetakeGallery
+                    : isFarmer
+                      ? farmer.replaceGallery
+                      : SCAN_CHECK_COPY.retakeGallery}
                 </AppButton>
                 {guardRejected ? (
                   <AppButton

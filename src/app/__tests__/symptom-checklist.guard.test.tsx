@@ -331,8 +331,8 @@ describe('SymptomChecklistScreen with required Guard V1', () => {
     expect(screen.getByTestId('scan.check-status')).toHaveTextContent(GUARD_COPY.unusableTitle);
     expect(screen.getByText(reason)).toBeOnTheScreen();
     expect(screen.queryByText(SCAN_CHECK_COPY.failedTitle)).not.toBeOnTheScreen();
-    expect(screen.getByTestId('scan.retake-camera')).toBeOnTheScreen();
-    expect(screen.getByTestId('scan.retake-gallery')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.retake-camera')).toHaveTextContent('Take a new photo');
+    expect(screen.getByTestId('scan.retake-gallery')).toHaveTextContent('Choose another photo');
     expect(screen.queryByTestId('scan.try-again')).not.toBeOnTheScreen();
     expect(mockRunInference).not.toHaveBeenCalled();
   });

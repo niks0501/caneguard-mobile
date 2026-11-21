@@ -307,6 +307,42 @@ describe('submission image preparation', () => {
     expect(mockManipulateAsync).not.toHaveBeenCalled();
   });
 
+  it('recompresses an oversized persisted source to the submission target', async () => {
+    const persistedSizeBytes = 5 * 1024 * 1024;
+    seedFile(SOURCE_URI, {
+      mimeType: 'image/jpeg',
+      size: persistedSizeBytes,
+    });
+    mockManipulateAsync.mockImplementation(async () => {
+      const uri = 'file:///cache/recompressed-persisted-source.jpg';
+      seedFile(uri, {
+        mimeType: 'image/jpeg',
+        size: MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES,
+      });
+      return { uri, width: 1600, height: 1200 };
+    });
+
+    const result = await prepareSubmissionImage(
+      input({
+        sourceSizeBytes: persistedSizeBytes,
+        submissionImageMimeType: 'image/jpeg',
+        submissionImageSizeBytes: persistedSizeBytes,
+        submissionImageUri: SOURCE_URI,
+      }),
+    );
+
+    expect(result).toEqual({
+      artifact: {
+        mimeType: 'image/jpeg',
+        sizeBytes: MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES,
+        uri: getSubmissionImageUri(RECORD_ID, OWNER_ID),
+      },
+      created: true,
+      requiresPersistence: true,
+    });
+    expect(mockManipulateAsync).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ['HEIC', 'image/heic'],
     ['HEIF', 'image/heif'],

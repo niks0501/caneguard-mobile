@@ -73,7 +73,18 @@ export function isValidSubmissionImageMetadata(input: {
   return (
     uri === input.sourceUri.trim() ||
     (mimeType === 'image/jpeg' &&
-      sizeBytes <= MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES)
+      sizeBytes <= MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES)
+  );
+}
+
+export function isWithinMobileReportUploadSubmissionTarget(
+  sizeBytes: number | null | undefined,
+): boolean {
+  return (
+    typeof sizeBytes === 'number' &&
+    Number.isInteger(sizeBytes) &&
+    sizeBytes > 0 &&
+    sizeBytes <= MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES
   );
 }
 
@@ -87,9 +98,6 @@ export function canReuseSourceAsSubmissionImage(input: {
   const mimeType = normalizeMobileReportImageMimeType(input.mimeType);
   return Boolean(
     mimeType &&
-      typeof input.sizeBytes === 'number' &&
-      Number.isInteger(input.sizeBytes) &&
-      input.sizeBytes > 0 &&
-      input.sizeBytes <= MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES,
+      isWithinMobileReportUploadSubmissionTarget(input.sizeBytes),
   );
 }

@@ -1703,6 +1703,7 @@ export const SCAN_CHECK_COPY = {
  * could not finish. The two are never worded alike.
  */
 export const GUARD_COPY = {
+  unusableTitle: "This photo can't be checked",
   rejectedTitle: 'This does not look like sugarcane',
   rejectedStatus:
     'CaneGuard could not see sugarcane in this photo, so it was not analysed. Take a new photo of a sugarcane leaf, stalk, or shoot and fill most of the frame with the plant.',
@@ -1716,6 +1717,8 @@ export const GUARD_COPY = {
   failed: 'The sugarcane photo check could not finish. Your photo was not analysed. Please try again.',
   photoTooLarge:
     'This photo is too large for the sugarcane photo check. Choose a smaller photo or take a new one.',
+  photoUnreadable:
+    'This photo could not be read. It may be damaged or transparent. Choose another photo or take a new one.',
   unavailable:
     'The sugarcane photo check is not available on this phone, so scans are paused. Update or reinstall the app, then try again.',
 } as const;
@@ -1746,8 +1749,8 @@ export const SCAN_STATE_COPY = {
     detail: GUARD_COPY.rejectedStatus,
   },
   'photo-unusable': {
-    title: 'Photo not used',
-    detail: 'This photo can\'t be checked. Choose a smaller photo or take a new one.',
+    title: GUARD_COPY.unusableTitle,
+    detail: GUARD_COPY.photoTooLarge,
   },
   'model-failed': {
     title: 'Check did not finish',

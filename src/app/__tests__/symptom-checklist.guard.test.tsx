@@ -314,4 +314,26 @@ describe('SymptomChecklistScreen with required Guard V1', () => {
     expect(screen.getByTestId('scan.continue-to-result')).toBeDisabled();
     expect(screen.queryByTestId('scan.retry-guard')).not.toBeOnTheScreen();
   });
+
+  // Proves: a file the guard cannot read (too large, or unreadable/transparent) shows its own title and reason, both retake buttons and no Try again.
+  it.each([
+    ['too large', new GuardError('GUARD_INPUT_TOO_LARGE', 'big'), GUARD_COPY.photoTooLarge],
+    ['unreadable', new GuardError('GUARD_INPUT_INVALID', 'decode'), GUARD_COPY.photoUnreadable],
+  ])('shows the unusable-photo state for a %s file', async (_name, error, reason) => {
+    mockPreprocessGuard.mockRejectedValue(error);
+    await renderScreen();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('scan.check-state')).toHaveProp('accessibilityValue', {
+        text: 'photo-unusable',
+      }),
+    );
+    expect(screen.getByTestId('scan.check-status')).toHaveTextContent(GUARD_COPY.unusableTitle);
+    expect(screen.getByText(reason)).toBeOnTheScreen();
+    expect(screen.queryByText(SCAN_CHECK_COPY.failedTitle)).not.toBeOnTheScreen();
+    expect(screen.getByTestId('scan.retake-camera')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.retake-gallery')).toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.try-again')).not.toBeOnTheScreen();
+    expect(mockRunInference).not.toHaveBeenCalled();
+  });
 });

@@ -124,6 +124,8 @@ export function getGuardErrorMessage(error: unknown): string {
       return GUARD_COPY.unavailable;
     case 'GUARD_INPUT_TOO_LARGE':
       return GUARD_COPY.photoTooLarge;
+    case 'GUARD_INPUT_INVALID':
+      return GUARD_COPY.photoUnreadable;
     default:
       return GUARD_COPY.failed;
   }

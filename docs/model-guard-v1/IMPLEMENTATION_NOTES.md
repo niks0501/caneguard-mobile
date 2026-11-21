@@ -22,7 +22,7 @@ photo (camera or gallery) -> V2 letterbox + quality gate (unchanged)
 | Direct-resize tensor: JPEG/PNG in-memory JS decode, EXIF orient, bilinear resize, opaque alpha only (602112 bytes); WebP uses the documented conversion path | `preprocessing/guardPreprocess.ts`, `decodePng.ts` |
 | Gate, run tokens, stale photo/owner protection | `analysis/useScanAnalysis.ts` |
 | Failure state; resumed drafts and records require the marker | `scanSessionReducer.ts`, `scanCheckState.ts`, `scanDraftCheckpoint.ts`, `recordValidation.ts` |
-| Copy / UI | `GUARD_COPY` and the per-state heading/status line in `SCAN_STATE_COPY`, both in `src/constants/copy.ts`; `src/app/symptom-checklist.tsx` renders them. The Scan tab shows `FARMER_COPY.scanScreen.photoNotUsable` instead of the error card for a rejected or unusable photo (`src/app/(tabs)/scan.tsx`) |
+| Copy / UI | `GUARD_COPY` and the per-state heading/status line in `SCAN_STATE_COPY`, both in `src/constants/copy.ts`; `src/app/symptom-checklist.tsx` renders them. The Scan tab shows `FARMER_COPY.scanScreen.photoNotUsable` instead of the error card when the photo is rejected or unusable; a guard fault or a picker/permission failure keeps the error card (`src/app/(tabs)/scan.tsx`) |
 
 V2 preprocessing, weights, labels, versions and the RSSI confidence-caution threshold are untouched.
 

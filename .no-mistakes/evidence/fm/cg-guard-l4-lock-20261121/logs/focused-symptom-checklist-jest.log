@@ -1,0 +1,5 @@
+Test Suites: 1 passed, 1 total
+Tests:       21 passed, 21 total
+Snapshots:   0 total
+Time:        2.197 s, estimated 10 s
+Ran all test suites matching src/app/__tests__/symptom-checklist.test.tsx.

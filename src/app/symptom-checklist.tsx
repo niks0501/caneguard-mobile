@@ -471,48 +471,48 @@ export default function SymptomChecklistScreen() {
             ) : null}
 
             {guardRejected ? null : (
-            <View style={styles.section}>
-              <View style={styles.questionHeading}>
-                <Text
-                  testID="scan.guided-question"
-                  accessibilityRole="header"
-                  style={[styles.questionText, { color: theme.primaryDark }]}>
-                  {SCAN_CHECK_COPY.question}
-                </Text>
-                <Text style={[styles.helperText, { color: theme.textSecondary }]}>
-                  {SCAN_CHECK_COPY.questionHint}
-                </Text>
-                {questionLocked ? (
+              <View style={styles.section}>
+                <View style={styles.questionHeading}>
                   <Text
-                    testID="scan.question-locked"
-                    style={[styles.helperText, { color: theme.textSecondary }]}>
-                    {SCAN_CHECK_COPY.questionLocked}
+                    testID="scan.guided-question"
+                    accessibilityRole="header"
+                    style={[styles.questionText, { color: theme.primaryDark }]}>
+                    {SCAN_CHECK_COPY.question}
                   </Text>
-                ) : null}
+                  <Text style={[styles.helperText, { color: theme.textSecondary }]}>
+                    {SCAN_CHECK_COPY.questionHint}
+                  </Text>
+                  {questionLocked ? (
+                    <Text
+                      testID="scan.question-locked"
+                      style={[styles.helperText, { color: theme.textSecondary }]}>
+                      {SCAN_CHECK_COPY.questionLocked}
+                    </Text>
+                  ) : null}
+                </View>
+                <ObservationPictureGrid
+                  options={question.options}
+                  selected={selected}
+                  disabled={questionLocked}
+                  onSelect={(id) => setSelected((current) => (current === id ? null : id))}
+                />
               </View>
-              <ObservationPictureGrid
-                options={question.options}
-                selected={selected}
-                disabled={questionLocked}
-                onSelect={(id) => setSelected((current) => (current === id ? null : id))}
-              />
-            </View>
             )}
 
             {guardRejected ? null : (
-            <AppButton
-              testID="scan.continue-to-result"
-              onPress={continueToResult}
-              disabled={!canContinue}
-              busy={isChecking}
-              trailingIcon="arrow-right"
-              accessibilityLabel="Continue to analysis result">
-              {!isReady
-                ? SCAN_CHECK_COPY.continueWaiting
-                : selected === null
-                  ? SCAN_CHECK_COPY.continueNeedsChoice
-                  : SCAN_CHECK_COPY.continue}
-            </AppButton>
+              <AppButton
+                testID="scan.continue-to-result"
+                onPress={continueToResult}
+                disabled={!canContinue}
+                busy={isChecking}
+                trailingIcon="arrow-right"
+                accessibilityLabel="Continue to analysis result">
+                {!isReady
+                  ? SCAN_CHECK_COPY.continueWaiting
+                  : selected === null
+                    ? SCAN_CHECK_COPY.continueNeedsChoice
+                    : SCAN_CHECK_COPY.continue}
+              </AppButton>
             )}
             <AppButton
               testID="symptom-checklist.cancel"

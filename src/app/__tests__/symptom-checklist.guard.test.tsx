@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { useReducer } from 'react';
+import { ScrollView } from 'react-native';
 
 import SymptomChecklistScreen from '@/app/symptom-checklist';
 import { GUARD_COPY, SCAN_CHECK_COPY } from '@/constants/copy';
@@ -188,6 +189,27 @@ describe('SymptomChecklistScreen with required Guard V1', () => {
     expect(screen.getByText(GUARD_COPY.keepScanning)).toBeOnTheScreen();
     expect(mockRouterPush).not.toHaveBeenCalled();
     expect(mockRunInference).not.toHaveBeenCalled();
+  });
+
+  // Proves the intent's "scroll to top ... on rejection": the checklist returns to the
+  // top so the decision card replaces the question in view, not below the fold.
+  // (`findNodeHandle` yields no node under react-test-renderer, so the paired
+  // accessibility-focus call can only be exercised on a native runtime.)
+  it('scrolls the checklist back to the top when the guard rejects the photo', async () => {
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo');
+    guardRun.mockResolvedValue(out(0.1));
+    try {
+      await renderScreen();
+      await waitFor(() => expect(screen.getByTestId('scan.guard-rejected')).toBeOnTheScreen());
+
+      expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: false });
+      expect(screen.getByTestId('scan.guard-rejected-title')).toHaveProp(
+        'accessibilityRole',
+        'header',
+      );
+    } finally {
+      scrollTo.mockRestore();
+    }
   });
 
   // Proves: Go to Home on a rejected scan discards the photo like Cancel, saves no draft, and leads home.

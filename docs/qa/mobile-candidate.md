@@ -306,7 +306,9 @@ Production builds (`EAS_BUILD_PROFILE=production`) fail in `eas-build-pre-instal
 - `EXPO_PUBLIC_SENTRY_DSN`: a valid Sentry DSN.
 - `SENTRY_ORG`, `SENTRY_PROJECT`, and the secret `SENTRY_AUTH_TOKEN`: source map and native symbol upload. `app.config.js` also refuses to resolve a production config without them.
 
-Crash reports carry the build profile (or `EXPO_PUBLIC_APP_ENVIRONMENT` for updates) as the Sentry `environment`. Run `npm run release:preflight` to check a shell environment.
+The manual production build workflow also requires `EXPO_PUBLIC_AUTH_LINK_HOST` in the `production` EAS environment before it bumps the version, because release builds register verified HTTPS App Links.
+
+Crash reports carry the build profile (or `EXPO_PUBLIC_APP_ENVIRONMENT` for updates) as the Sentry `environment`. `npm run release:preflight` runs the same gate against the current shell environment, upload credentials included; the build and OTA preflights pass `--skip-upload`.
 
 `EXPO_PUBLIC_MAP_TILE_PROXY_URL` stays optional and is validated by `npm run security:config` when set; set it in the production environment only after the Web/API tile proxy is confirmed.
 

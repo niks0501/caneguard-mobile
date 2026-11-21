@@ -478,7 +478,7 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     expect(mockRunInference).not.toHaveBeenCalled();
   });
 
-  it('shows a recoverable preprocessing failure and checks again on request', async () => {
+  it('shows a preprocessing file fault with retake actions and no Try again', async () => {
     mockPreprocessImage.mockRejectedValueOnce(
       new PreprocessingError('jpeg-decode-failed', 'decode failed'),
     );
@@ -491,15 +491,33 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
         ).length,
       ).toBeGreaterThan(0);
     });
+    expect(screen.getByTestId('scan.check-status')).toHaveTextContent('Photo could not be used');
+    expect(screen.queryByText('This photo may be hard to read')).not.toBeOnTheScreen();
     expect(mockRouterPush).not.toHaveBeenCalled();
+    expect(screen.getByTestId('scan.retake-camera')).toHaveTextContent('Take a new photo');
+    expect(screen.getByTestId('scan.retake-gallery')).toHaveTextContent('Choose another photo');
     expect(screen.getByTestId('scan.retake-camera')).toBeEnabled();
     expect(screen.getByTestId('scan.retake-gallery')).toBeEnabled();
+    expect(screen.queryByTestId('scan.try-again')).not.toBeOnTheScreen();
+  });
 
-    await fireEvent.press(screen.getByTestId('scan.try-again'));
-    await waitFor(() => {
-      expect(mockPreprocessImage).toHaveBeenCalledTimes(2);
-      expect(screen.queryByTestId('scan.photo-failed-check')).not.toBeOnTheScreen();
-    });
+  it('uses reviewed Tagalog retake labels for a farmer file fault', async () => {
+    mockRole = 'farmer';
+    mockLanguage = 'tl';
+    mockPreprocessImage.mockRejectedValueOnce(
+      new PreprocessingError('jpeg-decode-failed', 'decode failed'),
+    );
+    await renderScreen(selectedState);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('scan.check-state')).toHaveProp('accessibilityValue', {
+        text: 'check-failed',
+      }),
+    );
+    expect(screen.getByTestId('scan.retake-camera')).toHaveTextContent('Kumuha ng ibang litrato');
+    expect(screen.getByTestId('scan.retake-gallery')).toHaveTextContent('Pumili ng ibang larawan');
+    expect(screen.getByLabelText('Kumuha ng ibang litrato gamit ang camera')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Pumili ng ibang larawan mula sa gallery')).toBeOnTheScreen();
   });
 
   it('shows a recoverable inference failure', async () => {

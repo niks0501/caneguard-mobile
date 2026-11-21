@@ -1745,11 +1745,13 @@ export const SCAN_CHECK_COPY = {
 } as const;
 
 /**
- * Guard V1 (experimental sugarcane-presence check). A rejection means the photo
- * was judged and does not look like sugarcane; a fault means the check itself
- * could not finish. The two are never worded alike.
+ * Guard V1 (required sugarcane-presence check). A rejection means the photo was
+ * judged and does not look like sugarcane; a fault means the file could not be
+ * used (too large, transparent, unreadable) or the check itself could not
+ * finish. Rejection and the two fault kinds are never worded alike.
  */
 export const GUARD_COPY = {
+  unusableTitle: "This photo can't be checked",
   rejectedTitle: 'This does not look like sugarcane',
   rejectedStatus:
     'CaneGuard could not see sugarcane in this photo, so it was not analysed. Take a new photo of a sugarcane leaf, stalk, or shoot and fill most of the frame with the plant.',
@@ -1766,6 +1768,10 @@ export const GUARD_COPY = {
   failed: 'The sugarcane photo check could not finish. Your photo was not analysed. Please try again.',
   photoTooLarge:
     'This photo is too large for the sugarcane photo check. Choose a smaller photo or take a new one.',
+  photoUnreadable:
+    'This photo could not be read. It may be damaged or transparent. Choose another photo or take a new one.',
+  unusableRetakeCamera: 'Take a new photo',
+  unusableRetakeGallery: 'Choose another photo',
   unavailable:
     'The sugarcane photo check is not available on this phone, so scans are paused. Update or reinstall the app, then try again.',
 } as const;
@@ -1796,14 +1802,14 @@ export const SCAN_STATE_COPY = {
     detail: GUARD_COPY.rejectedStatus,
   },
   'photo-unusable': {
-    title: 'Photo not used',
-    detail: 'This photo can\'t be checked. Choose a smaller photo or take a new one.',
+    title: GUARD_COPY.unusableTitle,
+    detail: 'This photo could not be used.',
   },
   'model-failed': {
     title: 'Check did not finish',
     detail: 'The photo check could not finish. Your photo was not analysed. Please try again.',
   },
-  'check-failed': { title: 'Photo not used', detail: SCAN_CHECK_COPY.notAnalysed },
+  'check-failed': { title: 'Photo could not be used', detail: SCAN_CHECK_COPY.notAnalysed },
   analysing: { title: 'Checking your photo…', detail: 'Sugarcane found. Reading the photo…' },
   result: { title: SCAN_CHECK_COPY.checkedTitle, detail: SCAN_CHECK_COPY.ready },
   'result-doubtful': { title: SCAN_CHECK_COPY.checkedTitle, detail: SCAN_CHECK_COPY.ready },

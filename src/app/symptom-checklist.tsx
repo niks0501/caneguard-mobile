@@ -262,7 +262,13 @@ export default function SymptomChecklistScreen() {
     state.status === 'completed' && state.result !== null && isGuardedResult(state.result);
   const questionLocked = !state.guardPassed && !completedGuardedResult;
   const photoRejected = checkState === 'photo-rejected';
-  const photoCheckFailed = photoRejected || checkState === 'check-failed';
+  const photoUnusable = checkState === 'photo-unusable';
+  const checkFailed = checkState === 'check-failed';
+  // A file fault already names itself in the status heading and is recovered
+  // only by replacing the photo, so it drops the quality-retake title and the
+  // Try again action; a quality warning keeps both.
+  const photoFileFault = photoUnusable || checkFailed;
+  const photoCheckFailed = photoRejected || photoFileFault;
   const activeGuardError = completedGuardedResult || photoCheckFailed ? null : guardError;
   const activeModelError = completedGuardedResult || photoCheckFailed ? null : modelError;
   const stateCopy = SCAN_STATE_COPY[checkState];
@@ -389,17 +395,21 @@ export default function SymptomChecklistScreen() {
                   styles.failedCard,
                   { backgroundColor: theme.warningBg, borderColor: theme.warning },
                 ]}>
-                <Text style={[styles.statusTitle, { color: theme.warning }]}>
-                  {SCAN_CHECK_COPY.failedTitle}
-                </Text>
-                {(state.qualityAssessment?.warnings ?? []).map((warning) => (
-                  <Text key={warning} style={[styles.helperText, { color: theme.text }]}>
-                    {getQualityWarningMessage(warning)}
-                  </Text>
-                ))}
-                <Text style={[styles.helperText, { color: theme.textSecondary }]}>
-                  {SCAN_CHECK_COPY.failedHint}
-                </Text>
+                {photoFileFault ? null : (
+                  <>
+                    <Text style={[styles.statusTitle, { color: theme.warning }]}>
+                      {SCAN_CHECK_COPY.failedTitle}
+                    </Text>
+                    {(state.qualityAssessment?.warnings ?? []).map((warning) => (
+                      <Text key={warning} style={[styles.helperText, { color: theme.text }]}>
+                        {getQualityWarningMessage(warning)}
+                      </Text>
+                    ))}
+                    <Text style={[styles.helperText, { color: theme.textSecondary }]}>
+                      {SCAN_CHECK_COPY.failedHint}
+                    </Text>
+                  </>
+                )}
                 <AppButton
                   testID="scan.retake-camera"
                   variant="secondary"
@@ -407,9 +417,21 @@ export default function SymptomChecklistScreen() {
                   onPress={() => void replaceImage('camera')}
                   leadingIcon="camera"
                   accessibilityLabel={
-                    isFarmer ? farmer.replaceCameraAccessibility : 'Take another photo with the camera'
+                    photoFileFault
+                      ? isFarmer
+                        ? farmer.replaceCameraAccessibility
+                        : GUARD_COPY.unusableRetakeCamera
+                      : isFarmer
+                        ? farmer.replaceCameraAccessibility
+                        : 'Take another photo with the camera'
                   }>
-                  {isFarmer ? farmer.replaceCamera : SCAN_CHECK_COPY.retakeCamera}
+                  {photoFileFault
+                    ? isFarmer
+                      ? farmer.replaceCamera
+                      : GUARD_COPY.unusableRetakeCamera
+                    : isFarmer
+                      ? farmer.replaceCamera
+                      : SCAN_CHECK_COPY.retakeCamera}
                 </AppButton>
                 <AppButton
                   testID="scan.retake-gallery"
@@ -418,11 +440,21 @@ export default function SymptomChecklistScreen() {
                   onPress={() => void replaceImage('gallery')}
                   leadingIcon="image"
                   accessibilityLabel={
-                    isFarmer
-                      ? farmer.replaceGalleryAccessibility
-                      : 'Choose another photo from the gallery'
+                    photoFileFault
+                      ? isFarmer
+                        ? farmer.replaceGalleryAccessibility
+                        : GUARD_COPY.unusableRetakeGallery
+                      : isFarmer
+                        ? farmer.replaceGalleryAccessibility
+                        : 'Choose another photo from the gallery'
                   }>
-                  {isFarmer ? farmer.replaceGallery : SCAN_CHECK_COPY.retakeGallery}
+                  {photoFileFault
+                    ? isFarmer
+                      ? farmer.replaceGallery
+                      : GUARD_COPY.unusableRetakeGallery
+                    : isFarmer
+                      ? farmer.replaceGallery
+                      : SCAN_CHECK_COPY.retakeGallery}
                 </AppButton>
               </View>
             ) : null}
@@ -457,7 +489,7 @@ export default function SymptomChecklistScreen() {
                     {SCAN_CHECK_COPY.tryAgain}
                   </AppButton>
                 ) : null}
-                {state.status === 'error' && !guardRejected ? (
+                {state.status === 'error' && !guardRejected && !photoFileFault ? (
                   <AppButton
                     testID="scan.try-again"
                     variant="secondary"

@@ -410,6 +410,8 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     expect(screen.getByTestId('scan.check-status')).toHaveTextContent('Photo could not be used');
     expect(screen.queryByText('This photo may be hard to read')).not.toBeOnTheScreen();
     expect(mockRouterPush).not.toHaveBeenCalled();
+    expect(screen.getByTestId('scan.retake-camera')).toHaveTextContent('Take a new photo');
+    expect(screen.getByTestId('scan.retake-gallery')).toHaveTextContent('Choose another photo');
     expect(screen.getByTestId('scan.retake-camera')).toBeEnabled();
     expect(screen.getByTestId('scan.retake-gallery')).toBeEnabled();
     expect(screen.queryByTestId('scan.try-again')).not.toBeOnTheScreen();

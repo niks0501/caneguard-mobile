@@ -415,13 +415,17 @@ export default function SymptomChecklistScreen() {
                   leadingIcon="camera"
                   accessibilityLabel={
                     photoFileFault
-                      ? GUARD_COPY.unusableRetakeCamera
+                      ? isFarmer
+                        ? farmer.replaceCameraAccessibility
+                        : GUARD_COPY.unusableRetakeCamera
                       : isFarmer
                         ? farmer.replaceCameraAccessibility
                         : 'Take another photo with the camera'
                   }>
                   {photoFileFault
-                    ? GUARD_COPY.unusableRetakeCamera
+                    ? isFarmer
+                      ? farmer.replaceCamera
+                      : GUARD_COPY.unusableRetakeCamera
                     : isFarmer
                       ? farmer.replaceCamera
                       : SCAN_CHECK_COPY.retakeCamera}
@@ -434,13 +438,17 @@ export default function SymptomChecklistScreen() {
                   leadingIcon="image"
                   accessibilityLabel={
                     photoFileFault
-                      ? GUARD_COPY.unusableRetakeGallery
+                      ? isFarmer
+                        ? farmer.replaceGalleryAccessibility
+                        : GUARD_COPY.unusableRetakeGallery
                       : isFarmer
                         ? farmer.replaceGalleryAccessibility
                         : 'Choose another photo from the gallery'
                   }>
                   {photoFileFault
-                    ? GUARD_COPY.unusableRetakeGallery
+                    ? isFarmer
+                      ? farmer.replaceGallery
+                      : GUARD_COPY.unusableRetakeGallery
                     : isFarmer
                       ? farmer.replaceGallery
                       : SCAN_CHECK_COPY.retakeGallery}

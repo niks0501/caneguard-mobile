@@ -1,0 +1,6 @@
+
+Test Suites: 2 passed, 2 total
+Tests:       45 passed, 45 total
+Snapshots:   0 total
+Time:        8.356 s
+Ran all test suites matching src/app/__tests__/symptom-checklist.guard.test.tsx|src/features/detection/analysis/__tests__/useScanAnalysis.guard.test.tsx.

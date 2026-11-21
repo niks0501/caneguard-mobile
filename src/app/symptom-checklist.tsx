@@ -414,13 +414,13 @@ export default function SymptomChecklistScreen() {
                   onPress={() => void replaceImage('camera')}
                   leadingIcon="camera"
                   accessibilityLabel={
-                    photoUnusable
+                    photoFileFault
                       ? GUARD_COPY.unusableRetakeCamera
                       : isFarmer
                         ? farmer.replaceCameraAccessibility
                         : 'Take another photo with the camera'
                   }>
-                  {photoUnusable
+                  {photoFileFault
                     ? GUARD_COPY.unusableRetakeCamera
                     : isFarmer
                       ? farmer.replaceCamera
@@ -433,13 +433,13 @@ export default function SymptomChecklistScreen() {
                   onPress={() => void replaceImage('gallery')}
                   leadingIcon="image"
                   accessibilityLabel={
-                    photoUnusable
+                    photoFileFault
                       ? GUARD_COPY.unusableRetakeGallery
                       : isFarmer
                         ? farmer.replaceGalleryAccessibility
                         : 'Choose another photo from the gallery'
                   }>
-                  {photoUnusable
+                  {photoFileFault
                     ? GUARD_COPY.unusableRetakeGallery
                     : isFarmer
                       ? farmer.replaceGallery

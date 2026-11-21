@@ -139,7 +139,38 @@ export default function SymptomChecklistScreen() {
     }
   };
 
-  const cancelDialog = (
+  // A rejected photo can never pass, so there is no draft to keep: Go to Home
+  // and Cancel both discard it.
+  const discardRejectedScan = async () => {
+    setShowCancelConfirm(false);
+    if (draft.ownerIdentity) {
+      const discarded = await draft.discardSavedDraft();
+      if (!discarded) {
+        showToast('Could not discard the saved scan — try again', 'error');
+        return;
+      }
+    } else {
+      dispatch({ type: 'RESET_SCAN' });
+    }
+    showToast(GUARD_COPY.discarded, 'info');
+    returnToTab('/home');
+  };
+
+  const cancelDialog = guardRejected ? (
+    <ConfirmDialog
+      visible={showCancelConfirm}
+      title={GUARD_COPY.discardTitle}
+      message={GUARD_COPY.discardMessage}
+      cancelLabel={GUARD_COPY.keepScanning}
+      confirmLabel={GUARD_COPY.discardConfirm}
+      destructive
+      overlay
+      onRequestClose={() => setShowCancelConfirm(false)}
+      onCancel={() => setShowCancelConfirm(false)}
+      onConfirm={() => void discardRejectedScan()}
+      testID="symptom-checklist.cancel-dialog"
+    />
+  ) : (
     <ConfirmDialog
       visible={showCancelConfirm}
       title={isFarmer ? farmer.cancelTitle : 'Cancel scan?'}
@@ -314,6 +345,17 @@ export default function SymptomChecklistScreen() {
                   }>
                   {isFarmer ? farmer.replaceGallery : SCAN_CHECK_COPY.retakeGallery}
                 </AppButton>
+                {guardRejected ? (
+                  <AppButton
+                    testID="scan.go-home"
+                    variant="text"
+                    disabled={replacing}
+                    onPress={() => void discardRejectedScan()}
+                    leadingIcon="home"
+                    accessibilityLabel="Discard this scan and go to Home">
+                    {GUARD_COPY.goHome}
+                  </AppButton>
+                ) : null}
               </View>
             ) : null}
             {replacementNotice ? (

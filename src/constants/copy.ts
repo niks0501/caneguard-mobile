@@ -1707,6 +1707,12 @@ export const GUARD_COPY = {
   rejectedStatus:
     'CaneGuard could not see sugarcane in this photo, so it was not analysed. Take a new photo of a sugarcane leaf, stalk, or shoot and fill most of the frame with the plant.',
   rejectedHint: 'A close, well-lit photo of the plant usually works best.',
+  goHome: 'Go to Home',
+  discardTitle: 'Discard this scan?',
+  discardMessage: 'This photo was not used and nothing was saved. Discard it and return home?',
+  discardConfirm: 'Discard',
+  keepScanning: 'Keep scanning',
+  discarded: 'Scan discarded',
   failed: 'The sugarcane photo check could not finish. Your photo was not analysed. Please try again.',
   photoTooLarge:
     'This photo is too large for the sugarcane photo check. Choose a smaller photo or take a new one.',

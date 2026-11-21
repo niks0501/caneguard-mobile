@@ -185,6 +185,44 @@ describe('ScanScreen', () => {
     expect(screen.queryByText('Image not added')).toBeNull();
   });
 
+  describe('guard outcomes shown after going back from the checklist', () => {
+    const NEUTRAL = "This photo can't be used. Take or choose a new one.";
+    const withPhoto = (extra: Partial<ScanSessionState>): ScanSessionState => ({
+      ...initialScanSessionState,
+      sourceUri: 'content://sugarcane/leaf-1',
+      status: 'error',
+      errorMessage: 'Guard status text',
+      ...extra,
+    });
+
+    it('shows a neutral line for a not-sugarcane photo, not the red card', async () => {
+      await renderScan(withPhoto({ guardFailure: 'rejected' }));
+      expect(screen.getByText(NEUTRAL)).toBeOnTheScreen();
+      expect(screen.queryByText('Image not added')).toBeNull();
+      expect(screen.queryByText('Guard status text')).toBeNull();
+    });
+
+    it('shows the neutral line for an unusable photo file', async () => {
+      await renderScan(withPhoto({ guardFailure: 'error', photoPreparationFailed: true }));
+      expect(screen.getByText(NEUTRAL)).toBeOnTheScreen();
+      expect(screen.queryByText('Image not added')).toBeNull();
+    });
+
+    it('keeps Image not added for a guard runtime fault and a picker failure', async () => {
+      await renderScan(withPhoto({ guardFailure: 'error' }));
+      expect(screen.getByText('Image not added')).toBeOnTheScreen();
+      expect(screen.queryByText(NEUTRAL)).toBeNull();
+    });
+
+    it('keeps Image not added for a real picker failure', async () => {
+      mockLaunchImageLibrary.mockResolvedValue({ canceled: false, assets: [] });
+      await renderScan();
+      await fireEvent.press(screen.getByLabelText('Choose one image from the gallery'));
+      expect(screen.getByText('Image not added')).toBeOnTheScreen();
+      expect(screen.queryByText(NEUTRAL)).toBeNull();
+    });
+  });
+
   it('selects one gallery image with the Phase 3 picker options and opens its preview', async () => {
     mockLaunchImageLibrary.mockResolvedValue(selectedImageResult());
 

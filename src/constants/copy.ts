@@ -619,6 +619,7 @@ export type FarmerCopyBlock = {
     title: string;
     intro: string;
     errorTitle: string;
+    photoNotUsable: string;
     recoveryUnverified: string;
     recoveryFailed: string;
     deviceSettingsFailed: string;
@@ -1022,7 +1023,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
     },
     scanScreen: {
       title: 'Scan sugarcane', intro: 'Add a clear photo of the affected leaf, stalk, or central shoot.',
-      errorTitle: 'Image not added', recoveryUnverified: 'An interrupted image selection was found, but its source could not be verified. Please choose the image again.',
+      errorTitle: 'Image not added', photoNotUsable: "This photo can't be used. Take or choose a new one.", recoveryUnverified: 'An interrupted image selection was found, but its source could not be verified. Please choose the image again.',
       recoveryFailed: 'An interrupted image selection could not be recovered. Please try again.',
       deviceSettingsFailed: 'Device settings could not be opened. Open Settings and allow camera access.',
       permissionCanAsk: 'Camera access is needed to take a sugarcane photo. Try the camera again.',
@@ -1405,7 +1406,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
     },
     scanScreen: {
       title: 'Mag-scan ng tubo', intro: 'Magdagdag ng malinaw na litrato ng apektadong dahon, tangkay o gitnang usbong.',
-      errorTitle: 'Hindi naidagdag ang larawan', recoveryUnverified: 'May naantalang pagpili ng larawan pero hindi matiyak ang pinagmulan nito. Piliin muli ang larawan.',
+      errorTitle: 'Hindi naidagdag ang larawan', photoNotUsable: "This photo can't be used. Take or choose a new one.", recoveryUnverified: 'May naantalang pagpili ng larawan pero hindi matiyak ang pinagmulan nito. Piliin muli ang larawan.',
       recoveryFailed: 'Hindi maibalik ang naantalang pagpili ng larawan. Subukan muli.',
       deviceSettingsFailed: 'Hindi mabuksan ang settings ng device. Buksan ang Settings at payagan ang paggamit ng camera.',
       permissionCanAsk: 'Kailangan ang pahintulot sa camera para kunan ng tubo. Subukang muli.',

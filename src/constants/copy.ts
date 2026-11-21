@@ -1752,13 +1752,13 @@ export const SCAN_STATE_COPY = {
   },
   'photo-unusable': {
     title: GUARD_COPY.unusableTitle,
-    detail: GUARD_COPY.photoTooLarge,
+    detail: 'This photo could not be used.',
   },
   'model-failed': {
     title: 'Check did not finish',
     detail: 'The photo check could not finish. Your photo was not analysed. Please try again.',
   },
-  'check-failed': { title: 'Photo not used', detail: SCAN_CHECK_COPY.notAnalysed },
+  'check-failed': { title: 'Photo could not be used', detail: SCAN_CHECK_COPY.notAnalysed },
   analysing: { title: 'Checking your photo…', detail: 'Sugarcane found. Reading the photo…' },
   result: { title: SCAN_CHECK_COPY.checkedTitle, detail: SCAN_CHECK_COPY.ready },
   'result-doubtful': { title: SCAN_CHECK_COPY.checkedTitle, detail: SCAN_CHECK_COPY.ready },

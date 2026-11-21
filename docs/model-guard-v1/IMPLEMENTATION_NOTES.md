@@ -10,7 +10,8 @@ photo (camera or gallery) -> V2 letterbox + quality gate (unchanged)
    Guard V1: direct-stretch tensor from the SAME source photo -> p_sugarcane
       >= 0.75 -> V2 runs once (five labels incl. RSSI); result carries guardModelId
       <  0.75 -> "not sugarcane" retake message, zero V2, no result
-      fault   -> "check could not finish" + Try again, zero V2, no result
+      file fault -> "photo could not be used" + cause + retake actions, zero V2, no result
+      runtime fault -> "check could not finish" + Try again, zero V2, no result
 ```
 
 | Piece | File |
@@ -40,7 +41,7 @@ Every Guard rejection (p_sugarcane below 0.75, or any invalid output) blocks the
 
 ## Upload formats
 
-Guard preprocessing reads the same photos V2 accepts. JPEG and PNG (opaque only, with EXIF or PNG orientation applied) are decoded in memory. WebP has no in-memory decoder in the app, so it is converted to JPEG by the platform image manipulator (the same API the V2 path uses, no new dependency), and the scratch file that call writes is deleted immediately; transparent WebP and transparent PNG are refused as failed photo preparation (the `photo-unusable` state and its copy in `SCAN_STATE_COPY`, with Try again), never as an accepted or rejected verdict.
+Guard preprocessing reads the same photos V2 accepts. JPEG and PNG (opaque only, with EXIF or PNG orientation applied) are decoded in memory. WebP has no in-memory decoder in the app, so it is converted to JPEG by the platform image manipulator (the same API the V2 path uses, no new dependency), and the scratch file that call writes is deleted immediately; transparent WebP and transparent PNG are refused as failed photo preparation (the `photo-unusable` state with a specific reason and retake-only actions), never as an accepted or rejected verdict.
 
 ## Evidence
 

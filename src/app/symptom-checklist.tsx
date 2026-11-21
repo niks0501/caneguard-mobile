@@ -267,7 +267,7 @@ export default function SymptomChecklistScreen() {
   const activeModelError = completedGuardedResult || photoCheckFailed ? null : modelError;
   const stateCopy = SCAN_STATE_COPY[checkState];
   const statusText =
-    guardRejected || photoRejected
+    photoRejected
       ? stateCopy.detail
       : (activeGuardError ??
         activeModelError ??
@@ -352,8 +352,10 @@ export default function SymptomChecklistScreen() {
                   disabled={replacing || isChecking}
                   onPress={() => void replaceImage('camera')}
                   leadingIcon="camera"
-                  accessibilityLabel="Take a new photo with the camera">
-                  {GUARD_COPY.retakeCamera}
+                  accessibilityLabel={
+                    isFarmer ? farmer.replaceCameraAccessibility : 'Take a new photo with the camera'
+                  }>
+                  {isFarmer ? farmer.replaceCamera : GUARD_COPY.retakeCamera}
                 </AppButton>
                 <AppButton
                   testID="scan.retake-gallery"
@@ -361,8 +363,12 @@ export default function SymptomChecklistScreen() {
                   disabled={replacing || isChecking}
                   onPress={() => void replaceImage('gallery')}
                   leadingIcon="image"
-                  accessibilityLabel="Choose another photo from the gallery">
-                  {SCAN_CHECK_COPY.retakeGallery}
+                  accessibilityLabel={
+                    isFarmer
+                      ? farmer.replaceGalleryAccessibility
+                      : 'Choose another photo from the gallery'
+                  }>
+                  {isFarmer ? farmer.replaceGallery : SCAN_CHECK_COPY.retakeGallery}
                 </AppButton>
                 <AppButton
                   testID="scan.go-home"

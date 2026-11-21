@@ -1707,7 +1707,6 @@ export const GUARD_COPY = {
   rejectedTitle: 'This does not look like sugarcane',
   rejectedStatus:
     'CaneGuard could not see sugarcane in this photo, so it was not analysed. Take a new photo of a sugarcane leaf, stalk, or shoot and fill most of the frame with the plant.',
-  rejectedHint: 'A close, well-lit photo of the plant usually works best.',
   rejectedBody: 'This photo was not analysed. Nothing was saved or sent.',
   rejectedTip:
     'Take a close, well-lit photo of a sugarcane leaf, stalk, or shoot. Fill most of the frame.',

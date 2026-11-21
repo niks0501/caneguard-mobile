@@ -581,6 +581,19 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     expect(screen.getByText(FARMER_COPY.tl.imagePreview.keepDraft)).toBeOnTheScreen();
   });
 
+  it('keeps the reviewed Tagalog wording on the farmer rejection card', async () => {
+    mockRole = 'farmer';
+    mockLanguage = 'tl';
+    mockGuardRun.mockResolvedValueOnce([Float32Array.of(0.05).buffer]);
+    await renderScreen(selectedState);
+
+    await waitFor(() => expect(screen.getByTestId('scan.guard-rejected')).toBeOnTheScreen());
+    expect(screen.getByText('Kumuha ng ibang litrato')).toBeOnTheScreen();
+    expect(screen.getByText('Pumili ng ibang larawan')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Kumuha ng ibang litrato gamit ang camera')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Pumili ng ibang larawan mula sa gallery')).toBeOnTheScreen();
+  });
+
   it('shows a recovery action when there is no photo', async () => {
     await renderScreen(initialScanSessionState);
 

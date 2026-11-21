@@ -174,6 +174,8 @@ describe('SymptomChecklistScreen with required Guard V1', () => {
     expect(screen.getByText('Take a new photo')).toBeOnTheScreen();
     expect(screen.getByText('Choose another photo')).toBeOnTheScreen();
     expect(screen.getByText('Go to Home')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Take a new photo with the camera')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Choose another photo from the gallery')).toBeOnTheScreen();
     expect(screen.getByTestId('symptom-checklist.cancel')).toBeOnTheScreen();
     expect(screen.queryByTestId('scan.try-again')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('scan.guided-question')).not.toBeOnTheScreen();

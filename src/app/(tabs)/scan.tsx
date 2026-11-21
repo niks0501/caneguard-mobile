@@ -60,6 +60,11 @@ export default function ScanScreen() {
   const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
   const draft = useScanDraft();
+  // The photo itself is unusable: the guard rejected it, the guard could not read
+  // it, or its preparation failed. A picker or permission failure is not this.
+  const photoNotUsable =
+    state.status === 'error' &&
+    (state.guardFailure === 'rejected' || state.photoPreparationFailed === true);
   const draftOwner = draft.ownerIdentity;
   const [activeOperation, setActiveOperation] = useState<ActiveOperation>(
     Platform.OS === 'android' ? 'recovery' : null,
@@ -320,7 +325,14 @@ export default function ScanScreen() {
               {isFarmer ? scanCopy.intro : 'Add a clear photo of the affected leaf, stalk, or central shoot.'}
             </Text>
 
-            {state.errorMessage ? (
+            {photoNotUsable ? (
+              <Text
+                testID="scan.photo-not-usable"
+                accessibilityLiveRegion="polite"
+                style={[styles.neutralNote, { color: theme.textSecondary }]}>
+                {scanCopy.photoNotUsable}
+              </Text>
+            ) : state.errorMessage ? (
               <View
                 accessibilityLiveRegion="assertive"
                 style={[
@@ -590,6 +602,9 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   intro: {
+    ...Typography.bodySmall,
+  },
+  neutralNote: {
     ...Typography.bodySmall,
   },
   errorCard: {

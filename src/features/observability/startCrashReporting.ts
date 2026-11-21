@@ -14,6 +14,7 @@ export const SENTRY_DSN_ENV_KEY = 'EXPO_PUBLIC_SENTRY_DSN';
 /** The subset of the Expo app config used to name the release. */
 export interface ExpoAppIdentity {
   slug?: string | null;
+  extra?: { appEnvironment?: unknown } | null;
   name?: string | null;
   version?: string | null;
   android?: { package?: string | null; versionCode?: number | string | null } | null;
@@ -21,6 +22,7 @@ export interface ExpoAppIdentity {
 }
 
 export interface CrashReportingIdentity {
+  environment?: string;
   release?: string;
   dist?: string;
 }
@@ -85,10 +87,17 @@ export function resolveCrashReportingIdentity(
     nonEmptyString(appConfig?.android?.versionCode) ??
     nonEmptyString(appConfig?.ios?.buildNumber);
 
+  const environment = nonEmptyString(
+    typeof appConfig?.extra?.appEnvironment === 'string'
+      ? appConfig.extra.appEnvironment
+      : null,
+  );
+  const tag = environment ? { environment } : {};
+
   if (!appId || !version || !build) {
-    return {};
+    return tag;
   }
-  return { release: `${appId}@${version}+${build}`, dist: build };
+  return { ...tag, release: `${appId}@${version}+${build}`, dist: build };
 }
 
 /**

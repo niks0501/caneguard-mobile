@@ -84,7 +84,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: >-
           npx --yes eas-cli@25.3.0 env:exec preview
-          "EXPO_NO_DOTENV=1 EXPO_PUBLIC_QA_MODE=true eas update --channel qa --environment preview --platform android --private-key-path \"\$RUNNER_TEMP/updates-key.pem\" --message \"qa/\${GITHUB_SHA:0:7}: \${GITHUB_EVENT_NAME}\" --non-interactive --json"
+          "EXPO_NO_DOTENV=1 EXPO_PUBLIC_QA_MODE=true EXPO_PUBLIC_APP_ENVIRONMENT=qa eas update --channel qa --environment preview --platform android --private-key-path \"\$RUNNER_TEMP/updates-key.pem\" --message \"qa/\${GITHUB_SHA:0:7}: \${GITHUB_EVENT_NAME}\" --non-interactive --json"
 
       - name: Remove OTA signing key
         if: always()

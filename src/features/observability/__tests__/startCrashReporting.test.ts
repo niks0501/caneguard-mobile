@@ -67,6 +67,25 @@ describe('resolveCrashReportingIdentity', () => {
     ).toEqual({ release: 'com.niks0501.caneguard@1.1.1+7', dist: '7' });
   });
 
+  it('tags the environment from the app config, with or without a build number', () => {
+    expect(
+      resolveCrashReportingIdentity({
+        ...FULL_APP_CONFIG,
+        extra: { appEnvironment: 'production' },
+      }),
+    ).toEqual({
+      environment: 'production',
+      release: 'com.niks0501.caneguard@1.1.1+42',
+      dist: '42',
+    });
+    expect(
+      resolveCrashReportingIdentity({ extra: { appEnvironment: 'qa' } }),
+    ).toEqual({ environment: 'qa' });
+    expect(
+      resolveCrashReportingIdentity({ extra: { appEnvironment: 7 } }),
+    ).toEqual({});
+  });
+
   it('leaves the native SDK to report release and dist without a build number', () => {
     expect(
       resolveCrashReportingIdentity({

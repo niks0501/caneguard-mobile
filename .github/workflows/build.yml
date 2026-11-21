@@ -64,7 +64,7 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          npx --yes eas-cli@25.3.0 env:exec production 'node -e "for (const name of [\"EXPO_PUBLIC_API_BASE_URL\", \"EXPO_PUBLIC_AUTH_LINK_HOST\"]) { if (!process.env[name]?.trim()) { console.error(\"Production EAS environment is missing required \" + name + \"; configure it before requesting a production build.\"); process.exitCode = 1; } }"'
+          npx --yes eas-cli@25.3.0 env:exec production 'EXPO_NO_DOTENV=1 node -e "for (const name of [\"EXPO_PUBLIC_AUTH_LINK_HOST\"]) { if (!process.env[name]?.trim()) { console.error(\"Production EAS environment is missing required \" + name + \"; configure it before requesting a production build.\"); process.exitCode = 1; } }" && EAS_BUILD_PROFILE=production node scripts/release-env.js --skip-upload'
 
       - name: Verify main accepts the production release push
         if: inputs.lane == 'production'

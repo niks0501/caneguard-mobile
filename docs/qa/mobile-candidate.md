@@ -297,3 +297,17 @@ The exact EAS identity is the source of truth for what the tester used.
 A release record is not complete until it identifies whether testers installed a fresh APK or received an EAS Update.
 
 Human QA approval is recorded separately from automated readiness and smoke evidence.
+
+## Production release gates
+
+Production builds (`EAS_BUILD_PROFILE=production`) fail in `eas-build-pre-install` (`scripts/release-env.js`) before dependencies install unless the EAS `production` environment supplies:
+
+- `EXPO_PUBLIC_API_BASE_URL`: HTTPS, a public host (no localhost, private, or placeholder addresses), no credentials, query, or fragment.
+- `EXPO_PUBLIC_SENTRY_DSN`: a valid Sentry DSN.
+- `SENTRY_ORG`, `SENTRY_PROJECT`, and the secret `SENTRY_AUTH_TOKEN`: source map and native symbol upload. `app.config.js` also refuses to resolve a production config without them.
+
+Crash reports carry the build profile (or `EXPO_PUBLIC_APP_ENVIRONMENT` for updates) as the Sentry `environment`. Run `npm run release:preflight` to check a shell environment.
+
+`EXPO_PUBLIC_MAP_TILE_PROXY_URL` stays optional and is validated by `npm run security:config` when set; set it in the production environment only after the Web/API tile proxy is confirmed.
+
+The signed production OTA lane is the manual `Production over-the-air update` workflow (channel `production`, environment `production`, `EXPO_UPDATES_PRIVATE_KEY` secret). It is independent of the build workflow, so the first production release does not wait on it.

@@ -96,6 +96,15 @@ jest.mock('@/providers/LanguagePreferenceProvider', () => ({
   useFarmerCopy: () => jest.requireActual('@/constants/copy').FARMER_COPY[mockLanguage],
 }));
 
+const mockStartModel = jest.fn();
+const mockStartGuard = jest.fn();
+jest.mock('@/features/detection/model/useCaneGuardModel', () => ({
+  useCaneGuardModel: () => ({ start: mockStartModel }),
+}));
+jest.mock('@/features/detection/model/useGuardModel', () => ({
+  useGuardModel: () => ({ start: mockStartGuard }),
+}));
+
 async function renderScan(initialState: ScanSessionState = initialScanSessionState) {
   function ScanHarness() {
     const [state, dispatch] = useReducer(
@@ -150,6 +159,13 @@ describe('ScanScreen', () => {
       configurable: true,
       value: originalPlatformOS,
     });
+  });
+
+  it('starts both model loaders when the Scan tab mounts', async () => {
+    await renderScan();
+
+    expect(mockStartModel).toHaveBeenCalledTimes(1);
+    expect(mockStartGuard).toHaveBeenCalledTimes(1);
   });
 
   it('localizes farmer scan chrome and picker errors in Tagalog', async () => {

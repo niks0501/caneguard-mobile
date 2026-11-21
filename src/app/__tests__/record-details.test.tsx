@@ -534,6 +534,32 @@ describe('RecordDetailsScreen', () => {
     expect(mockDeleteScanRecord).not.toHaveBeenCalled();
   });
 
+  it('keeps confirmation open if lookup starts loading before confirmation', async () => {
+    const view = await render(
+      <ToastProvider>
+        <RecordDetailsScreen />
+      </ToastProvider>,
+    );
+    await fireEvent.press(
+      screen.getByLabelText('Delete this local record and saved image'),
+    );
+    expect(screen.getByTestId('records.confirm-delete')).toBeOnTheScreen();
+
+    mockFieldReportState = {
+      ...mockFieldReportState,
+      loading: true,
+    };
+    view.rerender(
+      <ToastProvider>
+        <RecordDetailsScreen />
+      </ToastProvider>,
+    );
+
+    await fireEvent.press(screen.getByTestId('records.confirm-delete.confirm'));
+    expect(screen.getByTestId('records.confirm-delete')).toBeOnTheScreen();
+    expect(mockDeleteScanRecord).not.toHaveBeenCalled();
+  });
+
   it('warns before deleting when the Field Report lookup fails', async () => {
     mockFieldReportState = {
       ...mockFieldReportState,

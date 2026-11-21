@@ -171,6 +171,7 @@ export default function RecordDetailsScreen() {
     if (!id || !user || deleting || fieldReport.loading || deleteBlockedByLinkedReport) {
       return;
     }
+    setShowDeleteConfirm(false);
     setDeleting(true);
     setDeleteError(null);
 
@@ -407,7 +408,6 @@ export default function RecordDetailsScreen() {
                 cancelLabel={isFarmer ? copy.cancel : 'Cancel'}
                 destructive
                 onConfirm={() => {
-                  setShowDeleteConfirm(false);
                   void performDelete();
                 }}
                 onCancel={() => setShowDeleteConfirm(false)}

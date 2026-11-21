@@ -1,0 +1,8 @@
+
+> caneguard-mobile@2.2.1 live:up
+> node ./scripts/live-up.js --exit-after-ready
+
+live:up DEVICE_UNAVAILABLE: No ready native target (adb devices: none listed).
+live:up inconclusive: no ready native target; web fallback (npm run web:validate) is device-unavailable, not pass
+live:up fix: npm run web:validate
+live:up record: .agent-device/test-artifacts/live/22b2e818da27/run.json

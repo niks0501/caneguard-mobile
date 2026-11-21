@@ -1,0 +1,11 @@
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.005s
+
+OK
+
+Test Suites: 17 passed, 17 total
+Tests:       142 passed, 142 total
+Snapshots:   0 total
+Time:        10.477 s
+Ran all test suites matching src/app/__tests__/symptom-checklist.guard.test.tsx|src/features/detection/analysis|src/features/detection/model/__tests__.

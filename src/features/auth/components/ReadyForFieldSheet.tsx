@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
 import { SheetScreen } from '@/components/ui/SheetScreen';
-import { READY_FOR_FIELD_COPY } from '@/constants/copy';
+import { getOfflineUnlockCopy, READY_FOR_FIELD_COPY } from '@/constants/copy';
 import { Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
@@ -14,8 +14,12 @@ import { useTheme } from '@/hooks/use-theme';
  */
 export function ReadyForFieldSheet() {
   const theme = useTheme();
-  const { user } = useAuth();
+  const { biometricCapability, user } = useAuth();
   const isFarmer = user?.role === 'farmer';
+  const unlockCopy = getOfflineUnlockCopy(
+    biometricCapability?.strongBiometricsAvailable,
+    biometricCapability?.deviceCredentialAvailable,
+  );
 
   // Offline visit work is an inspector task; farmers are never shown this sheet.
   useEffect(() => {
@@ -38,11 +42,11 @@ export function ReadyForFieldSheet() {
       title={READY_FOR_FIELD_COPY.sheetTitle}
       cancelLabel={READY_FOR_FIELD_COPY.sheetNotNow}
       cancelTestID="ready-for-field.dismiss"
-      submitLabel={READY_FOR_FIELD_COPY.sheetSetUp}
+      submitLabel={unlockCopy.readySheetSetUp}
       submitTestID="ready-for-field.setup"
       onCancel={() => router.back()}
       onSubmit={openSetup}>
-      <Text style={[styles.body, { color: theme.text }]}>{READY_FOR_FIELD_COPY.sheetBody}</Text>
+      <Text style={[styles.body, { color: theme.text }]}>{unlockCopy.readySheetBody}</Text>
       <Text style={[styles.note, { color: theme.textSecondary }]}>
         {READY_FOR_FIELD_COPY.sheetNote}
       </Text>

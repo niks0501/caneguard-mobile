@@ -15,8 +15,12 @@ import { net } from '@/features/net/reconnectCoordinator';
 export interface OfflineReadinessState {
   assignmentCount: number | null;
   checkingAssignments: boolean;
-  /** A biometric-protected credential is configured on this device. */
+  /** A protected unlock credential is configured on this device. */
   protectedSessionEnabled: boolean;
+  /** Whether the configured unlock path includes a strong biometric. */
+  strongBiometricsAvailable: boolean | null;
+  /** Whether the device PIN, pattern, or password can unlock the device. */
+  deviceCredentialAvailable: boolean;
   /** The protected session has an expiry in the past. */
   sessionExpired: boolean;
   sessionExpiresAt: string | null;
@@ -35,7 +39,7 @@ export interface OfflineReadinessState {
  */
 export function useOfflineReadiness(): OfflineReadinessState {
   const database = useCaneGuardDatabase();
-  const { biometricEnabled, session, sessionState, user } = useAuth();
+  const { biometricCapability, biometricEnabled, session, sessionState, user } = useAuth();
   const [assignmentCount, setAssignmentCount] = useState<number | null>(null);
   const [checkingAssignments, setCheckingAssignments] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -118,6 +122,8 @@ export function useOfflineReadiness(): OfflineReadinessState {
     checkingAssignments,
     missingStep: readiness.missing,
     protectedSessionEnabled,
+    deviceCredentialAvailable: biometricCapability?.deviceCredentialAvailable ?? false,
+    strongBiometricsAvailable: biometricCapability?.strongBiometricsAvailable ?? null,
     ready: readiness.ready && !sessionExpired,
     refresh,
     sessionState: state,

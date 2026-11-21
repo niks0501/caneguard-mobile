@@ -9,22 +9,24 @@ This replaces `auth-v1/10-offline-session-and-local-report.ad`.
 - Disposable verified field-reporter account; working local API and browser.
 - Matching CaneGuard development build, Metro bundle already loaded, Rust
   fixture in the emulator gallery. Do not clear application storage.
-- A developer-prepared emulator with a supported enrolled strong biometric
-  and CaneGuard biometric unlock enabled. **The current shared emulator has
-  no enrolled biometric: record Not executable, not Pass, on that target.**
+- A developer-prepared emulator with a lock screen (a supported enrolled
+  strong biometric, or a device PIN/pattern) and CaneGuard protected unlock
+  enabled. **The current shared emulator has no enrolled biometric or device
+  credential: record Not executable, not Pass, on that target.**
 - Do not enroll credentials, reset the emulator, or bypass unlock as part of
   this test. Credential preparation is separately owned.
 
 ## Steps and expected results
 1. While online, sign in with the disposable field-reporter account. Open
-   Account & security and check that the cached session is valid and biometric
+   Account & security and check that the cached session is valid and protected
    unlock is enabled. **Expect:** authenticated Home, not an expired session.
 2. In Android quick settings enable airplane mode and explicitly turn Wi-Fi
    off. **Expect:** no cellular/Wi-Fi connection. Keep the app's local data.
 3. In Android Settings → Apps → CaneGuard, Force stop, then reopen CaneGuard.
    **Expect:** local unlock is required; the app must not silently bypass it.
-4. Complete the supported native biometric prompt. **Expect:** Home shows
-   Working offline without attempting online password authentication.
+4. Complete the supported native unlock prompt (strong biometric, or device
+   PIN/pattern/password). **Expect:** Home shows Working offline without
+   attempting online password authentication.
 5. Open Scan from the bottom nav, choose the Rust fixture, Analyze, select Rust
    in the checklist, and continue. **Expect:** Possible result: Rust using the
    local model.

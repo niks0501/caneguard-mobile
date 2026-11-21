@@ -47,8 +47,8 @@ These screens exist in this repository and are covered by component or unit
 tests. "Implemented" does not mean "verified on a device":
 
 - Sign-in, registration, forgot-password, reset-password, email verification.
-- Biometric unlock, device enrollment, and password/email change (Account
-  security).
+- Protected unlock (strong biometric, or device PIN/pattern/password
+  fallback), device enrollment, and password/email change (Account security).
 - Scan capture from camera or gallery, image preview, on-device analysis,
   guided symptom checklist, and the result card (Possible Condition, or Result
   uncertain for a farmer below the cutoff).
@@ -171,7 +171,7 @@ not proven by unit tests:
 | Sign-in, sync, office review status | Reachable CaneGuard API and a verified account |
 | Registration, password recovery, email verification | API mail delivery plus a configured auth deep-link host; without the host, links cannot return to the app |
 | Manual map location | Online access through the configured privacy-preserving tile proxy (`EXPO_PUBLIC_MAP_TILE_PROXY_URL`); no offline map packages |
-| Biometric unlock | Device with enrolled biometrics; enabling it is an explicit user action |
+| Protected unlock | Device with a lock screen (strong biometric, or PIN/pattern/password fallback); enabling it is an explicit user action |
 | Android interrupted picker recovery | Android platform only; best-effort marker, not full draft recovery |
 
 ## Location behaviour
@@ -207,7 +207,7 @@ not proven by unit tests:
 
 - A password-only sign-in is not stored: closing the app while offline returns
   to the sign-in screen.
-- A biometric-protected session can restore the same unexpired owner offline.
+- A protected session can restore the same unexpired owner offline.
   Until `/me` verifies, that session carries no capabilities, so inspector
   authoring stays unavailable; already-authored records stay readable. The
   capability contract is owned by
@@ -216,8 +216,9 @@ not proven by unit tests:
   readiness card that reads ready only when a protected session is configured,
   unexpired, and visits are downloaded. Sign-in explains the password-only
   limit.
-- No offline password or weaker unlock method is implemented. A different
-  offline-unlock design would need its own threat model and approval.
+- The device-credential fallback is the weakest accepted unlock method; no app
+  password is stored. Any further offline-unlock design would need its own
+  threat model and approval.
 
 ## Recovery and cleanup boundaries
 

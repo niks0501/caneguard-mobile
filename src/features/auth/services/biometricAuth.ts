@@ -26,24 +26,18 @@ export async function getBiometricCapability(): Promise<BiometricCapability> {
       types.length > 0 &&
       level === LocalAuthentication.SecurityLevel.BIOMETRIC_STRONG;
 
-    if (!hasHardware || types.length === 0) {
-      return {
-        deviceCredentialAvailable,
-        status: 'unsupported',
-        strongBiometricsAvailable: false,
-      };
-    }
-    if (!enrolled || level === LocalAuthentication.SecurityLevel.NONE) {
-      return {
-        deviceCredentialAvailable,
-        status: 'not-enrolled',
-        strongBiometricsAvailable: false,
-      };
-    }
     if (!strongBiometricsAvailable) {
+      if (deviceCredentialAvailable) {
+        return {
+          deviceCredentialAvailable,
+          status: 'available',
+          strongBiometricsAvailable: false,
+        };
+      }
       return {
         deviceCredentialAvailable,
-        status: 'unsupported',
+        status:
+          hasHardware && types.length > 0 && !enrolled ? 'not-enrolled' : 'unsupported',
         strongBiometricsAvailable: false,
       };
     }
@@ -67,12 +61,6 @@ export async function getBiometricCapability(): Promise<BiometricCapability> {
   }
 }
 
-/**
- * Checks that a strong biometric can be used, without showing a prompt.
- * The protected session is stored with `requireAuthentication`, so the OS
- * shows its own prompt when that item is read (and, on Android, written).
- * Prompting here as well would ask for two finger touches per action.
- */
 export async function ensureBiometricReady(): Promise<BiometricAuthResult> {
   const capability = await getBiometricCapability();
   if (capability.status === 'not-enrolled') {
@@ -85,50 +73,30 @@ export async function ensureBiometricReady(): Promise<BiometricAuthResult> {
   if (capability.status !== 'available') {
     return {
       code: 'NOT_AVAILABLE',
-      message: 'Biometric unlock is unavailable. Sign in with your password.',
+      message: 'Device unlock is unavailable. Sign in with your password.',
       success: false,
     };
   }
   return { success: true };
 }
 
-/**
- * Confirmation before saving the protected session. Android's authentication-
- * bound Keystore key prompts on that write itself, so only a readiness check
- * is needed there. iOS adds a gated Keychain item without a prompt, so the
- * explicit prompt stays the single confirmation on that platform.
- */
-export async function confirmBeforeProtectedWrite(): Promise<BiometricAuthResult> {
-  return Platform.OS === 'android'
-    ? ensureBiometricReady()
-    : authenticateWithBiometrics();
-}
-
-export async function authenticateWithBiometrics(): Promise<BiometricAuthResult> {
+export async function authenticateWithDeviceCredential(): Promise<BiometricAuthResult> {
   const ready = await ensureBiometricReady();
   if (!ready.success) {
     return ready;
   }
-
   try {
     const result = await LocalAuthentication.authenticateAsync({
       biometricsSecurityLevel: 'strong',
       cancelLabel: 'Use password instead',
-      disableDeviceFallback: true,
+      disableDeviceFallback: false,
       promptMessage: 'Unlock CaneGuard',
-      promptSubtitle: 'Use your enrolled strong biometric.',
-      requireConfirmation: true,
     });
-
-    if (result.success) {
-      return { success: true };
-    }
-
-    return mapAuthenticationFailure(result.error);
+    return result.success ? { success: true } : mapAuthenticationFailure(result.error);
   } catch {
     return {
       code: 'NOT_AVAILABLE',
-      message: 'Biometric unlock is unavailable. Sign in with your password.',
+      message: 'Device unlock is unavailable. Sign in with your password.',
       success: false,
     };
   }
@@ -145,27 +113,27 @@ function mapAuthenticationFailure(
   ) {
     return {
       code: 'CANCELLED',
-      message: 'Biometric unlock was cancelled. Sign in with your password.',
+      message: 'Device unlock was cancelled. Sign in with your password.',
       success: false,
     };
   }
   if (error === 'not_enrolled' || error === 'passcode_not_set') {
     return {
       code: 'NOT_ENROLLED',
-      message: 'Biometric unlock is not available. Sign in with your password.',
+      message: 'Device unlock is not available. Sign in with your password.',
       success: false,
     };
   }
   if (error === 'not_available') {
     return {
       code: 'NOT_AVAILABLE',
-      message: 'Biometric unlock is unavailable. Sign in with your password.',
+      message: 'Device unlock is unavailable. Sign in with your password.',
       success: false,
     };
   }
   return {
     code: 'AUTHENTICATION_FAILED',
-    message: 'CaneGuard could not verify you biometrically. Sign in with your password.',
+    message: 'CaneGuard could not verify this device. Sign in with your password.',
     success: false,
   };
 }

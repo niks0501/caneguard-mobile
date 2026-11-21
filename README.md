@@ -132,8 +132,8 @@ The seed emails are `field@caneguard.test`, `mao@caneguard.test`, and `admin@can
 Use the password values you set locally when logging in during the smoke check.
 
 Current main's Mobile onboarding supports sign-in with the seeded `field@caneguard.test` account.
-The mobile screens for registration, password recovery, email verification, and biometric unlock are implemented in this repository.
-Registration/recovery links and biometrics still depend on deployment setup: API mail delivery plus a configured auth deep-link host, and a device with enrolled biometrics.
+The mobile screens for registration, password recovery, email verification, and protected device unlock are implemented in this repository.
+Registration/recovery links and protected device unlock still depend on deployment setup: API mail delivery plus a configured auth deep-link host, and a device with a lock screen (strong biometric, or PIN/pattern/password fallback).
 Without the deep-link host, an emailed link cannot return to the app.
 See [current capability and readiness](docs/CAPABILITY-READINESS.md) for what is implemented versus deployment-dependent.
 

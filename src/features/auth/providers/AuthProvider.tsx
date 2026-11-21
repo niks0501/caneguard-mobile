@@ -23,7 +23,7 @@ import {
   verifyMobileSession,
 } from '@/features/auth/api/mobileAuthApi';
 import {
-  confirmBeforeProtectedWrite,
+  authenticateWithDeviceCredential,
   ensureBiometricReady,
   getBiometricCapability,
 } from '@/features/auth/services/biometricAuth';
@@ -628,25 +628,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
         });
         const acceptance = await acceptTokenSession(issuedSession);
         const nextSession = acceptance.session;
-        try {
-          if (biometricEnabled) {
-            // A password fallback refreshes the protected credential without
-            // disabling the user's biometric preference for the next cold open.
+        if (biometricEnabled) {
+          // A password fallback refreshes the protected credential without
+          // disabling the user's biometric preference for the next cold open.
+          // A failed refresh clears the retained credential and preference
+          // fail-closed; the password session stays active in memory.
+          try {
             await saveProtectedMobileSession(nextSession);
-          } else {
-            // Password sessions intentionally remain in memory only. A process
-            // restart must return to the login form instead of auto-resuming.
-            if (typeof clearLegacyMobileSession === 'function') {
-              await clearLegacyMobileSession().catch(() => undefined);
+          } catch {
+            const stillConfigured =
+              typeof isBiometricUnlockEnabled === 'function'
+                ? await isBiometricUnlockEnabled().catch(() => false)
+                : false;
+            if (!stillConfigured) {
+              setBiometricEnabled(false);
             }
           }
-        } catch {
-          await clearMobileSession().catch(() => undefined);
-          void logoutMobile(nextSession.token).catch(() => undefined);
-          throw new MobileAuthError(
-            'INVALID_RESPONSE',
-            'Secure session storage is unavailable. Sign in was cancelled.',
-          );
+        } else if (typeof clearLegacyMobileSession === 'function') {
+          // Password sessions intentionally remain in memory only. A process
+          // restart must return to the login form instead of auto-resuming.
+          await clearLegacyMobileSession().catch(() => undefined);
         }
         if (typeof markMobileLoginCompleted === 'function') {
           await markMobileLoginCompleted().catch(() => undefined);
@@ -692,7 +693,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           typeof isBiometricUnlockEnabled !== 'function' ||
           !(await isBiometricUnlockEnabled())
         ) {
-          setErrorMessage('Biometric unlock is not set up. Sign in with your password.');
+          setErrorMessage('Protected unlock is not set up. Sign in with your password.');
           return false;
         }
         const unlock = await readyBiometricOnce();
@@ -709,7 +710,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const stored = await readProtectedMobileSession();
         if (!stored) {
           setBiometricEnabled(false);
-          setErrorMessage('Biometric unlock is unavailable. Sign in with your password.');
+          setErrorMessage('Device unlock is unavailable. Sign in with your password.');
           return false;
         }
         setBiometricEnabled(true);
@@ -734,7 +735,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           }
           setErrorMessage(error.message);
         } else {
-          setErrorMessage('Biometric unlock is unavailable. Sign in with your password.');
+          setErrorMessage('Device unlock is unavailable. Sign in with your password.');
         }
         return false;
       } finally {
@@ -767,13 +768,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const operation = (async () => {
       const activeSession = sessionRef.current;
       if (!activeSession) {
-        setErrorMessage('Sign in with your password before enabling biometric unlock.');
+        setErrorMessage('Sign in with your password before enabling device unlock.');
         return false;
       }
       setBiometricLoading(true);
       setErrorMessage(null);
       try {
-        const unlock = await confirmBeforeProtectedWrite();
+        const unlock = await authenticateWithDeviceCredential();
         if (!unlock.success) {
           setErrorMessage(unlock.message);
           return false;
@@ -784,7 +785,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return true;
       } catch {
         setErrorMessage(
-          'Biometric unlock could not be enabled. Your password session is still active.',
+          'Device unlock could not be enabled. Your password session is still active.',
         );
         return false;
       } finally {
@@ -870,7 +871,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setErrorMessage(null);
       const activeSession = sessionRef.current;
       if (!activeSession) {
-        setErrorMessage('Sign in again before disabling biometric unlock.');
+        setErrorMessage('Sign in again before disabling device unlock.');
         return false;
       }
       try {
@@ -886,7 +887,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const cleared = await clearSessionAfterRemoteRevocation();
         if (remoteRevocationFailed && cleared) {
           setErrorMessage(
-            'Biometric unlock was disabled on this device, but the server token could not be revoked.',
+            'Device unlock was disabled on this device, but the server token could not be revoked.',
           );
         }
         return cleared;

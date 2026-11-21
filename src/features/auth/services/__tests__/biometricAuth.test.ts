@@ -1,11 +1,8 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 
-import { Platform } from 'react-native';
-
 import {
-  authenticateWithBiometrics,
-  confirmBeforeProtectedWrite,
+  authenticateWithDeviceCredential,
   ensureBiometricReady,
   getBiometricCapability,
 } from '@/features/auth/services/biometricAuth';
@@ -63,8 +60,19 @@ describe('mobile biometric capability and authentication', () => {
     });
   });
 
-  it('reports weak biometric enrollment as unsupported', async () => {
+  it('falls back to the device credential when only a weak biometric is enrolled', async () => {
     mockLevel.mockResolvedValue(LocalAuthentication.SecurityLevel.BIOMETRIC_WEAK);
+
+    await expect(getBiometricCapability()).resolves.toEqual({
+      deviceCredentialAvailable: true,
+      status: 'available',
+      strongBiometricsAvailable: false,
+    });
+  });
+
+  it('reports weak biometric enrollment without a device credential as unsupported', async () => {
+    mockLevel.mockResolvedValue(LocalAuthentication.SecurityLevel.NONE);
+    mockEnrolled.mockResolvedValue(true);
 
     await expect(getBiometricCapability()).resolves.toMatchObject({
       status: 'unsupported',
@@ -87,9 +95,16 @@ describe('mobile biometric capability and authentication', () => {
     mockTypes.mockResolvedValue([]);
 
     await expect(getBiometricCapability()).resolves.toMatchObject({
-      status: 'unsupported',
+      status: 'available',
       strongBiometricsAvailable: false,
       deviceCredentialAvailable: true,
+    });
+
+    mockLevel.mockResolvedValue(LocalAuthentication.SecurityLevel.NONE);
+
+    await expect(getBiometricCapability()).resolves.toMatchObject({
+      status: 'unsupported',
+      deviceCredentialAvailable: false,
     });
   });
 
@@ -102,17 +117,16 @@ describe('mobile biometric capability and authentication', () => {
     });
   });
 
-  it('requires a strong biometric without allowing device-credential fallback', async () => {
+  it('allows only strong biometrics or the device credential in the fallback prompt', async () => {
+    mockLevel.mockResolvedValue(LocalAuthentication.SecurityLevel.BIOMETRIC_WEAK);
     mockAuthenticate.mockResolvedValueOnce({ success: true });
 
-    await expect(authenticateWithBiometrics()).resolves.toEqual({ success: true });
+    await expect(authenticateWithDeviceCredential()).resolves.toEqual({ success: true });
     expect(mockAuthenticate).toHaveBeenCalledWith(
       expect.objectContaining({
         biometricsSecurityLevel: 'strong',
-        cancelLabel: 'Use password instead',
-        disableDeviceFallback: true,
+        disableDeviceFallback: false,
         promptMessage: 'Unlock CaneGuard',
-        promptSubtitle: 'Use your enrolled strong biometric.',
       }),
     );
   });
@@ -130,28 +144,12 @@ describe('mobile biometric capability and authentication', () => {
     expect(mockAuthenticate).not.toHaveBeenCalled();
   });
 
-  it('leaves the prompt before a protected write to Android Keystore and keeps it on iOS', async () => {
-    const originalOs = Platform.OS;
-    try {
-      Platform.OS = 'android';
-      await expect(confirmBeforeProtectedWrite()).resolves.toEqual({ success: true });
-      expect(mockAuthenticate).not.toHaveBeenCalled();
-
-      Platform.OS = 'ios';
-      mockAuthenticate.mockResolvedValueOnce({ success: true });
-      await expect(confirmBeforeProtectedWrite()).resolves.toEqual({ success: true });
-      expect(mockAuthenticate).toHaveBeenCalledTimes(1);
-    } finally {
-      Platform.OS = originalOs;
-    }
-  });
-
   it('maps cancellation and native authentication failures to password fallback states', async () => {
     mockAuthenticate.mockResolvedValueOnce({
       error: 'user_cancel',
       success: false,
     });
-    await expect(authenticateWithBiometrics()).resolves.toMatchObject({
+    await expect(authenticateWithDeviceCredential()).resolves.toMatchObject({
       code: 'CANCELLED',
       success: false,
     });
@@ -160,7 +158,7 @@ describe('mobile biometric capability and authentication', () => {
       error: 'authentication_failed',
       success: false,
     });
-    await expect(authenticateWithBiometrics()).resolves.toMatchObject({
+    await expect(authenticateWithDeviceCredential()).resolves.toMatchObject({
       code: 'AUTHENTICATION_FAILED',
       success: false,
     });

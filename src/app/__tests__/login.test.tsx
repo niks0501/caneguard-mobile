@@ -75,8 +75,8 @@ describe('LoginScreen biometric fallback', () => {
   it('keeps the fallback button unavailable when biometric unlock is not configured', async () => {
     setAuthValue({
       biometricCapability: {
-        deviceCredentialAvailable: false,
-        status: 'unsupported',
+        deviceCredentialAvailable: true,
+        status: 'available',
         strongBiometricsAvailable: false,
       },
     });
@@ -90,7 +90,28 @@ describe('LoginScreen biometric fallback', () => {
       /Password-only sign-in/,
     );
     expect(screen.getByTestId('auth.offline-restart-limit')).toHaveTextContent(
-      /Turn on biometric unlock/,
+      /Turn on device unlock/,
+    );
+  });
+
+  it('names device credentials for a configured PIN fallback', async () => {
+    setAuthValue({
+      biometricCapability: {
+        deviceCredentialAvailable: true,
+        status: 'available',
+        strongBiometricsAvailable: false,
+      },
+      biometricEnabled: true,
+    });
+
+    await render(<LoginScreen />);
+
+    expect(screen.getByTestId('auth.biometric-unlock')).toHaveTextContent(
+      'Unlock with device credentials',
+    );
+    expect(screen.getByTestId('auth.biometric-unlock')).toHaveProp(
+      'accessibilityLabel',
+      'Unlock with device credentials',
     );
   });
 

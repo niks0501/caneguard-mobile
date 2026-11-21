@@ -27,7 +27,7 @@ import {
 } from '@/features/auth/services/tokenStore';
 import { getOrCreateMobileDeviceId } from '@/features/auth/services/deviceIdentity';
 import {
-  authenticateWithBiometrics,
+  authenticateWithDeviceCredential,
   getBiometricCapability,
 } from '@/features/auth/services/biometricAuth';
 import type { MobileSession, SessionVerificationStatus } from '@/features/auth/types';
@@ -70,10 +70,9 @@ jest.mock('@/features/auth/services/deviceIdentity', () => ({
 jest.mock('@/features/auth/services/biometricAuth', () => {
   const authenticate = jest.fn(async () => ({ success: false, code: 'CANCELLED', message: 'Cancelled' }));
   return {
-  authenticateWithBiometrics: authenticate,
+  authenticateWithDeviceCredential: authenticate,
   // The readiness checks used by the provider share one mock so each test's
-  // single `authenticateWithBiometrics` expectation still drives them.
-  confirmBeforeProtectedWrite: () => authenticate(),
+  // single authentication expectation still drives them.
   ensureBiometricReady: () => authenticate(),
   getBiometricCapability: jest.fn(async () => ({
     deviceCredentialAvailable: true,
@@ -148,7 +147,7 @@ describe('AuthProvider', () => {
   const mockDisableBiometric = jest.mocked(disableBiometricUnlock);
   const mockBiometricEnabled = jest.mocked(isBiometricUnlockEnabled);
   const mockDeviceId = jest.mocked(getOrCreateMobileDeviceId);
-  const mockBiometricAuth = jest.mocked(authenticateWithBiometrics);
+  const mockBiometricAuth = jest.mocked(authenticateWithDeviceCredential);
   const mockBiometricCapability = jest.mocked(getBiometricCapability);
 
   afterEach(() => {
@@ -799,6 +798,30 @@ describe('AuthProvider', () => {
     expect(mockSaveProtected).toHaveBeenCalledWith(rotatedSession);
     expect(mockMarkLogin).toHaveBeenCalledTimes(1);
     expect(result.current.hasCompletedLogin).toBe(true);
+  });
+
+  it('keeps the password sign-in when the protected-session refresh fails', async () => {
+    mockBiometricEnabled.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+    expect(result.current.biometricEnabled).toBe(true);
+
+    mockSaveProtected.mockRejectedValueOnce(new Error('cancelled'));
+    mockLogin.mockResolvedValueOnce(SESSION);
+    mockClear.mockClear();
+    mockLogout.mockClear();
+    await act(async () => {
+      await expect(result.current.login('field@caneguard.test', 'password')).resolves.toBe(
+        true,
+      );
+    });
+
+    expect(result.current.status).toBe('authenticated');
+    expect(result.current.biometricEnabled).toBe(false);
+    expect(mockClear).not.toHaveBeenCalled();
+    expect(mockLogout).not.toHaveBeenCalled();
+    expect(result.current.errorMessage).toBeNull();
   });
 
   it('keeps a protected session with its finite server expiry after biometric unlock', async () => {

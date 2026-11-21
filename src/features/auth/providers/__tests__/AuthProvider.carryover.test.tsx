@@ -10,7 +10,7 @@ import {
   readProtectedMobileSession,
   saveProtectedMobileSession,
 } from '@/features/auth/services/tokenStore';
-import { authenticateWithBiometrics } from '@/features/auth/services/biometricAuth';
+import { authenticateWithDeviceCredential } from '@/features/auth/services/biometricAuth';
 import type { MobileSession } from '@/features/auth/types';
 
 jest.mock('expo-device', () => ({ deviceName: 'Test phone', modelName: 'Test model' }));
@@ -44,10 +44,9 @@ jest.mock('@/features/auth/services/deviceIdentity', () => ({
 jest.mock('@/features/auth/services/biometricAuth', () => {
   const authenticate = jest.fn(async () => ({ success: true }));
   return {
-  authenticateWithBiometrics: authenticate,
+  authenticateWithDeviceCredential: authenticate,
   // The readiness checks used by the provider share one mock so each test's
-  // single `authenticateWithBiometrics` expectation still drives them.
-  confirmBeforeProtectedWrite: () => authenticate(),
+  // single authentication expectation still drives them.
   ensureBiometricReady: () => authenticate(),
   getBiometricCapability: jest.fn(async () => ({
     deviceCredentialAvailable: true,
@@ -113,7 +112,7 @@ describe('AuthProvider carry-over (NET-3)', () => {
     mockSave.mockReset();
     mockSave.mockResolvedValue(undefined);
     jest.mocked(isBiometricUnlockEnabled).mockResolvedValue(true);
-    jest.mocked(authenticateWithBiometrics).mockResolvedValue({ success: true });
+    jest.mocked(authenticateWithDeviceCredential).mockResolvedValue({ success: true });
   });
 
   // Intent: "Carry-over(lastVerified, until)": an offline restart with a valid dated grant resumes with the carried capabilities.

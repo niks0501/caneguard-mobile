@@ -161,7 +161,7 @@ Sign-in accepts the `field_reporter` and `farmer` roles; any other role is
 rejected as an unsupported account type. One shared `isMobileUser` guard in
 `src/features/auth/types.ts` checks every server-issued user object, requiring a
 supported role (`isMobileUserRole`) and a safe owner identity uuid
-(`isSafeOwnerIdentity` in `src/database/ownerIdentity.ts`); a restored biometric
+(`isSafeOwnerIdentity` in `src/database/ownerIdentity.ts`); a restored protected
 session passes the same guard, so a stored session without a safe owner identity
 is discarded instead of installed. Only users returned with the `field_reporter`
 role are accepted for mobile synchronization.
@@ -186,7 +186,7 @@ pending-report counts for reports they already created, and loses only the
 authoring controls.
 
 Only a successful `/me` grants capabilities. Password login, device enrollment,
-and a restored biometric session all accept their session through the same `/me`
+and a restored protected session all accept their session through the same `/me`
 verification in `AuthProvider`, and a token response never grants any. When
 `/me` is unavailable the session is still installed, but with an empty capability
 list, and it is re-verified on retry, foreground, or network restore; offline
@@ -199,18 +199,22 @@ Mobile bearer sessions receive a finite local safety expiry. When the API return
 `expires_at: null`, the client applies the 30-day `LOCAL_SESSION_MAX_AGE_MS`
 policy in `mobileAuthApi.ts`; the server should still issue and enforce an
 explicit expiry/revocation policy. The client does not refresh or extend
-sessions, including when a protected session is unlocked biometrically.
-Sessions remain valid until explicit logout, server-side revocation, or the
-local safety expiry. A fresh password login is required after expiry or a
-process restart without biometric unlock.
+sessions, including when a protected session is unlocked with the device
+credential. Sessions remain valid until explicit logout, server-side
+revocation, or the local safety expiry. A fresh password login is required
+after expiry or a process restart without protected unlock.
 
 Password sessions remain in memory only, so removing the app from the recent-apps list cannot silently restore an authenticated session.
-When biometric unlock is enabled, the client stores the session under a separate
-SecureStore key with `requireAuthentication: true`; the platform therefore
-binds the protected entry to an authentication-backed key where supported. Only
-an enrolled strong biometric is accepted for this credential; a device passcode
-is not a fallback. A password login updates the protected session without
-disabling the biometric preference.
+When protected unlock is enabled, the client stores the session under a separate
+SecureStore key. When the device has a lock-screen credential, the strong
+biometric or PIN/pattern/password unlocks the stored session through one
+`LocalAuthentication` prompt before the entry is read; a device without one
+falls back to the `requireAuthentication` key binding. That app-initiated prompt
+is weaker than an OS-authentication-bound key; the exact storage boundary is
+owned by
+[`docs/security/mobile-security-fixes.md`](docs/security/mobile-security-fixes.md#sessions-and-biometrics-70).
+A password login refreshes the protected session without disabling the unlock
+preference; a failed refresh clears the preference fail-closed.
 A non-sensitive login-history marker routes returning users to the password form and is never used as authentication material.
 The client persists a random opaque installation UUID in SecureStore for API device identity; it does not use immutable hardware identifiers.
 Explicit logout always attempts server revocation and clears the active session,
@@ -300,7 +304,7 @@ replaces them.
 ## Security and data sensitivity
 
 - Authentication uses bearer tokens from the CaneGuard backend.
-- Password and protected mobile sessions use Expo SecureStore. `keychainAccessible` is an iOS Keychain control; Android protection for the protected session comes from SecureStore `requireAuthentication`/Keystore binding.
+- Password and protected mobile sessions use Expo SecureStore. `keychainAccessible` is an iOS Keychain control. The protected session is bound to an OS-authentication-backed key only on a device without a lock-screen credential; with a PIN, pattern, or password the client relies on its own `LocalAuthentication` prompt. See [`docs/security/mobile-security-fixes.md`](docs/security/mobile-security-fixes.md#sessions-and-biometrics-70).
 - The mobile client accepts only the account roles listed under
   [Authentication](#authentication); Field Report access stays inspector-only,
   and inspector authoring additionally requires the server-granted capabilities

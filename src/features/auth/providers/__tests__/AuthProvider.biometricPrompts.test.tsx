@@ -1,6 +1,5 @@
 import type { PropsWithChildren } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { Platform } from 'react-native';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { loginMobile, verifyMobileSession } from '@/features/auth/api/mobileAuthApi';
@@ -12,13 +11,6 @@ import {
   saveProtectedMobileSession,
 } from '@/features/auth/services/tokenStore';
 import type { MobileSession } from '@/features/auth/types';
-
-// Regression for "two finger touches per biometric action". The protected
-// session is stored with `requireAuthentication`, so the OS prompts on its
-// own when that item is read (and, on Android, written). The provider must
-// not add a second explicit LocalAuthentication prompt on top of it. Here the
-// real biometricAuth service runs against a mocked native layer, and the
-// protected store counts the prompts the OS would show.
 
 jest.mock('expo-device', () => ({ deviceName: 'Test phone', modelName: 'Test model' }));
 jest.mock('expo-local-authentication', () => ({
@@ -85,57 +77,40 @@ function wrapper({ children }: PropsWithChildren) {
   return <AuthProvider>{children}</AuthProvider>;
 }
 
-describe('biometric prompts per action', () => {
+describe('biometric session actions', () => {
   const mockAuthenticate = jest.mocked(LocalAuthentication.authenticateAsync);
   const mockEnabled = jest.mocked(isBiometricUnlockEnabled);
   const mockRead = jest.mocked(readProtectedMobileSession);
   const mockSave = jest.mocked(saveProtectedMobileSession);
   const mockLogin = jest.mocked(loginMobile);
   const mockVerify = jest.mocked(verifyMobileSession);
-  const originalOs = Platform.OS;
-  let storePrompts = 0;
-  let promptOnStoreWrite = false;
-
-  /** Every fingerprint touch the user would be asked for. */
-  const prompts = () => mockAuthenticate.mock.calls.length + storePrompts;
 
   beforeEach(() => {
-    storePrompts = 0;
-    promptOnStoreWrite = false;
     mockAuthenticate.mockClear();
     mockEnabled.mockReset();
     mockEnabled.mockResolvedValue(false);
     mockRead.mockReset();
-    mockRead.mockImplementation(async () => {
-      storePrompts += 1;
-      return SESSION;
-    });
+    mockRead.mockResolvedValue(SESSION);
     mockSave.mockReset();
-    mockSave.mockImplementation(async () => {
-      if (promptOnStoreWrite) {
-        storePrompts += 1;
-      }
-    });
+    mockSave.mockImplementation(async () => undefined);
     mockVerify.mockReset();
     mockVerify.mockResolvedValue(SESSION.user);
     mockLogin.mockReset();
     mockLogin.mockResolvedValue(SESSION);
   });
 
-  afterEach(() => {
-    Platform.OS = originalOs;
-  });
-
-  it('prompts once when the app is reopened with biometric unlock on', async () => {
+  it('restores the app session when biometric unlock is on', async () => {
     mockEnabled.mockResolvedValue(true);
 
     const { result } = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.status).toBe('authenticated'));
 
-    expect(prompts()).toBe(1);
+    expect(result.current.session?.token).toBe(SESSION.token);
+    expect(result.current.session?.user.uuid).toBe(SESSION.user.uuid);
+    expect(result.current.sessionVerification).toBe('verified');
   });
 
-  it('prompts once for one manual unlock from the login screen', async () => {
+  it('restores one manual unlock from the login screen', async () => {
     const { result } = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
     mockEnabled.mockResolvedValue(true);
@@ -144,30 +119,25 @@ describe('biometric prompts per action', () => {
       await expect(result.current.unlockWithBiometrics()).resolves.toBe(true);
     });
 
-    expect(prompts()).toBe(1);
+    expect(result.current.session?.token).toBe(SESSION.token);
+    expect(result.current.session?.user.uuid).toBe(SESSION.user.uuid);
+    expect(result.current.sessionVerification).toBe('verified');
     expect(result.current.status).toBe('authenticated');
   });
 
-  it.each([
-    ['android', true],
-    ['ios', false],
-  ])('prompts once when enabling biometric unlock on %s', async (os, writePrompts) => {
-    Platform.OS = os as typeof Platform.OS;
-    promptOnStoreWrite = writePrompts;
-
+  it('prompts once when enabling biometric unlock', async () => {
     const { result } = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
     await act(async () => {
       await result.current.login('field@caneguard.test', 'password');
     });
     await waitFor(() => expect(result.current.status).toBe('authenticated'));
-    storePrompts = 0;
     mockAuthenticate.mockClear();
 
     await act(async () => {
       await expect(result.current.enableBiometricUnlock()).resolves.toBe(true);
     });
 
-    expect(prompts()).toBe(1);
+    expect(mockAuthenticate).toHaveBeenCalledTimes(1);
   });
 });

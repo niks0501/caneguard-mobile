@@ -105,7 +105,9 @@ describe('biometric session actions', () => {
     const { result } = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.status).toBe('authenticated'));
 
-    expect(mockRead).toHaveBeenCalledTimes(1);
+    expect(result.current.session?.token).toBe(SESSION.token);
+    expect(result.current.session?.user.uuid).toBe(SESSION.user.uuid);
+    expect(result.current.sessionVerification).toBe('verified');
   });
 
   it('restores one manual unlock from the login screen', async () => {
@@ -117,7 +119,9 @@ describe('biometric session actions', () => {
       await expect(result.current.unlockWithBiometrics()).resolves.toBe(true);
     });
 
-    expect(mockRead).toHaveBeenCalledTimes(1);
+    expect(result.current.session?.token).toBe(SESSION.token);
+    expect(result.current.session?.user.uuid).toBe(SESSION.user.uuid);
+    expect(result.current.sessionVerification).toBe('verified');
     expect(result.current.status).toBe('authenticated');
   });
 

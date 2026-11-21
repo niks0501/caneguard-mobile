@@ -1,0 +1,18 @@
+Account & security
+Protect your account without changing the offline reports and scans saved on this device.
+Validation Inspector
+inspector@validation.invalid
+Session expires Dec 21, 2026, 3:56 PM. Biometric unlock does not extend it.
+Biometric unlock
+Biometric capability is unavailable until the native development build is ready. Use password sign-in.
+
+Enable biometric unlock
+Change password
+Password protection is on. Changing your password signs out every active session.
+
+Change email
+Current email: inspector@validation.invalid. Changing it signs out every active session and requires verification of the new address.
+
+Device enrollment
+Installation identity: CaneGuard mobile device.
+

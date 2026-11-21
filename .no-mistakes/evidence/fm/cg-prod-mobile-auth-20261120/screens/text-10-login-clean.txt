@@ -1,0 +1,19 @@
+CaneGuard
+Field disease detection for sugarcane
+Welcome back
+Sign in to keep your field observations in sync.
+Email
+
+Password
+
+
+
+Login
+
+
+Password-only sign-in: if CaneGuard closes while you are offline, you must sign in again when a connection returns. Turn on biometric unlock in Account security before visits to resume offline after a restart.
+Forgot password?
+Need an account? Ask your municipal agriculture office.
+
+Field guide
+Offline-first disease detection support

@@ -320,6 +320,24 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     );
   });
 
+  it('keeps the question locked when the guard rejects the current photo', async () => {
+    mockGuardRun.mockResolvedValueOnce([Float32Array.of(0.05).buffer]);
+    await renderScreen(selectedState);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('scan.check-state')).toHaveProp('accessibilityValue', {
+        text: 'not-sugarcane',
+      });
+    });
+    expect(screen.getByTestId('scan.question-locked')).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.symptom-rust')).toBeDisabled();
+    await fireEvent.press(screen.getByTestId('scan.symptom-rust'));
+    expect(screen.getByTestId('scan.symptom-rust')).toHaveProp(
+      'accessibilityState',
+      expect.objectContaining({ selected: false }),
+    );
+  });
+
   it('keeps the question locked while the photo is still being checked or waiting for the models', async () => {
     mockUseCaneGuardModel.mockReturnValue({ ...loadedModel(), state: 'loading' as const });
     await renderScreen(selectedState);
@@ -500,6 +518,8 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     expect(screen.getByTestId('scan.continue-to-result')).toBeDisabled();
     expect(screen.queryByTestId('scan.retake-camera')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('scan.retake-gallery')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.question-locked')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('scan.symptom-rust')).toBeEnabled();
   });
 
   it('offers an in-app retry after a recoverable model-load failure', async () => {
@@ -531,6 +551,7 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     await fireEvent.press(screen.getByTestId('scan.symptom-rust'));
     await fireEvent.press(screen.getByLabelText('Continue to analysis result'));
 
+    expect(screen.queryByTestId('scan.question-locked')).not.toBeOnTheScreen();
     expect(mockPreprocessImage).not.toHaveBeenCalled();
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'SET_SYMPTOMS', payload: ['rust'] });
     expect(mockRouterPush).toHaveBeenCalledWith('/analysis-result');

@@ -417,6 +417,25 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     expect(screen.queryByTestId('scan.try-again')).not.toBeOnTheScreen();
   });
 
+  it('uses reviewed Tagalog retake labels for a farmer file fault', async () => {
+    mockRole = 'farmer';
+    mockLanguage = 'tl';
+    mockPreprocessImage.mockRejectedValueOnce(
+      new PreprocessingError('jpeg-decode-failed', 'decode failed'),
+    );
+    await renderScreen(selectedState);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('scan.check-state')).toHaveProp('accessibilityValue', {
+        text: 'check-failed',
+      }),
+    );
+    expect(screen.getByTestId('scan.retake-camera')).toHaveTextContent('Kumuha ng ibang litrato');
+    expect(screen.getByTestId('scan.retake-gallery')).toHaveTextContent('Pumili ng ibang larawan');
+    expect(screen.getByLabelText('Kumuha ng ibang litrato gamit ang camera')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Pumili ng ibang larawan mula sa gallery')).toBeOnTheScreen();
+  });
+
   it('shows a recoverable inference failure', async () => {
     mockRunInference.mockRejectedValueOnce(
       new InferenceError('MODEL_RUN_FAILED', 'native failure'),

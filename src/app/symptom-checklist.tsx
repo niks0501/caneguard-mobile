@@ -268,6 +268,34 @@ export default function SymptomChecklistScreen() {
   // only by replacing the photo, so it drops the quality-retake title and the
   // Try again action; a quality warning keeps both.
   const photoFileFault = photoUnusable || checkFailed;
+  const retakeCameraCopy = isFarmer
+    ? {
+        accessibilityLabel: farmer.replaceCameraAccessibility,
+        label: farmer.replaceCamera,
+      }
+    : photoFileFault
+      ? {
+          accessibilityLabel: GUARD_COPY.unusableRetakeCamera,
+          label: GUARD_COPY.unusableRetakeCamera,
+        }
+      : {
+          accessibilityLabel: 'Take another photo with the camera',
+          label: SCAN_CHECK_COPY.retakeCamera,
+        };
+  const retakeGalleryCopy = isFarmer
+    ? {
+        accessibilityLabel: farmer.replaceGalleryAccessibility,
+        label: farmer.replaceGallery,
+      }
+    : photoFileFault
+      ? {
+          accessibilityLabel: SCAN_CHECK_COPY.retakeGallery,
+          label: SCAN_CHECK_COPY.retakeGallery,
+        }
+      : {
+          accessibilityLabel: 'Choose another photo from the gallery',
+          label: SCAN_CHECK_COPY.retakeGallery,
+        };
   const photoCheckFailed = photoRejected || photoFileFault;
   const activeGuardError = completedGuardedResult || photoCheckFailed ? null : guardError;
   const activeModelError = completedGuardedResult || photoCheckFailed ? null : modelError;
@@ -416,18 +444,8 @@ export default function SymptomChecklistScreen() {
                   disabled={replacing || isChecking}
                   onPress={() => void replaceImage('camera')}
                   leadingIcon="camera"
-                  accessibilityLabel={
-                    isFarmer
-                      ? farmer.replaceCameraAccessibility
-                      : photoFileFault
-                        ? GUARD_COPY.unusableRetakeCamera
-                        : 'Take another photo with the camera'
-                  }>
-                  {isFarmer
-                    ? farmer.replaceCamera
-                    : photoFileFault
-                      ? GUARD_COPY.unusableRetakeCamera
-                      : SCAN_CHECK_COPY.retakeCamera}
+                  accessibilityLabel={retakeCameraCopy.accessibilityLabel}>
+                  {retakeCameraCopy.label}
                 </AppButton>
                 <AppButton
                   testID="scan.retake-gallery"
@@ -435,14 +453,8 @@ export default function SymptomChecklistScreen() {
                   disabled={replacing || isChecking}
                   onPress={() => void replaceImage('gallery')}
                   leadingIcon="image"
-                  accessibilityLabel={
-                    isFarmer
-                      ? farmer.replaceGalleryAccessibility
-                      : photoFileFault
-                        ? SCAN_CHECK_COPY.retakeGallery
-                        : 'Choose another photo from the gallery'
-                  }>
-                  {isFarmer ? farmer.replaceGallery : SCAN_CHECK_COPY.retakeGallery}
+                  accessibilityLabel={retakeGalleryCopy.accessibilityLabel}>
+                  {retakeGalleryCopy.label}
                 </AppButton>
               </View>
             ) : null}

@@ -262,16 +262,19 @@ export default function SymptomChecklistScreen() {
     state.status === 'completed' && state.result !== null && isGuardedResult(state.result);
   const questionLocked = !state.guardPassed && !completedGuardedResult;
   const photoRejected = checkState === 'photo-rejected';
-  const photoCheckFailed = photoRejected || checkState === 'check-failed';
+  const photoUnusable = checkState === 'photo-unusable';
+  const photoCheckFailed = photoRejected || photoUnusable || checkState === 'check-failed';
   const activeGuardError = completedGuardedResult || photoCheckFailed ? null : guardError;
   const activeModelError = completedGuardedResult || photoCheckFailed ? null : modelError;
   const stateCopy = SCAN_STATE_COPY[checkState];
   const statusText =
     photoRejected
       ? stateCopy.detail
-      : (activeGuardError ??
-        activeModelError ??
-        (state.status === 'error' ? (state.errorMessage ?? stateCopy.detail) : stateCopy.detail));
+      : photoUnusable
+        ? (state.errorMessage ?? stateCopy.detail)
+        : (activeGuardError ??
+          activeModelError ??
+          (state.status === 'error' ? (state.errorMessage ?? stateCopy.detail) : stateCopy.detail));
 
   return (
     <SafeAreaView
@@ -389,17 +392,21 @@ export default function SymptomChecklistScreen() {
                   styles.failedCard,
                   { backgroundColor: theme.warningBg, borderColor: theme.warning },
                 ]}>
-                <Text style={[styles.statusTitle, { color: theme.warning }]}>
-                  {SCAN_CHECK_COPY.failedTitle}
-                </Text>
-                {(state.qualityAssessment?.warnings ?? []).map((warning) => (
-                  <Text key={warning} style={[styles.helperText, { color: theme.text }]}>
-                    {getQualityWarningMessage(warning)}
-                  </Text>
-                ))}
-                <Text style={[styles.helperText, { color: theme.textSecondary }]}>
-                  {SCAN_CHECK_COPY.failedHint}
-                </Text>
+                {photoUnusable ? null : (
+                  <>
+                    <Text style={[styles.statusTitle, { color: theme.warning }]}>
+                      {SCAN_CHECK_COPY.failedTitle}
+                    </Text>
+                    {(state.qualityAssessment?.warnings ?? []).map((warning) => (
+                      <Text key={warning} style={[styles.helperText, { color: theme.text }]}>
+                        {getQualityWarningMessage(warning)}
+                      </Text>
+                    ))}
+                    <Text style={[styles.helperText, { color: theme.textSecondary }]}>
+                      {SCAN_CHECK_COPY.failedHint}
+                    </Text>
+                  </>
+                )}
                 <AppButton
                   testID="scan.retake-camera"
                   variant="secondary"
@@ -457,7 +464,7 @@ export default function SymptomChecklistScreen() {
                     {SCAN_CHECK_COPY.tryAgain}
                   </AppButton>
                 ) : null}
-                {state.status === 'error' && !guardRejected ? (
+                {state.status === 'error' && !guardRejected && !photoUnusable ? (
                   <AppButton
                     testID="scan.try-again"
                     variant="secondary"

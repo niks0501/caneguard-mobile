@@ -264,6 +264,9 @@ export default function SymptomChecklistScreen() {
   const photoRejected = checkState === 'photo-rejected';
   const photoUnusable = checkState === 'photo-unusable';
   const checkFailed = checkState === 'check-failed';
+  // A file fault already names itself in the status heading and is recovered
+  // only by replacing the photo, so it drops the quality-retake title and the
+  // Try again action; a quality warning keeps both.
   const photoFileFault = photoUnusable || checkFailed;
   const photoCheckFailed = photoRejected || photoFileFault;
   const activeGuardError = completedGuardedResult || photoCheckFailed ? null : guardError;

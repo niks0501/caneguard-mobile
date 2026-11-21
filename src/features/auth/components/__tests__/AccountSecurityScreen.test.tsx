@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { FARMER_COPY } from '@/constants/copy';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import AccountPasswordRoute from '@/app/account-password';
@@ -154,6 +155,8 @@ describe('AccountSecurityScreen', () => {
 
     expect(screen.getByText('Device unlock')).toBeOnTheScreen();
     expect(screen.getByText('Enable device unlock')).toBeOnTheScreen();
+    expect(screen.getByText(FARMER_COPY.en.unlock.deviceCredential.title)).toBeOnTheScreen();
+    expect(screen.getByText(FARMER_COPY.en.unlock.deviceCredential.enable)).toBeOnTheScreen();
   });
 
   it('opens each form through its native sheet route', async () => {

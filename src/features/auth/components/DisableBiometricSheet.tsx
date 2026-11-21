@@ -21,14 +21,12 @@ export function DisableBiometricSheet() {
   const { showToast } = useToast();
   const { biometricCapability, disableBiometric, errorMessage, user } = useAuth();
   const isFarmer = user?.role === 'farmer';
-  const deviceCredentialOnly =
-    biometricCapability?.strongBiometricsAvailable === false &&
-    biometricCapability?.deviceCredentialAvailable === true;
   const unlockCopy = getOfflineUnlockCopy(
     biometricCapability?.strongBiometricsAvailable,
     biometricCapability?.deviceCredentialAvailable,
+    isFarmer ? language : 'en',
   );
-  const farmerCopy = deviceCredentialOnly ? copy.deviceCredential : copy.biometric;
+  const farmerCopy = copy.disableUnlock;
   const authError = isFarmer
     ? farmerAuthErrorMessage(errorMessage, FARMER_COPY[language].authErrors)
     : errorMessage;
@@ -55,7 +53,7 @@ export function DisableBiometricSheet() {
       const disabled = await disableBiometric(disablePassword);
       if (disabled) {
         setClosed(true);
-        showToast(isFarmer ? farmerCopy.toast : unlockCopy.disableToast, 'info');
+        showToast(unlockCopy.disableToast, 'info');
         router.replace('/login');
       }
     } finally {
@@ -69,7 +67,7 @@ export function DisableBiometricSheet() {
 
   return (
     <SheetScreen
-      title={isFarmer ? farmerCopy.title : unlockCopy.disable}
+      title={unlockCopy.disable}
       cancelLabel={isFarmer ? common.cancel : undefined}
       closeAccessibilityLabel={isFarmer ? common.close : undefined}
       discardTitle={isFarmer ? common.discardTitle : undefined}
@@ -85,7 +83,7 @@ export function DisableBiometricSheet() {
       submitDisabled={!submittable}
       submitLoading={pending}
       submitLoadingLabel={isFarmer ? farmerCopy.submitting : 'Disabling...'}
-      submitLabel={isFarmer ? farmerCopy.submit : unlockCopy.disable}
+      submitLabel={unlockCopy.disable}
       submitTestID="account-security.disable-biometric">
       <TextField
         testID="account-security.disable-biometric-password"

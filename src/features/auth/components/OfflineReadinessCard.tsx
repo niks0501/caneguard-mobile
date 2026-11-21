@@ -2,8 +2,8 @@ import { Feather } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import {
+  getMissingStepCopy,
   getOfflineUnlockCopy,
-  MISSING_STEP_COPY,
   OFFLINE_READINESS_COPY,
 } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
@@ -99,9 +99,7 @@ export function OfflineReadinessCard() {
       ))}
       {!readiness.ready && readiness.missingStep ? (
         <Text style={[styles.rowLabel, { color: theme.text }]}>
-          {readiness.missingStep === 'turn-on-biometric'
-            ? unlockCopy.readinessTurnOn
-            : MISSING_STEP_COPY[readiness.missingStep]}
+          {getMissingStepCopy(readiness.missingStep, unlockCopy)}
         </Text>
       ) : null}
       <Text style={[styles.note, { color: theme.textSecondary }]}>

@@ -80,10 +80,6 @@ export async function ensureBiometricReady(): Promise<BiometricAuthResult> {
   return { success: true };
 }
 
-export async function confirmBeforeProtectedWrite(): Promise<BiometricAuthResult> {
-  return authenticateWithDeviceCredential();
-}
-
 export async function authenticateWithDeviceCredential(): Promise<BiometricAuthResult> {
   const ready = await ensureBiometricReady();
   if (!ready.success) {

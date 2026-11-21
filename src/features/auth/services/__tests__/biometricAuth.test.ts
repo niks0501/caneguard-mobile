@@ -1,11 +1,8 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 
-import { Platform } from 'react-native';
-
 import {
   authenticateWithDeviceCredential,
-  confirmBeforeProtectedWrite,
   ensureBiometricReady,
   getBiometricCapability,
 } from '@/features/auth/services/biometricAuth';
@@ -145,22 +142,6 @@ describe('mobile biometric capability and authentication', () => {
       success: false,
     });
     expect(mockAuthenticate).not.toHaveBeenCalled();
-  });
-
-  it('confirms the device credential before a PIN-gated write', async () => {
-    const originalOs = Platform.OS;
-    try {
-      mockAuthenticate.mockResolvedValue({ success: true });
-      Platform.OS = 'android';
-      await expect(confirmBeforeProtectedWrite()).resolves.toEqual({ success: true });
-      expect(mockAuthenticate).toHaveBeenCalledTimes(1);
-
-      Platform.OS = 'ios';
-      await expect(confirmBeforeProtectedWrite()).resolves.toEqual({ success: true });
-      expect(mockAuthenticate).toHaveBeenCalledTimes(2);
-    } finally {
-      Platform.OS = originalOs;
-    }
   });
 
   it('maps cancellation and native authentication failures to password fallback states', async () => {

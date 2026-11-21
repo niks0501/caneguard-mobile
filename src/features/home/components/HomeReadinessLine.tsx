@@ -1,7 +1,7 @@
 import { router, type Href } from 'expo-router';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { getOfflineUnlockCopy, MISSING_STEP_COPY, READY_FOR_FIELD_COPY } from '@/constants/copy';
+import { getMissingStepCopy, getOfflineUnlockCopy, READY_FOR_FIELD_COPY } from '@/constants/copy';
 import { Typography } from '@/constants/theme';
 import { useOfflineReadiness } from '@/features/auth/hooks/useOfflineReadiness';
 import { useTheme } from '@/hooks/use-theme';
@@ -26,9 +26,7 @@ export function HomeReadinessLine() {
   const label = biometricOff
     ? unlockCopy.homeLine
     : readiness.missingStep
-      ? readiness.missingStep === 'turn-on-biometric'
-        ? unlockCopy.readinessTurnOn
-        : MISSING_STEP_COPY[readiness.missingStep]
+      ? getMissingStepCopy(readiness.missingStep, unlockCopy)
       : READY_FOR_FIELD_COPY.homeLineOther;
 
   return (

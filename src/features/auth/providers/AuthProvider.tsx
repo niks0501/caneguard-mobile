@@ -23,7 +23,7 @@ import {
   verifyMobileSession,
 } from '@/features/auth/api/mobileAuthApi';
 import {
-  confirmBeforeProtectedWrite,
+  authenticateWithDeviceCredential,
   ensureBiometricReady,
   getBiometricCapability,
 } from '@/features/auth/services/biometricAuth';
@@ -774,7 +774,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setBiometricLoading(true);
       setErrorMessage(null);
       try {
-        const unlock = await confirmBeforeProtectedWrite();
+        const unlock = await authenticateWithDeviceCredential();
         if (!unlock.success) {
           setErrorMessage(unlock.message);
           return false;

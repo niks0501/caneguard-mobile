@@ -73,7 +73,6 @@ jest.mock('@/features/auth/services/biometricAuth', () => {
   authenticateWithDeviceCredential: authenticate,
   // The readiness checks used by the provider share one mock so each test's
   // single authentication expectation still drives them.
-  confirmBeforeProtectedWrite: () => authenticate(),
   ensureBiometricReady: () => authenticate(),
   getBiometricCapability: jest.fn(async () => ({
     deviceCredentialAvailable: true,

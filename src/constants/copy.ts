@@ -333,6 +333,15 @@ export const MISSING_STEP_COPY = {
   'download-visits': 'Download your visits while you are online.',
 } as const;
 
+export function getMissingStepCopy(
+  step: keyof typeof MISSING_STEP_COPY,
+  unlockCopy: Pick<typeof OFFLINE_UNLOCK_COPY.biometric, 'readinessTurnOn'>,
+): string {
+  return step === 'turn-on-biometric'
+    ? unlockCopy.readinessTurnOn
+    : MISSING_STEP_COPY[step];
+}
+
 /** One-time "Ready for the field" sheet after a password sign-in, and the quiet Home line. */
 export const READY_FOR_FIELD_COPY = {
   sheetTitle: 'Ready for the field?',

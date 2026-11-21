@@ -631,9 +631,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (biometricEnabled) {
           // A password fallback refreshes the protected credential without
           // disabling the user's biometric preference for the next cold open.
-          // Cancelling or failing that refresh must not undo the sign-in: the
-          // password session stays active in memory and the previously stored
-          // credential is left as it was, so a retry never loops on the prompt.
+          // A failed refresh clears the retained credential and preference
+          // fail-closed; the password session stays active in memory.
           try {
             await saveProtectedMobileSession(nextSession);
           } catch {
@@ -694,7 +693,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           typeof isBiometricUnlockEnabled !== 'function' ||
           !(await isBiometricUnlockEnabled())
         ) {
-          setErrorMessage('Biometric unlock is not set up. Sign in with your password.');
+          setErrorMessage('Protected unlock is not set up. Sign in with your password.');
           return false;
         }
         const unlock = await readyBiometricOnce();
@@ -711,7 +710,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const stored = await readProtectedMobileSession();
         if (!stored) {
           setBiometricEnabled(false);
-          setErrorMessage('Biometric unlock is unavailable. Sign in with your password.');
+          setErrorMessage('Device unlock is unavailable. Sign in with your password.');
           return false;
         }
         setBiometricEnabled(true);
@@ -736,7 +735,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           }
           setErrorMessage(error.message);
         } else {
-          setErrorMessage('Biometric unlock is unavailable. Sign in with your password.');
+          setErrorMessage('Device unlock is unavailable. Sign in with your password.');
         }
         return false;
       } finally {
@@ -769,7 +768,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const operation = (async () => {
       const activeSession = sessionRef.current;
       if (!activeSession) {
-        setErrorMessage('Sign in with your password before enabling biometric unlock.');
+        setErrorMessage('Sign in with your password before enabling device unlock.');
         return false;
       }
       setBiometricLoading(true);
@@ -786,7 +785,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return true;
       } catch {
         setErrorMessage(
-          'Biometric unlock could not be enabled. Your password session is still active.',
+          'Device unlock could not be enabled. Your password session is still active.',
         );
         return false;
       } finally {
@@ -872,7 +871,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setErrorMessage(null);
       const activeSession = sessionRef.current;
       if (!activeSession) {
-        setErrorMessage('Sign in again before disabling biometric unlock.');
+        setErrorMessage('Sign in again before disabling device unlock.');
         return false;
       }
       try {
@@ -888,7 +887,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const cleared = await clearSessionAfterRemoteRevocation();
         if (remoteRevocationFailed && cleared) {
           setErrorMessage(
-            'Biometric unlock was disabled on this device, but the server token could not be revoked.',
+            'Device unlock was disabled on this device, but the server token could not be revoked.',
           );
         }
         return cleared;

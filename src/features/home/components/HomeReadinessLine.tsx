@@ -1,7 +1,7 @@
 import { router, type Href } from 'expo-router';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { MISSING_STEP_COPY, READY_FOR_FIELD_COPY } from '@/constants/copy';
+import { getOfflineUnlockCopy, MISSING_STEP_COPY, READY_FOR_FIELD_COPY } from '@/constants/copy';
 import { Typography } from '@/constants/theme';
 import { useOfflineReadiness } from '@/features/auth/hooks/useOfflineReadiness';
 import { useTheme } from '@/hooks/use-theme';
@@ -13,6 +13,10 @@ import { useTheme } from '@/hooks/use-theme';
 export function HomeReadinessLine() {
   const theme = useTheme();
   const readiness = useOfflineReadiness();
+  const unlockCopy = getOfflineUnlockCopy(
+    readiness.strongBiometricsAvailable,
+    readiness.deviceCredentialAvailable,
+  );
 
   if (readiness.ready || readiness.checkingAssignments || readiness.assignmentCount === null) {
     return null;
@@ -20,9 +24,11 @@ export function HomeReadinessLine() {
 
   const biometricOff = !readiness.protectedSessionEnabled;
   const label = biometricOff
-    ? READY_FOR_FIELD_COPY.homeLineBiometric
+    ? unlockCopy.homeLine
     : readiness.missingStep
-      ? MISSING_STEP_COPY[readiness.missingStep]
+      ? readiness.missingStep === 'turn-on-biometric'
+        ? unlockCopy.readinessTurnOn
+        : MISSING_STEP_COPY[readiness.missingStep]
       : READY_FOR_FIELD_COPY.homeLineOther;
 
   return (

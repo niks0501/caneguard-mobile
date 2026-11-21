@@ -11,7 +11,11 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime } from '@/lib/formatters';
-import { FARMER_COPY, type FarmerCopyBlock } from '@/constants/copy';
+import {
+  FARMER_COPY,
+  getOfflineUnlockCopy,
+  type FarmerCopyBlock,
+} from '@/constants/copy';
 import { farmerAuthErrorMessage } from '@/features/auth/authErrorCopy';
 import { useLanguagePreference } from '@/providers/LanguagePreferenceProvider';
 
@@ -30,6 +34,35 @@ export function AccountSecurityScreen() {
   const isFarmer = user?.role === 'farmer';
   const languageCopy = FARMER_COPY[language];
   const farmerCopy = languageCopy.accountSecurityScreen;
+  const deviceCredentialOnly =
+    biometricCapability?.strongBiometricsAvailable === false &&
+    biometricCapability?.deviceCredentialAvailable === true;
+  const unlockCopy = isFarmer
+    ? deviceCredentialOnly
+      ? {
+          title: farmerCopy.deviceCredentialTitle,
+          on: farmerCopy.deviceCredentialOn,
+          disable: farmerCopy.deviceCredentialDisable,
+          enable: farmerCopy.deviceCredentialEnable,
+          enabling: farmerCopy.deviceCredentialEnabling,
+          enableToast: farmerCopy.deviceCredentialEnableToast,
+          enabledMessage: farmerCopy.deviceCredentialEnabledMessage,
+          sessionExpires: farmerCopy.deviceCredentialSessionExpires,
+        }
+      : {
+          title: farmerCopy.biometricTitle,
+          on: farmerCopy.biometricOn,
+          disable: farmerCopy.disableBiometric,
+          enable: farmerCopy.enableBiometric,
+          enabling: farmerCopy.enablingBiometric,
+          enableToast: farmerCopy.biometricEnableToast,
+          enabledMessage: farmerCopy.biometricEnabledMessage,
+          sessionExpires: farmerCopy.sessionExpires,
+        }
+    : getOfflineUnlockCopy(
+        biometricCapability?.strongBiometricsAvailable,
+        biometricCapability?.deviceCredentialAvailable,
+      );
   const displayedError = isFarmer
     ? farmerAuthErrorMessage(errorMessage, languageCopy.authErrors)
     : errorMessage;
@@ -50,12 +83,8 @@ export function AccountSecurityScreen() {
     const enabled = await enableBiometricUnlock();
     setBusyAction(null);
     if (enabled) {
-      showToast(isFarmer ? farmerCopy.biometricEnableToast : 'Biometrics enabled', 'success');
-      setSuccessMessage(
-        isFarmer
-          ? farmerCopy.biometricEnabledMessage
-          : 'Biometric unlock is enabled on this installation. It unlocks the stored session after a cold start and never extends the server expiry.',
-      );
+      showToast(unlockCopy.enableToast, 'success');
+      setSuccessMessage(unlockCopy.enabledMessage);
     }
   };
 
@@ -69,7 +98,7 @@ export function AccountSecurityScreen() {
       <View style={[styles.identityCard, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
         <Text style={[styles.identityName, { color: theme.primaryDark }]}>{session?.user.name ?? (isFarmer ? farmerCopy.fallbackName : 'Field Inspector')}</Text>
         <Text style={[styles.identityEmail, { color: theme.textSecondary }]}>{session?.user.email ?? (isFarmer ? farmerCopy.fallbackEmail : 'Authenticated mobile account')}</Text>
-        <Text style={[styles.identityExpiry, { color: theme.textSecondary }]}>{formatExpiry(session?.expiresAt, isFarmer ? farmerCopy : undefined)}</Text>
+        <Text style={[styles.identityExpiry, { color: theme.textSecondary }]}>{formatExpiry(session?.expiresAt, isFarmer ? farmerCopy : undefined, unlockCopy.sessionExpires)}</Text>
       </View>
 
       {displayedError ? (
@@ -85,14 +114,14 @@ export function AccountSecurityScreen() {
 
       <View style={[styles.row, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
         <View style={styles.rowCopy}>
-          <Text style={[styles.rowTitle, { color: theme.primaryDark }]}>{isFarmer ? farmerCopy.biometricTitle : 'Biometric unlock'}</Text>
+          <Text style={[styles.rowTitle, { color: theme.primaryDark }]}>{unlockCopy.title}</Text>
           <Text style={[styles.rowDescription, { color: theme.textSecondary }]}>
             {biometricEnabled
-              ? isFarmer ? farmerCopy.biometricOn : 'Biometric unlock is on for this installation.'
+              ? unlockCopy.on
               : biometricCapabilityMessage(
                   biometricCapability?.status,
                   isFarmer ? farmerCopy : undefined,
-                  biometricCapability?.strongBiometricsAvailable === false,
+                  deviceCredentialOnly,
                 )}
           </Text>
         </View>
@@ -101,7 +130,7 @@ export function AccountSecurityScreen() {
             testID="account-security.open-disable-biometric"
             variant="secondary"
             onPress={() => router.push('/account-biometric')}>
-            {isFarmer ? farmerCopy.disableBiometric : 'Disable biometric unlock'}
+            {unlockCopy.disable}
           </AppButton>
         ) : (
           <AppButton
@@ -115,8 +144,8 @@ export function AccountSecurityScreen() {
             }
             leadingIcon="shield">
             {biometricLoading || busyAction === 'biometric-enable'
-              ? isFarmer ? farmerCopy.enablingBiometric : 'Enabling...'
-              : isFarmer ? farmerCopy.enableBiometric : 'Enable biometric unlock'}
+              ? unlockCopy.enabling
+              : unlockCopy.enable}
           </AppButton>
         )}
       </View>
@@ -208,6 +237,8 @@ function biometricCapabilityMessage(
 function formatExpiry(
   expiresAt: string | null | undefined,
   copy?: FarmerCopyBlock['accountSecurityScreen'],
+  sessionExpires: (date: string) => string = (date) =>
+    `Session expires ${date}. Protected unlock does not extend it.`,
 ): string {
   if (expiresAt === null) {
     return copy?.expiresUnavailable ?? 'Local session safety expiry unavailable; sign in again before continuing.';
@@ -219,7 +250,7 @@ function formatExpiry(
   if (!Number.isFinite(timestamp)) {
     return copy?.sessionExpiryUnavailable ?? 'Session expiry is unavailable. Sign in again to establish a server session.';
   }
-  return copy?.sessionExpires(formatDateTime(timestamp)) ?? `Session expires ${formatDateTime(timestamp)}. Biometric unlock does not extend it.`;
+  return sessionExpires(formatDateTime(timestamp));
 }
 
 const styles = StyleSheet.create({

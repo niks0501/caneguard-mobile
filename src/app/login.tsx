@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { useToast } from '@/components/ui/Toast';
-import { ACCOUNT_REQUEST_HINT, FIELD_GUIDE_TITLE, OFFLINE_READINESS_COPY } from '@/constants/copy';
+import { ACCOUNT_REQUEST_HINT, FIELD_GUIDE_TITLE, getOfflineUnlockCopy } from '@/constants/copy';
 import { ComponentTokens, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/hooks/use-theme';
@@ -43,6 +43,10 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const unlockCopy = getOfflineUnlockCopy(
+    biometricCapability?.strongBiometricsAvailable,
+    biometricCapability?.deviceCredentialAvailable,
+  );
 
   const submit = async () => {
     if (submitting || !email.trim() || !password) {
@@ -76,7 +80,7 @@ export default function LoginScreen() {
     <SafeAreaView
       testID="auth.login-screen"
       accessibilityValue={{
-        text: `state=${submitting ? 'signing-in' : biometricLoading ? 'biometric-unlocking' : errorMessage ? 'error' : 'idle'}`,
+        text: `state=${submitting ? 'signing-in' : biometricLoading ? 'unlocking' : errorMessage ? 'error' : 'idle'}`,
       }}
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
@@ -133,8 +137,8 @@ export default function LoginScreen() {
                   busy={biometricLoading}
                   disabled={submitting || biometricLoading}
                   leadingIcon="shield"
-                  accessibilityLabel="Unlock with biometrics">
-                  {biometricLoading ? 'Unlocking...' : 'Unlock with biometrics'}
+                  accessibilityLabel={unlockCopy.loginAccessibility}>
+                  {biometricLoading ? unlockCopy.loading : unlockCopy.loginButton}
                 </AppButton>
               ) : (
                 <View
@@ -142,7 +146,7 @@ export default function LoginScreen() {
                   style={[styles.offlineNote, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
                   <Feather name="info" size={16} color={theme.warning} />
                   <Text style={[styles.offlineNoteText, { color: theme.text }]}>
-                    {OFFLINE_READINESS_COPY.passwordOnlyRestartLimit}
+                    {unlockCopy.passwordOnlyRestartLimit}
                   </Text>
                 </View>
               )}

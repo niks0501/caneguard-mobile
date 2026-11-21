@@ -141,6 +141,21 @@ describe('AccountSecurityScreen', () => {
     expect(screen.queryByTestId('account-security.disable-biometric-password')).toBeNull();
   });
 
+  it('names the device credential path when no strong biometric is enrolled', async () => {
+    mockUseAuth.mockReturnValue(authState({
+      biometricCapability: {
+        deviceCredentialAvailable: true,
+        status: 'available',
+        strongBiometricsAvailable: false,
+      },
+    }));
+
+    await render(<AccountSecurityScreen />);
+
+    expect(screen.getByText('Device unlock')).toBeOnTheScreen();
+    expect(screen.getByText('Enable device unlock')).toBeOnTheScreen();
+  });
+
   it('opens each form through its native sheet route', async () => {
     await render(<AccountSecurityScreen />);
 
@@ -419,7 +434,7 @@ describe('AccountSecurityScreen', () => {
     mockUseAuth.mockReturnValue(
       authState({
         biometricCapability: {
-          deviceCredentialAvailable: true,
+          deviceCredentialAvailable: false,
           status: 'unsupported',
           strongBiometricsAvailable: false,
         },

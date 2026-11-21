@@ -13,11 +13,13 @@ function readiness(overrides: Record<string, unknown> = {}) {
   return {
     assignmentCount: 3,
     checkingAssignments: false,
+    deviceCredentialAvailable: true,
     protectedSessionEnabled: true,
     ready: true,
     refresh: jest.fn(),
     sessionExpired: false,
     sessionExpiresAt: '2030-01-01T00:00:00.000Z',
+    strongBiometricsAvailable: true,
     ...overrides,
   } as ReturnType<typeof useOfflineReadiness>;
 }

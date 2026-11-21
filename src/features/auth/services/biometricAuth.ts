@@ -73,7 +73,7 @@ export async function ensureBiometricReady(): Promise<BiometricAuthResult> {
   if (capability.status !== 'available') {
     return {
       code: 'NOT_AVAILABLE',
-      message: 'Biometric unlock is unavailable. Sign in with your password.',
+      message: 'Device unlock is unavailable. Sign in with your password.',
       success: false,
     };
   }
@@ -100,7 +100,7 @@ export async function authenticateWithDeviceCredential(): Promise<BiometricAuthR
   } catch {
     return {
       code: 'NOT_AVAILABLE',
-      message: 'Biometric unlock is unavailable. Sign in with your password.',
+      message: 'Device unlock is unavailable. Sign in with your password.',
       success: false,
     };
   }
@@ -117,27 +117,27 @@ function mapAuthenticationFailure(
   ) {
     return {
       code: 'CANCELLED',
-      message: 'Biometric unlock was cancelled. Sign in with your password.',
+      message: 'Device unlock was cancelled. Sign in with your password.',
       success: false,
     };
   }
   if (error === 'not_enrolled' || error === 'passcode_not_set') {
     return {
       code: 'NOT_ENROLLED',
-      message: 'Biometric unlock is not available. Sign in with your password.',
+      message: 'Device unlock is not available. Sign in with your password.',
       success: false,
     };
   }
   if (error === 'not_available') {
     return {
       code: 'NOT_AVAILABLE',
-      message: 'Biometric unlock is unavailable. Sign in with your password.',
+      message: 'Device unlock is unavailable. Sign in with your password.',
       success: false,
     };
   }
   return {
     code: 'AUTHENTICATION_FAILED',
-    message: 'CaneGuard could not verify you biometrically. Sign in with your password.',
+    message: 'CaneGuard could not verify this device. Sign in with your password.',
     success: false,
   };
 }

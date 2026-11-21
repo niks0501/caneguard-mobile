@@ -1,7 +1,11 @@
 import { Feather } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { MISSING_STEP_COPY, OFFLINE_READINESS_COPY } from '@/constants/copy';
+import {
+  getOfflineUnlockCopy,
+  MISSING_STEP_COPY,
+  OFFLINE_READINESS_COPY,
+} from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useOfflineReadiness } from '@/features/auth/hooks/useOfflineReadiness';
 import { useTheme } from '@/hooks/use-theme';
@@ -9,11 +13,15 @@ import { formatDateTime } from '@/lib/formatters';
 
 /**
  * "Before you go offline" readiness check (D01). It explains the existing
- * biometric-restoration boundary rather than promising a weaker offline unlock.
+ * protected-session boundary rather than promising a weaker offline unlock.
  */
 export function OfflineReadinessCard() {
   const theme = useTheme();
   const readiness = useOfflineReadiness();
+  const unlockCopy = getOfflineUnlockCopy(
+    readiness.strongBiometricsAvailable,
+    readiness.deviceCredentialAvailable,
+  );
   const expiresLabel = readiness.sessionExpiresAt
     ? formatDateTime(readiness.sessionExpiresAt)
     : null;
@@ -22,8 +30,8 @@ export function OfflineReadinessCard() {
     {
       detail: readiness.protectedSessionEnabled
         ? 'On — this device can reopen the protected session offline.'
-        : 'Off — the protected session cannot restore after a restart. Turn on biometric unlock in Account security.',
-      label: 'Biometric-protected session',
+        : unlockCopy.protectedSessionOff,
+      label: unlockCopy.protectedSessionLabel,
       ok: readiness.protectedSessionEnabled,
     },
     {
@@ -50,7 +58,7 @@ export function OfflineReadinessCard() {
     <View
       testID="settings.offline-readiness"
       accessibilityValue={{
-        text: `state=${readiness.ready ? 'ready' : 'not-ready'};biometric=${readiness.protectedSessionEnabled ? 'on' : 'off'};expired=${readiness.sessionExpired ? 'yes' : 'no'};visits-saved=${readiness.assignmentCount ?? 'unknown'}${readiness.sessionState ? `;session=${readiness.sessionState.kind};missing=${readiness.missingStep ?? 'none'}` : ''}`,
+        text: `state=${readiness.ready ? 'ready' : 'not-ready'};unlock=${readiness.protectedSessionEnabled ? 'on' : 'off'};expired=${readiness.sessionExpired ? 'yes' : 'no'};visits-saved=${readiness.assignmentCount ?? 'unknown'}${readiness.sessionState ? `;session=${readiness.sessionState.kind};missing=${readiness.missingStep ?? 'none'}` : ''}`,
       }}
       accessibilityLiveRegion="polite"
       style={[
@@ -91,7 +99,9 @@ export function OfflineReadinessCard() {
       ))}
       {!readiness.ready && readiness.missingStep ? (
         <Text style={[styles.rowLabel, { color: theme.text }]}>
-          {MISSING_STEP_COPY[readiness.missingStep]}
+          {readiness.missingStep === 'turn-on-biometric'
+            ? unlockCopy.readinessTurnOn
+            : MISSING_STEP_COPY[readiness.missingStep]}
         </Text>
       ) : null}
       <Text style={[styles.note, { color: theme.textSecondary }]}>

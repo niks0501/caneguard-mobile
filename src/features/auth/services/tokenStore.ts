@@ -119,7 +119,7 @@ export async function readProtectedMobileSession(): Promise<MobileSession | null
   } catch {
     throw new BiometricSessionError(
       'ACCESS_FAILED',
-      'Biometric unlock could not access the protected session.',
+      'Protected unlock could not access the stored session.',
     );
   }
 
@@ -127,7 +127,7 @@ export async function readProtectedMobileSession(): Promise<MobileSession | null
     await clearMobileSessionBestEffort();
     throw new BiometricSessionError(
       'ENROLLMENT_CHANGED',
-      'Biometric enrollment changed. Sign in with your password again.',
+      'Protected unlock changed. Sign in with your password again.',
     );
   }
 

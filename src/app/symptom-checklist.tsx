@@ -238,6 +238,7 @@ export default function SymptomChecklistScreen() {
     modelState.state === 'error' ? getInferenceErrorMessage(modelState.error) : null;
   const completedGuardedResult =
     state.status === 'completed' && state.result !== null && isGuardedResult(state.result);
+  const questionLocked = !state.guardPassed && !completedGuardedResult;
   const photoRejected = checkState === 'photo-rejected';
   const photoCheckFailed = photoRejected || checkState === 'check-failed';
   const activeGuardError = completedGuardedResult || photoCheckFailed ? null : guardError;
@@ -413,10 +414,18 @@ export default function SymptomChecklistScreen() {
                 <Text style={[styles.helperText, { color: theme.textSecondary }]}>
                   {SCAN_CHECK_COPY.questionHint}
                 </Text>
+                {questionLocked ? (
+                  <Text
+                    testID="scan.question-locked"
+                    style={[styles.helperText, { color: theme.textSecondary }]}>
+                    {SCAN_CHECK_COPY.questionLocked}
+                  </Text>
+                ) : null}
               </View>
               <ObservationPictureGrid
                 options={question.options}
                 selected={selected}
+                disabled={questionLocked}
                 onSelect={(id) => setSelected((current) => (current === id ? null : id))}
               />
             </View>

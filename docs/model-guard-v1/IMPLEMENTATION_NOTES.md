@@ -11,6 +11,9 @@ photo (camera or gallery) -> V2 letterbox + quality gate (unchanged)
       >= 0.75 -> V2 runs once (five labels incl. RSSI); result carries guardModelId
       <  0.75 -> "not sugarcane" retake message, zero V2, no result
       fault   -> "check could not finish" + Try again, zero V2, no result
+   the observation question is visible throughout but answerable only after
+   this gate accepts the current photo (a restored guarded result stays
+   answerable); a rejection or fault leaves it locked
 ```
 
 | Piece | File |
@@ -22,7 +25,7 @@ photo (camera or gallery) -> V2 letterbox + quality gate (unchanged)
 | Direct-resize tensor: JPEG/PNG in-memory JS decode, EXIF orient, bilinear resize, opaque alpha only (602112 bytes); WebP uses the documented conversion path | `preprocessing/guardPreprocess.ts`, `decodePng.ts` |
 | Gate, run tokens, stale photo/owner protection | `analysis/useScanAnalysis.ts` |
 | Failure state; resumed drafts and records require the marker | `scanSessionReducer.ts`, `scanCheckState.ts`, `scanDraftCheckpoint.ts`, `recordValidation.ts` |
-| Copy / UI | `GUARD_COPY` and the per-state heading/status line in `SCAN_STATE_COPY`, both in `src/constants/copy.ts`; `src/app/symptom-checklist.tsx` renders them. The Scan tab shows `FARMER_COPY.scanScreen.photoNotUsable` instead of the error card when the photo is rejected or unusable; a guard fault or a picker/permission failure keeps the error card (`src/app/(tabs)/scan.tsx`) |
+| Copy / UI | `GUARD_COPY`, the per-state heading/status line in `SCAN_STATE_COPY`, and the locked-question line in `SCAN_CHECK_COPY`, all in `src/constants/copy.ts`; `src/app/symptom-checklist.tsx` renders them. The Scan tab shows `FARMER_COPY.scanScreen.photoNotUsable` instead of the error card when the photo is rejected or unusable; a guard fault or a picker/permission failure keeps the error card (`src/app/(tabs)/scan.tsx`) |
 
 V2 preprocessing, weights, labels, versions and the RSSI confidence-caution threshold are untouched.
 
@@ -44,11 +47,11 @@ Guard preprocessing reads the same photos V2 accepts. JPEG and PNG (opaque only,
 
 ## Evidence
 
-**Mocked-runtime Jest** (no device): accept 0.75/1, reject 0/0.749999; NaN, infinities, out-of-range, wrong shape/count, runtime error, wrong input size, wrong artifact and bad tensor metadata fail closed; zero V2 invocations and no result on reject or fault for captured and uploaded photos; no draft checkpoint on reject and the pick-time checkpoint is dropped; one V2 with five labels on accept; quality gate first; retry; photo replacement, owner change, native-call exclusivity; lifecycle reattachment keeps one accepted run across checklist unmount and background transitions; resumed drafts and records without the marker are refused; web fails closed. `useScanAnalysis.guard.test.tsx` is the workflow test. The real JPEG preprocessor test compares upright and EXIF-rotated fixtures at five 224x224 RGB landmarks independently recorded with ffmpeg bilinear scaling, allowing at most 24 RGB units per channel.
+**Mocked-runtime Jest** (no device): accept 0.75/1, reject 0/0.749999; NaN, infinities, out-of-range, wrong shape/count, runtime error, wrong input size, wrong artifact and bad tensor metadata fail closed; zero V2 invocations and no result on reject or fault for captured and uploaded photos; no draft checkpoint on reject and the pick-time checkpoint is dropped; one V2 with five labels on accept; quality gate first; retry; photo replacement, owner change, native-call exclusivity; lifecycle reattachment keeps one accepted run across checklist unmount and background transitions; resumed drafts and records without the marker are refused; web fails closed; the observation question stays locked (lock line shown, taps ignored) through `checking-photo`, `waiting-model` and `checking-sugarcane`, unlocks at `analysing`, and stays locked after a guard rejection. `useScanAnalysis.guard.test.tsx` is the workflow test; `symptom-checklist.test.tsx` is the screen test. The real JPEG preprocessor test compares upright and EXIF-rotated fixtures at five 224x224 RGB landmarks independently recorded with ffmpeg bilinear scaling, allowing at most 24 RGB units per channel.
 
 **Real binary oracle** (`scripts/tests/test_guard_v1_model.py`, run by CI after `verify:fast` and locally with `python3 scripts/tests/test_guard_v1_model.py`; fixtures and goldens in `qa/guard-v1/`): SHA, real tensor ABI, and real CPU inference (`ai-edge-litert` only) on self-created synthetic fixtures. Numeric goldens (accept 0.981, EXIF-rotated 0.979 with transpose and 0.259 without, reject 0.113) were generated on 2026-11-19 through Pillow and are verified through a second, independent path (numpy-only EXIF orientation and half-pixel bilinear resize without antialiasing, the app's semantics; agreement within 0.005 against a tolerance of 0.05). Decisions at 0.75, orientation and double-normalization checks complete the oracle. It needs numpy, Pillow and ai-edge-litert (`pip install numpy pillow ai-edge-litert`). Caveats: the goldens pin the model and these Python references, not the Android decoder; synthetic fixtures are not field photos.
 
-All worker-written tests are proposals until the captain or the named delegate promotes them. Frozen T3 suites were not edited. Existing non-frozen fixtures (`symptom-checklist.test.tsx`, record/draft tests) were updated only to carry the guard marker / guard mock.
+All worker-written tests are proposals until the captain or the named delegate promotes them. Frozen T3 suites were not edited. Non-frozen suites only grew: the record/draft fixtures gained the guard marker and guard mock, and `symptom-checklist.test.tsx` gained the screen cases above.
 
 ## Acceptance scenarios (run in the no-mistakes pipeline test phase)
 
@@ -59,7 +62,8 @@ Run web acceptance first, then the native journeys on the attached phone through
 3. Non-sugarcane photos (desk, face, grass, banana): "does not look like sugarcane", no result, no Continue, no saved scan; retake works.
 4. Airplane mode: repeat 2 and 3.
 5. Rotate-photo check: a portrait photo taken with the phone sideways still accepted (EXIF).
-6. Record latency and memory on device (host CPU is about 5 ms; the device timings of the promotion pass are recorded in `docs/RELEASE-EVIDENCE.md`).
+6. Slow guard run (large photo or busy device): the question and its lock line stay on screen while the photo is checked, taps do nothing, and at `analysing` the lock line disappears and a tap selects one picture.
+7. Record latency and memory on device (host CPU is about 5 ms; the device timings of the promotion pass are recorded in `docs/RELEASE-EVIDENCE.md`).
 
 ## Rollback
 

@@ -1421,7 +1421,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       retry: 'Subukan muli', referenceFallback: 'Update mula sa opisina', recently: 'Kamakailan',
     },
     authErrors: {
-      generic: 'Hindi nakumpleto ang pagpapatotoo. Subukan muli.', 
+      generic: 'Hindi nakumpleto ang pagpapatotoo. Subukan muli.',
       invalidCredentials: 'Hindi tama ang email o password.',
       emailNotVerified: 'Beripikahin ang iyong email bago mag-sign in sa CaneGuard.',
       forbiddenRole: 'Hindi maaaring mag-sign in sa CaneGuard Mobile ang ganitong uri ng account.',
@@ -1681,6 +1681,7 @@ export const SCAN_CHECK_COPY = {
   title: 'Check your photo',
   question: 'Which picture looks most like what you see?',
   questionHint: 'Your choice is kept with this scan and never changes the result.',
+  questionLocked: 'You can answer once the photo is confirmed as sugarcane.',
   checking: 'Checking your photo…',
   checkedTitle: 'Photo checked',
   notAnalysed: 'This photo was not analysed. Please use a new photo.',

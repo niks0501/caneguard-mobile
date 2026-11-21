@@ -320,7 +320,7 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     );
   });
 
-  it('keeps the question locked when the guard rejects the current photo', async () => {
+  it('replaces the question with the decision card when the guard rejects the current photo', async () => {
     mockGuardRun.mockResolvedValueOnce([Float32Array.of(0.05).buffer]);
     await renderScreen(selectedState);
 
@@ -329,13 +329,11 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
         text: 'not-sugarcane',
       });
     });
-    expect(screen.getByTestId('scan.question-locked')).toBeOnTheScreen();
-    expect(screen.getByTestId('scan.symptom-rust')).toBeDisabled();
-    await fireEvent.press(screen.getByTestId('scan.symptom-rust'));
-    expect(screen.getByTestId('scan.symptom-rust')).toHaveProp(
-      'accessibilityState',
-      expect.objectContaining({ selected: false }),
-    );
+    expect(screen.getByTestId('scan.guard-rejected')).toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.guided-question')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.question-locked')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.symptom-rust')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.continue-to-result')).not.toBeOnTheScreen();
   });
 
   it('keeps the question locked while the photo is still being checked or waiting for the models', async () => {

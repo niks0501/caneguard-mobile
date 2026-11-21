@@ -160,17 +160,20 @@ describe('SymptomChecklistScreen with required Guard V1', () => {
     await renderScreen();
 
     await waitFor(() => expect(screen.getByTestId('scan.guard-rejected')).toBeOnTheScreen());
-    expect(screen.getByText(GUARD_COPY.rejectedTitle)).toBeOnTheScreen();
-    expect(screen.getByText(GUARD_COPY.rejectedBody)).toBeOnTheScreen();
-    expect(screen.getByText(GUARD_COPY.rejectedTip)).toBeOnTheScreen();
-    expect(screen.getByText(/well-lit/i)).toBeOnTheScreen();
+    expect(screen.getByText('This does not look like sugarcane')).toBeOnTheScreen();
+    expect(screen.getByText('This photo was not analysed. Nothing was saved or sent.')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Take a close, well-lit photo of a sugarcane leaf, stalk, or shoot. Fill most of the frame.',
+      ),
+    ).toBeOnTheScreen();
     expect(screen.getByTestId('scan.check-status')).toHaveTextContent('Photo not used');
     expect(screen.getByTestId('scan.check-state')).toHaveProp('accessibilityValue', {
       text: 'not-sugarcane',
     });
-    expect(screen.getByText(GUARD_COPY.retakeCamera)).toBeOnTheScreen();
-    expect(screen.getByText(SCAN_CHECK_COPY.retakeGallery)).toBeOnTheScreen();
-    expect(screen.getByText(GUARD_COPY.goHome)).toBeOnTheScreen();
+    expect(screen.getByText('Take a new photo')).toBeOnTheScreen();
+    expect(screen.getByText('Choose another photo')).toBeOnTheScreen();
+    expect(screen.getByText('Go to Home')).toBeOnTheScreen();
     expect(screen.getByTestId('symptom-checklist.cancel')).toBeOnTheScreen();
     expect(screen.queryByTestId('scan.try-again')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('scan.guided-question')).not.toBeOnTheScreen();

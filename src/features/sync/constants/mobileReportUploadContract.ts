@@ -3,7 +3,11 @@
  * mobile-report-upload-v3 contract in caneguard-web.
  */
 export const MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
-export const MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES = 9 * 1024 * 1024;
+/**
+ * The phone aims well under the hard limit so a whole multipart request
+ * (photo plus fields) stays small enough for slow field connections.
+ */
+export const MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES = 2 * 1024 * 1024;
 
 export const MOBILE_REPORT_UPLOAD_V1_IMAGE_MIME_TYPES = [
   'image/jpeg',
@@ -86,6 +90,6 @@ export function canReuseSourceAsSubmissionImage(input: {
       typeof input.sizeBytes === 'number' &&
       Number.isInteger(input.sizeBytes) &&
       input.sizeBytes > 0 &&
-      input.sizeBytes <= MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES,
+      input.sizeBytes <= MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES,
   );
 }

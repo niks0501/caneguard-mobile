@@ -52,6 +52,8 @@ describe('boundaryState', () => {
       API_FORBIDDEN: 'refused',
       API_RATE_LIMITED: 'will_retry',
       OFFICE_NOT_READY: 'will_retry',
+      UPLOAD_TOO_LARGE: 'will_retry',
+      UPLOAD_TIMED_OUT: 'will_retry',
       IMAGE_MISSING: 'refused',
       INVALID_LOCAL_RECORD: 'damaged',
       SERVER_ERROR: 'will_retry',

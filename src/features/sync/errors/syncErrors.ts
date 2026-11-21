@@ -16,6 +16,8 @@ export const SYNC_ERROR_CODES = [
   'API_FORBIDDEN',
   'API_RATE_LIMITED',
   'OFFICE_NOT_READY',
+  'UPLOAD_TOO_LARGE',
+  'UPLOAD_TIMED_OUT',
   'IMAGE_MISSING',
   'INVALID_LOCAL_RECORD',
   'SERVER_ERROR',
@@ -100,6 +102,8 @@ export const AUTO_RETRYABLE_SYNC_ERROR_CODES = [
   'NETWORK_REQUEST_FAILED',
   'API_RATE_LIMITED',
   'OFFICE_NOT_READY',
+  'UPLOAD_TOO_LARGE',
+  'UPLOAD_TIMED_OUT',
   'SERVER_ERROR',
 ] as const satisfies readonly SyncErrorCode[];
 
@@ -234,6 +238,20 @@ export function toSyncError(
         { detail: extractValidationDetail(error.body) },
       );
     }
+    if (error.status === 413) {
+      return new SyncError(
+        'UPLOAD_TOO_LARGE',
+        getSyncErrorMessage('UPLOAD_TOO_LARGE') ?? '',
+        { retryAfterMs: error.retryAfterMs },
+      );
+    }
+    if (error.status === 408) {
+      return new SyncError(
+        'UPLOAD_TIMED_OUT',
+        getSyncErrorMessage('UPLOAD_TIMED_OUT') ?? '',
+        { retryAfterMs: error.retryAfterMs },
+      );
+    }
     if (error.status === 429) {
       return new SyncError(
         'API_RATE_LIMITED',
@@ -291,6 +309,10 @@ export function getSyncErrorMessage(code: string | null): string | null {
       return 'This saved record is incomplete and cannot be sent.';
     case 'OFFICE_NOT_READY':
       return 'The office is not ready to receive this yet. Try again later.';
+    case 'UPLOAD_TOO_LARGE':
+      return 'The office could not take this upload because it was too big. It stays saved and will be tried again.';
+    case 'UPLOAD_TIMED_OUT':
+      return 'The upload took too long. It stays saved and will be tried again. A stronger signal helps.';
     case 'SERVER_ERROR':
       return 'The office was unavailable. Try again later.';
     case 'UNKNOWN_SYNC_ERROR':

@@ -772,7 +772,7 @@ describe('Field Report draft repository', () => {
     const prepareSubmissionImage = jest.fn(async (input: { sourceUri: string }) => ({
       artifact: {
         mimeType: 'image/jpeg' as const,
-        sizeBytes: 9 * 1024 * 1024,
+        sizeBytes: 2 * 1024 * 1024,
         uri: getSubmissionImageUri(SCAN_ID, SUBMITTER_ID),
       },
       created: true,
@@ -816,7 +816,7 @@ describe('Field Report draft repository', () => {
     ).toEqual({
       submission_image_uri: getSubmissionImageUri(SCAN_ID, SUBMITTER_ID),
       submission_image_mime_type: 'image/jpeg',
-      submission_image_size_bytes: 9 * 1024 * 1024,
+      submission_image_size_bytes: 2 * 1024 * 1024,
     });
     native.close();
   });

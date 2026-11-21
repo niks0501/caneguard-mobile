@@ -48,7 +48,12 @@ import { deleteScanRecord } from '@/features/records/services/deleteScanRecord';
 import { useFieldReportForScan } from '@/features/reports/hooks/useFieldReportDraft';
 import type { FieldReport } from '@/features/reports/domain/fieldReportTypes';
 import { deriveOutboxState, visibleSyncErrorCode } from '@/features/sync/domain/outboxState';
-import { getOutboxStateSentence, getReportSyncAttemptOutcome, isServerUnavailable } from '@/features/sync/utils/syncStatusCopy';
+import {
+  getOutboxStateSentence,
+  getReportSyncAttemptOutcome,
+  isServerUnavailable,
+  UNSYNCED_REPORT_DELETE_WARNING,
+} from '@/features/sync/utils/syncStatusCopy';
 import { getSyncErrorMessage } from '@/features/sync/errors/syncErrors';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useTheme } from '@/hooks/use-theme';
@@ -98,6 +103,9 @@ export default function RecordDetailsScreen() {
           }),
         )
       : null;
+  const deleteLosesUnsentReport =
+    fieldReport.data?.authoringState === 'finalized' &&
+    fieldReport.data.syncStatus !== 'synced';
   const [imageUnavailable, setImageUnavailable] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -370,13 +378,27 @@ export default function RecordDetailsScreen() {
               ) : null}
               <ConfirmDialog
                 visible={showDeleteConfirm}
-                title={isFarmer ? copy.deleteConfirmTitle : 'Delete local record?'}
-                message={
-                  isFarmer
-                    ? copy.deleteConfirmMessage
-                    : 'This removes the scan, its saved image, and any associated Field Report from this device. This action cannot be undone.'
+                title={
+                  deleteLosesUnsentReport
+                    ? UNSYNCED_REPORT_DELETE_WARNING.title
+                    : isFarmer
+                      ? copy.deleteConfirmTitle
+                      : 'Delete local record?'
                 }
-                confirmLabel={isFarmer ? copy.deleteConfirm : 'Delete'}
+                message={
+                  deleteLosesUnsentReport
+                    ? UNSYNCED_REPORT_DELETE_WARNING.message
+                    : isFarmer
+                      ? copy.deleteConfirmMessage
+                      : 'This removes the scan, its saved image, and any associated Field Report from this device. This action cannot be undone.'
+                }
+                confirmLabel={
+                  deleteLosesUnsentReport
+                    ? UNSYNCED_REPORT_DELETE_WARNING.confirmLabel
+                    : isFarmer
+                      ? copy.deleteConfirm
+                      : 'Delete'
+                }
                 cancelLabel={isFarmer ? copy.cancel : 'Cancel'}
                 destructive
                 onConfirm={() => {

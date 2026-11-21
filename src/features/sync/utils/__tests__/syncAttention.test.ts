@@ -10,6 +10,8 @@ describe('syncAttention', () => {
     ['NETWORK_REQUEST_FAILED', 'automatic-retry'],
     ['SERVER_ERROR', 'automatic-retry'],
     ['API_RATE_LIMITED', 'automatic-retry'],
+    ['UPLOAD_TOO_LARGE', 'automatic-retry'],
+    ['UPLOAD_TIMED_OUT', 'automatic-retry'],
     ['AUTH_REQUIRED', 'sign-in'],
     ['API_VALIDATION_FAILED', 'support'],
     ['CLIENT_UUID_CONFLICT', 'support'],

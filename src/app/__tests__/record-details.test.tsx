@@ -58,6 +58,25 @@ const mockUseLocalSearchParams = jest.mocked(useLocalSearchParams);
 const mockDeleteScanRecord = jest.mocked(deleteScanRecord);
 const mockRouterDismissTo = router.dismissTo as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
+const UNSYNCED_REPORT_BASE = {
+  authorityReview: null,
+  id: '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e',
+  scanRecordId: RECORD_ID,
+  affectedAreaMeasurement: 'not_measured',
+  affectedPortionMeasurement: 'not_measured',
+  locationUnavailableReason: null,
+  farmerOrFarmOwnerName: 'Maria Santos',
+  province: 'Batangas',
+  municipality: 'Nasugbu',
+  barangay: 'Lumbangan',
+  lastSyncAttemptAt: null,
+  lastSyncErrorCode: null,
+  lastSyncedAt: null,
+  remoteId: null,
+  submitterIdentity: SUBMITTER_ID,
+  submitterRole: 'field_reporter',
+  syncAttemptCount: 0,
+};
 const DETAILS: ScanRecordDetails = {
   authorityReview: null,
   hasLinkedFieldReport: false,
@@ -458,6 +477,42 @@ describe('RecordDetailsScreen', () => {
     expect(screen.getByTestId('app-toast')).toBeOnTheScreen();
     expect(screen.getByTestId('app-toast')).toHaveTextContent('Record deleted');
     expect(mockRouterDismissTo).toHaveBeenCalledWith('/activity');
+  });
+
+  it.each([
+    ['finalized', 'pending', true],
+    ['finalized', 'failed', true],
+    ['finalized', 'synced', false],
+    ['draft', 'local_only', false],
+  ] as const)('warns before deleting a %s report that is %s: %s', async (authoringState, syncStatus, warns) => {
+    mockFieldReportState = {
+      ...mockFieldReportState,
+      data: {
+        ...UNSYNCED_REPORT_BASE,
+        authoringState,
+        syncStatus,
+      } as unknown as FieldReport,
+    };
+
+    await render(
+      <ToastProvider>
+        <RecordDetailsScreen />
+      </ToastProvider>,
+    );
+    await fireEvent.press(
+      screen.getByLabelText('Delete this local record and saved image'),
+    );
+
+    const dialog = screen.getByTestId('records.confirm-delete');
+    if (warns) {
+      expect(dialog).toHaveTextContent(/has not reached the office/);
+      expect(screen.getByTestId('records.confirm-delete.confirm')).toHaveTextContent('Delete anyway');
+    } else {
+      expect(dialog).not.toHaveTextContent(/has not reached the office/);
+    }
+    // A warning, not a block: confirming still deletes.
+    await fireEvent.press(screen.getByTestId('records.confirm-delete.confirm'));
+    expect(mockDeleteScanRecord).toHaveBeenCalledTimes(1);
   });
 
   it('deletes nothing when the single delete confirmation is cancelled', async () => {

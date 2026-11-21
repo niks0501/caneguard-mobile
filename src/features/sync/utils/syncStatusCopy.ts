@@ -93,6 +93,14 @@ export const VISIT_END_STATE_COPY = {
   },
 } as const;
 
+/** Delete warning for a scan whose finalized field report has not reached the office. */
+export const UNSYNCED_REPORT_DELETE_WARNING = {
+  title: 'Delete unsent report?',
+  message:
+    'This scan has a finished Field Report that has not reached the office yet. Deleting removes the scan, its image, and the report from this device, so the office will never receive it. This cannot be undone.',
+  confirmLabel: 'Delete anyway',
+} as const;
+
 /** Meta line for a saved upload that could not be sent yet. */
 export const UPLOAD_FAILED_META = 'Could not send';
 

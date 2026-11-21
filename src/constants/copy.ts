@@ -445,17 +445,7 @@ export const HOME_NOTE_COPY = {
   },
 } as const;
 
-/**
- * Farmer-facing copy in both supported languages. `FarmerCopyBlock` is the one
- * shared shape for these per-screen blocks, so a string missing from either
- * language fails the type check. Sync status wording is the exception: it is
- * bilingual but single-sourced in
- * `src/features/sync/utils/syncStatusCopy.ts`.
- * Inspector screens and Field Guide entry text stay English. Farmer model
- * decision-support wording lives here. Words such as "Validated", "Confirmed",
- * "Resolved" and "Diagnosis" (and their Tagalog equivalents) never appear in
- * farmer copy; `farmerCopy.test.ts` enforces this for both languages.
- */
+/** One capability's offline-unlock wording; `FARMER_COPY[language].unlock` owns it. */
 export type OfflineUnlockVariantCopy = {
   title: string; on: string; disable: string; disableToast: string;
   enable: string; enabling: string; enableToast: string; enabledMessage: string;
@@ -470,6 +460,17 @@ export type FarmerLanguage = 'en' | 'tl';
 
 export type FarmerResultName = 'healthy' | 'mosaic' | 'rust' | 'smut' | 'rssi' | 'unknown';
 
+/**
+ * Farmer-facing copy in both supported languages. `FarmerCopyBlock` is the one
+ * shared shape for these per-screen blocks, so a string missing from either
+ * language fails the type check. Sync status wording is the exception: it is
+ * bilingual but single-sourced in
+ * `src/features/sync/utils/syncStatusCopy.ts`.
+ * Inspector screens and Field Guide entry text stay English. Farmer model
+ * decision-support wording lives here. Words such as "Validated", "Confirmed",
+ * "Resolved" and "Diagnosis" (and their Tagalog equivalents) never appear in
+ * farmer copy; `farmerCopy.test.ts` enforces this for both languages.
+ */
 export type FarmerCopyBlock = {
   greeting: { morning: string; afternoon: string; evening: string };
   home: {

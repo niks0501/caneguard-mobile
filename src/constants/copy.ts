@@ -1596,7 +1596,6 @@ export const SCAN_CHECK_COPY = {
   question: 'Which picture looks most like what you see?',
   questionHint: 'Your choice is kept with this scan and never changes the result.',
   checking: 'Checking your photo…',
-  checkingDetail: 'Looking at light and focus, then reading the photo.',
   checkedTitle: 'Photo checked',
   notAnalysed: 'This photo was not analysed. Please use a new photo.',
   ready: 'Photo checked. Choose a picture, then continue.',
@@ -1627,6 +1626,45 @@ export const GUARD_COPY = {
     'This photo is too large for the sugarcane photo check. Choose a smaller photo or take a new one.',
   unavailable:
     'The sugarcane photo check is not available on this phone, so scans are paused. Update or reinstall the app, then try again.',
+} as const;
+
+/**
+ * Heading and status line per scan check state; the `no-photo` entry also fills
+ * the no-photo recovery card. "Photo checked" is only for the two result
+ * states; every other state names what is happening or what failed. An `error`
+ * state shows the session's own message when it has one.
+ */
+export const SCAN_STATE_COPY = {
+  'no-photo': {
+    title: 'No photo selected',
+    detail: 'Take or choose a sugarcane photo to start a scan.',
+  },
+  'checking-photo': { title: 'Checking your photo…', detail: 'Checking light and focus…' },
+  'photo-rejected': { title: 'Photo not used', detail: SCAN_CHECK_COPY.notAnalysed },
+  'waiting-model': {
+    title: 'Checking your photo…',
+    detail: 'Getting the photo check ready…',
+  },
+  'checking-sugarcane': {
+    title: 'Checking your photo…',
+    detail: 'Checking that this is sugarcane…',
+  },
+  'not-sugarcane': {
+    title: 'Photo not used',
+    detail: GUARD_COPY.rejectedStatus,
+  },
+  'photo-unusable': {
+    title: 'Photo not used',
+    detail: 'This photo can\'t be checked. Choose a smaller photo or take a new one.',
+  },
+  'model-failed': {
+    title: 'Check did not finish',
+    detail: 'The photo check could not finish. Your photo was not analysed. Please try again.',
+  },
+  'check-failed': { title: 'Photo not used', detail: SCAN_CHECK_COPY.notAnalysed },
+  analysing: { title: 'Checking your photo…', detail: 'Sugarcane found. Reading the photo…' },
+  result: { title: SCAN_CHECK_COPY.checkedTitle, detail: SCAN_CHECK_COPY.ready },
+  'result-doubtful': { title: SCAN_CHECK_COPY.checkedTitle, detail: SCAN_CHECK_COPY.ready },
 } as const;
 
 /** Short names under the pictures; the full sentence stays as the screen-reader label. */

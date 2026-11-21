@@ -3,7 +3,8 @@ import {
   deriveScanCheckState,
   type ScanCheckInputs,
 } from '@/features/detection/context/scanCheckState';
-import { initialScanSessionState } from '@/features/detection/context/scanSessionReducer';
+import { initialScanSessionState, scanSessionReducer } from '@/features/detection/context/scanSessionReducer';
+import { SCAN_CHECK_COPY, SCAN_STATE_COPY } from '@/constants/copy';
 import type { DetectionResult } from '@/features/detection/types';
 
 const assessment = (warnings: string[]) =>
@@ -19,6 +20,16 @@ const inputs = (
   photoFailedCheck: false,
   replacing: false,
   ...rest,
+});
+
+describe('SCAN_STATE_COPY', () => {
+  // Proves: "Photo checked" heads only the two result states.
+  it('uses the checked heading only for result states', () => {
+    for (const [state, copy] of Object.entries(SCAN_STATE_COPY)) {
+      const isResult = state === 'result' || state === 'result-doubtful';
+      expect(copy.title === SCAN_CHECK_COPY.checkedTitle).toBe(isResult);
+    }
+  });
 });
 
 describe('deriveScanCheckState', () => {
@@ -60,10 +71,106 @@ describe('deriveScanCheckState', () => {
   });
 
   // Proves: Analysing covers running and finalizing.
-  it('names analysing', () => {
+  it('names the guard step checking-sugarcane and the V2 step analysing', () => {
+    const running = { status: 'running', qualityAssessment: assessment([]) } as const;
+    expect(deriveScanCheckState(inputs({ ...running, guardPassed: false }))).toBe(
+      'checking-sugarcane',
+    );
+    expect(deriveScanCheckState(inputs({ ...running, guardPassed: true }))).toBe('analysing');
     expect(
-      deriveScanCheckState(inputs({ status: 'running', qualityAssessment: assessment([]) })),
+      deriveScanCheckState(
+        inputs({ status: 'finalizing', guardPassed: true, qualityAssessment: assessment([]) }),
+      ),
     ).toBe('analysing');
+  });
+
+  // Proves: a guard input fault is photo-unusable; a rejection, a runtime fault and a
+  // quality-preparation fault keep their own states.
+  it('splits guard input faults from rejection, runtime faults and preparation faults', () => {
+    expect(
+      deriveScanCheckState(
+        inputs(
+          { status: 'error', guardFailure: 'error', photoPreparationFailed: true },
+          { photoFailedCheck: true },
+        ),
+      ),
+    ).toBe('photo-unusable');
+    expect(
+      deriveScanCheckState(inputs({ status: 'error', guardFailure: 'error' })),
+    ).toBe('model-failed');
+    expect(deriveScanCheckState(inputs({ status: 'error', guardFailure: 'rejected' }))).toBe(
+      'not-sugarcane',
+    );
+  });
+
+  // Proves: every section 6 transition, walked through the real reducer.
+  it('walks the section 6 transitions through the reducer', () => {
+    const q = assessment([]);
+    const step = (s: typeof initialScanSessionState, modelState = 'loaded') =>
+      deriveScanCheckState({ session: s, modelState, photoFailedCheck: false, replacing: false });
+    let s = scanSessionReducer(initialScanSessionState, {
+      type: 'SELECT_IMAGE',
+      payload: { sourceUri: 'file:///a.jpg', sourceWidth: 1, sourceHeight: 1, sourceType: 'camera' },
+    });
+    expect(step(s)).toBe('checking-photo');
+    s = scanSessionReducer(s, { type: 'START_PREPROCESSING' });
+    expect(step(s)).toBe('checking-photo');
+    s = scanSessionReducer(s, {
+      type: 'COMPLETE_PREPROCESSING',
+      payload: { processedUri: 'file:///p.jpg', preprocessMs: 1, qualityAssessment: q },
+    });
+    expect(step(s, 'loading')).toBe('waiting-model');
+    s = scanSessionReducer(s, { type: 'START_INFERENCE' });
+    expect(step(s)).toBe('checking-sugarcane');
+    // reject
+    const rejected = scanSessionReducer(s, {
+      type: 'SET_ERROR',
+      payload: 'no',
+      guardFailure: 'rejected',
+    });
+    expect(step(rejected)).toBe('not-sugarcane');
+    // input fault
+    const unusable = scanSessionReducer(s, {
+      type: 'SET_ERROR',
+      payload: 'big',
+      guardFailure: 'error',
+      photoPreparationFailed: true,
+    });
+    expect(step(unusable)).toBe('photo-unusable');
+    // runtime fault, then Try again returns to the step that failed
+    const faulted = scanSessionReducer(s, {
+      type: 'SET_ERROR',
+      payload: 'oops',
+      guardFailure: 'error',
+    });
+    expect(step(faulted)).toBe('model-failed');
+    expect(step(scanSessionReducer(faulted, { type: 'CLEAR_ERROR' }))).toBe('waiting-model');
+    // accept, then V2 finishes or faults
+    s = scanSessionReducer(s, { type: 'GUARD_ACCEPTED' });
+    expect(s.guardPassed).toBe(true);
+    expect(step(s)).toBe('analysing');
+    expect(
+      step(scanSessionReducer(s, { type: 'SET_ERROR', payload: 'v2 failed' })),
+    ).toBe('model-failed');
+    expect(step(scanSessionReducer(s, { type: 'COMPLETE_INFERENCE', payload: result }))).toBe(
+      'result',
+    );
+    // guardPassed clears on every restart path
+    for (const action of [
+      { type: 'START_PREPROCESSING' },
+      { type: 'START_INFERENCE' },
+      { type: 'RESET_SCAN' },
+      {
+        type: 'SELECT_IMAGE',
+        payload: { sourceUri: 'file:///b.jpg', sourceWidth: 1, sourceHeight: 1, sourceType: 'camera' },
+      },
+    ] as const) {
+      expect(scanSessionReducer(s, action).guardPassed).toBeFalsy();
+    }
+    // a new photo from any state goes back to checking-photo
+    expect(
+      deriveScanCheckState({ session: s, modelState: 'loaded', photoFailedCheck: false, replacing: true }),
+    ).toBe('checking-photo');
   });
 
   // Proves: result vs result-doubtful keeps PR #266 behavior (result stays, flagged doubtful).

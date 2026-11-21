@@ -229,6 +229,7 @@ export function useScanAnalysis(replacing = false) {
           return;
         }
 
+        dispatch({ type: 'GUARD_ACCEPTED' });
         stage = 'v2';
         // Wait for the foreground before the timed V2 call so a backgrounded scan does
         // not record the wait as inference time; the queued call re-checks freshness.

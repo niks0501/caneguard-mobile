@@ -14,6 +14,7 @@ export const initialScanSessionState: ScanSessionState = {
   selectedSymptoms: [],
   reportedSeverity: null,
   errorMessage: null,
+  guardPassed: false,
 };
 
 /**
@@ -59,6 +60,7 @@ export function scanSessionReducer(
         qualityAssessment: null,
         photoPreparationFailed: false,
         guardFailure: null,
+        guardPassed: false,
         status: 'preprocessing',
         errorMessage: null,
       };
@@ -74,9 +76,12 @@ export function scanSessionReducer(
         ...state,
         result: null,
         guardFailure: null,
+        guardPassed: false,
         status: 'running',
         errorMessage: null,
       };
+    case 'GUARD_ACCEPTED':
+      return { ...state, guardPassed: true };
     case 'START_RESULT_PREPARATION':
       return {
         ...state,

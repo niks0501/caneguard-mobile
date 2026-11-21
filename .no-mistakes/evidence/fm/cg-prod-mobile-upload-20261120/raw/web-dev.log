@@ -1,0 +1,30 @@
+Starting project at {run-worktree}
+Using src/app as the root directory for Expo Router.
+React Compiler enabled
+Starting Metro Bundler
+
+Waiting on http://localhost:8199
+
+An update for expo is available: 58.0.23 → ~58.0.26
+19 other packages may need updating. Run npx expo install --check for details.
+Logs for your project will appear below.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+Web Bundled 2818ms node_modules/expo-router/entry.js (2857 modules)
+Web  INFO  %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+Web Bundled 23ms node_modules/expo-sqlite/web/worker.ts (1 module)
+Web  WARN  Using synchronous SQLite operations can cause significant performance impact. Consider using async operations instead.
+Web Bundled 111ms node_modules/expo-router/entry.js (1 module)
+Web  INFO  %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+Web Bundled 5ms node_modules/expo-sqlite/web/worker.ts (1 module)
+Web  WARN  Using synchronous SQLite operations can cause significant performance impact. Consider using async operations instead.
+Web  WARN  [web:validate] The seeded farmer checks could not be prepared. The scan record ID already exists.
+Web  WARN  [web:validate] The seeded farmer checks could not be prepared. The managed image URI is invalid.
+Web Bundled 118ms node_modules/expo-router/entry.js (1 module)
+Web  INFO  %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+Web Bundled 5ms node_modules/expo-sqlite/web/worker.ts (1 module)
+Web  WARN  Using synchronous SQLite operations can cause significant performance impact. Consider using async operations instead.

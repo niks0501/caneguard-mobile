@@ -410,6 +410,11 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
       ),
     ).toBeOnTheScreen();
 
+    expect(screen.getByTestId('scan.retake-camera')).toHaveTextContent('Take another photo');
+    expect(screen.getByTestId('scan.retake-gallery')).toHaveTextContent('Choose another photo');
+    expect(screen.getByLabelText('Take another photo with the camera')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Choose another photo from the gallery')).toBeOnTheScreen();
+
     await waitFor(() => {
       expect(screen.getByTestId('scan.retake-camera')).toBeEnabled();
     });
@@ -496,6 +501,14 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     expect(mockRouterPush).not.toHaveBeenCalled();
     expect(screen.getByTestId('scan.retake-camera')).toHaveTextContent('Take a new photo');
     expect(screen.getByTestId('scan.retake-gallery')).toHaveTextContent('Choose another photo');
+    expect(screen.getByTestId('scan.retake-camera')).toHaveProp(
+      'accessibilityLabel',
+      'Take a new photo',
+    );
+    expect(screen.getByTestId('scan.retake-gallery')).toHaveProp(
+      'accessibilityLabel',
+      'Choose another photo',
+    );
     expect(screen.getByTestId('scan.retake-camera')).toBeEnabled();
     expect(screen.getByTestId('scan.retake-gallery')).toBeEnabled();
     expect(screen.queryByTestId('scan.try-again')).not.toBeOnTheScreen();

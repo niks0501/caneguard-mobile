@@ -417,20 +417,16 @@ export default function SymptomChecklistScreen() {
                   onPress={() => void replaceImage('camera')}
                   leadingIcon="camera"
                   accessibilityLabel={
-                    photoFileFault
-                      ? isFarmer
-                        ? farmer.replaceCameraAccessibility
-                        : GUARD_COPY.unusableRetakeCamera
-                      : isFarmer
-                        ? farmer.replaceCameraAccessibility
+                    isFarmer
+                      ? farmer.replaceCameraAccessibility
+                      : photoFileFault
+                        ? GUARD_COPY.unusableRetakeCamera
                         : 'Take another photo with the camera'
                   }>
-                  {photoFileFault
-                    ? isFarmer
-                      ? farmer.replaceCamera
-                      : GUARD_COPY.unusableRetakeCamera
-                    : isFarmer
-                      ? farmer.replaceCamera
+                  {isFarmer
+                    ? farmer.replaceCamera
+                    : photoFileFault
+                      ? GUARD_COPY.unusableRetakeCamera
                       : SCAN_CHECK_COPY.retakeCamera}
                 </AppButton>
                 <AppButton
@@ -440,21 +436,13 @@ export default function SymptomChecklistScreen() {
                   onPress={() => void replaceImage('gallery')}
                   leadingIcon="image"
                   accessibilityLabel={
-                    photoFileFault
-                      ? isFarmer
-                        ? farmer.replaceGalleryAccessibility
-                        : GUARD_COPY.unusableRetakeGallery
-                      : isFarmer
-                        ? farmer.replaceGalleryAccessibility
+                    isFarmer
+                      ? farmer.replaceGalleryAccessibility
+                      : photoFileFault
+                        ? SCAN_CHECK_COPY.retakeGallery
                         : 'Choose another photo from the gallery'
                   }>
-                  {photoFileFault
-                    ? isFarmer
-                      ? farmer.replaceGallery
-                      : GUARD_COPY.unusableRetakeGallery
-                    : isFarmer
-                      ? farmer.replaceGallery
-                      : SCAN_CHECK_COPY.retakeGallery}
+                  {isFarmer ? farmer.replaceGallery : SCAN_CHECK_COPY.retakeGallery}
                 </AppButton>
               </View>
             ) : null}

@@ -1771,7 +1771,6 @@ export const GUARD_COPY = {
   photoUnreadable:
     'This photo could not be read. It may be damaged or transparent. Choose another photo or take a new one.',
   unusableRetakeCamera: 'Take a new photo',
-  unusableRetakeGallery: 'Choose another photo',
   unavailable:
     'The sugarcane photo check is not available on this phone, so scans are paused. Update or reinstall the app, then try again.',
 } as const;

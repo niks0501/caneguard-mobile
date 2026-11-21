@@ -1,0 +1,51 @@
+
+> caneguard-mobile@2.2.1 web:validate
+> node ./scripts/web-validate.js
+
+
+[web:validate] stub API       http://127.0.0.1:8210
+[web:validate] fake inspector inspector@validation.invalid / validation-only
+[web:validate] fake farmer    farmer@validation.invalid / validation-only
+[web:validate] farmer scans   first check plus two follow-ups are seeded
+[web:validate] open           http://127.0.0.1:8199/login
+[web:validate] open /login, not / — the single-page manifest at / skips COOP/COEP.
+[web:validate] one browser profile per origin; never a second tab on the same origin.
+[web:validate] fake account, stub API and fake records only.
+
+[web:validate] seeded visits: CG-LAB-0002 (Mabini, due 2026-10-30), CG-LAB-0001 (Balayan, due 2026-11-01)
+Starting project at {run-worktree}
+Using src/app as the root directory for Expo Router.
+React Compiler enabled
+Starting Metro Bundler
+
+Waiting on http://localhost:8199
+
+An update for expo is available: 58.0.23 → ~58.0.26
+19 other packages may need updating. Run npx expo install --check for details.
+Logs for your project will appear below.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+ WARN  The package {run-worktree}/node_modules/expo-router contains an invalid package.json configuration. Consider raising this issue with the package maintainer(s).
+Reason: The resolution for "{run-worktree}/node_modules/expo-router/build/global-state/router-store" defined in "exports" is {run-worktree}/node_modules/expo-router/build/global-state/router-store.js, however this file does not exist. Falling back to file-based resolution.
+Web Bundled 1215ms node_modules/expo-router/entry.js (2646 modules)
+Web  INFO  %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+Web Bundled 27ms node_modules/expo-sqlite/web/worker.ts (1 module)
+Web  WARN  Using synchronous SQLite operations can cause significant performance impact. Consider using async operations instead.
+[web:validate] stub OPTIONS /api/v1/mobile/auth/login
+[web:validate] stub POST /api/v1/mobile/auth/login
+[web:validate] stub OPTIONS /api/v1/mobile/auth/me
+[web:validate] stub GET /api/v1/mobile/auth/me
+[web:validate] stub OPTIONS /api/v1/mobile/notifications
+[web:validate] stub GET /api/v1/mobile/notifications
+[web:validate] stub OPTIONS /api/v1/mobile/assignments
+[web:validate] stub GET /api/v1/mobile/assignments
+[web:validate] stub OPTIONS /api/v1/mobile/auth/logout
+[web:validate] stub DELETE /api/v1/mobile/auth/logout
+[web:validate] stub OPTIONS /api/v1/mobile/auth/login
+[web:validate] stub POST /api/v1/mobile/auth/login
+[web:validate] stub OPTIONS /api/v1/mobile/auth/me
+[web:validate] stub GET /api/v1/mobile/auth/me
+[web:validate] stub OPTIONS /api/v1/mobile/notifications
+[web:validate] stub GET /api/v1/mobile/notifications

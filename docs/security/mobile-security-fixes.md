@@ -38,12 +38,20 @@ cannot be completed in this repository.
 
 ## Sessions and biometrics (#70)
 
-- The protected SecureStore entry uses `requireAuthentication: true`, which
-  binds it to the OS authentication-backed key where the platform supports it.
-- Only an enrolled strong biometric is accepted for this protected session;
-  device-passcode fallback is not accepted for this credential.
+- A strong biometric is preferred for the protected session. On a device that
+  has a PIN, pattern, or password, that device credential is the accepted
+  offline cold-start fallback (D8): `saveProtectedMobileSession` stores the
+  session under the plain SecureStore options plus a device-credential gate
+  marker, and `readProtectedMobileSession` shows one `LocalAuthentication`
+  prompt (device fallback allowed) before reading it.
+- The protected entry uses `requireAuthentication: true`, which binds it to the
+  OS authentication-backed key, only when no device credential is available.
+  The device-credential fallback therefore rests on an app-initiated prompt
+  rather than an OS-enforced key, and accepts the weaker protection a PIN,
+  pattern, or password provides. The app itself stores no password.
 - Logout always attempts server revocation and deletes password, protected
-  session, and biometric preference entries. It is not a soft lock.
+  session, device-credential gate, and biometric preference entries. It is not
+  a soft lock.
 - If the API returns `expires_at: null`, the client applies a finite 30-day
   local safety expiry. The server contract should still issue and enforce an
   explicit expiry/revocation policy.

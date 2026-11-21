@@ -22,9 +22,10 @@ const STORE_OPTIONS: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
 };
 // `requireAuthentication` makes Android use an authentication-bound Keystore
-// key and makes iOS use an authentication-gated Keychain item. The explicit
-// LocalAuthentication prompt remains as a capability/user-confirmation check;
-// SecureStore is the final OS-enforced gate for the credential itself.
+// key and makes iOS use an authentication-gated Keychain item. This option set
+// is only used when the device has no PIN/pattern/password; otherwise the
+// session is stored with STORE_OPTIONS and readProtectedMobileSession prompts
+// through LocalAuthentication, which is then the only gate.
 const PROTECTED_STORE_OPTIONS: SecureStore.SecureStoreOptions = {
   ...STORE_OPTIONS,
   authenticationPrompt: 'Unlock CaneGuard',

@@ -335,7 +335,7 @@ export const MISSING_STEP_COPY = {
 
 export function getMissingStepCopy(
   step: keyof typeof MISSING_STEP_COPY,
-  unlockCopy: Pick<typeof OFFLINE_UNLOCK_COPY.biometric, 'readinessTurnOn'>,
+  unlockCopy: { readinessTurnOn: string },
 ): string {
   return step === 'turn-on-biometric'
     ? unlockCopy.readinessTurnOn

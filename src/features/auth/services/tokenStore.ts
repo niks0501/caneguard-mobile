@@ -81,10 +81,6 @@ export async function saveProtectedMobileSession(
         JSON.stringify(session),
         sessionOptions,
       );
-      await SecureStore.deleteItemAsync(
-        PROTECTED_SESSION_KEY,
-        deviceCredentialGate ? PROTECTED_STORE_OPTIONS : STORE_OPTIONS,
-      );
       if (!deviceCredentialGate) {
         await SecureStore.deleteItemAsync(DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS);
       }
@@ -189,7 +185,6 @@ export async function disableBiometricUnlock(): Promise<void> {
   const failures: unknown[] = [];
   for (const [key, options] of [
     [PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS],
-    [PROTECTED_SESSION_KEY, STORE_OPTIONS],
     [BIOMETRIC_ENABLED_KEY, STORE_OPTIONS],
     [DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS],
   ] as const) {
@@ -209,7 +204,6 @@ export async function clearMobileSession(): Promise<void> {
   for (const [key, options] of [
     [LEGACY_SESSION_KEY, STORE_OPTIONS],
     [PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS],
-    [PROTECTED_SESSION_KEY, STORE_OPTIONS],
     [BIOMETRIC_ENABLED_KEY, STORE_OPTIONS],
     [DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS],
   ] as const) {
@@ -311,7 +305,6 @@ async function deleteBestEffort(
 
 async function deleteStoredSessionBestEffort(): Promise<void> {
   await deleteBestEffort(PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS);
-  await deleteBestEffort(PROTECTED_SESSION_KEY, STORE_OPTIONS);
 }
 
 async function clearMobileSessionBestEffort(): Promise<void> {

@@ -27,11 +27,17 @@ jest.mock('@/features/auth/services/biometricAuth', () => ({
   })),
 }));
 
+const mockSecureStoreValues = new Map<string, string>();
+
 jest.mock('expo-secure-store', () => ({
   AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: 'device-only',
-  deleteItemAsync: jest.fn(async () => undefined),
-  getItemAsync: jest.fn(async () => null),
-  setItemAsync: jest.fn(async () => undefined),
+  deleteItemAsync: jest.fn(async (key: string) => {
+    mockSecureStoreValues.delete(key);
+  }),
+  getItemAsync: jest.fn(async (key: string) => mockSecureStoreValues.get(key) ?? null),
+  setItemAsync: jest.fn(async (key: string, value: string) => {
+    mockSecureStoreValues.set(key, value);
+  }),
 }));
 
 const SESSION: MobileSession = {
@@ -57,12 +63,17 @@ describe('mobile secure session store', () => {
   const mockDelete = jest.mocked(SecureStore.deleteItemAsync);
 
   beforeEach(() => {
+    mockSecureStoreValues.clear();
     mockGet.mockReset();
     mockSet.mockReset();
     mockDelete.mockReset();
-    mockGet.mockResolvedValue(null);
-    mockSet.mockResolvedValue(undefined);
-    mockDelete.mockResolvedValue(undefined);
+    mockGet.mockImplementation(async (key) => mockSecureStoreValues.get(key) ?? null);
+    mockSet.mockImplementation(async (key, value) => {
+      mockSecureStoreValues.set(key, value);
+    });
+    mockDelete.mockImplementation(async (key) => {
+      mockSecureStoreValues.delete(key);
+    });
   });
 
   it('clears the legacy unprotected session during cold-start cleanup', async () => {
@@ -80,7 +91,7 @@ describe('mobile secure session store', () => {
 
   it('keeps login history separate from session credentials', async () => {
     await expect(hasCompletedMobileLogin()).resolves.toBe(false);
-    mockGet.mockResolvedValueOnce('true');
+    mockSecureStoreValues.set('caneguard.mobile.login-history.v1', 'true');
     await expect(hasCompletedMobileLogin()).resolves.toBe(true);
     await markMobileLoginCompleted();
 
@@ -99,15 +110,13 @@ describe('mobile secure session store', () => {
   });
 
   it('rejects and removes an expired protected session', async () => {
-    mockGet.mockImplementation(async (key) => {
-      if (key === 'caneguard.mobile.session.protected.v1') {
-        return JSON.stringify({
-          ...SESSION,
-          expiresAt: '2020-01-01T00:00:00.000Z',
-        });
-      }
-      return null;
-    });
+    mockSecureStoreValues.set(
+      'caneguard.mobile.session.protected.v1',
+      JSON.stringify({
+        ...SESSION,
+        expiresAt: '2020-01-01T00:00:00.000Z',
+      }),
+    );
 
     await expect(readProtectedMobileSession()).rejects.toBeInstanceOf(
       StoredSessionExpiredError,
@@ -119,7 +128,8 @@ describe('mobile secure session store', () => {
   });
 
   it('does not restore malformed or non-field-reporter protected data', async () => {
-    mockGet.mockResolvedValueOnce(
+    mockSecureStoreValues.set(
+      'caneguard.mobile.session.protected.v1',
       JSON.stringify({ ...SESSION, user: { ...SESSION.user, role: 'admin' } }),
     );
 
@@ -160,8 +170,9 @@ describe('mobile secure session store', () => {
   });
 
   it('reads a protected session with a finite expiry after biometric authentication', async () => {
-    mockGet.mockImplementation(async (key) =>
-      key === 'caneguard.mobile.session.protected.v1' ? JSON.stringify(SESSION) : null,
+    mockSecureStoreValues.set(
+      'caneguard.mobile.session.protected.v1',
+      JSON.stringify(SESSION),
     );
 
     await expect(readProtectedMobileSession()).resolves.toEqual(SESSION);
@@ -172,9 +183,7 @@ describe('mobile secure session store', () => {
   });
 
   it('treats a missing protected value as biometric enrollment change', async () => {
-    mockGet.mockImplementation(async (key) =>
-      key === 'caneguard.mobile.biometric-enabled.v1' ? 'true' : null,
-    );
+    mockSecureStoreValues.set('caneguard.mobile.biometric-enabled.v1', 'true');
 
     await expect(readProtectedMobileSession()).rejects.toMatchObject<
       Partial<BiometricSessionError>
@@ -187,7 +196,7 @@ describe('mobile secure session store', () => {
 
   it('clears password, protected, and biometric flag entries without touching scan storage', async () => {
     await clearMobileSession();
-    expect(mockDelete).toHaveBeenCalledTimes(5);
+    expect(mockDelete).toHaveBeenCalledTimes(4);
     expect(mockDelete).toHaveBeenCalledWith(
       'caneguard.mobile.session.protected.v1',
       protectedOptions,
@@ -203,58 +212,47 @@ describe('mobile secure session store', () => {
   describe('device credential fallback', () => {
     const plainOptions = { keychainAccessible: 'device-only' };
 
-    it('publishes the enabled flag after the fallback gate and session', async () => {
-      const events: string[] = [];
-      mockSet.mockImplementation(async (key, options) => {
-        events.push(`set:${key}:${options?.requireAuthentication ? 'protected' : 'plain'}`);
-      });
-      mockDelete.mockImplementation(async (key, options) => {
-        events.push(
-          `delete:${key}:${options?.requireAuthentication ? 'protected' : 'plain'}`,
-        );
-      });
-
+    it('persists a gated session that cannot be read after authentication is cancelled', async () => {
       await saveProtectedMobileSession(SESSION);
 
-      expect(events).toEqual([
-        'set:caneguard.mobile.device-credential-gate.v1:plain',
-        'set:caneguard.mobile.session.protected.v1:plain',
-        'delete:caneguard.mobile.session.protected.v1:protected',
-        'delete:caneguard.mobile.session.v1:plain',
-        'set:caneguard.mobile.biometric-enabled.v1:plain',
-      ]);
+      expect(mockSecureStoreValues.get('caneguard.mobile.session.protected.v1')).toBe(
+        JSON.stringify(SESSION),
+      );
+      expect(mockSecureStoreValues.get('caneguard.mobile.device-credential-gate.v1')).toBe(
+        'true',
+      );
+      jest.mocked(authenticateWithDeviceCredential).mockResolvedValueOnce({
+        code: 'CANCELLED',
+        message: 'cancelled',
+        success: false,
+      });
+      await expect(readProtectedMobileSession()).rejects.toMatchObject({
+        code: 'ACCESS_FAILED',
+      });
+      expect(mockGet).not.toHaveBeenCalledWith(
+        'caneguard.mobile.session.protected.v1',
+        plainOptions,
+      );
     });
 
-    it('removes the fallback gate only after switching to protected storage', async () => {
-      const events: string[] = [];
+    it('keeps one session and the matching gate when storage mode changes', async () => {
+      await saveProtectedMobileSession(SESSION);
+      const protectedSession = { ...SESSION, token: 'protected-session-value' };
       jest.mocked(getBiometricCapability).mockResolvedValueOnce({
         deviceCredentialAvailable: false,
         status: 'available',
         strongBiometricsAvailable: true,
       });
-      mockSet.mockImplementation(async (key, options) => {
-        events.push(`set:${key}:${options?.requireAuthentication ? 'protected' : 'plain'}`);
-      });
-      mockDelete.mockImplementation(async (key, options) => {
-        events.push(
-          `delete:${key}:${options?.requireAuthentication ? 'protected' : 'plain'}`,
-        );
-      });
 
-      await saveProtectedMobileSession(SESSION);
+      await saveProtectedMobileSession(protectedSession);
 
-      expect(events).toEqual([
-        'set:caneguard.mobile.session.protected.v1:protected',
-        'delete:caneguard.mobile.session.protected.v1:plain',
-        'delete:caneguard.mobile.device-credential-gate.v1:plain',
-        'delete:caneguard.mobile.session.v1:plain',
-        'set:caneguard.mobile.biometric-enabled.v1:plain',
-      ]);
-      expect(mockSet).toHaveBeenCalledWith(
-        'caneguard.mobile.session.protected.v1',
-        JSON.stringify(SESSION),
-        protectedOptions,
+      expect(mockSecureStoreValues).toEqual(
+        new Map([
+          ['caneguard.mobile.session.protected.v1', JSON.stringify(protectedSession)],
+          ['caneguard.mobile.biometric-enabled.v1', 'true'],
+        ]),
       );
+      expect(authenticateWithDeviceCredential).not.toHaveBeenCalled();
     });
 
     it('stores the session without OS authentication when no strong biometric exists', async () => {
@@ -279,12 +277,11 @@ describe('mobile secure session store', () => {
     });
 
     it('requires the device credential before reading a fallback session', async () => {
-      mockGet.mockImplementation(async (key) => {
-        if (key === 'caneguard.mobile.device-credential-gate.v1') return 'true';
-        return key === 'caneguard.mobile.session.protected.v1'
-          ? JSON.stringify(SESSION)
-          : null;
-      });
+      mockSecureStoreValues.set('caneguard.mobile.device-credential-gate.v1', 'true');
+      mockSecureStoreValues.set(
+        'caneguard.mobile.session.protected.v1',
+        JSON.stringify(SESSION),
+      );
 
       await expect(readProtectedMobileSession()).resolves.toEqual(SESSION);
       expect(authenticateWithDeviceCredential).toHaveBeenCalledTimes(1);
@@ -295,8 +292,10 @@ describe('mobile secure session store', () => {
     });
 
     it('does not read the session when the device credential prompt is cancelled', async () => {
-      mockGet.mockImplementation(async (key) =>
-        key === 'caneguard.mobile.device-credential-gate.v1' ? 'true' : JSON.stringify(SESSION),
+      mockSecureStoreValues.set('caneguard.mobile.device-credential-gate.v1', 'true');
+      mockSecureStoreValues.set(
+        'caneguard.mobile.session.protected.v1',
+        JSON.stringify(SESSION),
       );
       jest.mocked(authenticateWithDeviceCredential).mockResolvedValueOnce({
         code: 'CANCELLED',

@@ -81,13 +81,7 @@ export async function ensureBiometricReady(): Promise<BiometricAuthResult> {
 }
 
 export async function confirmBeforeProtectedWrite(): Promise<BiometricAuthResult> {
-  const capability = await getBiometricCapability();
-  if (capability.status === 'available' && capability.deviceCredentialAvailable) {
-    return authenticateWithDeviceCredential();
-  }
-  return Platform.OS === 'android'
-    ? ensureBiometricReady()
-    : authenticateWithBiometrics();
+  return authenticateWithDeviceCredential();
 }
 
 export async function authenticateWithDeviceCredential(): Promise<BiometricAuthResult> {
@@ -103,36 +97,6 @@ export async function authenticateWithDeviceCredential(): Promise<BiometricAuthR
       promptMessage: 'Unlock CaneGuard',
     });
     return result.success ? { success: true } : mapAuthenticationFailure(result.error);
-  } catch {
-    return {
-      code: 'NOT_AVAILABLE',
-      message: 'Biometric unlock is unavailable. Sign in with your password.',
-      success: false,
-    };
-  }
-}
-
-export async function authenticateWithBiometrics(): Promise<BiometricAuthResult> {
-  const ready = await ensureBiometricReady();
-  if (!ready.success) {
-    return ready;
-  }
-
-  try {
-    const result = await LocalAuthentication.authenticateAsync({
-      biometricsSecurityLevel: 'strong',
-      cancelLabel: 'Use password instead',
-      disableDeviceFallback: true,
-      promptMessage: 'Unlock CaneGuard',
-      promptSubtitle: 'Use your enrolled strong biometric.',
-      requireConfirmation: true,
-    });
-
-    if (result.success) {
-      return { success: true };
-    }
-
-    return mapAuthenticationFailure(result.error);
   } catch {
     return {
       code: 'NOT_AVAILABLE',

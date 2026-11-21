@@ -27,7 +27,7 @@ import {
 } from '@/features/auth/services/tokenStore';
 import { getOrCreateMobileDeviceId } from '@/features/auth/services/deviceIdentity';
 import {
-  authenticateWithBiometrics,
+  authenticateWithDeviceCredential,
   getBiometricCapability,
 } from '@/features/auth/services/biometricAuth';
 import type { MobileSession, SessionVerificationStatus } from '@/features/auth/types';
@@ -70,9 +70,9 @@ jest.mock('@/features/auth/services/deviceIdentity', () => ({
 jest.mock('@/features/auth/services/biometricAuth', () => {
   const authenticate = jest.fn(async () => ({ success: false, code: 'CANCELLED', message: 'Cancelled' }));
   return {
-  authenticateWithBiometrics: authenticate,
+  authenticateWithDeviceCredential: authenticate,
   // The readiness checks used by the provider share one mock so each test's
-  // single `authenticateWithBiometrics` expectation still drives them.
+  // single authentication expectation still drives them.
   confirmBeforeProtectedWrite: () => authenticate(),
   ensureBiometricReady: () => authenticate(),
   getBiometricCapability: jest.fn(async () => ({
@@ -148,7 +148,7 @@ describe('AuthProvider', () => {
   const mockDisableBiometric = jest.mocked(disableBiometricUnlock);
   const mockBiometricEnabled = jest.mocked(isBiometricUnlockEnabled);
   const mockDeviceId = jest.mocked(getOrCreateMobileDeviceId);
-  const mockBiometricAuth = jest.mocked(authenticateWithBiometrics);
+  const mockBiometricAuth = jest.mocked(authenticateWithDeviceCredential);
   const mockBiometricCapability = jest.mocked(getBiometricCapability);
 
   afterEach(() => {

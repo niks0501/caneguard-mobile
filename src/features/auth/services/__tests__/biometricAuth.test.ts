@@ -5,7 +5,6 @@ import { Platform } from 'react-native';
 
 import {
   authenticateWithDeviceCredential,
-  authenticateWithBiometrics,
   confirmBeforeProtectedWrite,
   ensureBiometricReady,
   getBiometricCapability,
@@ -121,21 +120,6 @@ describe('mobile biometric capability and authentication', () => {
     });
   });
 
-  it('requires a strong biometric without allowing device-credential fallback', async () => {
-    mockAuthenticate.mockResolvedValueOnce({ success: true });
-
-    await expect(authenticateWithBiometrics()).resolves.toEqual({ success: true });
-    expect(mockAuthenticate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        biometricsSecurityLevel: 'strong',
-        cancelLabel: 'Use password instead',
-        disableDeviceFallback: true,
-        promptMessage: 'Unlock CaneGuard',
-        promptSubtitle: 'Use your enrolled strong biometric.',
-      }),
-    );
-  });
-
   it('allows only strong biometrics or the device credential in the fallback prompt', async () => {
     mockLevel.mockResolvedValue(LocalAuthentication.SecurityLevel.BIOMETRIC_WEAK);
     mockAuthenticate.mockResolvedValueOnce({ success: true });
@@ -184,7 +168,7 @@ describe('mobile biometric capability and authentication', () => {
       error: 'user_cancel',
       success: false,
     });
-    await expect(authenticateWithBiometrics()).resolves.toMatchObject({
+    await expect(authenticateWithDeviceCredential()).resolves.toMatchObject({
       code: 'CANCELLED',
       success: false,
     });
@@ -193,7 +177,7 @@ describe('mobile biometric capability and authentication', () => {
       error: 'authentication_failed',
       success: false,
     });
-    await expect(authenticateWithBiometrics()).resolves.toMatchObject({
+    await expect(authenticateWithDeviceCredential()).resolves.toMatchObject({
       code: 'AUTHENTICATION_FAILED',
       success: false,
     });

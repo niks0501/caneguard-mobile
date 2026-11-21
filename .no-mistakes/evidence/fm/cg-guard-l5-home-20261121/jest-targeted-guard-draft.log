@@ -1,0 +1,10 @@
+
+> caneguard-mobile@2.2.1 test
+> jest --runInBand src/app/__tests__/symptom-checklist.guard.test.tsx src/features/detection/context/__tests__/ScanSessionProvider.test.tsx src/features/detection/drafts/__tests__/scanDraftCheckpoint.test.ts
+
+
+Test Suites: 3 passed, 3 total
+Tests:       30 passed, 30 total
+Snapshots:   0 total
+Time:        2.742 s, estimated 11 s
+Ran all test suites matching src/app/__tests__/symptom-checklist.guard.test.tsx|src/features/detection/context/__tests__/ScanSessionProvider.test.tsx|src/features/detection/drafts/__tests__/scanDraftCheckpoint.test.ts.

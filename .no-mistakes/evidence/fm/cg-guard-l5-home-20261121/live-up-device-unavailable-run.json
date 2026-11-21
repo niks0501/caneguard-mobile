@@ -1,0 +1,13 @@
+{
+  "driver": "agent-device",
+  "revision": "d573937a53303b049196248106f5559abe5c54cd",
+  "branch": "HEAD",
+  "dirty": false,
+  "startedAt": "2026-11-21T08:56:18.583Z",
+  "result": "DEVICE_UNAVAILABLE",
+  "evidence": ".agent-device/test-artifacts/live/d573937a5330",
+  "reason": "No ready native target (adb devices: none listed).",
+  "fix": "npm run web:validate",
+  "verdict": "inconclusive: no ready native target; web fallback (npm run web:validate) is device-unavailable, not pass",
+  "fallback": "npm run web:validate"
+}

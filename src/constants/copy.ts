@@ -1596,7 +1596,6 @@ export const SCAN_CHECK_COPY = {
   question: 'Which picture looks most like what you see?',
   questionHint: 'Your choice is kept with this scan and never changes the result.',
   checking: 'Checking your photo…',
-  checkingDetail: 'Looking at light and focus, then reading the photo.',
   checkedTitle: 'Photo checked',
   notAnalysed: 'This photo was not analysed. Please use a new photo.',
   ready: 'Photo checked. Choose a picture, then continue.',
@@ -1630,12 +1629,16 @@ export const GUARD_COPY = {
 } as const;
 
 /**
- * Heading and status line per scan check state. "Photo checked" is only for the
- * two result states; every other state names what is happening or what failed.
- * An `error` state shows the session's own message when it has one.
+ * Heading and status line per scan check state; the `no-photo` entry also fills
+ * the no-photo recovery card. "Photo checked" is only for the two result
+ * states; every other state names what is happening or what failed. An `error`
+ * state shows the session's own message when it has one.
  */
 export const SCAN_STATE_COPY = {
-  'no-photo': { title: 'No photo selected', detail: 'Take or choose a photo to start.' },
+  'no-photo': {
+    title: 'No photo selected',
+    detail: 'Take or choose a sugarcane photo to start a scan.',
+  },
   'checking-photo': { title: 'Checking your photo…', detail: 'Checking light and focus…' },
   'photo-rejected': { title: 'Photo not used', detail: SCAN_CHECK_COPY.notAnalysed },
   'waiting-model': {

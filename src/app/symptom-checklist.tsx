@@ -181,10 +181,10 @@ export default function SymptomChecklistScreen() {
                 <Feather name="alert-circle" size={22} color={theme.warning} />
               </View>
               <Text style={[styles.recoveryTitle, { color: theme.primaryDark }]}>
-                {isFarmer ? farmer.noImageTitle : 'No photo selected'}
+                {isFarmer ? farmer.noImageTitle : SCAN_STATE_COPY['no-photo'].title}
               </Text>
               <Text style={[styles.recoveryText, { color: theme.textSecondary }]}>
-                Take or choose a sugarcane photo to start a scan.
+                {SCAN_STATE_COPY['no-photo'].detail}
               </Text>
               <AppButton
                 onPress={() => {

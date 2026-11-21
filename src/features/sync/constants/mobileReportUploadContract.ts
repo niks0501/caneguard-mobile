@@ -76,6 +76,12 @@ export function isValidSubmissionImageMetadata(input: {
   );
 }
 
+/**
+ * The preparation and persistence bound: what the phone aims at when it makes
+ * or stores a submission image. Upload validity stays on the hard limit in
+ * `isValidSubmissionImageMetadata`, so an older persisted artifact above this
+ * bound still uploads instead of failing every attempt.
+ */
 export function isWithinMobileReportUploadSubmissionTarget(
   sizeBytes: number | null | undefined,
 ): boolean {

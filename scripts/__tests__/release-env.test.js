@@ -25,6 +25,9 @@ describe('production API URL gate', () => {
     expect(validateProductionApiBaseUrl('https://api.caneguard.ph/v1/')).toEqual(
       [],
     );
+    expect(validateProductionApiBaseUrl('https://[2606:4700:4700::1111]')).toEqual(
+      [],
+    );
   });
 
   it.each([
@@ -39,10 +42,16 @@ describe('production API URL gate', () => {
     ['https://192.168.1.20', /public host/],
     ['https://172.20.0.1', /public host/],
     ['https://169.254.1.1', /public host/],
+    ['https://192.0.2.1', /public host/],
+    ['https://198.18.0.1', /public host/],
     ['https://[::1]', /public host/],
+    ['https://[2001:db8::1]', /public host/],
     ['https://intranet', /public host/],
     ['https://api.example.test', /public host/],
     ['https://box.local', /public host/],
+    ['https://api..caneguard.ph', /public host/],
+    ['https://api-.caneguard.ph', /public host/],
+    ['https://-api.caneguard.ph', /public host/],
   ])('rejects %p', (value, message) => {
     const problems = validateProductionApiBaseUrl(value);
     expect(problems.length).toBeGreaterThan(0);
@@ -57,6 +66,16 @@ describe('Sentry DSN gate', () => {
     expect(validateSentryDsn('nope')[0]).toMatch(/valid Sentry DSN/);
     expect(validateSentryDsn('http://k@host/1')[0]).toMatch(/must look like/);
     expect(validateSentryDsn('https://host/1')[0]).toMatch(/must look like/);
+    expect(
+      validateSentryDsn(
+        'https://0123456789abcdef0123456789abcdef@o123.ingest.sentry.io/not-a-project',
+      )[0],
+    ).toMatch(/must look like/);
+    expect(
+      validateSentryDsn(
+        'https://0123456789abcdef0123456789abcdef@o123.ingest.sentry.io/123abc',
+      )[0],
+    ).toMatch(/must look like/);
   });
 });
 

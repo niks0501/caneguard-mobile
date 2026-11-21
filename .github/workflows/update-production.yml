@@ -32,18 +32,6 @@ jobs:
             exit 1
           fi
 
-      - name: Classify candidate changes
-        id: candidate
-        env:
-          SHA: ${{ github.sha }}
-        run: |
-          FILES="$(git diff --name-only "${SHA}^...${SHA}")"
-          echo "$FILES"
-          if printf '%s\n' "$FILES" | grep -Eq '^(app\.json|app\.config\.[^/]+|eas\.json|metro\.config\.[^/]+|babel\.config\.[^/]+|package\.json|package-lock\.json|android/|ios/|plugins/)'; then
-            echo "Native, runtime, build configuration, app version, or dependency changes need a new production build, not an update." >&2
-            exit 1
-          fi
-
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:

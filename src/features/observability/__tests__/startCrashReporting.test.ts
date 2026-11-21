@@ -35,6 +35,9 @@ describe('parseSentryDsn', () => {
     'https://public-key@o123.ingest.sentry.io/1',
     'https://0123456789abcdef0123456789abcdef@o123.ingest.sentry.io',
     'https://0123456789abcdef0123456789abcdef@o123.ingest.sentry.io/1?secret=1',
+    'https://0123456789abcdef0123456789abcdef@o123.ingest.sentry.io/not-a-project',
+    'https://0123456789abcdef0123456789abcdef@o123.ingest.sentry.io/123abc',
+    'https://0123456789abcdef0123456789abcdef@o123.ingest.sentry.io/sentry/9/',
   ])('rejects a malformed DSN: %s', (value) => {
     expect(parseSentryDsn(value)).toBeNull();
   });

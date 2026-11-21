@@ -53,13 +53,14 @@ export function parseSentryDsn(value: string | undefined): string | null {
     return null;
   }
 
+  const projectId = url.pathname.split('/').pop() ?? '';
   // A DSN is `https://<public key>@<host>/<project id>` and may carry a
   // self-hosted path prefix. The key charset matches the one the SDK accepts,
   // so a typo is reported here instead of disabling the SDK silently.
   if (
     url.protocol !== 'https:' ||
     !/^\w+$/.test(url.username) ||
-    url.pathname.length <= 1 ||
+    !/^\d+$/.test(projectId) ||
     url.search ||
     url.hash
   ) {

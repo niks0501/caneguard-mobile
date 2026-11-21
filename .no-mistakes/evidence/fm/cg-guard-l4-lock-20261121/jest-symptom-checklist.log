@@ -1,0 +1,10 @@
+
+> caneguard-mobile@2.2.1 test
+> jest --runInBand src/app/__tests__/symptom-checklist.test.tsx src/app/__tests__/symptom-checklist.guard.test.tsx
+
+
+Test Suites: 2 passed, 2 total
+Tests:       29 passed, 29 total
+Snapshots:   0 total
+Time:        2.559 s
+Ran all test suites matching src/app/__tests__/symptom-checklist.test.tsx|src/app/__tests__/symptom-checklist.guard.test.tsx.

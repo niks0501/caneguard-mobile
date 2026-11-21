@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 import {
+  authenticateWithDeviceCredential,
   authenticateWithBiometrics,
   confirmBeforeProtectedWrite,
   ensureBiometricReady,
@@ -135,6 +136,20 @@ describe('mobile biometric capability and authentication', () => {
     );
   });
 
+  it('allows only strong biometrics or the device credential in the fallback prompt', async () => {
+    mockLevel.mockResolvedValue(LocalAuthentication.SecurityLevel.BIOMETRIC_WEAK);
+    mockAuthenticate.mockResolvedValueOnce({ success: true });
+
+    await expect(authenticateWithDeviceCredential()).resolves.toEqual({ success: true });
+    expect(mockAuthenticate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        biometricsSecurityLevel: 'strong',
+        disableDeviceFallback: false,
+        promptMessage: 'Unlock CaneGuard',
+      }),
+    );
+  });
+
   it('checks readiness without showing a prompt', async () => {
     await expect(ensureBiometricReady()).resolves.toEqual({ success: true });
     expect(mockAuthenticate).not.toHaveBeenCalled();
@@ -148,17 +163,17 @@ describe('mobile biometric capability and authentication', () => {
     expect(mockAuthenticate).not.toHaveBeenCalled();
   });
 
-  it('leaves the prompt before a protected write to Android Keystore and keeps it on iOS', async () => {
+  it('confirms the device credential before a PIN-gated write', async () => {
     const originalOs = Platform.OS;
     try {
+      mockAuthenticate.mockResolvedValue({ success: true });
       Platform.OS = 'android';
       await expect(confirmBeforeProtectedWrite()).resolves.toEqual({ success: true });
-      expect(mockAuthenticate).not.toHaveBeenCalled();
+      expect(mockAuthenticate).toHaveBeenCalledTimes(1);
 
       Platform.OS = 'ios';
-      mockAuthenticate.mockResolvedValueOnce({ success: true });
       await expect(confirmBeforeProtectedWrite()).resolves.toEqual({ success: true });
-      expect(mockAuthenticate).toHaveBeenCalledTimes(1);
+      expect(mockAuthenticate).toHaveBeenCalledTimes(2);
     } finally {
       Platform.OS = originalOs;
     }

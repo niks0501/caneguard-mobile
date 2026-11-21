@@ -13,13 +13,6 @@ import {
 } from '@/features/auth/services/tokenStore';
 import type { MobileSession } from '@/features/auth/types';
 
-// Regression for "two finger touches per biometric action". The protected
-// session is stored with `requireAuthentication`, so the OS prompts on its
-// own when that item is read (and, on Android, written). The provider must
-// not add a second explicit LocalAuthentication prompt on top of it. Here the
-// real biometricAuth service runs against a mocked native layer, and the
-// protected store counts the prompts the OS would show.
-
 jest.mock('expo-device', () => ({ deviceName: 'Test phone', modelName: 'Test model' }));
 jest.mock('expo-local-authentication', () => ({
   AuthenticationType: { FINGERPRINT: 1 },
@@ -94,14 +87,12 @@ describe('biometric prompts per action', () => {
   const mockVerify = jest.mocked(verifyMobileSession);
   const originalOs = Platform.OS;
   let storePrompts = 0;
-  let promptOnStoreWrite = false;
 
   /** Every fingerprint touch the user would be asked for. */
   const prompts = () => mockAuthenticate.mock.calls.length + storePrompts;
 
   beforeEach(() => {
     storePrompts = 0;
-    promptOnStoreWrite = false;
     mockAuthenticate.mockClear();
     mockEnabled.mockReset();
     mockEnabled.mockResolvedValue(false);
@@ -111,11 +102,7 @@ describe('biometric prompts per action', () => {
       return SESSION;
     });
     mockSave.mockReset();
-    mockSave.mockImplementation(async () => {
-      if (promptOnStoreWrite) {
-        storePrompts += 1;
-      }
-    });
+    mockSave.mockImplementation(async () => undefined);
     mockVerify.mockReset();
     mockVerify.mockResolvedValue(SESSION.user);
     mockLogin.mockReset();
@@ -148,12 +135,8 @@ describe('biometric prompts per action', () => {
     expect(result.current.status).toBe('authenticated');
   });
 
-  it.each([
-    ['android', true],
-    ['ios', false],
-  ])('prompts once when enabling biometric unlock on %s', async (os, writePrompts) => {
+  it.each(['android', 'ios'])('prompts once when enabling biometric unlock on %s', async (os) => {
     Platform.OS = os as typeof Platform.OS;
-    promptOnStoreWrite = writePrompts;
 
     const { result } = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.status).toBe('unauthenticated'));

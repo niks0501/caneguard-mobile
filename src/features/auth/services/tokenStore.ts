@@ -68,27 +68,34 @@ export async function saveProtectedMobileSession(
   assertPersistableSession(session);
   try {
     const capability = await getBiometricCapability();
-    const deviceCredentialGate =
-      !capability.strongBiometricsAvailable && capability.deviceCredentialAvailable;
-    await SecureStore.setItemAsync(
-      PROTECTED_SESSION_KEY,
-      JSON.stringify(session),
-      deviceCredentialGate ? STORE_OPTIONS : PROTECTED_STORE_OPTIONS,
-    );
+    const deviceCredentialGate = capability.deviceCredentialAvailable;
+    const sessionOptions = deviceCredentialGate
+      ? STORE_OPTIONS
+      : PROTECTED_STORE_OPTIONS;
     try {
+      if (deviceCredentialGate) {
+        await SecureStore.setItemAsync(DEVICE_CREDENTIAL_GATE_KEY, 'true', STORE_OPTIONS);
+      }
+      await SecureStore.setItemAsync(
+        PROTECTED_SESSION_KEY,
+        JSON.stringify(session),
+        sessionOptions,
+      );
+      await SecureStore.deleteItemAsync(
+        PROTECTED_SESSION_KEY,
+        deviceCredentialGate ? PROTECTED_STORE_OPTIONS : STORE_OPTIONS,
+      );
+      if (!deviceCredentialGate) {
+        await SecureStore.deleteItemAsync(DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS);
+      }
+      await SecureStore.deleteItemAsync(LEGACY_SESSION_KEY, STORE_OPTIONS);
       await SecureStore.setItemAsync(
         BIOMETRIC_ENABLED_KEY,
         'true',
         STORE_OPTIONS,
       );
-      if (deviceCredentialGate) {
-        await SecureStore.setItemAsync(DEVICE_CREDENTIAL_GATE_KEY, 'true', STORE_OPTIONS);
-      } else {
-        await SecureStore.deleteItemAsync(DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS);
-      }
-      await SecureStore.deleteItemAsync(LEGACY_SESSION_KEY, STORE_OPTIONS);
     } catch (error: unknown) {
-      await deleteBestEffort(PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS);
+      await deleteBestEffort(PROTECTED_SESSION_KEY, sessionOptions);
       await deleteBestEffort(BIOMETRIC_ENABLED_KEY, STORE_OPTIONS);
       await deleteBestEffort(DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS);
       throw error;
@@ -182,6 +189,7 @@ export async function disableBiometricUnlock(): Promise<void> {
   const failures: unknown[] = [];
   for (const [key, options] of [
     [PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS],
+    [PROTECTED_SESSION_KEY, STORE_OPTIONS],
     [BIOMETRIC_ENABLED_KEY, STORE_OPTIONS],
     [DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS],
   ] as const) {
@@ -201,6 +209,7 @@ export async function clearMobileSession(): Promise<void> {
   for (const [key, options] of [
     [LEGACY_SESSION_KEY, STORE_OPTIONS],
     [PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS],
+    [PROTECTED_SESSION_KEY, STORE_OPTIONS],
     [BIOMETRIC_ENABLED_KEY, STORE_OPTIONS],
     [DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS],
   ] as const) {
@@ -220,12 +229,12 @@ async function parseStoredSession(stored: string): Promise<MobileSession | null>
   try {
     value = JSON.parse(stored) as unknown;
   } catch {
-    await deleteBestEffort(PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS);
+    await deleteStoredSessionBestEffort();
     return null;
   }
 
   if (!isEligibleStoredSession(value)) {
-    await deleteBestEffort(PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS);
+    await deleteStoredSessionBestEffort();
     return null;
   }
 
@@ -243,8 +252,9 @@ async function parseStoredSession(stored: string): Promise<MobileSession | null>
     throw new StoredSessionExpiredError(value.token);
   }
   if (!isFutureIsoDate(value.expiresAt)) {
-    await deleteBestEffort(PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS);
+    await deleteStoredSessionBestEffort();
     await deleteBestEffort(BIOMETRIC_ENABLED_KEY, STORE_OPTIONS);
+    await deleteBestEffort(DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS);
     throw new StoredSessionExpiredError(value.token);
   }
 
@@ -297,6 +307,11 @@ async function deleteBestEffort(
   } catch {
     // Cleanup is best effort while handling an invalid or superseded entry.
   }
+}
+
+async function deleteStoredSessionBestEffort(): Promise<void> {
+  await deleteBestEffort(PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS);
+  await deleteBestEffort(PROTECTED_SESSION_KEY, STORE_OPTIONS);
 }
 
 async function clearMobileSessionBestEffort(): Promise<void> {

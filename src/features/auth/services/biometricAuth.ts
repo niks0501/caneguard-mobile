@@ -26,9 +26,6 @@ export async function getBiometricCapability(): Promise<BiometricCapability> {
       types.length > 0 &&
       level === LocalAuthentication.SecurityLevel.BIOMETRIC_STRONG;
 
-    // A strong biometric gates the stored session at the OS level. Without
-    // one, a device PIN/pattern/password is accepted as a weaker fallback so an
-    // inspector can still reopen the app offline after a restart.
     if (!strongBiometricsAvailable) {
       if (deviceCredentialAvailable) {
         return {
@@ -64,12 +61,6 @@ export async function getBiometricCapability(): Promise<BiometricCapability> {
   }
 }
 
-/**
- * Checks that a strong biometric can be used, without showing a prompt.
- * The protected session is stored with `requireAuthentication`, so the OS
- * shows its own prompt when that item is read (and, on Android, written).
- * Prompting here as well would ask for two finger touches per action.
- */
 export async function ensureBiometricReady(): Promise<BiometricAuthResult> {
   const capability = await getBiometricCapability();
   if (capability.status === 'not-enrolled') {
@@ -89,17 +80,9 @@ export async function ensureBiometricReady(): Promise<BiometricAuthResult> {
   return { success: true };
 }
 
-/**
- * Confirmation before saving the protected session. Android's authentication-
- * bound Keystore key prompts on that write itself, so only a readiness check
- * is needed there. iOS adds a gated Keychain item without a prompt, so the
- * explicit prompt stays the single confirmation on that platform.
- */
 export async function confirmBeforeProtectedWrite(): Promise<BiometricAuthResult> {
   const capability = await getBiometricCapability();
-  if (capability.status === 'available' && !capability.strongBiometricsAvailable) {
-    // The device-credential fallback is not OS-gated per read, so the prompt
-    // here is the explicit confirmation for the write.
+  if (capability.status === 'available' && capability.deviceCredentialAvailable) {
     return authenticateWithDeviceCredential();
   }
   return Platform.OS === 'android'
@@ -107,7 +90,6 @@ export async function confirmBeforeProtectedWrite(): Promise<BiometricAuthResult
     : authenticateWithBiometrics();
 }
 
-/** Prompts for the device PIN, pattern, password or any enrolled biometric. */
 export async function authenticateWithDeviceCredential(): Promise<BiometricAuthResult> {
   const ready = await ensureBiometricReady();
   if (!ready.success) {
@@ -115,6 +97,7 @@ export async function authenticateWithDeviceCredential(): Promise<BiometricAuthR
   }
   try {
     const result = await LocalAuthentication.authenticateAsync({
+      biometricsSecurityLevel: 'strong',
       cancelLabel: 'Use password instead',
       disableDeviceFallback: false,
       promptMessage: 'Unlock CaneGuard',

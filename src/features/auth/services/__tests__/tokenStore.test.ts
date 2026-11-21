@@ -132,17 +132,23 @@ describe('mobile secure session store', () => {
     );
   });
 
-  it('stores the biometric-gated session in device-only SecureStore', async () => {
+  it('stores the session behind a device-credential gate when a PIN is available', async () => {
     await saveProtectedMobileSession(SESSION);
 
     expect(mockSet).toHaveBeenNthCalledWith(
       1,
-      'caneguard.mobile.session.protected.v1',
-      JSON.stringify(SESSION),
-      protectedOptions,
+      'caneguard.mobile.device-credential-gate.v1',
+      'true',
+      { keychainAccessible: 'device-only' },
     );
     expect(mockSet).toHaveBeenNthCalledWith(
       2,
+      'caneguard.mobile.session.protected.v1',
+      JSON.stringify(SESSION),
+      { keychainAccessible: 'device-only' },
+    );
+    expect(mockSet).toHaveBeenNthCalledWith(
+      3,
       'caneguard.mobile.biometric-enabled.v1',
       'true',
       { keychainAccessible: 'device-only' },
@@ -181,7 +187,7 @@ describe('mobile secure session store', () => {
 
   it('clears password, protected, and biometric flag entries without touching scan storage', async () => {
     await clearMobileSession();
-    expect(mockDelete).toHaveBeenCalledTimes(4);
+    expect(mockDelete).toHaveBeenCalledTimes(5);
     expect(mockDelete).toHaveBeenCalledWith(
       'caneguard.mobile.session.protected.v1',
       protectedOptions,
@@ -196,6 +202,60 @@ describe('mobile secure session store', () => {
 
   describe('device credential fallback', () => {
     const plainOptions = { keychainAccessible: 'device-only' };
+
+    it('publishes the enabled flag after the fallback gate and session', async () => {
+      const events: string[] = [];
+      mockSet.mockImplementation(async (key, options) => {
+        events.push(`set:${key}:${options?.requireAuthentication ? 'protected' : 'plain'}`);
+      });
+      mockDelete.mockImplementation(async (key, options) => {
+        events.push(
+          `delete:${key}:${options?.requireAuthentication ? 'protected' : 'plain'}`,
+        );
+      });
+
+      await saveProtectedMobileSession(SESSION);
+
+      expect(events).toEqual([
+        'set:caneguard.mobile.device-credential-gate.v1:plain',
+        'set:caneguard.mobile.session.protected.v1:plain',
+        'delete:caneguard.mobile.session.protected.v1:protected',
+        'delete:caneguard.mobile.session.v1:plain',
+        'set:caneguard.mobile.biometric-enabled.v1:plain',
+      ]);
+    });
+
+    it('removes the fallback gate only after switching to protected storage', async () => {
+      const events: string[] = [];
+      jest.mocked(getBiometricCapability).mockResolvedValueOnce({
+        deviceCredentialAvailable: false,
+        status: 'available',
+        strongBiometricsAvailable: true,
+      });
+      mockSet.mockImplementation(async (key, options) => {
+        events.push(`set:${key}:${options?.requireAuthentication ? 'protected' : 'plain'}`);
+      });
+      mockDelete.mockImplementation(async (key, options) => {
+        events.push(
+          `delete:${key}:${options?.requireAuthentication ? 'protected' : 'plain'}`,
+        );
+      });
+
+      await saveProtectedMobileSession(SESSION);
+
+      expect(events).toEqual([
+        'set:caneguard.mobile.session.protected.v1:protected',
+        'delete:caneguard.mobile.session.protected.v1:plain',
+        'delete:caneguard.mobile.device-credential-gate.v1:plain',
+        'delete:caneguard.mobile.session.v1:plain',
+        'set:caneguard.mobile.biometric-enabled.v1:plain',
+      ]);
+      expect(mockSet).toHaveBeenCalledWith(
+        'caneguard.mobile.session.protected.v1',
+        JSON.stringify(SESSION),
+        protectedOptions,
+      );
+    });
 
     it('stores the session without OS authentication when no strong biometric exists', async () => {
       jest.mocked(getBiometricCapability).mockResolvedValueOnce({

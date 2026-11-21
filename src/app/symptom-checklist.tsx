@@ -247,11 +247,9 @@ export default function SymptomChecklistScreen() {
   const statusText =
     guardRejected || photoRejected
       ? stateCopy.detail
-      : photoUnusable
-        ? (state.errorMessage ?? stateCopy.detail)
-        : (activeGuardError ??
-          activeModelError ??
-          (state.status === 'error' ? (state.errorMessage ?? stateCopy.detail) : stateCopy.detail));
+      : (activeGuardError ??
+        activeModelError ??
+        (state.status === 'error' ? (state.errorMessage ?? stateCopy.detail) : stateCopy.detail));
 
   return (
     <SafeAreaView

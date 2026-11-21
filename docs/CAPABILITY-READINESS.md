@@ -228,6 +228,12 @@ not proven by unit tests:
   and office updates). Permanent owner-data removal previews every affected
   kind, re-checks counts, refuses while an upload is running, and requires an
   explicit acknowledgement of unsent work.
+- Deleting one saved scan asks for confirmation. When the scan's finished Field
+  Report has not reached the office yet — or the phone cannot read that state —
+  that confirmation says the report will never arrive and its action reads
+  **Delete anyway**, because the delete removes the unsent report from this
+  device too. The wording is owned by `UNSYNCED_REPORT_DELETE_WARNING` in
+  `src/features/sync/utils/syncStatusCopy.ts`.
 - Permanent upload failures offer a safe reason, the preserved local evidence,
   and a support reference containing no photo, token, GPS, or farmer text. The
   app never clones or re-keys a rejected report to make a retry appear to work.

@@ -11,6 +11,8 @@ describe('synchronization retry policy', () => {
     'NETWORK_REQUEST_FAILED',
     'API_RATE_LIMITED',
     'OFFICE_NOT_READY',
+    'UPLOAD_TOO_LARGE',
+    'UPLOAD_TIMED_OUT',
     'SERVER_ERROR',
   ])('classifies %s as automatically retryable', (code) => {
     expect(isAutoRetryableSyncErrorCode(code)).toBe(true);
@@ -39,6 +41,27 @@ describe('synchronization retry policy', () => {
       retryable: false,
     });
     expect(toSyncError(new ApiHttpError(422, 'invalid')).retryable).toBe(false);
+  });
+
+  describe('413 and 408', () => {
+    it('keeps a too-large upload saved and retryable with its own copy', () => {
+      const error = toSyncError(new ApiHttpError(413, 'too large'));
+      expect(error).toMatchObject({ code: 'UPLOAD_TOO_LARGE', retryable: true });
+      expect(error.message).toBe(
+        'The office could not take this upload because it was too big. It stays saved and will be tried again.',
+      );
+    });
+
+    it('keeps a timed-out upload saved and retryable with its own copy', () => {
+      const error = toSyncError(new ApiHttpError(408, 'timeout', { retryAfterMs: 20_000 }));
+      expect(error).toMatchObject({ code: 'UPLOAD_TIMED_OUT', retryable: true, retryAfterMs: 20_000 });
+      expect(error.message).toBe(
+        'The upload took too long. It stays saved and will be tried again. A stronger signal helps.',
+      );
+      expect(error.message).not.toBe(
+        'The office could not take this upload because it was too big. It stays saved and will be tried again.',
+      );
+    });
   });
 
   describe('404 by endpoint', () => {

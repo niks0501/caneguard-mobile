@@ -142,6 +142,27 @@ describe('Field Report multipart mapper', () => {
     );
   });
 
+  it('uploads a previously finalized derivative within the hard image limit', () => {
+    const legacySizeBytes = 4 * 1024 * 1024;
+
+    expect(() =>
+      mapFieldReportToMultipart(
+        {
+          report: REPORT,
+          scanRecord: {
+            ...SCAN,
+            submissionImageSizeBytes: legacySizeBytes,
+          },
+        },
+        {
+          createImageFile: () =>
+            ({ name: 'legacy-submission.jpg', type: 'image/jpeg', size: legacySizeBytes }) as unknown as Blob,
+          imageExists: () => true,
+        },
+      ),
+    ).not.toThrow();
+  });
+
   it('rejects a persisted derivative owned by another Scan Record', () => {
     expect(() =>
       mapFieldReportToMultipart(

@@ -1,6 +1,7 @@
 import { countCoolingRetryableFieldSurveys, countUnsyncedFieldSurveys, findFieldSurveySyncCandidates } from '@/features/surveys/data/fieldSurveySyncRepository';
 import { syncFieldSurvey } from '@/features/surveys/services/syncFieldSurvey';
 import { syncPendingFieldSurveys } from '@/features/surveys/services/syncPendingFieldSurveys';
+import { SyncError } from '@/features/sync/errors/syncErrors';
 
 jest.mock('@/features/surveys/data/fieldSurveySyncRepository', () => ({
   countCoolingRetryableFieldSurveys: jest.fn(() => 0),
@@ -52,6 +53,31 @@ describe('syncPendingFieldSurveys', () => {
       ownerIdentity: 'owner-1',
       token: 'token-1',
     }));
+  });
+
+  it('continues after a too-large boundary failure', async () => {
+    jest.mocked(findFieldSurveySyncCandidates)
+      .mockReset()
+      .mockReturnValueOnce([
+        { clientUuid: 'large-survey', status: 'pending' },
+        { clientUuid: 'good-survey', status: 'pending' },
+      ] as never)
+      .mockReturnValue([]);
+    jest.mocked(syncFieldSurvey)
+      .mockReset()
+      .mockResolvedValueOnce({
+        status: 'failed',
+        error: new SyncError('UPLOAD_TOO_LARGE', 'Upload is too large.'),
+      })
+      .mockResolvedValueOnce({ status: 'synced', remoteId: 'remote-good' });
+
+    await expect(syncPendingFieldSurveys(options)).resolves.toMatchObject({
+      attempted: 2,
+      failed: 1,
+      haltReason: 'empty',
+      synced: 1,
+    });
+    expect(syncFieldSurvey).toHaveBeenCalledTimes(2);
   });
 
   // R12: a retryable boundary still cooling down is held work, not an empty queue.

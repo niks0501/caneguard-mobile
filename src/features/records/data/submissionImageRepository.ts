@@ -5,6 +5,7 @@ import { StorageError, toStorageError } from '@/database/errors';
 import { scanRecords } from '@/database/schema';
 import {
   isValidSubmissionImageMetadata,
+  isWithinMobileReportUploadSubmissionTarget,
   normalizeMobileReportImageMimeType,
 } from '@/features/sync/constants/mobileReportUploadContract';
 import type { SubmissionImageArtifact } from '@/features/records/services/submissionImageStorage';
@@ -21,6 +22,7 @@ export async function persistSubmissionImageMetadata(
   const mimeType = normalizeMobileReportImageMimeType(artifact.mimeType);
   if (
     !mimeType ||
+    !isWithinMobileReportUploadSubmissionTarget(artifact.sizeBytes) ||
     !isValidSubmissionImageMetadata({
       sourceUri,
       submissionImageMimeType: mimeType,

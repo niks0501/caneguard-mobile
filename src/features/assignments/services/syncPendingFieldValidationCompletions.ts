@@ -112,7 +112,10 @@ async function executeBatch(options: {
         haltReason = 'auth-required';
         break;
       }
-      if (isAutoRetryableSyncErrorCode(result.error.code)) {
+      if (
+        result.error.code !== 'UPLOAD_TOO_LARGE' &&
+        isAutoRetryableSyncErrorCode(result.error.code)
+      ) {
         haltReason = 'transient-blocker';
         break;
       }

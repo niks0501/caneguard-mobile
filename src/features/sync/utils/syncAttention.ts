@@ -34,6 +34,22 @@ export function getSyncAttention(
           'The connection or the office was unavailable. This report stays on this device and CaneGuard retries automatically.',
         title: 'Waiting to send',
       };
+    case 'UPLOAD_TOO_LARGE':
+      return {
+        action: 'automatic-retry',
+        actionLabel: 'Retry now',
+        reason:
+          'The office could not take this upload because it was too big. This report stays on this device and CaneGuard retries automatically.',
+        title: 'Waiting to send',
+      };
+    case 'UPLOAD_TIMED_OUT':
+      return {
+        action: 'automatic-retry',
+        actionLabel: 'Retry now',
+        reason:
+          'The upload took too long to finish. This report stays on this device and CaneGuard retries automatically. A stronger signal helps.',
+        title: 'Waiting to send',
+      };
     case 'API_RATE_LIMITED':
       return {
         action: 'automatic-retry',

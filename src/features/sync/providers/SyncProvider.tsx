@@ -815,6 +815,8 @@ function inferApiReachability(
       case 'API_FORBIDDEN':
       case 'API_RATE_LIMITED':
       case 'OFFICE_NOT_READY':
+      case 'UPLOAD_TIMED_OUT':
+      case 'UPLOAD_TOO_LARGE':
         observation = 'available';
         break;
       default:

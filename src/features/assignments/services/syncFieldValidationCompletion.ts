@@ -76,7 +76,7 @@ export async function syncFieldValidationCompletion({
         return result;
       } catch (error: unknown) {
         const syncError = toSyncError(error);
-        if (!syncError.retryable || !allowImmediateRetries || syncError.retryAfterMs !== null || retryIndex >= RETRY_DELAYS_MS.length) {
+        if (syncError.code === 'UPLOAD_TOO_LARGE' || !syncError.retryable || !allowImmediateRetries || syncError.retryAfterMs !== null || retryIndex >= RETRY_DELAYS_MS.length) {
           throw syncError;
         }
         const retryDelay = RETRY_DELAYS_MS[retryIndex];

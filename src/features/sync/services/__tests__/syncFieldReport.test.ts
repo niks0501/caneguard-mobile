@@ -170,6 +170,29 @@ describe('single Field Report synchronization', () => {
     );
   });
 
+  it('does not immediately retry a too-large upload with the same multipart body', async () => {
+    const repo = repository();
+    const upload = jest.fn(async () => {
+      throw new ApiHttpError(413, 'too large');
+    });
+    const delay = jest.fn(async (_milliseconds: number) => undefined);
+
+    await expect(syncFieldReport({
+      reportId: REPORT.id,
+      repository: repo,
+      token: 'secure-token',
+      upload,
+      delay,
+      mapMultipart: jest.fn(() => new FormData()),
+    })).resolves.toMatchObject({
+      reportId: REPORT.id,
+      status: 'failed',
+      error: { code: 'UPLOAD_TOO_LARGE', retryable: true },
+    });
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(delay).not.toHaveBeenCalled();
+  });
+
   it('keeps a non-matching upload conflict actionable without marking the report synced', async () => {
     const repo = repository();
     const upload = jest.fn(async () => {

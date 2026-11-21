@@ -5,6 +5,7 @@ import { StorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import {
   canReuseSourceAsSubmissionImage,
+  isWithinMobileReportUploadSubmissionTarget,
   MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES,
   normalizeMobileReportImageMimeType,
   isValidSubmissionImageMetadata,
@@ -263,6 +264,7 @@ function readPersistedArtifact(
     actual.sizeBytes === null ||
     typeof sizeBytes !== 'number' ||
     sizeBytes !== actual.sizeBytes ||
+    !isWithinMobileReportUploadSubmissionTarget(sizeBytes) ||
     !isValidSubmissionImageMetadata({
       sourceUri: input.sourceUri,
       submissionImageMimeType: mimeType,

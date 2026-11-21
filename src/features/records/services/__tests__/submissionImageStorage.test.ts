@@ -152,19 +152,19 @@ describe('submission image preparation', () => {
     });
   });
 
-  it('reuses a supported source at the hard limit without creating a duplicate', async () => {
+  it('reuses a supported source at the submission target without creating a duplicate', async () => {
     seedFile(SOURCE_URI, {
       mimeType: 'image/jpeg',
-      size: MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES,
+      size: MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES,
     });
     const result = await prepareSubmissionImage(input({
-      sourceSizeBytes: MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES,
+      sourceSizeBytes: MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES,
     }));
 
     expect(result).toEqual({
       artifact: {
         mimeType: 'image/jpeg',
-        sizeBytes: MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES,
+        sizeBytes: MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES,
         uri: SOURCE_URI,
       },
       created: false,
@@ -256,7 +256,7 @@ describe('submission image preparation', () => {
     const sourceBefore = mockFiles.get(SOURCE_URI);
     mockManipulateAsync.mockImplementation(async () => {
       const uri = 'file:///cache/supported-legacy-repair.jpg';
-      seedFile(uri, { mimeType: 'image/jpeg', size: 4_000_000 });
+      seedFile(uri, { mimeType: 'image/jpeg', size: 1_500_000 });
       return { uri, width: 1600, height: 1200 };
     });
 
@@ -270,7 +270,7 @@ describe('submission image preparation', () => {
     ).resolves.toMatchObject({
       artifact: {
         mimeType: 'image/jpeg',
-        sizeBytes: 4_000_000,
+        sizeBytes: 1_500_000,
         uri: getSubmissionImageUri(RECORD_ID, OWNER_ID),
       },
       created: true,
@@ -284,7 +284,7 @@ describe('submission image preparation', () => {
     mockManipulateAsync.mockImplementation(async () => {
       attempt += 1;
       const uri = `file:///cache/submission-${attempt}.jpg`;
-      seedFile(uri, { mimeType: 'image/jpeg', size: 4_000_000 });
+      seedFile(uri, { mimeType: 'image/jpeg', size: 1_500_000 });
       return { uri, width: 1600, height: 1200 };
     });
 
@@ -307,6 +307,42 @@ describe('submission image preparation', () => {
     expect(mockManipulateAsync).not.toHaveBeenCalled();
   });
 
+  it('recompresses an oversized persisted source to the submission target', async () => {
+    const persistedSizeBytes = 5 * 1024 * 1024;
+    seedFile(SOURCE_URI, {
+      mimeType: 'image/jpeg',
+      size: persistedSizeBytes,
+    });
+    mockManipulateAsync.mockImplementation(async () => {
+      const uri = 'file:///cache/recompressed-persisted-source.jpg';
+      seedFile(uri, {
+        mimeType: 'image/jpeg',
+        size: MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES,
+      });
+      return { uri, width: 1600, height: 1200 };
+    });
+
+    const result = await prepareSubmissionImage(
+      input({
+        sourceSizeBytes: persistedSizeBytes,
+        submissionImageMimeType: 'image/jpeg',
+        submissionImageSizeBytes: persistedSizeBytes,
+        submissionImageUri: SOURCE_URI,
+      }),
+    );
+
+    expect(result).toEqual({
+      artifact: {
+        mimeType: 'image/jpeg',
+        sizeBytes: MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES,
+        uri: getSubmissionImageUri(RECORD_ID, OWNER_ID),
+      },
+      created: true,
+      requiresPersistence: true,
+    });
+    expect(mockManipulateAsync).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ['HEIC', 'image/heic'],
     ['HEIF', 'image/heif'],
@@ -322,7 +358,7 @@ describe('submission image preparation', () => {
       const sourceBefore = mockFiles.get(SOURCE_URI);
       mockManipulateAsync.mockImplementation(async () => {
         const uri = 'file:///cache/legacy-repair.jpg';
-        seedFile(uri, { mimeType: 'image/jpeg', size: 4_000_000 });
+        seedFile(uri, { mimeType: 'image/jpeg', size: 1_500_000 });
         return { uri, width: 1600, height: 1200 };
       });
 
@@ -336,7 +372,7 @@ describe('submission image preparation', () => {
       expect(result).toEqual({
         artifact: {
           mimeType: 'image/jpeg',
-          sizeBytes: 4_000_000,
+          sizeBytes: 1_500_000,
           uri: getSubmissionImageUri(RECORD_ID, OWNER_ID),
         },
         created: true,
@@ -346,7 +382,7 @@ describe('submission image preparation', () => {
       expect(mockFiles.get(SOURCE_URI)).toEqual(sourceBefore);
       expect(mockFiles.get(getSubmissionImageUri(RECORD_ID, OWNER_ID))).toEqual({
         mimeType: 'image/jpeg',
-        size: 4_000_000,
+        size: 1_500_000,
       });
     },
   );
@@ -376,7 +412,7 @@ describe('submission image preparation', () => {
     mockManipulateAsync.mockImplementation(async (uri) => {
       expect(uri).toContain('.legacy-source.heic');
       const candidateUri = 'file:///cache/legacy-staged-repair.jpg';
-      seedFile(candidateUri, { mimeType: 'image/jpeg', size: 4_000_000 });
+      seedFile(candidateUri, { mimeType: 'image/jpeg', size: 1_500_000 });
       return { uri: candidateUri, width: 1600, height: 1200 };
     });
 
@@ -391,7 +427,7 @@ describe('submission image preparation', () => {
     ).resolves.toMatchObject({
       artifact: {
         mimeType: 'image/jpeg',
-        sizeBytes: 4_000_000,
+        sizeBytes: 1_500_000,
         uri: getSubmissionImageUri(RECORD_ID, OWNER_ID),
       },
       created: true,
@@ -447,7 +483,7 @@ describe('submission image preparation', () => {
     seedFile(destinationUri, { mimeType: 'image/jpeg', size: 123 });
     mockManipulateAsync.mockImplementation(async () => {
       const candidateUri = 'file:///cache/replacement.jpg';
-      seedFile(candidateUri, { mimeType: 'image/jpeg', size: 4_000_000 });
+      seedFile(candidateUri, { mimeType: 'image/jpeg', size: 1_500_000 });
       return { uri: candidateUri, width: 1600, height: 1200 };
     });
 
@@ -462,7 +498,7 @@ describe('submission image preparation', () => {
     ).resolves.toMatchObject({
       artifact: {
         mimeType: 'image/jpeg',
-        sizeBytes: 4_000_000,
+        sizeBytes: 1_500_000,
         uri: destinationUri,
       },
       created: true,
@@ -470,7 +506,7 @@ describe('submission image preparation', () => {
     });
     expect(mockFiles.get(destinationUri)).toEqual({
       mimeType: 'image/jpeg',
-      size: 4_000_000,
+      size: 1_500_000,
     });
     expect(mockFiles.has(`${destinationUri}.backup`)).toBe(false);
   });

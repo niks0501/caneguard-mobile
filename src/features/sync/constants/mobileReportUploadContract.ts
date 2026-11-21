@@ -3,7 +3,11 @@
  * mobile-report-upload-v3 contract in caneguard-web.
  */
 export const MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
-export const MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES = 9 * 1024 * 1024;
+/**
+ * The phone aims well under the hard limit so a whole multipart request
+ * (photo plus fields) stays small enough for slow field connections.
+ */
+export const MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES = 2 * 1024 * 1024;
 
 export const MOBILE_REPORT_UPLOAD_V1_IMAGE_MIME_TYPES = [
   'image/jpeg',
@@ -68,8 +72,24 @@ export function isValidSubmissionImageMetadata(input: {
 
   return (
     uri === input.sourceUri.trim() ||
-    (mimeType === 'image/jpeg' &&
-      sizeBytes <= MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES)
+    mimeType === 'image/jpeg'
+  );
+}
+
+/**
+ * The preparation and persistence bound: what the phone aims at when it makes
+ * or stores a submission image. Upload validity stays on the hard limit in
+ * `isValidSubmissionImageMetadata`, so an older persisted artifact above this
+ * bound still uploads instead of failing every attempt.
+ */
+export function isWithinMobileReportUploadSubmissionTarget(
+  sizeBytes: number | null | undefined,
+): boolean {
+  return (
+    typeof sizeBytes === 'number' &&
+    Number.isInteger(sizeBytes) &&
+    sizeBytes > 0 &&
+    sizeBytes <= MOBILE_REPORT_UPLOAD_V1_SUBMISSION_TARGET_BYTES
   );
 }
 
@@ -83,9 +103,6 @@ export function canReuseSourceAsSubmissionImage(input: {
   const mimeType = normalizeMobileReportImageMimeType(input.mimeType);
   return Boolean(
     mimeType &&
-      typeof input.sizeBytes === 'number' &&
-      Number.isInteger(input.sizeBytes) &&
-      input.sizeBytes > 0 &&
-      input.sizeBytes <= MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES,
+      isWithinMobileReportUploadSubmissionTarget(input.sizeBytes),
   );
 }

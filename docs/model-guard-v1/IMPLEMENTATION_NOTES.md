@@ -22,7 +22,7 @@ photo (camera or gallery) -> V2 letterbox + quality gate (unchanged)
 | Direct-resize tensor: JPEG/PNG in-memory JS decode, EXIF orient, bilinear resize, opaque alpha only (602112 bytes); WebP uses the documented conversion path | `preprocessing/guardPreprocess.ts`, `decodePng.ts` |
 | Gate, run tokens, stale photo/owner protection | `analysis/useScanAnalysis.ts` |
 | Failure state; resumed drafts and records require the marker | `scanSessionReducer.ts`, `scanCheckState.ts`, `scanDraftCheckpoint.ts`, `recordValidation.ts` |
-| Copy / UI | `GUARD_COPY` in `src/constants/copy.ts`, `src/app/symptom-checklist.tsx` |
+| Copy / UI | `GUARD_COPY` and the per-state heading/status line in `SCAN_STATE_COPY`, both in `src/constants/copy.ts`; `src/app/symptom-checklist.tsx` renders them |
 
 V2 preprocessing, weights, labels, versions and the RSSI confidence-caution threshold are untouched.
 
@@ -40,7 +40,7 @@ Every Guard rejection (p_sugarcane below 0.75, or any invalid output) blocks the
 
 ## Upload formats
 
-Guard preprocessing reads the same photos V2 accepts. JPEG and PNG (opaque only, with EXIF or PNG orientation applied) are decoded in memory. WebP has no in-memory decoder in the app, so it is converted to JPEG by the platform image manipulator (the same API the V2 path uses, no new dependency), and the scratch file that call writes is deleted immediately; transparent WebP and transparent PNG are refused as failed photo preparation (the check could not finish, with Try again), never as an accepted or rejected verdict.
+Guard preprocessing reads the same photos V2 accepts. JPEG and PNG (opaque only, with EXIF or PNG orientation applied) are decoded in memory. WebP has no in-memory decoder in the app, so it is converted to JPEG by the platform image manipulator (the same API the V2 path uses, no new dependency), and the scratch file that call writes is deleted immediately; transparent WebP and transparent PNG are refused as failed photo preparation (the `check-failed` copy, with Try again), never as an accepted or rejected verdict.
 
 ## Evidence
 

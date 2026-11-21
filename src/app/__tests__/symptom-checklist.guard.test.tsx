@@ -163,6 +163,7 @@ describe('SymptomChecklistScreen with required Guard V1', () => {
     expect(screen.getByText(GUARD_COPY.rejectedTitle)).toBeOnTheScreen();
     expect(screen.getByText(GUARD_COPY.rejectedBody)).toBeOnTheScreen();
     expect(screen.getByText(GUARD_COPY.rejectedTip)).toBeOnTheScreen();
+    expect(screen.getByText(/well-lit/i)).toBeOnTheScreen();
     expect(screen.getByTestId('scan.check-status')).toHaveTextContent('Photo not used');
     expect(screen.getByTestId('scan.check-state')).toHaveProp('accessibilityValue', {
       text: 'not-sugarcane',

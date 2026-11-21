@@ -355,8 +355,16 @@ describe('SymptomChecklistScreen with required Guard V1', () => {
 
   // Proves: a file the guard cannot read (too large, or unreadable/transparent) shows its own title and reason, both retake buttons and no Try again.
   it.each([
-    ['too large', new GuardError('GUARD_INPUT_TOO_LARGE', 'big'), GUARD_COPY.photoTooLarge],
-    ['unreadable', new GuardError('GUARD_INPUT_INVALID', 'decode'), GUARD_COPY.photoUnreadable],
+    [
+      'too large',
+      new GuardError('GUARD_INPUT_TOO_LARGE', 'big'),
+      'This photo is too large for the sugarcane photo check. Choose a smaller photo or take a new one.',
+    ],
+    [
+      'unreadable',
+      new GuardError('GUARD_INPUT_INVALID', 'decode'),
+      'This photo could not be read. It may be damaged or transparent. Choose another photo or take a new one.',
+    ],
   ])('shows the unusable-photo state for a %s file', async (_name, error, reason) => {
     mockPreprocessGuard.mockRejectedValue(error);
     await renderScreen();
@@ -366,7 +374,7 @@ describe('SymptomChecklistScreen with required Guard V1', () => {
         text: 'photo-unusable',
       }),
     );
-    expect(screen.getByTestId('scan.check-status')).toHaveTextContent(GUARD_COPY.unusableTitle);
+    expect(screen.getByTestId('scan.check-status')).toHaveTextContent("This photo can't be checked");
     expect(screen.getByText(reason)).toBeOnTheScreen();
     expect(screen.queryByText(SCAN_CHECK_COPY.failedTitle)).not.toBeOnTheScreen();
     expect(screen.getByTestId('scan.retake-camera')).toHaveTextContent('Take a new photo');

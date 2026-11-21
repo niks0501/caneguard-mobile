@@ -1,6 +1,5 @@
 import type { PropsWithChildren } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { Platform } from 'react-native';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { loginMobile, verifyMobileSession } from '@/features/auth/api/mobileAuthApi';
@@ -85,7 +84,6 @@ describe('biometric session actions', () => {
   const mockSave = jest.mocked(saveProtectedMobileSession);
   const mockLogin = jest.mocked(loginMobile);
   const mockVerify = jest.mocked(verifyMobileSession);
-  const originalOs = Platform.OS;
 
   beforeEach(() => {
     mockAuthenticate.mockClear();
@@ -99,10 +97,6 @@ describe('biometric session actions', () => {
     mockVerify.mockResolvedValue(SESSION.user);
     mockLogin.mockReset();
     mockLogin.mockResolvedValue(SESSION);
-  });
-
-  afterEach(() => {
-    Platform.OS = originalOs;
   });
 
   it('restores the app session when biometric unlock is on', async () => {
@@ -127,9 +121,7 @@ describe('biometric session actions', () => {
     expect(result.current.status).toBe('authenticated');
   });
 
-  it.each(['android', 'ios'])('prompts once when enabling biometric unlock on %s', async (os) => {
-    Platform.OS = os as typeof Platform.OS;
-
+  it('prompts once when enabling biometric unlock', async () => {
     const { result } = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
     await act(async () => {

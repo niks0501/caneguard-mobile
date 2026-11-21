@@ -72,8 +72,7 @@ export function isValidSubmissionImageMetadata(input: {
 
   return (
     uri === input.sourceUri.trim() ||
-    (mimeType === 'image/jpeg' &&
-      sizeBytes <= MOBILE_REPORT_UPLOAD_V1_IMAGE_MAX_BYTES)
+    mimeType === 'image/jpeg'
   );
 }
 

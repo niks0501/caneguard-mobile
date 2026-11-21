@@ -84,6 +84,7 @@ export async function syncFieldReport({
         if (
           !syncError.retryable ||
           !allowImmediateRetries ||
+          syncError.code === 'UPLOAD_TOO_LARGE' ||
           syncError.retryAfterMs !== null ||
           retryIndex >= RETRY_DELAYS_MS.length
         ) {

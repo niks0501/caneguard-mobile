@@ -549,7 +549,10 @@ describe('RecordDetailsScreen', () => {
       ...mockFieldReportState,
       loading: true,
     };
-    view.rerender(
+    // `rerender` returns a promise in this library: without awaiting it the
+    // press below still sees the previous lookup state and the guard is never
+    // exercised.
+    await view.rerender(
       <ToastProvider>
         <RecordDetailsScreen />
       </ToastProvider>,

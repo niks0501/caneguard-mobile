@@ -161,15 +161,25 @@ describe('SymptomChecklistScreen with required Guard V1', () => {
 
     await waitFor(() => expect(screen.getByTestId('scan.guard-rejected')).toBeOnTheScreen());
     expect(screen.getByText(GUARD_COPY.rejectedTitle)).toBeOnTheScreen();
-    expect(screen.getAllByText(GUARD_COPY.rejectedStatus).length).toBeGreaterThan(0);
+    expect(screen.getByText(GUARD_COPY.rejectedBody)).toBeOnTheScreen();
+    expect(screen.getByText(GUARD_COPY.rejectedTip)).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.check-status')).toHaveTextContent('Photo not used');
     expect(screen.getByTestId('scan.check-state')).toHaveProp('accessibilityValue', {
       text: 'not-sugarcane',
     });
-    expect(screen.getByTestId('scan.retake-camera')).toBeOnTheScreen();
-    expect(screen.getByTestId('scan.retake-gallery')).toBeOnTheScreen();
+    expect(screen.getByText(GUARD_COPY.retakeCamera)).toBeOnTheScreen();
+    expect(screen.getByText(SCAN_CHECK_COPY.retakeGallery)).toBeOnTheScreen();
+    expect(screen.getByText(GUARD_COPY.goHome)).toBeOnTheScreen();
+    expect(screen.getByTestId('symptom-checklist.cancel')).toBeOnTheScreen();
     expect(screen.queryByTestId('scan.try-again')).not.toBeOnTheScreen();
-    expect(screen.getByTestId('scan.continue-to-result')).toBeDisabled();
-    await fireEvent.press(screen.getByTestId('scan.continue-to-result'));
+    expect(screen.queryByTestId('scan.guided-question')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.symptom-rust')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.continue-to-result')).not.toBeOnTheScreen();
+    expect(screen.queryByText(SCAN_CHECK_COPY.continueWaiting)).not.toBeOnTheScreen();
+    expect(screen.queryByText(SCAN_CHECK_COPY.checkedTitle)).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('symptom-checklist.cancel'));
+    expect(screen.getByText(GUARD_COPY.discardTitle)).toBeOnTheScreen();
+    expect(screen.getByText(GUARD_COPY.keepScanning)).toBeOnTheScreen();
     expect(mockRouterPush).not.toHaveBeenCalled();
     expect(mockRunInference).not.toHaveBeenCalled();
   });

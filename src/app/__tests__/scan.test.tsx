@@ -6,6 +6,7 @@ import { useReducer } from 'react';
 import { Linking, Platform } from 'react-native';
 
 import ScanScreen from '@/app/(tabs)/scan';
+import { isPhotoNotUsable } from '@/features/detection/context/scanCheckState';
 import { ToastProvider } from '@/components/ui/Toast';
 import {
   ScanDraftContext,
@@ -89,6 +90,10 @@ let mockDraftOverride: Record<string, unknown> | null = null;
 let mockRole: 'farmer' | 'field_reporter' = 'field_reporter';
 let mockLanguage: 'en' | 'tl' = 'en';
 
+jest.mock('@/features/detection/context/scanCheckState', () => {
+  const actual = jest.requireActual('@/features/detection/context/scanCheckState');
+  return { ...actual, isPhotoNotUsable: jest.fn(actual.isPhotoNotUsable) };
+});
 jest.mock('@/features/auth/hooks/useAuth', () => ({
   useAuth: () => ({ user: { role: mockRole, uuid: 'scan-test-user' } }),
 }));
@@ -206,6 +211,19 @@ describe('ScanScreen', () => {
       await renderScan(withPhoto({ photoPreparationFailed: true }));
       expect(screen.getByText(NEUTRAL)).toBeOnTheScreen();
       expect(screen.queryByText('Image not added')).toBeNull();
+    });
+
+    it('reads the shared photo-not-usable predicate from scanCheckState', async () => {
+      const shared = jest.mocked(isPhotoNotUsable);
+      shared.mockClear();
+      await renderScan(withPhoto({ guardFailure: 'rejected' }));
+      expect(shared).toHaveBeenCalledWith(expect.objectContaining({ guardFailure: 'rejected' }));
+      shared.mockReturnValue(false);
+      await renderScan(withPhoto({ guardFailure: 'rejected' }));
+      expect(screen.getByText('Image not added')).toBeOnTheScreen();
+      shared.mockImplementation(
+        jest.requireActual('@/features/detection/context/scanCheckState').isPhotoNotUsable,
+      );
     });
 
     it('keeps Image not added for a guard runtime fault and a picker failure', async () => {

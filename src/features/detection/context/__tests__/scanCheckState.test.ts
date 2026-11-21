@@ -1,6 +1,7 @@
 import {
   clearedStatus,
   deriveScanCheckState,
+  isPhotoNotUsable,
   type ScanCheckInputs,
 } from '@/features/detection/context/scanCheckState';
 import { initialScanSessionState, scanSessionReducer } from '@/features/detection/context/scanSessionReducer';
@@ -219,5 +220,28 @@ describe('clearedStatus', () => {
       clearedStatus({ ...initialScanSessionState, sourceUri: 'x', status: 'error', result }),
     ).toBe('completed');
     expect(clearedStatus({ ...initialScanSessionState, status: 'error' })).toBe('idle');
+  });
+});
+
+describe('isPhotoNotUsable', () => {
+  // Proves: the one predicate is true only for an error status with a rejection or a
+  // preparation failure, and deriveScanCheckState's error branch agrees with it.
+  it('is true for rejected and preparation failures, false for other errors', () => {
+    const cases: [Partial<ScanCheckInputs['session']>, boolean][] = [
+      [{ status: 'error', guardFailure: 'rejected' }, true],
+      [{ status: 'error', photoPreparationFailed: true }, true],
+      [{ status: 'error', guardFailure: 'error', photoPreparationFailed: true }, true],
+      [{ status: 'error', guardFailure: 'error' }, false],
+      [{ status: 'error' }, false],
+      [{ status: 'image-selected', guardFailure: 'rejected', photoPreparationFailed: true }, false],
+    ];
+    for (const [session, expected] of cases) {
+      const full = inputs(session).session;
+      expect(isPhotoNotUsable(full)).toBe(expected);
+      const state = deriveScanCheckState(inputs(session));
+      expect(['not-sugarcane', 'photo-unusable', 'check-failed'].includes(state)).toBe(
+        expected && session.status === 'error',
+      );
+    }
   });
 });

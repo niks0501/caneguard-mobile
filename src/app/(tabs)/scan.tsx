@@ -13,6 +13,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ComponentTokens, Layout, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useScanDraft } from '@/features/detection/context/ScanSessionProvider';
+import { isPhotoNotUsable } from '@/features/detection/context/scanCheckState';
 import { useScanSession } from '@/features/detection/context/useScanSession';
 import {
   getPermissionDeniedMessage,
@@ -60,11 +61,7 @@ export default function ScanScreen() {
   const { showToast } = useToast();
   const { state, dispatch } = useScanSession();
   const draft = useScanDraft();
-  // The photo itself is unusable: the guard rejected it, the guard could not read
-  // it, or its preparation failed. A picker or permission failure is not this.
-  const photoNotUsable =
-    state.status === 'error' &&
-    (state.guardFailure === 'rejected' || state.photoPreparationFailed === true);
+  const photoNotUsable = isPhotoNotUsable(state);
   const draftOwner = draft.ownerIdentity;
   const [activeOperation, setActiveOperation] = useState<ActiveOperation>(
     Platform.OS === 'android' ? 'recovery' : null,

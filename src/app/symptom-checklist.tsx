@@ -1,8 +1,16 @@
 import { Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  findNodeHandle,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
@@ -62,6 +70,8 @@ export default function SymptomChecklistScreen() {
   const [replacementNotice, setReplacementNotice] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const isMounted = useRef(true);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const rejectedTitleRef = useRef<ComponentRef<typeof Text>>(null);
   useEffect(() => {
     isMounted.current = true;
     return () => {
@@ -156,6 +166,18 @@ export default function SymptomChecklistScreen() {
     returnToTab('/home');
   };
 
+  // A rejection replaces the question: bring the card into view and announce it.
+  useEffect(() => {
+    if (!guardRejected) {
+      return;
+    }
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    const node = findNodeHandle(rejectedTitleRef.current);
+    if (node) {
+      AccessibilityInfo.setAccessibilityFocus(node);
+    }
+  }, [guardRejected]);
+
   const cancelDialog = guardRejected ? (
     <ConfirmDialog
       visible={showCancelConfirm}
@@ -245,7 +267,7 @@ export default function SymptomChecklistScreen() {
   const activeModelError = completedGuardedResult || photoCheckFailed ? null : modelError;
   const stateCopy = SCAN_STATE_COPY[checkState];
   const statusText =
-    guardRejected || photoRejected
+    photoRejected
       ? stateCopy.detail
       : (activeGuardError ??
         activeModelError ??
@@ -266,6 +288,7 @@ export default function SymptomChecklistScreen() {
           closeTestID="symptom-checklist.header-close"
         />
         <ScrollView
+          ref={scrollRef}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
@@ -296,31 +319,86 @@ export default function SymptomChecklistScreen() {
                     {stateCopy.title}
                   </Text>
                 </View>
-                <Text style={[styles.helperText, { color: theme.textSecondary }]}>
-                  {statusText}
-                </Text>
+                {guardRejected ? null : (
+                  <Text style={[styles.helperText, { color: theme.textSecondary }]}>
+                    {statusText}
+                  </Text>
+                )}
               </View>
             </View>
 
-            {photoFailedCheck || guardRejected ? (
+            {guardRejected ? (
               <View
-                testID={guardRejected ? 'scan.guard-rejected' : 'scan.photo-failed-check'}
+                testID="scan.guard-rejected"
+                style={[
+                  styles.failedCard,
+                  { backgroundColor: theme.warningBg, borderColor: theme.warning },
+                ]}>
+                <Text
+                  ref={rejectedTitleRef}
+                  testID="scan.guard-rejected-title"
+                  accessibilityRole="header"
+                  style={[styles.statusTitle, { color: theme.warning }]}>
+                  {GUARD_COPY.rejectedTitle}
+                </Text>
+                <Text style={[styles.helperText, { color: theme.text }]}>
+                  {GUARD_COPY.rejectedBody}
+                </Text>
+                <Text style={[styles.helperText, { color: theme.textSecondary }]}>
+                  {GUARD_COPY.rejectedTip}
+                </Text>
+                <AppButton
+                  testID="scan.retake-camera"
+                  disabled={replacing || isChecking}
+                  onPress={() => void replaceImage('camera')}
+                  leadingIcon="camera"
+                  accessibilityLabel={
+                    isFarmer ? farmer.replaceCameraAccessibility : 'Take a new photo with the camera'
+                  }>
+                  {isFarmer ? farmer.replaceCamera : GUARD_COPY.retakeCamera}
+                </AppButton>
+                <AppButton
+                  testID="scan.retake-gallery"
+                  variant="secondary"
+                  disabled={replacing || isChecking}
+                  onPress={() => void replaceImage('gallery')}
+                  leadingIcon="image"
+                  accessibilityLabel={
+                    isFarmer
+                      ? farmer.replaceGalleryAccessibility
+                      : 'Choose another photo from the gallery'
+                  }>
+                  {isFarmer ? farmer.replaceGallery : SCAN_CHECK_COPY.retakeGallery}
+                </AppButton>
+                <AppButton
+                  testID="scan.go-home"
+                  variant="text"
+                  disabled={replacing}
+                  onPress={() => void discardRejectedScan()}
+                  leadingIcon="home"
+                  accessibilityLabel="Discard this scan and go to Home">
+                  {GUARD_COPY.goHome}
+                </AppButton>
+              </View>
+            ) : null}
+
+            {photoFailedCheck && !guardRejected ? (
+              <View
+                testID="scan.photo-failed-check"
                 style={[
                   styles.failedCard,
                   { backgroundColor: theme.warningBg, borderColor: theme.warning },
                 ]}>
                 <Text style={[styles.statusTitle, { color: theme.warning }]}>
-                  {guardRejected ? GUARD_COPY.rejectedTitle : SCAN_CHECK_COPY.failedTitle}
+                  {SCAN_CHECK_COPY.failedTitle}
                 </Text>
-                {guardRejected
-                  ? null
-                  : (state.qualityAssessment?.warnings ?? []).map((warning) => (
-                      <Text key={warning} style={[styles.helperText, { color: theme.text }]}>
-                        {getQualityWarningMessage(warning)}
-                      </Text>
-                    ))}
+                {(state.qualityAssessment?.warnings ?? []).map((warning) => (
+                  <Text key={warning} style={[styles.helperText, { color: theme.text }]}>
+                    {getQualityWarningMessage(warning)}
+                  </Text>
+                ))}
                 <Text style={[styles.helperText, { color: theme.textSecondary }]}>
-                  {guardRejected ? GUARD_COPY.rejectedHint : SCAN_CHECK_COPY.failedHint}
+                  {SCAN_CHECK_COPY.failedHint}
                 </Text>
                 <AppButton
                   testID="scan.retake-camera"
@@ -346,17 +424,6 @@ export default function SymptomChecklistScreen() {
                   }>
                   {isFarmer ? farmer.replaceGallery : SCAN_CHECK_COPY.retakeGallery}
                 </AppButton>
-                {guardRejected ? (
-                  <AppButton
-                    testID="scan.go-home"
-                    variant="text"
-                    disabled={replacing}
-                    onPress={() => void discardRejectedScan()}
-                    leadingIcon="home"
-                    accessibilityLabel="Discard this scan and go to Home">
-                    {GUARD_COPY.goHome}
-                  </AppButton>
-                ) : null}
               </View>
             ) : null}
             {replacementNotice ? (
@@ -403,46 +470,50 @@ export default function SymptomChecklistScreen() {
               </View>
             ) : null}
 
-            <View style={styles.section}>
-              <View style={styles.questionHeading}>
-                <Text
-                  testID="scan.guided-question"
-                  accessibilityRole="header"
-                  style={[styles.questionText, { color: theme.primaryDark }]}>
-                  {SCAN_CHECK_COPY.question}
-                </Text>
-                <Text style={[styles.helperText, { color: theme.textSecondary }]}>
-                  {SCAN_CHECK_COPY.questionHint}
-                </Text>
-                {questionLocked ? (
+            {guardRejected ? null : (
+              <View style={styles.section}>
+                <View style={styles.questionHeading}>
                   <Text
-                    testID="scan.question-locked"
-                    style={[styles.helperText, { color: theme.textSecondary }]}>
-                    {SCAN_CHECK_COPY.questionLocked}
+                    testID="scan.guided-question"
+                    accessibilityRole="header"
+                    style={[styles.questionText, { color: theme.primaryDark }]}>
+                    {SCAN_CHECK_COPY.question}
                   </Text>
-                ) : null}
+                  <Text style={[styles.helperText, { color: theme.textSecondary }]}>
+                    {SCAN_CHECK_COPY.questionHint}
+                  </Text>
+                  {questionLocked ? (
+                    <Text
+                      testID="scan.question-locked"
+                      style={[styles.helperText, { color: theme.textSecondary }]}>
+                      {SCAN_CHECK_COPY.questionLocked}
+                    </Text>
+                  ) : null}
+                </View>
+                <ObservationPictureGrid
+                  options={question.options}
+                  selected={selected}
+                  disabled={questionLocked}
+                  onSelect={(id) => setSelected((current) => (current === id ? null : id))}
+                />
               </View>
-              <ObservationPictureGrid
-                options={question.options}
-                selected={selected}
-                disabled={questionLocked}
-                onSelect={(id) => setSelected((current) => (current === id ? null : id))}
-              />
-            </View>
+            )}
 
-            <AppButton
-              testID="scan.continue-to-result"
-              onPress={continueToResult}
-              disabled={!canContinue}
-              busy={isChecking}
-              trailingIcon="arrow-right"
-              accessibilityLabel="Continue to analysis result">
-              {!isReady
-                ? SCAN_CHECK_COPY.continueWaiting
-                : selected === null
-                  ? SCAN_CHECK_COPY.continueNeedsChoice
-                  : SCAN_CHECK_COPY.continue}
-            </AppButton>
+            {guardRejected ? null : (
+              <AppButton
+                testID="scan.continue-to-result"
+                onPress={continueToResult}
+                disabled={!canContinue}
+                busy={isChecking}
+                trailingIcon="arrow-right"
+                accessibilityLabel="Continue to analysis result">
+                {!isReady
+                  ? SCAN_CHECK_COPY.continueWaiting
+                  : selected === null
+                    ? SCAN_CHECK_COPY.continueNeedsChoice
+                    : SCAN_CHECK_COPY.continue}
+              </AppButton>
+            )}
             <AppButton
               testID="symptom-checklist.cancel"
               variant="text"

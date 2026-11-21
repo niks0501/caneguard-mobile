@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { useReducer } from 'react';
+import { ScrollView } from 'react-native';
 
 import SymptomChecklistScreen from '@/app/symptom-checklist';
 import { GUARD_COPY, SCAN_CHECK_COPY } from '@/constants/copy';
@@ -160,18 +161,55 @@ describe('SymptomChecklistScreen with required Guard V1', () => {
     await renderScreen();
 
     await waitFor(() => expect(screen.getByTestId('scan.guard-rejected')).toBeOnTheScreen());
-    expect(screen.getByText(GUARD_COPY.rejectedTitle)).toBeOnTheScreen();
-    expect(screen.getAllByText(GUARD_COPY.rejectedStatus).length).toBeGreaterThan(0);
+    expect(screen.getByText('This does not look like sugarcane')).toBeOnTheScreen();
+    expect(screen.getByText('This photo was not analysed. Nothing was saved or sent.')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Take a close, well-lit photo of a sugarcane leaf, stalk, or shoot. Fill most of the frame.',
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.getByTestId('scan.check-status')).toHaveTextContent('Photo not used');
     expect(screen.getByTestId('scan.check-state')).toHaveProp('accessibilityValue', {
       text: 'not-sugarcane',
     });
-    expect(screen.getByTestId('scan.retake-camera')).toBeOnTheScreen();
-    expect(screen.getByTestId('scan.retake-gallery')).toBeOnTheScreen();
+    expect(screen.getByText('Take a new photo')).toBeOnTheScreen();
+    expect(screen.getByText('Choose another photo')).toBeOnTheScreen();
+    expect(screen.getByText('Go to Home')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Take a new photo with the camera')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Choose another photo from the gallery')).toBeOnTheScreen();
+    expect(screen.getByTestId('symptom-checklist.cancel')).toBeOnTheScreen();
     expect(screen.queryByTestId('scan.try-again')).not.toBeOnTheScreen();
-    expect(screen.getByTestId('scan.continue-to-result')).toBeDisabled();
-    await fireEvent.press(screen.getByTestId('scan.continue-to-result'));
+    expect(screen.queryByTestId('scan.guided-question')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.symptom-rust')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.continue-to-result')).not.toBeOnTheScreen();
+    expect(screen.queryByText(SCAN_CHECK_COPY.continueWaiting)).not.toBeOnTheScreen();
+    expect(screen.queryByText(SCAN_CHECK_COPY.checkedTitle)).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('symptom-checklist.cancel'));
+    expect(screen.getByText(GUARD_COPY.discardTitle)).toBeOnTheScreen();
+    expect(screen.getByText(GUARD_COPY.keepScanning)).toBeOnTheScreen();
     expect(mockRouterPush).not.toHaveBeenCalled();
     expect(mockRunInference).not.toHaveBeenCalled();
+  });
+
+  // Proves the intent's "scroll to top ... on rejection": the checklist returns to the
+  // top so the decision card replaces the question in view, not below the fold.
+  // (`findNodeHandle` yields no node under react-test-renderer, so the paired
+  // accessibility-focus call can only be exercised on a native runtime.)
+  it('scrolls the checklist back to the top when the guard rejects the photo', async () => {
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo');
+    guardRun.mockResolvedValue(out(0.1));
+    try {
+      await renderScreen();
+      await waitFor(() => expect(screen.getByTestId('scan.guard-rejected')).toBeOnTheScreen());
+
+      expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: false });
+      expect(screen.getByTestId('scan.guard-rejected-title')).toHaveProp(
+        'accessibilityRole',
+        'header',
+      );
+    } finally {
+      scrollTo.mockRestore();
+    }
   });
 
   // Proves: Go to Home on a rejected scan discards the photo like Cancel, saves no draft, and leads home.

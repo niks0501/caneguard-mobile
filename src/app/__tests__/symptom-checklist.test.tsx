@@ -320,7 +320,7 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     );
   });
 
-  it('keeps the question locked when the guard rejects the current photo', async () => {
+  it('replaces the question with the decision card when the guard rejects the current photo', async () => {
     mockGuardRun.mockResolvedValueOnce([Float32Array.of(0.05).buffer]);
     await renderScreen(selectedState);
 
@@ -329,13 +329,11 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
         text: 'not-sugarcane',
       });
     });
-    expect(screen.getByTestId('scan.question-locked')).toBeOnTheScreen();
-    expect(screen.getByTestId('scan.symptom-rust')).toBeDisabled();
-    await fireEvent.press(screen.getByTestId('scan.symptom-rust'));
-    expect(screen.getByTestId('scan.symptom-rust')).toHaveProp(
-      'accessibilityState',
-      expect.objectContaining({ selected: false }),
-    );
+    expect(screen.getByTestId('scan.guard-rejected')).toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.guided-question')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.question-locked')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.symptom-rust')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('scan.continue-to-result')).not.toBeOnTheScreen();
   });
 
   it('keeps the question locked while the photo is still being checked or waiting for the models', async () => {
@@ -581,6 +579,19 @@ describe('SymptomChecklistScreen (photo check and picture grid)', () => {
     await fireEvent.press(screen.getByTestId('symptom-checklist.cancel'));
     expect(screen.getByText(FARMER_COPY.tl.imagePreview.cancelTitle)).toBeOnTheScreen();
     expect(screen.getByText(FARMER_COPY.tl.imagePreview.keepDraft)).toBeOnTheScreen();
+  });
+
+  it('keeps the reviewed Tagalog wording on the farmer rejection card', async () => {
+    mockRole = 'farmer';
+    mockLanguage = 'tl';
+    mockGuardRun.mockResolvedValueOnce([Float32Array.of(0.05).buffer]);
+    await renderScreen(selectedState);
+
+    await waitFor(() => expect(screen.getByTestId('scan.guard-rejected')).toBeOnTheScreen());
+    expect(screen.getByText('Kumuha ng ibang litrato')).toBeOnTheScreen();
+    expect(screen.getByText('Pumili ng ibang larawan')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Kumuha ng ibang litrato gamit ang camera')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Pumili ng ibang larawan mula sa gallery')).toBeOnTheScreen();
   });
 
   it('shows a recovery action when there is no photo', async () => {

@@ -61,3 +61,12 @@ describe('decideWalkFix', () => {
       .toEqual({ action: 'skip', reason: 'invalid' });
   });
 });
+
+describe('decideWalkFix jitter guard', () => {
+  // Intent: a reading whose error radius exceeds the spacing cannot add a point inside its own uncertainty.
+  it('skips a ±9.5 m fix 9 m out but accepts it 10 m out', () => {
+    expect(decideWalkFix({ ...metersNorthOfStart(9), accuracy: 9.5, timestamp: T }, START))
+      .toEqual({ action: 'skip', reason: 'too_close' });
+    expect(decideWalkFix({ ...metersNorthOfStart(10), accuracy: 9.5, timestamp: T }, START).action).toBe('accept');
+  });
+});

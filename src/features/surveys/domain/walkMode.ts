@@ -36,7 +36,9 @@ export function decideWalkFix(fix: WalkFix, previous: MapCoordinate | null): Wal
   if (fix.accuracy === null || !Number.isFinite(fix.accuracy) || fix.accuracy > WALK_MAX_ACCURACY_METERS) {
     return { action: 'skip', reason: 'weak_accuracy' };
   }
-  if (previous && distanceMeters(previous, fix) < WALK_MIN_SPACING_METERS) {
+  // A new point must clear both the walking spacing and this reading's own error radius, or GPS jitter alone
+  // (a stationary phone drifting a few metres) would add vertices and zigzag the boundary.
+  if (previous && distanceMeters(previous, fix) < Math.max(WALK_MIN_SPACING_METERS, fix.accuracy)) {
     return { action: 'skip', reason: 'too_close' };
   }
   return {

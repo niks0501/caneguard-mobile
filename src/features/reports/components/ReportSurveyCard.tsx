@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
@@ -15,6 +15,11 @@ export interface ReportSurveyCardProps {
   attachedSurvey: FieldSurveyRow | null;
   attachedUuid: string | null;
   disabled?: boolean;
+  /** Typed-number fallback, folded below the map actions. */
+  manualEntry?: ReactNode;
+  manualExpanded?: boolean;
+  manualSummary?: string;
+  onManualExpandedChange?: (expanded: boolean) => void;
   onAttach: (clientUuid: string | null) => void;
   onOpenMeasure: (clientUuid: string | null) => void;
   surveys: FieldSurveyRow[];
@@ -31,8 +36,19 @@ function optionLabel(row: FieldSurveyRow, areaSqm: number | null): string {
   return FIELD_SURVEY_COPY.linkOption(district, hectares, BOUNDARY_STATE_COPY[boundaryState(row)].label);
 }
 
-/** Optional map measurement inside a Draft report: measure on the map, or reuse a map saved on this phone. */
-export function ReportSurveyCard({ attachedSurvey, attachedUuid, disabled, onAttach, onOpenMeasure, surveys }: ReportSurveyCardProps) {
+/** Optional affected-area measurement inside a Draft report: measure on the map first, reuse a saved map, or type the numbers. */
+export function ReportSurveyCard({
+  attachedSurvey,
+  attachedUuid,
+  disabled,
+  manualEntry,
+  manualExpanded,
+  manualSummary,
+  onAttach,
+  onManualExpandedChange,
+  onOpenMeasure,
+  surveys,
+}: ReportSurveyCardProps) {
   const theme = useTheme();
   // Only measured boundaries are worth attaching.
   const choices = useMemo(
@@ -55,8 +71,13 @@ export function ReportSurveyCard({ attachedSurvey, attachedUuid, disabled, onAtt
       }}
       style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.primaryDark }]}>{FIELD_SURVEY_COPY.linkTitle}</Text>
-        <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.linkHelp}</Text>
+        <View style={styles.row}>
+          <Feather name="crop" size={20} color={theme.primary} />
+          <Text style={[styles.title, { color: theme.text }]}>{FIELD_SURVEY_COPY.linkTitle}</Text>
+        </View>
+        {attachedUuid ? null : (
+          <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.linkHelp}</Text>
+        )}
       </View>
 
       {attachedUuid ? (
@@ -74,7 +95,7 @@ export function ReportSurveyCard({ attachedSurvey, attachedUuid, disabled, onAtt
 
       <AppButton
         testID="field-report.survey-open"
-        variant="secondary"
+        variant={attachedUuid ? 'secondary' : 'primary'}
         leadingIcon="map"
         disabled={disabled}
         onPress={() => onOpenMeasure(attachedSurvey ? attachedUuid : null)}>
@@ -106,6 +127,18 @@ export function ReportSurveyCard({ attachedSurvey, attachedUuid, disabled, onAtt
               {`${FIELD_SURVEY_COPY.linkAttach}: ${optionLabel(row, areaSqm)}`}
             </AppButton>
           ))}
+        </DisclosureSection>
+      ) : null}
+
+      {manualEntry ? (
+        <DisclosureSection
+          testID="field-report.area-manual"
+          title={FIELD_SURVEY_COPY.manualTitle}
+          summary={manualSummary ?? FIELD_SURVEY_COPY.manualEmpty}
+          expandedSummary={FIELD_SURVEY_COPY.manualEmpty}
+          expanded={manualExpanded}
+          onExpandedChange={onManualExpandedChange}>
+          {manualEntry}
         </DisclosureSection>
       ) : null}
     </View>

@@ -181,6 +181,9 @@ type WalkSession = {
   surveyId: string;
   added: number;
   last: MapCoordinate | null;
+  /** True once the GPS subscription exists; permission prompts before that must not end the walk. */
+  started: boolean;
+  weakSignal: boolean;
   stop: () => void;
 };
 
@@ -357,7 +360,11 @@ export default function FieldSurveyScreen() {
   }, [affectedAreas.length, clientUuid, controlsLocked, drawingAffectedArea, stopWalk, walking]);
   useLayoutEffect(() => {
     if (!walking) return;
-    const subscription = AppState.addEventListener('change', (state) => { if (state !== 'active') stopWalk(); });
+    // Only a real 'background' ends the walk. iOS reports 'inactive' for the permission prompt, Control Centre and
+    // notification pull-downs, and Android pauses the activity for its permission dialog; none of those lose GPS.
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'background' && walkRef.current?.started) stopWalk();
+    });
     return () => subscription.remove();
   }, [stopWalk, walking]);
   useEffect(() => () => stopWalk(null), [stopWalk]);
@@ -729,7 +736,19 @@ export default function FieldSurveyScreen() {
     // Spacing is measured from the walked boundary's current last point, so undo, drag and removal never leave a stale anchor.
     walk.last = (walk.affectedArea ? live.affectedWaypoints : live.waypoints).at(-1) ?? null;
     const decision = decideWalkFix(fix, walk.last);
-    if (decision.action !== 'accept') return;
+    if (decision.action !== 'accept') {
+      // Tell the walker why nothing is being added, instead of leaving a silent "Walking" banner.
+      const weak = decision.reason === 'weak_accuracy';
+      if (weak !== walk.weakSignal && (weak || decision.reason === 'too_close')) {
+        walk.weakSignal = weak;
+        setSyncMessage(weak ? FIELD_SURVEY_COPY.walkWeakSignal : FIELD_SURVEY_COPY.walkActive);
+      }
+      return;
+    }
+    if (walk.weakSignal) {
+      walk.weakSignal = false;
+      setSyncMessage(FIELD_SURVEY_COPY.walkActive);
+    }
     walk.last = decision.waypoint;
     walk.added += 1;
     applyCapturedWaypoint(walk.affectedArea ? { affectedArea: true, areaCount: walk.areaCount, replace: null } : { affectedArea: false, areaCount: walk.areaCount, replace: null }, decision.waypoint);
@@ -750,6 +769,8 @@ export default function FieldSurveyScreen() {
       areaCount: shapeRef.current.affectedAreas.length,
       surveyId: clientUuid,
       added: 0,
+      started: false,
+      weakSignal: false,
       last: (affectedArea ? shapeRef.current.affectedWaypoints : shapeRef.current.waypoints).at(-1) ?? null,
       stop: () => undefined,
     };
@@ -773,6 +794,11 @@ export default function FieldSurveyScreen() {
         return;
       }
       session.stop = result.stop;
+      session.started = true;
+      if (AppState.currentState === 'background') {
+        stopWalk();
+        return;
+      }
       setSyncMessage(FIELD_SURVEY_COPY.walkActive);
     } finally {
       setGpsBusy(false);

@@ -383,7 +383,7 @@ export default function FieldSurveyScreen() {
     tileTemplate,
   ), [center, tileTemplate, viewport.height, viewport.width, zoom]);
   // Cached tiles show offline or when expired; stale ones refresh in the background when online.
-  const { missing: missingTiles, reportTileError, sources: tileSources } = useTileSources(tiles, tileTemplate, {
+  const { diagnostic: tileDiagnostic, missing: missingTiles, reportTileError, sources: tileSources } = useTileSources(tiles, tileTemplate, {
     authToken: session?.token ?? null,
     isOnline,
   });
@@ -1012,7 +1012,7 @@ export default function FieldSurveyScreen() {
   const showToolHint = mode === 'drawing_new' || (mode === 'drawing_resumed' && hasEdited) || (gpsBusy && screenCanEdit(mode));
   const mapNote = isOnline !== true
     ? tileSources.size > 0 ? FIELD_SURVEY_COPY.offlineMapSaved : FIELD_SURVEY_COPY.offlineMap
-    : missingTiles.size > 0 || tileFailures.some((key) => tileSources.has(key)) ? FIELD_SURVEY_COPY.mapTileError : null;
+    : missingTiles.size > 0 || tileFailures.some((key) => tileSources.has(key)) ? `${FIELD_SURVEY_COPY.mapTileError}${tileDiagnostic ? ` [dev: ${tileDiagnostic}]` : ''}` : null;
 
   if (!canAuthorSurvey) {
     return (

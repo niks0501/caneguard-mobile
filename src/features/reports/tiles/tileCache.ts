@@ -46,6 +46,8 @@ interface TileCacheDeps {
   /** Tile storage budget; the policy default unless a test shrinks it. */
   budgetBytes?: number;
   fetch: typeof fetch;
+  /** Diagnostics sink (development builds only); never receives URLs, headers or tokens. */
+  log?: (message: string) => void;
   now: () => number;
   sleep: (ms: number) => Promise<void>;
 }
@@ -87,6 +89,8 @@ export class TileCache {
   private index: Record<string, TileCacheEntry> = {};
   private readonly inflight = new Map<string, Job>();
   private readonly lastAttempt = new Map<string, number>();
+  private readonly failures = new Map<string, string>();
+  private readonly loggedFailures = new Set<string>();
   private lastFlush = 0;
   private readonly listeners = new Set<(key: string) => void>();
   private queue: Job[] = [];
@@ -97,6 +101,9 @@ export class TileCache {
     private readonly store: TileStore,
     private readonly deps: TileCacheDeps = {
       fetch: (...args) => fetch(...args),
+      log: (message) => {
+        if (__DEV__) console.warn(message);
+      },
       now: () => Date.now(),
       sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     },
@@ -140,6 +147,14 @@ export class TileCache {
       job.waiters -= 1;
     });
     return job.promise;
+  }
+
+  /**
+   * Why the last download of this tile failed (e.g. "HTTP 403", "timeout"), so
+   * a blank map can be diagnosed. Short text only: no URL, header or token.
+   */
+  lastFailure(request: Pick<TileRequest, 'sourceId' | 'x' | 'y' | 'z'>): string | undefined {
+    return this.failures.get(tileCacheKey(request));
   }
 
   /** Drop a tile that failed to decode so the next request downloads it again. */
@@ -276,27 +291,55 @@ export class TileCache {
     };
 
     for (let attempt = 0; ; attempt += 1) {
+      let statusRecorded = false;
       try {
         const response = await this.fetchWithTimeout(request, previous?.etag);
         if (response.status === 304 && previous) {
           return this.renew(key, previous, response.headers);
         }
         if (response.status >= 500 || response.status === 408) {
+          this.recordFailure(key, request, `HTTP ${response.status}`);
+          statusRecorded = true;
           throw new Error(`Tile server error ${response.status}`);
         }
-        if (!response.ok) return previous ? this.cachedResult(previous) : null;
+        if (!response.ok) {
+          this.recordFailure(key, request, `HTTP ${response.status}`);
+          return previous ? this.cachedResult(previous) : null;
+        }
         const bytes = new Uint8Array(await response.arrayBuffer());
-        if (!isValidTileImage(bytes)) return previous ? this.cachedResult(previous) : null;
+        if (!isValidTileImage(bytes)) {
+          this.recordFailure(key, request, 'response was not a map image');
+          return previous ? this.cachedResult(previous) : null;
+        }
+        this.failures.delete(key);
         const freshness = resolveTileFreshness(response.headers, this.deps.now());
         if (!freshness.cacheable) return remote;
         const saved = await this.commit(key, request, bytes, freshness.expiresAt, previous, response.headers);
         return saved ?? remote;
-      } catch {
+      } catch (error) {
+        if (!statusRecorded) {
+          const aborted = (error as { name?: string } | null)?.name === 'AbortError';
+          this.recordFailure(key, request, aborted ? 'timeout' : 'network error');
+        }
         const delay = TILE_RETRY_DELAYS_MS[attempt];
         if (delay === undefined) return previous ? this.cachedResult(previous) : null;
         await this.deps.sleep(delay);
       }
     }
+  }
+
+  private recordFailure(key: string, request: TileRequest, reason: string) {
+    this.failures.set(key, reason);
+    let origin = 'tile server';
+    try {
+      origin = new URL(request.url).origin;
+    } catch {
+      // Keep the generic label.
+    }
+    const line = `[map-tiles] ${reason} from ${origin}`;
+    if (this.loggedFailures.has(line)) return;
+    this.loggedFailures.add(line);
+    this.deps.log?.(line);
   }
 
   private cachedResult(entry: TileCacheEntry): TileResult {

@@ -12,6 +12,11 @@ export interface TileImageSource {
 }
 
 export interface TileSources {
+  /**
+   * Development builds only: why tiles failed, e.g. "HTTP 403 x12". Always null
+   * in release builds, so no diagnostics reach inspectors.
+   */
+  diagnostic: string | null;
   /** Tile keys that settled with no image: not cached and not loadable right now. */
   missing: ReadonlySet<string>;
   /** Call when an image failed to decode so the cache drops it and re-downloads. */
@@ -39,8 +44,9 @@ export function useTileSources(
 ): TileSources {
   const [state, setState] = useState<{
     missing: ReadonlySet<string>;
+    reasons: ReadonlyMap<string, string>;
     sources: ReadonlyMap<string, TileImageSource>;
-  }>({ missing: new Set(), sources: new Map() });
+  }>({ missing: new Set(), reasons: new Map(), sources: new Map() });
   const online = isOnline === true;
   const requests = useRef(new Map<string, TileRequest>());
 
@@ -78,6 +84,12 @@ export function useTileSources(
         const missing = new Set(
           [...current.missing].filter((tileKey) => requests.current.has(tileKey)),
         );
+        const reasons = new Map(
+          [...current.reasons].filter(([tileKey]) => requests.current.has(tileKey)),
+        );
+        const reason = result ? undefined : tileCache.lastFailure(request);
+        if (reason) reasons.set(key, reason);
+        else reasons.delete(key);
         if (result) {
           const next = toSource(result);
           const previous = sources.get(key);
@@ -86,7 +98,7 @@ export function useTileSources(
         } else if (!sources.has(key)) {
           missing.add(key);
         }
-        return { missing, sources };
+        return { missing, reasons, sources };
       });
     },
     [online],
@@ -119,7 +131,7 @@ export function useTileSources(
         setState((current) => {
           const sources = new Map(current.sources);
           sources.delete(key);
-          return { missing: current.missing, sources };
+          return { missing: current.missing, reasons: current.reasons, sources };
         });
         return load(key, request);
       });
@@ -140,5 +152,18 @@ export function useTileSources(
     [state.missing, sources, tilesSignature],
   );
 
-  return { missing, reportTileError, sources };
+  let diagnostic: string | null = null;
+  if (__DEV__) {
+    const counts = new Map<string, number>();
+    for (const key of missing) {
+      const reason = state.reasons.get(key);
+      if (reason) counts.set(reason, (counts.get(reason) ?? 0) + 1);
+    }
+    diagnostic =
+      counts.size > 0
+        ? [...counts].map(([reason, count]) => `${reason} x${count}`).join(', ')
+        : null;
+  }
+
+  return { diagnostic, missing, reportTileError, sources };
 }

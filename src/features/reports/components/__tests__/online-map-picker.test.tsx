@@ -28,6 +28,14 @@ import {
 
 const LAYER_OFFSET = MAP_TILE_SIZE;
 
+function mockTileCache() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require('@/features/reports/tiles').tileCache as {
+    discard: jest.Mock;
+    resolve: jest.Mock;
+  };
+}
+
 describe('OnlineMapPicker', () => {
   const previousApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
   const originalDev = (global as any).__DEV__;
@@ -40,6 +48,10 @@ describe('OnlineMapPicker', () => {
   });
 
   afterEach(() => {
+    const cache = mockTileCache();
+    cache.resolve.mockImplementation(async (request: any, online: boolean) =>
+      online ? { headers: request.headers, kind: 'remote', uri: request.url } : null,
+    );
     if (previousApiBaseUrl === undefined) {
       delete process.env.EXPO_PUBLIC_API_BASE_URL;
     } else {
@@ -182,6 +194,61 @@ describe('OnlineMapPicker', () => {
     expect(screen.getByText(/Connect to the internet/)).toBeOnTheScreen();
     expect(screen.queryAllByTestId('manual-map.tile')).toHaveLength(0);
     expect(onSelectionChange).not.toHaveBeenCalled();
+  });
+
+  it('shows saved tiles offline and still allows pinning when some areas were never saved', async () => {
+    const cache = mockTileCache();
+    let calls = 0;
+    cache.resolve.mockImplementation(async () =>
+      // Every other tile is saved on the device; the rest were never fetched.
+      calls++ % 2 === 0
+        ? { kind: 'cached', uri: `file:///tiles/${calls}.tile` }
+        : null,
+    );
+    const onSelectionChange = jest.fn();
+    await renderWithGestures(
+      <OnlineMapPicker
+        initialCenter={DEFAULT_MANUAL_MAP_CENTER}
+        isOnline={false}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+    await act(async () => undefined);
+
+    const tiles = screen.getAllByTestId('manual-map.tile');
+    expect(tiles[0].props.source.uri).toMatch(/^file:\/\/\/tiles\//);
+    for (const tile of tiles) {
+      await act(async () => tile.props.onLoad());
+    }
+    expect(screen.queryByText(/Connect to the internet/)).toBeNull();
+    expect(screen.getByText(/map areas saved on this phone/)).toBeOnTheScreen();
+    expect(screen.getByTestId('manual-map.viewport')).not.toBeDisabled();
+    await fireEvent(screen.getByTestId('manual-map.viewport'), 'press', {
+      nativeEvent: { locationX: 195, locationY: 180 },
+    });
+    expect(onSelectionChange).toHaveBeenCalled();
+  });
+
+  it('discards a corrupted saved tile and downloads it again', async () => {
+    const cache = mockTileCache();
+    cache.resolve.mockImplementation(async () => ({
+      kind: 'cached',
+      uri: 'file:///tiles/bad.tile',
+    }));
+    await renderWithGestures(
+      <OnlineMapPicker
+        initialCenter={DEFAULT_MANUAL_MAP_CENTER}
+        isOnline={true}
+        onSelectionChange={jest.fn()}
+      />,
+    );
+    await act(async () => undefined);
+    cache.discard.mockClear();
+
+    await act(async () => {
+      screen.getAllByTestId('manual-map.tile')[0].props.onError();
+    });
+    expect(cache.discard).toHaveBeenCalledTimes(1);
   });
 
   it('attaches the mobile bearer token to privacy-proxy tile requests', async () => {

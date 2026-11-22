@@ -99,6 +99,12 @@ export const UNFINISHED_COPY = {
 export const FIELD_VALIDATION_UNAVAILABLE =
   `${NAMING.visits} need an active inspector assignment to the pilot district. Ask your office to check your account.`;
 
+/** Manual-map picker wording that is not shared with the survey map. */
+export const MANUAL_MAP_COPY = {
+  offlinePartial:
+    'Offline: showing map areas saved on this phone. Blank areas are not saved. You can still pin a location.',
+} as const;
+
 export const FIELD_SURVEY_COPY = {
   linkTitle: 'Measure on map (optional)',
   linkHelp: 'Draw or walk the plot on a map. The area and affected percent fill in for you, and the map sends with this report. Skip it if you entered the numbers or chose Not measured.',
@@ -157,6 +163,8 @@ export const FIELD_SURVEY_COPY = {
   mapTileError: 'Some map pictures did not load. Drawing and measuring still work.',
   mapAttribution: '© OpenStreetMap contributors',
   offlineMap: 'No map pictures offline. Drawing and measuring still work.',
+  offlineMapSaved:
+    'Offline: showing map pictures saved on this phone. Drawing and measuring still work.',
   drawMode: 'Draw boundary',
   addGpsPoint: 'Capture GPS point',
   capturingGps: 'Getting GPS…',

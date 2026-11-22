@@ -70,3 +70,34 @@ describe('guard failures in the session reducer', () => {
   });
 
 });
+
+describe('guard override', () => {
+  // Proves: only a rejection can be overridden; it returns to image-selected, and a new photo drops the override.
+  it('overrides a rejection only, and a new photo clears it', () => {
+    const rejected = scanSessionReducer(base, {
+      type: 'SET_ERROR',
+      payload: 'no',
+      guardFailure: 'rejected',
+    });
+    const overridden = scanSessionReducer(rejected, { type: 'OVERRIDE_GUARD' });
+    expect(overridden).toMatchObject({
+      status: 'image-selected',
+      guardOverride: true,
+      guardFailure: null,
+      errorMessage: null,
+    });
+    expect(scanSessionReducer(base, { type: 'OVERRIDE_GUARD' })).toBe(base);
+    const fault = scanSessionReducer(base, {
+      type: 'SET_ERROR',
+      payload: 'fault',
+      guardFailure: 'error',
+    });
+    expect(scanSessionReducer(fault, { type: 'OVERRIDE_GUARD' })).toBe(fault);
+    expect(
+      scanSessionReducer(overridden, {
+        type: 'SELECT_IMAGE',
+        payload: { sourceUri: 'file:///b.jpg', sourceType: 'camera' } as never,
+      }).guardOverride,
+    ).toBeUndefined();
+  });
+});

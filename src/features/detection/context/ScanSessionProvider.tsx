@@ -419,6 +419,13 @@ function ScanSessionOwner({
           });
         }
       }
+      if (action.type === 'OVERRIDE_GUARD' && stateRef.current.guardFailure === 'rejected') {
+        // The rejection dropped the auto-saved copy; keep the photo again.
+        const selection = lastSelectionAttempt.current?.selection;
+        if (selection) {
+          void persistSelectedImage(selection);
+        }
+      }
       rawDispatch(action);
     },
     [database, ownerIdentity, persistSelectedImage, sessionIdentity],

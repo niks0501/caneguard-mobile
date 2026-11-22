@@ -381,6 +381,17 @@ export default function SymptomChecklistScreen() {
                 <Text style={[styles.helperText, { color: theme.textSecondary }]}>
                   {GUARD_COPY.rejectedTip}
                 </Text>
+                <Text style={[styles.helperText, { color: theme.textSecondary }]}>
+                  {GUARD_COPY.useAnywayHint}
+                </Text>
+                <AppButton
+                  testID="scan.use-anyway"
+                  disabled={replacing || isChecking}
+                  onPress={() => dispatch({ type: 'OVERRIDE_GUARD' })}
+                  leadingIcon="check"
+                  accessibilityLabel="Use this photo anyway">
+                  {GUARD_COPY.useAnyway}
+                </AppButton>
                 <AppButton
                   testID="scan.retake-camera"
                   disabled={replacing || isChecking}

@@ -1759,6 +1759,8 @@ export const GUARD_COPY = {
   rejectedTip:
     'Take a close, well-lit photo of a sugarcane leaf, stalk, or shoot. Fill most of the frame.',
   retakeCamera: 'Take a new photo',
+  useAnyway: 'Use this photo anyway',
+  useAnywayHint: 'The check can be wrong. If this is sugarcane, continue with this photo.',
   goHome: 'Go to Home',
   discardTitle: 'Discard this scan?',
   discardMessage: 'This photo was not used and nothing was saved. Discard it and return home?',

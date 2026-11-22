@@ -82,6 +82,18 @@ export function scanSessionReducer(
       };
     case 'GUARD_ACCEPTED':
       return { ...state, guardPassed: true };
+    case 'OVERRIDE_GUARD':
+      // Only a guard rejection can be overridden; the photo is analysed as-is.
+      return state.guardFailure === 'rejected'
+        ? {
+            ...state,
+            guardOverride: true,
+            guardFailure: null,
+            photoPreparationFailed: false,
+            status: 'image-selected',
+            errorMessage: null,
+          }
+        : state;
     case 'START_RESULT_PREPARATION':
       return {
         ...state,

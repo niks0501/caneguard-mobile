@@ -61,6 +61,7 @@ export function useScanAnalysis(replacing = false) {
     status,
     result,
     qualityAssessment,
+    guardOverride,
   } = state;
   const generation = draft.sessionGeneration;
   const appActive = draft.appActive ?? true;
@@ -180,7 +181,7 @@ export function useScanAnalysis(replacing = false) {
       result ||
       replacing ||
       modelState.state !== 'loaded' ||
-      !guardReady ||
+      !(guardReady || guardOverride) ||
       activeWork.has(key)
     ) {
       return;
@@ -201,32 +202,35 @@ export function useScanAnalysis(replacing = false) {
       let stage: 'guard' | 'v2' = 'guard';
       dispatch({ type: 'START_INFERENCE' });
       try {
-        const guardInput = await preprocessGuardImage(startingSource);
-        if (!isCurrentWork()) {
-          return;
-        }
-        const assessment = await runGuard(
-          {
-            run: exclusiveRun(async (input) => {
-              await (draft.waitForAppActive?.() ?? Promise.resolve());
-              if (!isCurrentWork()) {
-                throw new GuardError('GUARD_RUN_FAILED', 'The guard work is no longer current.');
-              }
-              return guard.run(input);
-            }),
-          },
-          guardInput,
-        );
-        if (!isCurrentWork()) {
-          return;
-        }
-        if (!assessment.accepted) {
-          dispatch({
-            type: 'SET_ERROR',
-            guardFailure: 'rejected',
-            payload: GUARD_COPY.rejectedStatus,
-          });
-          return;
+        // After "Use this photo anyway" the guard's verdict is the person's call.
+        if (!guardOverride) {
+          const guardInput = await preprocessGuardImage(startingSource);
+          if (!isCurrentWork()) {
+            return;
+          }
+          const assessment = await runGuard(
+            {
+              run: exclusiveRun(async (input) => {
+                await (draft.waitForAppActive?.() ?? Promise.resolve());
+                if (!isCurrentWork()) {
+                  throw new GuardError('GUARD_RUN_FAILED', 'The guard work is no longer current.');
+                }
+                return guard.run(input);
+              }),
+            },
+            guardInput,
+          );
+          if (!isCurrentWork()) {
+            return;
+          }
+          if (!assessment.accepted) {
+            dispatch({
+              type: 'SET_ERROR',
+              guardFailure: 'rejected',
+              payload: GUARD_COPY.rejectedStatus,
+            });
+            return;
+          }
         }
 
         dispatch({ type: 'GUARD_ACCEPTED' });
@@ -287,6 +291,7 @@ export function useScanAnalysis(replacing = false) {
     draft,
     generation,
     guard,
+    guardOverride,
     guardReady,
     key,
     modelState,

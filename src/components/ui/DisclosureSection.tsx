@@ -9,6 +9,9 @@ export type DisclosureSectionProps = {
   accessibilityLabel?: string | ((expanded: boolean) => string);
   children: ReactNode;
   defaultExpanded?: boolean;
+  /** Controlled open state; pair with `onExpandedChange`. */
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
   summary?: string;
   expandedSummary?: string;
   testID?: string;
@@ -19,13 +22,16 @@ export function DisclosureSection({
   accessibilityLabel,
   children,
   defaultExpanded = false,
+  expanded: controlledExpanded,
+  onExpandedChange,
   summary,
   expandedSummary = 'Hide details',
   testID,
   title,
 }: DisclosureSectionProps) {
   const theme = useTheme();
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [ownExpanded, setOwnExpanded] = useState(defaultExpanded);
+  const expanded = controlledExpanded ?? ownExpanded;
   const action = expanded ? 'Hide' : 'Show';
 
   return (
@@ -40,7 +46,10 @@ export function DisclosureSection({
             : accessibilityLabel ?? `${action} ${title}`
         }
         accessibilityState={{ expanded }}
-        onPress={() => setExpanded((value) => !value)}
+        onPress={() => {
+          setOwnExpanded(!expanded);
+          onExpandedChange?.(!expanded);
+        }}
         style={({ pressed }) => [styles.header, pressed && styles.pressed]}>
         <View style={styles.copy}>
           <Text style={[styles.title, { color: theme.primaryDark }]}>{title}</Text>

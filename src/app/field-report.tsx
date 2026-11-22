@@ -327,6 +327,12 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     affectedArea?: string;
     affectedPortion?: string;
   }>({});
+  // Typed numbers fold under the map action; null follows the draft (open when numbers were typed without a map).
+  const [manualAreaChoice, setManualAreaChoice] = useState<boolean | null>(null);
+  const manualAreaOpen =
+    manualAreaChoice ??
+    (attachedSurveyUuid === null &&
+      (affectedAreaText.trim() !== '' || affectedPortionText.trim() !== ''));
   const [formDraftStatus, setFormDraftStatus] = useState<
     'idle' | 'saving' | 'saved' | 'failed'
   >('idle');
@@ -682,55 +688,35 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     setMunicipality(reg?.municipalities[0] ?? municipality);
   };
 
-  const collectValues = (
-    requireAffectedNumbers: boolean,
-  ): FieldReportFormValues | null => {
+  const collectValues = (): FieldReportFormValues | null => {
     const errors: { affectedArea?: string; affectedPortion?: string } = {};
-    const areaNotMeasured = affectedAreaChoice === 'not_measured';
-    const portionNotMeasured = affectedPortionChoice === 'not_measured';
-    const affectedArea = areaNotMeasured
-      ? null
-      : affectedAreaText.trim() === ''
-        ? null
-        : parseDecimalInput(affectedAreaText);
-    const affectedPortion = portionNotMeasured
-      ? null
-      : affectedPortionText.trim() === ''
-        ? null
-        : parseDecimalInput(affectedPortionText);
-    const areaMeasurement: MeasurementProvenance =
-      affectedAreaChoice ?? (affectedArea === null ? 'not_measured' : 'measured');
-    const portionMeasurement: MeasurementProvenance =
-      affectedPortionChoice ??
-      (affectedPortion === null ? 'not_measured' : 'measured');
+    // A blank number is sent as Not measured; there is no separate choice to make.
+    const areaMeasurement = measurementForText(affectedAreaText);
+    const portionMeasurement = measurementForText(affectedPortionText);
+    const affectedArea =
+      areaMeasurement === 'not_measured' ? null : parseDecimalInput(affectedAreaText);
+    const affectedPortion =
+      portionMeasurement === 'not_measured' ? null : parseDecimalInput(affectedPortionText);
 
-    if (!areaNotMeasured) {
-      if (affectedArea !== null) {
-        if (affectedArea <= 0 || affectedArea > MAX_AFFECTED_AREA_HECTARES) {
-          errors.affectedArea = `Enter an area greater than 0 and at most ${MAX_AFFECTED_AREA_HECTARES} hectares.`;
-        }
-      } else if (affectedAreaText.trim() !== '') {
+    if (areaMeasurement === 'measured') {
+      if (affectedArea === null) {
         errors.affectedArea = 'Enter the affected area as a number, for example 0.5.';
-      } else if (requireAffectedNumbers && affectedAreaChoice === 'measured') {
-        errors.affectedArea = 'Enter the affected area as a number, for example 0.5.';
+      } else if (affectedArea <= 0 || affectedArea > MAX_AFFECTED_AREA_HECTARES) {
+        errors.affectedArea = `Enter an area greater than 0 and at most ${MAX_AFFECTED_AREA_HECTARES} hectares.`;
       }
     }
 
-    if (!portionNotMeasured) {
-      if (affectedPortion !== null) {
-        if (affectedPortion < 0 || affectedPortion > 100) {
-          errors.affectedPortion = 'Enter an estimated affected portion between 0 and 100 percent.';
-        }
-      } else if (affectedPortionText.trim() !== '') {
+    if (portionMeasurement === 'measured') {
+      if (affectedPortion === null) {
         errors.affectedPortion = 'Enter the affected portion as a number, for example 30.';
-      } else if (requireAffectedNumbers && affectedPortionChoice === 'measured') {
-        errors.affectedPortion =
-          'Enter the affected portion as a number, for example 30.';
+      } else if (affectedPortion < 0 || affectedPortion > 100) {
+        errors.affectedPortion = 'Enter an estimated affected portion between 0 and 100 percent.';
       }
     }
 
     if (errors.affectedArea || errors.affectedPortion) {
       setFieldErrors(errors);
+      setManualAreaChoice(true);
       return null;
     }
     setFieldErrors({});
@@ -847,6 +833,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       const filled = reportAreaFromBoundary(measured);
       setAffectedAreaText(formatDecimalInput(filled.areaHectares));
       setAffectedAreaChoice('measured');
+      // The map filled the numbers, so they stay folded and show in the summary.
+      setManualAreaChoice(false);
       if (filled.affectedPortionPercent !== null) {
         setAffectedPortionText(formatDecimalInput(filled.affectedPortionPercent));
         setAffectedPortionChoice('measured');
@@ -893,7 +881,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       showToast('Draft not saved — open the report again and retry', 'error');
       return;
     }
-    const values = collectValues(false);
+    const values = collectValues();
     if (!values) {
       // Invalid numeric input keeps the inspector on the form with the
       // offending step identified; nothing is announced as saved.
@@ -933,7 +921,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   };
 
   const handleFinalize = () => {
-    const values = collectValues(true);
+    const values = collectValues();
     if (values) {
       setPendingFinalizeValues({
         ...values,
@@ -1184,18 +1172,10 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
           barangay: barangay.trim() || null,
           province: province.trim(),
           municipality: municipality.trim(),
-          affectedAreaHectares: previewMeasurementValue(
-            affectedAreaText,
-            affectedAreaChoice,
-          ),
-          affectedAreaMeasurement:
-            affectedAreaChoice ?? report.data.affectedAreaMeasurement,
-          affectedPortionPercent: previewMeasurementValue(
-            affectedPortionText,
-            affectedPortionChoice,
-          ),
-          affectedPortionMeasurement:
-            affectedPortionChoice ?? report.data.affectedPortionMeasurement,
+          affectedAreaHectares: previewMeasurementValue(affectedAreaText),
+          affectedAreaMeasurement: measurementForText(affectedAreaText),
+          affectedPortionPercent: previewMeasurementValue(affectedPortionText),
+          affectedPortionMeasurement: measurementForText(affectedPortionText),
         },
         {
           checklistConsistency: record.data?.checklistConsistency ?? null,
@@ -1215,8 +1195,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
           submissionImageUri,
         },
         {
-          affectedAreaMeasurement: affectedAreaChoice,
-          affectedPortionMeasurement: affectedPortionChoice,
+          affectedAreaMeasurement: measurementForText(affectedAreaText),
+          affectedPortionMeasurement: measurementForText(affectedPortionText),
         },
       ),
     );
@@ -1228,9 +1208,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     }
     return missing;
   }, [
-    affectedAreaChoice,
     affectedAreaText,
-    affectedPortionChoice,
     affectedPortionText,
     attachedSurvey,
     attachedSurveyUuid,
@@ -1609,7 +1587,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                             <View style={styles.sectionHeading}>
                               <Feather name="edit-3" size={20} color={theme.primary} />
                               <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                                Farmer & area
+                                Farmer
                               </Text>
                             </View>
                           <TextField
@@ -1632,93 +1610,6 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                             }}>
                             Owner not known
                           </AppButton>
-                          <Text style={[styles.helpText, { color: theme.textSecondary }]}>
-                            Use a farmer or owner name, farm name, or another usable local farm
-                            reference.
-                          </Text>
-                          <View style={styles.numericRow}>
-                            <View style={styles.numericField}>
-                              <TextField
-                                testID="field-report.affected-area-input"
-                                label="Affected area (hectares)"
-                                hint="The size of the affected planting."
-                                helpHintText="Mark Not measured when you cannot pace or map the affected planting."
-                                value={affectedAreaText}
-                                onChangeText={(value) => {
-                                  setAffectedAreaText(value);
-                                  if (value.trim() !== '') {
-                                    setAffectedAreaChoice('measured');
-                                  }
-                                }}
-                                placeholder="0.5"
-                                keyboardType="decimal-pad"
-                                editable={affectedAreaChoice !== 'not_measured'}
-                              />
-                              <MeasurementChoice
-                                testID="field-report.affected-area-measurement"
-                                label="Affected area"
-                                choice={affectedAreaChoice}
-                                onChoose={(choice) => {
-                                  setAffectedAreaChoice(choice);
-                                  if (choice === 'not_measured') {
-                                    setAffectedAreaText('');
-                                  }
-                                  setFieldErrors((current) => ({
-                                    ...current,
-                                    affectedArea: undefined,
-                                  }));
-                                }}
-                              />
-                              {fieldErrors.affectedArea ? (
-                                <Text style={[styles.fieldError, { color: theme.danger }]}>
-                                  {fieldErrors.affectedArea}
-                                </Text>
-                              ) : null}
-                            </View>
-                            <View style={styles.numericField}>
-                              <TextField
-                                testID="field-report.affected-portion-input"
-                                label="Estimated affected portion (%)"
-                                hint="How much of the planting looks affected."
-                                helpHintText="Mark Not measured when you cannot estimate the affected share."
-                                value={affectedPortionText}
-                                onChangeText={(value) => {
-                                  setAffectedPortionText(value);
-                                  if (value.trim() !== '') {
-                                    setAffectedPortionChoice('measured');
-                                  }
-                                }}
-                                placeholder="30"
-                                keyboardType="decimal-pad"
-                                editable={affectedPortionChoice !== 'not_measured'}
-                              />
-                              <MeasurementChoice
-                                testID="field-report.affected-portion-measurement"
-                                label="Estimated affected portion"
-                                choice={affectedPortionChoice}
-                                onChoose={(choice) => {
-                                  setAffectedPortionChoice(choice);
-                                  if (choice === 'not_measured') {
-                                    setAffectedPortionText('');
-                                  }
-                                  setFieldErrors((current) => ({
-                                    ...current,
-                                    affectedPortion: undefined,
-                                  }));
-                                }}
-                              />
-                              {fieldErrors.affectedPortion ? (
-                                <Text style={[styles.fieldError, { color: theme.danger }]}>
-                                  {fieldErrors.affectedPortion}
-                                </Text>
-                              ) : null}
-                            </View>
-                          </View>
-                          <Text style={[styles.helpText, { color: theme.textSecondary }]}>
-                            Optional. Enter a known measurement, measure on the map below, or leave
-                            it blank to send as Not measured. Guessing is not required. Decimals are
-                            accepted (0.5 or 0,5).
-                          </Text>
                           </View>
                           <ReportSurveyCard
                             attachedSurvey={attachedSurvey}
@@ -1727,6 +1618,60 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                             onAttach={handleAttachSurvey}
                             onOpenMeasure={(clientUuid) => void handleOpenMeasure(clientUuid)}
                             surveys={savedSurveys}
+                            manualExpanded={manualAreaOpen}
+                            onManualExpandedChange={setManualAreaChoice}
+                            manualSummary={
+                              affectedAreaText.trim() === '' && affectedPortionText.trim() === ''
+                                ? undefined
+                                : FIELD_SURVEY_COPY.manualSummary(
+                                    affectedAreaText.trim() || null,
+                                    affectedPortionText.trim() || null,
+                                  )
+                            }
+                            manualEntry={
+                              <View style={styles.numericRow}>
+                                <View style={styles.numericField}>
+                                  <TextField
+                                    testID="field-report.affected-area-input"
+                                    label={FIELD_SURVEY_COPY.manualAreaLabel}
+                                    helpHintText={FIELD_SURVEY_COPY.manualAreaExample}
+                                    value={affectedAreaText}
+                                    onChangeText={(value) => {
+                                      setAffectedAreaText(value);
+                                      setAffectedAreaChoice(measurementForText(value));
+                                      setManualAreaChoice(true);
+                                    }}
+                                    placeholder="0.5"
+                                    keyboardType="decimal-pad"
+                                  />
+                                  {fieldErrors.affectedArea ? (
+                                    <Text style={[styles.fieldError, { color: theme.danger }]}>
+                                      {fieldErrors.affectedArea}
+                                    </Text>
+                                  ) : null}
+                                </View>
+                                <View style={styles.numericField}>
+                                  <TextField
+                                    testID="field-report.affected-portion-input"
+                                    label={FIELD_SURVEY_COPY.manualPortionLabel}
+                                    helpHintText={FIELD_SURVEY_COPY.manualPortionExample}
+                                    value={affectedPortionText}
+                                    onChangeText={(value) => {
+                                      setAffectedPortionText(value);
+                                      setAffectedPortionChoice(measurementForText(value));
+                                      setManualAreaChoice(true);
+                                    }}
+                                    placeholder="30"
+                                    keyboardType="decimal-pad"
+                                  />
+                                  {fieldErrors.affectedPortion ? (
+                                    <Text style={[styles.fieldError, { color: theme.danger }]}>
+                                      {fieldErrors.affectedPortion}
+                                    </Text>
+                                  ) : null}
+                                </View>
+                              </View>
+                            }
                           />
                         </>
                       ) : currentStep === SAW_STEP ? (
@@ -3001,11 +2946,12 @@ function formatLocationSummary(fieldReport: FieldReport): string {
     : 'Not provided';
 }
 
-function previewMeasurementValue(
-  value: string,
-  choice: MeasurementProvenance | null,
-): number | null {
-  return choice === 'not_measured' ? null : parseDecimalInput(value);
+function measurementForText(value: string): MeasurementProvenance {
+  return value.trim() === '' ? 'not_measured' : 'measured';
+}
+
+function previewMeasurementValue(value: string): number | null {
+  return measurementForText(value) === 'not_measured' ? null : parseDecimalInput(value);
 }
 
 /**
@@ -3182,60 +3128,6 @@ function AuthorityReviewSection({
         accessibilityLabel={status.refreshing ? 'Refreshing authority review status' : 'Refresh authority review status'}>
         {status.refreshing ? 'Refreshing status…' : 'Refresh status'}
       </AppButton>
-    </View>
-  );
-}
-
-function MeasurementChoice({
-  choice,
-  label,
-  onChoose,
-  testID,
-}: {
-  choice: MeasurementProvenance | null;
-  label: string;
-  onChoose: (choice: MeasurementProvenance) => void;
-  testID: string;
-}) {
-  const theme = useTheme();
-  const options: { key: MeasurementProvenance; label: string }[] = [
-    { key: 'measured', label: 'Measured' },
-    { key: 'not_measured', label: 'Not measured' },
-  ];
-
-  return (
-    <View
-      accessibilityRole="radiogroup"
-      accessibilityLabel={`${label} measurement`}
-      testID={testID}
-      style={styles.measurementRow}>
-      {options.map((option) => {
-        const selected = choice === option.key;
-        return (
-          <Pressable
-            key={option.label}
-            accessibilityRole="radio"
-            accessibilityState={{ selected }}
-            accessibilityLabel={`${label}: ${option.label}`}
-            onPress={() => onChoose(option.key)}
-            style={({ pressed }) => [
-              styles.measurementOption,
-              {
-                backgroundColor: selected ? theme.primary : theme.surfaceMuted,
-                borderColor: selected ? theme.primary : theme.border,
-              },
-              pressed && styles.pressed,
-            ]}>
-            <Text
-              style={[
-                styles.measurementOptionText,
-                { color: selected ? theme.background : theme.primaryDark },
-              ]}>
-              {option.label}
-            </Text>
-          </Pressable>
-        );
-      })}
     </View>
   );
 }
@@ -3579,17 +3471,6 @@ const styles = StyleSheet.create({
   },
   numericRow: { flexDirection: 'row', gap: Spacing.md },
   numericField: { flex: 1, gap: Spacing.xs },
-  measurementRow: { flexDirection: 'row', gap: Spacing.xs },
-  measurementOption: {
-    flex: 1,
-    minHeight: 36,
-    borderWidth: 1,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.sm,
-  },
-  measurementOptionText: { ...Typography.caption, fontWeight: '800' },
   locationDivider: { borderTopWidth: 1, marginVertical: Spacing.xs },
   unavailableCard: {
     borderWidth: 1,

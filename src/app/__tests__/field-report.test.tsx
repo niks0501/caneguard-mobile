@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { BackHandler, Linking, Platform } from 'react-native';
 
 import FieldReportScreen from '@/app/field-report';
+import { FIELD_SURVEY_COPY } from '@/constants/copy';
 import { ToastProvider } from '@/components/ui/Toast';
 import type {
   FieldReport,
@@ -367,6 +368,14 @@ function expectFormValues(values: Partial<FormValues> = {}): FormValues {
 }
 
 // 1 = Place, 2 = What you saw, 3 = Send
+// Typed area numbers sit folded under the map action until opened.
+async function openTypedNumbers(): Promise<void> {
+  if (screen.queryByTestId('field-report.affected-area-input')) return;
+  await act(async () => {
+    fireEvent.press(screen.getByLabelText(`Show ${FIELD_SURVEY_COPY.manualTitle}`));
+  });
+}
+
 async function goToStep(step: 1 | 2 | 3): Promise<void> {
   await act(async () => {
     fireEvent.press(screen.getByTestId(`field-report.step-${step}`));
@@ -534,6 +543,7 @@ describe('FieldReportScreen', () => {
         'North Block Farm 12',
       );
     });
+    await openTypedNumbers();
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
@@ -592,6 +602,7 @@ describe('FieldReportScreen', () => {
       );
     });
     await goToStep(1);
+    await openTypedNumbers();
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '0.5');
     });
@@ -710,6 +721,7 @@ describe('FieldReportScreen', () => {
       );
     });
     await goToStep(1);
+    await openTypedNumbers();
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
@@ -1471,6 +1483,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
 
     await goToStep(1);
+    await openTypedNumbers();
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
@@ -1499,6 +1512,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
 
     await goToStep(1);
+    await openTypedNumbers();
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
@@ -1519,6 +1533,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.farmer-name-input'), 'Maria Santos');
     });
+    await openTypedNumbers();
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
@@ -1568,6 +1583,7 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
     await act(async () => undefined);
     await goToStep(1);
+    await openTypedNumbers();
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
@@ -1601,6 +1617,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.farmer-name-input'), 'Maria Santos');
     });
+    await openTypedNumbers();
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
@@ -1633,6 +1650,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.farmer-name-input'), 'Maria Santos');
     });
+    await openTypedNumbers();
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '1.25');
     });
@@ -1666,6 +1684,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.farmer-name-input'), 'Maria Santos');
     });
+    await openTypedNumbers();
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '1.25');
     });
@@ -1707,6 +1726,7 @@ describe('FieldReportScreen', () => {
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Wawa'));
     });
+    await openTypedNumbers();
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
@@ -1758,37 +1778,18 @@ describe('FieldReportScreen', () => {
     );
   });
 
-  it('still asks for a number when Measured is chosen but left blank', async () => {
-    await render(<FieldReportScreen />);
-    await goToStep(1);
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText('Affected area: Measured'));
-    });
-    await goToStep(3);
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
-    });
-
-    expect(screen.queryByTestId('field-report.confirm-finalize-dialog')).toBeNull();
-    expect(mockFinalize).not.toHaveBeenCalled();
-    expect(
-      screen.getByText('Enter the affected area as a number, for example 0.5.'),
-    ).toBeOnTheScreen();
-  });
-
-  it('finalizes with explicit not-measured provenance instead of a guessed number', async () => {
+  it('sends a typed-then-cleared number as Not measured', async () => {
     mockFinalize.mockResolvedValueOnce(
       draft({ authoringState: 'finalized', syncStatus: 'pending' }),
     );
-
     await render(<FieldReportScreen />);
-
     await goToStep(1);
+    await openTypedNumbers();
     await act(async () => {
-      fireEvent.press(screen.getByLabelText('Affected area: Not measured'));
-      fireEvent.press(
-        screen.getByLabelText('Estimated affected portion: Not measured'),
-      );
+      fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '0.5');
+    });
+    await act(async () => {
+      fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '');
     });
     await goToStep(3);
     await act(async () => {
@@ -1800,13 +1801,48 @@ describe('FieldReportScreen', () => {
       expect.objectContaining({
         affectedAreaHectares: null,
         affectedAreaMeasurement: 'not_measured',
-        affectedPortionPercent: null,
-        affectedPortionMeasurement: 'not_measured',
       }),
     );
   });
 
-  it('restores explicit not-measured choices when reopening a draft', async () => {
+  it('leads with the map and folds the typed numbers away on a new draft', async () => {
+    await render(<FieldReportScreen />);
+    await goToStep(1);
+
+    expect(screen.getByTestId('field-report.survey-open')).toHaveTextContent(
+      FIELD_SURVEY_COPY.linkMeasure,
+    );
+    expect(screen.queryByTestId('field-report.affected-area-input')).toBeNull();
+    expect(screen.getByTestId('field-report.area-manual.summary')).toHaveTextContent(
+      FIELD_SURVEY_COPY.manualEmpty,
+    );
+  });
+
+  it('opens the typed numbers and shows the error when a typed number is invalid at finalize', async () => {
+    await render(<FieldReportScreen />);
+    await goToStep(1);
+    await openTypedNumbers();
+    await act(async () => {
+      fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), 'abc');
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText(`Hide ${FIELD_SURVEY_COPY.manualTitle}`));
+    });
+    expect(screen.queryByTestId('field-report.affected-area-input')).toBeNull();
+    await goToStep(3);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+    });
+
+    expect(mockFinalize).not.toHaveBeenCalled();
+    await goToStep(1);
+    expect(screen.getByTestId('field-report.affected-area-input')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Enter the affected area as a number, for example 0.5.'),
+    ).toBeOnTheScreen();
+  });
+
+  it('keeps a restored not-measured draft editable and folded', async () => {
     mockDraftState = {
       ...mockDraftState,
       data: draft({
@@ -1820,12 +1856,10 @@ describe('FieldReportScreen', () => {
     await render(<FieldReportScreen />);
 
     await goToStep(1);
-    expect(
-      screen.getByLabelText('Affected area: Not measured'),
-    ).toHaveProp('accessibilityState', { selected: true });
-    expect(
-      screen.getByLabelText('Estimated affected portion: Not measured'),
-    ).toHaveProp('accessibilityState', { selected: true });
+    expect(screen.queryByTestId('field-report.affected-area-input')).toBeNull();
+    await openTypedNumbers();
+    expect(screen.getByTestId('field-report.affected-area-input')).toHaveProp('editable', true);
+    expect(screen.getByTestId('field-report.affected-portion-input')).toHaveProp('editable', true);
   });
 
   it('shows a possible recent match without blocking a new submission', async () => {
@@ -1850,6 +1884,7 @@ describe('FieldReportScreen', () => {
       /Possible recent match.*only a possible match, not a duplicate decision/s,
     );
     await goToStep(1);
+    await openTypedNumbers();
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
@@ -1964,6 +1999,10 @@ describe('FieldReportScreen', () => {
       await act(async () => { screens.forEach((entry) => entry.blur()); });
       await act(async () => { screens.forEach((entry) => entry.focus()); });
 
+      // The map fills the numbers; they stay folded and show in the summary.
+      expect(screen.queryByTestId('field-report.affected-area-input')).toBeNull();
+      expect(screen.getByTestId('field-report.area-manual.summary')).toHaveTextContent(/ha · .*% affected/);
+      await openTypedNumbers();
       const area = Number(screen.getByTestId('field-report.affected-area-input').props.value);
       const portion = Number(screen.getByTestId('field-report.affected-portion-input').props.value);
       expect(area).toBeGreaterThan(1.19);
@@ -2038,6 +2077,7 @@ describe('FieldReportScreen', () => {
 
     await render(<FieldReportScreen />);
     await goToStep(1);
+    await openTypedNumbers();
     await act(async () => {
       fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '0.5');
     });
@@ -2068,6 +2108,7 @@ describe('FieldReportScreen', () => {
     expect(screen.queryByTestId('field-report.offline-finalize-block')).not.toBeOnTheScreen();
     expect(screen.getByLabelText('Finalize Field Report')).not.toBeDisabled();
     await goToStep(1);
+    await openTypedNumbers();
     await act(async () => {
       fireEvent.changeText(
         screen.getByTestId('field-report.affected-area-input'),
@@ -2327,6 +2368,7 @@ describe('FieldReportScreen', () => {
       'value',
       'Maria Santos',
     );
+    await openTypedNumbers();
     expect(screen.getByTestId('field-report.affected-area-input')).toHaveProp(
       'value',
       '0.5',
@@ -2605,6 +2647,7 @@ describe('FieldReportScreen', () => {
       expect(screen.getByTestId('field-report.capture-gps')).toBeOnTheScreen();
       expect(screen.getByTestId('field-report.province-input')).toBeOnTheScreen();
       expect(screen.getByTestId('field-report.farmer-name-input')).toBeOnTheScreen();
+      await openTypedNumbers();
       expect(screen.getByTestId('field-report.affected-area-input')).toBeOnTheScreen();
       // Province comes before town, town before barangay.
       const order = ['province-input', 'municipality-input', 'barangay-input'].map((id) =>
@@ -2941,6 +2984,7 @@ describe('FieldReportScreen', () => {
       expect(screen.getByTestId('field-report.cancel-dialog')).toBeOnTheScreen();
 
       await goToStep(1);
+      await openTypedNumbers();
       await act(async () => {
         fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '0.5');
       });
@@ -2970,6 +3014,7 @@ describe('FieldReportScreen', () => {
         </ToastProvider>,
       );
       await goToStep(1);
+      await openTypedNumbers();
       await act(async () => {
         fireEvent.changeText(
           screen.getByTestId('field-report.affected-area-input'),
@@ -3185,6 +3230,7 @@ describe('FieldReportScreen', () => {
         'value',
         'Restored Farmer',
       );
+      await openTypedNumbers();
       expect(screen.getByTestId('field-report.affected-area-input')).toHaveProp(
         'value',
         '0.75',

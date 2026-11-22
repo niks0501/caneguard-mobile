@@ -44,6 +44,8 @@ fill "label=\"Search barangay\"" "Wawa"
 # needed. Expose the filtered option below the inline picker instead.
 scroll down 0.25 --settle
 click "role=button label=\"Wawa\""
+# Typed area numbers are folded under the map action.
+click "label=\"Show Type the numbers instead\""
 fill "id=field-report.affected-area-input" "1.5"
 fill "id=field-report.affected-portion-input" "30"
 scroll down 0.25 --settle

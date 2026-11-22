@@ -106,8 +106,16 @@ export const MANUAL_MAP_COPY = {
 } as const;
 
 export const FIELD_SURVEY_COPY = {
-  linkTitle: 'Measure on map (optional)',
-  linkHelp: 'Draw or walk the plot on a map. The area and affected percent fill in for you, and the map sends with this report. Skip it if you entered the numbers or chose Not measured.',
+  linkTitle: 'Affected area (optional)',
+  linkHelp: 'Walk or draw the plot on a map. The area and % affected fill in for you.',
+  manualTitle: 'Type the numbers instead',
+  manualEmpty: 'Leave blank if not measured',
+  manualSummary: (hectares: string | null, percent: string | null) =>
+    `${hectares === null ? 'Area not measured' : `${hectares} ha`} · ${percent === null ? '% not measured' : `${percent}% affected`}`,
+  manualAreaLabel: 'Affected area (ha)',
+  manualAreaExample: 'For example 0.5. A comma works too: 0,5.',
+  manualPortionLabel: 'Affected portion (%)',
+  manualPortionExample: 'Your best estimate, for example 30.',
   linkNone: 'Not measured on a map',
   linkEmpty: 'Not measured on a map',
   linkAttached: (hectares: string) => `Measured on map: ${hectares} ha`,

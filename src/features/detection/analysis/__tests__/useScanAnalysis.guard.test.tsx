@@ -345,6 +345,25 @@ describe('guarded scan: rejection and faults produce no result', () => {
     expect(latest.analysis.isReady).toBe(false);
   });
 
+  // Proves: after a rejection the person can override; V2 runs once on that photo without re-running the guard, and the result is a usable guarded result.
+  it('analyses a rejected photo once the person overrides the guard', async () => {
+    const run = jest.fn().mockResolvedValue(guardOutput(0.1));
+    mockGuard = guardController(run);
+    await mount();
+    await select('file:///cane-misjudged.jpg');
+    await waitFor(() => expect(latest.state.guardFailure).toBe('rejected'));
+    expect(mockV2.run).not.toHaveBeenCalled();
+
+    await act(async () => {
+      latest.dispatch({ type: 'OVERRIDE_GUARD' });
+    });
+    await waitFor(() => expect(latest.state.status).toBe('completed'));
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(mockV2.run).toHaveBeenCalledTimes(1);
+    expect(latest.state.guardFailure).toBeNull();
+    expect(latest.analysis.isReady).toBe(true);
+  });
+
   // Proves: every guard fault (NaN, infinities, out of range, wrong shape, runtime error) fails closed: zero V2, no result, and it reads as a model error, not a photo rejection.
   it.each<[string, () => Promise<unknown>]>([
     ['NaN', async () => guardOutput(NaN)],

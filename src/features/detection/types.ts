@@ -68,6 +68,8 @@ export interface ScanSessionState {
   guardFailure?: GuardFailure | null;
   /** True once the guard accepted this photo and the disease model is running. */
   guardPassed?: boolean;
+  /** The person chose to analyse a photo the guard judged not to be sugarcane. */
+  guardOverride?: boolean;
   /** Set when this scan is a Check Again of the saved scan with this id. */
   followUpOf?: string | null;
   /** The farmer's own words about what they see now (follow-up only). */
@@ -101,6 +103,7 @@ export type ScanSessionAction =
     }
   | { type: 'START_INFERENCE' }
   | { type: 'GUARD_ACCEPTED' }
+  | { type: 'OVERRIDE_GUARD' }
   | { type: 'START_RESULT_PREPARATION' }
   | { type: 'COMPLETE_INFERENCE'; payload: DetectionResult }
   | { type: 'SET_SYMPTOMS'; payload: ChecklistObservationId[] }

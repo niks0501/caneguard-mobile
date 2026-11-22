@@ -4,7 +4,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
-import { ActivityIndicator, AppState, type GestureResponderEvent, type HostInstance, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, BackHandler, type GestureResponderEvent, type HostInstance, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import Svg, { Circle, Line, Polygon, Polyline } from 'react-native-svg';
@@ -70,6 +70,9 @@ const SURVEY_ZOOM = 17;
 const SURVEY_MAP_OVERSCAN = MAP_TILE_SIZE;
 const INITIAL_VIEWPORT = { width: 360, height: 380 };
 const HANDLE_SIZE = 44;
+const MAP_BORDER_WIDTH = 1;
+// A tap that lands this soon after a pan or pinch ended is the end of that drag, not a new point.
+const GESTURE_TAP_GUARD_MS = 300;
 const TAP_HIT_RADIUS = 20;
 const EMPTY_SHAPE: DrawingShape = { waypoints: [], affectedAreas: [], affectedAreaWaypointSets: [], affectedWaypoints: [] };
 
@@ -98,6 +101,24 @@ function qualityColor(quality: PointQuality, theme: ReturnType<typeof useTheme>)
   if (quality === 'acceptable') return { fill: theme.warning, stroke: 'white' };
   if (quality === 'weak') return { fill: 'white', stroke: theme.danger };
   return { fill: theme.textSecondary, stroke: 'white' };
+}
+
+// A round 48pt map control: big enough for a gloved thumb, no text to crowd the map.
+function MapIconButton({ busy = false, icon, label, onPress, testID }: { busy?: boolean; icon: keyof typeof Feather.glyphMap; label: string; onPress: () => void; testID: string }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ busy, disabled: busy }}
+      disabled={busy}
+      hitSlop={4}
+      onPress={onPress}
+      style={({ pressed }) => [styles.iconButton, { backgroundColor: theme.surfaceElevated, borderColor: theme.border, opacity: pressed ? 0.7 : 1 }]}>
+      {busy ? <ActivityIndicator size="small" color={theme.primary} /> : <Feather name={icon} size={22} color={theme.primaryDark} />}
+    </Pressable>
+  );
 }
 
 interface PointHandleProps {
@@ -197,6 +218,16 @@ export default function FieldSurveyScreen() {
   // The district comes from the account; the server still checks membership on sync.
   const districtCode = session?.user.districtCode?.trim() ?? '';
   const [moreOpen, setMoreOpen] = useState(false);
+  // Full-screen map: the header, details and dock step aside so the plot has the whole screen.
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    if (!expanded) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      setExpanded(false);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [expanded]);
   const [shape, setShapeState] = useState<DrawingShape>(EMPTY_SHAPE);
   const shapeRef = useRef<DrawingShape>(EMPTY_SHAPE);
   const [history, setHistory] = useState<DrawingShape[]>([]);
@@ -217,11 +248,18 @@ export default function FieldSurveyScreen() {
     setCenter(nextCenter);
     setZoom(nextZoom);
   }, []);
+  // A touch that turned into a pan or pinch must not also drop a point where the finger lifted.
+  // The press can arrive just before or after the gesture's end, so allow a short window.
+  const mapGestureRef = useRef({ active: false, endedAt: 0 });
+  const handleMapGestureActiveChange = useCallback((active: boolean) => {
+    mapGestureRef.current = { active, endedAt: active ? mapGestureRef.current.endedAt : Date.now() };
+  }, []);
   const { gesture: mapGesture, layerStyle } = useManualMapGestures({
     blocksScrollGesture: scrollNativeGesture,
     center,
     enabled: true,
     onCommit: handleMapGestureCommit,
+    onGestureActiveChange: handleMapGestureActiveChange,
     viewport,
     zoom,
   });
@@ -343,6 +381,12 @@ export default function FieldSurveyScreen() {
     viewport.height + SURVEY_MAP_OVERSCAN * 2,
     tileTemplate,
   ), [center, tileTemplate, viewport.height, viewport.width, zoom]);
+  // Stable source objects per tile, so a re-render never hands expo-image a "new" source to reload.
+  const sessionToken = session?.token ?? null;
+  const tileSources = useMemo(() => new Map(tiles.map((tile) => [tile.key, {
+    uri: tile.url,
+    headers: { 'User-Agent': 'CaneGuard-Mobile/1.0', ...(sessionToken && !tile.url.includes('tile.openstreetmap.org') ? { Authorization: `Bearer ${sessionToken}` } : {}) },
+  }])), [sessionToken, tiles]);
 
   useEffect(() => {
     if (!ready || !database || !session?.user.uuid) return;
@@ -515,26 +559,43 @@ export default function FieldSurveyScreen() {
     addOrMovePoint(coordinate.latitude, coordinate.longitude, 'map', null);
   }
 
-  function handleMapPress(event: GestureResponderEvent) {
-    // Web press events carry no locationX/locationY; resolve the tap the same
-    // way the online map picker does instead of writing NaN vertices.
-    const native = event.nativeEvent as GestureResponderEvent['nativeEvent'] & { clientX?: number; clientY?: number; offsetX?: number; offsetY?: number };
-    const { clientX, clientY, locationX, locationY, offsetX, offsetY, pageX, pageY } = native;
-    if (Number.isFinite(locationX) && Number.isFinite(locationY)) {
-      addMapPointAt({ x: locationX, y: locationY });
+  // Places a point exactly under the cross at the map centre: precise, and the finger never hides the spot.
+  function addPointAtCenter() {
+    if (controlsLocked || walking) return;
+    if (selected) {
+      const result = movePoint(shapeRef.current, selected, center);
+      if (result.ok) {
+        commitShape(result.shape);
+        setSelected(null);
+        setFieldErrors({});
+      } else {
+        setSyncMessage(result.message || FIELD_SURVEY_COPY.moveRefused);
+      }
       return;
     }
+    addOrMovePoint(center.latitude, center.longitude, 'map', null);
+  }
+
+  function handleMapPress(event: GestureResponderEvent) {
+    const gesture = mapGestureRef.current;
+    if (gesture.active || Date.now() - gesture.endedAt < GESTURE_TAP_GUARD_MS) return;
+    const native = event.nativeEvent as GestureResponderEvent['nativeEvent'] & { clientX?: number; clientY?: number; offsetX?: number; offsetY?: number };
+    const { clientX, clientY, locationX, locationY, offsetX, offsetY, pageX, pageY } = native;
     const fallback = () => {
-      if (typeof offsetX === 'number' && typeof offsetY === 'number') addMapPointAt({ x: offsetX, y: offsetY });
+      if (Number.isFinite(locationX) && Number.isFinite(locationY)) addMapPointAt({ x: locationX, y: locationY });
+      else if (typeof offsetX === 'number' && typeof offsetY === 'number') addMapPointAt({ x: offsetX, y: offsetY });
     };
+    // locationX/Y can be relative to whichever child was touched, which put points off the finger.
+    // Measure the map at tap time and use window coordinates instead, as the location picker does.
     const node = mapRef.current;
     if (process.env.NODE_ENV !== 'test' && node && typeof node.measureInWindow === 'function') {
+      const border = expanded ? 0 : MAP_BORDER_WIDTH;
       node.measureInWindow((x, y) => {
         // On web measureInWindow is viewport-relative, so pair it with clientX/Y (pageX/Y include page scroll).
         const point = viewportPointFromPressEvent({
           ...event,
           nativeEvent: { ...native, pageX: clientX ?? pageX, pageY: clientY ?? pageY },
-        }, { x, y });
+        }, { x: x + border, y: y + border });
         if (Number.isFinite(point.x) && Number.isFinite(point.y)) addMapPointAt(point);
         else fallback();
       });
@@ -943,7 +1004,15 @@ export default function FieldSurveyScreen() {
   // A report can use the map once the plot is measured, nothing is left open, and the draft is saved.
   const reportReady = !screenCanEdit(mode)
     || (validation.valid && affectedWaypoints.length === 0 && affectedMeasurement?.valid === true && saveState === 'saved');
-  const areaReadout = `${screenValidation}${validation.valid && affectedMeasurement?.valid ? ` · ${affectedMeasurement.areaSqm.toFixed(0)} m² affected` : affectedMeasurement && !affectedMeasurement.valid ? ` · ${affectedMeasurement.error.message}` : ''}`;
+  const affectedPercent = validation.valid && affectedMeasurement?.valid && affectedMeasurement.areaSqm > 0
+    ? ` (${((affectedMeasurement.areaSqm / validation.areaSqm) * 100).toFixed(1)}%)`
+    : '';
+  const areaReadout = `${screenValidation}${validation.valid && affectedMeasurement?.valid && affectedAreas.length > 0 ? ` · ${affectedMeasurement.areaSqm.toFixed(0)} m² affected${affectedPercent}` : affectedMeasurement && !affectedMeasurement.valid ? ` · ${affectedMeasurement.error.message}` : ''}`;
+  // One message on the map: what to tap next while drawing, otherwise what state the boundary is in.
+  const showToolHint = mode === 'drawing_new' || (mode === 'drawing_resumed' && hasEdited) || (gpsBusy && screenCanEdit(mode));
+  const mapNote = isOnline !== true
+    ? FIELD_SURVEY_COPY.offlineMap
+    : tileFailures.some((key) => tileSources.has(key)) ? FIELD_SURVEY_COPY.mapTileError : null;
 
   if (!canAuthorSurvey) {
     return (
@@ -958,11 +1027,11 @@ export default function FieldSurveyScreen() {
 
   return (
     <SafeAreaView testID="field-survey.screen" accessibilityValue={{ text: `mode=${mode};save=${saveState};valid=${validation.valid ? 'yes' : 'no'}` }} style={[styles.safe, { backgroundColor: theme.background}]} edges={['top', 'bottom']}>
-      <BrandedScreenHeader title={FIELD_SURVEY_COPY.title} />
+      {expanded ? null : <BrandedScreenHeader title={FIELD_SURVEY_COPY.title} />}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'android' ? 'height' : 'padding'}
         style={styles.body}>
-        <View style={styles.mapSection}>
+        <View testID="field-survey.map-section" accessibilityValue={{ text: `expanded=${expanded ? 'yes' : 'no'}` }} style={expanded ? styles.mapSectionExpanded : styles.mapSection}>
           <GestureDetector gesture={mapGesture}>
             <Pressable
               disabled={controlsLocked}
@@ -980,17 +1049,18 @@ export default function FieldSurveyScreen() {
                   fitMapToShape(shapeRef.current, size);
                 }
               }}
-              style={[styles.map, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+              style={[expanded ? styles.mapExpanded : styles.map, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
             >
           <Animated.View pointerEvents="box-none" style={[styles.mapLayer, { width: viewport.width + SURVEY_MAP_OVERSCAN * 2, height: viewport.height + SURVEY_MAP_OVERSCAN * 2 }, layerStyle]}>
           {isOnline === true ? tiles.map((tile) => (
             <ExpoImage
               key={tile.key}
               pointerEvents="none"
-              source={{ uri: tile.url, headers: { 'User-Agent': 'CaneGuard-Mobile/1.0', ...(session?.token && !tile.url.includes('tile.openstreetmap.org') ? { Authorization: `Bearer ${session.token}` } : {}) } }}
-              cachePolicy="disk"
+              source={tileSources.get(tile.key)}
+              cachePolicy="memory-disk"
+              transition={0}
               contentFit="fill"
-              onLoad={() => setTileFailures((current) => current.filter((key) => key !== tile.key))}
+              onLoad={() => setTileFailures((current) => current.includes(tile.key) ? current.filter((key) => key !== tile.key) : current)}
               onError={() => setTileFailures((current) => current.includes(tile.key) ? current : [...current, tile.key])}
               style={{ position: 'absolute', left: tile.left, top: tile.top, width: MAP_TILE_SIZE, height: MAP_TILE_SIZE }}
             />
@@ -1040,34 +1110,68 @@ export default function FieldSurveyScreen() {
             </Pressable>
           ))}
           </Animated.View>
+          {controlsLocked || walking ? null : (
+            <View testID="field-survey.crosshair" pointerEvents="none" style={styles.crosshair}>
+              <View style={[styles.crosshairBarH, { backgroundColor: theme.text }]} />
+              <View style={[styles.crosshairBarV, { backgroundColor: theme.text }]} />
+            </View>
+          )}
           {tiles.length > 0 && isOnline === true ? <Text pointerEvents="none" style={[styles.attribution, { color: theme.text, backgroundColor: theme.surfaceElevated }]}>{FIELD_SURVEY_COPY.mapAttribution}</Text> : null}
             </Pressable>
           </GestureDetector>
-          <View pointerEvents="box-none" style={styles.modeSwitch}>
-            <AppButton testID="field-survey.walk" leadingIcon={walking ? 'square' : 'navigation'} variant="secondary" selected={walking} style={[styles.floatingButton, walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => void toggleWalk()} disabled={(gpsBusy && !walking) || controlsLocked}>{walking ? FIELD_SURVEY_COPY.walkStop : FIELD_SURVEY_COPY.modeWalk}</AppButton>
-            <AppButton testID="field-survey.tap" leadingIcon="map-pin" variant="secondary" selected={!walking} style={[styles.floatingButton, !walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => { if (walking) stopWalk(); }} disabled={controlsLocked}>{FIELD_SURVEY_COPY.modeTap}</AppButton>
+          <View pointerEvents="box-none" style={styles.overlayTop}>
+            <View pointerEvents="none" style={styles.overlayMessages}>
+              <View testID="field-survey.status-strip" accessibilityLiveRegion="polite" accessibilityValue={{ text: `mode=${mode}` }} style={[styles.pill, { backgroundColor: theme.surfaceElevated, borderColor: showToolHint ? theme.border : theme[SYNC_TONE_COLOR[strip.tone]] }]}>
+                {showToolHint ? (
+                  <Text testID="field-survey.tool-state" accessibilityValue={{ text: `tool=${toolState}` }} numberOfLines={2} style={[styles.pillText, { color: theme.text }]}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.toolState[toolState]}</Text>
+                ) : (
+                  <Text numberOfLines={3} style={[styles.pillText, { color: theme[SYNC_TONE_COLOR[strip.tone]] }]}>{strip.text}</Text>
+                )}
+              </View>
+              {mapNote ? <Text numberOfLines={2} style={[styles.pill, styles.pillText, { color: isOnline !== true ? theme.textSecondary : theme.warning, backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>{mapNote}</Text> : null}
+            </View>
+            <View pointerEvents="box-none" style={styles.overlayButtons}>
+              <MapIconButton testID="field-survey.expand" icon={expanded ? 'minimize-2' : 'maximize-2'} label={expanded ? FIELD_SURVEY_COPY.collapseMap : FIELD_SURVEY_COPY.expandMap} onPress={() => setExpanded((value) => !value)} />
+              <MapIconButton testID="field-survey.my-location" icon="navigation" label={locating ? FIELD_SURVEY_COPY.myLocationBusy : FIELD_SURVEY_COPY.myLocation} busy={locating} onPress={() => void goToMyLocation()} />
+            </View>
           </View>
-          <View pointerEvents="box-none" style={styles.floatingControlsRight}>
-            <AppButton testID="field-survey.my-location" leadingIcon="navigation" variant="secondary" accessibilityLabel={FIELD_SURVEY_COPY.myLocation} style={styles.floatingButton} onPress={() => void goToMyLocation()} busy={locating} disabled={locating}>{locating ? FIELD_SURVEY_COPY.myLocationBusy : FIELD_SURVEY_COPY.myLocation}</AppButton>
-            <AppButton testID="field-survey.more" leadingIcon={moreOpen ? 'chevron-down' : 'more-horizontal'} variant="secondary" accessibilityLabel={moreOpen ? FIELD_SURVEY_COPY.moreOpen : FIELD_SURVEY_COPY.more} style={styles.floatingButton} onPress={() => setMoreOpen((open) => !open)}>{moreOpen ? FIELD_SURVEY_COPY.moreOpen : FIELD_SURVEY_COPY.more}</AppButton>
+          <View pointerEvents="box-none" style={styles.overlayBottom}>
+            <View pointerEvents="box-none" style={styles.modeSwitch}>
+              <AppButton testID="field-survey.walk" leadingIcon={walking ? 'square' : 'navigation'} variant="secondary" selected={walking} style={[styles.floatingButton, walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => void toggleWalk()} disabled={(gpsBusy && !walking) || controlsLocked}>{walking ? FIELD_SURVEY_COPY.walkStop : FIELD_SURVEY_COPY.modeWalk}</AppButton>
+              <AppButton testID="field-survey.tap" leadingIcon="map-pin" variant="secondary" selected={!walking} style={[styles.floatingButton, !walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => { if (walking) stopWalk(); }} disabled={controlsLocked}>{FIELD_SURVEY_COPY.modeTap}</AppButton>
+            </View>
+            {controlsLocked || walking ? null : (
+              <AppButton testID="field-survey.add-center" leadingIcon="plus" accessibilityLabel={FIELD_SURVEY_COPY.addAtCenterLabel} style={styles.floatingButton} onPress={addPointAtCenter}>{selected ? FIELD_SURVEY_COPY.moveToCenter : FIELD_SURVEY_COPY.addAtCenter}</AppButton>
+            )}
           </View>
         </View>
-        {isOnline !== true ? <Text style={[styles.mapNote, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.offlineMap}</Text> : tileFailures.some((key) => tiles.some((tile) => tile.key === key)) ? <Text style={[styles.mapNote, { color: theme.warning }]}>{FIELD_SURVEY_COPY.mapTileError}</Text> : null}
-        <Text testID="field-survey.status-strip" accessibilityLiveRegion="polite" accessibilityValue={{ text: `mode=${mode}` }} style={[styles.statusStrip, { color: theme[SYNC_TONE_COLOR[strip.tone]], backgroundColor: theme.surfaceElevated, borderColor: theme[SYNC_TONE_COLOR[strip.tone]] }]}>{strip.text}</Text>
-        <Text testID="field-survey.tool-state" accessibilityLiveRegion="polite" accessibilityValue={{ text: `tool=${toolState}` }} style={[styles.toolChip, { color: theme.text, backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.toolState[toolState]}</Text>
-        <View style={styles.row}>
-          <AppButton variant="secondary" leadingIcon="corner-up-left" style={styles.toolButton} disabled={(!pointCount && history.length === 0) || controlsLocked} onPress={undoLast}>{FIELD_SURVEY_COPY.undo}</AppButton>
-          <AppButton variant="secondary" leadingIcon="trash-2" style={styles.toolButton} disabled={selected === null || controlsLocked} onPress={removeSelected}>{FIELD_SURVEY_COPY.removeSelected}</AppButton>
+        <View style={[styles.controls, expanded && { backgroundColor: theme.background }]}>
+          <View accessibilityRole="radiogroup" style={styles.segmented}>
+            <AppButton testID="field-survey.target-plot" leadingIcon="square" variant="secondary" selected={!drawingAffectedArea} style={[styles.toolButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (drawingAffectedArea) stopWalk(); setDrawingAffectedArea(false); setSelected(null); setSyncMessage(null); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
+            <AppButton testID="field-survey.target-affected" leadingIcon="alert-triangle" variant="secondary" selected={drawingAffectedArea} style={[styles.toolButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.warning, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (!drawingAffectedArea) stopWalk(); setDrawingAffectedArea(true); setSelected(null); setSyncMessage(null); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
+          </View>
+          <View style={styles.toolRow}>
+            {/* Three buttons share the row while an affected area is open, so they drop their icons to keep one line each. */}
+            <AppButton variant="secondary" leadingIcon={drawingAffectedArea ? undefined : 'corner-up-left'} style={styles.toolButton} disabled={(!pointCount && history.length === 0) || controlsLocked} onPress={undoLast}>{FIELD_SURVEY_COPY.undo}</AppButton>
+            <AppButton variant="secondary" leadingIcon={drawingAffectedArea ? undefined : 'trash-2'} style={styles.toolButton} disabled={selected === null || controlsLocked} onPress={removeSelected}>{FIELD_SURVEY_COPY.removeSelected}</AppButton>
+            {drawingAffectedArea ? <AppButton variant="secondary" style={styles.toolButton} disabled={affectedWaypoints.length < 3 || controlsLocked} onPress={finishAffectedArea}>{FIELD_SURVEY_COPY.finishAffectedArea}</AppButton> : null}
+          </View>
+          {expanded ? (
+            <View style={styles.expandedBar}>
+              <Text accessibilityLiveRegion="polite" testID="field-survey.area" numberOfLines={2} style={[styles.areaCompact, { color: validation.valid ? theme.primaryDark : theme.textSecondary }]}>{areaReadout}</Text>
+              <AppButton testID="field-survey.expanded-done" leadingIcon="minimize-2" variant="secondary" style={styles.floatingButton} onPress={() => setExpanded(false)}>{FIELD_SURVEY_COPY.expandedDone}</AppButton>
+            </View>
+          ) : (
+            <Pressable testID="field-survey.more" accessibilityRole="button" accessibilityState={{ expanded: moreOpen }} accessibilityLabel={moreOpen ? FIELD_SURVEY_COPY.moreOpen : FIELD_SURVEY_COPY.more} onPress={() => setMoreOpen((open) => !open)} style={styles.moreToggle}>
+              <Text style={[styles.label, styles.pointsToggleLabel, { color: theme.primaryDark }]}>{FIELD_SURVEY_COPY.moreDetails}</Text>
+              <Feather name={moreOpen ? 'chevron-up' : 'chevron-down'} size={20} color={theme.textSecondary} />
+            </Pressable>
+          )}
         </View>
-        {drawingAffectedArea ? <AppButton variant="secondary" style={styles.toolButton} disabled={affectedWaypoints.length < 3 || controlsLocked} onPress={finishAffectedArea}>{FIELD_SURVEY_COPY.finishAffectedArea}</AppButton> : null}
-        {moreOpen ? (
+        {moreOpen && !expanded ? (
         <ScrollView testID="field-survey.more-panel" style={styles.details} contentContainerStyle={styles.detailsContent} keyboardShouldPersistTaps="handled">
           <Text style={[styles.intro, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.intro}</Text>
         {!forReport && screenIsStoredOrMissing(mode) && mode !== 'sending' ? <AppButton variant="secondary" onPress={startNewBoundary}>{screenNeedsFreshIdentity(mode) ? FIELD_SURVEY_COPY.startNewBoundaryAfterRejection : FIELD_SURVEY_COPY.newSurvey}</AppButton> : null}
-          <View style={styles.row}>
-            <AppButton leadingIcon="map-pin" variant="secondary" selected={!drawingAffectedArea} style={[styles.toolButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (drawingAffectedArea) stopWalk(); setDrawingAffectedArea(false); setSelected(null); setSyncMessage(null); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
-            <AppButton leadingIcon="map-pin" variant="secondary" selected={drawingAffectedArea} style={[styles.toolButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (!drawingAffectedArea) stopWalk(); setDrawingAffectedArea(true); setSelected(null); setSyncMessage(null); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
-          </View>
           <AppButton leadingIcon="crosshair" variant="secondary" style={styles.toolButton} onPress={() => void captureGpsWaypoint()} busy={gpsBusy} disabled={gpsBusy || walking || controlsLocked}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.addGpsPoint}</AppButton>
           <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.mapHelp}</Text>
           <Pressable
@@ -1108,20 +1212,22 @@ export default function FieldSurveyScreen() {
           ))}
         </ScrollView>
         ) : null}
-        <ActionDock
+        {expanded ? null : <ActionDock
           note={
             <>
               <Text accessibilityLiveRegion="polite" testID="field-survey.area" style={[styles.area, { color: validation.valid ? theme.primaryDark : theme.textSecondary }]}>{areaReadout}</Text>
               {validityMarks.issue && validityMarks.issue !== 'too_few_points' ? <Text testID="field-survey.validity" accessibilityLiveRegion="polite" style={[styles.help, { color: theme.danger }]}>{FIELD_SURVEY_COPY.validity[validityMarks.issue]}</Text> : null}
-              {saveLine}
-              {forReport && !reportReady ? <Text testID="field-survey.report-unfinished" style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.reportUnfinished}</Text> : null}
+              {/* One fixed-height slot, so the map above never jumps when this line changes. */}
+              <View style={styles.statusSlot}>
+                {forReport && !reportReady ? <Text testID="field-survey.report-unfinished" numberOfLines={2} style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.reportUnfinished}</Text> : saveLine}
+              </View>
               {syncMessage ? <Text accessibilityLiveRegion="assertive" testID="field-survey.sync-status" style={[styles.help, { color: theme.info }]}>{syncMessage}</Text> : null}
               {Object.entries(fieldErrors).map(([field, messages]) => <Text key={field} style={[styles.error, { color: theme.danger }]}>{field === 'district_code' ? messages.join(' ') : `${field}: ${messages.join(' ')}`}</Text>)}
             </>
           }
           primary={forReport ? <AppButton testID="field-survey.use-in-report" leadingIcon="check" disabled={!reportReady} onPress={() => router.back()}>{FIELD_SURVEY_COPY.reportDone}</AppButton> : <AppButton testID="field-survey.submit" leadingIcon="upload-cloud" busy={saving} disabled={!screenCanSubmit(screenState) || !validation.valid || saveState !== 'saved' || saving || affectedWaypoints.length > 0} onPress={() => void saveAndSync()}>{saving ? FIELD_SURVEY_SYNC_COPY.submitting : FIELD_SURVEY_SYNC_COPY.submit}</AppButton>}
           secondary={<AppButton variant="secondary" style={dockSecondaryButtonStyle} onPress={() => router.back()}>{FIELD_SURVEY_COPY.close}</AppButton>}
-        />
+        />}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -1130,30 +1236,45 @@ export default function FieldSurveyScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   body: { flex: 1 },
-  mapSection: { flex: 1, minHeight: 240 },
+  mapSection: { flex: 1, minHeight: 320 },
+  mapSectionExpanded: { flex: 1 },
+  mapExpanded: { flex: 1, overflow: 'hidden' },
+  overlayTop: { position: 'absolute', top: Spacing.sm + Spacing.sm, left: Spacing.lg + Spacing.sm, right: Spacing.lg + Spacing.sm, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  overlayMessages: { flex: 1, gap: Spacing.xs },
+  overlayButtons: { gap: Spacing.sm },
+  overlayBottom: { position: 'absolute', bottom: Spacing.md + 20, left: Spacing.lg + Spacing.sm, right: Spacing.lg + Spacing.sm, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: Spacing.xs },
+  pill: { alignSelf: 'flex-start', maxWidth: '100%', paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderWidth: 1, borderRadius: Radius.md, overflow: 'hidden' },
+  pillText: { ...Typography.caption, fontWeight: '600' },
+  iconButton: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  crosshair: { position: 'absolute', top: '50%', left: '50%', width: 28, height: 28, marginLeft: -14, marginTop: -14, alignItems: 'center', justifyContent: 'center', opacity: 0.75 },
+  crosshairBarH: { position: 'absolute', width: 28, height: 2 },
+  crosshairBarV: { position: 'absolute', width: 2, height: 28 },
+  controls: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, gap: Spacing.sm },
+  segmented: { flexDirection: 'row', gap: Spacing.sm },
+  toolRow: { flexDirection: 'row', gap: Spacing.sm },
+  moreToggle: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  expandedBar: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingBottom: Spacing.sm },
+  areaCompact: { ...Typography.label, flex: 1 },
+  statusSlot: { minHeight: 40, justifyContent: 'center' },
   details: { flexGrow: 0, flexShrink: 1, maxHeight: 190 },
   detailsContent: { padding: Spacing.lg, gap: Spacing.sm },
   intro: { ...Typography.bodySmall },
   label: { ...Typography.label, marginTop: Spacing.xs },
   help: { ...Typography.bodySmall },
-  mapNote: { ...Typography.bodySmall, paddingHorizontal: Spacing.lg, paddingTop: Spacing.xs },
   error: { ...Typography.bodySmall, fontWeight: '500' },
-  map: { flex: 1, borderWidth: 1, borderRadius: Radius.lg, overflow: 'hidden', marginHorizontal: Spacing.lg, marginTop: Spacing.sm },
+  map: { flex: 1, borderWidth: MAP_BORDER_WIDTH, borderRadius: Radius.lg, overflow: 'hidden', marginHorizontal: Spacing.lg, marginTop: Spacing.sm },
   mapLayer: { position: 'absolute', left: -SURVEY_MAP_OVERSCAN, top: -SURVEY_MAP_OVERSCAN },
-  attribution: { position: 'absolute', right: Spacing.xs, bottom: Spacing.xs, paddingHorizontal: Spacing.xs, paddingVertical: Spacing.xs, borderRadius: Radius.sm, ...Typography.caption },
-  statusStrip: { ...Typography.label, marginHorizontal: Spacing.lg, marginTop: Spacing.xs, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderWidth: 1, borderRadius: Radius.sm, overflow: 'hidden' },
+  attribution: { position: 'absolute', right: 0, bottom: 0, paddingHorizontal: Spacing.xs, borderTopLeftRadius: Radius.sm, fontSize: 10, lineHeight: 14 },
   retry: { fontWeight: '700', textDecorationLine: 'underline' },
-  toolChip: { ...Typography.caption, marginHorizontal: Spacing.lg, marginTop: Spacing.xs, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderWidth: 1, borderRadius: Radius.sm, overflow: 'hidden' },
   insertHandle: { position: 'absolute', width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   insertGlyph: { ...Typography.label, lineHeight: 18 },
   areaChip: { position: 'absolute', minWidth: 32, height: 24, paddingHorizontal: Spacing.xs, borderRadius: Radius.sm, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   areaChipText: { ...Typography.caption, fontWeight: '700' },
   areaRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
   areaRowLabel: { flex: 1 },
-  floatingControlsRight: { position: 'absolute', top: Spacing.md + Spacing.sm, right: Spacing.lg + Spacing.sm, alignItems: 'flex-end', gap: Spacing.xs },
-  modeSwitch: { position: 'absolute', bottom: Spacing.lg + Spacing.md, left: Spacing.lg + Spacing.sm, right: Spacing.lg + Spacing.sm, flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+  modeSwitch: { flexDirection: 'row', gap: Spacing.xs },
   floatingButton: { minHeight: 44, paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md },
-  toolButton: { flex: 1, minHeight: 44, paddingVertical: Spacing.xs },
+  toolButton: { flex: 1, minHeight: 44, paddingVertical: Spacing.xs, paddingHorizontal: Spacing.sm },
   row: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm },
   pointsToggle: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pointsToggleLabel: { marginTop: 0, flex: 1 },

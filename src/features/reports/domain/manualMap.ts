@@ -19,6 +19,10 @@ export interface MapTile {
   left: number;
   top: number;
   url: string;
+  /** Tile coordinates as sent to the provider (x is wrapped into range). */
+  x: number;
+  y: number;
+  z: number;
 }
 
 export const DEV_MAP_TILE_URL_TEMPLATE =
@@ -123,6 +127,9 @@ export function getMapTiles(
       const wrappedX = ((rawX % tileCount) + tileCount) % tileCount;
       tiles.push({
         key: `${zoom}-${rawX}-${rawY}`,
+        x: wrappedX,
+        y: rawY,
+        z: zoom,
         left: rawX * MAP_TILE_SIZE - world.x + width / 2,
         top: rawY * MAP_TILE_SIZE - world.y + height / 2,
         url: tileUrlTemplate

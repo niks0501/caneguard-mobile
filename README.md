@@ -73,8 +73,8 @@ A MapTiler browser key is optional for the Web map.
 The Web dashboard keeps its report-table fallback visible when `VITE_MAPTILER_KEY` is blank.
 
 For the Mobile GPS path, grant CaneGuard foreground location permission and enable location services on the Android emulator or device.
-If GPS is unavailable, permission is denied, or location services are off, the manual-map fallback requires an active internet connection and loaded online map tiles served through the configured CaneGuard HTTPS tile proxy (`EXPO_PUBLIC_MAP_TILE_PROXY_URL`); without that proxy the map shows an unavailable state and makes no third-party tile requests.
-It is not available offline; the Draft is preserved either way, and an inspector who cannot use GPS or the online map records an explicit unavailable-location reason before finalizing.
+If GPS is unavailable, permission is denied, or location services are off, the manual-map fallback requires loaded map tiles, fetched online or already cached, served through the configured CaneGuard HTTPS tile proxy (`EXPO_PUBLIC_MAP_TILE_PROXY_URL`); without that proxy the map shows an unavailable state and makes no third-party tile requests.
+Map areas already viewed stay in an on-device tile cache and remain visible offline (see [map-tile cache policy](docs/security/map-tile-cache.md)); areas never viewed are blank offline. The Draft is preserved either way, and an inspector who cannot use GPS or a map records an explicit unavailable-location reason before finalizing.
 
 ## One-time setup
 

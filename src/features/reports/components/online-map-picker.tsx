@@ -17,6 +17,7 @@ import { GestureDetector, type GestureType } from 'react-native-gesture-handler'
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MANUAL_MAP_COPY } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import {
   DEFAULT_MANUAL_MAP_ZOOM,
@@ -31,6 +32,7 @@ import {
   type MapCoordinate,
 } from '@/features/reports/domain/manualMap';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
+import { useTileSources } from '@/features/reports/tiles/useTileSources';
 import { useTheme } from '@/hooks/use-theme';
 
 const MAP_HEIGHT = 360;
@@ -116,18 +118,33 @@ export function OnlineMapPicker({
     [center, mapTileUrlTemplate, viewport.height, viewport.width, zoom],
   );
   const mapTileSourceConfigured = Boolean(mapTileUrlTemplate);
+  const { missing, reportTileError, sources } = useTileSources(
+    tiles,
+    mapTileUrlTemplate,
+    { authToken, isOnline },
+  );
   const visibleTileKeys = new Set(tiles.map(({ key }) => key));
   const activeLoadState = {
     failed: tileLoadState.failed.filter((key) => visibleTileKeys.has(key)),
     loaded: tileLoadState.loaded.filter((key) => visibleTileKeys.has(key)),
   };
+  const online = isOnline === true;
+  // Online, every tile must load. Offline, saved tiles are enough: tiles that
+  // were never saved stay a neutral background and must not block the picker.
   const mapLoaded =
-    tiles.length > 0 && activeLoadState.loaded.length === tiles.length;
+    tiles.length > 0 &&
+    (online
+      ? activeLoadState.loaded.length === tiles.length
+      : activeLoadState.loaded.length > 0 &&
+        activeLoadState.loaded.length + missing.size >= tiles.length);
   const mapFailed =
     mapTileSourceConfigured &&
-    isOnline === true &&
+    online &&
     tiles.length > 0 &&
-    activeLoadState.failed.length > 0;
+    (activeLoadState.failed.length > 0 || missing.size > 0);
+  const offlineNothingSaved =
+    !online && tiles.length > 0 && missing.size >= tiles.length;
+  const offlinePartial = !online && mapLoaded && missing.size > 0;
   const pinPoint = selection
     ? coordinateToViewportPoint(
         center,
@@ -160,7 +177,7 @@ export function OnlineMapPicker({
   }
 
   function onMapPress(event: NativeSyntheticEvent<NativeTouchEvent>) {
-    if (isOnline !== true || !mapLoaded) return;
+    if (!mapLoaded) return;
     const viewportNode = viewportRef.current;
     // The jest test renderer's measureInWindow is a no-op that never calls
     // back, so skip it in tests (same env check react-native-gesture-handler
@@ -211,7 +228,7 @@ export function OnlineMapPicker({
     setCenter((current) => moveMapCenter(current, zoom, deltaX, deltaY));
   }
 
-  const gesturesEnabled = mapTileSourceConfigured && isOnline === true && mapLoaded;
+  const gesturesEnabled = mapTileSourceConfigured && mapLoaded;
   const handleGestureCommit = useCallback(
     (nextCenter: MapCoordinate, nextZoom: number) => {
       setCenter(nextCenter);
@@ -236,7 +253,7 @@ export function OnlineMapPicker({
           testID="manual-map.viewport"
           accessibilityRole="imagebutton"
           accessibilityLabel="Privacy-preserving manual map. Tap to place the report location pin."
-          disabled={!mapTileSourceConfigured || isOnline !== true || !mapLoaded}
+          disabled={!mapTileSourceConfigured || !mapLoaded}
           onLayout={onLayout}
           onPress={onMapPress}
           style={[
@@ -253,23 +270,18 @@ export function OnlineMapPicker({
               },
               layerStyle,
             ]}>
-            {isOnline === true
-              ? tiles.map((tile) => (
+            {tiles.map((tile) => {
+              const source = sources.get(tile.key);
+              if (!source) return null;
+              return (
                   <ExpoImage
                     key={tile.key}
                     testID="manual-map.tile"
                     pointerEvents="none"
-                    source={{
-                      headers: {
-                        'User-Agent': 'CaneGuard-Mobile/1.0',
-                        ...(authToken &&
-                        !tile.url.includes('tile.openstreetmap.org')
-                          ? { Authorization: `Bearer ${authToken}` }
-                          : {}),
-                      },
-                      uri: tile.url,
-                    }}
-                    cachePolicy="disk"
+                    source={source}
+                    // Local files are already our cache; a provider-direct
+                    // fallback must not grow expo-image's unbounded disk cache.
+                    cachePolicy="memory"
                     contentFit="fill"
                     onLoad={() =>
                       setTileLoadState((current) => {
@@ -284,7 +296,7 @@ export function OnlineMapPicker({
                         };
                       })
                     }
-                    onError={() =>
+                    onError={() => {
                       setTileLoadState((current) => {
                         return current.failed.includes(tile.key)
                           ? current
@@ -292,12 +304,14 @@ export function OnlineMapPicker({
                               ...current,
                               failed: [...current.failed, tile.key],
                             };
-                      })
-                    }
+                      });
+                      // A corrupted cached file is discarded and downloaded again.
+                      reportTileError(tile.key);
+                    }}
                     style={[styles.tile, { left: tile.left, top: tile.top }]}
                   />
-                ))
-              : null}
+              );
+            })}
 
             {pinPoint ? (
               <View
@@ -351,7 +365,7 @@ export function OnlineMapPicker({
               icon="shield"
               message="Manual map tiles are temporarily unavailable. Your Draft is unchanged."
             />
-          ) : isOnline !== true ? (
+          ) : offlineNothingSaved ? (
             <MapOverlay
               icon="wifi-off"
               message="Connect to the internet to load the manual map. Your Draft is unchanged."
@@ -435,7 +449,9 @@ export function OnlineMapPicker({
 
       {!fullscreen ? (
         <Text style={[styles.attribution, { color: theme.textSecondary }]}>
-          Tiles load for the visible online map. Use GPS location capture when offline.
+          {offlinePartial
+            ? MANUAL_MAP_COPY.offlinePartial
+            : 'Tiles load for the visible online map. Use GPS location capture when offline.'}
         </Text>
       ) : null}
       <Text

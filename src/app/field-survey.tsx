@@ -37,6 +37,7 @@ import {
 import { findOwnedFieldSurvey, listOwnedFieldSurveys, saveFieldSurveyDraft, markFieldSurveyPending } from '@/features/surveys/data/fieldSurveyRepository';
 import { viewportPointFromPressEvent } from '@/features/reports/components/online-map-picker';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
+import { useTileSources } from '@/features/reports/tiles/useTileSources';
 import { measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyPolygon, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { LOADING_SCREEN, NEW_BOUNDARY_SCREEN, screenCanEdit, screenCanSubmit, screenIsStoredOrMissing, screenNeedsFreshIdentity, screenStateForRow, statusStripFor, WAITING_TO_SEND_SCREEN, type ScreenState } from '@/features/surveys/domain/screenMode';
 import { FIELD_SURVEY_SYNC_COPY, SYNC_TONE_COLOR } from '@/features/sync/utils/syncStatusCopy';
@@ -381,12 +382,11 @@ export default function FieldSurveyScreen() {
     viewport.height + SURVEY_MAP_OVERSCAN * 2,
     tileTemplate,
   ), [center, tileTemplate, viewport.height, viewport.width, zoom]);
-  // Stable source objects per tile, so a re-render never hands expo-image a "new" source to reload.
-  const sessionToken = session?.token ?? null;
-  const tileSources = useMemo(() => new Map(tiles.map((tile) => [tile.key, {
-    uri: tile.url,
-    headers: { 'User-Agent': 'CaneGuard-Mobile/1.0', ...(sessionToken && !tile.url.includes('tile.openstreetmap.org') ? { Authorization: `Bearer ${sessionToken}` } : {}) },
-  }])), [sessionToken, tiles]);
+  // Cached tiles show offline or when expired; stale ones refresh in the background when online.
+  const { missing: missingTiles, reportTileError, sources: tileSources } = useTileSources(tiles, tileTemplate, {
+    authToken: session?.token ?? null,
+    isOnline,
+  });
 
   useEffect(() => {
     if (!ready || !database || !session?.user.uuid) return;
@@ -1011,8 +1011,8 @@ export default function FieldSurveyScreen() {
   // One message on the map: what to tap next while drawing, otherwise what state the boundary is in.
   const showToolHint = mode === 'drawing_new' || (mode === 'drawing_resumed' && hasEdited) || (gpsBusy && screenCanEdit(mode));
   const mapNote = isOnline !== true
-    ? FIELD_SURVEY_COPY.offlineMap
-    : tileFailures.some((key) => tileSources.has(key)) ? FIELD_SURVEY_COPY.mapTileError : null;
+    ? tileSources.size > 0 ? FIELD_SURVEY_COPY.offlineMapSaved : FIELD_SURVEY_COPY.offlineMap
+    : missingTiles.size > 0 || tileFailures.some((key) => tileSources.has(key)) ? FIELD_SURVEY_COPY.mapTileError : null;
 
   if (!canAuthorSurvey) {
     return (
@@ -1052,19 +1052,22 @@ export default function FieldSurveyScreen() {
               style={[expanded ? styles.mapExpanded : styles.map, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
             >
           <Animated.View pointerEvents="box-none" style={[styles.mapLayer, { width: viewport.width + SURVEY_MAP_OVERSCAN * 2, height: viewport.height + SURVEY_MAP_OVERSCAN * 2 }, layerStyle]}>
-          {isOnline === true ? tiles.map((tile) => (
+          {tiles.map((tile) => tileSources.has(tile.key) ? (
             <ExpoImage
               key={tile.key}
               pointerEvents="none"
               source={tileSources.get(tile.key)}
-              cachePolicy="memory-disk"
+              cachePolicy="memory"
               transition={0}
               contentFit="fill"
               onLoad={() => setTileFailures((current) => current.includes(tile.key) ? current.filter((key) => key !== tile.key) : current)}
-              onError={() => setTileFailures((current) => current.includes(tile.key) ? current : [...current, tile.key])}
+              onError={() => {
+                setTileFailures((current) => current.includes(tile.key) ? current : [...current, tile.key]);
+                reportTileError(tile.key);
+              }}
               style={{ position: 'absolute', left: tile.left, top: tile.top, width: MAP_TILE_SIZE, height: MAP_TILE_SIZE }}
             />
-          )) : null}
+          ) : null)}
           <Svg pointerEvents="none" width={viewport.width + SURVEY_MAP_OVERSCAN * 2} height={viewport.height + SURVEY_MAP_OVERSCAN * 2}>
             {waypoints.length >= 3 ? <Polygon points={ringPoints} fill="rgba(32, 128, 86, 0.22)" stroke={theme.primary} strokeWidth={3} /> : waypoints.length >= 2 ? <Polyline points={ringPoints} fill="none" stroke={theme.primary} strokeWidth={3} /> : null}
             {affectedAreas.map((area, areaIndex) => {
@@ -1116,7 +1119,7 @@ export default function FieldSurveyScreen() {
               <View style={[styles.crosshairBarV, { backgroundColor: theme.text }]} />
             </View>
           )}
-          {tiles.length > 0 && isOnline === true ? <Text pointerEvents="none" style={[styles.attribution, { color: theme.text, backgroundColor: theme.surfaceElevated }]}>{FIELD_SURVEY_COPY.mapAttribution}</Text> : null}
+          {tiles.length > 0 && tileSources.size > 0 ? <Text pointerEvents="none" style={[styles.attribution, { color: theme.text, backgroundColor: theme.surfaceElevated }]}>{FIELD_SURVEY_COPY.mapAttribution}</Text> : null}
             </Pressable>
           </GestureDetector>
           <View pointerEvents="box-none" style={styles.overlayTop}>

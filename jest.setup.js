@@ -49,6 +49,18 @@ jest.mock('expo-image', () => {
   };
 });
 
+// The on-device tile cache is covered by its own unit tests. Screens get a
+// stand-in that serves the provider URL while online and nothing offline.
+jest.mock('@/features/reports/tiles', () => ({
+  tileCache: {
+    discard: jest.fn(async () => undefined),
+    resolve: jest.fn(async (request, online) =>
+      online ? { headers: request.headers, kind: 'remote', uri: request.url } : null,
+    ),
+    subscribe: jest.fn(() => () => undefined),
+  },
+}));
+
 jest.mock('expo-router', () => {
   const React = require('react');
 

@@ -470,7 +470,7 @@ Do not run EAS build or submit automatically.
 - Backend synchronization requires a valid `field_reporter` session and a complete local report, including barangay, resolved location evidence (coordinates with their source, or a bounded unavailable reason with no coordinates), and the managed image.
 - The bundled AI model is decision support, not a diagnostic authority.
 - Scan results and report uploads follow the version-specific label and score contract described in [Model contract](#model-contract). Legacy V0 records and the legacy V1 report-upload contract remain three-class.
-- The P0 manual-map fallback is online-only. Direct third-party tile requests are disabled; production must configure a CaneGuard-owned HTTPS tile proxy with attribution and normal HTTP caching. It does not prefetch or expose offline map downloads.
+- The manual map and the Measure Plot map need a connection to load new tiles, but tiles already viewed stay cached on the device (200 MB LRU cache, provider HTTP freshness with a 7-day fallback) and remain visible offline. Direct third-party tile requests are disabled; production must configure a CaneGuard-owned HTTPS tile proxy with attribution and normal HTTP caching. There is no prefetching and no offline map downloads until a provider that permits them is configured; see `docs/security/map-tile-cache.md`.
 - Preserve compatibility with existing SQLite data and generated Drizzle migrations.
 - Avoid unnecessary native dependencies when Expo-supported APIs already satisfy the requirement.
 

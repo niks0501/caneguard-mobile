@@ -96,3 +96,5 @@ cannot be completed in this repository.
   authorize that proxy, preserve required upstream attribution/licensing, and
   avoid forwarding precise user identity. That API work and production host
   choice are outside this repository.
+- Tile caching limits and the proxy cache-header prerequisite are in
+  `docs/security/map-tile-cache.md`.

@@ -159,6 +159,49 @@ describe('TileCache', () => {
     expect(blocked.fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('records why a tile failed and logs each distinct cause once without URLs or tokens', async () => {
+    const log = jest.fn();
+    const store = new MemoryStore();
+    const cache = new TileCache(store, {
+      fetch: (async (url: string) =>
+        url.includes('/15/9/') ? response(403) : response(503)) as unknown as typeof fetch,
+      log,
+      now: () => 1_700_000_000_000,
+      sleep: async () => undefined,
+    });
+    await cache.resolve(request(1), true);
+    await cache.resolve(request(2), true);
+    await cache.resolve(request(9, { url: 'https://api.example.test/tiles/15/9/2.png?key=secret' }), true);
+
+    expect(cache.lastFailure(request(1))).toBe('HTTP 503');
+    expect(cache.lastFailure(request(9))).toBe('HTTP 403');
+    expect(log.mock.calls.map(([line]) => line)).toEqual([
+      '[map-tiles] HTTP 503 from https://api.example.test',
+      '[map-tiles] HTTP 403 from https://api.example.test',
+    ]);
+    expect(JSON.stringify(log.mock.calls)).not.toMatch(/secret/);
+  });
+
+  it('reports a timeout or network error and clears the failure after a success', async () => {
+    let mode: 'timeout' | 'network' | 'ok' = 'timeout';
+    const { cache, clock } = setup(() => {
+      if (mode === 'ok') return response(200);
+      const error = new Error(mode);
+      if (mode === 'timeout') error.name = 'AbortError';
+      throw error;
+    });
+    await cache.resolve(request(), true);
+    expect(cache.lastFailure(request())).toBe('timeout');
+    mode = 'network';
+    clock.now += 61_000;
+    await cache.resolve(request(), true);
+    expect(cache.lastFailure(request())).toBe('network error');
+    mode = 'ok';
+    clock.now += 61_000;
+    await cache.resolve(request(), true);
+    expect(cache.lastFailure(request())).toBeUndefined();
+  });
+
   it('does not hammer a failing tile: one network attempt per cooldown window', async () => {
     const { cache, clock, fetchMock } = setup(() => response(404));
     await cache.resolve(request(), true);

@@ -54,6 +54,7 @@ jest.mock('expo-image', () => {
 jest.mock('@/features/reports/tiles', () => ({
   tileCache: {
     discard: jest.fn(async () => undefined),
+    lastFailure: jest.fn(() => undefined),
     resolve: jest.fn(async (request, online) =>
       online ? { headers: request.headers, kind: 'remote', uri: request.url } : null,
     ),

@@ -118,7 +118,7 @@ export function OnlineMapPicker({
     [center, mapTileUrlTemplate, viewport.height, viewport.width, zoom],
   );
   const mapTileSourceConfigured = Boolean(mapTileUrlTemplate);
-  const { missing, reportTileError, sources } = useTileSources(
+  const { diagnostic, missing, reportTileError, sources } = useTileSources(
     tiles,
     mapTileUrlTemplate,
     { authToken, isOnline },
@@ -373,7 +373,7 @@ export function OnlineMapPicker({
           ) : mapFailed ? (
             <MapOverlay
               icon="alert-triangle"
-              message="The online map could not load. Keep this report as a Draft and try again later."
+              message={`The online map could not load. Keep this report as a Draft and try again later.${diagnostic ? ` [dev: ${diagnostic}]` : ''}`}
             />
           ) : !mapLoaded ? (
             <View style={styles.loadingOverlay}>

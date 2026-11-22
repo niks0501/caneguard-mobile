@@ -3,15 +3,13 @@ import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
+import { DisclosureSection } from '@/components/ui/DisclosureSection';
 import { BOUNDARY_STATE_COPY, FIELD_SURVEY_COPY } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import type { FieldSurveyRow } from '@/database/schema';
 import { useTheme } from '@/hooks/use-theme';
+import { measuredBoundaryArea } from '@/features/surveys/domain/attachedBoundary';
 import { boundaryState } from '@/features/surveys/domain/boundaryState';
-import {
-  validateSurveyWaypoints,
-  type SurveyWaypoint,
-} from '@/features/surveys/domain/fieldSurvey';
 
 export interface ReportSurveyCardProps {
   attachedSurvey: FieldSurveyRow | null;
@@ -22,16 +20,9 @@ export interface ReportSurveyCardProps {
   surveys: FieldSurveyRow[];
 }
 
-/** Measured plot area in square metres, or null when the saved boundary is unusable. */
+/** Measured plot area in square metres, or null while the saved boundary is unfinished or unusable. */
 function measuredAreaSqm(row: FieldSurveyRow): number | null {
-  try {
-    const measured = validateSurveyWaypoints(
-      JSON.parse(row.waypointsJson) as SurveyWaypoint[],
-    );
-    return measured.valid ? measured.areaSqm : null;
-  } catch {
-    return null;
-  }
+  return measuredBoundaryArea(row)?.areaSqm ?? null;
 }
 
 function optionLabel(row: FieldSurveyRow, areaSqm: number | null): string {
@@ -40,7 +31,7 @@ function optionLabel(row: FieldSurveyRow, areaSqm: number | null): string {
   return FIELD_SURVEY_COPY.linkOption(district, hectares, BOUNDARY_STATE_COPY[boundaryState(row)].label);
 }
 
-/** Attach a saved boundary survey to a Draft report and jump to its Measure plot. */
+/** Optional map measurement inside a Draft report: measure on the map, or reuse a map saved on this phone. */
 export function ReportSurveyCard({ attachedSurvey, attachedUuid, disabled, onAttach, onOpenMeasure, surveys }: ReportSurveyCardProps) {
   const theme = useTheme();
   // Only measured boundaries are worth attaching.
@@ -70,42 +61,23 @@ export function ReportSurveyCard({ attachedSurvey, attachedUuid, disabled, onAtt
 
       {attachedUuid ? (
         <View style={styles.row}>
-          <Feather name="check-circle" size={16} color={theme.success} />
+          <Feather name={attachedAreaSqm === null ? 'alert-circle' : 'check-circle'} size={16} color={attachedAreaSqm === null ? theme.warning : theme.success} />
           <Text testID="field-report.survey-attached" style={[styles.help, { color: theme.text, flex: 1 }]}>
-            {attachedSurvey
-              ? `${FIELD_SURVEY_COPY.linkAttached}: ${optionLabel(attachedSurvey, attachedAreaSqm)}`
-              : FIELD_SURVEY_COPY.linkMissing}
+            {!attachedSurvey
+              ? FIELD_SURVEY_COPY.linkMissing
+              : attachedAreaSqm === null
+                ? FIELD_SURVEY_COPY.linkUnfinished
+                : FIELD_SURVEY_COPY.linkAttached((attachedAreaSqm / 10_000).toFixed(2))}
           </Text>
         </View>
-      ) : (
-        <Text style={[styles.help, { color: theme.textSecondary }]}>
-          {choices.length === 0 ? FIELD_SURVEY_COPY.linkEmpty : FIELD_SURVEY_COPY.linkNone}
-        </Text>
-      )}
-
-      {attachedSurvey ? (
-        <Text testID="field-report.survey-state" style={[styles.help, { color: theme.textSecondary }]}>
-          {BOUNDARY_STATE_COPY[boundaryState(attachedSurvey)].hint}
-        </Text>
       ) : null}
-
-      {choices.map(({ areaSqm, row }) => (
-        <AppButton
-          key={row.clientUuid}
-          testID={`field-report.survey-attach.${row.clientUuid}`}
-          variant="secondary"
-          disabled={disabled}
-          accessibilityLabel={`${FIELD_SURVEY_COPY.linkAttach} ${optionLabel(row, areaSqm)}`}
-          onPress={() => onAttach(row.clientUuid)}>
-          {`${FIELD_SURVEY_COPY.linkAttach}: ${optionLabel(row, areaSqm)}`}
-        </AppButton>
-      ))}
 
       <AppButton
         testID="field-report.survey-open"
         variant="secondary"
         leadingIcon="map"
-        onPress={() => onOpenMeasure(attachedUuid)}>
+        disabled={disabled}
+        onPress={() => onOpenMeasure(attachedSurvey ? attachedUuid : null)}>
         {attachedSurvey ? FIELD_SURVEY_COPY.linkOpen : FIELD_SURVEY_COPY.linkMeasure}
       </AppButton>
       {attachedUuid ? (
@@ -116,6 +88,25 @@ export function ReportSurveyCard({ attachedSurvey, attachedUuid, disabled, onAtt
           onPress={() => onAttach(null)}>
           {FIELD_SURVEY_COPY.linkRemove}
         </AppButton>
+      ) : null}
+
+      {!attachedUuid && choices.length > 0 ? (
+        <DisclosureSection
+          testID="field-report.survey-saved"
+          title={FIELD_SURVEY_COPY.linkSavedTitle}
+          summary={FIELD_SURVEY_COPY.linkSavedSummary(choices.length)}>
+          {choices.map(({ areaSqm, row }) => (
+            <AppButton
+              key={row.clientUuid}
+              testID={`field-report.survey-attach.${row.clientUuid}`}
+              variant="secondary"
+              disabled={disabled}
+              accessibilityLabel={`${FIELD_SURVEY_COPY.linkAttach} ${optionLabel(row, areaSqm)}`}
+              onPress={() => onAttach(row.clientUuid)}>
+              {`${FIELD_SURVEY_COPY.linkAttach}: ${optionLabel(row, areaSqm)}`}
+            </AppButton>
+          ))}
+        </DisclosureSection>
       ) : null}
     </View>
   );

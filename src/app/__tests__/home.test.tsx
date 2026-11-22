@@ -261,15 +261,14 @@ describe('HomeScreen', () => {
     expect(mockRouterPush).toHaveBeenCalledWith('/activity');
   });
 
-  it('shows Measure a plot and the Field guide as tool tiles', async () => {
+  it('shows the Field guide tile and keeps plot measuring inside the Field Report', async () => {
     await render(<HomeScreen />);
 
-    expect(screen.getByText('Measure a plot')).toBeOnTheScreen();
     expect(screen.getByText('Field guide')).toBeOnTheScreen();
     expect(screen.queryByText('FIELD GUIDE')).not.toBeOnTheScreen();
-
-    await fireEvent.press(screen.getByTestId('home.field-survey'));
-    expect(mockRouterPush).toHaveBeenCalledWith('/field-survey');
+    // Measuring a plot is an optional step of the Field Report, not a Home tool.
+    expect(screen.queryByTestId('home.field-survey')).toBeNull();
+    expect(screen.queryByTestId('home.my-boundaries')).toBeNull();
 
     await fireEvent.press(screen.getByTestId('home.disease-reference'));
     expect(mockRouterPush).toHaveBeenCalledWith('/field-guide');

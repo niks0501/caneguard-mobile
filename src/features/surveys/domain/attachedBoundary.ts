@@ -116,3 +116,51 @@ export function planAttachedBoundarySend(
     },
   };
 }
+
+export interface MeasuredBoundaryArea {
+  /** Drawn affected-area polygons; 0 means only the plot was measured. */
+  affectedAreaCount: number;
+  affectedAreaSqm: number;
+  areaSqm: number;
+}
+
+/**
+ * The plot and affected-area measurement a report can reuse, or null while the
+ * boundary is unfinished (too few points, an open affected area) or damaged.
+ * Reuses the same checks that decide whether the boundary can be sent.
+ */
+export function measuredBoundaryArea(row: AttachedBoundaryInput): MeasuredBoundaryArea | null {
+  const waypoints = asWaypoints(jsonArray(row.waypointsJson));
+  if (!waypoints) return null;
+  const plot = validateSurveyWaypoints(waypoints);
+  if (!plot.valid) return null;
+  const affectedAreas = jsonArray(row.affectedAreaPolygonsJson ?? null);
+  if (affectedAreas === null) return null;
+  const affected = measureAffectedAreas(plot.polygon, affectedAreas as SurveyPolygon[]);
+  if (!affected.valid) return null;
+  const active = jsonArray(row.activeAffectedWaypointsJson ?? null);
+  if (active === null || active.length > 0) return null;
+  return {
+    affectedAreaCount: affectedAreas.length,
+    affectedAreaSqm: affected.areaSqm,
+    areaSqm: plot.areaSqm,
+  };
+}
+
+/**
+ * Report values from a measured boundary: the plot size in hectares and, when
+ * affected areas were drawn, the affected share of the plot in percent.
+ */
+export function reportAreaFromBoundary(measured: MeasuredBoundaryArea): {
+  affectedPortionPercent: number | null;
+  areaHectares: number;
+} {
+  const hectares = measured.areaSqm / 10_000;
+  return {
+    // Two decimals, like the weekly report; a plot under 0.01 ha keeps four so it never reads as 0.
+    areaHectares: hectares >= 0.01 ? Number(hectares.toFixed(2)) : Math.max(0.0001, Number(hectares.toFixed(4))),
+    affectedPortionPercent: measured.affectedAreaCount > 0
+      ? Math.min(100, Number(((measured.affectedAreaSqm / measured.areaSqm) * 100).toFixed(1)))
+      : null,
+  };
+}

@@ -122,3 +122,34 @@ it('follows the stored row from sending to sent without reopening', async () => 
   await waitFor(() => expect(screen.getByTestId('field-survey.status-strip').props.accessibilityValue).toEqual({ text: 'mode=sent' }));
   expect(screen.getByTestId('field-survey.submit').props.accessibilityState.disabled).toBe(true);
 });
+
+// Intent (report mode): a Field Report opens a new map under the identity it already
+// links to; the map sends with the report, so there is no separate send button.
+it('measures for a report under the linked identity and returns with Use in report', async () => {
+  const { router } = jest.requireMock('expo-router') as { router: { back: jest.Mock } };
+  mockParams.mockReturnValue({ surveyId: 'report-map-1', forReport: '1' });
+  await renderWithGestures(<FieldSurveyScreen />);
+  await waitFor(() => expect(screen.getByTestId('field-survey.status-strip').props.accessibilityValue).toEqual({ text: 'mode=drawing_new' }));
+
+  expect(screen.queryByTestId('field-survey.submit')).toBeNull();
+  expect(screen.getByTestId('field-survey.use-in-report')).toBeDisabled();
+  expect(screen.getByTestId('field-survey.report-unfinished')).toHaveTextContent(FIELD_SURVEY_COPY.reportUnfinished);
+  expect(screen.queryByText(FIELD_SURVEY_COPY.newSurvey)).toBeNull();
+
+  for (const [x, y] of [[40, 40], [200, 40], [200, 200]]) {
+    await fireEvent.press(screen.getByTestId('field-survey.map'), { nativeEvent: { locationX: x, locationY: y } });
+  }
+  await waitFor(() => expect(screen.getByTestId('field-survey.use-in-report')).toBeEnabled());
+  expect(mockSave.mock.lastCall?.[1]).toMatchObject({ clientUuid: 'report-map-1' });
+
+  await fireEvent.press(screen.getByTestId('field-survey.use-in-report'));
+  expect(router.back).toHaveBeenCalled();
+});
+
+// Intent: without the report flag, a missing linked boundary still says so instead of starting silently.
+it('keeps the waiting-to-start notice for a missing boundary opened outside a report', async () => {
+  mockParams.mockReturnValue({ surveyId: 'gone' });
+  await renderWithGestures(<FieldSurveyScreen />);
+  await waitFor(() => expect(screen.getByTestId('field-survey.status-strip').props.accessibilityValue).toEqual({ text: 'mode=waiting_to_start' }));
+  expect(screen.queryByTestId('field-survey.use-in-report')).toBeNull();
+});

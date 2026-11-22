@@ -1,5 +1,7 @@
 import {
+  measuredBoundaryArea,
   planAttachedBoundarySend,
+  reportAreaFromBoundary,
   type AttachedBoundaryInput,
 } from '@/features/surveys/domain/attachedBoundary';
 import type { SurveyPolygon, SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
@@ -146,5 +148,43 @@ describe('planAttachedBoundarySend', () => {
     expect(plan.send.affectedAreas).toEqual([affectedShape]);
     expect(plan.send.affectedAreaWaypoints).toEqual([affectedPlot]);
     expect(plan.send.affectedAreaSqm).toBeGreaterThan(0);
+  });
+});
+
+describe('measuredBoundaryArea and reportAreaFromBoundary', () => {
+  // Intent: a finished map fills the report: plot size in hectares, affected share in percent.
+  it('turns a measured plot with an affected area into report values', () => {
+    const measured = measuredBoundaryArea(row({
+      affectedAreaPolygonsJson: JSON.stringify([affectedShape]),
+      affectedAreaWaypointsJson: JSON.stringify([affectedPlot]),
+    }));
+    expect(measured).not.toBeNull();
+    if (!measured) throw new Error('expected a measurement');
+    const filled = reportAreaFromBoundary(measured);
+    // ~12 003 m² plot (see the oracle above) is ~1.2 ha; the affected square is a quarter of it.
+    expect(filled.areaHectares).toBeGreaterThan(1.19);
+    expect(filled.areaHectares).toBeLessThan(1.21);
+    expect(filled.affectedPortionPercent).toBeGreaterThan(24.5);
+    expect(filled.affectedPortionPercent).toBeLessThan(25.5);
+  });
+
+  // Intent: a plot without affected areas fills the area only; the percent stays the inspector's.
+  it('leaves the percent alone when no affected area was drawn', () => {
+    const measured = measuredBoundaryArea(row());
+    if (!measured) throw new Error('expected a measurement');
+    expect(reportAreaFromBoundary(measured).affectedPortionPercent).toBeNull();
+  });
+
+  // Intent: hectares read like the weekly report, and a tiny plot never rounds to zero.
+  it('rounds hectares to two decimals but keeps tiny plots above zero', () => {
+    expect(reportAreaFromBoundary({ areaSqm: 18_336, affectedAreaSqm: 0, affectedAreaCount: 0 }).areaHectares).toBe(1.83);
+    expect(reportAreaFromBoundary({ areaSqm: 30, affectedAreaSqm: 0, affectedAreaCount: 0 }).areaHectares).toBe(0.003);
+  });
+
+  // Intent: an unfinished map never fills the report.
+  it('gives nothing for too few points or an open affected area', () => {
+    expect(measuredBoundaryArea(row({ waypointsJson: JSON.stringify(plot.slice(0, 2)) }))).toBeNull();
+    expect(measuredBoundaryArea(row({ activeAffectedWaypointsJson: JSON.stringify([point(14, 120)]) }))).toBeNull();
+    expect(measuredBoundaryArea(row({ waypointsJson: 'not json' }))).toBeNull();
   });
 });

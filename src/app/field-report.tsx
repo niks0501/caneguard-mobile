@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { randomUUID } from 'expo-crypto';
 import { Image as ExpoImage } from 'expo-image';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -39,6 +40,7 @@ import {
 import {
   FIELD_REPORT_COPY,
   FIELD_REPORT_STEP_TITLES,
+  FIELD_SURVEY_COPY,
   FINALIZE_DIALOG_COPY,
   LOCATION_ADDED,
   LOCATION_CLOSER_READING_ACTION,
@@ -52,7 +54,11 @@ import type { FieldSurveyRow } from '@/database/schema';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { findOwnedFieldSurvey, listOwnedFieldSurveys } from '@/features/surveys/data/fieldSurveyRepository';
-import { planAttachedBoundarySend } from '@/features/surveys/domain/attachedBoundary';
+import {
+  measuredBoundaryArea,
+  planAttachedBoundarySend,
+  reportAreaFromBoundary,
+} from '@/features/surveys/domain/attachedBoundary';
 import { returnToTab } from '@/features/navigation/returnToTab';
 import { BarangayPicker } from '@/features/reports/components/BarangayPicker';
 import { ReportSurveyCard } from '@/features/reports/components/ReportSurveyCard';
@@ -138,7 +144,7 @@ const REQUIREMENT_OWNING_STEP: Record<FieldReportSubmissionRequirement, number> 
   location_unavailable_reason: PLACE_STEP,
   gps_accuracy: PLACE_STEP,
   observation_time: SEND_STEP,
-  attached_boundary: SEND_STEP,
+  attached_boundary: PLACE_STEP,
 };
 
 type ReporterConcernChoice = 'none' | 'rssi' | 'other';
@@ -705,10 +711,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
         }
       } else if (affectedAreaText.trim() !== '') {
         errors.affectedArea = 'Enter the affected area as a number, for example 0.5.';
-      } else if (requireAffectedNumbers && affectedAreaChoice === null) {
-        errors.affectedArea =
-          'Enter the affected area, or mark it as Not measured.';
-      } else if (requireAffectedNumbers) {
+      } else if (requireAffectedNumbers && affectedAreaChoice === 'measured') {
         errors.affectedArea = 'Enter the affected area as a number, for example 0.5.';
       }
     }
@@ -720,10 +723,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
         }
       } else if (affectedPortionText.trim() !== '') {
         errors.affectedPortion = 'Enter the affected portion as a number, for example 30.';
-      } else if (requireAffectedNumbers && affectedPortionChoice === null) {
-        errors.affectedPortion =
-          'Enter the estimated affected portion, or mark it as Not measured.';
-      } else if (requireAffectedNumbers) {
+      } else if (requireAffectedNumbers && affectedPortionChoice === 'measured') {
         errors.affectedPortion =
           'Enter the affected portion as a number, for example 30.';
       }
@@ -794,13 +794,86 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     void report.save({ fieldSurveyClientUuid: clientUuid });
   };
 
-  const handleOpenMeasure = (clientUuid: string | null) => {
-    router.push(
-      clientUuid
-        ? { pathname: '/field-survey', params: { surveyId: clientUuid } }
-        : { pathname: '/field-survey' },
-    );
+  // The map measurement this report opened. On return, its area fills the
+  // report; a new map left without a single point is unlinked again.
+  const measureTripRef = useRef<{ clientUuid: string; created: boolean; away: boolean } | null>(null);
+  // Returning re-reads the report, so the unlink waits until the report is idle again.
+  const [pendingUnlinkUuid, setPendingUnlinkUuid] = useState<string | null>(null);
+  const handledUnlinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!pendingUnlinkUuid || handledUnlinkRef.current === pendingUnlinkUuid) return;
+    if (report.phase !== 'draft' && report.phase !== 'needs-fixes') return;
+    handledUnlinkRef.current = pendingUnlinkUuid;
+    if (attachedSurveyUuid === pendingUnlinkUuid) {
+      void report.save({ fieldSurveyClientUuid: null });
+    }
+  }, [attachedSurveyUuid, pendingUnlinkUuid, report]);
+
+  const handleOpenMeasure = async (clientUuid: string | null) => {
+    if (isFinalized || !report.data) return;
+    const target = clientUuid ?? randomUUID();
+    if (!clientUuid) {
+      // Linked before leaving so the map belongs to this report even if the app closes.
+      const saved = await report.save({ fieldSurveyClientUuid: target });
+      if (!saved) {
+        showToast(report.getLastOperationError() ?? 'Draft not saved — please try again', 'error');
+        return;
+      }
+    }
+    measureTripRef.current = { clientUuid: target, created: clientUuid === null, away: false };
+    router.push({ pathname: '/field-survey', params: { surveyId: target, forReport: '1' } });
   };
+
+  const finishMeasureTripRef = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    finishMeasureTripRef.current = () => {
+      const trip = measureTripRef.current;
+      measureTripRef.current = null;
+      if (!trip || !user) return;
+      let row: FieldSurveyRow | null = null;
+      try {
+        row = findOwnedFieldSurvey(database, trip.clientUuid, user.uuid);
+      } catch {
+        row = null;
+      }
+      if (!row) {
+        if (trip.created && attachedSurveyUuid === trip.clientUuid) {
+          setPendingUnlinkUuid(trip.clientUuid);
+        }
+        return;
+      }
+      const measured = measuredBoundaryArea(row);
+      if (!measured) return;
+      const filled = reportAreaFromBoundary(measured);
+      setAffectedAreaText(formatDecimalInput(filled.areaHectares));
+      setAffectedAreaChoice('measured');
+      if (filled.affectedPortionPercent !== null) {
+        setAffectedPortionText(formatDecimalInput(filled.affectedPortionPercent));
+        setAffectedPortionChoice('measured');
+      }
+      setFieldErrors({});
+      showToast(
+        FIELD_SURVEY_COPY.linkFilled(
+          formatDecimalInput(filled.areaHectares),
+          filled.affectedPortionPercent === null
+            ? null
+            : formatDecimalInput(filled.affectedPortionPercent),
+        ),
+        'success',
+      );
+    };
+  });
+
+  // Stable focus effect: its cleanup runs only on blur, so it can tell the
+  // trip to the map apart from re-renders while this screen stays in front.
+  useFocusEffect(
+    useCallback(() => {
+      if (measureTripRef.current?.away) finishMeasureTripRef.current();
+      return () => {
+        if (measureTripRef.current) measureTripRef.current.away = true;
+      };
+    }, []),
+  );
 
   const handleCancel = () => {
     if (isFinalized) {
@@ -1642,10 +1715,19 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                             </View>
                           </View>
                           <Text style={[styles.helpText, { color: theme.textSecondary }]}>
-                            Enter a measurement, or mark it Not measured when the field cannot be
-                            estimated. Guessing is not required. Decimals are accepted (0.5 or 0,5).
+                            Optional. Enter a known measurement, measure on the map below, or leave
+                            it blank to send as Not measured. Guessing is not required. Decimals are
+                            accepted (0.5 or 0,5).
                           </Text>
                           </View>
+                          <ReportSurveyCard
+                            attachedSurvey={attachedSurvey}
+                            attachedUuid={attachedSurveyUuid}
+                            disabled={isFinalized || report.saving || report.finalizing}
+                            onAttach={handleAttachSurvey}
+                            onOpenMeasure={(clientUuid) => void handleOpenMeasure(clientUuid)}
+                            surveys={savedSurveys}
+                          />
                         </>
                       ) : currentStep === SAW_STEP ? (
                         /* Step 2: What you saw — scan facts, then your observation */
@@ -1715,16 +1797,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                           <DisclosureSection
                             testID="field-report.extras-disclosure"
                             title={FIELD_REPORT_COPY.sendExtrasTitle}
-                            summary={FIELD_REPORT_COPY.sendExtrasSummary}
-                            defaultExpanded={missingRequirements.has('attached_boundary')}>
-                          <ReportSurveyCard
-                            attachedSurvey={attachedSurvey}
-                            attachedUuid={attachedSurveyUuid}
-                            disabled={isFinalized || report.saving || report.finalizing}
-                            onAttach={handleAttachSurvey}
-                            onOpenMeasure={handleOpenMeasure}
-                            surveys={savedSurveys}
-                          />
+                            summary={FIELD_REPORT_COPY.sendExtrasSummary}>
 
                           <View style={[styles.detailsCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
                             <View style={styles.detailsHeader}>

@@ -121,4 +121,17 @@ describe('listUnfinishedDrafts', () => {
 
     await expect(listUnfinishedDrafts(database, OWNER)).resolves.toEqual([]);
   });
+
+  it('lists a map linked to a Draft report only as that report', async () => {
+    const { database, native } = openDatabase();
+    await createOrGetFieldReportDraft(database, draftInput('7ea3e6f0-b893-4fd3-b414-0b797e62ec8e', SCAN_ID));
+    await saveFieldSurveyDraft(database, {
+      authorRole: 'field_reporter', capturedAt: NOW, clientUuid: 'report-map', districtCode: 'D1', ownerIdentity: OWNER, waypoints: [],
+    });
+    native.exec("UPDATE field_reports SET field_survey_client_uuid = 'report-map' WHERE id = '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e'");
+
+    const drafts = await listUnfinishedDrafts(database, OWNER);
+
+    expect(drafts.map((draft) => [draft.kind, draft.id])).toEqual([['report', SCAN_ID]]);
+  });
 });

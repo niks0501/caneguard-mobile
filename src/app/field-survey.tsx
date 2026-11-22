@@ -1031,7 +1031,7 @@ export default function FieldSurveyScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'android' ? 'height' : 'padding'}
         style={styles.body}>
-        <View testID="field-survey.map-section" accessibilityValue={{ text: `expanded=${expanded ? 'yes' : 'no'}` }} style={expanded ? styles.mapSectionExpanded : styles.mapSection}>
+        <View testID="field-survey.map-section" accessibilityValue={{ text: `expanded=${expanded ? 'yes' : 'no'}` }} style={expanded ? styles.mapSectionExpanded : [styles.mapSection, moreOpen && styles.mapSectionWithDetails]}>
           <GestureDetector gesture={mapGesture}>
             <Pressable
               disabled={controlsLocked}
@@ -1240,6 +1240,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   body: { flex: 1 },
   mapSection: { flex: 1, minHeight: 320 },
+  mapSectionWithDetails: { minHeight: 180 },
   mapSectionExpanded: { flex: 1 },
   mapExpanded: { flex: 1, overflow: 'hidden' },
   overlayTop: { position: 'absolute', top: Spacing.sm + Spacing.sm, left: Spacing.lg + Spacing.sm, right: Spacing.lg + Spacing.sm, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
@@ -1259,7 +1260,8 @@ const styles = StyleSheet.create({
   expandedBar: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingBottom: Spacing.sm },
   areaCompact: { ...Typography.label, flex: 1 },
   statusSlot: { minHeight: 40, justifyContent: 'center' },
-  details: { flexGrow: 0, flexShrink: 1, maxHeight: 190 },
+  // Never squeezed below a few readable lines; the map gives up height instead.
+  details: { flexGrow: 0, flexShrink: 1, minHeight: 128, maxHeight: 220 },
   detailsContent: { padding: Spacing.lg, gap: Spacing.sm },
   intro: { ...Typography.bodySmall },
   label: { ...Typography.label, marginTop: Spacing.xs },

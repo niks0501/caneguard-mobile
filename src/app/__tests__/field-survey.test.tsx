@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { renderWithGestures } from '../../../test/render-with-gestures';
 import { createGestureController, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import { router, useLocalSearchParams } from 'expo-router';
+import { StyleSheet } from 'react-native';
 
 import FieldSurveyScreen from '@/app/field-survey';
 import { AUTHORING_WINDOW_COPY, FIELD_SURVEY_COPY } from '@/constants/copy';
@@ -405,6 +406,17 @@ it('keeps the in-screen Close control available beside the docked submit', async
   await fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.close));
 
   expect(router.back).toHaveBeenCalledTimes(1);
+});
+
+it('gives the open details panel a readable minimum height by shrinking the map, not the panel', async () => {
+  await renderWithGestures(<FieldSurveyScreen />);
+  const mapSection = () => StyleSheet.flatten(screen.getByTestId('field-survey.map-section').props.style);
+  expect(mapSection().minHeight).toBe(320);
+
+  await fireEvent.press(screen.getByTestId('field-survey.more'));
+  expect(mapSection().minHeight).toBe(180);
+  const panel = StyleSheet.flatten(screen.getByTestId('field-survey.more-panel').props.style);
+  expect(panel.minHeight).toBeGreaterThanOrEqual(128);
 });
 
 it('keeps the map first and the docked actions outside the details scroll', async () => {

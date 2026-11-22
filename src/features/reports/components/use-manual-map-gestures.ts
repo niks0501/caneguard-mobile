@@ -7,6 +7,7 @@ import {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
+import { scheduleOnUI } from 'react-native-worklets';
 
 import {
   MAX_MANUAL_MAP_ZOOM,
@@ -279,14 +280,26 @@ export function useManualMapGestures({
   const committedCenterSV = useSharedValue(center);
   const committedZoomSV = useSharedValue(zoom);
   const viewportSV = useSharedValue(viewport);
+  // Shared values are written on the UI runtime: touching `.value` from the JS
+  // thread inside an effect trips Reanimated's strict "during render" check on
+  // re-renders in development, and the gestures read these on the UI thread.
   useEffect(() => {
-    committedCenterSV.value = center;
+    scheduleOnUI(() => {
+      'worklet';
+      committedCenterSV.value = center;
+    });
   }, [center, committedCenterSV]);
   useEffect(() => {
-    committedZoomSV.value = zoom;
+    scheduleOnUI(() => {
+      'worklet';
+      committedZoomSV.value = zoom;
+    });
   }, [zoom, committedZoomSV]);
   useEffect(() => {
-    viewportSV.value = viewport;
+    scheduleOnUI(() => {
+      'worklet';
+      viewportSV.value = viewport;
+    });
   }, [viewport, viewportSV]);
 
   // Live gesture state driving the tile-layer transform.
@@ -320,8 +333,31 @@ export function useManualMapGestures({
   // them, so the gesture transform can go in the same frame. A view change
   // that arrives mid-gesture (a GPS fix recentring the map) leaves it alone.
   useLayoutEffect(() => {
-    if (panActiveSV.value === 0 && pinchActiveSV.value === 0) clearTransform();
-  }, [center, clearTransform, panActiveSV, pinchActiveSV, zoom]);
+    scheduleOnUI(() => {
+      'worklet';
+      if (panActiveSV.value === 0 && pinchActiveSV.value === 0) {
+        resetLayerTransform({
+          effectiveScaleSV,
+          focalXSV,
+          focalYSV,
+          scaleSV,
+          translationXSV,
+          translationYSV,
+        });
+      }
+    });
+  }, [
+    center,
+    effectiveScaleSV,
+    focalXSV,
+    focalYSV,
+    panActiveSV,
+    pinchActiveSV,
+    scaleSV,
+    translationXSV,
+    translationYSV,
+    zoom,
+  ]);
 
   // Runs once per finished gesture on the JS thread; the shared values are
   // snapshotted into plain numbers by the worklet that calls it.

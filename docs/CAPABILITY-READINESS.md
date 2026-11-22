@@ -97,8 +97,15 @@ tests. "Implemented" does not mean "verified on a device":
   `assignment:complete`. Without it the screen shows an unavailable notice
   instead of the visit form.
 - Offline field boundary surveys (authoring needs the `report:submit`
-  capability): a full-height coordinate map with a **Walk / Tap corners** switch;
-  affected-area tools, GPS capture, and point lists are behind **More**. The
+  capability): a large coordinate map with a **Walk / Tap** switch, a
+  full-screen toggle (hardware back leaves it), a centre cross with **Add at +**
+  for placing a point exactly without the finger hiding the spot, and one
+  status line on the map. **Whole plot / Affected area** sits under the map with
+  Undo and Remove; GPS capture, point lists and quality are behind
+  **GPS point, point list and quality**. Taps are resolved in window
+  coordinates, and a drag or pinch never also drops a point. Pinch follows the
+  fingers and eases to a whole tile zoom; the map keeps its gesture position
+  until the new view has rendered, so it does not flash back after a swipe. The
   district comes from the account (there is no typed district field), and an
   account without a district cannot submit or attach an unsent boundary. Plot
   and affected-area polygons are drawn on the coordinate map. Every point of

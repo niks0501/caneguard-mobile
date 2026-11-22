@@ -111,14 +111,15 @@ beforeEach(() => {
   mockCaptureGps.mockReset();
 });
 
-it('keeps only the Walk / Tap switch on the map and puts affected areas and GPS capture behind More', async () => {
+it('shows the Walk / Tap switch and what is being drawn, with GPS capture behind More', async () => {
   await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
 
   expect(screen.getByTestId('field-survey.walk')).toBeTruthy();
   expect(screen.getByTestId('field-survey.tap')).toBeTruthy();
-  expect(screen.queryByText(FIELD_SURVEY_COPY.plotBoundary)).toBeNull();
-  expect(screen.queryByText(FIELD_SURVEY_COPY.affectedAreaBoundary)).toBeNull();
+  // What is being drawn is always visible; only the GPS point and lists wait behind More.
+  expect(screen.getByText(FIELD_SURVEY_COPY.plotBoundary)).toBeTruthy();
+  expect(screen.getByText(FIELD_SURVEY_COPY.affectedAreaBoundary)).toBeTruthy();
   expect(screen.queryByText(FIELD_SURVEY_COPY.addGpsPoint)).toBeNull();
 
   await fireEvent.press(screen.getByTestId('field-survey.more'));

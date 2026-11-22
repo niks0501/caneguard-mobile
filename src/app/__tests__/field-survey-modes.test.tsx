@@ -43,7 +43,7 @@ function row(overrides: Partial<FieldSurveyRow> = {}): FieldSurveyRow {
 }
 
 const CASES: [string, Partial<FieldSurveyRow> | null, string, string][] = [
-  ['drawing_new', row({ waypointsJson: '[]' }), '', FIELD_SURVEY_MODE_COPY.drawing_new],
+  ['drawing_new', row({ waypointsJson: '[]' }), '', FIELD_SURVEY_COPY.toolState['plot.add']],
   ['drawing_resumed', row(), '', FIELD_SURVEY_MODE_COPY.drawing_resumed],
   ['fixing', row({ status: 'failed', lastSyncErrorCode: 'API_VALIDATION_FAILED', fieldErrorsJson: '{"x":["Bad point."]}' }), '', FIELD_SURVEY_MODE_COPY.fixing],
   ['sending', row({ status: 'syncing' }), '', FIELD_SURVEY_MODE_COPY.sending],
@@ -152,4 +152,39 @@ it('keeps the waiting-to-start notice for a missing boundary opened outside a re
   await renderWithGestures(<FieldSurveyScreen />);
   await waitFor(() => expect(screen.getByTestId('field-survey.status-strip').props.accessibilityValue).toEqual({ text: 'mode=waiting_to_start' }));
   expect(screen.queryByTestId('field-survey.use-in-report')).toBeNull();
+});
+
+// Intent (redesign): the map can take the whole screen; header, details and dock step aside and come back.
+it('expands the map to full screen and back', async () => {
+  await renderWithGestures(<FieldSurveyScreen />);
+  await waitFor(() => expect(screen.getByTestId('field-survey.status-strip').props.accessibilityValue).toEqual({ text: 'mode=drawing_new' }));
+  expect(screen.getByTestId('action-dock')).toBeTruthy();
+  expect(screen.getByText(FIELD_SURVEY_COPY.title)).toBeTruthy();
+
+  await fireEvent.press(screen.getByTestId('field-survey.expand'));
+  expect(screen.getByTestId('field-survey.map-section').props.accessibilityValue).toEqual({ text: 'expanded=yes' });
+  expect(screen.queryByTestId('action-dock')).toBeNull();
+  expect(screen.queryByText(FIELD_SURVEY_COPY.title)).toBeNull();
+  expect(screen.queryByTestId('field-survey.more')).toBeNull();
+  // Drawing controls and the area stay in reach while expanded.
+  expect(screen.getByTestId('field-survey.target-plot')).toBeTruthy();
+  expect(screen.getByTestId('field-survey.area')).toBeTruthy();
+
+  await fireEvent.press(screen.getByTestId('field-survey.expanded-done'));
+  expect(screen.getByTestId('field-survey.map-section').props.accessibilityValue).toEqual({ text: 'expanded=no' });
+  expect(screen.getByTestId('action-dock')).toBeTruthy();
+});
+
+// Intent (accuracy): the + button places a point exactly at the map centre, never offset by the finger.
+it('adds a point exactly under the centre cross', async () => {
+  await renderWithGestures(<FieldSurveyScreen />);
+  await waitFor(() => expect(screen.getByTestId('field-survey.status-strip').props.accessibilityValue).toEqual({ text: 'mode=drawing_new' }));
+  expect(screen.getByTestId('field-survey.crosshair')).toBeTruthy();
+
+  await fireEvent.press(screen.getByTestId('field-survey.add-center'));
+  await waitFor(() => expect(mockSave).toHaveBeenCalled());
+  const [point] = mockSave.mock.lastCall?.[1].waypoints ?? [];
+  // The screen opens on the default manual-map centre.
+  const { DEFAULT_MANUAL_MAP_CENTER } = jest.requireActual<typeof import('@/features/reports/domain/manualMap')>('@/features/reports/domain/manualMap');
+  expect(point).toMatchObject({ latitude: DEFAULT_MANUAL_MAP_CENTER.latitude, longitude: DEFAULT_MANUAL_MAP_CENTER.longitude, source: 'map', accuracyMeters: null });
 });

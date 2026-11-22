@@ -742,6 +742,63 @@ describe('useManualMapGestures', () => {
     expect(onCommit).not.toHaveBeenCalled();
   });
 
+  it('settles a small pinch back on the same zoom level without a jump', async () => {
+    const onCommit = jest.fn();
+    const { result } = await renderGestures(onCommit);
+    const pinch = result.current.pinchGesture.handlers;
+
+    pinch.onStart?.({} as GestureStateChangeEvent<PinchGestureHandlerEventPayload>);
+    pinch.onUpdate?.({
+      scale: 1.2,
+      focalX: 195,
+      focalY: 180,
+    } as GestureUpdateEvent<PinchGestureHandlerEventPayload>);
+    pinch.onEnd?.({} as GestureStateChangeEvent<PinchGestureHandlerEventPayload>, false);
+    pinch.onFinalize?.({} as GestureStateChangeEvent<PinchGestureHandlerEventPayload>, false);
+
+    // 1.2x rounds to the current level at the same center: nothing to commit.
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('reports when a drag starts and ends so the tap that ends it can be ignored', async () => {
+    const onGestureActiveChange = jest.fn();
+    const { result } = await renderHook(() =>
+      useManualMapGestures({
+        center: CENTER,
+        enabled: true,
+        onCommit: jest.fn(),
+        onGestureActiveChange,
+        viewport: VIEWPORT,
+        zoom: ZOOM,
+      }),
+    );
+    const pan = result.current.panGesture.handlers;
+
+    panStart(pan);
+    expect(onGestureActiveChange).toHaveBeenLastCalledWith(true);
+    pan.onUpdate?.({ translationX: 30, translationY: 0 } as GestureUpdateEvent<PanGestureHandlerEventPayload>);
+    pan.onEnd?.({} as GestureStateChangeEvent<PanGestureHandlerEventPayload>, true);
+    expect(onGestureActiveChange).toHaveBeenLastCalledWith(false);
+
+    // A plain tap never starts the pan, so it reports nothing.
+    onGestureActiveChange.mockClear();
+    pan.onFinalize?.({} as GestureStateChangeEvent<PanGestureHandlerEventPayload>, false);
+    expect(onGestureActiveChange).not.toHaveBeenCalled();
+  });
+
+  it('commits once when both onEnd and onFinalize fire', async () => {
+    const onCommit = jest.fn();
+    const { result } = await renderGestures(onCommit);
+    const pan = result.current.panGesture.handlers;
+
+    panStart(pan);
+    pan.onUpdate?.({ translationX: 40, translationY: 0 } as GestureUpdateEvent<PanGestureHandlerEventPayload>);
+    pan.onEnd?.({} as GestureStateChangeEvent<PanGestureHandlerEventPayload>, true);
+    pan.onFinalize?.({} as GestureStateChangeEvent<PanGestureHandlerEventPayload>, true);
+
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+
   it('commits a pinch with clamped, integer zoom and focal-stable center', async () => {
     const onCommit = jest.fn();
     const { result } = await renderGestures(onCommit);
@@ -767,7 +824,8 @@ describe('useManualMapGestures', () => {
       false,
     );
 
-    const nextZoom = MAX_MANUAL_MAP_ZOOM;
+    // Doubling the finger spread is one zoom level in, not a jump to the maximum.
+    const nextZoom = ZOOM + 1;
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith(
       moveMapCenter(
@@ -862,7 +920,7 @@ describe('useManualMapGestures', () => {
       false,
     );
 
-    const nextZoom = MAX_MANUAL_MAP_ZOOM; // round(15 * 1.5) = 23 -> clamp 18
+    const nextZoom = ZOOM + 1; // 15 + log2(1.5) = 15.58 -> 16
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith(
       moveMapCenter(

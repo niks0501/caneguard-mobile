@@ -38,9 +38,12 @@ interface FormValues {
   sugarcaneVariety?: string;
 }
 
+jest.mock('expo-crypto', () => ({ randomUUID: () => 'new-map-uuid' }));
+
 let mockSavedSurveys: unknown[] = [];
+let mockFoundSurvey: unknown = null;
 jest.mock('@/features/surveys/data/fieldSurveyRepository', () => ({
-  findOwnedFieldSurvey: () => null,
+  findOwnedFieldSurvey: () => mockFoundSurvey,
   listOwnedFieldSurveys: () => mockSavedSurveys,
 }));
 
@@ -389,6 +392,7 @@ describe('FieldReportScreen', () => {
     mockFinalizeBusy = false;
     mockIsOnline = true;
     mockSavedSurveys = [];
+    mockFoundSurvey = null;
     mockPlaceSuggestion = null;
     mockPossibleRecentMatchState = {
       match: null,
@@ -1733,23 +1737,42 @@ describe('FieldReportScreen', () => {
     );
   });
 
-  it('requires an explicit measured or not-measured decision before finalizing', async () => {
+  it('lets an inspector finalize without measuring: blank area is sent as Not measured', async () => {
+    mockFinalize.mockResolvedValueOnce(
+      draft({ authoringState: 'finalized', syncStatus: 'pending' }),
+    );
     await render(<FieldReportScreen />);
     await goToStep(3);
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Finalize Field Report'));
     });
+    await fireEvent.press(screen.getByTestId('field-report.confirm-finalize'));
 
-    // The validation gate fires before any confirmation: no dialog opens.
+    expect(mockFinalize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured',
+        affectedPortionPercent: null,
+        affectedPortionMeasurement: 'not_measured',
+      }),
+    );
+  });
+
+  it('still asks for a number when Measured is chosen but left blank', async () => {
+    await render(<FieldReportScreen />);
+    await goToStep(1);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Affected area: Measured'));
+    });
+    await goToStep(3);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Finalize Field Report'));
+    });
+
     expect(screen.queryByTestId('field-report.confirm-finalize-dialog')).toBeNull();
     expect(mockFinalize).not.toHaveBeenCalled();
     expect(
-      screen.getByText('Enter the affected area, or mark it as Not measured.'),
-    ).toBeOnTheScreen();
-    expect(
-      screen.getByText(
-        'Enter the estimated affected portion, or mark it as Not measured.',
-      ),
+      screen.getByText('Enter the affected area as a number, for example 0.5.'),
     ).toBeOnTheScreen();
   });
 
@@ -1877,12 +1900,12 @@ describe('FieldReportScreen', () => {
 
     const view = await render(<FieldReportScreen />);
     await act(async () => undefined);
-    await goToStep(3);
+    await goToStep(1);
 
-    // Baseline rendered through to step 5: on a Draft the controls are live,
-    // so the absence below cannot be a card that never rendered.
+    // Baseline on the Place step: on a Draft the controls are live, so the
+    // absence below cannot be a card that never rendered.
     expect(screen.getByTestId('field-report.survey-card')).toBeOnTheScreen();
-    expect(screen.getByTestId('field-report.survey-attach.survey-2')).toBeEnabled();
+    expect(screen.getByTestId('field-report.survey-open')).toBeEnabled();
     expect(screen.getByTestId('field-report.survey-remove')).toBeEnabled();
 
     mockDraftState = {
@@ -1899,6 +1922,110 @@ describe('FieldReportScreen', () => {
     expect(screen.queryByTestId('field-report.survey-card')).toBeNull();
     expect(screen.queryByTestId('field-report.survey-attach.survey-2')).toBeNull();
     expect(screen.queryByTestId('field-report.survey-remove')).toBeNull();
+  });
+
+  it('fills the area and affected percent from the map when the inspector comes back', async () => {
+    const React = jest.requireActual<typeof import('react')>('react');
+    const expoRouter = jest.requireMock('expo-router') as { useFocusEffect: (callback: () => void | (() => void)) => void };
+    const screens = new Set<{ blur: () => void; focus: () => void }>();
+    const focusSpy = jest.spyOn(expoRouter, 'useFocusEffect').mockImplementation((callback) => {
+      React.useEffect(() => {
+        let cleanup = callback();
+        const entry = {
+          blur: () => { if (typeof cleanup === 'function') cleanup(); cleanup = undefined; },
+          focus: () => { cleanup = callback(); },
+        };
+        screens.add(entry);
+        return () => { screens.delete(entry); if (typeof cleanup === 'function') cleanup(); };
+      }, [callback]);
+    });
+    try {
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+      await goToStep(1);
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.survey-open'));
+      });
+
+      // The inspector draws a ~1.2 ha plot with a quarter of it affected, then returns.
+      const corner = (latitude: number, longitude: number) => ({ latitude, longitude, accuracyMeters: null, capturedAt: '2026-10-05T09:00:00.000Z', source: 'map' });
+      mockFoundSurvey = {
+        clientUuid: 'new-map-uuid',
+        status: 'draft',
+        districtCode: 'D1',
+        remoteId: null,
+        lastSyncErrorCode: null,
+        capturedAt: '2026-10-05T09:00:00.000Z',
+        waypointsJson: JSON.stringify([corner(14, 120), corner(14, 120.001), corner(14.001, 120.001), corner(14.001, 120)]),
+        affectedAreaPolygonsJson: JSON.stringify([{ type: 'Polygon', coordinates: [[[120, 14], [120.0005, 14], [120.0005, 14.0005], [120, 14.0005], [120, 14]]] }]),
+        affectedAreaWaypointsJson: '[]',
+        activeAffectedWaypointsJson: '[]',
+      };
+      await act(async () => { screens.forEach((entry) => entry.blur()); });
+      await act(async () => { screens.forEach((entry) => entry.focus()); });
+
+      const area = Number(screen.getByTestId('field-report.affected-area-input').props.value);
+      const portion = Number(screen.getByTestId('field-report.affected-portion-input').props.value);
+      expect(area).toBeGreaterThan(1.19);
+      expect(area).toBeLessThan(1.21);
+      expect(portion).toBeGreaterThan(24.5);
+      expect(portion).toBeLessThan(25.5);
+    } finally {
+      focusSpy.mockRestore();
+    }
+  });
+
+  it('unlinks a new map the inspector left without drawing a point', async () => {
+    const React = jest.requireActual<typeof import('react')>('react');
+    const expoRouter = jest.requireMock('expo-router') as { useFocusEffect: (callback: () => void | (() => void)) => void };
+    const screens = new Set<{ blur: () => void; focus: () => void }>();
+    const focusSpy = jest.spyOn(expoRouter, 'useFocusEffect').mockImplementation((callback) => {
+      React.useEffect(() => {
+        let cleanup = callback();
+        const entry = {
+          blur: () => { if (typeof cleanup === 'function') cleanup(); cleanup = undefined; },
+          focus: () => { cleanup = callback(); },
+        };
+        screens.add(entry);
+        return () => { screens.delete(entry); if (typeof cleanup === 'function') cleanup(); };
+      }, [callback]);
+    });
+    try {
+      const view = await render(<FieldReportScreen />);
+      await act(async () => undefined);
+      await goToStep(1);
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.survey-open'));
+      });
+      // The saved link is what the report now holds while the map is open.
+      mockDraftState = { ...mockDraftState, data: draft({ fieldSurveyClientUuid: 'new-map-uuid' }) };
+      await view.rerender(<FieldReportScreen />);
+      mockSave.mockClear();
+
+      await act(async () => { screens.forEach((entry) => entry.blur()); });
+      await act(async () => { screens.forEach((entry) => entry.focus()); });
+
+      expect(mockSave).toHaveBeenCalledWith({ fieldSurveyClientUuid: null });
+    } finally {
+      focusSpy.mockRestore();
+    }
+  });
+
+  it('offers measuring on the map inside the Place step and links the new map first', async () => {
+    await render(<FieldReportScreen />);
+    await act(async () => undefined);
+    await goToStep(1);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-report.survey-open'));
+    });
+
+    // The new map's identity is saved on the report before the map opens.
+    expect(mockSave).toHaveBeenCalledWith({ fieldSurveyClientUuid: 'new-map-uuid' });
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: '/field-survey',
+      params: { surveyId: 'new-map-uuid', forReport: '1' },
+    });
   });
 
   it('starts foreground synchronization after successful local finalization', async () => {
@@ -2549,7 +2676,7 @@ describe('FieldReportScreen', () => {
       expect(checklist).not.toHaveTextContent(/of 21/);
     });
 
-    it('keeps plot boundary and field details folded on Send', async () => {
+    it('keeps field details folded on Send', async () => {
       await render(<FieldReportScreen />);
       await act(async () => undefined);
 
@@ -2570,14 +2697,16 @@ describe('FieldReportScreen', () => {
 
       const blocked = screen.getByTestId('field-report.ready.attached_boundary');
       expect(blocked).toHaveTextContent(/Plot boundary ready to send/);
-      // Its fix lives on Send itself, and the folded extras open by default.
-      expect(screen.getByTestId('field-report.more-details')).toBeOnTheScreen();
 
+      // Its fix lives with the area fields on the Place step.
       await act(async () => {
         fireEvent.press(blocked);
       });
       expect(screen.getByTestId('field-report.wizard-step-title')).toHaveTextContent(
-        'Step 3 of 3: Send',
+        'Step 1 of 3: Place',
+      );
+      expect(screen.getByTestId('field-report.survey-attached')).toHaveTextContent(
+        /no longer saved on this phone/,
       );
     });
 

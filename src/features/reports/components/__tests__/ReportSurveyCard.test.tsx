@@ -29,6 +29,11 @@ const WIDER_WAYPOINTS = [
   { latitude: 14.002, longitude: 121, accuracyMeters: null, capturedAt: '2026-01-02T00:00:03.000Z', source: 'map' },
 ];
 
+// Saved maps sit folded under "Use a map saved on this phone".
+async function openSavedMaps(): Promise<void> {
+  await fireEvent.press(screen.getByLabelText(`Show ${FIELD_SURVEY_COPY.linkSavedTitle}`));
+}
+
 function hectaresShownFor(testID: string): string {
   const label = String(screen.getByTestId(testID).props.accessibilityLabel);
   return label.split(' · ')[1];
@@ -64,6 +69,7 @@ describe('ReportSurveyCard', () => {
         surveys={[survey({})]}
       />,
     );
+    await openSavedMaps();
     await fireEvent.press(screen.getByTestId('field-report.survey-attach.survey-1'));
     expect(onAttach).toHaveBeenCalledWith('survey-1');
   });
@@ -106,6 +112,19 @@ describe('ReportSurveyCard', () => {
     expect(onOpenMeasure).toHaveBeenCalledWith('older-survey');
   });
 
+  it('says an attached map is unfinished while it has too few points', async () => {
+    await render(
+      <ReportSurveyCard
+        attachedSurvey={survey({ status: 'draft', waypointsJson: JSON.stringify(MEASURED_WAYPOINTS.slice(0, 2)) })}
+        attachedUuid="survey-1"
+        onAttach={jest.fn()}
+        onOpenMeasure={jest.fn()}
+        surveys={[]}
+      />,
+    );
+    expect(screen.getByText(FIELD_SURVEY_COPY.linkUnfinished)).toBeTruthy();
+  });
+
   it('reports an attached boundary that is no longer saved on this phone', async () => {
     const onOpenMeasure = jest.fn();
     await render(
@@ -118,8 +137,9 @@ describe('ReportSurveyCard', () => {
       />,
     );
     expect(screen.getByText(FIELD_SURVEY_COPY.linkMissing)).toBeTruthy();
+    // Measuring again starts a new map rather than reopening the missing one.
     await fireEvent.press(screen.getByTestId('field-report.survey-open'));
-    expect(onOpenMeasure).toHaveBeenCalledWith('gone-survey');
+    expect(onOpenMeasure).toHaveBeenCalledWith(null);
   });
 
   it('offers a drawn draft whose measured area is only in its saved waypoints', async () => {
@@ -136,6 +156,7 @@ describe('ReportSurveyCard', () => {
         ]}
       />,
     );
+    await openSavedMaps();
 
     expect(hectaresShownFor('field-report.survey-attach.draft-measured')).toBe(MEASURED_HECTARES);
     expect(hectaresShownFor('field-report.survey-attach.measured-from-polygon')).toBe(
@@ -168,7 +189,7 @@ describe('ReportSurveyCard', () => {
     );
     expect(screen.queryByTestId('field-report.survey-attach.empty')).toBeNull();
     expect(screen.queryByTestId('field-report.survey-attach.empty-polygon')).toBeNull();
-    expect(screen.getByText(FIELD_SURVEY_COPY.linkEmpty)).toBeTruthy();
+    expect(screen.queryByTestId('field-report.survey-saved')).toBeNull();
     await fireEvent.press(screen.getByTestId('field-report.survey-open'));
     expect(onOpenMeasure).toHaveBeenCalledWith(null);
   });
@@ -192,6 +213,7 @@ describe('ReportSurveyCard', () => {
         ]}
       />,
     );
+    await openSavedMaps();
 
     expect(hectaresShownFor('field-report.survey-attach.corrected')).toBe(WIDER_HECTARES);
     expect(hectaresShownFor('field-report.survey-attach.current')).toBe(WIDER_HECTARES);
@@ -227,6 +249,7 @@ describe('ReportSurveyCard', () => {
         surveys={[survey({ clientUuid: 'failed-survey', status: 'failed' })]}
       />,
     );
+    await openSavedMaps();
 
     const label = String(
       screen.getByTestId('field-report.survey-attach.failed-survey').props.accessibilityLabel,

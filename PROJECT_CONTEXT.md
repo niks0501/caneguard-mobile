@@ -128,6 +128,12 @@ no longer saved on this phone, cannot be sent from its current state, lacks a
 current account district while still unsent, has an unfinished affected area,
 or has unusable or damaged saved geometry makes finalization return
 `attached_boundary` and keeps the report an editable Draft.
+Measuring the plot is an optional step of the report's Place step, not a
+standalone module: the report links a new map first, the boundary screen opens
+in report mode, and the measured plot fills the affected area (hectares) and,
+when affected areas were drawn, the affected portion (percent).
+`measuredBoundaryArea` and `reportAreaFromBoundary` in the same file own that
+mapping.
 `planAttachedBoundarySend` in `src/features/surveys/domain/attachedBoundary.ts` owns that decision and
 `queueAttachedFieldSurvey` in
 `src/features/surveys/data/fieldSurveyRepository.ts` owns the queueing.

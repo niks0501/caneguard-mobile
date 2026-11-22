@@ -13,7 +13,8 @@ import { boundaryCanSubmit, boundaryState } from '@/features/surveys/domain/boun
  * first. Read-only and local: nothing here is uploaded, and a finalized report
  * is never listed (its `authoringState` is no longer `draft`). A plot the office
  * does not have yet is still unfinished work even when it is already queued for
- * sending or waiting to retry, so it can be found and resumed here.
+ * sending or waiting to retry, so it can be found and resumed here, unless a
+ * Draft report links to it.
  */
 export async function listUnfinishedDrafts(
   database: CaneGuardDatabase,
@@ -57,6 +58,16 @@ export async function listUnfinishedDrafts(
       )
       .all()
       .filter((row) => boundaryCanSubmit(boundaryState(row)));
+    // A map linked to a Draft report is finished and sent with that report, so
+    // only the report is listed as unfinished work, not its map as well.
+    const reportMaps = new Set(
+      database
+        .select({ clientUuid: fieldReports.fieldSurveyClientUuid })
+        .from(fieldReports)
+        .where(and(eq(fieldReports.submitterIdentity, owner), eq(fieldReports.authoringState, 'draft')))
+        .all()
+        .flatMap((row) => (row.clientUuid ? [row.clientUuid] : [])),
+    );
 
     return [
       ...reports.map((row): UnfinishedDraft => ({
@@ -71,7 +82,7 @@ export async function listUnfinishedDrafts(
         place: null,
         updatedAt: row.updatedAt,
       })),
-      ...plots.map((row): UnfinishedDraft => ({
+      ...plots.filter((row) => !reportMaps.has(row.clientUuid)).map((row): UnfinishedDraft => ({
         kind: 'plot',
         id: row.clientUuid,
         place: null,

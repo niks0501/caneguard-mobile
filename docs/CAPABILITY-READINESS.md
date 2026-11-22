@@ -67,14 +67,20 @@ tests. "Implemented" does not mean "verified on a device":
   decides if a report is needed), and never shows Check Again history.
 - Field Report Draft (Field Inspector accounts holding the `report:submit`
   capability): five-step form, local autosave checkpoints, readiness checklist,
-  finalization, foreground sync and manual retry. The Review step carries an
-  optional **Plot boundary** card that lists the 20 most recently updated
-  boundaries saved on this phone with district, hectares, and the boundary
-  state label, attaches one to the report, removes the link, opens that boundary
-  in Measure, and shows the attached boundary's own state hint. The card is
+  finalization, foreground sync and manual retry. Affected area and affected
+  portion are optional: a blank value is sent as **Not measured**. Under them,
+  the Place step carries an optional **Measure on map** card. Measuring starts a
+  new map whose identity the report saves first, opens the boundary screen in
+  report mode (no separate send step; **Use in report** returns once the plot is
+  measured and saved), and on return fills the affected area with the plot's
+  hectares and, when affected areas were drawn, the affected portion with their
+  share of the plot. A new map left without a point is unlinked again. The card
+  can also reuse a map already saved on this phone (folded under **Use a map
+  saved on this phone**), remove the link, and reopen the linked map. The card is
   locked once the report is finalized. Finalizing sends the attached boundary
-  with the report, so the Step 5 checklist carries **Plot boundary ready to
-  send** and blocks submission while the attachment cannot go; that rule is
+  with the report, so the checklist carries **Plot boundary ready to send** (it
+  jumps to the Place step) and blocks submission while the attachment cannot go;
+  that rule is
   owned by
   [`PROJECT_CONTEXT.md` — Field Report authoring](../PROJECT_CONTEXT.md#field-report-authoring).
 - Field validation visits: owner-scoped drafts, completion evidence, follow-up
@@ -127,7 +133,9 @@ tests. "Implemented" does not mean "verified on a device":
   saved boundary rather than the open draft, shows a boundary that can no longer
   be edited read-only, and leaves the report card to say when the linked
   boundary is no longer saved on the phone.
-- **My boundaries** (authoring needs the `report:submit` capability): every
+- **Saved plot maps** (Settings → Field readiness; there is no Home tile, and
+  measuring starts from the Field Report; authoring needs the `report:submit`
+  capability): every
   boundary saved on this phone, newest first, each row showing its district and
   its measured hectares when the saved points measure (otherwise what is
   missing) and one state with a one-line what-to-do hint — **Draft**, **Waiting

@@ -118,7 +118,6 @@ export default function MyBoundariesScreen() {
               title={FIELD_SURVEY_COPY.myBoundariesEmptyTitle}
               message={FIELD_SURVEY_COPY.myBoundariesEmptyBody}
               testID="my-boundaries.empty"
-              action={{ label: FIELD_SURVEY_COPY.quickActionTitle, onPress: () => router.push('/field-survey' as Href), testID: 'my-boundaries.measure' }}
             />
           ) : null}
           {rows?.map((row) => {

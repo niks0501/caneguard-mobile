@@ -25,7 +25,7 @@ import { useOfficeUpdates } from '@/features/notifications/providers/OfficeUpdat
 import { notificationDestinationRoute } from '@/features/notifications/services/resolveNotificationDestination';
 import { getHomeSyncNote, INSPECTOR_WORK_WAITING_COPY } from '@/features/sync/utils/syncStatusCopy';
 import { useSync } from '@/features/sync/hooks/useSync';
-import { FARMER_COPY, FIELD_SURVEY_COPY, HOME_NOTE_COPY } from '@/constants/copy';
+import { FARMER_COPY, HOME_NOTE_COPY } from '@/constants/copy';
 import {
   ComponentTokens,
   Fonts,
@@ -233,22 +233,6 @@ export default function HomeScreen() {
                           label: isFarmer ? farmerCopy.actions.startScan : HOME_NOTE_COPY.startScan,
                           onPress: () => router.push('/scan'),
                           testID: 'home.start-scan',
-                        },
-                      ]),
-                  ...(isFarmer
-                    ? []
-                    : [
-                        {
-                          icon: 'map' as const,
-                          label: HOME_NOTE_COPY.measurePlotLink,
-                          onPress: () => router.push('/field-survey' as Href),
-                          testID: 'home.field-survey',
-                        },
-                        {
-                          icon: 'layers' as const,
-                          label: FIELD_SURVEY_COPY.myBoundariesLink,
-                          onPress: () => router.push('/my-boundaries' as Href),
-                          testID: 'home.my-boundaries',
                         },
                       ]),
                   {

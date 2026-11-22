@@ -188,8 +188,10 @@ export default function FieldSurveyScreen() {
   const auth = useAuth();
   const { session } = auth;
   const canAuthorSurvey = canAuthorInspectorWork(session?.user);
-  const requestedSurveyId = useLocalSearchParams<{ surveyId?: string | string[] }>().surveyId;
-  const surveyId = Array.isArray(requestedSurveyId) ? requestedSurveyId[0] : requestedSurveyId;
+  const params = useLocalSearchParams<{ forReport?: string | string[]; surveyId?: string | string[] }>();
+  const surveyId = Array.isArray(params.surveyId) ? params.surveyId[0] : params.surveyId;
+  // Opened from a Field Report: the map sends with that report, so there is no separate send step here.
+  const forReport = (Array.isArray(params.forReport) ? params.forReport[0] : params.forReport) === '1' && Boolean(surveyId);
   const { isOnline, syncNow } = useSync();
   const [clientUuid, setClientUuid] = useState(() => randomUUID());
   // The district comes from the account; the server still checks membership on sync.
@@ -384,6 +386,10 @@ export default function FieldSurveyScreen() {
         }
         setSaveState('saved');
         showStoredRow(previous, screenStateForRow(previous));
+      } else if (surveyId && forReport) {
+        // A report opened a new measurement under the identity it already links to.
+        setClientUuid(surveyId);
+        setScreenState(NEW_BOUNDARY_SCREEN);
       } else {
         setScreenState(surveyId ? { mode: 'waiting_to_start', boundary: null } : NEW_BOUNDARY_SCREEN);
       }
@@ -394,7 +400,7 @@ export default function FieldSurveyScreen() {
       }
     });
     return () => { cancelled = true; };
-  }, [database, fitMapToShape, ready, session?.user.uuid, setShape, showStoredRow, surveyId]);
+  }, [database, fitMapToShape, forReport, ready, session?.user.uuid, setShape, showStoredRow, surveyId]);
 
   // Autosave: an edit makes it unsaved, the write makes it saving, then saved or failed. Only an edited, editable screen writes.
   const loaded = mode !== 'loading';
@@ -934,6 +940,9 @@ export default function FieldSurveyScreen() {
   const toolState = drawingToolState({ locked: controlsLocked, drawingAffectedArea, hasSelection: selected !== null, activeAffectedCount: affectedWaypoints.length });
   const listedPoints = selectedArea !== null && affectedAreaWaypointSets[selectedArea] ? affectedAreaWaypointSets[selectedArea] : drawingAffectedArea ? affectedWaypoints : waypoints;
   const listedRef = (index: number): PointRef => selectedArea !== null && affectedAreaWaypointSets[selectedArea] ? { set: 'area', area: selectedArea, index } : drawingAffectedArea ? { set: 'active', index } : { set: 'plot', index };
+  // A report can use the map once the plot is measured, nothing is left open, and the draft is saved.
+  const reportReady = !screenCanEdit(mode)
+    || (validation.valid && affectedWaypoints.length === 0 && affectedMeasurement?.valid === true && saveState === 'saved');
   const areaReadout = `${screenValidation}${validation.valid && affectedMeasurement?.valid ? ` · ${affectedMeasurement.areaSqm.toFixed(0)} m² affected` : affectedMeasurement && !affectedMeasurement.valid ? ` · ${affectedMeasurement.error.message}` : ''}`;
 
   if (!canAuthorSurvey) {
@@ -1054,7 +1063,7 @@ export default function FieldSurveyScreen() {
         {moreOpen ? (
         <ScrollView testID="field-survey.more-panel" style={styles.details} contentContainerStyle={styles.detailsContent} keyboardShouldPersistTaps="handled">
           <Text style={[styles.intro, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.intro}</Text>
-        {screenIsStoredOrMissing(mode) && mode !== 'sending' ? <AppButton variant="secondary" onPress={startNewBoundary}>{screenNeedsFreshIdentity(mode) ? FIELD_SURVEY_COPY.startNewBoundaryAfterRejection : FIELD_SURVEY_COPY.newSurvey}</AppButton> : null}
+        {!forReport && screenIsStoredOrMissing(mode) && mode !== 'sending' ? <AppButton variant="secondary" onPress={startNewBoundary}>{screenNeedsFreshIdentity(mode) ? FIELD_SURVEY_COPY.startNewBoundaryAfterRejection : FIELD_SURVEY_COPY.newSurvey}</AppButton> : null}
           <View style={styles.row}>
             <AppButton leadingIcon="map-pin" variant="secondary" selected={!drawingAffectedArea} style={[styles.toolButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (drawingAffectedArea) stopWalk(); setDrawingAffectedArea(false); setSelected(null); setSyncMessage(null); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
             <AppButton leadingIcon="map-pin" variant="secondary" selected={drawingAffectedArea} style={[styles.toolButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (!drawingAffectedArea) stopWalk(); setDrawingAffectedArea(true); setSelected(null); setSyncMessage(null); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
@@ -1105,11 +1114,12 @@ export default function FieldSurveyScreen() {
               <Text accessibilityLiveRegion="polite" testID="field-survey.area" style={[styles.area, { color: validation.valid ? theme.primaryDark : theme.textSecondary }]}>{areaReadout}</Text>
               {validityMarks.issue && validityMarks.issue !== 'too_few_points' ? <Text testID="field-survey.validity" accessibilityLiveRegion="polite" style={[styles.help, { color: theme.danger }]}>{FIELD_SURVEY_COPY.validity[validityMarks.issue]}</Text> : null}
               {saveLine}
+              {forReport && !reportReady ? <Text testID="field-survey.report-unfinished" style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.reportUnfinished}</Text> : null}
               {syncMessage ? <Text accessibilityLiveRegion="assertive" testID="field-survey.sync-status" style={[styles.help, { color: theme.info }]}>{syncMessage}</Text> : null}
               {Object.entries(fieldErrors).map(([field, messages]) => <Text key={field} style={[styles.error, { color: theme.danger }]}>{field === 'district_code' ? messages.join(' ') : `${field}: ${messages.join(' ')}`}</Text>)}
             </>
           }
-          primary={<AppButton testID="field-survey.submit" leadingIcon="upload-cloud" busy={saving} disabled={!screenCanSubmit(screenState) || !validation.valid || saveState !== 'saved' || saving || affectedWaypoints.length > 0} onPress={() => void saveAndSync()}>{saving ? FIELD_SURVEY_SYNC_COPY.submitting : FIELD_SURVEY_SYNC_COPY.submit}</AppButton>}
+          primary={forReport ? <AppButton testID="field-survey.use-in-report" leadingIcon="check" disabled={!reportReady} onPress={() => router.back()}>{FIELD_SURVEY_COPY.reportDone}</AppButton> : <AppButton testID="field-survey.submit" leadingIcon="upload-cloud" busy={saving} disabled={!screenCanSubmit(screenState) || !validation.valid || saveState !== 'saved' || saving || affectedWaypoints.length > 0} onPress={() => void saveAndSync()}>{saving ? FIELD_SURVEY_SYNC_COPY.submitting : FIELD_SURVEY_SYNC_COPY.submit}</AppButton>}
           secondary={<AppButton variant="secondary" style={dockSecondaryButtonStyle} onPress={() => router.back()}>{FIELD_SURVEY_COPY.close}</AppButton>}
         />
       </KeyboardAvoidingView>

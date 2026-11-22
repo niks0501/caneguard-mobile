@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { FARMER_COPY, LOGOUT_DIALOG_COPY } from '@/constants/copy';
+import { FARMER_COPY, FIELD_SURVEY_COPY, LOGOUT_DIALOG_COPY } from '@/constants/copy';
 import { ComponentTokens, Layout, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import {
@@ -324,6 +324,26 @@ export default function SettingsScreen() {
               <>
                 <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>FIELD READINESS</Text>
                 <OfflineReadinessCard />
+                <View
+                  style={[
+                    styles.card,
+                    { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+                  ]}>
+                  <Pressable
+                    testID="settings.saved-plot-maps"
+                    accessibilityRole="button"
+                    accessibilityLabel={FIELD_SURVEY_COPY.myBoundariesLink}
+                    onPress={() => router.push('/my-boundaries')}
+                    style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}>
+                    <View style={styles.toggleCopy}>
+                      <Text style={[styles.menuLabel, { color: theme.text }]}>{FIELD_SURVEY_COPY.myBoundariesLink}</Text>
+                      <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>
+                        {FIELD_SURVEY_COPY.myBoundariesLinkDescription}
+                      </Text>
+                    </View>
+                    <Feather name="chevron-right" size={18} color={theme.textSecondary} />
+                  </Pressable>
+                </View>
               </>
             )}
 

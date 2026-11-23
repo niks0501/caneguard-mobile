@@ -1200,6 +1200,14 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
         },
       ),
     );
+    // The upload photo is only prepared when the report is finalized (the
+    // repository does the same before preparing it), so a scan whose source
+    // needs a derivative has no prepared photo yet. Only the original scan
+    // photo is a requirement the user can act on; a failed preparation is
+    // reported by finalization itself.
+    if (!missing.has('original_scan_image')) {
+      missing.delete('submission_image');
+    }
     if (
       attachedSurveyUuid &&
       (!attachedSurvey || planAttachedBoundarySend(attachedSurvey, user?.districtCode ?? '').status === 'blocked')

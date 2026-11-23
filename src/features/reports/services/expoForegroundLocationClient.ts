@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { Platform } from 'react-native';
 
 import type { ForegroundLocationClient } from '@/features/reports/services/captureGpsLocation';
 
@@ -14,7 +15,22 @@ export const expoForegroundLocationClient: ForegroundLocationClient = {
     };
   },
 
-  hasServicesEnabled() {
+  async hasServicesEnabled() {
+    if (await Location.hasServicesEnabledAsync()) {
+      return true;
+    }
+    // Granting the app permission does not switch the phone's Location on.
+    // Android can ask the user to turn it on right here; iOS offers no such
+    // prompt, so it stays reported as disabled.
+    if (Platform.OS !== 'android') {
+      return false;
+    }
+    try {
+      await Location.enableNetworkProviderAsync();
+    } catch {
+      // The user declined the system dialog.
+      return false;
+    }
     return Location.hasServicesEnabledAsync();
   },
 

@@ -201,6 +201,12 @@ function captureFailureMessage(status: 'permission_denied' | 'services_disabled'
   return FIELD_SURVEY_COPY.gpsUnavailable;
 }
 
+function walkFailureMessage(status: 'permission_denied' | 'services_disabled' | 'unavailable'): string {
+  if (status === 'permission_denied') return FIELD_SURVEY_COPY.walkPermissionDenied;
+  if (status === 'services_disabled') return FIELD_SURVEY_COPY.walkServicesDisabled;
+  return FIELD_SURVEY_COPY.walkUnavailable;
+}
+
 function captureSuccessMessage(accuracyMeters: number | null): string | null {
   if (accuracyMeters === null) return FIELD_SURVEY_COPY.gpsAccuracyUnknown;
   return accuracyMeters > PREFERRED_GPS_ACCURACY_METERS ? FIELD_SURVEY_COPY.gpsAccuracyWeak(accuracyMeters) : null;
@@ -273,6 +279,8 @@ export default function FieldSurveyScreen() {
   const walkRef = useRef<WalkSession | null>(null);
   const walkFixHandlerRef = useRef<(fix: WalkFix) => void>(() => undefined);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  // Walk status shown on the map pill; syncMessage alone lives inside the collapsed More panel, so walk feedback was invisible.
+  const [walkNotice, setWalkNotice] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [saveState, setSaveState] = useState<SaveState>('unsaved');
   const [saveAttempt, setSaveAttempt] = useState(0);
@@ -350,7 +358,11 @@ export default function FieldSurveyScreen() {
     walkRef.current = null;
     walk.stop();
     setWalking(false);
-    if (message !== null) setSyncMessage(message ?? FIELD_SURVEY_COPY.walkStopped(walk.added));
+    if (message !== null) {
+      const text = message ?? FIELD_SURVEY_COPY.walkStopped(walk.added);
+      setSyncMessage(text);
+      setWalkNotice(text);
+    } else setWalkNotice(null);
   }, []);
   // Walking ends when the screen locks, its boundary target or survey changes, an affected area is removed, the app leaves the foreground, or the screen closes.
   useLayoutEffect(() => {
@@ -742,12 +754,14 @@ export default function FieldSurveyScreen() {
       if (weak !== walk.weakSignal && (weak || decision.reason === 'too_close')) {
         walk.weakSignal = weak;
         setSyncMessage(weak ? FIELD_SURVEY_COPY.walkWeakSignal : FIELD_SURVEY_COPY.walkActive);
+        setWalkNotice(weak ? FIELD_SURVEY_COPY.walkWeakSignal : FIELD_SURVEY_COPY.walkActive);
       }
       return;
     }
     if (walk.weakSignal) {
       walk.weakSignal = false;
       setSyncMessage(FIELD_SURVEY_COPY.walkActive);
+      setWalkNotice(FIELD_SURVEY_COPY.walkActive);
     }
     walk.last = decision.waypoint;
     walk.added += 1;
@@ -778,6 +792,7 @@ export default function FieldSurveyScreen() {
     setSelected(null);
     setWalking(true);
     setGpsBusy(true);
+    setWalkNotice(FIELD_SURVEY_COPY.walkStarting);
     try {
       const result = await startWalk(
         expoWalkLocationClient,
@@ -790,7 +805,9 @@ export default function FieldSurveyScreen() {
       }
       if (result.status !== 'started') {
         stopWalk(null);
-        setSyncMessage(captureFailureMessage(result.status));
+        const failure = walkFailureMessage(result.status);
+        setSyncMessage(failure);
+        setWalkNotice(failure);
         return;
       }
       session.stop = result.stop;
@@ -800,6 +817,7 @@ export default function FieldSurveyScreen() {
         return;
       }
       setSyncMessage(FIELD_SURVEY_COPY.walkActive);
+      setWalkNotice(FIELD_SURVEY_COPY.walkActive);
     } finally {
       setGpsBusy(false);
     }
@@ -1035,7 +1053,8 @@ export default function FieldSurveyScreen() {
     : '';
   const areaReadout = `${screenValidation}${validation.valid && affectedMeasurement?.valid && affectedAreas.length > 0 ? ` · ${affectedMeasurement.areaSqm.toFixed(0)} m² affected${affectedPercent}` : affectedMeasurement && !affectedMeasurement.valid ? ` · ${affectedMeasurement.error.message}` : ''}`;
   // One message on the map: what to tap next while drawing, otherwise what state the boundary is in.
-  const showToolHint = mode === 'drawing_new' || (mode === 'drawing_resumed' && hasEdited) || (gpsBusy && screenCanEdit(mode));
+  const showWalkNotice = walkNotice !== null && screenCanEdit(mode);
+  const showToolHint = !showWalkNotice && (mode === 'drawing_new' || (mode === 'drawing_resumed' && hasEdited) || (gpsBusy && screenCanEdit(mode)));
   const mapNote = isOnline !== true
     ? tileSources.size > 0 ? FIELD_SURVEY_COPY.offlineMapSaved : FIELD_SURVEY_COPY.offlineMap
     : missingTiles.size > 0 || tileFailures.some((key) => tileSources.has(key)) ? `${FIELD_SURVEY_COPY.mapTileError}${tileDiagnostic ? ` [dev: ${tileDiagnostic}]` : ''}` : null;
@@ -1150,8 +1169,10 @@ export default function FieldSurveyScreen() {
           </GestureDetector>
           <View pointerEvents="box-none" style={styles.overlayTop}>
             <View pointerEvents="none" style={styles.overlayMessages}>
-              <View testID="field-survey.status-strip" accessibilityLiveRegion="polite" accessibilityValue={{ text: `mode=${mode}` }} style={[styles.pill, { backgroundColor: theme.surfaceElevated, borderColor: showToolHint ? theme.border : theme[SYNC_TONE_COLOR[strip.tone]] }]}>
-                {showToolHint ? (
+              <View testID="field-survey.status-strip" accessibilityLiveRegion="polite" accessibilityValue={{ text: `mode=${mode}` }} style={[styles.pill, { backgroundColor: theme.surfaceElevated, borderColor: showToolHint || showWalkNotice ? theme.border : theme[SYNC_TONE_COLOR[strip.tone]] }]}>
+                {showWalkNotice ? (
+                  <Text testID="field-survey.walk-status" numberOfLines={4} style={[styles.pillText, { color: theme.text }]}>{walkNotice}</Text>
+                ) : showToolHint ? (
                   <Text testID="field-survey.tool-state" accessibilityValue={{ text: `tool=${toolState}` }} numberOfLines={2} style={[styles.pillText, { color: theme.text }]}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.toolState[toolState]}</Text>
                 ) : (
                   <Text numberOfLines={3} style={[styles.pillText, { color: theme[SYNC_TONE_COLOR[strip.tone]] }]}>{strip.text}</Text>
@@ -1167,7 +1188,7 @@ export default function FieldSurveyScreen() {
           <View pointerEvents="box-none" style={styles.overlayBottom}>
             <View pointerEvents="box-none" style={styles.modeSwitch}>
               <AppButton testID="field-survey.walk" leadingIcon={walking ? 'square' : 'navigation'} variant="secondary" selected={walking} style={[styles.floatingButton, walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => void toggleWalk()} disabled={(gpsBusy && !walking) || controlsLocked}>{walking ? FIELD_SURVEY_COPY.walkStop : FIELD_SURVEY_COPY.modeWalk}</AppButton>
-              <AppButton testID="field-survey.tap" leadingIcon="map-pin" variant="secondary" selected={!walking} style={[styles.floatingButton, !walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => { if (walking) stopWalk(); }} disabled={controlsLocked}>{FIELD_SURVEY_COPY.modeTap}</AppButton>
+              <AppButton testID="field-survey.tap" leadingIcon="map-pin" variant="secondary" selected={!walking} style={[styles.floatingButton, !walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => { if (walking) stopWalk(); setWalkNotice(null); }} disabled={controlsLocked}>{FIELD_SURVEY_COPY.modeTap}</AppButton>
             </View>
             {controlsLocked || walking ? null : (
               <AppButton testID="field-survey.add-center" leadingIcon="plus" accessibilityLabel={FIELD_SURVEY_COPY.addAtCenterLabel} style={styles.floatingButton} onPress={addPointAtCenter}>{selected ? FIELD_SURVEY_COPY.moveToCenter : FIELD_SURVEY_COPY.addAtCenter}</AppButton>
@@ -1176,8 +1197,8 @@ export default function FieldSurveyScreen() {
         </View>
         <View style={[styles.controls, expanded && { backgroundColor: theme.background }]}>
           <View accessibilityRole="radiogroup" style={styles.segmented}>
-            <AppButton testID="field-survey.target-plot" leadingIcon="square" variant="secondary" selected={!drawingAffectedArea} style={[styles.toolButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (drawingAffectedArea) stopWalk(); setDrawingAffectedArea(false); setSelected(null); setSyncMessage(null); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
-            <AppButton testID="field-survey.target-affected" leadingIcon="alert-triangle" variant="secondary" selected={drawingAffectedArea} style={[styles.toolButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.warning, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (!drawingAffectedArea) stopWalk(); setDrawingAffectedArea(true); setSelected(null); setSyncMessage(null); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
+            <AppButton testID="field-survey.target-plot" leadingIcon="square" variant="secondary" selected={!drawingAffectedArea} style={[styles.toolButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (drawingAffectedArea) stopWalk(); setDrawingAffectedArea(false); setSelected(null); setSyncMessage(null); setWalkNotice(null); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
+            <AppButton testID="field-survey.target-affected" leadingIcon="alert-triangle" variant="secondary" selected={drawingAffectedArea} style={[styles.toolButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.warning, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (!drawingAffectedArea) stopWalk(); setDrawingAffectedArea(true); setSelected(null); setSyncMessage(null); setWalkNotice(null); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
           </View>
           <View style={styles.toolRow}>
             {/* Three buttons share the row while an affected area is open, so they drop their icons to keep one line each. */}

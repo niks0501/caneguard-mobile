@@ -141,7 +141,7 @@ it('adds boundary points while walking, without a button press per point, and st
 
   await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.walkStop)); });
   expect(remove).toHaveBeenCalledTimes(1);
-  expect(screen.getByText(FIELD_SURVEY_COPY.walkStopped(3))).toBeTruthy();
+  expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkStopped(3));
 });
 
 it('removes a subscription that arrives after the walk was stopped while still starting', async () => {
@@ -302,4 +302,33 @@ it('hides the map handles while walking so points cannot be inserted, selected o
   await act(async () => { fireEvent.press(screen.getByTestId('field-survey.tap')); });
   expect(screen.getByTestId('field-survey.point.plot.0')).toBeTruthy();
   expect(screen.getByTestId('field-survey.insert.plot.0')).toBeTruthy();
+});
+
+it('shows walk status on the map, not only inside More details', async () => {
+  // Root cause: walk feedback went to the collapsed More panel, so tapping Walk looked unresponsive.
+  watch.mockImplementation(async () => ({ remove: jest.fn() }));
+
+  await renderWithGestures(<FieldSurveyScreen />);
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+
+  await waitFor(() => expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkActive));
+});
+
+it('tells the walker on the map when device location is off, and does not start walking', async () => {
+  jest.mocked(expoWalkLocationClient.hasServicesEnabled).mockResolvedValueOnce(false);
+
+  await renderWithGestures(<FieldSurveyScreen />);
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+
+  await waitFor(() => expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkServicesDisabled));
+  expect(watch).not.toHaveBeenCalled();
+});
+
+it('tells the walker on the map when location permission is denied', async () => {
+  jest.mocked(expoWalkLocationClient.requestForegroundPermission).mockResolvedValueOnce({ canAskAgain: false, status: 'denied' });
+
+  await renderWithGestures(<FieldSurveyScreen />);
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+
+  await waitFor(() => expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkPermissionDenied));
 });

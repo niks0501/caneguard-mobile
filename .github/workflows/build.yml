@@ -145,7 +145,7 @@ jobs:
 
       - name: Upload production APK
         if: inputs.lane == 'production'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: caneguard-production-apk
           path: ${{ runner.temp }}/apk/caneguard-production.apk

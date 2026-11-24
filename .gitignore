@@ -3,7 +3,7 @@ node_modules/
 
 # Expo
 .expo/
-.apk-cache/
+/.apk-cache
 dist/
 web-build/
 coverage/

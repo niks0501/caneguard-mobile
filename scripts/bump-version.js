@@ -35,9 +35,13 @@ try {
   // A first release can bootstrap from the checked-in Expo version.
 }
 
-if (baseVersion !== current) {
-  fail(`Latest release tag (${baseVersion}) does not match app version (${current}); reconcile before bumping.`);
+// Development and preview builds bump and commit the version without tagging, so
+// the app version legitimately runs ahead of the latest release tag. Only an app
+// version behind the tag means the tree is out of step with a published release.
+if (compareVersions(current, baseVersion) < 0) {
+  fail(`App version (${current}) is behind the latest release tag (${baseVersion}); reconcile before bumping.`);
 }
+baseVersion = current;
 
 const parts = baseVersion.split('.').map(Number);
 if (parts.length !== 3 || parts.some((part) => !Number.isSafeInteger(part) || part < 0)) {
@@ -61,6 +65,16 @@ pkg.version = nextVersion;
 fs.writeFileSync(appPath, `${JSON.stringify(app, null, 2)}\n`);
 fs.writeFileSync(packagePath, `${JSON.stringify(pkg, null, 2)}\n`);
 console.log(nextVersion);
+
+function compareVersions(a, b) {
+  const left = a.split('.').map(Number);
+  const right = b.split('.').map(Number);
+  for (let index = 0; index < 3; index += 1) {
+    const difference = (left[index] ?? 0) - (right[index] ?? 0);
+    if (difference !== 0) return difference;
+  }
+  return 0;
+}
 
 function fail(message) {
   console.error(message);

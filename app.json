@@ -3,7 +3,7 @@
     "name": "CaneGuard",
     "owner": "caneguard",
     "slug": "caneguard-mobile",
-    "version": "2.2.4",
+    "version": "2.2.5",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",

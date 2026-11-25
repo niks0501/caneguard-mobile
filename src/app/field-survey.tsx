@@ -38,7 +38,7 @@ import { findOwnedFieldSurvey, listOwnedFieldSurveys, saveFieldSurveyDraft, mark
 import { viewportPointFromPressEvent } from '@/features/reports/components/online-map-picker';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
 import { useTileSources } from '@/features/reports/tiles/useTileSources';
-import { measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyPolygon, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { describeOutsidePlot, measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyPolygon, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { LOADING_SCREEN, NEW_BOUNDARY_SCREEN, screenCanEdit, screenCanSubmit, screenIsStoredOrMissing, screenNeedsFreshIdentity, screenStateForRow, statusStripFor, WAITING_TO_SEND_SCREEN, type ScreenState } from '@/features/surveys/domain/screenMode';
 import { FIELD_SURVEY_SYNC_COPY, SYNC_TONE_COLOR } from '@/features/sync/utils/syncStatusCopy';
 import { assessBoundaryQuality } from '@/features/surveys/domain/boundaryQuality';
@@ -922,7 +922,17 @@ export default function FieldSurveyScreen() {
     const removed = walk.started ? tidyWalkedLine(walk) : 0;
     const net = Math.max(0, walk.added - removed);
     const tidyNote = removed > 0 ? FIELD_SURVEY_COPY.walkTidied(removed) : '';
-    stopWalk(`${finished ? FIELD_SURVEY_COPY.walkFinished(net) : FIELD_SURVEY_COPY.walkStopped(net)}${tidyNote}`, 'brief');
+    const stoppedOpen = !finished && walk.affectedArea && shapeRef.current.affectedWaypoints.length >= 3;
+    const message = `${finished ? FIELD_SURVEY_COPY.walkFinished(net) : FIELD_SURVEY_COPY.walkStopped(net)}${tidyNote}${stoppedOpen ? ` ${FIELD_SURVEY_COPY.affectedAreaStillOpen}` : ''}`;
+    stopWalk(message, 'brief');
+    // Finish on an affected area closes it, or the walked points would stay open and the report would read "not measured".
+    if (finished && walk.affectedArea && shapeRef.current.affectedWaypoints.length >= 3) {
+      const failure = closeAffectedArea();
+      const notice = failure ?? `${message}${FIELD_SURVEY_COPY.walkAreaClosed}`;
+      setSyncMessage(notice);
+      setWalkNotice(notice);
+      if (failure === null) setResumeOffer(null);
+    }
   }
 
   function markCorner() {
@@ -1105,24 +1115,24 @@ export default function FieldSurveyScreen() {
     else if (isOnline === false && next.mode === 'waiting_to_send') setSyncMessage(FIELD_SURVEY_SYNC_COPY.offline);
   }
 
-  function finishAffectedArea() {
-    if (!validation.valid) {
-      setSyncMessage(validation.error.message);
-      return;
-    }
-    const snappedWaypoints = snapAffectedAreaWaypoints(validation.polygon, affectedWaypoints);
+  // Closes the open affected boundary into a measured area. Reads the live shape, not render state, so a walk that
+  // has just added its last point can close in the same tick. Returns an error message, or null once closed.
+  function closeAffectedArea(): string | null {
+    const current = shapeRef.current;
+    const plot = validateSurveyWaypoints(current.waypoints);
+    if (!plot.valid) return plot.error.message;
+    const snappedWaypoints = snapAffectedAreaWaypoints(plot.polygon, current.affectedWaypoints);
     const candidate = validateSurveyWaypoints(snappedWaypoints);
-    if (!candidate.valid) {
-      setSyncMessage(candidate.error.message);
-      return;
-    }
-    const result = measureAffectedAreas(validation.polygon, [candidate.polygon]);
+    if (!candidate.valid) return candidate.error.message;
+    const result = measureAffectedAreas(plot.polygon, [candidate.polygon]);
     if (!result.valid) {
-      setSyncMessage(result.error.message);
-      return;
+      if (result.error.code === 'OUTSIDE_PLOT') {
+        const outside = describeOutsidePlot(plot.polygon, snappedWaypoints);
+        if (outside) return FIELD_SURVEY_COPY.affectedAreaOutsidePlot(outside.count, outside.maxMeters);
+      }
+      return result.error.message;
     }
     stopWalk();
-    const current = shapeRef.current;
     commitShape({
       ...current,
       affectedAreas: [...current.affectedAreas, candidate.polygon],
@@ -1130,7 +1140,12 @@ export default function FieldSurveyScreen() {
       affectedWaypoints: [],
     });
     setSelected(null);
-    setSyncMessage(null);
+    return null;
+  }
+
+  function finishAffectedArea() {
+    const failure = closeAffectedArea();
+    setSyncMessage(failure);
   }
 
   function removeSelected() {
@@ -1259,7 +1274,10 @@ export default function FieldSurveyScreen() {
     : '';
   const areaReadout = `${screenValidation}${validation.valid && affectedMeasurement?.valid && affectedAreas.length > 0 ? ` · ${affectedMeasurement.areaSqm.toFixed(0)} m² affected${affectedPercent}` : affectedMeasurement && !affectedMeasurement.valid ? ` · ${affectedMeasurement.error.message}` : ''}`;
   // One message on the map: what to tap next while drawing, otherwise what state the boundary is in.
-  const showWalkNotice = walkNotice !== null && screenCanEdit(mode);
+  // Open affected points are never measured: say so after a Stop, a reopened draft or tapped points, until the area is closed.
+  const openAreaNotice = !walking && drawingAffectedArea && affectedWaypoints.length >= 3 ? FIELD_SURVEY_COPY.affectedAreaStillOpen : null;
+  const mapNotice = walkNotice ?? openAreaNotice;
+  const showWalkNotice = mapNotice !== null && screenCanEdit(mode);
   // The boundary the walker is adding to: the live segment and the distance to start both read from it.
   const walkTarget = drawingAffectedArea ? affectedWaypoints : waypoints;
   const walkBand = walkLive ? walkAccuracyBand(walkLive.fix.accuracy) : null;
@@ -1417,7 +1435,7 @@ export default function FieldSurveyScreen() {
                         </View>
                       </View>
                     ) : null}
-                    <Text testID="field-survey.walk-status" numberOfLines={4} style={[styles.pillText, { color: theme.text }]}>{walkNotice}</Text>
+                    <Text testID="field-survey.walk-status" numberOfLines={4} style={[styles.pillText, { color: theme.text }]}>{mapNotice}</Text>
                     {walking && walkGuideOpen ? (
                       <View testID="field-survey.walk-guide" style={styles.guide}>
                         <Text style={[styles.guideTitle, { color: theme.primaryDark }]}>{FIELD_SURVEY_COPY.walkGuideTitle}</Text>

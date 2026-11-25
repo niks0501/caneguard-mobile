@@ -8,7 +8,7 @@ import { BOUNDARY_STATE_COPY, FIELD_SURVEY_COPY } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import type { FieldSurveyRow } from '@/database/schema';
 import { useTheme } from '@/hooks/use-theme';
-import { measuredBoundaryArea } from '@/features/surveys/domain/attachedBoundary';
+import { hasOpenAffectedArea, measuredBoundaryArea } from '@/features/surveys/domain/attachedBoundary';
 import { boundaryState } from '@/features/surveys/domain/boundaryState';
 
 export interface ReportSurveyCardProps {
@@ -87,7 +87,7 @@ export function ReportSurveyCard({
             {!attachedSurvey
               ? FIELD_SURVEY_COPY.linkMissing
               : attachedAreaSqm === null
-                ? FIELD_SURVEY_COPY.linkUnfinished
+                ? hasOpenAffectedArea(attachedSurvey) ? FIELD_SURVEY_COPY.linkAreaOpen : FIELD_SURVEY_COPY.linkUnfinished
                 : FIELD_SURVEY_COPY.linkAttached((attachedAreaSqm / 10_000).toFixed(2))}
           </Text>
         </View>

@@ -55,6 +55,7 @@ import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklist
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { findOwnedFieldSurvey, listOwnedFieldSurveys } from '@/features/surveys/data/fieldSurveyRepository';
 import {
+  hasOpenAffectedArea,
   measuredBoundaryArea,
   planAttachedBoundarySend,
   reportAreaFromBoundary,
@@ -829,7 +830,11 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
         return;
       }
       const measured = measuredBoundaryArea(row);
-      if (!measured) return;
+      if (!measured) {
+        // Say why nothing filled in, instead of leaving a silent "not measured".
+        if (hasOpenAffectedArea(row)) showToast(FIELD_SURVEY_COPY.affectedAreaOpenOnReport, 'error');
+        return;
+      }
       const filled = reportAreaFromBoundary(measured);
       setAffectedAreaText(formatDecimalInput(filled.areaHectares));
       setAffectedAreaChoice('measured');

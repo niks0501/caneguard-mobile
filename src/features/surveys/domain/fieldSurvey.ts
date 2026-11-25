@@ -225,6 +225,30 @@ export function snapAffectedAreaWaypoints(plot: SurveyPolygon, waypoints: Survey
   });
 }
 
+/**
+ * How far an unclosed affected boundary sticks out of the plot, after the usual snap: how many points are still
+ * outside and the farthest one in metres, so a rejection can say what to fix. Null when nothing sticks out.
+ */
+export function describeOutsidePlot(plot: SurveyPolygon, waypoints: SurveyWaypoint[]): { count: number; maxMeters: number } | null {
+  const plotGeometry = readValidPolygon(plot);
+  if (!plotGeometry) return null;
+  const ring = plot.coordinates[0];
+  let count = 0;
+  let maxMeters = 0;
+  for (const waypoint of waypoints) {
+    if (pointInRing(waypoint.longitude, waypoint.latitude, ring)) continue;
+    try {
+      const nearest = DistanceOp.nearestPoints(plotGeometry, reader.read({ type: 'Point', coordinates: [waypoint.longitude, waypoint.latitude] }))?.[0] as { x?: number; y?: number } | undefined;
+      if (typeof nearest?.x !== 'number' || typeof nearest?.y !== 'number') continue;
+      count += 1;
+      maxMeters = Math.max(maxMeters, geodesicDistanceMeters(waypoint.latitude, waypoint.longitude, nearest.y, nearest.x));
+    } catch {
+      continue;
+    }
+  }
+  return count > 0 ? { count, maxMeters } : null;
+}
+
 /** Indexes of affected areas that are not fully inside the plot; empty when the plot itself is unusable. */
 export function findAffectedAreasOutsidePlot(plot: SurveyPolygon, affectedAreas: SurveyPolygon[]): number[] {
   const plotGeometry = readValidPolygon(plot);

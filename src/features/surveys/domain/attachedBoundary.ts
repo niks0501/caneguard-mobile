@@ -147,6 +147,12 @@ export function measuredBoundaryArea(row: AttachedBoundaryInput): MeasuredBounda
   };
 }
 
+/** True when affected-area points were drawn but never closed into an area, which is why the map reads "not measured". */
+export function hasOpenAffectedArea(row: AttachedBoundaryInput): boolean {
+  const active = jsonArray(row.activeAffectedWaypointsJson ?? null);
+  return active !== null && active.length > 0;
+}
+
 /**
  * Report values from a measured boundary: the plot size in hectares and, when
  * affected areas were drawn, the affected share of the plot in percent.

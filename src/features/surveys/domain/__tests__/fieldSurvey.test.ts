@@ -1,4 +1,5 @@
 import {
+  describeOutsidePlot,
   AFFECTED_AREA_CONTAINMENT_TOLERANCE_METERS,
   measureAffectedAreas,
   ringArea,
@@ -169,5 +170,22 @@ describe('field survey geometry', () => {
     expect(boundary.valid).toBe(true);
     if (!boundary.valid) return;
     expect(measureAffectedAreas(plot, [boundary.polygon])).toMatchObject({ valid: false, error: { code: 'OUTSIDE_PLOT' } });
+  });
+});
+
+describe('describeOutsidePlot', () => {
+  const at = (latitude: number, longitude: number) => ({ latitude, longitude, accuracyMeters: null, capturedAt: '2026-10-05T09:00:00.000Z', source: 'map' as const });
+  const plot = validateSurveyWaypoints([at(14, 120), at(14, 120.001), at(14.001, 120.001), at(14.001, 120)]);
+
+  it('reports how many points stick out and the farthest distance', () => {
+    if (!plot.valid) throw new Error('plot');
+    const result = describeOutsidePlot(plot.polygon, [at(14.0005, 120.0005), at(13.9999, 120.0005)]);
+    expect(result?.count).toBe(1);
+    expect(result?.maxMeters).toBeGreaterThan(10);
+  });
+
+  it('is null when every point is inside', () => {
+    if (!plot.valid) throw new Error('plot');
+    expect(describeOutsidePlot(plot.polygon, [at(14.0005, 120.0005)])).toBeNull();
   });
 });

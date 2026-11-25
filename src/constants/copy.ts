@@ -126,6 +126,7 @@ export const FIELD_SURVEY_COPY = {
   linkOpen: 'Edit map measurement',
   linkMeasure: 'Measure on map',
   linkMissing: 'The map measurement is no longer saved on this phone. Remove it or measure again.',
+  linkAreaOpen: 'The affected area on this map is not closed yet. Open the map and tap Finish area.',
   linkUnfinished: 'The map is not finished yet. Open it to finish the plot, or remove it.',
   linkFilled: (hectares: string, percent: string | null) =>
     percent === null
@@ -202,6 +203,11 @@ export const FIELD_SURVEY_COPY = {
   walkFinished: (count: number) => `Walk finished. ${count} ${count === 1 ? 'point' : 'points'} added; the boundary closes back to the start.`,
   walkActive: 'Walking: a point is added about every 8 m once GPS is within ±10 m. Keep the phone out in the open and stop at the starting corner.',
   walkWeakSignal: 'Waiting for a stronger GPS signal (within ±10 m). Move to open sky and keep walking.',
+  affectedAreaStillOpen: 'The affected area is not closed yet, so it is not measured. Open More and tap Finish area.',
+  affectedAreaOpenOnReport: 'The affected area on the map is not closed, so the % affected was not filled in. Open the map and tap Finish area.',
+  affectedAreaOutsidePlot: (count: number, meters: number) =>
+    `${count} ${count === 1 ? 'point is' : 'points are'} up to ${Math.max(1, Math.round(meters))} m outside the plot. Move ${count === 1 ? 'it' : 'them'} inside the plot, or walk the area again.`,
+  walkAreaClosed: ' The affected area is closed and measured.',
   walkStopped: (count: number) => `Stopped walking. ${count} ${count === 1 ? 'point' : 'points'} added.`,
   walkStarting: 'Starting walk… allow location access if asked.',
   walkPermissionDenied: 'Location permission is off, so walking did not start. Allow location for CaneGuard in Settings, or tap points on the map.',

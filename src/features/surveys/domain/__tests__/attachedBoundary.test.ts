@@ -1,4 +1,5 @@
 import {
+  hasOpenAffectedArea,
   measuredBoundaryArea,
   planAttachedBoundarySend,
   reportAreaFromBoundary,
@@ -186,5 +187,12 @@ describe('measuredBoundaryArea and reportAreaFromBoundary', () => {
     expect(measuredBoundaryArea(row({ waypointsJson: JSON.stringify(plot.slice(0, 2)) }))).toBeNull();
     expect(measuredBoundaryArea(row({ activeAffectedWaypointsJson: JSON.stringify([point(14, 120)]) }))).toBeNull();
     expect(measuredBoundaryArea(row({ waypointsJson: 'not json' }))).toBeNull();
+  });
+});
+
+describe('hasOpenAffectedArea', () => {
+  it('is true only while affected points are drawn but not closed', () => {
+    expect(hasOpenAffectedArea(row())).toBe(false);
+    expect(hasOpenAffectedArea(row({ activeAffectedWaypointsJson: JSON.stringify([point(14.0002, 120.0002)]) }))).toBe(true);
   });
 });

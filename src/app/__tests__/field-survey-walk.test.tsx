@@ -801,3 +801,75 @@ describe('comfort: haptics, screen on, interruptions and the first-walk guide', 
     expect(screen.queryByTestId('field-survey.walk-guide')).toBeNull();
   });
 });
+
+it('closes and measures an affected area when the walk is finished back at the start', async () => {
+  // Regression: Finish on an affected walk left the points open, so the report read "affected portion not measured".
+  listSurveys.mockReturnValue([draftRow()]);
+  let emit: (fix: WalkFix) => void = () => undefined;
+  watch.mockImplementation(async (onFix) => { emit = onFix; return { remove: jest.fn() }; });
+  await renderOpen();
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.newSurvey)).toBeTruthy());
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.target-affected')); });
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+  await act(async () => {
+    emit(fix(14.1005, 121.1005));
+    emit(fix(14.1005, 121.1008));
+    emit(fix(14.1008, 121.1008));
+    emit(fix(14.1008, 121.1005));
+    emit(fix(14.1005, 121.1005));
+  });
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk-finish')); });
+
+  await waitFor(() => expect(lastDraftAffectedWaypoints()).toHaveLength(1));
+  expect(lastDraftActiveAffectedWaypoints()).toHaveLength(0);
+  expect(lastDraft()?.affectedAreaPolygons).toHaveLength(1);
+  expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(/closed and measured/);
+});
+
+it('leaves an affected area open when the walk is only stopped, so it can be resumed', async () => {
+  listSurveys.mockReturnValue([draftRow()]);
+  let emit: (fix: WalkFix) => void = () => undefined;
+  watch.mockImplementation(async (onFix) => { emit = onFix; return { remove: jest.fn() }; });
+  await renderOpen();
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.newSurvey)).toBeTruthy());
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.target-affected')); });
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+  await act(async () => {
+    emit(fix(14.1005, 121.1005));
+    emit(fix(14.1005, 121.1008));
+    emit(fix(14.1008, 121.1008));
+  });
+  await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.walkStop)); });
+  expect(lastDraftAffectedWaypoints()).toHaveLength(0);
+  expect(lastDraftActiveAffectedWaypoints().length).toBeGreaterThanOrEqual(3);
+  expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(/not closed yet/);
+});
+
+it('tells the user a reopened draft with an unclosed affected area is not measured', async () => {
+  listSurveys.mockReturnValue([draftRow({ activeAffectedWaypointsJson: JSON.stringify(AFFECTED_WAYPOINTS) })]);
+  await renderOpen();
+  await waitFor(() => expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(/not closed yet/));
+});
+
+it('names how far points are outside the plot when closing an affected walk is refused', async () => {
+  listSurveys.mockReturnValue([draftRow()]);
+  let emit: (fix: WalkFix) => void = () => undefined;
+  watch.mockImplementation(async (onFix) => { emit = onFix; return { remove: jest.fn() }; });
+  await renderOpen();
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.newSurvey)).toBeTruthy());
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.target-affected')); });
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+  await act(async () => {
+    emit(fix(14.1005, 121.1005));
+    emit(fix(14.1005, 121.1008));
+    emit(fix(14.0990, 121.1008)); // ~110 m south of the plot
+    emit(fix(14.0990, 121.1005));
+    emit(fix(14.1005, 121.1005));
+  });
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk-finish')); });
+  expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(/outside the plot/);
+  expect(lastDraftActiveAffectedWaypoints().length).toBeGreaterThanOrEqual(3);
+});

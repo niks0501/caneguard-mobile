@@ -538,13 +538,13 @@ describe('GPS lock, corners and closing the loop', () => {
     await act(async () => { ref.emit(fix(14.1006, 121.1, 4)); }); // accepted, ~64 m from the last plot point
     await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(5));
 
-    await act(async () => { ref.emit(fix(14.100636, 121.1, 3)); }); // ~4 m on: too close to be added by walking
+    await act(async () => { ref.emit(fix(14.100636, 121.1, 3.5)); }); // ~4 m on and not clearly better: too close to be added or to replace the point
     await waitFor(() => expect(screen.getByTestId('field-survey.walk-corner')).toBeEnabled());
     expect(lastDraftWaypoints()).toHaveLength(5);
 
     await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk-corner')); });
     await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(6));
-    expect(lastDraftWaypoints().at(-1)).toMatchObject({ isCorner: true, accuracyMeters: 3, source: 'gps' });
+    expect(lastDraftWaypoints().at(-1)).toMatchObject({ isCorner: true, accuracyMeters: 3.5, source: 'gps' });
     expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkCornerMarked);
   });
 
@@ -599,5 +599,88 @@ describe('GPS lock, corners and closing the loop', () => {
     expect(lastDraftWaypoints()).toHaveLength(4);
     expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkFinished(4));
     expect(screen.getByText(FIELD_SURVEY_COPY.walkResume)).toBeTruthy();
+  });
+});
+
+
+describe('jump filter, best of the window and tidy on stop', () => {
+  const ago = (ms: number) => Date.now() - ms;
+  const reading = (latitude: number, longitude: number, accuracy: number, agoMs: number): WalkFix => ({ latitude, longitude, accuracy, timestamp: ago(agoMs) });
+
+  async function startWalkingEmpty() {
+    listSurveys.mockReturnValue([]);
+    const ref: { emit: (fix: WalkFix) => void } = { emit: () => undefined };
+    watch.mockImplementation(async (onFix) => { ref.emit = onFix; return { remove: jest.fn() }; });
+    await renderOpen();
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+    await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+    return ref;
+  }
+
+  it('ignores a reading that implies an impossible speed, then believes a second one beside it', async () => {
+    const ref = await startWalkingEmpty();
+    await act(async () => { ref.emit(reading(14.1, 121.1, 4, 10_000)); });
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(1));
+
+    await act(async () => { ref.emit(reading(14.1006, 121.1, 4, 8_000)); }); // ~67 m in 2 s
+    expect(lastDraftWaypoints()).toHaveLength(1);
+    expect(screen.getByTestId('field-survey.walk-hud.points')).toHaveTextContent('1');
+
+    await act(async () => { ref.emit(reading(14.10062, 121.1, 4, 4_000)); }); // beside the refused one: really there
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(2));
+    expect(lastDraftWaypoints().at(-1)).toMatchObject({ latitude: 14.10062 });
+  });
+
+  it('replaces a just-added point with a clearly better reading of the same spot', async () => {
+    const ref = await startWalkingEmpty();
+    await act(async () => { ref.emit(reading(14.1, 121.1, 9, 3_000)); });
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(1));
+
+    await act(async () => { ref.emit(reading(14.100027, 121.1, 3, 1_500)); }); // ~3 m on, 6 m more accurate
+    await waitFor(() => expect(lastDraftWaypoints().at(-1)).toMatchObject({ accuracyMeters: 3 }));
+    expect(lastDraftWaypoints()).toHaveLength(1);
+    expect(lastDraftWaypoints()[0]).toMatchObject({ latitude: 14.100027 });
+  });
+
+  it('does not replace a point once the window has passed', async () => {
+    const ref = await startWalkingEmpty();
+    await act(async () => { ref.emit(reading(14.1, 121.1, 9, 30_000)); });
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(1));
+    await act(async () => { ref.emit(reading(14.100027, 121.1, 3, 1_000)); }); // 29 s later
+    expect(lastDraftWaypoints()[0]).toMatchObject({ accuracyMeters: 9 });
+  });
+
+  it('tidies straight edges on Stop and one Undo brings the raw walk back', async () => {
+    const ref = await startWalkingEmpty();
+    // Eight points 12 m apart along a line, wobbling a metre either side.
+    const sideways = [0, 0.8, -0.9, 1.0, -0.8, 0.9, -1.0, 0];
+    for (let i = 0; i < 8; i += 1) {
+      await act(async () => { ref.emit(reading(14.1 + (i * 12) / 111_320, 121.1 + sideways[i] / 107_900, 4, 60_000 - i * 5_000)); });
+    }
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(8));
+
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(2));
+    expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(/Tidied 6 extra points on straight edges/);
+
+    await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.undo)); });
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(8));
+  });
+
+  it('keeps a marked corner when it tidies', async () => {
+    const ref = await startWalkingEmpty();
+    for (let i = 0; i < 4; i += 1) {
+      await act(async () => { ref.emit(reading(14.1 + (i * 12) / 111_320, 121.1, 4, 60_000 - i * 5_000)); });
+    }
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(4));
+    await act(async () => { ref.emit(reading(14.1 + 48 / 111_320, 121.1, 4, 500)); }); // fresh, on the last point
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk-corner')); });
+    await waitFor(() => expect(lastDraftWaypoints().at(-1)).toMatchObject({ isCorner: true }));
+    await act(async () => { ref.emit(reading(14.1 + 60 / 111_320, 121.1, 4, 300)); });
+    await act(async () => { ref.emit(reading(14.1 + 72 / 111_320, 121.1, 4, 200)); });
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(7));
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(3)); // both ends and the marked corner
+    expect(lastDraftWaypoints().filter((point) => point.isCorner)).toHaveLength(1);
   });
 });

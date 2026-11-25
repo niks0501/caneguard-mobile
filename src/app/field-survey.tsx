@@ -63,7 +63,7 @@ import {
   type PointRef,
 } from '@/features/surveys/domain/drawingTool';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
-import { decideFinalFix, decideMarkCorner, decideWalkFix, distanceMeters, distanceToStart, formatWalkDistance, isBackAtStart, metersToLongitudeDegrees, WALK_CORNER_WINDOW_MS, walkAccuracyBand, type WalkFix } from '@/features/surveys/domain/walkMode';
+import { decideFinalFix, decideMarkCorner, decideWalkFix, distanceMeters, distanceToStart, formatWalkDistance, isBackAtStart, metersToLongitudeDegrees, refineWalkPoint, simplifyWalkSegment, WALK_CORNER_WINDOW_MS, walkAccuracyBand, type WalkFix, type WalkFixMark } from '@/features/surveys/domain/walkMode';
 import { expoWalkLocationClient } from '@/features/surveys/services/expoWalkLocationClient';
 import { startWalk } from '@/features/surveys/services/walkSurveyBoundary';
 
@@ -194,6 +194,13 @@ type WalkSession = {
   recent: WalkFix[];
   latest: WalkFix | null;
   backAtStart: boolean;
+  /** How many points the walked boundary already had; a tidy never touches those. */
+  startCount: number;
+  /** The last usable reading, and a reading just refused as a jump, for the jump check. */
+  lastGood: WalkFixMark | null;
+  jumpSeen: WalkFixMark | null;
+  /** The point just added, which a clearly better reading of the same spot may still replace. */
+  refine: { waypoint: SurveyWaypoint; readings: number } | null;
   stop: () => void;
 };
 
@@ -787,14 +794,41 @@ export default function FieldSurveyScreen() {
     // Spacing is measured from the walked boundary's current last point, so undo, drag and removal never leave a stale anchor.
     const target = walk.affectedArea ? live.affectedWaypoints : live.waypoints;
     walk.last = target.at(-1) ?? null;
-    const decision = decideWalkFix(fix, walk.last);
+    const decision = decideWalkFix(fix, walk.last, { lastGood: walk.lastGood, rejectedJump: walk.jumpSeen });
     const readable = Number.isFinite(fix.latitude) && Number.isFinite(fix.longitude);
+    const mark = { latitude: fix.latitude, longitude: fix.longitude, timestamp: fix.timestamp };
+    if (decision.action === 'skip' && decision.reason === 'jump') {
+      // A reading that cannot be a walker is ignored everywhere: not a point, not a corner or final fix, not the dot.
+      walk.jumpSeen = mark;
+      return;
+    }
+    if (decision.action === 'accept' || (decision.action === 'skip' && decision.reason === 'too_close')) {
+      walk.lastGood = mark;
+      walk.jumpSeen = null;
+    }
     if (readable) {
       walk.latest = fix;
       walk.recent = [...walk.recent.filter((earlier) => fix.timestamp - earlier.timestamp <= WALK_CORNER_WINDOW_MS * 2), fix];
     }
     const usable = decision.action === 'accept' || (decision.action === 'skip' && decision.reason === 'too_close');
     let pointCount = target.length;
+    // Best of the window: a clearly better reading of the point just added replaces it instead of being dropped as too close.
+    if (decision.action !== 'accept' && walk.refine) {
+      walk.refine.readings += 1;
+      const lastPoint = target.at(-1);
+      if (decision.action === 'skip' && decision.reason === 'too_close' && lastPoint
+        && lastPoint.latitude === walk.refine.waypoint.latitude && lastPoint.longitude === walk.refine.waypoint.longitude) {
+        const better = refineWalkPoint(lastPoint, fix, walk.refine.readings);
+        if (better) {
+          const key = walk.affectedArea ? 'affectedWaypoints' : 'waypoints';
+          setShape({ ...live, [key]: [...target.slice(0, -1), better] });
+          markEdited();
+          walk.last = better;
+          walk.refine = { waypoint: better, readings: walk.refine.readings };
+        }
+      }
+      if (walk.refine.readings >= 2) walk.refine = null;
+    }
     // A reading back on the first point after a real loop completes the boundary; adding it would only stack a vertex on the start.
     const closesLoop = decision.action === 'accept' && walk.last !== null
       && isBackAtStart(fix, target[0] ?? null, target.length, walk.walkedMeters + distanceMeters(walk.last, decision.waypoint));
@@ -802,6 +836,7 @@ export default function FieldSurveyScreen() {
       if (walk.last) walk.walkedMeters += distanceMeters(walk.last, decision.waypoint);
       walk.last = decision.waypoint;
       walk.added += 1;
+      walk.refine = { waypoint: decision.waypoint, readings: 0 };
       pointCount += 1;
       applyCapturedWaypoint(walk.affectedArea ? { affectedArea: true, areaCount: walk.areaCount, replace: null } : { affectedArea: false, areaCount: walk.areaCount, replace: null }, decision.waypoint);
       if (!walk.affectedArea) setFieldErrors({});
@@ -847,6 +882,34 @@ export default function FieldSurveyScreen() {
     if (!walk.affectedArea) setFieldErrors({});
   }
 
+  // The walked stretch loses the points that only restate a straight edge. One Undo brings the raw walk back.
+  function tidyWalkedLine(walk: WalkSession): number {
+    const live = shapeRef.current;
+    const key = walk.affectedArea ? 'affectedWaypoints' : 'waypoints';
+    const set = live[key];
+    // The point before the walk's first one stays as the stretch's anchor, so earlier points are never touched.
+    const from = Math.max(0, walk.startCount - 1);
+    const segment = set.slice(from);
+    if (segment.length < 4) return 0;
+    const tidy = simplifyWalkSegment(segment);
+    if (tidy.length === segment.length) return 0;
+    commitShape({ ...live, [key]: [...set.slice(0, from), ...tidy] });
+    return segment.length - tidy.length;
+  }
+
+  // Stopping on purpose: add where the walker stood, tidy the straight edges, then say what was kept.
+  function endWalkOnPurpose(finished: boolean) {
+    const walk = walkRef.current;
+    if (!walk) return;
+    addFinalFix();
+    const removed = walk.started ? tidyWalkedLine(walk) : 0;
+    const net = Math.max(0, walk.added - removed);
+    const tidyNote = removed > 0 ? FIELD_SURVEY_COPY.walkTidied(removed) : '';
+    const { affectedArea, areaCount, started, surveyId } = walk;
+    stopWalk(`${finished ? FIELD_SURVEY_COPY.walkFinished(net) : FIELD_SURVEY_COPY.walkStopped(net)}${tidyNote}`);
+    setResumeOffer(started ? { affectedArea, areaCount, surveyId } : null);
+  }
+
   function markCorner() {
     const walk = walkRef.current;
     if (!walk || !walk.started || controlsLocked) return;
@@ -874,20 +937,12 @@ export default function FieldSurveyScreen() {
   }
 
   function finishWalk() {
-    const walk = walkRef.current;
-    if (!walk) return;
-    addFinalFix();
-    const { affectedArea, areaCount, started, surveyId } = walk;
-    stopWalk(FIELD_SURVEY_COPY.walkFinished(walk.added));
-    setResumeOffer(started ? { affectedArea, areaCount, surveyId } : null);
+    endWalkOnPurpose(true);
   }
 
   async function toggleWalk() {
     if (walkRef.current) {
-      addFinalFix();
-      const { affectedArea, areaCount, started, surveyId } = walkRef.current;
-      stopWalk();
-      setResumeOffer(started ? { affectedArea, areaCount, surveyId } : null);
+      endWalkOnPurpose(false);
       return;
     }
     if (controlsLocked || gpsBusy) return;
@@ -905,6 +960,10 @@ export default function FieldSurveyScreen() {
       recent: [],
       latest: null,
       backAtStart: false,
+      startCount: (affectedArea ? shapeRef.current.affectedWaypoints : shapeRef.current.waypoints).length,
+      lastGood: null,
+      jumpSeen: null,
+      refine: null,
       last: (affectedArea ? shapeRef.current.affectedWaypoints : shapeRef.current.waypoints).at(-1) ?? null,
       stop: () => undefined,
     };

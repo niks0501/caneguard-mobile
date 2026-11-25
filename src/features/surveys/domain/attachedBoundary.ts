@@ -147,6 +147,15 @@ export function measuredBoundaryArea(row: AttachedBoundaryInput): MeasuredBounda
   };
 }
 
+/**
+ * The share of the plot the inspector drew as affected, to one decimal; null when no
+ * damage was drawn or the plot has no area. Same rule as the office, so both screens agree.
+ */
+export function percentAffected(area: Pick<MeasuredBoundaryArea, 'affectedAreaCount' | 'affectedAreaSqm' | 'areaSqm'>): number | null {
+  if (area.affectedAreaCount === 0 || area.areaSqm <= 0) return null;
+  return Math.round(Math.min(100, (area.affectedAreaSqm / area.areaSqm) * 100) * 10) / 10;
+}
+
 /** True when affected-area points were drawn but never closed into an area, which is why the map reads "not measured". */
 export function hasOpenAffectedArea(row: AttachedBoundaryInput): boolean {
   const active = jsonArray(row.activeAffectedWaypointsJson ?? null);

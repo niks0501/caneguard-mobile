@@ -27,6 +27,7 @@ import { TextField } from '@/components/ui/TextField';
 import { CASE_CLOSE_NOTICE, DECISION_SUPPORT_DISCLAIMER, FIELD_VALIDATION_UNAVAILABLE, NAMING, VISIT_CHIPS } from '@/constants/copy';
 import { FollowUpOutcomeControl, OUTCOME_LABELS } from '@/features/assignments/components/FollowUpOutcomeControl';
 import { OfficeCaseCard } from '@/features/assignments/components/OfficeCaseCard';
+import { OfficeFieldMapCard } from '@/features/assignments/components/OfficeFieldMapCard';
 import { SentenceChips } from '@/features/assignments/components/SentenceChips';
 import { toggleSentence } from '@/features/assignments/domain/visitSentenceChips';
 import { PreviousVisitCard } from '@/features/assignments/components/PreviousVisitCard';
@@ -290,6 +291,7 @@ export default function FieldValidationScreen() {
                 <CompletionStatus completion={state.completion} onRetry={() => void state.retry()} />
               ) : (
                 <>
+                <OfficeFieldMapCard accessToken={state.photoAccessToken} assignmentId={state.assignment.id} />
                 <Text
                   testID="field-validation.draft-status"
                   accessibilityValue={{ text: `draft=${state.draftStatus}` }}

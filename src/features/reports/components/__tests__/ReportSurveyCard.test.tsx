@@ -74,6 +74,26 @@ describe('ReportSurveyCard', () => {
     expect(onAttach).toHaveBeenCalledWith('survey-1');
   });
 
+  // Intent: the card says how much of the plot is affected next to its size, the same share the office will see.
+  it('shows the affected share beside the plot size once damage was drawn', async () => {
+    const half = [
+      [121, 14], [121.0021, 14], [121.0021, 14.0005], [121, 14.0005], [121, 14],
+    ];
+    const attached = survey({ affectedAreaPolygonsJson: JSON.stringify([{ type: 'Polygon', coordinates: [half] }]) });
+    await render(
+      <ReportSurveyCard attachedSurvey={attached} attachedUuid="survey-1" onAttach={jest.fn()} onOpenMeasure={jest.fn()} surveys={[attached]} />,
+    );
+    expect(screen.getByText(/Measured on map: 2\.51 ha plot · 50% affected/)).toBeTruthy();
+  });
+
+  it('shows only the size while no damage has been drawn', async () => {
+    const attached = survey({});
+    await render(
+      <ReportSurveyCard attachedSurvey={attached} attachedUuid="survey-1" onAttach={jest.fn()} onOpenMeasure={jest.fn()} surveys={[attached]} />,
+    );
+    expect(screen.getByText(FIELD_SURVEY_COPY.linkAttached('2.51'))).toBeTruthy();
+  });
+
   it('jumps to the attached survey in Measure and can remove it', async () => {
     const onAttach = jest.fn();
     const onOpenMeasure = jest.fn();

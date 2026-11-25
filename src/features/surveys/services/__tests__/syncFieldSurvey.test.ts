@@ -39,6 +39,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
     '0024_active_affected_waypoints.sql',
     '0025_field_survey_author_role.sql',
     '0037_net3_survey_provenance.sql',
+    '0039_field_map_label_outline.sql',
   ]) {
     native.exec(readFileSync(`drizzle/${migration}`, 'utf8').replaceAll('--> statement-breakpoint', ''));
   }
@@ -77,6 +78,45 @@ const affectedWaypoints: SurveyWaypoint[] = [
 ];
 
 describe('syncFieldSurvey upload contract', () => {
+  async function sendNamed(clientUuid: string, label: string | null, outlineFromRemoteId: string | null = null) {
+    const { database } = openDatabase();
+    const draft = await saveFieldSurveyDraft(database, {
+      authorRole: 'field_reporter',
+      capturedAt: '2026-10-31T02:03:00.000Z',
+      clientUuid,
+      districtCode: 'D-01',
+      label,
+      outlineFromRemoteId,
+      ownerIdentity: 'owner-1',
+      waypoints: affectedWaypoints,
+      affectedAreaPolygons: [affectedPolygon],
+      affectedAreaWaypoints: [affectedWaypoints],
+    });
+    markFieldSurveyPending(
+      database, draft.clientUuid, 'owner-1', 'D-01', plotPolygon, ringArea(plotPolygon.coordinates[0]),
+      '2026-10-31T02:03:00.000Z', [affectedPolygon], ringArea(affectedPolygon.coordinates[0]), [affectedWaypoints],
+    );
+    jest.mocked(apiRequest).mockResolvedValue({ id: 'remote-1', status: 'kept' });
+    await syncFieldSurvey({
+      allowImmediateRetries: false, clientUuid: draft.clientUuid, database, districtCode: 'D-01', ownerIdentity: 'owner-1', token: 'access-token',
+    });
+    return JSON.parse(String(jest.mocked(apiRequest).mock.calls.at(-1)?.[1]?.body));
+  }
+
+  // Intent: the name the inspector typed travels with the map, trimmed; a blank name is not sent at all.
+  it('sends the typed field name trimmed and omits a blank one', async () => {
+    expect((await sendNamed('survey-named', '  North lot  ')).label).toBe('North lot');
+    expect(await sendNamed('survey-unnamed', '   ')).not.toHaveProperty('label');
+    expect(await sendNamed('survey-null-name', null)).not.toHaveProperty('label');
+  });
+
+  // Intent: the earlier map an outline came from travels as provenance; an unsent or odd id is simply left out.
+  it('sends the earlier map id only when it is the office id of a sent map', async () => {
+    expect((await sendNamed('survey-reused', null, '41')).outline_from_survey_id).toBe(41);
+    expect(await sendNamed('survey-no-source', null, null)).not.toHaveProperty('outline_from_survey_id');
+    expect(await sendNamed('survey-odd-source', null, 'abc')).not.toHaveProperty('outline_from_survey_id');
+  });
+
   it('uploads only the approved measurement provenance and keeps affected-area waypoint provenance local', async () => {
     const { database, native } = openDatabase();
     const draft = await saveFieldSurveyDraft(database, {

@@ -696,6 +696,10 @@ export const fieldSurveys = sqliteTable(
     clientUuid: text('client_uuid').primaryKey(),
     ownerIdentity: text('owner_identity').notNull(),
     districtCode: text('district_code').notNull(),
+    /** Optional name the inspector typed; the office shows it as the map's name. */
+    label: text('label'),
+    /** Server id of the earlier map whose plot outline this one started from; sent as provenance only. */
+    outlineFromRemoteId: text('outline_from_remote_id'),
     waypointsJson: text('waypoints_json').notNull(),
     polygonJson: text('polygon_json'),
     areaSqm: real('area_sqm'),

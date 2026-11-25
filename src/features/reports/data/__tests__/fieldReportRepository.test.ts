@@ -112,6 +112,7 @@ function openTestDatabase(): {
     '0034_authority_workflow_status.sql',
     '0036_net3_report_provenance.sql',
     '0037_net3_survey_provenance.sql',
+    '0039_field_map_label_outline.sql',
   ]) {
     native.exec(readMigration(migration));
   }

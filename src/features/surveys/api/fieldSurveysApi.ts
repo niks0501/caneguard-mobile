@@ -22,9 +22,14 @@ export interface FieldSurveyMeasurementProvenance {
  * `affected_area_polygons`, `affected_area_sqm`, and `measurement_provenance`
  * must not be renamed or extended here before that approval; per-waypoint
  * affected-area provenance travels inside `measurement_provenance` and never
- * repeats coordinates.
+ * repeats coordinates. `label` is the optional field name, approved with the
+ * office contract in `mobile-field-surveys-v1.md`.
  */
 export interface SubmitFieldSurveyPayload {
+  /** Optional name the inspector typed, at most 60 characters; omitted when blank. */
+  label?: string;
+  /** Server id of an earlier map whose plot outline this one reused; provenance only. */
+  outline_from_survey_id?: number;
   area_sqm: number;
   /** NET-3 provenance frozen when the boundary was queued; stored as-is by the office. */
   authorization_basis?: 'verified' | 'carryover';
@@ -91,4 +96,64 @@ function readFieldErrors(body: unknown): Record<string, string[]> {
     }
   }
   return Object.keys(errors).length ? errors : { survey: ['Please review this boundary and try again.'] };
+}
+
+/** What the office decided about one of this inspector's maps. */
+export type FieldSurveyOfficeVerdict = 'confirmed' | 'wrong_field' | 'pending';
+
+const OFFICE_VERDICTS: readonly string[] = ['confirmed', 'wrong_field', 'pending'];
+
+/**
+ * The office's verdict for each of this inspector's maps attached to a case, keyed by the
+ * survey's `client_uuid`. A malformed row is dropped rather than guessed at.
+ */
+export async function fetchFieldSurveyOfficeStatus(token: string): Promise<Map<string, FieldSurveyOfficeVerdict>> {
+  const body = await apiRequest<{ data?: unknown }>('/api/v1/mobile/field-surveys/office-status', { token });
+  const verdicts = new Map<string, FieldSurveyOfficeVerdict>();
+  if (!body || !Array.isArray(body.data)) return verdicts;
+  for (const row of body.data) {
+    if (!row || typeof row !== 'object') continue;
+    const { client_uuid: clientUuid, verdict } = row as { client_uuid?: unknown; verdict?: unknown };
+    if (typeof clientUuid === 'string' && typeof verdict === 'string' && OFFICE_VERDICTS.includes(verdict)) {
+      verdicts.set(clientUuid.toLowerCase(), verdict as FieldSurveyOfficeVerdict);
+    }
+  }
+  return verdicts;
+}
+
+/** The one map of a case the inspector is assigned to, read-only, for reusing its plot outline. */
+export interface AssignmentFieldMap {
+  fieldSurveyId: number;
+  source: 'confirmed' | 'attached';
+  label: string | null;
+  polygon: SurveyPolygon;
+  areaSqm: number;
+  inspectorName: string;
+}
+
+/** The assigned case's map, or null when the case has none or the reply cannot be read. */
+export async function fetchAssignmentFieldMap(assignmentUuid: string, token: string): Promise<AssignmentFieldMap | null> {
+  const body = await apiRequest<{ data?: unknown }>(
+    `/api/v1/mobile/assignments/${encodeURIComponent(assignmentUuid)}/field-map`,
+    { token },
+  );
+  const data = body?.data;
+  if (!data || typeof data !== 'object') return null;
+  const map = data as Record<string, unknown>;
+  const geometry = map.geometry as { type?: unknown; coordinates?: unknown } | null;
+  const inspector = map.inspector as { name?: unknown } | null;
+  if (
+    !Number.isSafeInteger(map.field_survey_id) || (map.field_survey_id as number) <= 0 ||
+    (map.source !== 'confirmed' && map.source !== 'attached') ||
+    geometry?.type !== 'Polygon' || !Array.isArray(geometry.coordinates) ||
+    typeof map.area_sqm !== 'number' || typeof inspector?.name !== 'string'
+  ) return null;
+  return {
+    fieldSurveyId: map.field_survey_id as number,
+    source: map.source,
+    label: typeof map.label === 'string' && map.label.trim() ? map.label.trim() : null,
+    polygon: { type: 'Polygon', coordinates: geometry.coordinates as number[][][] },
+    areaSqm: map.area_sqm,
+    inspectorName: inspector.name,
+  };
 }

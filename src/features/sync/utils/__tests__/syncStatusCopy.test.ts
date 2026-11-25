@@ -17,7 +17,7 @@ describe('syncStatusCopy', () => {
     expect(formatPendingSummary(1)).toBe('1 report waiting to send');
     expect(formatPendingSummary(2)).toBe('2 reports waiting to send');
     expect(formatPendingSummary(3, 2, 1)).toBe('2 reports, 1 visit waiting to send');
-    expect(formatPendingSummary(3, 2, 1, 1)).toBe('1 boundary, 2 reports, 1 visit waiting to send');
+    expect(formatPendingSummary(3, 2, 1, 1)).toBe('1 field map, 2 reports, 1 visit waiting to send');
     expect(formatPendingSummary(1, 0, 1)).toBe('1 visit waiting to send');
     // Proposal: proves M-F9 — an unattributed count must not be named "reports".
     expect(formatPendingSummary(2, 0, 0, 0)).toBe('2 saved items waiting to send');
@@ -173,7 +173,7 @@ describe('getHomeSyncNote', () => {
   it('keeps unsent counts visible in every state that has any', () => {
     expect(getHomeSyncNote({ ...base, pendingCount: 1 })).toBe('1 report waiting to send.');
     expect(getHomeSyncNote({ ...base, pendingCount: 2, pendingReportsCount: 1, pendingSurveysCount: 1 })).toBe(
-      '1 boundary, 1 report waiting to send.',
+      '1 field map, 1 report waiting to send.',
     );
     expect(getHomeSyncNote({ ...base, isOnline: false })).toBe('Working offline.');
     expect(getHomeSyncNote({ ...base, isOnline: false, pendingCount: 2 })).toBe(
@@ -196,7 +196,7 @@ describe('getHomeSyncNote', () => {
         pendingReportsCount: 1,
         pendingSurveysCount: 1,
       }),
-    ).toBe('Sending 1 boundary, 1 report…');
+    ).toBe('Sending 1 field map, 1 report…');
     expect(getHomeSyncNote({ ...base, isSyncing: true })).toBe('Sending saved reports…');
   });
 

@@ -1630,6 +1630,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                             disabled={isFinalized || report.saving || report.finalizing}
                             onAttach={handleAttachSurvey}
                             onOpenMeasure={(clientUuid) => void handleOpenMeasure(clientUuid)}
+                            reportLocation={finalLatitude !== null && finalLongitude !== null ? { latitude: finalLatitude, longitude: finalLongitude } : null}
                             surveys={savedSurveys}
                             manualExpanded={manualAreaOpen}
                             onManualExpandedChange={setManualAreaChoice}

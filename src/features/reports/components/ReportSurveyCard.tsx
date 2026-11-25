@@ -10,6 +10,7 @@ import type { FieldSurveyRow } from '@/database/schema';
 import { useTheme } from '@/hooks/use-theme';
 import { hasOpenAffectedArea, measuredBoundaryArea, percentAffected } from '@/features/surveys/domain/attachedBoundary';
 import { boundaryState } from '@/features/surveys/domain/boundaryState';
+import { isAtPlot, type PlotPoint } from '@/features/surveys/domain/plotLocation';
 
 export interface ReportSurveyCardProps {
   attachedSurvey: FieldSurveyRow | null;
@@ -20,9 +21,21 @@ export interface ReportSurveyCardProps {
   manualExpanded?: boolean;
   manualSummary?: string;
   onManualExpandedChange?: (expanded: boolean) => void;
+  /** Where the report was pinned; a pin outside the attached map earns a one-line check. */
+  reportLocation?: PlotPoint | null;
   onAttach: (clientUuid: string | null) => void;
   onOpenMeasure: (clientUuid: string | null) => void;
   surveys: FieldSurveyRow[];
+}
+
+/** The saved plot corners, or none when they cannot be read. */
+function plotPoints(row: FieldSurveyRow): PlotPoint[] {
+  try {
+    const parsed: unknown = JSON.parse(row.waypointsJson);
+    return Array.isArray(parsed) ? (parsed as PlotPoint[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Measured plot area in square metres, or null while the saved boundary is unfinished or unusable. */
@@ -47,6 +60,7 @@ export function ReportSurveyCard({
   onAttach,
   onManualExpandedChange,
   onOpenMeasure,
+  reportLocation,
   surveys,
 }: ReportSurveyCardProps) {
   const theme = useTheme();
@@ -64,6 +78,9 @@ export function ReportSurveyCard({
   const attachedMeasured = attachedSurvey ? measuredBoundaryArea(attachedSurvey) : null;
   const attachedAreaSqm = attachedMeasured?.areaSqm ?? null;
   const attachedPercent = attachedMeasured ? percentAffected(attachedMeasured) : null;
+  const pinOutsidePlot = Boolean(
+    attachedSurvey && reportLocation && attachedAreaSqm !== null && !isAtPlot(plotPoints(attachedSurvey), reportLocation),
+  );
 
   return (
     <View
@@ -91,6 +108,15 @@ export function ReportSurveyCard({
               : attachedAreaSqm === null
                 ? hasOpenAffectedArea(attachedSurvey) ? FIELD_SURVEY_COPY.linkAreaOpen : FIELD_SURVEY_COPY.linkUnfinished
                 : FIELD_SURVEY_COPY.linkAttached((attachedAreaSqm / 10_000).toFixed(2), attachedPercent === null ? null : String(attachedPercent))}
+          </Text>
+        </View>
+      ) : null}
+
+      {pinOutsidePlot ? (
+        <View style={styles.row}>
+          <Feather name="alert-triangle" size={16} color={theme.warning} />
+          <Text testID="field-report.survey-outside" style={[styles.help, { color: theme.text, flex: 1 }]}>
+            {FIELD_SURVEY_COPY.linkOutsidePlot}
           </Text>
         </View>
       ) : null}

@@ -31,6 +31,8 @@ export interface SurveyWaypoint extends MapCoordinate {
   accuracyMeters: number | null;
   capturedAt: string;
   source: 'map' | 'gps';
+  /** Set when the walker marked this point as a corner; stays on the phone and is never uploaded. */
+  isCorner?: boolean;
 }
 
 export interface SurveyValidationError {

@@ -63,7 +63,7 @@ import {
   type PointRef,
 } from '@/features/surveys/domain/drawingTool';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
-import { decideWalkFix, type WalkFix } from '@/features/surveys/domain/walkMode';
+import { decideWalkFix, distanceMeters, distanceToStart, formatWalkDistance, metersToLongitudeDegrees, walkAccuracyBand, type WalkFix } from '@/features/surveys/domain/walkMode';
 import { expoWalkLocationClient } from '@/features/surveys/services/expoWalkLocationClient';
 import { startWalk } from '@/features/surveys/services/walkSurveyBoundary';
 
@@ -182,6 +182,8 @@ type WalkSession = {
   areaCount: number;
   surveyId: string;
   added: number;
+  /** Ground metres between the points this walk added, for the live readout. */
+  walkedMeters: number;
   last: MapCoordinate | null;
   /** True once the GPS subscription exists; permission prompts before that must not end the walk. */
   started: boolean;
@@ -260,11 +262,19 @@ export default function FieldSurveyScreen() {
     setCenter(nextCenter);
     setZoom(nextZoom);
   }, []);
+  const walkRef = useRef<WalkSession | null>(null);
+  // The map follows the walker until they pan or pinch it; Recenter turns following back on.
+  const [walkFollow, setWalkFollow] = useState(true);
+  const walkFollowRef = useRef(true);
   // A touch that turned into a pan or pinch must not also drop a point where the finger lifted.
   // The press can arrive just before or after the gesture's end, so allow a short window.
   const mapGestureRef = useRef({ active: false, endedAt: 0 });
   const handleMapGestureActiveChange = useCallback((active: boolean) => {
     mapGestureRef.current = { active, endedAt: active ? mapGestureRef.current.endedAt : Date.now() };
+    if (active && walkRef.current && walkFollowRef.current) {
+      walkFollowRef.current = false;
+      setWalkFollow(false);
+    }
   }, []);
   const { gesture: mapGesture, layerStyle } = useManualMapGestures({
     blocksScrollGesture: scrollNativeGesture,
@@ -278,8 +288,9 @@ export default function FieldSurveyScreen() {
   const [pointsOpen, setPointsOpen] = useState(false);
   const [gpsBusy, setGpsBusy] = useState(false);
   const [walking, setWalking] = useState(false);
-  const walkRef = useRef<WalkSession | null>(null);
   const walkFixHandlerRef = useRef<(fix: WalkFix) => void>(() => undefined);
+  // The latest reading, accepted or not, drives the you-are-here dot and the readout; the boundary only holds accepted points.
+  const [walkLive, setWalkLive] = useState<{ fix: WalkFix; walkedMeters: number; toStartMeters: number | null } | null>(null);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   // Walk status shown on the map pill; syncMessage alone lives inside the collapsed More panel, so walk feedback was invisible.
   const [walkNotice, setWalkNotice] = useState<string | null>(null);
@@ -365,6 +376,9 @@ export default function FieldSurveyScreen() {
     walkRef.current = null;
     walk.stop();
     setWalking(false);
+    setWalkLive(null);
+    walkFollowRef.current = true;
+    setWalkFollow(true);
     if (message !== null) {
       const text = message ?? FIELD_SURVEY_COPY.walkStopped(walk.added);
       setSyncMessage(text);
@@ -762,8 +776,15 @@ export default function FieldSurveyScreen() {
       return;
     }
     // Spacing is measured from the walked boundary's current last point, so undo, drag and removal never leave a stale anchor.
-    walk.last = (walk.affectedArea ? live.affectedWaypoints : live.waypoints).at(-1) ?? null;
+    const target = walk.affectedArea ? live.affectedWaypoints : live.waypoints;
+    walk.last = target.at(-1) ?? null;
     const decision = decideWalkFix(fix, walk.last);
+    const readable = Number.isFinite(fix.latitude) && Number.isFinite(fix.longitude);
+    const showReading = (walkedMeters: number) => {
+      if (!readable) return;
+      setWalkLive({ fix, walkedMeters, toStartMeters: distanceToStart(fix, target[0] ?? null) });
+      if (walkFollowRef.current) setCenter({ latitude: fix.latitude, longitude: fix.longitude });
+    };
     if (decision.action !== 'accept') {
       // Tell the walker why nothing is being added, instead of leaving a silent "Walking" banner.
       const weak = decision.reason === 'weak_accuracy';
@@ -772,6 +793,7 @@ export default function FieldSurveyScreen() {
         setSyncMessage(weak ? FIELD_SURVEY_COPY.walkWeakSignal : FIELD_SURVEY_COPY.walkActive);
         setWalkNotice(weak ? FIELD_SURVEY_COPY.walkWeakSignal : FIELD_SURVEY_COPY.walkActive);
       }
+      showReading(walk.walkedMeters);
       return;
     }
     if (walk.weakSignal) {
@@ -779,11 +801,14 @@ export default function FieldSurveyScreen() {
       setSyncMessage(FIELD_SURVEY_COPY.walkActive);
       setWalkNotice(FIELD_SURVEY_COPY.walkActive);
     }
+    if (walk.last) walk.walkedMeters += distanceMeters(walk.last, decision.waypoint);
     walk.last = decision.waypoint;
     walk.added += 1;
     applyCapturedWaypoint(walk.affectedArea ? { affectedArea: true, areaCount: walk.areaCount, replace: null } : { affectedArea: false, areaCount: walk.areaCount, replace: null }, decision.waypoint);
     if (!walk.affectedArea) setFieldErrors({});
-    setCenter({ latitude: decision.waypoint.latitude, longitude: decision.waypoint.longitude });
+    // The fix itself, not just an accepted point, moves the readout; the first point's distance is to the start of the boundary.
+    setWalkLive({ fix, walkedMeters: walk.walkedMeters, toStartMeters: distanceToStart(fix, target[0] ?? decision.waypoint) });
+    if (walkFollowRef.current) setCenter({ latitude: fix.latitude, longitude: fix.longitude });
   }
   useEffect(() => { walkFixHandlerRef.current = handleWalkFix; });
 
@@ -802,12 +827,16 @@ export default function FieldSurveyScreen() {
       areaCount: shapeRef.current.affectedAreas.length,
       surveyId: clientUuid,
       added: 0,
+      walkedMeters: 0,
       started: false,
       weakSignal: false,
       last: (affectedArea ? shapeRef.current.affectedWaypoints : shapeRef.current.waypoints).at(-1) ?? null,
       stop: () => undefined,
     };
     walkRef.current = session;
+    walkFollowRef.current = true;
+    setWalkFollow(true);
+    setWalkLive(null);
     setSelected(null);
     setWalking(true);
     setGpsBusy(true);
@@ -1073,6 +1102,9 @@ export default function FieldSurveyScreen() {
   const areaReadout = `${screenValidation}${validation.valid && affectedMeasurement?.valid && affectedAreas.length > 0 ? ` · ${affectedMeasurement.areaSqm.toFixed(0)} m² affected${affectedPercent}` : affectedMeasurement && !affectedMeasurement.valid ? ` · ${affectedMeasurement.error.message}` : ''}`;
   // One message on the map: what to tap next while drawing, otherwise what state the boundary is in.
   const showWalkNotice = walkNotice !== null && screenCanEdit(mode);
+  // The boundary the walker is adding to: the live segment and the distance to start both read from it.
+  const walkTarget = drawingAffectedArea ? affectedWaypoints : waypoints;
+  const walkBand = walkLive ? walkAccuracyBand(walkLive.fix.accuracy) : null;
   const showToolHint = !showWalkNotice && (mode === 'drawing_new' || (mode === 'drawing_resumed' && hasEdited) || (gpsBusy && screenCanEdit(mode)));
   const mapNote = isOnline !== true
     ? tileSources.size > 0 ? FIELD_SURVEY_COPY.offlineMapSaved : FIELD_SURVEY_COPY.offlineMap
@@ -1165,7 +1197,23 @@ export default function FieldSurveyScreen() {
               const isSelected = sameRef(selected, { set: 'plot', index });
               return <Circle key={`${point.latitude}:${point.longitude}:${index}`} cx={at.x} cy={at.y} r={isSelected ? 9 : 7} fill={isSelected ? theme.warning : colors.fill} stroke={colors.stroke} strokeWidth={quality === 'map' || quality === 'weak' ? 3 : 2} />;
             })}
-            {myLocation ? (() => {
+            {walking && walkLive && walkTarget.at(-1) ? (() => {
+              const from = layerPoint(walkTarget.at(-1) as SurveyWaypoint);
+              const to = layerPoint(walkLive.fix);
+              return <Line testID="field-survey.walk-segment" x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={drawingAffectedArea ? theme.warning : theme.primary} strokeWidth={3} strokeDasharray="6 5" />;
+            })() : null}
+            {walking && walkLive ? (() => {
+              const at = layerPoint(walkLive.fix);
+              // The halo is the reading's own error radius at map scale, so a weak fix visibly blurs the dot.
+              const edge = layerPoint({ latitude: walkLive.fix.latitude, longitude: walkLive.fix.longitude + metersToLongitudeDegrees(walkLive.fix.accuracy ?? 0, walkLive.fix.latitude) });
+              const halo = Math.min(120, Math.abs(edge.x - at.x));
+              return (
+                <>
+                  {halo > 9 ? <Circle cx={at.x} cy={at.y} r={halo} fill={theme.info} fillOpacity={0.18} /> : null}
+                  <Circle testID="field-survey.walk-dot" cx={at.x} cy={at.y} r={8} fill={theme.info} stroke="white" strokeWidth={3} />
+                </>
+              );
+            })() : myLocation ? (() => {
               const at = layerPoint(myLocation);
               return <Circle cx={at.x} cy={at.y} r={8} fill={theme.info} stroke="white" strokeWidth={3} />;
             })() : null}
@@ -1190,7 +1238,29 @@ export default function FieldSurveyScreen() {
             <View pointerEvents="none" style={styles.overlayMessages}>
               <View testID="field-survey.status-strip" accessibilityLiveRegion="polite" accessibilityValue={{ text: `mode=${mode}` }} style={[styles.pill, { backgroundColor: theme.surfaceElevated, borderColor: showToolHint || showWalkNotice ? theme.border : theme[SYNC_TONE_COLOR[strip.tone]] }]}>
                 {showWalkNotice ? (
-                  <Text testID="field-survey.walk-status" numberOfLines={4} style={[styles.pillText, { color: theme.text }]}>{walkNotice}</Text>
+                  <View>
+                    {walking && walkLive ? (
+                      <View testID="field-survey.walk-hud" accessibilityLabel={`${FIELD_SURVEY_COPY.walkHudAccuracy} ${walkLive.fix.accuracy === null ? FIELD_SURVEY_COPY.accuracyUnknown : `±${walkLive.fix.accuracy.toFixed(0)} m`}, ${FIELD_SURVEY_COPY.walkHudPoints} ${walkTarget.length}, ${FIELD_SURVEY_COPY.walkHudWalked} ${formatWalkDistance(walkLive.walkedMeters)}`} style={styles.hud}>
+                        <View style={styles.hudCell}>
+                          <Text style={[styles.hudLabel, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.walkHudAccuracy}</Text>
+                          <Text testID="field-survey.walk-hud.accuracy" style={[styles.hudValue, { color: walkBand === 'good' ? theme.success : walkBand === 'acceptable' ? theme.warning : theme.danger }]}>{walkLive.fix.accuracy === null ? '–' : `±${walkLive.fix.accuracy.toFixed(0)} m`}</Text>
+                        </View>
+                        <View style={styles.hudCell}>
+                          <Text style={[styles.hudLabel, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.walkHudPoints}</Text>
+                          <Text testID="field-survey.walk-hud.points" style={[styles.hudValue, { color: theme.text }]}>{walkTarget.length}</Text>
+                        </View>
+                        <View style={styles.hudCell}>
+                          <Text style={[styles.hudLabel, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.walkHudWalked}</Text>
+                          <Text testID="field-survey.walk-hud.walked" style={[styles.hudValue, { color: theme.text }]}>{formatWalkDistance(walkLive.walkedMeters)}</Text>
+                        </View>
+                        <View style={styles.hudCell}>
+                          <Text style={[styles.hudLabel, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.walkHudToStart}</Text>
+                          <Text testID="field-survey.walk-hud.to-start" style={[styles.hudValue, { color: theme.text }]}>{walkLive.toStartMeters === null ? '–' : formatWalkDistance(walkLive.toStartMeters)}</Text>
+                        </View>
+                      </View>
+                    ) : null}
+                    <Text testID="field-survey.walk-status" numberOfLines={4} style={[styles.pillText, { color: theme.text }]}>{walkNotice}</Text>
+                  </View>
                 ) : showToolHint ? (
                   <Text testID="field-survey.tool-state" accessibilityValue={{ text: `tool=${toolState}` }} numberOfLines={2} style={[styles.pillText, { color: theme.text }]}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.toolState[toolState]}</Text>
                 ) : (
@@ -1202,6 +1272,13 @@ export default function FieldSurveyScreen() {
             <View pointerEvents="box-none" style={styles.overlayButtons}>
               <MapIconButton testID="field-survey.expand" icon={expanded ? 'minimize-2' : 'maximize-2'} label={expanded ? FIELD_SURVEY_COPY.collapseMap : FIELD_SURVEY_COPY.expandMap} onPress={() => setExpanded((value) => !value)} />
               <MapIconButton testID="field-survey.my-location" icon="navigation" label={locating ? FIELD_SURVEY_COPY.myLocationBusy : FIELD_SURVEY_COPY.myLocation} busy={locating} onPress={() => void goToMyLocation()} />
+              {walking && walkLive && !walkFollow ? (
+                <MapIconButton testID="field-survey.recenter" icon="crosshair" label={FIELD_SURVEY_COPY.walkRecenter} onPress={() => {
+                  walkFollowRef.current = true;
+                  setWalkFollow(true);
+                  setCenter({ latitude: walkLive.fix.latitude, longitude: walkLive.fix.longitude });
+                }} />
+              ) : null}
             </View>
           </View>
           <View pointerEvents="box-none" style={styles.overlayBottom}>
@@ -1346,6 +1423,10 @@ const styles = StyleSheet.create({
   areaChipText: { ...Typography.caption, fontWeight: '700' },
   areaRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
   areaRowLabel: { flex: 1 },
+  hud: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.xs },
+  hudCell: { flex: 1, minWidth: 0 },
+  hudLabel: { fontSize: 11 },
+  hudValue: { fontSize: 15, fontWeight: '700' },
   modeSwitch: { flexDirection: 'row', gap: Spacing.xs },
   floatingButton: { minHeight: 44, paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md },
   toolButton: { flex: 1, minHeight: 44, paddingVertical: Spacing.xs, paddingHorizontal: Spacing.sm },

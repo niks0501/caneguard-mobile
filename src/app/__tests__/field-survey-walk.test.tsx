@@ -1,4 +1,5 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { createGestureController, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import { useLocalSearchParams } from 'expo-router';
 
 import FieldSurveyScreen from '@/app/field-survey';
@@ -440,4 +441,65 @@ it('tells the walker on the map when location permission is denied', async () =>
   await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
 
   await waitFor(() => expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkPermissionDenied));
+});
+
+describe('live walk readout', () => {
+  async function startWalking(emitRef: { emit: (fix: WalkFix) => void }) {
+    listSurveys.mockReturnValue([draftRow()]);
+    watch.mockImplementation(async (onFix) => { emitRef.emit = onFix; return { remove: jest.fn() }; });
+    await renderOpen();
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+    await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+  }
+
+  it('shows accuracy, points, distance walked and distance to start as fixes arrive', async () => {
+    const ref = { emit: (_fix: WalkFix) => undefined };
+    await startWalking(ref);
+    expect(screen.queryByTestId('field-survey.walk-hud')).toBeNull();
+
+    await act(async () => { ref.emit(fix(14.0995, 121.1, 3)); }); // ~55 m from the last point: accepted
+    await waitFor(() => expect(screen.getByTestId('field-survey.walk-hud.accuracy')).toHaveTextContent('±3 m'));
+    expect(screen.getByTestId('field-survey.walk-hud.points')).toHaveTextContent('5');
+    expect(screen.getByTestId('field-survey.walk-hud.walked')).toHaveTextContent(/^\d+ m$/);
+    expect(screen.getByTestId('field-survey.walk-hud.to-start')).toHaveTextContent(/^\d+ m$/);
+    expect(screen.getByTestId('field-survey.walk-dot')).toBeTruthy();
+    expect(screen.getByTestId('field-survey.walk-segment')).toBeTruthy();
+  });
+
+  it('keeps reporting a weak reading without adding a point', async () => {
+    const ref = { emit: (_fix: WalkFix) => undefined };
+    await startWalking(ref);
+
+    await act(async () => { ref.emit(fix(14.0995, 121.1, 40)); });
+    await waitFor(() => expect(screen.getByTestId('field-survey.walk-hud.accuracy')).toHaveTextContent('±40 m'));
+    expect(screen.getByTestId('field-survey.walk-hud.points')).toHaveTextContent('4');
+    expect(screen.getByTestId('field-survey.walk-hud.walked')).toHaveTextContent('0 m');
+  });
+
+  it('stops following when the map is panned and follows again on Recenter', async () => {
+    const ref = { emit: (_fix: WalkFix) => undefined };
+    await startWalking(ref);
+    await act(async () => { ref.emit(fix(14.0995, 121.1, 3)); });
+    await waitFor(() => expect(screen.getByTestId('field-survey.walk-dot')).toBeTruthy());
+    expect(screen.queryByTestId('field-survey.recenter')).toBeNull();
+
+    const pan = createGestureController(getByGestureTestId('manual-map.pan'));
+    await act(async () => { pan.begin(); pan.activate(); pan.update({ translationX: 40, translationY: 0 }); pan.end(); });
+    await waitFor(() => expect(screen.getByTestId('field-survey.recenter')).toBeTruthy());
+
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.recenter')); });
+    expect(screen.queryByTestId('field-survey.recenter')).toBeNull();
+  });
+
+  it('clears the readout when the walk stops', async () => {
+    const ref = { emit: (_fix: WalkFix) => undefined };
+    await startWalking(ref);
+    await act(async () => { ref.emit(fix(14.0995, 121.1, 3)); });
+    await waitFor(() => expect(screen.getByTestId('field-survey.walk-hud')).toBeTruthy());
+
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+    expect(screen.queryByTestId('field-survey.walk-hud')).toBeNull();
+    expect(screen.queryByTestId('field-survey.walk-dot')).toBeNull();
+  });
 });

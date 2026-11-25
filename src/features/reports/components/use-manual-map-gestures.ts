@@ -216,6 +216,7 @@ function buildMapGestures({
   };
 
   let panGesture = Gesture.Pan()
+    .withTestId('manual-map.pan')
     .minPointers(1)
     .enabled(enabled)
     .onStart(() => {

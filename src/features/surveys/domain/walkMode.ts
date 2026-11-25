@@ -1,6 +1,7 @@
 import GeographicLib from 'geographiclib-geodesic/geographiclib-geodesic.min.js';
 
 import type { MapCoordinate } from '@/features/reports/domain/manualMap';
+import { PREFERRED_GPS_ACCURACY_METERS } from '@/features/reports/services/captureGpsLocation';
 import { ACCEPTABLE_GPS_ACCURACY_METERS } from '@/features/surveys/domain/boundaryQuality';
 import type { SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 
@@ -20,7 +21,7 @@ export type WalkFixDecision =
   | { action: 'accept'; waypoint: SurveyWaypoint }
   | { action: 'skip'; reason: 'invalid' | 'weak_accuracy' | 'too_close' };
 
-function distanceMeters(from: MapCoordinate, to: MapCoordinate): number {
+export function distanceMeters(from: MapCoordinate, to: MapCoordinate): number {
   return GeographicLib.Geodesic.WGS84.Inverse(from.latitude, from.longitude, to.latitude, to.longitude).s12 ?? Number.POSITIVE_INFINITY;
 }
 
@@ -51,4 +52,32 @@ export function decideWalkFix(fix: WalkFix, previous: MapCoordinate | null): Wal
       source: 'gps',
     },
   };
+}
+
+/** Walking distances read as whole metres, then kilometres once they stop being small. */
+export function formatWalkDistance(meters: number): string {
+  if (!Number.isFinite(meters) || meters < 0) return '–';
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(1)} km`;
+}
+
+export type WalkAccuracyBand = 'good' | 'acceptable' | 'weak';
+
+/** Colour band for a live GPS reading; matches the point-quality thresholds used for saved points. */
+export function walkAccuracyBand(accuracy: number | null): WalkAccuracyBand {
+  if (accuracy === null || !Number.isFinite(accuracy) || accuracy > ACCEPTABLE_GPS_ACCURACY_METERS) return 'weak';
+  return accuracy > PREFERRED_GPS_ACCURACY_METERS ? 'acceptable' : 'good';
+}
+
+/** Straight-line distance from the walker to the boundary's first point, or null when there is none yet. */
+export function distanceToStart(fix: MapCoordinate, first: MapCoordinate | null): number | null {
+  if (!first) return null;
+  const meters = distanceMeters(fix, first);
+  return Number.isFinite(meters) ? meters : null;
+}
+
+/** Converts a radius in metres to degrees of longitude at a latitude, so the accuracy halo can be drawn at map scale. */
+export function metersToLongitudeDegrees(meters: number, latitude: number): number {
+  const metersPerDegree = 111_320 * Math.max(0.01, Math.cos((latitude * Math.PI) / 180));
+  return meters / metersPerDegree;
 }

@@ -1,7 +1,7 @@
 import GeographicLib from 'geographiclib-geodesic/geographiclib-geodesic.min.js';
 
 import { ACCEPTABLE_GPS_ACCURACY_METERS } from '@/features/surveys/domain/boundaryQuality';
-import { decideWalkFix } from '@/features/surveys/domain/walkMode';
+import { decideWalkFix, distanceToStart, formatWalkDistance, metersToLongitudeDegrees, walkAccuracyBand } from '@/features/surveys/domain/walkMode';
 
 const T = Date.UTC(2026, 10, 11, 1, 0, 0);
 const START = { latitude: 14.1, longitude: 121.1 };
@@ -68,5 +68,37 @@ describe('decideWalkFix jitter guard', () => {
     expect(decideWalkFix({ ...metersNorthOfStart(9), accuracy: 9.5, timestamp: T }, START))
       .toEqual({ action: 'skip', reason: 'too_close' });
     expect(decideWalkFix({ ...metersNorthOfStart(10), accuracy: 9.5, timestamp: T }, START).action).toBe('accept');
+  });
+});
+
+describe('walk readout helpers', () => {
+  it('formats distances in metres then kilometres', () => {
+    expect(formatWalkDistance(0)).toBe('0 m');
+    expect(formatWalkDistance(142.4)).toBe('142 m');
+    expect(formatWalkDistance(999.6)).toBe('1000 m');
+    expect(formatWalkDistance(1520)).toBe('1.5 km');
+    expect(formatWalkDistance(Number.NaN)).toBe('–');
+  });
+
+  it('bands live accuracy by the saved-point thresholds', () => {
+    expect(walkAccuracyBand(3)).toBe('good');
+    expect(walkAccuracyBand(5)).toBe('good');
+    expect(walkAccuracyBand(8)).toBe('acceptable');
+    expect(walkAccuracyBand(10)).toBe('acceptable');
+    expect(walkAccuracyBand(10.1)).toBe('weak');
+    expect(walkAccuracyBand(null)).toBe('weak');
+  });
+
+  it('measures the way back to the first point, and nothing before there is one', () => {
+    expect(distanceToStart({ latitude: 14.1, longitude: 121.1 }, null)).toBeNull();
+    const back = distanceToStart({ latitude: 14.1, longitude: 121.1002 }, { latitude: 14.1, longitude: 121.1 });
+    expect(back).toBeGreaterThan(20);
+    expect(back).toBeLessThan(23);
+  });
+
+  it('converts an accuracy radius to degrees of longitude', () => {
+    const degrees = metersToLongitudeDegrees(111_320, 0);
+    expect(degrees).toBeCloseTo(1, 5);
+    expect(metersToLongitudeDegrees(10, 60)).toBeGreaterThan(metersToLongitudeDegrees(10, 0));
   });
 });

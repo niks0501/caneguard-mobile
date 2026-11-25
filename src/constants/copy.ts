@@ -189,6 +189,7 @@ export const FIELD_SURVEY_COPY = {
   walkNoCornerFix: 'No good GPS reading in the last few seconds. Wait for GPS within ±10 m, then mark the corner again.',
   walkBackAtStart: 'Back at the start. Tap Finish to close the boundary, or keep walking.',
   walkFinish: 'Finish',
+  walkTidied: (count: number) => ` Tidied ${count} extra ${count === 1 ? 'point' : 'points'} on straight edges. Undo brings them back.`,
   walkFinished: (count: number) => `Walk finished. ${count} ${count === 1 ? 'point' : 'points'} added; the boundary closes back to the start.`,
   walkActive: 'Walking: a point is added about every 8 m once GPS is within ±10 m. Keep the phone out in the open and stop at the starting corner.',
   walkWeakSignal: 'Waiting for a stronger GPS signal (within ±10 m). Move to open sky and keep walking.',

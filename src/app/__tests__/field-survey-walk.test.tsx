@@ -1,4 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import * as Haptics from 'expo-haptics';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import { AppState } from 'react-native';
 import { createGestureController, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import { useLocalSearchParams } from 'expo-router';
 
@@ -113,8 +117,9 @@ function lastDraftActiveAffectedWaypoints() {
   return lastDraft()?.activeAffectedWaypoints ?? [];
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
+  await AsyncStorage.clear();
   jest.mocked(useLocalSearchParams).mockReturnValue({});
   jest.mocked(findOwnedFieldSurvey).mockReturnValue(null);
   listSurveys.mockReturnValue([]);
@@ -682,5 +687,117 @@ describe('jump filter, best of the window and tidy on stop', () => {
     await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
     await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(3)); // both ends and the marked corner
     expect(lastDraftWaypoints().filter((point) => point.isCorner)).toHaveLength(1);
+  });
+});
+
+
+describe('comfort: haptics, screen on, interruptions and the first-walk guide', () => {
+  async function startWalking(draft: Partial<FieldSurveyRow> | null = {}) {
+    listSurveys.mockReturnValue(draft === null ? [] : [draftRow(draft)]);
+    const ref: { emit: (fix: WalkFix) => void; fail: () => void; remove: jest.Mock } = { emit: () => undefined, fail: () => undefined, remove: jest.fn() };
+    watch.mockImplementation(async (onFix, onError) => { ref.emit = onFix; ref.fail = onError; return { remove: ref.remove }; });
+    await renderOpen();
+    if (draft !== null) await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+    await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+    return ref;
+  }
+
+  it('ticks lightly for every point, once for weak signal, and double for a corner', async () => {
+    const ref = await startWalking();
+    await act(async () => { ref.emit(fix(14.1006, 121.1, 4)); });
+    await waitFor(() => expect(Haptics.impactAsync).toHaveBeenCalledWith('light'));
+
+    await act(async () => { ref.emit(fix(14.1012, 121.1, 40)); });
+    await act(async () => { ref.emit(fix(14.1013, 121.1, 40)); });
+    expect(Haptics.notificationAsync).toHaveBeenCalledTimes(1);
+    expect(Haptics.notificationAsync).toHaveBeenCalledWith('warning');
+
+    await act(async () => { ref.emit(fix(14.1012, 121.1, 4)); });
+    jest.mocked(Haptics.impactAsync).mockClear();
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk-corner')); });
+    await waitFor(() => expect(Haptics.impactAsync).toHaveBeenCalledWith('medium'));
+  });
+
+  it('keeps the screen on only while the walk runs', async () => {
+    const ref = await startWalking();
+    expect(activateKeepAwakeAsync).toHaveBeenCalledWith('caneguard-walk');
+    expect(deactivateKeepAwake).not.toHaveBeenCalled();
+
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+    expect(ref.remove).toHaveBeenCalledTimes(1);
+    expect(deactivateKeepAwake).toHaveBeenCalledWith('caneguard-walk');
+  });
+
+  it('does not hold the screen when the walk never started', async () => {
+    jest.mocked(expoWalkLocationClient.hasServicesEnabled).mockResolvedValueOnce(false);
+    await renderWithGestures(<FieldSurveyScreen />);
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+    await waitFor(() => expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkServicesDisabled));
+    expect(activateKeepAwakeAsync).not.toHaveBeenCalled();
+  });
+
+  it('offers Resume that waits for the walker after the app leaves the screen, and carries on from the same boundary', async () => {
+    jest.useFakeTimers();
+    let onAppState: (state: string) => void = () => undefined;
+    const remove = jest.fn();
+    const spy = jest.spyOn(AppState, 'addEventListener').mockImplementation(((_type: string, handler: (state: string) => void) => {
+      onAppState = handler;
+      return { remove };
+    }) as never);
+    try {
+      const ref = await startWalking();
+      await act(async () => { ref.emit(fix(14.1006, 121.1, 4)); });
+      await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(5));
+
+      await act(async () => { onAppState('background'); });
+      expect(ref.remove).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkInterrupted(1));
+      expect(deactivateKeepAwake).toHaveBeenCalled();
+
+      await act(async () => { jest.advanceTimersByTime(5 * 60_000); });
+      expect(screen.getByText(FIELD_SURVEY_COPY.walkResume)).toBeTruthy();
+
+      await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.walkResume)); });
+      await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+      expect(watch).toHaveBeenCalledTimes(2);
+      expect(lastDraftWaypoints()).toHaveLength(5);
+    } finally {
+      // React Native's own Jest setup already mocks this; restoring would strip its return value for later tests.
+      spy.mockImplementation((() => ({ remove: jest.fn() })) as never);
+      jest.useRealTimers();
+    }
+  });
+
+  it('offers a lasting Resume when GPS stops reporting, keeping the points', async () => {
+    const ref = await startWalking();
+    await act(async () => { ref.emit(fix(14.1006, 121.1, 4)); });
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(5));
+
+    await act(async () => { ref.fail(); });
+    expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkLost);
+    expect(screen.getByText(FIELD_SURVEY_COPY.walkResume)).toBeTruthy();
+    expect(lastDraftWaypoints()).toHaveLength(5);
+  });
+
+  it('shows the five-step guide on the very first walk only, and hides it when the first point lands', async () => {
+    const ref = await startWalking(null);
+    await waitFor(() => expect(screen.getByTestId('field-survey.walk-guide')).toBeTruthy());
+    expect(screen.getByText(`1. ${FIELD_SURVEY_COPY.walkGuideSteps[0]}`)).toBeTruthy();
+
+    await act(async () => { ref.emit(fix(14.1, 121.1, 4)); });
+    await waitFor(() => expect(screen.queryByTestId('field-survey.walk-guide')).toBeNull());
+
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); }); // Stop
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); }); // Resume: a second walk
+    await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+    expect(screen.queryByTestId('field-survey.walk-guide')).toBeNull();
+  });
+
+  it('hides the guide when the walk stops before any point', async () => {
+    await startWalking(null);
+    await waitFor(() => expect(screen.getByTestId('field-survey.walk-guide')).toBeTruthy());
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+    expect(screen.queryByTestId('field-survey.walk-guide')).toBeNull();
   });
 });

@@ -65,6 +65,8 @@ import {
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
 import { decideFinalFix, decideMarkCorner, decideWalkFix, distanceMeters, distanceToStart, formatWalkDistance, isBackAtStart, metersToLongitudeDegrees, refineWalkPoint, simplifyWalkSegment, WALK_CORNER_WINDOW_MS, walkAccuracyBand, type WalkFix, type WalkFixMark } from '@/features/surveys/domain/walkMode';
 import { expoWalkLocationClient } from '@/features/surveys/services/expoWalkLocationClient';
+import { holdScreenAwake, releaseScreenAwake, walkHaptic } from '@/features/surveys/services/walkComfort';
+import { markWalkGuideSeen, shouldShowWalkGuide } from '@/features/surveys/services/walkGuideStore';
 import { startWalk } from '@/features/surveys/services/walkSurveyBoundary';
 
 const SURVEY_ZOOM = 17;
@@ -310,7 +312,10 @@ export default function FieldSurveyScreen() {
   // Walk status shown on the map pill; syncMessage alone lives inside the collapsed More panel, so walk feedback was invisible.
   const [walkNotice, setWalkNotice] = useState<string | null>(null);
   // For a few seconds after the walker presses Stop, the Walk button offers to resume the same walk.
-  const [resumeOffer, setResumeOffer] = useState<{ affectedArea: boolean; areaCount: number; surveyId: string } | null>(null);
+  // `lasting` offers (an interruption such as leaving the app) wait until used; a deliberate Stop's offer lapses after a few seconds.
+  const [resumeOffer, setResumeOffer] = useState<{ affectedArea: boolean; areaCount: number; surveyId: string; lasting: boolean } | null>(null);
+  // Shown once per install, on the very first walk, until the first point lands.
+  const [walkGuideOpen, setWalkGuideOpen] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [saveState, setSaveState] = useState<SaveState>('unsaved');
   const [saveAttempt, setSaveAttempt] = useState(0);
@@ -385,18 +390,24 @@ export default function FieldSurveyScreen() {
     markEdited();
     setShape(next);
   }, [markEdited, setShape]);
-  const stopWalk = useCallback((message?: string | null) => {
+  const stopWalk = useCallback((message?: string | null, resume?: 'brief' | 'lasting') => {
     const walk = walkRef.current;
     if (!walk) return;
     walkRef.current = null;
     walk.stop();
+    releaseScreenAwake();
     setWalking(false);
+    setWalkGuideOpen(false);
+    // Only a walk that was really under way can be resumed, and never a silent teardown.
+    if (resume && message !== null && walk.started) {
+      setResumeOffer({ affectedArea: walk.affectedArea, areaCount: walk.areaCount, surveyId: walk.surveyId, lasting: resume === 'lasting' });
+    }
     setWalkLive(null);
     setWalkBackAtStart(false);
     walkFollowRef.current = true;
     setWalkFollow(true);
     if (message !== null) {
-      const text = message ?? FIELD_SURVEY_COPY.walkStopped(walk.added);
+      const text = message ?? (resume === 'lasting' ? FIELD_SURVEY_COPY.walkInterrupted(walk.added) : FIELD_SURVEY_COPY.walkStopped(walk.added));
       setSyncMessage(text);
       setWalkNotice(text);
     } else setWalkNotice(null);
@@ -412,7 +423,7 @@ export default function FieldSurveyScreen() {
     // Only a real 'background' ends the walk. iOS reports 'inactive' for the permission prompt, Control Centre and
     // notification pull-downs, and Android pauses the activity for its permission dialog; none of those lose GPS.
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'background' && walkRef.current?.started) stopWalk();
+      if (state === 'background' && walkRef.current?.started) stopWalk(undefined, 'lasting');
     });
     return () => subscription.remove();
   }, [stopWalk, walking]);
@@ -421,7 +432,7 @@ export default function FieldSurveyScreen() {
   const walkResumable = !walking && !controlsLocked && resumeOffer !== null
     && resumeOffer.surveyId === clientUuid && resumeOffer.affectedArea === drawingAffectedArea && resumeOffer.areaCount === affectedAreas.length;
   useEffect(() => {
-    if (!resumeOffer) return;
+    if (!resumeOffer || resumeOffer.lasting) return;
     const timer = setTimeout(() => setResumeOffer(null), WALK_RESUME_WINDOW_MS);
     return () => clearTimeout(timer);
   }, [resumeOffer]);
@@ -838,6 +849,8 @@ export default function FieldSurveyScreen() {
       walk.added += 1;
       walk.refine = { waypoint: decision.waypoint, readings: 0 };
       pointCount += 1;
+      walkHaptic('point');
+      setWalkGuideOpen(false);
       applyCapturedWaypoint(walk.affectedArea ? { affectedArea: true, areaCount: walk.areaCount, replace: null } : { affectedArea: false, areaCount: walk.areaCount, replace: null }, decision.waypoint);
       if (!walk.affectedArea) setFieldErrors({});
     }
@@ -846,7 +859,10 @@ export default function FieldSurveyScreen() {
     const backAtStart = usable && isBackAtStart(fix, target[0] ?? (decision.action === 'accept' ? decision.waypoint : null), pointCount, walk.walkedMeters);
     let notice: string | null = null;
     if (weak) {
-      if (!walk.weakSignal) notice = FIELD_SURVEY_COPY.walkWeakSignal;
+      if (!walk.weakSignal) {
+        notice = FIELD_SURVEY_COPY.walkWeakSignal;
+        walkHaptic('weak');
+      }
       walk.weakSignal = true;
     } else if (usable) {
       if (walk.weakSignal || !walk.locked) notice = FIELD_SURVEY_COPY.walkActive;
@@ -857,6 +873,7 @@ export default function FieldSurveyScreen() {
       walk.backAtStart = backAtStart;
       setWalkBackAtStart(backAtStart);
       notice = backAtStart ? FIELD_SURVEY_COPY.walkBackAtStart : FIELD_SURVEY_COPY.walkActive;
+      if (backAtStart) walkHaptic('backAtStart');
     }
     if (notice !== null) {
       setSyncMessage(notice);
@@ -905,9 +922,7 @@ export default function FieldSurveyScreen() {
     const removed = walk.started ? tidyWalkedLine(walk) : 0;
     const net = Math.max(0, walk.added - removed);
     const tidyNote = removed > 0 ? FIELD_SURVEY_COPY.walkTidied(removed) : '';
-    const { affectedArea, areaCount, started, surveyId } = walk;
-    stopWalk(`${finished ? FIELD_SURVEY_COPY.walkFinished(net) : FIELD_SURVEY_COPY.walkStopped(net)}${tidyNote}`);
-    setResumeOffer(started ? { affectedArea, areaCount, surveyId } : null);
+    stopWalk(`${finished ? FIELD_SURVEY_COPY.walkFinished(net) : FIELD_SURVEY_COPY.walkStopped(net)}${tidyNote}`, 'brief');
   }
 
   function markCorner() {
@@ -932,6 +947,7 @@ export default function FieldSurveyScreen() {
       applyCapturedWaypoint({ affectedArea: walk.affectedArea, areaCount: walk.areaCount, replace: null }, decision.waypoint);
       if (!walk.affectedArea) setFieldErrors({});
     }
+    walkHaptic('corner');
     setSyncMessage(FIELD_SURVEY_COPY.walkCornerMarked);
     setWalkNotice(FIELD_SURVEY_COPY.walkCornerMarked);
   }
@@ -979,7 +995,7 @@ export default function FieldSurveyScreen() {
       const result = await startWalk(
         expoWalkLocationClient,
         (fix) => walkFixHandlerRef.current(fix),
-        () => stopWalk(FIELD_SURVEY_COPY.walkLost),
+        () => stopWalk(FIELD_SURVEY_COPY.walkLost, 'lasting'),
       );
       if (walkRef.current !== session) {
         if (result.status === 'started') result.stop();
@@ -995,9 +1011,16 @@ export default function FieldSurveyScreen() {
       session.stop = result.stop;
       session.started = true;
       if (AppState.currentState === 'background') {
-        stopWalk();
+        stopWalk(undefined, 'lasting');
         return;
       }
+      holdScreenAwake();
+      // A first walk gets a five-step guide once; any later walk starts straight at the lock message.
+      void shouldShowWalkGuide().then((show) => {
+        if (!show) return;
+        void markWalkGuideSeen();
+        if (walkRef.current === session && session.added === 0) setWalkGuideOpen(true);
+      });
       // Until the first usable reading the walker stands still at the starting corner.
       setSyncMessage(FIELD_SURVEY_COPY.walkLocking);
       setWalkNotice(FIELD_SURVEY_COPY.walkLocking);
@@ -1395,6 +1418,14 @@ export default function FieldSurveyScreen() {
                       </View>
                     ) : null}
                     <Text testID="field-survey.walk-status" numberOfLines={4} style={[styles.pillText, { color: theme.text }]}>{walkNotice}</Text>
+                    {walking && walkGuideOpen ? (
+                      <View testID="field-survey.walk-guide" style={styles.guide}>
+                        <Text style={[styles.guideTitle, { color: theme.primaryDark }]}>{FIELD_SURVEY_COPY.walkGuideTitle}</Text>
+                        {FIELD_SURVEY_COPY.walkGuideSteps.map((step, index) => (
+                          <Text key={step} style={[styles.pillText, { color: theme.textSecondary }]}>{index + 1}. {step}</Text>
+                        ))}
+                      </View>
+                    ) : null}
                   </View>
                 ) : showToolHint ? (
                   <Text testID="field-survey.tool-state" accessibilityValue={{ text: `tool=${toolState}` }} numberOfLines={2} style={[styles.pillText, { color: theme.text }]}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.toolState[toolState]}</Text>
@@ -1563,6 +1594,8 @@ const styles = StyleSheet.create({
   areaChipText: { ...Typography.caption, fontWeight: '700' },
   areaRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
   areaRowLabel: { flex: 1 },
+  guide: { marginTop: Spacing.xs, gap: 2 },
+  guideTitle: { fontSize: 12, fontWeight: '700' },
   hud: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.xs },
   hudCell: { flex: 1, minWidth: 0 },
   hudLabel: { fontSize: 11 },

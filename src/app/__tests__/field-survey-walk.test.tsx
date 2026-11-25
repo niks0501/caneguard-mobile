@@ -5,7 +5,7 @@ import FieldSurveyScreen from '@/app/field-survey';
 import { FIELD_SURVEY_COPY } from '@/constants/copy';
 import type { FieldSurveyRow } from '@/database/schema';
 import { findOwnedFieldSurvey, listOwnedFieldSurveys, saveFieldSurveyDraft } from '@/features/surveys/data/fieldSurveyRepository';
-import type { SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { validateSurveyWaypoints, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import type { WalkFix } from '@/features/surveys/domain/walkMode';
 import { expoWalkLocationClient } from '@/features/surveys/services/expoWalkLocationClient';
 import { renderWithGestures } from '../../../test/render-with-gestures';
@@ -219,8 +219,7 @@ it('measures walk spacing from the boundary after undo removes the last point', 
   expect(lastDraftWaypoints().at(-1)).toMatchObject({ latitude: 14.102, longitude: 121.1021 });
 });
 
-it('stops walking before finishing an affected area starts another one', async () => {
-  // Invariant: a walk only ever adds points to the affected area it started on.
+it('locks Finish area while walking, so a walk only ever adds to the affected area it started on', async () => {
   listSurveys.mockReturnValue([draftRow({ activeAffectedWaypointsJson: JSON.stringify(AFFECTED_WAYPOINTS) })]);
   const remove = jest.fn();
   let emit: (fix: WalkFix) => void = () => undefined;
@@ -231,17 +230,93 @@ it('stops walking before finishing an affected area starts another one', async (
   await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
 
+  expect(screen.getByText(FIELD_SURVEY_COPY.finishAffectedArea)).toBeDisabled();
   await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.finishAffectedArea)); });
   await act(async () => { emit(fix(14.1008, 121.1008)); });
 
-  expect(screen.getByText(FIELD_SURVEY_COPY.walkStart)).toBeTruthy();
-  expect(remove).toHaveBeenCalledTimes(1);
-  expect(lastDraftAffectedWaypoints()).toHaveLength(1);
-  expect(lastDraftActiveAffectedWaypoints()).toHaveLength(0);
+  expect(remove).not.toHaveBeenCalled();
+  expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy();
+  expect(lastDraftAffectedWaypoints()).toHaveLength(0);
+  expect(lastDraftActiveAffectedWaypoints()).toHaveLength(AFFECTED_WAYPOINTS.length + 1);
 });
 
-// Intent (item 8): the Walk / Tap switch is one choice; picking Tap corners stops a walk in progress.
-it('stops walking when Tap corners is chosen', async () => {
+it('locks affected-area selection on a stored survey', async () => {
+  const area = validateSurveyWaypoints(AFFECTED_WAYPOINTS);
+  if (!area.valid) throw new Error('fixture invalid');
+  listSurveys.mockReturnValue([draftRow({
+    status: 'pending',
+    affectedAreaPolygonsJson: JSON.stringify([area.polygon]),
+    affectedAreaWaypointsJson: JSON.stringify([AFFECTED_WAYPOINTS]),
+  })]);
+
+  await renderOpen();
+  const areaRow = await screen.findByRole('button', { name: /^Area 1 ·/ });
+  expect(areaRow).toBeDisabled();
+  expect(areaRow.props.accessibilityState).toMatchObject({ disabled: true, selected: false });
+
+  await act(async () => { fireEvent.press(areaRow); });
+  expect(areaRow.props.accessibilityState.selected).toBe(false);
+});
+
+// Intent (item 8): Stop is the only way out of a walk; there is no Tap button to hit by accident.
+it('stops walking on Stop and offers Resume for a few seconds', async () => {
+  jest.useFakeTimers();
+  try {
+    const remove = jest.fn();
+    watch.mockImplementation(async () => ({ remove }));
+
+    await renderOpen();
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+    await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(FIELD_SURVEY_COPY.walkResume)).toBeTruthy();
+
+    await act(async () => { jest.advanceTimersByTime(5_000); });
+    expect(screen.queryByText(FIELD_SURVEY_COPY.walkResume)).toBeNull();
+    expect(screen.getByText(FIELD_SURVEY_COPY.walkStart)).toBeTruthy();
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it('resumes the walk from the same boundary when Resume is pressed', async () => {
+  listSurveys.mockReturnValue([draftRow()]);
+  const remove = jest.fn();
+  let emit: (fix: WalkFix) => void = () => undefined;
+  watch.mockImplementation(async (onFix) => { emit = onFix; return { remove }; });
+
+  await renderOpen();
+  await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.walkResume)); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+  expect(watch).toHaveBeenCalledTimes(2);
+
+  await act(async () => { emit(fix(14.1, 121.1)); }); // ~224 m from the existing last point
+  await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(5));
+});
+
+it('has no Tap button while walking, so a stray press cannot end the walk', async () => {
+  const remove = jest.fn();
+  watch.mockImplementation(async () => ({ remove }));
+
+  await renderOpen();
+  expect(screen.getByTestId('field-survey.tap')).toBeTruthy();
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+
+  expect(screen.queryByTestId('field-survey.tap')).toBeNull();
+  expect(remove).not.toHaveBeenCalled();
+
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  expect(screen.getByTestId('field-survey.tap')).toBeTruthy();
+});
+
+it('locks the plot/affected-area switch while walking so it cannot silently end the walk', async () => {
   const remove = jest.fn();
   watch.mockImplementation(async () => ({ remove }));
 
@@ -249,13 +324,47 @@ it('stops walking when Tap corners is chosen', async () => {
   await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
 
-  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.tap')); });
-  expect(remove).toHaveBeenCalledTimes(1);
-  expect(screen.getByText(FIELD_SURVEY_COPY.walkStart)).toBeTruthy();
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.target-affected')); });
+  expect(remove).not.toHaveBeenCalled();
+  expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy();
+  expect(screen.getByTestId('field-survey.target-affected')).toBeDisabled();
+  expect(screen.getByTestId('field-survey.target-plot')).toBeDisabled();
+});
+
+it('locks the map press, point list, Remove and Recapture while walking', async () => {
+  listSurveys.mockReturnValue([draftRow({ waypointsJson: JSON.stringify(PLOT_WAYPOINTS.map((point) => ({ ...point, accuracyMeters: 40 }))) })]);
+  watch.mockImplementation(async () => ({ remove: jest.fn() }));
+
+  await renderOpen();
+  await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+  await act(async () => { fireEvent.press(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)); });
+  expect(screen.getByLabelText(FIELD_SURVEY_COPY.selectPoint(1))).toBeEnabled();
+
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+
+  expect(screen.getByTestId('field-survey.map')).toBeDisabled();
+  expect(screen.getByLabelText(FIELD_SURVEY_COPY.selectPoint(1))).toBeDisabled();
+  expect(screen.getByText(FIELD_SURVEY_COPY.removeSelected)).toBeDisabled();
+  expect(screen.getByText(FIELD_SURVEY_COPY.recapturePoint(1))).toBeDisabled();
+});
+
+it('keeps Undo working while walking', async () => {
+  listSurveys.mockReturnValue([draftRow()]);
+  watch.mockImplementation(async () => ({ remove: jest.fn() }));
+
+  await renderOpen();
+  await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+
+  await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.undo)); });
+  await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(3));
+  expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy();
 });
 
 // Intent (item 8): Walk excludes tap editing, so a stray tap during GPS capture cannot add or move points.
-it('ignores map taps while walking and keeps them working in Tap corners', async () => {
+it('ignores map taps while walking and keeps them working after Stop', async () => {
   listSurveys.mockReturnValue([draftRow()]);
   const remove = jest.fn();
   let emit: (fix: WalkFix) => void = () => undefined;
@@ -274,7 +383,7 @@ it('ignores map taps while walking and keeps them working in Tap corners', async
   await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(5));
   expect(lastDraftWaypoints().filter((point) => point.source === 'map')).toHaveLength(0);
 
-  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.tap')); });
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
   await act(async () => {
     fireEvent.press(screen.getByTestId('field-survey.map'), { nativeEvent: { locationX: 200, locationY: 200 } });
   });
@@ -299,7 +408,7 @@ it('hides the map handles while walking so points cannot be inserted, selected o
   expect(screen.queryByTestId('field-survey.point.active.0')).toBeNull();
   expect(screen.queryByTestId('field-survey.insert.plot.0')).toBeNull();
 
-  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.tap')); });
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
   expect(screen.getByTestId('field-survey.point.plot.0')).toBeTruthy();
   expect(screen.getByTestId('field-survey.insert.plot.0')).toBeTruthy();
 });

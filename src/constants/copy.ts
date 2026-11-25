@@ -177,6 +177,7 @@ export const FIELD_SURVEY_COPY = {
   capturingGps: 'Getting GPS…',
   walkStart: 'Walk',
   walkStop: 'Stop walking',
+  walkResume: 'Resume walk',
   walkActive: 'Walking: a point is added about every 8 m once GPS is within ±10 m. Keep the phone out in the open and stop at the starting corner.',
   walkWeakSignal: 'Waiting for a stronger GPS signal (within ±10 m). Move to open sky and keep walking.',
   walkStopped: (count: number) => `Stopped walking. ${count} ${count === 1 ? 'point' : 'points'} added.`,

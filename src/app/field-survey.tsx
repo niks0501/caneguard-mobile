@@ -74,6 +74,8 @@ const HANDLE_SIZE = 44;
 const MAP_BORDER_WIDTH = 1;
 // A tap that lands this soon after a pan or pinch ended is the end of that drag, not a new point.
 const GESTURE_TAP_GUARD_MS = 300;
+/** How long after Stop the Walk button still says Resume. */
+const WALK_RESUME_WINDOW_MS = 5_000;
 const TAP_HIT_RADIUS = 20;
 const EMPTY_SHAPE: DrawingShape = { waypoints: [], affectedAreas: [], affectedAreaWaypointSets: [], affectedWaypoints: [] };
 
@@ -281,6 +283,8 @@ export default function FieldSurveyScreen() {
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   // Walk status shown on the map pill; syncMessage alone lives inside the collapsed More panel, so walk feedback was invisible.
   const [walkNotice, setWalkNotice] = useState<string | null>(null);
+  // For a few seconds after the walker presses Stop, the Walk button offers to resume the same walk.
+  const [resumeOffer, setResumeOffer] = useState<{ affectedArea: boolean; areaCount: number; surveyId: string } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [saveState, setSaveState] = useState<SaveState>('unsaved');
   const [saveAttempt, setSaveAttempt] = useState(0);
@@ -291,6 +295,9 @@ export default function FieldSurveyScreen() {
   const modeRef = useRef(mode);
   useEffect(() => { modeRef.current = mode; }, [mode]);
   const controlsLocked = !screenCanEdit(mode);
+  // Walking owns the boundary: every control that edits or selects points is off until the walk stops.
+  // Undo and map pan/zoom stay available.
+  const editLocked = controlsLocked || walking;
   const saving = mode === 'sending';
   const mapRef = useRef<HostInstance>(null);
   const liveFormRef = useRef({ controlsLocked, drawingAffectedArea, editable: !controlsLocked });
@@ -380,6 +387,14 @@ export default function FieldSurveyScreen() {
     return () => subscription.remove();
   }, [stopWalk, walking]);
   useEffect(() => () => stopWalk(null), [stopWalk]);
+  // Resume is only offered for the boundary that was being walked, and only briefly.
+  const walkResumable = !walking && !controlsLocked && resumeOffer !== null
+    && resumeOffer.surveyId === clientUuid && resumeOffer.affectedArea === drawingAffectedArea && resumeOffer.areaCount === affectedAreas.length;
+  useEffect(() => {
+    if (!resumeOffer) return;
+    const timer = setTimeout(() => setResumeOffer(null), WALK_RESUME_WINDOW_MS);
+    return () => clearTimeout(timer);
+  }, [resumeOffer]);
   const validation = useMemo(() => validateSurveyWaypoints(waypoints), [waypoints]);
   const validityMarks = useMemo(() => assessValidity(waypoints, affectedAreas), [waypoints, affectedAreas]);
   const affectedMeasurement = useMemo(() => validation.valid
@@ -557,7 +572,8 @@ export default function FieldSurveyScreen() {
   }
 
   function addMapPointAt(point: { x: number; y: number }) {
-    if (controlsLocked || walking) return;
+    // walkRef is read live: a tap measured just before Walk started finishes after this render's `walking` is stale.
+    if (controlsLocked || walking || walkRef.current) return;
     const near = pointRefNear(point);
     if (near) {
       setSelected(sameRef(near, selected) ? null : near);
@@ -773,10 +789,13 @@ export default function FieldSurveyScreen() {
 
   async function toggleWalk() {
     if (walkRef.current) {
+      const { affectedArea, areaCount, started, surveyId } = walkRef.current;
       stopWalk();
+      setResumeOffer(started ? { affectedArea, areaCount, surveyId } : null);
       return;
     }
     if (controlsLocked || gpsBusy) return;
+    setResumeOffer(null);
     const affectedArea = drawingAffectedArea;
     const session: WalkSession = {
       affectedArea,
@@ -1079,7 +1098,7 @@ export default function FieldSurveyScreen() {
         <View testID="field-survey.map-section" accessibilityValue={{ text: `expanded=${expanded ? 'yes' : 'no'}` }} style={expanded ? styles.mapSectionExpanded : [styles.mapSection, moreOpen && styles.mapSectionWithDetails]}>
           <GestureDetector gesture={mapGesture}>
             <Pressable
-              disabled={controlsLocked}
+              disabled={editLocked}
               ref={mapRef}
               testID="field-survey.map"
               accessibilityRole="imagebutton"
@@ -1153,7 +1172,7 @@ export default function FieldSurveyScreen() {
           </Svg>
           {controlsLocked || walking ? null : handles}
           {controlsLocked ? null : areaChips.map(({ index, at }) => (
-            <Pressable key={`area-chip-${index}`} testID={`field-survey.area-chip.${index}`} accessibilityRole="button" accessibilityState={{ selected: selectedArea === index }} accessibilityLabel={FIELD_SURVEY_COPY.affectedAreaChip(index + 1, areaSqm(index))} onPress={() => { setSelectedArea((current) => current === index ? null : index); setSelected(null); }} style={[styles.areaChip, { left: at.x - 16, top: at.y - 12, backgroundColor: selectedArea === index ? theme.warning : theme.surfaceElevated, borderColor: validityMarks.outsideAreas.includes(index) ? theme.danger : theme.warning }]}>
+            <Pressable key={`area-chip-${index}`} testID={`field-survey.area-chip.${index}`} disabled={editLocked} accessibilityRole="button" accessibilityState={{ selected: selectedArea === index, disabled: editLocked }} accessibilityLabel={FIELD_SURVEY_COPY.affectedAreaChip(index + 1, areaSqm(index))} onPress={() => { setSelectedArea((current) => current === index ? null : index); setSelected(null); }} style={[styles.areaChip, { left: at.x - 16, top: at.y - 12, backgroundColor: selectedArea === index ? theme.warning : theme.surfaceElevated, borderColor: validityMarks.outsideAreas.includes(index) ? theme.danger : theme.warning }]}>
               <Text style={[styles.areaChipText, { color: selectedArea === index ? 'white' : theme.text }]}>A{index + 1}</Text>
             </Pressable>
           ))}
@@ -1187,8 +1206,11 @@ export default function FieldSurveyScreen() {
           </View>
           <View pointerEvents="box-none" style={styles.overlayBottom}>
             <View pointerEvents="box-none" style={styles.modeSwitch}>
-              <AppButton testID="field-survey.walk" leadingIcon={walking ? 'square' : 'navigation'} variant="secondary" selected={walking} style={[styles.floatingButton, walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => void toggleWalk()} disabled={(gpsBusy && !walking) || controlsLocked}>{walking ? FIELD_SURVEY_COPY.walkStop : FIELD_SURVEY_COPY.modeWalk}</AppButton>
-              <AppButton testID="field-survey.tap" leadingIcon="map-pin" variant="secondary" selected={!walking} style={[styles.floatingButton, !walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => { if (walking) stopWalk(); setWalkNotice(null); }} disabled={controlsLocked}>{FIELD_SURVEY_COPY.modeTap}</AppButton>
+              <AppButton testID="field-survey.walk" leadingIcon={walking ? 'square' : 'navigation'} variant="secondary" selected={walking} style={[styles.floatingButton, walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => void toggleWalk()} disabled={(gpsBusy && !walking) || controlsLocked}>{walking ? FIELD_SURVEY_COPY.walkStop : walkResumable ? FIELD_SURVEY_COPY.walkResume : FIELD_SURVEY_COPY.modeWalk}</AppButton>
+              {/* While walking, Stop is the only control here, so a stray thumb cannot end the walk by choosing Tap. */}
+              {walking ? null : (
+                <AppButton testID="field-survey.tap" leadingIcon="map-pin" variant="secondary" selected style={[styles.floatingButton, { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => setWalkNotice(null)} disabled={controlsLocked}>{FIELD_SURVEY_COPY.modeTap}</AppButton>
+              )}
             </View>
             {controlsLocked || walking ? null : (
               <AppButton testID="field-survey.add-center" leadingIcon="plus" accessibilityLabel={FIELD_SURVEY_COPY.addAtCenterLabel} style={styles.floatingButton} onPress={addPointAtCenter}>{selected ? FIELD_SURVEY_COPY.moveToCenter : FIELD_SURVEY_COPY.addAtCenter}</AppButton>
@@ -1197,14 +1219,14 @@ export default function FieldSurveyScreen() {
         </View>
         <View style={[styles.controls, expanded && { backgroundColor: theme.background }]}>
           <View accessibilityRole="radiogroup" style={styles.segmented}>
-            <AppButton testID="field-survey.target-plot" leadingIcon="square" variant="secondary" selected={!drawingAffectedArea} style={[styles.toolButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (drawingAffectedArea) stopWalk(); setDrawingAffectedArea(false); setSelected(null); setSyncMessage(null); setWalkNotice(null); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
-            <AppButton testID="field-survey.target-affected" leadingIcon="alert-triangle" variant="secondary" selected={drawingAffectedArea} style={[styles.toolButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.warning, borderWidth: 2 }]} disabled={controlsLocked} onPress={() => { if (!drawingAffectedArea) stopWalk(); setDrawingAffectedArea(true); setSelected(null); setSyncMessage(null); setWalkNotice(null); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
+            <AppButton testID="field-survey.target-plot" leadingIcon="square" variant="secondary" selected={!drawingAffectedArea} style={[styles.toolButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={editLocked} onPress={() => { setDrawingAffectedArea(false); setSelected(null); setSyncMessage(null); setWalkNotice(null); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
+            <AppButton testID="field-survey.target-affected" leadingIcon="alert-triangle" variant="secondary" selected={drawingAffectedArea} style={[styles.toolButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.warning, borderWidth: 2 }]} disabled={editLocked} onPress={() => { setDrawingAffectedArea(true); setSelected(null); setSyncMessage(null); setWalkNotice(null); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
           </View>
           <View style={styles.toolRow}>
             {/* Three buttons share the row while an affected area is open, so they drop their icons to keep one line each. */}
             <AppButton variant="secondary" leadingIcon={drawingAffectedArea ? undefined : 'corner-up-left'} style={styles.toolButton} disabled={(!pointCount && history.length === 0) || controlsLocked} onPress={undoLast}>{FIELD_SURVEY_COPY.undo}</AppButton>
-            <AppButton variant="secondary" leadingIcon={drawingAffectedArea ? undefined : 'trash-2'} style={styles.toolButton} disabled={selected === null || controlsLocked} onPress={removeSelected}>{FIELD_SURVEY_COPY.removeSelected}</AppButton>
-            {drawingAffectedArea ? <AppButton variant="secondary" style={styles.toolButton} disabled={affectedWaypoints.length < 3 || controlsLocked} onPress={finishAffectedArea}>{FIELD_SURVEY_COPY.finishAffectedArea}</AppButton> : null}
+            <AppButton variant="secondary" leadingIcon={drawingAffectedArea ? undefined : 'trash-2'} style={styles.toolButton} disabled={selected === null || editLocked} onPress={removeSelected}>{FIELD_SURVEY_COPY.removeSelected}</AppButton>
+            {drawingAffectedArea ? <AppButton variant="secondary" style={styles.toolButton} disabled={affectedWaypoints.length < 3 || editLocked} onPress={finishAffectedArea}>{FIELD_SURVEY_COPY.finishAffectedArea}</AppButton> : null}
           </View>
           {expanded ? (
             <View style={styles.expandedBar}>
@@ -1234,7 +1256,7 @@ export default function FieldSurveyScreen() {
           </Pressable>
           {pointsOpen ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.points}>
-              {listedPoints.map((point, index) => <Pressable key={`${point.capturedAt}:${index}`} accessibilityRole="button" accessibilityLabel={FIELD_SURVEY_COPY.selectPoint(index + 1)} onPress={() => setSelected(listedRef(index))} style={[styles.point, { borderColor: sameRef(selected, listedRef(index)) ? theme.primary : theme.border, backgroundColor: theme.surfaceElevated }]}>
+              {listedPoints.map((point, index) => <Pressable key={`${point.capturedAt}:${index}`} disabled={editLocked} accessibilityRole="button" accessibilityState={{ disabled: editLocked }} accessibilityLabel={FIELD_SURVEY_COPY.selectPoint(index + 1)} onPress={() => setSelected(listedRef(index))} style={[styles.point, { borderColor: sameRef(selected, listedRef(index)) ? theme.primary : theme.border, backgroundColor: theme.surfaceElevated }]}>
                 <Text style={[styles.pointTitle, { color: theme.text }]}>{index + 1} · {point.source === 'gps' ? FIELD_SURVEY_COPY.gps : FIELD_SURVEY_COPY.map}</Text>
                 <Text style={[styles.pointCoord, { color: theme.textSecondary }]}>{point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}</Text>
                 <Text style={[styles.pointCoord, { color: point.source === 'gps' && point.accuracyMeters === null ? theme.warning : theme.textSecondary }]}>{point.source !== 'gps' ? FIELD_SURVEY_COPY.pointQuality.map : point.accuracyMeters === null ? FIELD_SURVEY_COPY.accuracyUnknown : `${FIELD_SURVEY_COPY.accuracy} ±${point.accuracyMeters.toFixed(1)} m`}</Text>
@@ -1248,16 +1270,16 @@ export default function FieldSurveyScreen() {
               <Text style={[styles.help, { color: badge === 'good' || badge === 'drawn_on_map' ? theme.success : theme.warning }]}>{FIELD_SURVEY_COPY.qualityState[badge]}</Text>
               {quality.worst ? <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.qualityWorst(quality.worst.index + 1, quality.worst.accuracyMeters)}</Text> : null}
               {affectedMeasurement?.valid ? <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.qualityAffected(affectedMeasurement.areaSqm, (affectedMeasurement.areaSqm / validation.areaSqm) * 100)}</Text> : null}
-              {badge === 'low_accuracy' && quality.worst ? <AppButton variant="secondary" leadingIcon="crosshair" disabled={gpsBusy || controlsLocked} busy={gpsBusy} onPress={() => { const worst = quality.worst; if (worst) void recaptureWorstPoint(waypoints[worst.index]); }}>{FIELD_SURVEY_COPY.recapturePoint(quality.worst.index + 1)}</AppButton> : null}
+              {badge === 'low_accuracy' && quality.worst ? <AppButton variant="secondary" leadingIcon="crosshair" disabled={gpsBusy || editLocked} busy={gpsBusy} onPress={() => { const worst = quality.worst; if (worst) void recaptureWorstPoint(waypoints[worst.index]); }}>{FIELD_SURVEY_COPY.recapturePoint(quality.worst.index + 1)}</AppButton> : null}
             </View>
           ) : null}
           <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.affectedAreas} ({affectedAreas.length})</Text>
           {affectedAreas.map((_, index) => (
             <View key={`area-row-${index}`} style={styles.areaRow}>
-              <Pressable accessibilityRole="button" accessibilityState={{ selected: selectedArea === index }} onPress={() => { setSelectedArea((current) => current === index ? null : index); setSelected(null); }} style={[styles.point, styles.areaRowLabel, { borderColor: selectedArea === index ? theme.primary : validityMarks.outsideAreas.includes(index) ? theme.danger : theme.border, backgroundColor: theme.surfaceElevated }]}>
+              <Pressable disabled={editLocked} accessibilityRole="button" accessibilityState={{ selected: selectedArea === index, disabled: editLocked }} onPress={() => { setSelectedArea((current) => current === index ? null : index); setSelected(null); }} style={[styles.point, styles.areaRowLabel, { borderColor: selectedArea === index ? theme.primary : validityMarks.outsideAreas.includes(index) ? theme.danger : theme.border, backgroundColor: theme.surfaceElevated }]}>
                 <Text style={[styles.pointTitle, { color: theme.text }]}>{FIELD_SURVEY_COPY.affectedAreaChip(index + 1, areaSqm(index))}</Text>
               </Pressable>
-              <AppButton variant="secondary" leadingIcon="trash-2" disabled={controlsLocked} onPress={() => removeAreaAt(index)}>{FIELD_SURVEY_COPY.removeAffectedAreaNumber(index + 1)}</AppButton>
+              <AppButton variant="secondary" leadingIcon="trash-2" disabled={editLocked} onPress={() => removeAreaAt(index)}>{FIELD_SURVEY_COPY.removeAffectedAreaNumber(index + 1)}</AppButton>
             </View>
           ))}
         </ScrollView>

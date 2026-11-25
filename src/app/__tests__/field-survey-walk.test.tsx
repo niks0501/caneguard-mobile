@@ -5,7 +5,7 @@ import FieldSurveyScreen from '@/app/field-survey';
 import { FIELD_SURVEY_COPY } from '@/constants/copy';
 import type { FieldSurveyRow } from '@/database/schema';
 import { findOwnedFieldSurvey, listOwnedFieldSurveys, saveFieldSurveyDraft } from '@/features/surveys/data/fieldSurveyRepository';
-import type { SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { validateSurveyWaypoints, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import type { WalkFix } from '@/features/surveys/domain/walkMode';
 import { expoWalkLocationClient } from '@/features/surveys/services/expoWalkLocationClient';
 import { renderWithGestures } from '../../../test/render-with-gestures';
@@ -238,6 +238,24 @@ it('locks Finish area while walking, so a walk only ever adds to the affected ar
   expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy();
   expect(lastDraftAffectedWaypoints()).toHaveLength(0);
   expect(lastDraftActiveAffectedWaypoints()).toHaveLength(AFFECTED_WAYPOINTS.length + 1);
+});
+
+it('locks affected-area selection on a stored survey', async () => {
+  const area = validateSurveyWaypoints(AFFECTED_WAYPOINTS);
+  if (!area.valid) throw new Error('fixture invalid');
+  listSurveys.mockReturnValue([draftRow({
+    status: 'pending',
+    affectedAreaPolygonsJson: JSON.stringify([area.polygon]),
+    affectedAreaWaypointsJson: JSON.stringify([AFFECTED_WAYPOINTS]),
+  })]);
+
+  await renderOpen();
+  const areaRow = await screen.findByRole('button', { name: /^Area 1 ·/ });
+  expect(areaRow).toBeDisabled();
+  expect(areaRow.props.accessibilityState).toMatchObject({ disabled: true, selected: false });
+
+  await act(async () => { fireEvent.press(areaRow); });
+  expect(areaRow.props.accessibilityState.selected).toBe(false);
 });
 
 // Intent (item 8): Stop is the only way out of a walk; there is no Tap button to hit by accident.

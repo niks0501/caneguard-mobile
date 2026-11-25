@@ -1172,7 +1172,7 @@ export default function FieldSurveyScreen() {
           </Svg>
           {controlsLocked || walking ? null : handles}
           {controlsLocked ? null : areaChips.map(({ index, at }) => (
-            <Pressable key={`area-chip-${index}`} testID={`field-survey.area-chip.${index}`} disabled={walking} accessibilityRole="button" accessibilityState={{ selected: selectedArea === index, disabled: walking }} accessibilityLabel={FIELD_SURVEY_COPY.affectedAreaChip(index + 1, areaSqm(index))} onPress={() => { setSelectedArea((current) => current === index ? null : index); setSelected(null); }} style={[styles.areaChip, { left: at.x - 16, top: at.y - 12, backgroundColor: selectedArea === index ? theme.warning : theme.surfaceElevated, borderColor: validityMarks.outsideAreas.includes(index) ? theme.danger : theme.warning }]}>
+            <Pressable key={`area-chip-${index}`} testID={`field-survey.area-chip.${index}`} disabled={editLocked} accessibilityRole="button" accessibilityState={{ selected: selectedArea === index, disabled: editLocked }} accessibilityLabel={FIELD_SURVEY_COPY.affectedAreaChip(index + 1, areaSqm(index))} onPress={() => { setSelectedArea((current) => current === index ? null : index); setSelected(null); }} style={[styles.areaChip, { left: at.x - 16, top: at.y - 12, backgroundColor: selectedArea === index ? theme.warning : theme.surfaceElevated, borderColor: validityMarks.outsideAreas.includes(index) ? theme.danger : theme.warning }]}>
               <Text style={[styles.areaChipText, { color: selectedArea === index ? 'white' : theme.text }]}>A{index + 1}</Text>
             </Pressable>
           ))}
@@ -1276,7 +1276,7 @@ export default function FieldSurveyScreen() {
           <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.affectedAreas} ({affectedAreas.length})</Text>
           {affectedAreas.map((_, index) => (
             <View key={`area-row-${index}`} style={styles.areaRow}>
-              <Pressable disabled={walking} accessibilityRole="button" accessibilityState={{ selected: selectedArea === index, disabled: walking }} onPress={() => { setSelectedArea((current) => current === index ? null : index); setSelected(null); }} style={[styles.point, styles.areaRowLabel, { borderColor: selectedArea === index ? theme.primary : validityMarks.outsideAreas.includes(index) ? theme.danger : theme.border, backgroundColor: theme.surfaceElevated }]}>
+              <Pressable disabled={editLocked} accessibilityRole="button" accessibilityState={{ selected: selectedArea === index, disabled: editLocked }} onPress={() => { setSelectedArea((current) => current === index ? null : index); setSelected(null); }} style={[styles.point, styles.areaRowLabel, { borderColor: selectedArea === index ? theme.primary : validityMarks.outsideAreas.includes(index) ? theme.danger : theme.border, backgroundColor: theme.surfaceElevated }]}>
                 <Text style={[styles.pointTitle, { color: theme.text }]}>{FIELD_SURVEY_COPY.affectedAreaChip(index + 1, areaSqm(index))}</Text>
               </Pressable>
               <AppButton variant="secondary" leadingIcon="trash-2" disabled={editLocked} onPress={() => removeAreaAt(index)}>{FIELD_SURVEY_COPY.removeAffectedAreaNumber(index + 1)}</AppButton>

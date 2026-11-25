@@ -63,7 +63,7 @@ import {
   type PointRef,
 } from '@/features/surveys/domain/drawingTool';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
-import { decideWalkFix, distanceMeters, distanceToStart, formatWalkDistance, metersToLongitudeDegrees, walkAccuracyBand, type WalkFix } from '@/features/surveys/domain/walkMode';
+import { decideFinalFix, decideMarkCorner, decideWalkFix, distanceMeters, distanceToStart, formatWalkDistance, isBackAtStart, metersToLongitudeDegrees, WALK_CORNER_WINDOW_MS, walkAccuracyBand, type WalkFix } from '@/features/surveys/domain/walkMode';
 import { expoWalkLocationClient } from '@/features/surveys/services/expoWalkLocationClient';
 import { startWalk } from '@/features/surveys/services/walkSurveyBoundary';
 
@@ -188,6 +188,12 @@ type WalkSession = {
   /** True once the GPS subscription exists; permission prompts before that must not end the walk. */
   started: boolean;
   weakSignal: boolean;
+  /** False until the first usable reading: the walker is told to wait at the start corner. */
+  locked: boolean;
+  /** Last few readings, newest last: Mark corner picks the best of them. */
+  recent: WalkFix[];
+  latest: WalkFix | null;
+  backAtStart: boolean;
   stop: () => void;
 };
 
@@ -266,6 +272,8 @@ export default function FieldSurveyScreen() {
   // The map follows the walker until they pan or pinch it; Recenter turns following back on.
   const [walkFollow, setWalkFollow] = useState(true);
   const walkFollowRef = useRef(true);
+  // True when the walker has looped back to the first point: Finish replaces Mark corner.
+  const [walkBackAtStart, setWalkBackAtStart] = useState(false);
   // A touch that turned into a pan or pinch must not also drop a point where the finger lifted.
   // The press can arrive just before or after the gesture's end, so allow a short window.
   const mapGestureRef = useRef({ active: false, endedAt: 0 });
@@ -377,6 +385,7 @@ export default function FieldSurveyScreen() {
     walk.stop();
     setWalking(false);
     setWalkLive(null);
+    setWalkBackAtStart(false);
     walkFollowRef.current = true;
     setWalkFollow(true);
     if (message !== null) {
@@ -780,40 +789,102 @@ export default function FieldSurveyScreen() {
     walk.last = target.at(-1) ?? null;
     const decision = decideWalkFix(fix, walk.last);
     const readable = Number.isFinite(fix.latitude) && Number.isFinite(fix.longitude);
-    const showReading = (walkedMeters: number) => {
-      if (!readable) return;
-      setWalkLive({ fix, walkedMeters, toStartMeters: distanceToStart(fix, target[0] ?? null) });
-      if (walkFollowRef.current) setCenter({ latitude: fix.latitude, longitude: fix.longitude });
-    };
-    if (decision.action !== 'accept') {
-      // Tell the walker why nothing is being added, instead of leaving a silent "Walking" banner.
-      const weak = decision.reason === 'weak_accuracy';
-      if (weak !== walk.weakSignal && (weak || decision.reason === 'too_close')) {
-        walk.weakSignal = weak;
-        setSyncMessage(weak ? FIELD_SURVEY_COPY.walkWeakSignal : FIELD_SURVEY_COPY.walkActive);
-        setWalkNotice(weak ? FIELD_SURVEY_COPY.walkWeakSignal : FIELD_SURVEY_COPY.walkActive);
-      }
-      showReading(walk.walkedMeters);
-      return;
+    if (readable) {
+      walk.latest = fix;
+      walk.recent = [...walk.recent.filter((earlier) => fix.timestamp - earlier.timestamp <= WALK_CORNER_WINDOW_MS * 2), fix];
     }
-    if (walk.weakSignal) {
+    const usable = decision.action === 'accept' || (decision.action === 'skip' && decision.reason === 'too_close');
+    let pointCount = target.length;
+    // A reading back on the first point after a real loop completes the boundary; adding it would only stack a vertex on the start.
+    const closesLoop = decision.action === 'accept' && walk.last !== null
+      && isBackAtStart(fix, target[0] ?? null, target.length, walk.walkedMeters + distanceMeters(walk.last, decision.waypoint));
+    if (decision.action === 'accept' && !closesLoop) {
+      if (walk.last) walk.walkedMeters += distanceMeters(walk.last, decision.waypoint);
+      walk.last = decision.waypoint;
+      walk.added += 1;
+      pointCount += 1;
+      applyCapturedWaypoint(walk.affectedArea ? { affectedArea: true, areaCount: walk.areaCount, replace: null } : { affectedArea: false, areaCount: walk.areaCount, replace: null }, decision.waypoint);
+      if (!walk.affectedArea) setFieldErrors({});
+    }
+    // One place decides what the pill says: waiting for GPS, weak signal, back at the start, or the normal walking line.
+    const weak = decision.action === 'skip' && decision.reason === 'weak_accuracy';
+    const backAtStart = usable && isBackAtStart(fix, target[0] ?? (decision.action === 'accept' ? decision.waypoint : null), pointCount, walk.walkedMeters);
+    let notice: string | null = null;
+    if (weak) {
+      if (!walk.weakSignal) notice = FIELD_SURVEY_COPY.walkWeakSignal;
+      walk.weakSignal = true;
+    } else if (usable) {
+      if (walk.weakSignal || !walk.locked) notice = FIELD_SURVEY_COPY.walkActive;
       walk.weakSignal = false;
-      setSyncMessage(FIELD_SURVEY_COPY.walkActive);
-      setWalkNotice(FIELD_SURVEY_COPY.walkActive);
+      walk.locked = true;
     }
-    if (walk.last) walk.walkedMeters += distanceMeters(walk.last, decision.waypoint);
-    walk.last = decision.waypoint;
-    walk.added += 1;
-    applyCapturedWaypoint(walk.affectedArea ? { affectedArea: true, areaCount: walk.areaCount, replace: null } : { affectedArea: false, areaCount: walk.areaCount, replace: null }, decision.waypoint);
-    if (!walk.affectedArea) setFieldErrors({});
+    if (usable && backAtStart !== walk.backAtStart) {
+      walk.backAtStart = backAtStart;
+      setWalkBackAtStart(backAtStart);
+      notice = backAtStart ? FIELD_SURVEY_COPY.walkBackAtStart : FIELD_SURVEY_COPY.walkActive;
+    }
+    if (notice !== null) {
+      setSyncMessage(notice);
+      setWalkNotice(notice);
+    }
+    if (!readable) return;
     // The fix itself, not just an accepted point, moves the readout; the first point's distance is to the start of the boundary.
-    setWalkLive({ fix, walkedMeters: walk.walkedMeters, toStartMeters: distanceToStart(fix, target[0] ?? decision.waypoint) });
+    setWalkLive({ fix, walkedMeters: walk.walkedMeters, toStartMeters: distanceToStart(fix, target[0] ?? (decision.action === 'accept' ? decision.waypoint : null)) });
     if (walkFollowRef.current) setCenter({ latitude: fix.latitude, longitude: fix.longitude });
   }
   useEffect(() => { walkFixHandlerRef.current = handleWalkFix; });
 
+  // Where the walker stood when they stopped is part of the boundary, unless it would only repeat a point.
+  function addFinalFix() {
+    const walk = walkRef.current;
+    if (!walk || !walk.started) return;
+    const live = shapeRef.current;
+    const target = walk.affectedArea ? live.affectedWaypoints : live.waypoints;
+    const final = decideFinalFix(walk.latest, target.at(-1) ?? null, target[0] ?? null, Date.now());
+    if (!final) return;
+    walk.added += 1;
+    applyCapturedWaypoint({ affectedArea: walk.affectedArea, areaCount: walk.areaCount, replace: null }, final);
+    if (!walk.affectedArea) setFieldErrors({});
+  }
+
+  function markCorner() {
+    const walk = walkRef.current;
+    if (!walk || !walk.started || controlsLocked) return;
+    const live = shapeRef.current;
+    const key = walk.affectedArea ? 'affectedWaypoints' : 'waypoints';
+    const target = live[key];
+    const decision = decideMarkCorner(walk.recent, target.at(-1) ?? null, Date.now());
+    if (decision.action === 'none') {
+      setSyncMessage(FIELD_SURVEY_COPY.walkNoCornerFix);
+      setWalkNotice(FIELD_SURVEY_COPY.walkNoCornerFix);
+      return;
+    }
+    if (decision.action === 'mark_last') {
+      const last = target.at(-1);
+      if (last && !last.isCorner) commitShape({ ...live, [key]: [...target.slice(0, -1), { ...last, isCorner: true }] });
+    } else {
+      if (walk.last) walk.walkedMeters += distanceMeters(walk.last, decision.waypoint);
+      walk.last = decision.waypoint;
+      walk.added += 1;
+      applyCapturedWaypoint({ affectedArea: walk.affectedArea, areaCount: walk.areaCount, replace: null }, decision.waypoint);
+      if (!walk.affectedArea) setFieldErrors({});
+    }
+    setSyncMessage(FIELD_SURVEY_COPY.walkCornerMarked);
+    setWalkNotice(FIELD_SURVEY_COPY.walkCornerMarked);
+  }
+
+  function finishWalk() {
+    const walk = walkRef.current;
+    if (!walk) return;
+    addFinalFix();
+    const { affectedArea, areaCount, started, surveyId } = walk;
+    stopWalk(FIELD_SURVEY_COPY.walkFinished(walk.added));
+    setResumeOffer(started ? { affectedArea, areaCount, surveyId } : null);
+  }
+
   async function toggleWalk() {
     if (walkRef.current) {
+      addFinalFix();
       const { affectedArea, areaCount, started, surveyId } = walkRef.current;
       stopWalk();
       setResumeOffer(started ? { affectedArea, areaCount, surveyId } : null);
@@ -830,6 +901,10 @@ export default function FieldSurveyScreen() {
       walkedMeters: 0,
       started: false,
       weakSignal: false,
+      locked: false,
+      recent: [],
+      latest: null,
+      backAtStart: false,
       last: (affectedArea ? shapeRef.current.affectedWaypoints : shapeRef.current.waypoints).at(-1) ?? null,
       stop: () => undefined,
     };
@@ -864,8 +939,9 @@ export default function FieldSurveyScreen() {
         stopWalk();
         return;
       }
-      setSyncMessage(FIELD_SURVEY_COPY.walkActive);
-      setWalkNotice(FIELD_SURVEY_COPY.walkActive);
+      // Until the first usable reading the walker stands still at the starting corner.
+      setSyncMessage(FIELD_SURVEY_COPY.walkLocking);
+      setWalkNotice(FIELD_SURVEY_COPY.walkLocking);
     } finally {
       setGpsBusy(false);
     }
@@ -1284,7 +1360,12 @@ export default function FieldSurveyScreen() {
           <View pointerEvents="box-none" style={styles.overlayBottom}>
             <View pointerEvents="box-none" style={styles.modeSwitch}>
               <AppButton testID="field-survey.walk" leadingIcon={walking ? 'square' : 'navigation'} variant="secondary" selected={walking} style={[styles.floatingButton, walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => void toggleWalk()} disabled={(gpsBusy && !walking) || controlsLocked}>{walking ? FIELD_SURVEY_COPY.walkStop : walkResumable ? FIELD_SURVEY_COPY.walkResume : FIELD_SURVEY_COPY.modeWalk}</AppButton>
-              {/* While walking, Stop is the only control here, so a stray thumb cannot end the walk by choosing Tap. */}
+              {/* While walking there is no Tap button, so a stray thumb cannot end the walk by choosing it. */}
+              {walking && walkBackAtStart ? (
+                <AppButton testID="field-survey.walk-finish" leadingIcon="check" variant="secondary" style={[styles.floatingButton, { borderColor: theme.success, borderWidth: 2 }]} onPress={finishWalk}>{FIELD_SURVEY_COPY.walkFinish}</AppButton>
+              ) : walking ? (
+                <AppButton testID="field-survey.walk-corner" leadingIcon="corner-down-right" variant="secondary" style={styles.floatingButton} onPress={markCorner} disabled={!walkLive}>{FIELD_SURVEY_COPY.walkMarkCorner}</AppButton>
+              ) : null}
               {walking ? null : (
                 <AppButton testID="field-survey.tap" leadingIcon="map-pin" variant="secondary" selected style={[styles.floatingButton, { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => setWalkNotice(null)} disabled={controlsLocked}>{FIELD_SURVEY_COPY.modeTap}</AppButton>
               )}

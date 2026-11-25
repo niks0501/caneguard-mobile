@@ -297,7 +297,7 @@ it('resumes the walk from the same boundary when Resume is pressed', async () =>
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
   expect(watch).toHaveBeenCalledTimes(2);
 
-  await act(async () => { emit(fix(14.1, 121.1)); }); // ~224 m from the existing last point
+  await act(async () => { emit(fix(14.101, 121.1001)); }); // ~110 m from the existing last and first points
   await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(5));
 });
 
@@ -379,7 +379,7 @@ it('ignores map taps while walking and keeps them working after Stop', async () 
   await act(async () => {
     fireEvent.press(screen.getByTestId('field-survey.map'), { nativeEvent: { locationX: 12, locationY: 12 } });
   });
-  await act(async () => { emit(fix(14.1, 121.1)); });
+  await act(async () => { emit(fix(14.101, 121.1001)); });
 
   await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(5));
   expect(lastDraftWaypoints().filter((point) => point.source === 'map')).toHaveLength(0);
@@ -421,7 +421,7 @@ it('shows walk status on the map, not only inside More details', async () => {
   await renderWithGestures(<FieldSurveyScreen />);
   await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
 
-  await waitFor(() => expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkActive));
+  await waitFor(() => expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkLocking));
 });
 
 it('tells the walker on the map when device location is off, and does not start walking', async () => {
@@ -454,7 +454,7 @@ describe('live walk readout', () => {
   }
 
   it('shows accuracy, points, distance walked and distance to start as fixes arrive', async () => {
-    const ref = { emit: (_fix: WalkFix) => undefined };
+    const ref: { emit: (fix: WalkFix) => void } = { emit: () => undefined };
     await startWalking(ref);
     expect(screen.queryByTestId('field-survey.walk-hud')).toBeNull();
 
@@ -468,7 +468,7 @@ describe('live walk readout', () => {
   });
 
   it('keeps reporting a weak reading without adding a point', async () => {
-    const ref = { emit: (_fix: WalkFix) => undefined };
+    const ref: { emit: (fix: WalkFix) => void } = { emit: () => undefined };
     await startWalking(ref);
 
     await act(async () => { ref.emit(fix(14.0995, 121.1, 40)); });
@@ -478,7 +478,7 @@ describe('live walk readout', () => {
   });
 
   it('stops following when the map is panned and follows again on Recenter', async () => {
-    const ref = { emit: (_fix: WalkFix) => undefined };
+    const ref: { emit: (fix: WalkFix) => void } = { emit: () => undefined };
     await startWalking(ref);
     await act(async () => { ref.emit(fix(14.0995, 121.1, 3)); });
     await waitFor(() => expect(screen.getByTestId('field-survey.walk-dot')).toBeTruthy());
@@ -493,7 +493,7 @@ describe('live walk readout', () => {
   });
 
   it('clears the readout when the walk stops', async () => {
-    const ref = { emit: (_fix: WalkFix) => undefined };
+    const ref: { emit: (fix: WalkFix) => void } = { emit: () => undefined };
     await startWalking(ref);
     await act(async () => { ref.emit(fix(14.0995, 121.1, 3)); });
     await waitFor(() => expect(screen.getByTestId('field-survey.walk-hud')).toBeTruthy());
@@ -501,5 +501,103 @@ describe('live walk readout', () => {
     await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
     expect(screen.queryByTestId('field-survey.walk-hud')).toBeNull();
     expect(screen.queryByTestId('field-survey.walk-dot')).toBeNull();
+  });
+});
+
+
+describe('GPS lock, corners and closing the loop', () => {
+  async function startWalking(draft: Partial<FieldSurveyRow> | null = {}) {
+    listSurveys.mockReturnValue(draft === null ? [] : [draftRow(draft)]);
+    const ref: { emit: (fix: WalkFix) => void } = { emit: () => undefined };
+    watch.mockImplementation(async (onFix) => { ref.emit = onFix; return { remove: jest.fn() }; });
+    await renderOpen();
+    if (draft !== null) await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+    await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+    return ref;
+  }
+
+  it('tells the walker to wait at the start corner until a usable reading arrives', async () => {
+    const ref = await startWalking(null);
+    expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkLocking);
+
+    await act(async () => { ref.emit(fix(14.1, 121.1, 40)); });
+    expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkWeakSignal);
+
+    await act(async () => { ref.emit(fix(14.1, 121.1, 4)); });
+    await waitFor(() => expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkActive));
+  });
+
+  it('cannot mark a corner before any reading has arrived', async () => {
+    await startWalking();
+    expect(screen.getByTestId('field-survey.walk-corner')).toBeDisabled();
+  });
+
+  it('marks a corner closer than the walking spacing and keeps the flag on the point', async () => {
+    const ref = await startWalking();
+    await act(async () => { ref.emit(fix(14.1006, 121.1, 4)); }); // accepted, ~64 m from the last plot point
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(5));
+
+    await act(async () => { ref.emit(fix(14.100636, 121.1, 3)); }); // ~4 m on: too close to be added by walking
+    await waitFor(() => expect(screen.getByTestId('field-survey.walk-corner')).toBeEnabled());
+    expect(lastDraftWaypoints()).toHaveLength(5);
+
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk-corner')); });
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(6));
+    expect(lastDraftWaypoints().at(-1)).toMatchObject({ isCorner: true, accuracyMeters: 3, source: 'gps' });
+    expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkCornerMarked);
+  });
+
+  it('flags the last point instead of duplicating it when the walker has not moved', async () => {
+    const ref = await startWalking();
+    await act(async () => { ref.emit(fix(14.1006, 121.1, 4)); });
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(5));
+
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk-corner')); });
+    await waitFor(() => expect(lastDraftWaypoints().at(-1)).toMatchObject({ isCorner: true }));
+    expect(lastDraftWaypoints()).toHaveLength(5);
+  });
+
+  it('says so when there is no good reading to mark a corner with', async () => {
+    const ref = await startWalking();
+    await act(async () => { ref.emit({ ...fix(14.1006, 121.1, 4), timestamp: Date.now() - 10_000 }); }); // walking still keeps it; a corner needs a fresh one
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(5));
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk-corner')); });
+    expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkNoCornerFix);
+    expect(lastDraftWaypoints()).toHaveLength(5);
+    expect(lastDraftWaypoints().at(-1)?.isCorner).toBeUndefined();
+  });
+
+  it('adds where the walker stood when Stop is pressed', async () => {
+    const ref = await startWalking();
+    await act(async () => { ref.emit(fix(14.1006, 121.1, 4)); });
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(5));
+    await act(async () => { ref.emit(fix(14.10066, 121.1, 4)); }); // ~7 m on: too close for walking, far enough to be the stop spot
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(6));
+    expect(lastDraftWaypoints().at(-1)).toMatchObject({ latitude: 14.10066 });
+  });
+
+  it('offers Finish back at the start, then closes the walk without repeating the start point', async () => {
+    const ref = await startWalking(null);
+    // A real loop: four corners about 25 m apart, then back to the first point.
+    for (const [lat, lon] of [[14.1, 121.1], [14.1, 121.10025], [14.10025, 121.10025], [14.10025, 121.1]] as const) {
+      await act(async () => { ref.emit(fix(lat, lon, 4)); });
+    }
+    await waitFor(() => expect(lastDraftWaypoints()).toHaveLength(4));
+    expect(screen.queryByTestId('field-survey.walk-finish')).toBeNull();
+    expect(screen.getByTestId('field-survey.walk-corner')).toBeTruthy();
+
+    await act(async () => { ref.emit(fix(14.10002, 121.1, 4)); }); // ~2 m from the first point
+    await waitFor(() => expect(screen.getByTestId('field-survey.walk-finish')).toBeTruthy());
+    expect(screen.queryByTestId('field-survey.walk-corner')).toBeNull();
+    expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkBackAtStart);
+
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk-finish')); });
+    expect(screen.queryByTestId('field-survey.walk-finish')).toBeNull();
+    expect(lastDraftWaypoints()).toHaveLength(4);
+    expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(FIELD_SURVEY_COPY.walkFinished(4));
+    expect(screen.getByText(FIELD_SURVEY_COPY.walkResume)).toBeTruthy();
   });
 });

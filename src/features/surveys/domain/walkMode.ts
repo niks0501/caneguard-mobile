@@ -42,16 +42,7 @@ export function decideWalkFix(fix: WalkFix, previous: MapCoordinate | null): Wal
   if (previous && distanceMeters(previous, fix) < Math.max(WALK_MIN_SPACING_METERS, fix.accuracy)) {
     return { action: 'skip', reason: 'too_close' };
   }
-  return {
-    action: 'accept',
-    waypoint: {
-      latitude: fix.latitude,
-      longitude: fix.longitude,
-      accuracyMeters: fix.accuracy,
-      capturedAt: new Date(fix.timestamp).toISOString(),
-      source: 'gps',
-    },
-  };
+  return { action: 'accept', waypoint: waypointFromFix(fix) };
 }
 
 /** Walking distances read as whole metres, then kilometres once they stop being small. */
@@ -80,4 +71,82 @@ export function distanceToStart(fix: MapCoordinate, first: MapCoordinate | null)
 export function metersToLongitudeDegrees(meters: number, latitude: number): number {
   const metersPerDegree = 111_320 * Math.max(0.01, Math.cos((latitude * Math.PI) / 180));
   return meters / metersPerDegree;
+}
+
+/** How far back "Mark corner" looks for the best reading. */
+export const WALK_CORNER_WINDOW_MS = 3_000;
+/** A marked corner this close to the last point is the same spot: the last point is flagged instead of duplicated. */
+const WALK_CORNER_SAME_SPOT_METERS = 1.5;
+/** "Back at start" needs a real loop, not a walker who has barely left the first point. */
+export const WALK_NEAR_START_MIN_POINTS = 3;
+export const WALK_NEAR_START_MIN_METERS = 30;
+/** A final reading older than this no longer says where the walker stopped. */
+const WALK_FINAL_FIX_MAX_AGE_MS = 10_000;
+const WALK_FINAL_MIN_SPACING_METERS = 3;
+
+function waypointFromFix(fix: WalkFix, isCorner = false): SurveyWaypoint {
+  return {
+    latitude: fix.latitude,
+    longitude: fix.longitude,
+    accuracyMeters: fix.accuracy,
+    capturedAt: new Date(fix.timestamp).toISOString(),
+    source: 'gps',
+    ...(isCorner ? { isCorner: true } : {}),
+  };
+}
+
+function isUsableFix(fix: WalkFix): boolean {
+  return Number.isFinite(fix.latitude) && Number.isFinite(fix.longitude) && Number.isFinite(fix.timestamp)
+    && fix.accuracy !== null && Number.isFinite(fix.accuracy) && fix.accuracy <= WALK_MAX_ACCURACY_METERS;
+}
+
+/** The most accurate usable reading from the last few seconds, or null when GPS has been silent or weak. */
+export function pickCornerFix(recent: WalkFix[], now: number): WalkFix | null {
+  let best: WalkFix | null = null;
+  for (const fix of recent) {
+    if (!isUsableFix(fix) || now - fix.timestamp > WALK_CORNER_WINDOW_MS || fix.timestamp > now + 1_000) continue;
+    if (best === null || (fix.accuracy as number) < (best.accuracy as number)) best = fix;
+  }
+  return best;
+}
+
+export type MarkCornerDecision =
+  | { action: 'add'; waypoint: SurveyWaypoint }
+  | { action: 'mark_last' }
+  | { action: 'none'; reason: 'no_fix' };
+
+/**
+ * A corner ignores walking spacing (the real corner usually falls between two spaced points) but not
+ * accuracy: it uses the best reading from the last few seconds.
+ */
+export function decideMarkCorner(recent: WalkFix[], previous: SurveyWaypoint | null, now: number): MarkCornerDecision {
+  const best = pickCornerFix(recent, now);
+  if (!best) return { action: 'none', reason: 'no_fix' };
+  if (previous && distanceMeters(previous, best) < WALK_CORNER_SAME_SPOT_METERS) return { action: 'mark_last' };
+  return { action: 'add', waypoint: waypointFromFix(best, true) };
+}
+
+/** True once the walker has looped back to the first point after a real walk. */
+export function isBackAtStart(fix: WalkFix, first: MapCoordinate | null, pointCount: number, walkedMeters: number): boolean {
+  if (!first || !isUsableFix(fix)) return false;
+  if (pointCount < WALK_NEAR_START_MIN_POINTS || walkedMeters < WALK_NEAR_START_MIN_METERS) return false;
+  return distanceMeters(first, fix) <= Math.max(ACCEPTABLE_GPS_ACCURACY_METERS, fix.accuracy as number);
+}
+
+/**
+ * Where the walker stood when they pressed Stop or Finish. Adds nothing when GPS is stale or weak, when it
+ * would duplicate the previous point, or when it sits on the first point (the boundary closes there anyway).
+ */
+export function decideFinalFix(
+  latest: WalkFix | null,
+  previous: MapCoordinate | null,
+  first: MapCoordinate | null,
+  now: number,
+): SurveyWaypoint | null {
+  if (!latest || !isUsableFix(latest) || now - latest.timestamp > WALK_FINAL_FIX_MAX_AGE_MS) return null;
+  const accuracy = latest.accuracy as number;
+  const spacing = Math.max(WALK_FINAL_MIN_SPACING_METERS, accuracy);
+  if (previous && distanceMeters(previous, latest) < spacing) return null;
+  if (first && distanceMeters(first, latest) < spacing) return null;
+  return waypointFromFix(latest);
 }

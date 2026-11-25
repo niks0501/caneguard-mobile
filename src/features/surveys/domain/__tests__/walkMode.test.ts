@@ -1,7 +1,7 @@
 import GeographicLib from 'geographiclib-geodesic/geographiclib-geodesic.min.js';
 
 import { ACCEPTABLE_GPS_ACCURACY_METERS } from '@/features/surveys/domain/boundaryQuality';
-import { decideWalkFix, distanceToStart, formatWalkDistance, metersToLongitudeDegrees, walkAccuracyBand } from '@/features/surveys/domain/walkMode';
+import { decideFinalFix, decideMarkCorner, decideWalkFix, distanceToStart, formatWalkDistance, isBackAtStart, metersToLongitudeDegrees, pickCornerFix, walkAccuracyBand } from '@/features/surveys/domain/walkMode';
 
 const T = Date.UTC(2026, 10, 11, 1, 0, 0);
 const START = { latitude: 14.1, longitude: 121.1 };
@@ -100,5 +100,91 @@ describe('walk readout helpers', () => {
     const degrees = metersToLongitudeDegrees(111_320, 0);
     expect(degrees).toBeCloseTo(1, 5);
     expect(metersToLongitudeDegrees(10, 60)).toBeGreaterThan(metersToLongitudeDegrees(10, 0));
+  });
+});
+
+describe('corners, closing the loop and the final fix', () => {
+  const NOW = T + 60_000;
+  const gpsFix = (latitude: number, longitude: number, accuracy: number | null, ageMs: number) =>
+    ({ latitude, longitude, accuracy, timestamp: NOW - ageMs });
+  const gpsPoint = (latitude: number, longitude: number) =>
+    ({ latitude, longitude, accuracyMeters: 4, capturedAt: new Date(T).toISOString(), source: 'gps' as const });
+
+  describe('pickCornerFix / decideMarkCorner', () => {
+    it('takes the most accurate usable reading from the last three seconds', () => {
+      const recent = [gpsFix(14.1, 121.1, 8, 2500), gpsFix(14.10001, 121.1, 3, 1500), gpsFix(14.10002, 121.1, 6, 500)];
+      expect(pickCornerFix(recent, NOW)).toMatchObject({ accuracy: 3 });
+    });
+
+    it('ignores readings that are too old, weak, unknown or invalid', () => {
+      const recent = [gpsFix(14.1, 121.1, 2, 3500), gpsFix(14.1, 121.1, 40, 500), gpsFix(14.1, 121.1, null, 500), gpsFix(Number.NaN, 121.1, 3, 500)];
+      expect(pickCornerFix(recent, NOW)).toBeNull();
+      expect(decideMarkCorner(recent, null, NOW)).toEqual({ action: 'none', reason: 'no_fix' });
+    });
+
+    it('adds a flagged corner even when it is closer than the walking spacing', () => {
+      const previous = gpsPoint(14.1, 121.1);
+      const recent = [gpsFix(14.100036, 121.1, 3, 400)]; // ~4 m from the last point, inside the 8 m spacing
+      const decision = decideMarkCorner(recent, previous, NOW);
+      expect(decision.action).toBe('add');
+      if (decision.action === 'add') expect(decision.waypoint).toMatchObject({ isCorner: true, source: 'gps', accuracyMeters: 3 });
+    });
+
+    it('flags the last point instead of duplicating it when the walker has not moved', () => {
+      const previous = gpsPoint(14.1, 121.1);
+      expect(decideMarkCorner([gpsFix(14.100005, 121.1, 3, 400)], previous, NOW)).toEqual({ action: 'mark_last' });
+    });
+
+    it('never marks a corner from a reading in the future', () => {
+      expect(pickCornerFix([gpsFix(14.1, 121.1, 3, -5_000)], NOW)).toBeNull();
+    });
+  });
+
+  describe('isBackAtStart', () => {
+    const first = { latitude: 14.1, longitude: 121.1 };
+    const near = gpsFix(14.10004, 121.1, 4, 0); // ~4.4 m
+
+    it('is true after a real loop, within 10 m of the first point', () => {
+      expect(isBackAtStart(near, first, 6, 120)).toBe(true);
+    });
+
+    it('needs enough points and enough ground walked', () => {
+      expect(isBackAtStart(near, first, 2, 120)).toBe(false);
+      expect(isBackAtStart(near, first, 6, 12)).toBe(false);
+    });
+
+    it('needs a good reading that is actually close', () => {
+      expect(isBackAtStart(gpsFix(14.10004, 121.1, 40, 0), first, 6, 120)).toBe(false);
+      expect(isBackAtStart(gpsFix(14.1002, 121.1, 4, 0), first, 6, 120)).toBe(false);
+      expect(isBackAtStart(near, null, 6, 120)).toBe(false);
+    });
+
+    it('widens to the reading own error radius, never beyond the usable accuracy', () => {
+      // 9 m away with ±9 m accuracy still counts as at the start; 11 m does not.
+      expect(isBackAtStart(gpsFix(14.10008, 121.1, 9, 0), first, 6, 120)).toBe(true);
+      expect(isBackAtStart(gpsFix(14.0999, 121.1, 9, 0), first, 6, 120)).toBe(false);
+    });
+  });
+
+  describe('decideFinalFix', () => {
+    const first = { latitude: 14.1, longitude: 121.1 };
+    const last = { latitude: 14.1006, longitude: 121.1 };
+
+    it('adds where the walker stopped', () => {
+      const final = decideFinalFix(gpsFix(14.1011, 121.1, 4, 1_000), last, first, NOW);
+      expect(final).toMatchObject({ latitude: 14.1011, source: 'gps', accuracyMeters: 4 });
+      expect(final?.isCorner).toBeUndefined();
+    });
+
+    it('adds nothing when GPS is stale, weak or missing', () => {
+      expect(decideFinalFix(null, last, first, NOW)).toBeNull();
+      expect(decideFinalFix(gpsFix(14.1011, 121.1, 4, 11_000), last, first, NOW)).toBeNull();
+      expect(decideFinalFix(gpsFix(14.1011, 121.1, 40, 1_000), last, first, NOW)).toBeNull();
+    });
+
+    it('does not duplicate the previous point or the start', () => {
+      expect(decideFinalFix(gpsFix(14.100602, 121.1, 4, 1_000), last, first, NOW)).toBeNull();
+      expect(decideFinalFix(gpsFix(14.100002, 121.1, 4, 1_000), last, first, NOW)).toBeNull();
+    });
   });
 });

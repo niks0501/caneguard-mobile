@@ -144,4 +144,38 @@ describe('syncFieldSurvey upload contract', () => {
     expect(pending.affectedAreaWaypointsJson).toEqual(JSON.stringify([affectedWaypoints]));
     native.close();
   });
+  it('keeps the walker-marked corner flag on the phone and never sends it', async () => {
+    const { database, native } = openDatabase();
+    const marked: SurveyWaypoint[] = affectedWaypoints.map((waypoint, index) => (index === 1 ? { ...waypoint, isCorner: true } : waypoint));
+    const draft = await saveFieldSurveyDraft(database, {
+      authorRole: 'field_reporter',
+      capturedAt: '2026-10-31T02:03:00.000Z',
+      clientUuid: 'survey-marked-points',
+      districtCode: 'D-01',
+      ownerIdentity: 'owner-1',
+      waypoints: marked,
+      affectedAreaPolygons: [affectedPolygon],
+      affectedAreaWaypoints: [marked],
+    });
+    markFieldSurveyPending(
+      database, draft.clientUuid, 'owner-1', 'D-01', plotPolygon, ringArea(plotPolygon.coordinates[0]),
+      '2026-10-31T02:03:00.000Z', [affectedPolygon], ringArea(affectedPolygon.coordinates[0]), [marked],
+    );
+    jest.mocked(apiRequest).mockResolvedValue({ id: 'remote-2', status: 'kept' });
+
+    await expect(syncFieldSurvey({
+      allowImmediateRetries: false,
+      clientUuid: draft.clientUuid,
+      database,
+      districtCode: 'D-01',
+      ownerIdentity: 'owner-1',
+      token: 'access-token',
+    })).resolves.toEqual({ status: 'synced', remoteId: 'remote-2' });
+
+    const body = String(jest.mocked(apiRequest).mock.calls.at(-1)?.[1]?.body);
+    expect(body).not.toMatch(/is_?corner/i);
+    const stored = findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')!;
+    expect(JSON.parse(stored.affectedAreaWaypointsJson as string)[0][1]).toMatchObject({ isCorner: true });
+    native.close();
+  });
 });

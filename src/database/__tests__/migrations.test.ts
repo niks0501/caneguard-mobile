@@ -773,6 +773,7 @@ describe('CaneGuard database migrations', () => {
       '0036_net3_report_provenance',
       '0037_net3_survey_provenance',
       '0038_net3_visit_provenance',
+      '0039_field_map_label_outline',
     ]);
     expect(Object.keys(migrationBundle.migrations)).toEqual([
       'm0000',
@@ -814,6 +815,7 @@ describe('CaneGuard database migrations', () => {
       'm0036',
       'm0037',
       'm0038',
+      'm0039',
     ]);
     expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
       migration0,
@@ -855,6 +857,7 @@ describe('CaneGuard database migrations', () => {
       readMigration('0036_net3_report_provenance.sql'),
       readMigration('0037_net3_survey_provenance.sql'),
       readMigration('0038_net3_visit_provenance.sql'),
+      readMigration('0039_field_map_label_outline.sql'),
     ]);
   });
 });

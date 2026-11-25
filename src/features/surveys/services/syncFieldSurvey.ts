@@ -1,3 +1,4 @@
+import { outlineSourceId } from '@/features/surveys/domain/outlineReuse';
 import type { CaneGuardDatabase } from '@/database/database';
 import { findOwnedFieldSurvey, updateFieldSurveySyncResult } from '@/features/surveys/data/fieldSurveyRepository';
 import { FieldSurveyValidationError, submitFieldSurvey, type FieldSurveyAffectedAreaWaypointProvenance, type FieldSurveyMeasurementProvenance } from '@/features/surveys/api/fieldSurveysApi';
@@ -71,6 +72,8 @@ export async function syncFieldSurvey(options: {
       try {
         response = await submitFieldSurvey({
           client_uuid: row.clientUuid,
+          ...(row.label?.trim() ? { label: row.label.trim().slice(0, 60) } : {}),
+          ...(outlineSourceId(row.outlineFromRemoteId) === null ? {} : { outline_from_survey_id: outlineSourceId(row.outlineFromRemoteId) as number }),
           polygon,
           area_sqm: row.areaSqm,
           affected_area_polygons: affectedAreaPolygons,

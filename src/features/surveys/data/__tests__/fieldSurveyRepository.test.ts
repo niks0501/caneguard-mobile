@@ -31,6 +31,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
   native.exec(readFileSync('drizzle/0024_active_affected_waypoints.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   native.exec(readFileSync('drizzle/0025_field_survey_author_role.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   native.exec(readFileSync('drizzle/0037_net3_survey_provenance.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
+  native.exec(readFileSync('drizzle/0039_field_map_label_outline.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   const client = {
     prepareSync(sql: string) {
       const statement = native.prepare(sql);
@@ -105,6 +106,41 @@ describe('field survey local repository', () => {
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'synced', remoteId: 'remote-1' });
     expect(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')).toMatchObject({ status: 'synced', remoteId: 'remote-1', syncAttemptCount: 2 });
     expect(native.prepare('SELECT client_uuid FROM field_surveys').get()).toEqual({ client_uuid: 'survey-client-1' });
+    native.close();
+  });
+
+  // Intent: the field name is kept trimmed and capped, a blank one is no name, and editing the draft can change or clear it.
+  it('keeps the typed field name trimmed and lets a draft change or clear it', async () => {
+    const { database, native } = openDatabase();
+    const base = {
+      authorRole: 'field_reporter' as const,
+      capturedAt: '2026-10-05T09:00:00.000Z',
+      clientUuid: 'named-1',
+      districtCode: 'D-01',
+      ownerIdentity: 'owner-1',
+      waypoints: [waypoint],
+    };
+    expect((await saveFieldSurveyDraft(database, { ...base, label: '  North lot  ' })).label).toBe('North lot');
+    expect((await saveFieldSurveyDraft(database, { ...base, label: 'x'.repeat(80) })).label).toBe('x'.repeat(60));
+    expect((await saveFieldSurveyDraft(database, { ...base, label: '   ' })).label).toBeNull();
+    expect((await saveFieldSurveyDraft(database, { ...base, clientUuid: 'named-2' })).label).toBeNull();
+    native.close();
+  });
+
+  // Intent: the map an outline came from is kept once; later edits that do not mention it never erase it.
+  it('keeps the earlier map id through edits that do not mention it', async () => {
+    const { database, native } = openDatabase();
+    const base = {
+      authorRole: 'field_reporter' as const,
+      capturedAt: '2026-10-05T09:00:00.000Z',
+      clientUuid: 'reused-1',
+      districtCode: 'D-01',
+      ownerIdentity: 'owner-1',
+      waypoints: [waypoint],
+    };
+    expect((await saveFieldSurveyDraft(database, { ...base, outlineFromRemoteId: '41' })).outlineFromRemoteId).toBe('41');
+    expect((await saveFieldSurveyDraft(database, { ...base, label: 'North lot' })).outlineFromRemoteId).toBe('41');
+    expect((await saveFieldSurveyDraft(database, { ...base, outlineFromRemoteId: null })).outlineFromRemoteId).toBeNull();
     native.close();
   });
 

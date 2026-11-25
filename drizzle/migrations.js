@@ -38,6 +38,7 @@ import m0035 from './0035_authority_status_redownload.sql';
 import m0036 from './0036_net3_report_provenance.sql';
 import m0037 from './0037_net3_survey_provenance.sql';
 import m0038 from './0038_net3_visit_provenance.sql';
+import m0039 from './0039_field_map_label_outline.sql';
 
   export default {
     journal,
@@ -80,7 +81,8 @@ m0034,
 m0035,
 m0036,
 m0037,
-m0038
+m0038,
+m0039
     }
   }
   

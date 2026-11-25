@@ -3,8 +3,7 @@ import {
   measuredBoundaryArea,
   planAttachedBoundarySend,
   reportAreaFromBoundary,
-  type AttachedBoundaryInput,
-} from '@/features/surveys/domain/attachedBoundary';
+  type AttachedBoundaryInput, percentAffected } from '@/features/surveys/domain/attachedBoundary';
 import type { SurveyPolygon, SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 
 const point = (latitude: number, longitude: number): SurveyWaypoint => ({
@@ -194,5 +193,19 @@ describe('hasOpenAffectedArea', () => {
   it('is true only while affected points are drawn but not closed', () => {
     expect(hasOpenAffectedArea(row())).toBe(false);
     expect(hasOpenAffectedArea(row({ activeAffectedWaypointsJson: JSON.stringify([point(14.0002, 120.0002)]) }))).toBe(true);
+  });
+});
+
+describe('percentAffected', () => {
+  // Intent: the phone and the office show the same share, to one decimal, and never invent one.
+  it('rounds the affected share of the plot to one decimal', () => {
+    expect(percentAffected({ areaSqm: 10_000, affectedAreaSqm: 2_600, affectedAreaCount: 1 })).toBe(26);
+    expect(percentAffected({ areaSqm: 6_075.12, affectedAreaSqm: 412.5, affectedAreaCount: 2 })).toBe(6.8);
+    expect(percentAffected({ areaSqm: 100, affectedAreaSqm: 150, affectedAreaCount: 1 })).toBe(100);
+  });
+
+  it('gives nothing when no affected area was drawn or the plot has no area', () => {
+    expect(percentAffected({ areaSqm: 10_000, affectedAreaSqm: 0, affectedAreaCount: 0 })).toBeNull();
+    expect(percentAffected({ areaSqm: 0, affectedAreaSqm: 5, affectedAreaCount: 1 })).toBeNull();
   });
 });

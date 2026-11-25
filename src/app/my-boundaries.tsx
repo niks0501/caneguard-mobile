@@ -9,17 +9,24 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Pill, type PillVariant } from '@/components/ui/Pill';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
-import { BOUNDARY_STATE_COPY, FIELD_SURVEY_COPY } from '@/constants/copy';
+import { BOUNDARY_STATE_COPY, FIELD_SURVEY_COPY, OFFICE_VERDICT_COPY } from '@/constants/copy';
 import { Spacing, Typography } from '@/constants/theme';
 import { EMPTY_DATABASE, useDatabaseState } from '@/database/DatabaseProvider';
 import type { FieldSurveyRow } from '@/database/schema';
 import { canAuthorInspectorWork } from '@/features/auth/capabilities';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { fetchFieldSurveyOfficeStatus, type FieldSurveyOfficeVerdict } from '@/features/surveys/api/fieldSurveysApi';
 import { deleteOwnedFieldSurvey, listOwnedFieldSurveys } from '@/features/surveys/data/fieldSurveyRepository';
 import { boundaryCanDelete, boundaryCanEdit, boundaryState, type BoundaryState } from '@/features/surveys/domain/boundaryState';
 import { validateSurveyWaypoints, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 import { useTheme } from '@/hooks/use-theme';
+
+const VERDICT_PILL: Record<FieldSurveyOfficeVerdict, PillVariant> = {
+  confirmed: 'success',
+  wrong_field: 'warning',
+  pending: 'info',
+};
 
 const STATE_PILL: Record<BoundaryState, PillVariant> = {
   draft: 'default',
@@ -72,6 +79,9 @@ export default function MyBoundariesScreen() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<FieldSurveyRow | null>(null);
+  // What the office decided about each sent map. Best effort: offline or a failed read simply shows nothing.
+  const [verdicts, setVerdicts] = useState<Map<string, FieldSurveyOfficeVerdict>>(() => new Map());
+  const token = session?.token ?? null;
 
   const load = useCallback(() => {
     if (!ready || !database || database === EMPTY_DATABASE || !ownerIdentity) return;
@@ -85,6 +95,14 @@ export default function MyBoundariesScreen() {
   }, [database, ownerIdentity, ready]);
 
   useFocusEffect(load);
+  useFocusEffect(useCallback(() => {
+    if (!token || !canAuthor) return;
+    let cancelled = false;
+    fetchFieldSurveyOfficeStatus(token)
+      .then((next) => { if (!cancelled) setVerdicts(next); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [canAuthor, token]));
   useEffect(() => subscribeSyncRecords(load), [load]);
 
   function confirmDelete() {
@@ -123,7 +141,8 @@ export default function MyBoundariesScreen() {
           {rows?.map((row) => {
             const rowState = boundaryState(row);
             const copy = BOUNDARY_STATE_COPY[rowState];
-            const summary = summaryOf(row, rowState, plotOf(row));
+            const summary = row.label?.trim() ? `${row.label.trim()} · ${summaryOf(row, rowState, plotOf(row))}` : summaryOf(row, rowState, plotOf(row));
+            const verdict = verdicts.get(row.clientUuid.toLowerCase()) ?? null;
             return (
               <Card key={row.clientUuid} testID={`my-boundaries.row.${row.clientUuid}`} style={styles.card}>
                 <View accessibilityValue={{ text: `state=${rowState}` }} style={styles.marker} />
@@ -132,6 +151,12 @@ export default function MyBoundariesScreen() {
                   <Pill label={copy.label} variant={STATE_PILL[rowState]} />
                 </View>
                 <Text style={[styles.help, { color: theme.textSecondary }]}>{copy.hint}</Text>
+                {rowState === 'sent' && verdict ? (
+                  <View testID={`my-boundaries.verdict.${row.clientUuid}`} accessibilityValue={{ text: `verdict=${verdict}` }} style={styles.verdict}>
+                    <Pill label={OFFICE_VERDICT_COPY[verdict].label} variant={VERDICT_PILL[verdict]} />
+                    <Text style={[styles.help, { color: theme.textSecondary }]}>{OFFICE_VERDICT_COPY[verdict].hint}</Text>
+                  </View>
+                ) : null}
                 <View style={styles.actions}>
                   <AppButton
                     testID={`my-boundaries.open.${row.clientUuid}`}
@@ -177,4 +202,5 @@ const styles = StyleSheet.create({
   title: { ...Typography.subheading, flex: 1 },
   help: { ...Typography.bodySmall },
   actions: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
+  verdict: { gap: Spacing.xs, alignItems: 'flex-start' },
 });

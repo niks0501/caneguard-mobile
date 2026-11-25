@@ -8,12 +8,14 @@ import FieldSurveyScreen from '@/app/field-survey';
 import { AUTHORING_WINDOW_COPY, FIELD_SURVEY_COPY } from '@/constants/copy';
 import {
   findOwnedFieldSurvey,
+  listEarlierMapRows,
   listOwnedFieldSurveys,
   markFieldSurveyPending,
   saveFieldSurveyDraft,
 } from '@/features/surveys/data/fieldSurveyRepository';
 import type { FieldSurveyRow } from '@/database/schema';
 import { validateSurveyWaypoints, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { fetchAssignmentFieldMap } from '@/features/surveys/api/fieldSurveysApi';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
 import { FIELD_SURVEY_SYNC_COPY } from '@/features/sync/utils/syncStatusCopy';
 
@@ -42,11 +44,15 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
 jest.mock('@/features/sync/hooks/useSync', () => ({
   useSync: () => ({ isOnline: true, syncNow: jest.fn(async () => ({ results: [] })) }),
 }));
+jest.mock('@/features/surveys/api/fieldSurveysApi', () => ({
+  fetchAssignmentFieldMap: jest.fn(),
+}));
 jest.mock('@/features/surveys/services/captureSurveyWaypoint', () => ({
   captureSurveyWaypoint: jest.fn(),
 }));
 jest.mock('@/features/surveys/data/fieldSurveyRepository', () => ({
   findOwnedFieldSurvey: jest.fn(),
+  listEarlierMapRows: jest.fn(),
   listOwnedFieldSurveys: jest.fn(),
   saveFieldSurveyDraft: jest.fn(),
   markFieldSurveyPending: jest.fn(),
@@ -55,8 +61,10 @@ jest.mock('@/features/surveys/data/fieldSurveyRepository', () => ({
 const mockSaveDraft = jest.mocked(saveFieldSurveyDraft);
 const mockFindSurvey = jest.mocked(findOwnedFieldSurvey);
 const mockListSurveys = jest.mocked(listOwnedFieldSurveys);
+const mockEarlierMaps = jest.mocked(listEarlierMapRows);
 const mockMarkPending = jest.mocked(markFieldSurveyPending);
 const mockCaptureWaypoint = jest.mocked(captureSurveyWaypoint);
+const mockFetchAssignmentMap = jest.mocked(fetchAssignmentFieldMap);
 const mockUseLocalSearchParams = jest.mocked(useLocalSearchParams);
 
 const PLOT_WAYPOINTS: SurveyWaypoint[] = [
@@ -163,12 +171,14 @@ beforeEach(() => {
   mockAccountDistrict = 'D9';
   mockAuthoringProvenance = { basis: 'verified', verifiedAt: '2026-11-12T08:00:00.000Z' };
   mockListSurveys.mockReturnValue([]);
+  mockEarlierMaps.mockReturnValue([]);
   mockFindSurvey.mockReturnValue(null);
   mockSaveDraft.mockResolvedValue(draftRow());
   mockMarkPending.mockReturnValue(undefined);
   mockCaptureWaypoint.mockReset();
   mockCaptureWaypoint.mockResolvedValue({ status: 'unavailable' });
   mockUseLocalSearchParams.mockReturnValue({});
+  mockFetchAssignmentMap.mockReset();
 });
 
 // Intent: "the 72-hour authoring window": finishing a survey locks once the window is exceeded, and still finishes inside it.
@@ -585,6 +595,91 @@ describe('drawing tool (phone)', () => {
         [PLOT_WAYPOINTS[0].latitude, PLOT_WAYPOINTS[0].longitude],
       );
     });
+  });
+
+  // Intent: the inspector can name the field; the name rides in the autosaved draft.
+  it('saves the typed field name with the draft', async () => {
+    await renderOpen();
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+    await act(async () => { fireEvent.changeText(screen.getByTestId('field-survey.label'), 'North lot'); });
+
+    await waitFor(() => expect(mockSaveDraft.mock.lastCall?.[1].label).toBe('North lot'));
+  });
+
+  // Intent: a resumed map comes back with the name it was saved with.
+  it('shows the saved field name when a boundary is resumed', async () => {
+    mockListSurveys.mockReturnValue([draftRow({ label: 'North lot' })]);
+    await renderOpen();
+
+    await waitFor(() => expect(screen.getByTestId('field-survey.label').props.value).toBe('North lot'));
+  });
+
+  // Intent: a field measured before is not walked again: its plot edge is copied into a NEW map, never its damage,
+  // and the earlier map is remembered as provenance.
+  it('starts a new map from an earlier outline without its damage', async () => {
+    mockListSurveys.mockReturnValue([]);
+    mockEarlierMaps.mockReturnValue([draftRow({
+      clientUuid: 'earlier-map', status: 'synced', remoteId: '41', label: 'North lot',
+      affectedAreaPolygonsJson: JSON.stringify([{ type: 'Polygon', coordinates: [[[121.1005, 14.1005], [121.1015, 14.1005], [121.1015, 14.1015], [121.1005, 14.1005]]] }]),
+    })]);
+    await renderOpen();
+
+    await act(async () => { fireEvent.press(await screen.findByTestId('field-survey.outline.earlier-map')); });
+
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+    await waitFor(() => {
+      const saved = mockSaveDraft.mock.lastCall?.[1];
+      expect(saved?.outlineFromRemoteId).toBe('41');
+      expect(saved?.label).toBe('North lot');
+      expect(saved?.affectedAreaPolygons).toEqual([]);
+      expect(saved?.clientUuid).not.toBe('earlier-map');
+    });
+    expect(screen.getByText(FIELD_SURVEY_COPY.outlineUsed)).toBeTruthy();
+    expect(screen.queryByTestId('field-survey.outlines')).toBeNull();
+  });
+
+  // Intent: the earlier-outline choice never appears over a plot that is already drawn.
+  it('offers no earlier outline once the plot has points', async () => {
+    mockListSurveys.mockReturnValue([draftRow()]);
+    mockEarlierMaps.mockReturnValue([draftRow({ clientUuid: 'earlier-map', status: 'synced', remoteId: '41' })]);
+    await renderOpen();
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+
+    expect(screen.queryByTestId('field-survey.outlines')).toBeNull();
+  });
+
+  // Intent: a visit hands over the assigned case's map; its outline seeds a new map and the office id is kept as provenance.
+  it('starts from the outline of the assigned case\'s map', async () => {
+    mockListSurveys.mockReturnValue([]);
+    mockUseLocalSearchParams.mockReturnValue({ outlineFrom: 'assignment-1' });
+    mockFetchAssignmentMap.mockResolvedValue({
+      fieldSurveyId: 77, source: 'confirmed', label: 'South lot', areaSqm: 5000, inspectorName: 'Ana',
+      polygon: { type: 'Polygon', coordinates: [[[121.1, 14.1], [121.102, 14.1], [121.102, 14.102], [121.1, 14.102], [121.1, 14.1]]] },
+    });
+    await renderOpen();
+
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+    expect(mockFetchAssignmentMap).toHaveBeenCalledTimes(1);
+    expect(mockFetchAssignmentMap).toHaveBeenCalledWith('assignment-1', 'test-session-token');
+    await waitFor(() => {
+      const saved = mockSaveDraft.mock.lastCall?.[1];
+      expect(saved?.outlineFromRemoteId).toBe('77');
+      expect(saved?.label).toBe('South lot');
+      expect(saved?.affectedAreaPolygons).toEqual([]);
+    });
+  });
+
+  // Intent: when the case's map cannot be loaded the inspector is told and can simply measure the plot.
+  it('says so and leaves the map empty when the assigned case\'s map cannot be loaded', async () => {
+    mockListSurveys.mockReturnValue([]);
+    mockUseLocalSearchParams.mockReturnValue({ outlineFrom: 'assignment-1' });
+    mockFetchAssignmentMap.mockRejectedValue(new Error('offline'));
+    await renderOpen();
+
+    expect(await screen.findByText(FIELD_SURVEY_COPY.outlineFetchFailed)).toBeTruthy();
+    expect(screen.queryByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeNull();
+    expect(mockSaveDraft).not.toHaveBeenCalled();
   });
 
   it('undoes a removal, not just the last added point', async () => {

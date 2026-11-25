@@ -12,6 +12,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionDock, dockSecondaryButtonStyle } from '@/components/ui/ActionDock';
 import { AppButton } from '@/components/ui/AppButton';
+import { TextField } from '@/components/ui/TextField';
+import { fetchAssignmentFieldMap } from '@/features/surveys/api/fieldSurveysApi';
+import { reusableOutlines, waypointsFromOutline, type ReusableOutline } from '@/features/surveys/domain/outlineReuse';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -34,7 +37,7 @@ import {
   getMapTiles,
   type MapCoordinate,
 } from '@/features/reports/domain/manualMap';
-import { findOwnedFieldSurvey, listOwnedFieldSurveys, saveFieldSurveyDraft, markFieldSurveyPending } from '@/features/surveys/data/fieldSurveyRepository';
+import { FIELD_NAME_MAX_LENGTH, findOwnedFieldSurvey, listEarlierMapRows, listOwnedFieldSurveys, saveFieldSurveyDraft, markFieldSurveyPending } from '@/features/surveys/data/fieldSurveyRepository';
 import { viewportPointFromPressEvent } from '@/features/reports/components/online-map-picker';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
 import { useTileSources } from '@/features/reports/tiles/useTileSources';
@@ -238,7 +241,9 @@ export default function FieldSurveyScreen() {
   const auth = useAuth();
   const { session } = auth;
   const canAuthorSurvey = canAuthorInspectorWork(session?.user);
-  const params = useLocalSearchParams<{ forReport?: string | string[]; surveyId?: string | string[] }>();
+  const params = useLocalSearchParams<{ forReport?: string | string[]; surveyId?: string | string[]; outlineFrom?: string | string[] }>();
+  // Opened from a visit: start from the outline of the map the office holds for that assigned case.
+  const outlineFrom = Array.isArray(params.outlineFrom) ? params.outlineFrom[0] : params.outlineFrom;
   const surveyId = Array.isArray(params.surveyId) ? params.surveyId[0] : params.surveyId;
   // Opened from a Field Report: the map sends with that report, so there is no separate send step here.
   const forReport = (Array.isArray(params.forReport) ? params.forReport[0] : params.forReport) === '1' && Boolean(surveyId);
@@ -247,6 +252,10 @@ export default function FieldSurveyScreen() {
   // The district comes from the account; the server still checks membership on sync.
   const districtCode = session?.user.districtCode?.trim() ?? '';
   const [moreOpen, setMoreOpen] = useState(false);
+  // Optional name the inspector gives this field; the office shows it instead of a number.
+  const [label, setLabel] = useState('');
+  // The earlier map this plot outline started from; sent as provenance only.
+  const [outlineFromRemoteId, setOutlineFromRemoteId] = useState<string | null>(null);
   // Full-screen map: the header, details and dock step aside so the plot has the whole screen.
   const [expanded, setExpanded] = useState(false);
   useEffect(() => {
@@ -478,6 +487,8 @@ export default function FieldSurveyScreen() {
           : (listOwnedFieldSurveys(database, session.user.uuid).find((row) => row.status !== 'synced') ?? null));
       if (previous) {
         setClientUuid(previous.clientUuid);
+        setLabel(previous.label ?? '');
+        setOutlineFromRemoteId(previous.outlineFromRemoteId ?? null);
         try {
           const restoredPlot = finiteWaypoints(JSON.parse(previous.waypointsJson));
           const restoredAreas = JSON.parse(previous.affectedAreaPolygonsJson ?? '[]') as SurveyPolygon[];
@@ -532,6 +543,8 @@ export default function FieldSurveyScreen() {
       ownerIdentity: session.user.uuid,
       authorRole: session.user.role,
       districtCode: districtCode.trim() || 'UNSPECIFIED',
+      label,
+      outlineFromRemoteId,
       waypoints,
       affectedAreaPolygons: affectedAreas,
       affectedAreaWaypoints: affectedAreaWaypointSets,
@@ -543,7 +556,7 @@ export default function FieldSurveyScreen() {
       if (!cancelled) setSaveState('failed');
     });
     return () => { cancelled = true; };
-  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, canAuthorSurvey, clientUuid, database, districtCode, hasEdited, loaded, ready, saveAttempt, session?.user.role, session?.user.uuid, waypoints]);
+  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, canAuthorSurvey, clientUuid, database, districtCode, hasEdited, label, loaded, outlineFromRemoteId, ready, saveAttempt, session?.user.role, session?.user.uuid, waypoints]);
 
   function captureTargetForNewPoint(): WaypointCaptureTarget {
     const replace = selected ? pointOf(shapeRef.current, selected) : null;
@@ -1159,9 +1172,60 @@ export default function FieldSurveyScreen() {
     setSelected(null);
   }
 
+  // Starts a NEW map from an earlier plot edge: the outline is copied, the damage never is.
+  function applyOutline(source: { name: string | null; remoteId: string | null; waypoints: SurveyWaypoint[] }) {
+    stopWalk();
+    const next: DrawingShape = { ...EMPTY_SHAPE, waypoints: source.waypoints };
+    commitShape(next);
+    setOutlineFromRemoteId(source.remoteId);
+    if (source.name && !label.trim()) setLabel(source.name);
+    setDrawingAffectedArea(false);
+    setSelected(null);
+    setSelectedArea(null);
+    setSyncMessage(FIELD_SURVEY_COPY.outlineUsed);
+    if (layoutRef.current) fitMapToShape(next, layoutRef.current);
+    else fitRequested.current = true;
+  }
+  const applyOutlineRef = useRef(applyOutline);
+  useEffect(() => { applyOutlineRef.current = applyOutline; });
+  const screenAlive = useRef(true);
+  useEffect(() => {
+    screenAlive.current = true;
+    return () => { screenAlive.current = false; };
+  }, []);
+  // A visit opened this screen: fetch that case's map once and start from its outline.
+  const outlineSeeded = useRef(false);
+  useEffect(() => {
+    if (!outlineFrom || outlineSeeded.current || mode === 'loading' || !session?.token || !canAuthorSurvey) return;
+    outlineSeeded.current = true;
+    if (shapeRef.current.waypoints.length > 0) return;
+    fetchAssignmentFieldMap(outlineFrom, session.token).then((map) => {
+      if (!screenAlive.current) return;
+      const seeded = map ? waypointsFromOutline(map.polygon, new Date().toISOString()) : null;
+      if (!map || !seeded) {
+        setSyncMessage(FIELD_SURVEY_COPY.outlineFetchFailed);
+        return;
+      }
+      applyOutlineRef.current({ name: map.label, remoteId: String(map.fieldSurveyId), waypoints: seeded });
+    }).catch(() => {
+      if (screenAlive.current) setSyncMessage(FIELD_SURVEY_COPY.outlineFetchFailed);
+    });
+  }, [canAuthorSurvey, mode, outlineFrom, session?.token]);
+  // The inspector's own earlier maps, offered while this plot is still empty.
+  const earlierOutlines = useMemo<ReusableOutline[]>(() => {
+    if (!database || !session?.user.uuid || waypoints.length > 0) return [];
+    try {
+      return reusableOutlines(listEarlierMapRows(database, session.user.uuid), clientUuid);
+    } catch {
+      return [];
+    }
+  }, [clientUuid, database, session?.user.uuid, waypoints.length]);
+
   function startNewBoundary() {
     stopWalk();
     setHasEdited(false);
+    setLabel('');
+    setOutlineFromRemoteId(null);
     setClientUuid(randomUUID());
     setShape(EMPTY_SHAPE);
     setHistory([]);
@@ -1509,6 +1573,36 @@ export default function FieldSurveyScreen() {
         {moreOpen && !expanded ? (
         <ScrollView testID="field-survey.more-panel" style={styles.details} contentContainerStyle={styles.detailsContent} keyboardShouldPersistTaps="handled">
           <Text style={[styles.intro, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.intro}</Text>
+          <TextField
+            testID="field-survey.label"
+            label={FIELD_SURVEY_COPY.fieldNameLabel}
+            hint={FIELD_SURVEY_COPY.fieldNameHint}
+            placeholder={FIELD_SURVEY_COPY.fieldNamePlaceholder}
+            value={label}
+            maxLength={FIELD_NAME_MAX_LENGTH}
+            editable={!controlsLocked}
+            autoCapitalize="words"
+            onChangeText={(value) => {
+              setLabel(value);
+              markEdited();
+            }}
+          />
+          {earlierOutlines.length > 0 && !controlsLocked ? (
+            <View testID="field-survey.outlines" style={styles.outlines}>
+              <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.outlineTitle}</Text>
+              <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.outlineHelp}</Text>
+              {earlierOutlines.map((outline) => (
+                <AppButton
+                  key={outline.clientUuid}
+                  testID={`field-survey.outline.${outline.clientUuid}`}
+                  leadingIcon="copy"
+                  variant="secondary"
+                  onPress={() => applyOutline(outline)}>
+                  {FIELD_SURVEY_COPY.outlineUse(outline.name, outline.hectares)}
+                </AppButton>
+              ))}
+            </View>
+          ) : null}
         {!forReport && screenIsStoredOrMissing(mode) && mode !== 'sending' ? <AppButton variant="secondary" onPress={startNewBoundary}>{screenNeedsFreshIdentity(mode) ? FIELD_SURVEY_COPY.startNewBoundaryAfterRejection : FIELD_SURVEY_COPY.newSurvey}</AppButton> : null}
           <AppButton leadingIcon="crosshair" variant="secondary" style={styles.toolButton} onPress={() => void captureGpsWaypoint()} busy={gpsBusy} disabled={gpsBusy || walking || controlsLocked}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.addGpsPoint}</AppButton>
           <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.mapHelp}</Text>
@@ -1601,6 +1695,7 @@ const styles = StyleSheet.create({
   intro: { ...Typography.bodySmall },
   label: { ...Typography.label, marginTop: Spacing.xs },
   help: { ...Typography.bodySmall },
+  outlines: { gap: Spacing.sm },
   error: { ...Typography.bodySmall, fontWeight: '500' },
   map: { flex: 1, borderWidth: MAP_BORDER_WIDTH, borderRadius: Radius.lg, overflow: 'hidden', marginHorizontal: Spacing.lg, marginTop: Spacing.sm },
   mapLayer: { position: 'absolute', left: -SURVEY_MAP_OVERSCAN, top: -SURVEY_MAP_OVERSCAN },

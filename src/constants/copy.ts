@@ -108,6 +108,18 @@ export const MANUAL_MAP_COPY = {
 export const FIELD_SURVEY_COPY = {
   linkTitle: 'Affected area (optional)',
   linkHelp: 'Walk or draw the plot on a map. The area and % affected fill in for you.',
+  officeMapTitle: 'Field map for this case',
+  officeMapSummary: (name: string, hectares: string, inspector: string) => `${name} · ${hectares} ha plot · measured by ${inspector}`,
+  officeMapHelp: 'Start from this outline to skip walking the plot again. You draw today\'s affected areas yourself.',
+  officeMapUse: 'Start from this outline',
+  outlineTitle: 'Start from an earlier outline',
+  outlineHelp: 'Reuse the plot edge of a field you measured before. You draw today\'s affected areas yourself.',
+  outlineUse: (name: string | null, hectares: string) => `${name ?? 'Earlier map'} · ${hectares} ha`,
+  outlineFetchFailed: 'The field map for this case could not be loaded. Measure the plot instead.',
+  outlineUsed: 'Started from an earlier outline. Check it matches the field, then draw the affected areas.',
+  fieldNameLabel: 'Field name (optional)',
+  fieldNameHint: 'The office shows this instead of a number.',
+  fieldNamePlaceholder: 'For example, North lot',
   manualTitle: 'Type the numbers instead',
   manualEmpty: 'Leave blank if not measured',
   manualSummary: (hectares: string | null, percent: string | null) =>
@@ -118,7 +130,8 @@ export const FIELD_SURVEY_COPY = {
   manualPortionExample: 'Your best estimate, for example 30.',
   linkNone: 'Not measured on a map',
   linkEmpty: 'Not measured on a map',
-  linkAttached: (hectares: string) => `Measured on map: ${hectares} ha`,
+  linkAttached: (hectares: string, percent: string | null = null) =>
+    percent === null ? `Measured on map: ${hectares} ha` : `Measured on map: ${hectares} ha plot · ${percent}% affected`,
   linkAttach: 'Use',
   linkSavedTitle: 'Use a map saved on this phone',
   linkSavedSummary: (count: number) => `${count} saved ${count === 1 ? 'map' : 'maps'}`,
@@ -290,6 +303,13 @@ export const BOUNDARY_STATE_COPY = {
   identity_rejected: { label: 'Start again', hint: 'The office will not take this one. Measure the boundary again as a new boundary.' },
   damaged: { label: 'Start again', hint: 'This saved boundary is damaged on this phone. Measure it again as a new boundary.' },
   refused: { label: 'Not sent', hint: 'The office did not accept it. Open it and press Save and sync to try again, or ask the office to check your account.' },
+} as const;
+
+/** What the office decided about a map the inspector sent; shown beside its sending state. */
+export const OFFICE_VERDICT_COPY = {
+  confirmed: { label: 'Office confirmed', hint: 'The office confirmed this map for its case.' },
+  wrong_field: { label: 'Wrong field', hint: 'The office linked a different map to this case. Measure the right field again if you are asked to.' },
+  pending: { label: 'Waiting for office', hint: 'The office has not reviewed this map yet.' },
 } as const;
 
 /** One line per boundary screen mode; the status strip shows exactly one of them. */

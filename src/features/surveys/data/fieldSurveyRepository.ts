@@ -17,11 +17,23 @@ export interface FieldSurveyDraft {
   capturedAt: string;
   clientUuid: string;
   districtCode: string;
+  /** Optional name the inspector typed; blank is stored as no name. */
+  label?: string | null;
+  /** Server id of the earlier map whose outline this one started from; kept once, never overwritten. */
+  outlineFromRemoteId?: string | null;
   ownerIdentity: string;
   waypoints: SurveyWaypoint[];
   affectedAreaPolygons?: SurveyPolygon[];
   affectedAreaWaypoints?: SurveyWaypoint[][];
   activeAffectedWaypoints?: SurveyWaypoint[];
+}
+
+/** The longest field name the office accepts. */
+export const FIELD_NAME_MAX_LENGTH = 60;
+
+function normalizeLabel(label: string | null | undefined): string | null {
+  const trimmed = label?.trim().slice(0, FIELD_NAME_MAX_LENGTH) ?? '';
+  return trimmed === '' ? null : trimmed;
 }
 
 export async function saveFieldSurveyDraft(
@@ -42,6 +54,8 @@ export async function saveFieldSurveyDraft(
       database.update(fieldSurveys).set({
         authorRole: input.authorRole,
         districtCode: input.districtCode,
+        label: normalizeLabel(input.label),
+        ...(input.outlineFromRemoteId === undefined ? {} : { outlineFromRemoteId: input.outlineFromRemoteId }),
         waypointsJson: JSON.stringify(input.waypoints),
         affectedAreaPolygonsJson: JSON.stringify(input.affectedAreaPolygons ?? []),
         affectedAreaWaypointsJson: JSON.stringify(input.affectedAreaWaypoints ?? []),
@@ -53,6 +67,8 @@ export async function saveFieldSurveyDraft(
         clientUuid: input.clientUuid,
         ownerIdentity: owner,
         districtCode: input.districtCode,
+        label: normalizeLabel(input.label),
+        outlineFromRemoteId: input.outlineFromRemoteId ?? null,
         waypointsJson: JSON.stringify(input.waypoints),
         affectedAreaPolygonsJson: JSON.stringify(input.affectedAreaPolygons ?? []),
         affectedAreaWaypointsJson: JSON.stringify(input.affectedAreaWaypoints ?? []),
@@ -94,6 +110,17 @@ export function listOwnedFieldSurveys(
   return limit === undefined
     ? query.all()
     : query.limit(limit).all();
+}
+
+/** How many recent maps are read as candidates for reusing a plot outline. */
+export const EARLIER_MAP_CANDIDATES = 30;
+
+/**
+ * The inspector's recent maps, read only to offer their plot edge for a new map. Kept apart from
+ * `listOwnedFieldSurveys` so offering an outline can never be mistaken for resuming a draft.
+ */
+export function listEarlierMapRows(database: CaneGuardDatabase, ownerIdentity: string): FieldSurveyRow[] {
+  return listOwnedFieldSurveys(database, ownerIdentity, EARLIER_MAP_CANDIDATES);
 }
 
 export function markFieldSurveyPending(

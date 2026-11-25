@@ -682,6 +682,44 @@ describe('drawing tool (phone)', () => {
     expect(mockSaveDraft).not.toHaveBeenCalled();
   });
 
+  // Intent: standing at a field measured before offers its plot edge, and choosing it starts a new map without the damage.
+  it('offers the plot of a field measured before when My location is at it', async () => {
+    mockListSurveys.mockReturnValue([]);
+    mockEarlierMaps.mockReturnValue([draftRow({ clientUuid: 'earlier-map', status: 'synced', remoteId: '41', label: 'North lot' })]);
+    mockCaptureWaypoint.mockResolvedValue({ status: 'captured', waypoint: { latitude: 14.101, longitude: 121.101, accuracyMeters: 5, capturedAt: '2026-11-10T00:00:00.000Z', source: 'gps' } });
+    await renderOpen();
+    expect(screen.queryByTestId('field-survey.measured-before')).toBeNull();
+
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.my-location')); });
+
+    expect(await screen.findByText(FIELD_SURVEY_COPY.measuredBeforeTitle)).toBeTruthy();
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.measured-before.use')); });
+
+    await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());
+    await waitFor(() => expect(mockSaveDraft.mock.lastCall?.[1].outlineFromRemoteId).toBe('41'));
+    expect(screen.queryByTestId('field-survey.measured-before')).toBeNull();
+  });
+
+  // Intent: "Walk it again" ends the offer and leaves the map empty; another place never gets the offer.
+  it('lets the inspector walk it again, and offers nothing at a different place', async () => {
+    mockListSurveys.mockReturnValue([]);
+    mockEarlierMaps.mockReturnValue([draftRow({ clientUuid: 'earlier-map', status: 'synced', remoteId: '41' })]);
+    const at = (latitude: number, longitude: number) => ({ status: 'captured' as const, waypoint: { latitude, longitude, accuracyMeters: 5, capturedAt: '2026-11-10T00:00:00.000Z', source: 'gps' as const } });
+    mockCaptureWaypoint.mockResolvedValue(at(14.5, 121.5));
+    await renderOpen();
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.my-location')); });
+    await waitFor(() => expect(mockCaptureWaypoint).toHaveBeenCalled());
+    expect(screen.queryByTestId('field-survey.measured-before')).toBeNull();
+
+    mockCaptureWaypoint.mockResolvedValue(at(14.101, 121.101));
+    await act(async () => { fireEvent.press(screen.getByTestId('field-survey.my-location')); });
+    await act(async () => { fireEvent.press(await screen.findByTestId('field-survey.measured-before.walk')); });
+
+    expect(screen.queryByTestId('field-survey.measured-before')).toBeNull();
+    expect(screen.queryByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeNull();
+    expect(mockSaveDraft).not.toHaveBeenCalled();
+  });
+
   it('undoes a removal, not just the last added point', async () => {
     await renderOpen();
     await waitFor(() => expect(screen.getByText(`${FIELD_SURVEY_COPY.pointsHeading} (4)`)).toBeTruthy());

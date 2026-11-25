@@ -8,9 +8,9 @@ import type { SyncBatchResult } from '@/features/sync/services/syncPendingFieldR
 /** Single-sourced sync status copy for offline field-survey submissions. */
 export const FIELD_SURVEY_SYNC_COPY = {
   savedOffline: 'Saved on this device.',
-  signInRequired: 'Sign in again before syncing. Your boundary remains saved on this device.',
-  offline: 'You are offline. Your boundary and measured area remain saved on this device; sync when online.',
-  synced: 'Boundary measurement synced.',
+  signInRequired: 'Sign in again before syncing. Your field map remains saved on this device.',
+  offline: 'You are offline. Your field map and measured area remain saved on this device; sync when online.',
+  synced: 'Field map measurement synced.',
   submit: 'Save and sync measurement',
   submitting: 'Syncing measurement…',
 } as const;
@@ -47,7 +47,7 @@ export const OUTBOX_WAIT_COPY: Record<OutboxWaitReason, string> = {
   'office-down': 'Waiting for the office to be reachable again.',
   'cool-down': 'Waiting about a minute before trying again.',
   'account-check': 'Waiting for your account check to finish.',
-  'boundary-first': 'Waiting for the boundary to upload first.',
+  'boundary-first': 'Waiting for the field map to upload first.',
 };
 
 /** The one sentence for an outbox state, or null when the state needs no explanation. */
@@ -142,7 +142,7 @@ export function formatPendingSummary(
   surveysCount: number = 0,
 ): string {
   const parts = [
-    surveysCount > 0 ? `${surveysCount} ${surveysCount === 1 ? 'boundary' : 'boundaries'}` : null,
+    surveysCount > 0 ? `${surveysCount} ${surveysCount === 1 ? 'field map' : 'field maps'}` : null,
     reportsCount > 0 ? `${reportsCount} ${reportsCount === 1 ? 'report' : 'reports'}` : null,
     completionsCount > 0 ? `${completionsCount} ${completionsCount === 1 ? 'visit' : 'visits'}` : null,
   ].filter((part): part is string => part !== null);

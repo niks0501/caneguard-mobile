@@ -94,6 +94,33 @@ describe('ReportSurveyCard', () => {
     expect(screen.getByText(FIELD_SURVEY_COPY.linkAttached('2.51'))).toBeTruthy();
   });
 
+  // Intent: a report pinned somewhere else than its attached map gets a one-line check; a pin on the plot, or just
+  // off its edge by GPS noise, does not, and neither does a report with no pin.
+  it('warns only when the report location is away from the attached map', async () => {
+    const attached = survey({});
+    const card = (reportLocation: { latitude: number; longitude: number } | null) => (
+      <ReportSurveyCard
+        attachedSurvey={attached}
+        attachedUuid="survey-1"
+        onAttach={jest.fn()}
+        onOpenMeasure={jest.fn()}
+        reportLocation={reportLocation}
+        surveys={[attached]}
+      />
+    );
+    const { rerender } = await render(card({ latitude: 14.01, longitude: 121.01 }));
+    expect(screen.getByText(FIELD_SURVEY_COPY.linkOutsidePlot)).toBeTruthy();
+
+    await rerender(card({ latitude: 14.0005, longitude: 121.001 }));
+    expect(screen.queryByText(FIELD_SURVEY_COPY.linkOutsidePlot)).toBeNull();
+
+    await rerender(card({ latitude: 14.001 + 10 / 111_320, longitude: 121.001 }));
+    expect(screen.queryByText(FIELD_SURVEY_COPY.linkOutsidePlot)).toBeNull();
+
+    await rerender(card(null));
+    expect(screen.queryByText(FIELD_SURVEY_COPY.linkOutsidePlot)).toBeNull();
+  });
+
   it('jumps to the attached survey in Measure and can remove it', async () => {
     const onAttach = jest.fn();
     const onOpenMeasure = jest.fn();

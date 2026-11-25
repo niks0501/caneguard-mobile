@@ -15,6 +15,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { TextField } from '@/components/ui/TextField';
 import { fetchAssignmentFieldMap } from '@/features/surveys/api/fieldSurveysApi';
 import { reusableOutlines, waypointsFromOutline, type ReusableOutline } from '@/features/surveys/domain/outlineReuse';
+import { distanceToPlotMeters, isAtPlot } from '@/features/surveys/domain/plotLocation';
 import { BrandedScreenHeader } from '@/components/ui/BrandedScreenHeader';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -256,6 +257,8 @@ export default function FieldSurveyScreen() {
   const [label, setLabel] = useState('');
   // The earlier map this plot outline started from; sent as provenance only.
   const [outlineFromRemoteId, setOutlineFromRemoteId] = useState<string | null>(null);
+  // "Walk it again" was chosen for the location the inspector is standing at.
+  const [measuredBeforeDismissed, setMeasuredBeforeDismissed] = useState(false);
   // Full-screen map: the header, details and dock step aside so the plot has the whole screen.
   const [expanded, setExpanded] = useState(false);
   useEffect(() => {
@@ -1221,11 +1224,24 @@ export default function FieldSurveyScreen() {
     }
   }, [clientUuid, database, session?.user.uuid, waypoints.length]);
 
+  // Standing at a field the inspector measured before: offer its plot edge, nearest map first.
+  const measuredBefore = useMemo<ReusableOutline | null>(() => {
+    if (!myLocation || measuredBeforeDismissed || waypoints.length > 0) return null;
+    let best: { outline: ReusableOutline; distance: number } | null = null;
+    for (const outline of earlierOutlines) {
+      if (!isAtPlot(outline.waypoints, myLocation)) continue;
+      const distance = distanceToPlotMeters(outline.waypoints, myLocation) ?? Infinity;
+      if (!best || distance < best.distance) best = { outline, distance };
+    }
+    return best?.outline ?? null;
+  }, [earlierOutlines, measuredBeforeDismissed, myLocation, waypoints.length]);
+
   function startNewBoundary() {
     stopWalk();
     setHasEdited(false);
     setLabel('');
     setOutlineFromRemoteId(null);
+    setMeasuredBeforeDismissed(false);
     setClientUuid(randomUUID());
     setShape(EMPTY_SHAPE);
     setHistory([]);
@@ -1548,6 +1564,16 @@ export default function FieldSurveyScreen() {
           </View>
         </View>
         <View style={[styles.controls, expanded && { backgroundColor: theme.background }]}>
+          {measuredBefore && !expanded && !controlsLocked ? (
+            <View testID="field-survey.measured-before" style={[styles.offer, { backgroundColor: theme.surfaceElevated, borderColor: theme.primary }]}>
+              <Text style={[styles.label, { color: theme.text }]}>{FIELD_SURVEY_COPY.measuredBeforeTitle}</Text>
+              <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.measuredBeforeBody(measuredBefore.name, measuredBefore.hectares)}</Text>
+              <View style={styles.toolRow}>
+                <AppButton testID="field-survey.measured-before.use" leadingIcon="copy" style={styles.toolButton} onPress={() => applyOutline(measuredBefore)}>{FIELD_SURVEY_COPY.measuredBeforeUse}</AppButton>
+                <AppButton testID="field-survey.measured-before.walk" variant="secondary" style={styles.toolButton} onPress={() => setMeasuredBeforeDismissed(true)}>{FIELD_SURVEY_COPY.measuredBeforeWalk}</AppButton>
+              </View>
+            </View>
+          ) : null}
           <View accessibilityRole="radiogroup" style={styles.segmented}>
             <AppButton testID="field-survey.target-plot" leadingIcon="square" variant="secondary" selected={!drawingAffectedArea} style={[styles.toolButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={editLocked} onPress={() => { setDrawingAffectedArea(false); setSelected(null); setSyncMessage(null); setWalkNotice(null); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
             <AppButton testID="field-survey.target-affected" leadingIcon="alert-triangle" variant="secondary" selected={drawingAffectedArea} style={[styles.toolButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.warning, borderWidth: 2 }]} disabled={editLocked} onPress={() => { setDrawingAffectedArea(true); setSelected(null); setSyncMessage(null); setWalkNotice(null); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
@@ -1696,6 +1722,7 @@ const styles = StyleSheet.create({
   label: { ...Typography.label, marginTop: Spacing.xs },
   help: { ...Typography.bodySmall },
   outlines: { gap: Spacing.sm },
+  offer: { borderWidth: 2, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },
   error: { ...Typography.bodySmall, fontWeight: '500' },
   map: { flex: 1, borderWidth: MAP_BORDER_WIDTH, borderRadius: Radius.lg, overflow: 'hidden', marginHorizontal: Spacing.lg, marginTop: Spacing.sm },
   mapLayer: { position: 'absolute', left: -SURVEY_MAP_OVERSCAN, top: -SURVEY_MAP_OVERSCAN },

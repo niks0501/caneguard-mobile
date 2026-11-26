@@ -6,6 +6,7 @@ import { fieldValidationAssignmentSnapshots, fieldValidationAssignments } from '
 import type {
   FieldValidationAssignment,
   FieldValidationAssignmentUpdate,
+  OfficeAerialCheck,
   OfficeCase,
 } from '@/features/assignments/domain/assignmentTypes';
 import { NO_AI_SCAN_CACHE_LABEL } from '@/features/assignments/domain/assignmentTypes';
@@ -326,6 +327,7 @@ function toRow(
     confidence: update.case.confidence ?? 0,
     previousVisitJson: update.previousVisit ? JSON.stringify(update.previousVisit) : null,
     officeCaseJson: update.officeCase ? JSON.stringify(update.officeCase) : null,
+    aerialCheckJson: update.aerialCheck ? JSON.stringify(update.aerialCheck) : null,
   };
 }
 
@@ -361,7 +363,19 @@ function toAssignment(
     },
     previousVisit: parsePreviousVisit(row.previousVisitJson),
     officeCase: parseOfficeCase(row.officeCaseJson),
+    aerialCheck: parseAerialCheck(row.aerialCheckJson),
   };
+}
+
+function parseAerialCheck(value: string | null): OfficeAerialCheck | null {
+  if (!value) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    return parsed as OfficeAerialCheck;
+  } catch {
+    return null;
+  }
 }
 
 function parseOfficeCase(value: string | null): OfficeCase | null {

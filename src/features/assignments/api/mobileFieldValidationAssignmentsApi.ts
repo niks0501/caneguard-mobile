@@ -9,6 +9,8 @@ import {
 import {
   UNKNOWN_PREDICTED_LABEL,
   type FieldValidationAssignmentUpdate,
+  type OfficeAerialCheck,
+  type OfficeAerialCheckMedia,
   type OfficeCase,
 } from '@/features/assignments/domain/assignmentTypes';
 import type { PreviousVisitContext } from '@/features/assignments/domain/previousVisit';
@@ -363,6 +365,7 @@ function parseAssignment(
     },
     previousVisit: parsePreviousVisit(value.previous_visit),
     officeCase: parseOfficeCase(rawCase),
+    aerialCheck: parseAerialCheck(value.aerial_check),
   };
   // Vocabulary is filtered only after identity and the whole record shape validated.
   if (fieldValidationState === null) return null;
@@ -438,6 +441,63 @@ function parsePreviousVisitPhoto(value: unknown): PreviousVisitContext['photo'] 
     contentType: optionalString(value.content_type, 'previous_visit.photo.content_type'),
     bytes: value.bytes === null ? null : requireNumber(value.bytes, 'previous_visit.photo.bytes', 0, Number.MAX_SAFE_INTEGER),
   };
+}
+
+function parseAerialCheck(value: unknown): OfficeAerialCheck | null {
+  if (value === undefined || value === null) return null;
+  if (!isRecord(value)) throw malformed('aerial_check');
+  const enoughCanopy = requireBoolean(value.enough_canopy, 'aerial_check.enough_canopy');
+  const abnormalCanopyPercent = optionalNumber(
+    value.abnormal_canopy_percent,
+    'aerial_check.abnormal_canopy_percent',
+    0,
+    100,
+  );
+  if (enoughCanopy && abnormalCanopyPercent === null) {
+    throw malformed('aerial_check.abnormal_canopy_percent');
+  }
+  return {
+    uuid: requireUuid(value.uuid, 'aerial_check.uuid'),
+    enoughCanopy,
+    abnormalCanopyPercent: enoughCanopy ? abnormalCanopyPercent : null,
+    canopyCoveragePercent: requireNumber(
+      value.canopy_coverage_percent,
+      'aerial_check.canopy_coverage_percent',
+      0,
+      100,
+    ),
+    modelVersion: requireString(value.model_version, 'aerial_check.model_version'),
+    createdAt: requireTimestamp(value.created_at, 'aerial_check.created_at'),
+    // Server URLs are ignored: the phone constructs the guarded routes itself.
+    preview: parseAerialMedia(value.preview, 'aerial_check.preview'),
+    overlay: parseAerialMedia(value.overlay, 'aerial_check.overlay'),
+  };
+}
+
+function parseAerialMedia(value: unknown, field: string): OfficeAerialCheckMedia {
+  if (!isRecord(value)) throw malformed(field);
+  return {
+    contentType: requireString(value.content_type, `${field}.content_type`),
+    bytes: requireNumber(value.bytes, `${field}.bytes`, 0, Number.MAX_SAFE_INTEGER),
+  };
+}
+
+export function buildMobileAerialPreviewPath(assignmentId: string): string {
+  if (!UUID_PATTERN.test(assignmentId)) throw malformed('visit uuid');
+  return `${ASSIGNMENT_PATH}/${encodeURIComponent(assignmentId)}/aerial-preview`;
+}
+
+export function buildMobileAerialOverlayPath(assignmentId: string): string {
+  if (!UUID_PATTERN.test(assignmentId)) throw malformed('visit uuid');
+  return `${ASSIGNMENT_PATH}/${encodeURIComponent(assignmentId)}/aerial-overlay`;
+}
+
+export function buildMobileAerialPreviewUrl(assignmentId: string): string {
+  return buildApiUrl(buildMobileAerialPreviewPath(assignmentId));
+}
+
+export function buildMobileAerialOverlayUrl(assignmentId: string): string {
+  return buildApiUrl(buildMobileAerialOverlayPath(assignmentId));
 }
 
 export function buildMobilePreviousEvidencePhotoPath(assignmentId: string): string {

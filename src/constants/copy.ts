@@ -1803,6 +1803,25 @@ export const OFFICE_CASE_COPY = {
   version: (version: number) => `Version ${version}`,
 } as const;
 
+/** Read-only office aerial brief card on the Field Validation screen. */
+export const OFFICE_AERIAL_COPY = {
+  title: 'Office aerial brief',
+  badge: 'Photo estimate',
+  readyOffline: 'Ready offline',
+  overlayTab: 'Problem areas',
+  photoTab: 'Original photo',
+  overlayLabel: 'Aerial photo with problem areas highlighted',
+  photoLabel: 'Original aerial photo',
+  overlaySwatchLabel: 'Highlighted canopy',
+  abnormalLabel: 'Visible problem canopy',
+  canopyLabel: 'Canopy in frame',
+  checkedLabel: 'Checked',
+  lowCanopyNotice: 'Not enough cane visible to estimate',
+  guardrail: 'Aerial photo estimate · not a ground hectare measurement.',
+  unavailable:
+    'This aerial brief is not available right now. Connect to the internet and open the visit again.',
+} as const;
+
 /** Plain-words chip text for the six server `workflow_status` values; one table shared with the report status. */
 export const OFFICE_CASE_WORKFLOW_LABELS: Readonly<Record<string, string>> = WORKFLOW_STATUS_LABELS;
 

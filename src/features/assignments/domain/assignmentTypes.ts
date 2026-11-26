@@ -36,6 +36,27 @@ export interface OfficeCase {
   photo: { contentType: string; bytes: number } | null;
 }
 
+/** Bounded JPEG media metadata for the office aerial brief. */
+export interface OfficeAerialCheckMedia {
+  contentType: string;
+  bytes: number;
+}
+
+/**
+ * Read-only aerial brief attached by the office when the aerial check is live.
+ * Shares are percentages of visible canopy in one photo, never ground area.
+ */
+export interface OfficeAerialCheck {
+  uuid: string;
+  enoughCanopy: boolean;
+  abnormalCanopyPercent: number | null;
+  canopyCoveragePercent: number;
+  modelVersion: string;
+  createdAt: string;
+  preview: OfficeAerialCheckMedia;
+  overlay: OfficeAerialCheckMedia;
+}
+
 export interface FieldValidationAssignment {
   id: string;
   ownerIdentity: string;
@@ -67,6 +88,8 @@ export interface FieldValidationAssignment {
   previousVisit?: PreviousVisitContext | null;
   /** Present only for office-born cases; absent means a field-born case. */
   officeCase?: OfficeCase | null;
+  /** Present only when the aerial switch is on and the case has an active aerial check. */
+  aerialCheck?: OfficeAerialCheck | null;
 }
 
 export interface FieldValidationAssignmentUpdate extends Omit<

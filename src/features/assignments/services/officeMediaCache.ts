@@ -2,6 +2,8 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import {
+  buildMobileAerialOverlayUrl,
+  buildMobileAerialPreviewUrl,
   buildMobilePreviousEvidencePhotoUrl,
   buildMobileReportPhotoUrl,
 } from '@/features/assignments/api/mobileFieldValidationAssignmentsApi';
@@ -14,7 +16,7 @@ export const OFFICE_MEDIA_BUDGET_BYTES = 150 * 1024 * 1024;
 /** Only visits due within this many days (or undated) are prefetched. */
 export const OFFICE_MEDIA_DUE_WINDOW_DAYS = 7;
 
-export type OfficeMediaKind = 'report' | 'last-visit';
+export type OfficeMediaKind = 'report' | 'last-visit' | 'aerial-preview' | 'aerial-overlay';
 
 export interface OfficeMediaItem {
   assignmentId: string;
@@ -32,30 +34,51 @@ const EXTENSIONS: Record<string, string> = {
 
 /**
  * The photos a case needs to be "Ready offline": the office report photo and
- * the previous-visit photo, only for office-born cases that carry them.
+ * previous-visit photo for office-born cases, plus the bounded aerial brief
+ * preview and overlay whenever the case carries an active aerial check.
  */
 export function listOfficeMediaItems(assignment: FieldValidationAssignment): OfficeMediaItem[] {
-  const officeCase = assignment.officeCase;
-  if (!officeCase) return [];
   const items: OfficeMediaItem[] = [];
-  if (officeCase.photo) {
+  const officeCase = assignment.officeCase;
+  if (officeCase) {
+    if (officeCase.photo) {
+      items.push(
+        item(
+          assignment.id,
+          'report',
+          `v${officeCase.version}`,
+          buildMobileReportPhotoUrl(assignment.id),
+          officeCase.photo,
+        ),
+      );
+    }
+    const visit = assignment.previousVisit;
+    if (visit?.photo && visit.freshPhotoAvailable) {
+      items.push(
+        item(assignment.id, 'last-visit', visit.visitedAt, buildMobilePreviousEvidencePhotoUrl(assignment.id), {
+          bytes: visit.photo.bytes ?? OFFICE_MEDIA_MAX_FILE_BYTES,
+          contentType: visit.photo.contentType,
+        }),
+      );
+    }
+  }
+  const aerial = assignment.aerialCheck;
+  if (aerial) {
     items.push(
       item(
         assignment.id,
-        'report',
-        `v${officeCase.version}`,
-        buildMobileReportPhotoUrl(assignment.id),
-        officeCase.photo,
+        'aerial-preview',
+        aerial.uuid,
+        buildMobileAerialPreviewUrl(assignment.id),
+        aerial.preview,
       ),
-    );
-  }
-  const visit = assignment.previousVisit;
-  if (visit?.photo && visit.freshPhotoAvailable) {
-    items.push(
-      item(assignment.id, 'last-visit', visit.visitedAt, buildMobilePreviousEvidencePhotoUrl(assignment.id), {
-        bytes: visit.photo.bytes ?? OFFICE_MEDIA_MAX_FILE_BYTES,
-        contentType: visit.photo.contentType,
-      }),
+      item(
+        assignment.id,
+        'aerial-overlay',
+        aerial.uuid,
+        buildMobileAerialOverlayUrl(assignment.id),
+        aerial.overlay,
+      ),
     );
   }
   return items;
@@ -105,6 +128,17 @@ export function isOfficeCaseReadyOffline(
 ): boolean {
   const items = listOfficeMediaItems(assignment);
   return items.length > 0 && items.every((entry) => readOfficeMediaUri(ownerIdentity, entry) !== null);
+}
+
+/** True when the case has an aerial brief and both preview and overlay are cached on disk. */
+export function isAerialBriefReadyOffline(
+  ownerIdentity: string,
+  assignment: FieldValidationAssignment,
+): boolean {
+  const items = listOfficeMediaItems(assignment).filter(
+    (entry) => entry.kind === 'aerial-preview' || entry.kind === 'aerial-overlay',
+  );
+  return items.length === 2 && items.every((entry) => readOfficeMediaUri(ownerIdentity, entry) !== null);
 }
 
 /**

@@ -2,6 +2,7 @@ import {
   OFFICE_MEDIA_BUDGET_BYTES,
   cancelOfficeMediaPrefetch,
   clearOfficeMediaForOwner,
+  isAerialBriefReadyOffline,
   isOfficeCaseReadyOffline,
   listOfficeMediaItems,
   prefetchOfficeMedia,
@@ -317,5 +318,73 @@ describe('office media cache', () => {
     await pending;
     expect(mockDownloads).toHaveLength(1);
     expect(isOfficeCaseReadyOffline('owner-1', a)).toBe(true);
+  });
+
+  // Proves Phase 2: bounded aerial preview & overlay are prefetched even for field-born cases and keyed by aerial uuid.
+  it('prefetches aerial preview and overlay for a field-born case and refreshes on new aerial uuid', async () => {
+    const base = {
+      id: ids('aerial-field'),
+      ownerIdentity: 'owner-1',
+      fieldValidationState: 'assigned',
+      targetVisitDate: null,
+      previousVisit: null,
+      officeCase: null,
+      aerialCheck: {
+        uuid: '0195b3c4-7f10-7000-8000-000000000001',
+        enoughCanopy: true,
+        abnormalCanopyPercent: 18.0,
+        canopyCoveragePercent: 72.0,
+        modelVersion: 'aerial-v3',
+        createdAt: '2026-11-26T04:00:00.000Z',
+        preview: { contentType: 'image/jpeg', bytes: 200_000 },
+        overlay: { contentType: 'image/jpeg', bytes: 210_000 },
+      },
+    } as FieldValidationAssignment;
+
+    await run([base]);
+    expect(mockDownloads).toHaveLength(2);
+    expect(isAerialBriefReadyOffline('owner-1', base)).toBe(true);
+
+    const items = listOfficeMediaItems(base);
+    expect(items.map((entry) => entry.kind)).toEqual(['aerial-preview', 'aerial-overlay']);
+    expect(readOfficeMediaUri('owner-1', items[0])).not.toBeNull();
+    expect(readOfficeMediaUri('owner-1', items[1])).not.toBeNull();
+
+    const replaced = {
+      ...base,
+      aerialCheck: {
+        ...base.aerialCheck!,
+        uuid: '0195b3c4-7f10-7000-8000-000000000002',
+      },
+    } as FieldValidationAssignment;
+    await run([replaced]);
+    expect(mockDownloads).toHaveLength(4);
+    expect(isAerialBriefReadyOffline('owner-1', replaced)).toBe(true);
+    expect(mockDisk.size).toBe(2);
+  });
+
+  it('skips aerial brief prefetch when declared derivative exceeds 10 MiB cap', async () => {
+    const oversized = {
+      id: ids('aerial-oversized'),
+      ownerIdentity: 'owner-1',
+      fieldValidationState: 'assigned',
+      targetVisitDate: null,
+      previousVisit: null,
+      officeCase: null,
+      aerialCheck: {
+        uuid: '0195b3c4-7f10-7000-8000-000000000009',
+        enoughCanopy: true,
+        abnormalCanopyPercent: 18.0,
+        canopyCoveragePercent: 72.0,
+        modelVersion: 'aerial-v3',
+        createdAt: '2026-11-26T04:00:00.000Z',
+        preview: { contentType: 'image/jpeg', bytes: 11 * MB },
+        overlay: { contentType: 'image/jpeg', bytes: 210_000 },
+      },
+    } as FieldValidationAssignment;
+
+    await run([oversized]);
+    expect(mockDownloads).toHaveLength(0);
+    expect(isAerialBriefReadyOffline('owner-1', oversized)).toBe(false);
   });
 });

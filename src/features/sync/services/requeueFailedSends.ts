@@ -1,4 +1,5 @@
 import type { CaneGuardDatabase } from '@/database/database';
+import { requeueFailedAerialAnalyses } from '@/features/assignments/data/aerialAnalysisOutboxRepository';
 import { requeueFailedFieldValidationCompletions } from '@/features/assignments/data/fieldValidationCompletionRepository';
 import { requeueFailedFieldReports } from '@/features/reports/data/fieldReportSyncRepository';
 import { requeueFailedFieldSurveys } from '@/features/surveys/data/fieldSurveySyncRepository';
@@ -26,12 +27,15 @@ export async function requeueFailedSends(
     scope === 'all' ? RESENDABLE_SYNC_ERROR_CODES : ACCESS_FAILURE_SYNC_ERROR_CODES;
   const authorReports = scope === 'all' || scope.access.authorReports;
   const completeValidations = scope === 'all' || scope.access.completeValidations;
-  const [surveys, reports, completions] = await Promise.all([
+  const [surveys, reports, completions, aerialUploads] = await Promise.all([
     authorReports ? requeueFailedFieldSurveys(database, ownerIdentity, codes) : 0,
     authorReports ? requeueFailedFieldReports(database, ownerIdentity, codes) : 0,
     completeValidations
       ? requeueFailedFieldValidationCompletions(database, ownerIdentity, codes)
       : 0,
+    completeValidations
+      ? requeueFailedAerialAnalyses(database, ownerIdentity, codes)
+      : 0,
   ]);
-  return surveys + reports + completions;
+  return surveys + reports + completions + aerialUploads;
 }

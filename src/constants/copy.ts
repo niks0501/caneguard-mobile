@@ -1820,6 +1820,14 @@ export const OFFICE_AERIAL_COPY = {
   guardrail: 'Aerial photo estimate · not a ground hectare measurement.',
   unavailable:
     'This aerial brief is not available right now. Connect to the internet and open the visit again.',
+  attachAction: 'Attach drone photo',
+  replaceAction: 'Upload another drone photo',
+  pendingStatus: 'Queued on this device · uploads automatically when online',
+  syncingStatus: 'Uploading drone photo for aerial canopy check…',
+  syncedStatus: 'Drone photo checked — aerial brief updated',
+  retryAction: 'Retry upload',
+  removeAction: 'Remove queued photo',
+  pickingLabel: 'Selecting drone photo…',
 } as const;
 
 /** Plain-words chip text for the six server `workflow_status` values; one table shared with the report status. */

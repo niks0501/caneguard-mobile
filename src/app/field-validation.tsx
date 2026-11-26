@@ -125,6 +125,35 @@ export default function FieldValidationScreen() {
     saveDraftCheckpoint,
   ]);
 
+  const pickAerialPhoto = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        allowsMultipleSelection: false,
+        selectionLimit: 1,
+        base64: false,
+        exif: false,
+        quality: 1,
+      });
+      const asset = !result.canceled ? result.assets[0] : null;
+      if (!asset) return;
+      const queued = await state.attachAerialPhoto(asset);
+      if (!queued.queued) {
+        showToast(queued.errorMessage ?? 'Could not save the drone photo on this device.', 'error');
+        return;
+      }
+      showToast(
+        state.isOnline === true
+          ? 'Drone photo queued and sending for aerial check'
+          : 'Drone photo saved on this device · sends when online',
+        'success',
+      );
+    } catch {
+      showToast('Could not open drone photos from gallery', 'error');
+    }
+  };
+
   const capturePhoto = async () => {
     setFieldError(null);
     try {
@@ -291,6 +320,13 @@ export default function FieldValidationScreen() {
               <OfficeAerialCheckCard
                 accessToken={state.photoAccessToken}
                 assignment={state.assignment}
+                canUpload={state.canComplete && !state.completion}
+                isOnline={state.isOnline}
+                onAttachPhoto={() => void pickAerialPhoto()}
+                onRemoveQueued={() => void state.removeQueuedAerialPhoto()}
+                onRetryUpload={() => void state.retryAerialPhoto()}
+                queuedUpload={state.aerialUpload}
+                uploading={state.aerialSaving}
               />
               {state.completion ? (
                 <CompletionStatus completion={state.completion} onRetry={() => void state.retry()} />

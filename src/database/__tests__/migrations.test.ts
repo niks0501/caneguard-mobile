@@ -775,6 +775,7 @@ describe('CaneGuard database migrations', () => {
       '0038_net3_visit_provenance',
       '0039_field_map_label_outline',
       '0040_aerial_check_brief',
+      '0041_aerial_check_outbox',
     ]);
     expect(Object.keys(migrationBundle.migrations)).toEqual([
       'm0000',
@@ -818,6 +819,7 @@ describe('CaneGuard database migrations', () => {
       'm0038',
       'm0039',
       'm0040',
+      'm0041',
     ]);
     expect(consumedMigrations.map(({ sql }) => sql)).toEqual([
       migration0,
@@ -861,6 +863,7 @@ describe('CaneGuard database migrations', () => {
       readMigration('0038_net3_visit_provenance.sql'),
       readMigration('0039_field_map_label_outline.sql'),
       readMigration('0040_aerial_check_brief.sql'),
+      readMigration('0041_aerial_check_outbox.sql'),
     ]);
   });
 });

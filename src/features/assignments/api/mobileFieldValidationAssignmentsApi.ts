@@ -443,7 +443,7 @@ function parsePreviousVisitPhoto(value: unknown): PreviousVisitContext['photo'] 
   };
 }
 
-function parseAerialCheck(value: unknown): OfficeAerialCheck | null {
+export function parseAerialCheck(value: unknown): OfficeAerialCheck | null {
   if (value === undefined || value === null) return null;
   if (!isRecord(value)) throw malformed('aerial_check');
   const enoughCanopy = requireBoolean(value.enough_canopy, 'aerial_check.enough_canopy');

@@ -140,4 +140,67 @@ describe('OfficeAerialCheckCard', () => {
       uri: 'file:///docs/preview.jpg',
     });
   });
+
+  it('shows Attach drone photo when canUpload is enabled even before an office aerial brief exists', async () => {
+    const onAttachPhoto = jest.fn();
+    await render(
+      <OfficeAerialCheckCard
+        accessToken="tok"
+        assignment={makeAssignment({ aerialCheck: null })}
+        canUpload
+        onAttachPhoto={onAttachPhoto}
+      />,
+    );
+
+    expect(screen.getByTestId('field-validation.aerial-brief.guardrail')).toHaveTextContent(
+      'Aerial photo estimate · not a ground hectare measurement.',
+    );
+    await fireEvent.press(screen.getByTestId('field-validation.aerial-brief.attach'));
+    expect(onAttachPhoto).toHaveBeenCalledTimes(1);
+  });
+
+  it('displays AERIAL_DISABLED refusal copy with Retry and Remove controls', async () => {
+    const onRetryUpload = jest.fn();
+    const onRemoveQueued = jest.fn();
+    await render(
+      <OfficeAerialCheckCard
+        accessToken="tok"
+        assignment={makeAssignment({ aerialCheck: null })}
+        canUpload
+        isOnline
+        onAttachPhoto={jest.fn()}
+        onRemoveQueued={onRemoveQueued}
+        onRetryUpload={onRetryUpload}
+        queuedUpload={{
+          id: '11111111-1111-4111-8111-111111111111',
+          ownerIdentity: 'owner-1',
+          assignmentId: ID,
+          reportUuid: 'r',
+          imageUri: 'file:///docs/drone.jpg',
+          imageMimeType: 'image/jpeg',
+          imageSizeBytes: 500_000,
+          syncStatus: 'failed',
+          remoteId: null,
+          syncAttemptCount: 1,
+          lastSyncErrorCode: 'AERIAL_DISABLED',
+          lastSyncAttemptAt: '2026-11-26T06:00:00.000Z',
+          lastSyncedAt: null,
+          createdAt: '2026-11-26T05:59:00.000Z',
+          updatedAt: '2026-11-26T06:00:00.000Z',
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        'Aerial canopy checks are turned off by the office. Your saved drone photo stays on this device.',
+      ),
+    ).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('field-validation.aerial-brief.retry'));
+    expect(onRetryUpload).toHaveBeenCalledTimes(1);
+
+    await fireEvent.press(screen.getByTestId('field-validation.aerial-brief.remove'));
+    expect(onRemoveQueued).toHaveBeenCalledTimes(1);
+  });
 });

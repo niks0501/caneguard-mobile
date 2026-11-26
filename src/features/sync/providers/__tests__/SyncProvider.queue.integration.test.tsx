@@ -93,6 +93,7 @@ function openDatabase() {
     '0024_active_affected_waypoints.sql', '0025_field_survey_author_role.sql', '0026_scan_follow_up_check.sql', '0028_field_report_survey_link.sql',
     '0029_scan_personal_place.sql', '0034_authority_workflow_status.sql',
     '0036_net3_report_provenance.sql', '0037_net3_survey_provenance.sql', '0038_net3_visit_provenance.sql', '0039_field_map_label_outline.sql',
+    '0041_aerial_check_outbox.sql',
   ]) native.exec(migration(name));
   native.prepare(`INSERT INTO scan_records (
     id, owner_identity, managed_image_uri, image_source_type, predicted_label, confidence,

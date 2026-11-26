@@ -186,6 +186,9 @@ export default function SettingsScreen() {
     : [
       `${preview.reports} report${preview.reports === 1 ? '' : 's'} (${preview.draftReports} draft, ${preview.finalizedUnsentReports} finalized but not sent)`,
       `${preview.visits} completed visit${preview.visits === 1 ? '' : 's'} (${preview.unsentVisits} not sent)`,
+      ...((preview.aerialUploads ?? 0) > 0
+        ? [`${preview.aerialUploads} drone upload${preview.aerialUploads === 1 ? '' : 's'} (${preview.unsentAerialUploads ?? 0} not sent)`]
+        : []),
       `${preview.boundaries} boundar${preview.boundaries === 1 ? 'y' : 'ies'} (${preview.unsentBoundaries} not sent)`,
       `${preview.scans} saved scan${preview.scans === 1 ? '' : 's'}${preview.unsentScans > 0 ? ` (${preview.unsentScans} not sent to the office)` : ''}`,
       `${preview.draftCheckpoints} saved draft checkpoint${preview.draftCheckpoints === 1 ? '' : 's'}`,

@@ -26,6 +26,16 @@ jest.mock('expo-image-picker', () => ({
     canceled: false,
   })),
   requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true })),
+  launchImageLibraryAsync: jest.fn(async () => ({
+    assets: [
+      {
+        fileName: 'drone.jpg',
+        mimeType: 'image/jpeg',
+        uri: 'file:///picker/drone.jpg',
+      },
+    ],
+    canceled: false,
+  })),
 }));
 jest.mock('@/features/assignments/services/fieldValidationPhotoStorage', () => ({
   deleteFieldValidationPhoto: jest.fn(),
@@ -66,6 +76,12 @@ const state = {
   saving: false,
   refresh: jest.fn(async () => undefined),
   retry: jest.fn(async () => undefined),
+  attachAerialPhoto: jest.fn(async () => ({ queued: true, errorMessage: null })),
+  retryAerialPhoto: jest.fn(async () => undefined),
+  removeQueuedAerialPhoto: jest.fn(async () => undefined),
+  aerialSaving: false,
+  aerialUpload: null,
+  isOnline: true,
 };
 
 jest.mocked(useFieldValidationAssignment).mockReturnValue({ ...state, complete } as never);

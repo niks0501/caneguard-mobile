@@ -1,3 +1,4 @@
+import { requeueFailedAerialAnalyses } from '@/features/assignments/data/aerialAnalysisOutboxRepository';
 import { requeueFailedFieldValidationCompletions } from '@/features/assignments/data/fieldValidationCompletionRepository';
 import { requeueFailedFieldReports } from '@/features/reports/data/fieldReportSyncRepository';
 import { requeueFailedFieldSurveys } from '@/features/surveys/data/fieldSurveySyncRepository';
@@ -7,6 +8,9 @@ import {
 } from '@/features/sync/errors/syncErrors';
 import { requeueFailedSends } from '@/features/sync/services/requeueFailedSends';
 
+jest.mock('@/features/assignments/data/aerialAnalysisOutboxRepository', () => ({
+  requeueFailedAerialAnalyses: jest.fn(async () => 0),
+}));
 jest.mock('@/features/assignments/data/fieldValidationCompletionRepository', () => ({
   requeueFailedFieldValidationCompletions: jest.fn(async () => 1),
 }));
@@ -33,6 +37,7 @@ describe('requeueFailedSends', () => {
       requeueFailedFieldReports,
       requeueFailedFieldSurveys,
       requeueFailedFieldValidationCompletions,
+      requeueFailedAerialAnalyses,
     ]) {
       expect(mock).toHaveBeenCalledWith(database, 'owner-1', ACCESS_FAILURE_SYNC_ERROR_CODES);
     }

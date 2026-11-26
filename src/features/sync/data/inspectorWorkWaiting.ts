@@ -2,7 +2,12 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import type { CaneGuardDatabase } from '@/database/database';
 import { toStorageError } from '@/database/errors';
-import { fieldReports, fieldSurveys, fieldValidationCompletions } from '@/database/schema';
+import {
+  aerialAnalysisOutbox,
+  fieldReports,
+  fieldSurveys,
+  fieldValidationCompletions,
+} from '@/database/schema';
 
 const UNSENT = ['pending', 'syncing', 'failed'] as const;
 
@@ -13,7 +18,7 @@ const UNSENT = ['pending', 'syncing', 'failed'] as const;
  */
 export async function hasUnsentInspectorWork(database: CaneGuardDatabase): Promise<boolean> {
   try {
-    const [report, survey, completion] = await Promise.all([
+    const [report, survey, completion, aerialUpload] = await Promise.all([
       database
         .select({ one: sql<number>`1` })
         .from(fieldReports)
@@ -37,8 +42,14 @@ export async function hasUnsentInspectorWork(database: CaneGuardDatabase): Promi
         .where(inArray(fieldValidationCompletions.syncStatus, UNSENT))
         .limit(1)
         .get(),
+      database
+        .select({ one: sql<number>`1` })
+        .from(aerialAnalysisOutbox)
+        .where(inArray(aerialAnalysisOutbox.syncStatus, UNSENT))
+        .limit(1)
+        .get(),
     ]);
-    return Boolean(report || survey || completion);
+    return Boolean(report || survey || completion || aerialUpload);
   } catch (error: unknown) {
     throw toStorageError(error, 'QUERY_FAILED', 'Checking for unsent inspector work failed.');
   }

@@ -120,4 +120,27 @@ describe('synchronization retry policy', () => {
       expect(error.detail).toBeNull();
     });
   });
+
+  describe('aerial upload errors', () => {
+    it('classifies 409 AERIAL_DISABLED as a non-auto-retryable refusal with device-safe copy', () => {
+      const error = toSyncError(
+        new ApiHttpError(409, 'Aerial disabled', {
+          body: { code: 'AERIAL_DISABLED', message: 'Aerial check off' },
+        }),
+      );
+      expect(error.code).toBe('AERIAL_DISABLED');
+      expect(error.retryable).toBe(false);
+      expect(isAutoRetryableSyncErrorCode(error.code)).toBe(false);
+      expect(error.message).toBe(
+        'Aerial canopy checks are turned off by the office. Your saved drone photo stays on this device.',
+      );
+    });
+
+    it('classifies 423 locked case review as retryable SERVER_ERROR', () => {
+      const error = toSyncError(new ApiHttpError(423, 'Locked', { retryAfterMs: 12_000 }));
+      expect(error.code).toBe('SERVER_ERROR');
+      expect(error.retryable).toBe(true);
+      expect(error.retryAfterMs).toBe(12_000);
+    });
+  });
 });

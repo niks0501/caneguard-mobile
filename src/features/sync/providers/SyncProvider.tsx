@@ -13,11 +13,18 @@ import { purgeExpiredLocalData } from '@/database/localDataLifecycle';
 import { canAuthorInspectorWork, canCompleteFieldValidation } from '@/features/auth/capabilities';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
+  countUnsyncedAerialAnalyses,
+  findLastSuccessfulAerialAnalysisSyncAt,
+  markAerialAnalysisPending,
+  resetStaleSyncingAerialAnalyses,
+} from '@/features/assignments/data/aerialAnalysisOutboxRepository';
+import {
   countUnsyncedFieldValidationCompletions,
   findLastSuccessfulFieldValidationCompletionSyncAt,
   markFieldValidationCompletionPending,
   resetStaleSyncingFieldValidationCompletions,
 } from '@/features/assignments/data/fieldValidationCompletionRepository';
+import { syncPendingAerialAnalyses } from '@/features/assignments/services/syncPendingAerialAnalyses';
 import { syncPendingFieldValidationCompletions } from '@/features/assignments/services/syncPendingFieldValidationCompletions';
 import type { MobileSession, SessionVerificationStatus } from '@/features/auth/types';
 import {
@@ -65,6 +72,7 @@ interface SyncContextValue {
   retryReport: (reportId: string) => Promise<SyncBatchResult | null>;
   /** Re-queues every failed send that sending again could fix, then sends. */
   sendAllAgain: () => Promise<SyncBatchResult | null>;
+  retryAerialAnalysis?: (uploadId: string) => Promise<SyncBatchResult | null>;
   retryFieldValidationCompletion: (completionId: string) => Promise<SyncBatchResult | null>;
   syncNow: (source?: SyncTriggerSource) => Promise<SyncBatchResult | null>;
 }
@@ -232,17 +240,31 @@ export function SyncProvider({ children }: PropsWithChildren) {
       return 0;
     }
 
-    const [reportCount, surveyCount, completionCount, reportLastSyncedAt, surveyLastSyncedAt, completionLastSyncedAt] =
+    const [
+      reportCount,
+      surveyCount,
+      completionCount,
+      aerialCount,
+      reportLastSyncedAt,
+      surveyLastSyncedAt,
+      completionLastSyncedAt,
+      aerialLastSyncedAt,
+    ] =
       await Promise.all([
         countUnsyncedFieldReports(database, requestedSubmitterIdentity),
         countUnsyncedFieldSurveys(database, requestedSubmitterIdentity),
         countUnsyncedFieldValidationCompletions(database, requestedSubmitterIdentity),
+        countUnsyncedAerialAnalyses(database, requestedSubmitterIdentity),
         findLastSuccessfulFieldReportSyncAt(database, requestedSubmitterIdentity),
         findLastSuccessfulFieldSurveySyncAt(database, requestedSubmitterIdentity),
         findLastSuccessfulFieldValidationCompletionSyncAt(database, requestedSubmitterIdentity),
+        findLastSuccessfulAerialAnalysisSyncAt(database, requestedSubmitterIdentity),
       ]);
-    const nextPendingCount = reportCount + surveyCount + completionCount;
-    const lastSyncedAt = latestTimestamp(latestTimestamp(reportLastSyncedAt, surveyLastSyncedAt), completionLastSyncedAt);
+    const nextPendingCount = reportCount + surveyCount + completionCount + aerialCount;
+    const lastSyncedAt = latestTimestamp(
+      latestTimestamp(reportLastSyncedAt, surveyLastSyncedAt),
+      latestTimestamp(completionLastSyncedAt, aerialLastSyncedAt),
+    );
     if (
       mounted.current &&
       isSameSession(
@@ -368,7 +390,19 @@ export function SyncProvider({ children }: PropsWithChildren) {
           ownerIdentity: initiatingSession.user.uuid,
           token: initiatingSession.token,
         });
-        const result = mergeSyncBatchResults(surveyResult, reportResult, completionResult);
+        if (!canContinueOfficialRecordSync()) {
+          await refreshPendingCount();
+          return null;
+        }
+        const aerialResult = await syncPendingAerialAnalyses({
+          database,
+          isSendHeld: sendHeld,
+          onOutcome: publishSendOutcome,
+          source,
+          ownerIdentity: initiatingSession.user.uuid,
+          token: initiatingSession.token,
+        });
+        const result = mergeSyncBatchResults(surveyResult, reportResult, completionResult, aerialResult);
         if (!isInitiatingSessionCurrent()) {
           return result;
         }
@@ -496,6 +530,21 @@ export function SyncProvider({ children }: PropsWithChildren) {
     [authStatus, canSyncOfficialRecords, database, submitterIdentity, syncNow],
   );
 
+  const retryAerialAnalysis = useCallback(
+    async (uploadId: string) => {
+      if (
+        authStatus !== 'authenticated' ||
+        !submitterIdentity ||
+        !canSyncOfficialRecords
+      ) {
+        return null;
+      }
+      await markAerialAnalysisPending(database, uploadId, submitterIdentity);
+      return syncNow('manual');
+    },
+    [authStatus, canSyncOfficialRecords, database, submitterIdentity, syncNow],
+  );
+
   const sendAllAgain = useCallback(async () => {
     if (
       authStatus !== 'authenticated' ||
@@ -615,6 +664,11 @@ export function SyncProvider({ children }: PropsWithChildren) {
           requestedSubmitterIdentity,
           staleBefore,
         ),
+        resetStaleSyncingAerialAnalyses(
+          database,
+          requestedSubmitterIdentity,
+          staleBefore,
+        ),
         Promise.resolve().then(() => resetStaleSyncingFieldSurveys(database, requestedSubmitterIdentity, staleBefore)),
       ])
         .then(() => {
@@ -730,6 +784,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       pendingCompletionsCount: canSyncOfficialRecords
         ? pendingCompletionsCount
         : 0,
+      retryAerialAnalysis,
       retryFieldValidationCompletion,
       retryReport,
       sendAllAgain,
@@ -745,6 +800,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
       pendingReportsCount,
       pendingSurveysCount,
       pendingCompletionsCount,
+      retryAerialAnalysis,
       retryFieldValidationCompletion,
       retryReport,
       sendAllAgain,
@@ -812,6 +868,8 @@ function inferApiReachability(
       case 'AUTH_REQUIRED':
       case 'API_VALIDATION_FAILED':
       case 'CAPABILITY_REVOKED':
+      case 'AERIAL_DISABLED':
+      case 'VISIT_CASE_CLOSED':
       case 'API_FORBIDDEN':
       case 'API_RATE_LIMITED':
       case 'OFFICE_NOT_READY':

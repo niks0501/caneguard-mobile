@@ -293,6 +293,40 @@ export async function confirmCachedFieldValidationAssignments(
   }
 }
 
+/**
+ * Store the latest server-computed aerial check brief inside the owner's
+ * cached assignment row without altering ground visit fields or checkpoints.
+ */
+export async function updateCachedAssignmentAerialCheck(
+  database: CaneGuardDatabase,
+  ownerIdentity: string,
+  assignmentId: string,
+  aerialCheck: OfficeAerialCheck | null,
+): Promise<void> {
+  const owner = requireOwner(ownerIdentity);
+  try {
+    await database
+      .update(fieldValidationAssignments)
+      .set({
+        aerialCheckJson: aerialCheck ? JSON.stringify(aerialCheck) : null,
+      })
+      .where(
+        and(
+          eq(fieldValidationAssignments.ownerIdentity, owner),
+          eq(fieldValidationAssignments.id, assignmentId),
+        ),
+      )
+      .run();
+    emitSyncRecordsChanged();
+  } catch (error: unknown) {
+    throw toStorageError(
+      error,
+      'UPDATE_FAILED',
+      'Updating the cached aerial brief failed.',
+    );
+  }
+}
+
 function toRow(
   update: FieldValidationAssignmentUpdate,
   ownerIdentity: string,

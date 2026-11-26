@@ -68,6 +68,16 @@ jest.mock('@/features/sync/hooks/useSync', () => ({
 jest.mock('@/features/assignments/data/assignmentCacheRepository', () => ({
   findCachedFieldValidationAssignment: jest.fn(),
 }));
+jest.mock('@/features/assignments/data/aerialAnalysisOutboxRepository', () => ({
+  deleteUnsentAerialAnalysis: jest.fn(),
+  enqueueAerialAnalysis: jest.fn(),
+  findLatestAerialAnalysisForAssignment: jest.fn(async () => null),
+  markAerialAnalysisPending: jest.fn(),
+}));
+jest.mock('@/features/assignments/services/aerialPhotoStorage', () => ({
+  deleteAerialUploadPhoto: jest.fn(),
+  persistAerialUploadPhoto: jest.fn(),
+}));
 jest.mock('@/features/assignments/data/fieldValidationCompletionRepository', () => ({
   findFieldValidationCompletion: jest.fn(),
   saveFieldValidationCompletion: jest.fn(),

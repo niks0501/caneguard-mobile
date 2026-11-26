@@ -19,6 +19,7 @@ import {
   purgeExpiredLocalData,
 } from '@/database/localDataLifecycle';
 import * as schema from '@/database/schema';
+import { getAerialUploadPhotoDirectory } from '@/features/assignments/services/aerialPhotoStorage';
 import { getFieldValidationPhotoDirectory } from '@/features/assignments/services/fieldValidationPhotoStorage';
 import { getOwnerMobileDataStore } from '@/features/mobile-data/data/mobileDataStore';
 import { getManagedScanImageDirectory } from '@/features/records/services/scanImageStorage';
@@ -149,6 +150,7 @@ const MIGRATIONS = [
   '0038_net3_visit_provenance.sql',
   '0039_field_map_label_outline.sql',
   '0040_aerial_check_brief.sql',
+  '0041_aerial_check_outbox.sql',
 ] as const;
 
 function readMigration(filename: string): string {
@@ -721,6 +723,46 @@ describe('local data lifecycle', () => {
     expect(result.imageCleanupErrors).toEqual([]);
     expect(mockFsFiles.has(`${scanDirectory.uri}/${scanId}.jpg`)).toBe(true);
     expect(mockFsFiles.has(`${scanDirectory.uri}/11111111-1111-4111-8111-111111111111.jpg`)).toBe(false);
+    native.close();
+  });
+
+  it('tracks, preserves when unsent, and cleans up aerial outbox uploads and photos on clear', async () => {
+    const { database, native } = openTestDatabase();
+    const aerialDir = getAerialUploadPhotoDirectory(OWNER_ID);
+    const pendingPhoto = `${aerialDir.uri}/3fbd7f77-7d6b-4eb0-a1c7-b673f5a2f39f-pending.jpg`;
+    mockFsDirectories.add(aerialDir.uri);
+    mockFsFiles.set(pendingPhoto, { size: 50_000 });
+
+    native
+      .prepare(
+        `INSERT INTO aerial_analysis_outbox (
+          id, owner_identity, assignment_id, report_uuid, image_uri, image_mime_type,
+          image_size_bytes, sync_status, sync_attempt_count, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        '11111111-1111-4111-8111-111111111111',
+        OWNER_ID,
+        '3fbd7f77-7d6b-4eb0-a1c7-b673f5a2f39f',
+        '7e8c2e48-a2d4-4aca-9a50-9ca460fd7a7f',
+        pendingPhoto,
+        'image/jpeg',
+        50_000,
+        'pending',
+        0,
+        OLD,
+        OLD,
+      );
+
+    // Purge retains pending aerial uploads past retention window.
+    await purgeExpiredLocalData(database, OWNER_ID, new Date(NOW));
+    expect(mockFsFiles.has(pendingPhoto)).toBe(true);
+    expect(getLocalDataRemovalPreview(database, OWNER_ID).totalUnsent).toBe(1);
+
+    // Full local data clear removes the outbox row and managed drone photo.
+    await clearLocalDataForOwner(database, OWNER_ID);
+    expect(mockFsFiles.has(pendingPhoto)).toBe(false);
+    expect(getLocalDataRemovalPreview(database, OWNER_ID).totalRecords).toBe(0);
     native.close();
   });
 });

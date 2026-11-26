@@ -288,6 +288,13 @@
       "when": 1795672505670,
       "tag": "0040_aerial_check_brief",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1795689973129,
+      "tag": "0041_aerial_check_outbox",
+      "breakpoints": true
     }
   ]
 }

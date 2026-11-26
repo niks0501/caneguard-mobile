@@ -42,10 +42,18 @@ export const VISIT_REFUSAL_SYNC_ERROR_CODES = [
  */
 export const ACCESS_REFUSAL_SYNC_ERROR_CODES = ['CAPABILITY_REVOKED'] as const;
 
+/**
+ * Aerial refusals: the office turned aerial canopy check off. Saved drone
+ * photos remain on this device; automatic background retries stop until the
+ * user chooses to retry or remove the queued upload.
+ */
+export const AERIAL_REFUSAL_SYNC_ERROR_CODES = ['AERIAL_DISABLED'] as const;
+
 export type SyncErrorCode =
   | (typeof SYNC_ERROR_CODES)[number]
   | (typeof VISIT_REFUSAL_SYNC_ERROR_CODES)[number]
-  | (typeof ACCESS_REFUSAL_SYNC_ERROR_CODES)[number];
+  | (typeof ACCESS_REFUSAL_SYNC_ERROR_CODES)[number]
+  | (typeof AERIAL_REFUSAL_SYNC_ERROR_CODES)[number];
 
 /** Web reason code on a refused visit completion -> the phone's end state. */
 const VISIT_REFUSAL_REASON_CODES: Record<string, SyncErrorCode> = {
@@ -53,6 +61,7 @@ const VISIT_REFUSAL_REASON_CODES: Record<string, SyncErrorCode> = {
   CASE_CLOSED: 'VISIT_CASE_CLOSED',
   COMPLETED_ELSEWHERE: 'VISIT_DONE_BY_SOMEONE',
   VISIT_REMOVED: 'VISIT_CANCELLED',
+  AERIAL_DISABLED: 'AERIAL_DISABLED',
 };
 
 /** True when the response body names the web's CAPABILITY_REVOKED reason code. */
@@ -252,6 +261,13 @@ export function toSyncError(
         { retryAfterMs: error.retryAfterMs },
       );
     }
+    if (error.status === 423) {
+      return new SyncError(
+        'SERVER_ERROR',
+        'This case is currently open for office review. CaneGuard will retry shortly.',
+        { retryAfterMs: error.retryAfterMs ?? 15_000 },
+      );
+    }
     if (error.status === 429) {
       return new SyncError(
         'API_RATE_LIMITED',
@@ -325,6 +341,8 @@ export function getSyncErrorMessage(code: string | null): string | null {
       return 'Someone else already finished this visit.';
     case 'VISIT_CANCELLED':
       return 'The office cancelled this visit.';
+    case 'AERIAL_DISABLED':
+      return 'Aerial canopy checks are turned off by the office. Your saved drone photo stays on this device.';
     default:
       return null;
   }

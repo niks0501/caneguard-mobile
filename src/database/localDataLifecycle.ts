@@ -4,6 +4,7 @@ import type { CaneGuardDatabase } from '@/database/database';
 import { toStorageError, type StorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import {
+  aerialAnalysisOutbox,
   fieldReports,
   fieldSurveys,
   fieldValidationAssignmentSnapshots,
@@ -15,6 +16,10 @@ import {
   scanRecords,
   syncCheckpoints,
 } from '@/database/schema';
+import {
+  deleteAerialUploadPhoto,
+  listAerialUploadPhotoUris,
+} from '@/features/assignments/services/aerialPhotoStorage';
 import {
   deleteFieldValidationPhoto,
   listFieldValidationPhotoUris,
@@ -50,9 +55,11 @@ interface ImageCleanupTargets {
   draftValidationPhotos: string[];
   managedScanImages: string[];
   fieldValidationPhotos: string[];
+  aerialUploadPhotos: string[];
 }
 
 export interface LocalDataRemovalPreview {
+  aerialUploads?: number;
   assignments: number;
   boundaries: number;
   draftCheckpoints: number;
@@ -63,6 +70,7 @@ export interface LocalDataRemovalPreview {
   scans: number;
   totalRecords: number;
   totalUnsent: number;
+  unsentAerialUploads?: number;
   unsentBoundaries: number;
   unsentScans: number;
   unsentVisits: number;
@@ -93,6 +101,11 @@ function readRemovalPreview(
     .from(fieldValidationCompletions)
     .where(eq(fieldValidationCompletions.ownerIdentity, owner))
     .all();
+  const aerialUploads = database
+    .select()
+    .from(aerialAnalysisOutbox)
+    .where(eq(aerialAnalysisOutbox.ownerIdentity, owner))
+    .all();
   const boundaries = database.select().from(fieldSurveys).where(eq(fieldSurveys.ownerIdentity, owner)).all();
   const scans = database.select().from(scanRecords).where(eq(scanRecords.ownerIdentity, owner)).all();
   const assignments = database
@@ -112,6 +125,7 @@ function readRemovalPreview(
     (row) => row.authoringState === 'finalized' && row.syncStatus !== 'synced',
   ).length;
   const unsentVisits = visits.filter((row) => row.syncStatus !== 'synced').length;
+  const unsentAerialUploads = aerialUploads.filter((row) => row.syncStatus !== 'synced').length;
   const unsentBoundaries = boundaries.filter((row) => row.status !== 'synced').length;
   const reportSyncStatusByScanId = new Map(
     reports.map((row) => [row.scanRecordId, row.syncStatus]),
@@ -122,9 +136,11 @@ function readRemovalPreview(
   const uploadInFlight =
     reports.some((row) => row.syncStatus === 'syncing') ||
     visits.some((row) => row.syncStatus === 'syncing') ||
+    aerialUploads.some((row) => row.syncStatus === 'syncing') ||
     boundaries.some((row) => row.status === 'syncing');
 
   return {
+    aerialUploads: aerialUploads.length,
     assignments: assignments.length,
     boundaries: boundaries.length,
     draftCheckpoints: checkpoints.length,
@@ -136,6 +152,7 @@ function readRemovalPreview(
     totalRecords:
       reports.length +
       visits.length +
+      aerialUploads.length +
       boundaries.length +
       scans.length +
       assignments.length +
@@ -145,9 +162,11 @@ function readRemovalPreview(
       draftReports +
       finalizedUnsentReports +
       unsentVisits +
+      unsentAerialUploads +
       unsentBoundaries +
       unsentScans +
       checkpoints.length,
+    unsentAerialUploads,
     unsentBoundaries,
     unsentScans,
     unsentVisits,
@@ -244,6 +263,10 @@ export async function clearLocalDataForOwner(
           .where(eq(fieldValidationCompletions.ownerIdentity, owner))
           .run().changes;
         deletedRows += transaction
+          .delete(aerialAnalysisOutbox)
+          .where(eq(aerialAnalysisOutbox.ownerIdentity, owner))
+          .run().changes;
+        deletedRows += transaction
           .delete(fieldValidationAssignments)
           .where(eq(fieldValidationAssignments.ownerIdentity, owner))
           .run().changes;
@@ -336,7 +359,7 @@ export async function purgeExpiredLocalData(
     now.getTime() - Math.trunc(retentionDays) * 24 * 60 * 60 * 1000,
   ).toISOString();
 
-  const [scanRows, allReportRows, surveyRows, completionRows, assignmentRows, notificationRows] = await Promise.all([
+  const [scanRows, allReportRows, surveyRows, completionRows, aerialRows, assignmentRows, notificationRows] = await Promise.all([
     database
       .select({
         id: scanRecords.id,
@@ -376,6 +399,16 @@ export async function purgeExpiredLocalData(
           eq(fieldValidationCompletions.ownerIdentity, owner),
           eq(fieldValidationCompletions.syncStatus, 'synced'),
           lt(fieldValidationCompletions.createdAt, cutoff),
+        ),
+      ),
+    database
+      .select({ imageUri: aerialAnalysisOutbox.imageUri })
+      .from(aerialAnalysisOutbox)
+      .where(
+        and(
+          eq(aerialAnalysisOutbox.ownerIdentity, owner),
+          eq(aerialAnalysisOutbox.syncStatus, 'synced'),
+          lt(aerialAnalysisOutbox.createdAt, cutoff),
         ),
       ),
     database
@@ -429,6 +462,9 @@ export async function purgeExpiredLocalData(
     fieldValidationPhotos: completionRows
       .map((row) => row.freshPhotoUri)
       .filter((uri): uri is string => Boolean(uri)),
+    aerialUploadPhotos: aerialRows
+      .map((row) => row.imageUri)
+      .filter((uri): uri is string => Boolean(uri)),
   };
   let deletedRows = 0;
   if (
@@ -436,6 +472,7 @@ export async function purgeExpiredLocalData(
     reportIds.length > 0 ||
     surveyRows.length > 0 ||
     completionRows.length > 0 ||
+    aerialRows.length > 0 ||
     assignmentRows.length > 0 ||
     notificationRows.length > 0
   ) {
@@ -484,6 +521,16 @@ export async function purgeExpiredLocalData(
             eq(fieldValidationCompletions.ownerIdentity, owner),
             eq(fieldValidationCompletions.syncStatus, 'synced'),
             lt(fieldValidationCompletions.createdAt, cutoff),
+          ),
+        )
+        .run().changes;
+      deletedRows += transaction
+        .delete(aerialAnalysisOutbox)
+        .where(
+          and(
+            eq(aerialAnalysisOutbox.ownerIdentity, owner),
+            eq(aerialAnalysisOutbox.syncStatus, 'synced'),
+            lt(aerialAnalysisOutbox.createdAt, cutoff),
           ),
         )
         .run().changes;
@@ -567,7 +614,7 @@ async function readCleanupTargets(
   database: CaneGuardDatabase,
   owner: string,
 ): Promise<ImageCleanupTargets> {
-  const [scanRows, completionRows] = await Promise.all([
+  const [scanRows, completionRows, aerialRows] = await Promise.all([
     database
       .select({
         managedImageUri: scanRecords.managedImageUri,
@@ -579,6 +626,10 @@ async function readCleanupTargets(
       .select({ freshPhotoUri: fieldValidationCompletions.freshPhotoUri })
       .from(fieldValidationCompletions)
       .where(eq(fieldValidationCompletions.ownerIdentity, owner)),
+    database
+      .select({ imageUri: aerialAnalysisOutbox.imageUri })
+      .from(aerialAnalysisOutbox)
+      .where(eq(aerialAnalysisOutbox.ownerIdentity, owner)),
   ]);
   const draftScanImages: string[] = [];
   const draftValidationPhotos: string[] = [];
@@ -612,6 +663,9 @@ async function readCleanupTargets(
       .filter((uri): uri is string => Boolean(uri)),
     fieldValidationPhotos: completionRows
       .map((row) => row.freshPhotoUri)
+      .filter((uri): uri is string => Boolean(uri)),
+    aerialUploadPhotos: aerialRows
+      .map((row) => row.imageUri)
       .filter((uri): uri is string => Boolean(uri)),
   };
 }
@@ -677,12 +731,25 @@ function cleanupImages(
       );
     }
   }
+  for (const uri of new Set(targets.aerialUploadPhotos)) {
+    try {
+      deleteAerialUploadPhoto(uri, ownerIdentity);
+    } catch (error: unknown) {
+      errors.push(
+        toStorageError(
+          error,
+          'IMAGE_DELETE_FAILED',
+          'A queued drone photo could not be removed during local-data cleanup.',
+        ),
+      );
+    }
+  }
   return errors;
 }
 
 /**
- * Removes owner image files that no draft checkpoint, scan record or completion
- * names any more, so leftovers from interrupted drafts cannot survive cleanup.
+ * Removes owner image files that no draft checkpoint, scan record, completion,
+ * or aerial outbox row names any more, so leftovers cannot survive cleanup.
  */
 function sweepOrphanedOwnerImages(
   database: CaneGuardDatabase,
@@ -718,6 +785,22 @@ function sweepOrphanedOwnerImages(
           error,
           'IMAGE_DELETE_FAILED',
           'A leftover visit photo could not be removed during local-data cleanup.',
+        ),
+      );
+    }
+  }
+  for (const uri of listAerialUploadPhotoUris(owner)) {
+    if (referenced.has(uri)) {
+      continue;
+    }
+    try {
+      deleteAerialUploadPhoto(uri, owner);
+    } catch (error: unknown) {
+      errors.push(
+        toStorageError(
+          error,
+          'IMAGE_DELETE_FAILED',
+          'A leftover drone photo could not be removed during local-data cleanup.',
         ),
       );
     }
@@ -758,6 +841,16 @@ function readReferencedImageUris(
   for (const row of completionRows) {
     if (row.freshPhotoUri) {
       referenced.add(row.freshPhotoUri);
+    }
+  }
+  const aerialRows = database
+    .select({ imageUri: aerialAnalysisOutbox.imageUri })
+    .from(aerialAnalysisOutbox)
+    .where(eq(aerialAnalysisOutbox.ownerIdentity, owner))
+    .all();
+  for (const row of aerialRows) {
+    if (row.imageUri) {
+      referenced.add(row.imageUri);
     }
   }
   const draftRows = database

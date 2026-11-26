@@ -797,6 +797,64 @@ export const localDrafts = sqliteTable(
 export type LocalDraftRow = typeof localDrafts.$inferSelect;
 export type NewLocalDraftRow = typeof localDrafts.$inferInsert;
 
+/**
+ * Offline queue for inspector drone gallery uploads attached to an assigned
+ * case. Strictly additive to ground visit evidence; never alters hectares or
+ * completion state.
+ */
+export const aerialAnalysisOutbox = sqliteTable(
+  'aerial_analysis_outbox',
+  {
+    id: text('id').primaryKey(),
+    ownerIdentity: text('owner_identity').notNull(),
+    assignmentId: text('assignment_id').notNull(),
+    reportUuid: text('report_uuid').notNull(),
+    imageUri: text('image_uri').notNull(),
+    imageMimeType: text('image_mime_type').notNull(),
+    imageSizeBytes: integer('image_size_bytes').notNull(),
+    authorizationBasis: text('authorization_basis'),
+    capabilitiesVerifiedAt: text('capabilities_verified_at'),
+    syncStatus: text('sync_status')
+      .$type<SyncStatus>()
+      .notNull()
+      .default('pending'),
+    remoteId: text('remote_id'),
+    syncAttemptCount: integer('sync_attempt_count').notNull().default(0),
+    lastSyncErrorCode: text('last_sync_error_code'),
+    lastSyncAttemptAt: text('last_sync_attempt_at'),
+    lastSyncedAt: text('last_synced_at'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('aerial_analysis_outbox_owner_status_idx').on(
+      table.ownerIdentity,
+      table.syncStatus,
+      table.createdAt,
+    ),
+    index('aerial_analysis_outbox_owner_assignment_idx').on(
+      table.ownerIdentity,
+      table.assignmentId,
+      table.createdAt,
+    ),
+    check(
+      'aerial_analysis_outbox_sync_status_check',
+      sql`${table.syncStatus} in ('local_only', 'pending', 'syncing', 'synced', 'failed')`,
+    ),
+    check(
+      'aerial_analysis_outbox_image_size_check',
+      sql`${table.imageSizeBytes} > 0`,
+    ),
+    check(
+      'aerial_analysis_outbox_sync_attempt_count_check',
+      sql`${table.syncAttemptCount} >= 0`,
+    ),
+  ],
+);
+
+export type AerialAnalysisOutboxRow = typeof aerialAnalysisOutbox.$inferSelect;
+export type NewAerialAnalysisOutboxRow = typeof aerialAnalysisOutbox.$inferInsert;
+
 export type MobileNotificationRow = typeof mobileNotifications.$inferSelect;
 export type NewMobileNotificationRow = typeof mobileNotifications.$inferInsert;
 export type FieldValidationAssignmentRow = typeof fieldValidationAssignments.$inferSelect;

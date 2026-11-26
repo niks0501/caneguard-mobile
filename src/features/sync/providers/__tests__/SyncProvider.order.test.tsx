@@ -5,10 +5,16 @@ import { AppState, Text } from 'react-native';
 import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import {
+  countUnsyncedAerialAnalyses,
+  findLastSuccessfulAerialAnalysisSyncAt,
+  resetStaleSyncingAerialAnalyses,
+} from '@/features/assignments/data/aerialAnalysisOutboxRepository';
+import {
   countUnsyncedFieldValidationCompletions,
   findLastSuccessfulFieldValidationCompletionSyncAt,
   resetStaleSyncingFieldValidationCompletions,
 } from '@/features/assignments/data/fieldValidationCompletionRepository';
+import { syncPendingAerialAnalyses } from '@/features/assignments/services/syncPendingAerialAnalyses';
 import { syncPendingFieldValidationCompletions } from '@/features/assignments/services/syncPendingFieldValidationCompletions';
 import {
   countUnsyncedFieldReports,
@@ -36,6 +42,15 @@ jest.mock('@react-native-community/netinfo', () => ({
 jest.mock('@/database/DatabaseProvider', () => ({ useCaneGuardDatabase: jest.fn() }));
 jest.mock('@/database/localDataLifecycle', () => ({ purgeExpiredLocalData: jest.fn(async () => undefined) }));
 jest.mock('@/features/auth/hooks/useAuth', () => ({ useAuth: jest.fn() }));
+jest.mock('@/features/assignments/data/aerialAnalysisOutboxRepository', () => ({
+  countUnsyncedAerialAnalyses: jest.fn(),
+  findLastSuccessfulAerialAnalysisSyncAt: jest.fn(),
+  markAerialAnalysisPending: jest.fn(),
+  resetStaleSyncingAerialAnalyses: jest.fn(),
+}));
+jest.mock('@/features/assignments/services/syncPendingAerialAnalyses', () => ({
+  syncPendingAerialAnalyses: jest.fn(),
+}));
 jest.mock('@/features/assignments/data/fieldValidationCompletionRepository', () => ({
   countUnsyncedFieldValidationCompletions: jest.fn(),
   findLastSuccessfulFieldValidationCompletionSyncAt: jest.fn(),
@@ -95,16 +110,20 @@ describe('SyncProvider send order and revocation (NET-3)', () => {
     } as never);
     jest.mocked(countUnsyncedFieldReports).mockResolvedValue(1);
     jest.mocked(countUnsyncedFieldValidationCompletions).mockResolvedValue(0);
+    jest.mocked(countUnsyncedAerialAnalyses).mockResolvedValue(0);
     jest.mocked(countUnsyncedFieldSurveys).mockReturnValue(1);
     jest.mocked(findLastSuccessfulFieldSurveySyncAt).mockReturnValue(null);
     jest.mocked(resetStaleSyncingFieldSurveys).mockReturnValue();
     jest.mocked(findFieldReportUploadRecord).mockResolvedValue({} as never);
     jest.mocked(findLastSuccessfulFieldReportSyncAt).mockResolvedValue(null);
     jest.mocked(findLastSuccessfulFieldValidationCompletionSyncAt).mockResolvedValue(null);
+    jest.mocked(findLastSuccessfulAerialAnalysisSyncAt).mockResolvedValue(null);
     jest.mocked(resetStaleSyncingFieldReports).mockResolvedValue();
     jest.mocked(resetStaleSyncingFieldValidationCompletions).mockResolvedValue();
+    jest.mocked(resetStaleSyncingAerialAnalyses).mockResolvedValue();
     jest.mocked(syncPendingFieldSurveys).mockResolvedValue(batch());
     jest.mocked(syncPendingFieldValidationCompletions).mockResolvedValue(batch() as never);
+    jest.mocked(syncPendingAerialAnalyses).mockResolvedValue(batch() as never);
     jest.mocked(syncPendingFieldReports).mockResolvedValue(batch());
     jest.mocked(NetInfo.addEventListener).mockImplementation((listener) => {
       networkListener = listener as (state: never) => void;

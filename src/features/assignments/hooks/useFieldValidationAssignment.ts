@@ -9,6 +9,13 @@ import { useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { findCachedFieldValidationAssignment } from '@/features/assignments/data/assignmentCacheRepository';
 import {
+  deleteUnsentAerialAnalysis,
+  enqueueAerialAnalysis,
+  findLatestAerialAnalysisForAssignment,
+  markAerialAnalysisPending,
+  type AerialAnalysisOutboxItem,
+} from '@/features/assignments/data/aerialAnalysisOutboxRepository';
+import {
   findFieldValidationCompletion,
   saveFieldValidationCompletion,
 } from '@/features/assignments/data/fieldValidationCompletionRepository';
@@ -29,6 +36,10 @@ import {
 import { normalizeFieldValidationText } from '@/features/assignments/domain/fieldValidationCompletionValidation';
 import { findFieldReportById } from '@/features/reports/data/fieldReportRepository';
 import {
+  deleteAerialUploadPhoto,
+  persistAerialUploadPhoto,
+} from '@/features/assignments/services/aerialPhotoStorage';
+import {
   deleteFieldValidationPhoto,
   persistFieldValidationPhoto,
   type FieldValidationPhotoArtifact,
@@ -38,6 +49,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { captureGpsLocation } from '@/features/reports/services/captureGpsLocation';
 import { expoForegroundLocationClient } from '@/features/reports/services/expoForegroundLocationClient';
 import { useSync } from '@/features/sync/hooks/useSync';
+import { subscribeSyncRecords } from '@/features/sync/services/syncEvents';
 
 export interface CompleteFieldValidationInput {
   actionTaken: string;
@@ -52,6 +64,8 @@ export interface CompleteFieldValidationInput {
 export type FieldValidationDraftStatus = 'idle' | 'saving' | 'saved' | 'failed';
 
 interface AssignmentState {
+  aerialSaving: boolean;
+  aerialUpload: AerialAnalysisOutboxItem | null;
   assignment: FieldValidationAssignment | null;
   completion: FieldValidationCompletion | null;
   currentReporterConcern: string | null;
@@ -70,6 +84,8 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
   const mounted = useRef(true);
   const sessionRef = useRef(session);
   const [state, setState] = useState<AssignmentState>({
+    aerialSaving: false,
+    aerialUpload: null,
     assignment: null,
     completion: null,
     currentReporterConcern: null,
@@ -94,22 +110,23 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
   const refresh = useCallback(async () => {
     const requestedSession = session;
     if (!canComplete) {
-      setState({ assignment: null, completion: null, currentReporterConcern: null, errorMessage: FIELD_VALIDATION_UNAVAILABLE, loading: false, previousVisit: null, saving: false });
+      setState({ aerialSaving: false, aerialUpload: null, assignment: null, completion: null, currentReporterConcern: null, errorMessage: FIELD_VALIDATION_UNAVAILABLE, loading: false, previousVisit: null, saving: false });
       return;
     }
     if (!assignmentId || authStatus !== 'authenticated' || !requestedSession) {
-      setState({ assignment: null, completion: null, currentReporterConcern: null, errorMessage: 'Sign in to open this visit.', loading: false, previousVisit: null, saving: false });
+      setState({ aerialSaving: false, aerialUpload: null, assignment: null, completion: null, currentReporterConcern: null, errorMessage: 'Sign in to open this visit.', loading: false, previousVisit: null, saving: false });
       return;
     }
     setState((current) => ({ ...current, errorMessage: null, loading: true }));
     try {
-      const [assignment, completion] = await Promise.all([
+      const [assignment, completion, aerialUpload] = await Promise.all([
         findCachedFieldValidationAssignment(database, requestedSession.user.uuid, assignmentId),
         findFieldValidationCompletion(database, requestedSession.user.uuid, assignmentId),
+        findLatestAerialAnalysisForAssignment(database, requestedSession.user.uuid, assignmentId),
       ]);
       if (sessionRef.current?.token !== requestedSession.token || !mounted.current) return;
       if (!assignment) {
-        setState({ assignment: null, completion: null, currentReporterConcern: null, errorMessage: 'This visit is not downloaded on this device. Refresh Activity while online first.', loading: false, previousVisit: null, saving: false });
+        setState({ aerialSaving: false, aerialUpload: null, assignment: null, completion: null, currentReporterConcern: null, errorMessage: 'This visit is not downloaded on this device. Refresh Activity while online first.', loading: false, previousVisit: null, saving: false });
         return;
       }
       let currentReporterConcern: string | null = null;
@@ -131,6 +148,8 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       setDraftSavedAt(draftRecord?.checkpoint.savedAt ?? null);
       setDraftStatus(draftRecord ? 'saved' : 'idle');
       setState({
+        aerialSaving: false,
+        aerialUpload,
         assignment,
         completion,
         currentReporterConcern,
@@ -158,6 +177,26 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
       };
     }, [refresh]),
   );
+
+  useEffect(() => {
+    if (!canComplete || !assignmentId || authStatus !== 'authenticated' || !session) {
+      return undefined;
+    }
+    const requestedSession = session;
+    return subscribeSyncRecords(() => {
+      void Promise.all([
+        findCachedFieldValidationAssignment(database, requestedSession.user.uuid, assignmentId),
+        findLatestAerialAnalysisForAssignment(database, requestedSession.user.uuid, assignmentId),
+      ]).then(([assignment, aerialUpload]) => {
+        if (!mounted.current || sessionRef.current?.token !== requestedSession.token) return;
+        setState((current) => ({
+          ...current,
+          assignment: assignment ?? current.assignment,
+          aerialUpload,
+        }));
+      }).catch(() => undefined);
+    });
+  }, [assignmentId, authStatus, canComplete, database, session]);
 
   const persistDraftPhoto = useCallback(
     async (asset: ImagePickerAsset): Promise<FieldValidationPhotoArtifact | null> => {
@@ -316,13 +355,136 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
     }
   }, [canComplete, refresh, state.completion, sync]);
 
+  const attachAerialPhoto = useCallback(
+    async (asset: ImagePickerAsset): Promise<{ queued: boolean; errorMessage: string | null }> => {
+      if (!canComplete || !state.assignment || !session) {
+        return { queued: false, errorMessage: FIELD_VALIDATION_UNAVAILABLE };
+      }
+      const provenance = readAuthoringBound(auth);
+      if (provenance === null) {
+        return { queued: false, errorMessage: AUTHORING_WINDOW_COPY.ended };
+      }
+      const uploadId = randomUUID();
+      setState((current) => ({ ...current, aerialSaving: true }));
+      let savedPhotoUri: string | null = null;
+      try {
+        const photoArtifact = await persistAerialUploadPhoto({
+          ownerIdentity: session.user.uuid,
+          assignmentId: state.assignment.id,
+          uploadId,
+          fileName: asset.fileName,
+          mimeType: asset.mimeType,
+          sourceUri: asset.uri,
+        });
+        savedPhotoUri = photoArtifact.uri;
+
+        const previous = state.aerialUpload;
+        const queued = await enqueueAerialAnalysis(database, {
+          id: uploadId,
+          ownerIdentity: session.user.uuid,
+          assignmentId: state.assignment.id,
+          reportUuid: state.assignment.reportUuid,
+          imageUri: photoArtifact.uri,
+          imageMimeType: photoArtifact.mimeType,
+          imageSizeBytes: photoArtifact.sizeBytes,
+          provenance,
+          createdAt: new Date().toISOString(),
+        });
+        if (previous && (previous.syncStatus === 'pending' || previous.syncStatus === 'failed')) {
+          const removed = await deleteUnsentAerialAnalysis(database, previous.id, session.user.uuid).catch(() => null);
+          if (removed) {
+            deleteAerialUploadPhoto(removed.imageUri, session.user.uuid);
+          }
+        }
+        if (mounted.current) {
+          setState((current) => ({ ...current, aerialSaving: false, aerialUpload: queued }));
+        }
+        if (sync.isOnline === true) {
+          void sync.syncNow('after-save');
+        }
+        return { queued: true, errorMessage: null };
+      } catch (error: unknown) {
+        if (savedPhotoUri) {
+          deleteAerialUploadPhoto(savedPhotoUri, session.user.uuid);
+        }
+        const message = getStorageErrorMessage(
+          toStorageError(error, 'IMAGE_COPY_FAILED', 'The drone photo could not be saved on this device.'),
+        );
+        if (mounted.current) {
+          setState((current) => ({ ...current, aerialSaving: false }));
+        }
+        return { queued: false, errorMessage: message };
+      }
+    },
+    [auth, canComplete, database, session, state.aerialUpload, state.assignment, sync],
+  );
+
+  const retryAerialPhoto = useCallback(async () => {
+    if (!canComplete || !state.aerialUpload || !session || sync.isOnline !== true) return;
+    setState((current) => ({ ...current, aerialSaving: true }));
+    try {
+      if (sync.retryAerialAnalysis) {
+        await sync.retryAerialAnalysis(state.aerialUpload.id);
+      } else {
+        await markAerialAnalysisPending(database, state.aerialUpload.id, session.user.uuid);
+        await sync.syncNow('manual');
+      }
+      if (assignmentId) {
+        const [assignment, aerialUpload] = await Promise.all([
+          findCachedFieldValidationAssignment(database, session.user.uuid, assignmentId),
+          findLatestAerialAnalysisForAssignment(database, session.user.uuid, assignmentId),
+        ]);
+        if (mounted.current) {
+          setState((current) => ({
+            ...current,
+            aerialSaving: false,
+            assignment: assignment ?? current.assignment,
+            aerialUpload,
+          }));
+        }
+      }
+    } catch {
+      if (mounted.current) {
+        setState((current) => ({ ...current, aerialSaving: false }));
+      }
+    }
+  }, [assignmentId, canComplete, database, session, state.aerialUpload, sync]);
+
+  const removeQueuedAerialPhoto = useCallback(async () => {
+    if (!canComplete || !state.aerialUpload || !session) return;
+    setState((current) => ({ ...current, aerialSaving: true }));
+    try {
+      const removed = await deleteUnsentAerialAnalysis(
+        database,
+        state.aerialUpload.id,
+        session.user.uuid,
+      );
+      if (removed) {
+        deleteAerialUploadPhoto(removed.imageUri, session.user.uuid);
+      }
+      if (mounted.current) {
+        setState((current) => ({
+          ...current,
+          aerialSaving: false,
+          aerialUpload: removed ? null : current.aerialUpload,
+        }));
+      }
+    } catch {
+      if (mounted.current) {
+        setState((current) => ({ ...current, aerialSaving: false }));
+      }
+    }
+  }, [canComplete, database, session, state.aerialUpload]);
+
   return {
     ...state,
+    attachAerialPhoto,
     canComplete,
     complete,
     draftSavedAt,
     draftStatus,
     formDraft,
+    isOnline: sync.isOnline,
     ownerIdentity: session?.user.uuid ?? null,
     persistDraftPhoto,
     saveDraftCheckpoint,
@@ -332,6 +494,8 @@ export function useFieldValidationAssignment(assignmentId: string | null) {
         ? buildMobilePreviousEvidencePhotoUrl(state.assignment.id)
         : null,
     refresh,
+    removeQueuedAerialPhoto,
     retry,
+    retryAerialPhoto,
   };
 }

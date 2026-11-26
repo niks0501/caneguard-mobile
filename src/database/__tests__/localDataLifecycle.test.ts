@@ -148,6 +148,7 @@ const MIGRATIONS = [
   '0037_net3_survey_provenance.sql',
   '0038_net3_visit_provenance.sql',
   '0039_field_map_label_outline.sql',
+  '0040_aerial_check_brief.sql',
 ] as const;
 
 function readMigration(filename: string): string {

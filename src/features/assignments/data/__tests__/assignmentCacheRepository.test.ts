@@ -44,6 +44,7 @@ function openTestDatabase(): { database: CaneGuardDatabase; native: DatabaseSync
     '0032_office_case_projection.sql',
     '0034_authority_workflow_status.sql',
     '0035_authority_status_redownload.sql',
+    '0040_aerial_check_brief.sql',
   ]) native.exec(readMigration(migration));
 
   const client = {

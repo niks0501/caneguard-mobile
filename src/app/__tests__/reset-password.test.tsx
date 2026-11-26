@@ -51,6 +51,11 @@ describe('ResetPasswordScreen', () => {
     } as unknown as ReturnType<typeof useAuth>);
   });
 
+  it('shows the Tagalog three-word passphrase tip beside the English rule', async () => {
+    await render(<ResetPasswordScreen />);
+    expect(screen.getByTestId('reset-password.tip-tl')).toHaveTextContent(/Gumamit ng 3 madaling salita/);
+  });
+
   it('hands the in-memory link value to the API and clears cached credentials on success', async () => {
     mockResetPassword.mockResolvedValueOnce({
       code: 'PASSWORD_RESET',

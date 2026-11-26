@@ -5,6 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '@/components/ui/AppButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { TextField } from '@/components/ui/TextField';
+import { PASSPHRASE_TIP_TL } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import {
   MobileAuthError,
@@ -116,6 +117,7 @@ export default function ResetPasswordScreen() {
             textContentType="newPassword"
           />
           <Text style={[styles.hint, { color: theme.textSecondary }]}>Use {PASSWORD_MIN_LENGTH} to {PASSWORD_MAX_LENGTH} characters. A phrase is fine; no symbol or number pattern is required.</Text>
+          <Text testID="reset-password.tip-tl" style={[styles.hint, { color: theme.textSecondary }]}>{PASSPHRASE_TIP_TL}</Text>
           {errorMessage ? (
             <Text
               testID="reset-password.error"

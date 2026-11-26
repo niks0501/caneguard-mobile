@@ -912,6 +912,54 @@ export type FarmerCopyBlock = {
     loadMore: string;
     startScan: string;
   };
+  care: {
+    ask: {
+      action: string;
+      actionHint: string;
+      title: string;
+      reassurance: string;
+      willSee: string;
+      barangayNeeded: string;
+      landmarkLabel: string;
+      landmarkPlaceholder: string;
+      concernLabel: string;
+      concerns: { spreading: string; changed_since_last: string; new_leaves: string; want_to_be_sure: string };
+      send: string;
+      sending: string;
+      cancel: string;
+      saved: string;
+      sentNow: string;
+      saveFailed: string;
+    };
+    track: {
+      heading: string;
+      steps: { sent: string; looking: string; advice: string };
+      queued: string;
+      sent: string;
+      looking: string;
+      advice: string;
+      officeSays: string;
+      failed: string;
+      askAgain: string;
+      removeUnsent: string;
+    };
+    advisories: {
+      heading: string;
+      forBarangay: string;
+      setBarangay: string;
+      setBarangayAction: string;
+      empty: string;
+      open: string;
+      close: string;
+    };
+    settings: {
+      homeBarangayLabel: string;
+      homeBarangayDescription: string;
+      homeBarangayNotSet: string;
+      homeBarangaySaved: string;
+      homeBarangayLocalOnly: string;
+    };
+  };
 };
 
 export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
@@ -1394,6 +1442,59 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       retryLoad: 'Try again',
       loadMore: 'Show more',
       startScan: 'Start a scan',
+    },
+    care: {
+      ask: {
+        action: 'Ask the office to look',
+        actionHint: 'Optional. Your scan stays on your phone until you ask.',
+        title: 'Ask the office to look',
+        reassurance: 'This is not an official report. There are no wrong answers.',
+        willSee: 'The office will see this photo, your barangay and what you choose below. Nothing else.',
+        barangayNeeded: 'Choose your barangay so the office knows where to look.',
+        landmarkLabel: 'Near (optional)',
+        landmarkPlaceholder: 'e.g. near the creek',
+        concernLabel: 'What worries you? (optional)',
+        concerns: {
+          spreading: 'It is spreading',
+          changed_since_last: 'It changed since my last check',
+          new_leaves: 'New leaves are affected',
+          want_to_be_sure: 'I want to be sure',
+        },
+        send: 'Ask the office',
+        sending: 'Saving…',
+        cancel: 'Cancel',
+        saved: 'Saved. It will be sent when there is signal.',
+        sentNow: 'Sent to the office.',
+        saveFailed: 'We could not save your request on this phone. Try again.',
+      },
+      track: {
+        heading: 'Your question to the office',
+        steps: { sent: 'Sent', looking: 'Looking', advice: 'Advice ready' },
+        queued: 'Saved on your phone. It will be sent when there is signal.',
+        sent: 'The office has your question.',
+        looking: 'The office is looking at your photo.',
+        advice: 'The office replied.',
+        officeSays: 'From the office',
+        failed: 'This question could not be sent. You can ask again.',
+        askAgain: 'Ask again',
+        removeUnsent: 'Remove this question',
+      },
+      advisories: {
+        heading: 'From the office',
+        forBarangay: 'For your barangay',
+        setBarangay: 'Set your barangay to get guidance for your area.',
+        setBarangayAction: 'Set barangay',
+        empty: 'No new guidance from the office right now.',
+        open: 'Read',
+        close: 'Close',
+      },
+      settings: {
+        homeBarangayLabel: 'Home barangay',
+        homeBarangayDescription: 'Used for guidance from the office. Only the barangay is shared, never your exact location.',
+        homeBarangayNotSet: 'Not set',
+        homeBarangaySaved: 'Home barangay saved.',
+        homeBarangayLocalOnly: 'Saved on this phone. It will update when there is signal.',
+      },
     },
   },
   tl: {
@@ -1878,6 +1979,59 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       loadMore: 'Magpakita pa',
       startScan: 'Mag-scan',
     },
+    care: {
+      ask: {
+        action: 'Humingi ng tulong sa opisina',
+        actionHint: 'Opsyonal. Nasa telepono mo lang ang scan hangga\u2019t hindi ka humihingi ng tulong.',
+        title: 'Humingi ng tulong sa opisina',
+        reassurance: 'Hindi ito opisyal na ulat. Walang maling sagot.',
+        willSee: 'Makikita ng opisina ang larawang ito, ang iyong barangay, at ang pipiliin mo sa ibaba. Wala nang iba.',
+        barangayNeeded: 'Piliin ang iyong barangay para malaman ng opisina kung saan titingin.',
+        landmarkLabel: 'Malapit sa (opsyonal)',
+        landmarkPlaceholder: 'hal. malapit sa sapa',
+        concernLabel: 'Ano ang ikinababahala mo? (opsyonal)',
+        concerns: {
+          spreading: 'Kumakalat ito',
+          changed_since_last: 'Nagbago mula sa huling check',
+          new_leaves: 'May bagong dahong apektado',
+          want_to_be_sure: 'Gusto kong makasiguro',
+        },
+        send: 'Humingi ng tulong',
+        sending: 'Sine-save\u2026',
+        cancel: 'Kanselahin',
+        saved: 'Naka-save. Ipapadala pag may signal.',
+        sentNow: 'Naipadala na sa opisina.',
+        saveFailed: 'Hindi namin ma-save ang iyong hiling sa telepono. Subukan muli.',
+      },
+      track: {
+        heading: 'Ang tanong mo sa opisina',
+        steps: { sent: 'Naipadala', looking: 'Tinitingnan', advice: 'May payo na' },
+        queued: 'Naka-save sa telepono mo. Ipapadala pag may signal.',
+        sent: 'Natanggap na ng opisina ang tanong mo.',
+        looking: 'Tinitingnan ng opisina ang larawan mo.',
+        advice: 'Sumagot na ang opisina.',
+        officeSays: 'Mula sa opisina',
+        failed: 'Hindi naipadala ang tanong na ito. Maaari kang magtanong muli.',
+        askAgain: 'Magtanong muli',
+        removeUnsent: 'Alisin ang tanong na ito',
+      },
+      advisories: {
+        heading: 'Mula sa opisina',
+        forBarangay: 'Para sa iyong barangay',
+        setBarangay: 'Itakda ang iyong barangay para makuha ang payo para sa inyong lugar.',
+        setBarangayAction: 'Itakda ang barangay',
+        empty: 'Wala pang bagong payo mula sa opisina.',
+        open: 'Basahin',
+        close: 'Isara',
+      },
+      settings: {
+        homeBarangayLabel: 'Barangay mo',
+        homeBarangayDescription: 'Para sa payo mula sa opisina. Barangay lang ang ibinabahagi, hindi ang eksaktong lokasyon mo.',
+        homeBarangayNotSet: 'Hindi pa naitakda',
+        homeBarangaySaved: 'Na-save ang barangay mo.',
+        homeBarangayLocalOnly: 'Naka-save sa telepono. Maa-update kapag may signal.',
+      },
+    },
   },
 };
 
@@ -2085,3 +2239,10 @@ export const SCAN_PICTURE_NAMES = {
   'something-else': 'Something else',
   'unable-to-tell': 'Not sure',
 } as const;
+
+/**
+ * Shown on the reset form to everyone: the sign-in screens run before the app knows
+ * who is signing in, so the Tagalog example sits beside the English rule.
+ */
+export const PASSPHRASE_TIP_TL =
+  'Gumamit ng 3 madaling salita (hal. tubo sa bukid 2026) \u2014 15 letra o higit pa, walang kailangang simbolo.';

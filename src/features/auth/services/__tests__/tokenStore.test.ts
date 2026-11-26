@@ -5,9 +5,13 @@ import {
   clearLegacyMobileSession,
   clearMobileSession,
   disableBiometricUnlock,
+  getLocalLockMode,
   hasCompletedMobileLogin,
+  hasPersistedMobileSession,
   markMobileLoginCompleted,
+  readPersistedMobileSession,
   readProtectedMobileSession,
+  savePersistedMobileSession,
   saveProtectedMobileSession,
   SecureSessionStoreError,
   StoredSessionExpiredError,
@@ -145,20 +149,27 @@ describe('mobile secure session store', () => {
   it('stores the session behind a device-credential gate when a PIN is available', async () => {
     await saveProtectedMobileSession(SESSION);
 
-    expect(mockSet).toHaveBeenNthCalledWith(
-      1,
+    expect(mockSet).toHaveBeenCalledWith(
       'caneguard.mobile.device-credential-gate.v1',
       'true',
       { keychainAccessible: 'device-only' },
     );
-    expect(mockSet).toHaveBeenNthCalledWith(
-      2,
+    expect(mockSet).toHaveBeenCalledWith(
       'caneguard.mobile.session.protected.v1',
       JSON.stringify(SESSION),
       { keychainAccessible: 'device-only' },
     );
-    expect(mockSet).toHaveBeenNthCalledWith(
-      3,
+    expect(mockSet).toHaveBeenCalledWith(
+      'caneguard.mobile.session-persisted.v1',
+      'true',
+      { keychainAccessible: 'device-only' },
+    );
+    expect(mockSet).toHaveBeenCalledWith(
+      'caneguard.mobile.local-lock-mode.v1',
+      'device',
+      { keychainAccessible: 'device-only' },
+    );
+    expect(mockSet).toHaveBeenCalledWith(
       'caneguard.mobile.biometric-enabled.v1',
       'true',
       { keychainAccessible: 'device-only' },
@@ -167,6 +178,54 @@ describe('mobile secure session store', () => {
       'caneguard.mobile.session.v1',
       { keychainAccessible: 'device-only' },
     );
+  });
+
+  it('persists a seamless offline session with lockMode="none" without prompting device auth on read', async () => {
+    const farmerSession: MobileSession = {
+      ...SESSION,
+      user: { ...SESSION.user, role: 'farmer', name: 'Farmer Juan' },
+    };
+    await savePersistedMobileSession(farmerSession, 'none');
+
+    await expect(hasPersistedMobileSession()).resolves.toBe(true);
+    await expect(getLocalLockMode()).resolves.toBe('none');
+    await expect(readPersistedMobileSession({ skipDevicePrompt: true })).resolves.toEqual({
+      farmerOfflineGrace: false,
+      session: farmerSession,
+    });
+    expect(authenticateWithDeviceCredential).not.toHaveBeenCalled();
+  });
+
+  it('returns farmer offline grace mode instead of throwing when a farmer token expires offline', async () => {
+    const expiredFarmer: MobileSession = {
+      ...SESSION,
+      expiresAt: '2020-01-01T00:00:00.000Z',
+      user: { ...SESSION.user, role: 'farmer', name: 'Farmer Juan' },
+    };
+    mockSecureStoreValues.set('caneguard.mobile.local-lock-mode.v1', 'none');
+    mockSecureStoreValues.set('caneguard.mobile.session-persisted.v1', 'true');
+    mockSecureStoreValues.set(
+      'caneguard.mobile.session.protected.v1',
+      JSON.stringify(expiredFarmer),
+    );
+
+    const result = await readPersistedMobileSession({ skipDevicePrompt: true });
+    expect(result).toEqual({
+      farmerOfflineGrace: true,
+      session: {
+        ...expiredFarmer,
+        token: '',
+        user: { ...expiredFarmer.user, capabilities: [] },
+      },
+    });
+    // Keeps persisted farmer identity intact so personal scans survive restarts.
+    expect(mockSecureStoreValues.has('caneguard.mobile.session.protected.v1')).toBe(true);
+  });
+
+  it('migrates a legacy biometric-enabled installation to localLockMode="device"', async () => {
+    mockSecureStoreValues.set('caneguard.mobile.biometric-enabled.v1', 'true');
+    await expect(hasPersistedMobileSession()).resolves.toBe(true);
+    await expect(getLocalLockMode()).resolves.toBe('device');
   });
 
   it('reads a protected session with a finite expiry after biometric authentication', async () => {
@@ -194,12 +253,23 @@ describe('mobile secure session store', () => {
     );
   });
 
-  it('clears password, protected, and biometric flag entries without touching scan storage', async () => {
+  it('clears password, protected, lock mode, and Quick PIN entries without touching scan storage', async () => {
     await clearMobileSession();
-    expect(mockDelete).toHaveBeenCalledTimes(4);
     expect(mockDelete).toHaveBeenCalledWith(
       'caneguard.mobile.session.protected.v1',
       protectedOptions,
+    );
+    expect(mockDelete).toHaveBeenCalledWith(
+      'caneguard.mobile.local-lock-mode.v1',
+      { keychainAccessible: 'device-only' },
+    );
+    expect(mockDelete).toHaveBeenCalledWith(
+      'caneguard.mobile.session-persisted.v1',
+      { keychainAccessible: 'device-only' },
+    );
+    expect(mockDelete).toHaveBeenCalledWith(
+      'caneguard.mobile.app-pin.v1',
+      { keychainAccessible: 'device-only' },
     );
 
     await disableBiometricUnlock();
@@ -250,6 +320,8 @@ describe('mobile secure session store', () => {
       expect(mockSecureStoreValues).toEqual(
         new Map([
           ['caneguard.mobile.session.protected.v1', JSON.stringify(protectedSession)],
+          ['caneguard.mobile.session-persisted.v1', 'true'],
+          ['caneguard.mobile.local-lock-mode.v1', 'device'],
           ['caneguard.mobile.biometric-enabled.v1', 'true'],
         ]),
       );

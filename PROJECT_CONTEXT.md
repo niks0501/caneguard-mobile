@@ -205,31 +205,33 @@ Mobile bearer sessions receive a finite local safety expiry. When the API return
 `expires_at: null`, the client applies the 30-day `LOCAL_SESSION_MAX_AGE_MS`
 policy in `mobileAuthApi.ts`; the server should still issue and enforce an
 explicit expiry/revocation policy. The client does not refresh or extend
-sessions, including when a protected session is unlocked with the device
-credential. Sessions remain valid until explicit logout, server-side
-revocation, or the local safety expiry. A fresh password login is required
-after expiry or a process restart without protected unlock.
+sessions, including when a persisted session is unlocked locally. Inspector
+sessions remain valid until explicit logout, server-side revocation, or expiry
+(with a 72-hour server-offset carry-over window for offline authoring). When a
+farmer's 30-day token expires offline, the client strips the bearer token and
+keeps personal-scan offline grace access so local scans and on-device AI checks
+remain usable until the farmer signs in again online.
 
-Password sessions remain in memory only, so removing the app from the recent-apps list cannot silently restore an authenticated session.
-When protected unlock is enabled, the client stores the session under a separate
-SecureStore key. When the device has a lock-screen credential, the strong
-biometric or PIN/pattern/password unlocks the stored session through one
-`LocalAuthentication` prompt before the entry is read; a device without one
-falls back to the `requireAuthentication` key binding. That app-initiated prompt
-is weaker than an OS-authentication-bound key; the exact storage boundary is
-owned by
-[`docs/security/mobile-security-fixes.md`](docs/security/mobile-security-fixes.md#sessions-and-biometrics-70).
-A password login refreshes the protected session without disabling the unlock
-preference; a failed refresh clears the preference fail-closed.
-A non-sensitive login-history marker routes returning users to the password form and is never used as authentication material.
+Offline session persistence is automatic on sign-in and decoupled from biometric
+hardware. Sessions are stored in SecureStore (`AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`)
+with a separate `localLockMode` (`'none' | 'device' | 'app-pin'`): `farmer`
+accounts default to seamless offline resume (`'none'`) with optional App Lock in
+Account & security, while `field_reporter` accounts automatically use OS device
+unlock (`'device'`) when a screen lock/biometric is present or offer a one-step
+4-digit CaneGuard Quick PIN (`'app-pin'`, salted SHA-256 hash in SecureStore with
+a 5-attempt lockout) when no OS screen lock exists. Turning App Lock off in
+Account & security updates the local lock mode without logging the user out. The
+exact storage and lock boundary is owned by
+[`docs/security/mobile-security-fixes.md`](docs/security/mobile-security-fixes.md#sessions-offline-persistence-and-adaptive-app-lock-70).
+A non-sensitive login-history marker routes returning users to the sign-in screen and is never used as authentication material.
 The client persists a random opaque installation UUID in SecureStore for API device identity; it does not use immutable hardware identifiers.
 Explicit logout always attempts server revocation and clears the active session,
-protected credential, and biometric preference. It does not delete local scan or
+persisted credential, local lock mode, and Quick PIN. It does not delete local scan or
 report data; Settings provides the owner-scoped **Clear downloaded office data**
 and **Remove all local records** actions. See
-`docs/security/mobile-security-fixes.md` for their retention contracts. When
-biometrics are disabled, or when a session expires, is reset, or is rejected
-authoritatively, the client also clears all protected entries.
+`docs/security/mobile-security-fixes.md` for their retention contracts. When a
+session is reset or rejected authoritatively, the client clears all persisted
+session and Quick PIN entries fail-closed.
 
 ### Synchronization
 

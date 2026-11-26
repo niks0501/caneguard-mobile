@@ -22,11 +22,11 @@ export function HomeReadinessLine() {
     return null;
   }
 
-  const biometricOff = !readiness.protectedSessionEnabled;
-  const label = biometricOff
-    ? unlockCopy.homeLine
-    : readiness.missingStep
-      ? getMissingStepCopy(readiness.missingStep, unlockCopy)
+  const needsAccountSecurity = readiness.missingStep === 'turn-on-biometric';
+  const label = readiness.missingStep
+    ? getMissingStepCopy(readiness.missingStep, unlockCopy)
+    : !readiness.protectedSessionEnabled
+      ? unlockCopy.homeLine
       : READY_FOR_FIELD_COPY.homeLineOther;
 
   return (
@@ -34,7 +34,9 @@ export function HomeReadinessLine() {
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={8}
-      onPress={() => router.push((biometricOff ? '/account-security' : '/settings') as Href)}
+      onPress={() =>
+        router.push((needsAccountSecurity ? '/account-security' : '/settings') as Href)
+      }
       testID="home.readiness-line">
       <Text style={[styles.line, { color: theme.textSecondary }]}>{label}</Text>
     </Pressable>

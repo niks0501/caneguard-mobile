@@ -95,6 +95,11 @@ export function useLanguagePreference(): LanguagePreferenceContextValue {
   return context;
 }
 
+export function useOptionalLanguage(): FarmerLanguage {
+  const context = useContext(LanguagePreferenceContext);
+  return context?.language ?? 'en';
+}
+
 /** Returns the farmer copy block for the active language. */
 export function useFarmerCopy(): FarmerCopyBlock {
   return FARMER_COPY[useLanguagePreference().language];

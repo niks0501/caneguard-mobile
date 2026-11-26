@@ -320,7 +320,14 @@ export default function SettingsScreen() {
               {isFarmer ? <LanguageRow /> : null}
             </View>
 
-            {isFarmer ? null : (
+            {isFarmer ? (
+              <>
+                <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
+                  {FARMER_COPY[language].offlineStatus.sectionLabel}
+                </Text>
+                <OfflineReadinessCard />
+              </>
+            ) : (
               <>
                 <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>FIELD READINESS</Text>
                 <OfflineReadinessCard />

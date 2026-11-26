@@ -160,11 +160,12 @@ export function AppNavigator() {
             }}
           />
           <Stack.Screen
-            name="ready-for-field"
+            name="account-app-pin"
             options={{
               presentation: 'formSheet',
-              sheetAllowedDetents: [0.5, 0.85],
+              sheetAllowedDetents: [0.65, 0.9],
               sheetGrabberVisible: true,
+              gestureEnabled: false,
             }}
           />
           <Stack.Screen

@@ -202,7 +202,7 @@ describe('AuthProvider', () => {
     mockReadProtected.mockResolvedValueOnce(storedSession);
   }
 
-  it('signs in without retaining an unprotected session', async () => {
+  it('auto-persists the session on sign-in so offline restarts work with zero setup steps', async () => {
     mockLogin.mockResolvedValueOnce(SESSION);
     const { result } = await renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
@@ -219,9 +219,10 @@ describe('AuthProvider', () => {
       password: 'password',
       deviceName: 'Test Android phone',
     });
-    expect(mockSaveProtected).not.toHaveBeenCalled();
+    expect(mockSaveProtected).toHaveBeenCalledTimes(1);
     expect(mockMarkLogin).toHaveBeenCalledTimes(1);
     expect(result.current.hasCompletedLogin).toBe(true);
+    expect(result.current.hasPersistedSession).toBe(true);
     expect(result.current.status).toBe('authenticated');
   });
 
@@ -259,6 +260,7 @@ describe('AuthProvider', () => {
         result.current.login('field@caneguard.test', 'password'),
       ).resolves.toBe(true);
     });
+    mockSaveProtected.mockClear();
 
     expect(mockVerify).toHaveBeenCalledWith(SESSION.token);
     expect(result.current.user?.capabilities).toEqual([
@@ -291,6 +293,7 @@ describe('AuthProvider', () => {
         result.current.login('field@caneguard.test', 'password'),
       ).resolves.toBe(true);
     });
+    mockSaveProtected.mockClear();
 
     expect(result.current.status).toBe('authenticated');
     expect(result.current.sessionVerification).toBe('unavailable');
@@ -609,6 +612,7 @@ describe('AuthProvider', () => {
         result.current.login('field@caneguard.test', 'password'),
       ).resolves.toBe(true);
     });
+    mockSaveProtected.mockClear();
     mockLogout.mockRejectedValueOnce(new Error('offline'));
 
     await act(async () => {
@@ -721,6 +725,7 @@ describe('AuthProvider', () => {
         result.current.login('field@caneguard.test', 'password'),
       ).resolves.toBe(true);
     });
+    mockSaveProtected.mockClear();
 
     let resolveBiometric!: (value: { success: true }) => void;
     mockBiometricAuth.mockReturnValueOnce(
@@ -968,7 +973,7 @@ describe('AuthProvider', () => {
       deviceId: 'installation-uuid',
       deviceName: 'Test installation',
     });
-    expect(mockSaveProtected).not.toHaveBeenCalled();
+    expect(mockSaveProtected).toHaveBeenLastCalledWith(rotatedSession);
     expect(result.current.session).toEqual(rotatedSession);
   });
 

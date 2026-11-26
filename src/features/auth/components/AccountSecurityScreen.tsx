@@ -26,21 +26,26 @@ export function AccountSecurityScreen() {
     biometricCapability,
     biometricEnabled,
     biometricLoading,
+    disableLocalLock,
     enableBiometricUnlock,
     errorMessage,
+    farmerOfflineGrace = false,
+    localLockMode = biometricEnabled ? 'device' : 'none',
     session,
     user,
   } = useAuth();
   const isFarmer = user?.role === 'farmer';
-  const languageCopy = FARMER_COPY[language];
-  const farmerCopy = languageCopy.accountSecurityScreen;
+  const copyLang = isFarmer ? language : 'en';
+  const languageCopy = FARMER_COPY[copyLang];
+  const screenCopy = languageCopy.accountSecurityScreen;
+  const deviceLockAvailable = biometricCapability?.status === 'available';
   const deviceCredentialOnly =
     biometricCapability?.strongBiometricsAvailable === false &&
     biometricCapability?.deviceCredentialAvailable === true;
   const unlockCopy = getOfflineUnlockCopy(
     biometricCapability?.strongBiometricsAvailable,
     biometricCapability?.deviceCredentialAvailable,
-    isFarmer ? language : 'en',
+    copyLang,
   );
   const displayedError = isFarmer
     ? farmerAuthErrorMessage(errorMessage, languageCopy.authErrors)
@@ -51,9 +56,11 @@ export function AccountSecurityScreen() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const installationName =
-    Device.deviceName?.trim() || Device.modelName?.trim() || (isFarmer ? farmerCopy.defaultInstallationName : 'CaneGuard mobile device');
+    Device.deviceName?.trim() ||
+    Device.modelName?.trim() ||
+    screenCopy.defaultInstallationName;
 
-  const enableBiometrics = async () => {
+  const enableDeviceLock = async () => {
     if (busyAction || biometricLoading) {
       return;
     }
@@ -67,91 +74,197 @@ export function AccountSecurityScreen() {
     }
   };
 
+  const turnOffLock = async () => {
+    if (busyAction || biometricLoading) {
+      return;
+    }
+    if (typeof disableLocalLock !== 'function') {
+      router.push('/account-biometric');
+      return;
+    }
+    setBusyAction('lock-disable');
+    setSuccessMessage(null);
+    const turnedOff = await disableLocalLock();
+    setBusyAction(null);
+    if (turnedOff) {
+      showToast(screenCopy.appLockTurnedOffToast, 'info');
+      setSuccessMessage(screenCopy.appLockTurnedOffMessage);
+    }
+  };
+
+  const lockDescription =
+    localLockMode === 'app-pin'
+      ? screenCopy.appLockPinOn
+      : localLockMode === 'device'
+        ? deviceCredentialOnly
+          ? screenCopy.appLockDeviceCredentialOn
+          : screenCopy.appLockDeviceBiometricOn
+        : deviceLockAvailable
+          ? screenCopy.appLockOffDescription
+          : biometricCapabilityMessage(
+              biometricCapability?.status,
+              screenCopy,
+              deviceCredentialOnly,
+            );
+
   return (
     <ScreenContainer contentStyle={styles.container}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>{isFarmer ? farmerCopy.title : 'Account & security'}</Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{isFarmer ? farmerCopy.subtitle : 'Protect your account without changing the offline reports and scans saved on this device.'}</Text>
+        <Text style={[styles.title, { color: theme.text }]}>{screenCopy.title}</Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+          {screenCopy.subtitle}
+        </Text>
       </View>
 
-      <View style={[styles.identityCard, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-        <Text style={[styles.identityName, { color: theme.primaryDark }]}>{session?.user.name ?? (isFarmer ? farmerCopy.fallbackName : 'Field Inspector')}</Text>
-        <Text style={[styles.identityEmail, { color: theme.textSecondary }]}>{session?.user.email ?? (isFarmer ? farmerCopy.fallbackEmail : 'Authenticated mobile account')}</Text>
-        <Text style={[styles.identityExpiry, { color: theme.textSecondary }]}>{formatExpiry(session?.expiresAt, isFarmer ? farmerCopy : undefined, unlockCopy.sessionExpires)}</Text>
+      <View
+        style={[
+          styles.identityCard,
+          { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+        ]}>
+        <Text style={[styles.identityName, { color: theme.primaryDark }]}>
+          {session?.user.name ?? screenCopy.fallbackName}
+        </Text>
+        <Text style={[styles.identityEmail, { color: theme.textSecondary }]}>
+          {session?.user.email ?? screenCopy.fallbackEmail}
+        </Text>
+        <Text style={[styles.identityExpiry, { color: theme.textSecondary }]}>
+          {formatExpiry(session?.expiresAt, screenCopy, unlockCopy.sessionExpires)}
+        </Text>
+      </View>
+
+      <View
+        testID="account-security.offline-access"
+        style={[
+          styles.offlineBanner,
+          {
+            backgroundColor: farmerOfflineGrace ? theme.warningBg : theme.successBg,
+            borderColor: farmerOfflineGrace ? theme.warning : theme.success,
+          },
+        ]}>
+        <Feather
+          name={farmerOfflineGrace ? 'wifi-off' : 'check-circle'}
+          size={18}
+          color={farmerOfflineGrace ? theme.warning : theme.success}
+        />
+        <View style={styles.rowCopy}>
+          <Text style={[styles.rowTitle, { color: theme.text }]}>
+            {screenCopy.offlineAccessTitle}
+          </Text>
+          <Text style={[styles.rowDescription, { color: theme.textSecondary }]}>
+            {farmerOfflineGrace
+              ? screenCopy.offlineAccessGrace
+              : screenCopy.offlineAccessOn}
+          </Text>
+        </View>
       </View>
 
       {displayedError ? (
-        <Text testID="account-security.error" accessibilityLiveRegion="assertive" style={[styles.error, { color: theme.danger }]}>{displayedError}</Text>
+        <Text
+          testID="account-security.error"
+          accessibilityLiveRegion="assertive"
+          style={[styles.error, { color: theme.danger }]}>
+          {displayedError}
+        </Text>
       ) : null}
       {notice === 'enrolled' || successMessage ? (
-        <Text testID="account-security.success" accessibilityLiveRegion="polite" style={[styles.success, { color: theme.primaryDark, backgroundColor: theme.successBg }]}>{notice === 'enrolled'
-            ? isFarmer
-              ? farmerCopy.enrollmentSuccess
-              : 'This installation is enrolled with a fresh server session. Existing sessions on other device identities are unchanged.'
-            : successMessage}</Text>
+        <Text
+          testID="account-security.success"
+          accessibilityLiveRegion="polite"
+          style={[
+            styles.success,
+            { color: theme.primaryDark, backgroundColor: theme.successBg },
+          ]}>
+          {notice === 'enrolled' ? screenCopy.enrollmentSuccess : successMessage}
+        </Text>
       ) : null}
 
-      <View style={[styles.row, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
+      <View
+        testID="account-security.app-lock"
+        style={[
+          styles.row,
+          { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+        ]}>
         <View style={styles.rowCopy}>
-          <Text style={[styles.rowTitle, { color: theme.primaryDark }]}>{unlockCopy.title}</Text>
+          <Text style={[styles.rowTitle, { color: theme.primaryDark }]}>
+            {screenCopy.appLockTitle}
+          </Text>
           <Text style={[styles.rowDescription, { color: theme.textSecondary }]}>
-            {biometricEnabled
-              ? unlockCopy.on
-              : biometricCapabilityMessage(
-                  biometricCapability?.status,
-                  isFarmer ? farmerCopy : undefined,
-                  deviceCredentialOnly,
-                )}
+            {lockDescription}
           </Text>
         </View>
-        {biometricEnabled ? (
-          <AppButton
-            testID="account-security.open-disable-biometric"
-            variant="secondary"
-            onPress={() => router.push('/account-biometric')}>
-            {unlockCopy.disable}
-          </AppButton>
-        ) : (
-          <AppButton
-            testID="account-security.enable-biometric"
-            onPress={() => void enableBiometrics()}
-            busy={biometricLoading || busyAction === 'biometric-enable'}
-            disabled={
-              Boolean(busyAction) ||
-              biometricLoading ||
-              biometricCapability?.status !== 'available'
-            }
-            leadingIcon="shield">
-            {biometricLoading || busyAction === 'biometric-enable'
-              ? unlockCopy.enabling
-              : unlockCopy.enable}
-          </AppButton>
-        )}
+        <View style={styles.actionStack}>
+          {localLockMode !== 'none' ? (
+            <>
+              {localLockMode === 'app-pin' ? (
+                <AppButton
+                  testID="account-security.change-app-pin"
+                  variant="secondary"
+                  disabled={Boolean(busyAction) || biometricLoading}
+                  onPress={() => router.push('/account-app-pin')}>
+                  {screenCopy.appLockChangePin}
+                </AppButton>
+              ) : null}
+              <AppButton
+                testID="account-security.disable-app-lock"
+                variant="secondary"
+                busy={busyAction === 'lock-disable'}
+                disabled={Boolean(busyAction) || biometricLoading}
+                onPress={() => void turnOffLock()}>
+                {busyAction === 'lock-disable'
+                  ? screenCopy.appLockTurningOff
+                  : screenCopy.appLockTurnOff}
+              </AppButton>
+            </>
+          ) : (
+            <>
+              {deviceLockAvailable ? (
+                <AppButton
+                  testID="account-security.enable-biometric"
+                  onPress={() => void enableDeviceLock()}
+                  busy={biometricLoading || busyAction === 'biometric-enable'}
+                  disabled={Boolean(busyAction) || biometricLoading}
+                  leadingIcon="shield">
+                  {biometricLoading || busyAction === 'biometric-enable'
+                    ? unlockCopy.enabling
+                    : unlockCopy.enable}
+                </AppButton>
+              ) : null}
+              <AppButton
+                testID="account-security.setup-app-pin"
+                variant={deviceLockAvailable ? 'secondary' : 'primary'}
+                disabled={Boolean(busyAction) || biometricLoading}
+                leadingIcon="lock"
+                onPress={() => router.push('/account-app-pin')}>
+                {screenCopy.appLockSetPin}
+              </AppButton>
+            </>
+          )}
+        </View>
       </View>
 
       <SecurityRow
-        title={isFarmer ? farmerCopy.changePassword : 'Change password'}
-        description={isFarmer ? farmerCopy.changePasswordDescription : 'Password protection is on. Changing your password signs out every active session.'}
+        title={screenCopy.changePassword}
+        description={screenCopy.changePasswordDescription}
         openTestID="account-security.open-change-password"
-        openLabel={isFarmer ? farmerCopy.openChangePassword : 'Open the change password form'}
+        openLabel={screenCopy.openChangePassword}
         onOpen={() => router.push('/account-password')}
       />
 
       <SecurityRow
-        title={isFarmer ? farmerCopy.changeEmail : 'Change email'}
-        description={isFarmer
-          ? farmerCopy.changeEmailDescription(session?.user.email ?? farmerCopy.fallbackEmail)
-          : `Current email: ${session?.user.email ?? 'authenticated account'}. Changing it signs out every active session and requires verification of the new address.`}
+        title={screenCopy.changeEmail}
+        description={screenCopy.changeEmailDescription(
+          session?.user.email ?? screenCopy.fallbackEmail,
+        )}
         openTestID="account-security.open-change-email"
-        openLabel={isFarmer ? farmerCopy.openChangeEmail : 'Open the change email form'}
+        openLabel={screenCopy.openChangeEmail}
         onOpen={() => router.push('/account-email')}
       />
 
       <SecurityRow
-        title={isFarmer ? farmerCopy.deviceEnrollment : 'Device enrollment'}
-        description={isFarmer ? farmerCopy.deviceEnrollmentDescription(installationName) : `Installation identity: ${installationName}.`}
+        title={screenCopy.deviceEnrollment}
+        description={screenCopy.deviceEnrollmentDescription(installationName)}
         openTestID="account-security.open-enroll-device"
-        openLabel={isFarmer ? farmerCopy.openDeviceEnrollment : 'Open the device enrollment form'}
+        openLabel={screenCopy.openDeviceEnrollment}
         onOpen={() => router.push('/account-device-enrollment')}
       />
     </ScreenContainer>
@@ -186,7 +299,9 @@ function SecurityRow({
       ]}>
       <View style={styles.rowCopy}>
         <Text style={[styles.rowTitle, { color: theme.primaryDark }]}>{title}</Text>
-        <Text style={[styles.rowDescription, { color: theme.textSecondary }]}>{description}</Text>
+        <Text style={[styles.rowDescription, { color: theme.textSecondary }]}>
+          {description}
+        </Text>
       </View>
       <Feather name="chevron-right" size={20} color={theme.textSecondary} />
     </Pressable>
@@ -195,39 +310,38 @@ function SecurityRow({
 
 function biometricCapabilityMessage(
   status: 'available' | 'not-enrolled' | 'unsupported' | 'unavailable' | undefined,
-  copy?: FarmerCopyBlock['accountSecurityScreen'],
+  copy: FarmerCopyBlock['accountSecurityScreen'],
   deviceCredentialOnly = false,
 ): string {
   switch (status) {
     case 'available':
-      if (deviceCredentialOnly) {
-        return copy?.biometricAvailableDeviceCredential ?? 'No strong biometric found. Your device PIN, pattern or password can unlock CaneGuard offline, with weaker protection.';
-      }
-      return copy?.biometricAvailable ?? 'A strong platform biometric is available for this installation.';
+      return deviceCredentialOnly
+        ? copy.biometricAvailableDeviceCredential
+        : copy.biometricAvailable;
     case 'not-enrolled':
-      return copy?.biometricNotEnrolled ?? 'Enroll a strong biometric in device settings before enabling this option.';
+      return copy.biometricNotEnrolled;
     case 'unsupported':
-      return copy?.biometricUnsupported ?? 'This device does not expose a strong platform biometric. Use password sign-in.';
+      return copy.biometricUnsupported;
     default:
-      return copy?.biometricUnavailable ?? 'Biometric capability is unavailable until the native development build is ready. Use password sign-in.';
+      return copy.biometricUnavailable;
   }
 }
 
 function formatExpiry(
   expiresAt: string | null | undefined,
-  copy?: FarmerCopyBlock['accountSecurityScreen'],
+  copy: FarmerCopyBlock['accountSecurityScreen'],
   sessionExpires: (date: string) => string = (date) =>
     `Session expires ${date}. Protected unlock does not extend it.`,
 ): string {
   if (expiresAt === null) {
-    return copy?.expiresUnavailable ?? 'Local session safety expiry unavailable; sign in again before continuing.';
+    return copy.expiresUnavailable;
   }
   if (!expiresAt) {
-    return copy?.sessionExpiryUnavailable ?? 'Session expiry is unavailable. Sign in again to establish a server session.';
+    return copy.sessionExpiryUnavailable;
   }
   const timestamp = Date.parse(expiresAt);
   if (!Number.isFinite(timestamp)) {
-    return copy?.sessionExpiryUnavailable ?? 'Session expiry is unavailable. Sign in again to establish a server session.';
+    return copy.sessionExpiryUnavailable;
   }
   return sessionExpires(formatDateTime(timestamp));
 }
@@ -261,6 +375,14 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     marginTop: Spacing.xs,
   },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+  },
   error: {
     ...Typography.bodySmall,
     fontWeight: '700',
@@ -275,6 +397,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
+  },
+  actionStack: {
+    gap: Spacing.sm,
   },
   pressableRow: {
     minHeight: 64,

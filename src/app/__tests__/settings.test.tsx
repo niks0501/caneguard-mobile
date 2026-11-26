@@ -425,11 +425,20 @@ describe('SettingsScreen', () => {
     ).toBe(true);
   });
 
-  it('shows the offline readiness check from the protected session state', async () => {
+  it('shows the offline readiness check from the persisted session state', async () => {
     await render(<SettingsScreen />);
 
     expect(screen.getByTestId('settings.offline-readiness')).toBeOnTheScreen();
-    expect(screen.getByText('Not ready for offline work')).toBeOnTheScreen();
-    expect(screen.getByText('Biometric-protected session')).toBeOnTheScreen();
+    expect(screen.getByText('Offline access')).toBeOnTheScreen();
+  });
+
+  it('shows a calm bilingual offline status card for farmers without inspector plot links', async () => {
+    mockRole = 'farmer';
+    await render(<SettingsScreen />);
+
+    expect(screen.getByTestId('settings.offline-readiness')).toBeOnTheScreen();
+    expect(screen.getByText('PAGGAMIT OFFLINE')).toBeOnTheScreen();
+    expect(screen.getByText('Handa offline')).toBeOnTheScreen();
+    expect(screen.queryByTestId('settings.saved-plot-maps')).toBeNull();
   });
 });

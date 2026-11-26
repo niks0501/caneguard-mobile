@@ -194,9 +194,30 @@ describe('readiness (NET-3)', () => {
     );
     expect(deriveReadiness({ ...base, state: { kind: 'revoked', reason: 'capability-revoked' } }).missing).toBe('ask-office');
     expect(deriveReadiness({ ...base, state: { kind: 'revoked', reason: 'session-rejected' } }).missing).toBe('sign-in');
-    expect(deriveReadiness({ ...base, biometricProtected: false, state: verified }).missing).toBe('turn-on-biometric');
-    expect(deriveReadiness({ ...base, cachedVisits: 0, state: verified }).missing).toBe('download-visits');
+    expect(deriveReadiness({ ...base, biometricProtected: false, state: verified }).missing).toBe('sign-in');
+    // Zero assigned visits is normal for ad-hoc field scans & reports; only an unreadable cache blocks readiness.
+    expect(deriveReadiness({ ...base, cachedVisits: 0, state: verified })).toEqual({ missing: null, ready: true });
     expect(deriveReadiness({ ...base, cachedVisits: null, state: verified }).missing).toBe('download-visits');
+    // Farmers do not require visits or office carry-over windows to be ready offline.
+    expect(
+      deriveReadiness({
+        biometricProtected: true,
+        cachedVisits: 0,
+        now: T0,
+        role: 'farmer',
+        state: { kind: 'expired', lastVerified: null, until: null },
+      }),
+    ).toEqual({ missing: null, ready: true });
+    expect(
+      deriveReadiness({
+        biometricProtected: false,
+        cachedVisits: 0,
+        farmerOfflineGrace: true,
+        now: T0,
+        role: 'farmer',
+        state: { kind: 'expired', lastVerified: null, until: null },
+      }),
+    ).toEqual({ missing: null, ready: true });
   });
 
   // Intent: a carry-over window with under 12 h left is not "ready" (ratified readiness remainder rule).

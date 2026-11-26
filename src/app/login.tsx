@@ -1,14 +1,32 @@
 import { Feather } from '@expo/vector-icons';
-import { router, type Href } from 'expo-router';
+import { router } from 'expo-router';
 import { useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useColorScheme, View } from 'react-native';
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  useColorScheme,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { useToast } from '@/components/ui/Toast';
-import { ACCOUNT_REQUEST_HINT, FIELD_GUIDE_TITLE, getOfflineUnlockCopy } from '@/constants/copy';
+import {
+  ACCOUNT_REQUEST_HINT,
+  FARMER_COPY,
+  FIELD_GUIDE_TITLE,
+  getOfflineUnlockCopy,
+  OFFLINE_READINESS_COPY,
+} from '@/constants/copy';
 import { ComponentTokens, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { APP_PIN_LENGTH } from '@/features/auth/services/appPinAuth';
 import { useTheme } from '@/hooks/use-theme';
 
 // Design read: redesign-overhaul of a native mobile auth screen for field
@@ -18,15 +36,14 @@ import { useTheme } from '@/hooks/use-theme';
 // Static by intent (no entrance animation), so prefers-reduced-motion is
 // honored by construction. Shape rule: xl radii on surfaces, input-token
 // radii on fields, full-pill medallion only. Offline: bundled logo asset.
-// All color comes from theme tokens (design-spine guard); the light-mode
-// header uses primaryDark as its deep cane-green field with onPrimary type.
 
 export default function LoginScreen() {
   const theme = useTheme();
   const colorScheme = useColorScheme();
-  const logoSource = colorScheme === 'dark'
-    ? require('../../assets/cane_guard_logo_onDark.png')
-    : require('../../assets/cane_guard_logo.png');
+  const logoSource =
+    colorScheme === 'dark'
+      ? require('../../assets/cane_guard_logo_onDark.png')
+      : require('../../assets/cane_guard_logo.png');
   const headerBackground = colorScheme === 'dark' ? theme.backgroundElement : theme.primaryDark;
   const headerTitleColor = colorScheme === 'dark' ? theme.text : theme.onPrimary;
   const headerSubtitleColor = colorScheme === 'dark' ? theme.textSecondary : theme.accent;
@@ -37,16 +54,22 @@ export default function LoginScreen() {
     biometricLoading,
     errorMessage,
     login,
+    requiresAppPinUnlock = false,
+    unlockWithAppPin,
     unlockWithBiometrics,
   } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [pin, setPin] = useState('');
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const unlockCopy = getOfflineUnlockCopy(
     biometricCapability?.strongBiometricsAvailable,
     biometricCapability?.deviceCredentialAvailable,
   );
+  const pinCopy = FARMER_COPY.en.accountSecurityForms.appPin;
+  const showingPinUnlock = requiresAppPinUnlock && !showPasswordForm;
 
   const submit = async () => {
     if (submitting || !email.trim() || !password) {
@@ -58,10 +81,6 @@ export default function LoginScreen() {
     if (authenticated) {
       showToast('Signed in', 'success');
       router.replace('/home');
-      // One time per password sign-in, only while biometric setup is possible.
-      if (!biometricEnabled && biometricCapability?.status === 'available') {
-        router.push('/ready-for-field' as Href);
-      }
     }
   };
 
@@ -76,6 +95,23 @@ export default function LoginScreen() {
     }
   };
 
+  const handlePinUnlock = async () => {
+    if (
+      submitting ||
+      biometricLoading ||
+      pin.length !== APP_PIN_LENGTH ||
+      typeof unlockWithAppPin !== 'function'
+    ) {
+      return;
+    }
+    const authenticated = await unlockWithAppPin(pin);
+    setPin('');
+    if (authenticated) {
+      showToast('Signed in', 'success');
+      router.replace('/home');
+    }
+  };
+
   return (
     <SafeAreaView
       testID="auth.login-screen"
@@ -84,104 +120,207 @@ export default function LoginScreen() {
       }}
       style={[styles.safe, { backgroundColor: theme.background }]}
       edges={['top', 'bottom']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.root}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <View style={[styles.header, { backgroundColor: headerBackground }]}>
-          <View style={styles.brandRow}>
-            <View style={[styles.medallion, { backgroundColor: theme.background }]}>
-              <Image source={logoSource} style={styles.logo} resizeMode="contain" />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.root}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <View style={[styles.header, { backgroundColor: headerBackground }]}>
+            <View style={styles.brandRow}>
+              <View style={[styles.medallion, { backgroundColor: theme.background }]}>
+                <Image source={logoSource} style={styles.logo} resizeMode="contain" />
+              </View>
+              <View style={styles.brandCopy}>
+                <Text style={[styles.brand, { color: headerTitleColor }]}>CaneGuard</Text>
+                <Text style={[styles.tagline, { color: headerSubtitleColor }]}>
+                  Field disease detection for sugarcane
+                </Text>
+              </View>
             </View>
-            <View style={styles.brandCopy}>
-              <Text style={[styles.brand, { color: headerTitleColor }]}>CaneGuard</Text>
-              <Text style={[styles.tagline, { color: headerSubtitleColor }]}>Field disease detection for sugarcane</Text>
-            </View>
+            <View style={[styles.goldRule, { backgroundColor: theme.accent }]} />
           </View>
-          <View style={[styles.goldRule, { backgroundColor: theme.accent }]} />
-        </View>
 
-        <View style={styles.content}>
-          <View style={[styles.card, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
-            <View style={styles.intro}>
-              <Text style={[styles.title, { color: theme.primaryDark }]}>Welcome back</Text>
-              <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Sign in to keep your field observations in sync.</Text>
-            </View>
+          <View style={styles.content}>
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+              ]}>
+              {showingPinUnlock ? (
+                <>
+                  <View style={styles.intro}>
+                    <Text style={[styles.title, { color: theme.primaryDark }]}>
+                      {pinCopy.unlockTitle}
+                    </Text>
+                    <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+                      {pinCopy.unlockSubtitle}
+                    </Text>
+                  </View>
 
-            <View style={styles.form}>
-              <InputRow testID="auth.email-input" label="Email" icon="mail" value={email} onChangeText={setEmail} placeholder="Email" keyboardType="email-address" textContentType="username" />
-              <InputRow testID="auth.password-input" label="Password" icon="lock" value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry={!passwordVisible} textContentType="password" trailingIcon={passwordVisible ? 'eye-off' : 'eye'} onTrailingPress={() => setPasswordVisible((visible) => !visible)} />
-              {errorMessage ? (
-                <View style={styles.errorRow}>
-                  <Feather name="alert-circle" size={16} color={theme.danger} />
-                  <Text
-                    accessibilityLiveRegion="assertive"
-                    style={[styles.error, { color: theme.danger }]}>
-                    {errorMessage}
-                  </Text>
-                </View>
-              ) : null}
-              <AppButton
-                testID="auth.login-submit"
-                onPress={() => void submit()}
-                busy={submitting}
-                disabled={submitting || !email.trim() || !password}
-                leadingIcon="log-in"
-                trailingIcon="arrow-right"
-                accessibilityLabel={submitting ? 'Signing in to CaneGuard' : 'Login to CaneGuard'}>
-                {submitting ? 'Signing In...' : 'Login'}
-              </AppButton>
-              {biometricEnabled ? (
-                <AppButton
-                  testID="auth.biometric-unlock"
-                  variant="secondary"
-                  onPress={() => void handleBiometricUnlock()}
-                  busy={biometricLoading}
-                  disabled={submitting || biometricLoading}
-                  leadingIcon="shield"
-                  accessibilityLabel={unlockCopy.loginAccessibility}>
-                  {biometricLoading ? unlockCopy.loading : unlockCopy.loginButton}
-                </AppButton>
+                  <View style={styles.form}>
+                    <InputRow
+                      testID="auth.app-pin-input"
+                      label={pinCopy.pinLabel}
+                      icon="lock"
+                      value={pin}
+                      onChangeText={(text) =>
+                        setPin(text.replace(/\D/g, '').slice(0, APP_PIN_LENGTH))
+                      }
+                      placeholder={pinCopy.pinPlaceholder}
+                      keyboardType="number-pad"
+                      secureTextEntry
+                      maxLength={APP_PIN_LENGTH}
+                    />
+                    {errorMessage ? (
+                      <View style={styles.errorRow}>
+                        <Feather name="alert-circle" size={16} color={theme.danger} />
+                        <Text
+                          accessibilityLiveRegion="assertive"
+                          style={[styles.error, { color: theme.danger }]}>
+                          {errorMessage}
+                        </Text>
+                      </View>
+                    ) : null}
+                    <AppButton
+                      testID="auth.app-pin-submit"
+                      onPress={() => void handlePinUnlock()}
+                      busy={biometricLoading}
+                      disabled={biometricLoading || pin.length !== APP_PIN_LENGTH}
+                      leadingIcon="unlock">
+                      {biometricLoading ? pinCopy.unlocking : pinCopy.unlockButton}
+                    </AppButton>
+                    <AppButton
+                      testID="auth.app-pin-use-password"
+                      variant="text"
+                      onPress={() => setShowPasswordForm(true)}>
+                      {pinCopy.usePasswordInstead}
+                    </AppButton>
+                  </View>
+                </>
               ) : (
-                <View
-                  testID="auth.offline-restart-limit"
-                  style={[styles.offlineNote, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
-                  <Feather name="info" size={16} color={theme.warning} />
-                  <Text style={[styles.offlineNoteText, { color: theme.text }]}>
-                    {unlockCopy.passwordOnlyRestartLimit}
-                  </Text>
-                </View>
+                <>
+                  <View style={styles.intro}>
+                    <Text style={[styles.title, { color: theme.primaryDark }]}>Welcome back</Text>
+                    <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+                      Sign in to keep your field observations in sync.
+                    </Text>
+                  </View>
+
+                  <View style={styles.form}>
+                    <InputRow
+                      testID="auth.email-input"
+                      label="Email"
+                      icon="mail"
+                      value={email}
+                      onChangeText={setEmail}
+                      placeholder="Email"
+                      keyboardType="email-address"
+                      textContentType="username"
+                    />
+                    <InputRow
+                      testID="auth.password-input"
+                      label="Password"
+                      icon="lock"
+                      value={password}
+                      onChangeText={setPassword}
+                      placeholder="Password"
+                      secureTextEntry={!passwordVisible}
+                      textContentType="password"
+                      trailingIcon={passwordVisible ? 'eye-off' : 'eye'}
+                      onTrailingPress={() => setPasswordVisible((visible) => !visible)}
+                    />
+                    {errorMessage ? (
+                      <View style={styles.errorRow}>
+                        <Feather name="alert-circle" size={16} color={theme.danger} />
+                        <Text
+                          accessibilityLiveRegion="assertive"
+                          style={[styles.error, { color: theme.danger }]}>
+                          {errorMessage}
+                        </Text>
+                      </View>
+                    ) : null}
+                    <AppButton
+                      testID="auth.login-submit"
+                      onPress={() => void submit()}
+                      busy={submitting}
+                      disabled={submitting || !email.trim() || !password}
+                      leadingIcon="log-in"
+                      trailingIcon="arrow-right"
+                      accessibilityLabel={
+                        submitting ? 'Signing in to CaneGuard' : 'Login to CaneGuard'
+                      }>
+                      {submitting ? 'Signing In...' : 'Login'}
+                    </AppButton>
+                    {biometricEnabled ? (
+                      <AppButton
+                        testID="auth.biometric-unlock"
+                        variant="secondary"
+                        onPress={() => void handleBiometricUnlock()}
+                        busy={biometricLoading}
+                        disabled={submitting || biometricLoading}
+                        leadingIcon="shield"
+                        accessibilityLabel={unlockCopy.loginAccessibility}>
+                        {biometricLoading ? unlockCopy.loading : unlockCopy.loginButton}
+                      </AppButton>
+                    ) : requiresAppPinUnlock ? (
+                      <AppButton
+                        testID="auth.return-app-pin"
+                        variant="secondary"
+                        onPress={() => setShowPasswordForm(false)}
+                        leadingIcon="lock">
+                        {pinCopy.unlockTitle}
+                      </AppButton>
+                    ) : (
+                      <View
+                        testID="auth.offline-ready-note"
+                        style={[
+                          styles.offlineNote,
+                          {
+                            backgroundColor: theme.successBg,
+                            borderColor: theme.success,
+                          },
+                        ]}>
+                        <Feather name="check-circle" size={16} color={theme.success} />
+                        <Text style={[styles.offlineNoteText, { color: theme.text }]}>
+                          {OFFLINE_READINESS_COPY.loginReadyNote}
+                        </Text>
+                      </View>
+                    )}
+                    <AppButton
+                      testID="auth.forgot-password"
+                      variant="text"
+                      onPress={() => router.push('/forgot-password')}
+                      accessibilityLabel="Forgot your password">
+                      Forgot password?
+                    </AppButton>
+                  </View>
+                </>
               )}
+
+              <Text
+                testID="auth.account-hint"
+                style={[styles.accountHint, { color: theme.textSecondary }]}>
+                {ACCOUNT_REQUEST_HINT}
+              </Text>
+
               <AppButton
-                testID="auth.forgot-password"
+                testID="auth.field-guide"
                 variant="text"
-                onPress={() => router.push('/forgot-password')}
-                accessibilityLabel="Forgot your password">
-                Forgot password?
+                leadingIcon="book-open"
+                onPress={() => router.push('/field-guide')}
+                accessibilityLabel="Open the field guide without signing in">
+                {FIELD_GUIDE_TITLE}
               </AppButton>
             </View>
-
-            <Text testID="auth.account-hint" style={[styles.accountHint, { color: theme.textSecondary }]}>
-              {ACCOUNT_REQUEST_HINT}
-            </Text>
-
-            {/*
-              The gallery needs no account, and a returning signed-out visitor
-              lands here rather than on the welcome screen, so the open entry
-              point has to exist on both.
-            */}
-            <AppButton
-              testID="auth.field-guide"
-              variant="text"
-              leadingIcon="book-open"
-              onPress={() => router.push('/field-guide')}
-              accessibilityLabel="Open the field guide without signing in">
-              {FIELD_GUIDE_TITLE}
-            </AppButton>
           </View>
-        </View>
 
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: theme.textSecondary }]}>Offline-first disease detection support</Text>
-        </View>
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, { color: theme.textSecondary }]}>
+              Offline-first disease detection support
+            </Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -195,25 +334,65 @@ type InputRowProps = {
   value: string;
   onChangeText: (value: string) => void;
   placeholder: string;
-  keyboardType?: 'email-address';
+  keyboardType?: 'email-address' | 'number-pad';
   textContentType?: 'username' | 'password';
   secureTextEntry?: boolean;
+  maxLength?: number;
   trailingIcon?: keyof typeof Feather.glyphMap;
   onTrailingPress?: () => void;
 };
 
-function InputRow({ testID, label, icon, value, onChangeText, placeholder, keyboardType, textContentType, secureTextEntry, trailingIcon, onTrailingPress }: InputRowProps) {
+function InputRow({
+  testID,
+  label,
+  icon,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType,
+  textContentType,
+  secureTextEntry,
+  maxLength,
+  trailingIcon,
+  onTrailingPress,
+}: InputRowProps) {
   const theme = useTheme();
 
   return (
     <View style={styles.field}>
       <Text style={[styles.fieldLabel, { color: theme.text }]}>{label}</Text>
-      <View style={[styles.input, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>
+      <View
+        style={[
+          styles.input,
+          { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+        ]}>
         <Feather name={icon} size={20} color={theme.primary} />
         <View style={styles.inputCopy}>
-          <TextInput testID={testID} accessibilityLabel={placeholder} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={theme.textSecondary} keyboardType={keyboardType} textContentType={textContentType} autoCapitalize="none" secureTextEntry={secureTextEntry} style={[styles.inputText, { color: theme.text }]} />
+          <TextInput
+            testID={testID}
+            accessibilityLabel={placeholder}
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor={theme.textSecondary}
+            keyboardType={keyboardType}
+            textContentType={textContentType}
+            autoCapitalize="none"
+            secureTextEntry={secureTextEntry}
+            maxLength={maxLength}
+            style={[styles.inputText, { color: theme.text }]}
+          />
         </View>
-         {trailingIcon && onTrailingPress ? <Pressable accessibilityRole="button" accessibilityLabel={secureTextEntry ? 'Show password' : 'Hide password'} hitSlop={4} onPress={onTrailingPress} style={styles.trailingButton}><Feather name={trailingIcon} size={20} color={theme.textSecondary} /></Pressable> : null}
+        {trailingIcon && onTrailingPress ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={secureTextEntry ? 'Show password' : 'Hide password'}
+            hitSlop={4}
+            onPress={onTrailingPress}
+            style={styles.trailingButton}>
+            <Feather name={trailingIcon} size={20} color={theme.textSecondary} />
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -257,16 +436,36 @@ const styles = StyleSheet.create({
   form: { gap: Spacing.md },
   field: { gap: Spacing.sm },
   fieldLabel: { ...Typography.label },
-  input: { minHeight: ComponentTokens.input.minHeight, paddingHorizontal: Spacing.lg, borderWidth: ComponentTokens.input.borderWidth, borderRadius: ComponentTokens.input.borderRadius, flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  input: {
+    minHeight: ComponentTokens.input.minHeight,
+    paddingHorizontal: Spacing.lg,
+    borderWidth: ComponentTokens.input.borderWidth,
+    borderRadius: ComponentTokens.input.borderRadius,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
   inputCopy: { flex: 1 },
   inputText: { ...Typography.body, minHeight: 44, paddingVertical: Spacing.sm },
   errorRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   error: { ...Typography.bodySmall, fontWeight: '700', flexShrink: 1 },
   trailingButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   accountHint: { ...Typography.bodySmall, textAlign: 'center' },
-  footer: { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.lg, alignItems: 'center', gap: Spacing.sm },
+  footer: {
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
   footerText: { ...Typography.caption },
-  offlineNote: { borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  offlineNote: {
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+  },
   offlineNoteText: { ...Typography.caption, flex: 1 },
   pressed: { opacity: 0.7 },
 });

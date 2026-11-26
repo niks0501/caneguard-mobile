@@ -36,25 +36,44 @@ cannot be completed in this repository.
   not enable; native encryption and any key migration still require a
   native/runtime proof before being described as complete.
 
-## Sessions and biometrics (#70)
+## Sessions, offline persistence, and adaptive app lock (#70)
 
-- A strong biometric is preferred for the protected session. On a device that
-  has a PIN, pattern, or password, that device credential is the accepted
-  offline cold-start fallback (D8): `saveProtectedMobileSession` stores the
-  session under the plain SecureStore options plus a device-credential gate
-  marker, and `readProtectedMobileSession` shows one `LocalAuthentication`
-  prompt (device fallback allowed) before reading it.
-- The protected entry uses `requireAuthentication: true`, which binds it to the
-  OS authentication-backed key, only when no device credential is available.
-  The device-credential fallback therefore rests on an app-initiated prompt
-  rather than an OS-enforced key, and accepts the weaker protection a PIN,
-  pattern, or password provides. The app itself stores no password.
-- Logout always attempts server revocation and deletes password, protected
-  session, device-credential gate, and biometric preference entries. It is not
-  a soft lock.
+- Offline session persistence is decoupled from biometric hardware so field
+  workers and farmers on non-biometric or no-screen-lock Android phones are
+  never locked out offline after a process restart.
+- On sign-in, the mobile session is automatically saved in `SecureStore` under
+  `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY` (`android:allowBackup="false"` remains
+  enforced, and the app never stores a password).
+- Local cold-start lock uses a role-aware policy (`localLockMode`: `'none' |
+  'device' | 'app-pin'`):
+  - **`farmer` accounts** default to `'none'` (seamless offline resume, since
+    farmer scans stay strictly local and cannot access office workflows or sync
+    pipelines), and may optionally enable OS lock or a 4-digit Quick PIN in
+    Account & security.
+  - **`field_reporter` (inspector) accounts** automatically use `'device'` when
+    the phone has any OS biometric or screen lock (`SecurityLevel >= SECRET`,
+    via `LocalAuthentication` prompt or OS auth-bound key when no device
+    credential fallback exists). When an inspector signs in on a phone with no
+    OS screen lock (`SecurityLevel.NONE`), the app persists the session and
+    offers a one-step 4-digit CaneGuard Quick PIN setup (`'app-pin'`).
+- The 4-digit CaneGuard Quick PIN is stored in `SecureStore` as a salted,
+  iterated SHA-256 hash (never plaintext). Five failed PIN attempts wipe the
+  persisted session and PIN and require online password sign-in while keeping
+  owner-scoped local SQLite drafts intact.
+- Toggling local App Lock off in Account & security updates `localLockMode` to
+  `'none'` locally without revoking the active session or logging the user out.
+- Logout always attempts server revocation and deletes the persisted session,
+  lock mode, Quick PIN, device-credential gate, and legacy biometric entries.
+  It is not a soft lock.
+- Authoritative 401/403 rejection from `/me` or sync clears persisted session
+  material and Quick PIN fail-closed.
 - If the API returns `expires_at: null`, the client applies a finite 30-day
-  local safety expiry. The server contract should still issue and enforce an
-  explicit expiry/revocation policy.
+  local safety expiry. Inspector sessions enforce hard expiry and the 72-hour
+  server-offset authoring carry-over bound. When a farmer's 30-day token
+  expires offline, the client strips the bearer token and retains local
+  personal-scan grace access (read/scan only) until the farmer signs in online
+  again. The server contract should still issue and enforce an explicit
+  expiry/revocation policy.
 
 ## Auth links (#71)
 

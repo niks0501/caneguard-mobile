@@ -243,8 +243,8 @@ export function authoringProvenance(state: SessionState): AuthoringProvenance | 
 }
 
 /**
- * The step an inspector must take before they can work offline. One name, so
- * Home, Settings and an agent all read the same missing step.
+ * The step an inspector or farmer must take before they can work offline.
+ * One name, so Home, Settings and an agent all read the same missing step.
  */
 export type MissingStep =
   | 'sign-in'
@@ -255,11 +255,16 @@ export type MissingStep =
   | 'download-visits';
 
 export interface ReadinessInput {
+  /** Whether the session is persisted on this device for offline restarts. */
   biometricProtected: boolean;
   /** null while the cache has not been read or could not be read. */
   cachedVisits: number | null;
   /** Server-time estimate of now (see `estimateServerNow`). */
   now: number;
+  /** Account role; farmers do not require office carry-over windows or visits. */
+  role?: 'field_reporter' | 'farmer';
+  /** Farmer resumed past 30-day token expiry in personal-scan offline grace mode. */
+  farmerOfflineGrace?: boolean;
   state: SessionState;
 }
 
@@ -271,6 +276,16 @@ export interface Readiness {
 export function deriveReadiness(input: ReadinessInput): Readiness {
   const { state } = input;
   const missing = ((): MissingStep | null => {
+    if (input.role === 'farmer') {
+      if (state.kind === 'signed-out') return 'sign-in';
+      if (state.kind === 'revoked') {
+        return state.reason === 'session-rejected' ? 'sign-in' : 'ask-office';
+      }
+      if (state.kind === 'restoring') return 'wait-for-check';
+      if (!input.biometricProtected && !input.farmerOfflineGrace) return 'sign-in';
+      return null;
+    }
+
     switch (state.kind) {
       case 'restoring':
       case 'checking':
@@ -285,13 +300,15 @@ export function deriveReadiness(input: ReadinessInput): Readiness {
       case 'carry-over':
         break;
     }
-    if (!input.biometricProtected) return 'turn-on-biometric';
+    if (!input.biometricProtected) return 'sign-in';
     if (state.kind === 'carry-over') {
       // A window with under 12 h left is not "ready": it could close mid-trip.
       const remaining = Date.parse(state.until) - input.now;
       if (remaining < READINESS_MIN_REMAINING_MS) return 'confirm-access';
     }
-    if (input.cachedVisits === null || input.cachedVisits <= 0) return 'download-visits';
+    // Zero assigned visits is a normal state for ad-hoc field scans and reports;
+    // only an unreadable local database cache prevents claiming readiness.
+    if (input.cachedVisits === null) return 'download-visits';
     return null;
   })();
   return { missing, ready: missing === null };

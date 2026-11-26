@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -44,7 +44,19 @@ export default function HomeScreen() {
   const logoSource = colorScheme === 'dark'
     ? require('../../../assets/cane_guard_logo_onDark.png')
     : require('../../../assets/cane_guard_logo.png');
-  const { sessionVerification, user } = useAuth();
+  const {
+    farmerOfflineGrace = false,
+    needsInitialPinSetup = false,
+    sessionVerification,
+    user,
+  } = useAuth();
+  const promptedPinSetupRef = useRef(false);
+  useEffect(() => {
+    if (needsInitialPinSetup && !promptedPinSetupRef.current) {
+      promptedPinSetupRef.current = true;
+      router.push('/account-app-pin?onboarding=1' as Href);
+    }
+  }, [needsInitialPinSetup]);
   const sync = useSync();
   const { language } = useLanguagePreference();
   const isFarmer = user?.role === 'farmer';
@@ -203,7 +215,18 @@ export default function HomeScreen() {
                 </Text>
               ) : null}
 
-              {isFarmer ? null : <HomeReadinessLine />}
+              {isFarmer ? (
+                farmerOfflineGrace ? (
+                  <Text
+                    accessibilityLiveRegion="polite"
+                    testID="home.farmer-offline-grace"
+                    style={[styles.syncLine, { color: theme.textSecondary }]}>
+                    {farmerCopy.offlineStatus.graceHomeNotice}
+                  </Text>
+                ) : null
+              ) : (
+                <HomeReadinessLine />
+              )}
 
               <AppButton testID="home.primary-action" onPress={onPrimaryAction}>
                 {note.actionLabel}

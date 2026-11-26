@@ -48,6 +48,7 @@ import { SavedScanCard } from '@/features/records/components/ScanCard';
 import { useSaveCompletedScan } from '@/features/records/hooks/useSaveCompletedScan';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
+import { FarmerAskOffice } from '@/features/farmer-care/components/FarmerAskOffice';
 import { useFarmerCopy } from '@/providers/LanguagePreferenceProvider';
 
 const CONSISTENCY_PRESENTATION: Record<
@@ -566,6 +567,10 @@ export default function AnalysisResultScreen() {
 
             {user?.role === 'farmer' && isSaved && saveRecord.recordId ? (
               <SavedScanCard recordId={saveRecord.recordId} />
+            ) : null}
+
+            {user?.role === 'farmer' && isSaved && saveRecord.recordId ? (
+              <FarmerAskOffice scanId={saveRecord.recordId} />
             ) : null}
 
             <DisclosureSection

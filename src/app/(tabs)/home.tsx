@@ -13,6 +13,8 @@ import {
 } from '@/features/activity/domain/needsAttention';
 import { useHomeAttention } from '@/features/activity/hooks/useHomeAttention';
 import { HomeReadinessLine } from '@/features/home/components/HomeReadinessLine';
+import { FarmerAdvisoryCard } from '@/features/farmer-care/components/FarmerAdvisoryCard';
+import { useFarmerCareAutoSync } from '@/features/farmer-care/hooks/useFarmerCare';
 import { HomeMyScansCard } from '@/features/home/components/HomeMyScansCard';
 import { HomeHeaderBand } from '@/features/home/components/HomeHeaderBand';
 import { HomeSignsStrip, HomeToolTiles } from '@/features/home/components/HomeFieldTools';
@@ -62,6 +64,7 @@ export default function HomeScreen() {
   const isFarmer = user?.role === 'farmer';
   const showInspectorWorkWaiting = isFarmer && sync.inspectorWorkWaiting;
   const attention = useHomeAttention();
+  useFarmerCareAutoSync();
   const { open: openOfficeUpdates, unreadCount } = useOfficeUpdates();
   const [dismissedUpdateCount, setDismissedUpdateCount] = useState(0);
   const showOfficeUpdatesPill = unreadCount > dismissedUpdateCount;
@@ -233,7 +236,10 @@ export default function HomeScreen() {
               </AppButton>
 
               {isFarmer ? (
-                <HomeMyScansCard onOpen={() => router.push('/activity' as Href)} />
+                <>
+                  <FarmerAdvisoryCard />
+                  <HomeMyScansCard onOpen={() => router.push('/activity' as Href)} />
+                </>
               ) : (
                 <>
                   <HomeAttentionCard

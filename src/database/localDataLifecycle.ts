@@ -5,6 +5,8 @@ import { toStorageError, type StorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import {
   aerialAnalysisOutbox,
+  farmerAdvisories,
+  farmerInquiries,
   fieldReports,
   fieldSurveys,
   fieldValidationAssignmentSnapshots,
@@ -64,6 +66,8 @@ export interface LocalDataRemovalPreview {
   boundaries: number;
   draftCheckpoints: number;
   draftReports: number;
+  farmerAdvisories?: number;
+  farmerRequests?: number;
   finalizedUnsentReports: number;
   notifications: number;
   reports: number;
@@ -71,6 +75,7 @@ export interface LocalDataRemovalPreview {
   totalRecords: number;
   totalUnsent: number;
   unsentAerialUploads?: number;
+  unsentFarmerRequests?: number;
   unsentBoundaries: number;
   unsentScans: number;
   unsentVisits: number;
@@ -106,6 +111,16 @@ function readRemovalPreview(
     .from(aerialAnalysisOutbox)
     .where(eq(aerialAnalysisOutbox.ownerIdentity, owner))
     .all();
+  const farmerRequests = database
+    .select()
+    .from(farmerInquiries)
+    .where(eq(farmerInquiries.ownerIdentity, owner))
+    .all();
+  const farmerGuidance = database
+    .select({ id: farmerAdvisories.id })
+    .from(farmerAdvisories)
+    .where(eq(farmerAdvisories.ownerIdentity, owner))
+    .all();
   const boundaries = database.select().from(fieldSurveys).where(eq(fieldSurveys.ownerIdentity, owner)).all();
   const scans = database.select().from(scanRecords).where(eq(scanRecords.ownerIdentity, owner)).all();
   const assignments = database
@@ -126,6 +141,7 @@ function readRemovalPreview(
   ).length;
   const unsentVisits = visits.filter((row) => row.syncStatus !== 'synced').length;
   const unsentAerialUploads = aerialUploads.filter((row) => row.syncStatus !== 'synced').length;
+  const unsentFarmerRequests = farmerRequests.filter((row) => row.syncStatus !== 'synced').length;
   const unsentBoundaries = boundaries.filter((row) => row.status !== 'synced').length;
   const reportSyncStatusByScanId = new Map(
     reports.map((row) => [row.scanRecordId, row.syncStatus]),
@@ -137,6 +153,7 @@ function readRemovalPreview(
     reports.some((row) => row.syncStatus === 'syncing') ||
     visits.some((row) => row.syncStatus === 'syncing') ||
     aerialUploads.some((row) => row.syncStatus === 'syncing') ||
+    farmerRequests.some((row) => row.syncStatus === 'syncing') ||
     boundaries.some((row) => row.status === 'syncing');
 
   return {
@@ -145,6 +162,8 @@ function readRemovalPreview(
     boundaries: boundaries.length,
     draftCheckpoints: checkpoints.length,
     draftReports,
+    farmerAdvisories: farmerGuidance.length,
+    farmerRequests: farmerRequests.length,
     finalizedUnsentReports,
     notifications: notifications.length,
     reports: reports.length,
@@ -153,6 +172,8 @@ function readRemovalPreview(
       reports.length +
       visits.length +
       aerialUploads.length +
+      farmerRequests.length +
+      farmerGuidance.length +
       boundaries.length +
       scans.length +
       assignments.length +
@@ -163,11 +184,13 @@ function readRemovalPreview(
       finalizedUnsentReports +
       unsentVisits +
       unsentAerialUploads +
+      unsentFarmerRequests +
       unsentBoundaries +
       unsentScans +
       checkpoints.length,
     unsentAerialUploads,
     unsentBoundaries,
+    unsentFarmerRequests,
     unsentScans,
     unsentVisits,
     uploadInFlight,
@@ -207,6 +230,11 @@ export async function clearCachedOfficeDataForOwner(
         deletedRows += transaction
           .delete(mobileNotifications)
           .where(eq(mobileNotifications.ownerIdentity, owner))
+          .run().changes;
+        // Guidance can be downloaded again. A farmer's own requests are their record and stay.
+        deletedRows += transaction
+          .delete(farmerAdvisories)
+          .where(eq(farmerAdvisories.ownerIdentity, owner))
           .run().changes;
       });
     } catch (error: unknown) {
@@ -265,6 +293,14 @@ export async function clearLocalDataForOwner(
         deletedRows += transaction
           .delete(aerialAnalysisOutbox)
           .where(eq(aerialAnalysisOutbox.ownerIdentity, owner))
+          .run().changes;
+        deletedRows += transaction
+          .delete(farmerInquiries)
+          .where(eq(farmerInquiries.ownerIdentity, owner))
+          .run().changes;
+        deletedRows += transaction
+          .delete(farmerAdvisories)
+          .where(eq(farmerAdvisories.ownerIdentity, owner))
           .run().changes;
         deletedRows += transaction
           .delete(fieldValidationAssignments)
@@ -531,6 +567,27 @@ export async function purgeExpiredLocalData(
             eq(aerialAnalysisOutbox.ownerIdentity, owner),
             eq(aerialAnalysisOutbox.syncStatus, 'synced'),
             lt(aerialAnalysisOutbox.createdAt, cutoff),
+          ),
+        )
+        .run().changes;
+      // An answered request keeps for the retention window; one still waiting is never purged.
+      deletedRows += transaction
+        .delete(farmerInquiries)
+        .where(
+          and(
+            eq(farmerInquiries.ownerIdentity, owner),
+            eq(farmerInquiries.syncStatus, 'synced'),
+            eq(farmerInquiries.remoteStatus, 'replied'),
+            lt(farmerInquiries.createdAt, cutoff),
+          ),
+        )
+        .run().changes;
+      deletedRows += transaction
+        .delete(farmerAdvisories)
+        .where(
+          and(
+            eq(farmerAdvisories.ownerIdentity, owner),
+            lt(farmerAdvisories.expiresAt, now.toISOString()),
           ),
         )
         .run().changes;

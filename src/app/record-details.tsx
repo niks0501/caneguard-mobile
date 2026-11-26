@@ -37,6 +37,7 @@ import { getStorageErrorMessage, toStorageError } from '@/database/errors';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { getQualityWarningMessage } from '@/features/detection/validation/assessImageQuality';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { FarmerAskOffice } from '@/features/farmer-care/components/FarmerAskOffice';
 import { FarmerCheckAgain, useStartCheckAgain } from '@/features/records/components/FarmerCheckAgain';
 import { WhatNowCard } from '@/features/records/components/WhatNowCard';
 import { possibleConditionLine } from '@/features/records/components/possibleConditionLine';
@@ -372,6 +373,7 @@ export default function RecordDetailsScreen() {
                     onCheckAgain={startCheckAgain}
                   />
                   <FarmerCheckAgain record={record.data} hideAction />
+                  <FarmerAskOffice scanId={record.data.id} />
                 </>
               ) : null}
 

@@ -22,6 +22,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useSync } from '@/features/sync/hooks/useSync';
 import { useToast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/use-theme';
+import { HomeBarangayRow } from '@/features/farmer-care/components/HomeBarangayRow';
 import { useLanguagePreference, type FarmerLanguage } from '@/providers/LanguagePreferenceProvider';
 import { useThemePreference } from '@/providers/ThemePreferenceProvider';
 
@@ -321,6 +322,7 @@ export default function SettingsScreen() {
                 onToggle={setDarkMode}
               />
               {isFarmer ? <LanguageRow /> : null}
+              {isFarmer ? <HomeBarangayRow /> : null}
             </View>
 
             {isFarmer ? (

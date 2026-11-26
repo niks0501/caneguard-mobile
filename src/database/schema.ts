@@ -852,6 +852,85 @@ export const aerialAnalysisOutbox = sqliteTable(
   ],
 );
 
+/**
+ * A farmer's opt-in "ask the office to look" request. It is the farmer's own
+ * record (never a Field Report): it queues here while offline, is sent once,
+ * and then mirrors the office's status and replies. The photo is read from the
+ * referenced scan at send time, so no second copy is kept on the device.
+ */
+export const farmerInquiries = sqliteTable(
+  'farmer_inquiries',
+  {
+    /** Also the idempotency `client_uuid` the server de-duplicates on. */
+    id: text('id').primaryKey(),
+    ownerIdentity: text('owner_identity').notNull(),
+    scanRecordId: text('scan_record_id').notNull(),
+    /** The first scan of the Check Again chain: one live request per plant. */
+    scanChainId: text('scan_chain_id').notNull(),
+    barangay: text('barangay').notNull(),
+    landmark: text('landmark'),
+    concern: text('concern'),
+    aiLabel: text('ai_label'),
+    aiConfidencePercent: integer('ai_confidence_percent'),
+    syncStatus: text('sync_status')
+      .$type<SyncStatus>()
+      .notNull()
+      .default('pending'),
+    remoteId: text('remote_id'),
+    /** The office's progress: new, reviewing or replied. Null until the first send is confirmed. */
+    remoteStatus: text('remote_status'),
+    /** Office replies as returned by the server, kept so they read offline. */
+    repliesJson: text('replies_json'),
+    syncAttemptCount: integer('sync_attempt_count').notNull().default(0),
+    lastSyncErrorCode: text('last_sync_error_code'),
+    lastSyncAttemptAt: text('last_sync_attempt_at'),
+    lastSyncedAt: text('last_synced_at'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('farmer_inquiries_owner_created_idx').on(table.ownerIdentity, table.createdAt),
+    index('farmer_inquiries_owner_status_idx').on(
+      table.ownerIdentity,
+      table.syncStatus,
+      table.createdAt,
+    ),
+    index('farmer_inquiries_owner_chain_idx').on(table.ownerIdentity, table.scanChainId),
+    check(
+      'farmer_inquiries_sync_status_check',
+      sql`${table.syncStatus} in ('local_only', 'pending', 'syncing', 'synced', 'failed')`,
+    ),
+    check(
+      'farmer_inquiries_sync_attempt_count_check',
+      sql`${table.syncAttemptCount} >= 0`,
+    ),
+  ],
+);
+
+/** Office guidance downloaded for a farmer's home barangay, readable offline. */
+export const farmerAdvisories = sqliteTable(
+  'farmer_advisories',
+  {
+    id: text('id').primaryKey(),
+    ownerIdentity: text('owner_identity').notNull(),
+    remoteId: text('remote_id').notNull(),
+    headlineTl: text('headline_tl').notNull(),
+    headlineEn: text('headline_en').notNull(),
+    bodyTl: text('body_tl').notNull(),
+    bodyEn: text('body_en').notNull(),
+    publishedAt: text('published_at').notNull(),
+    expiresAt: text('expires_at').notNull(),
+    downloadedAt: text('downloaded_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('farmer_advisories_owner_remote_idx').on(table.ownerIdentity, table.remoteId),
+    index('farmer_advisories_owner_published_idx').on(table.ownerIdentity, table.publishedAt),
+  ],
+);
+
+export type FarmerInquiryRow = typeof farmerInquiries.$inferSelect;
+export type FarmerAdvisoryRow = typeof farmerAdvisories.$inferSelect;
+
 export type AerialAnalysisOutboxRow = typeof aerialAnalysisOutbox.$inferSelect;
 export type NewAerialAnalysisOutboxRow = typeof aerialAnalysisOutbox.$inferInsert;
 

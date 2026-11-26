@@ -151,6 +151,7 @@ const MIGRATIONS = [
   '0039_field_map_label_outline.sql',
   '0040_aerial_check_brief.sql',
   '0041_aerial_check_outbox.sql',
+  '0042_farmer_care_loop.sql',
 ] as const;
 
 function readMigration(filename: string): string {
@@ -762,6 +763,41 @@ describe('local data lifecycle', () => {
     // Full local data clear removes the outbox row and managed drone photo.
     await clearLocalDataForOwner(database, OWNER_ID);
     expect(mockFsFiles.has(pendingPhoto)).toBe(false);
+    expect(getLocalDataRemovalPreview(database, OWNER_ID).totalRecords).toBe(0);
+    native.close();
+  });
+
+  it('counts, preserves when unsent, and removes a farmer\'s requests and downloaded guidance', async () => {
+    const { database, native } = openTestDatabase();
+    const insertRequest = native.prepare(
+      `INSERT INTO farmer_inquiries (
+        id, owner_identity, scan_record_id, scan_chain_id, barangay, sync_status, remote_status,
+        sync_attempt_count, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    insertRequest.run('f1111111-1111-4111-8111-111111111111', OWNER_ID, 'scan-1', 'scan-1', 'Aga', 'pending', null, 0, OLD, OLD);
+    insertRequest.run('f2222222-2222-4222-8222-222222222222', OWNER_ID, 'scan-2', 'scan-2', 'Aga', 'synced', 'replied', 0, OLD, OLD);
+    native
+      .prepare(
+        `INSERT INTO farmer_advisories (
+          id, owner_identity, remote_id, headline_tl, headline_en, body_tl, body_en,
+          published_at, expires_at, downloaded_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run('g1', OWNER_ID, 'adv-1', 'T', 'E', 'T', 'E', OLD, '2099-01-01T00:00:00.000Z', OLD);
+
+    const preview = getLocalDataRemovalPreview(database, OWNER_ID);
+    expect(preview).toMatchObject({ farmerRequests: 2, unsentFarmerRequests: 1, farmerAdvisories: 1, totalRecords: 3, totalUnsent: 1 });
+
+    // Purge removes the answered request past retention and keeps the waiting one and live guidance.
+    await purgeExpiredLocalData(database, OWNER_ID, new Date(NOW));
+    expect(getLocalDataRemovalPreview(database, OWNER_ID)).toMatchObject({ farmerRequests: 1, farmerAdvisories: 1 });
+
+    // Routine cleanup clears only what can be downloaded again.
+    await clearCachedOfficeDataForOwner(database, OWNER_ID);
+    expect(getLocalDataRemovalPreview(database, OWNER_ID)).toMatchObject({ farmerRequests: 1, farmerAdvisories: 0 });
+
+    await clearLocalDataForOwner(database, OWNER_ID);
     expect(getLocalDataRemovalPreview(database, OWNER_ID).totalRecords).toBe(0);
     native.close();
   });

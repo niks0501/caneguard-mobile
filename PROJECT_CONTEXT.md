@@ -26,6 +26,22 @@ farmer session cannot open, author, or synchronize one. From a saved personal
 scan a farmer can also start a Check Again and save the new check as a follow-up
 of the first check; the record screen then lists the plant's checks.
 
+A farmer can also choose to **ask the office to look** at a saved scan
+(`src/features/farmer-care/`). The request is saved on the phone first
+(`farmer_inquiries`, owner-scoped, one live request per Check Again chain), so it
+works offline, and is sent with the scan's upload-ready photo, the farmer's
+barangay, an optional landmark, one-tap concern and the scan's own result as an
+*unverified* hint. It is never a Field Report and is never sent automatically:
+saving a scan sends nothing. The record screen then shows Sent, Looking, Advice
+ready, and the office's reply reads offline. The same service downloads office
+guidance for the farmer's home barangay (`farmer_advisories`, cached, expiring)
+and shows it on Home. The home barangay is the farmer's own choice in Settings;
+it is kept on the phone and told to the office, never an exact location. This
+loop runs independently of inspector sync and honors `Retry-After`; a paused or
+not-yet-ready office leaves requests queued without an error. It needs the
+server's `farmer:inquiry` and `farmer:advisory` abilities; see the web repo's
+`docs/contracts/farmer-inquiries-v1.md`.
+
 AI results are decision-support outputs only. User-facing copy must not present them as confirmed diagnoses or expert validation.
 
 ## Stack
@@ -255,7 +271,7 @@ A retryable failed boundary, report, or visit completion inside its cooldown sta
 
 An upload answered with `Retry-After` — whole seconds or an HTTP date — records a session-wide hold until that server deadline, jittered the same way above the hint. The hold defers every later upload of reports, boundaries, and visit completions, manual `Retry now` and Activity sends included, and arms the retry timer for the time remaining to the deadline; a request already sent finishes, but nothing further is posted before it. A report or boundary upload answered `404` means the office has not published that endpoint yet, so it is recorded as `OFFICE_NOT_READY` and retried automatically, while a visit-completion `404` still means that visit no longer exists. An upload answered `413` is recorded as `UPLOAD_TOO_LARGE` and one answered `408` as `UPLOAD_TIMED_OUT`; both stay saved and are retried automatically with their own wording. A too-large upload is not posted again straight away and does not hold up the rest of its batch, because one oversized body says nothing about the other records.
 
-A `farmer` session does not synchronize: it reports no pending count and no
+A `farmer` session does not synchronize official records: it reports no pending count and no
 last successful sync time, and its queued Field Reports, field surveys, and
 field-validation completions stay on the device. Instead, it reports a yes/no
 inspector-work-waiting flag for unsent inspector-authored work held on the

@@ -169,6 +169,24 @@ export function AppNavigator() {
             }}
           />
           <Stack.Screen
+            name="ask-office"
+            options={{
+              presentation: 'formSheet',
+              sheetAllowedDetents: [0.85, 1],
+              sheetGrabberVisible: true,
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
+            name="ready-for-field"
+            options={{
+              presentation: 'formSheet',
+              sheetAllowedDetents: [0.65, 0.9],
+              sheetGrabberVisible: true,
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
             name="field-report-details"
             options={{
               presentation: 'formSheet',
